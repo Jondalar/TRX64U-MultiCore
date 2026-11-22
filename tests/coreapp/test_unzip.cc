@@ -88,18 +88,29 @@ struct Host : DescLibHost {
     }
     uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
     void sync_code(void *, uint32_t) override { }
-    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override { return !strcmp(e.name, "miniz") ? lib_register(api, rec) : 0; }
+    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override
+    {
+        if (!strcmp(e.name, "ringlib")) {                                  // T239.3 D20: the library that exports "ring" (its file lists the name)
+            static const uint32_t table[2] = { sizeof(table), 0 };
+            static const LibExportDecl list[1] = { { "ring", 1, table, sizeof(table) } };
+            rec->export_list = list;
+            rec->nexport_list = 1;
+        }
+        return !strcmp(e.name, "miniz") ? lib_register(api, rec) : 0;
+    }
     int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return !strcmp(e.name, "ziplist") ? ziplist_main(api, ctx) : app_main(api, ctx); }
 };
 
 // a heap with a size: the loader window as the board has it (room() = what is left); a load that does not fit gets null
 struct HeapHost : Host {
     uint32_t cap, used;
+    int allocs;                                                            // how many blocks were ever given out: a library loaded twice shows
     std::map<void *, uint32_t> sz;
-    HeapHost(const CoreDesc *d, uint32_t c) : Host(d), cap(c), used(0) { }
+    HeapHost(const CoreDesc *d, uint32_t c) : Host(d), cap(c), used(0), allocs(0) { }
     void *alloc(uint32_t n) override
     {
         if (used + n > cap) return 0;
+        allocs++;
         void *p = Host::alloc(n);
         sz[p] = n; used += n;
         return p;
@@ -411,6 +422,76 @@ int main(int argc, char **argv)
                 CHECK_EQ(ld.load(&lsrc, &lh, err, sizeof(err)), LIB_OK);
                 fs.close(lf);
                 CHECK(!ld.contributes(lh));
+            }
+        }
+    }
+
+    // ---- T239.3 D20: an application that needs an export name ("ring>=1") is served by the file of the apps folder that exports it. The same AppIndex functions the
+    // board calls: find_lib_for (through need_bytes and load_needs), handle_providing and the eviction of prepare_open, over the real loader.
+    {
+        FakeFs fs;
+        fs.put("/sd/cores/apps/ringapp.u2a", slurp(dir + "/ringapp.u2a"));
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
+        int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
+        Log log;
+        AppIndex idx;
+        idx.scan(&fs, folders, nf, &log);
+        const AppEntry *ra = idx.find("ringapp");
+        CHECK(ra != 0 && ra->nneeds == 1);
+        OpRegistry *reg = ops_of(&c);
+        ops_register_base(*reg);
+        char err[LIB_ERR_MAX];
+        {                                                                   // no file exports "ring": not available, and the refusal names the need
+            HeapHost hh(&testcore::desc, 1u << 24);
+            LibLoader ld(&hh, reg);
+            CHECK(ra && !idx.available(*ra, &ld));
+            CHECK(ra && !idx.load_needs(&fs, &ld, *ra, err, sizeof(err)));
+            CHECK(strstr(err, "needs the library \"ring\" 1.0, which is not in the apps folder") != 0);
+        }
+        fs.put("/sd/cores/apps/ringlib.u2a", slurp(dir + "/ringlib.u2a"));
+        fs.put("/sd/cores/apps/otherlib.u2a", slurp(dir + "/otherlib.u2a"));
+        idx.scan(&fs, folders, nf, &log);
+        ra = idx.find("ringapp");
+        const LibFile *rl = idx.find_lib("ringlib"), *ol = idx.find_lib("otherlib");
+        CHECK(ra != 0 && rl != 0 && ol != 0 && idx.find_lib("ring") == 0);   // the export name is no file name: only find_lib_for sees it
+        CHECK(rl && rl->nexports == 1 && !strcmp(rl->exports[0].name, "ring"));
+        if (ra && rl && ol) {
+            uint32_t need = ra->image_bytes + rl->image_bytes + APP_WORK_BYTES;
+            {                                                               // counted in the fit: the exporter's bytes are part of the need
+                HeapHost hh(&testcore::desc, 1u << 24);
+                LibLoader ld(&hh, reg);
+                CHECK(idx.available(*ra, &ld));
+                CHECK(idx.fits(*ra, need, &ld));
+                CHECK(!idx.fits(*ra, need - 1, &ld));
+                // found and loaded by the export name; the loader then answers handle_providing and the application's need is met
+                CHECK(idx.prepare_open(&fs, &ld, *ra, err, sizeof(err)));
+                int h = ld.handle_of("ringlib");
+                CHECK(h >= 0 && ld.handle_providing("ring", U2A3_VERSION(1, 0)) == h);
+                CHECK(idx.fits(*ra, ld.room(), &ld));                      // in memory now: its bytes are gone from the room, not counted twice
+                printf("D20: ringapp found ringlib by the name ring and loaded it\n");
+            }
+            {                                                               // prepare_open evicts what nothing needs, never the exporter the application asks for
+                HeapHost hh(&testcore::desc, need + ol->image_bytes - 1);
+                LibLoader ld(&hh, reg);
+                int lh = -1;
+                for (int k = 0; k < 2; k++) {
+                    CoreFile *f = fs.open((k ? ol : rl)->path, false);
+                    CoreFileSource src(f);
+                    CHECK_EQ(ld.load(&src, &lh, err, sizeof(err)), LIB_OK);
+                    fs.close(f);
+                }
+                int rh = ld.handle_of("ringlib");
+                CHECK(rh >= 0 && ld.handle_of("otherlib") >= 0);
+                CHECK(!idx.fits(*ra, ld.room(), &ld));
+                int before = hh.allocs;
+                CHECK(idx.prepare_open(&fs, &ld, *ra, err, sizeof(err)));
+                CHECK(ld.handle_of("otherlib") < 0);                        // evicted
+                CHECK_EQ(ld.handle_of("ringlib"), rh);                      // the exporter stays ...
+                CHECK_EQ(hh.allocs, before);                                // ... and was not evicted and loaded again (a freed slot would be taken by the same handle)
+                CHECK_EQ(ld.count(), 1);
+                printf("D20: otherlib evicted, ringlib kept (it provides ring)\n");
             }
         }
     }

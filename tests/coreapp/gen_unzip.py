@@ -36,6 +36,12 @@ subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), 
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "plain.u2a"),
                        "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
 
+# T239.3 D20: a library that exports the name "ring" (its file lists it), and an application that needs "ring>=1": the library is found by the export name, not its own
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "ringlib.u2a"),
+                       "--kind", "lib", "--name", "ringlib", "--version", "1", "--export", "ring=1"], stdout=subprocess.DEVNULL)
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ringapp.u2a"),
+                       "--kind", "app", "--residence", "transient", "--name", "ringapp", "--version", "1", "--needs", "base>=3.2", "--needs", "ring>=1"], stdout=subprocess.DEVNULL)
+
 # a library that declares a poll in its menu record and one that declares a file action: neither is evicted when memory is short
 open(os.path.join(out, "pollib.toml"), "w").write('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
 open(os.path.join(out, "menulib.toml"), "w").write('[[file_action]]\next = [".zip"]\nlabel = "Menu lib action"\napp = "unzip"\naction = "here"\n')
