@@ -6,6 +6,7 @@
 //   tools/menusim/run.sh <core> [--mode M] [--toml FILE] [--ops FILE] [--stick FILE] [--scale N]    window
 //   tools/menusim/run.sh <core> --keys F3,DOWN,RETURN --shot out.png [--mode M] ...                  headless: the keys, one PNG, end
 //   tools/menusim/run.sh <core> --keys K1,K2,... --stats FILE [--mode M]                              headless: one line of figures per key (speed.sh)
+//   tools/menusim/run.sh <core> --keys K1,K2,... --shots DIR [--mode M]                              headless: the picture after every key (tools/menusim/same_pictures.sh)
 //                                       (in the list FIND:<text> moves the selection to the first row whose label starts with the text, SEL:<n> to row n)
 //
 // Keys in the window: cursor keys, RETURN, ESC, BACKSPACE, TAB, HOME, END, PAGE UP/DOWN, DEL, SPACE, letters and digits, F1-F8 (shift+F1 = F2 as
@@ -49,7 +50,7 @@
 
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
-    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0;
+    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
     int scale = 0;
 };
 static Opts o;
@@ -57,7 +58,7 @@ static Opts o;
 static void usage(void)
 {
     fprintf(stderr, "menusim <core> [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
-                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--say TEXT] [--message TITLE TEXT]\n");
+                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n");
     exit(2);
 }
 
@@ -298,12 +299,29 @@ static int find_row(const char *text)
     return -1;
 }
 
+// --shots DIR: the picture as the display holds it after a key press has settled - the frame buffer the flush callbacks left, NOT drawn again, so a
+// pixel the menu forgot to repaint shows. One PNG per key press (NNN-KEY.png), written by main's loop after the press.
+static void place(int *x, int *y, int *w, int *h);
+static void shot_now(const char *dir, int n, const char *key)
+{
+    int x, y, w, h;
+    place(&x, &y, &w, &h);
+    unsigned char *rgb = (unsigned char *)malloc((size_t)frame_w * frame_h * 3);
+    rig_compose(rgb, frame_w, frame_h, x, y, w, h);
+    char path[1024], k[40];
+    snprintf(k, sizeof(k), "%s", key);
+    for (char *c = k; *c; c++) { if (*c == ':' || *c == '/') { *c = '_'; } }
+    snprintf(path, sizeof(path), "%s/%03d-%s.png", dir, n, k);
+    png_rgb(path, rgb, frame_w, frame_h);
+    free(rgb);
+}
+
 // One key press of the headless run, as the --keys loop gives it: the key, the application's ticks, the LVGL pass. With --stats the UI is then let
 // settle (LVGL passes until one flushes nothing) and the line of figures is written.
 static int g_press_n;
 static void press(int code, bool log, const char *name)
 {
-    if (!s_out) {
+    if (!s_out && !o.shots) {
         give_key(code, log);
         for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
         lv_timer_handler();
@@ -326,10 +344,16 @@ static void press(int code, bool log, const char *name)
     int objs = objs_in_areas(lv_screen_active()) + objs_in_areas(lv_display_get_layer_top(lv_display_get_default())) +
                objs_in_areas(lv_display_get_layer_sys(lv_display_get_default()));
     const char *path = !g_open ? "closed" : ui_cheap_moves() != ch0 ? "cheap" : ui_inplace_moves() != ip0 ? "inplace" : g_fl_px ? "build" : "none";
-    fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld states=%d fs_lists=%d fs_writes=%d\n", ++g_press_n, name, path,
-            g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, stub_state_calls - st0, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0);
-    sum_add(&s_all, g_fl_px, g_fl_calls, objs, us);
-    if (code == KEY_UP || code == KEY_DOWN) { sum_add(&s_move, g_fl_px, g_fl_calls, objs, us); }
+    ++g_press_n;
+    if (s_out) {
+        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld states=%d fs_lists=%d fs_writes=%d\n", g_press_n, name, path,
+                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, stub_state_calls - st0, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0);
+    }
+    if (o.shots) { shot_now(o.shots, g_press_n, name); }
+    if (s_out) {
+        sum_add(&s_all, g_fl_px, g_fl_calls, objs, us);
+        if (code == KEY_UP || code == KEY_DOWN) { sum_add(&s_move, g_fl_px, g_fl_calls, objs, us); }
+    }
 }
 
 // A new rig on the current menu, placed for the mode as run.cc places it (ui_open, then video_place_menu), and the keys of the session played again.
@@ -432,6 +456,7 @@ int main(int argc, char **argv)
         else if (a == "--keys") { o.keys = val(); }
         else if (a == "--shot") { o.shot = val(); }
         else if (a == "--stats") { o.stats = val(); }
+        else if (a == "--shots") { o.shots = val(); }
         else if (a == "--toml") { o.toml = val(); }
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
@@ -469,7 +494,7 @@ int main(int argc, char **argv)
         ops_s = std::string(o.root) + "/tests/coreapp/golden/ops_" + o.core + ".txt";
         if (exists(ops_s)) { o.ops = ops_s.c_str(); }
     }
-    if (!o.keys && !o.shot && !o.stats) { rig_tick = sim_wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
+    if (!o.keys && !o.shot && !o.stats && !o.shots) { rig_tick = sim_wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
     rig_on_frame = sim_on_frame;
 
     std::string why;
@@ -487,9 +512,11 @@ int main(int argc, char **argv)
         place(&x, &y, &w, &h);
         printf("canvas %dx%d at %d,%d shown %dx%d (frame %dx%d)\n", cvw, cvh, x, y, w, h, frame_w, frame_h);
     }
-    if (o.stats) {
-        s_out = fopen(o.stats, "w");
-        if (!s_out) { fprintf(stderr, "menusim: cannot write %s\n", o.stats); return 2; }
+    if (o.stats || o.shots) {
+        if (o.stats) {
+            s_out = fopen(o.stats, "w");
+            if (!s_out) { fprintf(stderr, "menusim: cannot write %s\n", o.stats); return 2; }
+        }
         stats_hook();
         for (int i = 0, quiet = 0; i < 20 && quiet < 2; i++) {          // the first frame (start_rig invalidates the whole screen) is not the first key's
             int c0 = g_fl_calls;
@@ -497,7 +524,7 @@ int main(int argc, char **argv)
             quiet = g_fl_calls == c0 ? quiet + 1 : 0;
         }
     }
-    if (o.keys || o.shot || o.stats) {
+    if (o.keys || o.shot || o.stats || o.shots) {
         for (const std::string &k : sim_split_keys(o.keys)) {
             if (!k.compare(0, 5, "FIND:") || !k.compare(0, 4, "SEL:")) {   // the selection to a row by UP and DOWN: the first whose label starts with the text, or row n
                 bool find = !k.compare(0, 5, "FIND:");
@@ -522,6 +549,13 @@ int main(int argc, char **argv)
             sum_line("SUMMARY", s_all);
             sum_line("MOVES", s_move);
             fclose(s_out);
+        }
+        if (o.shots) {                                            // the same page drawn again whole: what the key presses left must equal it
+            if (g_open) { ui_menu_render(*g_rig->m); }
+            lv_timer_handler();
+            lv_obj_invalidate(lv_screen_active());
+            lv_timer_handler();
+            shot_now(o.shots, 999, "redraw");
         }
         if (o.say) {                                              // the status line as an error of a start leaves it (MenuCtl::set_status, bad)
             g_rig->m->say(o.say, true);
