@@ -45,7 +45,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 die() { echo "$*" >&2; exit 1; }
-# tools/builds.py sends GH_TOKEN to the API only (the rate limit); never to a test API (BUILDS_API)
+# tools/builds.py sends GH_TOKEN to the API only (the rate limit); the token of the gh login is not handed over when BUILDS_API names a test API
 if [ -z "${GH_TOKEN:-}" ] && [ -z "${BUILDS_API:-}" ]; then t="$(gh auth token 2>/dev/null || true)"; [ -z "$t" ] || export GH_TOKEN="$t"; unset t; fi
 
 PKG="$OUT/pkg-$VER"
