@@ -79,7 +79,7 @@
 #include "contrib.h"
 #include "pad.h"
 #include "hotkeys.h"
-#include "romset.h"
+#include "romsetspec.h"
 #include "winslot.h"
 #include "sectors.h"
 #include "mousesink.h"
