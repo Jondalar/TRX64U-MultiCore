@@ -603,6 +603,38 @@ class CoreSections(unittest.TestCase):
             with self.assertRaises(D.DescError, msg=what):
                 D.compile_text(text)
 
+    def test_the_core_section_takes_eight_caps_and_the_reader_holds_the_same_limits(self):
+        import struct
+        caps9 = ", ".join('"c%d"' % i for i in range(9))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        text = self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9[:caps9.rindex(",")])        # eight: fine
+        D.parse_desc(D.compile_text(text))
+        saved = D.CAPS_MAX
+        try:
+            D.CAPS_MAX = 9                                                        # a writer that allows nine: the reader still refuses the record
+            big = D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        finally:
+            D.CAPS_MAX = saved
+        with self.assertRaisesRegex(D.DescError, "section core"):
+            D.parse_desc(big)
+        soff = self._sections()
+        for word, value in ((6, 256), (7, 65536), (9, 60001), (16, 65536)):      # min_contract, reset_ms, service_period_ms, live_ms
+            b = bytearray(self.blob)
+            struct.pack_into("<I", b, soff + 8 + 4 * word, value)
+            with self.assertRaisesRegex(D.DescError, "section core", msg=str(word)):
+                D.parse_desc(bytes(b))
+        b = bytearray(self.blob)                                                  # video: reg_latest (the ninth word) above 65535
+        at = soff + 8 + 72 + 8
+        struct.pack_into("<I", b, at + 4 * 8, 65536)
+        with self.assertRaisesRegex(D.DescError, "section video"):
+            D.parse_desc(bytes(b))
+
+    def test_a_count_that_is_no_number_is_a_description_error(self):
+        for sect, key, bad, more in (("window_media", "nslots", '"2"', ""), ("window_media", "ntracks", "1.5", "nslots = 1\n"), ("sector_media", "nunits", "true", "")):
+            with self.assertRaisesRegex(D.DescError, "'%s' is a number" % key):
+                D.compile_text(self.text + "\n[%s]\n%s%s = %s\n" % (sect, more, key, bad))
+
     def test_a_library_merged_into_it_keeps_the_sections(self):
         lib = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "L"\nop = "l.go"\n')
         blob, merged, kept = D.merge_lib_menus(self.blob, [("lib", lib)])

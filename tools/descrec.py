@@ -40,11 +40,11 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     [window_media]                 # section 15: WindowMediaSpec - prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop
                                    # idle_flush_ms max_dirty_ms
     [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
+    # a [[core_setting]] (section 4) with reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
+    # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
     # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
     # Which description wins (T239.3 D17): while a descriptor for the core is compiled in, it is the core and a record with these sections changes nothing at run time
     # (coreapp/src/descrec.h descrec_applies); a core without one is made of the record (descrec_core) and its code supplies only the hooks. menu_rec is the record itself.
-    # and in a [[core_setting]] (section 4): reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
-    # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
 
     [[area]]                       # optional; without any, the default route stays (T104 5.8)
     key = "F5"                     # F1 .. F8
@@ -1130,11 +1130,11 @@ VIDEO_INTS = ("w", "h", "scale", "x0", "y0", "fb_base", "fb_stride", "nbuf", "re
 FREEZE_INTS = ("reg_status", "mask", "timeout_ms")
 ROMS_MAX, ROM_NAMES_MAX, ROM_SIZES_MAX = 14, 10, 3
 HK_ACTIONS = 7                                                              # coreapp/src/hotkeys.h HK_NACT
-HK_TASKS_MAX_ = 4
 SETBIND_MAX = 16
 SETBIND_BYTES_MAX = 32
 MOUNT_NAMES_MAX = 4
 CAP_RE = r"[a-z0-9_]{1,15}"
+CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
 
 
 def _u32(v, what):
@@ -1164,8 +1164,8 @@ def _sec_core(c, st):
         if k in c and (not isinstance(c[k], str) or not c[k]):
             raise DescError("core: %r is a text, not empty" % k)
     caps = _opt(c, "caps", list, "core", [])
-    if not all(isinstance(x, str) and re.fullmatch(CAP_RE, x) for x in caps) or len(set(caps)) != len(caps):
-        raise DescError("core: caps are names of 1 to 15 characters of a-z, 0-9 and _")
+    if not all(isinstance(x, str) and re.fullmatch(CAP_RE, x) for x in caps) or len(set(caps)) != len(caps) or len(caps) > CAPS_MAX:
+        raise DescError("core: caps are at most %d names of 1 to 15 characters of a-z, 0-9 and _" % CAPS_MAX)
     period = _int_in(c, "service_period_ms", 0, 60000, "core", 0)
     if ("service_op" in c) != (period > 0):
         raise DescError("core: service_op and service_period_ms go together")
@@ -1231,8 +1231,8 @@ def _sec_hotkeys(h, st):
     act = _need(h, "actions", list, "hotkeys")
     tasks = _opt(h, "tasks", list, "hotkeys", [])
     own = _opt(h, "own_keys", list, "hotkeys", [])
-    if len(mod) != 2 or len(act) != HK_ACTIONS or len(tasks) > HK_TASKS_MAX_:
-        raise DescError("hotkeys: mod has 2 keys, actions %d, tasks at most %d (255 = none)" % (HK_ACTIONS, HK_TASKS_MAX_))
+    if len(mod) != 2 or len(act) != HK_ACTIONS or len(tasks) > HOTKEY_TASKS:
+        raise DescError("hotkeys: mod has 2 keys, actions %d, tasks at most %d (255 = none)" % (HK_ACTIONS, HOTKEY_TASKS))
     for x in mod + act + tasks:
         if isinstance(x, bool) or not isinstance(x, int) or not (0 <= x <= 64 or x == 255):
             raise DescError("hotkeys: a key is 0 .. 64, or 255 for none")
@@ -1243,7 +1243,7 @@ def _sec_hotkeys(h, st):
         mask |= 1 << x
     if ("core_op" in h) != ("core_key" in h) or ("core_op" in h) != ("core_label" in h):
         raise DescError("hotkeys: core_op, core_key and core_label go together")
-    w = mod + act + [len(tasks)] + tasks + [0] * (HK_TASKS_MAX_ - len(tasks)) + [st.add(h.get("vol_key")), st.add(h.get("swap_key")), mask & 0xFFFFFFFF, mask >> 32,
+    w = mod + act + [len(tasks)] + tasks + [0] * (HOTKEY_TASKS - len(tasks)) + [st.add(h.get("vol_key")), st.add(h.get("swap_key")), mask & 0xFFFFFFFF, mask >> 32,
         st.add(h.get("core_op")), st.add(h.get("core_key")), st.add(h.get("core_label")), 1 if _opt(h, "pc_keys", bool, "hotkeys", False) else 0]
     return struct.pack("<%dI" % len(w), *w)
 
@@ -1442,13 +1442,12 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_ROMSET, _sec_romset(_need(doc, "romset", dict, "description"), st)))
     if "window_media" in doc:
         w = _need(doc, "window_media", dict, "description")
-        if not 1 <= w.get("nslots", 0) <= 4 or not 1 <= w.get("ntracks", 0) <= 160:
-            raise DescError("window_media: nslots is 1 to 4, ntracks 1 to 160")
+        _int_in(w, "nslots", 1, 4, "window_media")
+        _int_in(w, "ntracks", 1, 160, "window_media")
         secs.append((SEC_WINMEDIA, _sec_fields(w, WINMEDIA_FIELDS, "window_media", st)))
     if "sector_media" in doc:
         w = _need(doc, "sector_media", dict, "description")
-        if not 1 <= w.get("nunits", 0) <= 2:
-            raise DescError("sector_media: nunits is 1 or 2")
+        _int_in(w, "nunits", 1, 2, "sector_media")
         secs.append((SEC_SECMEDIA, _sec_fields(w, SECMEDIA_FIELDS, "sector_media", st)))
     if replaces:
         secs.append((SEC_REPLACE, _sec_replace(replaces, st)))
@@ -1489,6 +1488,8 @@ def _parse_sections(blob, off, size, s, ncset, out):
             for k, o in zip(CORE_REQ, w[1:6]):
                 c[k] = S(o, True)
             c["min_contract"], c["reset_ms"] = w[6], w[7]
+            if w[6] > 255 or w[7] > 65535 or w[9] > 60000 or w[16] > 65535:
+                raise DescError("%s: a number is out of range" % what)
             if w[8] != NONE:
                 c["service_op"] = S(w[8], True)
             c["service_period_ms"] = w[9]
@@ -1502,8 +1503,8 @@ def _parse_sections(blob, off, size, s, ncset, out):
             c["live_ms"] = w[16]
             if w[17] != NONE:
                 caps = S(w[17], True).split(",")
-                if not all(re.fullmatch(CAP_RE, x) for x in caps):
-                    raise DescError("%s: a capability name is not one" % what)
+                if not all(re.fullmatch(CAP_RE, x) for x in caps) or len(caps) > CAPS_MAX:
+                    raise DescError("%s: a capability name is not one, or there are more than %d" % (what, CAPS_MAX))
                 c["caps"] = caps
             out["core"] = c
         elif sid == SEC_VIDEO:
@@ -1513,7 +1514,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
             v = dict(zip(VIDEO_INTS, w))
             for k in ("x0", "y0"):
                 v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
-            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
+            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
                 raise DescError("%s: a value is out of range" % what)
             out["video"] = v
             out["freeze"] = {"reg_status": w[-4], "mask": w[-3], "timeout_ms": w[-2], "word": bool(w[-1])}
@@ -1538,7 +1539,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
             for _ in range(n):
                 idx, reg, shift, mask, nb = words(5, at)
                 at += 20
-                if idx >= ncset or reg > 65535 or shift > 7 or not 1 <= mask <= 255 or nb > SETBIND_BYTES_MAX or len(p) < at + nb + (-nb % 4):
+                if idx >= ncset or reg > 65535 or shift > 7 or not 1 <= mask <= 255 or nb > SETBIND_BYTES_MAX or len(p) < at + nb + (-nb % 4) or (nb and nb != len(out["cset"][idx]["values"])):
                     raise DescError("%s: an entry names no core setting, or has a bad register, shift, mask or bytes" % what)
                 by = list(p[at:at + nb])
                 at += nb + (-nb % 4)
@@ -1551,13 +1552,13 @@ def _parse_sections(blob, off, size, s, ncset, out):
             if at != len(p):
                 raise DescError("%s: the length does not fit its entries" % what)
         elif sid == SEC_HOTKEYS:
-            if len(p) != 4 * (2 + HK_ACTIONS + 1 + HK_TASKS_MAX_ + 8):
+            if len(p) != 4 * (2 + HK_ACTIONS + 1 + HOTKEY_TASKS + 8):
                 raise DescError("%s: %d bytes" % (what, len(p)))
-            w = words(2 + HK_ACTIONS + 1 + HK_TASKS_MAX_ + 8)
+            w = words(2 + HK_ACTIONS + 1 + HOTKEY_TASKS + 8)
             nt = w[2 + HK_ACTIONS]
-            tk = w[3 + HK_ACTIONS:3 + HK_ACTIONS + HK_TASKS_MAX_]
-            rest = w[3 + HK_ACTIONS + HK_TASKS_MAX_:]
-            if nt > HK_TASKS_MAX_ or any(x > 64 and x != 255 for x in w[:2 + HK_ACTIONS] + tk) or rest[7] > 1:
+            tk = w[3 + HK_ACTIONS:3 + HK_ACTIONS + HOTKEY_TASKS]
+            rest = w[3 + HK_ACTIONS + HOTKEY_TASKS:]
+            if nt > HOTKEY_TASKS or any(x > 64 and x != 255 for x in w[:2 + HK_ACTIONS] + tk) or rest[7] > 1:
                 raise DescError("%s: a key, the task count or the keyboard flag is out of range" % what)
             mask = rest[2] | rest[3] << 32
             h = {"mod": list(w[:2]), "actions": list(w[2:2 + HK_ACTIONS]), "own_keys": [i for i in range(64) if mask >> i & 1]}
@@ -1659,7 +1660,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
                     raise DescError("%s: entry %d names no media slot (in order), or has no text" % (what, i))
                 last = idx
                 out["media"][idx]["replace"] = S(o)
-    if (SEC_VIDEO in seen) != ("video" in out) or SEC_CORE not in seen:
+    if SEC_CORE not in seen:
         raise DescError("description record: the data sections have no core section")
     if any("reg_bind" not in c and c["apply"] is None for c in out["cset"]):
         raise DescError("description record, section setting register bits: a core setting has neither an operation nor register bits")
