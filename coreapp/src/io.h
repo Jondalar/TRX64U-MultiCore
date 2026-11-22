@@ -84,6 +84,8 @@ public:
     virtual uint8_t cart_rd(uint32_t reg) { (void)reg; return 0; }
     virtual void cart_wr(uint32_t reg, uint8_t v) { (void)reg; (void)v; }
     virtual void bus_wr(uint32_t off, uint8_t v) { (void)off; (void)v; }
+    // The read side of bus_wr: the byte at `off` of the same block. A core or host without the block reads 0 (the default); the board's HwIo overrides it when base 3.3 is built.
+    virtual uint8_t bus_rd(uint32_t off) { (void)off; return 0; }
     // T154, the GMod2's EEPROM window (EEPROM_BASE, Gideon's 0x1004C000): byte 0 is the dirty flag (read: the EEPROM was written since the last write
     // of this byte, any write clears it), the 2 KB of data are at +2048. One byte per access. A core without the window reads 0 and ignores the write.
     virtual void eeprom_read(uint32_t off, void *p, uint32_t n) { (void)off; memset(p, 0, n); }

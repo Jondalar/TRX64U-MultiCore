@@ -8,8 +8,8 @@
 // Differences from core_hook_t of desc.h: no call takes a CoreCtx (the base knows its context) and the state a hook needs comes from the groups of the api (ctx, settings, io,
 // ops). A hook returns 0 for done, or non-zero with the reason in msg (cut to msglen - 1; msg is never null here).
 //
-// Rules: `size` first; members only appended inside a major. Task of every hook: the one the base names in the member; all of them run in the context of a handler, so the
-// calls a "lock" task may make are allowed. No hook blocks for long: the menu and the start wait for it.
+// Rules: `size` first; members only appended inside a major. Task of every hook: the one the base names in the member; all of them but menu_closed run in the context of a
+// handler, so the calls a "lock" task may make are allowed; menu_closed does not hold the core lock (see it). No hook blocks for long: the menu and the start wait for it.
 #ifndef COREAPP_CORE_HOOKS_H
 #define COREAPP_CORE_HOOKS_H
 
@@ -38,9 +38,19 @@ typedef struct CoreHooks {
     // the groups do not exist when it runs (boundary 2.4). A library with no hook starts it in its first poll. Result: 0, or a reason; a non-zero answer is logged and told to the
     // person as a notice (ctx.notice), the core runs on without what failed. Task: the base's start task, before any poll or menu.
     int (*start)(char *msg, int msglen);
-    // menu_closed: the menu closes, by any way, and the machine is about to run. The hook gives back what the core's debugger held and lands what the menu chose: the monitor's release
-    // (breakpoints and observers disarmed, the hold given back), the ring's pending frame and its unfreeze. It runs after the menu is hidden and before the machine is let go (C64_STOP
-    // is cleared after it), so a frame landed here is where the machine runs on. No result: it cannot refuse. Task: the base's main loop, the context of a handler.
+    // menu_closed: the menu closes, by any way (the close key, the menu hotkey, a remote `back`), and the machine is about to run. The hook gives back what the core's debugger
+    // held and lands what the menu chose: the monitor's release (breakpoints and observers disarmed, the hold given back), the ring's pending frame and its unfreeze.
+    // No result: it cannot refuse. The rules of the task, from close_menu in run.cc:
+    //   - Which task: the application's main loop, the task that runs the menu; once per close, never from a poll, an operation handler or a job.
+    //   - The core lock is NOT held. open_menu has set `frozen` and passed the lock once, so no poll is in the core and none starts until the close ends (when the core had
+    //     started; before the first start there is no freeze and a poll may run). An operation on the executor (a REST request) may run at the same time, as it may against the
+    //     monitor's release today. The calls of the "lock" class are allowed here (no poll is in the core); the hook protects state it shares with its own tasks or with the
+    //     executor by its own mutex (sync).
+    //   - State seen from the hook: ctx.state still has CTX_MENU_OPEN and CTX_FROZEN set (the base clears both after it) and the menu is already hidden; the machine is
+    //     still stopped when it was frozen, C64_STOP is cleared after the hook returns, so a frame landed here is where the machine runs on.
+    //   - Order: it takes the place of the base's mon_release and trx_ring_pending/trx_ring_unfreeze calls, and runs where the second pair runs today, after the menu is hidden
+    //     (the monitor's release therefore comes a few lines later than it does now).
+    //   - It does not block for long: the person waits for the machine to run.
     void (*menu_closed)(void);
 } CoreHooks;
 

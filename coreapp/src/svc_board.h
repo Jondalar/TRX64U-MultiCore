@@ -27,12 +27,11 @@ enum {
 
 typedef struct SvcBoard {
     uint32_t size;
-    // The ITU capability register of the bitstream, four bytes (getFpgaCapabilities): CAPAB_COMMAND_INTF 0x00040000, CAPAB_SAMPLER 0x00200000, CAPAB_EEPROM 0x00400000, ...
-    // (the CAPAB_* constants are the library's header of constants, D8). Not the TRX CAPS byte. Second users: the UCI library, the base. Task: any.
+    // The board's capability bits as the FPGA reports them: the ITU capability register of the bitstream, four bytes (getFpgaCapabilities). The meaning of a bit is the
+    // bitstream's; a library keeps its own constants for the bits it tests (D8). Board identity, like is_commodore. Second users: the UCI library, the base. Task: any.
     uint32_t (*fpga_caps)(void);
-    // True on the board sold under Commodore's name (isCommodoreBoard, product.cc), false on the other badge of the same board. A fact about the product that no library
-    // can derive.
-    // Task: any.
+    // True on the board sold under Commodore's name (isCommodoreBoard, product.cc), false on the other badge of the same board. Board identity that no library can derive; a
+    // single library user today (a first-run default of the menu style), kept because the base uses it too (a64_assembly.h). Task: any.
     bool (*is_commodore)(void);
     // One request to the ESP32 control module (power mode, wake on Wi-Fi, power off, power cycle, GET commands) over the board's one UART with one reply table;
     // a library cannot own it. `cmd` is the command, `args` its `nargs` bytes (at most 100). Result: with timeout_ms > 0 the number of bytes of the whole answer
@@ -43,12 +42,13 @@ typedef struct SvcBoard {
     // The picture layer takes a new system mode (picture_set_system): `sys` is the video mode (the index of the 6 colour timings: PAL, NTSC, ...) of the System Mode
     // setting; the layer's HDMI mode and the Picture row are picked again. Second users: c128, c64scpu, portdiag. Task: lock.
     void (*video_set_system)(int sys);
-    // The video PLL for system mode `sys` with the colour clock's offset `ppm` (-100 .. 100), then the HDMI PLL reset: SetVideoPll and ResetHdmiPll as the one pair
-    // fx_video calls. ppm 0 is the nominal clock. The base programs every mode with offset 0 itself (videomode.cc); no library may write a PLL register. Task: lock.
+    // The video PLL for system mode `sys` with the colour clock's offset `ppm` (-100 .. 100), then the HDMI PLL reset: SetVideoPll and ResetHdmiPll as the one pair a
+    // library calls. ppm 0 is the nominal clock. Single library user; kept because no library touches a PLL register and the base's video path programs the same PLL
+    // (videomode.cc, offset 0). Task: lock.
     void (*video_set_pll)(int sys, int ppm);
     // The supply of one SID socket (the expander 0x40 on the 1.8 V I2C channel; the base keeps the control byte of both sockets, replaces this socket's nibble and writes
     // it under the "SID Configuration" lock, which the keyboard scan shares since T253; register 1 gets the byte, register 3 gets 0). socket 0 or 1; state SID_SOCKET_*;
-    // shunt: the 1 kOhm shunt, bit 2 of the nibble; filter_caps: the value of the setting "SID Socket n Capacitors" (0 or 1), the base inverts it into bit 3. The nibble of the
+    // shunt: the 1 kOhm shunt, bit 2 of the nibble; filter_caps: the socket's filter capacitor option, as the core's own setting for it holds it (0 or 1); the base inverts it into bit 3. The nibble of the
     // other socket is untouched, the control byte starts at 0 when the application starts. Result: 0 done, or nothing to do when the board has no expander;
     // < 0 a bad argument (socket outside 0..1, state outside SID_SOCKET_*), nothing written. Waits for the bus lock. Task: lock.
     int (*sid_socket)(int socket, int state, bool shunt, bool filter_caps);

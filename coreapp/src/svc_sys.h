@@ -16,8 +16,9 @@ extern "C" {
 #endif
 
 typedef struct SvcSysAdd {
-    // The 1 ms hardware counter of the ITU (getMsTimer): free running, 16 bit, wraps at 65536. Only the difference of two reads is meaningful, and only for
-    // spans under 65 s; take it as `(uint16_t)(now - then)`. It is no replacement for `sys.ms` (5 ms ticks, 32 bit). Result: the count. Task: any.
+    // The 1 ms hardware counter of the ITU (getMsTimer, itu.h:122): free running, uint16_t, so it wraps every 65.536 s. Use differences: take a span as
+    // `(uint16_t)(now - then)`, valid for spans under 65 s; never compare two readings with < or >. It is no replacement for `sys.ms` (5 ms ticks, 32 bit). Result: the
+    // count. Task: any.
     uint16_t (*ms_timer)(void);
     // Gives the processor to a ready task of the same priority and returns at once when none is ready (taskYIELD). `sleep_ms(0)` is no yield: it sleeps one
     // tick of 5 ms. Task: any, not between sync.enter and sync.leave.
@@ -32,6 +33,7 @@ typedef struct SvcSysAdd {
     // The version text of the application image that runs (the stamp field "TRXVSTAMP" of the image, the string app_version_string() gives: what version.toml
     // of the application and the commit make), and the short git hash of its commit (app_version_hash). Both are zero terminated, owned by the base, valid
     // for the life of the application and never null. A library writes them into what it saves ("appVersion" of a .c64re). Task: any.
+    // app_git is kept beside app_version for the same reason: build identity of the image, which no library can read; the ring and the monitor both read it.
     const char *(*app_version)(void);
     const char *(*app_git)(void);
 } SvcSysAdd;

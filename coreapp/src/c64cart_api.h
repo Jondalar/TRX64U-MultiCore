@@ -41,6 +41,19 @@ typedef struct C64CartApi {
     void (*image_write)(uint32_t off, const uint8_t *src, uint32_t n);
     // A loaded state's cartridge (.c64re): the .crt at `path` inserted, or the port emptied for path null, with no reset; the state goes in next. Task: lock.
     int (*for_state)(const char *path, char *msg, int msglen);
+    // ---- the cartridge's RAM (the 64 KB of the port's RAM window in DDR2; the bodies use CoreIo::ddr_abs_read and ddr_abs_write of the shared library) ----------------------
+    // ram_size: the bytes of the RAM the core's cartridge port has (65536), 0 on a core without the port. ram_read copies n bytes from offset `off` into dst, ram_write copies
+    // n bytes from src into the RAM. A range that is not wholly inside the RAM is ignored on a write and reads zeros. A write is complete when the call returns. Task: any.
+    uint32_t (*ram_size)(void);
+    void (*ram_read)(uint32_t off, uint8_t *dst, uint32_t n);
+    void (*ram_write)(uint32_t off, const uint8_t *src, uint32_t n);
+    // ---- what the cartridge in the port says about itself (any task) ---------------------------------------------------------------------------------------------
+    // The cartridge definition's require and prohibit flags as the cartridge in the port has them (the firmware's C64::get_cart_definition()); a .c64re's cartridge entry
+    // carries them. Both are 0 without a cartridge. writable: the cartridge in the port has flash or an EEPROM that the C64 can change (the firmware's trx_cart_writable()); a
+    // state file carries the image of such a cartridge with it (cartFlash). False without a cartridge.
+    uint16_t (*require)(void);
+    uint16_t (*prohibit)(void);
+    bool (*writable)(void);
     // ---- the GMod2's EEPROM (the 93C86 behind the cartridge port; byte 0 of its window is the dirty flag, the 2048 data bytes at +2048) -------------------------------
     // eeprom_get copies the 2048 bytes as they are into out and leaves the dirty flag alone (a dump of a state). eeprom_put writes the 2048 bytes and clears the dirty
     // flag, so only what the C64 writes from here on is a change (a load of a state). A core without the window reads 0 and ignores the write. Task: any.

@@ -2,7 +2,7 @@
 // and sidfile.cc: pure functions, bytes in, numbers and text out). A library of this repository puts the table into LibRecord::exports (base 3.2); the TRX64-Ultimate base
 // library finds it with SvcLib::find("sid", 1, &size). Not a member of LibApi.
 //
-// The structures are those of sidfile.h, field for field; when the library is built sidfile.h includes this header for them (until then include one of the two, not both).
+// The structures SidTune and SidReq and the SID_HDR_* sizes are defined here, once: sidfile.h includes this header for them (they had the same layout field for field).
 // The functions take pointers where sidfile.h takes C++ references. No call takes a CoreCtx and none touches the machine.
 //
 // Rules: `size` first; members only appended inside a major. Task: any task (no shared state; a tune is the caller's). Memory: every pointer is the caller's; `why` of sid_plan
@@ -17,7 +17,6 @@
 extern "C" {
 #endif
 
-#ifndef COREAPP_SIDFILE_H
 #define SID_HDR_BYTES 0x80
 #define SID_HDR_READ  0x7E            // the bytes read from a .sid
 #define SID_SSL_BYTES 512             // the song-lengths table the player takes (cartridge image +0x3000)
@@ -34,7 +33,7 @@ struct SidTune {
     uint16_t song, default_song;
     uint16_t start, end, header_location;
     int skip;                         // the bytes at data_offset that are not music data
-    uint8_t extra_lo;
+    uint8_t extra_lo;                 // unused, keeps the struct a multiple of 4 on every compiler
 };
 
 // One SID the tune asks for: base is the high byte pair of the address as the FPGA decodes it (0x40 = $D400), type 1 6581, 2 8580, 3 either or not said.
@@ -42,7 +41,6 @@ struct SidReq {
     uint8_t base;
     uint8_t type;
 };
-#endif
 
 typedef struct SidApi {
     uint32_t size;

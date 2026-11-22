@@ -5,8 +5,8 @@
 // `const SvcSettings *settings`.
 //
 // Index rule: `find` gives an index that is valid while `generation` is unchanged. The core application makes a new Settings object when it merges what the
-// libraries contribute (run.cc) and when a config is loaded (rebind), and every such change counts `generation` up. A library that keeps indexes (u64cfg
-// does) compares the generation before it uses one and finds the keys again when it changed. The base keeps the lookup cache; keys are compared by content.
+// libraries contribute (run.cc) and when a config is loaded (rebind), and every such change counts `generation` up. A library that keeps indexes
+//  compares the generation before it uses one and finds the keys again when it changed. The base keeps the lookup cache; keys are compared by content.
 //
 // Contracts of the whole group:
 //   - No call takes a CoreCtx.
@@ -39,9 +39,10 @@ typedef struct SvcSettings {
     const char *(*text)(int ix);
     // Where the value comes from: 0 the descriptor's default, 1 the host's flash, 2 the core's .cfg (Settings::layer). -1 for a bad index.
     int (*layer)(int ix);
-    // Stores `value` (a list position) in the core layer and writes the .cfg (Settings::set). It does NOT call the setting's apply operation: `apply` does
-    // (the settings_store of the old trx64u code). Result: false when the index or value is bad (nothing changes), or when the .cfg could not be written, a core without a bundle path
-    // included (the value holds in memory all the same). Ends an override of the same item. Task: lock holder.
+    // Stores `value` (a list position) in the core layer and marks the setting changed (Settings::set). The .cfg is written at once only with Auto Save Config on; with
+    // it off the value is held and the file waits for the next save, and the call still answers true (extra_set says the same). It does NOT call the setting's apply
+    // operation: `apply` does (the old settings_store). Result: false when the index or value is bad (nothing changes), or when the core has no bundle
+    // path or the .cfg could not be written (the value holds in memory all the same). Ends an override of the same item. Task: lock holder.
     bool (*set)(int ix, int value);
     // A value for this run only, never stored and never written into any .cfg or exported config (Settings::override_value; CTRL+P / CTRL+N at power on, the
     // System Mode of a loaded .c64re). value() answers it from now on. A bad index or value does nothing, and so does a text setting. It does not apply: call `apply` after it.
@@ -53,13 +54,13 @@ typedef struct SvcSettings {
     // The number of labels (or of range steps) and the base: the menu shows base + position, and the apply operation of a range setting receives it
     // (Setting::nvalues, Setting::base). Result: false for a bad index; *nvalues and *base are then not written. Task: any.
     bool (*info)(int ix, int *nvalues, int *base);
-    // A key of the core's own that is no choice from a list and has the prefix "Pad " (the recorded pad maps, "Pad SID Detected Socket"); the settings file keeps
+    // A key of the core's own that is no choice from a list and has the prefix "Pad " (the recorded pad maps); the settings file keeps
     // it beside the items. At most 4 keys of at most 23 characters with values of at most 79. extra_get: false when the key is not there (val is not written);
     // a value longer than n is cut to n - 1 characters. extra_set: false for a key without the prefix, a value or key that is too long, no room, or a file that
     // could not be written (the value holds in memory); with Auto Save Config off the file waits for the next save. Task: any / lock holder.
     bool (*extra_get)(const char *key, char *val, int n);
     bool (*extra_set)(const char *key, const char *val);
-    // The shorthand of the base's own cfg_value and cfg_text (they move from trx64u_ops.cc into the core application): the value of the setting named `key`, `def`
+    // The shorthand of the base's own cfg_value and cfg_text (they move into the core application): the value of the setting named `key`, `def`
     // when the core has no such setting (a list position, as `value`); and the text of a text setting with its leading blanks skipped, never null: "" when the
     // key is no text setting. An enum gives "" from cfg_text; read the label with the state `set.<key>`. The key is matched by content (strcasecmp), not by the
     // address of the string literal. cfg_text's pointer lives as long as `text`'s. Task: any.
@@ -75,11 +76,23 @@ typedef struct SvcSettings {
 // "net.gated": "yes" while the REST token gate is active (a request without the token is refused), else null. It is a state, not a member of SvcNet.
 
 // ---- settings of the generic application (the base owns them as it owns Picture and Volume; any core's menu can show them) -------------------------------
-//   "Overlay Transparency", "Color Scheme"     the look of the menu (replaces ui_set_look)
-//   "Filename overflow squeeze"                the name squeeze (replaces ui_set_name_squeeze)
-//   "Joystick Input"                           the keyboard joystick: the base derives keyb_joy_select and wasd_to_joy from it. The registers C64_PADDLE_SWAP,
-//                                              U64II_KEYB_JOY and MATRIX_WASD_TO_JOY stay with the core's library, which reads the setting with `value`.
-// A library reads them like any setting. It does not apply them: the base does.
+// A library reads them like any setting, by key. It does not apply them: the base does. The key is the stored key of every core's .cfg and the stored values carry over
+// when a core's menu stops declaring its own copy. Values are listed by position; the first is position 0 and the default is the position named.
+//   "Overlay Transparency"            the menu's transparency (replaces ui_set_look): "0 %", "25 %", "50 %", "75 %"; default 1.
+//   "Color Scheme"                    the menu's colours (replaces ui_set_look): "Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2",
+//                                     "Commodore 3"; default 1.
+//   "Filename overflow squeeze"       where a long name is shortened (replaces ui_set_name_squeeze): "None", "Beginning", "Middle", "End"; default 0.
+//   "Joystick Input"                  the keyboard joystick, six positions; the base derives keyb_joy_select (position & 1) and wasd_to_joy (the mask 0, 0, 1, 1, 3, 3 by
+//                                     position) from it. The hardware the position also drives is the core's: its library reads the setting with `value`.
+// The USB mouse, for every core whose descriptor has a mouse (CoreDesc::mouse). The base's mouse sink reads them by key (the USB driver's config callback lives in the base image,
+// mousesink.cc), so no library defines it and no key of a core's menu is in generic code:
+//   "Mouse Mode"                      "Cursor keys", "Wheel: cursor keys", "Wheel: joystick"; default 0.
+//   "Mouse Sensitivity"               range 1 .. 16, default 8 (position 7).
+//   "Mouse Acceleration"              "Off", "Adaptive"; default 0.
+//   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
+//   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
+// The base declares the five for every core with a mouse. Two cores declare them today, one in its menu TOML (all five) and the Amiga in cores/amiga.cc
+// (Mouse Sensitivity and Mouse Acceleration, with the same keys and values); both drop their declarations when 3.3 is built.
 
 #ifdef __cplusplus
 }
