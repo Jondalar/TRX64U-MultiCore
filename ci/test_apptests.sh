@@ -111,6 +111,28 @@ python3 "$R/ci/plan.py" fundamental apptests | grep -qx 'cores/common' && fail "
 python3 "$R/ci/plan.py" fundamental benches | grep -qx 'app/view' || fail "an [all] path is missing from the benches list"
 echo "ok   fundamental: one list in ci/fundamental.txt, [all] + [apptests] escalate, a plain change stays fast"
 
+# (2c) T239.1: a CI checkout is shallow (depth 1: no origin/main, no HEAD~1). The base comes from the plan's plan.json (fetched when missing); without
+# any base nothing counts as untouched and every suite is planned. Control: the same checkout with a base from the plan sees the touched suite only.
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"; G add -A; G commit -q -m touch_coreapp
+S="$W/shallow"; git clone -q --depth 1 --no-local "file://$R" "$S" 2>/dev/null
+git -C "$S" update-ref -d refs/remotes/origin/main 2>/dev/null || true
+git -C "$S" rev-parse -q --verify HEAD~1 >/dev/null 2>&1 && fail "scenario error: the shallow checkout has a HEAD~1"
+HO="$W/handoff"; mkdir -p "$HO"; rm -f "$HO/plan.json"
+o="$( cd "$S" && CI_HANDOFF="$HO" CI_BRANCH=feature/x ci/apptests.sh --plan hostapp 2>&1 )" || true
+echo "$o" | grep -q "NO DIFF BASE" || fail "a shallow checkout without a base did not say NO DIFF BASE: $o"
+echo "$o" | grep -q "apptests plan (tier integration" || fail "no base: the tier did not become integration: $o"
+echo "$o" | grep -q "not touched by this branch" && fail "no base: a suite was skipped as untouched"
+printf '{"version":1,"base":{"commit":"%s","source":"test"}}\n' "$b0" > "$HO/plan.json"
+o="$( cd "$S" && CI_HANDOFF="$HO" CI_BRANCH=feature/x ci/apptests.sh --plan hostapp 2>&1 )" || true
+echo "$o" | grep -q "base ${b0:0:8} from the plan" || fail "the plan's base was not used in a shallow checkout: $o"
+echo "$o" | grep -q "tier auto -> fast, scoped" || fail "plan base: the branch was not scoped: $o"
+echo "$o" | grep -qE "hostapp\[[1-9][0-9]* files\]" || fail "plan base: hostapp counts no touched file: $o"
+printf '{"version":1,"base":{"commit":"none","source":"test"}}\n' > "$HO/plan.json"
+o="$( cd "$S" && CI_HANDOFF="$HO" CI_BRANCH=feature/x ci/apptests.sh --plan hostapp 2>&1 )" || true
+echo "$o" | grep -q "NO DIFF BASE" || fail "base none in the plan did not fall to every-suite-runs: $o"
+echo "ok   base: shallow checkout takes the plan's base and sees the touched suite; no base -> every suite runs, never skipped"
+G reset -q --hard HEAD~1
+
 # (3) parallel controls
 par() {   # par JOBS FAILAT N -> prints the output of N fake controls
   ( T="$W/t$RANDOM"; mkdir -p "$T"; JOBS="$1"; export FAILAT="$2"
