@@ -241,3 +241,4 @@ Scenario: S8 (P7) the Version column of a firmware packaged without its version
   titles, the Version row, the start question, the panel within about a second). D7 and D8 (#132) were not on that host. The host
   update `trx64host_update_352a6b41.txu` is in `/SD/txu/` for the next board session; its host bitstream is byte-identical
   (`9e694fb8...`), only the application is new.
+- **Board (2026-11-22), D10:** the firmware packed again with host `352a6b41`; Alex (translated): "OK, now it works, thanks."
