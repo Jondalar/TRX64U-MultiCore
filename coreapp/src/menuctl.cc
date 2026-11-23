@@ -972,7 +972,10 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             const char *t = c_->settings->text(e.index);
             const char *base = strrchr(t, '/');
             snprintf(right, rn, "%s", *t ? (base ? base + 1 : t) : "Not selected");
-            if (sub && sn && *t) {
+            const char *nt = s.note_state ? ops_state(c_, s.note_state) : 0;        // T258 D10: what the row needs, in the foot while it is selected
+            if (sub && sn && (nt && *nt)) {
+                snprintf(sub, sn, "%s", nt);
+            } else if (sub && sn && *t) {
                 snprintf(sub, sn, "%s", t);
             }
             break;

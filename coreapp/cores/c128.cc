@@ -123,7 +123,7 @@ static const Setting settings[12 + CBM1541_NSETTINGS] = {
     { KEY_ROMSET, romset_names, 2, 0, WHEN_RESET, "c128.set_romset", 0 },
     { KEY_JF_C128, kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_c128", 0, 0, 0, 3 },
     { KEY_JF_C64,  kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_c64",  0, 0, 0, 3 },
-    { KEY_JF_1541, kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_1541", 0, 0, 0, 3 },
+    { KEY_JF_1541, kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_1541", 0, 0, 0, 3, 0, 0, 0, "c128.jf1541_note" },
     { KEY_JF_1581, kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_1581", 0, 0, 0, 3 },
     CBM1541_SETTINGS,
 };
@@ -1132,7 +1132,7 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.type_script", text_arg, 1, op_type);
     r.add_op("c128.run_prg", path_arg, 1, op_run);
     r.add_op("c128.load_prg", path_arg, 1, op_load);
-    r.add_state("c128.auto_diag", state_auto_diag);
+    r.add_state("c128.auto_diag", state_auto_diag); r.add_state("c128.jf1541_note", [](CoreCtx *c) { const DriveRomPick &p = c128_state(c)->d1541; return rom_half_note(c->desc->folder, kind1541.what, p.n_jiffy, p.n_stock); });   // T258 D10: the foot note of the JiffyDOS 1541 row
     cbm1541_register(r);
 }
 

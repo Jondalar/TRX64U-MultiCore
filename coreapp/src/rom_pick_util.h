@@ -4,6 +4,7 @@
 
 #include "sha256.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 // The hex SHA-256 of a ROM, for the console line of what a drive holds.
@@ -29,6 +30,18 @@ static inline uint32_t rom_half_over(uint8_t *out, const uint8_t *stock, uint32_
     memcpy(out, stock + (n_stock - 2 * ROM_HALF), ROM_HALF);
     memcpy(out + ROM_HALF, half, ROM_HALF);
     return 2 * ROM_HALF;
+}
+
+// T258 D10: the foot note of the row that selects the JiffyDOS ROM of a drive: an 8 KiB half (n_jiffy) needs the stock ROM (n_stock), and where it goes. "" when nothing is
+// missing. One static line of text: the menu reads it at once.
+static inline const char *rom_half_note(const char *folder, const char *what, uint32_t n_jiffy, uint32_t n_stock)
+{
+    static char t[120];
+    t[0] = 0;
+    if (n_jiffy == ROM_HALF && !n_stock) {
+        snprintf(t, sizeof(t), "The half needs the stock %s ROM too: put it in roms/%s (USB stick or SD card)", what, folder);
+    }
+    return t;
 }
 
 #endif

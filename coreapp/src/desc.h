@@ -108,6 +108,8 @@ struct Setting {
     const char *label;
     // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
     const char *lock_state;
+    // T258 D10: the name of a state; while it has a text, the row's foot note says it in place of the path (the selected file's path is the foot of a kind 3 row otherwise)
+    const char *note_state;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------

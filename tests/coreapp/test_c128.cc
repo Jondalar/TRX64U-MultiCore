@@ -1273,6 +1273,9 @@ int main()
                 if (!strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too")) printf("  S12: \"%s\"\n", ho.msg);
                 CHECK(strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too. Put it in roms/c128 on a USB stick or SD card.") != 0);
                 CHECK(h->io.dm.rom() == Bytes(32768, 0));
+                // T258 D10: the row's foot note (Setting::note_state) says what the half needs and where it goes; it fits the foot (under 100 characters)
+                const char *fn = ops_state(&h->c, "c128.jf1541_note");
+                CHECK(fn && !strcmp(fn, "The half needs the stock 1541 ROM too: put it in roms/c128 (USB stick or SD card)") && strlen(fn) < 100);
                 // the stock ROM arrives later (put again): the composition follows
                 Bytes sk = pattern(13, 16384);
                 OpIn in = in_blob("data", sk.data(), sk.size());
@@ -1280,6 +1283,7 @@ int main()
                 Bytes want16(sk.begin(), sk.begin() + 8192), half = pattern(12, 8192);
                 want16.insert(want16.end(), half.begin(), half.end());
                 CHECK(h->io.dm.rom() == win(want16));
+                CHECK(ops_state(&h->c, "c128.jf1541_note")[0] == 0);       // the stock ROM is there: no note
                 delete (CbmDrive *)h->c.drive; h->c.drive = 0;
                 delete h;
             }
