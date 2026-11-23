@@ -1,6 +1,6 @@
 // The export "cbm1541" (major 1): the built-in drive A of the CBM family, the shared drive library of T104.1 D15 (today coreapp/cores/cbm1541.cc and cbm1541.h over
 // app/lib/cbm1541). A library of this repository puts the table into LibRecord::exports (base 3.2); the TRX64-Ultimate libraries find it with
-// SvcLib::find("cbm1541", 1, &size). Not a member of LibApi.
+// SvcLib::find("cbm1541", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
 //
 // The table is the part of the drive that a library outside this repository needs: drive A as a slot ("Drive A", the one MountSlots slot of a core with a drive), the
 // drive's state, the settings of Gideon's c1541 store that the library has a place for, the blank image, and the three calls the core's own service and descriptor make
@@ -80,6 +80,9 @@ typedef struct Cbm1541Api {
     // drive); and whether there is something to write. Nothing is done when the drive was never made. Task: lock.
     int (*media_flush)(char *msg, int msglen);
     bool (*media_pending)(void);
+    // Resets drive A when there is one, as the C64's reset does with "Resets when C64 resets" (CbmDrive::reset): 0, or non-zero and the reason; -1 and no reason when
+    // the core has no drive (none is made). New in 3.3 (advisor 2026-11-23). Task: lock.
+    int (*reset)(char *msg, int msglen);
 } Cbm1541Api;
 
 #ifdef __cplusplus

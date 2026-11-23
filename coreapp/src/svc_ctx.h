@@ -22,6 +22,7 @@ extern "C" {
 #define CTX_PAUSED    0x02u         // Pause: the machine stays held after the menu closes, until Resume
 #define CTX_FROZEN    0x04u         // the machine is stopped for the menu (Freeze)
 #define CTX_MENU_OPEN 0x08u         // the menu is on screen, frozen or not
+#define CTX_MEDIA_RESTORING 0x10u   // the base mounts what a start or a media set stores (CoreCtx::media_restoring): the machine is held and the base releases it later
 
 typedef struct SvcCtx {
     uint32_t size;
@@ -59,6 +60,9 @@ typedef struct SvcCtx {
     // ("D1", "Drive A", "Cartridge": MountSlots::names) or of a media slot of the descriptor (MediaSlot::name, "D1:" with the colon dropped), case insensitive.
     // Result: true with the spec in buf (cut to len - 1); false for no such slot or an empty one (buf is ""). Task: any.
     bool (*media_source)(const char *slot, char *buf, int len);
+    // A slot of the core's own engine changed by the engine's doing (CoreHooks::slot_*; mount_notify in ctx.h): the base stores it for "Persist medium mounts" and the
+    // media sets once the start has mounted what the .cfg stores. `slot` as in CoreHooks. Task: lock.
+    void (*mount_notify)(int slot);
 } SvcCtx;
 
 #ifdef __cplusplus

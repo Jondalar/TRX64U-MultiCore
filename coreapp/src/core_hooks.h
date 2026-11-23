@@ -1,7 +1,8 @@
 // The export "corehooks" (major 1): the hooks of a core that its own library provides (T239.3 D10, section 5; boundary 12.1). The code of a core is its library, so the hooks
 // of its descriptor (CoreDesc::init, release, warm_reset, cold_start, media_flush, media_pending in desc.h) are named in the core's data (D8) and implemented here. The
-// descriptor names the library whose export table they are; the key of that name belongs to the core TOML's specification (D8, D11), not to this header. A core that leaves
-// a member null is as before: no hook. The table goes into LibRecord::exports (base 3.2). It is not a member of LibApi.
+// core's API TOML names the library whose export table they are: `hooks = "<library name>"` in its [core] section (advisor 2026-11-23); cor_pack refuses a core whose
+// named library is not in the bundle or does not list the export corehooks=1, and the base takes the table of that library. A core that leaves a member null is as
+// before: no hook. The table goes into LibRecord::exports (base 3.2). It is not a member of LibApi.
 //
 // Two members are new: `start` and `menu_closed`. The earlier draft of the boundary map called the second one "resume"; it is menu_closed.
 //
@@ -56,6 +57,19 @@ typedef struct CoreHooks {
     // setting is set here: the C64's paddle swap follows "Joystick Input", whose keyboard part the base sets itself. Called after every change, and after the start
     // hook once for each base-owned setting, in the order of svc_settings.h. Null: the core follows none. Task: lock, like a setting's apply operation.
     void (*base_setting_changed)(const char *key);
+    // ---- the mount slots of the core's own engine (MountSlots in desc.h), new in 3.3 (advisor 2026-11-23) ------------------------------------------------------------
+    // `slot` is the position of the name in the [mount] list of the core's API TOML; the base calls these for "Persist medium mounts", the media sets, ctx.media_source and
+    // the menu's slot rows. The meaning is MountSlots': a spec is the words the file uses for what is in the slot ("ro /usb0/x.d64"), and a path in it starts with '/'.
+    //   - slot_spec writes the spec of what is in the slot to buf, terminated, and returns its length; 0 when the slot is empty; -1 when it does not fit in n - 1 bytes.
+    //   - slot_mount mounts `spec`, replacing what is there (the old medium is written back and let go first): 0, or non-zero and the reason; a slot that cannot take
+    //     the medium keeps what it held.
+    //   - slot_eject empties the slot after the write-back: 0, or non-zero and the reason (the medium stays).
+    // While ctx.state has CTX_MEDIA_RESTORING the base mounts what a start or a media set stores: the machine is held and the base releases it later, so slot_mount
+    // neither resets nor releases it. The engine calls ctx.mount_notify(slot) whenever one of its slots changes by its own doing. A record with a [mount] list needs all
+    // three. Task: lock.
+    int (*slot_spec)(int slot, char *buf, int n);
+    int (*slot_mount)(int slot, const char *spec, char *msg, int msglen);
+    int (*slot_eject)(int slot, char *msg, int msglen);
 } CoreHooks;
 
 #ifdef __cplusplus
