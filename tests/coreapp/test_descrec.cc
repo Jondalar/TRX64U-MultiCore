@@ -372,6 +372,19 @@ int main(int argc, char **argv)
         delete o;
     }
 
+    {                                                                       // T239.3 D32: a core's choice row with a pick and one value (desc_pick.bin, next to the first record)
+        std::string dir = argv[1];
+        dir = dir.substr(0, dir.rfind('/') + 1);
+        Bytes pk = slurp((dir + "desc_pick.bin").c_str());
+        DescRecord *p = new DescRecord;
+        CHECK_EQ(parse(pk, p, why), 0);
+        CHECK_EQ(p->ncsettings, 1);
+        CHECK_STR(p->csettings[0].pick, "view.schemes");
+        CHECK_EQ(p->csettings[0].nvalues, 1);
+        CHECK_STR(p->csettings[0].values[0], "Blue");
+        delete p;
+    }
+
     delete d;
     DONE("test_descrec");
 }
