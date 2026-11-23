@@ -42,7 +42,7 @@ def load(path):
     except (descrec.DescError, OSError) as e:
         raise LibTabError("%s: %s" % (path, e))
     for k in doc:
-        if k not in ("app", "library"):
+        if k not in ("app", "library", "sizes"):             # [sizes]: the maxima of the app (tools/app_build.py checks them)
             raise LibTabError("%s: unknown table '%s'" % (path, k))
     libs = doc.get("library", [])
     names, srcs = [], {}

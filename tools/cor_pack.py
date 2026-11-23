@@ -867,6 +867,8 @@ def read_extras(a):
     desc = None
     if a.desc:
         try:
+            if getattr(a, "sizes", None):                  # the core's TOML B: its [sizes] are the record maxima the app is linked with (tools/app_build.py)
+                descrec.apply_sizes(descrec.toml_loads(open(a.sizes).read()).get("sizes", {}))
             desc = descrec.compile_files([(f, open(f).read()) for f in a.desc], open(a.ops).read() if a.ops else None)
         except descrec.DescError as e:
             raise CorError("%s: %s" % (" + ".join(a.desc), e))
@@ -892,6 +894,7 @@ def main(argv=None):
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
     p.add_argument("--desc", action="append", default=[], help="the menu description (TOML, tools/descrec.py): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    p.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2)")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
     p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
@@ -907,6 +910,7 @@ def main(argv=None):
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
     g.add_argument("--desc", action="append", default=[], help="the menu description (TOML): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    g.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2)")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
     g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")

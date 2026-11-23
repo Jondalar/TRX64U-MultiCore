@@ -123,8 +123,12 @@
 #define DESCREC_HEADER_V6 216                     /* version 6: + the offset and size of the data sections */
 #define DESCREC_RESTART_MAX (1u << 24)            /* the most RAM a restart clears: 16 MiB */
 #define DESCREC_NONE 0xFFFFFFFFU
+#ifndef DESCREC_MAX_SIZE
 #define DESCREC_MAX_SIZE 0x20000U                 // 128 KiB: more is not a menu description
+#endif
 
+// The macros under #ifndef below (and DESCREC_MAX_SIZE) are the shared app's maxima: an app linked from the SDK sets them in the [sizes] table of its TOML B (tools/app_build.py), and
+// tools/descrec.py compiles the core's record against the same table (--sizes).
 #define DR_AREAS 8
 #define DR_TABS 32
 #define DR_NODES MENU_NODES_MAX
@@ -132,16 +136,30 @@
 #define DR_SETTINGS 16
 #define DR_HIDE 16
 #define DR_RENAME 16
+#ifndef DR_BINDS
 #define DR_BINDS 700
+#endif
+#ifndef DR_EXTS
 #define DR_EXTS 48
+#endif
 #define DR_SIZES 16
+#ifndef DR_VALUES
 #define DR_VALUES 8192                            // T228 R21: the reDIP:SID filter ranges (FW: base 0..511, offset -1024..1023) and the socket pages
+#endif
 #define DR_CTABS 16
+#ifndef DR_TASKS
 #define DR_TASKS 64
+#endif
 #define DR_MEDIA 6
+#ifndef DR_FTYPES
 #define DR_FTYPES 32
+#endif
+#ifndef DR_FACTS
 #define DR_FACTS 200
+#endif
+#ifndef DR_CSETS
 #define DR_CSETS 330
+#endif
 #define DR_TABLES 17
 #define DR_SET_FILE 8                             // T239.3 D17: bit 3 of a core setting's time code: a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
 #define DR_SETBINDS 16                            // T239.3 D17: core settings that are register bits
@@ -149,13 +167,25 @@
 #define DR_CAPS 8
 #define DR_MOUNT 6
 #define DR_SECTIONS 24                            // the ids 1 .. 24 (20 .. 22: TOML A, version 7 only; 23, 24: the routes and the places, version 6)
+#ifndef DR_KEYS
 #define DR_KEYS 64                                // base 3.3: rows of the key table
+#endif
+#ifndef DR_WINDOWS
 #define DR_WINDOWS 32                             // base 3.3: register windows
+#endif
 #define DR_WINDOW_MAX 0x100000u                   // the largest window, bytes
+#ifndef DR_BLOCKS
 #define DR_BLOCKS 64                              // TOML A (version 7): blocks, and in all their properties, fields and states
+#endif
+#ifndef DR_PROPS
 #define DR_PROPS 512
+#endif
+#ifndef DR_FIELDS
 #define DR_FIELDS 512
+#endif
+#ifndef DR_STATES
 #define DR_STATES 1024
+#endif
 #define DR_PROPS_PER_BLOCK 64
 #define DR_PROP_COUNT_MAX 0x10000
 #define DR_FIELDS_PER_PROP 32
