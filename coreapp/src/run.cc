@@ -752,7 +752,23 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     if (!desc->hooks_lib) {
         hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it; a record that names its library took its table above
     }
-    BootResult r = boot_start(&ctx, &board_ui);
+    // T239.3 P1-4 (D30 condition 2, D31): the one check that stays at run time. The record of TOML A names the bitstream it was made for; the standard block of the bitstream that runs has to
+    // say the same (ID and build). A pair that does not match is told and the core is not released: the settings, the menu and the browser still open, the machine stays held.
+    char ident_why[240];
+    ident_why[0] = 0;
+    bool ident_ok = bundle_check_identity(ctx.io, bundle.desc, ident_why, sizeof(ident_why)) == 0;
+    if (!ident_ok) {
+        printf("[core] identity: %s\n", ident_why);
+        snprintf(ctx.notice, sizeof(ctx.notice), "%s", ident_why);
+        ctx.notice_pending = true;
+    } else if (bundle.desc && bundle.desc->map) {
+        if (bundle.desc->map->has_build) {
+            printf("[core] identity: %s build %08X, as the description says\n", bundle.desc->map->ident_id, (unsigned)bundle.desc->map->build);
+        } else {
+            printf("[core] identity: %s, as the description says (it carries no build)\n", bundle.desc->map->ident_id);
+        }
+    }
+    BootResult r = ident_ok ? boot_start(&ctx, &board_ui) : BOOT_WAITING_PROGRAM;
     STARTLOG("phase boot_start returned (%s)", r == BOOT_RUNNING ? "running" : "waiting for a program");
     lib_board_started();                          // the start finished: the boot-attempt counter (libguard.h) goes back to 0
     collect_rom_names();
@@ -775,7 +791,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.lock = &core_lock;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
-    if (hooks_present()) {                                   // a library of the core starts its own engine (core_hooks.h start)
+    if (ident_ok && hooks_present()) {                       // a library of the core starts its own engine (not on a bitstream that is not the core's: P1-4) (core_hooks.h start)
         char why[120];
         core_lock.lock();
         if (hooks_start(&ctx, why, sizeof(why))) {

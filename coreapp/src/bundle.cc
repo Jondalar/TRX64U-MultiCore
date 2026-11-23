@@ -101,6 +101,40 @@ static char printable(uint8_t c)
     return (c >= 32 && c < 127) ? (char)c : '?';
 }
 
+int bundle_check_identity(CoreIo *io, const DescRecord *desc, char *why, int whylen)
+{
+    if (!desc || !desc->map) {
+        return 0;
+    }
+    const DescMap &m = *desc->map;
+    const DescBlock *b = descrec_block(*desc, m.ident_block);
+    const DescProp *pid = b ? descrec_prop(*desc, *b, "id") : 0;
+    const DescProp *pbuild = b ? descrec_prop(*desc, *b, "build") : 0;
+    if (!pid || !pbuild || pid->width != 32 || pbuild->width != 32) {
+        snprintf(why, whylen, "The core's description names no readable 32 bit ID and build in the block %s. The core stays held.", m.ident_block);
+        return -1;
+    }
+    uint32_t id = 0, build = 0;
+    if (!io || !io->read32(b->win.address + pid->offset, &id) || !io->read32(b->win.address + pbuild->offset, &build)) {
+        snprintf(why, whylen, "The bitstream's ID and build cannot be read from the block %s, so it cannot be shown to belong to this core. The core stays held.", m.ident_block);
+        return -1;
+    }
+    char have[5];
+    for (int i = 0; i < 4; i++) {
+        have[i] = printable((uint8_t)(id >> (8 * i)));
+    }
+    have[4] = 0;
+    if (strncmp(have, m.ident_id, 4) != 0) {
+        snprintf(why, whylen, "The bitstream says it is the core %s, this core's description is for %s. They do not belong together. The core stays held.", have, m.ident_id);
+        return -1;
+    }
+    if (m.has_build && build != m.build) {
+        snprintf(why, whylen, "The bitstream of the core %s is build %08X, the description was made for build %08X. They do not belong together. The core stays held.", have, (unsigned)build, (unsigned)m.build);
+        return -1;
+    }
+    return 0;
+}
+
 const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *h, char *msg, int msglen)
 {
     char who[160];

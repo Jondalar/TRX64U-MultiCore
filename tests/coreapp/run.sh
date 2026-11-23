@@ -778,6 +778,9 @@ run deckeys test_deckeys.cc descrec.cc
 # T239.3 P1-1 (D30, D34): TOML A, the record of version 7, from golden/desc_toml_a.toml and the SDK's module maps as the real tool compiles them
 CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
 run desctoml test_desctoml.cc descrec.cc
+# T239.3 P1-4 (D30 condition 2, D31): the service's start check of ID and build against the record's identity, the same fixture, a model of the standard block
+CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
+run identity test_identity.cc $BUNSRC
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

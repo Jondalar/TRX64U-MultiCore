@@ -34,6 +34,15 @@ class HwIo : public CoreIo {
 public:
     uint8_t rd(uint32_t reg) { return ioRead8(TRX_IO_BASE + reg); }
     void wr(uint32_t reg, uint8_t v) { ioWrite8(TRX_IO_BASE + reg, v); }
+    bool read32(uint32_t addr, uint32_t *v)
+    {
+        uint32_t w = 0;
+        for (int i = 0; i < 4; i++) {
+            w |= (uint32_t)(*(volatile uint8_t *)(uintptr_t)(addr + (uint32_t)i)) << (8 * i);
+        }
+        *v = w;
+        return true;
+    }
     // The windows take one byte per access (the DMA window's handshake) and the DDR2 window is posted: a read-back
     // of the last address written makes the stores done before the next register write.
     void ddr_write(uint32_t off, const void *p, uint32_t n)

@@ -105,6 +105,9 @@ public:
     virtual void joy_lines(int port, uint8_t pressed) { (void)port; (void)pressed; }
     // T181: the physical keys now, whatever the core is shown: m[col] bit row = down, and the RESTORE level. False: this host cannot say.
     virtual bool keys_read(uint8_t m[8], bool *restore) { (void)m; (void)restore; return false; }
+    // T239.3 P1-4: one 32 bit register at an absolute address of the I/O space, read byte by byte, little endian (the bus is 8 bit). The service reads the standard block of the bitstream
+    // with it at start (bundle_check_identity). False: this host cannot read it (the default); the board's HwIo and the models of the tests that read the block say true.
+    virtual bool read32(uint32_t addr, uint32_t *v) { (void)addr; (void)v; return false; }
     // The host's machine stop (C64_STOP) and the app's reset (C64_MODE reset / unreset).
     virtual void stop(bool on) = 0;
     virtual void mode_reset(bool on) = 0;
