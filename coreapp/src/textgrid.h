@@ -4,7 +4,7 @@
 // (base 3.2) under any name the TOML uses ("textgrid" is the name of the monitor's).
 //
 // The grid: `cols` columns (80 for the monitor) and up to TG_ROWS_MAX rows of text, one attribute per row, a cursor cell. The screen is redrawn when `sig` changes; the base
-// calls `render` first on each redraw and the other calls after it. `enter` runs when the node is entered and `tick` on every pass of the menu loop while it is shown,
+// calls `render` and `sig` on every draw pass, also on one that redraws nothing, reads the rows only when `sig` changed, and calls the other drawing calls after `render`. `enter` runs when the node is entered and `tick` on every pass of the menu loop while it is shown,
 // so no generic code names a library's operation for them. Keys go through the key table of the core's UI TOML (a row naming the library's key operation, as
 // monitor.key today); there is no key call here.
 //
@@ -39,7 +39,7 @@ enum {
 
 typedef struct TextGrid {
     uint32_t size;
-    // Builds the rows as they are now (mon_render). Called once per redraw, before the other calls. With the session closed the grid has no rows (rows() is 0).
+    // Builds the rows as they are now (mon_render). Called on every draw pass of the screen, before the other drawing calls (the base then reads the rows only when sig changed). With the session closed the grid has no rows (rows() is 0).
     void (*render)(void);
     // The columns of the grid (mon_cols; 80).
     int (*cols)(void);
