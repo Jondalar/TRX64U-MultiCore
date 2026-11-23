@@ -8,7 +8,7 @@ Gateware and benches built on `t257-c128-vdc` the same day; the register list fo
 **Depends on:** T113 (the C128 core, D11 interlace), T194 (the 40-column picture), T192 D24 (no new per-core application code).
 **Milestone:** M3.
 
-Open (one line, as in the TODO table): Built (VDC frame, read-back, D6 list, D11 cuts); on c128-integ with T170, T258; needs pipeline and board (S7)
+Open (one line, as in the TODO table): Built (VDC frame, read-back, D6, D11 cuts, window fix); on c128-integ with T170, T258; needs pipeline, board (S7)
 
 ---
 
@@ -134,7 +134,6 @@ Negative controls: none (no flash, no persistence).
 ## §4 Out
 
 - The black-and-white NTSC A/V picture (#73): Alex, 2026-11-23: not now.
-- The 7-pixel hscroll shift of the VDC's window at R25[3:0] = 0: no longer out; see §5 "Fault 1" (it was declined 2026-11-15 with the T113 hang, and the board shows its cost).
 - Fast serial / SRQ with a real 1571 (the research's P-4.1): T170 P2, built separately and completely.
 - The VDC's own `vdc_peek.vhd` and the MEGA65's REST window: ours is the register page.
 
@@ -178,10 +177,14 @@ Negative controls: none (no flash, no persistence).
 - **Not run here.** The unit tests were built and run on the Mac with the flags of `tests/coreapp/run.sh` (the three units named in the commit); `tests/coreapp/run.sh` as a whole, the RISC-V build, `ci/package.sh` and the board were not (the brief).
 
 - **Fault 1 (board, c128.cor of run 45195870019 / 5b21c935): the first character column of the 80-column text is missing ("ersion:", "oading fonts").**
-  - Cause: the T113 D1 window (`hviscol` opens on the dot where `vdc_video.sv` loads the first character) was never in this tree. It was built on branch `t113-vdc-ram` (2026-11-12, Alex: "yes, the column must be visible"), the branch was deleted with the T113 hang's "won't do" (2026-11-15, `486f4368e` changed only the spec text) and its code lives only in `refs/backup/t113-vdc-ram` (`341a7e8e3`). `git log -S VDC_NO_HSS_OFFSET --all` finds the spec commit only. So `vdc_signals_h.sv` at 5b21c935 still opens the window at `col==8 && endCol` (the last dot of column 8): with R25[3:0] = 0 (what Busted Boulders programs: `L37BF` writes R25 = $80) the first character is loaded at pixel `ps` = 0 of column 8 and is cut off, 7 dots go. No T257, T170 or T258 change touches `vdc_signals_h.sv`; `core_sources.tcl` and the `host/` include shadowing play no part (the module is read once, from `cores/c128/vdc/`).
-  - Fix: `vdc_signals_h.sv` / `vdc_signals.sv` / `vdc_top.sv` as in `341a7e8e3` (`reg_cdh`, `reg_hss`, `ps`, `vstart`; byte for byte the backup's content). `sim/run_vdc.sh` / `vdc_model.py`: tests 5-10 add R25[3:0] = 3, 1, 2, 4, 5, 6 to 0 (test 4) and 7 (test 2), and the control (`-DVDC_NO_HSS_OFFSET`, test 4 must differ) is back.
-  - Bench (builder, `trx64-sim-env:4`): `run_vdc.sh` tests 2-10 "2 checks ok" each, i.e. 0 differing pixels against the model for R25[3:0] = 0..7; control "the mutant differs from the model (92284 pixels differ)"; `PASS run_vdc`. `run_pixw.sh` (T257 S1-S3 and T113 S9 with the change in): `PASS run_pixw`.
+  - Cause: the T113 D1 window (`hviscol` opens on the dot where `vdc_video.sv` loads the first character) was never in this tree. It was built on branch `t113-vdc-ram` (2026-11-12, Alex: "yes, the column must be visible"), the branch was deleted with the T113 hang's "won't do" (2026-11-15, `486f4368e` changed only the spec text; that "won't do" was about the hang, D1 was never revoked, and Alex asked for the column again on 2026-11-23, translated: "The left column is missing. We had that before.") and its code lives only in `refs/backup/t113-vdc-ram` (`341a7e8e3`). So `vdc_signals_h.sv` at 5b21c935 still opens the window at `col==8 && endCol` (the last dot of column 8): with R25[3:0] = 0 (what Busted Boulders programs: `L37BF` writes R25 = $80) the first character is loaded at pixel `ps` = 0 of column 8 and is cut off, 7 dots go. No T257, T170 or T258 change touches `vdc_signals_h.sv`; `core_sources.tcl` and the `host/` include shadowing play no part (the module is read once, from `cores/c128/vdc/`).
+  - Fix: `vdc_signals_h.sv` / `vdc_signals.sv` / `vdc_top.sv` as in `341a7e8e3` (`reg_cdh`, `reg_hss`, `ps`, `vstart`; byte for byte the backup's content). `sim/run_vdc.sh` / `vdc_model.py`: tests 5-10 add R25[3:0] = 3, 1, 2, 4, 5, 6 to 0 (test 4) and 7 (test 2), (no negative control: not a flash or persistence operation; tests 4-10 fail on the old window).
+  - Bench (builder, `trx64-sim-env:4`): `run_vdc.sh` tests 2-10 "2 checks ok" each, i.e. 0 differing pixels against the model for R25[3:0] = 0..7; `PASS run_vdc`. `run_pixw.sh` (T257 S1-S3 and T113 S9 with the change in): `PASS run_pixw`.
   - Cost (estimate as in T113 D1, not measured): +15 to +20 LUT (a 5-bit add/mux for `ps`, `ps < cth`, `pixel == ps`).
+  - Rerun with the window events below (builder, `trx64-sim-env:4`): `run_vdc.sh` tests 1-10 ok (53 checks, then 2 each), `PASS run_vdc`; `run_pixw.sh` S9 (6 frames, woven pictures 0 pixel mismatches, 200-line frames 400 rows) `PASS run_pixw`; yosys `-noautowire` on `vdc_signals_h.sv`: clean.
+  - Window events (review): start and end fire on `(vstart || endCol)`, not on the one dot `pixel == ps`, so an R25 write that moves `ps` past the current dot cannot miss either (a missed start shifts the rows of `c128_pixw` by one for the rest of the frame, a missed end leaves the window open); about 2 LUT.
+  - What D1 costs: the window follows R25[3:0] (T113 D1 option A as decided: "the capture window follows the R25 smooth-scroll value"). A horizontal smooth scroll through R25[3:0] therefore no longer moves the captured picture inside the window; a sideways scroller that uses R25 moves in whole characters.
+- **Open finding (not fixed, predates the window fix): the VDC's double width shows no picture.** `c128_pixw.v` counts one pixel per `dotst` (`layer2_c128.v:765`: `vdc_ce && c64_ce && rg_vdc_en`) and captures only while `x_n < X0 + COLS` and closes a row at `grp_n == WORDS` (`c128_pixw.v:138-141`, 640 pixels). `vdc_top.sv:62` gives `enable <= ~(reg_dbl & clkdiv[1]) & clkdiv[0]` and `vdc_top.sv:49` `pixel_ce <= enable`, so in double width `pixel_ce` runs at half rate: a line holds about 41 x 8 strobes, never 640, `last_word` never fires and no line is written. Not benched (`run_vdc.sh` reads the VDC's own frame, not `c128_pixw`).
 - **Fault 2 (the interlaced title picture of Busted Boulders is made of broken lines): cause not found, nothing changed.** Evidence in the report of the session; `c128Mega65`'s `vdc_signals_v.sv` equals ours before T113 D11 (its README lists the high-res interlace bitmap modes as known wrong), so there is nothing to take from it for the memory lines of the two fields.
 
 ## Questions only Alex can answer (one at a time)
