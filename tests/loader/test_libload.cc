@@ -992,7 +992,7 @@ static void menu_record()
     std::vector<uint8_t> route = read_file("menu_route.bin");
     refused("menu with a route", w, with_menu(Img("alpha", "A"), route), LIB_BAD_FILE, "alpha", "gives a route");
     std::vector<uint8_t> hides = read_file("menu_hide.bin");
-    refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides and renames");
+    refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides or renames");
     Img f2("alpha", "A");
     f2.flags = 8;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");

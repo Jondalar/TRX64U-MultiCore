@@ -191,9 +191,20 @@ static bool drv_service(void) { return cbm1541_service(g_c); }
 static int drv_media_flush(char *msg, int msglen) { REASON(msg, msglen); return cbm1541_media_flush(g_c, msg, msglen); }
 static bool drv_media_pending(void) { return cbm1541_media_pending(g_c); }
 
+// The reset of drive A when the core has made one, as the C64's reset does it (the check of "Resets when C64 resets" is the caller's); it never makes a drive: -1 and no reason without one.
+static int drv_reset(char *msg, int msglen)
+{
+    CbmDrive *d = g_c ? (CbmDrive *)g_c->drive : 0;
+    if (!d) {
+        return -1;
+    }
+    REASON(msg, msglen);
+    return d->reset(msg, msglen);
+}
+
 static const Cbm1541Api g_drv = {
     sizeof(Cbm1541Api), drv_slot_spec, drv_slot_mount, drv_slot_eject, drv_info, drv_image_size, drv_image_read, drv_image_write, drv_set_options, drv_create,
-    drv_service, drv_media_flush, drv_media_pending,
+    drv_service, drv_media_flush, drv_media_pending, drv_reset,
 };
 
 // ---- uci (uci_api.h) ---------------------------------------------------------------------------------------------------------------------------------

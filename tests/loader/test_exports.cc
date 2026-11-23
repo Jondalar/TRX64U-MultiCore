@@ -257,6 +257,9 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     CHECK(blob[0] == 0 && blob[3] == 0);
     Cbm1541Options opt = { sizeof(opt), 15, 1, 0, 1, 3 };
     CHECK(!d->set_options(&opt));
+    g_stub.log.clear();
+    CHECK_EQ(d->reset(0, 0), -1);                                          // reset: no drive made, -1 and nothing made or called
+    CHECK(g_stub.log.empty());
     char m2[40];
     CHECK_EQ(d->create("/x.d64", CBM1541_FORMAT_D64, "disk", m2, sizeof(m2)), 1);
     CHECK(strstr(m2, "No drive") != 0 && g_stub.log.find("create") == std::string::npos);
@@ -281,6 +284,15 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     CHECK(!d->drive_info(0, &info));
     CHECK(g_stub.log.empty());
     drive.attached_ = true;
+    // reset: the drive that was made is reset, the reason comes back, and the call makes no drive (the log has no "drive;")
+    g_stub.log.clear();
+    g_stub.rc = 3;
+    char rm[16];
+    CHECK_EQ(d->reset(rm, sizeof(rm)), 3);
+    CHECK_STR(rm, "reset");
+    CHECK_STR(g_stub.log.c_str(), "drive_reset;");
+    g_stub.rc = 2;
+    g_stub.log.clear();
     // drive A
     CHECK(d->drive_info(0, &info));
     CHECK(info.size == sizeof(info) && info.type == CBM1541_TYPE_1581 && info.powered == 1 && info.unit == 9 && info.mode == CBM1541_MODE_RO && info.swap_delay_ms == 700);

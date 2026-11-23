@@ -81,6 +81,12 @@ CbmDrive::CbmDrive(CoreIo *, CoreFs *)
 }
 CbmDrive::~CbmDrive() { }
 void CbmDrive::set_reset_with_c64(bool on) { note(0, "reset_with_c64(%d)", on); }
+int CbmDrive::reset(char *msg, int msglen)
+{
+    note(0, "drive_reset");
+    say(msg, msglen, "reset");
+    return g_stub.rc;
+}
 int CbmDrive::create(const char *path, int format, const char *name, char *msg, int msglen, char *, int, bool, bool, int *)
 {
     note(0, "create(%s,%d,%s)", path, format, name);
