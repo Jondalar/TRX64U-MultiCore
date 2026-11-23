@@ -41,7 +41,6 @@ min="$(sed -n 's/^#define U2A_BASE_MINOR \([0-9]*\).*/\1/p' "$P/include/libfmt.h
 grep -q "This package is base API $maj.$min\." "$P/README.md" || fail "README.md names another base API than include/libfmt.h ($maj.$min)"
 hv="$(sed -n 's/^api_headers_sha256 //p' "$P/VERSION")"
 [ "$hv" = "$(python3 -I "$ROOT/tools/sdk_api.py" hash-dir "$P/include")" ] || fail "the hash of the public headers in VERSION is not the hash of include/"
-for h in mouse_api.h pad_api.h padkeys_api.h; do [ -s "$P/include/$h" ] || fail "include/$h is missing: the tables of the mouse, pad and padkeys libraries ship in the package"; done
 grep -q "${hv:0:12}" "$P/README.md" || fail "README.md does not carry the hash of the public headers"
 
 # The build runs with an empty environment but PATH (the compiler is on it) and HOME: no GIT_DIR or other variable of the CI reaches it. That

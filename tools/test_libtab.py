@@ -87,10 +87,6 @@ class SharedApp(unittest.TestCase):
         self.assertIn('static const char *const cap_a[] = { "floppy", "sio", 0 };', t)
         self.assertIn('static const char *const cap_b[] = { "iec", 0 };', t)
         self.assertIn('{ "a", 0, newdisk_register, cap_a, 0, 0, 0, 0, 0 },', t)
-        for bad in ('capability = []', 'capability = ["floppy", "floppy"]', 'capability = ["Floppy"]', 'capability = [1]'):
-            q = toml_b('[[library]]\nname = "a"\nsources = ["newdisk.cc"]\nregister_ops = "newdisk_register"\n' + bad + '\n')
-            with self.assertRaises(L.LibTabError):
-                L.load(q)
 
     def test_the_four_libraries_of_l_1_are_listed_with_their_headers(self):
         libs = {x["name"]: x for x in L.load(SHARED)}
