@@ -227,6 +227,33 @@ int main()
         CHECK_EQ(ui.returns, 0);
         CHECK(ui.msgs.size() && ui.msgs[0].find("RUN/STOP") == std::string::npos);
     }
+    // --- P1-4: release_core (boot.cc) lets the core go on every path that ends a start, unless run.cc found the bitstream not to be this core's: then no path releases it
+    {
+        AtariIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *v;
+        setup(c, io, fs, px, st, v);
+        char msg[200] = "";
+        CHECK_EQ(boot_finish(&c, msg, sizeof(msg)), 0);                  // control: an accepted identity is released and the core is started
+        CHECK_EQ(io.reset_releases, 1);
+        CHECK(c.started);
+        CHECK_EQ(boot_cold_reset(&c, msg, sizeof(msg)), 0);
+        CHECK_EQ(io.reset_releases, 2);
+    }
+    {
+        AtariIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *v;
+        setup(c, io, fs, px, st, v);
+        c.identity_refused = true;
+        snprintf(c.identity_why, sizeof(c.identity_why), "the bitstream is not the Atari core");
+        char msg[200] = "";
+        CHECK_EQ(boot_finish(&c, msg, sizeof(msg)), 1);                  // the start's own release
+        CHECK_STR(msg, "the bitstream is not the Atari core");
+        CHECK_EQ(io.reset_releases, 0);
+        CHECK(!c.started);
+        msg[0] = 0;
+        CHECK_EQ(boot_cold_reset(&c, msg, sizeof(msg)), 1);              // a reset asked later: held again, not released
+        CHECK_STR(msg, "the bitstream is not the Atari core");
+        CHECK_EQ(io.reset_releases, 0);
+        CHECK(!c.started);
+    }
     // --- T243 S4: the USB keyboard's ESC asks as the matrix's RUN/STOP does; no other key does
     CHECK(boot_leave_key(KEY_BREAK));
     CHECK(boot_leave_key(KEY_ESCAPE));

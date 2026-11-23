@@ -455,7 +455,7 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         if (!path) {
             return error(r, -32602, r.params.get("bytes_b64") ? "bytes_b64: this application starts a file on a stick; give prg_path" : "prg_path is required", out, cap);
         }
-        const char *list = row->kind == CK_LOAD ? "prg.load|c64.load_prg" : "prg.run|c64.run_prg";
+        const char *list = row->kind == CK_LOAD ? "prg.load" : "prg.run";
         const char *op = pick(c, list, buf, sizeof(buf));
         if (!op) {
             return missing(r, m, list, out, cap);

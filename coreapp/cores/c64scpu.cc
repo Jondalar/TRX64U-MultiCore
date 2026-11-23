@@ -355,7 +355,7 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
 
-// T206: Mount & Run of a PRG inside a disk image reads the file out of the image and runs it (the C64's c64.run_prg): reset, wait for READY, place, RUN or SYS
+// T206: Mount & Run of a PRG inside a disk image reads the file out of the image and runs it (the C64's prg.run): reset, wait for READY, place, RUN or SYS
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     return cbm_run_queue(c, &scpu_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;

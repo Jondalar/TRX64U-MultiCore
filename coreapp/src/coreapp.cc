@@ -24,13 +24,14 @@
 #include "bundle.h"
 #include "libtab.h"
 #include "run.h"
+#include "appsvc.h"
 
 #include "videomode.h"
 #include "handover.h"
 #include "walltime.h"
 
-// trx_io.cc asks which TCP port the monitor app serves; a core application has none.
-extern "C" uint16_t app_trx_rpc_port(void) { return 0; }
+// trx_io.cc asks which TCP port an application serves for the identity block: the one an application announced (appsvc.h), 0 while none did.
+extern "C" uint16_t app_trx_rpc_port(void) { return appsvc_rpc_port(); }
 
 // The scan mode the host application put up, which it hands over (T105): the host's scaler, overlay, pixel layer and
 // HDMI encoder need one to show the pixel layer, and a core that came up in a different one from the menu the user

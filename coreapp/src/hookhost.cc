@@ -87,12 +87,9 @@ bool hooks_present(void)
     return g_hooks != 0;
 }
 
-int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran)
+int hooks_start(CoreCtx *c, char *msg, int msglen)
 {
     int rc = 0;
-    if (ran) {
-        *ran = false;
-    }
     if (msg && msglen > 0) {
         msg[0] = 0;
     }
@@ -101,9 +98,6 @@ int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran)
         Guard scope;
         rc = start(msg, msglen) ? 1 : 0;
         msg[msglen - 1] = 0;
-        if (ran) {
-            *ran = true;
-        }
     }
     if (!g_hooks) {
         return rc;

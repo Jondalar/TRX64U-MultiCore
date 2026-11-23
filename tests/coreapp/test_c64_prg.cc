@@ -31,13 +31,13 @@ static int run(C64Rig &r, const char *path, OpResult *res)
 {
     OpIn in = in_str("path", path);
     r.menu_op_begin();
-    return ops_call(&r.c, "c64.run_prg", &in, 1, res);
+    return ops_call(&r.c, "prg.run", &in, 1, res);
 }
 static int load(C64Rig &r, const char *path, int start, OpResult *res)
 {
     OpIn in[2] = { in_str("path", path), in_int("start", start) };
     r.menu_op_begin();
-    return ops_call(&r.c, "c64.load_prg", in, 2, res);
+    return ops_call(&r.c, "prg.load", in, 2, res);
 }
 
 static C64Rig *booted(bool monolith = true)
