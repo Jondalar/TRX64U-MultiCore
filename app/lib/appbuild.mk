@@ -1,7 +1,7 @@
 # The app of one core, linked from the SDK package (T239.3 D31, P3-2). Run by `python3 tools/app_build.py build` (never by hand): the working directory is the build's
 # output directory, which holds what the tool generated from the core's TOML A and TOML B:
 #   build.mk       SDK, SIZED_SRCS (the sources of the package's base/ that depend on the core), SRC_DIRS (the core's own source directories), LIB_SRCS (the sources of the
-#                  libraries its TOML B names), OWN_SRCS ([app] sources), BASE_SOURCES ([app] base_sources), CORE_DESC ([app] desc)
+#                  libraries its TOML B names), OWN_SRCS ([app] sources), BASE_SOURCES ([app] base_sources), CORE_DESC ([app] desc, empty for a core described by its record)
 #   appsizes.h     the maxima of its [sizes] table                       drv/drvtab.h, drv/drvtab.c   the driver table of its TOML A
 #   lib/libtab_table.cc  the library table of its TOML B                 io.ld        the I/O addresses of its TOML A as linker symbols
 # What the package holds, beside this file (mk/):
@@ -48,9 +48,9 @@ obj/libtab_table.o: lib/libtab_table.cc | obj
 obj/drvtab.o: drv/drvtab.c | obj
 	@$(CC) $(COPTIONS) $(PATH_INC) -MMD -MP -c -o $@ $<
 
-# the core table holds the one core of this app (the core app Makefile's target `own` does the same for trx64u's image)
-obj/table.o: CPPOPT += -UCORE_OWN_IMAGE_C64 -DCORE_ONLY=$(CORE_DESC)
-obj/table.o: $(if $(CORE_DESC),,$(error [app] desc names the descriptor symbol of the core (its TOML B)))
+# the core table holds the one core of this app (the core app Makefile's target `own` does the same for trx64u's image); [app] desc names its descriptor symbol. A core that
+# is described by its record (D17) has no descriptor in the app: its table is empty and the start makes the descriptor from the bundle's record
+obj/table.o: CPPOPT += -UCORE_OWN_IMAGE_C64 $(if $(CORE_DESC),-DCORE_ONLY=$(CORE_DESC),-DCORE_NONE)
 
 # sha256 is optimised for speed in the tree's build as well (the hash loop of Reload core)
 obj/sha256.o: COPTIONS += -O3

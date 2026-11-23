@@ -1,0 +1,94 @@
+# TOML A of the example core (T239.3 S17, D30, D31): the gateware of a core as capabilities. The blocks with owner "base" are the ones the SDK's base drivers and its shared libraries are
+# linked against (the package's gateware/shared.toml is where a core's TOML A starts from; the base sources compiled for a core name these blocks, so a core's TOML A holds them at the
+# addresses of its own gateware). The last block, example_ctl, is the core's own: owner "core", its register map is example_ctl.map.toml beside this file (`--maps`), and the build
+# generates its macros (DRV_example_ctl_*) into the driver table. `python3 tools/descrec.py drivers gateware/example.toml OUT --maps ../maps --maps gateware` shows them.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "EXMP"
+block = "ident"
+
+[[block]]
+name = "ident"
+module = "trx_io"
+owner = "base"
+address = 0x101A0000
+size = 0x100
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "cart_regs"
+module = "c64_io"
+owner = "base"
+address = 0x10040000
+size = 0x100
+map = "c64cart_regs"
+
+[[block]]
+name = "drive_a"
+module = "c1541"
+owner = "base"
+address = 0x10020000
+size = 0x4000
+map = "cbm1541"
+
+[[block]]
+name = "cmd_if"
+module = "uci"
+owner = "base"
+address = 0x10044000
+size = 0x10
+map = "uci"
+
+[[block]]
+name = "gcr_coder"
+module = "gcr_coder"
+owner = "base"
+address = 0x10060500
+size = 0x10
+map = "gcr_coder"
+
+[[block]]
+name = "icap"
+module = "icap"
+owner = "base"
+address = 0x10060600
+size = 0x100
+map = "icap"
+
+[[block]]
+name = "c64_debug"
+module = "c64_io"
+owner = "base"
+address = 0x10181800
+size = 0x10
+  [[block.property]]
+  name = "debug"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+
+# The core's own block: one control register and one status register of the example core's gateware (module example_ctl). The address lies in no window the base drives itself.
+[[block]]
+name = "example_ctl"
+module = "example_ctl"
+owner = "core"
+address = 0x101B0000
+size = 0x10
+map = "example_ctl"
