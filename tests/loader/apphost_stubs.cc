@@ -13,7 +13,7 @@ int contrib_merge(const CoreDesc *, const Skeleton *, const Overrides *, const C
 FileMgr::FileMgr(CoreCtx *, const Port &) { }
 FileMgr::~FileMgr() { }
 
-AppDlg::AppDlg(OsPort *, CoreFs *) { }
+AppDlg::AppDlg(OsPort *os, CoreFs *fs) : os_(os), fs_(fs), pk_list_(0) { }      // ~AppDlg frees pk_list_: it has to start null, as appdlg.cc's constructor sets it
 void AppDlg::message(const char *, const char *) { }
 int AppDlg::buttons(const char *, const char *, int) { return 0; }
 bool AppDlg::confirm(const char *, const char *) { return false; }

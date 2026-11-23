@@ -2716,6 +2716,7 @@ struct AppHostTest {
         World w(U2A_BASE_MINOR);
         w.ld->add_services();
         CoreCtx cx;
+        memset(&cx, 0, sizeof(cx));                                                    // as every other test here: install() reads it (set_ctx)
         StoreOs os;
         CoreLock lock(&os);
         AppIndex idx;
