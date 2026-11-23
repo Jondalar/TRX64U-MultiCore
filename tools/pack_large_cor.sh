@@ -44,6 +44,12 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$SHORT" ] || args+=(--short "$SHORT")
 [ -z "$BITC" ] || args+=(--bit-commit "$BITC")
 [ -z "$APPC" ] || args+=(--app-commit "$APPC")
+# T239.3 D17 / T257 D6: the core's data description (cores/<id>/app/desc.toml) is record 6. cor_pack takes one --desc here, so a caller's own --desc (menu.toml) and the core's file
+# cannot both go in: refused (t239.3's repeatable --desc joins them at the merge)
+if [ -s "$ROOT/cores/$ID/app/desc.toml" ]; then
+    [ -z "$DESC" ] || { echo "pack_large_cor.sh: --desc and cores/$ID/app/desc.toml both given; one description file per core on this branch" >&2; exit 1; }
+    DESC="$ROOT/cores/$ID/app/desc.toml"
+fi
 [ -z "$DESC" ] || args+=(--desc "$DESC")
 [ -z "$OPS" ] || args+=(--ops "$OPS")
 [ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")

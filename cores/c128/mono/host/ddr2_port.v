@@ -83,7 +83,7 @@ module mig_arb #(
     output reg  [127:0] rdata_line,         // client 2
     output reg  [127:0] rline0,             // T133: the whole 128-bit word of client 0's last read (ui_clk, stable until its next read answers)
 
-    input  wire [26:0]  c_addr,             // cart_fill: a write offers both
+    input  wire [26:0]  c_addr,             // cart_fill: a write offers both (the C128 has none with NO_CART_EMU, T257 D11: tied to 0, c_en stays 0)
     input  wire [2:0]   c_cmd,              // command and data at once
     input  wire         c_en,
     output wire         c_rdy,

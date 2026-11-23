@@ -5,6 +5,9 @@
 //     bench's own copy of the 16 entries), 1280 bytes a row, buffers fb_stride apart
 //   - frame_tgl comes once per VDC frame, seq counts them, the buffers go round 0, 1, 2, no line was late (overruns == 0)
 //   - after the run the last three frames are still in their buffers, and nothing was written outside the three buffers
+// Phase 1b (T257): the VDC is not interlaced and shows 240 lines (R6 = 30 rows of 8 lines) and then 224 lines (R6 = 28): the frame must go through whole, source line y in
+// rows 2y and 2y+1 up to y = 239, reported with b2 = 1 (all 480 rows are this picture); of the 224-line frame the rows after line 223 are black (written by the
+// writer's blank jobs), not what an older frame left there.
 // Phase 2 (T113 D11): the VDC is put into interlace sync and video (R8 = 3, Busted Boulders' registers: 10-line glyphs, 48 rows, 240 lines a
 // field) with a synthetic 10-line font, text first, then a bitmap; every picture the writer reports as woven (latest b2) is compared with a
 // model that takes field 0 of the picture to rows 2y and field 1 to rows 2y+1 (the fields are the bench's shadow of the VDC's stream and its
@@ -23,7 +26,7 @@ module tb_c128_pixw;
     c128_x dut (.clk(clk), .rst(rst), .bus_en(bus_en), .vdc_cs(cs), .vdc_we(we), .vdc_rs(rs), .vdc_din(din), .vdc_dout(dout),
         .vicie_cs(1'b0), .vicie_we(1'b0), .vicie_a0(1'b0), .vicie_din(8'd0), .vicie_dout(), .k_sel(), .fast(),
         .vdc_rgbi(rgbi), .vdc_ce(ce), .vdc_hb(hb), .vdc_vb(vb), .vdc_il(vdc_il),
-        .vd_clk(1'b0), .vd_addr(16'd0), .vd_we(1'b0), .vd_wdata(8'd0), .vd_rdata());
+        .vd_clk(1'b0), .vd_addr(16'd0), .vd_we(1'b0), .vd_wdata(8'd0), .vd_rdata(), .vk_req(18'd0), .vk_ans());
 `include "vdc_bus.svh"
 
     // ---- the frame writer
@@ -40,7 +43,7 @@ module tb_c128_pixw;
     wire [127:0] e_wdf_data;
     wire [15:0] e_wdf_mask;
     reg e_rdy = 1'b1;
-    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200), .LINES_IL(240)) pw (
+    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(240), .LINES_IL(240), .LINES_BASE(200)) pw (
         .sys_clk(clk), .sys_rst(rst), .dotst(ce & wr_en), .rgb565(px), .hblank(hb), .vblank(vb), .il(vdc_il[1]), .field(vdc_il[0]),
         .quiet(quiet), .frame_tgl(frame_tgl), .latest(latest), .seq(seq), .overruns(overruns),
         .fb_base(fb_base), .fb_stride(fb_stride), .ui_clk(ui_clk), .ui_rst(1'b0),
@@ -263,6 +266,16 @@ module tb_c128_pixw;
                 end
             end
         end
+        if (ph == 4) begin
+            tl_n = tl_n + 1;
+            if (tl_n > tl_skip && tl_cmp < 5) begin
+                tl_cmp = tl_cmp + 1;
+                if (latest[2] !== 1'b1) tl_b2_bad = tl_b2_bad + 1;
+                if (latest[1:0] > 2 || latest[1:0] == tl_prev) tl_buf_bad = tl_buf_bad + 1;
+                cmp_tall(latest[1:0], vf);
+            end
+            tl_prev = latest[1:0];
+        end
         if (ph == 1 && nrep <= 8) begin
             cmp_frame(latest[1:0], nrep);
             check(bad == 0, "S9 report: every pixel of the reported frame is in its buffer, both rows of every source line");
@@ -375,8 +388,46 @@ module tb_c128_pixw;
         end
     endtask
 
+    // ---- phase 1b: a frame that is not interlaced with more than 200 lines
+    integer tl_n = 0, tl_cmp = 0, tl_bad = 0, tl_b2_bad = 0, tl_buf_bad = 0, tl_lines = 0, tl_seen_lines = 0, tl_prev = -1, tl_skip = 3, tl_first_r = -1;
+    integer tr, tc, tfr, tshow;
+    task cmp_tall(input integer b, input integer fr);
+        integer y, ln2;
+        begin
+            ln2 = scnt[fr % 4]; if (ln2 > 240) ln2 = 240;
+            tl_seen_lines = scnt[fr % 4];
+            for (tr = 0; tr < 480; tr = tr + 1) begin
+                y = tr / 2;
+                for (tc = 0; tc < 640; tc = tc + 1) begin
+                    word = ddr[b * BW + tr * 80 + tc / 8];
+                    got = word >> ((tc % 8) * 16);
+                    exp = (y < ln2) ? pal(sh[(fr % 4) * FS + y * 640 + tc]) : 16'h0000;
+                    if (got !== exp) begin
+                        if (tl_bad == 0) $display("     tall row %0d col %0d: %h, expected %h (frame %0d buffer %0d, %0d lines)", tr, tc, got, exp, fr, b, ln2);
+                        tl_bad = tl_bad + 1;
+                    end
+                end
+            end
+        end
+    endtask
+    task automatic run_tall(input integer rows, input [7:0] r7, input integer lines_expected);
+        integer nn;
+        begin
+            ph = 4; tl_n = 0; tl_cmp = 0; tl_bad = 0; tl_b2_bad = 0; tl_buf_bad = 0; tl_prev = -1; tl_skip = 3; tl_lines = lines_expected;
+            wr_reg(8'd7, r7); wr_reg(8'd6, rows[7:0]);
+            nn = 0;
+            while (tl_cmp < 5 && nn < 40000000) begin @(posedge clk); nn = nn + 1; end
+            repeat (30000) @(posedge clk);
+            check(tl_cmp >= 5, "S9 tall: five frames of more than 200 lines were reported");
+            check(tl_seen_lines == lines_expected, "S9 tall: the VDC frame has the expected number of lines");
+            check(tl_bad == 0, "S9 tall: every one of the 480 rows is the frame (source line y in rows 2y, 2y+1; rows after the last line black)");
+            check(tl_b2_bad == 0, "S9 tall: latest b2 = 1 (480 rows are this picture)");
+            check(tl_buf_bad == 0, "S9 tall: the buffers go round");
+            check(overruns == 16'd0, "S9 tall: no late line (overruns == 0)");
+        end
+    endtask
     integer maxcyc, nf, n;
-    integer stray, last3_bad, distinct, ndist, kk2;
+    integer stray, last3_bad, distinct, ndist, kk2, nstray;
     reg [15:0] seen_mask;
     initial begin
         if (!$value$plusargs("maxcyc=%d", maxcyc)) maxcyc = 160000000;
@@ -433,6 +484,11 @@ module tb_c128_pixw;
         stray = 0;
         for (k = 0; k < NW; k = k + 1) if (wrote[k] && (k % BW) >= 400 * 80) stray = stray + 1;
         check(stray == 0, "S9 a frame that is not interlaced writes rows 0..399 only (nothing in rows 400..479)");
+        run_tall(30, 8'd31, 240);                           // 30 rows x 8 lines: the whole 480 rows are written by the frame itself
+        run_tall(28, 8'd30, 224);                           // 28 rows: the rows after line 223 are the writer's blanks
+        nstray = 0;
+        for (k = 0; k < NW; k = k + 1) if (wrote[k] && !((k % BW) < BUFWORDS && (k / BW) < 3)) nstray = nstray + 1;
+        check(nstray == 0, "S9 tall: nothing written outside the three 640 x 480 buffers");
         run_il(0);
         run_il(1);
         run_il(2);

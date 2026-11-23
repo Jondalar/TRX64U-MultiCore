@@ -394,7 +394,9 @@ module c64_top_c128 #(
   input  wire  [15:0] vd_addr,
   input  wire         vd_we,
   input  wire   [7:0] vd_wdata,
-  output wire   [7:0] vd_rdata
+  output wire   [7:0] vd_rdata,
+  input  wire  [17:0] vk_req,          // T257: the VDC read-back (c128_x.v)
+  output wire   [8:0] vk_ans
 );
 
 // ---------------------------------------------------------------------------
@@ -2093,7 +2095,8 @@ c128_x x (
   .vicie_cs(!vicie_cen), .vicie_we(vicie_we_a), .vicie_a0(vicie_a0), .vicie_din(vicie_din), .vicie_dout(vicie_dout),
   .k_sel(k_sel), .fast(c128_fast),
   .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il),
-  .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata)
+  .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata),
+  .vk_req(vk_req), .vk_ans(vk_ans)
 );
 
 endmodule

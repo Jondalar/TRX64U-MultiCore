@@ -3,6 +3,8 @@
 // test core where a register or a setting has to be made up.
 #include <string>
 #include <set>
+#include <map>
+#include <vector>
 #include "check.h"
 #include "fakes.h"
 #include "test_core.h"
@@ -14,6 +16,7 @@
 #include "listgrow.h"
 #include "settings.h"
 #include "trx64u_menu.h"
+#include "descrec.h"
 extern const CoreDesc amiga_desc, amiga1200_desc, apple2_desc, c64_desc;
 
 const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &amiga1200_desc, &apple2_desc, &c64_desc, 0 };
@@ -110,8 +113,141 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
     return true;
 }
 
-int main()
+// the 64 KiB register window of the core: a read goes to the byte the offset names, every offset read is kept
+struct WinIo : FakeIo {
+    std::map<uint32_t, uint8_t> win;
+    std::vector<uint32_t> seen;
+    uint8_t rd(uint32_t reg) { seen.push_back(reg); auto it = win.find(reg); return it == win.end() ? 0 : it->second; }
+};
+
+static std::vector<uint8_t> slurp(const char *path)
 {
+    std::vector<uint8_t> v;
+    FILE *f = fopen(path, "rb");
+    if (!f) { return v; }
+    int ch;
+    while ((ch = fgetc(f)) != EOF) { v.push_back((uint8_t)ch); }
+    fclose(f);
+    return v;
+}
+static void wr32(std::vector<uint8_t> &b, uint32_t o, uint32_t v) { for (int i = 0; i < 4; i++) b[o + i] = (uint8_t)(v >> (8 * i)); }
+
+// the record's bytes as the board reads them: an exact-size copy, kept for as long as the names are used
+static DescRecord *parse_rec(const std::vector<uint8_t> &b, char *why)
+{
+    uint8_t *exact = new uint8_t[b.size()];
+    memcpy(exact, b.data(), b.size());
+    DescRecord *d = new DescRecord;
+    if (descrec_parse(exact, (uint32_t)b.size(), d, why, 200) != 0) {
+        delete d;
+        return 0;
+    }
+    return d;
+}
+
+int main(int argc, char **argv)
+{
+    // ---- T257 D6: the register list is data in the record (argv: desc_regs.bin desc_c128.bin desc_default.bin desc_trx64u.bin of tests/coreapp/gen_bundle.py) ----
+    if (argc < 5) { printf("test_corereport: the four record fixtures are missing\n"); return 1; }
+    {
+        char why[200];
+        std::vector<uint8_t> bytes = slurp(argv[1]);
+        CHECK(bytes.size() > 216 && bytes[4] == 6 && bytes[6] == 216);          // a record with a register table is version 6, header 216
+        DescRecord *rec = parse_rec(bytes, why);
+        CHECK(rec != 0);
+        CHECK_EQ(rec->nregs, 3);
+        CHECK_STR(rec->regs[1].name, "WINDOW word");
+        CHECK(rec->regs[1].reg == 0xE100 && rec->regs[1].bytes == 2 && rec->regs[2].reg == 0xFFFC && rec->regs[2].bytes == 4);
+        // the descriptor has its own list (three C registers); the record's list is the one the report shows
+        Rig r;
+        WinIo wio;
+        CoreDesc merged;
+        descrec_apply(*rec, &r.d, &merged);
+        CHECK(merged.report_regs == rec->regs && merged.nreport_regs == 3);
+        CHECK(r.d.report_regs == regs && r.d.nreport_regs == 3);                  // the base is not touched
+        { CoreDesc tm; descrec_apply(*rec, &testcore::desc, &tm); CHECK(!desc_check(&tm)); }          // the record's list passes the check, 0xFFFC + 4 included
+        wio.win[0x10] = 0x5A; wio.win[0xE100] = 0x34; wio.win[0xE101] = 0x12;
+        wio.win[0xFFFC] = 0xEF; wio.win[0xFFFD] = 0xBE; wio.win[0xFFFE] = 0xAD; wio.win[0xFFFF] = 0xDE;
+        r.c.desc = &merged; r.c.io = &wio;
+        int n = core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out));
+        std::string t(g_out, n);
+        CHECK(has(t, "LOW byte") && has(t, "$010 = $5A"));
+        CHECK(has(t, "WINDOW word") && has(t, "$E100 = $1234"));
+        CHECK(has(t, "TOP dword") && has(t, "$FFFC = $DEADBEEF"));
+        CHECK(!has(t, "ALPHA status"));
+        CHECK((int)wio.seen.size() == 1 + 2 + 4);                                  // nothing but the bytes of the three registers
+        for (uint32_t o : wio.seen) { CHECK(o == 0x10 || o == 0xE100 || o == 0xE101 || (o >= 0xFFFC && o <= 0xFFFF)); }
+        r.c.io = &r.io;
+        delete rec;
+
+        // an older record, with no table: it reads, nregs is 0, and the descriptor's own list stays
+        for (int k = 3; k <= 4; k++) {
+            std::vector<uint8_t> old = slurp(argv[k]);
+            CHECK(old.size() > 176 && old[4] < 6);                                  // version 4 (no pad, no restart) and version 5 (a restart)
+            DescRecord *o = parse_rec(old, why);
+            CHECK(o != 0);
+            CHECK_EQ(o->nregs, 0);
+            CoreDesc m2;
+            descrec_apply(*o, &r.d, &m2);
+            CHECK(m2.report_regs == regs && m2.nreport_regs == 3);
+            delete o;
+        }
+
+        // the C128's record (cores/c128/app/desc.toml): R0-R37, the status and the selected register at page E, one byte each, in order
+        std::vector<uint8_t> cb = slurp(argv[2]);
+        DescRecord *c128 = parse_rec(cb, why);
+        CHECK(c128 != 0);
+        CHECK_EQ(c128->nregs, 40);
+        for (int i = 0; i < 40; i++) {
+            CHECK(c128->regs[i].reg == 0xE100 + i && c128->regs[i].bytes == 1);
+        }
+        CHECK_STR(c128->regs[0].name, "VDC R0 horizontal total");
+        CHECK_STR(c128->regs[4].name, "VDC R4 vertical total");
+        CHECK_STR(c128->regs[39].name, "VDC selected register");
+        CoreDesc cd;
+        descrec_apply(*c128, &testcore::desc, &cd);
+        CHECK(!desc_check(&cd));
+        WinIo cio;
+        for (int i = 0; i < 40; i++) { cio.win[0xE100 + i] = (uint8_t)(0x80 + i); }
+        CoreCtx cc;
+        memset(&cc, 0, sizeof(cc));
+        FakeFs cfs;
+        cc.desc = &cd; cc.io = &cio; cc.fs = &cfs;
+        n = core_report_build(&cc, 0, false, "", 0, g_out, sizeof(g_out));
+        std::string ct(g_out, n);
+        CHECK(has(ct, "VDC R4 vertical total") && has(ct, "$E104 = $84"));
+        CHECK(has(ct, "VDC R25 horizontal smooth scroll, mode") && has(ct, "$E119 = $99"));
+        CHECK(has(ct, "VDC status") && has(ct, "$E126 = $A6"));
+        CHECK_EQ((int)cio.seen.size(), 40);
+        CHECK(!has(ct, "This core declares no register list"));
+        delete cc.ops;
+        delete c128;
+
+        // damage: every refusal comes with a sentence about the register table
+        const uint32_t REGT = 208;                                                 // (offset, count) of the table; entries follow at its offset: name, reg, bytes
+        uint32_t ro = (uint32_t)(bytes[REGT] | bytes[REGT + 1] << 8 | bytes[REGT + 2] << 16 | (uint32_t)bytes[REGT + 3] << 24);
+        std::vector<uint8_t> b = bytes;
+        wr32(b, REGT + 4, 65);                                                     // more entries than the application takes
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register"));
+        b = bytes; wr32(b, REGT, (uint32_t)b.size() - 8);                          // the table runs past the end
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register"));
+        b = bytes; wr32(b, REGT, 100);                                             // the table starts inside the header
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register"));
+        b = bytes; wr32(b, REGT + 4, 0);                                           // an offset without entries
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register"));
+        b = bytes; wr32(b, ro + 12 + 8, 3);                                        // a width of 3
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register 1"));
+        b = bytes; wr32(b, ro + 12 + 4, 0xFFFD);                                   // 0xFFFD + 2 bytes is past the window: the entry says 2
+        wr32(b, ro + 12 + 8, 4);
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register 1"));
+        b = bytes; wr32(b, ro + 12 + 4, 0x10000);                                  // the first offset outside the window
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register 1"));
+        b = bytes; wr32(b, ro, 0x7FFFFFF0);                                        // a name outside the string table
+        CHECK(parse_rec(b, why) == 0);
+        b = bytes; wr32(b, ro + 12 * 2, 0xFFFFFFFF);                               // no name
+        CHECK(parse_rec(b, why) == 0 && strstr(why, "register 2"));
+    }
+    // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     {
         Rig r;
@@ -244,9 +380,12 @@ int main()
         static const ReportReg unnamed[] = { { "", 0x10, 1 } };
         d.report_regs = unnamed;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
+        static const ReportReg far_[] = { { "far", 0xFFFD, 4 } };          // T257 D6: the whole 64 KiB window, the end of it is the limit
         d.report_regs = far_;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+        static const ReportReg paged[] = { { "page E", 0xE100, 1 }, { "top", 0xFFFC, 4 }, { "page 1", 0x1000, 2 } };
+        d.report_regs = paged; d.nreport_regs = 3;
+        CHECK(!desc_check(&d));
     }
     // the report of a real descriptor names its registers
     {

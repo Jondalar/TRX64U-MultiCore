@@ -252,6 +252,7 @@
 1|c128_scan|120|sh cores/c128/sim/run_scan.sh
 1|c128_vdc|1800|sh cores/c128/sim/run_vdc.sh
 1|c128_pixw|1800|sh cores/c128/sim/run_pixw.sh
+1|c128_vkpeek|1800|sh cores/c128/sim/run_vkpeek.sh
 1|c128_romc|300|sh cores/c128/sim/run_romc.sh
 1|c128_ramd|900|sh cores/c128/sim/run_ramd.sh
 1|c128_ramddr|3600|sh cores/c128/sim/run_ramddr.sh

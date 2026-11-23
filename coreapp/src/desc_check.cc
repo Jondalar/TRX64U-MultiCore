@@ -272,7 +272,7 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         const ReportReg &r = d->report_regs[i];
         if (!text(r.name)) return "report_regs: every register needs a name";
         if (r.bytes != 1 && r.bytes != 2 && r.bytes != 4) return fail("report_regs: \"%s\" is %u bytes wide (1, 2 or 4)", r.name, (unsigned)r.bytes);
-        if ((uint32_t)r.reg + r.bytes > 0x1000) return fail("report_regs: \"%s\" lies outside the register page", r.name);
+        if ((uint32_t)r.reg + r.bytes > 0x10000) return fail("report_regs: \"%s\" lies outside the 64 KiB register window", r.name);
     }
     if (d->nsettings > SETTINGS_MAX - 1) return "settings: too many - the application adds Picture and the libraries add theirs (SETTINGS_MAX)";
     for (int i = 0; i < d->nsettings; i++) {

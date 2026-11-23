@@ -231,6 +231,8 @@ module c64_core_c128 #(
     input  wire       vd_we,
     input  wire [7:0] vd_wdata,
     output wire [7:0] vd_rdata,
+    input  wire [17:0] vk_req,          // T257: the VDC read-back (c128_x.v): {request toggle, 1 = VRAM, address}, cpu_clk
+    output wire [8:0] vk_ans,           // {answer toggle, the byte}
     // T113 5.7: the character ROM store (c128_chr.v), written and read by the application (chr_wclk = cpu_clk)
     input  wire       chr_wclk,
     input  wire       chr_we,
@@ -292,8 +294,13 @@ module c64_core_c128 #(
     end
     wire        cpu_rst_in = cpu_reset_req || s_rst_req;
 
-    // bit 11, the cartridge: a CRT, or a resource of the real port (taken at reset)
-    wire [15:0] flags = C64_FLAGS | {3'd0, reu_en, cart_type[4:0] != 5'd0 || s_present, 11'd0};
+    // bit 11, the cartridge: a CRT, or a resource of the real port (taken at reset); NO_CART_EMU (T257 D11): the real port only
+`ifdef NO_CART_EMU
+    wire        cart_cfg = 1'b0;
+`else
+    wire        cart_cfg = cart_type[4:0] != 5'd0;
+`endif
+    wire [15:0] flags = C64_FLAGS | {3'd0, reu_en, cart_cfg || s_present, 11'd0};
 
     wire [15:0] xc_addr;
     wire  [7:0] xc_din, xc_dout;
@@ -581,9 +588,23 @@ module c64_core_c128 #(
         .cram_tap_we(), .cram_tap_addr(), .cram_tap_din(), .cram_tap_old(),
         .xkeys(xk[23:0]), .x_capslk(xk[24]), .x_d4080(xk[25]), .x_boot64(xk[26]),
         .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
-        .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata)
+        .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata),
+        .vk_req(vk_req), .vk_ans(vk_ans)
     );
 
+`ifdef NO_CART_EMU
+    // T257 D11: the emulated cartridge (cart_slot_c64u with its c64_cartridge model) is not in this build. The slot answers as an empty
+    // port: GAME and EXROM released (high), no IRQ/NMI, no WAIT, IO2 writes not valid, ACTIVE 0, no DDR2 request, no flash event, no
+    // EEPROM change (the app's reads of cart_ee_rdata see 0). The data bus of a read nobody answers is the bus itself, one clock late
+    // (cart_slot_c64u's `last_bus`), so an IO1/IO2 read in an empty slot returns what the bus held, as before.
+    reg  [7:0] nc_bus = 8'hFF;
+    always @(posedge gclk) nc_bus <= xc_din;
+    assign xc_exrom = 1'b1, xc_game = 1'b1, xc_dout = nc_bus, xc_nmi = 1'b0, xc_irq = 1'b0, xc_io2_we_valid = 1'b0, xc_wait = 1'b0;
+    assign cart_active = 1'b0;
+    assign cart_req_tgl = 1'b0, cart_req_we = 1'b0, cart_req_addr = 24'd0, cart_req_data = 8'd0, cart_req_slot = 6'd0, cart_req_cached = 1'b0;
+    assign cart_evt_tgl = 1'b0, cart_evt_word = 34'd0, cart_ee_tgl = 1'b0, cart_ee_rdata = 8'd0;
+    assign l_bank = 16'd0, c_pk_hit = 1'b0, c_pk_mem = 1'b0, c_pk_data = 8'd0, c_pk_maddr = 24'd0;
+`else
     cart_slot_c64u cart (
         .clk(gclk),
         .cart_type(cart_type), .desc(cart_desc), .cart_kill_tgl(cart_kill_tgl), .cart_force_tgl(cart_force_tgl),
@@ -606,12 +627,13 @@ module c64_core_c128 #(
         .pk_addr(16'd0), .pk_cls(2'd0), .pk_hit(c_pk_hit), .pk_mem(c_pk_mem), .pk_maddr(c_pk_maddr),
         .pk_data(c_pk_data)
     );
+`endif
 
     // the real expansion port: ROML/ROMH/IO1/IO2 reads it serves take its data
     assign port_rd = ((!xc_roml || !xc_romh) && s_rom) || (!xc_io1 && s_io1_rd) || (!xc_io2 && s_io2_rd);
     slot_port_c64u #(.EN(SLOT_EN)) slot (
         .clk(clk), .rst(rsti), .ce(ce), .ce_d(ce_d), .halted(halted_r),
-        .bus_int(slot_int), .bus_ext(slot_ext), .cart_int(cart_type[4:0] != 5'd0),
+        .bus_int(slot_int), .bus_ext(slot_ext), .cart_int(cart_cfg),
         .rom_wr_en(slot_wr_en), .ultimax(ultimax), .own_reset(cpu_reset_req || rsti),
         .phi2_p(xc_phi2_p), .cpu_reset(xc_reset), .vic(xc_vic), .vaddr(xc_vaddr), .ba(xc_ba),
         .addr(xc_addr), .din(xc_din), .we(xc_we),

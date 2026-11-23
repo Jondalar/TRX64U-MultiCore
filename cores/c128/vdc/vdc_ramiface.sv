@@ -25,6 +25,9 @@ module vdc_ramiface #(
 	input          ctl_reset, // T140 5.17: warm reset of the copy/fill/read-write engine only (registers and RAM stay)
 	input          enable,
 
+	input   [15:0] dbg_addr,  // T257: the read-back's VRAM address (a CPU-side address, shuffled like the CPU's R18/R19)
+	output   [7:0] dbg_do,    // T257: the byte at dbg_addr, one clock after dbg_addr is stable
+
 	input    [5:0] regA,      // selected register
 	input    [7:0] db_in,     // cpu data in
 	input          enableBus,
@@ -102,7 +105,9 @@ vdcram #(8, RAM_ADDR_BITS) ram
 	.we(ram_we),
 	.addr(shuffleAddr(ram_addr, ram64k, reg_ram /*|| (ramAction==RA_IDLE || ramAction==RA_RFSH)*/)),
 	.dai(ram_di),
-	.dao(ram_do)
+	.dao(ram_do),
+	.addr_b(shuffleAddr(dbg_addr, ram64k, reg_ram)),
+	.dao_b(dbg_do)
 );
 
 wire en_rfsh = col >= reg_hd && col <= reg_hd+reg_drr;

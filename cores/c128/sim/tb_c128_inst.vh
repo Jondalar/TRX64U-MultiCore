@@ -195,6 +195,8 @@
         .vd_we(vd_we),
         .vd_wdata(vd_wdata),
         .vd_rdata(vd_rdata),
+        .vk_req(vk_req),
+        .vk_ans(vk_ans),
         .chr_wclk(chr_wclk),
         .chr_we(chr_we),
         .chr_a(chr_a),

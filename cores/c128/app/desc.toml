@@ -1,0 +1,164 @@
+# The C128's description record (T257 D6; tools/descrec.py, record version 6): data the generic core application reads from the .cor, no per-core code.
+# What it holds: the registers the bug report (F8 -> Bug report, GET /v1/report) lists. The VDC's own registers R0-R37 are read through the core's register
+# page E (coreapp/cores/c128_regs.h C128_PAGE 0xE000): offset 0x100 + n is Rn, 0x126 the status, 0x127 the selected register. A read of any of them changes
+# nothing in the VDC (T257 D5).
+
+[[report_reg]]
+name = "VDC R0 horizontal total"
+reg = 0xE100
+
+[[report_reg]]
+name = "VDC R1 horizontal displayed"
+reg = 0xE101
+
+[[report_reg]]
+name = "VDC R2 horizontal sync position"
+reg = 0xE102
+
+[[report_reg]]
+name = "VDC R3 sync widths (vertical, horizontal)"
+reg = 0xE103
+
+[[report_reg]]
+name = "VDC R4 vertical total"
+reg = 0xE104
+
+[[report_reg]]
+name = "VDC R5 vertical total adjust"
+reg = 0xE105
+
+[[report_reg]]
+name = "VDC R6 vertical displayed"
+reg = 0xE106
+
+[[report_reg]]
+name = "VDC R7 vertical sync position"
+reg = 0xE107
+
+[[report_reg]]
+name = "VDC R8 interlace mode"
+reg = 0xE108
+
+[[report_reg]]
+name = "VDC R9 character total vertical"
+reg = 0xE109
+
+[[report_reg]]
+name = "VDC R10 cursor mode and start line"
+reg = 0xE10A
+
+[[report_reg]]
+name = "VDC R11 cursor end line"
+reg = 0xE10B
+
+[[report_reg]]
+name = "VDC R12 display start high"
+reg = 0xE10C
+
+[[report_reg]]
+name = "VDC R13 display start low"
+reg = 0xE10D
+
+[[report_reg]]
+name = "VDC R14 cursor position high"
+reg = 0xE10E
+
+[[report_reg]]
+name = "VDC R15 cursor position low"
+reg = 0xE10F
+
+[[report_reg]]
+name = "VDC R16 light pen vertical"
+reg = 0xE110
+
+[[report_reg]]
+name = "VDC R17 light pen horizontal"
+reg = 0xE111
+
+[[report_reg]]
+name = "VDC R18 update address high"
+reg = 0xE112
+
+[[report_reg]]
+name = "VDC R19 update address low"
+reg = 0xE113
+
+[[report_reg]]
+name = "VDC R20 attribute start high"
+reg = 0xE114
+
+[[report_reg]]
+name = "VDC R21 attribute start low"
+reg = 0xE115
+
+[[report_reg]]
+name = "VDC R22 character total and displayed horizontal"
+reg = 0xE116
+
+[[report_reg]]
+name = "VDC R23 character displayed vertical"
+reg = 0xE117
+
+[[report_reg]]
+name = "VDC R24 vertical smooth scroll, block copy mode"
+reg = 0xE118
+
+[[report_reg]]
+name = "VDC R25 horizontal smooth scroll, mode"
+reg = 0xE119
+
+[[report_reg]]
+name = "VDC R26 foreground and background colour"
+reg = 0xE11A
+
+[[report_reg]]
+name = "VDC R27 address increment per row"
+reg = 0xE11B
+
+[[report_reg]]
+name = "VDC R28 character set address, RAM type"
+reg = 0xE11C
+
+[[report_reg]]
+name = "VDC R29 underline scan line"
+reg = 0xE11D
+
+[[report_reg]]
+name = "VDC R30 word count"
+reg = 0xE11E
+
+[[report_reg]]
+name = "VDC R31 data (the register's own byte, no RAM access)"
+reg = 0xE11F
+
+[[report_reg]]
+name = "VDC R32 block copy source high"
+reg = 0xE120
+
+[[report_reg]]
+name = "VDC R33 block copy source low"
+reg = 0xE121
+
+[[report_reg]]
+name = "VDC R34 display enable begin"
+reg = 0xE122
+
+[[report_reg]]
+name = "VDC R35 display enable end"
+reg = 0xE123
+
+[[report_reg]]
+name = "VDC R36 DRAM refresh rate"
+reg = 0xE124
+
+[[report_reg]]
+name = "VDC R37 sync polarity"
+reg = 0xE125
+
+[[report_reg]]
+name = "VDC status"
+reg = 0xE126
+
+[[report_reg]]
+name = "VDC selected register"
+reg = 0xE127

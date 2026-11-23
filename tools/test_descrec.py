@@ -518,5 +518,67 @@ class LibraryMenus(unittest.TestCase):
         self.assertEqual(D.merge_lib_menus(base, [])[0], base)
 
 
+REGS = """
+[[report_reg]]
+name = "VDC R4 vertical total"
+reg = 0xE104
+
+[[report_reg]]
+name = "WIDE"
+reg = 0xFFFC
+bytes = 4
+"""
+
+
+class ReportRegs(unittest.TestCase):
+    """T257 D6: the register list of the bug report is data in the record (version 6, header 216)."""
+
+    def test_a_register_table_makes_version_6_and_reads_back(self):
+        b = D.compile_text(MIN + REGS)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (6, D.HEADER_V6))
+        r = D.parse_desc(b)
+        self.assertEqual(r["report_reg"], [{"name": "VDC R4 vertical total", "reg": 0xE104, "bytes": 1}, {"name": "WIDE", "reg": 0xFFFC, "bytes": 4}])
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+    def test_a_record_without_the_table_stays_as_it_was(self):
+        b = D.compile_text(MIN)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (4, D.HEADER))
+        self.assertEqual(D.parse_desc(b)["report_reg"], [])
+        b5 = D.compile_text(MIN + RESTART)
+        self.assertEqual(b5[4] | b5[5] << 8, 5)
+        self.assertEqual(D.parse_desc(b5)["report_reg"], [])
+
+    def test_the_c128_description_compiles_and_lists_r0_to_r37(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        r = D.parse_desc(D.compile_text(open(os.path.join(here, "..", "cores", "c128", "app", "desc.toml")).read()))
+        regs = r["report_reg"]
+        self.assertEqual([x["reg"] for x in regs], [0xE100 + i for i in range(40)])
+        self.assertEqual(regs[4]["name"], "VDC R4 vertical total")
+
+    def test_refusals(self):
+        cases = [
+            ('[[report_reg]]\nname = "x"\nreg = 0xFFFD\nbytes = 4\n', "64 KiB"),
+            ('[[report_reg]]\nname = "x"\nreg = 0x10000\n', "64 KiB"),
+            ('[[report_reg]]\nname = "x"\nreg = 1\nbytes = 3\n', "1, 2 or 4"),
+            ('[[report_reg]]\nname = ""\nreg = 1\n', "name"),
+            ('[[report_reg]]\nname = "x"\n', "reg"),
+            ('[[report_reg]]\nname = "x"\nreg = 1\nwidth = 2\n', "width"),
+            ("".join('[[report_reg]]\nname = "r%d"\nreg = %d\n' % (i, i) for i in range(65)), "1 to 64"),
+        ]
+        for text, part in cases:
+            with self.assertRaises(D.DescError, msg=part) as e:
+                D.compile_text(MIN + text)
+            self.assertIn(part, str(e.exception))
+
+    def test_the_reader_refuses_a_damaged_table(self):
+        good = D.compile_text(MIN + REGS)
+        ro = int.from_bytes(good[D.HEADER_V5:D.HEADER_V5 + 4], "little")
+        for at, val in ((D.HEADER_V5 + 4, 65), (D.HEADER_V5, len(good) - 8), (D.HEADER_V5, 100), (ro + 8, 3), (ro + 4, 0x10000), (ro + 12 + 4, 0xFFFD), (ro, 0x7FFFFFF0)):
+            b = bytearray(good)
+            b[at:at + 4] = val.to_bytes(4, "little")
+            with self.assertRaises(D.DescError, msg=hex(at)):
+                D.parse_desc(bytes(b))
+
+
 if __name__ == "__main__":
     unittest.main()

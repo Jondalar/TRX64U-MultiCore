@@ -2,11 +2,11 @@
 // into the ROM line cache's backing store, then ROM_CTRL.b0 flushes the cache. With the setting ROM set = JiffyDOS (T185) the kit files the person selected
 // (one row each in the settings, or the file action in the browser) are written over the C64 and C128 KERNAL parts of that image first, and drive A takes
 // the JiffyDOS DOS ROM of its type. Settings: the 40/80 DISPLAY switch (D4080, taken at reset)
-// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, or 640 x 480 woven in interlace, both on the pixel layer: Integer, Fit or Fill as for every core), which the
+// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, or 640 x 480 (woven in interlace, or a frame of more than 200 lines, T257), both on the pixel layer: Integer, Fit or Fill as for every core), which the
 // Auto switch (T194 D12: on/off, time) moves to the chip that is being used, and a core hotkey (40/80) flips by hand.
 // Drive A is the cbm1541 library with the 1541 and the 1581 (cbm1541_desc.h, CBM1581_*). The register page is c128_regs.h; the extra keys of
 // the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Run Disk (T206) resets the machine and types the start at
-// READY (c128.type_script, the shared cbm_run job). T217: Load / Load + run of a .prg and the inner Mount & Run (run_op). Not in this descriptor: cartridge port, REU, see T113 section 5.5 "Open".
+// READY (c128.type_script, the shared cbm_run job). T217: Load / Load + run of a .prg and the inner Mount & Run (run_op). Not in this descriptor: cartridge port, REU, .tap streamer (T257 D11: the gateware has no emulated cartridge and no streamer), see T113 section 5.5 "Open".
 #include "hk_defaults.h"
 #include "ctx.h"
 #include "boot.h"
@@ -103,7 +103,7 @@ static const uint32_t autot_ms[] = { 500, 1000, 2000, 3000 };
 #define AUTOT_DEF 1
 
 static const char *const joy_names[]   = { "Normal", "Swapped" };
-static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
+static const char *const dset_names[]  = { "Off", "External datasette" };
 // T140 D24: the System Mode, the four the C64 Ultimate offers (menu.toml sysmodes): the VIC's line and frame, the machine's clock and the colour standard of the
 // analogue output (cores/c128/mono/c128_avout.v) follow it. Values in the order of t_video_mode.
 #define KEY_SYSMODE "System Mode"
@@ -411,7 +411,7 @@ static int op_toggle_picture(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 
 // T214: an external datasette on the C2N port (same device as on the PET, GitHub #26). PIN_CTRL b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are inputs (0x13);
-// b2 / b3 stay off (the file streamer must not drive READ or pull SENSE then). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
+// b2 / b3 stay off (the gateware has no .tap streamer since T257 D11; there is nothing else on the port). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
 static int op_set_dset(CoreCtx *c, const OpArgs &a, OpOut &)
 {
     c->io->wr(C128_PIN_CTRL, (uint8_t)(a.i(0) ? 0x13 : 0x00));
@@ -1039,7 +1039,8 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
 
 
-// T113 D11: the VDC's buffers are 640 x 480, 480 rows when the picture is woven (FB_LATEST b2: the newest complete picture is interlaced), else 400 rows (200 lines doubled).
+// T113 D11, T257: the VDC's buffers are 640 x 480, 480 rows when FB_LATEST b2 is set (the newest complete picture has all 480 rows: a woven pair, or a frame of more than 200 lines that is not
+// interlaced), else 400 rows (200 lines doubled).
 // The layer follows the newest picture; the height is the layer's geometry, so the layout (Picture, HDMI mode) is made for it.
 static void c128_rows(CoreCtx *c)
 {
@@ -1172,8 +1173,8 @@ const CoreDesc c128_desc = {
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 7,
     media, 1,
-    // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11), shown 2 x 2 (1280 x 960) centred on 1920 x 1080; without interlace the layer shows 400 rows
-    // (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
+    // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11, or a frame of more than 200 lines, T257), shown 2 x 2 (1280 x 960) centred on 1920 x 1080;
+    // a frame of 200 lines without interlace shows 400 rows (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
     { 640, 480, 2, 320, 60, C128_FB_ADDR, C128_FB_STRIDE_BYTES, 3, C128_FB_LATEST, C128_FRAME_SEQ, C128_FB_BASE, C128_FB_STRIDE },
     { C128_STATUS, C128_ST_HELD, 200, false },
     c128_init, c128_release, 0, 50,

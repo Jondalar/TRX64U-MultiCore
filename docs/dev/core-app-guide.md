@@ -220,7 +220,7 @@ with the mouse's in `JoystickOutput`) instead of a register pair, and the operat
 
 **Bug report.** *System, Bug report* writes `<date>.txt` to `/sd/report` (else the first USB medium): software versions, the core's settings, the registers
 named in `report_regs` (`ReportReg { name, reg, bytes }`; only registers whose read changes nothing, never a FIFO or a mailbox) and the application log
-(`corereport.h`).
+(`corereport.h`). A core can declare the registers in its description TOML instead (`[[report_reg]]` with `name`, `reg`, `bytes`, record version 6, `tools/descrec.py`): the record's list replaces the descriptor's; the C128 does it (`cores/c128/app/desc.toml`).
 
 **Return to host.** *System, Return to host menu* (`EK_RETURN_HOST`) is a fixed entry, present when the board has an ICAP loader (`board.can_return_host`, from the
 ICAP ID byte 0x7A). `hw_return_to_host` (`hw.cc`) writes the hand-over "menu requested" marker, then the ICAP sequence `WBSTAR := 0; IPROG`: the FPGA

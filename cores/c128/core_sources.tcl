@@ -58,18 +58,18 @@ set core_read {
     $kawari/pixel_sequencer.v $kawari/matrix.v $kawari/lightpen.v $kawari/hires_dvi_sync_scaled.v \
     $kawari/hires_pixel_sequencer.v $kawari/hires_matrix.v $kawari/hires_addressgen.v $kawari/cycles.v \
     $kawari/comp_sync.v $kawari/bus_access.v $kawari/border.v $kawari/addressgen_spartan.v $c128/vicii_c128.v ]
-  read_verilog -sv [list $c128/c64_top_c128.v $c128/cpu6510_c128.v $c64u/c64_turbo_c64u.v $c128/c64_bus_arbiter_c128.v $c128/c64_pla_c128.v \
+  read_verilog -sv [list $c128/c64_top_c128.v $c128/cpu6510_c128.v $c128/c64_turbo_c64u.v $c128/c64_bus_arbiter_c128.v $c128/c64_pla_c128.v \
     $c128/c128_map.v $c128/c128_x.v]
   read_verilog -sv [list $c128/vdc/vdcram.v $c128/vdc/vdc_cpu.v]
   if {$vdef eq "VDC_WHOLE"} {
     read_verilog -sv [list $c128/vdc/vdc_top.sv $c128/vdc/vdc_signals.sv $c128/vdc/vdc_signals_h.sv $c128/vdc/vdc_signals_v.sv \
       $c128/vdc/vdc_ramiface.sv $c128/vdc/vdc_video.sv]
   }
-  read_verilog $c128/c64_core_c128.v $c128/c64_mem_c128.v $c128/c64_mem_c128d.v $c128/c128_ramd.v $c128/c128_romc.v $c128/c128_chr.v $c64u/cart_slot_c64u.v $c64u/slot_port_c64u.v
+  read_verilog $c128/c64_core_c128.v $c128/c64_mem_c128.v $c128/c64_mem_c128d.v $c128/c128_ramd.v $c128/c128_romc.v $c128/c128_chr.v $c128/cart_slot_c64u.v $c128/slot_port_c64u.v
   read_xdc -mode out_of_context $c128/c64_core_ooc.xdc
 }
 set core_files [concat [trx_tree $core] [trx_tree $trxsid] [glob $c128/*.v] [glob $c128/*.vhd] [glob $c128/vdc/*] \
-  $c64u/c64_turbo_c64u.v $c64u/cart_slot_c64u.v $c64u/slot_port_c64u.v [lsort [glob mem/*.mem]]]
+  [lsort [glob mem/*.mem]]]
 set vdcdefs {}
 if {[info exists ::env(TRX_ROM)] && $::env(TRX_ROM) eq "ddr2"} { lappend vdcdefs -verilog_define ROM_DDR2 }
 if {$vdef ne ""} { lappend vdcdefs -verilog_define $vdef }
@@ -82,7 +82,7 @@ set g_names { io_bus_pkg.vhd io_bus_splitter.vhd c1541_timing.vhd pkg_6502_defs.
 set g_files {}
 foreach n $g_names { lappend g_files $gdir/$n }
 lappend g_files $gdir/c64u_pseudo_dpram_8x32_x7.vhd $gdir/c64u_drive_mem.vhd $gdir/uci_unit_c64u.vhd $gdir/c64u_l2.vhd
-set l2_v [list $c128/layer2_c128.v ../cores/c1541/drive_leds_map.v $c64u/c64u_io.v $c64u/c64u_sys.v $c64u/cart_fill_c64u.v \
+set l2_v [list $c128/layer2_c128.v ../cores/c1541/drive_leds_map.v $c64u/c64u_io.v $c64u/c64u_sys.v $c128/cart_fill_c64u.v \
   $c64u/dma_win_c64u.v $c64u/iec_bus_c64u.v $c64u/sid_sock_audio_c64u.v $c128/c128_rome.v $c128/c128_ddrx.v $c128/dma_win_c128.v $c128/c128_regs.v $c128/c128_act.v $c128/c128_keys.v $c128/c128_joyswap.v $c128/c128_pixw.v $c128/c128_rgbi.v]
 # Flat build (cores/c128/mono/build_mono.tcl): no out-of-context run, the caller reads core_read and the layer-2 sources itself.
 if {[info exists ::env(TRX_MONO)] && $::env(TRX_MONO) eq "1"} { return }

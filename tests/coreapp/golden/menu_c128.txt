@@ -26,7 +26,7 @@ area F5 C128
     setting Auto switch = Off | On (default On, live)
     setting Auto switch time = 0.5 s | 1 s | 2 s | 3 s (default 1 s, live)
     setting Joystick ports = Normal | Swapped (default Normal, live)
-    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
+    setting Datasette port = Off | External datasette (default Off, live)
     setting System Mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
     setting ROM set = Standard | JiffyDOS (default Standard, at next reset)
     setting JiffyDOS C128 ROM = a file the person selects (none by default, at next reset)

@@ -18,10 +18,12 @@ sources      = ["cores/c128", "cores/c1541", ":(exclude)cores/c1541/sim", "cores
 # behind the line cache; the defines come to MONO NO_TURBO RAM_P2 ROM_CACHE SID2 SID_REDIP SOCK_AUDIO TAPE VDC64 VDC_WHOLE Z80.
 # 5.7: the host's menu overlay (mono/host/overlay.v, 3.5 block RAM tiles) is stubbed out (cores/c128/mono/stubs/overlay_stub.v): the generic core application draws on the pixel
 # layer and never writes the overlay's registers; the tiles go to the character ROM store (c128_chr.v, 2 tiles).
+# T257 D11: NO_CART_EMU = no emulated cartridge (cart_slot_c64u with its model, cart_fill_c64u; a real cartridge in the port stays), NO_TAP_STREAM = no .tap
+# streamer (c64u_c2n_l2; the external datasette on the C2N port stays).
 # T140 Q2b: NO_NET = no Ethernet MAC (ultimate_sys g_net 0), the WiFi UART stays.
 # T140 D24 item 4: the release build has no JTAG debug master (TRX_TOP_OFF=NO_JTAG_DBG: jtag_dbg, the debug registers, the console read-out and the JTAG
 # DDR2 port fall away, about 690 LUT). A dev build that needs tools/trxdbg.sh builds with `cores/c128/mono/build.sh --jtag`.
-mono_env     = ["TRX_VDC=whole", "TRX_Z80=1", "TRX_REU=1", "TRX_DEFS=VDC64 ROM_CACHE RAM_DDR2 SID2 SOCK_AUDIO TAPE NO_NET NO_VIC_SCALER", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
+mono_env     = ["TRX_VDC=whole", "TRX_Z80=1", "TRX_REU=1", "TRX_DEFS=VDC64 ROM_CACHE RAM_DDR2 SID2 SOCK_AUDIO TAPE NO_CART_EMU NO_TAP_STREAM NO_NET NO_VIC_SCALER", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
 # The one file the user supplies: the 72 KiB system ROM in the layout of the MiSTer core's boot0.rom (T113 5.5): C64 BASIC+KERNAL 16 KiB,
 # C128 editor+Z80 BIOS+KERNAL 16 KiB, C128 BASIC 32 KiB, character ROMs 8 KiB. Never in the repository, a release or a .cfw.
 roms         = ["boot0.rom"]
