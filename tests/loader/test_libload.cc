@@ -56,13 +56,13 @@ struct Model : LibHost {
     // base 3.3: a critical section that counts its depth, and a model of the SID sockets' I2C expander that records what it was written
     int depth = 0, max_depth = 0, sid_opens = 0, sid_closes = 0;
     std::vector<std::pair<int, int> > sid_writes;
-    bool sid_present = true;
+    bool sid_present = true, sid_locked = false;
     uint32_t caps_v = 0x1234;
     const char *app_version() override { return "9.8.7-test"; }
     const char *app_git() override { return "abc1234"; }
     void enter() override { depth++; if (depth > max_depth) { max_depth = depth; } }
     void leave() override { depth--; }
-    bool sid_i2c_open() override { sid_opens += sid_present; return sid_present; }
+    int sid_i2c_open() override { if (sid_locked) { return -1; } sid_opens += sid_present; return sid_present ? 1 : 0; }
     void sid_i2c_write(uint8_t reg, uint8_t v) override { sid_writes.push_back(std::make_pair((int)reg, (int)v)); }
     void sid_i2c_close() override { sid_closes++; }
     uint32_t fpga_caps() override { return caps_v; }
@@ -2081,6 +2081,13 @@ static void services()
     CHECK(api->sys->ms_timer && api->sys->yield && api->sys->delay_us && api->sys->wall_time && api->sys->app_version && api->sys->app_git && api->fs->list_long);
     CHECK_EQ(api->sync->size, sizeof(SvcSync));
     CHECK_EQ(api->io == 0 ? 0 : 1, 0);
+    // before the base has given the loader its context, sys.delay_us waits on the board's io (set_board_io), and without it returns at once
+    api->sys->delay_us(30);
+    CHECK_EQ(io.us, 0);
+    w.ld->set_board_io(&io);
+    api->sys->delay_us(30);
+    CHECK_EQ(io.us, 30);
+    io.us = 0;
 
     // ---- io: a core with a register window gets the group, one without does not (no io, or a core with no machine)
     cx.io = &io;
@@ -2312,6 +2319,25 @@ static void services()
     CHECK(cc->media_source("Drive A", src, 9) && !strcmp(src, "ro /usb0"));                                 // cut to len - 1
     desc.mount_slots = 0;
     CHECK(!cc->media_source("Drive A", src, sizeof(src)));
+    // mount_notify marks a slot of the [mount] list; the base takes the marks on its pass
+    desc.mount_slots = &ms;
+    cx.mounts_dirty = 0;
+    cc->mount_notify("Tape");
+    CHECK_EQ(cx.mounts_dirty, 2u);
+    cc->mount_notify("drive a:");
+    cc->mount_notify("drive a");                                                                            // a second call stores once
+    CHECK_EQ(cx.mounts_dirty, 3u);
+    cc->mount_notify("Nope");
+    cc->mount_notify(0);
+    CHECK_EQ(cx.mounts_dirty, 3u);                                                                          // a name the core does not list does nothing
+    cx.mounts_dirty = 0;
+    desc.mount_slots = 0;
+    cc->mount_notify("Drive A");
+    CHECK_EQ(cx.mounts_dirty, 0u);
+    cx.media_restoring = true;
+    CHECK(cc->state() & CTX_MEDIA_RESTORING);
+    cx.media_restoring = false;
+    CHECK(!(cc->state() & CTX_MEDIA_RESTORING));
 
     // ---- board
     const SvcBoard *bd = api->board;
@@ -2336,9 +2362,15 @@ static void services()
     CHECK_EQ(bd->sid_socket(0, 3, false, false), -1);
     CHECK_EQ(bd->sid_socket(0, -1, false, false), -1);
     CHECK(w.m.sid_writes.size() == 8 && w.m.sid_opens == 4);                                                // a bad argument writes nothing
+    w.m.sid_locked = true;
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_OFF, false, false), -2);                                          // the bus lock was not taken: not done
+    CHECK(w.m.sid_writes.size() == 8 && w.m.sid_closes == 4);
+    w.m.sid_locked = false;
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_OFF, false, false), 0);
+    CHECK(w.m.sid_writes[8] == std::make_pair(1, 0x80));                                                    // the refused call (socket 0 nibble 8) left the control byte alone
     w.m.sid_present = false;
     CHECK_EQ(bd->sid_socket(0, SID_SOCKET_ON, false, false), 0);                                            // no expander: nothing to do, not an error
-    CHECK(w.m.sid_writes.size() == 8);
+    CHECK(w.m.sid_writes.size() == 10);
     bd->case_led_select(0x21);
     CHECK(io.led_log.size() == 1 && io.led_log[0].v == 0x21);
 

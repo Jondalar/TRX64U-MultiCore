@@ -147,7 +147,8 @@ Since base 3.0.
 3.2.8 A library or an application loaded after the start sees every group the core has.
 3.2.9 `api->trx`, the ring table `api->trx->ring` and `api->c64` leave the base API. They come from libraries, through `api->lib->find` (4.10, section 9): the names `trx`, `ring` and `c64`, each at major 1. New code asks `api->lib->find`. The three pointers stay in `LibApi` and keep their meaning until the cut of `LibApi` that comes with the next change of its major; the base fills them as before.
 3.2.10 The base itself answers `find("c64", ...)` with a `C64Api` table (9.4). It does not answer `trx` or `ring`: their layouts belong to the libraries of the core that has them.
-3.2.11 The core is handed to the base later too. Until then `api->io` is null, and the calls of `api->settings` and `api->ctx` answer as for a bad index (4.13.1, 4.14). `api->sync` and `api->board` work, except `video_set_system` and `case_led_select`, which do nothing.
+3.2.11 The core is handed to the base later too. Until then `api->io` is null, and the calls of `api->settings` and `api->ctx` answer as for a bad index (4.13.1, 4.14). `api->sync` and `api->board` work, except `video_set_system` and `case_led_select`, which do nothing. `api->sys->delay_us` and `wall_time` work (4.1.10.3).
+3.2.12 A loader that has no core does not fill the five groups of base 3.3: `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` are null, and it offers base 3.2. A file that needs `base>=3.3` is refused there (`LIB_NEEDS`). The zip reader of the host application is such a loader. A library of base 3.3 therefore always finds `api->sync` and `api->board` when the loader accepted it, and tests `api->io` only.
 
 | Member | Group | Present |
 |---|---|---|
@@ -241,7 +242,7 @@ Since base 3.3.
 
 4.1.10.1 `void delay_us(uint32_t us)` waits `us` microseconds by looping. The unit is 10 us, rounded down. Below 10 it returns at once.
 4.1.10.2 The task does not sleep, and no other task of its priority runs meanwhile. The call is for a few microseconds up to a few milliseconds (the handshakes of the SID chips, SIO timing). A longer wait is `sleep_ms`.
-4.1.10.3 It does nothing while the core has not been handed over to the base (section 3.2). Any task may call it.
+4.1.10.3 It waits in `lib_register` of a library loaded at core start too: the base has the machine's `CoreIo` for this call from the start. It does nothing in a loader that has no machine, such as the zip reader of the host application (3.2.12). Any task may call it.
 
 #### 4.1.11 `api->sys->wall_time`
 
@@ -249,7 +250,7 @@ Since base 3.3.
 
 4.1.11.1 `bool wall_time(uint8_t t[6])` reads the wall clock of the board: `t[0]` is the year of 2000 plus `t[0]` (0 to 99), then month 1 to 12, day 1 to 31, hour, minute and second.
 4.1.11.2 It returns `false` when the board has no clock, or when it was never set (the year reads before 2020). `t` is then not written.
-4.1.11.3 Any task may call it.
+4.1.11.3 It works in `lib_register` of a library loaded at core start, like `delay_us` (4.1.10.3). Any task may call it.
 
 #### 4.1.12 `api->sys->app_version`
 
@@ -1072,7 +1073,7 @@ The context group: the state and the fields of the running core that a handler, 
 
 4.14.1 Task classes: any task, a task that holds the core lock (an operation or state handler, a core hook, a poll), and the task of a job. A string the base returns belongs to the base and is valid until the call that changes it. Copy it at once.
 
-#### 4.14.2 `CTX_STARTED`, `CTX_PAUSED`, `CTX_FROZEN`, `CTX_MENU_OPEN`
+#### 4.14.2 `CTX_STARTED`, `CTX_PAUSED`, `CTX_FROZEN`, `CTX_MENU_OPEN`, `CTX_MEDIA_RESTORING`
 
 Since base 3.3.
 
@@ -1082,10 +1083,11 @@ Since base 3.3.
 | `CTX_PAUSED` | Bit 1: Pause is on. The machine stays held after the menu closes, until Resume. |
 | `CTX_FROZEN` | Bit 2: the machine is stopped for the menu. |
 | `CTX_MENU_OPEN` | Bit 3: the menu is on the screen, frozen or not. |
+| `CTX_MEDIA_RESTORING` | Bit 4: the base mounts what a start or a media set stores. The machine is held and the base releases it later, so a mount in a hook of the core neither resets nor releases it. |
 
 #### 4.14.3 `api->ctx->state`
 
-4.14.3.1 `uint32_t state(void)` returns the four flags as the bits of 4.14.2. It is a snapshot: the flags change on other tasks. Any task may call it.
+4.14.3.1 `uint32_t state(void)` returns the five flags as the bits of 4.14.2. It is a snapshot: the flags change on other tasks. Any task may call it.
 
 #### 4.14.4 `api->ctx->set_paused`
 
@@ -1134,6 +1136,12 @@ Since base 3.3.
 4.14.12.1 `bool media_source(const char *slot, char *buf, int len)` writes what is in the media slot `slot`, as the engine's own spec: the path of the medium, with a word in front when the engine needs one (`ro /usb0/x.d64`, `unlinked /usb0/x.d64`, `folder /usb0/set`). A path starts with `/`.
 4.14.12.2 `slot` is the name of a mount slot of the core without its colon (`D1`, `Drive A`, `Cartridge`), or the name of a media slot of its description with the colon (`D1:`) or without. The case is ignored. The mount slots are searched first. A media slot gives its state text when that text is a spec.
 4.14.12.3 It returns `true` with the spec in `buf`, cut to `len - 1` characters. It returns `false`, with `buf` the empty string, for no such slot and for an empty one. Any task may call it.
+
+#### 4.14.13 `api->ctx->mount_notify`
+
+4.14.13.1 `void mount_notify(const char *slot)` tells the base that the medium in a slot changed by its engine's own doing. `slot` is the name of the slot in the `[mount]` list of the core's API TOML (`Drive A`, `Cartridge`), as `media_source` takes it: the colon at the end and the case do not count.
+4.14.13.2 The call only marks the slot. The base reads the spec of the slot on its next pass, under the core lock, and stores it for the setting `Persist medium mounts` and for the media sets. The pass waits until the start has mounted what the `.cfg` file stores. A second call before the pass stores once. A name the core does not list does nothing.
+4.14.13.3 The engine that makes the change calls it. A shared library notifies every change it makes to its own slot, so the code of a core that calls one of its members does not. Any task may call it.
 
 ### 4.15 `api->io` (`SvcIo`)
 
@@ -1254,7 +1262,7 @@ Since base 3.3.
 4.16.7.1 `int sid_socket(int socket, int state, bool shunt, bool filter_caps)` sets the supply of one SID socket. The expander at address 0x40 on the 1.8 V I2C channel takes one control byte for both sockets: bits 3:0 are socket 0 and bits 7:4 socket 1.
 4.16.7.2 A nibble is the supply (bits 1:0: 00 for `SID_SOCKET_OFF`, 10 for `SID_SOCKET_ON`, 11 for `SID_SOCKET_ON_TYPE1`), the shunt of 1 kOhm in bit 2 (`shunt`) and the option of the filter capacitor in bit 3. `filter_caps` is the setting of the core as it holds it, 0 or 1, and the base inverts it into bit 3.
 4.16.7.3 The base keeps the control byte. It starts at 0 when the application starts. A call replaces the nibble of `socket` and leaves the other one, then writes register 1 of the expander with the byte and register 3 with 0. The write holds the bus lock named `SID Configuration`, which the keyboard scan shares, and waits for it.
-4.16.7.4 It returns 0 when done, and also when there is nothing to do because the board has no expander or the bus lock was not obtained. It returns -1 for a `socket` outside 0 to 1 or a `state` outside the three values. Nothing is written then. The task holds the core lock.
+4.16.7.4 It returns 0 when done, and also when there is nothing to do because the board has no expander. It returns -1 for a `socket` outside 0 to 1 or a `state` outside the three values, and -2 when the bus lock was not obtained in time. Nothing is written then, and the control byte stays as it was. The task holds the core lock.
 
 #### 4.16.8 `api->board->case_led_select`
 

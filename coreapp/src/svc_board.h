@@ -50,7 +50,8 @@ typedef struct SvcBoard {
     // it under the "SID Configuration" lock, which the keyboard scan shares since T253; register 1 gets the byte, register 3 gets 0). socket 0 or 1; state SID_SOCKET_*;
     // shunt: the 1 kOhm shunt, bit 2 of the nibble; filter_caps: the socket's filter capacitor option, as the core's own setting for it holds it (0 or 1); the base inverts it into bit 3. The nibble of the
     // other socket is untouched, the control byte starts at 0 when the application starts. Result: 0 done, or nothing to do when the board has no expander;
-    // < 0 a bad argument (socket outside 0..1, state outside SID_SOCKET_*), nothing written. Waits for the bus lock. Task: lock.
+    // -1 a bad argument (socket outside 0..1, state outside SID_SOCKET_*), nothing written; -2 the bus lock was not taken in time, nothing written and the control byte is
+    // as it was. Waits for the bus lock. Task: lock.
     int (*sid_socket)(int socket, int state, bool shunt, bool filter_caps);
     // The case LEDs' source select (CoreIo::case_led_select): the low nibble is LED 1, the high nibble LED 2 (host/case_leds.v), each a source code of the board. Two users: the base's
     // load light (ledload.cc) and a core's LED settings. Task: lock.

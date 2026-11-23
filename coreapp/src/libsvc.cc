@@ -161,7 +161,8 @@ struct LibSvc {
         if (!c) {
             return 0;
         }
-        return (c->started ? CTX_STARTED : 0u) | (c->paused ? CTX_PAUSED : 0u) | (c->frozen ? CTX_FROZEN : 0u) | (c->menu_open ? CTX_MENU_OPEN : 0u);
+        return (c->started ? CTX_STARTED : 0u) | (c->paused ? CTX_PAUSED : 0u) | (c->frozen ? CTX_FROZEN : 0u) | (c->menu_open ? CTX_MENU_OPEN : 0u) |
+               (c->media_restoring ? CTX_MEDIA_RESTORING : 0u);
     }
     static void set_paused(bool on)
     {
@@ -230,6 +231,18 @@ struct LibSvc {
         hl -= hl && have[hl - 1] == ':';
         wl -= wl && want[wl - 1] == ':';
         return hl == wl && !strncasecmp(have, want, hl);
+    }
+    // marks the slot of the core's [mount] list (MountSlots::names); the base stores its spec on its next pass (mounts_pass, mediamounts.cc)
+    static void mount_notify(const char *slot)
+    {
+        CoreCtx *c = C();
+        const MountSlots *ms = c && c->desc && slot ? c->desc->mount_slots : 0;
+        for (int i = 0; ms && i < ms->n && i < 32; i++) {
+            if (same_slot(ms->names[i], slot)) {
+                __atomic_fetch_or(&c->mounts_dirty, 1u << i, __ATOMIC_ACQ_REL);
+                return;
+            }
+        }
     }
     static bool media_source(const char *slot, char *buf, int len)
     {
@@ -319,8 +332,12 @@ struct LibSvc {
         }
         uint8_t supply = state == SID_SOCKET_OFF ? 0 : (state == SID_SOCKET_ON ? 2 : 3);
         uint8_t nib = (uint8_t)(supply | (shunt ? 4 : 0) | (filter_caps ? 0 : 8));
-        l->sid_ctrl_ = socket ? (uint8_t)((l->sid_ctrl_ & 0x0F) | (nib << 4)) : (uint8_t)((l->sid_ctrl_ & 0xF0) | nib);
-        if (l->host_->sid_i2c_open()) {
+        int open = l->host_->sid_i2c_open();
+        if (open < 0) {
+            return -2;                                  // the bus lock was not taken: nothing written, the control byte stays
+        }
+        if (open > 0) {
+            l->sid_ctrl_ = socket ? (uint8_t)((l->sid_ctrl_ & 0x0F) | (nib << 4)) : (uint8_t)((l->sid_ctrl_ & 0xF0) | nib);     // under the lock
             l->host_->sid_i2c_write(0x01, l->sid_ctrl_);
             l->host_->sid_i2c_write(0x03, 0x00);
             l->host_->sid_i2c_close();
@@ -404,6 +421,7 @@ void LibLoader::add_services()
     ctxtab_.job_cancelled = LibSvc::job_cancelled;
     ctxtab_.job_progress = LibSvc::job_progress;
     ctxtab_.media_source = LibSvc::media_source;
+    ctxtab_.mount_notify = LibSvc::mount_notify;
 
     memset(&io_, 0, sizeof(io_));
     io_.size = sizeof(io_);

@@ -50,6 +50,8 @@ const char *mounts_slot_spec(CoreCtx *c, int idx);
 void mounts_changed(CoreCtx *c, bool sector, int n);
 // CoreCtx::mount_changed (the application sets it): slot n of the core's own engine (desc.h MountSlots) changed.
 void mounts_engine_changed(CoreCtx *c, int n);
+// Stores the slots that SvcCtx::mount_notify marked (CoreCtx::mounts_dirty). A task that holds the core lock; writeback.poll calls it.
+void mounts_pass(CoreCtx *c);
 // boot_start: the stored mounts go in (item on), then later changes are stored. `ui` shows "Mounting the folder..." for a folder disk; may be null.
 void mounts_restore(CoreCtx *c, BootUi *ui);
 

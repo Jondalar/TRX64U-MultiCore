@@ -87,13 +87,16 @@ public:
         ResetHdmiPll();
     }
     // The SID sockets' expander (0x40 on the 1.8 V channel), under the bus lock the keyboard scan shares.
-    bool sid_i2c_open()
+    int sid_i2c_open()
     {
-        if (!i2c || !i2c->i2c_lock("SID Configuration")) {
-            return false;
+        if (!i2c) {
+            return 0;
+        }
+        if (!i2c->i2c_lock("SID Configuration")) {
+            return -1;
         }
         i2c->set_channel(I2C_CHANNEL_1V8);
-        return true;
+        return 1;
     }
     void sid_i2c_write(uint8_t reg, uint8_t v) { i2c->i2c_write_byte(0x40, reg, v); }
     void sid_i2c_close() { i2c->i2c_unlock(); }
@@ -329,6 +332,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
     loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
+    loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
     loader.set_settings_apply(regset_apply_setting);
     loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);

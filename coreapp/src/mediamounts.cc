@@ -155,6 +155,21 @@ void mounts_engine_changed(CoreCtx *c, int n)
     changed_idx(c, nwin(c) + nsec(c) + n);
 }
 
+// SvcCtx::mount_notify: the slots a library marked since the last pass are stored, once each. Under the core lock. Marks wait until the start has mounted what the
+// .cfg stores (mounts_ready), as a change of the core's own engine does.
+void mounts_pass(CoreCtx *c)
+{
+    if (!c->mounts_dirty || !c->mounts_ready) {
+        return;
+    }
+    uint32_t m = __atomic_exchange_n(&c->mounts_dirty, 0u, __ATOMIC_ACQ_REL);
+    for (int i = 0; i < 32 && i < neng(c); i++) {
+        if (m & (1u << i)) {
+            changed_idx(c, nwin(c) + nsec(c) + i);
+        }
+    }
+}
+
 // What is mounted now is what the file says (item on), or the file says nothing (item off)
 static void store_all(CoreCtx *c)
 {

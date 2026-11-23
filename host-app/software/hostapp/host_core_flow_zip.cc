@@ -30,7 +30,8 @@ struct ZipRig {
     LibLoader ld;
     AppIndex idx;
     CoreCtx ctx;
-    ZipRig(LibHost *h, CoreFs *fs) : ld(h, &reg)
+    // base 3.2 (minor 2): this loader never calls add_services, so api->sync, settings, ctx, io and board (base 3.3) are null; an image that needs base>=3.3 is refused (LIB_NEEDS)
+    ZipRig(LibHost *h, CoreFs *fs) : ld(h, &reg, 2)
     {
         memset(&ctx, 0, sizeof(ctx));
         ctx.fs = fs;

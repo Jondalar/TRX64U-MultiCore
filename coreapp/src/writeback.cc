@@ -1,5 +1,6 @@
 #include "writeback.h"
 #include "corefolder.h"
+#include "mediamounts.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -401,6 +402,7 @@ static int op_mode(CoreCtx *, const OpArgs &a, OpOut &)
 static int op_poll(CoreCtx *c, const OpArgs &, OpOut &)
 {
     wb_poll(c);
+    mounts_pass(c);                                            // the slots that a library notified (SvcCtx::mount_notify)
     return OPE_OK;
 }
 

@@ -94,9 +94,9 @@ public:
     }
     virtual void video_set_system(struct CoreCtx *c, int sys) { (void)c; (void)sys; }
     virtual void video_set_pll(int sys, int ppm) { (void)sys; (void)ppm; }
-    // The SID sockets' expander (0x40 on the 1.8 V channel): open takes the bus lock "SID Configuration" and picks the channel (false: no bus, or no lock),
-    // write is one register, close gives the lock back.
-    virtual bool sid_i2c_open() { return false; }
+    // The SID sockets' expander (0x40 on the 1.8 V channel): open takes the bus lock "SID Configuration" and picks the channel (1: open; 0: the board has no bus,
+    // so no expander; -1: the lock was not taken in time), write is one register, close gives the lock back (after a 1 only).
+    virtual int sid_i2c_open() { return 0; }
     virtual void sid_i2c_write(uint8_t reg, uint8_t v) { (void)reg; (void)v; }
     virtual void sid_i2c_close() { }
     enum { LIB_HOST_CANNOT_RUN = -0x7FFF };
@@ -127,6 +127,7 @@ enum LibRc {
 
 struct DescRecord;
 struct CoreCtx;
+class CoreIo;
 // One mutex of api->sync (svc_sync.h): the host's own object and the place in the account of the library that made it.
 struct SvcMutex {
     void *h;
@@ -150,7 +151,8 @@ int lib_read_exports(LibSource *src, const U2a3Header &h, U2a3ExportName *out);
 
 class LibLoader : private OpScope {
 public:
-    // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). The tests lower it.
+    // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). A loader that does not call add_services has the five groups of base 3.3 null
+    // and passes 2 (base 3.2), so that an image which needs base>=3.3 is refused; the host application's zip reader does. The tests lower it too.
     LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor = U2A_BASE_MINOR);
     ~LibLoader();
 
@@ -203,6 +205,9 @@ public:
     // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2): api->lib->find answers it for that name unless a loaded library exports a lower or equal major of
     // that name. Null: the base has none (the core is no C64) and find answers only what libraries export.
     void set_c64_api(const C64Api *t) { c64api_ = t; }
+    // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
+    // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
+    void set_board_io(CoreIo *io) { board_io_ = io; }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
@@ -341,6 +346,7 @@ private:
     const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const;
     bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
     const C64Api *c64api_;
+    CoreIo *board_io_;
 };
 
 #endif

@@ -13,7 +13,7 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), c64api_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), c64api_(0), board_io_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -477,14 +477,14 @@ const char *LibLoader::svc_app_version(void) { return s_ld->host_->app_version()
 const char *LibLoader::svc_app_git(void) { return s_ld->host_->app_git(); }
 void LibLoader::svc_delay_us(uint32_t us)
 {
-    CoreIo *io = s_ld->ctx_ ? s_ld->ctx_->io : 0;
+    CoreIo *io = s_ld->ctx_ && s_ld->ctx_->io ? s_ld->ctx_->io : s_ld->board_io_;
     if (io) {
         io->delay_us(us);
     }
 }
 bool LibLoader::svc_wall_time(uint8_t t[6])
 {
-    CoreIo *io = s_ld->ctx_ ? s_ld->ctx_->io : 0;
+    CoreIo *io = s_ld->ctx_ && s_ld->ctx_->io ? s_ld->ctx_->io : s_ld->board_io_;
     uint8_t w[6];
     if (!io || !io->wall_time(w) || w[0] < 20) {                      // no clock, or one that was never set (the year reads before 2020)
         return false;

@@ -844,6 +844,30 @@ static void atari_xex(const Prof &p)
     printf("Atari: the .xex boot disk is stored as \"xex <path>\" and restored into D1\n");
 }
 
+// SvcCtx::mount_notify marks a slot (CoreCtx::mounts_dirty bit i = engine slot i); the pass stores it once the start has mounted what the .cfg stores
+static void notify_pass(const Prof &p)
+{
+    char msg[240];
+    FakeFs fs;
+    p.world(fs);
+    Run a(fs, p);
+    a.set(PERSIST_KEY, "Yes");
+    a.c.mount_changed = 0;                                                       // a change that no engine call reports: only the mark does
+    a.boot();
+    CHECK_EQ(p.cases[0].mount(a, "/usb0/a0.atr", msg, sizeof(msg)), 0);
+    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));
+    mounts_pass(&a.c);
+    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));                               // nothing marked: nothing stored
+    a.c.mounts_ready = false;
+    a.c.mounts_dirty = 1u << 0;
+    mounts_pass(&a.c);
+    CHECK(a.c.mounts_dirty == 1u && !has(a.cfg(), "Mount D1=/usb0/a0.atr"));     // the start is not done: the mark waits
+    a.c.mounts_ready = true;
+    mounts_pass(&a.c);
+    CHECK(a.c.mounts_dirty == 0u && has(a.cfg(), "Mount D1=/usb0/a0.atr"));
+    printf("Atari: a slot marked by mount_notify is stored on the next pass\n");
+}
+
 // the drive library's disk is read/write, read only or unlinked: the word in front of the path
 static void drive_modes(const Prof &p)
 {
@@ -995,6 +1019,7 @@ int main()
         if (p.game) game_empty_set(p);
     }
     atari_xex(prof(profs, "atari800"));
+    notify_pass(prof(profs, "atari800"));
     drive_modes(prof(profs, "vc20"));
     drive_modes(prof(profs, "c128"));
     drive_modes(prof(profs, "c264"));

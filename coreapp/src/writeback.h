@@ -87,7 +87,7 @@ bool wb_menu_open(CoreCtx *c, char *question, int qlen, char *note, int nlen);
 // The answer to the question: Yes writes (0 or 1 and a reason), No drops the change.
 int wb_answer(CoreCtx *c, bool yes, char *msg, int msglen);
 
-// The background step (an operation polled every WB_POLL_MS): with Auto, a change that is due is written.
+// The background step (an operation polled every WB_POLL_MS): with Auto, a change that is due is written; mounts_pass then stores the slots a library notified.
 #define WB_POLL_MS 250
 int wb_poll(CoreCtx *c);
 
