@@ -80,6 +80,14 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
 
 int boot_put_builtin_rom(CoreCtx *c, const char *put_op, char *msg, int msglen)
 {
+    bool known = false;
+    for (int i = 0; put_op && i < c->desc->nroms; i++) {
+        known = known || (c->desc->roms[i].put_op && !strcmp(c->desc->roms[i].put_op, put_op));
+    }
+    if (!known) {
+        snprintf(msg, msglen, "no ROM of this core is put by \"%s\"", put_op ? put_op : "");
+        return 1;
+    }
     RomResult res[ROMS_MAX];
     if (scan_roms(c, res, msg, msglen) != ROM_FOUND) {
         return 1;
@@ -370,10 +378,18 @@ int boot_warm_reset(CoreCtx *c, char *msg, int msglen)
     return boot_cold_reset(c, msg, msglen);
 }
 
+// base 3.3 (svc_board.h): a library puts back the ROM of one role of the descriptor, by the put operation that role names
+static const ArgSpec put_builtin_args[] = { ARG_STRING("put_op", 63) };
+static int op_put_builtin_rom(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    return boot_put_builtin_rom(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+
 void boot_register(OpRegistry &r)
 {
     r.add_op("machine.warm_reset", 0, 0, op_hook<boot_warm_reset>);
     r.add_op("machine.cold_reset", 0, 0, op_hook<boot_cold_reset>);
     r.add_op("machine.reload_roms", 0, 0, op_hook<boot_reload>);
     r.add_op("machine.restart", 0, 0, op_hook<boot_restart>);
+    r.add_op("machine.put_builtin_rom", put_builtin_args, 1, op_put_builtin_rom);
 }

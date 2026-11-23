@@ -241,6 +241,30 @@ int main()
         CHECK_EQ(ops_set(&r.c, "c64.set_freeze_mode", 2), OPE_ARG);
     }
 
+    // ---- base 3.3 (svc_board.h): a library puts one ROM role back (machine.put_builtin_rom, by the put operation of the role) and has the media written back first
+    // (media.flush_for_core); neither holds nor releases the machine
+    {
+        C64Rig r;
+        r.put_roms();
+        CHECK(r.boot());
+        OpResult res;
+        r.io.events.clear();
+        OpIn in = in_str("put_op", "c64.put_kernal");
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 1);                // the KERNAL only, not BASIC and not the character ROM
+        CHECK_EQ(count_prefix(r.io.events, "mode_reset"), 0);
+        r.io.events.clear();
+        in = in_str("put_op", "c64.put_nothing");                           // no role of the core is put by it
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_FAILED);
+        CHECK(strstr(res.msg, "c64.put_nothing") != 0);
+        CHECK(r.io.events.empty());
+        r.fs.remove("/flash/roms/kernal.bin");                              // the file of the role is gone: the same refusal as the reload gives, the machine untouched
+        in = in_str("put_op", "c64.put_kernal");
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_FAILED);
+        CHECK(r.io.events.empty());
+        CHECK_EQ(ops_call(&r.c, "media.flush_for_core", 0, 0, &res), OPE_OK);   // nothing mounted: nothing to write
+    }
+
     // ---- T216 D16: a descriptor with a rom_key loads the ROMs again at the Reset that follows a change of the key, and only then
     {
         static uint32_t key;

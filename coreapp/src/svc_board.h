@@ -61,7 +61,8 @@ typedef struct SvcBoard {
 // ---- operations of the base that a library calls with SvcOps::call (no member of the group) -------------------------------------------------------------------
 //   "machine.cold_reset"        hold, the reset-time settings, release: boot_cold_reset. Result: OPE_FAILED with the reason in msg.
 //   "machine.put_builtin_rom"   new in 3.3. Argument "put_op" (text): the put operation of a ROM role of the descriptor (c64.put_kernal, c64.put_basic, drive.put_rom, ...).
-//                               The built-in image of that role is put back through it (boot_put_builtin_rom). OPE_FAILED with the reason in msg.
+//                               The built-in image of that role is put back through it (boot_put_builtin_rom). OPE_FAILED with the reason in msg: no ROM of the core is put by that
+//                               operation, or the ROM files of the core cannot be read.
 //   "media.flush_for_core"      the mounted media written back first (media_writeback; its WbWhy is ignored there): OPE_FAILED with the reason in msg when one cannot be
 //                               written, and the caller then leaves the machine on. The code that powers off or cycles the board calls it first.
 // They run on the calling task without the executor and without taking the core lock (SvcOps::call).
