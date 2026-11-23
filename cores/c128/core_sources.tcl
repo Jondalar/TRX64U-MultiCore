@@ -48,7 +48,7 @@ set core_read {
     $core/c64_redip_sid/sid_api.sv $core/c64_redip_sid/sid_multi.sv $core/c64_redip_sid/muladd.sv \
     {*}[glob $core/hdmi/*.sv] ]
   read_verilog -sv [list \
-    {*}[lsearch -all -inline -not -regexp [glob $core/*.v] {/c64_(top|turbo|bus_arbiter)\.v$}] {*}[glob $core/cdc/*.v] $core/hdmi/hdmi.v \
+    {*}[lsearch -all -inline -not -regexp [glob $core/*.v] {/(c64_(top|turbo|bus_arbiter)|vicii_kawari)\.v$}] {*}[glob $core/cdc/*.v] $core/hdmi/hdmi.v \
     {*}[glob $core/c64_c1541/*.v] $core/c64_action_replay/c64_action_replay_pla.v \
     $core/c64_redip_sid/dc_blocker.v \
     {*}[glob $trxsid/rtl/*.v] \
@@ -57,7 +57,7 @@ set core_read {
     $kawari/colorreg.v $kawari/sprites.v $kawari/registers_scaled.v $kawari/raster.v \
     $kawari/pixel_sequencer.v $kawari/matrix.v $kawari/lightpen.v $kawari/hires_dvi_sync_scaled.v \
     $kawari/hires_pixel_sequencer.v $kawari/hires_matrix.v $kawari/hires_addressgen.v $kawari/cycles.v \
-    $kawari/comp_sync.v $kawari/bus_access.v $kawari/border.v $kawari/addressgen_spartan.v $c128/vicii_c128.v ]
+    $kawari/comp_sync.v $kawari/bus_access.v $kawari/border.v $kawari/addressgen_spartan.v $c128/vicii_c128.v $c128/vicii_kawari_c128.v ]
   read_verilog -sv [list $c128/c64_top_c128.v $c128/cpu6510_c128.v $c128/c64_turbo_c64u.v $c128/c64_bus_arbiter_c128.v $c128/c64_pla_c128.v \
     $c128/c128_map.v $c128/c128_x.v $c128/c128_iecfs.v]
   read_verilog -sv [list $c128/vdc/vdcram.v $c128/vdc/vdc_cpu.v]

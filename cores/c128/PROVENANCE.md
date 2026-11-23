@@ -42,8 +42,11 @@ Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` 
 - `cart_slot_c64u.v`, `cart_fill_c64u.v`, `slot_port_c64u.v`, `c64_turbo_c64u.v` (T257 D11, 2026-11-23): copies of the files of the same names in `cores/c64u/` (first line names the source; content unchanged), so the C128 reads nothing of the c64u tree for them.
   `cart_slot_c64u.v` and `cart_fill_c64u.v` are read but unused while the define `NO_CART_EMU` is set (the mono build sets it); they stay so the define is switchable.
 - `c128_pixw.v`: copy of `cores/c264/rtl/trx/c264_pixw.v` (ours) for the VDC's 640-dot picture, every line written twice, three buffers, 7 bit word counter; T257: frames of up to 240 lines, the rows after a shorter frame written black (ours).
-- `vicii_c128.v`: copy of `vendor/icepi/vicii-kawari/hdl/vicii.v` (Kawari, GPL-3.0-or-later). One change: the dot phase (`dot_rising`) stops while `stall` is up and the enable
-  the dot-clocked logic sees is 0 then (the original lets raster_x count on while only the PHI generator stops: a stall of the ROM line cache moved the VIC against the CPU).
+- `vicii_c128.v`: copy of `vendor/icepi/vicii-kawari/hdl/vicii.v` (Kawari, GPL-3.0-or-later). Two changes: the dot phase (`dot_rising`) stops while `stall` is up and the enable
+  the dot-clocked logic sees is 0 then (the original lets raster_x count on while only the PHI generator stops: a stall of the ROM line cache moved the VIC against the CPU);
+  the input `fast` (the 2 MHz mode) keeps AEC with PHI, so no badline or sprite DMA takes the CPU half then (T257 fault 4).
+- `vicii_kawari_c128.v` (T257 fault 4): copy of `vendor/icepi/vicii_kawari.v` (GPL-3.0-or-later), module `vicii_kawari_c128`, with the input `fast` passed to the VIC;
+  the build reads it in place of the original (`core_sources.tcl`, `sim/build_machine.sh`).
 - `c64_bus_arbiter_c128.v`, `c64_pla_c128.v`, `cpu6510_c128.v`: copies of `vendor/icepi/c64_bus_arbiter.v`, `c64_pla.v`, `cpu6510.v` (GPL-3.0-or-later) with the
   C128 map, the 2 MHz bus cycles, the 8502's port bit 6.
 - `c64_top_c128.v`, `c64_core_c128.v`, `c64_mem_c128.v`, `layer2_c128.v`: copies of the `cores/c64u` files, cut down and extended.

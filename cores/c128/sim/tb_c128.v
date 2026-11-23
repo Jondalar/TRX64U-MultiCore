@@ -479,7 +479,9 @@ module tb_c128;
             $display("vreg|%0d|%0d|%02x", $time / 1000, dut.c64.x.vdc.regSel, dut.c64.x.vdc.db_in);
     end
     // +VDCFIELDS=<us>: the next four fields of the VDC's picture after that time, one hex digit (rgbi) per dot of the active area, into vdcfield<k>.txt
-    // (first line "field <k> il <vdc_il> lines <n> width <w>"); vdcil_model.py fields renders them.
+    // (first line "field <k> il <vdc_il> lines <n> width <w>"); vdcil_model.py fields renders them. il is taken where the field's visible rows start: the VDC
+    // flips its field at the frame wrap, in the blank after the visible rows (vdc_signals_v.sv cfield, vVisible), so at the blank's start it still names
+    // the field just shown (T257 fault 4: taken there, every field carried the flag of the one before it).
     integer vf_us = -1, vf_k = 0, vf_x = 0, vf_y = 0, vf_w = 0, vf_fd = 0, vf_i, vf_j;
     reg [1:0] vf_st = 2'd0;                                            // 0 off, 1 waiting for a field start, 2 capturing
     reg vf_hb_q = 1'b1, vf_vb_q = 1'b1;
@@ -491,6 +493,7 @@ module tb_c128;
         vf_hb_q <= vdc_hb; vf_vb_q <= vdc_vb;
         if (vf_st == 2'd2 && vdc_ce && !vdc_hb && !vdc_vb && vf_y < 300 && vf_x < 800) begin vf_px[vf_y][vf_x] = vdc_rgbi; vf_x = vf_x + 1; end
         if (vdc_hb && !vf_hb_q) begin if (vf_x > 0) begin if (vf_x > vf_w) vf_w = vf_x; vf_y = vf_y + 1; end vf_x = 0; end
+        if (!vdc_vb && vf_vb_q) vf_il = vdc_il;
         if (vdc_vb && !vf_vb_q) begin
             if (vf_st == 2'd2 && vf_y > 0) begin
                 $sformat(vf_name, "vdcfield%0d.txt", vf_k);
@@ -506,7 +509,7 @@ module tb_c128;
                 if (vf_k == 4) vf_st = 2'd0;
             end
             if (vf_st == 2'd1) vf_st = 2'd2;
-            vf_il = vdc_il; vf_y = 0; vf_x = 0; vf_w = 0;
+            vf_y = 0; vf_x = 0; vf_w = 0;
         end
     end
     // +INJECT_AT=<us>: at that time the RAM image mem/inject.mem (byte per line, address = {block, 16 bit}) is written wherever mem/inject.msk is 1: into the DDR2 model (the
@@ -852,12 +855,39 @@ module tb_c128;
     realtime tr_from = 0;
     integer tr_from_i;
     // +CTRACE (T257 fault 4): every bus cycle of the 8502 itself, at its core's clock enable (clk2x), so the 2 MHz mode's two cycles per 1 MHz cycle are both
-    // there (+TRACE prints one per 1 MHz cycle), from +TRFROM on: "ct|us|address|R/W|byte" (a read's byte is what the core takes)
+    // there (+TRACE prints one per 1 MHz cycle), from +TRFROM on: "ct|us|address|R/W|byte|ph|fast_hok fast_lcyc|rdy_r and the RDY the core takes|
+    // ram miss" (a read's byte is what the core takes; the miss: c128_ramd's n_cpu_wait, the CPU reads held so far)
     reg ctrace = 1'b0;
     initial ctrace = $test$plusargs("CTRACE");
     always @(posedge clk2x_r) if (ctrace && $time >= tr_from && dut.c64.cpu6510_0.core_ce && !dut.c64.z80_act)
-        $display("ct|%0d|%04x|%s|%02x", $time / 1000, dut.c64.c8502_addr, dut.c64.c8502_we ? "W" : "R", dut.c64.c8502_we ? dut.c64.c8502_dout : dut.c64.cpu6510_0.din_i);
+`ifdef RAM_DDR2
+        $display("ct|%0d|%04x|%s|%02x|ph %0d|hok %b lc %b|rr %b rdy %b|miss %0d", $time / 1000, dut.c64.c8502_addr, dut.c64.c8502_we ? "W" : "R",
+            dut.c64.c8502_we ? dut.c64.c8502_dout : dut.c64.cpu6510_0.din_i, dut.c64.ph, dut.c64.fast_hok, dut.c64.fast_lcyc,
+            dut.c64.cpu6510_0.rdy_r, dut.c64.cpu6510_0.rdy_latched, dut.mem.ramd.n_cpu_wait);
+`else
+        $display("ct|%0d|%04x|%s|%02x|ph %0d|hok %b lc %b|rr %b rdy %b", $time / 1000, dut.c64.c8502_addr, dut.c64.c8502_we ? "W" : "R",
+            dut.c64.c8502_we ? dut.c64.c8502_dout : dut.c64.cpu6510_0.din_i, dut.c64.ph, dut.c64.fast_hok, dut.c64.fast_lcyc,
+            dut.c64.cpu6510_0.rdy_r, dut.c64.cpu6510_0.rdy_latched);
+`endif
     initial if ($value$plusargs("TRFROM=%d", tr_from_i)) tr_from = tr_from_i * 1000.0;
+    // +KTRACE=<n> (T257 fault 4): n machine clocks from +TRFROM on, one line each, taken in the middle of the clock (the values the next edge takes):
+    // the 2 MHz sequencer (ph, fast_*), the 8502's address and the arbiter's copy, who owns the bus (vic_write_ab, BA, AEC), the RAM command and its
+    // answer, RDY and the data the 8502 captures (cpu_din, din_r)
+    integer ktn = 0;
+    initial if (!$value$plusargs("KTRACE=%d", ktn)) ktn = 0;
+    always @(negedge clk_r) if (ktn > 0 && $time >= tr_from) begin
+        ktn = ktn - 1;
+        $write("k|%0d|ph %0d|ca %04x %s|aa %04x|io %b fe %b hok %b lc %b cap %b cex %b|wab %b ba %b aec %b|sp %b rs %b re %b cv %b %06x %s|rh %b rdy %b rr %b|din %02x dr %02x",
+            $time, dut.c64.ph, dut.c64.c8502_addr, dut.c64.c8502_we ? "W" : "R", dut.c64.addr_a,
+            dut.c64.io_class, dut.c64.fast_en, dut.c64.fast_hok, dut.c64.fast_lcyc, dut.c64.fast_cap, dut.c64.cpu_ce_x,
+            dut.c64.vic_write_ab, dut.c64.vic_ba, dut.c64.vic_aec,
+            dut.c64.sdram_pending, dut.c64.ram_select, dut.c64.ram_enable, dut.c64.mem_cmd_valid, dut.c64.mem_cmd_addr, dut.c64.mem_cmd_we ? "W" : "R",
+            dut.c64.rom_hold, dut.c64.cpu_rdy, dut.c64.cpu6510_0.rdy_r, dut.c64.cpu_din, dut.c64.cpu6510_0.din_r);
+`ifdef RAM_DDR2
+        $write("|ev %b v %b %04x miss %b", dut.mem.ram_ev, dut.mem.ramd_v, dut.mem.ramd_word, dut.mem.ramd_miss);
+`endif
+        $display("");
+    end
     always @(posedge gclk) if (cpu_end && !rst) begin
         cyc = cyc + 1;
         if (dut.halted) held_cyc = held_cyc + 1;

@@ -422,6 +422,7 @@ always @(posedge clk)
 wire  [3:0] vic_pix_color_i;
 wire        vic_cpu_reset;
 wire        vic_stall;
+reg         fast_en = 1'b0;         // the 2 MHz mode is on (its sequencer below); the VIC leaves the CPU half to the CPU then (T257 fault 4)
 wire        vic_clk_phi;
 wire        vic_phi2_l;
 wire        vic_phi2_p;
@@ -463,7 +464,7 @@ wire        vic_audio_sample_en;
 wire signed [23:0] sid_audio_sample_word_0;
 wire signed [23:0] sid_audio_sample_word_1;
 
-vicii_kawari #(
+vicii_kawari_c128 #(
   .VIDEO_CLK_FREQUENCY(TMDS_CLK_FREQUENCY),
   .AUDIO_RATE(48_000)
 ) video_kawari_0 (
@@ -473,6 +474,7 @@ vicii_kawari #(
   .reset               (vic_cpu_reset),
   .reset_req           (vic_reset_req || vic_trst),
   .stall               (vic_stall),
+  .fast                (fast_en),
   .clk_phi             (vic_clk_phi),
   .phi2_l              (vic_phi2_l),
   .phi2_p              (vic_phi2_p),
@@ -687,10 +689,12 @@ assign cpu_we   = c8502_we;
 // machine slows to 1 MHz for them. ph counts the clocks since phi2_p. The CPU is clocked (ce_x) at ph 8 and 24 (phi2_h, phi2_l)
 // after a capture of the bus data one clock earlier (cap_x); a cycle started at ph 8 whose address turns out to be io_class is not
 // done in the VIC half: its capture and clock enable are skipped and it is done in the next CPU half like a 1 MHz cycle.
+// The 8502 ignores BA in this mode (cpu_rdy), so the VIC must not take the CPU half: fast_en keeps its AEC with PHI (vicii_c128.v `fast`),
+// a badline's c-accesses and the sprite DMA no longer steal it (T257 fault 4: the CPU took the VIC's screen byte as its own read).
 reg   [5:0] ph = 6'd0;
 always @(posedge clk) if (!vic_stall) ph <= vic_phi2_p ? 6'd0 : ph + 6'd1;
 wire        io_class;
-reg         fast_en = 1'b0, fast_lcyc = 1'b0, fast_hok = 1'b0;
+reg         fast_lcyc = 1'b0, fast_hok = 1'b0;
 wire        fast_req = c128_fast && !c128_n && !z80_act;
 always @(posedge clk) begin
   if (cpu_reset || cpu_paused || reu_dma_active || ext_dma_cyc) begin fast_en <= 1'b0; fast_lcyc <= 1'b0; fast_hok <= 1'b0; end

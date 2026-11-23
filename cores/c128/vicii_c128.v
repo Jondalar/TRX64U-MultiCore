@@ -61,6 +61,7 @@ module vicii
            output [9:0] v_count_dvi,
 `endif
            input stall,
+           input fast,              // T257 fault 4: the 8502 runs in the 2 MHz mode (c64_top_c128.v fast_en); AEC below
            output clk_phi,
            output phi2_l,
            output phi2_p,
@@ -424,7 +425,8 @@ wire [9:0] xpos_sprite;
 assign xpos_sprite = xpos >= 10'd6 ? xpos - 10'd6 : max_xpos - 10'd5 + xpos;
 
 // Shift dot_rising register.
-// T113: cores/c128's own copy of vicii.v (Q1: the original is not touched). One change: the dot phase stops with `stall` too (dot_rising_r, and the
+// T113: cores/c128's own copy of vicii.v (Q1: the original is not touched). Two changes: the input `fast` (T257 fault 4, at AEC below), and here
+// the dot phase stops with `stall` too (dot_rising_r, and the
 // enable the dot-clocked logic sees, dot_rising, is 0 while stalled). In the original
 // only the PHI generator stops; the pixel position (raster_x, raster_line and everything that counts dots) runs on, so a stall
 // (the ROM in the DDR2 behind the line cache, c128_romc.v) moved the VIC against the CPU by the stalled clocks: BA, RAS/CAS and the CPU half
@@ -816,16 +818,18 @@ sprites vic_sprites(
 
 
 // AEC LOW tells CPU to tri-state its bus lines
-// AEC will remain HIGH during PHI phase 2 for one extra cycle
-// after which it will remain LOW with ba. This extra cycle
-// seems to quell noise at the start of AEC low cycle (source
-// remains a mystery)
-// Provide a delayed version of aec in aec2
+// AEC stays HIGH in PHI phase 2 for three cycles after ba falls (ba3, the cascade above), then LOW with ba
+// (T257 fault 4: the note here said one extra cycle; the code and the bench trace give three).
+// aec2 is aec one tick later (vic_write_ab below).
+// T257 fault 4: in the 2 MHz mode (`fast`) the 8502 owns the CPU half of every cycle: AEC follows PHI as if BA were high, so a badline's c-accesses
+// and the sprite DMA no longer take it (a c-access then takes $FF as the character, bus_access.v; the sprite data the last bus byte, sprites.v; the
+// picture is the border colour then, c64_top_c128.v vic_pix_color). The 8502 ignores BA in that mode (cpu_rdy); before this the arbiter gave
+// such a CPU half to the VIC and the 8502 took the VIC's byte as its own read.
 reg aec2;
 always @(posedge clk_dot4x)
 begin
     if (!stall) begin
-        aec <= ba ? clk_phi : ba3 & clk_phi;
+        aec <= (ba || fast) ? clk_phi : ba3 & clk_phi;
         aec2 <= aec;
     end
 end

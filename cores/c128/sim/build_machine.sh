@@ -43,7 +43,7 @@ EOT
   ls $C/c64_redip_sid/reDIP-SID/gateware/*.sv | grep -v sid_pkg
   echo $C/c64_redip_sid/sid_api.sv $C/c64_redip_sid/sid_multi.sv $C/c64_redip_sid/muladd.sv
   ls $C/hdmi/*.sv
-  ls $C/*.v | grep -vE '/c64_(top|turbo|bus_arbiter)\.v$'
+  ls $C/*.v | grep -vE '/(c64_(top|turbo|bus_arbiter)|vicii_kawari)\.v$'
   ls $C/cdc/*.v $C/c64_c1541/*.v $C/usb_hid_host/rtl/*.v
   echo $C/hdmi/hdmi.v $C/c64_action_replay/c64_action_replay_pla.v $C/c64_redip_sid/dc_blocker.v
   ls $U/trx_sid/rtl/*.v
@@ -52,7 +52,7 @@ EOT
            hires_addressgen cycles comp_sync bus_access border addressgen_spartan; do
     echo $K/$f.v
   done
-  echo $X/vicii_c128.v
+  echo $X/vicii_c128.v $X/vicii_kawari_c128.v
   echo $X/c64_top_c128.v $X/cpu6510_c128.v $X/c64_turbo_c64u.v $X/c64_bus_arbiter_c128.v $X/c64_pla_c128.v $X/c128_map.v $X/c128_x.v $X/c128_act.v $X/c128_iecfs.v
   echo $X/vdc/vdcram.v $X/vdc/vdc_cpu.v
   echo $X/vdc/vdc_top.sv $X/vdc/vdc_signals.sv $X/vdc/vdc_signals_h.sv $X/vdc/vdc_signals_v.sv $X/vdc/vdc_ramiface.sv $X/vdc/vdc_video.sv
