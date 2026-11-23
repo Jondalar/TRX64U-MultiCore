@@ -172,6 +172,8 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
 - Other cores using `into` (the C64, the C16): not asked.
 
 - A stock 1541 ROM that is only the 8 KiB lower half (`325302-01`) as its own file: not built (the stock slot takes whole 16 or 32 KiB files only). Alex, 2026-11-23, asked whether it may stand here as not built, chose "Yes, out": until a tester asks for it.
+- **The alternative image names may break at a hyphen** (Alex, 2026-11-23: "leave it, it does not matter for now", translated). At
+  480p the first sentence of the "ROM files" message wraps `c128-system.rom` after its hyphen; D12 covers the part names only.
 
 ## §5 Decisions taken while building
 
