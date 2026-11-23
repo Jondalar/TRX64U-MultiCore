@@ -274,7 +274,7 @@ struct CoreDesc {
     const char *program_ext;              // file extension the first-start file picker shows
     // the core's contributor: registers the operations and states the names above refer to (null: the core needs none)
     void (*register_ops)(OpRegistry &r);
-    // what the machine has, by name (T104.1 Q10): "sio", "iec", "drive_a", "cartridge". A library whose capability is not in this list is
+    // what the machine has, by name (T104.1 Q10): "sio", "iec", "drive_a", "cartridge", "iec_trace" (the core has the serial bus trace page, T170: the report reads it). A library whose capability is not in this list is
     // refused at the load, with a message that names the library and the capability; null/0: the core claims none. A name is 1..15 of
     // [a-z0-9_], as the field of a .u2a is; desc_check refuses the rest.
     const char *const *caps; int ncaps;

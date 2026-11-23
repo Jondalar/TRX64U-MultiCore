@@ -362,11 +362,12 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
-    // ---- T170 D2: the serial port trace section - only for a core with the capability "iec" whose page answers "IECT" (FakeIo masks the page to 0x000-0xFFF) ----
+    // ---- T170 D2: the serial port trace section - only for a core with the capability "iec_trace" whose page answers "IECT" (FakeIo masks the page to 0x000-0xFFF) ----
     {
-        static const char *const iec_caps[] = { "iec" };
+        static const char *const trace_caps[] = { "iec", "iec_trace" };
+        static const char *const iec_only[] = { "iec", "drive_a" };
         Rig r;
-        r.d.caps = iec_caps; r.d.ncaps = 1;
+        r.d.caps = trace_caps; r.d.ncaps = 2;
         std::string t0(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
         CHECK(!has(t0, "Serial port trace"));                      // the capability, no page
         memcpy(r.io.regs, "IECT", 4); r.io.regs[4] = 1; r.io.regs[5] = 10;
@@ -375,9 +376,21 @@ int main()
         CHECK(has(t1, "== Serial port trace (T170) =="));
         CHECK(has(t1, "No event recorded."));
         CHECK(t1.find("== Serial port trace") < t1.find("== Heap =="));
-        r.d.caps = 0; r.d.ncaps = 0;                               // the page, no capability: not read
+        r.d.caps = iec_only; r.d.ncaps = 2;                        // "iec" but not "iec_trace", the page there: not read at all
+        r.io.reads.clear();
         std::string t2(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
         CHECK(!has(t2, "Serial port trace"));
+        bool page_f = false;
+        for (uint32_t a : r.io.reads) page_f = page_f || (a >= 0xF000u && a < 0x10000u);
+        CHECK(!page_f);
+        r.d.caps = 0; r.d.ncaps = 0;                               // the page, no capability: not read
+        std::string t3(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
+        CHECK(!has(t3, "Serial port trace"));
+        // the C128's capability list (coreapp/cores/c128.cc; test_c128 checks the descriptor): the section prints
+        static const char *const c128_like[] = { "iec", "drive_a", "iec_trace" };
+        r.d.caps = c128_like; r.d.ncaps = 3;
+        std::string t4(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
+        CHECK(has(t4, "== Serial port trace (T170) =="));
     }
     DONE("test_corereport");
 }

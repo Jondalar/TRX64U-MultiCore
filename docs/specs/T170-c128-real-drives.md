@@ -85,8 +85,8 @@ The design below was chosen while building (agent, 2026-11-23); Alex's decisions
   first edge and the state after the quiet are events. Counters of every edge of the four lines (32 bit) count what the ring leaves out. Without that rule one 20 KB burst would overwrite the ring many times
   over; with it the ring holds the last about 1000 slow events or the last 250 bytes' handshakes, which is where a hang shows. Registers: a page of its own at `cw_addr` 0xF000 (page F of the core window), in `cpu_clk`,
   read after a snapshot (a toggle handshake) so the 32-bit values do not tear; text of record: the header of `c128_iectrace.v`.
-- **D6 The application.** Generic, no core data (T192 D24): `coreapp/src/iectrace.{h,cc}` is called by `corereport.cc` when the descriptor has the capability "iec" **and** the page answers the ID "IECT" at
-  0xF000; it prints the newest 96 events (about 4 KB of the 28 KB report). `tools/check_d24.py` is green; `coreapp/cores/c128.cc` is not touched. Another core can offer the same page.
+- **D6 The application.** Generic, no core data (T192 D24): `coreapp/src/iectrace.{h,cc}` is called by `corereport.cc` when the descriptor has the capability "iec_trace" (declared only by a core whose gateware has the page; the C128 does, in its existing `caps[]` line) **and** the page answers the ID "IECT" at
+  0xF000; it prints the newest 96 events (about 4 KB of the 28 KB report). `tools/check_d24.py` is green; `coreapp/cores/c128.cc` only gains the name in `caps[]`. Another core can offer the same page.
 - **D7 Time base.** The ticks are the core's `sys_clk`; the page reports it (`TICK_HZ`: 31,527,778 PAL, 32,727,273 NTSC from the System Mode - the nominal values, the NTSC value is the VIC's clock from `vicii_c128.v`, not measured).
 
 ## §4 Out
@@ -115,7 +115,7 @@ The design below was chosen while building (agent, 2026-11-23); Alex's decisions
   guarantee - the C128 was red on WNS in run 1142 with this density, and Vivado decides. If it does not close: drop the 32-bit counters to 16 bit (about -100 LUT, -64 FF), then the snapshot of the DATA counter.
 - **Risks to look at in the first Vivado run and the first board run:**
   - `IEC_SRQ_I` is a new input (K14, LVCMOS33, no pull): its idle level on the board with no drive is not known from the boundary scan. A line stuck low means no FLAG edge and no CNT clock, nothing worse.
-  - The report reads page F of the core window on every core that has the capability "iec" (the TRX64U, SCPU, C264, VC20 too) to find the ID bytes; a core whose window does not acknowledge unknown pages would stall there.
-    Cores built on the c64u window acknowledge every access that is not a page of its own one clock later and read 0 (`cores/c64u/c64u_io.v`, header); the C264 and VC20 windows were not read for it.
+  - (Closed 2026-11-23) The report no longer probes page F on every core with "iec": it reads it only for a core that declares the capability "iec_trace" (`corereport.cc`), which only the C128 does. No other core's window is read at 0xF000.
   - The trace has not been seen with a drive. Whether the burst rule (8 us) fits a real 1571's bit clock is a guess from the protocol: the counters are right either way; only the ring's content changes.
+- **D7 decision (coordinator, 2026-11-23): the time base stays the nominal tick rate** (31,527,778 PAL, 32,727,273 NTSC). The trace serves to read a tester's failed load; the NTSC clock's error of about 48 ppm moves an 8 us burst edge by less than a nanosecond, so the real MMCM value is not measured.
 - **Open:** builder benches (`c128_iec`, `c128_iec_cia`, `c128_machine iec c64mode boot`), the Vivado run, the testers' board steps S1-S3 with a real 1541 and 1571 (D2), the checklist lines in T122 / T166.
