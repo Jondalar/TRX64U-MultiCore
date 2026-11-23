@@ -857,21 +857,12 @@ class HeapLeftTest(unittest.TestCase):
         self.assertTrue(any("library online keeps n/a, peak n/a" in l for l in rep))
         self.assertTrue(any("libraries keep 4096 of 5242880 bytes" in l for l in rep))
 
-    def test_needs_of_the_toml_b_and_of_a_u2a(self):
+    def test_needs_of_the_toml_b(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
             f = os.path.join(d, "b.toml")
             open(f, "w").write('[[library]]\nname = "ring"\nsources = ["ring.cc"]\nheap_keep = 100\nheap_peak = 200\n\n[[library]]\nname = "x"\nsources = ["x.cc"]\n')
             self.assertEqual(C.toml_b_heap_needs(f), [("ring", 100, 200), ("x", None, None)])
-            open(f, "w").write('[[library]]\nname = "ring"\nsources = ["ring.cc"]\nheap_keep = "big"\n')
-            with self.assertRaises(C.CorError):
-                C.toml_b_heap_needs(f)
-        u = bytearray(104 + 48)
-        u[:4] = C.LIB_U2A_MAGIC
-        struct.pack_into("<I", u, 16, C.U2A_FLAG_BUDGET)
-        u[20:23] = b"lib"
-        struct.pack_into("<12I", u, 104, 48, 0, 2048, 0xFFFFFFFF, 0, 0, 0, 0, 0, 0, 0, 0)
-        self.assertEqual(C.u2a_heap_need(bytes(u)), ("lib", 2048, None))
 
     def test_pack_large_reports_through_the_list(self):
         rep = []

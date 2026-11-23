@@ -72,6 +72,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import descrec  # noqa: E402
+import libtab  # noqa: E402
 
 MAGIC = b"TRXCOR01"
 T_MANIFEST, T_PARTIAL, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS, T_FILES = 1, 2, 3, 4, 5, 6, 7, 8
@@ -509,39 +510,20 @@ def put_short(m, short):
     m["short"] = short
 
 
-def u2a_heap_need(u2a):
-    """(name, heap_keep, heap_peak) a format-3 .u2a declares in its budget record (coreapp/src/libfmt.h U2a3Budget; None for a figure it leaves open)."""
-    name = u2a[20:36].split(b"\0")[0].decode("ascii", "replace")
-    flags, = struct.unpack_from("<I", u2a, 16)
-    if not flags & U2A_FLAG_BUDGET:
-        return name, None, None
-    bsz, = struct.unpack_from("<I", u2a, LIB_U2A_HEADER) if LIB_U2A_HEADER + 4 <= len(u2a) else (0,)
-    if bsz < U2A_BUDGET_MIN or bsz > U2A_BUDGET_MAX or bsz & 3 or LIB_U2A_HEADER + bsz > len(u2a):
-        raise CorError("library %s: its budget record is malformed" % name)
-    keep, peak = struct.unpack_from("<2I", u2a, LIB_U2A_HEADER + 8)
-    return name, (None if keep == 0xFFFFFFFF else keep), (None if peak == 0xFFFFFFFF else peak)
-
-
 def toml_b_heap_needs(path):
-    """[(name, heap_keep, heap_peak)] of the libraries the TOML B of a core's app links (`heap_keep` and `heap_peak` of a [[library]] table; None: not declared)."""
+    """[(name, heap_keep, heap_peak)] of the libraries the TOML B of a core's app links (`heap_keep` and `heap_peak` of a [[library]] table, read and checked by libtab.load; None: not declared). Sub-apps (.u2a, record 7) are not counted: S13 checks them at load."""
     try:
-        doc = descrec.toml_loads(open(path).read())
-    except (descrec.DescError, OSError) as e:
-        raise CorError("%s: %s" % (path, e))
-    out = []
-    for lib in doc.get("library", []):
-        v = [lib.get(k) for k in ("heap_keep", "heap_peak")]
-        if any(x is not None and (isinstance(x, bool) or not isinstance(x, int) or x < 0) for x in v):
-            raise CorError("%s: library %s: heap_keep and heap_peak are numbers of bytes" % (path, lib.get("name", "?")))
-        out.append((str(lib.get("name", "?")), v[0], v[1]))
-    return out
+        libs = libtab.load(path)
+    except libtab.LibTabError as e:
+        raise CorError(str(e))
+    return [(l["name"], l.get("heap_keep"), l.get("heap_peak")) for l in libs]
 
 
 def app_heap(app, heap, core, needs=None, report=None):
     """T239.3 D15, P4-1: `app` with the heap word set to `heap` (the core's core.toml `heap`; None keeps the image's own, the default; 0 is the region that is
     left behind the image and the stack reserve). The image must hold one TRXHEAP record; one without it is left alone when no heap is asked for (an imported
     core's own app) and refused when one is. Refused too: an image whose end + heap + stack reserve is beyond the end of the application region, and a core whose
-    libraries keep (`heap_keep`, `needs`: (name, keep, peak) per library, linked or in record 7) more than the heap; the message names the core, the figures and
+    libraries keep (`heap_keep`, `needs`: (name, keep, peak) per linked library) more than the heap; the message names the core, the figures and
     the limit. `report`, a list, gets the lines of the build report: the figures of the layout and the needs of each library."""
     at, i = [], -1
     while True:
@@ -927,13 +909,8 @@ def read_extras(a):
 
 
 def heap_needs_of(a):
-    """The heap the core's libraries keep (P4-1): the [[library]] tables of the TOML B (--sizes) the app is linked with, and the .u2a files of record 7 (--lib)."""
-    needs = toml_b_heap_needs(a.sizes) if getattr(a, "sizes", None) else []
-    for f in a.lib:
-        u = open(f, "rb").read()
-        if len(u) >= LIB_U2A_HEADER and u[:4] == LIB_U2A_MAGIC:
-            needs.append(u2a_heap_need(u))
-    return needs
+    """The heap the core's linked libraries keep (P4-1): the [[library]] tables of the TOML B (--sizes) the app is linked with."""
+    return toml_b_heap_needs(a.sizes) if getattr(a, "sizes", None) else []
 
 
 def main(argv=None):
