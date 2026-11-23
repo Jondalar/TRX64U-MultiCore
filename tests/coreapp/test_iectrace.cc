@@ -17,6 +17,7 @@ struct PageIo : CoreIo {
     uint16_t live = 0;
     std::vector<uint32_t> ring = std::vector<uint32_t>(1024, 0);
     uint16_t idx = 0;
+    uint8_t depth_log2 = 10;
     int snaps = 0, busy_reads = 0;
     uint8_t byte(uint32_t v, uint32_t i) { return (uint8_t)(v >> (8 * i)); }
     uint8_t rd(uint32_t reg)
@@ -29,7 +30,7 @@ struct PageIo : CoreIo {
         case 2: return 'C';
         case 3: return 'T';
         case 4: return 1;
-        case 5: return 10;
+        case 5: return depth_log2;
         case 0x010: return busy_reads-- > 0 ? 1 : 0;
         case 0x030: return (uint8_t)idx;
         case 0x031: return (uint8_t)(idx >> 8);
@@ -137,6 +138,22 @@ int main()
         io.push(20, 0xF, 0xF, true, true);
         std::string t = report(io, 96);
         CHECK(has(t, "Newest 2 of 2 events, oldest first:"));
+    }
+    {
+        const uint8_t bad[] = {0, 11, 15, 16, 255};           // the hardware keeps a 10-bit slot index: a depth outside 2^1 .. 2^10 is no page of ours
+        for (uint8_t lg : bad) {
+            PageIo io;
+            io.depth_log2 = lg;
+            io.push(10, 0xE, 0xF, true, true);
+            std::string t = report(io, 96);
+            CHECK(has(t, "invalid"));
+            CHECK(!has(t, "Events since the start"));
+            CHECK(!has(t, "#0 +"));
+        }
+        PageIo io;                      // the smallest depth that is allowed
+        io.depth_log2 = 1;
+        io.push(10, 0xE, 0xF, true, true);
+        CHECK(has(report(io, 96), "ring of 2 events"));
     }
     DONE("iectrace");
 }

@@ -46,7 +46,12 @@ static void lines(char *out, unsigned v)
 void iectrace_report(CoreIo *io, BrOut *o, int max_events)
 {
     uint32_t hz = r32(io, P_TICK_HZ);
-    unsigned depth = 1u << (rb(io, P_DEPTH) & 15);
+    unsigned lg = rb(io, P_DEPTH);
+    if (lg < 1 || lg > 10) {                                    // the hardware keeps a 10-bit slot index (RD_IDX b9:0): a larger depth cannot be read
+        br_put(o, "The trace page is invalid (ring depth 2^%u, expected 2^1 .. 2^10).\n", lg);
+        return;
+    }
+    unsigned depth = 1u << lg;
     io->wr(IECTRACE_PAGE + P_CTRL, 0x02);                       // a snapshot: the counters stand still while they are read
     int polls = 0;
     while ((rb(io, P_CTRL) & 1) && polls < SNAP_POLLS) {
@@ -64,8 +69,9 @@ void iectrace_report(CoreIo *io, BrOut *o, int max_events)
     br_put(o, "Events since the start: %u\n", (unsigned)total);
     br_put(o, "Edges the core heard: ATN %u, CLK %u, DATA %u, SRQ %u\n", (unsigned)r32(io, P_CNT_ATN), (unsigned)r32(io, P_CNT_CLK),
            (unsigned)r32(io, P_CNT_DATA), (unsigned)r32(io, P_CNT_SRQ));
+    // mode = the core's c128_mode bit: 1 = C128 mode, 0 = C64 mode (the names stay out of the strings: generic code, T192 D24)
     br_put(o, "Now: bus %s, board port %s, fast serial %s, mode %u\n", bus, port, (live & 0x100u) ? "out" : "in", (live >> 9) & 1u);
-    br_put(o, "Lines: letter = high, dot = pulled low (A ATN, C CLK, D DATA, S SRQ). +time = since the event before; \">\" = longer than shown. fs = fast serial direction; mode 1 = native, 0 = compatibility.\n");
+    br_put(o, "Lines: letter = high, dot = pulled low (A ATN, C CLK, D DATA, S SRQ). +time = since the event before; \">\" = longer than shown. fs = fast serial direction; mode 1 = machine mode, 0 = compatibility mode.\n");
     br_put(o, "While SRQ moves (a fast serial burst) only its first edge and the state after it are listed; the counts above hold every edge.\n");
     uint32_t have = total < depth ? total : depth;
     uint32_t show = have < (uint32_t)max_events ? have : (uint32_t)max_events;
