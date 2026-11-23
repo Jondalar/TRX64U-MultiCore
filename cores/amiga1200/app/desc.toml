@@ -129,6 +129,22 @@ group = "input"
 values = ["Joystick 1 button", "Joystick 2 buttons", "CD32 gamepad"]
 apply = "amiga.pad2_type"
 
+[[core_setting]]
+key = "Mouse Sensitivity"
+label = "Mouse sensitivity"
+group = "input"
+values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"]
+default = 7
+base = 1
+apply = "mouse.sens"
+
+[[core_setting]]
+key = "Mouse Acceleration"
+label = "Mouse acceleration"
+group = "input"
+values = ["Off", "Adaptive"]
+apply = "mouse.accel"
+
 # ---- tasks
 [[task]]
 label = "Reset Amiga"

@@ -5,6 +5,7 @@ version      = "0.3.0"
 contract     = 2
 app          = "blueprint"     # the T104 generic application (coreapp/cores/vc20.cc); Alex 2026-10-22: "apart from trx64 and c64u, switch everything to the generic core app for now". Supersedes T84 D12; no 1541 drive until the cbm1541 library exists (T83 section 5)
 order        = 2               # core order of docs/todo/T79.md
+desc_record  = true            # T239.3 D25: the VIC-20 is a test core of the SDK; its cores/vc20/app/desc.toml goes into the .cor as record 6
 experimental = true            # until it is in a release set (T94 D8); rel-1 holds it (Q4)
 sources      = ["cores/vc20", ":(exclude)cores/vc20/sim", "cores/c1541", ":(exclude)cores/c1541/sim"]
 roms         = ["vic20 kernal", "vic20 basic", "vic20 characters"]

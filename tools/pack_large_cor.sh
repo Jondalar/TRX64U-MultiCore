@@ -45,8 +45,14 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$SHORT" ] || args+=(--short "$SHORT")
 [ -z "$BITC" ] || args+=(--bit-commit "$BITC")
 [ -z "$APPC" ] || args+=(--app-commit "$APPC")
-# T239.3 D17: the core's data description (cores/<id>/app/desc.toml) is record 6; the caller's own --desc files (menu.toml) join it as one record, a table or key in two files is refused by cor_pack
-[ ! -s "$ROOT/cores/$ID/app/desc.toml" ] || DESCS+=("$ROOT/cores/$ID/app/desc.toml")
+# T239.3 D17, D25: the core's data description (cores/<id>/app/desc.toml) is record 6 only when its descriptor (mono/core.toml, else core.toml) says desc_record = true; the caller's own --desc files (menu.toml) join it as one record, a table or key in two files is refused by cor_pack
+for d in "$ROOT/cores/$ID/mono/core.toml" "$ROOT/cores/$ID/core.toml"; do
+    [ -f "$d" ] || continue
+    if [ "$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" desc_record)" = true ] && [ -s "$ROOT/cores/$ID/app/desc.toml" ]; then
+        DESCS+=("$ROOT/cores/$ID/app/desc.toml")
+    fi
+    break
+done
 for f in ${DESCS[@]+"${DESCS[@]}"}; do args+=(--desc "$f"); done
 [ -z "$OPS" ] || args+=(--ops "$OPS")
 [ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")

@@ -765,7 +765,8 @@ class HeapTest(unittest.TestCase):
 
 
 class PackersCarryTheDescriptionTest(unittest.TestCase):
-    """T239.3 D17 part 2: the packers put cores/<id>/app/desc.toml into record 6 of the .cor, and the bundle checks it."""
+    """T239.3 D17 part 2, D25: the packers put cores/<id>/app/desc.toml into record 6 of the .cor when the core's core.toml says desc_record = true
+    (the VIC-20); a core with the file and the switch off carries no record; the bundle checks it."""
 
     ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
@@ -788,6 +789,23 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             self.assertEqual(rec[C.T_DESC], self.desc())
             self.assertEqual(m["name"], "VIC-20")
 
+    def test_pack_cores_mc_switch_off_carries_no_record(self):
+        # D25: the Amiga has cores/amiga/app/desc.toml and no desc_record: no record 6, the app runs on its compiled-in descriptor
+        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
+        import core_toml
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "amiga", "app", "desc.toml")))
+        self.assertNotEqual(core_toml.table_of("amiga").get("desc_record"), True)
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, "amiga_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "amiga.app"), "wb").write(APP)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "amiga"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "amiga.cor"), "rb").read())[1])
+
     def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
         import descrec
         with tempfile.TemporaryDirectory() as d:
@@ -808,6 +826,10 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             # a table in both files is refused
             r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
+            # D25: a core with cores/<id>/app/desc.toml and the switch off (the Amiga 1200, a large core: mono/core.toml) carries no record
+            r = subprocess.run(cmd[:2] + ["amiga1200"] + cmd[3:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "amiga1200.cor"), "rb").read())[1])
             # a core without cores/<id>/app/desc.toml carries no record
             r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

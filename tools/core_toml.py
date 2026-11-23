@@ -81,6 +81,10 @@ SCHEMA = {
     # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. At least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image
     # fits with it is the packer's check.
     "heap":         ("int",  False),
+    # T239.3 D25: true = the packers put the core's data description cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the
+    # core's data from it (coreapp/src/bundle.cc). Absent or false = the file rests in the tree (test_descgen keeps it equal to the C tables) and the .cor
+    # carries no record: the core runs on its compiled-in descriptor. Switched on core by core, as each is pulled onto the SDK. True needs the file.
+    "desc_record":  ("bool", False),
 }
 HEAP_DEFAULT = 0x7A0000
 HEAP_MIN = 0x10000
@@ -193,6 +197,8 @@ def check():
             bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
         if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0):
             bad += err("heap 0x%x is not a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
+        if t.get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
+            bad += err("desc_record = true, but cores/%s/app/desc.toml does not exist" % name)
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:
