@@ -1,5 +1,6 @@
 // T239.3 base 3.3: the settings of the generic application (baseset.h: the menu's look, the keyboard as a joystick, the USB mouse) and the core hooks (core_hooks.h,
-// hookhost.h). Every core gets the five of the look and joystick; a core whose descriptor has a mouse gets the five mouse settings too; no descriptor declares one.
+// hookhost.h). Every core gets the four of the look; a core whose descriptor has a mouse gets Mouse Sensitivity and Mouse Acceleration; the joystick and the mouse mode and wheel
+// rows need a capability of the descriptor (none of the real cores has one: rich_of builds the descriptor of a core that does); no descriptor declares one of the ten.
 // A change reaches the board port (the look, the keyboard's joystick registers), the first-run Navigation Style is WASD Cursors on the Commodore product only while nothing is
 // stored, the USB driver's answers come from the settings by key, and the hooks of a library's table "corehooks" are called in the order the header gives:
 // start, then base_setting_changed once per setting the core has, then once per change; menu_closed on its own; a table without a member, or of another major, is no hook.
@@ -15,11 +16,27 @@
 #include "hookhost.h"
 #include "core_hooks.h"
 #include "mousesink.h"
+#include "contrib.h"
 
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 
 static const char *const order[10] = { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style", "Joystick Input", "Mouse Mode",
                                        "Mouse Sensitivity", "Mouse Acceleration", "Mouse Wheel Sensitivity", "Mouse Wheel Direction" };
+
+// A descriptor that names the two capabilities of the rows that no real core has (baseset.h): the rows a core with them would show.
+static const CoreDesc &rich_of(const CoreDesc &src, int slot)
+{
+    static CoreDesc d[4];
+    static const char *caps[4][16];
+    int n = 0;
+    for (int i = 0; src.caps && i < src.ncaps && n < 14; i++) caps[slot][n++] = src.caps[i];
+    caps[slot][n++] = BASE_CAP_KEYBOARD_JOYSTICK;
+    caps[slot][n++] = BASE_CAP_MOUSE_DRIVER;
+    d[slot] = src;
+    d[slot].caps = caps[slot];
+    d[slot].ncaps = n;
+    return d[slot];
+}
 
 static std::vector<std::string> g_log;                    // what the port and the hooks were told, in order
 static bool g_commodore;
@@ -83,16 +100,28 @@ int main()
 {
     // ---- the rows: a core without a mouse gets five, a core with one gets ten, in the order of svc_settings.h; no descriptor declares one
     CHECK(amiga1200_desc.mouse != 0 && atari800_desc.mouse == 0);
+    const CoreDesc &rich_amiga = rich_of(amiga1200_desc, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
+    {
+        // a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
+        const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
+        for (int k = 0; k < 2; k++) {
+            size_t l = strlen(names[k]);
+            CHECK(l >= 1 && l <= 15);
+            for (size_t i = 0; i < l; i++) CHECK((names[k][i] >= 'a' && names[k][i] <= 'z') || (names[k][i] >= '0' && names[k][i] <= '9') || names[k][i] == '_');
+        }
+        CHECK(desc_has_capability(&rich_amiga, BASE_CAP_KEYBOARD_JOYSTICK) && desc_has_capability(&rich_amiga, BASE_CAP_MOUSE_DRIVER));
+        CHECK(!desc_has_capability(&amiga1200_desc, BASE_CAP_KEYBOARD_JOYSTICK) && !desc_has_capability(&amiga1200_desc, BASE_CAP_MOUSE_DRIVER));
+    }
     for (int k = 0; k < 10; k++) {
         CHECK_EQ(count_key(atari800_desc, order[k]), 0);
         CHECK_EQ(count_key(amiga1200_desc, order[k]), 0);
     }
     {
-        Rig nm(&atari800_desc), wm(&amiga1200_desc);
-        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings + 5);
+        Rig nm(&atari800_desc), wm(&rich_amiga);
+        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings + 4);
         CHECK_EQ(wm.d.nsettings, amiga1200_desc.nsettings + 10);
         for (int k = 0; k < 10; k++) {
-            CHECK_EQ(count_key(nm.d, order[k]), k < 5 ? 1 : 0);          // the mouse settings only for a core with a mouse
+            CHECK_EQ(count_key(nm.d, order[k]), k < 4 ? 1 : 0);          // the look for every core; the joystick, the mouse and the wheel only where the code can do them
             CHECK_EQ(count_key(wm.d, order[k]), 1);
             CHECK_STR(wm.d.settings[amiga1200_desc.nsettings + k].key, order[k]);
             const Setting &s = wm.d.settings[amiga1200_desc.nsettings + k];
@@ -100,6 +129,44 @@ int main()
             CHECK_EQ(baseset_kind(s), k < 4 ? 1 : 2);
             CHECK_EQ(s.when, WHEN_LIVE);
             CHECK_EQ(s.kind, 0);
+        }
+        // what the real cores get (T228 R20, "our menu may only show what the code can do"): no core of this tree names a capability, so the joystick row and the mouse mode and wheel rows
+        // are nobody's; the sensitivity and the acceleration, which the USB driver applies before the core's mouse sink, are every core with a mouse's
+        {
+            Rig am(&amiga1200_desc);
+            CHECK_EQ(am.d.nsettings, amiga1200_desc.nsettings + 6);
+            for (int k = 0; k < 10; k++) {
+                bool want = k < 4 || k == 6 || k == 7;
+                CHECK_EQ(count_key(am.d, order[k]), want ? 1 : 0);
+                CHECK_EQ(baseset_adds(&amiga1200_desc, order[k]), want);
+                CHECK_EQ(baseset_adds(&atari800_desc, order[k]), k < 4);
+                CHECK_EQ(baseset_adds(&rich_amiga, order[k]), true);
+                CHECK_EQ(baseset_adds(&rich_atari, order[k]), k < 5);
+            }
+            CHECK(am.d.settings[am.ix("Mouse Sensitivity")].show_state == 0);           // there is no Mouse Mode row to be the condition
+            CHECK(am.d.settings[am.ix("Mouse Acceleration")].show_state == 0);
+            CHECK_EQ(am.ix("Joystick Input"), -1);
+            CHECK_EQ(am.ix("Mouse Mode"), -1);
+            CHECK_EQ(am.ix("Mouse Wheel Sensitivity"), -1);
+            CHECK_EQ(am.ix("Mouse Wheel Direction"), -1);
+            CHECK(!baseset_adds(&amiga1200_desc, "No Such Key"));
+            // the capability alone is not enough for a mouse row: a core without a mouse has none
+            CHECK_EQ(count_key(Rig(&rich_atari).d, "Mouse Mode"), 0);
+            CHECK_EQ(count_key(Rig(&rich_atari).d, "Joystick Input"), 1);
+            // the menu description hides a row of the application by its key (menu.toml `hide`): the merge drops it, nothing else
+            static const char *const hide[] = { "Color Scheme", "Mouse Acceleration" };
+            Overrides ov = { hide, 2, 0, 0 };
+            CoreDesc merged;
+            MenuMerge *mm = new MenuMerge;
+            CHECK_EQ(contrib_merge(&am.d, 0, &ov, 0, 0, 0, &merged, mm), 0);
+            CHECK_EQ(merged.nsettings, am.d.nsettings - 2);
+            CHECK_EQ(count_key(merged, "Color Scheme"), 0);
+            CHECK_EQ(count_key(merged, "Mouse Acceleration"), 0);
+            CHECK_EQ(count_key(merged, "Mouse Sensitivity"), 1);
+            CHECK_EQ(count_key(merged, "Navigation Style"), 1);
+            CHECK_EQ(contrib_merge(&am.d, 0, 0, 0, 0, 0, &merged, mm), 0);
+            CHECK_EQ(merged.nsettings, am.d.nsettings);                                 // without the list every row stays
+            delete mm;
         }
         CHECK_STR(baseset_key(0), "Overlay Transparency");
         CHECK_EQ(baseset_count(), 10);
@@ -124,7 +191,7 @@ int main()
         static Setting own[SETTINGS_MAX];
         for (int i = 0; i < atari800_desc.nsettings; i++) own[i] = atari800_desc.settings[i];
         own[atari800_desc.nsettings] = Setting{ "Joystick Input", two, 2, 0, WHEN_LIVE, 0, 0 };
-        CoreDesc od = atari800_desc, ox;
+        CoreDesc od = rich_atari, ox;
         static Setting os[SETTINGS_MAX];
         od.settings = own; od.nsettings = atari800_desc.nsettings + 1;
         CHECK(!baseset_extend(&od, &ox, os));
@@ -134,7 +201,7 @@ int main()
 
     // ---- the settings reach the port: the look, the squeeze, the keyboard's joystick; each also tells the hook, which is not armed yet
     {
-        Rig r(&nes_desc);
+        Rig r(&rich_nes);
         g_log.clear();
         hooks_attach(0);
         r.set("Overlay Transparency", "50 %");
@@ -180,7 +247,7 @@ int main()
 
     // ---- the USB driver's answers come from the settings by key; a core without a mouse answers the driver's defaults
     {
-        Rig r(&amiga1200_desc);
+        Rig r(&rich_amiga);
         CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 8);               // sensitivity default 8
         CHECK_EQ(u64_get_usb_hid_config_value(0x5E, 99), 0);
         CHECK_EQ(u64_get_usb_hid_config_value(0x55, 99), 0);               // mode: Cursor keys is the driver's 0
@@ -213,9 +280,9 @@ int main()
         CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 99);              // no context: the default the driver gave
     }
 
-    // ---- the hooks, in order: start, then one base_setting_changed per setting the core has (five without a mouse, ten with), then one per change; menu_closed apart
+    // ---- the hooks, in order: start, then one base_setting_changed per setting the core has (four of the look, ten with both capabilities and a mouse), then one per change; menu_closed apart
     {
-        Rig r(&amiga1200_desc);
+        Rig r(&rich_amiga);
         make_table(sizeof(CoreHooks), true);
         hooks_attach(&lib);
         CHECK(hooks_present());
@@ -246,13 +313,13 @@ int main()
         CHECK_EQ(g_log.size(), 1u);
         CHECK_STR(g_log[0].c_str(), "menu_closed");
 
-        Rig nm(&atari800_desc);                                            // a core without a mouse: five
+        Rig nm(&atari800_desc);                                            // a core without a mouse and without a capability: the four of the look
         make_table(sizeof(CoreHooks), true);
         hooks_attach(&lib);
         g_log.clear();
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
-        CHECK_EQ(g_log.size(), 6u);
-        for (int k = 0; k < 5; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
+        CHECK_EQ(g_log.size(), 5u);
+        for (int k = 0; k < 4; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
 
         // a start that fails says why (cut to the buffer) and returns 1; the settings are still told after it
         make_table(sizeof(CoreHooks), true);
@@ -262,7 +329,7 @@ int main()
         char small[24];
         CHECK_EQ(hooks_start(&nm.c, small, sizeof(small)), 1);
         CHECK_EQ(strlen(small), sizeof(small) - 1);
-        CHECK_EQ(g_log.size(), 6u);
+        CHECK_EQ(g_log.size(), 5u);
         g_fail_start = false;
 
         // a table of an older 3.x that ends before menu_closed: no such hook; one that ends before base_setting_changed: no such hook
@@ -298,7 +365,7 @@ int main()
         ran = true;
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg), &ran), 0);
         CHECK(!ran);
-        CHECK_EQ(g_log.size(), 5u);                                        // no start, but the five settings of a core without a mouse are told
+        CHECK_EQ(g_log.size(), 4u);                                        // no start, but the four settings of a core without a mouse are told
         CHECK_STR(g_log[0].c_str(), "changed Overlay Transparency");
 
         // a table of a later major only, no table, no lib: no hooks, nothing is called

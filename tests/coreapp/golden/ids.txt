@@ -508,34 +508,28 @@ TRX64U F7/settings 3 set:Splash
 TRX64U F7/settings 4 set:Leave Menu on Mount
 TRX64U F7/settings 5 fixed:13:Look
 TRX64U F7/settings 6 set:Overlay Transparency
-TRX64U F7/settings 7 set:Color Scheme
-TRX64U F7/settings 8 set:Filename overflow squeeze
-TRX64U F7/settings 9 set:Navigation Style
-TRX64U F7/settings 10 fixed:13:Input
-TRX64U F7/settings 11 set:Joystick Input
-TRX64U F7/settings 12 set:Mouse Mode
-TRX64U F7/settings 13 set:Mouse Sensitivity
-TRX64U F7/settings 14 set:Mouse Acceleration
-TRX64U F7/settings 15 set:Mouse Wheel Sensitivity
-TRX64U F7/settings 16 set:Mouse Wheel Direction
-TRX64U F7/settings 17 fixed:13:Storage
-TRX64U F7/settings 18 set:Persist medium mounts
-TRX64U F7/settings 19 set:Enter Home on Startup
-TRX64U F7/settings 20 set:Home Directory
-TRX64U F7/settings 21 fixed:13:Menu
-TRX64U F7/settings 22 set:Menu opens at
-TRX64U F7/settings 23 fixed:13:Hotkeys
-TRX64U F7/settings 24 fixed:16:Hotkeys
+TRX64U F7/settings 7 set:Filename overflow squeeze
+TRX64U F7/settings 8 set:Navigation Style
+TRX64U F7/settings 9 fixed:13:Input
+TRX64U F7/settings 10 set:Mouse Sensitivity
+TRX64U F7/settings 11 set:Mouse Acceleration
+TRX64U F7/settings 12 fixed:13:Storage
+TRX64U F7/settings 13 set:Persist medium mounts
+TRX64U F7/settings 14 set:Enter Home on Startup
+TRX64U F7/settings 15 set:Home Directory
+TRX64U F7/settings 16 fixed:13:Menu
+TRX64U F7/settings 17 set:Menu opens at
+TRX64U F7/settings 18 fixed:13:Hotkeys
+TRX64U F7/settings 19 fixed:16:Hotkeys
 TRX64U F7/hotkeys 0 set:Hotkey modifier
 TRX64U F7/hotkeys 1 set:Hotkey menu
 TRX64U F7/hotkeys 2 set:Hotkey volume up
 TRX64U F7/hotkeys 3 set:Hotkey volume down
 TRX64U F7/hotkeys 4 set:Hotkey reset
-TRX64U F7/hotkeys 5 set:Hotkey swap joystick
-TRX64U F7/hotkeys 6 set:Hotkey picture mode
-TRX64U F7/hotkeys 7 set:Hotkey swap disk
-TRX64U F7/hotkeys 8 set:Hotkey Timewarp
-TRX64U F7/hotkeys 9 set:Hotkey Monitor
+TRX64U F7/hotkeys 5 set:Hotkey picture mode
+TRX64U F7/hotkeys 6 set:Hotkey swap disk
+TRX64U F7/hotkeys 7 set:Hotkey Timewarp
+TRX64U F7/hotkeys 8 set:Hotkey Monitor
 TRX64U F8/expert 0 fixed:13:Actions
 TRX64U F8/expert 1 fixed:6:Restart core
 TRX64U F8/expert 2 fixed:7:Return to host menu

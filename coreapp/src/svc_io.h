@@ -77,7 +77,7 @@ typedef struct SvcIo {
     // core's API TOML declares (name, address, size). The base checks the window against the registers the base drives itself (it refuses a window that covers
     // one: split the block into the runs you write) when it loads the API TOML and hands out its base
     // address; the library adds the offsets its TOML names and accesses the registers through a volatile pointer, one byte per access as above. Null (and
-    // *size 0) for a name the TOML does not declare or the address map does not grant (a host range). Task: any; the registers' own rules are the core's.
+    // *size 0) for a name the TOML does not declare, for a null name and for a core with no description record (descrec_window over the running core's record). Task: any; the registers' own rules are the core's.
     volatile uint8_t *(*window)(const char *name, uint32_t *size);
 } SvcIo;
 

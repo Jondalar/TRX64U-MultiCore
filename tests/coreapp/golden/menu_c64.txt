@@ -317,16 +317,11 @@ area F7 APP
     setting Leave menu on mount = No | Yes (default No, live)
     heading Look
     setting Overlay transparency = 0 % | 25 % | 50 % | 75 % (default 25 %, live)
-    setting Color scheme = Standard Blue | Ultimate Black | C128 Style | Commodore Blue | Commodore 1 | Commodore 2 | Commodore 3 (default Ultimate Black, live)
     setting Filename overflow squeeze = None | Beginning | Middle | End (default None, live)
     setting Navigation style = Quick Search | WASD Cursors (default Quick Search, live)
     heading Input
-    setting Joystick input = Normal | Swapped | WASD Port 2 | WASD Port 1 | WASD P2 No KB | WASD P1 No KB (default Normal, live)
-    setting Mouse as = Cursor keys | Wheel: cursor keys | Wheel: joystick (default Cursor keys, live)
-    setting Mouse cursor sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live) [listed while set.Mouse_Mode==Cursor keys]
-    setting Mouse cursor acceleration = Off | Adaptive (default Off, live) [listed while set.Mouse_Mode==Cursor keys]
-    setting Mouse wheel sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
-    setting Mouse wheel direction = Normal | Reversed (default Normal, live)
+    setting Mouse cursor sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
+    setting Mouse cursor acceleration = Off | Adaptive (default Off, live)
     heading Storage
     setting Persist medium mounts = No | Yes (default No, live)
     setting Enter home on startup = No | Yes (default No, live)

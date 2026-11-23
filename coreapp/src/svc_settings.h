@@ -87,15 +87,19 @@ typedef struct SvcSettings {
 //   "Joystick Input"                  the keyboard as a joystick: "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"; default 0.
 //                                     The base's keyboard driver takes from it which port the keyboard joystick drives and whether W, A, S, D act as its
 //                                     directions (and still type); hardware of the core that follows the position is set by the core's library, which reads
-//                                     the setting by key.
+//                                     the setting by key. Only a core whose descriptor names the capability "kbd_joystick" (CoreDesc::caps) has the setting: the
+//                                     bitstream has to turn WASD into joystick lines, and none of this tree's does. A core without it has no such key (find returns -1).
 // The USB mouse, for every core whose descriptor has a mouse (CoreDesc::mouse). The base's mouse sink reads them by key (the USB driver's config callback lives in the base image,
-// mousesink.cc), so no library defines it and no key of a core's menu is in generic code:
+// mousesink.cc), so no library defines it and no key of a core's menu is in generic code. The driver scales every report with the sensitivity and the acceleration and then hands it
+// to the core's mouse sink, which consumes it; the mode and the wheel rows act on a report only when the sink does not take it, so a core has them only when its descriptor names
+// the capability "mouse_driver", and none does (the sink is registered for every core):
 //   "Mouse Mode"                      "Cursor keys", "Wheel: cursor keys", "Wheel: joystick"; default 0.
 //   "Mouse Sensitivity"               range 1 .. 16, default 8 (position 7).
 //   "Mouse Acceleration"              "Off", "Adaptive"; default 0.
 //   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
 //   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
-// The base declares the five for every core with a mouse (coreapp/src/baseset.cc). The two cores that declared them before 3.3, trx64u in its menu TOML (all five) and the Amiga
+// The base declares Mouse Sensitivity and Mouse Acceleration for every core with a mouse (coreapp/src/baseset.cc), and a menu TOML can hide any of the ten by key ("hide"; trx64u hides
+// "Color Scheme", T228 R7: the Ultimate's colour scheme is not a setting of that machine). The two cores that declared them before 3.3, trx64u in its menu TOML (all five) and the Amiga
 // in cores/amiga.cc (Mouse Sensitivity and Mouse Acceleration, with the same keys and values), no longer do, and desc_check refuses a descriptor that declares one.
 
 #ifdef __cplusplus

@@ -1188,40 +1188,40 @@ SNK Neo Geo F8/expert s13 59 92554bbf
 SNK Neo Geo F8/expert s14 59 92554bbf
 SNK Neo Geo F8/expert s15 59 67c705ea
 SNK Neo Geo F8/expert s16 59 373eed2e
-TRX64U F1/home s0 59 58107990
-TRX64U F1/home s1 59 2da0760b
-TRX64U F1/home s2 59 85aaf8b6
-TRX64U F1/home s3 59 58107990
-TRX64U F1/home s4 59 2da0760b
+TRX64U F1/home s0 59 6144698d
+TRX64U F1/home s1 59 20a41146
+TRX64U F1/home s2 59 fb8e789b
+TRX64U F1/home s3 59 6144698d
+TRX64U F1/home s4 59 20a41146
 TRX64U F1/home s5 59 cb508954
-TRX64U F1/home s6 59 2da0760b
-TRX64U F1/home s7 59 85aaf8b6
-TRX64U F1/home s8 59 6d3064b2
-TRX64U F1/home s9 59 6d3064b2
-TRX64U F1/home s10 59 58107990
-TRX64U F1/home s11 59 4459243e
-TRX64U F1/home s12 59 4459243e
-TRX64U F1/home s13 59 4459243e
-TRX64U F1/home s14 59 4459243e
-TRX64U F1/home s15 59 2da0760b
-TRX64U F1/home s16 59 85aaf8b6
-TRX64U F1/drive s0 59 6fde099d
-TRX64U F1/drive s1 59 2da0760b
-TRX64U F1/drive s2 59 2da0760b
-TRX64U F1/drive s3 59 6fde099d
-TRX64U F1/drive s4 59 2da0760b
-TRX64U F1/drive s5 59 2da0760b
-TRX64U F1/drive s6 59 2da0760b
-TRX64U F1/drive s7 59 85aaf8b6
-TRX64U F1/drive s8 59 6d3064b2
-TRX64U F1/drive s9 59 6d3064b2
-TRX64U F1/drive s10 59 6fde099d
-TRX64U F1/drive s11 59 4459243e
-TRX64U F1/drive s12 59 4459243e
-TRX64U F1/drive s13 59 4459243e
-TRX64U F1/drive s14 59 4459243e
-TRX64U F1/drive s15 59 2da0760b
-TRX64U F1/drive s16 59 85aaf8b6
+TRX64U F1/home s6 59 20a41146
+TRX64U F1/home s7 59 fb8e789b
+TRX64U F1/home s8 59 0ff5b127
+TRX64U F1/home s9 59 0ff5b127
+TRX64U F1/home s10 59 6144698d
+TRX64U F1/home s11 59 739e1349
+TRX64U F1/home s12 59 739e1349
+TRX64U F1/home s13 59 739e1349
+TRX64U F1/home s14 59 739e1349
+TRX64U F1/home s15 59 20a41146
+TRX64U F1/home s16 59 fb8e789b
+TRX64U F1/drive s0 59 fff33f0c
+TRX64U F1/drive s1 59 20a41146
+TRX64U F1/drive s2 59 20a41146
+TRX64U F1/drive s3 59 fff33f0c
+TRX64U F1/drive s4 59 20a41146
+TRX64U F1/drive s5 59 20a41146
+TRX64U F1/drive s6 59 20a41146
+TRX64U F1/drive s7 59 fb8e789b
+TRX64U F1/drive s8 59 0ff5b127
+TRX64U F1/drive s9 59 0ff5b127
+TRX64U F1/drive s10 59 fff33f0c
+TRX64U F1/drive s11 59 739e1349
+TRX64U F1/drive s12 59 739e1349
+TRX64U F1/drive s13 59 739e1349
+TRX64U F1/drive s14 59 739e1349
+TRX64U F1/drive s15 59 20a41146
+TRX64U F1/drive s16 59 fb8e789b
 TRX64U F1/timewarp s0 59 cb508954
 TRX64U F1/timewarp s1 59 cb508954
 TRX64U F1/timewarp s2 59 cb508954
@@ -1256,295 +1256,295 @@ TRX64U F1/monitor s13 59 f3d981e4
 TRX64U F1/monitor s14 59 f3d981e4
 TRX64U F1/monitor s15 59 f3d981e4
 TRX64U F1/monitor s16 59 f3d981e4
-TRX64U F3/browse s0 59 5ef8afcc
-TRX64U F3/browse s1 59 34e399d2
-TRX64U F3/browse s2 59 f060f4c8
-TRX64U F3/browse s3 59 34e399d2
-TRX64U F3/browse s4 59 a902de95
-TRX64U F3/browse s5 59 a902de95
-TRX64U F3/browse s6 59 34e399d2
-TRX64U F3/browse s7 59 21844b11
-TRX64U F3/browse s8 59 71c35462
-TRX64U F3/browse s9 59 5ce5ffba
-TRX64U F3/browse s10 59 04350e56
-TRX64U F3/browse s11 59 e2605ba2
-TRX64U F3/browse s12 59 e7debc04
-TRX64U F3/browse s13 59 9ef07fcb
-TRX64U F3/browse s14 59 43aa89b6
-TRX64U F3/browse s15 59 c9d208e6
-TRX64U F3/browse s16 59 c3ab6ebf
-TRX64U F3/search s0 59 d1899181
-TRX64U F3/search s1 59 d2a4909c
-TRX64U F3/search s2 59 d2a4909c
-TRX64U F3/search s3 59 d2a4909c
-TRX64U F3/search s4 59 9fd703fc
-TRX64U F3/search s5 59 9fd703fc
-TRX64U F3/search s6 59 a85cedfb
-TRX64U F3/search s7 59 9fd703fc
-TRX64U F3/search s8 59 9fd703fc
-TRX64U F3/search s9 59 9fd703fc
-TRX64U F3/search s10 59 d27bd716
-TRX64U F3/search s11 59 9fd703fc
-TRX64U F3/search s12 59 9fd703fc
-TRX64U F3/search s13 59 9fd703fc
-TRX64U F3/search s14 59 9fd703fc
-TRX64U F3/search s15 59 f87b5258
-TRX64U F3/search s16 59 9fd703fc
-TRX64U F3/online s0 59 2800c48b
-TRX64U F3/online s1 59 5ef8afcc
-TRX64U F3/online s2 59 baec6644
-TRX64U F3/online s3 59 2de0a7ad
-TRX64U F3/online s4 59 34e399d2
-TRX64U F3/online s5 59 97ed5d78
-TRX64U F3/online s6 59 a902de95
-TRX64U F3/online s7 59 398d3ec7
-TRX64U F3/online s8 59 c3ab6ebf
-TRX64U F3/online s9 59 c3ab6ebf
-TRX64U F3/online s10 59 2800c48b
-TRX64U F3/online s11 59 c3ab6ebf
-TRX64U F3/online s12 59 c3ab6ebf
-TRX64U F3/online s13 59 c3ab6ebf
-TRX64U F3/online s14 59 c3ab6ebf
-TRX64U F3/online s15 59 757318c2
-TRX64U F3/online s16 59 a902de95
-TRX64U F5/machine s0 59 a719038e
-TRX64U F5/machine s1 59 9fb4dd6b
-TRX64U F5/machine s2 59 5cb63907
-TRX64U F5/machine s3 59 88e1c941
-TRX64U F5/machine s4 59 6517991f
-TRX64U F5/machine s5 59 df8780c2
-TRX64U F5/machine s6 59 50270807
-TRX64U F5/machine s7 59 5cb63907
-TRX64U F5/machine s8 59 be1e39d8
-TRX64U F5/machine s9 59 be1e39d8
-TRX64U F5/machine s10 59 88e1c941
-TRX64U F5/machine s11 59 5e2545d5
-TRX64U F5/machine s12 59 5e2545d5
-TRX64U F5/machine s13 59 5e2545d5
-TRX64U F5/machine s14 59 5e2545d5
-TRX64U F5/machine s15 59 6517991f
-TRX64U F5/machine s16 59 5cb63907
-TRX64U F5/trx s0 59 50e2c2ad
-TRX64U F5/trx s1 59 894f5555
-TRX64U F5/trx s2 59 151232f3
-TRX64U F5/trx s3 59 f1947ee3
-TRX64U F5/trx s4 59 bfb3ab5e
-TRX64U F5/trx s5 59 c2ad5bff
-TRX64U F5/trx s6 59 e043558d
-TRX64U F5/trx s7 59 bcf45190
-TRX64U F5/trx s8 59 b549eae3
-TRX64U F5/trx s9 59 b97db3eb
-TRX64U F5/trx s10 59 299975c2
-TRX64U F5/trx s11 59 fbd6a110
-TRX64U F5/trx s12 59 6f7b0620
-TRX64U F5/trx s13 59 f409199a
-TRX64U F5/trx s14 59 ec0b08f6
-TRX64U F5/trx s15 59 ac0ba114
-TRX64U F5/trx s16 59 168b90ce
-TRX64U F5/expansion s0 59 03de8ee0
-TRX64U F5/expansion s1 59 ac5fc6ac
-TRX64U F5/expansion s2 59 1446b03d
-TRX64U F5/expansion s3 59 d0321e8a
-TRX64U F5/expansion s4 59 200688e4
-TRX64U F5/expansion s5 59 39eda1e9
-TRX64U F5/expansion s6 59 caeb1699
-TRX64U F5/expansion s7 59 7c7cc979
-TRX64U F5/expansion s8 59 ff26b15f
-TRX64U F5/expansion s9 59 b2486612
-TRX64U F5/expansion s10 59 45eddde5
-TRX64U F5/expansion s11 59 0d4a2110
-TRX64U F5/expansion s12 59 06e54f92
-TRX64U F5/expansion s13 59 0d4a2110
-TRX64U F5/expansion s14 59 06e54f92
-TRX64U F5/expansion s15 59 3ff2682b
-TRX64U F5/expansion s16 59 d650d29d
-TRX64U F5/video s0 59 2e1400ce
-TRX64U F5/video s1 59 71fb83f6
-TRX64U F5/video s2 59 125f70b2
-TRX64U F5/video s3 59 95dad7d8
-TRX64U F5/video s4 59 80f88771
-TRX64U F5/video s5 59 d4550a52
-TRX64U F5/video s6 59 70c36291
-TRX64U F5/video s7 59 125f70b2
-TRX64U F5/video s8 59 d07360cb
-TRX64U F5/video s9 59 fec8807f
-TRX64U F5/video s10 59 2ca0da8d
-TRX64U F5/video s11 59 85b364e7
-TRX64U F5/video s12 59 c2212033
-TRX64U F5/video s13 59 85b364e7
-TRX64U F5/video s14 59 c2212033
-TRX64U F5/video s15 59 b89f1da6
-TRX64U F5/video s16 59 125f70b2
-TRX64U F5/audio s0 59 b4fcb78e
-TRX64U F5/audio s1 59 6974fdf3
-TRX64U F5/audio s2 59 57b79f92
-TRX64U F5/audio s3 59 e53e7382
-TRX64U F5/audio s4 59 c0802ec5
-TRX64U F5/audio s5 59 5035b7a2
-TRX64U F5/audio s6 59 6c81f019
-TRX64U F5/audio s7 59 a50446a6
-TRX64U F5/audio s8 59 824169cc
-TRX64U F5/audio s9 59 0342974a
-TRX64U F5/audio s10 59 81582244
-TRX64U F5/audio s11 59 b4afb2df
-TRX64U F5/audio s12 59 e6f4676e
-TRX64U F5/audio s13 59 c7ebbcbb
-TRX64U F5/audio s14 59 1a442377
-TRX64U F5/audio s15 59 5af49333
-TRX64U F5/audio s16 59 cdad12a1
-TRX64U F5/SID sockets s0 59 380527f6
-TRX64U F5/SID sockets s1 59 1f4d9fe1
-TRX64U F5/SID sockets s2 59 0802f6d7
-TRX64U F5/SID sockets s3 59 c682411e
-TRX64U F5/SID sockets s4 59 1dce82e5
-TRX64U F5/SID sockets s5 59 45da03d5
-TRX64U F5/SID sockets s6 59 bd584c16
-TRX64U F5/SID sockets s7 59 23d2dbb8
-TRX64U F5/SID sockets s8 59 eefa9011
-TRX64U F5/SID sockets s9 59 eefa9011
-TRX64U F5/SID sockets s10 59 5014a6fe
-TRX64U F5/SID sockets s11 59 cbbe2432
-TRX64U F5/SID sockets s12 59 cbbe2432
-TRX64U F5/SID sockets s13 59 cbbe2432
-TRX64U F5/SID sockets s14 59 cbbe2432
-TRX64U F5/SID sockets s15 59 8ec5897e
-TRX64U F5/SID sockets s16 59 261eec3c
-TRX64U F5/Emulated SIDs s0 59 1b77c1e5
-TRX64U F5/Emulated SIDs s1 59 aab67f42
-TRX64U F5/Emulated SIDs s2 59 23899ccb
-TRX64U F5/Emulated SIDs s3 59 15c38ea3
-TRX64U F5/Emulated SIDs s4 59 f5966702
-TRX64U F5/Emulated SIDs s5 59 3c6c1336
-TRX64U F5/Emulated SIDs s6 59 3d29350e
-TRX64U F5/Emulated SIDs s7 59 c8707e96
-TRX64U F5/Emulated SIDs s8 59 89ee58ba
-TRX64U F5/Emulated SIDs s9 59 4101e5ce
-TRX64U F5/Emulated SIDs s10 59 9de6d951
-TRX64U F5/Emulated SIDs s11 59 15615b4a
-TRX64U F5/Emulated SIDs s12 59 1bfe6b94
-TRX64U F5/Emulated SIDs s13 59 ecd57aa8
-TRX64U F5/Emulated SIDs s14 59 7b6d39fa
-TRX64U F5/Emulated SIDs s15 59 2fae7b34
-TRX64U F5/Emulated SIDs s16 59 54136a18
-TRX64U F5/input s0 59 f6e108ee
-TRX64U F5/input s1 59 e9f2dafd
+TRX64U F3/browse s0 59 b00b1bd5
+TRX64U F3/browse s1 59 820d694f
+TRX64U F3/browse s2 59 e4c91c3b
+TRX64U F3/browse s3 59 820d694f
+TRX64U F3/browse s4 59 5b0c567a
+TRX64U F3/browse s5 59 5b0c567a
+TRX64U F3/browse s6 59 820d694f
+TRX64U F3/browse s7 59 3b6be07c
+TRX64U F3/browse s8 59 ab0942a9
+TRX64U F3/browse s9 59 7d270033
+TRX64U F3/browse s10 59 d56cf853
+TRX64U F3/browse s11 59 6d928807
+TRX64U F3/browse s12 59 14c1fd79
+TRX64U F3/browse s13 59 bbbcb210
+TRX64U F3/browse s14 59 648814ff
+TRX64U F3/browse s15 59 281ecbe1
+TRX64U F3/browse s16 59 e275c45e
+TRX64U F3/search s0 59 63f27440
+TRX64U F3/search s1 59 a57f1069
+TRX64U F3/search s2 59 a57f1069
+TRX64U F3/search s3 59 a57f1069
+TRX64U F3/search s4 59 9e4f7b8f
+TRX64U F3/search s5 59 9e4f7b8f
+TRX64U F3/search s6 59 318ae4a2
+TRX64U F3/search s7 59 9e4f7b8f
+TRX64U F3/search s8 59 9e4f7b8f
+TRX64U F3/search s9 59 9e4f7b8f
+TRX64U F3/search s10 59 a413dfa3
+TRX64U F3/search s11 59 9e4f7b8f
+TRX64U F3/search s12 59 9e4f7b8f
+TRX64U F3/search s13 59 9e4f7b8f
+TRX64U F3/search s14 59 9e4f7b8f
+TRX64U F3/search s15 59 69c6fc87
+TRX64U F3/search s16 59 9e4f7b8f
+TRX64U F3/online s0 59 ca90335c
+TRX64U F3/online s1 59 b00b1bd5
+TRX64U F3/online s2 59 b7c3425d
+TRX64U F3/online s3 59 c574842e
+TRX64U F3/online s4 59 820d694f
+TRX64U F3/online s5 59 ec4693cb
+TRX64U F3/online s6 59 5b0c567a
+TRX64U F3/online s7 59 37a1dcbc
+TRX64U F3/online s8 59 e275c45e
+TRX64U F3/online s9 59 e275c45e
+TRX64U F3/online s10 59 ca90335c
+TRX64U F3/online s11 59 e275c45e
+TRX64U F3/online s12 59 e275c45e
+TRX64U F3/online s13 59 e275c45e
+TRX64U F3/online s14 59 e275c45e
+TRX64U F3/online s15 59 b4c164cb
+TRX64U F3/online s16 59 5b0c567a
+TRX64U F5/machine s0 59 c04dfab1
+TRX64U F5/machine s1 59 fcf29f04
+TRX64U F5/machine s2 59 51112fe8
+TRX64U F5/machine s3 59 fb13f27a
+TRX64U F5/machine s4 59 c3c08402
+TRX64U F5/machine s5 59 a9cee161
+TRX64U F5/machine s6 59 8130d336
+TRX64U F5/machine s7 59 51112fe8
+TRX64U F5/machine s8 59 aa57b5c1
+TRX64U F5/machine s9 59 aa57b5c1
+TRX64U F5/machine s10 59 fb13f27a
+TRX64U F5/machine s11 59 c8f11fe2
+TRX64U F5/machine s12 59 c8f11fe2
+TRX64U F5/machine s13 59 c8f11fe2
+TRX64U F5/machine s14 59 c8f11fe2
+TRX64U F5/machine s15 59 c3c08402
+TRX64U F5/machine s16 59 51112fe8
+TRX64U F5/trx s0 59 bd779642
+TRX64U F5/trx s1 59 a57be992
+TRX64U F5/trx s2 59 f95d486c
+TRX64U F5/trx s3 59 0ca06262
+TRX64U F5/trx s4 59 eb582ad5
+TRX64U F5/trx s5 59 80a7cad6
+TRX64U F5/trx s6 59 4acadb1a
+TRX64U F5/trx s7 59 8444c5e3
+TRX64U F5/trx s8 59 02a04f94
+TRX64U F5/trx s9 59 c192eb48
+TRX64U F5/trx s10 59 e912b2fd
+TRX64U F5/trx s11 59 0104322f
+TRX64U F5/trx s12 59 838ffde7
+TRX64U F5/trx s13 59 be4928c5
+TRX64U F5/trx s14 59 b5373c25
+TRX64U F5/trx s15 59 b8eb63af
+TRX64U F5/trx s16 59 33534297
+TRX64U F5/expansion s0 59 bcfe7997
+TRX64U F5/expansion s1 59 4bba2f17
+TRX64U F5/expansion s2 59 2949732c
+TRX64U F5/expansion s3 59 34e6b6fb
+TRX64U F5/expansion s4 59 6166edff
+TRX64U F5/expansion s5 59 442f09f6
+TRX64U F5/expansion s6 59 b09c7b6a
+TRX64U F5/expansion s7 59 c807d6cc
+TRX64U F5/expansion s8 59 cdc813ca
+TRX64U F5/expansion s9 59 db7f5c39
+TRX64U F5/expansion s10 59 4f9bf094
+TRX64U F5/expansion s11 59 45efa277
+TRX64U F5/expansion s12 59 91c1f92d
+TRX64U F5/expansion s13 59 45efa277
+TRX64U F5/expansion s14 59 91c1f92d
+TRX64U F5/expansion s15 59 7e338572
+TRX64U F5/expansion s16 59 35e85606
+TRX64U F5/video s0 59 6fd697cf
+TRX64U F5/video s1 59 409c6473
+TRX64U F5/video s2 59 102755fb
+TRX64U F5/video s3 59 44c77a0b
+TRX64U F5/video s4 59 c4685f94
+TRX64U F5/video s5 59 7e22ceab
+TRX64U F5/video s6 59 5b562f1c
+TRX64U F5/video s7 59 102755fb
+TRX64U F5/video s8 59 2ba4509e
+TRX64U F5/video s9 59 52519826
+TRX64U F5/video s10 59 0ac29574
+TRX64U F5/video s11 59 ae62516c
+TRX64U F5/video s12 59 4946d7de
+TRX64U F5/video s13 59 ae62516c
+TRX64U F5/video s14 59 4946d7de
+TRX64U F5/video s15 59 2c0ed2af
+TRX64U F5/video s16 59 102755fb
+TRX64U F5/audio s0 59 01dd09ab
+TRX64U F5/audio s1 59 bb921a32
+TRX64U F5/audio s2 59 3a1bd559
+TRX64U F5/audio s3 59 47262363
+TRX64U F5/audio s4 59 4d19afaa
+TRX64U F5/audio s5 59 b4f1ecd1
+TRX64U F5/audio s6 59 9aebe092
+TRX64U F5/audio s7 59 88aab1b9
+TRX64U F5/audio s8 59 fcfca621
+TRX64U F5/audio s9 59 c83f364b
+TRX64U F5/audio s10 59 b92f5e4d
+TRX64U F5/audio s11 59 b0c0e9e8
+TRX64U F5/audio s12 59 ed51d69f
+TRX64U F5/audio s13 59 e70e3d62
+TRX64U F5/audio s14 59 1dbfced8
+TRX64U F5/audio s15 59 400097cc
+TRX64U F5/audio s16 59 d513fe70
+TRX64U F5/SID sockets s0 59 5826ec07
+TRX64U F5/SID sockets s1 59 cc30c2a8
+TRX64U F5/SID sockets s2 59 99beee4e
+TRX64U F5/SID sockets s3 59 301372d3
+TRX64U F5/SID sockets s4 59 d8013178
+TRX64U F5/SID sockets s5 59 80805d90
+TRX64U F5/SID sockets s6 59 066bd943
+TRX64U F5/SID sockets s7 59 9a832269
+TRX64U F5/SID sockets s8 59 cd8bbbd8
+TRX64U F5/SID sockets s9 59 cd8bbbd8
+TRX64U F5/SID sockets s10 59 08e7e533
+TRX64U F5/SID sockets s11 59 b7c995e7
+TRX64U F5/SID sockets s12 59 b7c995e7
+TRX64U F5/SID sockets s13 59 b7c995e7
+TRX64U F5/SID sockets s14 59 b7c995e7
+TRX64U F5/SID sockets s15 59 693511af
+TRX64U F5/SID sockets s16 59 f4170781
+TRX64U F5/Emulated SIDs s0 59 a5db8644
+TRX64U F5/Emulated SIDs s1 59 fc1e8a0b
+TRX64U F5/Emulated SIDs s2 59 e3029dce
+TRX64U F5/Emulated SIDs s3 59 11a3edf6
+TRX64U F5/Emulated SIDs s4 59 61a49979
+TRX64U F5/Emulated SIDs s5 59 d3f70733
+TRX64U F5/Emulated SIDs s6 59 6c6371ff
+TRX64U F5/Emulated SIDs s7 59 1ddd6555
+TRX64U F5/Emulated SIDs s8 59 05732177
+TRX64U F5/Emulated SIDs s9 59 903f566f
+TRX64U F5/Emulated SIDs s10 59 228ddd74
+TRX64U F5/Emulated SIDs s11 59 92d7a843
+TRX64U F5/Emulated SIDs s12 59 72d2f16d
+TRX64U F5/Emulated SIDs s13 59 9a3d2259
+TRX64U F5/Emulated SIDs s14 59 1bde8fb9
+TRX64U F5/Emulated SIDs s15 59 0855a505
+TRX64U F5/Emulated SIDs s16 59 f4cd6811
+TRX64U F5/input s0 59 1293dbeb
+TRX64U F5/input s1 59 c3c76ef6
 TRX64U F5/input s2 59 f0cee3a0
-TRX64U F5/input s3 59 c5d194be
-TRX64U F5/input s4 59 9a5303b6
+TRX64U F5/input s3 59 e9720ec5
+TRX64U F5/input s4 59 608d64a7
 TRX64U F5/input s5 59 f0cee3a0
-TRX64U F5/input s6 59 c5d194be
+TRX64U F5/input s6 59 e9720ec5
 TRX64U F5/input s7 59 9dc7505a
-TRX64U F5/input s8 59 51ed70da
-TRX64U F5/input s9 59 861b00ca
-TRX64U F5/input s10 59 f6e108ee
-TRX64U F5/input s11 59 861b00ca
-TRX64U F5/input s12 59 861b00ca
-TRX64U F5/input s13 59 861b00ca
-TRX64U F5/input s14 59 861b00ca
-TRX64U F5/input s15 59 1fecd73d
+TRX64U F5/input s8 59 d36d325b
+TRX64U F5/input s9 59 dee3194b
+TRX64U F5/input s10 59 1293dbeb
+TRX64U F5/input s11 59 dee3194b
+TRX64U F5/input s12 59 dee3194b
+TRX64U F5/input s13 59 dee3194b
+TRX64U F5/input s14 59 dee3194b
+TRX64U F5/input s15 59 b841418a
 TRX64U F5/input s16 59 7adc43a4
-TRX64U F7/settings s0 59 dde0871e
-TRX64U F7/settings s1 59 79bbd86c
-TRX64U F7/settings s2 59 6e4ab9db
-TRX64U F7/settings s3 59 d115732d
-TRX64U F7/settings s4 59 9bd6b72d
-TRX64U F7/settings s5 59 39051dc7
-TRX64U F7/settings s6 59 800d2059
-TRX64U F7/settings s7 59 4441e571
-TRX64U F7/settings s8 59 1811366f
-TRX64U F7/settings s9 59 1811366f
-TRX64U F7/settings s10 59 4f6e1988
-TRX64U F7/settings s11 59 5567c3cc
-TRX64U F7/settings s12 59 5567c3cc
-TRX64U F7/settings s13 59 5567c3cc
-TRX64U F7/settings s14 59 5567c3cc
-TRX64U F7/settings s15 59 8f00e930
-TRX64U F7/settings s16 59 c6049d5d
-TRX64U F7/hotkeys s0 59 75942b77
-TRX64U F7/hotkeys s1 59 35fd75f2
-TRX64U F7/hotkeys s2 59 b148e8a8
-TRX64U F7/hotkeys s3 59 fbc0c3a8
-TRX64U F7/hotkeys s4 59 cb66a4ee
-TRX64U F7/hotkeys s5 59 395bd877
-TRX64U F7/hotkeys s6 59 cb66a4ee
-TRX64U F7/hotkeys s7 59 cb66a4ee
-TRX64U F7/hotkeys s8 59 cb66a4ee
-TRX64U F7/hotkeys s9 59 cb66a4ee
-TRX64U F7/hotkeys s10 59 5b601113
-TRX64U F7/hotkeys s11 59 cb66a4ee
-TRX64U F7/hotkeys s12 59 cb66a4ee
-TRX64U F7/hotkeys s13 59 cb66a4ee
-TRX64U F7/hotkeys s14 59 cb66a4ee
-TRX64U F7/hotkeys s15 59 cb66a4ee
-TRX64U F7/hotkeys s16 59 cb66a4ee
-TRX64U F8/expert s0 59 f5b9b835
-TRX64U F8/expert s1 59 34e035f3
-TRX64U F8/expert s2 59 58728e70
-TRX64U F8/expert s3 59 f5b9b835
-TRX64U F8/expert s4 59 34e035f3
-TRX64U F8/expert s5 59 2e6b1124
-TRX64U F8/expert s6 59 34e035f3
-TRX64U F8/expert s7 59 58728e70
-TRX64U F8/expert s8 59 ef916eb1
-TRX64U F8/expert s9 59 ef916eb1
-TRX64U F8/expert s10 59 f5b9b835
-TRX64U F8/expert s11 59 29d8bf25
-TRX64U F8/expert s12 59 29d8bf25
-TRX64U F8/expert s13 59 29d8bf25
-TRX64U F8/expert s14 59 29d8bf25
-TRX64U F8/expert s15 59 34e035f3
-TRX64U F8/expert s16 59 58728e70
-TRX64U F8/Network settings s0 59 efd3ac3b
-TRX64U F8/Network settings s1 59 4e446a74
-TRX64U F8/Network settings s2 59 0599cbd3
-TRX64U F8/Network settings s3 59 b09e50c6
-TRX64U F8/Network settings s4 59 161052a9
-TRX64U F8/Network settings s5 59 063de19e
-TRX64U F8/Network settings s6 59 e93c3245
-TRX64U F8/Network settings s7 59 0599cbd3
-TRX64U F8/Network settings s8 59 de1d958c
-TRX64U F8/Network settings s9 59 de1d958c
-TRX64U F8/Network settings s10 59 b09e50c6
-TRX64U F8/Network settings s11 59 89a3dd8d
-TRX64U F8/Network settings s12 59 89a3dd8d
-TRX64U F8/Network settings s13 59 89a3dd8d
-TRX64U F8/Network settings s14 59 89a3dd8d
-TRX64U F8/Network settings s15 59 161052a9
-TRX64U F8/Network settings s16 59 0599cbd3
-TRX64U F8/Streams s0 59 d5fc1a3c
-TRX64U F8/Streams s1 59 adea0338
-TRX64U F8/Streams s2 59 4b740f9a
-TRX64U F8/Streams s3 59 d5fc1a3c
-TRX64U F8/Streams s4 59 abed43ff
-TRX64U F8/Streams s5 59 10686e3f
-TRX64U F8/Streams s6 59 adea0338
-TRX64U F8/Streams s7 59 abed43ff
-TRX64U F8/Streams s8 59 d1b31787
-TRX64U F8/Streams s9 59 d1b31787
-TRX64U F8/Streams s10 59 d5fc1a3c
-TRX64U F8/Streams s11 59 00d5c650
-TRX64U F8/Streams s12 59 00d5c650
-TRX64U F8/Streams s13 59 00d5c650
-TRX64U F8/Streams s14 59 00d5c650
-TRX64U F8/Streams s15 59 9ed5d831
-TRX64U F8/Streams s16 59 10838eb6
-TRX64U F8/FTP hosts s0 59 3d20f152
-TRX64U F8/FTP hosts s1 59 89760482
-TRX64U F8/FTP hosts s2 59 14be6dec
-TRX64U F8/FTP hosts s3 59 3d20f152
-TRX64U F8/FTP hosts s4 59 d14057b1
-TRX64U F8/FTP hosts s5 59 7b3913f4
-TRX64U F8/FTP hosts s6 59 89760482
-TRX64U F8/FTP hosts s7 59 d14057b1
-TRX64U F8/FTP hosts s8 59 ee015969
-TRX64U F8/FTP hosts s9 59 ee015969
-TRX64U F8/FTP hosts s10 59 3d20f152
-TRX64U F8/FTP hosts s11 59 6375a20e
-TRX64U F8/FTP hosts s12 59 6375a20e
-TRX64U F8/FTP hosts s13 59 6375a20e
-TRX64U F8/FTP hosts s14 59 6375a20e
-TRX64U F8/FTP hosts s15 59 cff064cd
-TRX64U F8/FTP hosts s16 59 d14057b1
+TRX64U F7/settings s0 59 abcf5bbc
+TRX64U F7/settings s1 59 55505bfd
+TRX64U F7/settings s2 59 5474e241
+TRX64U F7/settings s3 59 9a276574
+TRX64U F7/settings s4 59 ecf784d8
+TRX64U F7/settings s5 59 96c91f81
+TRX64U F7/settings s6 59 9cea1350
+TRX64U F7/settings s7 59 02588195
+TRX64U F7/settings s8 59 5920b44d
+TRX64U F7/settings s9 59 5920b44d
+TRX64U F7/settings s10 59 f96b0bbc
+TRX64U F7/settings s11 59 2a7ecbdc
+TRX64U F7/settings s12 59 2a7ecbdc
+TRX64U F7/settings s13 59 2a7ecbdc
+TRX64U F7/settings s14 59 2a7ecbdc
+TRX64U F7/settings s15 59 dfa790d0
+TRX64U F7/settings s16 59 65adbcff
+TRX64U F7/hotkeys s0 59 db2120e4
+TRX64U F7/hotkeys s1 59 ee2f8ee6
+TRX64U F7/hotkeys s2 59 42002b10
+TRX64U F7/hotkeys s3 59 0f943dec
+TRX64U F7/hotkeys s4 59 edef8026
+TRX64U F7/hotkeys s5 59 c7417de9
+TRX64U F7/hotkeys s6 59 edef8026
+TRX64U F7/hotkeys s7 59 edef8026
+TRX64U F7/hotkeys s8 59 edef8026
+TRX64U F7/hotkeys s9 59 edef8026
+TRX64U F7/hotkeys s10 59 5c7166e9
+TRX64U F7/hotkeys s11 59 edef8026
+TRX64U F7/hotkeys s12 59 edef8026
+TRX64U F7/hotkeys s13 59 edef8026
+TRX64U F7/hotkeys s14 59 edef8026
+TRX64U F7/hotkeys s15 59 edef8026
+TRX64U F7/hotkeys s16 59 edef8026
+TRX64U F8/expert s0 59 ff781ca4
+TRX64U F8/expert s1 59 7371148e
+TRX64U F8/expert s2 59 cd6e8681
+TRX64U F8/expert s3 59 ff781ca4
+TRX64U F8/expert s4 59 7371148e
+TRX64U F8/expert s5 59 c97a1f01
+TRX64U F8/expert s6 59 7371148e
+TRX64U F8/expert s7 59 cd6e8681
+TRX64U F8/expert s8 59 c2a75dc0
+TRX64U F8/expert s9 59 c2a75dc0
+TRX64U F8/expert s10 59 ff781ca4
+TRX64U F8/expert s11 59 6797915c
+TRX64U F8/expert s12 59 6797915c
+TRX64U F8/expert s13 59 6797915c
+TRX64U F8/expert s14 59 6797915c
+TRX64U F8/expert s15 59 7371148e
+TRX64U F8/expert s16 59 cd6e8681
+TRX64U F8/Network settings s0 59 74451ea2
+TRX64U F8/Network settings s1 59 defa2341
+TRX64U F8/Network settings s2 59 cdb9bf58
+TRX64U F8/Network settings s3 59 d33222a5
+TRX64U F8/Network settings s4 59 3092ea04
+TRX64U F8/Network settings s5 59 f845f87f
+TRX64U F8/Network settings s6 59 d68639e0
+TRX64U F8/Network settings s7 59 cdb9bf58
+TRX64U F8/Network settings s8 59 d936bd75
+TRX64U F8/Network settings s9 59 d936bd75
+TRX64U F8/Network settings s10 59 d33222a5
+TRX64U F8/Network settings s11 59 4a630d2a
+TRX64U F8/Network settings s12 59 4a630d2a
+TRX64U F8/Network settings s13 59 4a630d2a
+TRX64U F8/Network settings s14 59 4a630d2a
+TRX64U F8/Network settings s15 59 3092ea04
+TRX64U F8/Network settings s16 59 cdb9bf58
+TRX64U F8/Streams s0 59 9982570d
+TRX64U F8/Streams s1 59 0d1c863f
+TRX64U F8/Streams s2 59 87a0de31
+TRX64U F8/Streams s3 59 9982570d
+TRX64U F8/Streams s4 59 25989002
+TRX64U F8/Streams s5 59 88789012
+TRX64U F8/Streams s6 59 0d1c863f
+TRX64U F8/Streams s7 59 25989002
+TRX64U F8/Streams s8 59 65ce1a5e
+TRX64U F8/Streams s9 59 65ce1a5e
+TRX64U F8/Streams s10 59 9982570d
+TRX64U F8/Streams s11 59 c5ab7389
+TRX64U F8/Streams s12 59 c5ab7389
+TRX64U F8/Streams s13 59 c5ab7389
+TRX64U F8/Streams s14 59 c5ab7389
+TRX64U F8/Streams s15 59 be7ca3e0
+TRX64U F8/Streams s16 59 2350fcff
+TRX64U F8/FTP hosts s0 59 88da65b7
+TRX64U F8/FTP hosts s1 59 4f9e755d
+TRX64U F8/FTP hosts s2 59 4bc96c81
+TRX64U F8/FTP hosts s3 59 88da65b7
+TRX64U F8/FTP hosts s4 59 65f75ebc
+TRX64U F8/FTP hosts s5 59 9d07a6ad
+TRX64U F8/FTP hosts s6 59 4f9e755d
+TRX64U F8/FTP hosts s7 59 65f75ebc
+TRX64U F8/FTP hosts s8 59 5ffc5a08
+TRX64U F8/FTP hosts s9 59 5ffc5a08
+TRX64U F8/FTP hosts s10 59 88da65b7
+TRX64U F8/FTP hosts s11 59 581270bf
+TRX64U F8/FTP hosts s12 59 581270bf
+TRX64U F8/FTP hosts s13 59 581270bf
+TRX64U F8/FTP hosts s14 59 581270bf
+TRX64U F8/FTP hosts s15 59 95a944c4
+TRX64U F8/FTP hosts s16 59 65f75ebc
 Amiga (OCS/ECS, 68000) F1/home s0 59 e7c2600d
 Amiga (OCS/ECS, 68000) F1/home s1 59 a402e11c
 Amiga (OCS/ECS, 68000) F1/home s2 59 ddb74c07

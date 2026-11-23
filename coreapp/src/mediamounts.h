@@ -46,6 +46,11 @@ void mounts_slot_name(CoreCtx *c, int idx, char *out, int n);
 // What is mounted in the slot, in the words of the file; null: empty (or a path too long to store).
 const char *mounts_slot_spec(CoreCtx *c, int idx);
 
+// ctx.media_source (svc_ctx.h) for the window drives and the sector units: `slot` is the name of the slot (the descriptor's prefix and the number: "DF0", "HD1"; case
+// insensitive, a colon at the end dropped). 1 with the spec its engine keeps in buf (cut to n - 1); 0 for such a slot with nothing mounted (buf is ""); -1 when `slot` names none
+// of them (the engine's own slots, a media slot of the descriptor).
+int mounts_unit_source(CoreCtx *c, const char *slot, char *buf, int n);
+
 // winslot.cc / sectors.cc: a slot was mounted or let go. With the item on (and the start done) the .cfg gets the new state of that slot.
 void mounts_changed(CoreCtx *c, bool sector, int n);
 // CoreCtx::mount_changed (the application sets it): slot n of the core's own engine (desc.h MountSlots) changed.

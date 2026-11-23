@@ -14,6 +14,7 @@
 #include "check.h"
 #include "libload.h"
 #include "libmenu.h"
+#include "descrec.h"
 #include "ctx.h"
 #include "fakes.h"
 #include "hostos.h"
@@ -2148,7 +2149,29 @@ static void services()
     CHECK_EQ(io.regs[0x10], 0x5A);
     CHECK_EQ(api->io->bus_rd(3), 0);                                                      // the default of CoreIo
     uint32_t wsz = 77;
-    CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);
+    CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);                               // no description record: no window is granted
+    {
+        // the windows of the core's description record (section 19, made by tools/descrec.py): the address and the size of a declared name, null and 0 for any other
+        std::vector<uint8_t> wb = read_file("windows.bin");
+        DescRecord *wrec = new DescRecord;
+        char why[200] = "";
+        CHECK_EQ(descrec_parse(wb.data(), (uint32_t)wb.size(), wrec, why, sizeof(why)), 0);
+        CHECK_EQ(wrec->nwindows, 2);
+        w.ld->set_windows(wrec);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0xA0000500u);
+        CHECK_EQ(wsz, 0x14u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0xA0000600u);
+        CHECK_EQ(wsz, 0x100u);
+        wsz = 77;
+        CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare
+        CHECK(api->io->window(0, &wsz) == 0 && wsz == 0);
+        CHECK(api->io->window("video", 0) != 0);                                          // a null size is allowed
+        w.ld->set_windows(0);
+        CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);
+        delete wrec;
+    }
     api->io->delay_us(250);
     CHECK_EQ(io.us, 250);
     uint8_t keys[8] = { 0 };

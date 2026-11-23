@@ -1,4 +1,5 @@
 #include "contrib.h"
+#include "baseset.h"
 #include "bindcheck.h"
 #include "ops.h"
 #include <stdarg.h>
@@ -765,9 +766,15 @@ int contrib_merge(const CoreDesc *d, const Skeleton *skel, const Overrides *ov, 
     if (out->nsettings > SETTINGS_MAX) {
         out->nsettings = SETTINGS_MAX;
     }
+    int nkept = 0;
     for (int i = 0; i < out->nsettings; i++) {
-        mm->settings[i] = d->settings[i];
+        // T228 R7: the description hides a row of the application's own (baseset.h) by its key, as it hides a contributed setting
+        if (ov && ov->hide && baseset_is_generic(d->settings[i]) && in_list(ov->hide, ov->nhide, d->settings[i].key)) {
+            continue;
+        }
+        mm->settings[nkept++] = d->settings[i];
     }
+    out->nsettings = nkept;
     out->settings = mm->settings;
     int ntypes = 0;
     for (int i = 0; i < d->nfiletypes && i < CONTRIB_FILETYPES_MAX; i++) {

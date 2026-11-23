@@ -28,20 +28,21 @@ struct Def {
     const char *op;
     const char *show;
     uint8_t kind;
+    const char *needs;                  // the capability (CoreDesc::caps) a core has to name for the row; null: any core (the mouse rows: any core with a mouse)
 };
 #define N(a) (int)(sizeof(a) / sizeof(a[0]))
 const char *const cursor_only = "set.Mouse_Mode==Cursor keys";
 const Def defs[B_N] = {
-    { "Overlay Transparency", "Overlay transparency", transp_values, N(transp_values), 1, 0, "base.overlay", 0, 1 },
-    { "Color Scheme", "Color scheme", trx_scheme_names, TRX_SCHEME_COUNT, 1, 0, "base.scheme", 0, 1 },
-    { "Filename overflow squeeze", 0, squeeze_values, N(squeeze_values), 0, 0, "base.squeeze", 0, 1 },
-    { "Navigation Style", "Navigation style", nav_values, N(nav_values), 0, 0, "base.nav", 0, 1 },
-    { "Joystick Input", "Joystick input", joy_values, N(joy_values), 0, 0, "base.joystick", 0, 2 },
-    { "Mouse Mode", "Mouse as", mode_values, N(mode_values), 0, 0, "base.mouse_mode", 0, 2 },
-    { "Mouse Sensitivity", "Mouse cursor sensitivity", step_values, N(step_values), 7, 1, "base.mouse_sens", cursor_only, 2 },
-    { "Mouse Acceleration", "Mouse cursor acceleration", accel_values, N(accel_values), 0, 0, "base.mouse_accel", cursor_only, 2 },
-    { "Mouse Wheel Sensitivity", "Mouse wheel sensitivity", step_values, N(step_values), 7, 1, "base.wheel_sens", 0, 2 },
-    { "Mouse Wheel Direction", "Mouse wheel direction", dir_values, N(dir_values), 0, 0, "base.wheel_dir", 0, 2 },
+    { "Overlay Transparency", "Overlay transparency", transp_values, N(transp_values), 1, 0, "base.overlay", 0, 1, 0 },
+    { "Color Scheme", "Color scheme", trx_scheme_names, TRX_SCHEME_COUNT, 1, 0, "base.scheme", 0, 1, 0 },
+    { "Filename overflow squeeze", 0, squeeze_values, N(squeeze_values), 0, 0, "base.squeeze", 0, 1, 0 },
+    { "Navigation Style", "Navigation style", nav_values, N(nav_values), 0, 0, "base.nav", 0, 1, 0 },
+    { "Joystick Input", "Joystick input", joy_values, N(joy_values), 0, 0, "base.joystick", 0, 2, BASE_CAP_KEYBOARD_JOYSTICK },
+    { "Mouse Mode", "Mouse as", mode_values, N(mode_values), 0, 0, "base.mouse_mode", 0, 2, BASE_CAP_MOUSE_DRIVER },
+    { "Mouse Sensitivity", "Mouse cursor sensitivity", step_values, N(step_values), 7, 1, "base.mouse_sens", cursor_only, 2, 0 },
+    { "Mouse Acceleration", "Mouse cursor acceleration", accel_values, N(accel_values), 0, 0, "base.mouse_accel", cursor_only, 2, 0 },
+    { "Mouse Wheel Sensitivity", "Mouse wheel sensitivity", step_values, N(step_values), 7, 1, "base.wheel_sens", 0, 2, BASE_CAP_MOUSE_DRIVER },
+    { "Mouse Wheel Direction", "Mouse wheel direction", dir_values, N(dir_values), 0, 0, "base.wheel_dir", 0, 2, BASE_CAP_MOUSE_DRIVER },
 };
 
 CoreCtx *g_ctx;
@@ -128,6 +129,29 @@ bool declared(const CoreDesc *d, const char *key)
     return false;
 }
 
+// Does the application add row `id` to this core: the capability it needs is named by the core, a mouse row needs a mouse, and the core does not declare the key itself.
+// (A core's description can hide a row of the base by its key; contrib_merge drops it when the menu is merged.)
+bool wanted(const CoreDesc *d, int id)
+{
+    if (declared(d, defs[id].key)) {
+        return false;
+    }
+    if (id >= B_MOUSE0 && !d->mouse) {
+        return false;
+    }
+    return !defs[id].needs || desc_has_capability(d, defs[id].needs);
+}
+
+}
+
+bool baseset_adds(const CoreDesc *d, const char *key)
+{
+    for (int i = 0; i < B_N; i++) {
+        if (!strcasecmp(defs[i].key, key)) {
+            return wanted(d, i);
+        }
+    }
+    return false;
 }
 
 const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
@@ -136,7 +160,7 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     bool want[B_N];
     int add = 0;
     for (int i = 0; i < B_N; i++) {
-        want[i] = (i < B_MOUSE0 || d->mouse) && !declared(d, defs[i].key);
+        want[i] = wanted(d, i);
         add += want[i] ? 1 : 0;
     }
     if (!add) {
@@ -166,7 +190,7 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         s.apply = defs[i].op;
         s.base = defs[i].base;
         s.group = "app";
-        s.show_state = defs[i].show;
+        s.show_state = defs[i].show && want[B_MODE] ? defs[i].show : 0;     // "only while Mouse Mode says cursor keys" needs the row that says it
     }
     out->settings = store;
     out->nsettings = n;

@@ -1072,7 +1072,7 @@ The settings group: the settings of the running core by key, as the base holds t
 
 Since base 3.3.
 
-4.13.19.1 The base declares ten settings for every core, as it does Picture and Volume. A library reads them by key with `find`, `value` or `cfg_value`, and the keys are the stored keys of every `.cfg`. The base applies them itself; a library does not.
+4.13.19.1 The base declares up to ten settings for a core, as it does Picture and Volume (4.13.19.3 says which). A library reads them by key with `find`, `value` or `cfg_value`, and the keys are the stored keys of every `.cfg`. The base applies them itself; a library does not.
 4.13.19.2 The keys, with the values in the order of their positions (the first is position 0):
 
 | Key | Values | Default |
@@ -1088,7 +1088,7 @@ Since base 3.3.
 | `Mouse Wheel Sensitivity` | range 1 to 16 | position 7 |
 | `Mouse Wheel Direction` | `Normal`, `Reversed` | position 0 |
 
-4.13.19.3 The five mouse settings exist for a core whose descriptor has a mouse. The other five exist for every core. The menu lists them on the page of the application (F7), under Look and Input.
+4.13.19.3 The base adds a key to a core only where the code can do what the row says. The four of the look exist for every core, `Mouse Sensitivity` and `Mouse Acceleration` for a core whose descriptor has a mouse (the USB driver scales each report with them before the core's mouse sink takes it), `Joystick Input` for a core whose capability list names `kbd_joystick` and `Mouse Mode`, `Mouse Wheel Sensitivity` and `Mouse Wheel Direction` for a core that names `mouse_driver`. No core of the base names either capability: the host decodes no WASD register, and the mouse sink consumes every report. A key that the description of the core hides (`hide` in its menu TOML, 6.9.7) is not added. The menu lists them on the page of the application (F7), under Look and Input. A key that is not added is not in the settings: `find` returns -1 and `base_setting_changed` is not called for it.
 4.13.19.4 `Joystick Input` is applied in part by the base: it sets the port that the keyboard joystick drives and the WASD mapping of the keyboard. Hardware of the core that follows the setting, such as the paddle swap of a C64, is the library's; it hears the change through `base_setting_changed` (9.5.5).
 4.13.19.5 A descriptor, a menu TOML `core_setting` and a library must not declare one of these keys. The check of the descriptor in the build and the tests refuses it. On the board the base adds a key only when the descriptor does not declare it, so a core's own item would stay and the base would not apply it.
 
@@ -1161,7 +1161,7 @@ Since base 3.3.
 #### 4.14.12 `api->ctx->media_source`
 
 4.14.12.1 `bool media_source(const char *slot, char *buf, int len)` writes what is in the media slot `slot`, as the engine's own spec: the path of the medium, with a word in front when the engine needs one (`ro /usb0/x.d64`, `unlinked /usb0/x.d64`, `folder /usb0/set`). A path starts with `/`.
-4.14.12.2 `slot` is the name of a mount slot of the core without its colon (`D1`, `Drive A`, `Cartridge`), or the name of a media slot of its description with the colon (`D1:`) or without. The case is ignored. The mount slots are searched first. A media slot gives its state text when that text is a spec.
+4.14.12.2 `slot` is one of these names, with or without the colon at the end and without regard to case: a mount slot of the core's own engine (`D1`, `Drive A`, `Cartridge`), a window drive of the core (the prefix of its window media and the number: `DF0` to `DF3`), a sector unit (`HD0`, `HD1`) or a media slot of its description (`D1:`). The mount slots of the engine are searched first, then the window drives and the sector units, which the base mounts itself and answers with the spec its own engine keeps (the path of the image, or `folder <path>, <GB> GB` for a folder disk), then the media slots; a media slot gives its state text when that text is a spec. These are the slots the base stores for `Persist medium mounts`.
 4.14.12.3 It returns `true` with the spec in `buf`, cut to `len - 1` characters. It returns `false`, with `buf` the empty string, for no such slot and for an empty one. Any task may call it.
 
 #### 4.14.13 `api->ctx->mount_notify`
@@ -1243,7 +1243,7 @@ The io group: the hardware of the running core, as the base's own `CoreIo` has i
 #### 4.15.19 `api->io->window`
 
 4.15.19.1 `volatile uint8_t *window(const char *name, uint32_t *size)` returns the base address of a register window of the bitstream that the API description of the core declares by `name`, and its size in `*size`.
-4.15.19.2 As built in base 3.3 no description is read: it returns null and writes 0 to `*size` (a null `size` is allowed). A caller treats a null result as a window the core does not grant.
+4.15.19.2 The windows are the ones of the API description of the core that is running (`[[window]]`, section 19 of its record). For a name that it declares the call returns the address of the window and writes its size to `*size`. For any other name, a null `name` and a core without a description it returns null and writes 0 to `*size`. A null `size` is allowed. A caller treats a null result as a window the core does not grant. The record is refused when a window covers a register that the base drives itself, so a granted window never does.
 
 ### 4.16 `api->board` (`SvcBoard`)
 

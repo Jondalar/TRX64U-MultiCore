@@ -56,9 +56,13 @@ typedef struct SvcCtx {
     // reads it the next time it draws. Task: lock, inside the operation's handler.
     void (*job_progress)(int pct, const char *path);
     // What is in the media slot named `slot` of the descriptor, as the engine's own spec: the path of the medium, with a word in front when the engine needs
-    // one ("ro /usb0/x.d64", "unlinked /usb0/x.d64", "folder /usb0/set"; a path starts with '/'). `slot` is the name of a mount slot without its colon
-    // ("D1", "Drive A", "Cartridge": MountSlots::names) or of a media slot of the descriptor (MediaSlot::name, "D1:" with the colon dropped), case insensitive.
-    // Result: true with the spec in buf (cut to len - 1); false for no such slot or an empty one (buf is ""). Task: any.
+    // one ("ro /usb0/x.d64", "unlinked /usb0/x.d64", "folder /usb0/set"; a path starts with '/'). `slot` is, case insensitive and without a colon, the name of
+    //   - a window drive of the core: the prefix of its window media and the number ("DF0" .. "DF3": the spec its engine keeps, the path of the image),
+    //   - a sector unit: the prefix of its sector media and the number ("HD0", "HD1": the image's path, or "folder <path>, <GB> GB"),
+    //   - a mount slot of the core's own engine (MountSlots::names: "D1", "Drive A", "Cartridge"), or
+    //   - a media slot of the descriptor (MediaSlot::name, "D1:" with the colon dropped) that is none of these, when its state answers a spec.
+    // These are the names of the slots the base stores for "Persist medium mounts" and the media sets. Result: true with the spec in buf (cut to len - 1); false for no such slot
+    // or an empty one (buf is ""). Task: any.
     bool (*media_source)(const char *slot, char *buf, int len);
     // A slot changed by its engine's own doing; `slot` is its name in the core's [mount] list ("Drive A", "Cartridge"), as ctx.media_source takes it. The call only
     // marks the slot: the base reads its spec on its next pass, under the core lock, and stores it for "Persist medium mounts" and the media sets once the start has

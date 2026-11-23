@@ -5,7 +5,15 @@
 //
 //   look       Overlay Transparency, Color Scheme, Filename overflow squeeze, Navigation Style
 //   input      Joystick Input (the host's keyboard driver takes the port and the WASD mapping from it), and for a core whose descriptor has a mouse (CoreDesc::mouse)
-//              Mouse Mode, Mouse Sensitivity, Mouse Acceleration, Mouse Wheel Sensitivity, Mouse Wheel Direction (the USB driver reads them, mousesink.cc)
+//              Mouse Sensitivity and Mouse Acceleration (the USB driver scales every report with them before it hands it to the core's mouse sink, mousesink.cc)
+//
+// The application lists a row only where the code can do what it says (T228 R20): a key the core's own settings declare is not added, a key the core's menu description hides (menu.toml `hide`, T228 R7: Color Scheme on
+// trx64u) is dropped again when the menu is merged (contrib_merge); a mouse row needs CoreDesc::mouse; and two rows need a capability the core names in CoreDesc::caps.
+//   BASE_CAP_KEYBOARD_JOYSTICK  Joystick Input: the bitstream turns the keyboard's WASD keys into joystick lines (MATRIX_WASD_TO_JOY) for the machine. No core of this tree has it:
+//                               host/ultimate_sys.vhd decodes page 1 offsets 0 to 10 only, so the store to offset 11 reaches no logic, no layer2 module reads the register, and
+//                               U64II_KEYB_JOY only picks the port the application's own scan reads for the menu.
+//   BASE_CAP_MOUSE_DRIVER       Mouse Mode, Mouse Wheel Sensitivity, Mouse Wheel Direction: the USB driver's own handling of a report (cursor keys, wheel, port 1). run.cc registers
+//                               the mouse sink for every core and mouse_sink_usb_report consumes each report, so that handling never runs and no core has the capability.
 #ifndef COREAPP_BASESET_H
 #define COREAPP_BASESET_H
 
@@ -15,6 +23,12 @@
 // out = *d with the settings the core has not got after d's own; `store` holds the merged array and has to outlive `out` (as volume_extend's). Null, or the reason when
 // there is no room. A key the descriptor declares itself is not added again.
 const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
+
+#define BASE_CAP_KEYBOARD_JOYSTICK "kbd_joystick"
+#define BASE_CAP_MOUSE_DRIVER "mouse_driver"
+
+// Does baseset_extend add the setting `key` to `d`'s descriptor (a base key that the core does not declare, whose capability it names and, for a mouse row, that has a mouse)? The hotkeys ask it for the swap item before the base's rows are in the descriptor (hotkeys.cc).
+bool baseset_adds(const CoreDesc *d, const char *key);
 
 // What the board gives the settings (the menu's own look, the host keyboard's registers and the product). Null members do nothing; the board sets all of them (run.cc).
 struct BaseSetPort {

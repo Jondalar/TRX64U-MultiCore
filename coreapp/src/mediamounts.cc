@@ -100,6 +100,29 @@ const char *mounts_slot_spec(CoreCtx *c, int idx)
     return h.mounted && h.spec[0] ? h.spec : 0;
 }
 
+int mounts_unit_source(CoreCtx *c, const char *slot, char *buf, int n)
+{
+    if (!c || !c->desc || !slot || !buf || n <= 0) {
+        return -1;
+    }
+    buf[0] = 0;
+    size_t sl = strlen(slot);
+    sl -= sl && slot[sl - 1] == ':';
+    for (int i = 0; i < nwin(c) + nsec(c); i++) {
+        char name[32];
+        mounts_slot_name(c, i, name, sizeof(name));
+        if (strlen(name) == sl && !strncasecmp(name, slot, sl)) {
+            const char *spec = mounts_slot_spec(c, i);
+            if (!spec || !spec[0]) {
+                return 0;
+            }
+            snprintf(buf, n, "%s", spec);
+            return 1;
+        }
+    }
+    return -1;
+}
+
 static bool slot_mounted(CoreCtx *c, int idx)
 {
     if (idx >= nwin(c) + nsec(c)) {
