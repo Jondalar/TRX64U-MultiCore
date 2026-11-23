@@ -777,6 +777,9 @@ run descsec test_descsec.cc amiga.cc $C64 $BASEL descrec.cc
 # T239.3 base 3.3: the key table, the register windows (and the registers the base drives itself) and the job flag of a task, from golden/desc_keys.toml as the real tool compiles it
 CARGS="$BUN/desc_keys.bin" RARGS="$CARGS"
 run deckeys test_deckeys.cc descrec.cc
+# T239.3 P1-1 (D30, D34): TOML A, the record of version 7, from golden/desc_toml_a.toml and the SDK's module maps as the real tool compiles them
+CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
+run desctoml test_desctoml.cc descrec.cc
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

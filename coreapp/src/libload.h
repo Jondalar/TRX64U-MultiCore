@@ -231,7 +231,7 @@ public:
     // `fn` answers 1 with the spec in buf, 0 for a slot of that name that is empty (buf ""), -1 for a name that is none of them. Null: none (the engine's own slots and the descriptor's
     // media slots are answered as before).
     void set_media_source(int (*fn)(CoreCtx *, const char *, char *, int)) { media_src_ = fn; }
-    // The description record of the running core's bundle (bundle.h): io.window hands out the register windows of its section 19 (descrec_window). Null: the core has none, and
+    // The description record of the running core's bundle (bundle.h): io.window hands out the register windows of its section 19 and the blocks of its TOML A (version 7) by name (descrec_window). Null: the core has none, and
     // io.window answers null for every name. The record must stay valid as long as the loader runs (libboard.cc passes the description of the static BundleExtras of the start).
     void set_windows(const DescRecord *rec) { windows_rec_ = rec; }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
