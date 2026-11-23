@@ -983,49 +983,12 @@ size = 0x14
                                                                                       ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400)))
         self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 6)
 
-    def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
-        regs = D.base_registers()
-        self.assertGreaterEqual(len(regs), 22)
-        wanted = {"i2c_scl", "i2c_sda", "mdio_get", "mdio_mdc", "mdio_data", "usb_hub_reset", "hw_i2c", "power", "restore", "hdmi_pll_reset", "keyb_joy", "keyb_col", "keyb_row", "case_led_select",
-                  "ulpi_reset", "hdmi_reg", "ethstream_ena", "matrix_keyb", "master_volume", "master_tone", "hotkey_mask", "bling_rx_flags"}
-        self.assertEqual({r[0] for r in regs}, wanted)
-        for name, address, nbytes, ref in regs:
-            for i, (a, size) in enumerate(((address, 1), (address + nbytes - 1, 4), (address - 3, 4))):         # the register, a block that starts on its last byte, a block that runs into it
-                with self.assertRaises(D.DescError, msg="%s %x" % (name, a)) as e:
-                    D.compile_text('[[window]]\nname = "w"\naddress = %d\nsize = %d\n' % (a, size))
-                if i == 0:                                      # the sentence names the first register of the table the block covers: the register itself, for one byte
-                    self.assertIn(name, str(e.exception))
-                    self.assertIn(ref, str(e.exception))
-            other = D.window_conflict(address + nbytes, 1)
-            if other is None:                                         # the byte behind it belongs to nobody: a run that starts there is allowed
-                D.compile_text('[[window]]\nname = "w"\naddress = %d\nsize = 1\n' % (address + nbytes))
-        with self.assertRaises(D.DescError):                          # a block that runs over the whole U64 base register run
-            D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000400\nsize = 0x100\n')
-
-    def test_the_references_of_the_table_name_their_register(self):
-        token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
-                 "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
-                 "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT",
-                 "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "U64_AUDIO_MIXER + 0x50",
-                 "master_tone": "U64_AUDIO_MIXER + 0x51", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS"}
-        for name, address, nbytes, ref in D.base_registers():
-            path, _, line = ref.rpartition(":")
-            with open(os.path.join(self.ROOT, path)) as f:
-                lines = f.read().splitlines()
-            self.assertIn(token[name], lines[int(line) - 1], "%s: %s" % (name, ref))
-        # the addresses are those of the headers
-        defs = {}
-        import re
-        for h in ("u2p.h", "u64.h"):
-            with open(os.path.join(self.ROOT, "host-app", "software", "system", h)) as f:
-                for m in re.finditer(r"#define\s+(\w+)\s+\(U2P_IO_BASE\s*\+\s*(0x[0-9A-Fa-f]+)\)", f.read()):
-                    defs[m.group(1)] = 0xA0000000 + int(m.group(2), 16)
-        u64 = defs["U64_IO_BASE"]
-        for name, off in (("power", 1), ("restore", 2), ("hdmi_pll_reset", 4), ("keyb_joy", 6), ("keyb_col", 0xA), ("keyb_row", 0xB), ("case_led_select", 0xE), ("hdmi_reg", 0), ("ethstream_ena", 0xF)):
-            self.assertEqual({r[0]: r[1] for r in D.base_registers()}[name], u64 + off, name)
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["hw_i2c"], defs["U64II_HW_I2C_BASE"])
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["matrix_keyb"], defs["MATRIX_KEYB"])
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["ulpi_reset"], 0xA0000000 + 0xF)
+    def test_no_table_of_the_base_registers_exists(self):
+        # T239.3 V-3 (D30 point 4): basereg.def is gone with every user; a window is checked for its shape only, and a block of a TOML A against the blocks of that TOML A
+        self.assertFalse(hasattr(D, "base_registers"))
+        self.assertFalse(hasattr(D, "window_conflict"))
+        self.assertFalse(os.path.exists(os.path.join(self.ROOT, "coreapp", "src", "basereg.def")))
+        self.assertEqual(len(D.parse_desc(D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000402\nsize = 1\n'))["window"]), 1)
 
     def test_what_a_window_must_be(self):
         def bad(text):
@@ -1173,23 +1136,39 @@ class TomlA(unittest.TestCase):
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
-    def test_the_fixed_link_fragment_is_what_the_generator_writes(self):
-        base = os.path.join(os.path.dirname(GOLD), "..", "..", "host-app", "target", "u64ii", "riscv")
-        with open(os.path.join(base, "trx_io.toml")) as f, open(os.path.join(base, "trx_io.ld")) as g:
-            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
-            self.assertEqual(g.read(), frag)
+    HOST_TOMLA = os.path.join(os.path.dirname(GOLD), "..", "..", "coreapp", "gateware", "host.toml")
+
+    def _host_fragment(self):
+        with open(self.HOST_TOMLA) as f:
+            return D.ldfrag(f.read(), D.load_maps([self.MAPS]), "host.toml")
+
+    def test_the_link_fragment_of_the_apps_comes_from_the_hosts_toml_a(self):
+        # T239.3 V-3: the shared app and the host app link the ldfrag of coreapp/gateware/host.toml (their Makefiles write it); the maps hold today's addresses
+        frag = self._host_fragment()
         syms = dict((l.split(" = ")[0], int(l.split(" = ")[1].rstrip(";\n"), 16)) for l in frag.splitlines() if l.startswith("__"))
         # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
         self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
-        self.assertEqual(syms["__blk_icap"], syms["__iobase"] + 0x60600)
-        for n, a in (("id", 0x10060600), ("data", 0x10060610), ("enable", 0x10060614), ("count0", 0x10060618), ("count3", 0x1006061B), ("decouple", 0x10060620), ("release", 0x10060621)):
+        for n, a in (("id_id", 0x10060600), ("data_data", 0x10060610), ("enable_enable", 0x10060614), ("count_count0", 0x10060618), ("count_count3", 0x1006061B),
+                     ("decouple_decouple", 0x10060620), ("decouple_release", 0x10060621)):
             self.assertEqual(syms["__reg_icap_" + n], a, n)
+        # the shared app's own TOML A (its driver table) names the same two bases and the same ICAP registers
+        with open(os.path.join(os.path.dirname(self.HOST_TOMLA), "shared.toml")) as f:
+            doc = D.toml_loads(f.read())
+        self.assertEqual((doc["io"]["iobase"], doc["io"]["u2p_io_base"]), (syms["__iobase"], syms["__u2p_io_base"]))
+        icap = [b for b in D.resolve_maps(doc, D.load_maps([self.MAPS]))["block"] if b["name"] == "icap"][0]
+        for p in icap["property"]:
+            hit = [a for n, a in syms.items() if n.startswith("__reg_icap_") and a == icap["address"] + p["offset"]]
+            self.assertEqual(len(hit), 1, p["name"])
+
+    def test_the_fixed_fragment_and_the_base_register_table_are_gone(self):
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        for rel in ("host-app/target/u64ii/riscv/trx_io.toml", "host-app/target/u64ii/riscv/trx_io.ld", "coreapp/src/basereg.def"):
+            self.assertFalse(os.path.exists(os.path.join(root, rel)), rel)
 
     def test_every_symbol_a_driver_names_is_in_the_fragment(self):
         import re
         root = os.path.join(os.path.dirname(GOLD), "..", "..")
-        with open(os.path.join(root, "host-app", "target", "u64ii", "riscv", "trx_io.toml")) as f:
-            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
+        frag = self._host_fragment()
         have = set(re.findall(r"^(__\w+) =", frag, re.M))
         for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):
             with open(os.path.join(root, rel)) as f:
@@ -1202,6 +1181,16 @@ class TomlA(unittest.TestCase):
             self.assertNotIn("-DIOBASE", text)
             self.assertNotIn("-DU2P_IO_BASE", text)
             self.assertIn("LIBS    += $(IOFRAG)", text)
+            self.assertIn("coreapp/gateware/host.toml", text)
+            self.assertNotIn("trx_io.ld", text)
+
+    def test_a_core_block_over_a_block_of_the_base_is_refused_by_the_overlap_rule(self):
+        # T239.3 V-3: with basereg.def gone this is the one check of D30 point 1 that the record makes by itself: no byte of a block of the base lies in a block of the core
+        b = ('[[block]]\nname = "%s"\nmodule = "trx_io"\nowner = "%s"\naddress = 0x%X\nsize = 0x%X\n')
+        D.compile_checked(self.BASE + b % ("base_regs", "base", 0xA0000400, 0x10) + b % ("mixer", "core", 0xA0000500, 0x14))
+        with self.assertRaises(D.DescError) as e:
+            D.compile_checked(self.BASE + b % ("base_regs", "base", 0xA0000400, 0x10) + b % ("mixer", "core", 0xA0000408, 0x14))
+        self.assertIn("overlaps the block base_regs", str(e.exception))
 
     def test_a_fragment_is_checked_as_a_record_is(self):
         maps = D.load_maps([self.MAPS])

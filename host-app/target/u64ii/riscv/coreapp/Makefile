@@ -374,9 +374,17 @@ LWIP_A  = ../../../libs/riscv/lwip/result/liblwip.a
 LVGL_A  = ../../../libs/riscv/lvgl/result/liblvgl.a
 LIBS    = $(LWIP_A)
 LIBS   += $(LVGL_A)
-# T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
-# one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
-IOFRAG  ?= ../trx_io.ld
+# T239.3 V-3 (D30, D31): IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. They come from the TOML A of the host
+# bitstream (coreapp/gateware/host.toml) through `descrec.py ldfrag`, which writes $(OUTPUT)/io/iofrag.ld before any source is compiled, the file only when its content changes. An app of
+# one core links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
+ifndef IOFRAG
+HOST_TOMLA = $(PATH_SW)/../../coreapp/gateware/host.toml
+IOFRAG     = $(OUTPUT)/io/iofrag.ld
+IOFRAG_GEN := $(shell mkdir -p $(OUTPUT)/io && python3 $(PATH_SW)/../../tools/descrec.py ldfrag $(HOST_TOMLA) $(IOFRAG).new --maps $(PATH_SW)/../../app/sdkpkg/maps 2>&1 && { cmp -s $(IOFRAG).new $(IOFRAG) || cp $(IOFRAG).new $(IOFRAG); } || echo "iofrag: the link fragment was not generated")
+ifneq ($(strip $(IOFRAG_GEN)),)
+$(error $(IOFRAG_GEN))
+endif
+endif
 LIBS    += $(IOFRAG)
 LFLAGS   = --gc-sections --wrap=pvPortMalloc --wrap=_sbrk --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld

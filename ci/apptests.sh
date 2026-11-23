@@ -64,8 +64,8 @@ suite_specs() {
     coreapp_render) printf '%s\n' "${common[@]}" tests/coreapp app/view app/video app/loaders app/lib app/edit host-app/target/u64ii/riscv/coreapp ;;
     hostapp_render) printf '%s\n' "${common[@]}" tests/hostapp app/view app/video ;;
     # emulator scripts (ue2emu through ci/ue2emu.sh, T174 D2.8): they run on the built RISC-V images; a PASS is cached for the content below
-    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp host-app/target/u64ii/riscv/trx_io.ld ci/ue2emu.sh tools/ue2emu_kit.sh ;;
-    coreapp_emu)    printf '%s\n' "${common[@]}" tests/coreapp host-app/target/u64ii/riscv/coreapp host-app/target/u64ii/riscv/trx_io.ld ci/ue2emu.sh tools/ue2emu_kit.sh ;;
+    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh tools/ue2emu_kit.sh ;;
+    coreapp_emu)    printf '%s\n' "${common[@]}" tests/coreapp host-app/target/u64ii/riscv/coreapp ci/ue2emu.sh tools/ue2emu_kit.sh ;;
     *) return 1 ;;
   esac
 }

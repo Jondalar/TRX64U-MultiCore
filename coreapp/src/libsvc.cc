@@ -324,7 +324,7 @@ struct LibSvc {
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
-        // the windows of the running core's description record (section 19); the record was refused at the read when a window covered a register the base drives itself
+        // the windows of the running core's description record (section 19); a block of a version 7 record was refused at the read when it overlapped a block of the base
         const DescRecord *rec = L()->windows_rec_;
         const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
         if (size) {

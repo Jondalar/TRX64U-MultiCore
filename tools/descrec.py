@@ -191,7 +191,7 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     status = true                  # the answer's text is the status line, bad when the operation failed (KF_STATUS)      status_ok: also when it succeeded (KF_STATUS_OK)
     close = true                   # the menu closes after it (KF_CLOSE)      directive: the answer's text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE)
     direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
-    [[window]]                     # a register window io.window hands out by name; refused when it covers a register the base drives itself (coreapp/src/basereg.def)
+    [[window]]                     # a register window io.window hands out by name; no table of the base's registers refuses it (a block of TOML A that overlaps another is refused)
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
     address = 0xA0000500
     size = 0x14                    # bytes, 1 .. 0x100000
@@ -1621,37 +1621,6 @@ KEY_CODE_MAX = 0x1FF
 KEY_NAMES = {"up": 0x91, "down": 0x12, "left": 0x9D, "right": 0x1D, "return": 0x0D, "esc": 0x1B, "del": 0x08, "runstop": 0x11, "space": 0x20, "home": 0x13, "pgup": 0x92, "pgdn": 0x95,
              "tab": 0x09, "f1": 0x85, "f2": 0x89, "f3": 0x86, "f4": 0x8A, "f5": 0x87, "f6": 0x8B, "f7": 0x88, "f8": 0x8C, "f10": 0x8E, "scrlock": 0xA3, "menu": 0x1FE}
 KEY_CTRL = {"a": 0x01, "b": 0x02, "c": 0x03, "d": 0x04, "e": 0x05, "i": 0x09, "j": 0x0A, "k": 0x0B, "l": 0x0C, "n": 0x0E, "o": 0x0F, "p": 0x10, "r": 0xBA, "v": 0x16, "z": 0x1A}
-_HERE = os.path.dirname(os.path.abspath(__file__))
-# the registers the base drives: beside this file in the SDK package (tools/basereg.def, tools/sdk_pack.sh), else the repository's coreapp/src/basereg.def
-BASEREG_FILE = next((p for p in (os.path.join(_HERE, "basereg.def"), os.path.join(_HERE, "..", "coreapp", "src", "basereg.def")) if os.path.exists(p)),
-                    os.path.join(_HERE, "..", "coreapp", "src", "basereg.def"))
-_BASEREG = []
-
-
-def base_registers():
-    """The registers the base drives itself: [(name, address, bytes, code reference)], read from basereg.def (BASEREG_FILE; the table descrec.cc includes)."""
-    if not _BASEREG:
-        try:
-            with open(BASEREG_FILE) as f:
-                lines = f.read().splitlines()
-        except OSError as e:
-            raise DescError("the list of the registers the base drives (basereg.def) is neither beside descrec.py nor at %s: %s" % (BASEREG_FILE, e.strerror))
-        for line in lines:
-            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
-            if m:
-                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3)), m.group(4)))
-        if not _BASEREG:
-            raise DescError("%s: no register of the base is listed" % BASEREG_FILE)
-    return list(_BASEREG)
-
-
-def window_conflict(address, size):
-    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none."""
-    for reg in base_registers():
-        if address < reg[1] + reg[2] and reg[1] < address + size:
-            return reg
-    return None
-
 
 def _key_code(name, what):
     if not isinstance(name, str) or not name:
@@ -1746,10 +1715,6 @@ def _window_check(name, address, size, what):
         raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
     if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
         raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
-    reg = window_conflict(address, size)
-    if reg:
-        raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"
-                        % (what, name, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
 
 
 def _sec_windows(rows, st):
@@ -1781,8 +1746,7 @@ def _sec_windows(rows, st):
 #                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source: cor_pack
 #                                   writes the AXSS word of the bitstream into the record (stamp_build, P1-4), and the service compares id and build with the block at start
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
-#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core covers no register the base
-#                                   drives itself). A module whose registers serve several drivers is several blocks, one per register range (D34).
+#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap, so a block of the core covers no byte of a block of the base). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
 #                                   or "rw"; two properties share bytes only when no direction is in both)
 #       [[block.property.field]]    name (once per property), shift, bits (the field lies inside the width; fields do not overlap)
@@ -1910,10 +1874,6 @@ def _sec_blocks(blocks, st):
         address, size = _u32(b, "address", what), _need(b, "size", int, what)
         if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
             raise DescError("%s: size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, WINDOW_SIZE_MAX))
-        if owner == "core":
-            reg = window_conflict(address, size)
-            if reg:
-                raise DescError("%s: a block of the core covers %s (0x%08X, %d byte%s), a register the base drives itself (%s)" % (what, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
         for n2, a2, s2 in spans:
             if address < a2 + s2 and a2 < address + size:
                 raise DescError("%s: overlaps the block %s" % (what, n2))
@@ -3201,7 +3161,7 @@ def ldfrag(text, maps=None, what="TOML A"):
     """The linker-script fragment of a TOML A source (T239.3 P1-2): `__iobase` and `__u2p_io_base` from [io], `__blk_<block>` (the address) and
     `__reg_<block>_<property>` (the address plus the offset) for every block and property. The headers take the two bases from these symbols and a driver takes
     its registers from them, so no address is a literal in the code. [io] and [[block]] are checked as in a record; [identity] is checked when there is one
-    (the fixed fragment of the shared app has none)."""
+    (a fragment of two bases and a few blocks needs none)."""
     doc = resolve_maps(toml_loads(text), maps)
     extra = set(doc) - set(TOMLA_KEYS)
     if extra:

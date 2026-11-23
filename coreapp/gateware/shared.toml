@@ -1,5 +1,5 @@
-# TOML A of the shared application (T239.3 P2-3, D31, D34): the blocks its drivers use, at the addresses the shared app has today (iobase and u2p_io_base are the
-# build's -DIOBASE and -DU2P_IO_BASE in host-app/target/u64ii/riscv/coreapp/Makefile). The driver table (drvtab.h, drvtab.c) is generated from it by
+# TOML A of the shared application (T239.3 P2-3, D31, D34): the blocks its drivers use, at the addresses the shared app has today (iobase and u2p_io_base are those of
+# the host's TOML A, coreapp/gateware/host.toml, whose ldfrag the app links: tools/test_descrec.py checks that they agree). The driver table (drvtab.h, drvtab.c) is generated from it by
 # `tools/descrec.py drivers` at build time and linked; a driver names a register only through that table. An app linked for c64_basic takes TRX64-Ultimate's TOML A
 # in its place (P3-3). The module names are the gateware modules; one module that serves several drivers is one block per register range (D34).
 # The identity is the one block every record names; the shared app is built for no single bitstream, so it compares nothing at start (P1-4 is the check for the app of one core).
