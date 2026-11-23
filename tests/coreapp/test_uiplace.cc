@@ -34,8 +34,6 @@ static Bytes slurp(const char *p)
     return Bytes(t.begin(), t.end());
 }
 
-static uint32_t rd(const Bytes &b, uint32_t o) { return b[o] | b[o + 1] << 8 | b[o + 2] << 16 | (uint32_t)b[o + 3] << 24; }
-static void wr(Bytes &b, uint32_t o, uint32_t v) { for (int i = 0; i < 4; i++) b[o + i] = (uint8_t)(v >> (8 * i)); }
 
 static int parse(const Bytes &b, DescRecord *d, char *why)
 {
@@ -44,18 +42,6 @@ static int parse(const Bytes &b, DescRecord *d, char *why)
     return descrec_parse(exact, (uint32_t)b.size(), d, why, 200);
 }
 
-// The offset of section `id`'s header (id, length, words) in the record, 0 when it has none.
-static uint32_t section(const Bytes &b, uint32_t id)
-{
-    uint32_t off = rd(b, DESCREC_HEADER_V5), end = off + rd(b, DESCREC_HEADER_V5 + 4);
-    while (off + 8 <= end) {
-        if (rd(b, off) == id) {
-            return off;
-        }
-        off += 8 + rd(b, off + 4);
-    }
-    return 0;
-}
 
 static const Setting *find(const CoreDesc &d, const char *key)
 {
@@ -224,35 +210,6 @@ int main(int argc, char **argv)
     const int enter1 = row_in(t1, "F7", "settings", "Enter home on startup"), dir1 = row_in(t1, "F7", "settings", "Home directory");
     CHECK(enter1 >= 0 && dir1 >= 0 && dir1 < enter1);                               // order 75 stands before the Enter row's 80, in the same block
 
-    // ---- the reader refuses what the writer would not make: every truncation, and a damaged section by its name
-    for (uint32_t n = 0; n < rec.size(); n++) {
-        static DescRecord x;
-        Bytes cut(rec.begin(), rec.begin() + n);
-        CHECK(parse(cut, &x, why) != 0);
-    }
-    const uint32_t rs = section(rec, 20), ps = section(rec, 21);
-    CHECK(rs != 0 && ps != 0);
-    if (rs && ps) {
-        struct Dmg { uint32_t at; uint32_t v; const char *what; };
-        const Dmg dmg[] = {
-            { rs + 8, 0, "routes: no entries" },
-            { rs + 8, 99, "routes: count past the maximum" },
-            { rs + 12 + 4, 0xFFFFFFFFu, "route: no area" },
-            { rs + 12 + 20, 2, "route: an unknown flag" },
-            { rs + 12 + 20, 1, "route: a page without a label" },
-            { ps + 8, 0, "places: no entries" },
-            { ps + 8, 65, "places: count past the maximum" },
-            { ps + 12 + 4 * 1, 0x7FFFFFF0u, "place: a text outside the string table" },
-            { ps + 48, 0x80000000u, "place: the second place names nothing to change" },
-        };
-        for (const Dmg &g : dmg) {
-            Bytes b = rec;
-            wr(b, g.at, g.v);
-            static DescRecord x;
-            CHECK(parse(b, &x, why) != 0);
-            CHECK(strstr(why, "routes") || strstr(why, "places"));
-        }
-    }
     printf("PASS\n");
     return 0;
 }

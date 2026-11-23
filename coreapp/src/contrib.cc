@@ -13,7 +13,7 @@ static bool text(const char *s) { return s && s[0]; }
 static const SkelTab t_home[] = { { "home", "Home", 0, TW_INFO, 0 } };
 static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0 } };
 // T205 D1, T212 D1: F5 is the core's machine settings: its own settings first (that tab is named after the core), then Video, Audio, Input (the hotkeys moved to F7); there is no F6. The tab ids
-// are the ones menutree.cc's group table names. What the old Summary tab showed (the media slots, the configs) is on Home.
+// are the ones the base UI TOML's routes name (coreapp/base_ui.toml). What the old Summary tab showed (the media slots, the configs) is on Home.
 static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },
                                      { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
 // T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (the base UI TOML, menutree.cc) and what a library registers

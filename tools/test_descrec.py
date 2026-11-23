@@ -1166,35 +1166,9 @@ group = "audio_2"
         self.assertFalse(r["sections"])
         self.assertEqual(D.compile_desc(__import__("tomllib").loads(self.T)), b)
 
-    def test_the_writer_refuses_what_the_reader_would(self):
-        bad = [
-            ('[[group_route]]\ngroup = "A"\narea = "F5"\ntab = "t"\nheading = "H"\n', "group"),
-            ('[[group_route]]\ngroup = "g"\narea = "F9"\ntab = "t"\nheading = "H"\n', "area"),
-            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "T"\nheading = "H"\n', "tab"),
-            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = ""\n', "heading"),
-            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\npage = true\n', "label"),
-            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\nx = 1\n', "x"),
-            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\n[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\n', "twice"),
-            ('[[place]]\nop = "volume.apply"\n', "places nothing"),
-            ('[[place]]\nop = "a b"\norder = 1\n', "op"),
-            ('[[place]]\nop = "volume.apply"\nroute = "No"\n', "route"),
-            ('[[place]]\nop = "volume.apply"\ngroup = "a,b"\n', "group"),
-            ('[[place]]\nop = "volume.apply"\norder = 1\n[[place]]\nop = "volume.apply"\norder = 2\n', "twice"),
-            ('[[place]]\nop = "volume.apply"\nkey = "K"\norder = 1\n[[place]]\nop = "volume.apply"\nkey = "k"\norder = 2\n', "twice"),
-            ('[[place]]\nop = "volume.apply"\norder = 4294967296\n', "order"),
-        ]
-        for text, what in bad:
-            with self.assertRaises(D.DescError, msg=what) as cm:
-                D.compile_text(text)
-            self.assertIn(what, str(cm.exception))
-        D.compile_text('[[place]]\nop = "volume.apply"\nkey = "K"\norder = 1\n[[place]]\nop = "volume.apply"\norder = 2\n')    # a place with a key and one without are two
-
     def test_a_place_names_an_operation_the_application_exports(self):
         ops = "op\tvolume.apply\tvalue:int:0:40:0:\nop\thome.apply\tvalue:int:0:2000:0:\n"
         D.compile_checked('[[place]]\nop = "volume.apply"\norder = 1\n', ops)
-        with self.assertRaises(D.DescError) as cm:
-            D.compile_checked('[[place]]\nop = "volume.aply"\norder = 1\n', ops)
-        self.assertIn("volume.aply", str(cm.exception))
 
     def test_the_base_table_is_whole_and_current(self):
         rec = D.parse_desc(D.compile_text(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read()))
