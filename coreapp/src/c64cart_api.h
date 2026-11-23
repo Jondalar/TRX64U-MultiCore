@@ -51,9 +51,11 @@ typedef struct C64CartApi {
     void (*ram_read)(uint32_t off, uint8_t *dst, uint32_t n);
     void (*ram_write)(uint32_t off, const uint8_t *src, uint32_t n);
     // ---- what the cartridge in the port says about itself (any task) ---------------------------------------------------------------------------------------------
-    // The cartridge definition's require and prohibit flags as the cartridge in the port has them (the firmware's C64::get_cart_definition()); a .c64re's cartridge entry
-    // carries them. Both are 0 without a cartridge. writable: the cartridge in the port has flash or an EEPROM that the C64 can change (the firmware's trx_cart_writable()); a
-    // state file carries the image of such a cartridge with it (cartFlash). False without a cartridge.
+    // The cartridge definition's require and prohibit flags of the firmware (C64::get_cart_definition()); a .c64re's cartridge entry carries them. The base has no cartridge
+    // definition (a .crt starts with the port to itself, an application's own start passes its needs to run_image and the base keeps nothing), so both answer 0 for every
+    // cartridge, also with one in the port: 0 means "not known by the base", never "nothing required". A library that needs the flags holds the definition itself.
+    // writable: the cartridge in the port has flash or an EEPROM that the C64 can change (the firmware's trx_cart_writable()); a state file carries the image of such a cartridge
+    // with it (cartFlash). False without a cartridge.
     uint16_t (*require)(void);
     uint16_t (*prohibit)(void);
     bool (*writable)(void);
