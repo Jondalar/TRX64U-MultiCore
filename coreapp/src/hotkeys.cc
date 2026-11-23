@@ -1,4 +1,5 @@
 #include "hotkeys.h"
+#include "baseset.h"
 #include "ops.h"
 #include "ops_glue.h"
 #include "io.h"
@@ -484,6 +485,7 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             for (int i = 0; i < d->nsettings; i++) {
                 has = has || !strcasecmp(d->settings[i].key, sk);
             }
+            has = has || baseset_adds(d, sk);                  // the application's "Joystick Input" is added after this item (menubuild.cc)
             static char cond[96];
             snprintf(cond, sizeof(cond), "set.%s", sk);
             for (char *p = cond; *p; p++) {

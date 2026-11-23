@@ -1072,7 +1072,7 @@ The settings group: the settings of the running core by key, as the base holds t
 
 Since base 3.3.
 
-4.13.19.1 The base declares ten settings for every core, as it does Picture and Volume. A library reads them by key with `find`, `value` or `cfg_value`, and the keys are the stored keys of every `.cfg`. The base applies them itself; a library does not.
+4.13.19.1 The base declares up to ten settings for a core, as it does Picture and Volume (4.13.19.3 says which). A library reads them by key with `find`, `value` or `cfg_value`, and the keys are the stored keys of every `.cfg`. The base applies them itself; a library does not.
 4.13.19.2 The keys, with the values in the order of their positions (the first is position 0):
 
 | Key | Values | Default |
@@ -1088,7 +1088,7 @@ Since base 3.3.
 | `Mouse Wheel Sensitivity` | range 1 to 16 | position 7 |
 | `Mouse Wheel Direction` | `Normal`, `Reversed` | position 0 |
 
-4.13.19.3 The five mouse settings exist for a core whose descriptor has a mouse. The other five exist for every core. The menu lists them on the page of the application (F7), under Look and Input.
+4.13.19.3 The base adds a key to a core only where the code can do what the row says. The four of the look exist for every core, `Mouse Sensitivity` and `Mouse Acceleration` for a core whose descriptor has a mouse (the USB driver scales each report with them before the core's mouse sink takes it), `Joystick Input` for a core whose capability list names `kbd_joystick` and `Mouse Mode`, `Mouse Wheel Sensitivity` and `Mouse Wheel Direction` for a core that names `mouse_driver`. No core of the base names either capability: the host decodes no WASD register, and the mouse sink consumes every report. A key that the description of the core hides (`hide` in its menu TOML, 6.9.7) is not added. The menu lists them on the page of the application (F7), under Look and Input. A key that is not added is not in the settings: `find` returns -1 and `base_setting_changed` is not called for it.
 4.13.19.4 `Joystick Input` is applied in part by the base: it sets the port that the keyboard joystick drives and the WASD mapping of the keyboard. Hardware of the core that follows the setting, such as the paddle swap of a C64, is the library's; it hears the change through `base_setting_changed` (9.5.5).
 4.13.19.5 A descriptor, a menu TOML `core_setting` and a library must not declare one of these keys. The check of the descriptor in the build and the tests refuses it. On the board the base adds a key only when the descriptor does not declare it, so a core's own item would stay and the base would not apply it.
 

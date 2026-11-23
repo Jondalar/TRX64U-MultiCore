@@ -17,6 +17,11 @@
 # the machine line of F1 (T212 D13/D15): the values of these settings
 machine_info = "System Mode,REU Size"
 
+# The rows of the generic application this core does not show (T228 R7, Alex 2026-11-17: the Ultimate's colour scheme is not a setting of this machine; the menu keeps the default
+# scheme): the keys are the application's (coreapp/src/baseset.cc), the base does not add a row named here. The joystick and mouse rows come and go by the capabilities the
+# core's descriptor names (baseset.h), not by this list.
+hide = ["Color Scheme"]
+
 # The key table (base 3.3, the rows that stood in coreapp/src/menukeytab.cc as KS_MONITOR and KS_TIMELINE; `key = [..]` is the array form of [[key]]): tried in this order, after an
 # application's screens and before the menu's grammar. The monitor is trxmon's - every key is its own, what closes the menu stays the menu's (the menu button, RUN/STOP while the
 # machine stands). Timewarp (trx_timewarp_ui.cc): LEFT and RIGHT one frame, UP and DOWN one second, PAGE UP/DOWN (F1 and F7) ten seconds, HOME the oldest frame, RETURN rewinds there
