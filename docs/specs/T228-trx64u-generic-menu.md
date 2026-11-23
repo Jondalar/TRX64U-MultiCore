@@ -679,3 +679,9 @@ ue2emu (70 full frames, trx64u beside the A1200).
   F3 search status stays after <- inside F3; the 1541-mode ROM list names the built-in "Built-in" while the row shows `1541.rom`; the
   UI state export marks a row that opens a page (Hotkeys) as not enabled; the file actions of the other C64-family cores
   (`cbm1541_desc.h`) are still in title case.
+- **R21 fixes (2026-11-22 night, branch `t228-fix-ranges`; found by the TRX64-Ultimate session while porting u64cfg):** `u64cfg.cc`
+  read a range setting through `V()`, which gives the index into the range, not the number. "UltiSID 1/2 6581 Offset"
+  (range -1024 .. 1023) reached `resid8_plan` 1024 too high, so the Custom filter ran with the wrong offset. `V()` now adds the
+  setting's base, as `FV()` already did (a list's base is 0, so the lists read as before); the two mouse ranges (base 1), which
+  `V() + 1` handled, read the same values. `uci_drive_do` in `trx64u_ops.cc` printed an `OpResult` message that was never set when
+  the index was not 0; the result is zeroed now. Neither file grows (D24 gate). Not checked on the board.
