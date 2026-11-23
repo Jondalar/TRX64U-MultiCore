@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1-D6 (Alex 11-23); API draft with TRX64-Ultimate; next: menu hide/show - machine state and keys
+Open (one line, as in the TODO table): Spec in work: D1-D7 (Alex 11-23); API draft agreed with TRX64-Ultimate in parts; next: §2 and §3 complete
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -106,8 +106,13 @@ Draft. It is completed when the open questions of §3 are decided.
 
 - **D6** (Alex, 2026-11-23, translated): "that also means the plugin/lib must be able to 'hide' and 'show' the menu by a
   function." A library hides the menu and shows it again with calls of the SDK group. It follows from D4: its elements show only
-  while the menu is closed. Open, asked one at a time: what the machine does while the menu is hidden, who gets the keys, and how
-  the person always gets back to the menu.
+  while the menu is closed. What happens while it is hidden: D7.
+
+- **D7** (Alex, 2026-11-23): hiding the menu works like the person closing it. Asked what happens while a library has hidden the
+  menu, he chose "Like menu closed": the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the
+  machine, and the menu key always brings the menu back. Showing it works like the menu key. Today a library can only close the
+  menu after an operation of its own (`closes_menu`, api.md 1621, 1683). Lost: a modal hidden menu (the machine frozen, the keys
+  to the library through a new key callback).
 
 The other decisions are asked one at a time and recorded here.
 
