@@ -60,11 +60,12 @@ NESSRC="nes.cc ines.cc $BASEL"
 LOADERS="$ROOT/app/loaders"
 VIDEO="$ROOT/app/video"
 LIB1541="$ROOT/app/lib/cbm1541"
+VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
-INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$VC20LIB" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 build() {
   local out="$1" test="$2"; shift 2
   local files=()
@@ -150,7 +151,7 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/vc20.cc $CORES/vc20_regs.h $CORES/c64.cc" | ca_check vc20 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
+  printf '%s\n' "$CORES/c264.cc $CORES/c264_regs.h $CORES/c64.cc" | ca_check c264 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 # T104.2 D10: what the TRX64U application exports to its menu description (every operation with its typed arguments, every state value) is the golden
 # list (made from the real image by tests/ui/export.py --update) that tools/descrec.py checks coreapp/cores/trx64u/menu.toml against; the record the application carries is what menu.toml compiles to; the
