@@ -38,6 +38,9 @@ fi
 # T239.3 D20: a file that lists the names it exports (--export), read by the loader
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.exports.u2a" --name testlib --version 1 --export ring=1 --export trx=2 > /dev/null
 
+# T239.3 L-3: the menu record of the online sub-app, compiled by the real tool from the file the sub-app is packed with (apps/online/Makefile: APP_MENU = app.toml)
+python3 "$ROOT/tools/descrec.py" compile "$ROOT/apps/online/app.toml" "$T/online_menu.bin"
+
 # T104.1: the menu records of a library file (libmenu.h), compiled by the real tool; one with a route and one that hides are the refusals
 python3 "$ROOT/tools/descrec.py" compile "$TST/menu_lib.toml" "$T/menu_lib.bin"
 python3 - "$T" "$TST" <<'PY'
@@ -53,16 +56,16 @@ open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.ti
 PY
 
 loader_args() {   # loader_args SRCDIR: the compiler flags LA and the files LF of the test, for the product in SRCDIR
-  LA=($FLAGS "-DFIXDIR=\"$T\"" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
+  LA=($FLAGS "-DFIXDIR=\"$T\"" -DONLINE_ENTRY_NAME=online_lib_register -I"$ROOT/apps/online" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
   LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
-      "$1/libsvc.cc" "$1/apphost.cc" "$TST/apphost_stubs.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder; apphost.cc (the base's job table) over stubs of the screens
+      "$1/libsvc.cc" "$ROOT"/apps/online/online_{lib,search,http,json}.cc "$1/apphost.cc" "$TST/apphost_stubs.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder; apphost.cc (the base's job table) over stubs of the screens
 }
 build() {   # build OUT SRCDIR
   loader_args "$2"
   $CXX "${LA[@]}" -o "$1" "${LF[@]}"
 }
 # the fixtures the generators above left in $T and the test reads through FIXDIR: named, so that they are part of every unit's key (T100 D14)
-CC_EXTRA="$T/testlib.u2a $T/testlib.exports.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin $T/windows.bin"
+CC_EXTRA="$T/testlib.u2a $T/testlib.exports.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin $T/windows.bin $T/online_menu.bin $TST/test_online.inc"
 run() {
   local key t0=$SECONDS; loader_args "$SRC"; key="$(cc_key loader "test libload" -- "${LA[@]}" -- "${LF[@]}")"
   if cc_cached libload "$key" test; then PASS=$((PASS + 1)); return 0; fi
