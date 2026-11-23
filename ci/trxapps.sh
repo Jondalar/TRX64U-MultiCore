@@ -44,7 +44,7 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/cor_pack.py LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/app_build.py tools/rtl_check.py tools/cor_pack.py tools/menusim tools/gen_base_ui.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/coreapp LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
@@ -193,10 +193,12 @@ else
   # (heavy_lock keeps its lock on fd 9 and HEAVY_SLOT; Alex, T100 D14 open item 2). Run 1133 held slot 0 for 36 minutes of tests.
   if [ -n "${HEAVY_SLOT:-}" ]; then exec 9>&-; echo "heavy slot $HEAVY_SLOT released after the build"; unset HEAVY_SLOT; fi
 
-  # T239.3 D17 / P8: the SDK package (tools/sdk_pack.sh) from this build's sources and its coreapp.bin, after the heavy slot is let go, into the hand-over beside the images (the artifact
-  # handoff-trxapps), and its check (tools/sdk_check.sh): the example library and its menu record built from the unpacked package alone. The sources of the
-  # package are in the stage key above (app/ with app/sdkpkg, the packer tools, the two scripts).
-  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out"
+  # T239.3 D17 / P8, D31 / P3-2: the SDK package (tools/sdk_pack.sh) from this build's sources and its base archives (`make sdkbase`: the objects of the sources that depend on nothing a core decides,
+  # the libraries, the lists of the rest), after the heavy slot is let go, into the hand-over beside the images (the artifact handoff-trxapps), and its check (tools/sdk_check.sh): the example
+  # library, its menu record and the example core's app built from the unpacked package alone. The package carries no app image. The sources of the package are in the stage key above
+  # (app/ with app/sdkpkg, the packer tools, the menu simulator and the rig it builds from, the two scripts).
+  nice -n 15 make -C "$H/u64ii/riscv/coreapp" sdkbase
+  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out" "$H/u64ii/riscv/coreapp/output/sdkbase"
   RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
 
   if [ -n "$cache" ]; then
