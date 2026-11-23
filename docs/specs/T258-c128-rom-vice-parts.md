@@ -156,6 +156,10 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
   file keeps its name. Today the value joins the six part names (`run.cc:376-392`), and the pane cuts it in the middle and at the edge, so
   the Character ROM part is lost. Asked between the short value, the six names wrapped over three lines, and the short names on one
   line, Alex chose "VICE parts (6)".
+- **D12 The "ROM files" message lists the parts one name per line (Alex, 2026-11-23; UX review finding 3).** The sentence ends with
+  "Or its parts:", and each part's file name stands on its own line, so no name is broken. Today the label wraps the names at their
+  hyphens (`romfind.cc:270-290` through `ui_message`, `ui.cc:1193`). Asked between one name per line and no names in the message (the
+  manual lists them), Alex chose one name per line.
 
 ## §4 Out
 
