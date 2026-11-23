@@ -123,6 +123,7 @@ enum LibRc {
 };
 
 #define LIB_MAX 12              // images loaded at once
+#define LIB_BASE_EXPORTS_MAX 16 // the tables the base itself answers find with (add_export)
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
@@ -200,9 +201,14 @@ public:
     void set_trx(const SvcTrx *t) { api_.trx = t; }
     void set_net(const SvcNet *t) { api_.net = t; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
-    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2): api->lib->find answers it for that name unless a loaded library exports a lower or equal major of
-    // that name. Null: the base has none (the core is no C64) and find answers only what libraries export.
-    void set_c64_api(const C64Api *t) { c64api_ = t; }
+    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, uci, sid, tempdisk, textgrid): a name, the major of the table and the table, whose first
+    // member is its size (uint32_t). A table with the name and major of an earlier one replaces it; a null table takes the entry away. `name` is kept, not copied (a string literal). find answers
+    // such a table unless a loaded library exports the name at a lower or equal major. False: the list is full (LIB_BASE_EXPORTS_MAX).
+    bool add_export(const char *name, uint32_t major, const void *table);
+    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2). Null: the base has none (the core is no C64) and find answers only what libraries export.
+    void set_c64_api(const C64Api *t) { add_export(C64_API_NAME, C64_API_MAJOR, t); }
+    // What api->lib->find answers for `name` at the major of min_version or later: the same call a library makes, for the code of the base (the screens that draw a library's TextGrid).
+    static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size) { return svc_lib_find(name, min_version, table_size); }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
@@ -340,7 +346,14 @@ private:
     // lower, 0 when none (a refusal can say "1.0 is loaded"). Null: no library exports it at that major.
     const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const;
     bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
-    const C64Api *c64api_;
+    struct BaseExport {
+        const char *name;
+        uint32_t major;
+        const void *table;
+    };
+    BaseExport base_[LIB_BASE_EXPORTS_MAX];
+    int nbase_;
+    const BaseExport *base_export(const char *name, uint32_t want_major) const;   // the lowest major of the name that is at least want_major
 };
 
 #endif

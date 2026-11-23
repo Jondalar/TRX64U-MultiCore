@@ -13,12 +13,13 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), c64api_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), nbase_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
     memset(files_, 0, sizeof(files_));
     memset(mus_, 0, sizeof(mus_));
+    memset(base_, 0, sizeof(base_));
     s_ld = this;
     reg_->set_scope(this);
     sys_.size = sizeof(sys_);
@@ -302,6 +303,44 @@ int LibLoader::handle_providing(const char *name, uint32_t min_version) const
     return s ? (int)(s - slot_) : -1;
 }
 
+bool LibLoader::add_export(const char *name, uint32_t major, const void *table)
+{
+    for (int i = 0; i < nbase_; i++) {
+        if (!strcmp(base_[i].name, name) && base_[i].major == major) {
+            if (table) {
+                base_[i].table = table;
+            } else {
+                base_[i] = base_[--nbase_];
+                base_[nbase_].name = 0;
+                base_[nbase_].table = 0;
+            }
+            return true;
+        }
+    }
+    if (!table) {
+        return true;
+    }
+    if (nbase_ >= LIB_BASE_EXPORTS_MAX) {
+        return false;
+    }
+    base_[nbase_].name = name;
+    base_[nbase_].major = major;
+    base_[nbase_].table = table;
+    nbase_++;
+    return true;
+}
+
+const LibLoader::BaseExport *LibLoader::base_export(const char *name, uint32_t want_major) const
+{
+    const BaseExport *best = 0;
+    for (int i = 0; i < nbase_; i++) {
+        if (!strcmp(base_[i].name, name) && base_[i].major >= want_major && (!best || base_[i].major < best->major)) {
+            best = &base_[i];
+        }
+    }
+    return best;
+}
+
 const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
 {
     if (!name) {
@@ -310,13 +349,13 @@ const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint
     const LibExportDecl *ex;
     uint32_t below;
     const Slot *p = s_ld->provider(name, min_version, &ex, &below);
-    // the base's own table of "c64" competes as a major of its own: the lowest major that is at least the one asked for wins
-    const C64Api *own = s_ld->c64api_;
-    if (own && !strcmp(name, C64_API_NAME) && C64_API_MAJOR >= (min_version >> 16) && (!p || C64_API_MAJOR < ex->major)) {
+    // the base's own tables compete as a major of their own: the lowest major that is at least the one asked for wins, and a library that exports the same major wins over the base
+    const BaseExport *own = s_ld->base_export(name, min_version >> 16);
+    if (own && (!p || own->major < ex->major)) {
         if (table_size) {
-            *table_size = own->size;
+            *table_size = *(const uint32_t *)own->table;
         }
-        return own;
+        return own->table;
     }
     if (p) {
         if (table_size) {

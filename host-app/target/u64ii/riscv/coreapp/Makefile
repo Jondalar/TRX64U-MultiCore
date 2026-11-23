@@ -148,6 +148,8 @@ SRCS_CC	 =  u64ii_init.cc \
 			exec.cc \
 			libload.cc \
 			libsvc.cc \
+			libexports.cc \
+			monitor_grid.cc \
 			libscan.cc \
 			libboard.cc \
 			libguard.cc \

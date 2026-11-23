@@ -1,4 +1,6 @@
 #include "libboard.h"
+#include "libexports.h"
+#include "textgrid.h"
 #include "ops_glue.h"
 #include "romfind.h"
 #include "libguard.h"
@@ -329,6 +331,10 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
     loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
+    libexports_register(loader, c);                             // base 3.3 (libexports.cc): the tables c64cart, cbm1541, uci, sid and tempdisk
+    if (ops_of(c)->find_op("monitor.open")) {
+        loader.add_export("textgrid", 1, monitor_textgrid(c));  // the core has the built-in monitor: its screen is the grid the terminal layout names
+    }
     loader.set_settings_apply(regset_apply_setting);
     loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);
