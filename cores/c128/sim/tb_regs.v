@@ -34,11 +34,15 @@ module tb_regs;
     wire        joy_swap;
     wire  [4:0] jo1, jo2;
     reg   [4:0] hj1 = 5'b00001, hj2 = 5'b10000;          // the host's joysticks: 1 = up, 2 = fire
+    wire [17:0] vk_req;
+    reg         vk_dead = 1'b0, vk_tgl = 1'b0;
+    reg   [7:0] vk_d = 8'd0;
     c128_regs dut (.clk(clk), .we(we), .re(re), .addr(addr), .wdata(wdata), .rdata(rdata), .ack(ack), .irq(irq),
         .sp_caps(1'b0), .sp_4080(1'b0), .sp_mon(1'b0), .x_usb(x_usb), .mon_sel(mon_sel), .d4080(d4080), .capslk(capslk), .boot64(boot64), .joy_swap(joy_swap),
         .vdc_en(vdc_en), .rom_flush_tgl(rom_flush_tgl), .cold_tgl(cold_tgl), .cold_busy(cold_busy), .fb_base(fb_base), .fb_stride(fb_stride),
         .chr_we(chr_we), .chr_a(chr_a), .chr_d(chr_d), .chr_q(chr_q), .dbg_clr_tgl(dbg_clr_tgl), .rom_waits(rom_waits), .rom_fill_max(rom_fill_max), .fr_min(fr_min), .fr_max(fr_max), .ram_cnt(ram_cnt), .act(40'h5A_01_33_22_11),
-        .status(8'd0), .rom_busy(1'b0), .rom_hits(32'd0), .rom_misses(32'd0), .fb_latest(8'd0), .fb_seq(8'd0), .fb_over(16'd0), .ev_frame(1'b0));
+        .status(8'd0), .rom_busy(1'b0), .rom_hits(32'd0), .rom_misses(32'd0), .fb_latest(8'd0), .fb_seq(8'd0), .fb_over(16'd0), .ev_frame(1'b0),
+        .vk_req(vk_req), .vk_ans({vk_tgl, vk_d}));
 
     c128_joyswap joysw (.clk(clk), .swap(joy_swap), .joy1(hj1), .joy2(hj2), .joy1_o(jo1), .joy2_o(jo2));
     integer nbad = 0;
@@ -66,6 +70,35 @@ module tb_regs;
     reg [7:0] v;
     reg       tg0;
     integer i;
+    // T257: a model of the VDC read-back engine (c128_x.v): the answer comes four clocks after the toggle is seen, the byte is 0xA0 + the register number, or the VRAM
+    // model's byte; vk_dead = 1 never answers
+    reg   [7:0] vram [0:65535];
+    reg   [2:0] vk_s = 3'd0;
+    integer     vk_n = 0;
+    initial for (i = 0; i < 65536; i = i + 1) vram[i] = i[7:0] ^ i[15:8] ^ 8'h5C;
+    always @(posedge clk) begin
+        vk_s <= {vk_s[1:0], vk_req[17]};
+        if (vk_s[2] != vk_s[1] && !vk_dead) vk_n <= 4;
+        if (vk_n > 0) begin
+            vk_n <= vk_n - 1;
+            if (vk_n == 1) begin vk_d <= vk_req[16] ? vram[vk_req[15:0]] : 8'hA0 + vk_req[5:0]; vk_tgl <= ~vk_tgl; end
+        end
+    end
+    // the application's read of a slow register: the address and a one-clock re, then wait for the ack; v = the byte at the ack
+    task rdw(input [11:0] off, output [7:0] v);
+        integer k;
+        begin
+            @(posedge clk); addr <= {1'b0, 4'hE, off}; re <= 1'b1;
+            @(posedge clk); re <= 1'b0;
+            k = 0; while (!ack && k < 1200) begin @(posedge clk); k = k + 1; end
+            if (k >= 1200) begin $display("FAIL: no ack for %03x", off); nbad = nbad + 1; end
+            v = rdata;
+            // the byte stays while the address stays
+            @(posedge clk); @(posedge clk);
+            if (rdata !== v) begin $display("FAIL: %03x changed after the ack: %02x -> %02x", off, v, rdata); nbad = nbad + 1; end
+        end
+    endtask
+
     initial begin
         repeat (4) @(posedge clk);
         // settings that are not at their reset values
@@ -150,6 +183,24 @@ module tb_regs;
         rd(12'h0D2, v); expect8("ACT_VDC", v, 8'h33);
         rd(12'h0D3, v); expect8("ACT_FLAGS", v, 8'h01);
         rd(12'h0D4, v); expect8("ACT_SEQ", v, 8'h5A);
+        // T257: the VDC read-back (100-13F, 140-143)
+        rdw(12'h100, v); expect8("VDC_REG R0", v, 8'hA0);
+        rdw(12'h119, v); expect8("VDC_REG R25", v, 8'hB9);
+        rdw(12'h127, v); expect8("VDC_REG 39", v, 8'hC7);
+        rd(12'h020, v); expect8("MON_SEL still readable after a slow read", v, 8'h00);
+        wr(12'h140, 8'hFE); wr(12'h141, 8'h00);
+        rdw(12'h142, v); expect8("VDC_PK_DATA $00FE", v, 8'hFE ^ 8'h5C);
+        rdw(12'h142, v); expect8("VDC_PK_DATA $00FF", v, 8'hFF ^ 8'h5C);
+        rdw(12'h142, v); expect8("VDC_PK_DATA $0100", v, 8'h00 ^ 8'h01 ^ 8'h5C);
+        rd(12'h140, v); expect8("VDC_PK_ADDR_LO after three reads", v, 8'h01);
+        rd(12'h141, v); expect8("VDC_PK_ADDR_HI after three reads", v, 8'h01);
+        rd(12'h143, v); expect8("VDC_PK_STAT after answered reads", v, 8'h00);
+        vk_dead = 1'b1;
+        rdw(12'h104, v); expect8("VDC_REG R4 with no answer", v, 8'hFF);
+        rd(12'h143, v); expect8("VDC_PK_STAT after a timeout", v, 8'h01);
+        vk_dead = 1'b0;
+        rdw(12'h104, v); expect8("VDC_REG R4 answered again", v, 8'hA4);
+        rd(12'h143, v); expect8("VDC_PK_STAT cleared", v, 8'h00);
         tg0 = dbg_clr_tgl;
         wr(12'h0B8, 8'h01);
         if (dbg_clr_tgl === tg0) begin $display("FAIL: DBG_CLR did not toggle"); nbad = nbad + 1; end else $display("ok   DBG_CLR toggled");

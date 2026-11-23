@@ -363,6 +363,8 @@ module layer2_c128 #(
     wire  [7:0] c128_status, pw_latest, pw_seq;
     wire [15:0] pw_over;
     wire        rom_busy_w, pw_ftgl;
+    wire [17:0] vk_req_w;                // T257: the VDC read-back, register page (cpu_clk) <-> c128_x.v (sys_clk)
+    wire  [8:0] vk_ans_w;
     wire        chr_we_w, dbg_clr_w;                 // T113 5.7: the character store's write port and the debug clear, from the register page
     wire [12:0] chr_a_w;
     wire  [7:0] chr_d_w, chr_q_w;
@@ -380,7 +382,7 @@ module layer2_c128 #(
         .clk(cpu_clk), .we(cw_we && pg_e), .re(cw_re && pg_e), .addr(cw_addr), .wdata(cw_wdata), .rdata(rg_rdata), .ack(rg_ack), .irq(rg_irq),
         .sp_caps(sp_caps), .sp_4080(sp_4080), .sp_mon(sp_mon), .x_usb(x_usb),
         .mon_sel(rg_mon), .d4080(rg_d4080), .capslk(rg_capslk), .boot64(rg_boot64), .joy_swap(rg_joy), .vdc_en(rg_vdc_en), .rom_flush_tgl(rom_flush_tgl), .cold_tgl(cold_tgl_w), .cold_busy(cold_busy_w),
-        .chr_we(chr_we_w), .chr_a(chr_a_w), .chr_d(chr_d_w), .chr_q(chr_q_w), .dbg_clr_tgl(dbg_clr_w),
+        .chr_we(chr_we_w), .chr_a(chr_a_w), .chr_d(chr_d_w), .chr_q(chr_q_w), .dbg_clr_tgl(dbg_clr_w), .vk_req(vk_req_w), .vk_ans(vk_ans_w),
         .rom_waits(rom_waits_w), .rom_fill_max(rom_fmax_w), .fr_min(fr_min_w), .fr_max(fr_max_w), .ram_cnt(ram_cnt_w), .act(act_w),
         .fb_base(rg_fb_base), .fb_stride(rg_fb_stride),
         .status(c128_status), .rom_busy(rom_busy_w), .rom_hits(rom_hits_w), .rom_misses(rom_miss_w),
@@ -692,6 +694,7 @@ module layer2_c128 #(
         .x_keys(xk_layer), .x_capslk(rg_capslk), .x_d4080(rg_d4080), .x_boot64(rg_boot64),
         .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
         .vd_clk(cpu_clk), .vd_addr(vd_addr_t), .vd_we(vd_we_t), .vd_wdata(vd_wdata_t), .vd_rdata(vd_rdata_k),
+        .vk_req(vk_req_w), .vk_ans(vk_ans_w),
         .chr_wclk(cpu_clk), .chr_we(chr_we_w), .chr_a(chr_a_w), .chr_d(chr_d_w), .chr_q(chr_q_w),
         .dbg_clr_tgl(dbg_clr_w), .fr_min(fr_min_w), .fr_max(fr_max_w), .act_q(act_w)
 `ifdef ROM_CACHE
@@ -716,12 +719,12 @@ module layer2_c128 #(
     c128_tie_ff #(.W(25)) tie_vd (.clk(cpu_clk), .o({vd_addr_t, vd_we_t, vd_wdata_t}));
     c128_keep #(.W(8)) keep_vd (.i(vd_rdata_k), .o());
 `ifdef VDC_WHOLE
-    // variant 1: the frame writer c128_pixw.v (a copy of the C264 core's c264_pixw.v with il/field ports: non-interlaced frames doubled to 640 x 400, interlaced ones woven into 640 x 480) fed with the VDC's pixels
+    // variant 1: the frame writer c128_pixw.v (a copy of the C264 core's c264_pixw.v with il/field ports: non-interlaced frames of up to 240 lines doubled to 640 x 480 (T257; 200 lines = 400 rows), interlaced ones woven into 640 x 480) fed with the VDC's pixels
     // as RGB565, 640 x 200 a frame or field, into the e_* port of the host's DDR2 arbiter; the buffer address registers are the app's (quasi-static)
     wire [15:0] vdc_rgb565;
     c128_rgbi rgbi_i (.rgbi(vdc_rgbi), .rgb565(vdc_rgb565));
     wire pw_quiet;
-    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200), .LINES_IL(240)) pixw (
+    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(240), .LINES_IL(240), .LINES_BASE(200)) pixw (
         .sys_clk(sys_clk), .sys_rst(sys_rst), .dotst(vdc_ce && c64_ce && rg_vdc_en), .rgb565(vdc_rgb565),
         .hblank(vdc_hb), .vblank(vdc_vb), .il(vdc_il[1]), .field(vdc_il[0]), .quiet(pw_quiet), .frame_tgl(pw_ftgl), .latest(pw_latest), .seq(pw_seq),
         .overruns(pw_over), .fb_base(rg_fb_base), .fb_stride(rg_fb_stride),

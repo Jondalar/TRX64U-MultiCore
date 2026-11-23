@@ -20,7 +20,12 @@ module c128_x (
     input  wire [15:0] vd_addr,
     input  wire        vd_we,
     input  wire  [7:0] vd_wdata,
-    output wire  [7:0] vd_rdata
+    output wire  [7:0] vd_rdata,
+    // T257: the read-back of the VDC's registers and VRAM without side effects (VDC_WHOLE only), a toggle handshake from cpu_clk (c128_regs.v):
+    //   vk_req = {request toggle, 1 = VRAM / 0 = register, 16 bit address or register number}, stable from the toggle on until the answer;
+    //   vk_ans = {answer toggle, the byte}
+    input  wire [17:0] vk_req,
+    output wire  [8:0] vk_ans
 );
     // $D02F: bits 2:0 select the extra keyboard lines K0-K2 (low = selected), reads back 1 in bits 7:3 .
     // $D030: bit 0 = 2 MHz, bit 1 = test; reads back 1 in bits 7:2. The 2 MHz clock itself (the 8502's enable at twice the
@@ -44,6 +49,9 @@ module c128_x (
 `endif
 `ifdef VDC_WHOLE
     wire act_h, act_v;
+    wire [7:0] vk_ram_q, vk_reg_q;
+    (* ASYNC_REG = "TRUE" *) reg [2:0] vk_s = 3'b000;
+    reg [15:0] vk_a = 16'd0;
 `ifdef VDC64
     localparam VBITS = 16, V64 = 1'b1;     // 64 KiB of VRAM (the real chip's maximum)
 `else
@@ -53,7 +61,22 @@ module c128_x (
         .version(1'b0), .ram64k(V64), .initRam(1'b1), .debug(1'b0),
         .clk(clk), .enableBus(bus_en), .reset(rst), .ctl_reset(warm), .init(1'b0),
         .cs(vdc_cs), .rs(vdc_rs), .we(vdc_we), .db_in(vdc_din), .db_out(vdc_dout),
-        .lp_n(1'b1), .vsync(), .hsync(), .pixel_ce(vdc_ce), .active_h(act_h), .active_v(act_v), .rgbi(vdc_rgbi), .ilace(vdc_il));
+        .lp_n(1'b1), .vsync(), .hsync(), .pixel_ce(vdc_ce), .active_h(act_h), .active_v(act_v), .rgbi(vdc_rgbi), .ilace(vdc_il),
+        .dbg_addr(vk_a), .dbg_ram(vk_ram_q), .dbg_reg(vk_reg_q));
+    // The request crosses with the toggle (three flip-flops, the address is stable by then), the engine latches the address, waits for the block RAM and the
+    // register mux (one clock after the address) and answers with the byte and a toggle; nothing here touches the CPU's side of the VDC.
+    reg        vk_isram = 1'b0, vk_tgl = 1'b0;
+    reg  [1:0] vk_st = 2'd0;
+    reg  [7:0] vk_d = 8'd0;
+    always @(posedge clk) begin
+        vk_s <= {vk_s[1:0], vk_req[17]};
+        case (vk_st)
+        2'd0: if (vk_s[2] != vk_s[1]) begin vk_a <= vk_req[15:0]; vk_isram <= vk_req[16]; vk_st <= 2'd1; end
+        2'd1: vk_st <= 2'd2;
+        default: begin vk_d <= vk_isram ? vk_ram_q : vk_reg_q; vk_tgl <= ~vk_tgl; vk_st <= 2'd0; end
+        endcase
+    end
+    assign vk_ans = {vk_tgl, vk_d};
     assign vdc_hb = !act_h;
     assign vdc_vb = !act_v;
     assign vd_rdata = 8'd0;
@@ -62,8 +85,9 @@ module c128_x (
         .clk(clk), .rst(rst), .bus_en(bus_en), .cs(vdc_cs), .rs(vdc_rs), .we(vdc_we), .db_in(vdc_din), .db_out(vdc_dout),
         .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata));
     assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1; assign vdc_il = 2'b00;
+    assign vk_ans = 9'd0;
 `else
-    assign vdc_dout = 8'hFF; assign vd_rdata = 8'd0;
+    assign vdc_dout = 8'hFF; assign vd_rdata = 8'd0; assign vk_ans = 9'd0;
     assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1; assign vdc_il = 2'b00;
 `endif
 endmodule

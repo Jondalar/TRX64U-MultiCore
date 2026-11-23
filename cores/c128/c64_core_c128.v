@@ -231,6 +231,8 @@ module c64_core_c128 #(
     input  wire       vd_we,
     input  wire [7:0] vd_wdata,
     output wire [7:0] vd_rdata,
+    input  wire [17:0] vk_req,          // T257: the VDC read-back (c128_x.v): {request toggle, 1 = VRAM, address}, cpu_clk
+    output wire [8:0] vk_ans,           // {answer toggle, the byte}
     // T113 5.7: the character ROM store (c128_chr.v), written and read by the application (chr_wclk = cpu_clk)
     input  wire       chr_wclk,
     input  wire       chr_we,
@@ -581,7 +583,8 @@ module c64_core_c128 #(
         .cram_tap_we(), .cram_tap_addr(), .cram_tap_din(), .cram_tap_old(),
         .xkeys(xk[23:0]), .x_capslk(xk[24]), .x_d4080(xk[25]), .x_boot64(xk[26]),
         .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
-        .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata)
+        .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata),
+        .vk_req(vk_req), .vk_ans(vk_ans)
     );
 
     cart_slot_c64u cart (

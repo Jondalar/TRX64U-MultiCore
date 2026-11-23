@@ -173,6 +173,7 @@ c128_pause: large:c128
 c128_scan: large:c128
 c128_vdc: large:c128
 c128_pixw: large:c128
+c128_vkpeek: large:c128
 c128_romc: large:c128
 c128_ramd: large:c128
 c128_ramddr: large:c128

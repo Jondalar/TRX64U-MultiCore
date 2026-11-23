@@ -26,6 +26,11 @@
 //   0D0-0D4 ACT_VIC, ACT_CRAM, ACT_VDC, ACT_FLAGS, ACT_SEQ  R   (T194, T140 section 18: which chip is being used; c128_act.v) the last complete VIC frame:
 //                     0D0 CPU writes to the VIC's registers $D000-$D02E, 0D1 to the colour RAM, 0D2 to the VDC's data register $D601 (8 bit each, saturating at 255),
 //                     0D3 b0 the VIC's DEN ($D011 b4) at the end of that frame, 0D4 the frame number (wraps): read it before and after the others, they belong together when it is the same
+//   100-127 VDC_REG  R   (T257) the VDC's registers as the CPU would read them, without a read's side effects: 100 + n = R n for n = 0-37, 126 the status byte, 127 the
+//                     register selected by $D600; 128-13F read 0xFF. Every read asks the VDC (sys_clk) and is acknowledged when the byte is back (about 10 clocks)
+//   140 VDC_PK_ADDR_LO, 141 VDC_PK_ADDR_HI RW   the VRAM address (as the CPU's R18/R19 would address it) of the next VDC_PK_DATA read
+//   142 VDC_PK_DATA R   (T257) the VRAM byte at VDC_PK_ADDR, without a read's side effects (the program's R18/R19/R31 stay as they are); the address then goes up by 1
+//   143 VDC_PK_STAT R   b0: the last read of 100-13F / 142 got no answer from the VDC within 1023 clocks (it returned 0xFF); cleared by the next answered read
 //   080 COLD    W/R   W b0 = 1: cold start - every register of the machine goes to its power-on value (the core's reset line is pulsed and held
 //                     until the frame phase of the power-on start comes round, so the frame phase of the power-on start is kept, T113 5.6; T194: the host scaler's lock is gone from this build) and this page's own
 //                     machine settings (IRQ_EN, MON_SEL, D4080, CAPSLK, BOOT64, JOY_SWAP, XKEYS, XSPECIAL, FB_BASE/FB_STRIDE, VDC_CTRL) take their reset values
@@ -50,6 +55,8 @@ module c128_regs (
     output wire        boot64,
     output wire        joy_swap,
     output wire        vdc_en,
+    output reg  [17:0] vk_req = 18'd0,       // T257: the VDC read-back, to c128_x.v: {request toggle, 1 = VRAM / 0 = register, address or register number}
+    input  wire  [8:0] vk_ans,               // {answer toggle, the byte} (sys_clk, three flip-flops here)
     output reg         rom_flush_tgl = 1'b0,
     output wire        chr_we,                  // the character store's write (T113 5.7): in cpu_clk, with chr_a / chr_d
     output wire [12:0] chr_a,
@@ -103,6 +110,15 @@ module c128_regs (
     reg  [79:0] rc_a = 0, rc_b = 0, rc_q = 0;
     reg  [39:0] ac_a = 0, ac_b = 0, ac_q = 0;
     reg  [19:0] n_a1 = 0, n_b1 = 0, n_q1 = 0, x_a1 = 0, x_b1 = 0, x_q1 = 0;
+    // T257: the VDC read-back. A read of 100-13F or 142 puts the request out and holds its acknowledge until the byte is back (or 1023 clocks have passed).
+    wire        vq_win = sel && off[11:6] == 6'h04;                     // 100-13F
+    wire        vq_pk  = sel && off == 12'h142;
+    (* ASYNC_REG = "TRUE" *) reg [2:0] vq_s = 3'b000;
+    wire        vq_ev  = vq_s[2] != vq_s[1];
+    reg         vq_busy = 1'b0, vq_done = 1'b0, vq_hold = 1'b0, vq_ram = 1'b0, vq_tmo = 1'b0;
+    reg  [9:0]  vq_to = 10'd0;
+    reg   [7:0] vq_q = 8'd0;
+    reg  [15:0] pk_a = 16'd0;
     reg         cb_a = 0, cb_b = 0, cb_q = 0, cp = 1'b0, cseen = 1'b0;   // cp: a COLD write whose running state the core has not shown and ended yet
 
     assign mon_sel = mon_r;
@@ -140,7 +156,22 @@ module c128_regs (
         if (cb_q) cseen <= 1'b1;
         if (cseen && !cb_q) begin cp <= 1'b0; cseen <= 1'b0; end
         ack_r <= 1'b0;
-        if (re | we) ack_r <= 1'b1;
+        if ((re | we) && !(re && (vq_win || vq_pk))) ack_r <= 1'b1;
+        vq_s <= {vq_s[1:0], vk_ans[8]};
+        if (re && (vq_win || vq_pk)) begin
+            vk_req <= {~vk_req[17], vq_pk, vq_pk ? pk_a : {10'd0, off[5:0]}};
+            vq_busy <= 1'b1; vq_ram <= vq_pk; vq_to <= 10'd0;
+        end
+        if (re | we) vq_hold <= 1'b0;
+        if (vq_busy) begin
+            vq_to <= vq_to + 10'd1;
+            if (vq_ev || vq_to == 10'h3FF) begin
+                vq_busy <= 1'b0; vq_done <= 1'b1; vq_tmo <= !vq_ev;
+                vq_q <= vq_ev ? vk_ans[7:0] : 8'hFF;
+                if (vq_ram) pk_a <= pk_a + 16'd1;
+            end
+        end
+        if (vq_done) begin vq_done <= 1'b0; vq_hold <= 1'b1; ack_r <= 1'b1; end
         cause <= ((we && sel && off == 12'h014) ? (cause & ~wdata) : cause) | {5'd0, sp_rise[1], sp_rise[2], ev_frame};
         if (sp_rise[0]) caps_r <= ~caps_r;
         if (sp_rise[1]) d4080_r <= ~d4080_r;
@@ -168,6 +199,8 @@ module c128_regs (
                 12'h06A: stride_r[23:16] <= wdata;
                 12'h06B: stride_r[31:24] <= wdata;
                 12'h070: vdc_r <= wdata[0];
+                12'h140: pk_a[7:0] <= wdata;
+                12'h141: pk_a[15:8] <= wdata;
                 12'h090: ca[7:0] <= wdata;
                 12'h091: ca[12:8] <= wdata[4:0];
                 12'h092: begin cw_we <= 1'b1; cw_d <= wdata; end
@@ -238,6 +271,9 @@ module c128_regs (
                 12'h090: q <= ca[7:0];
                 12'h091: q <= {3'd0, ca[12:8]};
                 12'h092: q <= chr_q;
+                12'h140: q <= pk_a[7:0];
+                12'h141: q <= pk_a[15:8];
+                12'h143: q <= {7'd0, vq_tmo};
                 12'h0A0: q <= w_q[7:0];
                 12'h0A1: q <= w_q[15:8];
                 12'h0A2: q <= w_q[23:16];
@@ -258,5 +294,6 @@ module c128_regs (
                 default: ;
             endcase
         end
+        if ((vq_hold || vq_done) && !(re | we)) q <= vq_q;     // the answer of a read of 100-13F / 142, held while the address stays
     end
 endmodule

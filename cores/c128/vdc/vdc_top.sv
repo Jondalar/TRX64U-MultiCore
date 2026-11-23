@@ -34,7 +34,12 @@ module vdc_top #(
 	output reg     active_h,
 	output reg     active_v,
 	output   [3:0] rgbi,
-	output   [1:0] ilace        // T113 D11: {R8[1:0] == 3, field being drawn}
+	output   [1:0] ilace,       // T113 D11: {R8[1:0] == 3, field being drawn}
+
+	// T257: read-back without side effects (the MEGA65 core's vdc_top.sv dbg_addr / dbg_ram / dbg_reg, Stefan Eilers and Jeff Flitton, GPL v3)
+	input   [15:0] dbg_addr,    // [5:0] selects the register (0-37 R0-R37, 38 the status byte, 39 the selected register), [15:0] the VRAM address
+	output   [7:0] dbg_ram,     // the VRAM byte at dbg_addr, one clock after dbg_addr is stable
+	output reg [7:0] dbg_reg    // the register selected by dbg_addr[5:0], one clock after dbg_addr is stable
 );
 
 reg enable;
@@ -197,6 +202,8 @@ vdc_ramiface #(
 	.S_LATCH_WIDTH(S_LATCH_WIDTH),
 	.C_LATCH_WIDTH(C_LATCH_WIDTH)
 ) ram (
+	.dbg_addr(dbg_addr),
+	.dbg_do(dbg_ram),
 	.ram64k(ram64k),
 	.initRam(initRam),
 	.ctl_reset(ctl_reset),
@@ -296,6 +303,61 @@ vdc_video #(
 
 	.rgbi(rgbi)
 );
+
+// T257: the registers as the CPU reads them, without a CPU read's side effects (a read of R16/R17 clears the light pen flag). The function and
+// the dbg_reg process are the MEGA65 core's (vdc_top.sv regval(), Stefan Eilers and Jeff Flitton); the values equal the db_out case below.
+wire  [7:0] status = {~busy, lpStatus, ~vVisible, 3'b000, version, ~version};
+
+function [7:0] regval(input [5:0] sel);
+	case (sel)
+		 0: regval = reg_ht;
+		 1: regval = reg_hd;
+		 2: regval = reg_hp;
+		 3: regval = {reg_vw, reg_hw};
+		 4: regval = reg_vt;
+		 5: regval = {3'b111, reg_va};
+		 6: regval = reg_vd;
+		 7: regval = reg_vp;
+		 8: regval = {6'b111111, reg_im};
+		 9: regval = {3'b111, reg_ctv};
+		10: regval = {1'b1, reg_cm, reg_cs};
+		11: regval = {3'b111, reg_ce};
+		12: regval = reg_ds[15:8];
+		13: regval = reg_ds[7:0];
+		14: regval = reg_cp[15:8];
+		15: regval = reg_cp[7:0];
+		16: regval = reg_lpv;
+		17: regval = reg_lph;
+		18: regval = reg_ua[15:8];
+		19: regval = reg_ua[7:0];
+		20: regval = reg_aa[15:8];
+		21: regval = reg_aa[7:0];
+		22: regval = {reg_cth, reg_cdh};
+		23: regval = {3'b111, reg_cdv};
+		24: regval = {reg_copy, reg_rvs, reg_cbrate, reg_vss};
+		25: regval = {reg_text, reg_atr, reg_semi, reg_dbl, reg_hss};
+		26: regval = {reg_fg, reg_bg};
+		27: regval = reg_ai;
+		28: regval = {reg_cb, reg_ram, 4'b1111};
+		29: regval = {3'b111, reg_ul};
+		30: regval = reg_wc;
+		31: regval = reg_da;
+		32: regval = reg_ba[15:8];
+		33: regval = reg_ba[7:0];
+		34: regval = reg_deb;
+		35: regval = reg_dee;
+		36: regval = {4'b1111, reg_drr};
+		37: regval = {reg_hspol|~version, reg_vspol|~version, 6'b111111};
+		default: regval = 8'b11111111;
+	endcase
+endfunction
+
+always @(posedge clk)
+	case (dbg_addr[5:0])
+		38: dbg_reg <= status;
+		39: dbg_reg <= {2'b00, regSel};
+		default: dbg_reg <= regval(dbg_addr[5:0]);
+	endcase
 
 // Registers
 always @(posedge clk) begin

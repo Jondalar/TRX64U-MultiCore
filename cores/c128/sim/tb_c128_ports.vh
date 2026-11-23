@@ -196,6 +196,8 @@
     reg  vd_we = 0;
     reg  [7:0] vd_wdata = 0;
     wire [7:0] vd_rdata;
+    reg  [17:0] vk_req = 0;
+    wire [8:0] vk_ans;
     reg  chr_wclk = 0;
     reg  chr_we = 0;
     reg  [12:0] chr_a = 0;
