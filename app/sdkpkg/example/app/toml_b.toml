@@ -2,7 +2,7 @@
 # reference (../../gateware/shared.toml in the package). `python3 tools/app_build.py build --sdk . --toml-a gateware/shared.toml --toml-b example/app/toml_b.toml --out OUT --src example/app
 # --record OUT/desc.bin` links it (tools/sdk_check.sh does this with the compiler of the build image).
 #
-# The descriptor of the app is a symbol of the base's sources until the generic app makes one from the record alone: `desc` names it, `base_sources` the base files of the cores
+# The descriptor of the app is a symbol of the base's sources: `desc` names it, `base_sources` the base files of the cores
 # that hold it (coreapp/cores/), `sources` the files of the core's own, found in the directories of --src.
 [app]
 name = "example"

@@ -72,7 +72,7 @@ const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 a
 #define CONTRIB_VALUES_MAX 16             // values of one contributed setting (a range wider than this is refused)
 #endif
 #ifndef CONTRIB_FILETYPES_MAX
-#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES = 32; the TRX64U has 24 since T228 R21) and the new ones
+#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES of them; the TRX64U has 24 since T228 R21) and the new ones
 #endif
 #ifndef CONTRIB_ACTIONS_MAX
 #define CONTRIB_ACTIONS_MAX 96            // actions over all of those

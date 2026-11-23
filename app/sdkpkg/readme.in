@@ -186,7 +186,7 @@ make test
 ## Not in this package yet
 
 - The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
-- A descriptor for a core made of its record alone: the app of a core names the symbol of a descriptor in the base's sources (`[app] desc`) until the generic app makes one (T239.3 plan, step 2).
+- A descriptor for a core made of its record alone: the app of a core names the symbol of a descriptor in the base's sources (`[app] desc`).
 - The code of the shared 1541 drive library. Its export table `cbm1541_api.h` is public; the library itself uses the core application's `CoreIo` and file headers, which are not.
 - The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.

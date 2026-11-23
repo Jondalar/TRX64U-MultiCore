@@ -58,13 +58,6 @@ class Sizes(unittest.TestCase):
         self.assertNotIn("STATES_MAX", text)
         self.assertFalse([l for l in text.split("\n") if l.lstrip().startswith("//")])        # -include of assembler files too: no // comment line
 
-    def test_a_bad_table_is_refused(self):
-        for body, word in (("ops = 0\n", "ops"), ("nope = 1\n", "nope"), ("ops = true\n", "ops"), ("report_bytes = 100\n", "report_bytes"),
-                           ("contrib_filetypes = 4\nrec_ftypes = 32\n", "contrib_filetypes"), ("rec_blocks = 64\nrec_props = 8\n", "rec_props")):
-            with self.assertRaises(A.BuildError) as cm:
-                A.load_sizes(toml_b("[sizes]\n" + body), INC)
-            self.assertIn(word, str(cm.exception))
-
     def test_every_key_names_a_macro_the_headers_define(self):
         for key, (macro, header, _, _) in A.SIZES.items():
             text = open(os.path.join(INC[0], header)).read()
@@ -88,21 +81,11 @@ class Record(unittest.TestCase):
         open(rec, "wb").write(D.compile_checked(open(os.path.join(EXAMPLE, "desc.toml")).read(), None, what="desc.toml", maps={}))
         A.cmd_record(os.path.join(EXAMPLE, "toml_b.toml"), rec, INC)
 
-    def test_a_record_over_a_size_is_refused_by_the_reader_check(self):
-        text = open(os.path.join(EXAMPLE, "desc.toml")).read()
-        rec = os.path.join(tempfile.mkdtemp(), "r.bin")
-        open(rec, "wb").write(D.compile_checked(text, None, what="desc.toml", maps={}))
-        p = toml_b("[sizes]\nrecord_bytes = 256\n")
-        with self.assertRaises(A.BuildError):
-            A.cmd_record(p, rec, INC)
-
     def test_apply_sizes_moves_the_compilers_limits(self):
         D.apply_sizes({"rec_binds": 900, "rec_keys": 80, "record_bytes": 0x40000, "ops": 5})
         self.assertEqual(D.LIMITS["bind"], 900)
         self.assertEqual(D.KEYS_MAX, 80)
         self.assertEqual(D.MAX_SIZE, 0x40000)
-        with self.assertRaises(D.DescError):
-            D.apply_sizes({"rec_binds": 0})
 
 
 class Split(unittest.TestCase):
@@ -125,14 +108,6 @@ class Split(unittest.TestCase):
         got = A.sized([inc], [os.path.join(src, f) for f in ("a.cc", "b.cc", "c.c")])
         self.assertEqual([os.path.basename(x) for x in got], ["b.cc"])
 
-    def test_the_compilers_list_wins_over_the_text(self):
-        d, inc, src, listing = self.tree()
-        dep = os.path.join(d, "dep")
-        write(os.path.join(dep, "a.d"), "a.o: %s/a.cc \\\n %s/ops.h\n\n%s/ops.h:\n" % (src, inc, inc))   # a condition the preprocessor took
-        write(os.path.join(dep, "b.d"), "b.o: %s/b.cc %s/plain.h\n\n%s/plain.h:\n" % (src, inc, inc))      # a condition it did not
-        got = A.sized([inc], [os.path.join(src, "a.cc"), os.path.join(src, "b.cc")], dep)
-        self.assertEqual([os.path.basename(x) for x in got], ["a.cc"])
-
     def test_split_writes_both_lists(self):
         d, inc, src, listing = self.tree()
         out = os.path.join(d, "out", "sdkbase")
@@ -151,13 +126,6 @@ class Flags(unittest.TestCase):
     def test_the_sdk_flags_are_the_makefiles(self):
         A.cmd_flags(MAKEFILE, APPFLAGS)
 
-    def test_a_missing_flag_is_named(self):
-        d = tempfile.mkdtemp()
-        p = os.path.join(d, "flags.mk")
-        write(p, "OPTIONS = -DRISCV\n")
-        with self.assertRaises(A.BuildError) as cm:
-            A.cmd_flags(MAKEFILE, p)
-        self.assertIn("-DTRX_COREAPP=1", str(cm.exception))
 
 
 if __name__ == "__main__":

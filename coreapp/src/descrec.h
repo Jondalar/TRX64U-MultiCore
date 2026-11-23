@@ -127,7 +127,7 @@
 #define DESCREC_MAX_SIZE 0x20000U                 // 128 KiB: more is not a menu description
 #endif
 
-// DR_BINDS .. DR_STATES and DESCREC_MAX_SIZE are the shared app's maxima: an app linked from the SDK sets them in the [sizes] table of its TOML B (tools/app_build.py), and
+// The macros under #ifndef below (and DESCREC_MAX_SIZE) are the shared app's maxima: an app linked from the SDK sets them in the [sizes] table of its TOML B (tools/app_build.py), and
 // tools/descrec.py compiles the core's record against the same table (--sizes).
 #define DR_AREAS 8
 #define DR_TABS 32

@@ -170,29 +170,18 @@ def reach(path, incdirs, seen):
                 break
 
 
-def deps_of(dfile):
-    """The headers a compile listed (gcc -MM, the build's own .d file): the first rule, its continuation lines joined, without the target and the source."""
-    text = open(dfile, errors="replace").read().replace("\\\n", " ")
-    first = text.split("\n\n")[0].split("\n")[0]
-    toks = first.split(":", 1)[1].split() if ":" in first else []
-    return {os.path.realpath(x) for x in toks[1:] if x.endswith(".h") or x.endswith(".inc")}
-
-
-def headers_of(path, incdirs, depdir=None):
-    """What a source includes: the build's own list when its .d file is there (the conditions evaluated by the compiler), else the closure of the text."""
-    stem = os.path.splitext(os.path.basename(path))[0]
-    if depdir and os.path.isfile(os.path.join(depdir, stem + ".d")):
-        return deps_of(os.path.join(depdir, stem + ".d"))
+def headers_of(path, incdirs):
+    """What a source includes: the closure of its text (reach); the conditions are not evaluated."""
     seen = set()
     reach(os.path.realpath(path), incdirs, seen)
     return seen
 
 
-def sized(incdirs, sources, depdir=None):
-    return [s for s in sources if {os.path.basename(h) for h in headers_of(s, incdirs, depdir)} & set(SIZING_HEADERS)]
+def sized(incdirs, sources):
+    return [s for s in sources if {os.path.basename(h) for h in headers_of(s, incdirs)} & set(SIZING_HEADERS)]
 
 
-def cmd_pack_base(base_dir, out, shared_tomlb, depdir=None):
+def cmd_pack_base(base_dir, out, shared_tomlb):
     """What the package carries of the base (tools/sdk_pack.sh): the archives of the build's `make sdkbase` directory, the sources that depend on the core and the sources of the
     shared libraries (TOML B of the shared app) at their repository paths under base/src/, and every header they reach under base/inc/. The include path (base/incdirs.txt) is the
     build's, as repository paths, in the build's order."""
@@ -217,7 +206,7 @@ def cmd_pack_base(base_dir, out, shared_tomlb, depdir=None):
     for s in sized_real + libsrc:
         if s not in srcs:
             srcs.append(s)
-            hdrs |= headers_of(s, incdirs, depdir)
+            hdrs |= headers_of(s, incdirs)
     for d in ("src", "inc", "lib"):
         shutil.rmtree(os.path.join(out, "base" if d != "lib" else "", d), ignore_errors=True)
     names = []
@@ -262,11 +251,11 @@ def cmd_pack_base(base_dir, out, shared_tomlb, depdir=None):
           (len(names), len(libsrc), len(hdrs) - ngen, ngen, len(dirs)))
 
 
-def cmd_split(incdirs, out, sources, depdir=None):
+def cmd_split(incdirs, out, sources):
     """Writes OUT/sized.real and OUT/unsized.real: the real paths of the sources that depend on the core and of the ones that do not."""
     os.makedirs(out, exist_ok=True)
     srcs = [os.path.realpath(s) for s in sources]
-    hit = set(sized(incdirs, srcs, depdir))
+    hit = set(sized(incdirs, srcs))
     for name, lst in (("sized.real", [s for s in srcs if s in hit]), ("unsized.real", [s for s in srcs if s not in hit])):
         write_if_changed(os.path.join(out, name), "".join(s + "\n" for s in lst))
 

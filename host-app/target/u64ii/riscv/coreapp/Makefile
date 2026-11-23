@@ -370,8 +370,10 @@ OPTIONS += $(COREAPP_EXTRA)     # #93: -DLISTGROW_START=40 -DLISTGROW_HARD=60 fo
 COPTIONS = $(OPTIONS) -std=gnu99
 CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
 LINK 	 = linker.x
-LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
-LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
+LWIP_A  = ../../../libs/riscv/lwip/result/liblwip.a
+LVGL_A  = ../../../libs/riscv/lvgl/result/liblvgl.a
+LIBS    = $(LWIP_A)
+LIBS   += $(LVGL_A)
 # T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
 # one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
 IOFRAG  ?= ../trx_io.ld
@@ -386,7 +388,7 @@ $(OUTPUT)/$(PRJ).out: $(IOFRAG)
 
 # T239.3 P3-2 (D31): what the SDK package takes from this build (tools/sdk_pack.sh --base-dir): `make sdkbase` after the build. The sources whose include closure holds a header that the
 # core's TOML A or TOML B decides (tools/app_build.py sized) are compiled again for each core, from the package's sources; the objects of every other source go into one archive
-# (libtrxbase.a), with the two libraries (lwip, lvgl) and the start-up objects, the linker script and the include path. The registry, the contributions and the report are
+# (libtrxbase.a, linked whole), with the two libraries (lwip, lvgl) and the start-up objects, the linker script and the include path. The registry, the contributions and the report are
 # sized per core, so most of the application is in the first group; the vendor drivers, FreeRTOS, FatFs and the sources that touch none of those headers are the archive.
 SDKBASE       = $(OUTPUT)/sdkbase
 SDK_GENERATED = drvtab.c libtab_table.cc
@@ -403,7 +405,9 @@ sdkbase: all
 	@sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' $(SDKBASE)/unsized.real > $(SDKBASE)/archive.objs
 	@$(AR) rcs $(SDKBASE)/lib/libtrxbase.a `cat $(SDKBASE)/archive.objs`
 	@for o in $(SDK_START); do cp $(OUTPUT)/$$o $(SDKBASE)/lib/; done
-	@cp $(LIBS) $(SDKBASE)/lib/ 2>/dev/null || true
+	@cp $(LWIP_A) $(LVGL_A) $(SDKBASE)/lib/
+	@# the shipped objects carry no debug sections: they name the checkout they were compiled in, and an app linked from the package must name none
+	@$(CROSS)strip --strip-debug $(SDKBASE)/lib/*.a $(SDKBASE)/lib/*.o
 	@cp $(LINK) $(SDKBASE)/linker.x
 	@mkdir -p $(SDKBASE)/gen && cp $(OUTPUT)/gitinfo.h $(SDKBASE)/gen/gitinfo.h
 	@echo "sdkbase: `wc -l < $(SDKBASE)/sized.real | tr -d ' '` sources are compiled for the core, `wc -l < $(SDKBASE)/archive.objs | tr -d ' '` objects are in libtrxbase.a"

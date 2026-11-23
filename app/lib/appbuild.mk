@@ -55,10 +55,16 @@ obj/table.o: $(if $(CORE_DESC),,$(error [app] desc names the descriptor symbol o
 # sha256 is optimised for speed in the tree's build as well (the hash loop of Reload core)
 obj/sha256.o: COPTIONS += -O3
 
+# The base's drivers register themselves through global constructors in objects that nothing references (usb_hub, usb_scsi, usb_hid, usb_xinput, filesystem_fat, wifi):
+# libtrxbase.a is linked whole, as the tree links its objects, and --gc-sections drops what is unused. libc and libgcc are the toolchain's, picked by LIBMARCH as the tree's ld.mk does.
+LIBC_A    = $(shell $(CC) -march=$(LIBMARCH) -mabi=$(MABI) -print-file-name=libc.a)
+LIBGCC_A  = $(shell $(CC) -march=$(LIBMARCH) -mabi=$(MABI) -print-libgcc-file-name)
+
 app.elf: $(OBJS) $(SDK)/base/linker.x io.ld
 	@echo Linking $@
 	@$(LD) $(LFLAGS) -T $(SDK)/base/linker.x -Map=app.map -o $@ $(SDK)/lib/crt0.o $(SDK)/lib/port_asm.o $(OBJS) \
-	    --start-group $(SDK)/lib/libtrxbase.a $(SDK)/lib/liblwip.a $(SDK)/lib/liblvgl.a --end-group io.ld
+	    --whole-archive $(SDK)/lib/libtrxbase.a --no-whole-archive \
+	    --start-group $(SDK)/lib/liblwip.a $(SDK)/lib/liblvgl.a $(LIBC_A) $(LIBGCC_A) --end-group io.ld
 
 app.bin: app.elf
 	@$(OBJCOPY) -O binary $< $@

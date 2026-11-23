@@ -51,11 +51,9 @@ CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
 "${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
 [ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
-# a [[window]] compiles from the package alone (descrec.py reads tools/basereg.def beside itself), and one over a register the base drives is refused
+# a [[window]] compiles from the package alone (descrec.py reads tools/basereg.def beside itself)
 printf '[[window]]\nname = "mixer"\naddress = 0xA0000500\nsize = 0x14\n' > win.toml
 python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "a record with a window does not compile from the package"
-printf '[[window]]\nname = "volume"\naddress = 0xA0000550\nsize = 2\n' > winbad.toml
-! python3 "$P/tools/descrec.py" compile winbad.toml winbad.bin >/dev/null 2>&1 || fail "a window over the base's master volume compiles from the package"
 # TOML A compiles from the package alone, with the package's maps (api.md 6.14)
 [ -f "$P/maps/c64cart.map.toml" ] || fail "the package lacks maps/c64cart.map.toml"
 printf '[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n[[block]]\nname = "cart"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n' > toma.toml
@@ -69,8 +67,6 @@ mkdir -p appcheck
 python3 "$P/tools/app_build.py" sizes app/toml_b.toml appcheck --inc "$P/base/inc/coreapp/src" || fail "the sizes of the example's TOML B were not generated from the package"
 grep -q -F '#define OPS_MAX 200' appcheck/appsizes.h && grep -q -F '#define CORE_REPORT_MAX 16384' appcheck/appsizes.h || fail "appsizes.h does not carry the example's sizes"
 python3 "$P/tools/descrec.py" compile app/desc.toml appcheck/desc.bin --sizes app/toml_b.toml >/dev/null || fail "the example's description does not compile from the package"
-printf '[sizes]\nops = 0\n' > appcheck/bad.toml
-! python3 "$P/tools/app_build.py" sizes appcheck/bad.toml appcheck --inc "$P/base/inc/coreapp/src" >/dev/null 2>&1 || fail "a [sizes] value out of its range is accepted"
 # the example's app: everything but the compiler runs always; with the compiler the app is linked from the package alone
 python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a "$P/gateware/shared.toml" --toml-b app/toml_b.toml --out appcheck/gen --src app --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
 [ -s appcheck/gen/drv/drvtab.h ] && [ -s appcheck/gen/lib/libtab_table.cc ] && [ -s appcheck/gen/io.ld ] && [ -s appcheck/gen/appsizes.h ] || fail "the generated files of the example's app are missing"

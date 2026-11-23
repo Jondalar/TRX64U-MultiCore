@@ -11,6 +11,7 @@ OBJCOPY   = $(CROSS)objcopy
 SIZE      = $(CROSS)size
 MARCH    ?= rv32im
 MABI     ?= ilp32
+LIBMARCH ?= rv32i
 OPTIONS   = -march=$(MARCH) -mabi=$(MABI) -ffunction-sections -fdata-sections -nostartfiles -mno-div
 OPTIONS  += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
 OPTIONS  += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1
