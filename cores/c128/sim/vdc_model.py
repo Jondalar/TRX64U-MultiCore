@@ -5,7 +5,7 @@ Written from the 8563 programmer's reference (register set R0-R37, status bit 7,
 R18/R19, block copy/fill R24 b7 / R30, 80 x 25 text with attributes, 640 x 200 bitmap) and NOT from the MiSTer RTL. The model has no
 timing: it applies the register semantics to a 64 KiB RAM and renders the frame the registers describe.
 
-  vdc_model.py gen <dir>                  writes stim_N.hex (bus operations for tb_c128_vdc) and exp_N.json (+ frame_N.txt) for N = 1..3
+  vdc_model.py gen <dir>                  writes stim_N.hex (bus operations for tb_c128_vdc) and exp_N.json (+ frame_N.txt) for N = 1..10
   vdc_model.py check <dir> N <prefix>
                                           compares what the testbench wrote (<prefix>.reads/.busy/.vram/.frame) with the model
 
@@ -443,7 +443,7 @@ def gen(d):
               fhash(p.frame) if p.frame else "-"))
 
 
-def check(d, n, prefix, dev=False, nominal_clks_per_col=16):
+def check(d, n, prefix, nominal_clks_per_col=16):
     exp = json.load(open(os.path.join(d, "exp_%d.json" % n)))
     res = []
 
@@ -514,22 +514,7 @@ def check(d, n, prefix, dev=False, nominal_clks_per_col=16):
                         if first is None:
                             first = (x, y, a[x], b[x])
             msg = "hash model %s rtl %s; %d pixels differ; first x=%d y=%d expected %s got %s" % ((mh, gh, cnt) + first)
-            if dev:
-                # known deviation D1: say how far the picture is off (the window of the RTL against the character grid)
-                best = None
-                for sft in range(-8, 9):
-                    bad = sum(1 for a, b in zip(mrows, grows) for x in range(max(0, -sft), min(len(a), len(a) - sft))
-                              if a[x + sft] != b[x])
-                    if best is None or bad < best[1]:
-                        best = (sft, bad)
-                print("dev| D1 %s: %s" % (lab, msg))
-                print("dev| D1 %s: the RTL picture equals the model shifted left by %d pixels (%d differing pixels outside the "
-                      "%d border columns); the window starts at pixel %d of character 0 and shows border for the last %d pixels"
-                      % (lab, best[0], best[1], best[0], best[0], best[0]))
-                if os.environ.get("STRICT_ALIGN"):
-                    rec(False, lab, msg)
-            else:
-                rec(False, lab, msg)
+            rec(False, lab, msg)
     return all(res)
 
 
@@ -537,7 +522,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "gen":
         gen(sys.argv[2])
     elif len(sys.argv) >= 5 and sys.argv[1] == "check":
-        ok = check(sys.argv[2], int(sys.argv[3]), sys.argv[4], dev="--dev" in sys.argv)
+        ok = check(sys.argv[2], int(sys.argv[3]), sys.argv[4])
         sys.exit(0 if ok else 1)
     else:
         print(__doc__)
