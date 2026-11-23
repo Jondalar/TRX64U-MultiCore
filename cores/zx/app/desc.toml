@@ -1,0 +1,169 @@
+# The ZX Spectrum's data description (T239.3 D17): what coreapp/cores/zx.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
+# operations of register_ops, the tape slot's three functions and the snapshot and tape formats. Register numbers are cores/zx/trx/zx_regs.v
+# (coreapp/cores/zx_regs.h).
+machine_info = "Model"
+
+[core]
+id = "ZXSP"
+name = "ZX Spectrum 48K / 128K"
+title = "ZX Spectrum"
+short_title = "SPECTRUM"
+folder = "zx"
+store = "ZX Spectrum Settings"
+min_contract = 1
+reset_ms = 10
+service_op = "zx.service"
+service_period_ms = 100
+caps = ["tape"]                        # a tape deck: no disk, no SIO, no IEC, no cartridge
+
+# 344 x 280 shown 3 x 3, centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+[video]
+w = 344
+h = 280
+scale = 3
+x0 = 444
+y0 = 120
+fb_base = 0x01D00000
+fb_stride = 0x00100000
+nbuf = 4
+reg_latest = 0x0C0
+reg_seq = 0x0C1
+reg_fb_base = 0x0C4
+reg_fb_stride = 0x0C8
+
+[freeze]
+reg_status = 0x0A4
+mask = 0x02
+timeout_ms = 200
+
+# One complete set is enough: a Spectrum with the 48K ROM only, or with the 128K ROM only, starts. set = bit n is a member of set n + 1.
+[[rom]]
+role = "48K ROM"
+names = ["48.rom"]
+sizes = [16384]
+put_op = "zx.put_rom48"
+set = 1
+
+[[rom]]
+role = "128K ROM"
+names = ["128.rom"]
+sizes = [32768]
+put_op = "zx.put_rom128"
+set = 2
+
+[[core_setting]]
+key = "Model"
+values = ["48K", "128K"]
+when = "reset"
+apply = "zx.set_model"
+
+[[core_setting]]
+key = "Joystick port 1"
+values = ["None", "Kempston", "Sinclair 1 (keys 6-0)", "Sinclair 2 (keys 1-5)", "Cursor (5 6 7 8 0)"]
+apply = "zx.set_joy1"
+
+[[core_setting]]
+key = "Joystick port 2"
+values = ["None", "Kempston", "Sinclair 1 (keys 6-0)", "Sinclair 2 (keys 1-5)", "Cursor (5 6 7 8 0)"]
+default = 1
+apply = "zx.set_joy2"
+
+[[core_setting]]
+key = "Tape sound"
+values = ["Off", "On"]
+apply = "zx.set_ear"
+
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Tape: Play"
+op = "zx.tape_play"
+closes_menu = true
+
+[[task]]
+label = "Tape: Stop"
+op = "zx.tape_stop"
+
+[[task]]
+label = "Tape: Rewind"
+op = "zx.tape_rewind"
+
+[[task]]
+label = "Tape: Previous block"
+op = "zx.tape_prev"
+
+[[task]]
+label = "Tape: Next block"
+op = "zx.tape_next"
+
+[[task]]
+label = "Tape: Eject"
+op = "zx.tape_eject"
+
+[[media]]
+name = "Tape"
+state = "zx.tape.image"
+eject_op = "zx.tape_eject"
+exts = ".tap,.tzx"
+mount = "Insert tape"
+mounted_tasks = "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block"
+
+[[filetype]]
+ext = ".sna"
+  [[filetype.action]]
+  label = "Run snapshot"
+  op = "zx.snap"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".z80"
+  [[filetype.action]]
+  label = "Run snapshot"
+  op = "zx.snap"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# the machine has to be at LOAD "" before the tape runs: the first action only inserts, "Tape: Play" starts it from the menu
+[[filetype]]
+ext = ".tap"
+  [[filetype.action]]
+  label = "Insert tape"
+  op = "zx.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 0 } ]
+  [[filetype.action]]
+  label = "Insert tape and play"
+  op = "zx.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 1 } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".tzx"
+  [[filetype.action]]
+  label = "Insert tape"
+  op = "zx.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 0 } ]
+  [[filetype.action]]
+  label = "Insert tape and play"
+  op = "zx.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 1 } ]
+  closes_menu = true
+
+# hotkeys: the keyboard computers where CTRL is a typing key take C= + CTRL as the modifier. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none.
+# Actions: menu (RESTORE), volume + and -, reset (R), swap joystick ports (J), picture mode (P), and the unused seventh.
+[hotkeys]
+mod = [61, 58]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+[mount]
+names = ["Tape"]

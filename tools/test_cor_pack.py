@@ -4,6 +4,8 @@ wrong host key refused (T84 D5b).
 
   python3 tools/test_cor_pack.py        (also collected by python3 -m pytest tools/test_cor_pack.py)
 """
+import contextlib
+import io
 import os
 import hashlib
 import json
@@ -15,6 +17,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cor_pack as C  # noqa: E402
+import descrec  # noqa: E402
 
 
 def bit_file(words=300):
@@ -381,6 +384,21 @@ class RecordsTest(unittest.TestCase):
             b = Mn.pack_large("amiga1200", "A", "1", full_bit(), APP, icon)
             self.assertEqual(a, b)
 
+    def test_a_description_with_the_cores_data_sections(self):
+        # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
+        import descrec
+        with open(os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")) as f:
+            desc = descrec.compile_text(f.read())
+        blob, _ = make(desc=desc)
+        m, r = C.parse(blob, C.CONTRACT)
+        self.assertEqual(r[C.T_DESC], desc)
+        C.check_optional(m, r)
+        self.assertTrue(descrec.parse_desc(r[C.T_DESC])["sections"])
+        with self.assertRaisesRegex(C.CorError, "core section names"):
+            make(desc=desc, name="Another Machine")
+        blob, _ = make(desc=desc, libs=[u2a()])                                     # the libraries' menus are merged in: the sections stay
+        self.assertTrue(descrec.parse_desc(C.parse(blob, C.CONTRACT)[1][C.T_DESC])["sections"])
+
     def test_round_trip_both_kinds(self):
         desc = desc_record()
         libs = [u2a(), u2a() + b"xy"]
@@ -515,6 +533,53 @@ class RecordsTest(unittest.TestCase):
             self.assertEqual(C.main(["pack-large", "-o", o + "3", "--id", "x", "--name", "A", "--version", "1", "--bit", b, "--app", a,
                                       "--desc", DESC_TOML, "--lib", l1]), 0)
             self.assertEqual(C.main(["check", o + "3"]), 0)
+
+    def test_desc_more_than_once_compiles_the_files_into_one_record(self):
+        """T239.3 base 3.3: a core's menu.toml (menu, key table) and desc.toml (core data, windows) are one record 6; a table or key in both files is refused naming both."""
+        menu = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true } ]\n[[task]]\nlabel = "Dump"\nop = "ring.dump"\njob = true\n'
+        desc = ('[core]\nid = "VC20"\nname = "T"\ntitle = "T"\nshort_title = "T"\nfolder = "t"\nstore = "t"\n'
+                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000500\nsize = 0x14\n')
+        bit, _ = bit_file()
+        with tempfile.TemporaryDirectory() as d:
+            p, a, o, m_, d_ = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "menu.toml", "desc.toml"))
+            open(p, "wb").write(bit)
+            open(a, "wb").write(APP)
+            open(m_, "w").write(menu)
+            open(d_, "w").write(desc)
+            args = ["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2"]
+            self.assertEqual(C.main(args + ["--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.main(["check", o]), 0)
+            m, r = C.parse(open(o, "rb").read())
+            rec = descrec.parse_desc(r[C.T_DESC])
+            self.assertEqual((rec["core"]["name"], len(rec["key"]), rec["window"][0]["name"], rec["task"][0]["job"]), ("T", 1, "audio_mixer", True))
+            self.assertEqual(r[C.T_DESC], descrec.compile_files([("a", menu), ("b", desc)]))
+            self.assertEqual(r[C.T_DESC], descrec.compile_desc({**descrec.toml_loads(menu), **descrec.toml_loads(desc)}))
+            # the order of the files does not change the record
+            o2 = o + "2"
+            self.assertEqual(C.main(["pack", "-o", o2, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2", "--desc", d_, "--desc", m_]), 0)
+            self.assertEqual(C.parse(open(o2, "rb").read())[1][C.T_DESC], r[C.T_DESC])
+            # one file is what it always was
+            only = os.path.join(d, "only.toml")
+            open(only, "w").write(menu)
+            o3 = o + "3"
+            self.assertEqual(C.main(args[:2] + [o3] + args[3:] + ["--desc", only]), 0)
+            self.assertEqual(C.parse(open(o3, "rb").read())[1][C.T_DESC], descrec.compile_text(menu))
+            # a table in both files: refused, both files named, nothing written
+            twice = os.path.join(d, "twice.toml")
+            open(twice, "w").write(menu)
+            o4 = o + "4"
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                self.assertEqual(C.main(args[:2] + [o4] + args[3:] + ["--desc", m_, "--desc", twice]), 1)
+            self.assertIn("menu.toml", buf.getvalue())
+            self.assertIn("twice.toml", buf.getvalue())
+            self.assertIn("'key'", buf.getvalue())
+            self.assertFalse(os.path.exists(o4))
+            # the large form takes it too
+            b = os.path.join(d, "x.bit")
+            open(b, "wb").write(full_bit())
+            self.assertEqual(C.main(["pack-large", "-o", o + "5", "--id", "x", "--name", "T", "--version", "1", "--bit", b, "--app", a, "--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.parse(open(o + "5", "rb").read())[1][C.T_DESC], r[C.T_DESC])
 
 
 def lib_with_menu(name, menu):
@@ -659,6 +724,56 @@ class HeapTest(unittest.TestCase):
         for bad in (0x1000, 0x100008 + 1):
             with self.assertRaises(C.CorError):
                 C.app_heap(heap_app(), bad, "x")
+
+
+class PackersCarryTheDescriptionTest(unittest.TestCase):
+    """T239.3 D17 part 2: the packers put cores/<id>/app/desc.toml into record 6 of the .cor, and the bundle checks it."""
+
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+    def desc(self):
+        import descrec
+        with open(os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")) as f:
+            return descrec.compile_text(f.read())
+
+    def test_pack_cores_mc_carries_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, "vc20_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "vc20.app"), "wb").write(APP)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            m, rec = C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())
+            self.assertEqual(rec[C.T_DESC], self.desc())
+            self.assertEqual(m["name"], "VIC-20")
+
+    def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
+        import descrec
+        with tempfile.TemporaryDirectory() as d:
+            bit, app, out = (os.path.join(d, x) for x in ("a.bit", "app.bin", "out"))
+            open(bit, "wb").write(full_bit())
+            open(app, "wb").write(APP)
+            cmd = [os.path.join(self.ROOT, "tools", "pack_large_cor.sh"), "--id", "vc20", "--name", "VIC-20", "--version", "0.1", "--bit", bit, "--app-bin", app, "--out", out]
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
+            # a menu.toml (key table, a window) given with --desc is packed with the core's desc.toml as ONE record 6
+            menu = os.path.join(d, "menu.toml")
+            open(menu, "w").write('key = [\n  { layout = "terminal", key = "f10", do = "decline" },\n]\n[[window]]\nname = "speaker_enable"\naddress = 0xA000000C\nsize = 1\n')
+            r = subprocess.run(cmd + ["--desc", menu], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            texts = [(f, open(f).read()) for f in (menu, os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml"))]
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files(texts))
+            # a table in both files is refused
+            r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            # a core without cores/<id>/app/desc.toml carries no record
+            r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "nodesc.cor"), "rb").read())[1])
 
 
 class CoreTomlHeapTest(unittest.TestCase):

@@ -13,6 +13,44 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     clear_ram = 65536              # the machine RAM in bytes from address 0, cleared through the RAM window while the core is held (256 .. 16 MiB, whole 256s)
     ram_only = true                # optional: the window in its memory-only mode while it clears (io.h ram_memonly: RAM under the I/O range too)
 
+    # T239.3 D17, record version 6: the data of a core's descriptor that the C++ tables above do not hold, as sections behind the string table (a core with them
+    # needs no compiled-in descriptor for its data; its function hooks stay code). Every key of these tables is checked as the others are. Example: cores/vc20/app/desc.toml.
+    [core]                         # section 1, required once there is any section: the identity and the machine's flags
+    id = "VC20"                    # the four characters of the ID block
+    name = "VIC-20"                # the .cor manifest's name (CoreDesc::cor_name); title, short_title, folder, store are the other texts of the descriptor
+    min_contract = 1               # reset_ms, service_op + service_period_ms, live_ms, type_op, run_op, needs_program, program_ext, core_id, caps = ["iec"], and the flags
+                                   # poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first
+    [video]                        # section 2 with [freeze]: CoreDesc::video (w, h, scale, x0, y0, fb_base, fb_stride, nbuf, reg_latest, reg_seq, reg_fb_base, reg_fb_stride, and bpp,
+    [freeze]                       # pxfmt, h60 where 0 is not meant) and CoreDesc::freeze (reg_status, mask, timeout_ms, word); scale 0 with every other number 0 = the core has no
+                                   # picture of its own (it goes through the host's scaler) and a freeze alone
+    [[rom]]                        # section 3: a RomSpec - role, names (first match wins), sizes, required, set, shared, put_op; check = true says the core's code checks the content
+                                   # (CoreHooks::rom_check[i]; the check is code and stays so)
+    [hotkeys]                      # section 5: a HkSpec - mod, actions (7), tasks, own_keys, vol_key, swap_key, core_op + core_key + core_label, pc_keys
+    [mount]                        # section 6: names = the slots of CoreDesc::mount_slots; their three functions (spec, mount, eject) are code
+    [[reset_write]]                # section 7: RegWrite, written with every settings commit - reg, value (1 .. 8 of them)
+    [id_feature]                   # section 8: CoreDesc::id_feat_reg / mask / val - reg, mask (not 0), value: how an id_shared core is told apart by its gateware
+    [[report_reg]]                 # section 9: ReportReg of the bug report - name, reg, bytes (1, 2 or 4); 1 .. 24 of them
+    [rawkeys]                      # section 10: RawKeySpec, a USB keyboard as the core's own key events - reg, hid (the machine's code per HID usage, 0xFF none), mod (8 codes),
+                                   # caps_usage, caps_code; or held = true + caps_usage: the core's code takes the keys that are down (CoreHooks::rawkeys_held), no tables
+    [alt_video]                    # section 11: CoreDesc::alt_video, the keys of [video]
+    [fbwin]                        # section 12: FbWinSpec, the picture window - reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines
+                                   # x_per_unit x_origin y_origin src_w src_h def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms
+    [mouse]                        # section 13: MouseSinkSpec - kind ("counters" | "pot1351"), reg_dx reg_dy reg_btn clamp step interval_ms
+    [romset]                       # section 14: RomSetSpec, a ROM chosen out of a directory - role ext sizes size_text example max choice_key auto_label want head_bytes window_off
+                                   # mirror_size mirror_stride clear_below; version = true and pick = true say the core's code has the two functions (CoreHooks::romset_version, romset_pick)
+    [window_media]                 # section 15: WindowMediaSpec - prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop
+                                   # idle_flush_ms max_dirty_ms
+    [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
+    # a [[core_setting]] (section 4) with reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
+    # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
+    # a [[core_setting]] with file = true, when = "live" | "reset" and apply (kind 3): a file the person selects in a file selector, the text is its path, none by default; apply takes one
+    # text argument "path" (Setting::kind 3; no values, default, base, text, secret or reg_bind). reg_bind takes up to 64 bytes (one per value)
+    # a [[core_setting]] with romset_choice = true in place of `apply` and reg_bind: the item that chooses the member of the [romset] (its choice_key is this key); no values,
+    # the record holds the set's labels (auto_label, then "-" for each of max places) and the reader hands the setting the labels of the set (desc.h Setting::bind)
+    # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
+    # Which description wins (T239.3 D17): while a descriptor for the core is compiled in, it is the core and a record with these sections changes nothing at run time
+    # (coreapp/src/descrec.h descrec_applies); a core without one is made of the record (descrec_core) and its code supplies only the hooks. menu_rec is the record itself.
+
     [[area]]                       # optional; without any, the default route stays (T104 5.8)
     key = "F5"                     # F1 .. F8
     name = "C64"                   # optional: the core's short title
@@ -138,30 +176,53 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     default = ["up", "down", "left", "right", "face_bottom"]  # per button: up down left right (D-pad or stick), a position face_right face_bottom
                                    # face_left face_top l r select start (resolved per pad, pad.h PAD_ROLE_*), button1 .. button32, none
 
+    # T239.3 base 3.3 (sections 18 and 19, version 6; they need no [core]): the key table of a core's UI TOML (menu.toml) and the register windows of its API TOML (desc.toml).
+    # Both files are one record: cor_pack.py pack --desc menu.toml --desc desc.toml (a table or key present in two files is refused with both names).
+    [[key]]                        # a row of the key table (replaces the KS_MONITOR and KS_TIMELINE rows of menukeytab.cc); rows are tried in file order, after an application's
+                                   # screens and before the grammar of the menu, the first that matches takes the key. `key = [ {..}, {..} ]` is the same table (one line a row)
+    layout = "terminal"            # the scope: while the shown tab has this layout (home desk split settings status library timeline terminal app grid) ...
+    node = "monitor"               # ... or, instead of layout, while the shown tab has this id; exactly one of them. Rows do not apply in an application's screens
+    key = "any"                    # one key (up down left right return esc del runstop space home pgup pgdn tab f1 .. f8 f10 scrlock menu ctrl+<letter> or one printable
+                                   # character), or "any" (every key); or codes = [32, 126] (a range of key codes, inclusive) - exactly one of key and codes
+    do = "op"                      # op (the default when `op` is given), decline (the key goes on to the menu's grammar) or swallow (the key is spent)
+    op = "monitor.key"             # the operation (do = op)
+    value = -10                    # the operation's int argument "value" (KF_ARG); pass_key = true sends the key as its int argument "key" instead (KF_KEYARG): not both
+    status = true                  # the answer's text is the status line, bad when the operation failed (KF_STATUS)      status_ok: also when it succeeded (KF_STATUS_OK)
+    close = true                   # the menu closes after it (KF_CLOSE)      directive: the answer's text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE)
+    direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
+    [[window]]                     # a register window io.window hands out by name; refused when it covers a register the base drives itself (coreapp/src/basereg.def)
+    name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
+    address = 0xA0000500
+    size = 0x14                    # bytes, 1 .. 0x100000
+    # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
+
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
     label = "New label"
 """
+import os
 import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 5                 # 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
+VERSION = 6                 # 6 (T239.3 D17) appends the core's data sections after the string table (header 216: the sections' offset and size) - written only for a record that has one, so a record without stays what it was; 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
 HEADER = 176                # versions 2 to 4
 HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map; kind NONE: no pad) + the restart (clear_ram bytes, flags bit 0 ram_only)
+HEADER_V6 = 216             # version 6: + the offset and the size of the sections (T239.3 D17)
 RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=8192, ctab=16,
-              task=64, media=4, ftype=32, fact=200, cset=330)
+              task=64, media=6, ftype=32, fact=200, cset=330)
 ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
              task=36, media=44, ftype=24, fact=36, cset=36)
 ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
 OWN = ("task", "media", "ftype", "fact", "cset")          # the tables of the core's own menu (flag bit 1)
 INFO_LINES = ("Core", "Application", "Network", "Media", "ROMs", "Libraries")   # menutree.cc menu_info_labels, the application's fixed lines
+FILE_FLAG = 8              # the time code of a core setting: the setting is a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
 WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
 NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
@@ -545,7 +606,7 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart"}, "description")
+                "pad", "restart", "key", "window"} | set(SEC_KEYS), "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -749,7 +810,7 @@ def compile_desc(doc, merged=()):
 
     hotkeys = []
     for tk in _opt(doc, "task", list, "description", []):
-        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state"}, "task")
+        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state", "job"}, "task")
         label = _need(tk, "label", str, "task")
         what = "task " + label
         fb, nb = bind_list(_opt(tk, "bind", list, what, []), what)
@@ -765,7 +826,10 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: a hotkey runs the task while the core runs, where nothing can be asked; a task with ask has none" % what)
         if hk:
             hotkeys.append(label)
-        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (ord(hk) << 8 if hk else 0)   # bits 15:8 the hotkey
+        job = _opt(tk, "job", bool, what, False)
+        if job and (hk or tk.get("pick_dir")):
+            raise DescError("%s: a job is a stepped operation the menu runs with its progress line; it has no hotkey (nothing shows the progress while the core runs) and no pick_dir (that task is stepped already)" % what)
+        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (4 if job else 0) | (ord(hk) << 8 if hk else 0)   # bit 2 job, bits 15:8 the hotkey
         show = _opt(tk, "show_state", str, what, None)                   # the row is listed only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1, as a file action's
         if show:
             so = st.add(show) + 1
@@ -780,13 +844,16 @@ def compile_desc(doc, merged=()):
     if len(set(hk_keys)) != len(hk_keys):
         raise DescError("tasks: two hotkeys have the same default key (%s)" % ", ".join(hk_keys))
 
+    replaces = []              # (media index, label): the file action that replaces the file of a filled slot (MediaSlot::replace), section 17
     for m in _opt(doc, "media", list, "description", []):
-        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes"}, "media")
+        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes", "replace"}, "media")
         name = _need(m, "name", str, "media")
         what = "media " + name
         if "eject_op" not in m and "eject_bind" in m:
             raise DescError("%s: eject_bind without eject_op" % what)
         fb, nb = bind_list(_opt(m, "eject_bind", list, what, []), what)
+        if "replace" in m:
+            replaces.append((len(t["media"]), text_key(m, "replace", what)))
         t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what)),
                            st.add(text_key(m, "exts", what)), st.add(text_key(m, "mount", what)), st.add(text_key(m, "empty_tasks", what)),
                            st.add(text_key(m, "mounted_tasks", what)), 1 if _opt(m, "eject_closes", bool, what, False) else 0))
@@ -868,24 +935,46 @@ def compile_desc(doc, merged=()):
                     raise DescError("%s: %s names %r, which is not a task" % (what, k_, lab))
 
     seen_set = set()
+    setbinds = []
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file", "romset_choice"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
             raise DescError("%s: the key is taken" % what)
-        _app_owned(what, key, _need(cs, "apply", str, what))
+        choice = _opt(cs, "romset_choice", bool, what, False)
+        if choice:
+            # the third form (desc.h Setting::bind): the item that chooses the member of the core's rom set; no operation, no register bits, and its values are the set's labels
+            rs = doc.get("romset")
+            if "reg_bind" in cs or "apply" in cs or any(k in cs for k in ("values", "list", "range", "text", "secret", "base")):
+                raise DescError("%s: romset_choice takes no apply, reg_bind, values, list, range, text, secret or base (its values are the rom set's labels)" % what)
+            if not isinstance(rs, dict) or rs.get("choice_key") != key or not isinstance(rs.get("max"), int) or not isinstance(rs.get("auto_label"), str):
+                raise DescError("%s: romset_choice needs a [romset] whose choice_key is this key" % what)
+        elif ("reg_bind" in cs) == ("apply" in cs):
+            raise DescError("%s: exactly one of apply (an operation) and reg_bind (the register bits it is, T239.3 D17)" % what)
+        _app_owned(what, key, cs.get("apply") or "")
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
             raise DescError("%s: when is live or reset" % what)
         base = _opt(cs, "base", int, what, 0)
         wcode = WHEN[when]
-        if _opt(cs, "text", bool, what, False) or _opt(cs, "secret", bool, what, False):
+        kind_code = 0                       # Setting::kind: 0 a choice among values, 1 a text, 2 a secret text, 3 a file the person selects
+        if _opt(cs, "file", bool, what, False):
+            # T239.3 D17: a file the person selects in a file selector (Setting::kind 3): the text is the file's path, none selected by default; `apply` is the operation that checks a
+            # chosen path and keeps it (one text argument "path"). The time code keeps its live / reset; FILE_FLAG says the kind (the reader gives values[0] back as "")
+            if cs.get("text") or cs.get("secret") or any(k in cs for k in ("values", "list", "range", "unit", "default", "maxlen", "empty", "pick", "base", "reg_bind")) or "apply" not in cs:
+                raise DescError("%s: a file setting has an apply and none of text, secret, values, list, range, unit, default, maxlen, empty, pick, base, reg_bind" % what)
+            kind_code = 3
+            wcode |= FILE_FLAG
+            vals = [" "]                    # the record has no empty strings
+            default = 0
+        elif _opt(cs, "text", bool, what, False) or _opt(cs, "secret", bool, what, False):
             # a text the person types: values[0] is its default, base its longest length (T104.2 UI)
             vals = [_opt(cs, "default", str, what, "")]
             wcode = 3 if _opt(cs, "secret", bool, what, False) else 2
+            kind_code = wcode - 1
             base = _opt(cs, "maxlen", int, what, 40)
             default = 0
             if vals[0] == "":
@@ -895,6 +984,11 @@ def compile_desc(doc, merged=()):
                 vals.append(cs.get("empty") or "Not set")    # what the row shows while the text is empty (values[1])
             if pick:
                 vals.append(pick)           # T228 R21: the state whose text holds the rows of the list RETURN opens (picklist.h); values[2]
+        elif choice:
+            vals = [rs["auto_label"]] + ["-"] * rs["max"]       # romsetspec.h ROMSET_LABELS: Auto's text, then "-" for each place of the set
+            default = _opt(cs, "default", int, what, 0)
+            if not 0 <= default < len(vals):
+                raise DescError("%s: default %s is not an index of the rom set's choice" % (what, default))
         else:
             if "list" in cs:
                 vals = lists.get(cs["list"])
@@ -938,7 +1032,14 @@ def compile_desc(doc, merged=()):
             t["value"].extend((st.add(v),) for v in vals)
             if big is not None:
                 t["_big"][big] = fv
-        t["cset"].append((st.add(key), st.add(group_name(cs, what)), fv, len(vals), default, wcode, st.add(_need(cs, "apply", str, what)), base & 0xFFFFFFFF, st.add(_opt(cs, "label", str, what, None))))
+        if "reg_bind" in cs:
+            rb = _need(cs, "reg_bind", dict, what)
+            if kind_code or len(vals) < 2 or base != 0:
+                raise DescError("%s: reg_bind is for a choice among values (no text, no file, no base)" % what)
+            if "bytes" in rb and len(rb["bytes"]) != len(vals):
+                raise DescError("%s: reg_bind bytes has one entry per value (%d)" % (what, len(vals)))
+            setbinds.append((len(t["cset"]), rb))
+        t["cset"].append((st.add(key), st.add(group_name(cs, what)), fv, len(vals), default, wcode, st.add(cs.get("apply") if "apply" in cs else None), base & 0xFFFFFFFF, st.add(_opt(cs, "label", str, what, None))))
 
     poll_op, poll_ms = NONE, 0
     poll = _opt(doc, "poll", dict, "description", None)
@@ -959,29 +1060,34 @@ def compile_desc(doc, merged=()):
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
-    # layout: header, tables in ORDER, strings last
-    version, header = (VERSION, HEADER_V5) if pad_words or restart_words else (4, HEADER)
+    sect_bytes = _sections(doc, setbinds, st, replaces)
+    # layout: header, tables in ORDER, strings, then the data sections (version 6)
+    version, header = (VERSION, HEADER_V6) if sect_bytes else (5, HEADER_V5) if pad_words or restart_words else (4, HEADER)
     pos = header
     offs = {}
     for k in ORDER:
         offs[k] = pos if t[k] else 0
         pos += ESIZE[k] * len(t[k])
     str_off = pos
-    total = str_off + len(st.buf)
+    sect_off = str_off + len(st.buf) if sect_bytes else 0
+    total = str_off + len(st.buf) + len(sect_bytes)
     if total > MAX_SIZE:
         raise DescError("the record is %d bytes; the board takes %d" % (total, MAX_SIZE))
-    out = bytearray(struct.pack("<IHHIIII", MAGIC, version, header, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
+    out = bytearray(struct.pack("<IHHIIII", MAGIC, version, header, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0) | (4 if sect_bytes else 0), str_off, len(st.buf)))
     for k in ORDER:
         out += struct.pack("<II", offs[k], len(t[k]))
     out += struct.pack("<IIII", poll_op, poll_ms, merged_off, mi_off)
     if version >= 5:
         out += struct.pack("<6I", *(pad_words or (NONE, 0, 0, 0, 0, NONE)))
         out += struct.pack("<II", *(restart_words or (0, 0)))
+    if version >= 6:
+        out += struct.pack("<II", sect_off, len(sect_bytes))
     assert len(out) == header, len(out)
     for k in ORDER:
         for e in t[k]:
             out += struct.pack("<%dI" % (ESIZE[k] // 4), *e)
     out += st.buf
+    out += sect_bytes
     assert len(out) == total
     return bytes(out)
 
@@ -1044,8 +1150,9 @@ def _pad_words(pad, t, st):
         regs = [0, 1]
     else:
         regs = _need(pad, "regs", list, "pad")
-        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x <= 0xFFFF for x in regs):
-            raise DescError("pad: regs are the two players' registers")
+        one_port = _opt(pad, "per_pad", bool, "pad", False)           # one port (pad.h by_id): the second register is never picked and may be 0, as the Amiga's
+        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and (0 < x or (one_port and i == 1)) and x <= 0xFFFF for i, x in enumerate(regs)):
+            raise DescError("pad: regs are the two players' registers (the second may be 0 for a core with one port, per_pad)")
     dflt = _need(pad, "default", list, "pad")
     if len(dflt) != len(names):
         raise DescError("pad: default has one source per button")
@@ -1054,6 +1161,811 @@ def _pad_words(pad, t, st):
     t["value"].extend((st.add(x),) for x in names)
     kind = PAD_OUTPUTS[output] | (0x100 if _opt(pad, "per_pad", bool, "pad", False) else 0)
     return (kind, regs[0], regs[1], fv, len(names), st.add("".join("%02X" % c for c in codes)))
+
+
+# ---- the core's data sections (T239.3 D17) ----------------------------------------------------------------------------------
+# What a C++ descriptor holds besides the menu tables above, as TOML keys and as sections behind the string table: [core] (identity, the operations the
+# machine is served by, its flags), [video] and [freeze], [[rom]], [hotkeys], [mount] and, inside a [[core_setting]], `reg_bind` (the register bits a setting
+# is). A section is `u32 id, u32 length, length bytes` (a multiple of 4), at most once each; a reader refuses an id it does not know. Strings are offsets
+# into the record's string table, NONE = null.
+
+SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
+(SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
+SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
+SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
+             SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
+             SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows"}
+SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
+            "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
+CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
+CORE_REQ = ("name", "title", "short_title", "folder", "store")
+CORE_OPT = ("service_op", "needs_program", "program_ext", "type_op", "run_op", "core_id")
+CORE_INTS = ("min_contract", "reset_ms", "service_period_ms", "live_ms")
+VIDEO_INTS = ("w", "h", "scale", "x0", "y0", "fb_base", "fb_stride", "nbuf", "reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride", "bpp", "pxfmt", "h60")
+FREEZE_INTS = ("reg_status", "mask", "timeout_ms")
+ROMS_MAX, ROM_NAMES_MAX, ROM_SIZES_MAX = 14, 10, 3
+HK_ACTIONS = 7                                                              # coreapp/src/hotkeys.h HK_NACT
+SETBIND_MAX = 16
+SETBIND_BYTES_MAX = 64
+MOUNT_NAMES_MAX = 6
+CAP_RE = r"[a-z0-9_]{1,15}"
+CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
+
+
+def _u32(v, what):
+    if isinstance(v, bool) or not isinstance(v, int) or not 0 <= v < 2 ** 32:
+        raise DescError("%s: a number of 32 bits is expected" % what)
+    return v
+
+
+def _int_in(d, k, lo, hi, what, default=None):
+    v = d.get(k, default)
+    if v is None:
+        raise DescError("%s: %r is missing" % (what, k))
+    if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
+        raise DescError("%s: %r is a number from %d to %d" % (what, k, lo, hi))
+    return v
+
+
+def _sec_core(c, st):
+    _only(c, {"id", "min_contract", "reset_ms", "service_period_ms", "live_ms", "caps"} | set(CORE_REQ) | set(CORE_OPT) | set(CORE_FLAGS), "core")
+    cid = _need(c, "id", str, "core")
+    if len(cid) != 4 or not cid.isascii() or not cid.isprintable():
+        raise DescError("core: id is the four characters of the ID block")
+    for k in CORE_REQ:
+        if not _need(c, k, str, "core"):
+            raise DescError("core: %r is empty" % k)
+    for k in CORE_OPT:
+        if k in c and (not isinstance(c[k], str) or not c[k]):
+            raise DescError("core: %r is a text, not empty" % k)
+    caps = _opt(c, "caps", list, "core", [])
+    if not all(isinstance(x, str) and re.fullmatch(CAP_RE, x) for x in caps) or len(set(caps)) != len(caps) or len(caps) > CAPS_MAX:
+        raise DescError("core: caps are at most %d names of 1 to 15 characters of a-z, 0-9 and _" % CAPS_MAX)
+    period = _int_in(c, "service_period_ms", 0, 60000, "core", 0)
+    if ("service_op" in c) != (period > 0):
+        raise DescError("core: service_op and service_period_ms go together")
+    flags = 0
+    for i, k in enumerate(CORE_FLAGS):
+        if _opt(c, k, bool, "core", False):
+            flags |= 1 << i
+    w = [struct.unpack("<I", cid.encode("ascii"))[0], st.add(c["name"]), st.add(c["title"]), st.add(c["short_title"]), st.add(c["folder"]), st.add(c["store"]),
+         _int_in(c, "min_contract", 0, 255, "core", 1), _int_in(c, "reset_ms", 0, 65535, "core", 0), st.add(c.get("service_op")), period, flags,
+         st.add(c.get("needs_program")), st.add(c.get("program_ext")), st.add(c.get("type_op")), st.add(c.get("run_op")), st.add(c.get("core_id")),
+         _int_in(c, "live_ms", 0, 65535, "core", 0), st.add(",".join(caps)) if caps else NONE]
+    return struct.pack("<%dI" % len(w), *w)
+
+
+def _scale_ok(v, may_be_none):
+    """scale 1 .. 3; 0 is no picture of the core's own (CoreDesc::video all zeros: the SuperCPU's picture goes through the host's scaler) and only then, in [video] and not in [alt_video]."""
+    return v["scale"] in (1, 2, 3) or (may_be_none and v["scale"] == 0 and not any(v[k] for k in VIDEO_INTS))
+
+
+def _video_words(v, what="video", none_ok=False):
+    _only(v, set(VIDEO_INTS), what)
+    if none_ok and not any(v.get(k) for k in VIDEO_INTS):       # [video] with no key, or every key zero: a core with no picture of its own (all words zero)
+        for k in VIDEO_INTS:
+            _int_in(v, k, 0, 0, what, 0)
+        return [0] * len(VIDEO_INTS)
+    vals = {}
+    for k in VIDEO_INTS:
+        if k in ("x0", "y0"):
+            vals[k] = _int_in(v, k, -2 ** 31, 2 ** 31 - 1, "video") & 0xFFFFFFFF
+        elif k in ("fb_base", "fb_stride", "w", "h"):
+            vals[k] = _int_in(v, k, 0, 2 ** 32 - 1, "video")
+        elif k in ("bpp", "pxfmt", "h60"):
+            vals[k] = _int_in(v, k, 0, 65535, "video", 0)
+        else:
+            vals[k] = _int_in(v, k, 0, 65535, "video")
+    if not _scale_ok(vals, False) or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
+        raise DescError("%s: scale 1 .. 3 (0 only in [video], with every other number 0: a core whose picture goes through the host's scaler), nbuf at most 8, bpp 0, 2 or 4, pxfmt at most 4" % what)
+    return [vals[k] for k in VIDEO_INTS]
+
+
+def _sec_video(v, fz, st):
+    w = _video_words(v, "video", True)
+    _only(fz, set(FREEZE_INTS) | {"word"}, "freeze")
+    w += [_int_in(fz, "reg_status", 0, 65535, "freeze"), _int_in(fz, "mask", 0, 255, "freeze"), _int_in(fz, "timeout_ms", 0, 65535, "freeze"),
+          1 if _opt(fz, "word", bool, "freeze", False) else 0]
+    return struct.pack("<%dI" % len(w), *w)
+
+
+def _sec_roms(roms, st):
+    if not 1 <= len(roms) <= ROMS_MAX:
+        raise DescError("rom: 1 to %d entries" % ROMS_MAX)
+    out = struct.pack("<I", len(roms))
+    for r in roms:
+        _only(r, {"role", "names", "sizes", "required", "set", "shared", "put_op", "check"}, "rom")
+        role = _need(r, "role", str, "rom")
+        what = "rom " + role
+        names = _need(r, "names", list, what)
+        sizes = _need(r, "sizes", list, what)
+        if not 1 <= len(names) <= ROM_NAMES_MAX or not all(isinstance(x, str) and x for x in names):
+            raise DescError("%s: 1 to %d file names" % (what, ROM_NAMES_MAX))
+        if not 1 <= len(sizes) <= ROM_SIZES_MAX or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x < 2 ** 32 for x in sizes):
+            raise DescError("%s: 1 to %d sizes in bytes" % (what, ROM_SIZES_MAX))
+        flags = (1 if _opt(r, "required", bool, what, False) else 0) | (2 if _opt(r, "shared", bool, what, False) else 0) | (4 if _opt(r, "check", bool, what, False) else 0) | (_int_in(r, "set", 0, 255, what, 0) << 8)
+        w = [st.add(role), st.add(_need(r, "put_op", str, what)), flags] + sizes + [0] * (ROM_SIZES_MAX - len(sizes)) + [st.add(x) for x in names] + [NONE] * (ROM_NAMES_MAX - len(names))
+        out += struct.pack("<%dI" % len(w), *w)
+    return out
+
+
+def _sec_hotkeys(h, st):
+    _only(h, {"mod", "actions", "tasks", "vol_key", "swap_key", "own_keys", "core_op", "core_key", "core_label", "pc_keys"}, "hotkeys")
+    mod = _need(h, "mod", list, "hotkeys")
+    act = _need(h, "actions", list, "hotkeys")
+    tasks = _opt(h, "tasks", list, "hotkeys", [])
+    own = _opt(h, "own_keys", list, "hotkeys", [])
+    if len(mod) != 2 or len(act) != HK_ACTIONS or len(tasks) > HOTKEY_TASKS:
+        raise DescError("hotkeys: mod has 2 keys, actions %d, tasks at most %d (255 = none)" % (HK_ACTIONS, HOTKEY_TASKS))
+    for x in mod + act + tasks:
+        if isinstance(x, bool) or not isinstance(x, int) or not (0 <= x <= 64 or x == 255):
+            raise DescError("hotkeys: a key is 0 .. 64, or 255 for none")
+    if not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 63 for x in own):
+        raise DescError("hotkeys: own_keys are key indices 0 .. 63")
+    mask = 0
+    for x in own:
+        mask |= 1 << x
+    if ("core_op" in h) != ("core_key" in h) or ("core_op" in h) != ("core_label" in h):
+        raise DescError("hotkeys: core_op, core_key and core_label go together")
+    w = mod + act + [len(tasks)] + tasks + [0] * (HOTKEY_TASKS - len(tasks)) + [st.add(h.get("vol_key")), st.add(h.get("swap_key")), mask & 0xFFFFFFFF, mask >> 32,
+        st.add(h.get("core_op")), st.add(h.get("core_key")), st.add(h.get("core_label")), 1 if _opt(h, "pc_keys", bool, "hotkeys", False) else 0]
+    return struct.pack("<%dI" % len(w), *w)
+
+
+def _sec_mount(m, st):
+    _only(m, {"names"}, "mount")
+    names = _need(m, "names", list, "mount")
+    if not 1 <= len(names) <= MOUNT_NAMES_MAX or not all(isinstance(x, str) and 1 <= len(x) <= 9 for x in names):
+        raise DescError("mount: 1 to %d slot names of 1 to 9 characters" % MOUNT_NAMES_MAX)
+    return struct.pack("<I%dI" % len(names), len(names), *[st.add(x) for x in names])
+
+
+def _sec_setbind(binds):
+    out = struct.pack("<I", len(binds))
+    for idx, b in binds:
+        what = "core_setting reg_bind"
+        _only(b, {"reg", "shift", "mask", "bytes"}, what)
+        by = _opt(b, "bytes", list, what, [])
+        if not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in by) or len(by) > SETBIND_BYTES_MAX:
+            raise DescError("%s: bytes are at most %d numbers 0 .. 255" % (what, SETBIND_BYTES_MAX))
+        out += struct.pack("<5I", idx, _int_in(b, "reg", 0, 65535, what), _int_in(b, "shift", 0, 7, what, 0), _int_in(b, "mask", 1, 255, what), len(by))
+        out += bytes(by) + bytes(-len(by) % 4)
+    return out
+
+
+# The sections of the data a C++ descriptor holds as small structs (T239.3 D17): a table of fields, each a word. kind "u<bits>" an unsigned number, "i<bits>" a signed
+# one (stored as 32 bit two's complement), "t" a text (a string table offset, required), "o" an optional text (none = NONE). One table writes and reads a section,
+# and coreapp/src/descrec.cc reads the same words in the same order.
+MOUSE_KINDS = ("counters", "pot1351")                   # mousesink.h MouseKind
+FBWIN_FIELDS = (("reg_feat", "u16"), ("feat_bit", "u8"), ("reg_ctrl", "u16"), ("ctrl_video_off", "u8"), ("reg_diw_h", "u16"), ("reg_diw_v", "u16"), ("reg_skip_x", "u16"),
+                ("reg_skip_y", "u16"), ("reg_cols", "u16"), ("reg_lines", "u16"), ("x_per_unit", "i16"), ("x_origin", "i16"), ("y_origin", "i16"), ("src_w", "i16"),
+                ("src_h", "i16"), ("def_skip_x", "u16"), ("def_skip_y", "u16"), ("def_cols", "u16"), ("def_lines", "u16"), ("interval_ms", "u16"), ("settle_ms", "u16"),
+                ("frames_ms", "u16"), ("min_apply_ms", "u16"))
+MOUSE_FIELDS = (("kind", "k"), ("reg_dx", "u16"), ("reg_dy", "u16"), ("reg_btn", "u16"), ("clamp", "i16"), ("step", "i16"), ("interval_ms", "u8"))
+WINMEDIA_FIELDS = (("prefix", "t"), ("nslots", "u3"), ("base", "u32"), ("stride", "u32"), ("max_image", "u32"), ("mount_reg", "u16"), ("mount_step", "u16"),
+                   ("track_bytes", "u32"), ("ntracks", "u8"), ("dlog_status", "u16"), ("dlog_track", "u16"), ("dlog_drive", "u16"), ("dlog_pop", "u16"),
+                   ("idle_flush_ms", "u16"), ("max_dirty_ms", "u16"))
+SECMEDIA_FIELDS = (("prefix", "t"), ("nunits", "u2"), ("mount_reg", "u16"), ("mount_step", "u16"), ("feat_reg", "u16"), ("feat_sectors", "u8"), ("mbox_status", "u16"),
+                   ("mbox_lba", "u16"), ("mbox_done", "u16"), ("stage_off", "u32"), ("idle_sync_ms", "u16"), ("done_tag_mask", "u8"))
+ROMSET_FIELDS = (("role", "t"), ("ext", "t"), ("size_text", "t"), ("example", "t"), ("max", "u4"), ("choice_key", "t"), ("auto_label", "t"), ("want", "u16"),
+                 ("head_bytes", "u8"), ("window_off", "u32"), ("mirror_size", "u32"), ("mirror_stride", "u32"), ("clear_below", "u32"))
+ROMSET_MAX_, ROMSET_SIZES_ = 8, 3
+RESETW_MAX, REPORT_MAX = 8, 24
+RAWKEY_MODS = 8
+_RANGES = {"u": lambda b: (0, 2 ** b - 1), "i": lambda b: (-2 ** (b - 1), 2 ** (b - 1) - 1)}
+
+
+def _field_words(d, fields, what, st):
+    out = []
+    for k, kind in fields:
+        v = d.get(k)
+        if kind in ("t", "o"):
+            if v is None and kind == "t":
+                raise DescError("%s: %r is missing" % (what, k))
+            if v is not None and (not isinstance(v, str) or not v):
+                raise DescError("%s: %r is a text, not empty" % (what, k))
+            out.append(st.add(v))
+        elif kind == "k":
+            if v not in MOUSE_KINDS:
+                raise DescError("%s: %r is one of %s" % (what, k, ", ".join(MOUSE_KINDS)))
+            out.append(MOUSE_KINDS.index(v))
+        else:
+            lo, hi = _RANGES[kind[0]](int(kind[1:]))
+            out.append(_int_in(d, k, lo, hi, what) & 0xFFFFFFFF)
+    return out
+
+
+def _field_dict(w, fields, what, s):
+    d = {}
+    for (k, kind), x in zip(fields, w):
+        if kind in ("t", "o"):
+            if x == NONE and kind == "o":
+                continue
+            v = s(x)
+            if not v:
+                raise DescError("%s: a text is missing" % what)
+            d[k] = v
+        elif kind == "k":
+            if x >= len(MOUSE_KINDS):
+                raise DescError("%s: the mouse kind is not known" % what)
+            d[k] = MOUSE_KINDS[x]
+        else:
+            lo, hi = _RANGES[kind[0]](int(kind[1:]))
+            v = x - 2 ** 32 if kind[0] == "i" and x >= 2 ** 31 else x
+            if not lo <= v <= hi:
+                raise DescError("%s: %r is out of range" % (what, k))
+            d[k] = v
+    return d
+
+
+def _sec_fields(d, fields, what, st, extra=()):
+    _only(d, {k for k, _ in fields} | set(extra), what)
+    return struct.pack("<%dI" % len(fields), *_field_words(d, fields, what, st))
+
+
+def _sec_resetw(lst):
+    if not 1 <= len(lst) <= RESETW_MAX:
+        raise DescError("reset_write: 1 to %d entries" % RESETW_MAX)
+    out = struct.pack("<I", len(lst))
+    for r in lst:
+        _only(r, {"reg", "value"}, "reset_write")
+        out += struct.pack("<2I", _int_in(r, "reg", 0, 65535, "reset_write"), _int_in(r, "value", 0, 255, "reset_write"))
+    return out
+
+
+def _sec_idfeat(d):
+    _only(d, {"reg", "mask", "value"}, "id_feature")
+    return struct.pack("<3I", _int_in(d, "reg", 0, 65535, "id_feature"), _int_in(d, "mask", 1, 255, "id_feature"), _int_in(d, "value", 0, 255, "id_feature"))
+
+
+def _sec_report(lst, st):
+    if not 1 <= len(lst) <= REPORT_MAX:
+        raise DescError("report_reg: 1 to %d entries" % REPORT_MAX)
+    out = struct.pack("<I", len(lst))
+    for r in lst:
+        _only(r, {"name", "reg", "bytes"}, "report_reg")
+        by = _int_in(r, "bytes", 1, 4, "report_reg")
+        if by == 3:
+            raise DescError("report_reg: bytes is 1, 2 or 4")
+        out += struct.pack("<3I", st.add(_need(r, "name", str, "report_reg")), _int_in(r, "reg", 0, 65535, "report_reg"), by)
+    return out
+
+
+def _byte_list(v, n_lo, n_hi, what, k):
+    if not isinstance(v, list) or not n_lo <= len(v) <= n_hi or not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in v):
+        raise DescError("%s: %r is %s numbers 0 .. 255" % (what, k, ("%d to %d" % (n_lo, n_hi)) if n_lo != n_hi else str(n_lo)))
+    return bytes(v) + bytes(-len(v) % 4)
+
+
+def _sec_rawkeys(r):
+    _only(r, {"reg", "hid", "mod", "caps_usage", "caps_code", "held"}, "rawkeys")
+    held = _opt(r, "held", bool, "rawkeys", False)
+    usage = _int_in(r, "caps_usage", 0, 255, "rawkeys")
+    if held:       # the core's code reads the keys that are down (CoreHooks::rawkeys_held); no key queue, no tables
+        if any(k in r for k in ("reg", "hid", "mod", "caps_code")):
+            raise DescError("rawkeys: held has no reg, hid, mod or caps_code")
+        return struct.pack("<6I", 1, 0, usage, 0, 0, 0)
+    hid = _byte_list(r.get("hid"), 1, 255, "rawkeys", "hid")
+    mod = _byte_list(r.get("mod"), RAWKEY_MODS, RAWKEY_MODS, "rawkeys", "mod")
+    return struct.pack("<6I", 0, _int_in(r, "reg", 0, 65535, "rawkeys"), usage, _int_in(r, "caps_code", 0, 255, "rawkeys"), len(r["hid"]), RAWKEY_MODS) + hid + mod
+
+
+def _sec_romset(r, st):
+    _only(r, {k for k, _ in ROMSET_FIELDS} | {"sizes", "version", "pick"}, "romset")
+    sizes = _need(r, "sizes", list, "romset")
+    if not 1 <= len(sizes) <= ROMSET_SIZES_ or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x < 2 ** 32 for x in sizes):
+        raise DescError("romset: 1 to %d sizes in bytes" % ROMSET_SIZES_)
+    if not 1 <= r.get("max", 0) <= ROMSET_MAX_:
+        raise DescError("romset: max is 1 to %d" % ROMSET_MAX_)
+    flags = (1 if _opt(r, "version", bool, "romset", False) else 0) | (2 if _opt(r, "pick", bool, "romset", False) else 0)
+    return struct.pack("<I%dI" % ROMSET_SIZES_, flags, *(sizes + [0] * (ROMSET_SIZES_ - len(sizes)))) + struct.pack("<%dI" % len(ROMSET_FIELDS), *_field_words(r, ROMSET_FIELDS, "romset", st))
+
+
+def _sec_replace(items, st):
+    out = struct.pack("<I", len(items))
+    for idx, txt in items:
+        out += struct.pack("<2I", idx, st.add(txt))
+    return out
+
+
+# ---- the key table and the register windows (T239.3 base 3.3) --------------------------------------------------------------
+# Sections 18 and 19. They belong to two different files of a core (the key table to its UI TOML menu.toml, the windows to its API TOML desc.toml), so they need no [core]:
+# a record that has only these is a menu record of version 6 whose sections are these. Both are checked here and in descrec.cc by the same rules.
+#
+# key rows   u32 count (1 .. KEYS_MAX), then per row 9 words: layout (string, none), node (string, none) - exactly one of them -, lo, hi (both 0xFFFFFFFF: every key; else 0 <= lo <= hi
+#            <= 0x1FF), do (0 op, 1 decline, 2 swallow), op (string, none; present exactly for do = 0), value (the operation's argument, 32 bit two's complement; 0 unless flags bit 0),
+#            flags (menuintent.h KF_ARG 1, KF_KEYARG 2, KF_STATUS 4, KF_STATUS_OK 8, KF_CLOSE 32, KF_DIRECTIVE 64, KF_DIRECT 128; none for a decline or a swallow), when (string, none)
+# windows    u32 count (1 .. WINDOWS_MAX), then per window 3 words: name (string), address, size (bytes)
+#
+# The rows are tried in the order of the record, where the generic rows of the monitor and Timewarp stood (menukeytab.cc, stage KS_CORE); layout names the layout of the shown
+# tab (menuctl.cc layout_is), node the id of the shown tab.
+KEYS_MAX = 64
+WINDOWS_MAX = 32
+WINDOW_SIZE_MAX = 0x100000             # a block of the I/O space is at most 1 MiB
+KEY_FLAGS = {"pass_key": 2, "status": 4, "status_ok": 8, "close": 32, "directive": 64, "direct": 128}      # menuintent.h KF_*; `value` is KF_ARG (1)
+KF_ARG = 1
+KEY_KEYS = {"layout", "node", "key", "codes", "do", "op", "value", "when"} | set(KEY_FLAGS)
+KEY_DO = ("op", "decline", "swallow")
+KEY_ANY = 0xFFFFFFFF
+KEY_CODE_MAX = 0x1FF
+# The names of the keys: host-app/software/io/c64/keyboard.h (tools/test_descrec.py reads that file and compares). `ctrl+<letter>` only for the letters the keyboard delivers.
+KEY_NAMES = {"up": 0x91, "down": 0x12, "left": 0x9D, "right": 0x1D, "return": 0x0D, "esc": 0x1B, "del": 0x08, "runstop": 0x11, "space": 0x20, "home": 0x13, "pgup": 0x92, "pgdn": 0x95,
+             "tab": 0x09, "f1": 0x85, "f2": 0x89, "f3": 0x86, "f4": 0x8A, "f5": 0x87, "f6": 0x8B, "f7": 0x88, "f8": 0x8C, "f10": 0x8E, "scrlock": 0xA3, "menu": 0x1FE}
+KEY_CTRL = {"a": 0x01, "b": 0x02, "c": 0x03, "d": 0x04, "e": 0x05, "i": 0x09, "j": 0x0A, "k": 0x0B, "l": 0x0C, "n": 0x0E, "o": 0x0F, "p": 0x10, "r": 0xBA, "v": 0x16, "z": 0x1A}
+BASEREG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "src", "basereg.def")
+_BASEREG = []
+
+
+def base_registers():
+    """The registers the base drives itself: [(name, address, bytes, code reference)], read from coreapp/src/basereg.def (the table descrec.cc includes)."""
+    if not _BASEREG:
+        with open(BASEREG_FILE) as f:
+            lines = f.read().splitlines()
+        for line in lines:
+            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
+            if m:
+                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3)), m.group(4)))
+        if not _BASEREG:
+            raise DescError("%s: no register of the base is listed" % BASEREG_FILE)
+    return list(_BASEREG)
+
+
+def window_conflict(address, size):
+    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none."""
+    for reg in base_registers():
+        if address < reg[1] + reg[2] and reg[1] < address + size:
+            return reg
+    return None
+
+
+def _key_code(name, what):
+    if not isinstance(name, str) or not name:
+        raise DescError("%s: key is a name or one printable character" % what)
+    if name in KEY_NAMES:
+        return KEY_NAMES[name]
+    if name.startswith("ctrl+"):
+        if name[5:] not in KEY_CTRL:
+            raise DescError("%s: key %r - ctrl+ takes one of the letters %s" % (what, name, ", ".join(sorted(KEY_CTRL))))
+        return KEY_CTRL[name[5:]]
+    if len(name) == 1 and 0x21 <= ord(name) <= 0x7E:
+        return ord(name)
+    raise DescError("%s: key %r is not a key name (%s, ctrl+<letter>), \"any\" or one printable character" % (what, name, ", ".join(KEY_NAMES)))
+
+
+def _key_name(code):
+    """The TOML key that makes this code (the reader's answer, so that decoding and compiling again gives the same bytes)."""
+    for n, c in KEY_NAMES.items():
+        if c == code:
+            return {"key": n}
+    for n, c in KEY_CTRL.items():
+        if c == code:
+            return {"key": "ctrl+" + n}
+    if 0x21 <= code <= 0x7E:
+        return {"key": chr(code)}
+    return {"codes": [code, code]}
+
+
+def _row_checks(layout, node, lo, hi, do, op, value, flags, when, what):
+    """The rules both readers hold a key row to (descrec.cc parse_sections, id 18)."""
+    if (layout is None) == (node is None):
+        raise DescError("%s: exactly one of layout and node" % what)
+    if layout is not None and not re.fullmatch(r"[a-z0-9_]{1,23}", layout):
+        raise DescError("%s: layout %r is a layout name (a-z, 0-9, _, at most 23)" % (what, layout))
+    if node is not None and not re.fullmatch(r"[a-z0-9_]{1,31}", node):
+        raise DescError("%s: node %r is a tab id (a-z, 0-9, _, at most 31)" % (what, node))
+    if not ((lo == KEY_ANY and hi == KEY_ANY) or (lo <= hi <= KEY_CODE_MAX)):
+        raise DescError("%s: the keys are every key or a range of codes 0 .. %d" % (what, KEY_CODE_MAX))
+    if do > 2 or flags & ~(KF_ARG | 2 | 4 | 8 | 32 | 64 | 128) or (flags & KF_ARG and flags & 2):
+        raise DescError("%s: an unknown action or flag, or both value and pass_key" % what)
+    if (do == 0) != (op is not None) or (op is not None and not op) or (not flags & KF_ARG and value) or (do and flags):
+        raise DescError("%s: an op row has an operation and the flags for it; a decline or a swallow has neither" % what)
+    if when is not None:
+        name = when[1:] if when.startswith("!") else when
+        if not name or name.startswith("!"):
+            raise DescError("%s: when is a state name, \"!\" in front of it for none" % what)
+
+
+def _sec_keys(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= KEYS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("key: 1 to %d rows, each a table" % KEYS_MAX)
+    out = [struct.pack("<I", len(rows))]
+    for i, r in enumerate(rows):
+        what = "key row %d" % (i + 1)
+        _only(r, KEY_KEYS, what)
+        layout = _opt(r, "layout", str, what, None)
+        node = _opt(r, "node", str, what, None)
+        if ("key" in r) == ("codes" in r):
+            raise DescError("%s: exactly one of key and codes" % what)
+        if "key" in r:
+            k = _need(r, "key", str, what)
+            lo = hi = KEY_ANY if k == "any" else _key_code(k, what)
+        else:
+            c = _need(r, "codes", list, what)
+            if len(c) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= KEY_CODE_MAX for x in c) or c[0] > c[1]:
+                raise DescError("%s: codes = [lo, hi], 0 .. %d, lo not above hi" % (what, KEY_CODE_MAX))
+            lo, hi = c
+        op = _opt(r, "op", str, what, None)
+        do = _opt(r, "do", str, what, "op" if op is not None else None)
+        if do is None:
+            raise DescError("%s: do is op, decline or swallow (op alone means do = \"op\")" % what)
+        if do not in KEY_DO:
+            raise DescError("%s: do %r (one of %s)" % (what, do, ", ".join(KEY_DO)))
+        flags = 0
+        value = 0
+        if "value" in r:
+            value = _need(r, "value", int, what)
+            if not -2 ** 31 <= value < 2 ** 31:
+                raise DescError("%s: value does not fit 32 bits" % what)
+            flags |= KF_ARG
+        for k, bit in KEY_FLAGS.items():
+            if _opt(r, k, bool, what, False):
+                flags |= bit
+        when = _opt(r, "when", str, what, None)
+        _row_checks(layout, node, lo, hi, KEY_DO.index(do), op, value & 0xFFFFFFFF, flags, when, what)
+        out.append(struct.pack("<9I", st.add(layout), st.add(node), lo, hi, KEY_DO.index(do), st.add(op), value & 0xFFFFFFFF, flags, st.add(when)))
+    return b"".join(out)
+
+
+def _window_check(name, address, size, what):
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,31}", name):
+        raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
+    if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
+        raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
+    reg = window_conflict(address, size)
+    if reg:
+        raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"
+                        % (what, name, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
+
+
+def _sec_windows(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= WINDOWS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("window: 1 to %d entries, each a table" % WINDOWS_MAX)
+    out, names = [struct.pack("<I", len(rows))], set()
+    for i, r in enumerate(rows):
+        what = "window %d" % (i + 1)
+        _only(r, {"name", "address", "size"}, what)
+        name = _need(r, "name", str, what)
+        address = _need(r, "address", int, what)
+        size = _need(r, "size", int, what)
+        if not 0 <= address < 2 ** 32:
+            raise DescError("%s (%s): address is a 32 bit number" % (what, name))
+        _window_check(name, address, size, what)
+        if name in names:
+            raise DescError("%s: the name %r twice" % (what, name))
+        names.add(name)
+        out.append(struct.pack("<3I", st.add(name), address, size))
+    return b"".join(out)
+
+
+def _sections(doc, setbinds, st, replaces=()):
+    """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
+    secs = []
+    if "core" in doc:
+        secs.append((SEC_CORE, _sec_core(_need(doc, "core", dict, "description"), st)))
+    elif any(k in doc for k in SEC_KEYS) or setbinds or replaces:
+        raise DescError("a record with a core's data sections needs [core] (its identity)")
+    if "video" in doc or "freeze" in doc:
+        secs.append((SEC_VIDEO, _sec_video(_need(doc, "video", dict, "description"), _need(doc, "freeze", dict, "description"), st)))
+    if "rom" in doc:
+        secs.append((SEC_ROMS, _sec_roms(_need(doc, "rom", list, "description"), st)))
+    if setbinds:
+        if len(setbinds) > SETBIND_MAX:
+            raise DescError("%d settings are register bits; the application takes %d" % (len(setbinds), SETBIND_MAX))
+        secs.append((SEC_SETBIND, _sec_setbind(setbinds)))
+    if "hotkeys" in doc:
+        secs.append((SEC_HOTKEYS, _sec_hotkeys(_need(doc, "hotkeys", dict, "description"), st)))
+    if "mount" in doc:
+        secs.append((SEC_MOUNT, _sec_mount(_need(doc, "mount", dict, "description"), st)))
+    if "reset_write" in doc:
+        secs.append((SEC_RESETW, _sec_resetw(_need(doc, "reset_write", list, "description"))))
+    if "id_feature" in doc:
+        secs.append((SEC_IDFEAT, _sec_idfeat(_need(doc, "id_feature", dict, "description"))))
+    if "report_reg" in doc:
+        secs.append((SEC_REPORT, _sec_report(_need(doc, "report_reg", list, "description"), st)))
+    if "rawkeys" in doc:
+        secs.append((SEC_RAWKEYS, _sec_rawkeys(_need(doc, "rawkeys", dict, "description"))))
+    if "alt_video" in doc:
+        w = _video_words(_need(doc, "alt_video", dict, "description"), "alt_video")
+        secs.append((SEC_ALTVIDEO, struct.pack("<%dI" % len(w), *w)))
+    if "fbwin" in doc:
+        secs.append((SEC_FBWIN, _sec_fields(_need(doc, "fbwin", dict, "description"), FBWIN_FIELDS, "fbwin", st)))
+    if "mouse" in doc:
+        secs.append((SEC_MOUSE, _sec_fields(_need(doc, "mouse", dict, "description"), MOUSE_FIELDS, "mouse", st)))
+    if "romset" in doc:
+        secs.append((SEC_ROMSET, _sec_romset(_need(doc, "romset", dict, "description"), st)))
+    if "window_media" in doc:
+        w = _need(doc, "window_media", dict, "description")
+        _int_in(w, "nslots", 1, 4, "window_media")
+        _int_in(w, "ntracks", 1, 160, "window_media")
+        secs.append((SEC_WINMEDIA, _sec_fields(w, WINMEDIA_FIELDS, "window_media", st)))
+    if "sector_media" in doc:
+        w = _need(doc, "sector_media", dict, "description")
+        _int_in(w, "nunits", 1, 2, "sector_media")
+        secs.append((SEC_SECMEDIA, _sec_fields(w, SECMEDIA_FIELDS, "sector_media", st)))
+    if replaces:
+        secs.append((SEC_REPLACE, _sec_replace(replaces, st)))
+    if "key" in doc:
+        secs.append((SEC_KEYROWS, _sec_keys(doc["key"], st)))
+    if "window" in doc:
+        secs.append((SEC_WINDOWS, _sec_windows(doc["window"], st)))
+    return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
+
+
+def _parse_sections(blob, off, size, s, ncset, out):
+    """The sections of a version 6 record, decoded into the TOML shape (out gets the keys of SEC_KEYS and `reg_bind` on the core settings)."""
+    pos, end, seen = off, off + size, set()
+    while pos < end:
+        if end - pos < 8:
+            raise DescError("description record: a section header is cut off")
+        sid, ln = struct.unpack_from("<II", blob, pos)
+        if sid not in SEC_NAMES:
+            raise DescError("description record, section %d: this reader does not know it" % sid)
+        what = "description record, section %s" % SEC_NAMES[sid]
+        if sid in seen or ln % 4 or pos + 8 + ln > end:
+            raise DescError("%s: twice, not a multiple of 4, or longer than the record" % what)
+        seen.add(sid)
+        p = blob[pos + 8:pos + 8 + ln]
+        pos += 8 + ln
+
+        def words(n, at=0):
+            if len(p) < at + 4 * n:
+                raise DescError("%s: too short" % what)
+            return struct.unpack_from("<%dI" % n, p, at)
+
+        def S(o, req=False):
+            v = s(o)
+            if req and not v:
+                raise DescError("%s: a text is missing" % what)
+            return v
+        if sid == SEC_CORE:
+            w = words(18)
+            if len(p) != 72:
+                raise DescError("%s: %d bytes, 72 expected" % (what, len(p)))
+            c = {"id": struct.pack("<I", w[0]).decode("ascii", "replace")}
+            for k, o in zip(CORE_REQ, w[1:6]):
+                c[k] = S(o, True)
+            c["min_contract"], c["reset_ms"] = w[6], w[7]
+            if w[6] > 255 or w[7] > 65535 or w[9] > 60000 or w[16] > 65535:
+                raise DescError("%s: a number is out of range" % what)
+            if w[8] != NONE:
+                c["service_op"] = S(w[8], True)
+            c["service_period_ms"] = w[9]
+            if w[10] >> len(CORE_FLAGS) or (w[8] == NONE) != (w[9] == 0):
+                raise DescError("%s: unknown flags, or the service operation and its period disagree" % what)
+            for i, k in enumerate(CORE_FLAGS):
+                c[k] = bool(w[10] >> i & 1)
+            for k, o in zip(("needs_program", "program_ext", "type_op", "run_op", "core_id"), w[11:16]):
+                if o != NONE:
+                    c[k] = S(o, True)
+            c["live_ms"] = w[16]
+            if w[17] != NONE:
+                caps = S(w[17], True).split(",")
+                if not all(re.fullmatch(CAP_RE, x) for x in caps) or len(caps) > CAPS_MAX:
+                    raise DescError("%s: a capability name is not one, or there are more than %d" % (what, CAPS_MAX))
+                c["caps"] = caps
+            out["core"] = c
+        elif sid == SEC_VIDEO:
+            if len(p) != 4 * (len(VIDEO_INTS) + 4):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            w = words(len(VIDEO_INTS) + 4)
+            v = dict(zip(VIDEO_INTS, w))
+            for k in ("x0", "y0"):
+                v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
+            if not _scale_ok(v, True) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
+                raise DescError("%s: a value is out of range" % what)
+            out["video"] = v
+            out["freeze"] = {"reg_status": w[-4], "mask": w[-3], "timeout_ms": w[-2], "word": bool(w[-1])}
+        elif sid == SEC_ROMS:
+            n, = words(1)
+            if not 1 <= n <= ROMS_MAX or len(p) != 4 + n * 4 * (3 + ROM_SIZES_MAX + ROM_NAMES_MAX):
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            roms = []
+            for i in range(n):
+                w = words(3 + ROM_SIZES_MAX + ROM_NAMES_MAX, 4 + i * 4 * (3 + ROM_SIZES_MAX + ROM_NAMES_MAX))
+                sizes = [x for x in w[3:3 + ROM_SIZES_MAX] if x]
+                nw = w[3 + ROM_SIZES_MAX:]
+                if NONE in nw[:sum(x != NONE for x in nw)]:
+                    raise DescError("%s: entry %d has a name behind a gap" % (what, i))
+                names = [S(x, True) for x in nw if x != NONE]
+                if w[2] & ~0xFF07 or not sizes or not names or w[3 + len(sizes):3 + ROM_SIZES_MAX] != (0,) * (ROM_SIZES_MAX - len(sizes)):
+                    raise DescError("%s: entry %d has bad flags, sizes or names" % (what, i))
+                roms.append({"role": S(w[0], True), "put_op": S(w[1], True), "required": bool(w[2] & 1), "shared": bool(w[2] & 2), "check": bool(w[2] & 4), "set": w[2] >> 8, "sizes": sizes, "names": names})
+            out["rom"] = roms
+        elif sid == SEC_SETBIND:
+            n, = words(1)
+            at = 4
+            if not 1 <= n <= SETBIND_MAX:
+                raise DescError("%s: %d entries" % (what, n))
+            for _ in range(n):
+                idx, reg, shift, mask, nb = words(5, at)
+                at += 20
+                if idx >= ncset or reg > 65535 or shift > 7 or not 1 <= mask <= 255 or nb > SETBIND_BYTES_MAX or len(p) < at + nb + (-nb % 4) or (nb and nb != len(out["cset"][idx]["values"])) \
+                        or out["cset"][idx]["when"] in ("text", "secret") or out["cset"][idx]["file"]:
+                    raise DescError("%s: an entry names no core setting, or has a bad register, shift, mask or bytes" % what)
+                by = list(p[at:at + nb])
+                at += nb + (-nb % 4)
+                d = {"reg": reg, "shift": shift, "mask": mask}
+                if by:
+                    d["bytes"] = by
+                if "reg_bind" in out["cset"][idx]:
+                    raise DescError("%s: setting %d twice" % (what, idx))
+                out["cset"][idx]["reg_bind"] = d
+            if at != len(p):
+                raise DescError("%s: the length does not fit its entries" % what)
+        elif sid == SEC_HOTKEYS:
+            if len(p) != 4 * (2 + HK_ACTIONS + 1 + HOTKEY_TASKS + 8):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            w = words(2 + HK_ACTIONS + 1 + HOTKEY_TASKS + 8)
+            nt = w[2 + HK_ACTIONS]
+            tk = w[3 + HK_ACTIONS:3 + HK_ACTIONS + HOTKEY_TASKS]
+            rest = w[3 + HK_ACTIONS + HOTKEY_TASKS:]
+            if nt > HOTKEY_TASKS or any(x > 64 and x != 255 for x in w[:2 + HK_ACTIONS] + tk) or rest[7] > 1:
+                raise DescError("%s: a key, the task count or the keyboard flag is out of range" % what)
+            mask = rest[2] | rest[3] << 32
+            h = {"mod": list(w[:2]), "actions": list(w[2:2 + HK_ACTIONS]), "own_keys": [i for i in range(64) if mask >> i & 1]}
+            if nt:
+                h["tasks"] = list(tk[:nt])
+            for k, o in (("vol_key", rest[0]), ("swap_key", rest[1])):
+                if o != NONE:
+                    h[k] = S(o, True)
+            if (rest[4] == NONE) != (rest[5] == NONE) or (rest[4] == NONE) != (rest[6] == NONE):
+                raise DescError("%s: the core's own hotkey is cut off" % what)
+            if rest[4] != NONE:
+                h["core_op"], h["core_key"], h["core_label"] = S(rest[4], True), S(rest[5], True), S(rest[6], True)
+            h["pc_keys"] = bool(rest[7])
+            out["hotkeys"] = h
+        elif sid == SEC_MOUNT:
+            n, = words(1)
+            if not 1 <= n <= MOUNT_NAMES_MAX or len(p) != 4 + 4 * n:
+                raise DescError("%s: %d slots, or the length does not fit them" % (what, n))
+            names = [S(x, True) for x in words(n, 4)]
+            if not all(1 <= len(x) <= 9 for x in names):
+                raise DescError("%s: a slot name is empty or longer than 9" % what)
+            out["mount"] = {"names": names}
+        elif sid == SEC_RESETW:
+            n, = words(1)
+            if not 1 <= n <= RESETW_MAX or len(p) != 4 + 8 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            out["reset_write"] = []
+            for i in range(n):
+                reg, val = words(2, 4 + 8 * i)
+                if reg > 65535 or val > 255:
+                    raise DescError("%s: entry %d is out of range" % (what, i))
+                out["reset_write"].append({"reg": reg, "value": val})
+        elif sid == SEC_IDFEAT:
+            if len(p) != 12:
+                raise DescError("%s: %d bytes, 12 expected" % (what, len(p)))
+            reg, mask, val = words(3)
+            if reg > 65535 or not 1 <= mask <= 255 or val > 255:
+                raise DescError("%s: a value is out of range" % what)
+            out["id_feature"] = {"reg": reg, "mask": mask, "value": val}
+        elif sid == SEC_REPORT:
+            n, = words(1)
+            if not 1 <= n <= REPORT_MAX or len(p) != 4 + 12 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            out["report_reg"] = []
+            for i in range(n):
+                nm, reg, by = words(3, 4 + 12 * i)
+                if not S(nm) or reg > 65535 or by not in (1, 2, 4):
+                    raise DescError("%s: entry %d has no name, or a bad register or width" % (what, i))
+                out["report_reg"].append({"name": S(nm), "reg": reg, "bytes": by})
+        elif sid == SEC_RAWKEYS:
+            flags, reg, usage, code, nh, nm = words(6)
+            if flags > 1 or reg > 65535 or usage > 255 or code > 255 or nh > 255 or len(p) != 24 + nh + (-nh % 4) + nm + (-nm % 4):
+                raise DescError("%s: a value is out of range, or the length does not fit the tables" % what)
+            if flags:
+                if reg or code or nh or nm:
+                    raise DescError("%s: a held-keys core has no tables" % what)
+                out["rawkeys"] = {"held": True, "caps_usage": usage}
+            else:
+                if not nh or nm != RAWKEY_MODS:
+                    raise DescError("%s: the key table is empty, or the modifier table is not %d long" % (what, RAWKEY_MODS))
+                out["rawkeys"] = {"reg": reg, "hid": list(p[24:24 + nh]), "mod": list(p[24 + nh + (-nh % 4):24 + nh + (-nh % 4) + nm]), "caps_usage": usage, "caps_code": code}
+        elif sid == SEC_ALTVIDEO:
+            if len(p) != 4 * len(VIDEO_INTS):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            v = dict(zip(VIDEO_INTS, words(len(VIDEO_INTS))))
+            for k in ("x0", "y0"):
+                v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
+            if not _scale_ok(v, False) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride", "h60")) > 65535:
+                raise DescError("%s: a value is out of range" % what)
+            out["alt_video"] = v
+        elif sid in (SEC_FBWIN, SEC_MOUSE, SEC_WINMEDIA, SEC_SECMEDIA):
+            key, fields = {SEC_FBWIN: ("fbwin", FBWIN_FIELDS), SEC_MOUSE: ("mouse", MOUSE_FIELDS), SEC_WINMEDIA: ("window_media", WINMEDIA_FIELDS),
+                           SEC_SECMEDIA: ("sector_media", SECMEDIA_FIELDS)}[sid]
+            if len(p) != 4 * len(fields):
+                raise DescError("%s: %d bytes, %d expected" % (what, len(p), 4 * len(fields)))
+            out[key] = _field_dict(words(len(fields)), fields, what, s)
+            if (key == "window_media" and not 1 <= out[key]["ntracks"] <= 160) or (key == "window_media" and not 1 <= out[key]["nslots"] <= 4) or \
+               (key == "sector_media" and not 1 <= out[key]["nunits"] <= 2):
+                raise DescError("%s: a count is out of range" % what)
+        elif sid == SEC_ROMSET:
+            if len(p) != 4 * (1 + ROMSET_SIZES_ + len(ROMSET_FIELDS)):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            w = words(1 + ROMSET_SIZES_ + len(ROMSET_FIELDS))
+            sizes = [x for x in w[1:1 + ROMSET_SIZES_] if x]
+            d = _field_dict(w[1 + ROMSET_SIZES_:], ROMSET_FIELDS, what, s)
+            if w[0] > 3 or not sizes or w[1 + len(sizes):1 + ROMSET_SIZES_] != (0,) * (ROMSET_SIZES_ - len(sizes)) or not 1 <= d["max"] <= ROMSET_MAX_:
+                raise DescError("%s: flags, sizes or the count are out of range" % what)
+            d["sizes"] = sizes
+            d["version"], d["pick"] = bool(w[0] & 1), bool(w[0] & 2)
+            out["romset"] = d
+        elif sid == SEC_REPLACE:
+            n, = words(1)
+            if not 1 <= n <= len(out["media"]) or len(p) != 4 + 8 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            last = -1
+            for i in range(n):
+                idx, o = words(2, 4 + 8 * i)
+                if idx <= last or idx >= len(out["media"]) or not S(o):
+                    raise DescError("%s: entry %d names no media slot (in order), or has no text" % (what, i))
+                last = idx
+                out["media"][idx]["replace"] = S(o)
+        elif sid == SEC_KEYROWS:
+            n, = words(1)
+            if not 1 <= n <= KEYS_MAX or len(p) != 4 + 36 * n:
+                raise DescError("%s: %d rows, or the length does not fit them" % (what, n))
+            rows = []
+            for i in range(n):
+                lay, node, lo, hi, do, op, val, fl, wh = words(9, 4 + 36 * i)
+                rwhat = "%s, row %d" % (what, i + 1)
+                if lay != NONE and not S(lay):
+                    raise DescError("%s: an empty layout" % rwhat)
+                if node != NONE and not S(node):
+                    raise DescError("%s: an empty node" % rwhat)
+                if op != NONE and not S(op):
+                    raise DescError("%s: an empty operation" % rwhat)
+                if wh != NONE and not S(wh):
+                    raise DescError("%s: an empty condition" % rwhat)
+                try:
+                    _row_checks(S(lay), S(node), lo, hi, do, S(op), val, fl, S(wh), rwhat)
+                except DescError as e:
+                    raise DescError("%s (%s)" % (rwhat, e))
+                row = {}
+                if lay != NONE:
+                    row["layout"] = S(lay)
+                else:
+                    row["node"] = S(node)
+                if lo == KEY_ANY:
+                    row["key"] = "any"
+                elif lo == hi:
+                    row.update(_key_name(lo))
+                else:
+                    row["codes"] = [lo, hi]
+                row["do"] = KEY_DO[do]
+                if op != NONE:
+                    row["op"] = S(op)
+                if fl & KF_ARG:
+                    row["value"] = val - 2 ** 32 if val >= 2 ** 31 else val
+                for k, bit in KEY_FLAGS.items():
+                    if fl & bit:
+                        row[k] = True
+                if wh != NONE:
+                    row["when"] = S(wh)
+                rows.append(row)
+            out["key"] = rows
+        elif sid == SEC_WINDOWS:
+            n, = words(1)
+            if not 1 <= n <= WINDOWS_MAX or len(p) != 4 + 12 * n:
+                raise DescError("%s: %d windows, or the length does not fit them" % (what, n))
+            wins, names = [], set()
+            for i in range(n):
+                nm, addr, size = words(3, 4 + 12 * i)
+                _window_check(S(nm), addr, size, "%s, window %d" % (what, i + 1))
+                if S(nm) in names:
+                    raise DescError("%s: the name %r twice" % (what, S(nm)))
+                names.add(S(nm))
+                wins.append({"name": S(nm), "address": addr, "size": size})
+            out["window"] = wins
+    if SEC_CORE not in seen and any(i <= SEC_REPLACE for i in seen):
+        raise DescError("description record: the data sections have no core section")
+    rs = out.get("romset")
+    for c in out["cset"]:
+        if "reg_bind" not in c and c["apply"] is None:
+            # the third form: the rom set's choice (desc.h Setting::bind), whose values are the set's labels
+            if not rs or c["key"] != rs["choice_key"] or c["values"] != [rs["auto_label"]] + ["-"] * rs["max"]:
+                raise DescError("description record, section setting register bits: a core setting has neither an operation nor register bits, and is not the rom set's choice")
 
 
 # ---- the reader (the same checks as descrec.cc) ----------------------------------------------------------------------------
@@ -1071,8 +1983,8 @@ def parse_desc(blob):
     esz = dict(ESIZE)
     if ver < 4:
         esz["media"] = ESIZE_V3_MEDIA
-    hdr = HEADER_V5 if ver >= 5 else HEADER
-    if hsz != hdr or total != n or flags & ~3 or n < hdr:
+    hdr = HEADER_V6 if ver >= 6 else HEADER_V5 if ver >= 5 else HEADER
+    if hsz != hdr or total != n or flags & ~(7 if ver >= 6 else 3) or n < hdr or bool(flags & 4) != (ver >= 6):
         raise DescError("description record: header or length does not match")
     if so < hdr or so + ss > n or ss == 0:
         raise DescError("description record: string table outside the record")
@@ -1203,10 +2115,10 @@ def parse_desc(blob):
     out["task"] = []
     for label, op, fb, nb, fl, ask, ask_state, pick_label, group in tabs["task"]:
         hk = (fl >> 8) & 0xFF
-        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
-                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())):
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF07 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
+                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())) or (fl & 4 and (hk or fl & 2)):
             raise DescError("description record: a bad task")
-        out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
+        out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2), "job": bool(fl & 4),
                             "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else "", "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
     out["media"] = []
     for me in tabs["media"]:
@@ -1237,6 +2149,8 @@ def parse_desc(blob):
         base = base - 2 ** 32 if base >= 2 ** 31 else base
         show = s((when >> 8) - 1) if when >> 8 else None
         when &= 0xFF
+        file = bool(when & FILE_FLAG)                                 # T239.3 D17: a file the person selects (Setting::kind 3), live or reset like any other
+        when &= ~FILE_FLAG
         lock = None
         if when & 4:                                                  # the last value string is the state that locks the row (T228 R21)
             if nv < 1 or fv + nv > len(out["value"]):
@@ -1244,12 +2158,19 @@ def parse_desc(blob):
             lock = out["value"][fv + nv - 1]
             nv -= 1
             when &= 3
-        if not s(key) or not s(apply) or nv < (1 if when >= 2 else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3:
+        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "file": file})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
+    out["sections"] = False
+    if ver >= 6:
+        soff, ssize = struct.unpack_from("<II", blob, HEADER_V5)
+        if soff < so + ss or soff + ssize != n or ssize == 0:
+            raise DescError("description record: the sections lie outside the record")
+        _parse_sections(blob, soff, ssize, s, len(out["cset"]), out)
+        out["sections"] = "core" in out                              # the core's data sections; a record of the key table or the windows alone has none
     return out
 
 
@@ -1351,6 +2272,9 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
+    for k in SEC_KEYS + ("key", "window"):
+        if k in rec:
+            doc[k] = rec[k]
     if rec["task"]:
         doc["task"] = []
         for t in rec["task"]:
@@ -1362,6 +2286,8 @@ def decoded_to_doc(rec):
                     d[k] = t[k]
             if t["pick_dir"]:
                 d["pick_dir"] = True
+            if t.get("job"):
+                d["job"] = True
             if t.get("hotkey"):
                 d["hotkey"] = t["hotkey"]
             if t.get("show_state"):
@@ -1373,8 +2299,8 @@ def decoded_to_doc(rec):
             d = {"name": m["name"], "state": m["state"]}
             if m["group"] is not None:
                 d["group"] = m["group"]
-            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks"):
-                if m[k_] is not None:
+            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks", "replace"):
+                if m.get(k_) is not None:
                     d[k_] = m[k_]
             if m["eject_closes"]:
                 d["eject_closes"] = True
@@ -1416,8 +2342,17 @@ def decoded_to_doc(rec):
     if rec["cset"]:
         doc["core_setting"] = []
         for c in rec["cset"]:
-            d = {"key": c["key"], "values": c["values"], "default": c["default"], "when": c["when"], "apply": c["apply"], "base": c["base"]}
-            if c["when"] in ("text", "secret"):          # a text the person types: values[0] is its default (a blank stands for none), base its longest length, values[1] what an empty text shows
+            d = {"key": c["key"], "values": c["values"], "default": c["default"], "when": c["when"], "base": c["base"]}
+            if c["apply"] is not None:
+                d["apply"] = c["apply"]
+            elif not c.get("reg_bind"):                  # the rom set's choice: its values are the set's labels, the compiler makes them again
+                d["romset_choice"] = True
+                del d["values"], d["base"]
+            if c.get("reg_bind"):
+                d["reg_bind"] = dict(c["reg_bind"])
+            if c.get("file"):                            # a file the person selects: no values of its own (the record's one value is a blank), no default, no base
+                d = {"key": c["key"], "apply": c["apply"], "file": True, "when": c["when"]}
+            elif c["when"] in ("text", "secret"):          # a text the person types: values[0] is its default (a blank stands for none), base its longest length, values[1] what an empty text shows
                 d = {"key": c["key"], "apply": c["apply"], "default": c["values"][0].strip(), "maxlen": c["base"]}
                 d["secret" if c["when"] == "secret" else "text"] = True
                 if len(c["values"]) > 1:
@@ -1448,8 +2383,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad or restart"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table or windows"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))
@@ -1581,6 +2516,22 @@ def check_ops(rec, ops, states):
         if name and "$slot" not in name and name not in states:
             bad.append('%s: "%s" reads state "%s", which the application does not export' % (what, label, name))
 
+    for i, kr in enumerate(rec.get("key") or []):                    # base 3.3: the operation of a key row takes `value` or `key` as its one int argument, or none
+        if kr["do"] != "op":
+            pass
+        elif "$slot" in kr["op"]:
+            continue
+        elif kr["op"] not in ops:
+            bad.append('key row %d: operation "%s" is not exported by the application' % (i + 1, kr["op"]))
+        else:
+            args = ops[kr["op"]]
+            want = ["value"] if "value" in kr else ["key"] if kr.get("pass_key") else []
+            if [a["name"] for a in args] != want or any(a["type"] not in ("int", "enum", "bool") for a in args):
+                bad.append('key row %d: operation "%s" takes (%s), the row gives (%s)' % (i + 1, kr["op"], ", ".join(a["name"] for a in args), ", ".join(want)))
+            elif "value" in kr and not args[0]["lo"] <= kr["value"] <= args[0]["hi"]:
+                bad.append('key row %d: value %d is outside %d .. %d of "%s"' % (i + 1, kr["value"], args[0]["lo"], args[0]["hi"], kr["op"]))
+        if kr.get("when"):
+            state_ok("key row %d" % (i + 1), kr.get("op") or kr["do"], kr["when"].lstrip("!").split()[0])
     for tk in rec["task"]:
         add(_bind_problem(ops, "task", tk["label"], tk["op"], tk["bind"], False, False, bool(tk["ask"])))
         if tk["ask"]:
@@ -1603,7 +2554,8 @@ def check_ops(rec, ops, states):
         for a in ft["inner"]:
             add(_bind_problem(ops, "filetype %s inner" % ft["ext"], a["label"], a["op"], a["bind"], True, False, False))
     for cs in rec["cset"]:
-        add(_setting_problem(ops, "core_setting", cs["key"], cs["apply"], len(cs["values"]), cs["base"]))
+        if cs["apply"] is not None:                                  # a setting that is register bits (reg_bind) calls no operation
+            add(_setting_problem(ops, "core_setting", cs["key"], cs["apply"], len(cs["values"]), cs["base"]))
     for n in rec["node"]:
         ui = _ui_table(n.get("ui"), UI_NODE_KEYS)
         if n["kind"] == NODE_KINDS["op"]:
@@ -1630,6 +2582,37 @@ def check_ops(rec, ops, states):
         if a is None or a:
             bad.append('poll: "%s" is not an exported operation without arguments' % rec["poll"]["op"])
     return bad
+
+
+def merge_docs(docs):
+    """One document of several: `docs` is a list of (file name, parsed TOML dict). A top-level table or key that two files both have is refused with both names
+    (T239.3 base 3.3: a core's menu.toml and desc.toml are one record 6; each file has what the other has not)."""
+    out, owner = {}, {}
+    for name, doc in docs:
+        for k, v in doc.items():
+            if k in out:
+                raise DescError("%s and %s both define %r; a table or key is in one file only" % (owner[k], name, k))
+            out[k] = v
+            owner[k] = name
+    return out
+
+
+def compile_files(files, ops_text=None):
+    """The record of one or more TOML files ((name, text) pairs): the files are read one by one and merged (merge_docs), then compiled as one. Errors of a
+    file's own syntax name the file; a table in two files names both."""
+    docs = []
+    for name, text in files:
+        try:
+            docs.append((name, toml_loads(text)))
+        except DescError as e:
+            raise DescError("%s: %s" % (name, e))
+    blob = compile_desc(merge_docs(docs)) if len(docs) > 1 else compile_desc(docs[0][1])
+    if ops_text is not None:
+        ops, states = load_ops(ops_text)
+        bad = check_ops(parse_desc(blob), ops, states)
+        if bad:
+            raise DescError("%s: %d problem(s) against the application's operations:\n  %s" % (" + ".join(n for n, _ in files), len(bad), "\n  ".join(bad)))
+    return blob
 
 
 def compile_checked(text, ops_text=None, *, what="description"):

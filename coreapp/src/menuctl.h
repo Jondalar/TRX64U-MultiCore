@@ -240,6 +240,8 @@ private:
     void set_status(const char *s, bool bad);
     bool stage_on(int stage) const;                                // the stage of the key table is live now
     bool resolve_from(int k, int stage, int from, MenuIntent *out) const;
+    int core_row_next(int k, int from) const;                      // the next row of the core's key table (descrec.h section 18) for the shown tab and this key, -1 when none
+    const KeyRow *row_at(int idx) const;                           // a row of the key table by its number in an intent: menukeytab.cc's, then the core's
     Result run_intent(const MenuIntent &in, bool *took);
     Result run_row_op(const KeyRow &row, int k, bool *took);
     void begin_search_edit();

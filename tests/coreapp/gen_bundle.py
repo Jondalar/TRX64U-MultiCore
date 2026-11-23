@@ -6,8 +6,11 @@ board are tested against what the tools write (T104.1 D9, D12).
                               of before), large.cor (a large core with the description), other.cor (another core's name),
                               merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
-                              nofiles.cor (the same core without record 8)
+                              nofiles.cor (the same core without record 8), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
+                              data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
+                              desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks)
 """
+import glob
 import os
 import struct
 import sys
@@ -49,6 +52,8 @@ def main(out):
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
     # the menu of TRX64U as menu.toml compiles (T104.2 D10): the record with the core's own tables
     open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
+    # base 3.3: a key table, register windows and job tasks (tests/coreapp/test_deckeys.cc)
+    open(os.path.join(out, "desc_keys.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_keys.toml")).read()))
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")
@@ -71,6 +76,22 @@ def main(out):
     files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
     open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
     open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
+    # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them
+    app = os.path.join(out, "app")
+    os.makedirs(app, exist_ok=True)
+    lines = []
+    for toml in sorted(glob.glob(os.path.join(here, "..", "..", "cores", "*", "app", "desc.toml"))):
+        cid = os.path.basename(os.path.dirname(os.path.dirname(toml)))
+        blob = descrec.compile_text(open(toml).read())
+        name = descrec.parse_desc(blob)["core"]["name"]
+        open(os.path.join(app, cid + ".bin"), "wb").write(blob)
+        open(os.path.join(app, cid + ".cor"), "wb").write(C.pack(name=name, desc=blob, **kw))
+        open(os.path.join(app, cid + "_old.cor"), "wb").write(C.pack(name=name, **kw))
+        lines.append("%s %s\n" % (cid, name))
+    open(os.path.join(app, "index.txt"), "w").write("".join(lines))
+    # T239.3 D17 part 2: the tables of sections 7 .. 17 (tests/coreapp/test_descsec.cc): the Amiga 1200's, and what no descriptor has together
+    for n in ("desc_sections", "desc_sections_extra"):
+        open(os.path.join(out, n + ".bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, n + ".toml")).read()))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,60 @@
+# T239.3 base 3.3: the fixture of tests/coreapp/test_deckeys.cc - a key table (every field of a row), register windows (granted ones, next to the base's own registers) and a job task.
+# Compiled by tools/descrec.py (tests/coreapp/gen_bundle.py), read back by descrec.cc: the two readers hold the same rules.
+key = [
+  { layout = "terminal", key = "f10", do = "decline" },
+  { layout = "terminal", key = "runstop", do = "decline", when = "!mon.wants_stop" },
+  { layout = "terminal", key = "any", op = "mon.key", pass_key = true, directive = true, direct = true },
+  { layout = "timeline", key = "left", op = "tw.step", value = -1, status = true },
+  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true },
+  { layout = "timeline", key = "esc", op = "tw.cancel", close = true },
+  { layout = "timeline", key = "return", op = "tw.resume", status_ok = true, close = true },
+  { layout = "timeline", codes = [32, 126], do = "swallow" },
+  { node = "scope", key = "x", op = "tw.step", value = 7 },
+  { node = "scope", key = "menu", do = "swallow", when = "tw.on" },
+]
+
+# the U64 block (0xA0000400) is the base's in part: +0x01 power, +0x02 RESTORE, +0x04 the HDMI PLL reset, +0x06, +0x0A, +0x0B the keyboard scan, +0x0E the case LED select. The runs below are the
+# ones a core may write: +0x05 and +0x08/+0x09 and +0x0D, and the speaker enable of the U2P block (0xA000000C, next to the I2C pins 0xA0000008/9 and the hub reset 0xA000000D).
+[[window]]
+name = "audio_mixer"
+address = 0xA0000500
+size = 0x14
+
+[[window]]
+name = "u64_userport"
+address = 0xA0000405
+size = 1
+
+[[window]]
+name = "u64_hdmi_connectors"
+address = 0xA0000408
+size = 2
+
+[[window]]
+name = "speaker_enable"
+address = 0xA000000C
+size = 1
+
+[[window]]
+name = "palette"
+address = 0xA0080800
+size = 0x400
+
+[[task]]
+group = "top"
+label = "Dump"
+op = "ring.dump"
+job = true
+
+[[task]]
+group = "top"
+label = "Save"
+op = "ring.save"
+ask = "Name"
+bind = [ { arg = "name", text = true } ]
+job = true
+
+[[task]]
+group = "top"
+label = "Plain"
+op = "ring.plain"

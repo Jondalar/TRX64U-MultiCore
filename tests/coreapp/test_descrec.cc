@@ -107,8 +107,10 @@ int main(int argc, char **argv)
     {
         Bytes b = good; b[0] ^= 1;
         CHECK(parse(b, d, why) != 0 && strstr(why, "magic"));
-        b = good; b[4] = 6;                                         // 5 is the current layout (T228 R10: the pad), 4 (T228: wider media slot, machine info), 3 and 2 are read
-        CHECK(parse(b, d, why) != 0 && strstr(why, "version 6"));
+        b = good; b[4] = 7;                                         // 6 is the current layout (T239.3 D17: the data sections), 5 (T228 R10: the pad), 4 (T228: wider media slot, machine info), 3 and 2 are read
+        CHECK(parse(b, d, why) != 0 && strstr(why, "version 7"));
+        b = good; b[4] = 6;                                         // a version 6 record has the sections' place and their flag: a header of 176 is no version 6 header
+        CHECK(parse(b, d, why) != 0 && strstr(why, "header or the length"));
         b = good; b[4] = 5;                                         // a version 5 record has the pad's words: a header of 176 is no version 5 header
         CHECK(parse(b, d, why) != 0 && strstr(why, "header or the length"));
         b = good; b[4] = 1;                                         // the first layout (header 136) is not read any more

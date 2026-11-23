@@ -127,6 +127,9 @@ struct Task {
     char hotkey;
     // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
     const char *show_state;
+    // T239.3 base 3.3: a stepped operation (the node attribute `job`): the menu calls the operation again while it answers `more`, with the progress line (CoreCtx::job_pct) and a cancel
+    // (CoreCtx::job_cancel). Last, as show_state.
+    bool job;
 };
 
 struct FileAction {
@@ -361,6 +364,9 @@ struct CoreDesc {
     // T228 R17: "Restart core" clears cold_ram_bytes through the RAM window in its memory-only mode (CoreIo::ram_memonly: RAM under the I/O range too, as
     // trx64u's C64 needs). A core's menu record sets it ([restart] ram_only). Last in the record, so the positional initialisers stay as they are.
     bool cold_ram_only;
+    // T239.3 D17: the descriptor was made of a bundle's description record (descrec_core), not compiled in. Last in the record, so the positional initialisers stay as they are.
+    // While a descriptor is compiled in, the compiled-in one is the core: a record with data sections beside it changes nothing at run time (descrec_applies).
+    bool from_record;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

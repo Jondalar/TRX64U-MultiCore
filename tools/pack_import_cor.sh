@@ -4,7 +4,7 @@
 #   tools/pack_import_cor.sh --pin release/imports/<id>.pin --out dir [--app-bin coreapp.bin | (pin has APP_FILE)] [--bit <local file>]
 #                            [--app-file <local .app>] [--app-commit <sha>] [--manifest <local manifest.json>]
 #
-# A pin with DESC (the menu.toml) and OPS (the application's export) carries the core's menu as record 6 of the .cor, compiled and checked by tools/descrec.py.
+# A pin with DESC (the menu.toml, and the desc.toml after it, separated by a blank: one record 6) and OPS (the application's export) carries the core's menu as record 6 of the .cor, compiled and checked by tools/descrec.py.
 #
 # A pin without APP_FILE is packed with --app-bin (our generic application, trx64u); a pin with APP_FILE takes that .app of the same package
 # (Gideon's application, trx64g), SHA-256 checked against APP_SHA256, its 12-byte record header stripped.
@@ -85,8 +85,10 @@ fi
 cp "$BIT" "$W/${ID}_mono.bit"
 # the menu of a core of ours (T104.2 D10): record 6, every name and binding checked against what the application exports; a menu without the check is no menu
 rel() { case "$1" in /*) echo "$1";; *) echo "$ROOT/$1";; esac; }
-[ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$DESC")" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
+DESC_ARGS=()
+for f in $DESC; do [ -f "$(rel "$f")" ] || { echo "$PIN: DESC names $f, which does not exist" >&2; exit 2; }; DESC_ARGS+=(--desc "$(rel "$f")"); done
+[ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
 # the heap goes in only where the pin brings its own application; the run's application of a pin without APP_FILE gets it in ci/imports.py finish
 HEAP_ARG=""; [ -z "$APP_FILE" ] || HEAP_ARG="$HEAP"
-"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} ${HEAP_ARG:+--heap "$HEAP_ARG"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
+"$HERE/pack_large_cor.sh" ${DESC_ARGS[@]+"${DESC_ARGS[@]}"} ${OPS:+--ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} ${HEAP_ARG:+--heap "$HEAP_ARG"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
     --icon "$ROOT/$ICON" --bit-commit "${PKG_VERSION##*-}" ${APPC:+--app-commit "$APPC"} --out "$OUT"

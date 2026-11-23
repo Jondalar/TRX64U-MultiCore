@@ -42,7 +42,7 @@ ok_dir="${CI_APPTESTS_OK:-/cache/multicore/apptests-ok}"
 common=(coreapp uicore app host-app/software/hostapp host-app/software/io host-app/software/lvgl_port host-app/software/filesystem host-app/software/filemanager
         host-app/software/components host-app/software/infra host-app/software/system host-app/software/api host-app/software/network host-app/patches vendor/gideon/software tests/parallel.sh tests/ctlcache_selftest.sh
         tools/zx_snap.py tools/zx_asm.py tools/gen_xexboot.sh tools/64tass.sh tools/check_app_size.py tools/u2a_pack.py
-        tools/cor_pack.py tools/trx_pkg.py tools/test_cor_pack.py tools/txu_pack.py tools/pack_txu_mc.sh tools/descrec.py tools/exfat_check.py tools/gen_cfw_icons.py tests/lvgl_objs.sh tools/core_logos/firmware cores/c64u/logo tools/core_logos/trx64 cores/apple2/rtl/roms)
+        tools/cor_pack.py tools/trx_pkg.py tools/test_cor_pack.py tools/txu_pack.py tools/pack_txu_mc.sh tools/descrec.py tools/exfat_check.py tools/gen_cfw_icons.py tests/lvgl_objs.sh tools/core_logos/firmware cores/c64u/logo tools/core_logos/trx64 cores/apple2/rtl/roms 'cores/*/app/*' tools/pack_cores_mc.sh tools/pack_large_cor.sh tools/core_toml.py ci/version.sh cores/vc20/core.toml)
 # T174 D3: the core application tests are one suite per group (tests/coreapp/cores.txt, tests/coreapp/run.sh CA_GROUP): `coreapp` = the units that name no
 # core's files (shared), coreapp:<core> = the units of one core, coreapp:cross = the units that link several cores or read them at run time. A group is keyed
 # over the application tree WITHOUT the files of the cores it does not own, so a change to one core's files moves that core's suite and `cross`, no other.

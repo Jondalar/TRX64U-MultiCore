@@ -33,7 +33,8 @@ Hashes are SHA-256 over each part (integrity only, no signatures).
 
 OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, both announced by the manifest ("records": 1 and
 `desc_size`/`desc_sha256`, `libs_size`/`libs_sha256`). A bundle without them is byte for byte what this tool wrote before they existed.
-  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h)
+  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h). Since T239.3 D17 it may also carry the core's data
+           sections (the descriptor's identity, ROMs, video, hotkeys, mount slots; cores/vc20/app/desc.toml): its [core] name has to be the manifest's name
   7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
@@ -47,7 +48,7 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
            file, except one that is byte for byte (size and hash) an earlier version listed in the entry (coreapp/src/instfiles.cc).
            Manifest: files_size, files_sha256, files_count. Source: the core's descriptor (core.toml `install_dir`, `install_old`).
 
-  cor_pack.py pack ... [--desc D.toml] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
+  cor_pack.py pack ... [--desc D.toml [--desc E.toml]] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
   cor_pack.py files-record DIR [--old DIR] -o F.rec            only the record 8 (for the application's benches)
 
 LARGE cores (T115 §7 "The extended .cor"): a core that does not fit layer 2 is one FULL bitstream of the 50T (host and core
@@ -311,6 +312,16 @@ def merge_menus(desc, libs):
     return blob
 
 
+def check_desc(m, desc):
+    """The description by its own reader; one with the core's data sections names the core the manifest names (the application finds its descriptor by that name)."""
+    try:
+        d = descrec.parse_desc(desc)
+    except descrec.DescError as e:
+        raise CorError(str(e))
+    if d.get("core") and d["core"]["name"].lower() != str(m.get("name", "")).lower():
+        raise CorError('desc: the core section names "%s", the manifest "%s"' % (d["core"]["name"], m.get("name")))
+
+
 def optional_records(m, desc, libs, files=None):
     """The manifest keys and the records for the optional description and libraries; nothing at all when both are None (the bytes of a bundle
     without them stay what they were)."""
@@ -320,10 +331,7 @@ def optional_records(m, desc, libs, files=None):
     m["records"] = RECORDS_FORMAT
     body = b""
     if desc is not None:
-        try:
-            descrec.parse_desc(desc)
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, desc)
         m.update(desc_size=len(desc), desc_sha256=sha(desc))
         body += rec(T_DESC, desc)
     if libs:
@@ -352,10 +360,7 @@ def check_optional(m, recs):
         if m[part + "_size"] != len(recs[t]) or m.get(part + "_sha256") != sha(recs[t]):
             raise CorError("%s: size or SHA-256 mismatch" % part)
     if T_DESC in recs:
-        try:
-            descrec.parse_desc(recs[T_DESC])
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, recs[T_DESC])
     if T_LIBS in recs:
         libs = parse_libs(recs[T_LIBS])
         if m.get("libs_count") != len(libs):
@@ -770,9 +775,9 @@ def read_extras(a):
     desc = None
     if a.desc:
         try:
-            desc = descrec.compile_checked(open(a.desc).read(), open(a.ops).read() if a.ops else None, what=a.desc)
+            desc = descrec.compile_files([(f, open(f).read()) for f in a.desc], open(a.ops).read() if a.ops else None)
         except descrec.DescError as e:
-            raise CorError("%s: %s" % (a.desc, e))
+            raise CorError("%s: %s" % (" + ".join(a.desc), e))
     files = collect_files(a.files, a.files_old) if a.files else None
     return desc, [open(f, "rb").read() for f in a.lib] or None, files
 
@@ -794,7 +799,7 @@ def main(argv=None):
     p.add_argument("--icon")
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
-    p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
+    p.add_argument("--desc", action="append", default=[], help="the menu description (TOML, tools/descrec.py): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
     p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
@@ -809,7 +814,7 @@ def main(argv=None):
     g.add_argument("--icon")
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
-    g.add_argument("--desc", help="the menu description (TOML): record 6")
+    g.add_argument("--desc", action="append", default=[], help="the menu description (TOML): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
     g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")

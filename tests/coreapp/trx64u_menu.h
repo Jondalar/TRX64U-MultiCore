@@ -46,11 +46,17 @@ inline Menu *menu()
         }
         {
             static DescRecord raw;                   // a copy: descrec_apply writes the base's settings behind the record's own
-            raw = m->rec;
+            if (m->rec.sec) {
+                fprintf(stderr, "the C64's record has data sections: it cannot be copied byte for byte\n");
+                abort();
+            }
+            memcpy((void *)&raw, &m->rec, sizeof(raw));
             descrec_apply(raw, &c64_desc, &m->own_raw);
         }
         Contributor c = { "description", CR_DESC, &m->rec.rec };
         contrib_merge(&m->own, m->rec.has_route ? &m->rec.skel : 0, &m->rec.ov, &c, 1, 0, &m->desc, &m->mm);
+        m->mm.keys = m->rec.keys;                // bundle.cc bundle_merge does the same: the description's key table (base 3.3)
+        m->mm.nkeys = m->rec.nkeys;
     }
     return m;
 }

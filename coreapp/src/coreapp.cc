@@ -20,6 +20,8 @@
 #include "hw.h"
 #include "board.h"
 #include "fsif.h"
+#include "fm_fs.h"
+#include "bundle.h"
 #include "tempdisk.h"
 #include "run.h"
 
@@ -61,7 +63,10 @@ static void app_task(void *)
     }
     const CoreDesc *desc = 0;
     char msg[200];
-    StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io());
+    // T239.3 D17: a core with no descriptor compiled in is described by its bundle's data record. The code a record cannot hold (init, release, the operations) is not
+    // provided yet (no hooks): such a core is held with the sentence that says so.
+    static BundleDescSource desc_src(fm_fs(), 0);
+    StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io(), &desc_src);
     STARTLOG("phase core identified: %s", msg);
     if (r != START_OK) {
         ui_open(0);

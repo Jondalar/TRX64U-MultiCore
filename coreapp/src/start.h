@@ -11,11 +11,41 @@ enum StartResult {
     START_AMBIGUOUS            // several machines share the ID block and there is no bundle name to choose by: the core stays held
 };
 
+// T239.3 D17: where a descriptor comes from when none is compiled into the application: the data description (record 6) of the bundle the hand-over names
+// (bundle.h BundleDescSource). It returns the descriptor, kept for the whole run, or null with the sentence that says why not in msg.
+class DescSource {
+public:
+    virtual ~DescSource() { }
+    virtual const CoreDesc *describe(const uint8_t id[4], const Handover *h, char *msg, int msglen) = 0;
+};
+
+// The host build the hand-over names, 8 hex digits (any other character voids it: 0); what a .cor's partial is checked against (start_paths keeps it in the context).
+static inline uint32_t start_host_key(const Handover *h)
+{
+    uint32_t key = 0;
+    for (int i = 0; h && i < 8 && h->host_build[i]; i++) {
+        char ch = h->host_build[i];        // case-insensitive: the firmware's small_printf writes %x in capitals (board 2026-11-06)
+        uint32_t v;
+        if (ch >= '0' && ch <= '9') {
+            v = (uint32_t)(ch - '0');
+        } else if (ch >= 'a' && ch <= 'f') {
+            v = (uint32_t)(ch - 'a' + 10);
+        } else if (ch >= 'A' && ch <= 'F') {
+            v = (uint32_t)(ch - 'A' + 10);
+        } else {
+            return 0;
+        }
+        key = (key << 4) | v;
+    }
+    return key;
+}
+
 // id = the four bytes at the core window's ID register. h may be null or invalid (a developer start): then there is no
 // manifest to compare and no .cor path. On START_OK *desc is the descriptor. msg always gets a line: the log line of S1
 // ("[core] A8XL Atari 800 XL, cor /USB1/cores/atari800.cor") or the reason.
 // io (may be 0): the register block, read for id_feat_reg when a shared ID has no bundle name
-StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDesc **desc, char *msg, int msglen, CoreIo *io = 0);
+// src (may be 0, T239.3 D17): asked for the descriptor when the ID matches none that is compiled in; its refusal holds the core with its sentence (START_NO_DESCRIPTOR)
+StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDesc **desc, char *msg, int msglen, CoreIo *io = 0, DescSource *src = 0);
 
 // The way back from the held page (T115 7 H1). The page that start_identify's refusal puts up offers "Return to host menu" exactly where the SYSTEM
 // menu does: the board has an ICAP loader that can take the FPGA back to the host (board.can_return_host), i.e. a layer-2 core under the

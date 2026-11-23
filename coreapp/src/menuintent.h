@@ -20,8 +20,7 @@ enum MenuStage {
     KS_SHEET,           // the sheet of a file's actions: a letter runs its item
     KS_APP,             // an application's screens: its own keys before the core's grammar
     KS_APP_TERM,        // an application's terminal: every key is the application's
-    KS_MONITOR,         // the monitor: every key is trxmon's
-    KS_TIMELINE,        // Timewarp: its keys call the tw.* operations
+    KS_CORE,            // the key table of the core's own record (descrec.h section 18, MenuMerge::keys): the rows of the core's own key table, in the record's order
     KS_BUSY,            // a file is being written: ESC drops it, nothing else counts
     KS_PICK,            // the folder / file picker: its raw handler (not in the table)
     KS_ENTRY,           // the text field and the address prompt: their raw handler (not in the table)
@@ -92,6 +91,14 @@ struct KeyRow {
     const char *op;     // MI_OP
     uint16_t flags;
     const char *when;   // a state name: the row counts only while that state has text ("!name": while it has none)
+};
+
+// A row of the core's key table (T239.3 base 3.3, descrec.h section 18): the KeyRow (its stage is KS_CORE, lo -1: any key) and where it applies - `layout` names the layout of the
+// tab that is shown (menuctl.cc layout_is), `node` the id of the shown tab; exactly one is set. Both point into the record.
+struct CoreKey {
+    const char *layout;
+    const char *node;
+    KeyRow row;
 };
 
 // The row number `*cursor` onwards of the stage whose range holds `k`, or null. `when_ok(user, name)` asks a state.

@@ -59,9 +59,8 @@ template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 
 struct Rec {
     SioModel io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
-    Rec()
+    explicit Rec(const CoreDesc *d = trx64u::desc())
     {
-        const CoreDesc *d = trx64u::desc();
         memset(&c, 0, sizeof(c));
         c.desc = d; c.io = &io; c.fs = &fs; c.merge = trx64u::merge();
         st = new Settings(d->settings, d->nsettings, d->store, &fs, "/sd/cores/trx64u.cfg", 0);
@@ -80,6 +79,7 @@ struct Rec {
         m->open();
     }
     std::string calls() { std::string s; for (auto &x : g_calls) s += (s.empty() ? "" : "|") + x; g_calls.clear(); return s; }
+    std::string row0() { char l[100], rt[100], sb[100]; bool act; m->row(0, l, sizeof(l), rt, sizeof(rt), &act, sb, sizeof(sb)); return std::string(l) + "|" + rt; }
 };
 
 // T228 R1: no F2 and no F4 area - Timewarp and Monitor are pages of Home, opened by the Home rows "Timewarp..." and "Monitor..." (menu.screen F1/timewarp,
@@ -253,6 +253,199 @@ int main()
         CHECK_EQ(stub_mon_tick_n, 2);
         CHECK(!menu_grid_enter("nothing") && !menu_grid_tick("nothing"));
         menu_set_export_finder(0);
+    }
+    // ---- base 3.3: the key table is the core's record (descrec.h section 18), no longer menukeytab.cc ---------------------------------------------------------------------------
+    {
+        // the rows that menukeytab.cc held as KS_MONITOR and KS_TIMELINE, as they stood, against what the record of menu.toml reads back (every field of every row, in the order)
+        struct Ref { const char *layout; int lo, hi, intent, arg; const char *op; unsigned flags; const char *when; };
+        static const Ref ref[] = {
+            { "terminal", KEY_F10, KEY_F10, MI_DECLINE, 0, 0, 0, 0 },
+            { "terminal", KEY_SCRLOCK, KEY_SCRLOCK, MI_DECLINE, 0, 0, 0, 0 },
+            { "terminal", KEY_MENU, KEY_MENU, MI_DECLINE, 0, 0, 0, 0 },
+            { "terminal", KEY_BREAK, KEY_BREAK, MI_DECLINE, 0, 0, 0, "!monitor.wants_stop" },
+            { "terminal", -1, -1, MI_OP, 0, "monitor.key", KF_KEYARG | KF_DIRECTIVE | KF_DIRECT, 0 },
+            { "timeline", KEY_LEFT, KEY_LEFT, MI_OP, -1, "tw.step", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_RIGHT, KEY_RIGHT, MI_OP, 1, "tw.step", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_UP, KEY_UP, MI_OP, -1, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_DOWN, KEY_DOWN, MI_OP, 1, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_PAGEUP, KEY_PAGEUP, MI_OP, -10, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_F1, KEY_F1, MI_OP, -10, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_PAGEDOWN, KEY_PAGEDOWN, MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_F7, KEY_F7, MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0 },
+            { "timeline", KEY_HOME, KEY_HOME, MI_OP, 0, "tw.oldest", KF_STATUS, 0 },
+            { "timeline", KEY_CTRL_O, KEY_CTRL_O, MI_OP, 0, "tw.monitor", KF_DIRECTIVE, 0 },
+            { "timeline", KEY_BREAK, KEY_BREAK, MI_OP, 0, "tw.cancel", KF_CLOSE, 0 },
+            { "timeline", KEY_ESCAPE, KEY_ESCAPE, MI_OP, 0, "tw.cancel", KF_CLOSE, 0 },
+            { "timeline", KEY_RETURN, KEY_RETURN, MI_OP, 0, "tw.resume", KF_STATUS_OK | KF_CLOSE, 0 },
+            { "timeline", 0x20, 0x7E, MI_SWALLOW, 0, 0, 0, 0 },
+        };
+        const DescRecord &rec = trx64u::menu()->rec;
+        CHECK_EQ(rec.nkeys, (int)(sizeof(ref) / sizeof(ref[0])));
+        for (int i = 0; i < rec.nkeys && i < (int)(sizeof(ref) / sizeof(ref[0])); i++) {
+            const CoreKey &k = rec.keys[i];
+            CHECK_STR(k.layout, ref[i].layout);
+            CHECK(k.node == 0);
+            CHECK_EQ(k.row.stage, KS_CORE);
+            CHECK_EQ(k.row.lo, ref[i].lo);
+            CHECK_EQ(k.row.hi, ref[i].hi);
+            CHECK_EQ(k.row.intent, ref[i].intent);
+            CHECK_EQ(k.row.arg, ref[i].arg);
+            CHECK_STR(k.row.op, ref[i].op);
+            CHECK_EQ(k.row.flags, ref[i].flags);
+            CHECK_STR(k.row.when, ref[i].when);
+        }
+        // menukeytab.cc has none of them any more: the table of the image holds no row of the stage KS_CORE
+        int n;
+        const KeyRow *rows = menu_keymap(&n);
+        for (int i = 0; i < n; i++) {
+            CHECK(rows[i].stage != KS_CORE);
+        }
+        // the intent a key resolves to on the Timewarp page is the record's row (stage KS_CORE, a number after the table's own), and applying it runs the operation
+        Rec r;
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
+        g_calls.clear();
+        MenuIntent in = r.m->resolve(KEY_PAGEUP);
+        CHECK_EQ(in.id, MI_OP);
+        CHECK_EQ(in.arg, -10);
+        CHECK_EQ(in.stage, KS_CORE);
+        CHECK(in.row >= n && in.row < n + rec.nkeys);
+        CHECK_EQ(r.m->apply(in), MenuCtl::R_REDRAW);
+        CHECK_STR(r.calls().c_str(), "tw.seconds -10");
+    }
+    {
+        // rows of another record: a row for one tab by its id (node), the first row that matches takes the key, a state condition, a layout row on a tab of another layout does nothing,
+        // and a core with no key table has the keys of its screen go to the menu's grammar
+        static MenuMerge *mm = new MenuMerge(*trx64u::merge());
+        static CoreKey rows[5];
+        memset(rows, 0, sizeof(rows));
+        auto row = [](CoreKey &k, const char *layout, const char *node, int key, int arg, const char *op, unsigned flags, const char *when) {
+            k.layout = layout; k.node = node;
+            k.row.stage = KS_CORE; k.row.lo = k.row.hi = (int16_t)key; k.row.intent = MI_OP; k.row.arg = arg; k.row.op = op; k.row.flags = (uint16_t)flags; k.row.when = when;
+        };
+        row(rows[0], 0, "timewarp", 'x', 7, "tw.step", KF_ARG, 0);                    // the Timewarp page by its id
+        row(rows[1], "timeline", 0, 'x', 2, "tw.seconds", KF_ARG, 0);                 // never reached for x: the row before takes it
+        row(rows[2], "timeline", 0, 'g', 0, "tw.oldest", 0, "!no.such.state");          // counts while that state has none
+        row(rows[3], "timeline", 0, 'h', 0, "tw.oldest", 0, "no.such.state");          // counts while it has a text: never here
+        row(rows[4], 0, "monitor", 'x', 0, "tw.cancel", 0, 0);                          // the Monitor page, not the Timewarp page
+        mm->keys = rows;
+        mm->nkeys = 5;
+        Rec r;
+        r.c.merge = mm;
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
+        g_calls.clear();
+        CHECK_EQ(r.m->key('x'), MenuCtl::R_REDRAW);  CHECK_STR(r.calls().c_str(), "tw.step 7");
+        CHECK_EQ(r.m->key('g'), MenuCtl::R_REDRAW);  CHECK_STR(r.calls().c_str(), "tw.oldest");
+        r.m->key('h');                                CHECK_STR(r.calls().c_str(), "");
+        r.m->key(KEY_LEFT);                           CHECK_STR(r.calls().c_str(), "");           // no row for it: the Timewarp keys are the record's, the table of the image has none
+        CHECK(open_by_home_row(*r.m, "Monitor..."));
+        r.m->key('x');                                CHECK_STR(r.calls().c_str(), "tw.cancel");  // the rows of the Timewarp page do not count here, the row of the Monitor page does
+        mm->nkeys = 0;                                                                         // no key table at all
+        int n0 = stub_mon_key_n;
+        r.m->key('x');
+        CHECK_EQ(stub_mon_key_n, n0);                                                          // the monitor takes no key: nothing says it should
+        // a remote intent encoded and decoded (uiapp.cc "@id.arg.key.stage.row") applies the same row
+        mm->nkeys = 5;
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
+        MenuIntent in = r.m->resolve('x');
+        MenuIntent again = in;
+        CHECK_EQ(again.stage, KS_CORE);
+        CHECK_EQ(r.m->apply(again), MenuCtl::R_REDRAW);
+        CHECK_STR(r.calls().c_str(), "tw.step 7");
+    }
+    // ---- base 3.3: a task with job = true runs as the stepped operation, with the progress line and a cancel ------------------------------------------------------------------
+    {
+        static CoreDesc jd = *trx64u::desc();
+        static Task tasks[DR_TASKS + 2];
+        memcpy(tasks, jd.tasks, sizeof(Task) * (size_t)jd.ntasks);
+        memset(&tasks[jd.ntasks], 0, sizeof(Task));
+        tasks[jd.ntasks].label = "Dump all";
+        tasks[jd.ntasks].op = "test.job";
+        tasks[jd.ntasks].group = "top";
+        tasks[jd.ntasks].job = true;                                        // what `job = true` of a [[task]] reads back as
+        jd.tasks = tasks;
+        jd.ntasks++;
+        struct J {
+            static int &steps() { static int n; return n; }
+            static int &step_flag() { static int n; return n; }
+            static int &mode() { static int n; return n; }               // 0 runs to the end, 2 fails at the third step
+            static int op(CoreCtx *c, const OpArgs &, OpOut &o)
+            {
+                steps()++;
+                step_flag() += c->job_step ? 1 : 0;
+                if (c->job_cancel) {
+                    c->job_cancel = false;
+                    snprintf(o.msg, o.msglen, "Cancelled: nothing was kept.");
+                    return OPE_OK;
+                }
+                c->job_pct += 25;
+                if (mode() == 2 && steps() == 3) {
+                    snprintf(o.msg, o.msglen, "The ring is gone");
+                    return OPE_FAILED;
+                }
+                o.more = c->job_pct < 100;
+                o.msg[0] = 0;
+                return OPE_OK;
+            }
+        };
+        Rec r(&jd);
+        OpRegistry *reg = ops_of(&r.c);
+        reg->contributor("test");
+        reg->add_op("test.job", 0, 0, J::op);
+        // RETURN on the row starts the job: nothing is called yet (the menu's tick calls the operation, under the core lock, one step at a time) and the progress screen is up
+        CHECK(open_by_home_row(*r.m, "Dump all"));
+        CHECK(r.m->busy());
+        CHECK_EQ(J::steps(), 0);
+        CHECK_EQ(r.m->progress(), 0);
+        CHECK_STR(r.row0().c_str(), "Dump all|0%");
+        CHECK(strstr(r.m->status(), "Dump all") != 0 && strstr(r.m->status(), "cancels") != 0);
+        CHECK_EQ(r.m->key('a'), MenuCtl::R_NONE);                           // keys wait while it works
+        CHECK(r.m->tick());
+        CHECK_EQ(J::steps(), 1);
+        CHECK(r.m->busy());
+        CHECK_EQ(r.m->progress(), 25);
+        CHECK_STR(r.m->status(), "Dump all: 25%  (<- cancels)");
+        CHECK_STR(r.row0().c_str(), "Dump all|25%");
+        r.m->tick();
+        r.m->tick();
+        CHECK_EQ(r.m->progress(), 75);
+        CHECK(r.m->busy());
+        r.m->tick();                                                        // the step that answers no `more`
+        CHECK_EQ(J::steps(), 4);
+        CHECK_EQ(J::step_flag(), 4);                                        // every call ran as a step (CoreCtx::job_step)
+        CHECK(!r.m->busy());
+        CHECK_STR(r.m->status(), "Dump all: done");
+        CHECK(!r.m->status_bad());
+        // cancelled in the middle: the next step sees the cancel and ends the job
+        J::steps() = 0;
+        r.c.job_pct = 0;
+        CHECK(open_by_home_row(*r.m, "Dump all"));
+        r.m->tick();
+        r.m->tick();
+        CHECK(r.m->busy());
+        CHECK_EQ(r.m->key(KEY_ESCAPE), MenuCtl::R_REDRAW);
+        CHECK(r.m->busy());                                                 // dropped by the next tick, which is where the lock is taken
+        r.m->tick();
+        CHECK(!r.m->busy());
+        CHECK_EQ(J::steps(), 3);
+        CHECK_STR(r.m->status(), "Cancelled: nothing was kept.");
+        // cancelled before the first step: the operation is never called
+        J::steps() = 0;
+        CHECK(open_by_home_row(*r.m, "Dump all"));
+        CHECK_EQ(r.m->key(KEY_ESCAPE), MenuCtl::R_REDRAW);
+        r.m->tick();
+        CHECK(!r.m->busy());
+        CHECK_EQ(J::steps(), 0);
+        CHECK_STR(r.m->status(), "Cancelled: Dump all");                    // the task, not a file: this job writes none
+        // a step that fails ends the job with its sentence, as a failure
+        J::steps() = 0;
+        J::mode() = 2;
+        CHECK(open_by_home_row(*r.m, "Dump all"));
+        r.m->tick();
+        r.m->tick();
+        r.m->tick();
+        CHECK(!r.m->busy());
+        CHECK_STR(r.m->status(), "The ring is gone");
+        CHECK(r.m->status_bad());
     }
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {
