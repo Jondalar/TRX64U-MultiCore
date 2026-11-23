@@ -3,6 +3,7 @@
 #include "edid.h"
 #include "trxcanvas.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define DDR_WINDOW_BYTES 0x1000000u
 
@@ -311,6 +312,98 @@ bool Video::poll()
     front_ = d_.fb_base + (uint32_t)(l & 3) * d_.fb_stride;
     if (on_) {
         px_->w32(PX_BACK, front_);
+    }
+    return true;
+}
+
+
+// ---- T256: the picture of the machine that stopped -------------------------------------------------------------------------------------------------------------------------
+// The host's still capture (host/pix_layer.v): the VIC's pixels of the window the scaler shows (400 x 270, 400 x 240 in the 60 Hz modes), two to a byte, the first in the low nibble, into
+// slot 0 or 1 at STILL_BASE (+ 64 KB). STILL_STATUS: b0 a frame was captured, b1 the slot of the last complete frame, b2 that frame is 60 Hz, b31:8 the frame count.
+#define STILL_CTRL    0x6060
+#define STILL_BASE    0x6064
+#define STILL_STATUS  0x6068
+#define STILL_SLOT    0x10000
+#define STILL_W       400
+
+void Video::still_start()
+{
+    if (!own_picture() || still_slots_ || !px_) {
+        return;
+    }
+    still_raw_ = (uint8_t *)malloc(2 * STILL_SLOT + 16);
+    if (!still_raw_) {
+        return;
+    }
+    still_slots_ = (uint8_t *)(((uintptr_t)still_raw_ + 15) & ~(uintptr_t)15);
+    px_->w32(STILL_BASE, (uint32_t)(uintptr_t)still_slots_);
+    px_->w32(STILL_CTRL, 1);
+}
+
+static const uint16_t g_colodore[16] = {         // the C64 palette of the capture as RGB565 (Colodore: 000000 FFFFFF 813338 75CEC8 8E3C97 56AC4D 2E2C9B EDF171 8E5029 553800 C46C71 4A4A4A 7B7B7B A9FF9F 706DEB B2B2B2)
+    0x0000, 0xFFFF, 0x8187, 0x7679, 0x89F2, 0x5569, 0x2973, 0xEF8E,
+    0x8A85, 0x51C0, 0xC36E, 0x4A49, 0x7BCF, 0xAFF3, 0x737D, 0xB596
+};
+
+bool Video::grab(uint16_t *dst, int w, int h)
+{
+    if (!dst || w < 1 || h < 1) {
+        return false;
+    }
+    if (own_picture()) {
+        if (!still_slots_ || !px_) {
+            return false;
+        }
+        static uint8_t cap[STILL_W * 270 / 2];
+        for (int tries = 0; tries < 3; tries++) {
+            const uint32_t st = px_->r32(STILL_STATUS);
+            if (!(st & 1)) {
+                return false;
+            }
+            const int rows = (st & 4) ? 240 : 270;
+            memcpy(cap, still_slots_ + ((st & 2) ? STILL_SLOT : 0), (size_t)(STILL_W * rows / 2));
+            if ((px_->r32(STILL_STATUS) >> 8) != (st >> 8)) {
+                continue;                                  // the capture moved on while the slot was read: again
+            }
+            for (int y = 0; y < h; y++) {
+                uint16_t *row = dst + (size_t)y * w;
+                if (y > 0 && y * rows / h == (y - 1) * rows / h) {
+                    memcpy(row, row - w, (size_t)w * 2);   // the same VIC line: a copy of the line above
+                    continue;
+                }
+                const uint8_t *src = cap + (size_t)(y * rows / h) * (STILL_W / 2);
+                for (int x = 0; x < w; x++) {
+                    const int vx = x * STILL_W / w;
+                    const uint8_t b = src[vx >> 1];
+                    row[x] = g_colodore[(vx & 1) ? (b >> 4) : (b & 15)];
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+    const uint32_t pb = d_.pixel_bytes();
+    if (!ready_ || !front_ || !vw_ || !vh_ || d_.pxfmt == 3 || !io_ || vw_ * pb > 8192) {
+        return false;
+    }
+    static uint8_t line[8192];
+    uint32_t last = 0xFFFFFFFFu;
+    for (int y = 0; y < h; y++) {
+        const uint32_t sy = (uint32_t)y * vh_ / (uint32_t)h;
+        if (sy != last) {
+            io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
+            last = sy;
+        }
+        uint16_t *row = dst + (size_t)y * w;
+        for (int x = 0; x < w; x++) {
+            const uint32_t sx = (uint32_t)x * vw_ / (uint32_t)w;
+            if (pb == 2) {
+                row[x] = (uint16_t)(line[2 * sx] | (line[2 * sx + 1] << 8));
+            } else {
+                const uint32_t v = (uint32_t)line[4 * sx] | ((uint32_t)line[4 * sx + 1] << 8) | ((uint32_t)line[4 * sx + 2] << 16);   // {x, R, G, B} little endian: B, G, R
+                row[x] = (uint16_t)(((v & 0xF80000) >> 8) | ((v & 0x00FC00) >> 5) | ((v & 0x0000F8) >> 3));
+            }
+        }
     }
     return true;
 }

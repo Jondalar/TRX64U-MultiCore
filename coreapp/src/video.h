@@ -22,6 +22,8 @@ class PxPort {
 public:
     virtual ~PxPort() { }
     virtual void w32(uint32_t reg, uint32_t v) = 0;     // 32 bit little endian, byte 3 commits
+    // The two registers of the layer that read (PX_STATUS 0x60A4 and STILL_STATUS 0x6068); every other one is write only. 0 for a port that cannot read (a test's).
+    virtual uint32_t r32(uint32_t reg) { (void)reg; return 0; }
     // T107 5.9: where the menu's own canvas goes in the output (position and output size in output pixels). The menu and the core's picture take
     // turns on the one layer, and the layer's OSIZE stays what the picture last wrote, so the menu needs its own; the board hands it to the
     // LVGL port, which writes it with every first picture and moves a menu that is up. A test records it.
@@ -97,7 +99,11 @@ public:
     bool own_picture() const { return d_.w == 0; }
 
     bool ready() const { return ready_; }          // init() has run
-    // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
+    // T256 D10: the picture of the machine that stopped, fitted to w x h RGB565 pixels by nearest sampling, for the still of the overlay service. A C64-type core (own_picture) has the
+    // host's still capture: still_start() points it at two slots of the base's own heap once, at the core's start; grab() reads the last complete frame (4 bit VIC colours, 400 x 270 or
+    // 400 x 240 in the 60 Hz modes) and paints it with the Colodore palette. Any other core: the newest frame buffer of its own picture (32 bit pixels are cut to RGB565). False: no picture.
+    void still_start();
+    bool grab(uint16_t *dst, int w, int h);    // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
     // shown. show() then writes the layer set with the layer off, so every caller that gives the layer back (menu close, Freeze) keeps it dark.
     void set_hidden(bool h) { hidden_ = h; }
     bool hidden() const { return hidden_; }
@@ -141,6 +147,7 @@ private:
     VideoDesc prim_ = VideoDesc();                 // the descriptor's own picture while the alternative is selected, with its bias
     int pic_ = 0, prim_bx_ = 0, prim_by_ = 0;
     void alt_height(int sys);
+    uint8_t *still_raw_ = nullptr, *still_slots_ = nullptr;   // T256: the capture's two slots of 64 KB, 16-byte aligned (raw: what malloc gave)
     int msys_ = -1;                                // the machine's System Mode (its VIC's 50 / 60 Hz family); -1 = not told, sys_ stands in
 };
 

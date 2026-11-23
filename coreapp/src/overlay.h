@@ -69,6 +69,7 @@ struct OvPlan {
     uint8_t holder;                        // OVH_*
     bool key;                              // the layer's colour key on (TRX_LIVE_KEY_565)
     uint8_t alpha;                         // the layer's global alpha
+    bool scene;                            // the menu is closed and LVGL shows only the still and the elements (no menu widget stands)
     bool draw_still;                       // the still is the bottom of LVGL's picture
     bool draw_elems;                       // the elements are on it
     uint8_t menu_opa;                      // the opacity LVGL draws the menu with over the still (255: opaque); only with draw_still
@@ -76,7 +77,7 @@ struct OvPlan {
 OvPlan ovl_plan(const OvState &s);
 inline bool ovl_plan_same(const OvPlan &a, const OvPlan &b)
 {
-    return a.holder == b.holder && a.key == b.key && a.alpha == b.alpha && a.draw_still == b.draw_still && a.draw_elems == b.draw_elems && a.menu_opa == b.menu_opa;
+    return a.holder == b.holder && a.scene == b.scene && a.key == b.key && a.alpha == b.alpha && a.draw_still == b.draw_still && a.draw_elems == b.draw_elems && a.menu_opa == b.menu_opa;
 }
 
 // ---- what the layer shows -----------------------------------------------------------------------------------------------------------------------------------------------
@@ -110,6 +111,9 @@ public:
     virtual void release(void *p) = 0;
     // The picture of the machine that stopped, fitted to w x h pixels (RGB565): from the host's still capture on a C64-type core, from the core's frame buffer on the others. False: none.
     virtual bool grab_still(uint16_t *dst, int w, int h) = 0;
+    // The layer goes to LVGL (the core's picture off) / back to the core (its picture on): the board's Video::hide() and show(). Called around apply() on a change of the holder.
+    virtual void layer_to_ui() { }
+    virtual void layer_to_core() { }
     // The menu hotkey's close and open, for the main loop (the person's close of the menu, the menu key).
     virtual void menu_hide() = 0;
     virtual void menu_show() = 0;

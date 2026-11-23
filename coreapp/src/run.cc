@@ -109,7 +109,14 @@ public:
         }
         return leave;
     }
-    bool return_to_host(char *msg, int n) { return hw_return_to_host(msg, n); }
+    bool return_to_host(char *msg, int n)
+    {
+        bool ok = hw_return_to_host(msg, n);
+        if (ok) {
+            ui_overlay_end();                         // T256: the core is left, its libraries' elements go
+        }
+        return ok;
+    }
 };
 
 class LogStdout : public LibLog {
@@ -120,6 +127,7 @@ public:
 class TrxPx : public PxPort {
 public:
     void w32(uint32_t reg, uint32_t v) { trx_io_write32(TRX_IO_BASE + reg, v); }
+    uint32_t r32(uint32_t reg) { return trx_io_read32(TRX_IO_BASE + reg); }
     void menu_place(int x, int y, int w, int h) { trx_lv_set_place(x, y, w, h); }
     void menu_canvas(int w, int h) { ui_set_canvas(w, h); }
 };
@@ -164,8 +172,10 @@ class BoardFreeze : public FreezeOps {
 public:
     void stop(bool on) { ctx.io->stop(on); }
     uint8_t status() { return freeze_status(ctx.io, ctx.desc->freeze); }
-    void layer_to_menu() { video->hide(); ui_show(); }
-    void layer_to_core() { ui_hide(); video->show(); }
+    // T256: the overlay service holds the layer's state: it takes the core's picture off when LVGL takes the layer (BoardOverlayHost::layer_to_ui) and puts it back when the layer is the
+    // core's again (layer_to_core), so a paused machine keeps the still and its tag on the layer after the menu closed.
+    void layer_to_menu() { ui_overlay_frozen(true); ui_show(); }
+    void layer_to_core() { ui_overlay_frozen(false); ui_hide(); }
     bool wait_keys_idle(uint32_t timeout_ms)
     {
         uint32_t t0 = ctx.io->now_ms();
@@ -181,6 +191,31 @@ public:
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) : 1); }
     void log(const char *t) { printf("%s\n", t); }
 };
+
+// T256: what the overlay service asks of the board. The still comes from Video (the host's capture, or the core's frame buffer), the layer changes hands through Video, and a library's
+// menu_hide / menu_show reach the main loop as a request it takes at its next pass.
+class BoardOverlayHost : public OverlayHost {
+public:
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    bool grab_still(uint16_t *dst, int w, int h) { return video && video->grab(dst, w, h); }
+    void layer_to_ui() { video->hide(); }
+    void layer_to_core() { video->show(); }
+    void menu_hide() { req_ = 1; }
+    void menu_show() { req_ = 2; }
+    void enter() { portENTER_CRITICAL(); }
+    void leave() { portEXIT_CRITICAL(); }
+    bool ui_task() { return xTaskGetCurrentTaskHandle() == task_; }
+    uint32_t now_ms() { return ctx.io->now_ms(); }
+    void wait_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) : 1); }
+    void log(const char *line) { printf("%s\n", line); }
+    int take_req() { int r = req_; req_ = 0; return r; }
+    void bind_task() { task_ = xTaskGetCurrentTaskHandle(); }
+private:
+    volatile int req_ = 0;
+    TaskHandle_t task_ = 0;
+};
+static BoardOverlayHost ov_host;
 
 // T97 5.12: the interrupt guard. Three times (10-21, 10-22, 10-23) the core poll task ran on with mstatus.MIE 0 and no critical section
 // open: the tick stopped, the task spun on taskYIELD() and the core lost its sector service. Nobody may sleep or yield inside a critical
@@ -378,7 +413,14 @@ public:
             break;
         }
     }
-    bool return_to_host(char *msg, int n) { return hw_return_to_host(msg, n); }
+    bool return_to_host(char *msg, int n)
+    {
+        bool ok = hw_return_to_host(msg, n);
+        if (ok) {
+            ui_overlay_end();                         // T256: the core is left, its libraries' elements go
+        }
+        return ok;
+    }
 };
 
 }
@@ -913,16 +955,15 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (hooks_has_menu_closed()) {
             hooks_menu_closed();                  // the core's library gives back its debugger's hold and lands what the menu chose (core_hooks.h menu_closed)
         }
+        ui_paused_tag(ctx.paused);                // T256: Pause is told to the service first, so the layer goes from the menu to the still and the tag in one step
         if (freeze->frozen()) {
             freeze->leave(ctx.paused);            // the picture back, the closing key out of the matrix, then C64_STOP = 0
         } else {
-            ui_hide();
-            video->show();
+            ui_hide();                            // the service gives the layer back to the core (BoardOverlayHost::layer_to_core), or keeps it for the still
         }
         ctx.frozen = false;
         ctx.menu_open = false;
         menu_open = false;
-        ui_paused_tag(ctx.paused);
         uiapp_changed();
         printf("[core] menu closed, machine running %u ms after the close key\n", (unsigned)(ctx.io->now_ms() - t_req));
     };
@@ -996,10 +1037,20 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     }
     rest_started();                               // the token gate (rest_uic) and the executor are there: the start gate opens (rest.h)
 
+    // T256: the overlay service is up from here (the splash is closed, the merged table of the core's elements is known); a library that shows an element before this gets OVL_E_NOSERVICE.
+    auto start_overlay = [&]() {
+        ov_host.bind_task();
+        video->still_start();
+        ui_overlay_start(&ov_host, merge.has_elem ? &merge.elem_store : menu_elem_base(), video->own_picture());
+        if (lib_board_loader()) {
+            lib_board_loader()->set_overlay(ui_overlay());
+        }
+    };
     if (r == BOOT_RUNNING) {
         ui_splash_close();
         ui_message_clear();
         ui_poll();
+        start_overlay();
         ui_hide();
         video->show();
         printf("[core] %s released\n", desc->cor_name);
@@ -1008,6 +1059,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
     } else {
         ui_splash_close();
+        start_overlay();
         uiapp_local_open();                       // the NES: the browser is the first thing, there is nothing to run yet
     }
 
@@ -1088,8 +1140,32 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
     };
     bool ui_changed = false, redraw_next = false;
+    // T256: one pass for the overlay service: the text calls and redraws of libraries, and their menu_hide / menu_show (the person's close and the menu key). While LVGL holds the layer
+    // with the menu closed (the still, the elements) it renders here.
+    auto overlay_pass = [&]() {
+        OverlaySvc *ov = ui_overlay();
+        if (!ov || !ov->enabled()) {
+            return;
+        }
+        ov->frame();
+        const int req = ov_host.take_req();
+        if (req == 1 && menu_open) {
+            close_req = false;
+            uiapp_local_leave();
+            if (close_req) {
+                close_req = false;
+                close_menu();
+            }
+        } else if (req == 2 && !menu_open && ctx.started) {
+            uiapp_local_open();
+        }
+        if (!menu_open && ov->holds_layer()) {
+            ui_poll();
+        }
+    };
     for (;;) {
         picture_tick();
+        overlay_pass();
         if (!menu_open) {
             video->poll();
             uint32_t hf = hotkey_poll();

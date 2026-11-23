@@ -130,6 +130,7 @@ OvPlan ovl_plan(const OvState &s)
 {
     OvPlan p;
     p.holder = OVH_CORE;
+    p.scene = false;
     p.key = false;
     p.alpha = 255;
     p.draw_still = false;
@@ -150,10 +151,12 @@ OvPlan ovl_plan(const OvState &s)
     }
     if (still) {                                        // the machine stands, the menu is closed: the still, and the elements over it
         p.holder = OVH_UI;
+        p.scene = true;
         p.draw_still = true;
         p.draw_elems = s.elems;
     } else if (s.elems && s.own_picture) {              // over the running picture of a C64-type core (and a stopped one whose capture failed): the key lets it through
         p.holder = OVH_UI;
+        p.scene = true;
         p.key = true;
         p.draw_elems = true;
     }
@@ -273,6 +276,7 @@ void OverlaySvc::clear()
     // the layer takes the state of no core at once: the core's picture, the key off, the alpha 255, nothing drawn
     OvPlan off;
     off.holder = OVH_CORE;
+    off.scene = false;
     off.key = false;
     off.alpha = 255;
     off.draw_still = off.draw_elems = false;
@@ -281,6 +285,9 @@ void OverlaySvc::clear()
     memset(&none, 0, sizeof(none));
     if (enabled_) {
         layer_->apply(off, none);
+        if (plan_.holder == OVH_UI) {
+            host_->layer_to_core();
+        }
     }
     plan_ = off;
     scene_ = none;
@@ -366,7 +373,13 @@ void OverlaySvc::settle()
         same = sc.still.px == scene_.still.px && sc.still.serial == scene_.still.serial;
     }
     if (!same) {
+        if (p.holder == OVH_UI && plan_.holder != OVH_UI) {
+            host_->layer_to_ui();                       // the core's picture goes off before LVGL takes the layer
+        }
         layer_->apply(p, sc);
+        if (p.holder == OVH_CORE && plan_.holder == OVH_UI) {
+            host_->layer_to_core();                     // LVGL has let go: the core's picture comes back
+        }
         plan_ = p;
         scene_ = sc;
         applied_ = true;
