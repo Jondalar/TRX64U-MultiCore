@@ -61,9 +61,7 @@ Feature: The Library: media, folders, the sheet of a file, marks (T153 S7)
     Then the file "alpha.d64" is marked
     And the file "hello.prg" is marked
 
-  Scenario: digits choose Search and Online
+  # The tab "Online" is the online search sub-app's (apps/online, T239.3 L-3): the core's own record has Browse and Search, the sub-app adds tab 3 when the .cor carries online.u2a.
+  Scenario: digits choose Search
     When I press 2
     Then the tab is "Search"
-    When I press 3
-    Then the tab is "Online"
-    And the layout is "split"

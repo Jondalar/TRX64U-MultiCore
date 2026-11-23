@@ -235,7 +235,7 @@ NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=8192, ctab=16,
               task=64, media=6, ftype=32, fact=200, cset=330)
-ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
+ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=28,
              task=36, media=44, ftype=24, fact=36, cset=36)
 ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
@@ -818,7 +818,7 @@ def compile_desc(doc, merged=()):
         t["rename"].append((st.add(_need(r, "id", str, "rename")), st.add(_need(r, "label", str, "rename"))))
 
     for tb in _opt(doc, "tab", list, "description", []):
-        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n"}, "tab")
+        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n", "layout", "ui"}, "tab")
         area = _need(tb, "area", str, "tab")
         if not re.fullmatch(r"F[1-8]", area):
             raise DescError("tab area %r: F1 .. F8" % area)
@@ -833,7 +833,17 @@ def compile_desc(doc, merged=()):
             raise DescError("tab %s: n is 0 .. 99" % tid)
         groups = _tab_groups(tb, tid, widget)
         _tab_pages(tb, tid, widget, groups)
-        t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n))
+        layout = _opt(tb, "layout", str, "tab " + tid, None)         # T239.3 L-3: how the tab is drawn, as the route's own tabs say it (LibRecord::tab_layouts)
+        if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages", "pages_head"}:
+            raise DescError("tab %s: ui without a layout (only `sections`, `pages` and `pages_head` stand alone)" % tid)
+        if layout is not None and layout not in LAYOUTS:
+            raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
+        lay = None
+        if layout is not None or "ui" in tb:
+            params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
+            lay = (layout or "") + (";" + params if params else "")
+        t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n,
+                          st.add(lay) if lay else 0))
 
     # ---- the core's own menu (T104.2 D10)
     def text_key(d, k, what, default=None):
@@ -2517,10 +2527,10 @@ def parse_desc(blob):
     out["merged"] = s(merged).split(",") if merged != NONE else []
     out["poll"] = {"op": s(pop), "period_ms": pms} if pop != NONE else None
     out["ctab"] = []
-    for area, tid, name, w, groups, nn in tabs["ctab"]:
-        if not re.fullmatch(r"F[1-8]", s(area) or "") or not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or not s(name) or w >= len(WIDGETS) or nn > 99:
+    for area, tid, name, w, groups, nn, lay in tabs["ctab"]:
+        if not re.fullmatch(r"F[1-8]", s(area) or "") or not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or not s(name) or w >= len(WIDGETS) or nn > 99 or (lay and not s(lay)):
             raise DescError("description record: a bad contributed tab")
-        out["ctab"].append({"area": s(area), "id": s(tid), "name": s(name), "widget": WIDGETS[w], "groups": s(groups), "n": nn})
+        out["ctab"].append({"area": s(area), "id": s(tid), "name": s(name), "widget": WIDGETS[w], "groups": s(groups), "n": nn, "layout": s(lay) if lay else None})
     out["bind"] = []
     for a, k, i, sv in tabs["bind"]:
         if k > 4 or not s(a) or (k == 2 and s(sv) is None):
@@ -2758,6 +2768,12 @@ def decoded_to_doc(rec):
             d = {"area": c["area"], "id": c["id"], "name": c["name"], "widget": c["widget"], "n": c["n"]}
             if c["groups"]:
                 d["groups"] = c["groups"].split(",")
+            if c.get("layout"):
+                name, _, params = c["layout"].partition(";")
+                if name:
+                    d["layout"] = name
+                if params:
+                    d["ui"] = _ui_table(params, UI_TAB_KEYS)
             doc["tab"].append(d)
     if rec["poll"]:
         doc["poll"] = dict(rec["poll"])

@@ -18,13 +18,6 @@ headers = ["c64_cart.h", "c64_cart_desc.h", "c64cart_api.h"]
 bind = "c64cart_bind"
 
 [[library]]
-name = "online"
-sources = ["online.cc", "a64_assembly.cc", "a64_http.cc"]
-headers = ["online.h", "online_api.h", "a64_assembly.h", "a64_http.h"]
-bind = "online_bind"
-register_ops = "online_register"
-
-[[library]]
 name = "cbm1541"
 sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
 headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]

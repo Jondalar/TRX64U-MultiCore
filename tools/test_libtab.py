@@ -39,7 +39,7 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         L.check_files(libs, ROOT)
         names = [x["name"] for x in libs]
-        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "online", "mouse", "pad", "padkeys", "resample",
+        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "mouse", "pad", "padkeys", "resample",
                      "newfile", "newdisk", "folderhd", "fastseek", "ftp"):
             self.assertIn(need, names)
         run = [x for x in libs if x["name"] == "cbmrun"][0]

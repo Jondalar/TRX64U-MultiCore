@@ -91,7 +91,7 @@ class Compiler(unittest.TestCase):
         self.assertEqual([t["n"] for t in d["tab"] if t["id"] in ("drives", "tools")], [4, 3])
         self.assertEqual([t["groups"] for t in d["tab"] if t["id"] == "drives"], ["drive_a,drive_b"])
         self.assertEqual([n["order"] for n in d["node"]], [1, 5, 10, -10])
-        self.assertEqual(d["ctab"], [{"area": "F7", "id": "more", "name": "More", "widget": "nodes", "groups": None, "n": 0}])
+        self.assertEqual(d["ctab"], [{"area": "F7", "id": "more", "name": "More", "widget": "nodes", "groups": None, "n": 0, "layout": None}])
         self.assertEqual(d["poll"], {"op": "test.task", "period_ms": 250})
         self.assertEqual(d["action"][0]["ext"], [".tst2", ".tst3"])
         self.assertEqual((d["setting"][0]["lo"], d["setting"][0]["hi"], d["setting"][0]["default"]), (8, 11, 9))

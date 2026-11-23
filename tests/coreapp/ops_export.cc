@@ -1,7 +1,7 @@
 // T104.2 D10: what the TRX64U application exports to a menu description - every operation with its typed arguments and every state value, as the
 // registry holds them for the C64 descriptor. tools/descrec.py checks a menu.toml against tests/coreapp/golden/ops_trx64u.txt when it is compiled.
 // That golden is the export of the REAL image (tools: tests/ui/export.py --update; the suite's export.feature compares it with a running image): the
-// image registers the board-side contributors too (u64cfg, libfiles, ringops, monitor, online, diag, netops, trx64u), which this native program does not
+// image registers the board-side contributors too (u64cfg, libfiles, ringops, monitor, diag, netops, trx64u), which this native program does not
 // link: tests/coreapp/board_stubs.cc registers, for them, whatever of the golden is not registered natively (names and shapes only). So the list compared here is
 // the native definitions (the base, the C64's, the drive library's) plus the golden's rest; it has to be the golden's lines, in any order: a renamed or reshaped
 // native operation or state shows as one extra and one missing line.

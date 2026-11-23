@@ -18,7 +18,6 @@
 #include "u64cfg.h"
 #include "ringops.h"
 #include "monitor.h"
-#include "online.h"
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
@@ -704,7 +703,6 @@ static void c64_register(OpRegistry &r)
     u64cfg_register(r);
     ringops_register(r);
     monitor_register(r);
-    online_register(r);
     diag_register(r);
     trx64u_register(r);
 }

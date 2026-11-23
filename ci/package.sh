@@ -98,7 +98,7 @@ for f in "$trxapps"/coreapp_*.bin; do [ -e "$f" ] && cp "$f" "${f%.bin}.elf" "$o
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
 [ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
 # T228 R21: the cartridge tools and Softboot, shipped the same way (the updater copies every .u2a beside the update file into <cores>/apps)
-for a in trex_crt softboot; do
+for a in trex_crt softboot online; do
   [ -s "$trxapps/$a.u2a" ] && cp "$trxapps/$a.u2a" "$out/" || mark_red package "$a" "stage trxapps made no $a.u2a"
 done
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"

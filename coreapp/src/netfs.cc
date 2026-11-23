@@ -79,7 +79,7 @@ public:
 
 }   // namespace
 
-// "/Online" and below: the results of the Assembly64 / CommoServe search. The library that has it gives the table "online" (online_api.h); an app linked without it has none and no folder.
+// "/Online" and below: the results of the Assembly64 / CommoServe search. The sub-app that has it (apps/online) exports the table "online" (online_api.h); a core that does not carry it has none and no folder.
 static const OnlineApi *online_api(void)
 {
     uint32_t sz = 0;
@@ -89,7 +89,8 @@ static const OnlineApi *online_api(void)
 static bool ol_has_results(void) { const OnlineApi *a = online_api(); return a && a->has_results(); }
 static int ol_list(const char *rel, FsEntry *out, int max) { const OnlineApi *a = online_api(); return a ? a->list(rel, out, max) : -1; }
 static bool ol_stat(const char *rel, uint64_t *size, bool *dir) { const OnlineApi *a = online_api(); return a && a->stat(rel, size, dir); }
-static uint8_t *ol_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, len) : 0; }
+static uint8_t *ol_alloc(uint32_t n) { return (uint8_t *)malloc(n); }
+static uint8_t *ol_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, ol_alloc, len) : 0; }
 static const char *ol_error(void) { const OnlineApi *a = online_api(); return a ? a->error() : "No online search in this app"; }
 
 static bool is_online(const char *p, const char **rel)

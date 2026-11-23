@@ -423,7 +423,7 @@ void coreapp_held(const char *why, const BoardProfile *board)
 static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
 
 // T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
-// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, online, diag); a record core gets them by its data: the Diagnostics tab here, the groups
+// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, diag); a record core gets them by its data: the Diagnostics tab here, the groups
 // of the linked libraries from the library table (libtab.h, P3-1: the TOML B of the app names them, this file names none).
 static void record_groups(OpRegistry &r, const CoreDesc *d)
 {
