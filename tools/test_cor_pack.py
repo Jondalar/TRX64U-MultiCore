@@ -440,8 +440,9 @@ class RecordsTest(unittest.TestCase):
     def test_a_description_with_the_cores_data_sections(self):
         # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
         import descrec
-        with open(os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")) as f:
-            desc = descrec.compile_text(f.read())
+        vc20 = os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")
+        with open(vc20) as f:
+            desc = descrec.compile_text(f.read(), vc20)
         blob, _ = make(desc=desc)
         m, r = C.parse(blob, C.CONTRACT)
         self.assertEqual(r[C.T_DESC], desc)
@@ -825,8 +826,9 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
 
     def desc(self):
         import descrec
-        with open(os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")) as f:
-            return descrec.compile_text(f.read())
+        fn = os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")
+        with open(fn) as f:
+            return descrec.compile_text(f.read(), fn)
 
     def test_pack_cores_mc_carries_it(self):
         with tempfile.TemporaryDirectory() as d:

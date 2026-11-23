@@ -1114,8 +1114,89 @@ def compile_desc(doc, merged=()):
     return bytes(out)
 
 
-def compile_text(text):
-    return compile_desc(toml_loads(text))
+def compile_text(text, path=None):
+    """path: the file the text is from; the TOML A it names (`toml_a`) is looked up beside it."""
+    return compile_desc(resolve_toml_a_refs(toml_loads(text), path))
+
+
+# ---- a register of the description named from the core's TOML A (T239.3 D30 condition 3 and 4, plan step V-2) ----------------------------------------------
+# A core's gateware facts stand once, in its TOML A; its description (TOML B, desc.toml) keeps the application's data. A number that is a register of the gateware is
+# written as the name of the property, "block.property" (a register number: the address of the register minus the address of the identity block, which is
+# offset 0 of the core's window), or as a state of it, "block.property.state" (its value). The file is named by the top-level key `toml_a = "<file>"`, a path from the
+# description's own directory; the key is read here and is not part of the record. Only these keys take a name: reg, reg_* , fb_base and fb_stride. The record is
+# the same bytes as with the numbers written out.
+TOML_A_REF_KEYS = ("reg", "fb_base", "fb_stride")
+_REF_RE = re.compile(r"[a-z0-9_]{1,31}(\.[a-z0-9_]{1,31}){1,2}")
+
+
+def _is_ref_key(k):
+    return k in TOML_A_REF_KEYS or (isinstance(k, str) and k.startswith("reg_"))
+
+
+def toml_a_names(tomla):
+    """{ "block.property": register number, "block.property.state": value } of a TOML A document (checked by compile_desc first); the register number counts from the
+    address of the identity block."""
+    import copy
+    compile_desc(copy.deepcopy(tomla))
+    base = next(b["address"] for b in tomla["block"] if b["name"] == tomla["identity"]["block"])
+    out = {}
+    for b in tomla["block"]:
+        for p in b.get("property", []):
+            nm = "%s.%s" % (b["name"], p["name"])
+            out[nm] = b["address"] + p["offset"] - base
+            for stt in p.get("state", []):
+                out["%s.%s" % (nm, stt["name"])] = stt["value"]
+    return out
+
+
+def _resolve_walk(node, names, what, where):
+    if isinstance(node, dict):
+        for k in list(node):
+            v = node[k]
+            if _is_ref_key(k) and isinstance(v, str):
+                if v not in names:
+                    raise DescError("%s: %s = %r is no property or state of the TOML A" % (what, k, v))
+                if v.count(".") == 1 and names[v] < 0:
+                    raise DescError("%s: %s = %r lies below the core's window" % (what, k, v))
+                node[k] = names[v]
+            else:
+                _resolve_walk(v, names, what, "%s.%s" % (where, k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            _resolve_walk(v, names, what, "%s[%d]" % (where, i))
+
+
+def _has_ref(node):
+    if isinstance(node, dict):
+        return any((_is_ref_key(k) and isinstance(v, str)) or _has_ref(v) for k, v in node.items())
+    if isinstance(node, list):
+        return any(_has_ref(v) for v in node)
+    return False
+
+
+def resolve_toml_a_refs(doc, path=None):
+    """doc is changed: the names of its register keys become numbers (see above). Without `toml_a` a name is refused; without a path `toml_a` is refused."""
+    ref = doc.pop("toml_a", None)
+    if ref is None:
+        if _has_ref(doc):
+            raise DescError("a register is named as block.property, and the description has no toml_a (the file of the TOML A)")
+        return doc
+    if not isinstance(ref, str) or not ref:
+        raise DescError("toml_a is the path of the TOML A, from the description's directory")
+    if path is None:
+        raise DescError("toml_a: the description is read without a file name, so the TOML A cannot be found")
+    fn = os.path.join(os.path.dirname(os.path.abspath(path)), ref)
+    try:
+        with open(fn) as fh:
+            tomla = toml_loads(fh.read())
+        names = toml_a_names(tomla)
+    except OSError as e:
+        raise DescError("toml_a %s: %s" % (ref, e.strerror))
+    except DescError as e:
+        raise DescError("toml_a %s: %s" % (ref, e))
+    _resolve_walk(doc, names, os.path.basename(path), "")
+    return doc
+
 
 
 def _pad_code(tok):
@@ -3148,7 +3229,7 @@ def compile_files(files, ops_text=None, maps=None):
     docs = []
     for name, text in files:
         try:
-            docs.append((name, toml_loads(text)))
+            docs.append((name, resolve_toml_a_refs(toml_loads(text), name)))
         except DescError as e:
             raise DescError("%s: %s" % (name, e))
     doc = merge_docs(docs) if len(docs) > 1 else docs[0][1]
@@ -3161,9 +3242,9 @@ def compile_files(files, ops_text=None, maps=None):
     return blob
 
 
-def compile_checked(text, ops_text=None, *, what="description", maps=None):
+def compile_checked(text, ops_text=None, *, what="description", maps=None, path=None):
     """compile_text, and - given the application's export - check every name and binding of the result against it."""
-    blob = compile_desc(resolve_maps(toml_loads(text), maps))
+    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path), maps))
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
@@ -3269,7 +3350,7 @@ if __name__ == "__main__":
         sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] | descrec.py dump record.bin | descrec.py ldfrag toml_a.toml out.ld [--maps DIR_OR_FILE ...] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
     try:
         if argv[0] == "compile":
-            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths))
+            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths), path=argv[1])
             open(argv[2] if len(argv) > 2 else argv[1] + ".bin", "wb").write(blob)
         elif argv[0] == "ldfrag":
             if len(argv) != 3:
