@@ -1841,7 +1841,7 @@ Since base 3.2.
 9.3.2 A need that is met by an export counts as a use of the library that exports it, as a need on its name does. The library stays loaded while an image that needs it is loaded.
 9.3.3 The loader of a folder reads the lists of the files before it loads one, and puts a file in front of every file that needs a name it exports. A need on an export name that a folder does not list in any file is refused by the loader at load, with the sentence `"x" needs "ring" 1.0, which is not loaded.`
 9.3.4 A need on an export of a lower major is refused with both versions: `"x" needs "trx" 3.0, 2.0 is loaded.`
-9.3.5 The own table of the base (9.4) is no loaded library. It cannot be listed in `needs`. Ask `api->lib->find` for it and test the result.
+9.3.5 The own tables of the base (9.4, 9.5) are no loaded library. They cannot be listed in `needs`. Ask `api->lib->find` for them and test the result.
 
 ### 9.4 The C64 table
 
@@ -1853,3 +1853,25 @@ Since base 3.2.
 9.4.4 `cart_preference()` returns the cartridge preference: 0 Auto, 1 Internal, 2 External, 3 Manual.
 9.4.5 `reset()` resets the C64. It replaces `api->trx->reset_c64`, which calls the same operation.
 9.4.6 The base answers `find("c64", ...)` with its own table, when the core is the C64: the members of `api->c64` and `reset`. `dma_read_frozen` and `cart_preference` are null in that table. The table is major 1 and competes with the libraries' exports like any export: the lowest major that is at least the one asked for wins. A library of the core that has the two members exports a `c64` of major 1, which takes the place of the base's table. A `c64` of a higher major does not hide it from a caller that asks for major 1; that caller still gets the base's table. A caller that asks for a higher major gets the library's.
+
+### 9.5 The tables of the shared libraries of the base
+
+Since base 3.3.
+
+9.5.1 The shared libraries that stay in the base (T239.3 D12) answer `api->lib->find` with a table each, at major 1: `c64cart` (`c64cart_api.h`), `cbm1541` (`cbm1541_api.h`), `uci` (`uci_api.h`), `sid` (`sid_api.h`) and `tempdisk` (`tempdisk_api.h`). They compete with the exports of the libraries like the C64 table (9.4.6): the lowest major that is at least the one asked for wins, and a library that exports the same name and major wins over the base. `table_size` is the `size` the table starts with.
+9.5.2 No member takes a `CoreCtx`: the base calls the code behind it with the context of the core it runs. A member that takes `msg` and `msglen` answers 0 for done and non-zero with the reason in `msg`, cut to `msglen - 1`. With `msg` null or `msglen` 0 the call gives no reason and works as with one.
+9.5.3 `c64cart` is the cartridge port of the C64 family. `ram_size` is 65536 on a core whose capabilities list `cartridge` and 0 on every other core; `ram_read` and `ram_write` reach the port's RAM window in DDR2. A range that is not wholly inside is ignored by a write and read as zeros. `eeprom_get` and `eeprom_put` reach the 2048 bytes of the GMod2's EEPROM; `eeprom_put` clears the dirty flag, `eeprom_get` leaves it. `writable` is true while a cartridge with flash or an EEPROM that the C64 can change is in the port. `require` and `prohibit` answer 0 for every cartridge: the base does not keep a cartridge definition.
+9.5.4 `cbm1541` is the built-in drive A. `drive_info` fills the members that the `size` of the caller's `Cbm1541Info` covers and leaves the others and `size` as they are. It answers false for a slot other than 0 and on a core without a drive window. `image_size(0)` is 65536 on a core with a drive window and 0 on every other; `image_read` and `image_write` reach the drive's image in DDR2 with the same rule for a range that is not wholly inside. The first call that needs the drive makes it.
+9.5.5 `uci` is the command interface at $DF1C. `start` gives it the callbacks of the machine as `UciHooks`; a member beyond the `size` of the hooks is null, and a null member answers as the machine that has none. The interface starts once: a second call does nothing. `set_slot_enable`, `set_slot_base` and `slot_enable` work on the core's registers only when the core lists `uci` in its capabilities and the board did not strike it; otherwise a write is ignored and `slot_enable` reads 0.
+9.5.6 `sid` is the header work of the SID player: pure functions of bytes. `plan` accepts a null `why`.
+9.5.7 `tempdisk` sets the two switches of the file manager's temp folder. The base mounts the Temp disk itself.
+
+### 9.6 The text grid of a terminal node
+
+Since base 3.3.
+
+9.6.1 A node of the core's menu with the layout `terminal` and the layout parameter `grid = "<export name>"` is drawn as a text screen of 80 columns on the whole layer. The base finds the table `TextGrid` (`textgrid.h`) with `api->lib->find` (the name, major 1) and draws the rows the table gives, one attribute per row and the cursor cell.
+9.6.2 The base calls `render` once per redraw, before the other calls, and redraws when `sig` changes. A table whose `size` does not cover the members up to `sig`, or that has a null member among them, is no grid. Without a grid the screen is empty.
+9.6.3 `enter` is called once when the node is entered; `tick` is called on every pass of the menu loop while the node is shown and no key is waiting, and a `true` answer redraws. Both are optional. They run on the task of the menu, one after the other with the drawing calls.
+9.6.4 The base registers one grid itself, under the name `textgrid`: the built-in monitor, on a core that registers the monitor. The menu of that core names it with `grid = "textgrid"`. A library may export a table of the same name and major 1, which takes its place.
+
