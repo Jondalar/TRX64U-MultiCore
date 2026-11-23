@@ -47,7 +47,7 @@ public:
     void ddr_read(uint32_t off, void *p, uint32_t n) { memcpy(p, (const void *)(DDR_WINDOW + off), n); }
     const char *product_family() { return getProductFamily(); }
     const char *product_name() { return getProductString(); }
-    // update.run_record: the staged updater at addr (update.cc has loaded and checked it). Gideon's jump_run (filetype_u2p.cc) with the layer given back first.
+    // The `.cfw` run of a core's library: the staged updater at addr (the library has loaded and checked it). Gideon's jump_run (filetype_u2p.cc) with the layer given back first.
     void run_at(uint32_t addr)
     {
         printf("[core] update: jump to 0x%08x\n", (unsigned)addr);
@@ -382,7 +382,7 @@ static bool rocker_fire(uint8_t ev, uint8_t button, uint32_t *ms)
 }
 #endif
 
-// update.run_record (T104.2 S13): the updater that is started next brings the WiFi UART up itself, so ours is stopped first - the WiFi task and its
+// The `.cfw` run of a core's library (T104.2 S13): the updater that is started next brings the WiFi UART up itself, so ours is stopped first - the WiFi task and its
 // interface gone, no interrupt, no loopback, the receiver and transmitter reset - and the ESP32 is not left with a SLIP receiver that nobody pops.
 void hw_rocker_quiesce(void)
 {

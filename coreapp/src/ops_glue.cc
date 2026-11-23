@@ -11,7 +11,6 @@
 #include "engines.h"
 #include "mediamounts.h"
 #include "settings_ops.h"
-#include "update.h"
 #include "writeback.h"
 #include "pad.h"
 #include "libfiles.h"
@@ -70,7 +69,6 @@ void ops_register_base(OpRegistry &r)
     hk_register(r);
     home_register(r);
     settings_register(r);
-    update_register(r);
     wb_register_ops(r);
     pad_register(r);
     netops_register(r);                                            // T210 D1: WiFi, Ethernet and the streams are the board's, every core has them

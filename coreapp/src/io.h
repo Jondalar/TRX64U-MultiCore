@@ -72,7 +72,7 @@ public:
     // address = DDR2 address); the model of a test returns host memory and a made-up address. Null when out of memory or no drive.
     // The memory stays the library's until the application ends.
     virtual uint8_t *drv_buffer(uint32_t bytes, uint32_t *phys) { (void)bytes; (void)phys; return 0; }
-    // T104.2 D9.3, update.run_record: what the board is called in a `.cfw`'s pre-header (getProductFamily "U64MK2", getProductString), and the jump into
+    // T104.2 D9.3, the `.cfw` run of a core's library: what the board is called in a `.cfw`'s pre-header (getProductFamily "U64MK2", getProductString), and the jump into
     // the staged updater. `run_at` does not return on the board: the video layer is yielded, interrupts are off, the CPU runs at addr. A model
     // records the address and returns.
     virtual const char *product_family() { return ""; }

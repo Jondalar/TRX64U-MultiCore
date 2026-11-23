@@ -147,7 +147,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			hotkeys.cc \
 			ops.cc \
 			ops_glue.cc \
-			update.cc \
 			exec.cc \
 			libload.cc \
 			libsvc.cc \

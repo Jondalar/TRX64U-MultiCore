@@ -150,7 +150,6 @@ void dest_refresh(MenuCtl *m)
     add("machine.restart", "Restart the core?");
     add("machine.cold_reset", "Reset the machine (cold)?");
     add("machine.warm_reset", "Reset the machine (warm)?");
-    add("update.run_record", "Run the update?");
     const MenuTree &t = m->tree();
     for (int i = 0; i < t.nnodes; i++) {
         char q[96];

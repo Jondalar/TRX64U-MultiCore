@@ -761,15 +761,6 @@ ext = ".u2a"
   closes_menu = false
 
 [[filetype]]
-ext = ".cfw"
-  [[filetype.action]]
-  label = "Run update"
-  key = "R"
-  op = "update.run_record"
-  bind = [ { arg = "path", file = true } ]
-  closes_menu = true
-
-[[filetype]]
 ext = ".d64"
 inner_ext = ".prg"
   [[filetype.action]]
