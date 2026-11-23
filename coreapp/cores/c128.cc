@@ -727,7 +727,7 @@ static int use_kit(CoreCtx *c, const OpArgs &a, int which, OpOut &o)
         return OPE_FAILED;
     }
     if (path[0]) {
-        snprintf(o.msg, o.msglen, "%s: %s selected, used from the next start with ROM set JiffyDOS", kit_key[which], base_name(path));
+        rom_pick_msg(o.msg, o.msglen, kit_key[which], base_name(path), which == KIT_1541 ? rom_half_note(c, KEY_JF_1541, kind1541.what, c128_state(c)->d1541.n_stock) : "");
     } else {
         snprintf(o.msg, o.msglen, "%s: no file selected", kit_key[which]);
     }
@@ -1133,7 +1133,7 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.run_prg", path_arg, 1, op_run);
     r.add_op("c128.load_prg", path_arg, 1, op_load);
     r.add_state("c128.auto_diag", state_auto_diag);
-    r.add_state("c128.jf1541_note", [](CoreCtx *c) { const DriveRomPick &p = c128_state(c)->d1541; return rom_half_note(c->desc->folder, kind1541.what, p.n_jiffy, p.n_stock); });   // T258 D10: the foot note of the JiffyDOS 1541 row
+    r.add_state("c128.jf1541_note", [](CoreCtx *c) { return rom_half_note(c, KEY_JF_1541, kind1541.what, c128_state(c)->d1541.n_stock); });   // T258 D10: the foot note of the JiffyDOS 1541 row
     cbm1541_register(r);
 }
 

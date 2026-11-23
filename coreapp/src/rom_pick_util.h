@@ -2,6 +2,7 @@
 #ifndef COREAPP_ROM_PICK_UTIL_H
 #define COREAPP_ROM_PICK_UTIL_H
 
+#include "ctx.h"
 #include "sha256.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -32,16 +33,37 @@ static inline uint32_t rom_half_over(uint8_t *out, const uint8_t *stock, uint32_
     return 2 * ROM_HALF;
 }
 
-// T258 D10: the foot note of the row that selects the JiffyDOS ROM of a drive: an 8 KiB half (n_jiffy) needs the stock ROM (n_stock), and where it goes. "" when nothing is
-// missing. One static line of text: the menu reads it at once.
-static inline const char *rom_half_note(const char *folder, const char *what, uint32_t n_jiffy, uint32_t n_stock)
+// T258 D10: the note of the row that selects the JiffyDOS ROM of a drive (the setting `key`, a file the person picks): when the picked file is the 8 KiB half and the stock ROM
+// (n_stock, held by the pick) is missing, the half needs it, and where it goes. "" when nothing is missing. True from the moment the file is picked, no reset needed: the file's
+// size comes from one stat, kept for the path it was made for (a menu draw never asks the file system twice for the same path). One static text: the menu reads it at once.
+static inline const char *rom_half_note(CoreCtx *c, const char *key, const char *what, uint32_t n_stock)
 {
-    static char t[120];
+    static char t[120], path[FS_PATH_MAX];
+    static uint64_t size;
+    int i = c->settings ? c->settings->find(key) : -1;
+    const char *p = i >= 0 ? c->settings->text(i) : "";
+    if (strcmp(p, path) != 0) {
+        bool dir = false;
+        snprintf(path, sizeof(path), "%s", p);
+        if (!p[0] || !c->fs || !c->fs->stat(p, &size, &dir) || dir) {
+            size = 0;
+        }
+    }
     t[0] = 0;
-    if (n_jiffy == ROM_HALF && !n_stock) {
-        snprintf(t, sizeof(t), "The half needs the stock %s ROM too: put it in roms/%s (USB stick or SD card)", what, folder);
+    if (size == ROM_HALF && !n_stock) {
+        snprintf(t, sizeof(t), "The half needs the stock %s ROM too: put it in roms/%s (USB stick or SD card)", what, c->desc->folder);
     }
     return t;
+}
+
+// The reply of a pick of a kit file: "selected, used from the next start" - or, when `note` (rom_half_note) has a text, that warning instead.
+static inline void rom_pick_msg(char *msg, int n, const char *key, const char *file, const char *note)
+{
+    if (note[0]) {
+        snprintf(msg, n, "%s: %s selected. %s", key, file, note);
+    } else {
+        snprintf(msg, n, "%s: %s selected, used from the next start with ROM set JiffyDOS", key, file);
+    }
 }
 
 #endif

@@ -1269,6 +1269,13 @@ int main()
                 CHECK_EQ(sel(*h, "c128.use_jiffy_c64", "c64.bin", &ho), OPE_OK);
                 CHECK_EQ(sel(*h, "c128.use_jiffy_c128", "c128.bin", &ho), OPE_OK);
                 CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "half.bin", &ho), OPE_OK);
+                // T258 D10 (timing): at the pick, before any start, the note is there and the reply of the pick says it instead of "used from the next start"
+                const char *pn = "The half needs the stock 1541 ROM too: put it in roms/c128 (USB stick or SD card)";
+                CHECK(!strcmp(ops_state(&h->c, "c128.jf1541_note"), pn));
+                CHECK(!strcmp(ho.msg, (std::string("JiffyDOS 1541 ROM: half.bin selected. ") + pn).c_str()));
+                { OpIn none = in_str("path", ""); memset(&ho, 0, sizeof(ho)); CHECK_EQ(ops_call(&h->c, "c128.use_jiffy_1541", &none, 1, &ho), OPE_OK); }   // no file: no note
+                CHECK_EQ(ops_state(&h->c, "c128.jf1541_note")[0], 0);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "half.bin", &ho), OPE_OK);
                 CHECK(h->boot());
                 setrom(*h, 1, &ho);
                 if (!strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too")) printf("  S12: \"%s\"\n", ho.msg);
@@ -1285,6 +1292,19 @@ int main()
                 want16.insert(want16.end(), half.begin(), half.end());
                 CHECK(h->io.dm.rom() == win(want16));
                 CHECK(ops_state(&h->c, "c128.jf1541_note")[0] == 0);       // the stock ROM is there: no note
+                delete (CbmDrive *)h->c.drive; h->c.drive = 0;
+                delete h;
+            }
+            // T258 D10 (timing): a 16 KiB file without stock, and the half with the stock ROM in the folder, give no note and the plain reply
+            {
+                Rig *h = new Rig();
+                h->io.dm.multi = true;
+                h->image();
+                put(*h, "j16.bin", pattern(14, 16384)); put(*h, "half.bin", pattern(12, 8192));
+                OpResult ho;
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "j16.bin", &ho), OPE_OK);
+                CHECK_EQ(ops_state(&h->c, "c128.jf1541_note")[0], 0);
+                CHECK(strstr(ho.msg, "selected, used from the next start with ROM set JiffyDOS") != 0);
                 delete (CbmDrive *)h->c.drive; h->c.drive = 0;
                 delete h;
             }
