@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1 no gateware, D3 pixel surfaces, D4 only with the menu closed (Alex 11-23); next: the PAUSED tag
+Open (one line, as in the TODO table): Spec in work: D1 no gateware, D3 surfaces, D4 menu closed, D5 tag PAUSED (Alex 11-23); next: §2 and the API draft
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -97,6 +97,12 @@ Draft. It is completed when the open questions of §3 are decided.
   while closed": the open menu covers the libraries' elements. The still is the exception: it lies under the menu's key-coloured
   pages too (Timewarp), so the bar stands over the frame the person looks for, not over black. Lost: elements over the open menu
   (for example a drive LED), which would need a rule that they cover no menu row (R2).
+
+- **D5** (Alex, 2026-11-23): the base's tag says only "PAUSED". The tag showed "PAUSED   P RESUME" (`coreapp/src/ui.cc:1307`), but
+  no code handles P; Pause is set only by a library (`api->ctx->set_paused`, api.md 4.14.4) or over REST (`machine.pause_toggle`,
+  `coreapp/src/trx64u_ops.cc:714-723`). Asked what the tag should be, he chose "Only PAUSED": the tag promises no key; the
+  library that paused shows how to go on with an element of its own; the tag is the service's first user. Lost: a P key read by
+  the base while the machine holds the keyboard, and no tag at all.
 
 The other decisions are asked one at a time and recorded here.
 
