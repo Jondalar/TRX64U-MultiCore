@@ -33,3 +33,9 @@ static const UiPlace g_base_place = {
         { "base.wheel_dir", 0, "appinput", "app", 210 },
     }, 21
 };
+static const UiElements g_base_elem = {
+    {
+        { "still", OVA_TOP_LEFT, 0, 0, 960, 540, true },
+        { "paused", OVA_TOP_RIGHT, -14, 14, 126, 30, false },
+    }, 2
+};

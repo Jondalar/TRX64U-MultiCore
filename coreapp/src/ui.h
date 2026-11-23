@@ -5,6 +5,7 @@
 
 #include "ctx.h"
 #include "menuctl.h"
+#include "overlay.h"
 
 // LVGL up and every view built; the layer stays off until the first show. False without the pixel layer (the application
 // then runs on the console log only).
@@ -16,7 +17,15 @@ void ui_set_canvas(int w, int h);
 // The layer is LVGL's (menu or message up) / is given back to the core's picture.
 void ui_show(void);
 void ui_hide(void);
-void ui_paused_tag(bool on);          // the paused machine with the menu closed: a keyed screen with one tag
+void ui_paused_tag(bool on);          // the machine is paused: the PAUSED tag, an element of the base UI TOML, shown by the overlay service while the menu is closed
+// T256: the overlay service on LVGL. ui_overlay_start gives it the merged table of the core's elements and the board's host; from then on ui_show, ui_hide, ui_live_key and
+// the transparency go through it (the holder, key and alpha of the layer are its plan, overlay.h ovl_plan). ui_overlay_frozen: the machine is held for the menu. UI task. ui_overlay() is null before the first start.
+void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_picture);
+void ui_overlay_frozen(bool on);
+int ui_canvas_w(void);                // the canvas LVGL draws on now (follows the video mode); the overlay service places the elements on it
+int ui_canvas_h(void);
+OverlaySvc *ui_overlay(void);
+bool ui_still_under(void);            // the still lies under the screen: a page that is keyed otherwise (Timewarp) is transparent there, the still shows through
 // The key colour of the layer on (the machine's picture shows through it) or off. Every screen switches it here; on each change, and only then,
 // ui_live_key_changed is called with the new value (run.cc: the core's menu_video hook, hookhost.h). Task: the main loop.
 void ui_live_key(bool on);

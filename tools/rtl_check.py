@@ -3562,16 +3562,24 @@ class Checker:
             for p in ([] if core else b.get("property", [])):
                 nb = p["width"] // 8
                 count = p.get("count", 1)
-                if p["offset"] + nb * count > b["size"]:
+                stride = p.get("stride", nb)
+                if p["offset"] + (count - 1) * stride + nb > b["size"]:
                     errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
                     continue
                 if count > 1:
                     for need, wr in (("w", True), ("r", False)):
                         if need not in p["dir"]:
                             continue
-                        bad = self.run_gap(rt + p["offset"], nb * count, wr)
+                        bad, el = None, 0
+                        if stride == nb:
+                            bad = self.run_gap(rt + p["offset"], nb * count, wr)
+                            el = (bad - rt - p["offset"]) // nb if bad is not None else 0
+                        else:
+                            for el in range(count):                         # each element at offset + i * stride: the bytes between the elements belong to other runs
+                                bad = self.run_gap(rt + p["offset"] + el * stride, nb, wr)
+                                if bad is not None:
+                                    break
                         if bad is not None:
-                            el = (bad - rt - p["offset"]) // nb
                             res = self.stim(bad, wr)
                             fw = res["forward"]
                             errs.append("block %s, property %s[%d] (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (

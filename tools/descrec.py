@@ -214,6 +214,16 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     group = "audio"                # optional: the setting group the row gets (what a tab with `groups` or `sections` lists)
     order = 20                     # optional: the place among the rows that are placed; equal numbers keep the order the application adds them in
                                    # (at least one of route, group and order; a core's place leaves out what it does not change, the base's value stays)
+    # T256 D8 (section 25, version 6; no [core]): an element a library shows over the machine's picture with api->overlay (svc_overlay.h): its name, where it stands on the 960 x 540 canvas
+    # and its size. The SDK's base UI TOML (coreapp/base_ui.toml) holds the base's own (the still, the PAUSED tag); a core's UI TOML adds its libraries' and may place a base element again.
+    [[element]]
+    name = "bar"                   # a-z, 0-9, _ (at most 15), once; the name a library gives show()
+    anchor = "bottom_mid"          # top_left, top_mid, top_right, left_mid, center, right_mid, bottom_left, bottom_mid, bottom_right: the point of the canvas the offset counts from
+    dx = 0                         # optional: pixels right of the anchor (default 0)
+    dy = -20                       # optional: pixels below the anchor (default 0)
+    w = 400                        # the size in canvas pixels, the surface's size; the whole rectangle has to lie inside the canvas of 960 x 540 (the compiler refuses it otherwise)
+    h = 40
+    still = false                  # optional: the still, under the open menu (at most one element of a table); the base fills it with the stopped machine's picture
     # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
 
     # TOML A (record version 7, T239.3 P1-1, D30, D34): the gateware as capabilities. A file with [io], [identity] and [[block]] and nothing else; see the section "TOML A" below.
@@ -254,7 +264,7 @@ PAD_DIRS = ("up", "down", "left", "right")          # pad.h PAD_SRC_UP (32) .. P
 # T239.3 P3-2 (D31): the maxima of a record are per core. The [sizes] table of a core's TOML B names them (tools/app_build.py has the whole table: its keys rec_* are these);
 # the C reader is compiled with the same numbers (descrec.h), so the compiler and the board refuse the same record.
 SIZE_LIMITS = {"rec_binds": "bind", "rec_values": "value", "rec_csettings": "cset", "rec_facts": "fact", "rec_tasks": "task", "rec_exts": "ext", "rec_ftypes": "ftype"}
-SIZE_MODULE = {"record_bytes": "MAX_SIZE", "rec_keys": "KEYS_MAX", "rec_windows": "WINDOWS_MAX", "rec_blocks": "BLOCKS_MAX", "rec_props": "PROPS_MAX", "rec_fields": "FIELDS_MAX", "rec_states": "STATES_MAX"}
+SIZE_MODULE = {"record_bytes": "MAX_SIZE", "rec_keys": "KEYS_MAX", "rec_windows": "WINDOWS_MAX", "rec_blocks": "BLOCKS_MAX", "rec_props": "PROPS_MAX", "rec_fields": "FIELDS_MAX", "rec_states": "STATES_MAX", "elements": "ELEMENTS_MAX"}
 
 
 def apply_sizes(sizes):
@@ -651,7 +661,7 @@ def compile_desc(doc, merged=(), app_base=False):
     of Picture, Scale, Smoothing and Frame follow; no core's record may."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart", "key", "window", "group_route", "place"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
+                "pad", "restart", "key", "window", "group_route", "place", "element"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
     if any(k in doc for k in TOMLA_KEYS):
         if not all(k in doc for k in TOMLA_KEYS) or any(k not in TOMLA_KEYS for k in doc):
             raise DescError("TOML A (version 7) is [io], [identity] and [[block]] and nothing else: a file has all three and no menu table, setting or window")
@@ -1320,12 +1330,13 @@ def _pad_words(pad, t, st):
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
 (SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
 SEC_IO, SEC_IDENT, SEC_BLOCKS = 20, 21, 22     # version 7 only: TOML A
+SEC_ELEMENTS = 25                      # T256 D8: the elements a library shows over the machine's picture, their place from the UI TOML (no [core] either; a version 6 record only)
 SEC_ROUTES, SEC_PLACES = 23, 24        # T239.3 D32: where the rows the application adds stand in the menu (no [core] either; a version 6 record only)
 SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
 SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
              SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
              SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
-             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_IO: "io", SEC_IDENT: "identity", SEC_BLOCKS: "blocks", SEC_ROUTES: "routes", SEC_PLACES: "places"}
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_IO: "io", SEC_IDENT: "identity", SEC_BLOCKS: "blocks", SEC_ROUTES: "routes", SEC_PLACES: "places", SEC_ELEMENTS: "elements"}
 SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
             "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
@@ -1840,8 +1851,10 @@ def _sec_windows(rows, st):
 #                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap, so a block of the core covers no byte of a block of the base). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
 #                                   or "rw"; two properties share bytes only when no direction is in both), count (optional, 1 .. PROP_COUNT_MAX, default 1: a run of `count` registers
-#                                   of this width at consecutive offsets, element i at offset + i * width / 8; the run lies inside the block, shares bytes as one register
-#                                   does, and its fields and states hold for every element)
+#                                   of this width, element i at offset + i * stride), stride (optional, only with a count above 1: the bytes from one element to the next, the
+#                                   width .. 0x100000, default the width = consecutive registers; a stride above the width leaves room for another run between the elements, e.g.
+#                                   the two words of an interleaved pair are two runs of one stride and two offsets; the run lies inside the block, shares a byte with another
+#                                   property only when one of its own elements is on that byte, and its fields and states hold for every element)
 #       [[block.property.field]]    name (once per property), shift, bits (the field lies inside the width; fields do not overlap)
 #         [[block.property.field.state]]   name (once per owner), value (fits the field's bits, once per owner)
 #       [[block.property.state]]    the states of the whole register: name, value (fits the width)
@@ -1851,8 +1864,8 @@ def _sec_windows(rows, st):
 # (a directory holds the maps of all modules); a name that no file has is refused.
 # Section 20 io        2 words: iobase, u2p_io_base
 # Section 21 identity  4 words: id (string), build flag (0 or 1), build, block (string)
-# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (9 words: name offset
-#                      width dir first_field nfield first_state nstate count; dir 1 r, 2 w, 3 rw; count 1 for a single register), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
+# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (10 words: name offset
+#                      width dir first_field nfield first_state nstate count stride; dir 1 r, 2 w, 3 rw; count 1 and stride the width in bytes for a single register), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
 #                      name value); first_* count in their own table, an owner's entries are a run
 TOMLA_KEYS = ("io", "identity", "block")
 IO_KEYS = ("iobase", "u2p_io_base")
@@ -1945,6 +1958,22 @@ def _states_check(owner, bits, what):
     return sts
 
 
+def _runs_share(a, b):
+    """True when two runs (offset, element bytes, stride, count) have a byte in common: element i of a run is the bytes offset + i * stride .. + width."""
+    if a[3] > b[3]:
+        a, b = b, a                                           # walk the run with fewer elements
+    (oa, wa, sa, na), (ob, wb, sb, nb) = a, b
+    if oa >= ob + (nb - 1) * sb + wb or ob >= oa + (na - 1) * sa + wa:
+        return False
+    for i in range(na):
+        lo = oa + i * sa
+        hi = lo + wa                                          # element j of b: [ob + j * sb, + wb) meets [lo, hi)
+        j0 = max(0, (lo - ob - wb) // sb + 1)
+        if j0 < nb and ob + j0 * sb < hi:
+            return True
+    return False
+
+
 def _sec_blocks(blocks, st):
     """Section 22 and the names of the blocks in order. The checks here and in descrec.cc are the same."""
     if not 1 <= len(blocks) <= BLOCKS_MAX or not all(isinstance(b, dict) for b in blocks):
@@ -1982,7 +2011,7 @@ def _sec_blocks(blocks, st):
             pwhat = "%s, property %d" % (what, k + 1)
             if not isinstance(p, dict):
                 raise DescError("%s: a property is a table" % pwhat)
-            _only(p, {"name", "offset", "width", "dir", "count", "field", "state"}, pwhat)
+            _only(p, {"name", "offset", "width", "dir", "count", "stride", "field", "state"}, pwhat)
             pname = _need(p, "name", str, pwhat)
             if not re.fullmatch(BLOCK_NAME_RE, pname):
                 raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % pwhat)
@@ -1998,18 +2027,22 @@ def _sec_blocks(blocks, st):
             count = _opt(p, "count", int, pwhat, 1)
             if isinstance(count, bool) or not 1 <= count <= PROP_COUNT_MAX:
                 raise DescError("%s: count is 1 .. %d" % (pwhat, PROP_COUNT_MAX))
-            span = count * (width // 8)
+            nb_ = width // 8
+            stride = _opt(p, "stride", int, pwhat, nb_)
+            if isinstance(stride, bool) or (count == 1 and stride != nb_) or not nb_ <= stride <= WINDOW_SIZE_MAX:
+                raise DescError("%s: stride is the bytes from one element to the next, %d (the width) .. 0x%X, and only a run (a count above 1) has one" % (pwhat, nb_, WINDOW_SIZE_MAX))
+            span = (count - 1) * stride + nb_
             if off + span > size:
                 raise DescError("%s: the register%s lies outside the block (%d bytes)" % (pwhat, " run" if count > 1 else "", size))
             for x in seen:
-                if off < x[1] + x[2] and x[1] < off + span and PROP_DIRS[dr] & x[3]:
+                if PROP_DIRS[dr] & x[5] and _runs_share((off, nb_, stride, count), x[1:5]):
                     raise DescError("%s: shares a byte and a direction with the property %s" % (pwhat, x[0]))
-            seen.append((pname, off, span, PROP_DIRS[dr]))
+            seen.append((pname, off, nb_, stride, count, PROP_DIRS[dr]))
             flds = _opt(p, "field", list, pwhat, [])
             if len(flds) > FIELDS_PER_PROP:
                 raise DescError("%s: %d fields, at most %d" % (pwhat, len(flds), FIELDS_PER_PROP))
             pst = _states_check(p, width, pwhat)
-            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst), count))
+            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst), count, stride))
             sw.extend((st.add(x["name"]), x["value"]) for x in pst)
             used, fnames = 0, set()
             for m_, f in enumerate(flds):
@@ -2140,6 +2173,57 @@ def _sec_places(rows, st):
     return b"".join(out)
 
 
+# ---- the elements of the overlay service (T256 D8) ---------------------------------------------------------------------------------------------------------------------
+# Section 25, read by descrec.cc by the same rules (overlay.h ovl_row_check):
+# elements  u32 count (1 .. ELEMENTS_MAX), then per element 6 words: name (string), anchor (0 .. 8, ANCHORS' order), dx and dy (32 bit two's complement), w | h << 16, flags (b0 still)
+ELEMENTS_MAX = 16                       # overlay.h OVL_ELEMENTS_MAX; the [sizes] key "elements" sets both (apply_sizes)
+ANCHORS = ("top_left", "top_mid", "top_right", "left_mid", "center", "right_mid", "bottom_left", "bottom_mid", "bottom_right")
+ELEMENT_KEYS = {"name", "anchor", "dx", "dy", "w", "h", "still"}
+CANVAS_W, CANVAS_H = 960, 540
+
+
+def _element_check(name, anchor, dx, dy, w, h, what):
+    """The rules of overlay.h ovl_row_check: a name, an anchor, a size, and a place inside the canvas of 960 x 540."""
+    if not re.fullmatch(r"[a-z0-9_]{1,15}", name or ""):
+        raise DescError("%s: the name is a-z, 0-9 and _, 1 to 15 characters" % what)
+    if not 0 <= anchor < len(ANCHORS):
+        raise DescError("%s (%s): the anchor is one of %s" % (what, name, ", ".join(ANCHORS)))
+    if not (1 <= w <= CANVAS_W and 1 <= h <= CANVAS_H):
+        raise DescError("%s (%s): the size is 1 .. %d x 1 .. %d" % (what, name, CANVAS_W, CANVAS_H))
+    if not (-CANVAS_W <= dx <= CANVAS_W and -CANVAS_H <= dy <= CANVAS_H):
+        raise DescError("%s (%s): the offset is outside the canvas" % (what, name))
+    col, row = anchor % 3, anchor // 3
+    x = (0, (CANVAS_W - w) // 2, CANVAS_W - w)[col] + dx
+    y = (0, (CANVAS_H - h) // 2, CANVAS_H - h)[row] + dy
+    if x < 0 or y < 0 or x + w > CANVAS_W or y + h > CANVAS_H:
+        raise DescError("%s (%s): the element at x %d, y %d, %d x %d is not inside the canvas of %d x %d" % (what, name, x, y, w, h, CANVAS_W, CANVAS_H))
+
+
+def _sec_elements(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= ELEMENTS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("element: 1 to %d entries, each a table" % ELEMENTS_MAX)
+    out, names, stills = [struct.pack("<I", len(rows))], set(), 0
+    for i, r in enumerate(rows):
+        what = "element %d" % (i + 1)
+        _only(r, ELEMENT_KEYS, what)
+        name = _need(r, "name", str, what)
+        anchor = _need(r, "anchor", str, what)
+        if anchor not in ANCHORS:
+            raise DescError("%s (%s): the anchor is one of %s" % (what, name, ", ".join(ANCHORS)))
+        dx, dy = _opt(r, "dx", int, what, 0), _opt(r, "dy", int, what, 0)
+        w, h = _need(r, "w", int, what), _need(r, "h", int, what)
+        still = _opt(r, "still", bool, what, False)
+        _element_check(name, ANCHORS.index(anchor), dx, dy, w, h, what)
+        if name in names:
+            raise DescError("%s: the name %r twice" % (what, name))
+        names.add(name)
+        stills += 1 if still else 0
+        if stills > 1:
+            raise DescError("%s (%s): a table has one still" % (what, name))
+        out.append(struct.pack("<6I", st.add(name), ANCHORS.index(anchor), dx & 0xFFFFFFFF, dy & 0xFFFFFFFF, w | (h << 16), 1 if still else 0))
+    return b"".join(out)
+
+
 def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
@@ -2201,6 +2285,8 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_ROUTES, _sec_routes(doc["group_route"], st)))
     if "place" in doc:
         secs.append((SEC_PLACES, _sec_places(doc["place"], st)))
+    if "element" in doc:
+        secs.append((SEC_ELEMENTS, _sec_elements(doc["element"], st)))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
@@ -2479,11 +2565,11 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
             out["identity"] = d
         elif sid == SEC_BLOCKS:
             nb, np_, nf, ns = words(4)
-            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 9 * np_ + 5 * nf + 2 * ns):
+            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 10 * np_ + 5 * nf + 2 * ns):
                 raise DescError("%s: the counts or the length do not fit" % what)
             bo = 16
             po = bo + 28 * nb
-            fo = po + 36 * np_
+            fo = po + 40 * np_
             so_ = fo + 20 * nf
             state_at = [0]
 
@@ -2500,13 +2586,17 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                 prop_at[0] += npr
                 props = []
                 for k in range(npr):
-                    pn, off, width, dr, ff, nfl, sf, nst, cnt = words(9, po + 36 * (fp + k))
+                    pn, off, width, dr, ff, nfl, sf, nst, cnt, strd = words(10, po + 40 * (fp + k))
                     if ff != fld_at[0] or ff + nfl > nf or dr not in (1, 2, 3):
                         raise DescError("%s: block %d, property %d: its fields are not the next run, or the direction is not known" % (what, i + 1, k + 1))
                     fld_at[0] += nfl
                     pd = {"name": S(pn, True), "offset": off, "width": width, "dir": {1: "r", 2: "w", 3: "rw"}[dr]}
+                    if cnt == 1 and strd != width // 8:
+                        raise DescError("%s: block %d, property %d: a single register has a stride" % (what, i + 1, k + 1))
                     if cnt != 1:
                         pd["count"] = cnt
+                        if strd != width // 8:
+                            pd["stride"] = strd
                     pst = states(sf, nst)
                     if pst:
                         pd["state"] = pst
@@ -2583,6 +2673,32 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                     r["order"] = order
                 places.append(r)
             out["place"] = places
+        elif sid == SEC_ELEMENTS:
+            n, = words(1)
+            if not 1 <= n <= ELEMENTS_MAX or len(p) != 4 + 24 * n:
+                raise DescError("%s: %d elements, or the length does not fit them" % (what, n))
+            elems, names, stills = [], set(), 0
+            for i in range(n):
+                nm, an, dx, dy, wh, fl = words(6, 4 + 24 * i)
+                dx, dy = (dx - 2 ** 32 if dx >= 2 ** 31 else dx), (dy - 2 ** 32 if dy >= 2 ** 31 else dy)
+                if fl & ~1 or an >= len(ANCHORS):
+                    raise DescError("%s, element %d: an unknown flag or anchor" % (what, i + 1))
+                _element_check(S(nm), an, dx, dy, wh & 0xFFFF, wh >> 16, "%s, element %d" % (what, i + 1))
+                if S(nm) in names:
+                    raise DescError("%s: the name %r twice" % (what, S(nm)))
+                names.add(S(nm))
+                stills += fl & 1
+                if stills > 1:
+                    raise DescError("%s: more than one still" % what)
+                e = {"name": S(nm), "anchor": ANCHORS[an], "w": wh & 0xFFFF, "h": wh >> 16}
+                if dx:
+                    e["dx"] = dx
+                if dy:
+                    e["dy"] = dy
+                if fl & 1:
+                    e["still"] = True
+                elems.append(e)
+            out["element"] = elems
     if ver == 7:
         if seen != {SEC_IO, SEC_IDENT, SEC_BLOCKS}:
             raise DescError("description record: TOML A has the sections io, identity and blocks, each once")
@@ -2916,7 +3032,7 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
-    for k in SEC_KEYS + ("key", "window", "group_route", "place") + TOMLA_KEYS:
+    for k in SEC_KEYS + ("key", "window", "group_route", "place", "element") + TOMLA_KEYS:
         if k in rec:
             doc[k] = rec[k]
     if rec["task"]:
@@ -3029,8 +3145,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("block") or rec.get("group_route") or rec.get("place"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table, windows, routes or places"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("block") or rec.get("group_route") or rec.get("place") or rec.get("element"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table, windows, routes, places or elements"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))
@@ -3385,7 +3501,7 @@ def drivers_files(doc, source="TOML A"):
     """The driver table of a TOML A document (T239.3 D31, D34), generated at build time and linked: (header text, source text).
     The document is checked by compile_desc first, so the generator and both readers hold the same rules. The header has, per block, its address, size and owner,
     per property its address and an access macro for each direction the map allows (`_RD()` for r and rw, `_WR(v)` for w and rw, of the property's width),
-    a property with a count (a run of registers) has `_COUNT` and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`), and `_ADDR` is element 0,
+    a property with a count (a run of registers) has `_COUNT` and `_STRIDE` (the bytes from one element to the next, the width unless the map says more) and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`; element i is at `_ADDR` + i * `_STRIDE`), and `_ADDR` is element 0,
     per field its shift and mask, and every state's value; a driver names a register only by these macros, so a block the bitstream lacks is a compile error
     and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The source holds the table of the blocks (`drv_blocks`)."""
     import copy
@@ -3418,12 +3534,13 @@ def drivers_files(doc, source="TOML A"):
             ct = DRV_CTYPE[p["width"]]
             define(pn + "_ADDR", "(%s_ADDR + 0x%Xu)" % (bn, p["offset"]))
             if p.get("count", 1) > 1:
-                # a run of registers: the element count, and the access macros take the element's index
+                # a run of registers: the element count and the stride, and the access macros take the element's index
                 define(pn + "_COUNT", "%du" % p["count"])
+                define(pn + "_STRIDE", "%du" % p.get("stride", p["width"] // 8))
                 if "r" in p["dir"]:
-                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du))" % (ct, pn, p["width"] // 8))
+                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE))" % (ct, pn, pn))
                 if "w" in p["dir"]:
-                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du) = (%s)(v))" % (ct, pn, p["width"] // 8, ct))
+                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE) = (%s)(v))" % (ct, pn, pn, ct))
             else:
                 if "r" in p["dir"]:
                     define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))

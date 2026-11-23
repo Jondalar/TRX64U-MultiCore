@@ -42,8 +42,8 @@ ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-U
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "12 block(s), 66 properties agree" in out,
-         "c64_basic: 12 blocks, 66 properties agree with the RTL (the maps sid, c64cart, c64cart_regs, dma and uci of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake; "
+    must(rc == 0 and "12 block(s), 64 properties agree" in out,
+         "c64_basic: 12 blocks, 64 properties agree with the RTL (the maps sid, c64cart, c64cart_regs, dma and uci of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake; "
          "uci behind io_bus_bridge2 with its synchronizers and command_protocol (a process procedure, an alias); the 1541 drive behind c1541_drive's io_bus_splitter, with a VHDL block "
          "statement, a clocked concurrent assignment and Gideon's RAM entities)", out)
 else:

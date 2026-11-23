@@ -399,6 +399,10 @@ int main()
         CHECK(r.pos("inserted=0") < r.pos("sensor=0") && r.pos("sensor=0") < r.lastpos("sensor=1"));
         CHECK_EQ(r.io.dm.reg[12], 1);
         for (int i = 0; i < 84; i += 2) CHECK_EQ(r.io.dm.track_phys(i), dummy);
+        for (int i = 0; i < 128; i++) {                                    // the two named runs of the parameter RAM, element = side * 128 + half track: side 1 is the elements 128 .. 255 (+0x400)
+            CHECK_EQ(r.io.dm.track_phys(128 + i), dummy);
+            CHECK_EQ(r.io.dm.track_len(128 + i), 0x1E0Cu);
+        }
         CHECK_EQ(r.eject(), OPE_OK);                                       // nothing to eject is not an error
 
         // the swap delay is the time between "out" and "in": 100 ms by default, 500 ms when set so

@@ -58,6 +58,15 @@ class Sizes(unittest.TestCase):
         self.assertNotIn("STATES_MAX", text)
         self.assertFalse([l for l in text.split("\n") if l.lstrip().startswith("//")])        # -include of assembler files too: no // comment line
 
+    def test_elements_reach_appsizes_and_the_compiler(self):
+        p = toml_b("[sizes]\nelements = 3\n")
+        out = tempfile.mkdtemp()
+        named = A.cmd_sizes(p, out, INC)
+        self.assertEqual(named, {"elements": 3})
+        self.assertIn("#define OVL_ELEMENTS_MAX 3\n", open(os.path.join(out, "appsizes.h")).read())
+        self.assertEqual(A.effective({}, INC)["elements"], 16)                         # overlay.h's own number when TOML B names none
+        self.assertEqual(A.effective({"elements": 3}, INC)["elements"], 3)
+
     def test_every_key_names_a_macro_the_headers_define(self):
         for key, (macro, header, _, _) in A.SIZES.items():
             text = open(os.path.join(INC[0], header)).read()
@@ -67,7 +76,7 @@ class Sizes(unittest.TestCase):
 class Record(unittest.TestCase):
     def setUp(self):
         self.limits = dict(D.LIMITS)
-        self.mods = {k: getattr(D, k) for k in ("MAX_SIZE", "KEYS_MAX", "WINDOWS_MAX", "BLOCKS_MAX", "PROPS_MAX", "FIELDS_MAX", "STATES_MAX")}
+        self.mods = {k: getattr(D, k) for k in ("MAX_SIZE", "KEYS_MAX", "WINDOWS_MAX", "BLOCKS_MAX", "PROPS_MAX", "FIELDS_MAX", "STATES_MAX", "ELEMENTS_MAX")}
 
     def tearDown(self):
         D.LIMITS.clear()
@@ -80,6 +89,15 @@ class Record(unittest.TestCase):
         D.apply_sizes(A.load_sizes(os.path.join(EXAMPLE, "toml_b.toml"), INC))
         open(rec, "wb").write(D.compile_checked(open(os.path.join(EXAMPLE, "desc.toml")).read(), None, what="desc.toml", maps={}))
         A.cmd_record(os.path.join(EXAMPLE, "toml_b.toml"), rec, INC)
+
+    def test_the_element_maximum_of_toml_b_is_the_compilers(self):
+        def ui(n):
+            return "".join('[[element]]\nname = "e%d"\nanchor = "center"\nw = 10\nh = 10\n' % i for i in range(n))
+        D.apply_sizes(A.load_sizes(toml_b("[sizes]\nelements = 3\n"), INC))
+        self.assertEqual(D.ELEMENTS_MAX, 3)
+        D.compile_checked(ui(3), None, what="ui.toml", maps={})
+        with self.assertRaises(D.DescError):
+            D.compile_checked(ui(4), None, what="ui.toml", maps={})
 
     def test_apply_sizes_moves_the_compilers_limits(self):
         D.apply_sizes({"rec_binds": 900, "rec_keys": 80, "record_bytes": 0x40000, "ops": 5})

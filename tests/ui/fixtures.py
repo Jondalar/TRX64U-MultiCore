@@ -67,7 +67,7 @@ def _big(stick, ext):
             f.write(HELLO_PRG)
 
 
-def make_stick(stick, roms_dir, core="trx64u"):
+def make_stick(stick, roms_dir, core="trx64u", ovtest=False):
     """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
@@ -107,6 +107,8 @@ def make_stick(stick, roms_dir, core="trx64u"):
                 with open(os.path.join(stick, "games", n), "wb") as f:
                     f.write(b"MV - CPCEMU Disk-File\r\nDisk-Info\r\n".ljust(256, b"\0") + bytes(40000))
         _big(stick, "adf")
+        if ovtest:
+            make_ovtest_cor(stick, core)
         return
     if core == "snes":
         # a core with no drives: one synthetic 1 MiB LoROM image (header at 0x7FC0: title, LoROM mode, 1 MiB, complement + checksum, reset vector), nothing third-party
@@ -146,6 +148,43 @@ def make_stick(stick, roms_dir, core="trx64u"):
         f.write(HELLO_PRG)
     for dst, src in (("basic.bin", "basic.901226-01.bin"), ("kernal.bin", "kernal.901227-03.bin"), ("chars.bin", "characters.901225-01.bin")):
         shutil.copy(os.path.join(roms_dir, src), os.path.join(stick, "roms", "c64", dst))
+    if ovtest:
+        make_ovtest_cor(stick, core)
+
+
+# T256: the core the overlay features run on (S3, S5, S10) is the same core with a .cor that carries the test library and the UI TOML of the test element (tests/ui/ovtest/). The .cor is
+# made by the real packer on a stand-in bitstream (the tests of the packer's readers do the same: tests/coreapp/gen_bundle.py); the application reads the description and the library
+# from it at the hand-over path of the core's profile. The names are the core names the profiles hand over (tests/coreapp/emu/profiles/*.toml, `core`).
+OVTEST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ovtest")
+OVTEST_U2A = os.environ.get("OVTEST_U2A", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "ovtest.u2a"))
+OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU", "trx64u": "TRX64U"}
+
+
+def _stand_in_bit():
+    import struct
+    import cor_pack
+    hdr = cor_pack.BIT_MAGIC
+    for key in b"abcd":
+        txt = b"x" * 5 + b"\0"
+        hdr += bytes([key]) + struct.pack(">H", len(txt)) + txt
+    data = b"\xFF" * 8 + cor_pack.SYNC + bytes(range(256)) * 4
+    return hdr + b"e" + struct.pack(">I", len(data)) + data
+
+
+def make_ovtest_cor(stick, core):
+    """stick/cores/<core>.cor: the description of tests/ui/ovtest/ovtest.toml and the library ovtest.u2a (built by tests/ui/ovtest/build.sh)."""
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools"))
+    import cor_pack
+    import descrec
+    if not os.path.exists(OVTEST_U2A):
+        raise RuntimeError("no test library %s (tests/ui/ovtest/build.sh, or OVTEST_U2A=)" % OVTEST_U2A)
+    desc = descrec.compile_text(open(os.path.join(OVTEST_DIR, "ovtest.toml")).read())
+    blob = cor_pack.pack(name=OVTEST_NAMES[core], desc=desc, libs=[open(OVTEST_U2A, "rb").read()], version="0.1", partial=_stand_in_bit(), app=bytes(0x60 for _ in range(64)),
+                         load=0x30000, entry=0x30000, host_key="820eded2")
+    os.makedirs(os.path.join(stick, "cores"), exist_ok=True)
+    with open(os.path.join(stick, "cores", core + ".cor"), "wb") as f:
+        f.write(blob)
 
 
 def make_sd_dir(sd):

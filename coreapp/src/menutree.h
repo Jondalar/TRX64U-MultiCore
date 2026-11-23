@@ -183,6 +183,9 @@ struct UiPlace {
 };
 // The base's table (base_ui.inc).
 const UiPlace *menu_place_base();
+// The base's elements (T256 D8; overlay.h), the same file: the still and the PAUSED tag.
+struct UiElements;
+const UiElements *menu_elem_base();
 // base + core: `out` is the base's table with the core's routes (a route of an existing group replaces it, others are added) and its places (a place of an existing operation and key changes only
 // what it names; others are added). A core place that names a route which neither table has is not applied; the sentence names it in why (as many as fit). Returns how many were refused.
 int menu_place_merge(const UiPlace *core, UiPlace *out, char *why, int whylen);

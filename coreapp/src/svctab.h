@@ -18,6 +18,7 @@
 #include "svc_ctx.h"
 #include "svc_io.h"
 #include "svc_board.h"
+#include "svc_overlay.h"   // base 3.3: api->overlay, the overlay service (T256)
 
 #ifdef __cplusplus
 extern "C" {
@@ -275,6 +276,7 @@ typedef struct LibApi {
     const SvcCtx *ctx;
     const SvcIo *io;
     const SvcBoard *board;
+    const SvcOverlay *overlay;
 } LibApi;
 #endif
 

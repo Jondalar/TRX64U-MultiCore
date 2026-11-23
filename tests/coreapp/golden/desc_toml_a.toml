@@ -88,3 +88,17 @@ size = 0x14
   offset = 0x01
   width = 8
   dir = "r"
+  [[block.property]]
+  name = "lvl"
+  offset = 0x04
+  width = 16
+  count = 4
+  stride = 4
+  dir = "w"
+  [[block.property]]
+  name = "pan"
+  offset = 0x06
+  width = 16
+  count = 4
+  stride = 4
+  dir = "w"

@@ -58,13 +58,16 @@
 //        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
 //                          the block ends below 4 GiB).  A window that covers a byte of a block with owner base in the TOML A the app is linked with is refused (basetab.h, generated at build time by tools/descrec.py basetab; D30 point 1); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A.
 //                          descrec_window finds one by name (io.window).
-//        20 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
+//        23 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
 //                          tab (an id, a-z 0-9 _), heading (1 to 31 characters), label (string, none; required for a page), flags (b0 page). They are MenuGroupRoute (menutree.h); a route of the group of a base
 //                          route replaces it (menu_place_merge).
-//        21 places         where a row the application adds stands (a core's UI TOML [[place]]); u32 count (1 .. UI_PLACES_MAX), then per place 5 words: op (string), key (string, none), route (string, none),
+//        24 places         where a row the application adds stands (a core's UI TOML [[place]]); u32 count (1 .. UI_PLACES_MAX), then per place 5 words: op (string), key (string, none), route (string, none),
 //                          group (string, none), order (32 bit two's complement, 0x80000000 none); at least one of route, group and order; an operation and key once. They are UiPlaceRow (menutree.h): a place
 //                          changes only what it names of the base's place of the same operation and key (coreapp/base_ui.toml).
-//                          Sections 18 to 21 need no core section (a menu.toml carries the key table, the routes and the places, a desc.toml the windows); sections 1 .. 17 need it.
+//        25 elements       T256 D8, what a library shows over the machine's picture (a UI TOML's [[element]]); u32 count (1 .. OVL_ELEMENTS_MAX), then per element 6 words: name (string, a-z 0-9 _, 1 to 15
+//                          characters, once), anchor (0 .. 8, overlay.h OVA_*), dx, dy (32 bit two's complement), w | h << 16, flags (b0 the still; at most one). The rectangle has to lie inside the canvas
+//                          of 960 x 540 (ovl_row_check). They are UiElementRow (overlay.h); an element of a base name replaces the base's (ovl_merge).
+//                          Sections 18, 19 and 23 to 25 need no core section (a menu.toml carries the key table, the routes, the places and the elements, a desc.toml the windows); sections 1 .. 17 need it.
 //
 // Version 7 is TOML A (T239.3 P1-1, D30, D34): the gateware as capabilities. Same header as version 6, flags exactly 4, every table empty, and the three sections 20 .. 22, each once
 // (a record of versions 2 .. 6 has none of them, a version 7 record none of 1 .. 19). tools/descrec.py holds the same rules and its comment "TOML A" says what the TOML keys are.
@@ -72,9 +75,9 @@
 //        21 identity       4 words: id (string, 4 printable ASCII characters), build flag (0 or 1), build (0 without the flag), block (string: the base-owned block that has the readable
 //                          properties "id" and "build")
 //        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
-//                          size 1 .. 0x100000, first property, count), the properties (9 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count, element count 1 .. DR_PROP_COUNT_MAX), the
+//                          size 1 .. 0x100000, first property, count), the properties (10 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count, element count 1 .. DR_PROP_COUNT_MAX, stride in bytes: the width .. 0x100000, the width for a single register), the
 //                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
-//                          their table, in order. Blocks of one TOML A do not overlap, a register lies inside its block, two properties share a byte only when
+//                          their table, in order. Blocks of one TOML A do not overlap, a register (or the run of its elements, element i at offset + i * stride) lies inside its block, two properties share a byte only when
 //                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
@@ -106,6 +109,7 @@
 
 #include <stdint.h>
 #include "contrib.h"
+#include "overlay.h"
 #include "pad_api.h"
 #include "hotkeys.h"
 #include "romsetspec.h"
@@ -166,7 +170,7 @@
 #define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
 #define DR_CAPS 8
 #define DR_MOUNT 6
-#define DR_SECTIONS 24                            // the ids 1 .. 24 (20 .. 22: TOML A, version 7 only; 23, 24: the routes and the places, version 6)
+#define DR_SECTIONS 25                            // the ids 1 .. 25 (20 .. 22: TOML A, version 7 only; 23, 24: the routes and the places, 25: the elements, version 6)
 #ifndef DR_KEYS
 #define DR_KEYS 64                                // base 3.3: rows of the key table
 #endif
@@ -258,7 +262,8 @@ struct DescProp {
     const char *name;
     uint32_t offset, width, dir;                  // bytes from the block; 8, 16 or 32 bits; DR_DIR_R | DR_DIR_W
     uint32_t first_field, nfield, first_state, nstate;
-    uint32_t count;                               // elements: a run of registers of this width at consecutive offsets (1 for a single register); fields and states hold for every element
+    uint32_t count;                               // elements: a run of registers of this width (1 for a single register); fields and states hold for every element
+    uint32_t stride;                              // bytes from one element to the next: element i is at offset + i * stride; the width in bytes for a single register or consecutive elements, more where another run lies between them
 };
 struct DescBlock {
     DescWindow win;                               // name, address and size: io.window hands the block out like a window
@@ -317,6 +322,8 @@ struct DescRecord {
     DescWindow windows[DR_WINDOWS]; int nwindows;
     // T239.3 D32 (sections 23 and 24): the core's routes and places over the base's (coreapp/base_ui.toml); strings point into the record. bundle_merge merges them with the base's table.
     UiPlace place; bool has_place;
+    // T256 D8 (section 25): the core's elements over the base's (the base UI TOML, coreapp/base_ui.toml); strings point into the record. bundle_merge (bundle.cc) merges them with the base's table (ovl_merge).
+    UiElements elem; bool has_elem;
     // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
     bool has_core;
     DescSections *sec;

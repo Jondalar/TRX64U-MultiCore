@@ -105,8 +105,10 @@ coreapp_srcs
 L="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl"
 OBJS="$(nice -n 15 "$LVSH" "$L" "$HA/lv_conf.h")"
 mkdir -p "$BD/menusim/conf"
+# T239.3 D31: the driver table the drive library and the SID library name their registers through (the same call as tests/coreapp/run.sh)
+python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$BD/drv" --maps "$ROOT/app/sdkpkg/maps" > /dev/null
 cmp -s "$HA/lv_conf.h" "$BD/menusim/conf/lv_conf.h" || cp "$HA/lv_conf.h" "$BD/menusim/conf/lv_conf.h"
 gen menusim "$TOOL/tools/menusim/menusim.cc" \
-  "$CORE_DEFS -O0 -g -DGOLDEN_DIR=\\\"$ROOT/tests/coreapp/golden\\\" -I$BD/menusim/conf -iquote $L $CORE_INCS -idirafter $TOOL/tests/coreapp -MMD -MP" \
+  "$CORE_DEFS -O0 -g -DGOLDEN_DIR=\\\"$ROOT/tests/coreapp/golden\\\" -I$BD/menusim/conf -I$BD/drv -iquote $L $CORE_INCS -idirafter $TOOL/tests/coreapp -MMD -MP" \
   "$SRCS" "$OBJS"
 exec "$BD/menusim/menusim" --root "$ROOT" "${args[@]}"

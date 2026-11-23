@@ -6,6 +6,7 @@
 #include "ui.h"
 #include "picmodes.h"
 #include "trx_lv_port.h"
+#include "overlay.h"
 #include "video.h"
 #include "lvgl.h"
 #include "trxview.h"
@@ -34,6 +35,7 @@ static const CoreDesc *g_desc;
 static volatile int g_look_t = 1, g_look_scheme = 1;           // "Overlay Transparency" and "Color Scheme" (ui_set_look)
 static volatile bool g_look_dirty = true;
 static void apply_alpha(void);
+static bool ov_on(void);
 
 // The route the shell draws, built from the tree once a menu is rendered. The strings are the tree's, which
 // lives in MenuCtl for as long as the application runs.
@@ -1296,16 +1298,229 @@ void ui_set_name_squeeze(int quarter)
 }
 int ui_name_squeeze(void) { return g_squeeze; }
 
+// ---- the overlay service on LVGL (T256) -------------------------------------------------------------------------------------------------------------------------------
+// The service (overlay.cc) decides; this is its layer: the holder, the key and the alpha go to the port, the still lies on LVGL's bottom layer, the elements are images on the screen
+// (while the menu is closed), and the menu is blended over the still with the screen's opacity. Until a core runs (ui_overlay_start) the functions below act on the port as before.
+static OverlaySvc *g_svc;
+static bool g_ov_ui;                                         // the service gave LVGL the layer
+static bool g_scene;                                         // the screen shows the still and the elements, no menu widget
+static bool g_scr_saved;
+static lv_color_t g_scr_color;
+static lv_opa_t g_scr_opa;
+static lv_obj_t *g_still_img;                                // on the display's bottom layer
+static lv_obj_t *g_el_img[OVL_ELEMENTS_MAX];
+static const uint16_t *g_el_px[OVL_ELEMENTS_MAX];
+static uint32_t g_el_serial[OVL_ELEMENTS_MAX];
+static lv_image_dsc_t g_el_dsc[OVL_ELEMENTS_MAX], g_still_dsc;
+static const uint16_t *g_still_px;
+static uint32_t g_still_serial;
+
+static bool ov_on(void) { return g_svc && g_svc->enabled(); }
+
+// The image cache is off in lv_conf.h (LV_CACHE_DEF_SIZE is not set, so 0): a surface changed in place is read again by the next draw, nothing is decoded or kept.
+static void dsc_set(lv_image_dsc_t *d, const OvDraw &o)
+{
+    memset(d, 0, sizeof(*d));
+    d->header.magic = LV_IMAGE_HEADER_MAGIC;
+    d->header.cf = LV_COLOR_FORMAT_RGB565;
+    d->header.w = (uint32_t)o.w;
+    d->header.h = (uint32_t)o.h;
+    d->header.stride = (uint32_t)o.w * 2;
+    d->data_size = (uint32_t)o.w * (uint32_t)o.h * 2;
+    d->data = (const uint8_t *)o.px;
+}
+
+static void el_clear(int i)
+{
+    if (g_el_img[i]) {
+        lv_obj_delete(g_el_img[i]);
+        g_el_img[i] = 0;
+    }
+    g_el_px[i] = 0;
+}
+
+static void still_clear(void)
+{
+    if (g_still_img) {
+        lv_obj_delete(g_still_img);
+        g_still_img = 0;
+    }
+    g_still_px = 0;
+}
+
+static void scr_forget(void)
+{
+    msg_up = false;
+    pq_up = false;
+    g_msg_label = g_msg_panel = 0;
+    trx_shell_forget();
+    ui_menu_forget_rows();
+    lv_obj_clean(scr);
+    memset(g_el_img, 0, sizeof(g_el_img));                  // lv_obj_clean deleted them with the screen's children
+    memset(g_el_px, 0, sizeof(g_el_px));
+}
+
+static void ov_apply(const OvPlan &p, const OvScene &sc)
+{
+    if (!have_ui) {
+        return;
+    }
+    if (!g_scr_saved) {
+        g_scr_saved = true;
+        g_scr_color = lv_obj_get_style_bg_color(scr, LV_PART_MAIN);
+        g_scr_opa = lv_obj_get_style_bg_opa(scr, LV_PART_MAIN);
+    }
+    if (p.holder == OVH_UI) {
+        trx_lv_resume();
+        g_ov_ui = true;
+    }
+    trx_lv_set_key(p.key, p.key ? TRX_LIVE_KEY_565 : 0);
+    trx_lv_set_alpha(p.alpha);
+    // the still, on the bottom layer, under the screen
+    if (p.draw_still && sc.has_still) {
+        lv_obj_t *bl = lv_display_get_layer_bottom(lv_display_get_default());
+        if (!g_still_img) {
+            g_still_img = lv_image_create(bl);
+            lv_obj_set_flag(g_still_img, LV_OBJ_FLAG_CLICKABLE, false);
+            g_still_px = 0;
+        }
+        if (g_still_px != sc.still.px || g_still_serial != sc.still.serial) {
+            dsc_set(&g_still_dsc, sc.still);
+            lv_image_set_src(g_still_img, &g_still_dsc);
+            lv_obj_set_pos(g_still_img, sc.still.x, sc.still.y);
+            lv_obj_invalidate(g_still_img);
+            g_still_px = sc.still.px;
+            g_still_serial = sc.still.serial;
+        }
+    } else {
+        still_clear();
+    }
+    // the screen: the open menu (its own widgets, blended over the still), or the scene
+    if (p.scene != g_scene) {
+        scr_forget();
+        g_scene = p.scene;
+        lv_obj_set_style_bg_color(scr, g_scene ? lv_color_hex(TRX_LIVE_KEY_RGB) : g_scr_color, 0);
+        lv_obj_set_style_bg_opa(scr, g_scene ? LV_OPA_COVER : g_scr_opa, 0);
+        g_look_dirty = !g_scene;                              // the menu is built again for the new screen
+    }
+    if (g_scene) {
+        lv_obj_set_style_bg_opa(scr, p.draw_still ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // over the still the screen is transparent; else the key colour lets the picture through
+        lv_obj_set_style_opa(scr, LV_OPA_COVER, 0);
+        for (int i = 0; i < OVL_ELEMENTS_MAX; i++) {
+            if (i >= sc.n || !p.draw_elems) {
+                el_clear(i);
+                continue;
+            }
+            const OvDraw &o = sc.el[i];
+            if (g_el_img[i] && g_el_px[i] == o.px && g_el_serial[i] == o.serial) {
+                continue;
+            }
+            if (!g_el_img[i]) {
+                g_el_img[i] = lv_image_create(scr);
+                lv_obj_set_flag(g_el_img[i], LV_OBJ_FLAG_CLICKABLE, false);
+            }
+            dsc_set(&g_el_dsc[i], o);
+            lv_image_set_src(g_el_img[i], &g_el_dsc[i]);
+            lv_obj_set_pos(g_el_img[i], o.x, o.y);
+            lv_obj_invalidate(g_el_img[i]);
+            g_el_px[i] = o.px;
+            g_el_serial[i] = o.serial;
+        }
+    } else {
+        lv_obj_set_style_opa(scr, p.draw_still ? (lv_opa_t)p.menu_opa : LV_OPA_COVER, 0);
+    }
+    if (p.holder == OVH_CORE) {
+        trx_lv_suspend();
+        g_ov_ui = false;
+    }
+    lv_obj_invalidate(scr);
+}
+
+// Text into a library's surface with the font of the menu's captions: LVGL's label drawing on a layer made over the library's buffer (what lv_canvas does, without the widget).
+static void ov_text(const SvcSurface &sf, int x, int y, const char *s, uint16_t colour)
+{
+    lv_display_t *d = lv_display_get_default();
+    if (!have_ui || !d || !sf.px || !sf.w || !sf.h) {
+        return;
+    }
+    lv_draw_buf_t buf;
+    if (lv_draw_buf_init(&buf, sf.w, sf.h, LV_COLOR_FORMAT_RGB565, (uint32_t)sf.w * 2, sf.px, sf.bytes) != LV_RESULT_OK) {
+        return;
+    }
+    const lv_area_t full = { 0, 0, (int32_t)sf.w - 1, (int32_t)sf.h - 1 };
+    lv_layer_t layer;
+    lv_layer_init(&layer);
+    layer.draw_buf = &buf;
+    layer.display = d;
+    layer.color_format = LV_COLOR_FORMAT_RGB565;
+    layer.buf_area = full;
+    layer._clip_area = full;
+    layer.phy_clip_area = full;
+    lv_draw_label_dsc_t ld;
+    lv_draw_label_dsc_init(&ld);
+    ld.font = trx_theme().caption;
+    ld.color = lv_color_make((uint8_t)(((colour >> 11) & 31) * 255 / 31), (uint8_t)(((colour >> 5) & 63) * 255 / 63), (uint8_t)((colour & 31) * 255 / 31));
+    ld.text = s;
+    const lv_area_t at = { x, y, (int32_t)sf.w - 1, (int32_t)sf.h - 1 };
+    lv_draw_label(&layer, &ld, &at);
+    layer.all_tasks_added = true;
+    while (layer.draw_task_head) {
+        lv_draw_dispatch_wait_for_request();
+        if (!lv_draw_dispatch_layer(d, &layer)) {
+            lv_draw_wait_for_finish();
+            lv_draw_dispatch_request();
+        }
+    }
+}
+
+class UiLayer : public OverlayLayer {
+public:
+    void apply(const OvPlan &p, const OvScene &s) { ov_apply(p, s); }
+    void text(const SvcSurface &sf, int x, int y, const char *s, uint16_t colour) { ov_text(sf, x, y, s, colour); }
+};
+static UiLayer g_ui_layer;
+
+OverlaySvc *ui_overlay(void) { return g_svc; }
+bool ui_still_under(void) { return g_svc && g_svc->enabled() && g_svc->plan().draw_still; }
+
+void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_picture)
+{
+    if (!g_svc) {
+        g_svc = new OverlaySvc(&g_ui_layer, host);
+    }
+    g_svc->look((uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0)));
+    g_svc->set_table(table, own_picture);
+}
+
+int ui_canvas_w(void) { return trx_canvas_w(); }
+int ui_canvas_h(void) { return trx_canvas_h(); }
+
+void ui_overlay_frozen(bool on)
+{
+    if (ov_on()) {
+        g_svc->frozen(on);
+    }
+}
+
 // the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
 static void apply_alpha(void)
 {
-    trx_lv_set_alpha((uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0)));
+    const uint8_t a = (uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0));
+    if (ov_on()) {
+        g_svc->look(a);
+    } else {
+        trx_lv_set_alpha(a);
+    }
 }
 
 void ui_show(void)
 {
     if (have_ui) {
-        trx_lv_resume();
+        if (ov_on()) {
+            g_svc->menu(true);
+        } else {
+            trx_lv_resume();
+        }
         apply_alpha();
     }
 }
@@ -1314,7 +1529,11 @@ void (*ui_live_key_changed)(bool behind) = 0;
 static bool g_key_on;
 void ui_live_key(bool on)
 {
-    trx_lv_set_key(on, on ? TRX_LIVE_KEY_565 : 0);
+    if (ov_on()) {
+        g_svc->live_key(on);
+    } else {
+        trx_lv_set_key(on, on ? TRX_LIVE_KEY_565 : 0);
+    }
     if (on != g_key_on) {
         g_key_on = on;
         if (ui_live_key_changed) {
@@ -1323,41 +1542,46 @@ void ui_live_key(bool on)
     }
 }
 
-// The machine stands and the menu is closed: the layer stays up as a keyed screen (the machine's picture shows through it) with one small tag in the corner.
-static bool g_tag;
+// The machine is paused with the menu closed: the PAUSED tag is an element of the base UI TOML (D5), shown through the service like a library's. Its surface is painted here, with the
+// base's own text call. Over the running picture of a C64-type core and over a layer core's picture the tag shows only while the machine stands.
+static uint16_t g_tag_px[126 * 30];
+static int g_tag_el;
+static SvcSurface g_tag_sf = { g_tag_px, sizeof(g_tag_px), 126, 30 };
 void ui_paused_tag(bool on)
 {
-    if (!have_ui) {
+    if (!have_ui || !ov_on()) {
         return;
     }
-    if (on) {
-        g_msg_label = g_msg_panel = 0;
-        pq_up = false;
-        trx_shell_forget();
-        ui_menu_forget_rows();
-        lv_obj_clean(scr);
-        lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-        lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-        const TrxTheme &t = trx_theme();
-        lv_obj_t *b = trx_box(scr, SW - 140, 14, 126, 30, 0x101018);
-        trx_txt(b, 12, 6, "PAUSED", t.caption, 0xFFFFFF);
-        ui_live_key(true);
-        trx_lv_resume();
-        trx_lv_set_alpha(255);
-        g_tag = true;
-        trx_lv_refresh_now();
-    } else if (g_tag) {
-        g_tag = false;
-        ui_live_key(false);
-        lv_obj_clean(scr);
-        trx_lv_suspend();                       // the layer is the core's again until the menu takes it with ui_show()
+    if (on && g_tag_el <= 0) {
+        const uint16_t box = 0x1082;                                           // 0x101018 as RGB565
+        for (unsigned i = 0; i < sizeof(g_tag_px) / 2; i++) {
+            g_tag_px[i] = box;
+        }
+        g_svc->text(OVL_OWNER_BASE, &g_tag_sf, 12, 6, "PAUSED", 0xFFFF);
+        g_tag_el = g_svc->show(OVL_OWNER_BASE, "paused", &g_tag_sf);
+        if (g_tag_el <= 0) {
+            int ew = 0, eh = 0;
+            g_svc->size_of("paused", &ew, &eh);
+            printf("[overlay] the PAUSED tag is not shown: %s (the element \"paused\" of the UI TOML is %d x %d, the tag's surface %d x %d)\n", OverlaySvc::error(g_tag_el), ew, eh, g_tag_sf.w, g_tag_sf.h);
+            g_tag_el = 0;
+        }
+        g_svc->frame();                                                        // the text is in the surface before the layer draws it
+    }
+    g_svc->paused(on);
+    if (!on && g_tag_el > 0) {
+        g_svc->remove(OVL_OWNER_BASE, g_tag_el);
+        g_tag_el = 0;
     }
 }
 
 void ui_hide(void)
 {
     if (have_ui) {
-        trx_lv_suspend();
+        if (ov_on()) {
+            g_svc->menu(false);
+        } else {
+            trx_lv_suspend();
+        }
     }
 }
 

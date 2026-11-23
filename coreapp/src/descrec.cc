@@ -38,6 +38,31 @@ int Rd::fail(const char *fmt, ...)
     return -1;
 }
 
+// The bytes a property covers from its offset to its last byte (a run: element i is at offset + i * stride).
+uint64_t prop_span(const DescProp &p)
+{
+    return (uint64_t)(p.count - 1) * p.stride + p.width / 8;
+}
+
+// Two properties have a byte in common: some element of one is on a byte of an element of the other (the elements of interleaved runs do not meet).
+bool runs_share(const DescProp &x, const DescProp &y)
+{
+    const DescProp &a = x.count <= y.count ? x : y;           // walk the run with fewer elements
+    const DescProp &b = x.count <= y.count ? y : x;
+    const uint64_t wa = a.width / 8, wb = b.width / 8;
+    if ((uint64_t)a.offset >= (uint64_t)b.offset + prop_span(b) || (uint64_t)b.offset >= (uint64_t)a.offset + prop_span(a)) {
+        return false;
+    }
+    for (uint32_t i = 0; i < a.count; i++) {
+        const uint64_t lo = (uint64_t)a.offset + (uint64_t)i * a.stride, hi = lo + wa;
+        const uint64_t j0 = lo < (uint64_t)b.offset + wb ? 0 : (lo - b.offset - wb) / b.stride + 1;     // the first element of b that ends above lo
+        if (j0 < b.count && (uint64_t)b.offset + j0 * b.stride < hi) {
+            return true;
+        }
+    }
+    return false;
+}
+
 struct Tab {
     uint32_t off, count;
 };
@@ -82,7 +107,7 @@ bool id_ok(const char *s)
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
-                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places" };
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places", "elements" };
 
 // T239.3 D30 point 1: the blocks of the base in the TOML A the app is linked with. basetab.h is generated at build time (tools/descrec.py basetab), as the driver table is;
 // nothing is read at run time.
@@ -209,10 +234,10 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         return r.fail("description record, section %s: cut off", nm);
     }
     const uint32_t nb = W(0), np = W(1), nf = W(2), ns = W(3);
-    if (nb < 1 || nb > DR_BLOCKS || np > DR_PROPS || nf > DR_FIELDS || ns > DR_STATES || len != 16 + 4 * (7 * nb + 9 * np + 5 * nf + 2 * ns)) {
+    if (nb < 1 || nb > DR_BLOCKS || np > DR_PROPS || nf > DR_FIELDS || ns > DR_STATES || len != 16 + 4 * (7 * nb + 10 * np + 5 * nf + 2 * ns)) {
         return r.fail("description record, section %s: the counts or the length do not fit", nm);
     }
-    const uint32_t bo = 4, po = bo + 7 * nb, fo = po + 9 * np, so = fo + 5 * nf;
+    const uint32_t bo = 4, po = bo + 7 * nb, fo = po + 10 * np, so = fo + 5 * nf;
     for (uint32_t i = 0; i < ns; i++) {
         m->states[i].name = r.str(W(so + 2 * i), &bad);
         m->states[i].value = W(so + 2 * i + 1);
@@ -227,15 +252,16 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
     }
     for (uint32_t i = 0; i < np; i++) {
         DescProp &p = m->props[i];
-        p.name = r.str(W(po + 9 * i), &bad);
-        p.offset = W(po + 9 * i + 1);
-        p.width = W(po + 9 * i + 2);
-        p.dir = W(po + 9 * i + 3);
-        p.first_field = W(po + 9 * i + 4);
-        p.nfield = W(po + 9 * i + 5);
-        p.first_state = W(po + 9 * i + 6);
-        p.nstate = W(po + 9 * i + 7);
-        p.count = W(po + 9 * i + 8);
+        p.name = r.str(W(po + 10 * i), &bad);
+        p.offset = W(po + 10 * i + 1);
+        p.width = W(po + 10 * i + 2);
+        p.dir = W(po + 10 * i + 3);
+        p.first_field = W(po + 10 * i + 4);
+        p.nfield = W(po + 10 * i + 5);
+        p.first_state = W(po + 10 * i + 6);
+        p.nstate = W(po + 10 * i + 7);
+        p.count = W(po + 10 * i + 8);
+        p.stride = W(po + 10 * i + 9);
     }
     if (bad) {
         return r.fail("description record, section %s: a name is missing or outside the string table", nm);
@@ -269,15 +295,15 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         prop_at += d.nprop;
         for (uint32_t k = 0; k < d.nprop; k++) {
             const DescProp &p = m->props[d.first_prop + k];
-            if (!id_ok(p.name) || (p.width != 8 && p.width != 16 && p.width != 32) || p.dir < 1 || p.dir > 3 || p.count < 1 || p.count > DR_PROP_COUNT_MAX || (uint64_t)p.offset + (uint64_t)p.count * (p.width / 8) > d.win.size) {
-                return r.fail("description record, section %s: block \"%s\", property %u has no name of a-z 0-9 _, or a width that is not 8, 16 or 32, or a direction that is not 1 .. 3, or a count outside 1 .. %d, or lies outside the block", nm, d.win.name, (unsigned)(k + 1), DR_PROP_COUNT_MAX);
+            if (!id_ok(p.name) || (p.width != 8 && p.width != 16 && p.width != 32) || p.dir < 1 || p.dir > 3 || p.count < 1 || p.count > DR_PROP_COUNT_MAX || p.stride < p.width / 8 || p.stride > DR_WINDOW_MAX || (p.count == 1 && p.stride != p.width / 8) || (uint64_t)p.offset + prop_span(p) > d.win.size) {
+                return r.fail("description record, section %s: block \"%s\", property %u has no name of a-z 0-9 _, or a width that is not 8, 16 or 32, or a direction that is not 1 .. 3, or a count outside 1 .. %d, or a stride below the width or above 0x%X (or one on a single register), or lies outside the block", nm, d.win.name, (unsigned)(k + 1), DR_PROP_COUNT_MAX, DR_WINDOW_MAX);
             }
             for (uint32_t j = 0; j < k; j++) {
                 const DescProp &q = m->props[d.first_prop + j];
                 if (!strcmp(p.name, q.name)) {
                     return r.fail("description record, section %s: block \"%s\": the property \"%s\" twice", nm, d.win.name, p.name);
                 }
-                if ((uint64_t)p.offset < (uint64_t)q.offset + (uint64_t)q.count * (q.width / 8) && (uint64_t)q.offset < (uint64_t)p.offset + (uint64_t)p.count * (p.width / 8) && (p.dir & q.dir)) {
+                if ((p.dir & q.dir) && runs_share(p, q)) {
                     return r.fail("description record, section %s: block \"%s\": the property \"%s\" shares a byte and a direction with \"%s\"", nm, d.win.name, p.name, q.name);
                 }
             }
@@ -878,6 +904,38 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             }
             out->place.nrows = (int)SW(0);
             out->has_place = true;
+        } else if (id == 25) {
+            if (len < 4 || SW(0) < 1 || SW(0) > OVL_ELEMENTS_MAX || len != 4 + 24 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, OVL_ELEMENTS_MAX);
+            }
+            int stills = 0;
+            for (uint32_t i = 0; i < SW(0); i++) {
+                const uint32_t w = 1 + 6 * i;
+                UiElementRow &e = out->elem.rows[i];
+                e.name = r.str(SW(w), &bad);
+                e.anchor = (uint8_t)(SW(w + 1) < 256 ? SW(w + 1) : 255);
+                e.dx = (int16_t)(int32_t)SW(w + 2);
+                e.dy = (int16_t)(int32_t)SW(w + 3);
+                e.w = (uint16_t)(SW(w + 4) & 0xFFFF);
+                e.h = (uint16_t)(SW(w + 4) >> 16);
+                e.still = (SW(w + 5) & 1) != 0;
+                // the same rules as tools/descrec.py _element_check (ovl_row_check); a dx or dy that does not fit 16 bits cannot be inside the canvas
+                const int32_t dx = (int32_t)SW(w + 2), dy = (int32_t)SW(w + 3);
+                if (bad || (SW(w + 5) & ~1u) || dx != e.dx || dy != e.dy || ovl_row_check(e)) {
+                    return r.fail("description record, section %s: element %u has a bad name, anchor or size, or lies outside the canvas of %d x %d", nm, (unsigned)(i + 1), OVL_CANVAS_W, OVL_CANVAS_H);
+                }
+                stills += e.still;
+                for (uint32_t j = 0; j < i; j++) {
+                    if (!strcmp(out->elem.rows[j].name, e.name)) {
+                        return r.fail("description record, section %s: the name \"%s\" twice", nm, e.name);
+                    }
+                }
+            }
+            if (stills > 1) {
+                return r.fail("description record, section %s: more than one still", nm);
+            }
+            out->elem.n = (int)SW(0);
+            out->has_elem = true;
         } else {
             if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
@@ -907,7 +965,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         return 0;
     }
-    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table, the windows, the routes and the places (18, 19, 23, 24) do not
+    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table, the windows, the routes and the places (18, 19, 23, 24, 25) do not
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {

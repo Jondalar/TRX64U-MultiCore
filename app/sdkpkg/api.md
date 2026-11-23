@@ -9,7 +9,7 @@
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
 1.1.4 A library and an application are both called an image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
 1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
 1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
@@ -123,7 +123,7 @@ Since base 3.0.
 
 | Member | Contract |
 |---|---|
-| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the five groups after it. |
+| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the six groups after it (a development base of 3.3 before the overlay service by the last one: test `LIB_API_COVERS(api, overlay)`). |
 | `api->abi_major` | `U2A_ABI_MAJOR` of the base. |
 | `api->abi_minor` | `U2A_BASE_MINOR` of the base. |
 
@@ -167,6 +167,7 @@ Since base 3.0.
 | `api->ctx` | `SvcCtx` | Always. Since base 3.3. |
 | `api->io` | `SvcIo` | Null on a core without a register window. Since base 3.3. |
 | `api->board` | `SvcBoard` | Always. Since base 3.3. |
+| `api->overlay` | `SvcOverlay` | After the start (the loader that has a core), else null. Since base 3.3. |
 
 ## 4. The call tables
 
@@ -1323,6 +1324,73 @@ Since base 3.3.
 
 4.16.8.1 `void case_led_select(uint8_t v)` writes the source select of the two case LEDs: the high nibble for LED 1, the low nibble for LED 0, each a source code of the board. The task holds the core lock.
 
+### 4.17 `api->overlay` (`SvcOverlay`)
+
+Since base 3.3.
+
+The overlay service: a library shows pixels over the machine's picture, and only the base drives the pixel layer (T256). An element is a rectangle that a library paints itself in an RGB565 surface; its name, its place and its size are the core's UI TOML's. Any task may call. A call checks its arguments at once and answers with its result; its effect (a redraw, text in a surface, the menu hidden or shown) is taken over by the UI task at its next frame, in the order of the calls. No call takes a context, and none is allowed from an interrupt. A library built before the group never reads it: its `LibApi` is smaller (3.1), and a loader without a core leaves the member null (3.2.12).
+
+4.17.1 The state decides whether an element is on the screen, not the call. The call is valid at any time.
+4.17.1.1 The service is up from the moment the core's start is finished (the splash is closed). A call before that, for instance from `lib_register`, returns `OVL_E_NOSERVICE`: a library shows its elements from a poll, a hook or an operation.
+4.17.2 While the menu is open no element shows. The still is the exception: it lies under the menu, and the base blends the menu over it in software with the person's Overlay Transparency.
+4.17.3 On a C64-type core (the picture goes through the host's own video path) elements show over the running picture while the menu is closed. On any other core they show only while the machine stands (Pause). Elements are opaque: only the pixels of the colour key of the layer, `0x0841` (RGB565), let the picture through. The person's Overlay Transparency applies to the open menu only.
+4.17.4 Several libraries may show elements at once. They are drawn in the order of the elements in the UI TOML. When a library is released its elements go at once, and the layer takes its state. A core is left by the return to the host (`hw_return_to_host`), which reconfigures the FPGA: the service is not told and nothing of the core runs afterwards.
+4.17.5 The elements of a core are the `[[element]]` tables of its UI TOML over the base's (api.md 6.16). The base has two: `still` (the whole canvas, the still) and `paused` (the PAUSED tag).
+
+#### 4.17.6 `SvcSurface`
+
+Since base 3.3.
+
+| Member | Contract |
+|---|---|
+| `SvcSurface` | A surface of RGB565 pixels with the stride `w`, in a buffer the library owns. The base reads it from the UI task until `remove`, the end of the library or the end of the core. |
+| `SvcSurface.px` | The pixels. |
+| `SvcSurface.bytes` | The size of the buffer in bytes. It has to be `w * h * 2`. |
+| `SvcSurface.w`, `SvcSurface.h` | The size of the surface in pixels. It has to be the element's size in the TOML. |
+
+#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`
+
+Since base 3.3.
+
+| Symbol | Contract |
+|---|---|
+| `OVL_E_NONE` | 0: done. |
+| `OVL_E_NAME` | -1: the core's UI TOML has no element of that name. |
+| `OVL_E_SIZE` | -2: the width and height of the surface are not the element's size. |
+| `OVL_E_BYTES` | -3: the surface is null or has no buffer, or `bytes` is not `w * h * 2`. |
+| `OVL_E_TAKEN` | -4: another library shows the element. |
+| `OVL_E_HANDLE` | -5: not a handle of an element of this library. |
+| `OVL_E_NOSERVICE` | -6: no core runs, or the service is not up. |
+
+#### 4.17.8 `api->overlay->show`
+
+4.17.8.1 `int show(const char *name, const SvcSurface *surface)` shows the element `name` with `surface`. It returns the handle (greater than 0) or an `OVL_E_*` code. The place and the size are the TOML's.
+4.17.8.2 The library that shows an element already may call `show` again with another surface. The element is drawn again at the next frame, and the old surface is the library's again when the call returns (4.17.10.2).
+4.17.8.3 The still is shown like any element: `show("still", surface)` replaces the base's own picture of the stopped machine with the library's surface (Timewarp's frame). It is drawn only while the machine stands.
+
+#### 4.17.9 `api->overlay->update`
+
+4.17.9.1 `int update(int el)` says that the surface of the element was painted again: it is drawn again at the next frame. It returns 0 or `OVL_E_HANDLE`.
+
+#### 4.17.10 `api->overlay->remove`
+
+4.17.10.1 `int remove(int el)` takes the element away. It returns 0 or `OVL_E_HANDLE`.
+4.17.10.2 The surface is the library's again when the call returns: the call waits for the UI task's next frame, 200 ms at most (the log says when that time ran out). A call from the UI task itself does not wait. The same holds for `show` with another surface than the element has now, and for the end of a library.
+
+#### 4.17.11 `api->overlay->text`
+
+4.17.11.1 `void text(const SvcSurface *surface, int x, int y, const char *s, uint16_t colour)` writes `s` into the surface with the base's fonts (the font of the menu's captions), its top left at `x`, `y`, in the RGB565 `colour`. The pixels outside the surface are not written. A string longer than 47 characters is cut.
+4.17.11.2 The UI task writes it at the next frame, before the redraw. A shown element whose surface is written is drawn again then. A surface that is not valid is ignored, and so is a call while 16 others wait for the frame. `remove`, and `show` with another surface, drop the calls that wait for the old surface.
+
+#### 4.17.12 `api->overlay->menu_hide`, `api->overlay->menu_show`
+
+4.17.12.1 `void menu_hide(void)` acts as the person's close of the menu (the leave intent). `void menu_show(void)` acts as the menu key. The main loop takes the call over at its next pass. `menu_hide` while the menu is closed and `menu_show` while it is open do nothing. One request waits for the pass: when a library calls both in one frame, the last call counts.
+4.17.12.2 While the menu is hidden, it is closed: the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the machine, and the menu key brings the menu back.
+
+#### 4.17.13 `api->overlay->error`
+
+4.17.13.1 `const char *error(int code)` returns the words of an `OVL_E_*` code, for the log.
+
 ## 5. Operation types
 
 Since base 3.0.
@@ -1811,11 +1879,11 @@ Since base 3.2.
 6.14.4 `[identity]` is the standard block of the bitstream. `id` is four printable ASCII characters. `block` names the block that holds the identity registers. That block is owned by the base and has the readable properties `id` and `build`. `build` is the build word of the bitstream. It is optional in the source file (a record that is decoded and compiled again carries it). `cor_pack` writes it when it packs the core: the AXSS word of the bitstream, which the gateware's BUILD register answers. A source that names another build than the bitstream's is refused, a bitstream without an AXSS word is refused, and `cor_pack check` refuses a `.cor` whose record carries another build than its bitstream.
 6.14.5 A `[[block]]` is a capability. `name` is 1 to 31 characters of `a-z`, `0-9` and `_`, once per record. `module` is the gateware module, and so the driver library, with the same characters. `owner` is `"base"` or `"core"`. `address` is a 32 bit number. `size` is 1 to 0x100000 bytes, and the block ends below 4 GiB. Blocks of one TOML A do not overlap; a block of the core is checked only against the blocks of its own TOML A. There is no other table of the registers the base drives; the base's blocks are the ones of TOML A with `owner = "base"`, and a `[[window]]` that covers one is refused (4.15.19.2).
 6.14.6 A module whose registers serve several drivers is several blocks, one per register range. Each block has its own map.
-6.14.7 The map of a block is its `[[block.property]]` tables. `name` is once per block. `offset` is in bytes from the address of the block, and the register lies inside the block. `width` is 8, 16 or 32 bits. `dir` is `"r"`, `"w"` or `"rw"`. `count` is optional (1 to 0x10000, default 1): a property with a count is a run of `count` registers of its width at consecutive offsets, element `i` at `offset + i * width / 8`, and the whole run lies inside the block. Fields and states hold for every element. Two properties share a byte only when no direction is in both of them, and a run shares as the bytes of all its elements. A block has at most 64 properties.
+6.14.7 The map of a block is its `[[block.property]]` tables. `name` is once per block. `offset` is in bytes from the address of the block, and the register lies inside the block. `width` is 8, 16 or 32 bits. `dir` is `"r"`, `"w"` or `"rw"`. `count` is optional (1 to 0x10000, default 1): a property with a count is a run of `count` registers of its width, element `i` at `offset + i * stride`, and the whole run lies inside the block. `stride` is optional and only for a run: the bytes from one element to the next, from the width in bytes to 0x100000, default the width (consecutive registers). A stride above the width leaves room between the elements for other runs, so words that interleave are one run each: the 1541's parameter RAM is `param_addr` (offset 0x1000) and `param_len` (offset 0x1004), 256 elements each with the stride 8, and the curve registers of reSID8 are `curve_base` (offset 4) and `curve_offset` (offset 6), 2 elements each with the stride 4. Fields and states hold for every element. Two properties share a byte only when no direction is in both of them, and a run shares the bytes of its elements only: runs whose elements do not meet may share the range between their first and last byte. The driver table has `_COUNT` and `_STRIDE` for a run (the stride in bytes, the width when the map gives none) and takes the element's index in `_RD(i)` and `_WR(i, v)`, which add `i * _STRIDE` to `_ADDR`; `rtl_check` checks each element at `offset + i * stride`. A block has at most 64 properties.
 6.14.8 A property has fields: `[[block.property.field]]` with `name` (once per property), `shift` and `bits`. A field lies inside the width and shares no bit with another field. A property has at most 32 fields.
 6.14.9 The possible states are `[[block.property.state]]` for the whole register and `[[block.property.field.state]]` for a field: `name` and `value`. The value fits the width or the bits. A name and a value are once per owner. An owner has at most 64 states.
 6.14.10 A record has at most 64 blocks, 512 properties, 512 fields and 1024 states.
-6.14.11 The map of a module lives with its driver library. A map file is named `<name>.map.toml` and holds `map = "<name>"` and `[[property]]` tables as in 6.14.7. A block says `map = "<name>"` in place of its own properties. `tools/descrec.py compile desc.toml out.bin --maps DIR` reads the map files of `DIR` (repeat the option for more), and the record carries the finished map. A name that no map file has is refused. The SDK ships the maps of the shared drivers in `maps/`: `c64cart` (the cartridge page, with the 43 byte descriptor `desc` as a run), `c64cart_regs`, `cbm1541` (the drive block, with the run `dirty` of 128 bytes and the run `param` of 512 words), `dma` (the DMA window, the run `mem` of 65536 bytes), `gcr_coder`, `icap`, `sid` (the reSID8 filter control of the SID library: `fcsel`, `auto` and `bypass` are runs of the two engines) and `uci`. The `param` words of the drive follow each other as the gateware has them: per half track two, the address of the track and `(length - 1) | bit time << 16`, 128 half tracks per side, side 1 from word 256.
+6.14.11 The map of a module lives with its driver library. A map file is named `<name>.map.toml` and holds `map = "<name>"` and `[[property]]` tables as in 6.14.7. A block says `map = "<name>"` in place of its own properties. `tools/descrec.py compile desc.toml out.bin --maps DIR` reads the map files of `DIR` (repeat the option for more), and the record carries the finished map. A name that no map file has is refused. The SDK ships the maps of the shared drivers in `maps/`: `c64cart` (the cartridge page, with the 43 byte descriptor `desc` as a run), `c64cart_regs`, `cbm1541` (the drive block, with the run `dirty` of 128 bytes and the two runs `param_addr` and `param_len` of the parameter RAM), `dma` (the DMA window, the run `mem` of 65536 bytes), `gcr_coder`, `icap`, `sid` (the reSID8 filter control of the SID library: `fcsel`, `auto`, `bypass`, `curve_base` and `curve_offset` are runs of the two engines) and `uci`. The parameter words of the drive interleave as the gateware has them: per half track two, the address of the track (`param_addr`) and `(length - 1) | bit time << 16` (`param_len`, with the fields `length_m1` and `bit_time`), 128 half tracks per side, side 1 from element 128 (byte 0x400).
 6.14.12 The reader refuses a record that breaks a rule of 6.14.2 to 6.14.10 with a sentence that names the section, the block and the property. `tools/descrec.py` and the application read the same rules.
 6.14.13 The service compares the standard block with the record at start. It reads the properties `id` and `build` of the identity block and compares them with the `id` and the `build` of the record: the four characters of the ID, byte 0 first, and the build word. This is the one check that stays at run time. A pair that does not match is told in the start notice (it says which of the two differs and with what), and the core is not released: the menu and the settings open, the machine stays held. A block that cannot be read is refused the same way. A record without a build word (one that no packer has stamped) is refused the same way: ID plus build is the proof, pairing by packaging is none. "Not released" holds on every path: the release of a start, a reset, a reload and a media mount refuses with the same reason, and the service poll, the polls of the libraries and the write-back task do not start.
 6.14.14 The addresses of the application's build come from TOML A as linker symbols. `tools/descrec.py ldfrag toml_a.toml out.ld [--maps DIR]` writes a linker-script fragment: `__iobase` and `__u2p_io_base` from `[io]`, and for each block `__blk_<block>` (its address) and for each property `__reg_<block>_<property>` (the block's address plus the offset). `IOBASE` and `U2P_IO_BASE` of the headers are these two symbols, and a driver library takes the address of a register from its symbol. No address is a `-D` option or a literal. The build links the fragment as an input file (the Makefile variable `IOFRAG`). An application built for RISC-V without it does not link. The check of `[io]` and `[[block]]` is the one of a record; a fragment without `[identity]` is accepted, and it is no record.
@@ -1845,16 +1913,27 @@ Since base 3.3.
 6.15.11 The base takes the keys and the operations of Picture, Scale, Smoothing and Frame follow, which `descrec.py` refuses in a core's `[[core_setting]]`. The rows of a core's own function in the hotkey map and of its hotkey tasks are the core's: the base gives them the shape of its hotkey rows and the core names them.
 6.15.12 A core whose TOML A holds only the blocks of its own gateware names, in the `[app]` table of its TOML B, `toml_a` (its file, beside the TOML B) and `base_blocks` (names of blocks of the base's TOML A, the package's `gateware/shared.toml` or `--base-toml-a`). `python3 tools/app_build.py build` links the app against `descrec.merge_toml_a` of the two: the core's `[io]` and `[identity]`, the named base blocks and the core's blocks. A name the base's TOML A does not have, a name the core's file has too, and two different `[io]` tables are refused with a sentence; the overlap rule of a record applies to the result. Nothing else of the base's TOML A is in the driver table, the linker fragment or the link (`out/blocks.txt` lists the blocks).
 
-### 6.15 The driver table: TOML A at build time
+### 6.16 The elements of the overlay service: `[[element]]`
 
-6.15.1 The application is linked against one TOML A. `python3 tools/descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]` checks the file by the rules of 6.14 and writes two files into OUT_DIR: `drvtab.h` and `drvtab.c`. The build runs it before any source is compiled and writes a file only when its text changes, so an unchanged TOML A recompiles nothing. The shared app is linked against `coreapp/gateware/shared.toml`, whose blocks are the addresses it has today.
-6.15.2 `drvtab.h` holds, for each block `B`: `DRV_HAS_B` (1), `DRV_B_ADDR`, `DRV_B_SIZE` and `DRV_B_OWNER` (0 base, 1 core). It holds the blocks of the base and of the core alike.
-6.15.3 For each property `P` of the block: `DRV_B_P_ADDR` is its address. `DRV_B_P_RD()` reads it, for `r` and `rw`; `DRV_B_P_WR(v)` writes it, for `w` and `rw`. Both are as wide as the property (8, 16 or 32 bits). A property with a count (6.14.7) also has `DRV_B_P_COUNT`, and its macros take the index of the element: `DRV_B_P_RD(i)` and `DRV_B_P_WR(i, v)`; `DRV_B_P_ADDR` is element 0. A driver that writes a property its map calls read-only does not compile. The raw-offset calls of the CoreIo API (`cart_rd`, `cart_wr`, `drv_rd`, `drv_wr`, `hw_read_id`) address through `DRV_<block>_ADDR` plus the offset and carry no direction check.
-6.15.4 For each field `F` of the property: `DRV_B_P_F_SHIFT` and `DRV_B_P_F_MASK`. For each possible state `S` of the property or the field: `DRV_B_P_S` and `DRV_B_P_F_S` are its value. A driver names a register, a bit and a value only by these names.
-6.15.5 A block the TOML A lacks has no macro. A driver that serves a block that only some bitstreams have tests `#ifdef DRV_HAS_B`. An application linked against a TOML A without the block `icap` has no ICAP access: no partial port (`hw_partial` returns null), no return to the host (`hw_return_to_host` refuses), no expansion port release, and the board probe's ICAP byte reads 0, so `board_detect()` takes the profile of a standalone installation.
-6.15.6 Two names that make the same macro (the block `a` with the property `b_c`, and the block `a_b` with the property `c`) are refused when the table is generated.
-6.15.7 `drvtab.c` holds the table of the blocks, `drv_blocks[]` with `drv_nblocks`: name, module, owner, address and size. A native test redirects every register access with `-DDRV_PTR_HEADER='"drv_fake.h"'` (`tests/drv_fake.h`: one array for the address space), so a test reads back what a driver wrote.
-6.15.8 The shared drivers take their blocks from the table: the UCI driver (`uci_slot.cc` for the slot at $DF1C, `uci.cc` for the GCR coder), the cartridge port and the built-in drive A (`hw.cc`), the debug register (`dmasvc.cc`) and the ICAP loader (`hw.cc`).
+Since base 3.3.
+
+6.16.1 An element is a rectangle a library paints itself and shows with `api->overlay->show` (4.17). Its name, its place and its size are not the library's: they come from `[[element]]` tables of the core's UI TOML (section 25 of its record, which needs no `[core]`).
+6.16.2 The base's own record, `coreapp/base_ui.toml`, holds two: `still` (the whole canvas, marked `still = true`) and `paused` (the PAUSED tag, top right).
+6.16.3 An `[[element]]` has `name` (`a-z`, `0-9` and `_`, 1 to 15 characters, once), `anchor` (`top_left`, `top_mid`, `top_right`, `left_mid`, `center`, `right_mid`, `bottom_left`, `bottom_mid` or `bottom_right`), `dx` and `dy` (the offset from the anchor in canvas pixels, right and down positive, default 0), `w` and `h` (the size in canvas pixels, the size of the surface) and optionally `still = true` (at most one still in a table).
+6.16.4 The canvas of the TOML is 960 x 540. The compiler (`tools/descrec.py`) and the reader of the record (`descrec.cc`) refuse an element whose rectangle is not inside it, with the element and its place in the sentence. On the board the place is made again at every frame on the canvas of the video mode (640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above): the anchor and the offset count from that canvas's edges, the size stays the TOML's, and what lies beyond a smaller canvas is cut off. The base's capture of a stopped C64-type core is fitted to the still's size cut to the canvas and painted with the palette the person set; that of a core that draws its picture on the pixel layer has the place and the scale of the running picture on the canvas (the part that lies on it). A library's surface for the still is its row's size, cut off at the right and below on a smaller canvas.
+6.16.5 An element of the core with the name of a base element replaces it (the core places the PAUSED tag elsewhere); another is added, at most 16 in all (`OVL_ELEMENTS_MAX`; a core's TOML B sizes the maximum at link time through its `[sizes]` table). One that does not fit is told in the log (`[menu] refused: element "<name>": <why>`) and is not applied.
+6.16.6 The elements are drawn in the order of the table: the base's first, then the core's in the order of its file. The menu simulator draws the places of the elements from the same records.
+
+### 6.17 The driver table: TOML A at build time
+
+6.17.1 The application is linked against one TOML A. `python3 tools/descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]` checks the file by the rules of 6.14 and writes two files into OUT_DIR: `drvtab.h` and `drvtab.c`. The build runs it before any source is compiled and writes a file only when its text changes, so an unchanged TOML A recompiles nothing. The shared app is linked against `coreapp/gateware/shared.toml`, whose blocks are the addresses it has today.
+6.17.2 `drvtab.h` holds, for each block `B`: `DRV_HAS_B` (1), `DRV_B_ADDR`, `DRV_B_SIZE` and `DRV_B_OWNER` (0 base, 1 core). It holds the blocks of the base and of the core alike.
+6.17.3 For each property `P` of the block: `DRV_B_P_ADDR` is its address. `DRV_B_P_RD()` reads it, for `r` and `rw`; `DRV_B_P_WR(v)` writes it, for `w` and `rw`. Both are as wide as the property (8, 16 or 32 bits). A property with a count (6.14.7) also has `DRV_B_P_COUNT` and `DRV_B_P_STRIDE` (the bytes from one element to the next, for a driver that addresses an element through an interface of its own), and its macros take the index of the element: `DRV_B_P_RD(i)` and `DRV_B_P_WR(i, v)`; `DRV_B_P_ADDR` is element 0. A driver that writes a property its map calls read-only does not compile. The raw-offset calls of the CoreIo API (`cart_rd`, `cart_wr`, `drv_rd`, `drv_wr`, `hw_read_id`) address through `DRV_<block>_ADDR` plus the offset and carry no direction check.
+6.17.4 For each field `F` of the property: `DRV_B_P_F_SHIFT` and `DRV_B_P_F_MASK`. For each possible state `S` of the property or the field: `DRV_B_P_S` and `DRV_B_P_F_S` are its value. A driver names a register, a bit and a value only by these names.
+6.17.5 A block the TOML A lacks has no macro. A driver that serves a block that only some bitstreams have tests `#ifdef DRV_HAS_B`. An application linked against a TOML A without the block `icap` has no ICAP access: no partial port (`hw_partial` returns null), no return to the host (`hw_return_to_host` refuses), no expansion port release, and the board probe's ICAP byte reads 0, so `board_detect()` takes the profile of a standalone installation.
+6.17.6 Two names that make the same macro (the block `a` with the property `b_c`, and the block `a_b` with the property `c`) are refused when the table is generated.
+6.17.7 `drvtab.c` holds the table of the blocks, `drv_blocks[]` with `drv_nblocks`: name, module, owner, address and size. A native test redirects every register access with `-DDRV_PTR_HEADER='"drv_fake.h"'` (`tests/drv_fake.h`: one array for the address space), so a test reads back what a driver wrote.
+6.17.8 The shared drivers take their blocks from the table: the UCI driver (`uci_slot.cc` for the slot at $DF1C, `uci.cc` for the GCR coder), the cartridge port and the built-in drive A (`hw.cc`), the debug register (`dmasvc.cc`) and the ICAP loader (`hw.cc`).
 
 ## 7. Limits
 
