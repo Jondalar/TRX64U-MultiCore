@@ -30,14 +30,14 @@ def must(cond, what, out=""):
 
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini"), "--toml-a", os.path.join(HERE, "mini.toml"), "--top", "top", "--bus", "msys.io_req")
-must(rc == 0 and "2 block(s), 4 properties agree" in out, "mini design: 2 blocks, 4 properties agree with the RTL", out)
+must(rc == 0 and "2 block(s), 4 properties agree" in out, "mini design: 2 blocks, 4 properties (one a run of 2 elements) agree with the RTL", out)
 
 ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-Ultimate"))
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 54 properties agree" in out,
-         "c64_basic: 10 blocks, 54 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
+    must(rc == 0 and "10 block(s), 53 properties agree" in out,
+         "c64_basic: 10 blocks, 53 properties agree with the RTL (the maps sid, c64cart, c64cart_regs and dma of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
 

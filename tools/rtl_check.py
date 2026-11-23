@@ -2695,6 +2695,36 @@ class Checker:
             a += n
         return None
 
+    def span_ok(self, a, lx, wr):
+        """True if every byte of the aligned span has the access (write or read) for sure: a span of unknown low bits is trusted as covered() trusts it
+        (a forwarded request that the receiving module decodes, or, for a write, an effect that certainly runs); a byte is decided by its own stimulus."""
+        res = self.stim(a, wr, lx)
+        if lx == 0 or res["forwarded"]:
+            return bool(res["write" if wr else "read"])
+        return bool(wr and res["write"] and res["cert"])
+
+    def run_gap(self, lo, size, wr):
+        """The first byte of [lo, lo+size) without the access, or None: a run of registers is checked over its aligned spans, split where a span is not certain,
+        down to single bytes."""
+        def walk(a, n, lx):
+            if self.span_ok(a, lx, wr):
+                return None
+            if n == 1:
+                return a
+            h = n // 2
+            r = walk(a, h, lx - 1)
+            return r if r is not None else walk(a + h, n - h, lx - 1)
+        a, end = lo, lo + size
+        while a < end:
+            n = 1
+            while a % (n * 2) == 0 and a + n * 2 <= end:
+                n *= 2
+            bad = walk(a, n, n.bit_length() - 1)
+            if bad is not None:
+                return bad
+            a += n
+        return None
+
     def check(self):
         errs = []
         for b in self.doc["block"]:
@@ -2710,8 +2740,23 @@ class Checker:
                 continue
             for p in b.get("property", []):
                 nb = p["width"] // 8
-                if p["offset"] + nb > b["size"]:
+                count = p.get("count", 1)
+                if p["offset"] + nb * count > b["size"]:
                     errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
+                    continue
+                if count > 1:
+                    for need, wr in (("w", True), ("r", False)):
+                        if need not in p["dir"]:
+                            continue
+                        bad = self.run_gap(rt + p["offset"], nb * count, wr)
+                        if bad is not None:
+                            el = (bad - rt - p["offset"]) // nb
+                            res = self.stim(bad, wr)
+                            fw = res["forward"]
+                            errs.append("block %s, property %s[%d] (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (
+                                name, p["name"], el, p["dir"], bad - rt, bad + self.iobase, "write" if wr else "read",
+                                ("; the request is forwarded to " + ", ".join(sorted(set(fw))) + ", whose decode is not followed") if fw else ""))
+                            break
                     continue
                 bad_p = False
                 for i in range(nb):
