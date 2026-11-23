@@ -8,7 +8,7 @@
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
-  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1): the host's own decode, no checkout of another repository needed.
+  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
 import os
@@ -34,6 +34,8 @@ def must(cond, what, out=""):
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini"), "--toml-a", os.path.join(HERE, "mini.toml"), "--top", "top", "--bus", "msys.io_req")
 must(rc == 0 and "2 block(s), 4 properties agree" in out, "mini design: 2 blocks, 4 properties agree with the RTL", out)
+must("ultisid_stub.v" in out and "never opened" in out,
+     "mini design: ultisid_stub.v (not valid Verilog) is on the deny list by its name, listed and never opened", out)
 
 ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-Ultimate"))
 dsg = os.path.join(ult, "designs", "c64_basic")
@@ -51,8 +53,9 @@ must(rc == 0 and "6 block(s), 20 properties agree" in out, "vc20: 6 blocks, 20 p
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "45 block(s), 91 properties agree" in out,
-     "host: 45 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over)", out)
+must(rc == 0 and "56 block(s), 126 properties agree" in out and "agnus_copper.v" in out,
+     "host: 56 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows; the Minimig copper file of the source list is on the deny list and not opened)", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)
