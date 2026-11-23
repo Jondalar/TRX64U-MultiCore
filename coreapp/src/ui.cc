@@ -116,6 +116,11 @@ bool ui_open(const CoreDesc *desc)
     return true;
 }
 
+void ui_set_desc(const CoreDesc *desc)
+{
+    g_desc = desc;
+}
+
 // The information lines menu_info_labels[] names, in its order; the two the top bar shows as chips.
 enum { INFO_CORE = 0, INFO_APP, INFO_NET, INFO_MEDIA, INFO_ROMS, INFO_LIBS };
 static char chip_media[40], chip_net[40], chip_say[96];

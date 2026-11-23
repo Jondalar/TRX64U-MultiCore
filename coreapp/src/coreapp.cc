@@ -61,6 +61,7 @@ static void app_task(void *)
         hp = &h;
         walltime_adopt(hp);                       // T191: the host's time, before any core asks for it (the Amiga RTC loads it at reset)
     }
+    coreapp_open_early(hp);                       // T239.3 P2-2 (M1): the picture, the splash and port 80 before anything waits for a medium
     const CoreDesc *desc = 0;
     static char msg[512];                         // the held page's sentence: the bundle's path and the record's reason (bundle.cc)
     // T239.3 D17: a core with no descriptor compiled in is described by its bundle's data record. Its code is the library the record names (`hooks`, core_hooks.h,
@@ -73,10 +74,10 @@ static void app_task(void *)
     };
     static BoardMediumEnv medium_env;
     static BundleDescSource desc_src(fm_fs(), 0, &medium_env);
+    coreapp_wait_named("Waiting for the core's medium");   // the medium wait (bundle.cc) shows no step of its own: the splash and port 80 say why the screen waits
     StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io(), &desc_src);
     STARTLOG("phase core identified: %s", msg);
     if (r != START_OK) {
-        ui_open(0);
         coreapp_held(msg, &board);                // the core stays held (the host's power-up hold, nobody writes C64_MODE)
     }
     coreapp_run(desc, hp, &board);                // never returns

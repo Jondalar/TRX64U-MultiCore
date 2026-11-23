@@ -418,8 +418,15 @@ static void cs_step(int step, const char *label)
     rest_starting(label);
 }
 
+void coreapp_wait_named(const char *what)
+{
+    cs_step(0, what);
+}
+
 void coreapp_held(const char *why, const BoardProfile *board)
 {
+    ui_splash_close();                            // the picture and the REST gate were opened before the description (coreapp_open_early)
+    rest_starting("The core is held");
     if (!matrix_kb && held_offers_return(board)) {
         matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
     }
@@ -453,19 +460,19 @@ static void record_groups(OpRegistry &r, const CoreDesc *d)
     }
 }
 
-void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
+static bool early_open;
+
+void coreapp_open_early(const Handover *h)
 {
-    ops_record_groups = record_groups;                        // before anything makes the registry (ops_of)
-    ui_live_key_changed = hooks_menu_video;                   // the core hears each change of the picture behind the menu (core_hooks.h menu_video)
-    static BoardUi board_ui;
-    static BoardFreeze board_freeze;
-    static BoardMenuHost board_host;
-    memset(&ctx, 0, sizeof(ctx));
-    baseset_attach(&ctx, &board_set_port);        // the USB driver reads the mouse settings through it, the settings' operations act through the port
+    if (early_open) {
+        return;
+    }
+    early_open = true;
     // T101 S9: the picture comes first. LVGL and the pixel layer are opened here, the splash is the first frame, and every step
-    // below that waits for something (the stick, the file system, a library, a ROM) is named on it.
+    // after it that waits for something (the bundle's medium, the stick, the file system, a library, a ROM) is named on it.
+    // T239.3 P2-2 (M1): this runs before the description of a core that has none compiled in is made of its bundle, which waits for the medium of the .cor.
     STARTLOG("phase core app run: pixel layer");
-    ui_open(desc);
+    ui_open(0);
     {
         // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture). T228: the running mode
         // is the gateware's row, not always the hand-over's (trx64u's bitstream starts in 1080p50), and 1080p without the gateware (video_menu_start).
@@ -479,12 +486,33 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     {
         char ver[64];
         snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
-        ui_splash_open(desc->cor_name, ver, CS_STEPS);
+        // the name of the core is the bundle's, from the hand-over (the descriptor does not exist yet); a start without a hand-over has none to show
+        const char *name = h && handover_valid(h) ? (h->core_name[0] ? h->core_name : handover_core_id(h)) : "";
+        ui_splash_open(name, ver, CS_STEPS);
     }
-    // The port opens now, not after the start: the start can wait as long as it takes (a ROM, the medium) and FTP answers meanwhile, so the API must
+    // The port opens now, not after the start: the start can wait as long as it takes (the bundle's medium, a ROM) and FTP answers meanwhile, so the API must
     // too (board 2026-11-09). Until rest_started below it answers 503 with the step (rest.h); REST and WS reach the service only after that.
     rest_starting("Starting");
     restsrv_start(&ctx, ip_string);               // REST and WS JSON-RPC over the same registry and executor (T104.1 D3, Q8: in the base)
+}
+
+void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
+{
+    ops_record_groups = record_groups;                        // before anything makes the registry (ops_of)
+    ui_live_key_changed = hooks_menu_video;                   // the core hears each change of the picture behind the menu (core_hooks.h menu_video)
+    static BoardUi board_ui;
+    static BoardFreeze board_freeze;
+    static BoardMenuHost board_host;
+    memset(&ctx, 0, sizeof(ctx));
+    baseset_attach(&ctx, &board_set_port);        // the USB driver reads the mouse settings through it, the settings' operations act through the port
+    // The picture and the REST gate came first (coreapp_open_early): the core app task opens them before the description waits for the bundle's medium.
+    coreapp_open_early(h);                        // a no-op after the core app task; a caller that did not open them gets them here
+    ui_set_desc(desc);
+    {
+        char ver[64];
+        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
+        ui_splash_open(desc->cor_name, ver, CS_STEPS);     // the early splash named the bundle from the hand-over; the descriptor's name replaces it (still at step 0)
+    }
     static CoreDesc picture_desc;                 // the descriptor plus the application's own Picture item (T107)
     static Setting picture_items[SETTINGS_MAX];
     PictureEnv picture_env;

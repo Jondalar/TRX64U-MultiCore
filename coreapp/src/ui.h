@@ -9,6 +9,7 @@
 // LVGL up and every view built; the layer stays off until the first show. False without the pixel layer (the application
 // then runs on the console log only).
 bool ui_open(const CoreDesc *desc);
+void ui_set_desc(const CoreDesc *desc);       // the core the shell names once it is known, when ui_open ran before the description was made (run.cc coreapp_open_early)
 // T164 D10a: the menu's canvas (960 x 540, or the mode's own size below 960 wide): the view, the port and the display take it, the next render lays the menu out for it.
 void ui_set_canvas(int w, int h);
 
