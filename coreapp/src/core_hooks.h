@@ -65,7 +65,8 @@ typedef struct CoreHooks {
     //     the medium keeps what it held.
     //   - slot_eject empties the slot after the write-back: 0, or non-zero and the reason (the medium stays).
     // While ctx.state has CTX_MEDIA_RESTORING the base mounts what a start or a media set stores: the machine is held and the base releases it later, so slot_mount
-    // neither resets nor releases it. The engine calls ctx.mount_notify(slot) whenever one of its slots changes by its own doing. A record with a [mount] list needs all
+    // neither resets nor releases it. The engine calls ctx.mount_notify(<slot name>) whenever one of its slots changes by its own doing; a change a shared library makes (cbm1541, c64cart) is
+    // notified by that library. A record with a [mount] list needs all
     // three. Task: lock.
     int (*slot_spec)(int slot, char *buf, int n);
     int (*slot_mount)(int slot, const char *spec, char *msg, int msglen);

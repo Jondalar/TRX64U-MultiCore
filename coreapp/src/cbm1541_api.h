@@ -13,6 +13,9 @@
 // Rules: `size` first; members only appended inside a major; reorder or removal makes the next major. Strings are owned by the drive library and valid until the next
 // mount, eject or reset of the drive; copy them at once. Task: "lock" = a task holding the core lock (operation handler, hook, poll). Errors: int results are 0 for
 // done and non-zero with the reason in msg (cut to msglen - 1; msg null or msglen 0: no reason); a refused call leaves the drive as it was.
+//
+// The slot: every call that changes what is in drive A (slot_mount, slot_eject, create into the drive, the operations of the drive) notifies the slot "Drive A"
+// itself (ctx.mount_notify, svc_ctx.h); the caller does not.
 #ifndef COREAPP_CBM1541_API_H
 #define COREAPP_CBM1541_API_H
 

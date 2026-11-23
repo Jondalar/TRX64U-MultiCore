@@ -198,3 +198,6 @@ These answers are for the cut of trx64u, in which `c64.cc` goes to the base libr
   T64 lister (`t64_list`) stays here.
 - The first reset at power-on: the bundle's libraries are loaded and the groups are filled (`lib_board_load`, run.cc) before `boot_start` makes the first reset,
   so the `init` hook has io and settings there (CTRL+P, CTRL+N). 3.3 keeps this order, and a test holds it.
+- Who notifies a slot change (advisor, 2026-11-23): the engine that makes the change. `ctx.mount_notify` takes the slot's name from [mount], as
+  `ctx.media_source` does, and runs on any task, because it only marks the slot. The shared libraries notify every change they make to their own slot: "Drive A"
+  for `cbm1541`, and "Cartridge" for `c64cart`, `for_state` included. A core's code that calls them does not notify again.

@@ -5,6 +5,9 @@
 // Why no CoreCtx: the functions of c64_cart.h take one; the library behind this table has the api groups (io, ctx, settings, ops, fs) and uses them, so no call here
 // takes it. Run and remove cold reset the machine through the operation "machine.cold_reset"; for_state and run_image do not reset it.
 //
+// The slot: every call that changes what is in the port (run, remove, for_state, run_image and the rest) notifies the slot "Cartridge" itself (ctx.mount_notify,
+// svc_ctx.h); the caller does not.
+//
 // Rules: `size` first; members only appended inside a major; reorder or removal makes the next major. A library tests `size` before it calls a member added later.
 // Strings are owned by the cartridge library and valid until the cartridge in the port changes; copy them at once. Task classes: "lock" = a task holding the core lock
 // (an operation handler, a hook, a poll); "any" = any task. Errors: a result of int is 0 for done and non-zero with the reason in msg (cut to msglen - 1); a call
