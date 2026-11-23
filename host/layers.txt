@@ -22,6 +22,7 @@
 # Every large core below carries its own copy of the host files it builds, cores/<id>/mono/host/ (T164 3a Q1, Alex 2026-11-01: "Copies instead."); host/ is no input of it and
 # no part of its key (ci/lib.sh mono_key); the copies need not equal host/ (tools/check_large_copies.py). The shared: files below that are not host/ still count for them.
 # cores/diag too (T175, Port Diagnostics): a large core, only cores/diag/mono/core.toml, built by the large lane.
+# cores/ddt_mandel too (T255, Alex 2026-11-22, #123): a large core, only cores/ddt_mandel/mono/core.toml, built by the large lane; its trx/ is read by the partial core ddt_novic (core:ddt_novic owns it, so it is not ignore:).
 # cores/neogeo too (Alex 2026-10-28, T143): a large core from the start, only cores/neogeo/mono/core.toml, built by the large lane.
 # cores/c64scpu too (T182): a large core, only cores/c64scpu/mono/core.toml, built by the large lane; the synthesis area trial in cores/c64scpu/trial is run by hand, never by CI.
 # Since T115 (2026-10-25) that is c64ref, a slim C64U copy built only to route against (core.toml build_only); host/build.tcl sources
@@ -126,6 +127,8 @@ cores/zxnext
 cores/snes
 cores/neogeo
 cores/diag
+cores/ddt_mandel
+:(exclude)cores/ddt_mandel/trx
 cores/amiga
 cores/nes
 cores/c264

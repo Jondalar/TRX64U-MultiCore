@@ -229,7 +229,7 @@ int main()
                              { &c264_desc, "c264", true }, { &pet_desc, "pet", true }, { &amiga_desc, "amiga", true }, { &amiga1200_desc, "amiga1200", true }, { &apple2_desc, "apple2", true },
                              { &atari800_desc, "atari800", true }, { &zx_desc, "zx", true }, { &zxnext_desc, "zxnext", true }, { &cpc_desc, "cpc", true },
                              { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
-                             { &ddt_mandel_desc, "ddt_mandel", false }, { &ddt_novic_desc, "ddt_novic", false }, { &portdiag_desc, "portdiag", false } };
+                             { &ddt_novic_desc, "ddt_novic", false }, { &portdiag_desc, "portdiag", false } };
         for (const Row &r : rows) {
             CHECK_EQ(r.d->hotkeys != 0, r.has);
             if (!r.has) { static CoreDesc o; static Setting s[SETTINGS_MAX]; CHECK(!hk_extend(r.d, &o, s)); CHECK_EQ(o.nsettings, r.d->nsettings); continue; }

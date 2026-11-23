@@ -1,0 +1,14 @@
+# DDT's mandelbrUlt (T255): the Mandelbrot generator of github.com/0x444454/mandelbrUlt as a LARGE core - his engines, a BRAM frame buffer and the HDMI output, nothing else (no menu, no
+# application, no settings). Replaces the partial core of T168. Licences: cores/ddt_mandel/NOTICE. Spec docs/specs/done/T255-ddt-mandel-large.md.
+# This file is the only descriptor (no DFX lane): ci/plan.py, ci/lanes and ci/bitstream_mono.sh find the core by cores/ddt_mandel/mono/core.toml, lane large-ddt_mandel.
+id           = "ddt_mandel"
+name         = "DDT Mandelbrot (mandelbrUlt)"
+short        = "DDTM"
+version      = "0.2.0"
+contract     = 2
+app          = "none"          # T255 D6: no application runs; the .cor carries a 128 byte placeholder record (ci/package.sh)
+order        = 20
+delivery     = "cfw"
+experimental = true            # every core is experimental (Alex 2026-11-18); built (run 45063655824), on the board 2026-11-23 (T255 D11)
+mono_env     = ["TRX_ENGINES=20"]
+sources      = ["cores/ddt_mandel", ":(exclude)cores/ddt_mandel/sim", ":(exclude)cores/ddt_mandel/mono/reports"]

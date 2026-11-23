@@ -176,6 +176,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 ## Done
 
 | ID | M | Status | Task | Open | Details |
+| T255 | 2 | ✅ | DDT's Mandelbrot as a large core: 20 engines, frame buffer, HDMI only, no menu (#123, replaces the partial core) | Done (Alex 11-23): both DDT cores run on the board; S7 not checked; WNS 0.038 ns, 120 DSP | [T255](docs/specs/done/T255-ddt-mandel-large.md) |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
 | T227 | 3 | ✅ | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Done: D3 sharp smoothing, board PASS 11-16 (Fill + Smooth) | [T227](docs/specs/done/T227-scpu-vic-smoothing.md) |
 |---|---|---|---|---|---|

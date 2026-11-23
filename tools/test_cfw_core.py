@@ -318,6 +318,10 @@ class Descriptor(unittest.TestCase):
         self.toml('delivery = "cfw"\n', app="ultimate")
         self.assertIn("blueprint", self.check()[1])
 
+    def test_cfw_core_without_application(self):
+        self.toml('delivery = "cfw"\n', app="none")
+        self.assertEqual(self.check()[0], 0)
+
     def test_control_mono_env_on_a_cor_core(self):
         self.toml('mono_env = ["TRX_Z80=1"]\n')
         self.assertIn("mono_env", self.check()[1])
