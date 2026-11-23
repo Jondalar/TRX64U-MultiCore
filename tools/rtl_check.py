@@ -12,15 +12,15 @@ check
   Guards that depend on the request are evaluated, guards that depend on state are unknown and both ways are explored; a register
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
-  request's data through wires, or whose guard comes from the write strobe and the address together (a strobe register that
-  ignores the data byte); a read is a response whose data does not come from the literal 0 alone. A module is followed
+  request's data through wires, or whose guard comes from the write flag and the address together and that the same address as a
+  read does not run (a strobe register that ignores the data byte; the write flag alone is no write); a read is a response whose data does not come from the literal 0 alone. A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
-  A block with owner = "core" is a window the base hands to the core: every byte of it must reach a core port of the base's decode (a write
-  whose data leaves over an output port, or a forwarded request); its properties are not checked (they are the core's contract).
+  A block with owner = "core" is a window the base hands to the core: for every byte the request must leave the base over a port of the
+  groups CORE_PORTS (a strobe port that is 1 for the address, or a register driven under the address) and a data port of the same group
+  must carry the request's data; its properties are not checked (they are the core's contract).
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
-  another value fails the check. A write also counts when an assignment's guard comes from the write strobe and the address together and
-  the data byte is ignored (a strobe register).
+  another value fails the check, read or not (the parameter lists of the top-level Verilog file are read for it).
   Reads only the design's source list (the files named in its build script, here build.tcl, and the lists it `source`s by a literal path
   relative to the design directory; `--list FILE` names another, repeatable); a file whose name says ultisid,
   copper, lp_filter or sampler is never opened (clean room).
@@ -1608,11 +1608,14 @@ def top_instances(design, topname, extra_names):
             break
         name = mm.group(1)
         j = mm.end()
+        gen = {}
         if mm.group(2):
-            depth = 1
+            depth, j0 = 1, j
             while depth and j < len(text):
                 depth += (text[j] == "(") - (text[j] == ")")
                 j += 1
+            for gm in re.finditer(r"\.(\w+)\s*\(((?:[^()]|\([^()]*\))*)\)", text[j0:j - 1]):
+                gen[gm.group(1)] = VlogParser(lex(gm.group(2).strip(), "vlog", f), f).expr()
         lm = re.compile(r"\s*([A-Za-z_]\w*)\s*\(\s*\.").match(text, j)
         if name in names and name not in VERILOG_KW and lm:
             j = lm.start() + lm.group(0).index("(")
@@ -1641,7 +1644,7 @@ def top_instances(design, topname, extra_names):
                     raise Unsupported("%s: a port connection of %s I cannot read: %r" % (f, name, p.strip()[:40]))
                 a = pm.group(2).strip()
                 ports.append((pm.group(1), VlogParser(lex(a, "vlog", f), f).expr() if a else None))
-            m.insts.append(Inst(lm.group(1), name, ports, {}, f))
+            m.insts.append(Inst(lm.group(1), name, ports, gen, f))
             pos = k
         else:
             pos = mm.end()
@@ -1661,6 +1664,9 @@ class Ent:
 
     def __init__(self, v, alts=()):
         self.v, self.alts = v, alts
+
+
+CORE_PORTS = ("cw_", "dma_", "drv_io_", "gcr_io_", "sidcv_")
 
 
 class Eff:
@@ -1742,10 +1748,12 @@ class Ev:
         """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
+        self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
         self.top = Ctx(self, topmod, None, None)
         self.busname = busname
         if link is not None:
             self.bus = self.top.child(link[0])
+            self.check_assumed(self.bus)
             self.rootv, self.roott = dict(link[1]), dict(link[2])
             self.resp = [(self.bus, n) for n in link[3]]
             self.followed = [self.bus]
@@ -1763,7 +1771,7 @@ class Ev:
             busname + ".read": F1 if write else T1,
             busname + ".data": allx(flds["data"]),
         }
-        self.roott = {n: frozenset("d" if n.endswith(".data") else ("aw" if n.endswith(".write") else "a")) for n in self.rootv}
+        self.roott = {n: frozenset(("d",) if n.endswith(".data") else (("a", "w") if n.endswith(".write") else ("a", "q"))) for n in self.rootv}
         self.resp = [(self.bus, busname.replace("req", "resp") + ".data")]
         self.followed = [self.bus]
         self.phase, self.post = 1, {}
@@ -2250,6 +2258,13 @@ class Ev:
                 k = s[0]
                 if k == "as":
                     key = base_name(s[1])[0]
+                    if s[1][0] == "id" and "." not in key and s[2][0] == "id":
+                        d = ctx.mod.decls.get(key) or p.vars.get(key)
+                        ti = self.tyinfo(ctx, d.ty) if d is not None else None
+                        if ti is not None and ti[0] == "rec":
+                            for fn, _ in self.d.record_fields(ti[1]):
+                                out[key + "." + fn] = out.get(key + "." + fn, frozenset()) | self.taint_name(ctx, s[2][1] + "." + fn) | guard
+                            continue
                     t = rhs_taint(s[2]) | guard
                     if key in p.vars:
                         vt[key] = vt.get(key, frozenset()) | t
@@ -2612,9 +2627,23 @@ class Ev:
                     act = self.inst_active(ctx, inst)
                     if act:
                         c = ctx.child(inst)
+                        self.check_assumed(c)
                         c.certain = act == 2
                         self.followed.append(c)
                         changed = True
+
+    def check_assumed(self, c):
+        """A generic that an if-generate of the module was decided with must have that value in this instance, read or not."""
+        for name, want in c.mod.gen_assumed.items():
+            if c.inst is not None and name in c.inst.generics:
+                got = self.ev(c.parent, c.inst.generics[name])
+            elif c.mod.generics.get(name) is not None:
+                got = self.ev(c, c.mod.generics[name])
+            else:
+                continue
+            if got.x or got.v != want:
+                raise Unsupported("%s: the generic %s is %s in the instance %s, but an if-generate of the module was decided with its default %s"
+                                  % (c.mod.fname, name, got, c.name, want))
 
     def inst_active(self, ctx, inst):
         """0: no strobe from the request reaches the instance; 1: one may; 2: one does."""
@@ -2664,11 +2693,12 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and ("d" in e.taint or {"a", "w"} <= e.taint) and not (fw and is_out(e)):
+                    if write and ("d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)) and not (fw and is_out(e)):
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
         res["cert"] = res.get("cert") or any(c.certain for c in self.followed[1:])
+        res["core"] = write and self.core_handover(res)
         if not write:
             for ctx in self.followed:
                 for p in ctx.mod.procs:
@@ -2691,6 +2721,30 @@ class Ev:
         res["certain"] = res["write"] or res["read"]
         res["links"] = self.find_links()
         return res
+
+    def core_handover(self, res):
+        """The write leaves the base for layer 2: a strobe port of the core groups (CORE_PORTS) that is 1 for this address, or an effect that
+        drives such a port under a guard of the request's address, and a data port of the same group that carries the request's data."""
+        ctx = self.bus
+        outs = [n for n, pt in ctx.mod.ports.items() if pt[0] != "in" and n.startswith(CORE_PORTS)]
+        strobe = set()
+        for n in outs:
+            try:
+                if self.width(ctx, n) == 1 and truth(self.val(ctx, n)) == 1 and "a" in self.taint_name(ctx, n):
+                    strobe.add(n)
+            except Unsupported:
+                continue
+        for c in self.followed:
+            if c is not ctx:
+                continue
+            for p in c.mod.procs:
+                for e in self.run(c, p).effects:
+                    if e.key in outs and "q" in e.taint:
+                        strobe.add(e.key)
+        if not strobe:
+            return False
+        group = {n for n in outs if any(n.startswith(g) for g in {x for x in CORE_PORTS if any(s.startswith(x) for s in strobe)})}
+        return any("d" in self.taint_name(ctx, n) for n in group if n not in strobe) or any("d" in self.taint(ctx, e.rhs) for p in ctx.mod.procs for e in self.run(ctx, p).effects if e.key in group)
 
     def find_links(self):
         """The request leaves a followed module over output ports (address, write flag, data, toggle: the held request of a
@@ -2847,6 +2901,10 @@ class Checker:
         if key in self.cache:
             return self.cache[key]
         ev = Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), write)
+        if write:
+            evr = Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), False)
+            evr.activate()
+            ev.readref = {(c.name, e.key, e.where) for c in evr.followed for p in c.mod.procs for e in evr.run(c, p).effects}
         res = self.cross(ev.analyze(write), write, 0)
         self.cache[key] = res
         return res
@@ -2879,8 +2937,7 @@ class Checker:
         For a block of the core: the request leaves the base for the core, as a write whose data reaches an output port or as a forwarded
         request (what the core does with it is the core's, checked in the core's own design)."""
         if core:
-            w = self.stim(a, True, lowx)
-            return bool((w["write"] or w["forward"]) and w["cert"])
+            return bool(self.stim(a, True, lowx)["core"])
         w, r = self.stim(a, True, lowx), self.stim(a, False, lowx)
         if w["forwarded"] or r["forwarded"]:
             return bool(w["write"] or r["read"])
