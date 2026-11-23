@@ -1305,7 +1305,20 @@ void ui_show(void)
     }
 }
 
-// The machine stands and the menu is closed: the layer stays up as a keyed screen (the C64's last picture shows through it) with one small tag in the corner.
+void (*ui_live_key_changed)(bool behind) = 0;
+static bool g_key_on;
+void ui_live_key(bool on)
+{
+    trx_lv_set_key(on, on ? TRX_LIVE_KEY_565 : 0);
+    if (on != g_key_on) {
+        g_key_on = on;
+        if (ui_live_key_changed) {
+            ui_live_key_changed(on);
+        }
+    }
+}
+
+// The machine stands and the menu is closed: the layer stays up as a keyed screen (the machine's picture shows through it) with one small tag in the corner.
 static bool g_tag;
 void ui_paused_tag(bool on)
 {
@@ -1323,14 +1336,14 @@ void ui_paused_tag(bool on)
         const TrxTheme &t = trx_theme();
         lv_obj_t *b = trx_box(scr, SW - 250, 14, 236, 30, 0x101018);
         trx_txt(b, 12, 6, "PAUSED   P RESUME", t.caption, 0xFFFFFF);
-        trx_lv_set_key(true, TRX_LIVE_KEY_565);
+        ui_live_key(true);
         trx_lv_resume();
         trx_lv_set_alpha(255);
         g_tag = true;
         trx_lv_refresh_now();
     } else if (g_tag) {
         g_tag = false;
-        trx_lv_set_key(false, 0);
+        ui_live_key(false);
         lv_obj_clean(scr);
         trx_lv_suspend();                       // the layer is the core's again until the menu takes it with ui_show()
     }

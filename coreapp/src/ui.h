@@ -16,6 +16,10 @@ void ui_set_canvas(int w, int h);
 void ui_show(void);
 void ui_hide(void);
 void ui_paused_tag(bool on);          // the paused machine with the menu closed: a keyed screen with one tag
+// The key colour of the layer on (the machine's picture shows through it) or off. Every screen switches it here; on each change, and only then,
+// ui_live_key_changed is called with the new value (run.cc: the core's menu_video hook, hookhost.h). Task: the main loop.
+void ui_live_key(bool on);
+extern void (*ui_live_key_changed)(bool behind);
 bool ui_available(void);
 
 // A message view (start phase, errors): title line, text, colour. Visible after the next ui_poll().

@@ -134,6 +134,15 @@ bool hooks_menu_closed(void)
     return true;
 }
 
+void hooks_menu_video(bool behind)
+{
+    void (*f)(int) = HOOK(menu_video);
+    if (f) {
+        Guard scope;
+        f(behind ? 1 : 0);
+    }
+}
+
 void hooks_base_changed(const char *key)
 {
     void (*f)(const char *) = HOOK(base_setting_changed);

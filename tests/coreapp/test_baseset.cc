@@ -50,6 +50,7 @@ static bool g_fail_start;
 static int h_start(char *msg, int n) { g_log.push_back("start"); if (g_fail_start) { snprintf(msg, n, "no memory for the ring buffers of this core, a reason that is longer than the message"); return 1; } return 0; }
 static void h_menu_closed(void) { g_log.push_back("menu_closed"); }
 static void h_changed(const char *key) { g_log.push_back(std::string("changed ") + key); }
+static void h_video(int behind) { g_log.push_back("video " + std::to_string(behind)); }
 static CoreHooks g_table;
 static uint32_t g_table_size, g_table_major;
 static const void *lib_find(const char *name, uint32_t min_version, uint32_t *size)
@@ -64,7 +65,7 @@ static void make_table(uint32_t size, bool all)
     memset(&g_table, 0, sizeof(g_table));
     g_table.size = size;
     g_table.start = h_start;
-    if (all) { g_table.menu_closed = h_menu_closed; g_table.base_setting_changed = h_changed; }
+    if (all) { g_table.menu_closed = h_menu_closed; g_table.base_setting_changed = h_changed; g_table.menu_video = h_video; }
     g_table_size = size;
     g_table_major = 1;
 }
@@ -312,6 +313,19 @@ int main()
         CHECK(hooks_menu_closed());
         CHECK_EQ(g_log.size(), 1u);
         CHECK_STR(g_log[0].c_str(), "menu_closed");
+        g_log.clear();
+        hooks_menu_video(true);                                            // menu_video: the value as the UI gives it
+        hooks_menu_video(false);
+        CHECK_EQ(g_log.size(), 2u);
+        CHECK_STR(g_log[0].c_str(), "video 1");
+        CHECK_STR(g_log[1].c_str(), "video 0");
+        make_table((uint32_t)offsetof(CoreHooks, menu_video), true);      // a library of an earlier 3.3 has no menu_video: nothing is called
+        hooks_attach(&lib);
+        g_log.clear();
+        hooks_menu_video(true);
+        CHECK(g_log.empty());
+        make_table(sizeof(CoreHooks), true);
+        hooks_attach(&lib);
 
         Rig nm(&atari800_desc);                                            // a core without a mouse and without a capability: the four of the look
         make_table(sizeof(CoreHooks), true);
@@ -379,6 +393,7 @@ int main()
         CHECK(!hooks_menu_closed());
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         hooks_base_changed("Color Scheme");
+        hooks_menu_video(true);
         CHECK(g_log.empty());
     }
     baseset_attach(0, 0);

@@ -45,6 +45,9 @@ int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran = 0);
 bool hooks_has_menu_closed(void);
 bool hooks_menu_closed(void);
 
+// `menu_video` (core_hooks.h): the machine's picture behind the menu is now shown (behind) or covered. Nothing without the member. Called by the UI on each change only.
+void hooks_menu_video(bool behind);
+
 // The base applied the setting `key`. A hook called only after hooks_start: the start applies every setting before it, and those are not told.
 void hooks_base_changed(const char *key);
 

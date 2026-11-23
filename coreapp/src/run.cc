@@ -456,6 +456,7 @@ static void record_groups(OpRegistry &r, const CoreDesc *d)
 void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
 {
     ops_record_groups = record_groups;                        // before anything makes the registry (ops_of)
+    ui_live_key_changed = hooks_menu_video;                   // the core hears each change of the picture behind the menu (core_hooks.h menu_video)
     static BoardUi board_ui;
     static BoardFreeze board_freeze;
     static BoardMenuHost board_host;

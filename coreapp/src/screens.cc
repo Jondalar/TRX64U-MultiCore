@@ -51,7 +51,7 @@ void screens_forget(void)
 {
     live_forget();
     if (g_live) {
-        trx_lv_set_key(false, 0);
+        ui_live_key(false);
         g_live = false;
     }
     g_valid = false;
@@ -1496,7 +1496,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
             g_sig = h;
             g_full = 1;
             g_live = true;
-            trx_lv_set_key(true, TRX_LIVE_KEY_565);
+            ui_live_key(true);
         }
         return true;
     }
@@ -1520,7 +1520,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         }
         if (g_live) {
             g_live = false;
-            trx_lv_set_key(false, 0);
+            ui_live_key(false);
         }
         return true;
     }
@@ -1624,7 +1624,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     g_sel = sel;
     if (g_live) {
         g_live = false;
-        trx_lv_set_key(false, 0);
+        ui_live_key(false);
     }
     return true;
 }

@@ -4,7 +4,7 @@
 // named library is not in the bundle or does not list the export corehooks=1, and the base takes the table of that library. A core that leaves a member null is as
 // before: no hook. The table goes into LibRecord::exports (base 3.2). It is not a member of LibApi.
 //
-// Two members are new: `start` and `menu_closed`. The earlier draft of the boundary map called the second one "resume"; it is menu_closed.
+// The members after media_pending are new in base 3.3. The earlier draft of the boundary map called menu_closed "resume".
 //
 // Differences from core_hook_t of desc.h: no call takes a CoreCtx (the base knows its context) and the state a hook needs comes from the groups of the api (ctx, settings, io,
 // ops). A hook returns 0 for done, or non-zero with the reason in msg (cut to msglen - 1; msg is never null here).
@@ -71,6 +71,13 @@ typedef struct CoreHooks {
     int (*slot_spec)(int slot, char *buf, int n);
     int (*slot_mount)(int slot, const char *spec, char *msg, int msglen);
     int (*slot_eject)(int slot, char *msg, int msglen);
+    // ---- the picture behind the menu, new in 3.3 (advisor 2026-11-23) -----------------------------------------------------------------------------------------------
+    // menu_video: the base turned the machine's picture behind its menu layer on (behind = 1) or off (0). On: a screen of the base shows the machine through the key
+    // colour (the Timewarp timeline, the PAUSED tag); off: the layer covers it again, or is given back. The core chooses what that picture is: the live one, or a
+    // still of its own (the ring's frame at the scrub position) when its gateware blanks the machine while it is stopped. Called once for each change, never twice
+    // with the same value; the first call is an "on". After a scrub the core changes its still by itself: the base does not call again. No result: it cannot refuse.
+    // Task: the application's main loop, which draws the menu; the core lock is not held (see menu_closed). It does not block for long: the screen waits for it.
+    void (*menu_video)(int behind);
 } CoreHooks;
 
 #ifdef __cplusplus
