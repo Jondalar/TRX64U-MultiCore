@@ -53,6 +53,26 @@ static bool row_present(const CmReq &r, const CmEntry *e, int n)
     return false;
 }
 
+// T258: an image that is not there as a file is there when every part that names it is (at least one part names it).
+static bool parts_present(const char *core_name, int image, const CmEntry *e, int n)
+{
+    int ordinal = 0, parts = 0;
+    for (int i = 0; i < CM_NREQ; i++) {
+        const CmReq &r = cm_reqs[i];
+        if (strcasecmp(r.core, core_name)) {
+            continue;
+        }
+        ordinal++;
+        if ((r.flags & 8) && (r.flags >> 4) == image) {
+            parts++;
+            if (!row_present(r, e, n)) {
+                return false;
+            }
+        }
+    }
+    return parts > 0;
+}
+
 static void add_text(char *out, int len, const char *s)
 {
     size_t l = strlen(out);
@@ -109,13 +129,18 @@ void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *ne
             }
         }
     }
+    int ordinal = 0;                                  // the row's number among this core's rows, from 1 (a part names the row it belongs to by it)
     for (int i = 0; i < CM_NREQ; i++) {
         const CmReq &r = cm_reqs[i];
-        if (strcasecmp(r.core, core_name) || r.set || !(r.flags & 1)) {
+        if (strcasecmp(r.core, core_name)) {
+            continue;
+        }
+        ordinal++;
+        if (r.set || !(r.flags & 1) || (r.flags & 8)) {
             continue;
         }
         (*need)++;
-        if (row_present(r, entries, n)) {
+        if (row_present(r, entries, n) || parts_present(core_name, ordinal, entries, n)) {
             (*have)++;
         } else {
             char nm[56], t[80];
