@@ -8,6 +8,7 @@
 #   T111_IMG_DIR    keep the images of S4 there (for fsck.exfat or a look)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 HS="$ROOT/host-app/software"
 SW="$ROOT/vendor/gideon/software"

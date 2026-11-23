@@ -27,6 +27,8 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$HOST" ] || [ ${#args[@]} -gt 0 ] || { sed -n 2,15p "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 ROOT="$TREE"
+# T239.3 V-3b: the I/O bases and the table of the base blocks come from the TOML A of the host (CPATH: hostio.h, basetab.h), as in the host tests; the tree's own copy of the script when it has one
+if [ -f "$ROOT/tests/hostgen.sh" ]; then source "$ROOT/tests/hostgen.sh"; else ROOT="$TOOL" source "$TOOL/tests/hostgen.sh"; fi
 
 if pkg-config --exists sdl2 2>/dev/null; then
   SDL_CFLAGS="$(pkg-config --cflags sdl2)"; SDL_LIBS="$(pkg-config --libs sdl2)"

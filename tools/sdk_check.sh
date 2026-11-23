@@ -23,7 +23,7 @@ P="$(echo "$W"/trx64-sdk-*)"
 ver="$(sed -n 's/^sdk //p' "$P/VERSION")"
 for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld mk/appflags.mk mk/appbuild.mk tools/u2a_pack.py tools/descrec.py tools/cor_pack.py \
          tools/app_build.py tools/libtab.py tools/rtl_check.py lib/libtrxbase.a lib/liblwip.a lib/liblvgl.a lib/crt0.o lib/port_asm.o base/SIZED.txt base/incdirs.txt base/linker.x base/version.toml \
-         libs/shared.toml gateware/shared.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml; do
+         libs/shared.toml gateware/shared.toml gateware/host.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
 want="$(sed -n 's/^base_archive_sha256 //p' "$P/VERSION")"
@@ -51,7 +51,7 @@ CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
 "${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
 [ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
-# a [[window]] compiles from the package alone (descrec.py reads beside itself)
+# a [[window]] compiles from the package alone (descrec.py reads gateware/host.toml beside itself)
 printf '[[window]]\nname = "mixer"\naddress = 0xA0000500\nsize = 0x14\n' > win.toml
 python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "a record with a window does not compile from the package"
 # TOML A compiles from the package alone, with the package's maps (api.md 6.14)
@@ -69,7 +69,7 @@ grep -q -F '#define OPS_MAX 200' appcheck/appsizes.h && grep -q -F '#define CORE
 python3 "$P/tools/descrec.py" compile app/desc.toml appcheck/desc.bin --sizes app/toml_b.toml >/dev/null || fail "the example's description does not compile from the package"
 # the example's app: everything but the compiler runs always; with the compiler the app is linked from the package alone
 python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a "$P/gateware/shared.toml" --toml-b app/toml_b.toml --out appcheck/gen --src app --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
-[ -s appcheck/gen/drv/drvtab.h ] && [ -s appcheck/gen/lib/libtab_table.cc ] && [ -s appcheck/gen/io.ld ] && [ -s appcheck/gen/appsizes.h ] || fail "the generated files of the example's app are missing"
+[ -s appcheck/gen/drv/basetab.h ] && grep -q -F 'BASE_BLOCK(ident,' appcheck/gen/drv/basetab.h && [ -s appcheck/gen/drv/drvtab.h ] && [ -s appcheck/gen/lib/libtab_table.cc ] && [ -s appcheck/gen/io.ld ] && [ -s appcheck/gen/appsizes.h ] || fail "the generated files of the example's app are missing"
 app_res="app not linked (no compiler)"
 if command -v "${RV}gcc" >/dev/null 2>&1; then
   "${CLEAN[@]}" make app RV_PREFIX="$RV" >"$W/app.log" 2>&1 || { tail -40 "$W/app.log" >&2; fail "make app of the example"; }

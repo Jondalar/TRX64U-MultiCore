@@ -4,6 +4,7 @@
 #   tests/hostapp/run_fwconvert.sh [scratch dir]          (run.sh calls it with its own)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 T="${1:-}"
 if [ -z "$T" ]; then T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; fi

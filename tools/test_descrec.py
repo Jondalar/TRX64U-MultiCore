@@ -5,6 +5,7 @@ writes a record that its own reader (and the board's, tests/coreapp/test_descrec
   python3 tools/test_descrec.py        (also collected by python3 -m pytest tools/test_descrec.py)
 """
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -983,12 +984,37 @@ size = 0x14
                                                                                       ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400)))
         self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 6)
 
-    def test_no_table_of_the_base_registers_exists(self):
-        # T239.3 V-3 (D30 point 4): basereg.def is gone with every user; a window is checked for its shape only, and a block of a TOML A against the blocks of that TOML A
+    def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
+        # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
         self.assertFalse(hasattr(D, "base_registers"))
-        self.assertFalse(hasattr(D, "window_conflict"))
         self.assertFalse(os.path.exists(os.path.join(self.ROOT, "coreapp", "src", "basereg.def")))
-        self.assertEqual(len(D.parse_desc(D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000402\nsize = 1\n'))["window"]), 1)
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        text = open(path).read()
+        rows = D.base_blocks_of(text, path)
+        doc = D.toml_loads(text)
+        self.assertEqual(rows, [(b["name"], b["address"], b["size"]) for b in doc["block"] if b["owner"] == "base"])
+        self.assertIn(("cart_regs", 0x10040000, 0x100), rows)
+        self.assertNotIn("core_trx_io", [r[0] for r in rows])                  # a block of the core is not in the table
+        tab = D.basetab_text(rows, "host.toml").splitlines()
+        self.assertEqual(len(tab) - 1, len(rows))
+        self.assertIn("BASE_BLOCK(cart_regs, 0x10040000u, 0x100u)", tab)
+        src = open(os.path.join(self.ROOT, "coreapp", "src", "descrec.cc")).read()
+        self.assertIn('#include "basetab.h"', src)
+        self.assertNotIn("0x10040000", src)                                    # the app holds no address of its own
+        self.assertEqual(D.HOST_TOML_A and os.path.realpath(D.HOST_TOML_A), os.path.realpath(path))
+
+    def test_a_window_beside_the_base_blocks_is_accepted(self):
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            rows = D.base_blocks_of(open(D.HOST_TOML_A).read())
+            top = max(a + n for _, a, n in rows)
+            lo = min(a for _, a, _ in rows)
+            beside = (("next_to_the_last", top, 0x10), ("below_the_first", lo - 0x10, 0x10), ("trx64u_mixer", 0xA0000500, 0x14))
+            text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
+            self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
+            self.assertEqual(D.base_block_hit(top, 0x10), None)                  # the table is what the check reads: the first byte past the last block is free
+        finally:
+            D._BASE_BLOCKS["rows"] = None
 
     def test_what_a_window_must_be(self):
         def bad(text):
@@ -1006,10 +1032,9 @@ size = 0x14
         import struct
         b = bytearray(D.compile_text(self.WIN))
         at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4
-        struct.pack_into("<I", b, at + 4, 0xA0000008)                       # the reader holds the same rule: the window moved onto the I2C clock
+        struct.pack_into("<I", b, at + 4, 0xA0000008)                       # the reader takes a window beside the base blocks as the compiler does
         struct.pack_into("<I", b, at + 8, 1)
-        with self.assertRaisesRegex(D.DescError, "i2c_scl"):
-            D.parse_desc(bytes(b))
+        self.assertEqual(D.parse_desc(bytes(b))["window"][0]["address"], 0xA0000008)
         for n in range(len(b)):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b[:n]))
@@ -1164,6 +1189,22 @@ class TomlA(unittest.TestCase):
         root = os.path.join(os.path.dirname(GOLD), "..", "..")
         for rel in ("host-app/target/u64ii/riscv/trx_io.toml", "host-app/target/u64ii/riscv/trx_io.ld", "coreapp/src/basereg.def"):
             self.assertFalse(os.path.exists(os.path.join(root, rel)), rel)
+
+    def test_the_host_build_takes_its_bases_from_the_fragment(self):
+        import tempfile
+        frag = self._host_fragment()
+        want = {k: int(re.search(r"^__%s = (0x[0-9A-F]+);" % k, frag, re.M).group(1), 16) for k in ("iobase", "u2p_io_base")}
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "descrec.py"), "hostio", os.path.join(root, "coreapp", "gateware", "host.toml"), d], check=True)
+            text = open(os.path.join(d, "hostio.h")).read()
+        self.assertEqual({k: int(v, 16) for k, v in re.findall(r"#define (IOBASE|U2P_IO_BASE) (0x[0-9A-F]+)u", text)},
+                         {"IOBASE": want["iobase"], "U2P_IO_BASE": want["u2p_io_base"]})
+        for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):          # the headers hold no default of their own
+            with open(os.path.join(root, rel), newline="") as f:
+                src = f.read()
+            self.assertIn('#include "hostio.h"', src)
+            self.assertFalse(re.search(r"#define (IOBASE|U2P_IO_BASE) 0x", src), rel)
 
     def test_every_symbol_a_driver_names_is_in_the_fragment(self):
         import re

@@ -156,7 +156,7 @@ address = 0xA0000500     # the CPU address of the block
 size = 0x14              # bytes
 ```
 
-The base keeps no table of the registers it drives itself (V-3 of T239.3 removed `basereg.def`): a `[[window]]` is checked for name, address and size, and the blocks of one TOML A may not overlap; a core's block is checked only against the blocks of its own TOML A, not against the base blocks of the host's TOML A. The case LED select is reached
+The base keeps no hand-written table of the registers it drives itself (`basereg.def` is gone, T239.3 D30 point 4): its source is the base blocks of the TOML A the app is linked with (`coreapp/gateware/host.toml` for the shared app and the host app), handed to the app as a table generated at build time. A `[[window]]` is checked for name, address and size, and it is refused when it covers a byte of such a block, by both readers (`descrec.cc`, `tools/descrec.py`); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A. The case LED select is reached
 through `board.case_led_select`. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
 A core delivers its two TOML contracts as two files: `menu.toml` (UI TOML: menu, key table) and `desc.toml` (API TOML: the core's

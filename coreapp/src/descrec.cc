@@ -84,6 +84,29 @@ bool id_ok(const char *s)
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
                                                          "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places" };
 
+// T239.3 D30 point 1: the blocks of the base in the TOML A the app is linked with. basetab.h is generated at build time (tools/descrec.py basetab), as the driver table is;
+// nothing is read at run time.
+struct BaseBlock {
+    const char *name;
+    uint32_t address, size;
+};
+static const BaseBlock g_base_blocks[] = {
+#define BASE_BLOCK(n, a, s) { #n, a, s },
+#include "basetab.h"
+#undef BASE_BLOCK
+};
+
+static const BaseBlock *base_block_hit(uint32_t address, uint32_t size)
+{
+    for (unsigned i = 0; i < sizeof(g_base_blocks) / sizeof(g_base_blocks[0]); i++) {
+        const BaseBlock &g = g_base_blocks[i];
+        if ((uint64_t)address < (uint64_t)g.address + g.size && (uint64_t)g.address < (uint64_t)address + size) {
+            return &g;
+        }
+    }
+    return 0;
+}
+
 const DescWindow *descrec_window(const DescRecord &rec, const char *name)
 {
     for (int i = 0; name && i < rec.nwindows; i++) {
@@ -780,6 +803,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 d.size = SW(3 + 3 * i);
                 if (bad || !id_ok(d.name) || d.size < 1 || d.size > DR_WINDOW_MAX || (uint64_t)d.address + d.size > 0x100000000ull) {
                     return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
+                }
+                if (const BaseBlock *g = base_block_hit(d.address, d.size)) {
+                    return r.fail("description record, section %s: window \"%s\" covers the block %s of the base (0x%08X, %u byte%s); the window may not take a byte of it",
+                                  nm, d.name, g->name, (unsigned)g->address, (unsigned)g->size, g->size == 1 ? "" : "s");
                 }
                 for (uint32_t j = 0; j < i; j++) {
                     if (!strcmp(out->windows[j].name, d.name)) {
