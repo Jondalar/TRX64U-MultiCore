@@ -969,7 +969,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     if (r.str_off < hdr || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
         return r.fail("description record: the string table lies outside the record");
     }
-    const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, ver >= 4 ? 44u : 24u, 24, 36, 36 };
+    const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 28, 36, ver >= 4 ? 44u : 24u, 24, 36, 36 };
     static const uint32_t emax[DR_TABLES] = { DR_AREAS, DR_TABS, DR_NODES, DR_ACTIONS, DR_SETTINGS, DR_HIDE, DR_RENAME, DR_BINDS, DR_EXTS, DR_SIZES, DR_VALUES, DR_CTABS,
                                               DR_TASKS, DR_MEDIA, DR_FTYPES, DR_FACTS, DR_CSETS };
     static const char *const ename[DR_TABLES] = { "areas", "tabs", "nodes", "file actions", "settings", "hide list", "rename list", "bindings", "extensions",
@@ -1107,7 +1107,9 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.name = r.str(W(e, 2), &bad);
         uint32_t widget = W(e, 3), nn = W(e, 5);
         d.groups = r.str(W(e, 4), &bad);
-        if (bad || !d.area || strlen(d.area) != 2 || d.area[0] != 'F' || d.area[1] < '1' || d.area[1] > '8' || !id_ok(d.id) || !d.name || !d.name[0] ||
+        uint32_t lo = W(e, 6);
+        out->ctab_layouts[i] = lo ? r.str(lo, &bad) : 0;                   // T239.3 L-3: how the tab is drawn (0: none; offset 0 is the empty string)
+        if (bad || (out->ctab_layouts[i] && !out->ctab_layouts[i][0]) || !d.area || strlen(d.area) != 2 || d.area[0] != 'F' || d.area[1] < '1' || d.area[1] > '8' || !id_ok(d.id) || !d.name || !d.name[0] ||
             widget > TW_NODES || nn > 99) {
             return r.fail("description record: contributed tab %u has a bad area, id, name, widget or number", (unsigned)i);
         }
@@ -1118,6 +1120,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.n = (uint8_t)nn;
     }
     out->rec.tabs = out->ctabs;
+    out->rec.tab_layouts = out->ctab_layouts;
     out->rec.ntabs = (int)tb[C].count;
     // the route
     for (uint32_t i = 0; i < tb[T].count; i++) {

@@ -10,7 +10,7 @@
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
-//       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 24 |
+//       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 28 |
 //       task 36 | media 44 (24 before version 4) | file type 24 | file type action 36 | core setting 36
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
 //       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
@@ -83,7 +83,7 @@
 //          "key;key=value;..." how it is shown: primary, link, goto, sub, chip, tone, off - libapi.h LibNodeDecl::attr; the anchor's group is its slot in the layout)
 //   action label op first_ext next first_size nsize first_bind nbind flags reserved                    (flags bit 0: closes the menu)
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)
-//   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
+//   ctab   area id name widget groups n layout     (a tab added to an area of the route, T104.1 D8; layout: the string a route's own tab has, 0 none: LibRecord::tab_layouts, T239.3 L-3)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
 //   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first, bit 2 (base 3.3): a job, a stepped
 //                                                                               operation with the progress line and a cancel (Task::job; not with a hotkey or a folder),
@@ -264,6 +264,7 @@ struct DescRecord {
     const char *hide[DR_HIDE];
     NodeRename rename[DR_RENAME];
     LibTabDecl ctabs[DR_CTABS];
+    const char *ctab_layouts[DR_CTABS];           // the layout of each contributed tab (LibRecord::tab_layouts), null: none
     Overrides ov;
     // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
     const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null

@@ -546,6 +546,49 @@ int main(int argc, char **argv)
         delete dr;
     }
 
+    // ---- T239.3 L-3: a contributed tab is drawn by the layout its record names (LibRecord::tab_layouts, one string for each tab of `tabs`); a null entry, a record without the array
+    // and a record built before it (its struct_size ends in front of the member) leave the tab a flat list
+    {
+        static const LibTabDecl tabs[] = {
+            { "F5", "looked", "Looked", TW_NODES, 0, 0 },
+            { "F5", "flat", "Flat", TW_NODES, 0, 0 },
+        };
+        static const char *const looks[] = { "split;title=Look;side=Side", 0 };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 2;
+        rec.tab_layouts = looks;
+        Contributor cs[] = { { "looker", CR_LIB, &rec } };
+        for (int variant = 0; variant < 3; variant++) {
+            LibRecord use = rec;
+            if (variant == 1) {
+                use.tab_layouts = 0;                                          // no array
+            } else if (variant == 2) {
+                use.struct_size = (uint32_t)offsetof(LibRecord, tab_layouts);  // a record of the base before 3.3 ends in front of it
+            }
+            Contributor c1[] = { { "looker", CR_LIB, &use } };
+            Rig r(c1, 1);
+            const MenuTree &t = r.m->tree();
+            int a5 = -1;
+            for (int a = 0; a < t.nareas; a++) if (!strcmp(t.a[a].key, "F5")) a5 = a;
+            const char *looked = "?", *flat = "?";
+            bool seen_looked = false, seen_flat = false;
+            for (int b = 0; a5 >= 0 && b < t.a[a5].ntabs; b++) {
+                if (!strcmp(t.a[a5].tabs[b].id, "looked")) { looked = t.a[a5].tabs[b].layout; seen_looked = true; }
+                if (!strcmp(t.a[a5].tabs[b].id, "flat")) { flat = t.a[a5].tabs[b].layout; seen_flat = true; }
+            }
+            CHECK(seen_looked && seen_flat);
+            if (variant == 0) {
+                CHECK(looked && !strcmp(looked, "split;title=Look;side=Side"));
+            } else {
+                CHECK(looked == 0);
+            }
+            CHECK(flat == 0);
+        }
+        (void)cs;
+    }
+
     // ---- contributed tabs (T104.1 D8, Alex 2026-10-26): appended after the area's own, the next free number, refused by name
     {
         static const LibTabDecl tabs[] = {
