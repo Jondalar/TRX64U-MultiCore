@@ -9,7 +9,7 @@
 #             from coreapp/src and app/sdk (tools/sdk_api.py), flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
-#   tools/    u2a_pack.py, descrec.py, cor_pack.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)
+#   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)
 #   image/    coreapp.bin, the app core image of this build, and its version.toml
 #   example/  app/sdkpkg/example: a library of two files with a menu TOML and a host test
 #   licenses/ the licence texts of the third-party code coreapp.bin links (FreeRTOS, lwIP, LVGL, FatFs), copied from vendor/gideon/software
@@ -47,7 +47,7 @@ done < "$t/headers"
 
 for f in lib.mk app.mk sdkroot.mk lib.ld; do cp "$ROOT/app/lib/$f" "$P/mk/"; done
 cp "$ROOT/app/sdk/libc.c" "$ROOT/app/sdk/u2p_compat.c" "$P/sdk/"
-for f in u2a_pack.py descrec.py cor_pack.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
+for f in u2a_pack.py descrec.py cor_pack.py rtl_check.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
 mkdir -p "$P/maps" && cp "$ROOT"/app/sdkpkg/maps/*.map.toml "$P/maps/"       # the module maps of the shared drivers (TOML A, api.md 6.14.11)
 cp "$ROOT/coreapp/src/basereg.def" "$P/tools/"         # descrec.py refuses a [[window]] over a register the base drives: it reads this list beside itself
 cp "$bin" "$P/image/coreapp.bin"

@@ -1,0 +1,389 @@
+# TOML A of c64_basic as rtl_check reads it (fixture, T239.3 P1-3). The blocks are written from what the RTL decodes
+# (designs/c64_basic/ultimate_sys.vhd, trx_io.v) and nothing else: a dir is what the code does at the byte, not what a driver header says.
+# P1-7 writes the real one. Not here: the C64-clock pages of trx_io (page 1, 2, 3, 5, 7 and page 0 from 0x100: forwarded to trx_sys.v),
+# the sampler window (clean room), and the modules that are only reached through a strobe the fixture does not use (uci, drive).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "trx_id"
+module = "trx_io"
+owner = "base"
+address = 0x101A0000
+size = 0x10
+
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "caps3"
+  offset = 0x6
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "trx_irq"
+module = "trx_io"
+owner = "base"
+address = 0x101A0010
+size = 0x8
+
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "trx_ddr_cal"
+module = "trx_io"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "resid8"
+module = "trx_io"
+owner = "base"
+address = 0x101A0040
+size = 0xE
+
+  [[block.property]]
+  name = "fcsel0"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "fcsel1"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "auto0"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "auto1"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "base0"
+  offset = 0x4
+  width = 16
+  dir = "rw"
+
+  [[block.property]]
+  name = "off0"
+  offset = 0x6
+  width = 16
+  dir = "rw"
+
+  [[block.property]]
+  name = "base1"
+  offset = 0x8
+  width = 16
+  dir = "rw"
+
+  [[block.property]]
+  name = "off1"
+  offset = 0xA
+  width = 16
+  dir = "rw"
+
+  [[block.property]]
+  name = "byp0"
+  offset = 0xC
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "byp1"
+  offset = 0xD
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "c64cart"
+module = "trx_io"
+owner = "base"
+address = 0x101A4000
+size = 0x40
+
+  [[block.property]]
+  name = "fl_enable"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_magic1"
+  offset = 0x4
+  width = 16
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_magic2"
+  offset = 0x8
+  width = 16
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_mask"
+  offset = 0xC
+  width = 16
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_id_mfr"
+  offset = 0x10
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_id_dev"
+  offset = 0x11
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "fl_id_ofs"
+  offset = 0x12
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "evt"
+  offset = 0x20
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "evt_hi"
+  offset = 0x24
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "cmd"
+  offset = 0x28
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "wr_count"
+  offset = 0x2C
+  width = 16
+  dir = "r"
+
+  [[block.property]]
+  name = "rom_sel"
+  offset = 0x30
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "xport_caps"
+  offset = 0x38
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "cart_regs"
+module = "cart_regs"
+owner = "base"
+address = 0x10040000
+size = 0x10
+
+  [[block.property]]
+  name = "c64_mode"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "c64_stop"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "cart_type"
+  offset = 0x5
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "cart_active"
+  offset = 0x6
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "audio_mixer"
+module = "audio_mixer"
+owner = "base"
+address = 0x10100500
+size = 0xC
+
+  [[block.property]]
+  name = "main_r_sid1"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "main_l_sid1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid2_r"
+  offset = 0x2
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid2_l"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock1_r"
+  offset = 0x4
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock1_l"
+  offset = 0x5
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock2_r"
+  offset = 0x6
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock2_l"
+  offset = 0x7
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "smp_r"
+  offset = 0x8
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "smp_l"
+  offset = 0x9
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid3_r"
+  offset = 0xA
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid3_l"
+  offset = 0xB
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "speaker_mixer_a"
+module = "speaker_mixer"
+owner = "base"
+address = 0x10100540
+size = 0x2
+
+  [[block.property]]
+  name = "gain0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "gain1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "speaker_mixer_b"
+module = "speaker_mixer"
+owner = "base"
+address = 0x10100544
+size = 0x2
+
+  [[block.property]]
+  name = "gain2"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "gain3"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "dma"
+module = "dma"
+owner = "base"
+address = 0x10050000
+size = 0x10000
