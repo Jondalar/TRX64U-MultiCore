@@ -22,7 +22,7 @@
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), and the states `set.<key>` and `net.gated` (4.13.5). A library that depends on one of them writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), and the states `set.<key>` and `net.gated` (4.13.5). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
 1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.3.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
@@ -273,7 +273,7 @@ The memory group. It is there for every image.
 4.2.1 The memory comes from the heap of the core.
 4.2.2 The base records every block with its owner. The owner is the image whose code takes the block: the image whose `lib_register` is running, the image whose operation or state getter the registry is running (whoever called it), or the application that is open at the time of the call. With none of these, the block has no owner.
 4.2.2.1 Since base 3.3 the code that makes the call comes first: when the return address of the call into `api->mem` lies in the image of a loaded library or application, that image is the owner, whoever called the function of the image. An export table found with `api->lib->find` is called through the function pointers of the library, so what the exported function allocates is the account of the library, not of its caller.
-4.2.2.2 A tail call replaces the return address by the one of the caller. The build of a library (`app/lib/lib.mk`) turns tail calls off. A library that is built otherwise may find its blocks on another account.
+4.2.2.2 A tail call replaces the return address by the one of the caller. Both build paths of the SDK (`mk/lib.mk` and `mk/app.mk`, which also builds a library with `APP_KIND = lib`) turn tail calls off (`-fno-optimize-sibling-calls`). An image that is built otherwise may find what it takes on the account of its caller.
 4.2.3 A block that has no owner is never freed by the base.
 4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its load fails or it is unloaded. A resident application keeps its blocks. An image that declared a `heap_peak` figure holds at most that many bytes at once (8.1, 8.4).
 4.2.5 Free a block only with `api->mem->free`. A block from another allocator is not accepted.
@@ -559,7 +559,7 @@ The job group. A job is long work on a task of its own, so that `app_main` can a
 4.6.2 A job has a stack of at least 12 KiB.
 4.6.3 The memory and the files a job takes belong to the image that started it, application or library. The function of the job runs with that image as the owner.
 4.6.4 When the person closes the screens, the base marks every job of the application as cancelled and waits up to 4 seconds. When a job or the application task still runs, it refuses to close the screens.
-4.6.5 When the application ends, the base marks every job of that application as cancelled, waits up to 5 seconds, and goes on. The jobs of a library are not touched. When a library is unloaded, the base does the same for its jobs before the image goes. A job that has not ended by then keeps running. Make a job end when it is cancelled.
+4.6.5 When the application ends, the base marks every job of that application as cancelled, waits up to 5 seconds, and goes on. The jobs of a library are not touched, and the end or the closing of an application is no request for them: `cancelled` and `stop_requested` of a library's job answer for the job and the library alone. A job that has not ended by then keeps running. Make a job end when it is cancelled. A library whose job still runs is not unloaded to make room for an application: the base marks the job as cancelled and keeps the library until a later attempt finds no job running. When the base frees a library otherwise (a load that is refused), it waits up to 5 seconds for the jobs first.
 4.6.6 A finished job keeps its handle until `join`. `start` may reuse the slot of a finished job that was not joined. Join a job before you start the next one when you need its result.
 4.6.7 A job started while the base has no job table behind the group returns null (3.2.6).
 
@@ -578,7 +578,7 @@ Since base 3.0.
 
 #### 4.6.10 `api->job->cancelled`
 
-4.6.10.1 `bool cancelled(SvcJobH *j)` returns `true` when the job was asked to stop, or when the application is being closed.
+4.6.10.1 `bool cancelled(SvcJobH *j)` returns `true` when the job was asked to stop. The base asks every job of an application when its screens close or it ends (4.6.4, 4.6.5).
 4.6.10.2 The job decides whether it can stop. Nothing stops a job that does not look.
 
 #### 4.6.11 `api->job->join`
@@ -595,6 +595,7 @@ Since base 3.0.
 
 4.6.13.1 `bool stop_requested(void)` returns `true` when the base wants the application's own task to end because its screens are closing.
 4.6.13.2 The application task polls it and returns from `app_main`.
+4.6.13.3 Called by the code of a library it returns `false`: a library is not asked to end with an application.
 
 ### 4.7 `api->trx` (`SvcTrx`)
 
@@ -1816,7 +1817,7 @@ Since base 3.2.
 8.5.6 A poll is the one thing that is not on the account of its image. The poll slots keep the task of a slot for the next image that polls (1.3.6). An image with a poll leaves that task in the pool when it goes, and the heap free after the unload is lower by the task and its stack until a slot is used again.
 8.5.7 A block taken while no image is current has no owner and is never freed (4.2.3).
 8.5.8 The owner of a handler is kept per task. While the registry runs an operation or a state getter of an image on one task, that image is the owner for that task alone; the other tasks keep theirs, and the task gets back the owner it had when the handler returns. The application that is open is the owner of every task that is in no handler. A task whose application is released while it is in a handler of a library gets no owner when the handler returns: its blocks are nobody's (8.5.7).
-8.5.9 The account does not cover everything an image causes yet. What is on it: `lib_register`, the operations and state getters of the image, and the application that is open. What is not: a call through an export table (`api->lib->find`) takes its blocks on the account of the caller, not of the library behind the table; the start hook and the other hooks of a core, and any engine a library starts there; the memory behind the jobs and sockets a library starts through `api->job` and `api->net`.
+8.5.9 The account covers what an image causes through `api->mem`, `api->fs`, `api->sync`, `api->net` and `api->job`: a call is on the account of the image whose code makes it (4.2.2.1), so a call through an export table (`api->lib->find`), a job function and a callback are on the account of the library behind them, and so are the sockets and jobs it starts (4.6.3, 4.8.2). What is not on it yet: the hooks of a core and the start hook, until the base calls them for the library; any engine a library starts there; the debug block.
 
 ## 9. Named exports and the C64 table
 

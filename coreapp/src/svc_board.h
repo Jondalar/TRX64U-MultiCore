@@ -52,7 +52,7 @@ typedef struct SvcBoard {
     // other socket is untouched, the control byte starts at 0 when the application starts. Result: 0 done, or nothing to do when the board has no expander;
     // < 0 a bad argument (socket outside 0..1, state outside SID_SOCKET_*), nothing written. Waits for the bus lock. Task: lock.
     int (*sid_socket)(int socket, int state, bool shunt, bool filter_caps);
-    // The case LEDs' source select (CoreIo::case_led_select): the high nibble is LED 1, the low nibble LED 0, each a source code of the board. Two users: the base's
+    // The case LEDs' source select (CoreIo::case_led_select): the high nibble is LED 1, the low nibble LED 0 (zero-based; host/case_leds.v calls them output 2 and output 1), each a source code of the board. Two users: the base's
     // load light (ledload.cc) and a core's LED settings. Task: lock.
     void (*case_led_select)(uint8_t v);
 } SvcBoard;

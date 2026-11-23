@@ -14,7 +14,7 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 |---|---|
 | `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
 | `include/` | The headers a library or an application includes: `libapi.h` and everything it includes, `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`. |
-| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
+| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files, or a library with `APP_KIND = lib`), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
 | `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle). |
 | `image/` | `coreapp.bin`, the shared core application image of this SDK version, and its `version.toml`. See "The application image". |
