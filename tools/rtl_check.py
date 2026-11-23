@@ -20,10 +20,11 @@ check
   must carry the request's data; its properties are not checked (they are the core's contract).
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
-  another value fails the check, read or not (the parameter lists of the top-level Verilog file are read for it).
+  another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
+  unknown (X) (the parameter lists of the top-level Verilog file are read for it).
   Reads only the design's source list (the files named in its build script, here build.tcl, and the lists it `source`s by a literal path
-  relative to the design directory; `--list FILE` names another, repeatable); a file whose path says ultisid,
-  copper, lp_filter or sampler is on the deny list (clean room): read_source refuses it, so it is never opened or parsed, and the check
+  relative to the design directory; `--list FILE` names another, repeatable); a VHDL file (.vhd, .vhdl) whose base name says ultisid,
+  copper, lp_filter or sampler is on the deny list (clean room: Gideon's files; a directory name or a Verilog file does not count): read_source refuses it, so it is never opened or parsed, and the check
   lists the denied files of the source list in its output. The block of such a module is checked at the port only (the hand-over rule).
   A partial core has no request record: the host's decode hands it a window of the I/O space over plain ports. --bus MODULE:write=P,read=P,address=P,
   data=P,response=P names the ports of the one instance of MODULE in the top file (--top, a Verilog file); --window BASE:SIZE is the part of the I/O
@@ -35,10 +36,9 @@ check
   the top-level file crosses a clock domain over a handshake: that module is run on the held request (stage 2: its ports take the
   forwarded values, its state is unknown, only the module itself is followed) and decides write and read of the byte (dma_win). A decode
   there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). What is not followed yet: the
-  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), uci (io_bus_bridge2 and Gideon's synchronizer, whose request is
-  decoded behind Gideon's io_bus_splitter, an array of request records), the drive (drive_unit: the same splitter, generate blocks); a
-  property there fails with the pattern the parser does not know, or passes on the transport registers (a bridge copies the data at every
-  address: do not read a pass behind a clock-domain bridge as a decode).
+  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), the request behind Gideon's io_bus_splitter (an array of request
+  records: ITU, uci, the drive, Ethernet, USB) and the clock-domain bridges (io_bus_bridge2, synchronizer_gzw). The check stops there with
+  Unsupported (the request reaches such an instance); it never passes a property on the transport registers of a bridge.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -58,13 +58,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+BRIDGES = ("io_bus_splitter",)
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
 
 
 def denied(path):
-    """Gideon's UltiSID, Copper, lp_filter and sampler VHDL are never read (clean room, T239.3 D30). The deny list is by file name: a path with one of
-    these names in it is refused, whatever the source list says."""
-    return any(c in path.lower() for c in CLEAN_ROOM)
+    """Gideon's UltiSID, Copper, lp_filter and sampler VHDL are never read (clean room, T239.3 D30). The deny list is by file name: the base name of a
+    VHDL file (.vhd, .vhdl) that has one of these words in it. A directory name does not count, and a Verilog file (the Minimig copper, a module of
+    TRX64-Ultimate) is not Gideon's."""
+    b = os.path.basename(path).lower()
+    return b.endswith((".vhd", ".vhdl")) and any(c in b for c in CLEAN_ROOM)
 
 
 def read_source(path):
@@ -776,7 +779,8 @@ class VhdlParser(P):
 
     def gen_cond(self, m, e):
         """An if-generate condition over generics with a default, as an int. The generics it names are recorded in
-        m.gen_assumed; elaboration refuses an instance that gives one of them another value."""
+        m.gen_assumed; an instance that gives one of them another known value gets the module parsed again with it (Ctx.child), and an unknown
+        value fails the check (check_assumed)."""
         k = e[0]
         if k == "n":
             if e[1].x:
@@ -2795,6 +2799,9 @@ class Ev:
                         continue
                     act = self.inst_active(ctx, inst)
                     if act:
+                        if inst.modname.lower() in BRIDGES:
+                            raise Unsupported("%s: the request reaches %s, a clock-domain bridge or an array of request records; its decode is not followed (a pass behind it would be the transport registers, not a decode)"
+                                              % (ctx.mod.fname, inst.modname))
                         c = ctx.child(inst)
                         self.check_assumed(c)
                         c.certain = act == 2

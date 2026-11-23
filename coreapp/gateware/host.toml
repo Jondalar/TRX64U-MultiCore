@@ -7,10 +7,11 @@
 # reaches a core port, and its properties (a map) are the core's contract, checked in the core's own design, not here.
 # The address of a base block is iobase + its offset in ultimate_sys.vhd's decode process; the page registers (0x10040000, 0x10100300,
 # 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
-# Not in this record (T239.3 section 5, V-1b): the ITU, USB, Ethernet and flash windows (rtl_check does not follow Gideon's io_bus_splitter, an array of
-# request records, nor a procedure that assigns signals, flash_gate.vhd), the 16 palette entries of the overlay (0x10145000 + 4 * n, three bytes each: a
-# TOML A takes 64 blocks at most), and three windows the host RTL has no register in: the UCI window 0x10044000 (it acks and answers 0), the UDP
-# region 0x10190000 (r_udp names it, nothing decodes it) and the resampler at 0x10100580 (no decode).
+# Not in this record (T239.3 section 5, V-1b): the ITU (with its console UART), USB, Ethernet and flash windows (rtl_check stops at Gideon's
+# io_bus_splitter, an array of request records, and at the procedure that assigns signals in flash_gate.vhd: a block there would fail the check), and
+# three windows the host RTL has no register in: the UCI window 0x10044000 (it acks and answers 0), the UDP region 0x10190000 (r_udp names it,
+# nothing decodes it) and the resampler at 0x10100580 (no decode). The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries) is one
+# block of 48 properties. A property whose read and write registers differ is two properties (irq_mask / status, tx_len / rx_len).
 # There is no [identity] yet: the standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2, so it is the core's block here
 # (core_trx_io) and `descrec.py compile` (it wants a base-owned identity block) does not take this file until that is decided.
 [io]
@@ -795,11 +796,27 @@ size = 0x4
   offset = 0x0
   width = 8
   dir = "w"
+    [[block.property.field]]
+    name = "width"
+    shift = 0
+    bits = 4
   [[block.property]]
   name = "char_height"
   offset = 0x1
   width = 8
   dir = "w"
+    [[block.property.field]]
+    name = "height"
+    shift = 0
+    bits = 5
+    [[block.property.field]]
+    name = "big"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "stretch"
+    shift = 7
+    bits = 1
   [[block.property]]
   name = "chars_per_line"
   offset = 0x2
@@ -810,6 +827,10 @@ size = 0x4
   offset = 0x3
   width = 8
   dir = "w"
+    [[block.property.field]]
+    name = "lines"
+    shift = 0
+    bits = 6
 
 [[block]]
 name = "overlay_pointer"
@@ -822,6 +843,10 @@ size = 0x2
   offset = 0x0
   width = 8
   dir = "w"
+    [[block.property.field]]
+    name = "pointer"
+    shift = 0
+    bits = 7
   [[block.property]]
   name = "pointer_lo"
   offset = 0x1
@@ -839,6 +864,18 @@ size = 0x1
   offset = 0x0
   width = 8
   dir = "w"
+    [[block.property.field]]
+    name = "text_row"
+    shift = 0
+    bits = 4
+    [[block.property.field]]
+    name = "own"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "on"
+    shift = 7
+    bits = 1
 
 [[block]]
 name = "overlay_screen"
@@ -873,6 +910,253 @@ size = 0x1000
   offset = 0xFFF
   width = 8
   dir = "rw"
+
+[[block]]
+name = "overlay_palette"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10145000
+size = 0x40
+  [[block.property]]
+  name = "entry0_r"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry0_g"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry0_b"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry1_r"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry1_g"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry1_b"
+  offset = 0x6
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry2_r"
+  offset = 0x8
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry2_g"
+  offset = 0x9
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry2_b"
+  offset = 0xa
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry3_r"
+  offset = 0xc
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry3_g"
+  offset = 0xd
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry3_b"
+  offset = 0xe
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry4_r"
+  offset = 0x10
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry4_g"
+  offset = 0x11
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry4_b"
+  offset = 0x12
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry5_r"
+  offset = 0x14
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry5_g"
+  offset = 0x15
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry5_b"
+  offset = 0x16
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry6_r"
+  offset = 0x18
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry6_g"
+  offset = 0x19
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry6_b"
+  offset = 0x1a
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry7_r"
+  offset = 0x1c
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry7_g"
+  offset = 0x1d
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry7_b"
+  offset = 0x1e
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry8_r"
+  offset = 0x20
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry8_g"
+  offset = 0x21
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry8_b"
+  offset = 0x22
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry9_r"
+  offset = 0x24
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry9_g"
+  offset = 0x25
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry9_b"
+  offset = 0x26
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry10_r"
+  offset = 0x28
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry10_g"
+  offset = 0x29
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry10_b"
+  offset = 0x2a
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry11_r"
+  offset = 0x2c
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry11_g"
+  offset = 0x2d
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry11_b"
+  offset = 0x2e
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry12_r"
+  offset = 0x30
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry12_g"
+  offset = 0x31
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry12_b"
+  offset = 0x32
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry13_r"
+  offset = 0x34
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry13_g"
+  offset = 0x35
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry13_b"
+  offset = 0x36
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry14_r"
+  offset = 0x38
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry14_g"
+  offset = 0x39
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry14_b"
+  offset = 0x3a
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry15_r"
+  offset = 0x3c
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry15_g"
+  offset = 0x3d
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "entry15_b"
+  offset = 0x3e
+  width = 8
+  dir = "w"
 
 [[block]]
 name = "overlay_mode_request"
@@ -974,10 +1258,15 @@ size = 0x10
   width = 8
   dir = "rw"
   [[block.property]]
-  name = "irq"
+  name = "irq_mask"
   offset = 0x2
   width = 8
-  dir = "rw"
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x2
+  width = 8
+  dir = "r"
   [[block.property]]
   name = "flowctrl"
   offset = 0x3
@@ -989,10 +1278,15 @@ size = 0x10
   width = 32
   dir = "w"
   [[block.property]]
-  name = "len"
+  name = "tx_len"
   offset = 0x8
   width = 16
-  dir = "rw"
+  dir = "w"
+  [[block.property]]
+  name = "rx_len"
+  offset = 0x8
+  width = 16
+  dir = "r"
   [[block.property]]
   name = "tx_push"
   offset = 0xA
