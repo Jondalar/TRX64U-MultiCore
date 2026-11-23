@@ -454,7 +454,7 @@ static void give_up(CoreCtx *c, bool block)
 {
     g_cart_name[0] = 0;
     set_type(c->io, block, 0);
-    mount_notify(c, 1);                                               // T180 D2: the slots of the C64 are Drive A and Cartridge
+    mount_notify_name(c, "Cartridge");                                // T180 D2: told by the name of the slot in the core's [mount] list
     char m[80];
     boot_cold_reset(c, m, sizeof(m));
 }
@@ -656,7 +656,7 @@ static int run_image(CoreCtx *c, CoreFile *f, const char *path, const char *show
             trx64u_uci_df1c(c);                                       // CMD_IF_SLOT_ENABLE, base $DF1C (c64.cc:2019-2024)
         }
     }
-    mount_notify(c, 1);                                               // T180 D2
+    mount_notify_name(c, "Cartridge");                                // T180 D2
     return do_reset ? boot_cold_reset(c, msg, msglen) : 0;
 }
 
@@ -709,7 +709,7 @@ int c64_cart_run_image(CoreCtx *c, const char *name, const uint8_t *img, char *m
     g_cart_name[0] = 0;
     g_player = true;
     g_fresh = true;
-    mount_notify(c, 1);
+    mount_notify_name(c, "Cartridge");
     return 0;                                                          // the caller resets the machine when the RAM is ready
 }
 
@@ -737,7 +737,7 @@ void c64_cart_player_end(CoreCtx *c)
     g_prev_path[0] = 0;
     set_type(c->io, (c->io->rd(C64_CAPS) & C64_CAPS_CART) != 0, 0);
     g_cart_name[0] = 0;
-    mount_notify(c, 1);
+    mount_notify_name(c, "Cartridge");
 }
 
 static int cart_run(CoreCtx *c, const char *path, char *msg, int msglen, bool do_reset)
@@ -913,7 +913,7 @@ int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
         ops_call(c, "c64.fx_io", v, 1, &r);
     }
     printf("[c64] cartridge removed\n");
-    mount_notify(c, 1);                                               // T180 D2
+    mount_notify_name(c, "Cartridge");                                // T180 D2
     return g_for_state ? 0 : boot_cold_reset(c, msg, msglen);
 }
 

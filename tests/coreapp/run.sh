@@ -560,7 +560,7 @@ control mme_drive_eject d1541_drive.cc 's/^    changed(); *\/\/ T180 D2: the emp
 control mme_drive_eject_empty d1541_drive.cc 's/^        changed(); *\/\/ T180 D2: an eject of the empty.*$/        (void)0;/' $MME
 control mme_drive_modes cbm1541.cc 's/m == MM_RO ? "ro " : //' $MME
 control mme_drive_hook cbm1541.cc 's/    d->on_change(drive_changed, c);/    (void)drive_changed;/' $MME
-control mme_c64_cart c64_cart.cc 's/^    mount_notify(c, 1); *\/\/ T180 D2$/    (void)0;/' $MME
+control mme_c64_cart c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_c264_cart c264.cc 's/^    mount_notify(c, 1); *\/\/ T180 D2: the slots.*$/    (void)0;/' $MME
 control mme_c264_model c264.cc 's/        c->settings->set(mi, 1); *\/\/ Plus\/4/        (void)mi;/' $MME
 control mme_nes_eject nes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
@@ -569,7 +569,7 @@ control mme_neo_eject neogeo.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_cpc_fail cpc_disk.cc 's/^            mount_notify(c, drive); *\/\/ the old disk is out and the drive is empty$/            (void)0;/' $MME
 control mme_tape_fail tape_deck.cc 's/^            mount_notify(c, r.slot); *\/\/ the old tape is out and the deck is empty$/            (void)0;/' $MME
 control mme_drive_fail d1541_drive.cc 's/^        changed(); *\/\/ T180 D2: the old disk is out and the drive is empty$/        (void)0;/' $MME
-control mme_c64_giveup c64_cart.cc 's/^    mount_notify(c, 1); *\/\/ T180 D2: the slots of the C64 are Drive A and Cartridge$/    (void)0;/' $MME
+control mme_c64_giveup c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2: told by the name of the slot.*$/    (void)0;/' $MME
 control mme_nes_fail nes.cc 's/^        mount_notify(c, 0); *\/\/ the old program is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_snes_fail snes.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_neo_fail neogeo.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
