@@ -304,9 +304,9 @@ void trx_lv_yield_layer(void)
         if (layer_on) {
             trx_io_write32(PX_CTRL, px_ctrl(false));
             trx_io_write32(PX_GALPHA, 255);
-            alpha_reg = 255;
             layer_on = false;
         }
+        alpha_reg = 255;
         taken = true;
         printf("[TRX UI] pixel layer handed over\n");
     }

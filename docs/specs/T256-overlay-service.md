@@ -45,7 +45,7 @@ tag over the stopped picture, later a library's own display over a running machi
   (`AppDlg`). No service group draws pixels.
 - TRX64-Ultimate's firmware draws the Timewarp still and bar in software into its layer while the machine is frozen
   (`trx_video.cc` `grab_still`, `draw_still`, `tw_draw_bar`). It draws nothing with the pixel layer over a running C64.
-- An old defect: the menu's "Overlay Transparency" is not applied when the menu opens. `ui_show()` calls `trx_lv_resume()`, which
+- An old defect (fixed by step T-2, section 5; the lines below are the code before the fix): the menu's "Overlay Transparency" is not applied when the menu opens. `ui_show()` calls `trx_lv_resume()`, which
   clears `layer_on` (`trx_lv_port.cc:331-341`); `apply_alpha()` then writes nothing (`trx_lv_set_alpha`, `:242-251`, writes only
   while `layer_on`); the first flush writes `PX_GALPHA` 255 (`:108`). Read from the code, not seen on the board.
 
@@ -101,7 +101,7 @@ table of states, the calls, their geometry).
   pages too (Timewarp), so the bar stands over the frame the person looks for, not over black. Lost: elements over the open menu
   (for example a drive LED), which would need a rule that they cover no menu row (R2).
 
-- **D5** (Alex, 2026-11-23): the base's tag says only "PAUSED". The tag showed "PAUSED   P RESUME" (`coreapp/src/ui.cc:1307`), but
+- **D5** (Alex, 2026-11-23): the base's tag says only "PAUSED". The tag showed "PAUSED   P RESUME" (`ui_paused_tag`, `coreapp/src/ui.cc`), but
   no code handles P; Pause is set only by a library (`api->ctx->set_paused`, api.md 4.14.4) or over REST (`machine.pause_toggle`,
   `coreapp/src/trx64u_ops.cc:714-723`). Asked what the tag should be, he chose "Only PAUSED": the tag promises no key; the
   library that paused shows how to go on with an element of its own; the tag is the service's first user. Lost: a P key read by
@@ -126,4 +126,7 @@ The other decisions are asked one at a time and recorded here.
 
 ## §5 Decisions taken while building
 
-Nothing yet.
+- **Tag (D5):** `ui_paused_tag` (`coreapp/src/ui.cc`) shows only "PAUSED".
+- **Alpha (the old defect of section 1):** `trx_lv_port.cc` keeps `alpha_reg`. `trx_lv_set_alpha` stores it even while the layer is
+  off, `layer_up` writes it with the first picture, and `trx_lv_close`, `trx_lv_yield_layer` and `trx_lv_suspend` reset it to 255.
+- **Not yet proven:** S2 has no ue2emu picture and no board photo; the alpha fix is read from the code only.
