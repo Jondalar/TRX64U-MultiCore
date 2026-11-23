@@ -9,6 +9,7 @@ out=${1:?build dir}; shift || true
 C=$root/vendor/icepi
 K=$C/vicii-kawari/hdl
 X=$root/cores/c128
+U=$root/cores/c64u           # trx_sid: the core build reads it there too (core_sources.tcl trxsid)
 mkdir -p "$out/gen" "$out/run/mem"
 defs=${C128_SIM_DEFS:-"Z80 SID_REDIP NO_TURBO NO_REU VDC_WHOLE VDC64 TRX_SIM_ROMS"}
 vdefs=""

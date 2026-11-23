@@ -15,6 +15,8 @@
 //            +DUMP=<hex>     at the end print 16 x DUMPN (default 6) bytes of RAM block 0 from that address (\"ram|addr|bytes\")
 //            +PIXHASH=<n>    print a hash of the VIC's pixel stream (colour, x, y) over the n-th frame ("pixhash|n|hash")
 //            +FRAMES         print the period of every VIC frame ("frame|n|clocks|reset") and the raster position at which the reset came
+//            +VKREAD_AT=<us> +VDCFIELDS=<us> +VRAMALL   the VDC read-back with the machine running and stopped, four fields of the VDC's picture, the whole VDC RAM
+//                            (T257, run_ruler.sh; at their definitions below)
 `timescale 1ns / 1ps
 module tb_c128;
 `include "tb_c128_ports.vh"
@@ -401,6 +403,112 @@ module tb_c128;
     integer vshot_us = -1;
     initial if ($value$plusargs("VSHOT_AT=%d", vshot_us)) begin #(vshot_us * 1000.0); $display("evt| vdc screen at %0t", $time); dump_vdc(); end
     initial if ($value$plusargs("SHOT_AT=%d", shot_us)) begin #(shot_us * 1000.0); $display("evt| screen at %0t", $time); dump_screen(); end
+    // T257 (run_ruler.sh). +VKREAD_AT=<us>: at that time the VDC's registers (0-37, 38 status, 39 selected register) are read through the read-back port vk_req /
+    // vk_ans, the handshake of c128_regs.v in steps of 10 ns (its 100 MHz clock; no free clock here, it would slow the whole run), a read without an answer in
+    // 1023 steps giving $FF as there: first with the machine running
+    // ("vk|run|n|byte"), then stopped by halt_req as the menu's C64_STOP stops it ("vk|stop|n|byte", with the 16 VRAM bytes at $4000 and at $8B00 through the
+    // same port beside the RAM's own bytes, "vkram|addr|port bytes|RAM bytes"), the machine clock counted while stopped ("vk|stopped, ... machine clocks").
+    // A FAIL line for a read without an answer, a register other than the status byte that differs between the two, or a port byte unlike the RAM's.
+    integer vk_us = -1, vk_i, vk_t, vk_g = 0, vk_g0 = 0, vk_nbad = 0;              // vk_nbad: the FAIL lines of this part ("vk|n failures")
+    reg [7:0] vk_run [0:39];
+    reg [7:0] vk_v;
+    reg vk_tg, vk_ok;
+    reg [8*48-1:0] vk_pb, vk_mb;
+    always @(posedge gclk) vk_g <= vk_g + 1;
+    task vk_read(input isram, input [15:0] a);
+        begin
+            #10;
+            vk_tg = vk_ans[8];
+            vk_req = {~vk_req[17], isram, a};
+            vk_t = 0;
+            while (vk_ans[8] == vk_tg && vk_t < 1023) begin #10; vk_t = vk_t + 1; end
+            vk_ok = vk_ans[8] != vk_tg;
+            vk_v = vk_ok ? vk_ans[7:0] : 8'hFF;
+            if (!vk_ok) begin $display("FAIL: vk read of %s %04x: no answer in 1023 clocks", isram ? "VRAM" : "register", a); vk_nbad = vk_nbad + 1; end
+        end
+    endtask
+    // the RAM byte a CPU address reaches: vdc_ramiface.sv shuffleAddr with 64 KiB (VDC64), R28 b4 = 0 drops address bit 14 and repeats bit 8
+    function [15:0] vk_phys(input [15:0] a);
+        vk_phys = dut.c64.x.vdc.reg_ram ? a : {a[15], a[13:8], a[8], a[7:0]};
+    endfunction
+    task vk_ram16(input [15:0] a);
+        integer j;
+        begin
+            vk_pb = 0; vk_mb = 0;
+            for (j = 0; j < 16; j = j + 1) begin
+                vk_read(1'b1, a + j[15:0]);
+                vk_pb = {vk_pb[8*47-1:0], vk_v};
+                vk_mb = {vk_mb[8*47-1:0], dut.c64.x.vdc.ram.ram.m[vk_phys(a + j[15:0])]};
+                if (vk_v !== dut.c64.x.vdc.ram.ram.m[vk_phys(a + j[15:0])]) begin $display("FAIL: vk VRAM %04x = %02x, the RAM holds %02x", a + j[15:0], vk_v, dut.c64.x.vdc.ram.ram.m[vk_phys(a + j[15:0])]); vk_nbad = vk_nbad + 1; end
+            end
+            $display("vkram|%04x|%032x|%032x", a, vk_pb[127:0], vk_mb[127:0]);
+        end
+    endtask
+    initial if ($value$plusargs("VKREAD_AT=%d", vk_us)) begin
+        #(vk_us * 1000.0);
+        for (vk_i = 0; vk_i < 40; vk_i = vk_i + 1) begin
+            vk_read(1'b0, vk_i[15:0]); vk_run[vk_i] = vk_v;
+            $display("vk|run|%0d|%02x", vk_i, vk_v);
+        end
+        pause_t = $realtime; pause_ns = 100000000;                     // the hold: 100 ms (the release is the always block at pause_t)
+        halt_req = 1'b1;
+        wait (halted);
+        #1000;
+        vk_g0 = vk_g;
+        $display("evt| machine stopped at %0t", $time);
+        for (vk_i = 0; vk_i < 40; vk_i = vk_i + 1) begin
+            vk_read(1'b0, vk_i[15:0]);
+            $display("vk|stop|%0d|%02x", vk_i, vk_v);
+            if (vk_i != 38 && vk_v !== vk_run[vk_i]) begin $display("FAIL: R%0d read %02x stopped, %02x running", vk_i, vk_v, vk_run[vk_i]); vk_nbad = vk_nbad + 1; end
+        end
+        vk_ram16(16'h4000);
+        vk_ram16(16'h8B00);
+        $display("vk|stopped, %0d machine clocks while the page was read", vk_g - vk_g0);
+        if (vk_g != vk_g0) begin $display("FAIL: the machine clock ran while stopped"); vk_nbad = vk_nbad + 1; end
+        $display("vk|%0d failures", vk_nbad);
+    end
+    // +VDCREGLOG: every CPU write into a VDC register other than the data path R18, R19, R31 ("vreg|us|register|byte"), and at the end ("vdcw|...") the
+    // CPU's R31 writes and the writes into R18, R19, R30 or R31 that came while a CPU action of the VDC's RAM was still pending (the VDC replaces it: a
+    // program that waits for the ready bit before each access never does that)
+    integer vw_n = 0, vw_rep = 0;
+    always @(posedge gclk) if (dut.c64.x.vdc.enableBus && dut.c64.x.vdc.cs && dut.c64.x.vdc.we && dut.c64.x.vdc.rs) begin
+        if (dut.c64.x.vdc.regSel == 6'd31) vw_n = vw_n + 1;
+        if ((dut.c64.x.vdc.regSel == 6'd18 || dut.c64.x.vdc.regSel == 6'd19 || dut.c64.x.vdc.regSel == 6'd30 || dut.c64.x.vdc.regSel == 6'd31)
+            && dut.c64.x.vdc.ram.cpuAction != 3'd0) vw_rep = vw_rep + 1;
+        if ($test$plusargs("VDCREGLOG") && dut.c64.x.vdc.regSel != 6'd18 && dut.c64.x.vdc.regSel != 6'd19 && dut.c64.x.vdc.regSel != 6'd31)
+            $display("vreg|%0d|%0d|%02x", $time / 1000, dut.c64.x.vdc.regSel, dut.c64.x.vdc.db_in);
+    end
+    // +VDCFIELDS=<us>: the next four fields of the VDC's picture after that time, one hex digit (rgbi) per dot of the active area, into vdcfield<k>.txt
+    // (first line "field <k> il <vdc_il> lines <n> width <w>"); vdcil_model.py fields renders them.
+    integer vf_us = -1, vf_k = 0, vf_x = 0, vf_y = 0, vf_w = 0, vf_fd = 0, vf_i, vf_j;
+    reg [1:0] vf_st = 2'd0;                                            // 0 off, 1 waiting for a field start, 2 capturing
+    reg vf_hb_q = 1'b1, vf_vb_q = 1'b1;
+    reg [1:0] vf_il = 2'd0;
+    reg [3:0] vf_px [0:299][0:799];
+    reg [8*16-1:0] vf_name;
+    initial if ($value$plusargs("VDCFIELDS=%d", vf_us)) begin #(vf_us * 1000.0); vf_st = 2'd1; end
+    always @(posedge gclk) begin
+        vf_hb_q <= vdc_hb; vf_vb_q <= vdc_vb;
+        if (vf_st == 2'd2 && vdc_ce && !vdc_hb && !vdc_vb && vf_y < 300 && vf_x < 800) begin vf_px[vf_y][vf_x] = vdc_rgbi; vf_x = vf_x + 1; end
+        if (vdc_hb && !vf_hb_q) begin if (vf_x > 0) begin if (vf_x > vf_w) vf_w = vf_x; vf_y = vf_y + 1; end vf_x = 0; end
+        if (vdc_vb && !vf_vb_q) begin
+            if (vf_st == 2'd2 && vf_y > 0) begin
+                $sformat(vf_name, "vdcfield%0d.txt", vf_k);
+                vf_fd = $fopen(vf_name, "w");
+                $fwrite(vf_fd, "field %0d il %0d lines %0d width %0d\n", vf_k, vf_il, vf_y, vf_w);
+                for (vf_i = 0; vf_i < vf_y; vf_i = vf_i + 1) begin
+                    for (vf_j = 0; vf_j < vf_w; vf_j = vf_j + 1) $fwrite(vf_fd, "%h", vf_px[vf_i][vf_j]);
+                    $fwrite(vf_fd, "\n");
+                end
+                $fclose(vf_fd);
+                $display("vdcfield|%0d|il %0d|%0d lines|%0d dots", vf_k, vf_il, vf_y, vf_w);
+                vf_k = vf_k + 1;
+                if (vf_k == 4) vf_st = 2'd0;
+            end
+            if (vf_st == 2'd1) vf_st = 2'd2;
+            vf_il = vdc_il; vf_y = 0; vf_x = 0; vf_w = 0;
+        end
+    end
     // +INJECT_AT=<us>: at that time the RAM image mem/inject.mem (byte per line, address = {block, 16 bit}) is written wherever mem/inject.msk is 1: into the DDR2 model (the
     // truth), into the pinned slots of block 0 and the CPU's line cache is emptied (c128-vicglitch: a game as its loader leaves it, tools see sim/vicglitch/mk_inject.py)
     reg [7:0] inj_img [0:131071];
@@ -743,6 +851,12 @@ module tb_c128;
     reg     trace = 1'b0;
     realtime tr_from = 0;
     integer tr_from_i;
+    // +CTRACE (T257 fault 4): every bus cycle of the 8502 itself, at its core's clock enable (clk2x), so the 2 MHz mode's two cycles per 1 MHz cycle are both
+    // there (+TRACE prints one per 1 MHz cycle), from +TRFROM on: "ct|us|address|R/W|byte" (a read's byte is what the core takes)
+    reg ctrace = 1'b0;
+    initial ctrace = $test$plusargs("CTRACE");
+    always @(posedge clk2x_r) if (ctrace && $time >= tr_from && dut.c64.cpu6510_0.core_ce && !dut.c64.z80_act)
+        $display("ct|%0d|%04x|%s|%02x", $time / 1000, dut.c64.c8502_addr, dut.c64.c8502_we ? "W" : "R", dut.c64.c8502_we ? dut.c64.c8502_dout : dut.c64.cpu6510_0.din_i);
     initial if ($value$plusargs("TRFROM=%d", tr_from_i)) tr_from = tr_from_i * 1000.0;
     always @(posedge gclk) if (cpu_end && !rst) begin
         cyc = cyc + 1;
@@ -881,6 +995,15 @@ module tb_c128;
         if (ph_frame >= 0 && ph_lines) for (pli = 0; pli < 512; pli = pli + 1) $display("pixline|%0d|%08x", pli, pl_h[pli]);
         if ($test$plusargs("SCREEN")) dump_screen();
         if ($test$plusargs("VDCSCREEN")) dump_vdc();
+        if ($test$plusargs("VDCREGLOG")) $display("vdcw|%0d R31 writes|%0d writes while an action was pending", vw_n, vw_rep);
+        if ($test$plusargs("VRAMALL")) begin : vram_all         // +VRAMALL (T257, run_ruler.sh): the whole VDC RAM, 64 bytes a line ("vramall|addr|bytes")
+            integer va, vj;
+            for (va = 0; va < 65536; va = va + 64) begin
+                $write("vramall|%04x|", va);
+                for (vj = 0; vj < 64; vj = vj + 1) $write("%02x", dut.c64.x.vdc.ram.ram.m[va + vj]);
+                $write("\n");
+            end
+        end
         if ($test$plusargs("VRAM")) begin : vram_dump          // +VRAM: 64 bytes of the VDC's RAM at $4000 / $4100 / $4200 ("vram|addr|bytes"), z80vdc
             integer vb, vi;
             for (vb = 16'h4000; vb <= 16'h4300; vb = vb + 16'h100) begin

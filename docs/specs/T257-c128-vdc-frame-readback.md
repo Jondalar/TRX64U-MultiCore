@@ -8,7 +8,7 @@ Gateware and benches built on `t257-c128-vdc` the same day; the register list fo
 **Depends on:** T113 (the C128 core, D11 interlace), T194 (the 40-column picture), T192 D24 (no new per-core application code).
 **Milestone:** M3.
 
-Open (one line, as in the TODO table): Built (frame, read-back, D6, D11 cuts; board faults 1-3 fixed); on c128-integ with T170, T258; needs pipeline, board
+Open (one line, as in the TODO table): Built (frame, read-back, D6, D11 cuts; faults 1-3 fixed, 4 open); on c128-integ with T170, T258; needs pipeline, board
 
 ---
 
@@ -217,6 +217,14 @@ Negative controls: none (no flash, no persistence).
   - **Cost** (estimate, not measured). No LUT, FF or block RAM more: the same logic on another clock net. Port B of the 16 RAMB36 takes `sys_clk`.
   - **Limit.** Port A and port B now have two clock nets. A port B read in the clock in which the VDC writes the same VRAM address can return a wrong byte; the write itself is kept. With the machine stopped no write happens.
   - **Not proven.** Vivado: the block RAM with two clocks and the timing between the two clock trees. The board: S7 needs a build with this fix, once with the menu open (F8 -> Bug report) and once with it closed (`GET /v1/report`).
+
+- **Fault 4: the ruler program (`vdc_il_ruler.asm`) shows almost nothing on the board (build 54014b3e, 2026-11-23). Open: the cause is found in the machine bench, the RTL line is not.**
+  - **The program.** The board's `.prg` and the file in its `.d64` are byte for byte the assembly of `vdc_il_ruler.asm` at this commit (sha256 `70cb5f79...`).
+  - **Machine bench** `run_ruler.sh` (new; local, real ROMs outside the repository, never in CI; builder, `trx64-sim-env:4`): the whole machine (`tb_c128.v` with ROM_CACHE and RAM_DDR2, as the product), READY at 1.5 s, the program placed and RUN typed as the application does. At 8 s: `vdcw|8242 R31 writes|0 writes while an action was pending` (all of them the KERNAL's) and no `vreg` line of the program, so the program wrote no VDC register. The registers read back are the KERNAL's 80-column text set (R12 = $00, R25 = $47, R28 = $2F), `vram: 480 of 480 picture lines wrong`, the four captured fields are 200 text lines: `FAIL run_ruler`. The read-back of fault 3 through the real core wiring: R0-R39 equal running and stopped, `vk|stopped, 0 machine clocks while the page was read`.
+  - **Cause (bench).** `+CTRACE` (new: every 8502 cycle at its core's clock enable) from 1.5 s: the program starts at 1527291 us, sets 2 MHz ($D030 = 1 at 1527306 us) and reads R0-R2 right (`bit $D600` gives $C1, ready; `lda $D601` gives R0 = $7F). After the fourth `stx $D600` (1527395 us, `d600|W|03`), the opcode fetch at $2009 (`bit vdcadr`, $2C; the same address gave $2C at 1527323 us) gives $20 (1527396 us). The 8502 executes `JSR $D600`, runs through I/O and zero page, and the stack runs down (the IRQ vector is read at 1529996 us). So at 2 MHz one RAM read right after an I/O write cycle returns a wrong byte. $20 is not a VDC status value (bit 0 is always 1 there).
+  - **Where to look next.** `c64_top_c128.v:695-705` (`fast_hok`, `fast_lcyc`, `fast_cap`, `cpu_ce_x`): a RAM cycle in the CPU half after an I/O cycle; whether its RAM answer (RAM_DDR2 line cache: `ramd|49|56|4152|0` = VIC misses, CPU reads held, line fetches, lost writes) is on the bus at the capture at ph 7, and whether RDY holds the 8502 then (`cpu6510_c128.v:157-162` takes `din_r` and `rdy_r` at `phi2_n || cap_x`).
+  - **The machine bench did not build** since `f7d52c3cb` (T257 D11): `build_machine.sh` lost `U=$root/cores/c64u` but still reads `$U/trx_sid` (`set -e` ends it at the `ls`). Restored. `tb_c128.v` gets `+VKREAD_AT`, `+VDCFIELDS`, `+VRAMALL`, `+VDCREGLOG`, `+CTRACE`; `vdcil_model.py check` compares registers, VRAM and fields with the mode's picture. After the 8 s run, the bench's VRAM read-back compares with the RAM byte at the shuffled address (`vk_phys`; R28 b4 = 0 in that run gave 16 false `FAIL: vk VRAM` lines); not run since.
+  - **Not proven.** That the board fails in the same way: the photo shows no READY or RUN text, and the bench shows the 40-column screen. The RTL line that gives $20. No fix and no cost yet.
 
 ## Questions only Alex can answer (one at a time)
 
