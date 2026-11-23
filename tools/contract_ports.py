@@ -55,7 +55,10 @@ def core_files():
 
 def large_extra(name):
     """T170: the ports a LARGE core's flat build adds to its layer 2 beyond the contract (cores/<name>/mono/core.toml, `layer2_extra`): the flat build has
-    no partition, so the host's cell does not bound it. The contract's 247 ports must all be there unchanged; the extra ones are exactly those named."""
+    no partition, so the host's cell does not bound it. The contract's 247 ports must all be there unchanged; the extra ones are exactly those named.
+    Only a core without a partial descriptor (cores/<name>/core.toml) gets them: such a core's layer 2 sits in the host's cell and is bounded by it."""
+    if os.path.exists(os.path.join(ROOT, "cores", name, "core.toml")):
+        return []
     d = os.path.join(ROOT, "cores", name, "mono", "core.toml")
     if not os.path.exists(d):
         return []
@@ -96,4 +99,5 @@ def main():
         print("\n".join(ports(f)))
 
 
-main()
+if __name__ == "__main__":
+    main()

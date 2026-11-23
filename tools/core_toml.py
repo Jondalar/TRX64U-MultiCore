@@ -191,6 +191,8 @@ def check():
             bad += err("app %r is none of %s" % (t.get("app"), ", ".join(APPS)))
         if "delivery" in t and t["delivery"] not in DELIVERIES:
             bad += err("delivery %r is none of %s" % (t["delivery"], ", ".join(DELIVERIES)))
+        if "layer2_extra" in t and not is_large:
+            bad += err("layer2_extra belongs to a large core's cores/%s/mono/core.toml (the flat build has no partition to bound the ports)" % name)
         if is_large and t.get("delivery") != "cfw":
             bad += err("a large-core descriptor (mono/core.toml) says delivery = \"cfw\"")
         if t.get("delivery") == "cfw":
