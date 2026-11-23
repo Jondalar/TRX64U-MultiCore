@@ -2,7 +2,7 @@
 // into the ROM line cache's backing store, then ROM_CTRL.b0 flushes the cache. With the setting ROM set = JiffyDOS (T185) the kit files the person selected
 // (one row each in the settings, or the file action in the browser) are written over the C64 and C128 KERNAL parts of that image first, and drive A takes
 // the JiffyDOS DOS ROM of its type. Settings: the 40/80 DISPLAY switch (D4080, taken at reset)
-// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, or 640 x 480 woven in interlace, both on the pixel layer: Integer, Fit or Fill as for every core), which the
+// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, or 640 x 480 (woven in interlace, or a frame of more than 200 lines, T257), both on the pixel layer: Integer, Fit or Fill as for every core), which the
 // Auto switch (T194 D12: on/off, time) moves to the chip that is being used, and a core hotkey (40/80) flips by hand.
 // Drive A is the cbm1541 library with the 1541 and the 1581 (cbm1541_desc.h, CBM1581_*). The register page is c128_regs.h; the extra keys of
 // the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Run Disk (T206) resets the machine and types the start at
@@ -1173,8 +1173,8 @@ const CoreDesc c128_desc = {
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 7,
     media, 1,
-    // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11), shown 2 x 2 (1280 x 960) centred on 1920 x 1080; without interlace the layer shows 400 rows
-    // (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
+    // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11, or a frame of more than 200 lines, T257), shown 2 x 2 (1280 x 960) centred on 1920 x 1080;
+    // a frame of 200 lines without interlace shows 400 rows (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
     { 640, 480, 2, 320, 60, C128_FB_ADDR, C128_FB_STRIDE_BYTES, 3, C128_FB_LATEST, C128_FRAME_SEQ, C128_FB_BASE, C128_FB_STRIDE },
     { C128_STATUS, C128_ST_HELD, 200, false },
     c128_init, c128_release, 0, 50,
