@@ -1,0 +1,72 @@
+# TOML A fixture of the VIC-20's 1541 (T239.3 V-1c): drive_l2.vhd behind the host's drv_io_* ports of layer2_vc20 (cores/vc20/layer2_vc20.v holds them one register stage; rtl_check reads the
+# stage and takes the reset as released), window 0x10020000, the address port carries the whole address (--window 0x10020000:0x4000:full). The registers of the shipped map cbm1541 that this RTL
+# has: not the map's side (drive_registers.vhd reads the port `side`, which c1541_drive leaves at its default 0), drivetype (g_multi_mode is false) and the WD177x registers at +0x1800
+# (the splitter has three ports: regs, dirty, param). It is not in cores/vc20/app/gateware.toml: the app's TOML B takes the base's drive_a (the full map: d1541_wd.cc names the WD177x registers),
+# an own drive_a would overlap it (T239.3 V-4 question 1). The GCR coder window 0x10060500 (gcr_codec.vhd) is not followed: it has a VHDL for-generate and ascending ranges.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "drive_a"
+module = "drive_l2"
+owner = "base"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  dir = "rw"
+  count = 128
+  [[block.property]]
+  name = "param"
+  offset = 0x1000
+  width = 32
+  dir = "w"
+  count = 512

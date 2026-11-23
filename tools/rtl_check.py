@@ -35,10 +35,21 @@ check
   A request that leaves a followed module over output ports (held address, write flag, data, toggle) and is read by another module of
   the top-level file crosses a clock domain over a handshake: that module is run on the held request (stage 2: its ports take the
   forwarded values, its state is unknown, only the module itself is followed) and decides write and read of the byte (dma_win). A decode
-  there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). What is not followed yet: the
-  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), the request behind Gideon's io_bus_splitter (an array of request
-  records: ITU, uci, the drive, Ethernet, USB) and the clock-domain bridges (io_bus_bridge2, synchronizer_gzw). The check stops there with
-  Unsupported (the request reaches such an instance); it never passes a property on the transport registers of a bridge.
+  there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). Gideon's io_bus_splitter is modelled by the check (its architecture is not read): port i of reqs gets the request with write and read cleared unless the
+  address bits g_range_hi downto g_range_lo are i, and resp is the OR of the answers of the ports the address can select (only those are an origin of the answer).
+  The synchronizers of a clock-domain bridge (synchronizer_gzw) carry the vector unchanged: their outputs are their inputs, io_bus_bridge2 itself is read from its source.
+  A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
+  A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
+  The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
+  A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
+  assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
+  A request that a module holds in registers it sets itself (flash_gate.vhd: p_valid, p_read, p_addr, p_data, assigned for sure under a guard that is no address decode) is decoded in the next clock: those registers
+  take the request's value and taint there, and their own assignments are no writes. A flag whose assignments set it to another value than it has now is, as response data, a register.
+  --bus MODULE:... with MODULE the top module itself (--top): the ports of the top module are the request; a register stage of the top file (`always @(posedge clk) q <= expr;`) holds it one clock, the reset
+  released. --window BASE:SIZE:full puts the whole address on the address port. --bus and --window may be repeated: a block goes to the bus whose window holds it.
+  RTL_CHECK_TRACE=1 raises the error with its traceback.
+  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks, hierarchical names) and a VHDL for-generate with ascending ranges (gcr_codec.vhd). The check stops with
+  Unsupported or finds no write/read there.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -58,7 +69,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-BRIDGES = ("io_bus_splitter",)
+# Gideon's request splitter is modelled by the check itself (an array of request records is not in the evaluator's types): see Ev.split_info.
+# The clock-domain bridge's synchronizer carries its vector unchanged to the other clock: its outputs are its inputs (PASSTHROUGH: output port -> input port).
+SPLITTERS = ("io_bus_splitter",)
+PASSTHROUGH = {"synchronizer_gzw": {"rx_data": "tx_data", "rx_new_data": "tx_push"}}
+# Gideon's RAM entities: their architecture is a vendor file (shared variables, element writes) the check does not parse. A write is the request's data on the
+# data port and its address on the address port while the write enable port is 1 for it (module -> (write enable port, data port, address port)); the read data port is an answer that does not come from the literal 0.
+MEMORIES = {"dpram_8x16": ("wea", "dia", "addra"), "dpram_8x32": ("wea", "dia", "addra"), "pseudo_dpram_8x32": ("wr_en", "wr_data", "wr_address"), "dpram": ("a_we", "a_wdata", "a_address")}
+
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
 
 
@@ -311,7 +329,8 @@ def num_vhdl(kind, s):
                 else:
                     v |= int(ch)
             return V(v, x, len(body))
-        raise Unsupported("a string literal %s" % s)
+        # a text (a memory style, a vendor name): no value the decode can depend on, unknown if something compares it
+        return V(0, mask(64), None)
     if kind == "chr":
         ch = s[1]
         if ch in "01":
@@ -434,6 +453,44 @@ def split_cat(lhs, rhs):
     return [(part, ("catpart", rhs, info, i)) for i, part in enumerate(leaves)]
 
 
+def subst(e, mp):
+    """An expression or statement with the identifiers of mp (formal -> actual expression) replaced."""
+    if isinstance(e, tuple):
+        if e and e[0] == "id" and len(e) == 2 and e[1] in mp:
+            return mp[e[1]]
+        return tuple(subst(x, mp) for x in e)
+    if isinstance(e, list):
+        return [subst(x, mp) for x in e]
+    return e
+
+
+def subst_stmt(s, mp):
+    return subst(s, mp)
+
+
+def reg_assigns(m, s):
+    """The assignments of an inlined statement, entered in the module's table of right sides as the parser enters those of its own statements."""
+    k = s[0]
+    if k == "as":
+        m.assigns.setdefault(base_name(s[1])[0], []).append(s[2])
+    elif k == "blk":
+        for b in s[1]:
+            reg_assigns(m, b)
+    elif k == "if":
+        for _, b in s[1]:
+            for x in b:
+                reg_assigns(m, x)
+        for x in s[2]:
+            reg_assigns(m, x)
+    elif k == "case":
+        for _, b in s[2]:
+            for x in b:
+                reg_assigns(m, x)
+    elif k == "for":
+        for x in s[5]:
+            reg_assigns(m, x)
+
+
 # ---------------------------------------------------------------------------------------------------------------------------
 # VHDL parser
 
@@ -441,6 +498,7 @@ class P:
     def __init__(self, toks, fname, ovr=None):
         self.t, self.i, self.fname = toks, 0, fname
         self.ovr = ovr or {}
+        self.procs, self.noreg, self.aliases = {}, 0, {}
 
     def pk(self, n=0):
         return self.t[min(self.i + n, len(self.t) - 1)]
@@ -612,6 +670,17 @@ class VhdlParser(P):
         return Ty(name)
 
     def arch_body(self, m):
+        self.aliases = {}
+        self.arch_decls(m)
+        self.eat("begin")
+        while self.txt() != "end":
+            self.concurrent(m)
+        self.eat("end")
+        while self.txt() != ";":
+            self.eat()
+        self.eat(";")
+
+    def arch_decls(self, m):
         while self.txt() != "begin":
             w = self.txt()
             if w in ("signal", "constant", "shared"):
@@ -645,16 +714,21 @@ class VhdlParser(P):
                 self.skip_subprogram(fname)
             elif w == "component":
                 self.skip_to_end("component")
-            elif w in ("attribute", "alias", "file", "use"):
+            elif w == "alias":
+                self.alias_decl()
+            elif w in ("attribute", "file", "use"):
                 self.skip_to(";")
             else:
                 raise self.err("a declaration I do not know")
-        self.eat("begin")
-        while self.txt() != "end":
-            self.concurrent(m)
-        self.eat("end")
-        while self.txt() != ";":
-            self.eat()
+
+    def alias_decl(self):
+        """An alias names a part of a signal: every later use of the name is that part (parsed in place)."""
+        self.eat("alias")
+        an = self.eat()[1]
+        if self.acc(":"):
+            self.subtype()
+        self.eat("is")
+        self.aliases[an] = self.expr()
         self.eat(";")
 
     def skip_to_end(self, kw):
@@ -667,10 +741,11 @@ class VhdlParser(P):
         self.eat(";")
 
     def skip_subprogram(self, fname):
-        depth = 0
+        depth = par = 0
         while not self.eof():
             t = self.txt()
-            if t == ";" and depth == 0:
+            par += (t == "(") - (t == ")")
+            if t == ";" and depth == 0 and par == 0:
                 self.eat()
                 return
             if t == "is":
@@ -730,6 +805,21 @@ class VhdlParser(P):
             self.instance(m, label, where)
         elif w == "if" and label:
             self.if_generate(m)
+        elif w == "block" and label:
+            # a block: its signals are the module's (names are unique in the files the check reads), its statements run as the module's own
+            self.eat()
+            if self.txt() == "(":
+                self.skip_to(")")
+            self.acc("is")
+            self.arch_decls(m)
+            self.eat("begin")
+            while self.txt() != "end":
+                self.concurrent(m)
+            self.eat("end")
+            self.eat("block")
+            if self.txt() != ";":
+                self.eat()
+            self.eat(";")
         elif w in ("for", "if", "block", "case"):
             raise self.err("a %s generate/block statement" % w)
         elif w == "assert":
@@ -837,12 +927,58 @@ class VhdlParser(P):
         if self.txt() == "when":
             self.eat()
             c = self.expr()
+            if self.txt() == ";":
+                # x <= e when rising_edge(clock);  the register takes e at the edge, no value otherwise: read like the clocked processes are (the
+                # request cycle's value)
+                return ("cond", c, e, ("n", V(0, mask(64), None)))
             self.eat("else")
             rest = self.waveform()
             return ("cond", c, e, rest)
         return e
 
+    def procedure(self, m):
+        """A procedure declared in a process: its body is parsed once and inlined at each call (the formals replaced by the actual expressions; only
+        in-parameters, a formal is never an assignment target)."""
+        self.eat("procedure")
+        name = self.eat()[1]
+        formals = []
+        if self.txt() == "(":
+            self.eat()
+            while True:
+                names = [self.eat()[1]]
+                while self.acc(","):
+                    names.append(self.eat()[1])
+                self.eat(":")
+                mode = self.txt()
+                if mode in ("in", "out", "inout"):
+                    self.eat()
+                    if mode != "in":
+                        raise self.err("a procedure parameter of mode %s" % mode)
+                if self.txt() in ("signal", "variable", "constant"):
+                    raise self.err("a procedure parameter class")
+                self.subtype()
+                if self.acc(":="):
+                    self.expr()
+                formals += names
+                if not self.acc(";"):
+                    break
+            self.eat(")")
+        self.eat("is")
+        if self.txt() != "begin":
+            raise self.err("a declaration inside a procedure")
+        self.eat("begin")
+        self.noreg += 1
+        body = self.seq(m, ("end",))
+        self.noreg -= 1
+        self.eat("end")
+        self.acc("procedure")
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+        self.procs[name] = (formals, body)
+
     def process(self, m, where):
+        self.procs = {}
         self.acc("postponed")
         self.eat("process")
         if self.txt() == "(":
@@ -863,6 +999,10 @@ class VhdlParser(P):
                 self.eat(";")
                 for n in names:
                     vars_[n] = Decl(n, "var", ty, init)
+            elif self.txt() == "procedure":
+                self.procedure(m)
+            elif self.txt() == "alias":
+                self.alias_decl()
             elif self.txt() in ("constant", "type", "subtype"):
                 raise self.err("a process-local %s" % self.txt())
             else:
@@ -912,11 +1052,13 @@ class VhdlParser(P):
                 f += "." + self.eat()[1]
             if self.txt() == "(":
                 self.eat()
-                depth = 1
+                depth, txt = 1, ""
                 while depth:
                     t = self.eat()[1]
                     depth += (t == "(") - (t == ")")
-                f += "()"
+                    if depth:
+                        txt += t
+                f += "(" + txt + ")"
             self.eat("=>")
             if self.txt() == "open":
                 self.eat()
@@ -1006,6 +1148,22 @@ class VhdlParser(P):
             return ("nop",)
         if w in ("wait", "return", "exit", "next", "while", "loop"):
             raise self.err("a %s statement" % w)
+        if w in self.procs and self.txt(1) in (";", "("):
+            self.eat()
+            args = []
+            if self.acc("("):
+                args.append(self.expr())
+                while self.acc(","):
+                    args.append(self.expr())
+                self.eat(")")
+            self.eat(";")
+            formals, body = self.procs[w]
+            if len(args) != len(formals):
+                raise self.err("a call of %s with named or missing arguments" % w)
+            out = [subst_stmt(b, dict(zip(formals, args))) for b in body]
+            for b in out:
+                reg_assigns(m, b)
+            return ("blk", out)
         lhs = self.target()
         if self.acc("<="):
             kind = "sig"
@@ -1015,7 +1173,8 @@ class VhdlParser(P):
             raise self.err("a statement I do not know")
         rhs = self.waveform()
         self.eat(";")
-        m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
+        if not self.noreg:
+            m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
         return ("as", lhs, rhs, kind, where)
 
     def target(self):
@@ -1082,7 +1241,7 @@ class VhdlParser(P):
             while self.txt() == "." and self.pk(1)[0] == "id":
                 self.eat()
                 name += "." + self.eat()[1]
-            e = ("id", name)
+            e = self.aliases[name] if name in self.aliases else ("id", name)
             while self.txt() == "(":
                 e = self.suffix(e)
             if self.txt() == "'":
@@ -1726,6 +1885,30 @@ def top_instances(design, topname, extra_names):
     # the ports of the top module itself (ANSI style, one name each): their widths too
     for dm in re.finditer(r"\b(?:input|output|inout)\s+(?:wire\s+|reg\s+)?(?:\[\s*(\d+)\s*:\s*(\d+)\s*\]\s*)?(\w+)\s*[,)]", text):
         m.nets.setdefault(dm.group(3), int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1)
+    # the parameters and localparams of the top file (its `ifdef branches decided by the defines): an instance's generic that names one has its value
+    toks = lex(text, "vlog", f)
+    for ti, tk in enumerate(toks):
+        if tk[1] in ("parameter", "localparam"):
+            pp = VlogParser(toks[ti + 1:], f)
+            try:
+                while pp.txt() in ("integer", "signed"):
+                    pp.eat()
+                if pp.txt() == "[":
+                    pp.rng()
+                while True:
+                    nm = pp.eat()[1]
+                    pp.eat("=")
+                    m.consts[nm] = pp.expr()
+                    if not (pp.txt() == "," and pp.txt(1) not in ("parameter", "localparam") and pp.txt(2) == "="):
+                        break
+                    pp.eat()
+            except Unsupported:
+                pass
+    # the register stage of the top file: `always @(posedge clk) [begin] q <= expr; ... [end]` (assignments only): q holds the value of expr one clock later
+    m.regcopies = {}
+    for am in re.finditer(r"\balways\s*@\s*\(\s*posedge\s+\w+\s*\)\s*(?:begin\s*)?((?:\w+\s*<=[^;]+;\s*)+)(?:end\b)?", text):
+        for sm in re.finditer(r"(\w+)\s*<=\s*([^;]+);", am.group(1)):
+            m.regcopies[sm.group(1)] = VlogParser(lex(sm.group(2).strip(), "vlog", f), f).expr()
     names = set(design.index) | set(extra_names)
     pos = 0
     pat = re.compile(r"\b([A-Za-z_]\w*)\s*(#\s*\()?")
@@ -1797,10 +1980,10 @@ CORE_PORTS = ("cw_", "dma_", "drv_io_", "gcr_io_", "sidcv_")
 
 
 class Eff:
-    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where")
+    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard")
 
-    def __init__(self, key, rhs, v, certain, taint, ctx, where):
-        self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where = key, rhs, v, certain, taint, ctx, where
+    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset()):
+        self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where, self.guard = key, rhs, v, certain, taint, ctx, where, guard
 
 
 class Run:
@@ -1886,6 +2069,9 @@ class Ev:
         """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
+        self.memcap = None
+        self.reset_off = 0
+        self.hold, self.holdt = {}, {}      # held requests: (id(ctx), register) -> value / taint in the decode cycle (find_held)
         self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
         self.bus, self.rootv, self.roott = None, {}, {}
         self.top = Ctx(self, topmod, None, None)
@@ -1900,19 +2086,22 @@ class Ev:
             self.crossed = True
             return
         binst = [i for i in topmod.insts if i.modname.lower() == busmod.lower()]
-        if len(binst) != 1:
+        if busmod.lower() == topmod.name.lower() and ports is not None:
+            self.bus = self.top         # the request is the ports of the top module itself
+        elif len(binst) != 1:
             raise CheckError("the bus module %s is instantiated %d times in %s" % (busmod, len(binst), topmod.name))
-        self.bus = self.top.child(binst[0])
+        else:
+            self.bus = self.top.child(binst[0])
         if ports is not None:
             # a partial's window: the request is four input ports of the instance (write, read, address, data) and its answer is one output port
-            pw = {r: self.width(self.bus, ports[r]) for r in ("write", "read", "address", "data")}
+            pw = {r: (self.top.mod.nets[ports[r]] if self.bus is self.top else self.width(self.bus, ports[r])) for r in ("write", "read", "address", "data")}
             self.rootv = {
                 ports["write"]: T1 if write else F1,
                 ports["read"]: F1 if write else T1,
                 ports["address"]: fit(addr, pw["address"]),
                 ports["data"]: allx(pw["data"]),
             }
-            self.roott = {n: frozenset("d" if n == ports["data"] else "a") for n in self.rootv}
+            self.roott = {n: frozenset("d" if n == ports["data"] else {ports["write"]: "aw", ports["read"]: "ar"}.get(n, "aq")) for n in self.rootv}
             self.resp = [(self.bus, ports["response"])]
             self.followed = [self.bus]
             self.phase, self.post = 1, {}
@@ -1925,7 +2114,7 @@ class Ev:
             busname + ".read": F1 if write else T1,
             busname + ".data": allx(flds["data"]),
         }
-        self.roott = {n: frozenset(("d",) if n.endswith(".data") else (("a", "w") if n.endswith(".write") else ("a", "q"))) for n in self.rootv}
+        self.roott = {n: frozenset(("d",) if n.endswith(".data") else (("a", "w") if n.endswith(".write") else (("a", "r") if n.endswith(".read") else ("a", "q")))) for n in self.rootv}
         self.resp = [(self.bus, busname.replace("req", "resp") + ".data")]
         self.followed = [self.bus]
         self.phase, self.post = 1, {}
@@ -1948,7 +2137,7 @@ class Ev:
     def const_int(self, ctx, e, sc=None):
         v = self.ev(ctx, e, sc)
         if v.x or v.v is None:
-            raise Unsupported("a bound that is not a constant")
+            raise Unsupported("%s: a bound that is not a constant" % ctx.mod.fname)
         return v.v
 
     def tyinfo(self, ctx, ty):
@@ -2051,6 +2240,9 @@ class Ev:
             pc = self.d.pkg_const(name)
             if pc is not None:
                 return pc
+            pe = self.d.pkg_expr(name) if "." not in name else None
+            if pe is not None:
+                return self.ev(ctx, pe)
             raise Unsupported("%s: the identifier %s is not declared" % (mod.fname, name))
         port = mod.ports.get(base)
         if port is not None and port[0] == "in":
@@ -2077,6 +2269,15 @@ class Ev:
     def net_val(self, ctx, name):
         """A net of the top-level file: its value is that of the followed instance that drives it, else unknown."""
         w = ctx.mod.nets.get(name)
+        rc = getattr(ctx.mod, "regcopies", {}).get(name) if self.bus is self.top else None      # only where the top module's ports are the bus
+        if rc is not None:
+            self.reset_off += 1                         # a register stage of the top file holds the request one clock later, the reset released
+            try:
+                return fit(self.ev(ctx, rc), w or 1)
+            finally:
+                self.reset_off -= 1
+        if self.reset_off and re.search(r"(^|_)(rst|reset)(_n)?$", name):
+            return kn(1 if name.endswith("_n") else 0, w or 1)
         for inst in ctx.mod.insts:
             for f, a in inst.ports:
                 if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
@@ -2096,10 +2297,110 @@ class Ev:
             for k in out:
                 drv.setdefault(k, []).append(("proc", p))
         for inst in ctx.mod.insts:
+            mn = inst.modname.lower()
+            if mn in SPLITTERS:
+                si = self.split_info(ctx, inst)
+                for i, a in si["reqs"].items():
+                    drv.setdefault(a[1], []).append(("split", inst, i))
+                if si["resp"] is not None:
+                    drv.setdefault(si["resp"], []).append(("splitr", inst))
+                continue
+            if mn in PASSTHROUGH:
+                for f, a in inst.ports:
+                    if f in PASSTHROUGH[mn] and a is not None and a[0] == "id":
+                        drv.setdefault(a[1], []).append(("pass", inst, f))
+                continue
             for f, a in inst.ports:
                 if a is not None and a[0] == "id" and self.d.port_dir(inst.modname, f) == "out":
                     drv.setdefault(a[1], []).append(("inst", inst, f))
         ctx.drv = drv
+
+    def native(self, inst):
+        return inst.modname.lower() in SPLITTERS or inst.modname.lower() in PASSTHROUGH or inst.modname.lower() in MEMORIES
+
+    def memory_write(self, ctx):
+        """(a RAM of this module takes a write from the request, certainly): the write enable is 1 or may be 1 for the request's address, the data port carries the
+        data and the address port the request's address. self.memcap is the smallest size in bytes of such a RAM (2 ** address bits * data bytes)."""
+        hit = None
+        for inst in ctx.mod.insts:
+            mem = MEMORIES.get(inst.modname.lower())
+            if mem is None:
+                continue
+            ports = {f.lower(): a for f, a in inst.ports}
+            we, di, ad = ports.get(mem[0]), ports.get(mem[1]), ports.get(mem[2])
+            if we is None or di is None or ad is None or "a" not in self.taint(ctx, we) or "d" not in self.taint(ctx, di) or "a" not in self.taint(ctx, ad):
+                continue
+            if mem[0] == "a_we":       # dpram: g_depth_bits address bits of g_width_bits (the entity's declaration, defaults 9 and 16)
+                g = {}
+                for k, dflt in (("g_depth_bits", 9), ("g_width_bits", 16)):
+                    gv = self.ev(ctx, inst.generics[k]) if k in inst.generics else kn(dflt)
+                    if gv.x or gv.v is None:
+                        raise Unsupported("%s: the generic %s of the RAM is not a constant" % (inst.where, k))
+                    g[k] = gv.v
+                cap = (1 << g["g_depth_bits"]) * max(1, g["g_width_bits"] // 8)
+            else:                       # the 8 bit port of a block RAM of 2 KB (ADDRA / wr_address are 11 bits)
+                cap = 2048
+            self.memcap = cap if self.memcap is None else min(self.memcap, cap)
+            t = truth(self.ev(ctx, we))
+            if t == 1:
+                return True
+            if t is None:
+                hit = False
+        return hit
+
+    def split_info(self, ctx, inst):
+        """Gideon's io_bus_splitter, read from its source: port i is selected by the address bits g_range_hi downto g_range_lo being i; it gets the request
+        with write and read cleared otherwise; the response is the OR of the responses of the ports. {lo, hi, n, req, resp, reqs: {i: id}, resps: {i: id}}"""
+        c = ctx.__dict__.setdefault("_split", {})
+        if id(inst) in c:
+            return c[id(inst)]
+        g = {"g_range_lo": 16, "g_range_hi": 19, "g_ports": 3}
+        for k in g:
+            if k in inst.generics:
+                v = self.ev(ctx, inst.generics[k])
+                if v.x or v.v is None:
+                    raise Unsupported("%s: the generic %s of the io_bus_splitter is not a constant" % (inst.where, k))
+                g[k] = v.v
+        si = {"lo": g["g_range_lo"], "hi": g["g_range_hi"], "n": g["g_ports"], "req": None, "resp": None, "reqs": {}, "resps": {}}
+        for f, a in inst.ports:
+            if a is None:
+                continue
+            fl = f.lower()
+            m = re.fullmatch(r"(reqs|resps)\((\d+)\)", fl)
+            if fl in ("req", "resp") and a[0] == "id":
+                si[fl] = a[1]
+            elif m and a[0] == "id":
+                si[m.group(1)][int(m.group(2))] = a
+            elif fl not in ("clock",):
+                raise Unsupported("%s: the io_bus_splitter port %s is connected in a form I do not know" % (inst.where, f))
+        if si["req"] is None:
+            raise Unsupported("%s: the io_bus_splitter has no request" % inst.where)
+        c[id(inst)] = si
+        return si
+
+    def split_sel(self, ctx, si, i):
+        """1, 0 or unknown: this request selects port i."""
+        a = self.val(ctx, si["req"] + ".address")
+        return v_eq(v_slice(a, si["hi"], si["lo"]), kn(i, si["hi"] - si["lo"] + 1))
+
+    def split_val(self, ctx, inst, i, fld, w):
+        si = self.split_info(ctx, inst)
+        v = self.val(ctx, si["req"] + "." + fld)
+        if fld in ("read", "write"):
+            return fit(v_bit(v, self.split_sel(ctx, si, i), "and"), w)
+        return fit(v, w)
+
+    def split_taint(self, ctx, inst, fld):
+        si = self.split_info(ctx, inst)
+        t = self.taint_name(ctx, si["req"] + "." + fld)
+        if fld in ("read", "write"):
+            t |= self.taint_name(ctx, si["req"] + ".address")
+        return t
+
+    def split_resps(self, ctx, inst):
+        """The response signals of the ports this request can select (the others are no origin of the answer)."""
+        si = self.split_info(ctx, inst)
+        return [a[1] for i, a in sorted(si["resps"].items()) if truth(self.split_sel(ctx, si, i)) != 0]
 
     def driven(self, ctx, name):
         if ctx.drv is None:
@@ -2133,6 +2434,15 @@ class Ev:
                     if p.clocked and not ent.v.known():
                         return self.state_val(ctx, name, w)
                     return fit(ent.v, w)
+                elif d[0] == "split":
+                    if key == name:
+                        raise Unsupported("a record of the io_bus_splitter used as a value")
+                    return self.split_val(ctx, d[1], d[2], name[len(key) + 1:], w)
+                elif d[0] == "splitr":
+                    return allx(w)
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    return fit(self.ev(ctx, src[0]), w) if src and src[0] is not None else allx(w)
                 elif d[0] == "inst":
                     ch = [c for c in self.followed if c.parent is ctx and c.inst is d[1]]
                     if ch:
@@ -2151,9 +2461,22 @@ class Ev:
             return fit(self.ev(ctx, d.init), w)
         return None
 
+    def flag_varies(self, ctx, name, v):
+        """A flag (every assignment a literal) that some assignment sets to another value than it has now: as data it is a register the response reads."""
+        if self.hold.get((id(ctx), name)) is not None or self.flag_init(ctx, name, v.w or 1) is None:
+            return False
+        for r in ctx.mod.assigns.get(name) or []:
+            rv = self.ev(ctx, r)
+            if rv.x or rv.v != v.v:
+                return True
+        return False
+
     def state_val(self, ctx, name, w):
         """A register as the request sees it. Phase 1 is the request cycle: a handshake flag has its initial value. Phase 2 is the
         response cycle: it has the value the request cycle left. Any other state is unknown."""
+        h = self.hold.get((id(ctx), name))
+        if h is not None:
+            return fit(h, w)
         fi = self.flag_init(ctx, name, w)
         if fi is None:
             return allx(w)
@@ -2239,12 +2562,18 @@ class Ev:
             ws = [self.lhs_width(ctx, x, sc) for x in e[2].parts]
             lo = sum(ws[e[3] + 1:])
             return v_slice(fit(self.ev(ctx, e[1], sc), sum(ws)), lo + ws[e[3]] - 1, lo)
+        if k == "agg":
+            return V(0, mask(64), None)
         if k == "others":
             b = self.ev(ctx, e[1], sc)
             return V((mask(64) if b.v & 1 else 0), (mask(64) if b.x & 1 else 0), None)
         if k == "sl":
             a = self.ev(ctx, e[1], sc)
-            hi, lo = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            try:
+                hi, lo = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            except Unsupported:
+                # a slice whose position is state (a byte lane picked by a register): its value is unknown, whatever the register is
+                return V(0, mask(64), None)
             lo0 = self.lowbound(ctx, e[1])
             return v_slice(a, hi - lo0, lo - lo0)
         if k == "psl":
@@ -2285,6 +2614,11 @@ class Ev:
 
     def call(self, ctx, e, sc):
         f, args = e[1], e[2]
+        if len(args) == 1 and args[0][0] == "attr" and args[0][2] == "range" and args[0][1][0] == "id":
+            # x(y'range): the part of x that has the indices of y
+            y = args[0][1][1]
+            wy, ly = self.width(ctx, y), self.lowbound(ctx, args[0][1])
+            return v_slice(self.ev(ctx, f, sc), ly + wy - 1 - self.lowbound(ctx, f), ly - self.lowbound(ctx, f))
         if f[0] != "id":
             if len(args) == 1:
                 return self.index(ctx, f, args[0], sc)
@@ -2351,15 +2685,157 @@ class Ev:
 
     # ---- taint: which values come from the request's address (a) or data (d) through wires
     def taint(self, ctx, e, vt=None):
-        ids = set()
-        ids_of(e, ids)
+        """The taint of an expression. A part of a vector (a slice, an index) has the taint of those bits: a concatenation keeps the taint of each of its
+        parts (the request vector of a clock-domain bridge: address, data, read and write are four different things)."""
+        if not isinstance(e, tuple):
+            return frozenset()
+        k = e[0]
+        if k == "id":
+            if vt is not None and e[1] in vt:
+                return vt[e[1]]
+            return self.taint_name(ctx, e[1])
+        if k == "n":
+            return frozenset()
+        if not (vt is not None and len(e) > 1 and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in vt):
+            r = self.bit_range(ctx, e)
+            if r is not None:
+                return self.taint_bits(ctx, r[0], r[1], r[2]) | self.taint(ctx, r[3], vt)
         t = frozenset()
-        for n in ids:
-            if vt is not None and n in vt:
-                t |= vt[n]
-            else:
-                t |= self.taint_name(ctx, n)
+        for x in e[1:]:
+            if isinstance(x, tuple):
+                t |= self.taint(ctx, x, vt)
+            elif isinstance(x, list):
+                for y in x:
+                    t |= self.taint(ctx, y, vt)
         return t
+
+    def bit_range(self, ctx, e):
+        """(signal, hi, lo, index expression or None) when e is a constant slice or index of a declared vector signal, else None."""
+        k = e[0]
+        try:
+            if k == "sl" and e[1][0] == "id" and e[1][1] in ctx.mod.decls:
+                lo0 = self.lowbound(ctx, e[1])
+                return (e[1][1], self.const_int(ctx, e[2]) - lo0, self.const_int(ctx, e[3]) - lo0, ("n", kn(0)))
+            ix = None
+            if k == "ix":
+                ix = e[2]
+            elif k == "call" and len(e[2]) == 1 and e[1][0] == "id" and e[1][1] in ctx.mod.decls and e[2][0][0] != "attr":
+                ix = e[2][0]
+            if ix is not None and e[1][0] == "id" and e[1][1] in ctx.mod.decls and not self.is_array(ctx, e[1][1]):
+                v = self.ev(ctx, ix)
+                if not v.x and v.v is not None:
+                    i = v.v - self.lowbound(ctx, e[1])
+                    return (e[1][1], i, i, ("n", kn(0)))
+        except Unsupported:
+            return None
+        return None
+
+    def ewidth(self, ctx, e):
+        k = e[0]
+        if k == "n":
+            if e[1].w is None:
+                raise Unsupported("the width of a literal")
+            return e[1].w
+        if k == "paren":
+            return self.ewidth(ctx, e[1])
+        if k == "id":
+            return self.width(ctx, e[1])
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+            return self.ewidth(ctx, e[2][0])
+        if k == "sl":
+            return self.const_int(ctx, e[2]) - self.const_int(ctx, e[3]) + 1
+        if k == "cat":
+            return sum(self.ewidth(ctx, x) for x in e[1])
+        if k == "bin" and e[1] == "&" and ctx.mod.lang == "vhdl":
+            return self.ewidth(ctx, e[2]) + self.ewidth(ctx, e[3])
+        if self.bit_range(ctx, e) is not None:
+            return 1
+        raise Unsupported("the width of an expression of kind %s" % k)
+
+    def cat_parts(self, ctx, e):
+        if e[0] == "cat":
+            return list(e[1])
+        if e[0] == "bin" and e[1] == "&" and ctx.mod.lang == "vhdl":
+            out = []
+            for x in (e[2], e[3]):
+                out += self.cat_parts(ctx, x) if (x[0] == "bin" and x[1] == "&") else [x]
+            return out
+        return None
+
+    def taint_bits_expr(self, ctx, e, hi, lo):
+        """The taint of bits hi..lo of an expression."""
+        k = e[0]
+        try:
+            if k == "paren":
+                return self.taint_bits_expr(ctx, e[1], hi, lo)
+            if k == "id" and e[1] in ctx.mod.decls:
+                return self.taint_bits(ctx, e[1], hi, lo)
+            if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+                return self.taint_bits_expr(ctx, e[2][0], hi, lo)
+            parts = self.cat_parts(ctx, e)
+            if parts is not None:
+                ws = [self.ewidth(ctx, x) for x in parts]
+                t = frozenset()
+                for i, x in enumerate(parts):
+                    plo = sum(ws[i + 1:])
+                    phi = plo + ws[i] - 1
+                    if phi >= lo and plo <= hi:
+                        t |= self.taint_bits_expr(ctx, x, min(hi, phi) - plo, max(lo, plo) - plo)
+                return t
+            if k == "sl":
+                h2, l2 = self.const_int(ctx, e[2]), self.const_int(ctx, e[3])
+                lo0 = self.lowbound(ctx, e[1])
+                return self.taint_bits_expr(ctx, e[1], l2 - lo0 + hi, l2 - lo0 + lo)
+            r = self.bit_range(ctx, e)
+            if r is not None and r[1] == r[2] and hi == lo == 0:
+                return self.taint_bits(ctx, r[0], r[1], r[1])
+        except Unsupported:
+            pass
+        return self.taint(ctx, e)
+
+    def taint_bits(self, ctx, name, hi, lo):
+        """The taint of bits hi..lo of a declared signal: through the instance port it is, the clock-domain bridge's synchronizer, a continuous assignment
+        and the output of a followed instance the parts of a concatenation stay apart; any other driver gives the taint of the whole signal."""
+        c = ctx.__dict__.setdefault("_tb", {})
+        key = (name, hi, lo)
+        if key in c:
+            return c[key] if c[key] is not None else frozenset()
+        c[key] = None
+        t = self._taint_bits(ctx, name, hi, lo)
+        c[key] = t
+        return t
+
+    def _taint_bits(self, ctx, name, hi, lo):
+        mod = ctx.mod
+        if (ctx is self.bus and name in self.rootv) or "." in name or (ctx.parent is None and mod.nets):
+            return self.taint_name(ctx, name)
+        port = mod.ports.get(name)
+        if port is not None and port[0] == "in":
+            if ctx.inst is None:
+                return frozenset()
+            for f, a in ctx.inst.ports:
+                if f == name and a is not None:
+                    return self.taint_bits_expr(ctx.parent, a, hi, lo)
+            return frozenset()
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        t, found = frozenset(), False
+        for d in ctx.drv.get(name, []):
+            if d[0] == "ca" and d[1][0] == "id":
+                t |= self.taint_bits_expr(ctx, d[2], hi, lo)
+            elif d[0] == "pass":
+                src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                if not (src and src[0] is not None):
+                    return self.taint_name(ctx, name)
+                t |= self.taint_bits_expr(ctx, src[0], hi, lo)
+            elif d[0] == "inst":
+                ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
+                if ch:
+                    t |= self.taint_bits(ch[0], d[2], hi, lo)
+            else:
+                return self.taint_name(ctx, name)
+            found = True
+        return t if found else self.taint_name(ctx, name)
 
     def taint_name(self, ctx, name):
         c = ctx.tcache
@@ -2372,12 +2848,17 @@ class Ev:
 
     def _taint_name(self, ctx, name):
         mod = ctx.mod
+        if (id(ctx), name) in self.holdt:
+            return self.holdt[(id(ctx), name)]
         if ctx is self.bus and name in self.rootv:
             return self.roott[name]
         base = name.partition(".")[0]
         if base not in mod.decls and not (ctx.parent is None and mod.nets):
             return frozenset()
         if ctx.parent is None and mod.nets:
+            rc = getattr(mod, "regcopies", {}).get(name) if self.bus is self.top else None
+            if rc is not None:
+                return self.taint(ctx, rc)
             for inst in mod.insts:
                 for f, a in inst.ports:
                     if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
@@ -2410,10 +2891,19 @@ class Ev:
                         t |= self.taint(ctx, r)
                 elif d[0] == "proc" and not d[1].clocked:
                     t |= self.proc_taint(ctx, d[1]).get(name, frozenset()) | self.proc_taint(ctx, d[1]).get(key, frozenset())
+                elif d[0] == "split" and key != name:
+                    t |= self.split_taint(ctx, d[1], name[len(key) + 1:])
+                elif d[0] == "splitr":
+                    for r in self.split_resps(ctx, d[1]):
+                        t |= self.taint_name(ctx, r + name[len(key):])
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    if src and src[0] is not None:
+                        t |= self.taint(ctx, src[0])
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
                     if ch:
-                        t |= self.taint_name(ch[0], d[2])
+                        t |= self.taint_name(ch[0], d[2] + name[len(key):])
         return t
 
     def proc_taint(self, ctx, p):
@@ -2657,14 +3147,14 @@ class Ev:
                     raise Unsupported("%s: a record assigned from an expression" % s[-1])
                 for fn, _ in self.d.record_fields(ti[1]):
                     sub = ("id", rhs[1] + "." + fn)
-                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap)
+                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap, pt)
                 return
             w = self.width(ctx, key) if key not in p.vars else self.width_ty(ctx, p.vars[key].ty)
-            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap)
+            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap, pt)
             return
         base = key
         rv = self.ev(ctx, rhs, sc)
-        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1]))
+        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt))
         if self.is_array(ctx, base):
             return
         cur = st.get(base)
@@ -2678,8 +3168,8 @@ class Ev:
             nv = v_merge(curv, nv)
         st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap),))
 
-    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap):
-        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where))
+    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
+        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
         alt = (rhs, ctx, nv, snap)
         old = st.get(key)
         if certain or old is None:
@@ -2695,7 +3185,7 @@ class Ev:
             return set()
         seen.add(k)
         v = self.val(ctx, name)
-        if v.known():
+        if v.known() and not self.flag_varies(ctx, name, v):
             return {("c", v.v)}
         mod = ctx.mod
         base = name.partition(".")[0]
@@ -2737,6 +3227,14 @@ class Ev:
                             out.add(("c", nv.v))
                         else:
                             out |= self.origins_expr(actx, rhs, snap, seen)
+                elif d[0] == "split":
+                    out |= {("c", None)}
+                elif d[0] == "splitr":
+                    for r in self.split_resps(ctx, d[1]):
+                        out |= self.origins(ctx, r + name[len(key):], seen)
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    out |= self.origins_expr(ctx, src[0], None, seen) if src and src[0] is not None else {("ext", name)}
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
                     out |= self.origins(ch[0], d[2] + name[len(key):], seen) if ch else {("ext", name)}
@@ -2797,11 +3295,10 @@ class Ev:
                         continue
                     if ctx is self.top and inst is self.bus.inst:
                         continue
+                    if self.native(inst):
+                        continue
                     act = self.inst_active(ctx, inst)
                     if act:
-                        if inst.modname.lower() in BRIDGES:
-                            raise Unsupported("%s: the request reaches %s, a clock-domain bridge or an array of request records; its decode is not followed (a pass behind it would be the transport registers, not a decode)"
-                                              % (ctx.mod.fname, inst.modname))
                         c = ctx.child(inst)
                         self.check_assumed(c)
                         c.certain = act == 2
@@ -2856,9 +3353,37 @@ class Ev:
                         res = 1
         return res
 
+    def find_held(self):
+        """A register that the request itself sets (assigned for sure in the request cycle, its value or its guard from the request, the guard no decode of the address:
+        a strobe) holds the request's value in the
+        next clock, where the module decodes it (flash_gate.vhd p_valid, p_read, p_addr, p_data). Its own assignment is a transport, no write."""
+        held = {}
+        for ctx in self.followed:
+            for p in ctx.mod.procs:
+                if not p.clocked or ctx is self.bus:      # the bus module's own registers are the request's entry, its decode is the base model
+                    continue
+                last = {}
+                for e in self.run(ctx, p).effects:
+                    if e.certain:               # an assignment under a guard of the state (a reset, taking the request away) is another path
+                        last[e.key] = e
+                for key, e in last.items():
+                    pt = ctx.mod.ports.get(key)
+                    if (e.taint & {"a", "d"}) and "q" not in e.guard and key.partition(".")[0] in ctx.mod.decls and (pt is None or pt[0] == "in") and key not in p.vars:
+                        held[(id(ctx), key)] = (e.v, e.taint)
+        return held
+
+    def decode_cycle(self, held):
+        """The next clock: the held registers have the request's value and taint, the state is as the request cycle left it (flags) or unknown."""
+        self.hold = {k: v[0] for k, v in held.items()}
+        self.holdt = {k: v[1] for k, v in held.items()}
+        self.phase = 2
+        for ctx in self.followed:
+            ctx.cache, ctx.runs, ctx.tcache, ctx.ptaint, ctx.ocache = {}, {}, {}, {}, {}
+
     def analyze(self, write):
         self.activate()
         res = {"followed": [c.name for c in self.followed], "write": False, "read": False, "forward": []}
+        held = self.find_held()
         for ctx in self.followed:
             for p in ctx.mod.procs:
                 effs = self.run(ctx, p).effects
@@ -2869,10 +3394,17 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and ("d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)) and not (fw and is_out(e)):
+                    if write and self.is_write(ctx, e) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
+        if write:
+            for ctx in self.followed:
+                mw = self.memory_write(ctx)
+                if mw is not None:
+                    res["write"] = True
+                    res["cert"] = res.get("cert") or (mw and ctx.certain)
+        res["memcap"] = self.memcap
         res["cert"] = res.get("cert") or any(c.certain for c in self.followed[1:])
         res["core"] = write and self.core_handover(res)
         if not write:
@@ -2886,17 +3418,44 @@ class Ev:
                     for k in keys:
                         if k in st and k.partition(".")[0] in ctx.mod.decls and self.flag_init(ctx, k, st[k].v.w) is not None:
                             self.post[(id(ctx), k)] = st[k].v
+        if held:
+            res["links"] = self.find_links()
+            self.decode_cycle(held)
+            if write:
+                for ctx in self.followed:
+                    for p in ctx.mod.procs:
+                        for e in self.run(ctx, p).effects:
+                            if self.is_write(ctx, e) and (id(ctx), e.key) not in held:
+                                res["write"] = True
+                                res["cert"] = res.get("cert") or e.certain
+        if not write:
             self.phase = 2
-            for ctx in self.followed:
-                ctx.cache, ctx.runs = {}, {}
+            if not held:
+                for ctx in self.followed:
+                    ctx.cache, ctx.runs = {}, {}
             og = set()
             for rc, rn in self.resp:
                 og |= self.origins(rc, rn)
             res["read"] = any(t != ("c", 0) for t in og)
             res["origins"] = og
         res["certain"] = res["write"] or res["read"]
-        res["links"] = self.find_links()
+        if not held:
+            res["links"] = self.find_links()
         return res
+
+    def is_response(self, ctx, key):
+        """An assignment to the answer of the bus (the record t_io_resp, an ack or nc): the module says it has taken the access; that is no write."""
+        base = key.partition(".")[0]
+        d = ctx.mod.decls.get(base)
+        return (d is not None and d.ty.name.lower() == "t_io_resp") or key.rpartition(".")[2].lower() in ("ack", "nc")
+
+    def is_write(self, ctx, e):
+        """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
+        names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
+        the bus (an ack under the write flag) is none of these."""
+        if self.is_response(ctx, e.key):
+            return False
+        return "d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):
         """The write leaves the base for layer 2: a strobe port of the core groups (CORE_PORTS) that is 1 for this address, or an effect that
@@ -2915,7 +3474,7 @@ class Ev:
                 continue
             for p in c.mod.procs:
                 for e in self.run(c, p).effects:
-                    if e.key in outs and "q" in e.taint:
+                    if e.key in outs and ("q" in e.taint or "r" in e.taint):
                         strobe.add(e.key)
         if not strobe:
             return False
@@ -3023,18 +3582,44 @@ def _pkg_const(self, name):
         return c[name]
     res = None
     if "." not in name:
-        c[name] = None
-        return None
+        # a scalar constant of a package of the list with a literal (a bit string, a character, a decimal number)
+        for f in sorted(self.files):
+            if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
+                continue
+            body = re.sub(r"--[^\n]*", "", read_source(f))
+            m = re.search(r"\bconstant\s+%s\s*:\s*[^:;]+:=\s*([^;]+?)\s*;" % re.escape(name), body, re.I)
+            if m:
+                lit = m.group(1).strip()
+                if re.fullmatch(r"[xXbB]\"[0-9a-fA-F_]*\"", lit):
+                    res = num_vhdl("bs", lit)
+                elif re.fullmatch(r"\"[01]*\"", lit):
+                    res = num_vhdl("str", lit)
+                elif re.fullmatch(r"'.'", lit):
+                    res = num_vhdl("chr", lit)
+                elif re.fullmatch(r"\d[\d_]*", lit):
+                    res = num_vhdl("num", lit)
+                break
+        c[name] = res
+        return res
     base, field = name.split(".", 1)
     for f in sorted(self.files):
         if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
             continue
         body = re.sub(r"--[^\n]*", "", read_source(f))
-        m = re.search(r"\bconstant\s+%s\s*:\s*\w+\s*:=\s*\((.*?)\)\s*;" % re.escape(base), body, re.S | re.I)
+        m = re.search(r"\bconstant\s+%s\s*:\s*\w+\s*:=\s*\(" % re.escape(base), body, re.S | re.I)
         if m:
-            for fm in re.finditer(r"(\w+)\s*=>\s*([^,]+?)\s*(?:,|$)", m.group(1).strip()):
+            depth, j = 1, m.end()
+            while depth and j < len(body):
+                depth += (body[j] == "(") - (body[j] == ")")
+                j += 1
+            inner = body[m.end():j - 1]
+            for fm in re.finditer(r"(\w+)\s*=>\s*(\(\s*others\s*=>\s*'[01]'\s*\)|[^,]+?)\s*(?:,|$)", inner.strip()):
                 if fm.group(1).lower() == field:
                     lit = fm.group(2).strip()
+                    om = re.fullmatch(r"\(\s*others\s*=>\s*'([01])'\s*\)", lit)
+                    if om:
+                        res = V(mask(64) if om.group(1) == "1" else 0, 0, None)
+                        break
                     mm = re.fullmatch(r"([xXbB]\"[0-9a-fA-F_]*\"|'.'|\"[01]*\")", lit)
                     if mm:
                         k = "bs" if lit[0] in "xXbB" else ("chr" if lit[0] == "'" else "str")
@@ -3044,8 +3629,31 @@ def _pkg_const(self, name):
     return res
 
 
+def _pkg_expr(self, name):
+    """The expression of a scalar constant of a VHDL package of the list (to_unsigned(896, 11), a sum of other constants), parsed; the evaluator reads it in the
+    place that names the constant."""
+    c = self.__dict__.setdefault("_pe", {})
+    if name in c:
+        return c[name]
+    res = None
+    for f in sorted(self.files):
+        if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
+            continue
+        body = re.sub(r"--[^\n]*", "", read_source(f))
+        m = re.search(r"\bconstant\s+%s\s*:\s*[^:;]+:=\s*([^;]+?)\s*;" % re.escape(name), body, re.I)
+        if m:
+            try:
+                res = VhdlParser(lex(m.group(1), "vhdl", f), f).expr()
+            except Unsupported:
+                res = None
+            break
+    c[name] = res
+    return res
+
+
 Design.port_dir = _port_dir
 Design.pkg_const = _pkg_const
+Design.pkg_expr = _pkg_expr
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -3064,8 +3672,8 @@ def parse_toml_a(path, maps):
 
 
 class Checker:
-    def __init__(self, design, top, bus, doc, window=None):
-        self.d, self.doc = design, doc
+    def __init__(self, design, top, bus, doc, window=None, full=False):
+        self.d, self.doc, self.full = design, doc, full
         self.ports = self.window = None
         if ":" in bus:
             # a partial: MODULE:write=P,read=P,address=P,data=P,response=P (the ports of one instance in the top file); its window is the host's decode
@@ -3090,7 +3698,8 @@ class Checker:
             return self.cache[key]
         def mk(w):
             if self.ports is not None:
-                return Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - self.window[0]) & ~mask(lowx), mask(lowx), 24), w, ports=self.ports)
+                base = 0 if self.full else self.window[0]       # full: the address port carries the whole address (the drive's window), else the offset in the window
+                return Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - base) & ~mask(lowx), mask(lowx), 24), w, ports=self.ports)
             return Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), w)
         ev = mk(write)
         if write:
@@ -3185,9 +3794,11 @@ class Checker:
             a += n
         return None
 
-    def check(self):
+    def check(self, only=None):
         errs = []
         for b in self.doc["block"]:
+            if only is not None and b["name"] not in only:
+                continue
             name = b["name"]
             rt = b["address"] - self.iobase
             if self.window is not None and not (self.window[0] <= rt and rt + b["size"] <= self.window[0] + self.window[1]):
@@ -3210,6 +3821,11 @@ class Checker:
                 stride = p.get("stride", nb)
                 if p["offset"] + (count - 1) * stride + nb > b["size"]:
                     errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
+                    continue
+                cap = self.stim(rt + p["offset"], True)["memcap"] if "w" in p["dir"] else None
+                span = (count - 1) * stride + nb
+                if cap is not None and span > cap:
+                    errs.append("block %s, property %s: it spans %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, p["name"], span, cap))
                     continue
                 if count > 1:
                     for need, wr in (("w", True), ("r", False)):
@@ -3252,8 +3868,8 @@ class Checker:
 
 
 def cmd_check(args):
-    opts = {"--design": None, "--toml-a": None, "--top": "top", "--bus": "ultimate_sys.io_req", "--window": None}
-    maps, lists = [], []
+    opts = {"--design": None, "--toml-a": None, "--top": "top"}
+    maps, lists, buses, windows = [], [], [], []
     i = 0
     while i < len(args):
         a = args[i]
@@ -3262,6 +3878,12 @@ def cmd_check(args):
             i += 2
         elif a == "--list":
             lists.append(args[i + 1])
+            i += 2
+        elif a == "--bus":
+            buses.append(args[i + 1])
+            i += 2
+        elif a == "--window":
+            windows.append(args[i + 1])
             i += 2
         elif a == "--define":
             DEFINES.add(args[i + 1])
@@ -3273,31 +3895,50 @@ def cmd_check(args):
             raise CheckError("unknown option %s" % a)
     if not opts["--design"] or not opts["--toml-a"]:
         raise CheckError("usage: rtl_check.py check --design DIR --toml-a FILE [--maps DIR]...")
+    buses = buses or ["ultimate_sys.io_req"]
+    if len(windows) not in (0, len(buses)) and len(windows) != len([b for b in buses if ":" in b]):
+        raise CheckError("every --bus of ports needs its --window")
     doc = parse_toml_a(opts["--toml-a"], maps)
     des = Design(opts["--design"], lists or "build.tcl")
-    window = None
-    if opts["--window"]:
-        wb, _, ws = opts["--window"].partition(":")
-        window = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0))
-    ck = Checker(des, opts["--top"], opts["--bus"], doc, window)
+    cks = []
+    wi = 0
+    for bus in buses:
+        window, full = None, False
+        if ":" in bus:
+            wb, _, rest = windows[wi].partition(":")
+            ws, _, fl = rest.partition(":")
+            if fl not in ("", "full"):
+                raise CheckError("--window BASE:SIZE[:full]")
+            window, full = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0)), fl == "full"
+            wi += 1
+        cks.append(Checker(des, opts["--top"], bus, doc, window, full))
     if des.denied:
         print("rtl_check: clean room: %d file(s) of the source list are on the deny list and never opened: %s"
               % (len(des.denied), ", ".join(os.path.basename(f) for f in des.denied)))
-    errs = ck.check()
+    errs, nprop = [], 0
+    if len(cks) == 1:
+        errs = cks[0].check()
+        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None)
+    else:
+        # several buses (the ports of a partial that has more than one window): a block goes to the bus whose window holds it
+        mine = [[] for _ in cks]
+        for b in doc["block"]:
+            rt = b["address"] - doc["io"]["iobase"]
+            hit = [k for k, c in enumerate(cks) if c.window is not None and c.window[0] <= rt and rt + b["size"] <= c.window[0] + c.window[1]]
+            if not hit:
+                errs.append("block %s: 0x%08X..0x%08X lies in no window of the buses" % (b["name"], b["address"], b["address"] + b["size"] - 1))
+                continue
+            mine[hit[0]].append(b["name"])
+            nprop += len(b.get("property", []))
+        for c, only in zip(cks, mine):
+            errs += c.check(only)
     for e in errs:
         print("rtl_check: " + e)
-    n = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or ck.ports is not None)
     if errs:
         print("rtl_check: %d finding(s)" % len(errs))
         return 1
-    print("rtl_check: %d block(s), %d propert%s agree with the RTL of %s" % (len(doc["block"]), n, "y" if n == 1 else "ies", opts["--design"]))
+    print("rtl_check: %d block(s), %d propert%s agree with the RTL of %s" % (len(doc["block"]), nprop, "y" if nprop == 1 else "ies", opts["--design"]))
     return 0
-
-
-# ---------------------------------------------------------------------------------------------------------------------------
-# the reverse lint
-
-C_EXT = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc")
 
 
 def strip_c(text):
@@ -3419,6 +4060,8 @@ def main(argv):
     try:
         return (cmd_check if argv[1] == "check" else cmd_lint)(argv[2:])
     except (Unsupported, CheckError) as e:
+        if os.environ.get("RTL_CHECK_TRACE"):
+            raise
         print("rtl_check: %s%s" % ("an RTL pattern I do not know: " if isinstance(e, Unsupported) else "", e))
         return 1
 

@@ -231,3 +231,79 @@ owner = "base"
 address = 0x10050000
 size = 0x10000
 map = "dma"
+
+# The command interface (the shipped map uci): behind Gideon's io_bus_bridge2 and command_protocol (uci_unit.vhd). The two registers uci_slot.cc drives.
+[[block]]
+name = "uci"
+module = "uci"
+owner = "base"
+address = 0x10044000
+size = 0x2
+map = "uci"
+
+# The 1541 drive (c1541_drive.vhd behind its io_bus_splitter, window 0x10020000): the registers of the shipped map cbm1541 that this design's RTL has. Not the map's
+# side (drive_registers.vhd reads the port `side`, which c1541_drive leaves at its default 0), drivetype (g_multi_mode is false here) and the WD177x registers at
+# +0x1800 (the splitter has three ports: regs, dirty, param); a map block would name them and fail.
+[[block]]
+name = "drive_a"
+module = "c1541"
+owner = "base"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  dir = "rw"
+  count = 128
+  [[block.property]]
+  name = "param"
+  offset = 0x1000
+  width = 32
+  dir = "w"
+  count = 512

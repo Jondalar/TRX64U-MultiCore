@@ -1,0 +1,38 @@
+# A fixture TOML A for tests/rtl_check/mini2 (T239.3 V-1c): a request splitter with two ports. Port 0 holds two registers (a process-local alias and procedure), port 1 a RAM
+# behind a VHDL block statement and a clocked concurrent assignment.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "regs"
+module = "m2sys"
+owner = "base"
+address = 0x10000000
+size = 0x2
+
+  [[block.property]]
+  name = "a"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "b"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "ram"
+module = "m2sys"
+owner = "base"
+address = 0x10000100
+size = 0x100
+
+  [[block.property]]
+  name = "bytes"
+  offset = 0x0
+  width = 8
+  count = 0x100
+  dir = "rw"
