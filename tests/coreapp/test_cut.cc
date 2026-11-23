@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "check.h"
+#include "model_grid.h"
 #include "sio_model.h"
 #include "fakes.h"
 #include "cores.h"
@@ -182,6 +183,27 @@ int main()
         CHECK_EQ(r.m->key(KEY_MENU), MenuCtl::R_CLOSE);
         CHECK_EQ(r.m->key(KEY_BREAK), MenuCtl::R_CLOSE);
         CHECK_EQ(stub_mon_key_n, n0);
+    }
+    // ---- the monitor's screen is a text grid of a library (T239.3 base 3.3): the terminal node of the record names the export "textgrid"; the page's entry calls its enter once, every pass of
+    // the menu loop its tick (the answer says the grid changed), and nothing names an operation of the monitor
+    {
+        mg_install();
+        Rec r;
+        CHECK_EQ(g_mg.n_enter, 0);
+        CHECK(open_by_home_row(*r.m, "Monitor..."));
+        CHECK(r.m->layout_is("terminal"));
+        char gname[40];
+        CHECK(r.m->layout_param("grid", gname, sizeof(gname)));
+        CHECK_STR(gname, "textgrid");
+        CHECK_EQ(g_mg.n_enter, 1);
+        CHECK_EQ(g_mg.n_tick, 0);
+        g_mg.tick_answer = true;
+        CHECK(r.m->pump(true));
+        CHECK(!r.m->pump(true));
+        CHECK_EQ(g_mg.n_tick, 2);
+        CHECK_EQ(g_mg.n_enter, 1);
+        CHECK_EQ(r.m->key(KEY_F10), MenuCtl::R_CLOSE);
+        mg_uninstall();
     }
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {

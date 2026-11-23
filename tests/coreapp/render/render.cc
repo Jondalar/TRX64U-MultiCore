@@ -11,6 +11,7 @@
 #include "src/display/lv_display_private.h"      // inv_areas: the area a key asked LVGL to redraw
 #include "trx_lv_port.h"
 #include "view_bounds.h"
+#include "model_grid.h"
 #include "trxcanvas.h"
 #include "ui.h"
 #include "menuctl.h"
@@ -2800,6 +2801,38 @@ int main(int argc, char **argv)
         lv_timer_handler();
         snprintf(p, sizeof(p), "%s/c64-settings.png", out);
         png(p, 2);
+        // T239.3 base 3.3: the Monitor page draws the text grid its node names (model_grid.h stands in for the library): the rows and their cursor, redrawn when sig changes and not on a pass that
+        // changes nothing; without the grid the screen is empty
+        mg_install();
+        g_mg.src = { "TRX MONITOR", "> r", "PC=C000 A=00" };
+        g_mg.attrs = { TG_STATUS, TG_PROMPT, TG_REGS };
+        g_mg.cx = 3; g_mg.cy = 1;
+        CHECK(c.m->goto_spec("F1/monitor"));
+        ui_menu_render(*c.m);
+        lv_timer_handler();
+        CHECK(find_label(lv_screen_active(), "TRX MONITOR") != 0 && find_label(lv_screen_active(), "> r") != 0 && find_label(lv_screen_active(), "PC=C000") != 0);
+        CHECK(g_mg.n_render == 1);
+        CHECK(g_mg.n_line == 3);                                // every row read once for the first draw
+        snprintf(p, sizeof(p), "%s/c64-monitor-grid.png", out);
+        png(p, 2);
+        ui_menu_render(*c.m);                                    // a pass that changed nothing: render() asks the grid, sig is the same, no row is read again
+        lv_timer_handler();
+        CHECK(g_mg.n_render == 2);
+        CHECK(g_mg.n_line == 3);
+        g_mg.src[1] = "> d C000";
+        ui_menu_render(*c.m);                                    // the machine changed what it shows: sig changed, the rows are read and the label is written
+        lv_timer_handler();
+        CHECK(g_mg.n_render == 3);
+        CHECK(g_mg.n_line == 6);
+        CHECK(find_label(lv_screen_active(), "> d C000") != 0 && find_label(lv_screen_active(), "> r") == 0);
+        g_mg.src.pop_back();                                     // a shorter grid: the row that is gone is blank
+        ui_menu_render(*c.m);
+        lv_timer_handler();
+        CHECK(find_label(lv_screen_active(), "PC=C000") == 0 && find_label(lv_screen_active(), "> d C000") != 0);
+        mg_uninstall();                                          // no grid found: an empty screen, nothing of the old rows
+        ui_menu_render(*c.m);
+        lv_timer_handler();
+        CHECK(find_label(lv_screen_active(), "> d C000") == 0 && find_label(lv_screen_active(), "TRX MONITOR") == 0);
     }
 
     a1200_menu(out);

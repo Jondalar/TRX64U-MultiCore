@@ -38,7 +38,7 @@ name = "Home"
   name = "Monitor"
   widget = "nodes"
   layout = "terminal"
-  ui = { page = "home" }
+  ui = { page = "home", grid = "textgrid" }
 
 [[area]]
 key = "F3"
