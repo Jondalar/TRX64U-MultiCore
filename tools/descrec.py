@@ -641,6 +641,10 @@ def _expand_apps(doc):
             one(e, "filetype action", True)
 
 
+# the run-time lists the application serves to a core's choice row (menubuild.cc menu_pick_fill); video.modes is the Picture row of the base alone
+CORE_PICKS = ("hotkeys.keys", "hotkeys.modifiers", "view.schemes")
+
+
 def compile_desc(doc, merged=(), app_base=False):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus).
     `app_base`: the document is the SDK's base UI TOML (coreapp/base_ui.toml, T239.3 D32), whose [[core_setting]] rows are the application's own: they may take the keys and operations
@@ -1009,11 +1013,11 @@ def compile_desc(doc, merged=(), app_base=False):
             raise DescError("%s: exactly one of apply (an operation) and reg_bind (the register bits it is, T239.3 D17)" % what)
         if not app_base:
             _app_owned(what, key, cs.get("apply") or "")
-        provider = None                     # a choice row's pick: the name of the list that fills its values at run time (a text row's pick is its own, below)
+        list_pick = None                     # a choice row's pick: the name of the list that fills its values at run time (a text row's pick is its own, below)
         if "pick" in cs and not (cs.get("text") or cs.get("secret") or cs.get("file")):
-            provider = _opt(cs, "pick", str, what, None)
-            if not re.fullmatch(r"[a-z0-9_.]{1,40}", provider) or choice or "reg_bind" in cs:
-                raise DescError("%s: pick on a choice among values names the list that fills the values at run time (the values are what the row shows until then); no romset_choice or reg_bind" % what)
+            list_pick = _opt(cs, "pick", str, what, None)
+            if not re.fullmatch(r"[a-z0-9_.]{1,40}", list_pick) or choice or "reg_bind" in cs or (not app_base and list_pick not in CORE_PICKS):
+                raise DescError("%s: pick on a choice among values names the list that fills the values at run time (the values are what the row shows until then); no romset_choice or reg_bind; a core's row names one of %s" % (what, ", ".join(CORE_PICKS)))
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
@@ -1064,7 +1068,7 @@ def compile_desc(doc, merged=(), app_base=False):
                     base = rg[0]
             else:
                 vals = _need(cs, "values", list, what)
-            if len(vals) < (1 if provider else 2) or not all(isinstance(v, str) and v for v in vals):
+            if len(vals) < (1 if list_pick else 2) or not all(isinstance(v, str) and v for v in vals):
                 raise DescError("%s: values are at least two non-empty labels (one with a pick)" % what)
             default = cs.get("default", 0)
             if isinstance(default, str):
@@ -1080,8 +1084,8 @@ def compile_desc(doc, merged=(), app_base=False):
         show = _opt(cs, "show_state", str, what, None)         # the row is listed only while this condition holds (contrib.h cond_holds); packed above the time code
         if show:
             wcode |= (st.add(show) + 1) << 8
-        if provider:
-            vals = list(vals) + [provider]                      # T239.3 D32: the row's pick (the run-time list), the value string before the lock state; flag 16 of the time code
+        if list_pick:
+            vals = list(vals) + [list_pick]                      # T239.3 D32: the row's pick (the run-time list), the value string before the lock state; flag 16 of the time code
             wcode |= 16
         lock = _opt(cs, "lock_state", str, what, None)         # T228 R21: while this state has a text the row shows it in place of the value and refuses edits (FW set_override); the record keeps it as the last value string, flag 4 of the time code
         if lock:
@@ -2678,17 +2682,17 @@ def parse_desc(blob):
             lock = out["value"][fv + nv - 1]
             nv -= 1
             when &= ~4
-        provider = None
+        list_pick = None
         if when & 16:                                                 # T239.3 D32: the value string before the lock state names the list that fills the row's values (its pick)
             if nv < 2 or fv + nv > len(out["value"]):
                 raise DescError("description record: a bad core setting")
-            provider = out["value"][fv + nv - 1]
+            list_pick = out["value"][fv + nv - 1]
             nv -= 1
             when &= ~16
-        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file or provider else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
+        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file or list_pick else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "pick": provider, "file": file})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "pick": list_pick, "file": file})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     out["sections"] = False

@@ -1388,12 +1388,15 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
                 return r.fail("description record: core setting %u has a bad pick", (unsigned)i);
             }
             d.pick = out->values[fv + nv - 1];
+            if (!setting_pick_served(d.pick)) {
+                return r.fail("description record: core setting %u names the list \"%s\", which the application does not serve to a core's row", (unsigned)i, d.pick);
+            }
             nv--;
         }
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
         d.label = r.str(W(e, 8), &bad);                          // what the menu shows (null: the key); the key stays what the .cfg and REST name
-        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 || file ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3 ||
+        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 || file || d.pick ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3 ||
             (file && (when > 1 || nv != 1 || d.base || !d.apply))) {
             return r.fail("description record: core setting %u has a bad string, value run, default or time", (unsigned)i);
         }

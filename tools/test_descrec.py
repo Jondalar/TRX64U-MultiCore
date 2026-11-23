@@ -1324,6 +1324,8 @@ class BaseRows(unittest.TestCase):
         for app_base in (True, False):
             r = D.parse_desc(D.compile_desc(D.toml_loads(row), app_base=app_base))
             self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("view.schemes", ["Blue"]))
+        with self.assertRaises(D.DescError):
+            D.compile_desc(D.toml_loads(row.replace("view.schemes", "video.modes")))     # a core's row names a list the application serves to it
         self.assertNotIn("provider", open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read().replace("# ", "").split("[lists]", 1)[1])
         self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
 
