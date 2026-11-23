@@ -1509,8 +1509,11 @@ _BASEREG = []
 def base_registers():
     """The registers the base drives itself: [(name, address, bytes, code reference)], read from basereg.def (BASEREG_FILE; the table descrec.cc includes)."""
     if not _BASEREG:
-        with open(BASEREG_FILE) as f:
-            lines = f.read().splitlines()
+        try:
+            with open(BASEREG_FILE) as f:
+                lines = f.read().splitlines()
+        except OSError as e:
+            raise DescError("the list of the registers the base drives (basereg.def) is neither beside descrec.py nor at %s: %s" % (BASEREG_FILE, e.strerror))
         for line in lines:
             m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
             if m:
