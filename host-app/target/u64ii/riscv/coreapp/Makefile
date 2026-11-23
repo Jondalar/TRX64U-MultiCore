@@ -265,6 +265,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			ringfile.cc \
 			uci.cc \
 			sidfile.cc \
+			resid8.cc \
 			command_intf.cc \
 			network_target.cc \
 			libfiles.cc \

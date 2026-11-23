@@ -15,7 +15,7 @@
 #include "picture.h"
 #include "sid_decide.h"
 #include "i2c_drv.h"
-#include "resid8_filter.h"                  // C++ headers: trx_io.cc defines these with C++ linkage
+#include "resid8.h"                         // the SID library's reSID8 helpers and plan
 #include "trx_io.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -1257,7 +1257,7 @@ static void write_sid_sockets(CoreCtx *c)
     C64_SID2_EN = V(c, K_S2_EN) ? 1 : 0;
 }
 
-// FW u64_config.cc setResid8 :577-594: the plan of resid8_filter.h (a copy of the FW header) -> trx_io 0x040-0x04C and the UltiSID RES / DIGI registers
+// FW u64_config.cc setResid8 :577-594: the plan of resid8_filter.h (a copy of the FW header) -> the registers 0x040-0x04C (resid8.cc) and the UltiSID RES / DIGI registers
 static void write_ultisid(CoreCtx *c)
 {
     for (int u = 0; u < 2; u++) {
@@ -1270,8 +1270,8 @@ static void write_ultisid(CoreCtx *c)
             C64_EMUSID2_RES = p.res_reg;
             C64_EMUSID2_DIGI = p.digi_reg;
         }
-        trx_io_resid8_filter(u, p.src, p.auto_bits, p.base, p.offset);
-        trx_io_resid8_bypass(u, p.bypass != 0);
+        resid8_filter(u, p.src, p.auto_bits, p.base, p.offset);
+        resid8_bypass(u, p.bypass != 0);
     }
     C64_EMUSID1_WAVES = (uint8_t)V(c, K_U1_WAVES);
     C64_EMUSID2_WAVES = (uint8_t)V(c, K_U2_WAVES);
