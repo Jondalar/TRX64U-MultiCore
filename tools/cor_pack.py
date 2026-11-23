@@ -35,8 +35,8 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
 `desc_size`/`desc_sha256`, `libs_size`/`libs_sha256`). A bundle without them is byte for byte what this tool wrote before they existed.
   6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h). Since T239.3 D17 it may also carry the core's data
            sections (the descriptor's identity, ROMs, video, hotkeys, mount slots; cores/vc20/app/desc.toml): its [core] name has to be the manifest's name
-  7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            A record of TOML A (version 7, T239.3 P1-4) gets the bitstream's AXSS word as the build of its identity; `check` refuses a record with another one.
+  7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
   8 files  files the core installs on the SD (T175 D-files, Alex 2026-11-16: the diag core's example tests ride in diag.cor, no other core carries them):
