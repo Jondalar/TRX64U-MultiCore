@@ -134,7 +134,7 @@ Negative controls: none (no flash, no persistence).
 ## §4 Out
 
 - The black-and-white NTSC A/V picture (#73): Alex, 2026-11-23: not now.
-- The 7-pixel hscroll shift of the VDC's window at R25[3:0] = 0: declined with Alex earlier (`docs/specs/done/T113-c128-core.md` §5, 2026-11-15, "won't do"; the fix is only in `refs/backup/t113-vdc-ram`).
+- The 7-pixel hscroll shift of the VDC's window at R25[3:0] = 0: no longer out; see §5 "Fault 1" (it was declined 2026-11-15 with the T113 hang, and the board shows its cost).
 - Fast serial / SRQ with a real 1571 (the research's P-4.1): T170 P2, built separately and completely.
 - The VDC's own `vdc_peek.vhd` and the MEGA65's REST window: ours is the register page.
 
@@ -176,6 +176,13 @@ Negative controls: none (no flash, no persistence).
   - Checked: yosys (`read_verilog -sv`, `hierarchy -top layer2_c128`, `proc`, `check`) on layer 2, the core and the c64u files they read, with the mono defines plus both new ones: 0 `implicit`, no multiple drivers, the warnings are the same set as without the defines (missing VHDL/top modules) minus the cartridge model's; `iverilog -g2012 -tnull` of the same files: no error besides the modules it was not given. Unit tests `desc`, `c128`, `c128pic`, `keywalk` pass.
   - Benches: no C128 bench tests a cartridge or the streamer (`tb_c128.v` only ties the cart ports); the machine benches build without the two defines, so they exercise the old path. The new path is covered by the lint above and the board.
 - **Not run here.** The unit tests were built and run on the Mac with the flags of `tests/coreapp/run.sh` (the three units named in the commit); `tests/coreapp/run.sh` as a whole, the RISC-V build, `ci/package.sh` and the board were not (the brief).
+
+- **Fault 1 (board, c128.cor of run 45195870019 / 5b21c935): the first character column of the 80-column text is missing ("ersion:", "oading fonts").**
+  - Cause: the T113 D1 window (`hviscol` opens on the dot where `vdc_video.sv` loads the first character) was never in this tree. It was built on branch `t113-vdc-ram` (2026-11-12, Alex: "yes, the column must be visible"), the branch was deleted with the T113 hang's "won't do" (2026-11-15, `486f4368e` changed only the spec text) and its code lives only in `refs/backup/t113-vdc-ram` (`341a7e8e3`). `git log -S VDC_NO_HSS_OFFSET --all` finds the spec commit only. So `vdc_signals_h.sv` at 5b21c935 still opens the window at `col==8 && endCol` (the last dot of column 8): with R25[3:0] = 0 (what Busted Boulders programs: `L37BF` writes R25 = $80) the first character is loaded at pixel `ps` = 0 of column 8 and is cut off, 7 dots go. No T257, T170 or T258 change touches `vdc_signals_h.sv`; `core_sources.tcl` and the `host/` include shadowing play no part (the module is read once, from `cores/c128/vdc/`).
+  - Fix: `vdc_signals_h.sv` / `vdc_signals.sv` / `vdc_top.sv` as in `341a7e8e3` (`reg_cdh`, `reg_hss`, `ps`, `vstart`; byte for byte the backup's content). `sim/run_vdc.sh` / `vdc_model.py`: tests 5-10 add R25[3:0] = 3, 1, 2, 4, 5, 6 to 0 (test 4) and 7 (test 2), and the control (`-DVDC_NO_HSS_OFFSET`, test 4 must differ) is back.
+  - Bench (builder, `trx64-sim-env:4`): `run_vdc.sh` tests 2-10 "2 checks ok" each, i.e. 0 differing pixels against the model for R25[3:0] = 0..7; control "the mutant differs from the model (92284 pixels differ)"; `PASS run_vdc`. `run_pixw.sh` (T257 S1-S3 and T113 S9 with the change in): `PASS run_pixw`.
+  - Cost (estimate as in T113 D1, not measured): +15 to +20 LUT (a 5-bit add/mux for `ps`, `ps < cth`, `pixel == ps`).
+- **Fault 2 (the interlaced title picture of Busted Boulders is made of broken lines): cause not found, nothing changed.** Evidence in the report of the session; `c128Mega65`'s `vdc_signals_v.sv` equals ours before T113 D11 (its README lists the high-res interlace bitmap modes as known wrong), so there is nothing to take from it for the memory lines of the two fields.
 
 ## Questions only Alex can answer (one at a time)
 

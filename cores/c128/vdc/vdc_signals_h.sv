@@ -16,6 +16,8 @@ module vdc_signals_h (
 	input      [7:0] reg_hd,         // R1         50 80      Horizontal displayed
 	input      [3:0] reg_hw,         // R3[3:0]     9 9       Horizontal sync width (plus 1)
 	input      [3:0] reg_cth,        // R22[7:4]    7 7       Character total horizontal (minus 1)
+	input      [3:0] reg_cdh,        // R22[3:0]    8 8       Character displayed horizontal
+	input      [3:0] reg_hss,        // R25[3:0]  0/7 0/7     Smooth horizontal scroll
 	input            reg_atr,        // R25[6]      1 on      Attribute enable
 	input            reg_dbl,        // R25[4]      0 off     Pixel double width
 	input      [7:0] reg_ai,	      // R27        00 0       Address increment per row
@@ -41,6 +43,15 @@ reg       hviscol;
 
 assign hsync    = |hsCount;
 assign hVisible = hviscol & hdispen;
+
+// T113 D1: the capture window opens on the dot where the first character is loaded (pixel ps of column 8, vdc_video.sv), not at the next
+// column: the first character is whole for every R25 value (hss = 7 gives ps = cth, the old start; hss = 0 opens 7 dots earlier)
+wire [4:0] ps = reg_dbl ? ((reg_cdh != reg_cth || (reg_cth > 8 || reg_hss==0)) ? 5'(reg_hss) + 5'd1 : 5'(reg_hss)) : 5'(reg_hss);
+`ifdef VDC_NO_HSS_OFFSET
+wire       vstart = endCol;                                  // bench control only: the window start of the MiSTer VDC
+`else
+wire       vstart = (ps < 5'(reg_cth)) ? (5'(pixel) == ps) : endCol;
+`endif
 
 wire [7:0] deb = (reg_deb>=7 && reg_deb<reg_hd+7) ? reg_deb+8'd2 : reg_deb+8'd1;
 wire [7:0] dee = (reg_dee>=7 && reg_dee<reg_hd+7) ? reg_dee+8'd2 : reg_dee+8'd1;
@@ -71,9 +82,6 @@ always @(posedge clk) begin
 			else
 				col <= col+8'd1;
 
-			// visible column start
-			if (col==8) hviscol <= 1;
-
 			if (deb==dee) begin
 				if (col==deb) hdispen <= db_in[0]^db_in[1]^db_in[5]^db_in[7];  // "random"
 			end 
@@ -91,10 +99,13 @@ always @(posedge clk) begin
 		else
 			pixel <= pixel+4'd1;
 
-		// visible column end
+		// visible column start
+		if (col==8 && vstart) hviscol <= 1;
+
+		// visible column end (not double width: the same dot as the start, so the window stays hd characters wide; double width ends as before and the 640-dot capture window clips it)
 		if (
 			(reg_dbl && newCol && col==reg_hd+9) 
-			|| (!reg_dbl && endCol && col==reg_hd+((|reg_ai && !reg_atr) ? 7 : 8))
+			|| (!reg_dbl && vstart && col==reg_hd+((|reg_ai && !reg_atr) ? 7 : 8))
 		)
 			hviscol <= 0;
 	end

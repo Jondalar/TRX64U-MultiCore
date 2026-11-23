@@ -166,6 +166,8 @@ vdc_signals signals (
 	.reg_cs(reg_cs),
 	.reg_ce(reg_ce),
 	.reg_cth(reg_cth),
+	.reg_cdh(reg_cdh),
+	.reg_hss(reg_hss),
 	.reg_vss(reg_vss),
 	.reg_text(reg_text),
 	.reg_atr(reg_atr),

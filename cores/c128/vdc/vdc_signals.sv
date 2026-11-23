@@ -25,6 +25,8 @@ module vdc_signals (
 	input      [4:0] reg_cs,         // R10[4:0]    0 0       Cursor scanline start
 	input      [4:0] reg_ce,         // R11        07 7       Cursor scanline end (plus 1?)
 	input      [3:0] reg_cth,        // R22[7:4]    7 7       Character total horizontal (minus 1)
+	input      [3:0] reg_cdh,        // R22[3:0]    8 8       Character displayed horizontal
+	input      [3:0] reg_hss,        // R25[3:0]  0/7 0/7     Smooth horizontal scroll
 	input      [4:0] reg_vss,        // R24[4:0]   00 0       Vertical smooth scroll
 	input            reg_text,       // R25[7]      0 text    Mode select (text/bitmap)
 	input            reg_atr,        // R25[6]      1 on      Attribute enable
@@ -67,6 +69,8 @@ vdc_signals_h signals_h (
 	.reg_hd(reg_hd),
 	.reg_hw(reg_hw),
 	.reg_cth(reg_cth),
+	.reg_cdh(reg_cdh),
+	.reg_hss(reg_hss),
 	.reg_atr(reg_atr),
 	.reg_dbl(reg_dbl),
 	.reg_ai(reg_ai),

@@ -14,9 +14,8 @@ Bus operation words, 16 bit hex, op in the high byte (the testbench decodes them
   04 wait until status bit 7 is set     05 vv idle vv*256 clocks   06 measure the busy time after the last write (logged)
   07 vv skip vv frames                  08 capture the next whole frame   FF end (dump the VRAM)
 Test 1: registers, data port, fill, copy, busy flag, 64 KiB wrap.  Test 2: 80 x 25 text with attributes.  Test 3: 640 x 200 bitmap.
-Test 4: test 2 with R25 low nibble 0 (the value the C128 flat KERNAL programs): deviation probe D1, see check().
-The model's picture is the character grid from x = 0 (character 0, bit 7 is the first pixel of the first line); R25 b3-0 = 7 is the
-value for which the exported window of the MiSTer VDC sits on that grid.
+Test 4 / 5 / 6-10: test 2 with R25 low nibble 0 (the value the C128 flat KERNAL programs) / 3 / 1, 2, 4, 5, 6 (test 2 is 7). The model's picture is the character grid from x = 0
+(character 0, bit 7 is the first pixel of the first line); the exported window sits on that grid for every R25 low nibble (T113 D1).
 """
 import hashlib
 import json
@@ -428,7 +427,8 @@ def fhash(rows):
 
 def gen(d):
     os.makedirs(d, exist_ok=True)
-    for n, mk in ((1, prog1), (2, prog2), (3, prog3), (4, lambda: prog2(0))):
+    for n, mk in ((1, prog1), (2, prog2), (3, prog3), (4, lambda: prog2(0)), (5, lambda: prog2(3)),
+                  (6, lambda: prog2(1)), (7, lambda: prog2(2)), (8, lambda: prog2(4)), (9, lambda: prog2(5)), (10, lambda: prog2(6))):
         p = mk()
         with open(os.path.join(d, "stim_%d.hex" % n), "w") as f:
             f.write("\n".join("%04x" % w for w in p.ops) + "\n")
