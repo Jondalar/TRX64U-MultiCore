@@ -1,0 +1,77 @@
+# The ICAP loader of the host (hw.cc: ICAP_ID_REG, ICAP_DATA_REG, ICAP_EN_REG, ICAP_CNT_REG, ICAP_DC_REG and the expansion port lock; host-app coreboot.cc core_swap drives the same registers).
+# A bitstream without the block has no loader: the app linked against its TOML A has no ICAP access and is standalone by that link (T239.3 D31). Offsets are bytes from the block's address.
+map = "icap"
+
+[[property]]
+name = "id"
+offset = 0x00
+width = 8
+dir = "r"
+  [[property.state]]
+  name = "loader"
+  value = 0x7A
+
+[[property]]
+name = "data"
+offset = 0x10
+width = 8
+dir = "w"
+
+[[property]]
+name = "enable"
+offset = 0x14
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1
+
+[[property]]
+name = "words0"
+offset = 0x18
+width = 8
+dir = "r"
+
+[[property]]
+name = "words1"
+offset = 0x19
+width = 8
+dir = "r"
+
+[[property]]
+name = "words2"
+offset = 0x1A
+width = 8
+dir = "r"
+
+[[property]]
+name = "words3"
+offset = 0x1B
+width = 8
+dir = "r"
+
+[[property]]
+name = "decouple"
+offset = 0x20
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "request"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "effective"
+  shift = 1
+  bits = 1
+
+[[property]]
+name = "expansion_lock"
+offset = 0x21
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "released"
+  value = 1

@@ -2,6 +2,30 @@
 map = "c64cart_regs"
 
 [[property]]
+name = "mode"
+offset = 0x00
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "reset"
+  value = 4
+  [[property.state]]
+  name = "unreset"
+  value = 8
+
+[[property]]
+name = "stop"
+offset = 0x01
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "run"
+  value = 0
+  [[property.state]]
+  name = "stopped"
+  value = 1
+
+[[property]]
 name = "type"
 offset = 0x05
 width = 8

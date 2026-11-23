@@ -1811,6 +1811,17 @@ Since base 3.2.
 6.14.11 The map of a module lives with its driver library. A map file is named `<name>.map.toml` and holds `map = "<name>"` and `[[property]]` tables as in 6.14.7. A block says `map = "<name>"` in place of its own properties. `tools/descrec.py compile desc.toml out.bin --maps DIR` reads the map files of `DIR` (repeat the option for more), and the record carries the finished map. A name that no map file has is refused. The SDK ships the maps of the shared drivers in `maps/`.
 6.14.12 The reader refuses a record that breaks a rule of 6.14.2 to 6.14.10 with a sentence that names the section, the block and the property. `tools/descrec.py` and the application read the same rules.
 
+### 6.15 The driver table: TOML A at build time
+
+6.15.1 The application is linked against one TOML A. `python3 tools/descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]` checks the file by the rules of 6.14 and writes two files into OUT_DIR: `drvtab.h` and `drvtab.c`. The build runs it before any source is compiled and writes a file only when its text changes, so an unchanged TOML A recompiles nothing. The shared app is linked against `coreapp/gateware/shared.toml`, whose blocks are the addresses it has today.
+6.15.2 `drvtab.h` holds, for each block `B`: `DRV_HAS_B` (1), `DRV_B_ADDR`, `DRV_B_SIZE` and `DRV_B_OWNER` (0 base, 1 core). It holds the blocks of the base and of the core alike.
+6.15.3 For each property `P` of the block: `DRV_B_P_ADDR` is its address. `DRV_B_P_RD()` reads it, for `r` and `rw`; `DRV_B_P_WR(v)` writes it, for `w` and `rw`. Both are as wide as the property (8, 16 or 32 bits). A driver that writes a property its map calls read-only does not compile.
+6.15.4 For each field `F` of the property: `DRV_B_P_F_SHIFT` and `DRV_B_P_F_MASK`. For each possible state `S` of the property or the field: `DRV_B_P_S` and `DRV_B_P_F_S` are its value. A driver names a register, a bit and a value only by these names.
+6.15.5 A block the TOML A lacks has no macro. A driver that serves a block that only some bitstreams have tests `#ifdef DRV_HAS_B`. An application linked against a TOML A without the block `icap` has no ICAP access: no partial port (`hw_partial` returns null), no return to the host (`hw_return_to_host` refuses), no expansion port release, and the board probe's ICAP byte reads 0, so `board_detect()` takes the profile of a standalone installation.
+6.15.6 Two names that make the same macro (the block `a` with the property `b_c`, and the block `a_b` with the property `c`) are refused when the table is generated.
+6.15.7 `drvtab.c` holds the table of the blocks, `drv_blocks[]` with `drv_nblocks`: name, module, owner, address and size. A native test redirects every register access with `-DDRV_PTR_HEADER='"drv_fake.h"'` (`tests/drv_fake.h`: one array for the address space), so a test reads back what a driver wrote.
+6.15.8 The shared drivers take their blocks from the table: the UCI driver (`uci_slot.cc` for the slot at $DF1C, `uci.cc` for the GCR coder), the cartridge port and the built-in drive A (`hw.cc`), the debug register (`dmasvc.cc`) and the ICAP loader (`hw.cc`). A cartridge that needs the command interface calls `uci_cart_slot` of the UCI driver.
+
 ## 7. Limits
 
 | Limit | Value |

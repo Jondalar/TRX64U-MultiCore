@@ -1160,9 +1160,125 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "uci"])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "icap", "uci"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+
+
+class DriverTable(unittest.TestCase):
+    """T239.3 P2-3 (D31, D34): the driver table generated from TOML A (`descrec.py drivers`), and the shared app's TOML A that the drivers are linked against."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    MAPS = os.path.join(ROOT, "app", "sdkpkg", "maps")
+    SHARED = os.path.join(ROOT, "coreapp", "gateware", "shared.toml")
+
+    def generate(self, text):
+        return D.drivers_files(D.resolve_maps(D.toml_loads(text), D.load_maps([self.MAPS])))
+
+    def shared(self):
+        with open(self.SHARED) as f:
+            return f.read()
+
+    def test_a_block_a_register_a_field_and_a_state_each_get_their_macro(self):
+        h, c = self.generate(src("desc_toml_a.toml"))
+        for line in ("#define DRV_cart_flash_ADDR 0xA0004000u", "#define DRV_cart_flash_SIZE 0x100u", "#define DRV_cart_flash_OWNER 0", "#define DRV_HAS_cart_flash 1",
+                     "#define DRV_cart_flash_fl_enable_ADDR (DRV_cart_flash_ADDR + 0x0u)", "#define DRV_cart_flash_fl_enable_on 1u",
+                     "#define DRV_cart_flash_evt_op_SHIFT 30", "#define DRV_cart_flash_evt_op_MASK 0xC0000000u", "#define DRV_cart_flash_evt_op_chip_erase 3u",
+                     "#define DRV_mixer_OWNER 1", "#define DRV_IDENT_ID \"TSTA\"", "#define DRV_IDENT_BLOCK \"ident\"", "#define DRV_U2P_IO_BASE 0xA0000000u"):
+            self.assertIn(line, h.splitlines())
+        self.assertIn('{ "cart_flash", "trx_io", 0, 0xA0004000u, 0x100u },', [ln.strip() for ln in c.splitlines()])
+        self.assertIn("const unsigned drv_nblocks = 4;", c)
+
+    def test_a_register_has_an_access_macro_for_each_direction_its_map_allows(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        names = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        self.assertIn("DRV_ident_id_RD", names)                       # r: no write
+        self.assertNotIn("DRV_ident_id_WR", names)
+        self.assertIn("DRV_cart_flash_fl_magic1_WR", names)           # w: no read
+        self.assertNotIn("DRV_cart_flash_fl_magic1_RD", names)
+        self.assertIn("DRV_cart_flash_fl_enable_RD", names)           # rw: both
+        self.assertIn("DRV_cart_flash_fl_enable_WR", names)
+        self.assertIn("(*DRV_PTR(uint16_t, DRV_cart_flash_fl_magic1_ADDR) = (uint16_t)(v))", h)   # the access is as wide as the property
+
+    def test_the_driver_table_is_the_same_text_for_the_same_toml(self):
+        self.assertEqual(self.generate(src("desc_toml_a.toml")), self.generate(src("desc_toml_a.toml")))
+
+    def test_a_block_the_toml_lacks_has_no_macro_to_name_it(self):
+        full = self.shared()
+        cut = full[:full.index("[[block]]\nname = \"icap\"")] + full[full.index("[[block]]\nname = \"c64_debug\""):]
+        h, c = self.generate(full)
+        h2, c2 = self.generate(cut)
+        self.assertIn("#define DRV_HAS_icap 1", h.splitlines())
+        self.assertNotIn("DRV_HAS_icap", h2)
+        self.assertNotIn("DRV_icap_", h2)
+        self.assertNotIn('"icap"', c2)
+        self.assertIn("DRV_HAS_cmd_if", h2)
+
+    def test_a_name_that_makes_a_macro_twice_is_refused(self):
+        base = self.BASE
+        doc = (base + '[[block]]\nname = "a"\nmodule = "m"\nowner = "base"\naddress = 0xA0001000\nsize = 0x10\n[[block.property]]\nname = "b_c"\noffset = 0\nwidth = 8\ndir = "r"\n'
+               '[[block]]\nname = "a_b"\nmodule = "m"\nowner = "base"\naddress = 0xA0002000\nsize = 0x10\n[[block.property]]\nname = "c"\noffset = 0\nwidth = 8\ndir = "r"\n')
+        with self.assertRaises(D.DescError) as e:
+            self.generate(doc)
+        self.assertIn("DRV_a_b_c_ADDR", str(e.exception))
+
+    BASE = TomlA.BASE
+
+    def test_a_document_that_is_no_toml_a_is_refused(self):
+        with self.assertRaises(D.DescError):
+            D.drivers_files({"block": []})
+
+    def test_the_shared_app_toml_a_compiles_and_every_block_has_a_map_the_drivers_use(self):
+        maps = D.load_maps([self.MAPS])
+        blob = D.compile_checked(self.shared(), maps=maps)
+        r = D.parse_desc(blob)
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
+        self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
+
+    def test_every_register_a_shared_driver_names_is_in_the_table(self):
+        import re
+        h, _ = self.generate(self.shared())
+        defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc"):
+            with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
+                for n, line in enumerate(fh, 1):
+                    for tok in re.findall(r"\bDRV_[A-Za-z0-9_]+", line):
+                        if tok in ("DRV_PTR", "DRV_PTR_HEADER") or tok.startswith("DRV_HAS_"):
+                            continue
+                        self.assertIn(tok, defined, "%s:%d names %s, which the shared TOML A does not define" % (f, n, tok))
+
+    def test_an_app_linked_for_a_toml_a_without_icap_has_no_icap_access_in_its_sources(self):
+        # the ICAP registers are named only under #ifdef DRV_HAS_icap (hw.cc), and no other source of coreapp/src names an ICAP register of the table
+        import re
+        for f in sorted(os.listdir(os.path.join(self.ROOT, "coreapp", "src"))):
+            if not f.endswith((".cc", ".h")) or f == "hw.cc":
+                continue
+            with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
+                self.assertIsNone(re.search(r"DRV_icap_", fh.read()), f)
+        with open(os.path.join(self.ROOT, "coreapp", "src", "hw.cc")) as fh:
+            depth, bad = 0, []
+            for n, line in enumerate(fh, 1):
+                t = line.strip()
+                if t.startswith("#ifdef DRV_HAS_icap"):
+                    depth += 1
+                elif t.startswith("#if") and depth:
+                    depth += 1
+                elif t.startswith("#else") and depth == 1:
+                    depth = 0
+                elif t.startswith("#endif") and depth:
+                    depth -= 1
+                elif "DRV_icap_" in line and depth == 0:
+                    bad.append(n)
+            self.assertEqual(bad, [], "hw.cc names the ICAP block outside #ifdef DRV_HAS_icap at lines %s" % bad)
+
+    def test_the_command_line_writes_both_files_and_leaves_an_unchanged_one_alone(self):
+        import subprocess, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            cmd = [sys.executable, os.path.join(self.ROOT, "tools", "descrec.py"), "drivers", self.SHARED, d, "--maps", self.MAPS]
+            subprocess.check_call(cmd)
+            self.assertEqual(sorted(os.listdir(d)), ["drvtab.c", "drvtab.h"])
+            m = os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns
+            subprocess.check_call(cmd)
+            self.assertEqual(os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns, m)
 
 
 if __name__ == "__main__":
