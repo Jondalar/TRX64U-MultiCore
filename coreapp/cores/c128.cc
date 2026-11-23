@@ -727,7 +727,7 @@ static int use_kit(CoreCtx *c, const OpArgs &a, int which, OpOut &o)
         return OPE_FAILED;
     }
     if (path[0]) {
-        rom_pick_msg(o.msg, o.msglen, kit_key[which], base_name(path), which == KIT_1541 ? rom_half_note(c, KEY_JF_1541, kind1541.what, c128_state(c)->d1541.n_stock) : "");
+        rom_pick_msg(o.msg, o.msglen, kit_key[which], base_name(path), which == KIT_1541 ? rom_half_note(c, KEY_JF_1541, kind1541.what, c128_state(c)->d1541.n_stock, true) : "");
     } else {
         snprintf(o.msg, o.msglen, "%s: no file selected", kit_key[which]);
     }

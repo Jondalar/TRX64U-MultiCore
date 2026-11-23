@@ -35,18 +35,20 @@ static inline uint32_t rom_half_over(uint8_t *out, const uint8_t *stock, uint32_
 
 // T258 D10: the note of the row that selects the JiffyDOS ROM of a drive (the setting `key`, a file the person picks): when the picked file is the 8 KiB half and the stock ROM
 // (n_stock, held by the pick) is missing, the half needs it, and where it goes. "" when nothing is missing. True from the moment the file is picked, no reset needed: the file's
-// size comes from one stat, kept for the path it was made for (a menu draw never asks the file system twice for the same path). One static text: the menu reads it at once.
-static inline const char *rom_half_note(CoreCtx *c, const char *key, const char *what, uint32_t n_stock)
+// size comes from one stat, kept for the path it was made for (a menu draw never asks the file system twice for the same path); a failed stat is not kept (a stick mounted
+// after the first draw is read at the next one), and `fresh` (the pick) reads the size again (a file replaced under the same name). One static text: the menu reads it at once.
+static inline const char *rom_half_note(CoreCtx *c, const char *key, const char *what, uint32_t n_stock, bool fresh = false)
 {
     static char t[120], path[FS_PATH_MAX];
     static uint64_t size;
     int i = c->settings ? c->settings->find(key) : -1;
     const char *p = i >= 0 ? c->settings->text(i) : "";
-    if (strcmp(p, path) != 0) {
+    if (fresh || strcmp(p, path) != 0) {
         bool dir = false;
         snprintf(path, sizeof(path), "%s", p);
         if (!p[0] || !c->fs || !c->fs->stat(p, &size, &dir) || dir) {
             size = 0;
+            path[0] = 0;
         }
     }
     t[0] = 0;

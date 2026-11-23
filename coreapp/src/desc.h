@@ -106,7 +106,7 @@ struct Setting {
     const char *show_state;
     // T104.2 UI: the name the menu shows; null: the key. The key is what the .cfg, REST and the operations name and never changes with a label.
     const char *label;
-    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
+    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none.
     const char *lock_state;
     // T258 D10: the name of a state; while it has a text, the row's foot note says it in place of the path (the selected file's path is the foot of a kind 3 row otherwise)
     const char *note_state;
