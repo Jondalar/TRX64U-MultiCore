@@ -106,7 +106,8 @@ void Video::set_scale_mode(int m)
 // The menu canvas (trxcanvas.h, T164 D10a) is shown at a whole-number factor only, never fractional and never stretched (Alex, 2026-10-30):
 // 960 x 540 at max(1, active height / 540) in a mode 960 or more wide, the mode's own size at 1 below that (the compact layout). Centred in the
 // mode's active area, the rest black. The canvas is told to the port first (the display is laid out for it), then its place in the output.
-void video_place_menu(PxPort *px, int hdmi, int sys)
+// The canvas the menu has in a mode, and its place in the mode's active area (what video_place_menu tells the port).
+static TrxCanvas menu_canvas_of(int hdmi, int sys)
 {
     if (hdmi >= 0 && video_gateware_vic_scale()) {  // T222: the row the gateware really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
         if (hdmi > VID_HDMI_800x600) {
@@ -124,7 +125,12 @@ void video_place_menu(PxPort *px, int hdmi, int sys)
     if (fw <= 0 || fh <= 0) {
         video_active_size(VID_HDMI_1080P, sys, &fw, &fh);
     }
-    TrxCanvas c = trx_canvas_for(fw, fh);
+    return trx_canvas_for(fw, fh);
+}
+
+void video_place_menu(PxPort *px, int hdmi, int sys)
+{
+    const TrxCanvas c = menu_canvas_of(hdmi, sys);
     px->menu_canvas(c.w, c.h);
     px->menu_place(c.x0, c.y0, c.w * c.factor, c.h * c.factor);
 }
@@ -340,21 +346,82 @@ void Video::still_start()
     px_->w32(STILL_CTRL, 1);
 }
 
-static const uint16_t g_colodore[16] = {         // the C64 palette of the capture as RGB565 (Colodore: 000000 FFFFFF 813338 75CEC8 8E3C97 56AC4D 2E2C9B EDF171 8E5029 553800 C46C71 4A4A4A 7B7B7B A9FF9F 706DEB B2B2B2)
+static int floor_div(int a, int b)
+{
+    return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
+
+// The whole shown picture as write_set puts it on the output (the position and the output size it writes), in output pixels of the active area; the menu's canvas lies in the same area
+// (menu_canvas_of), so the rectangle on the canvas is the output rectangle minus the canvas's corner, over the whole factor the canvas is shown with.
+bool Video::picture_rect(int *x, int *y, int *w, int *h) const
+{
+    if (own_picture() || !ready_ || !vw_ || !vh_ || !d_.w || !d_.h) {
+        return false;
+    }
+    int ox, oy, ow, oh;
+    if (gw_) {
+        ox = d_.x0 + (int32_t)((d_.w - vw_) / 2 * ow_ / d_.w);
+        oy = d_.y0 + (int32_t)((d_.h - vh_) / 2 * oh_ / d_.h);
+        ow = (int)(vw_ * ow_ / d_.w);
+        oh = (int)(vh_ * oh_ / d_.h);
+    } else {
+        const int s = d_.scale ? d_.scale : 1;
+        ox = d_.x0 + (int32_t)((d_.w - vw_) / 2) * s;
+        oy = d_.y0 + (int32_t)((d_.h - vh_) / 2) * s;
+        ow = (int)vw_ * s;
+        oh = (int)vh_ * s;
+    }
+    const TrxCanvas c = menu_canvas_of(mode_ >= 0 && gw_ ? mode_ : VID_HDMI_1080P, sys_);     // without the gateware the frame is 1080p and the menu stays where video_menu_start put it
+    const int f = c.factor < 1 ? 1 : c.factor;
+    *x = floor_div(ox - c.x0, f);
+    *y = floor_div(oy - c.y0, f);
+    *w = (ow + f / 2) / f;
+    *h = (oh + f / 2) / f;
+    return *w > 0 && *h > 0;
+}
+
+static const uint16_t g_colodore[16] = {         // the C64 palette of the capture as RGB565 when no source says the person's (Colodore: 000000 FFFFFF 813338 75CEC8 8E3C97 56AC4D 2E2C9B EDF171 8E5029 553800 C46C71 4A4A4A 7B7B7B A9FF9F 706DEB B2B2B2)
     0x0000, 0xFFFF, 0x8187, 0x7679, 0x89F2, 0x5569, 0x2973, 0xEF8E,
     0x8A85, 0x51C0, 0xC36E, 0x4A49, 0x7BCF, 0xAFF3, 0x737D, 0xB596
 };
 
-bool Video::grab(uint16_t *dst, int w, int h)
+static Video::StillPalette g_still_palette = nullptr;
+
+void Video::set_still_palette(StillPalette f)
+{
+    g_still_palette = f;
+}
+
+// The colours of the capture's 4 bit values on the screen: the person's palette (the one the scaler shows), else Colodore.
+static void still_colours(uint16_t out[16])
+{
+    uint8_t rgb[16][3];
+    if (g_still_palette && g_still_palette(rgb)) {
+        for (int i = 0; i < 16; i++) {
+            out[i] = (uint16_t)(((rgb[i][0] & 0xF8) << 8) | ((rgb[i][1] & 0xFC) << 3) | (rgb[i][2] >> 3));
+        }
+        return;
+    }
+    memcpy(out, g_colodore, sizeof(g_colodore));
+}
+
+bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
 {
     if (!dst || w < 1 || h < 1) {
         return false;
+    }
+    if (fw < 1 || fh < 1) {
+        fw = w;
+        fh = h;
+        ox = oy = 0;
     }
     if (own_picture()) {
         if (!still_slots_ || !px_) {
             return false;
         }
         static uint8_t cap[STILL_W * 270 / 2];
+        uint16_t col[16];
+        still_colours(col);
         for (int tries = 0; tries < 3; tries++) {
             const uint32_t st = px_->r32(STILL_STATUS);
             if (!(st & 1)) {
@@ -367,15 +434,15 @@ bool Video::grab(uint16_t *dst, int w, int h)
             }
             for (int y = 0; y < h; y++) {
                 uint16_t *row = dst + (size_t)y * w;
-                if (y > 0 && y * rows / h == (y - 1) * rows / h) {
+                if (y > 0 && (oy + y) * rows / fh == (oy + y - 1) * rows / fh) {
                     memcpy(row, row - w, (size_t)w * 2);   // the same VIC line: a copy of the line above
                     continue;
                 }
-                const uint8_t *src = cap + (size_t)(y * rows / h) * (STILL_W / 2);
+                const uint8_t *src = cap + (size_t)((oy + y) * rows / fh) * (STILL_W / 2);
                 for (int x = 0; x < w; x++) {
-                    const int vx = x * STILL_W / w;
+                    const int vx = (ox + x) * STILL_W / fw;
                     const uint8_t b = src[vx >> 1];
-                    row[x] = g_colodore[(vx & 1) ? (b >> 4) : (b & 15)];
+                    row[x] = col[(vx & 1) ? (b >> 4) : (b & 15)];
                 }
             }
             return true;
@@ -389,14 +456,14 @@ bool Video::grab(uint16_t *dst, int w, int h)
     static uint8_t line[8192];
     uint32_t last = 0xFFFFFFFFu;
     for (int y = 0; y < h; y++) {
-        const uint32_t sy = (uint32_t)y * vh_ / (uint32_t)h;
+        const uint32_t sy = (uint32_t)(oy + y) * vh_ / (uint32_t)fh;
         if (sy != last) {
             io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
             last = sy;
         }
         uint16_t *row = dst + (size_t)y * w;
         for (int x = 0; x < w; x++) {
-            const uint32_t sx = (uint32_t)x * vw_ / (uint32_t)w;
+            const uint32_t sx = (uint32_t)(ox + x) * vw_ / (uint32_t)fw;
             if (pb == 2) {
                 row[x] = (uint16_t)(line[2 * sx] | (line[2 * sx + 1] << 8));
             } else {

@@ -112,8 +112,12 @@ public:
     virtual ~OverlayHost() { }
     virtual void *alloc(uint32_t n) = 0;
     virtual void release(void *p) = 0;
-    // The picture of the machine that stopped, fitted to w x h pixels (RGB565): from the host's still capture on a C64-type core, from the core's frame buffer on the others. False: none.
-    virtual bool grab_still(uint16_t *dst, int w, int h) = 0;
+    // The picture of the machine that stopped, fitted to fw x fh pixels (RGB565); dst takes the window of w x h pixels of it that starts at ox, oy (fw x fh 0: the window is all of it). From the host's
+    // still capture on a C64-type core, painted with the person's palette; from the core's frame buffer on the others. False: none.
+    virtual bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy) = 0;
+    // A core whose picture is a frame buffer on the layer: where that picture stands on the canvas of cw x ch (the whole picture, it may reach beyond the canvas). The still has this
+    // geometry, not the still element's. False: no such picture (a C64-type core's capture fills the still element).
+    virtual bool picture_rect(int cw, int ch, OvRect *r) { (void)cw; (void)ch; (void)r; return false; }
     // The layer goes to LVGL (the core's picture off) / back to the core (its picture on): the board's Video::hide() and show(). Called around apply() on a change of the holder.
     virtual void layer_to_ui() { }
     virtual void layer_to_core() { }
@@ -132,6 +136,21 @@ public:
     // The size of the canvas LVGL draws on now (it follows the video mode). The service places the elements on it at every frame.
     virtual void canvas(int *w, int *h) { *w = OVL_CANVAS_W; *h = OVL_CANVAS_H; }
 };
+
+// ---- the menu calls of a library (T256 D6, D7) ---------------------------------------------------------------------------------------------------------------------------
+// What the main loop's pass does with the request the service holds: hide is the person's close of the menu (the leave intent, and the close when the intent asks for it), show is the
+// menu key (the open intent). A request made while the menu is in the other state does nothing; show needs a started core. The board's loop implements the port, a test records it.
+enum { OVR_NONE = 0, OVR_HIDE = 1, OVR_SHOW = 2 };
+class OvMenuPort {
+public:
+    virtual ~OvMenuPort() { }
+    virtual bool leave_intent() = 0;       // the leave intent (uiapp_local_leave); true: the menu asks to be closed now
+    virtual void close_menu() = 0;
+    virtual void open_intent() = 0;        // the open intent (uiapp_local_open)
+};
+enum { OVM_NOTHING = 0, OVM_LEFT = 1, OVM_OPENED = 2 };
+// Returns what happened (OVM_*).
+int ovl_menu_request(int req, bool menu_open, bool started, OvMenuPort *port);
 
 #define OVL_OWNER_BASE (-1)                // the base's own elements (the PAUSED tag); a library's owner is its slot, 0 and up
 #define OVL_OWNER_NONE (-100)

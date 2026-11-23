@@ -52,6 +52,8 @@
 struct Opts {
     const char *core = 0, *desc = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
     bool paused = false, stopped = false, elements = false;                         // T256: the PAUSED tag over the still; the places of the elements of the UI TOML
+    bool picture = false;                                                            // T256: --picture X,Y,W,H, the running picture of a frame-buffer core on the canvas (the still has its geometry)
+    int pic[4] = { 0, 0, 0, 0 };
     int scale = 0;
 };
 static Opts o;
@@ -60,7 +62,7 @@ static void usage(void)
 {
     fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
                     "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n"
-                    "        [--paused] [--stopped] [--elements]\n");
+                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H]\n");
     exit(2);
 }
 
@@ -430,14 +432,28 @@ static void shot(const char *path)
 struct SimOverlayHost : OverlayHost {
     void *alloc(uint32_t n) { return malloc(n); }
     void release(void *p) { free(p); }
-    bool grab_still(uint16_t *dst, int w, int h)
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
     {
         static const uint16_t pal[8] = { 0x2933, 0x5569, 0x7679, 0xEF8E, 0x8A85, 0xC36E, 0x737D, 0x4A49 };
+        if (fw < 1 || fh < 1) {
+            fw = w;
+            fh = h;
+            ox = oy = 0;
+        }
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                dst[y * w + x] = ((x / 40 + y / 40) & 1) ? pal[(y / 68) & 7] : pal[((y / 68) + 3) & 7];
+                const int px = (ox + x) * 960 / fw, py = (oy + y) * 540 / fh;             // the same checks whatever the size the picture is fitted to
+                dst[y * w + x] = ((px / 40 + py / 40) & 1) ? pal[(py / 68) & 7] : pal[((py / 68) + 3) & 7];
             }
         }
+        return true;
+    }
+    bool picture_rect(int, int, OvRect *r)
+    {
+        if (!o.picture) {
+            return false;
+        }
+        *r = OvRect{ o.pic[0], o.pic[1], o.pic[2], o.pic[3] };
         return true;
     }
     void menu_hide() { }
@@ -516,6 +532,7 @@ int main(int argc, char **argv)
         else if (a == "--paused") { o.paused = true; }
         else if (a == "--stopped") { o.stopped = true; }
         else if (a == "--elements") { o.elements = true; }
+        else if (a == "--picture") { if (sscanf(val(), "%d,%d,%d,%d", &o.pic[0], &o.pic[1], &o.pic[2], &o.pic[3]) != 4) usage(); o.picture = true; }
         else if (a == "--message") { o.msg_title = val(); o.msg_text = val(); }
         else if (a == "--root") { o.root = val(); }
         else if (a == "--scale") { o.scale = atoi(val()); }

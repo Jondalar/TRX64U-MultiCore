@@ -99,11 +99,19 @@ public:
     bool own_picture() const { return d_.w == 0; }
 
     bool ready() const { return ready_; }          // init() has run
-    // T256 D10: the picture of the machine that stopped, fitted to w x h RGB565 pixels by nearest sampling, for the still of the overlay service. A C64-type core (own_picture) has the
-    // host's still capture: still_start() points it at two slots of the base's own heap once, at the core's start; grab() reads the last complete frame (4 bit VIC colours, 400 x 270 or
-    // 400 x 240 in the 60 Hz modes) and paints it with the Colodore palette. Any other core: the newest frame buffer of its own picture (32 bit pixels are cut to RGB565). False: no picture.
+    // T256 D10: the picture of the machine that stopped, for the still of the overlay service. The picture is fitted to fw x fh RGB565 pixels by nearest sampling (0 x 0: to w x h), and dst
+    // takes the window of w x h pixels of it that starts at ox, oy. A C64-type core (own_picture) has the host's still capture: still_start() points it at two slots of the base's own heap
+    // once, at the core's start; grab() reads the last complete frame (4 bit VIC colours, 400 x 270 or 400 x 240 in the 60 Hz modes) and paints it with the palette the person's setting
+    // put on the screen (set_still_palette; Colodore when no source is set). Any other core: the newest frame buffer of its own picture (32 bit pixels are cut to RGB565). False: no picture.
     void still_start();
-    bool grab(uint16_t *dst, int w, int h);    // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
+    bool grab(uint16_t *dst, int w, int h, int fw = 0, int fh = 0, int ox = 0, int oy = 0);
+    // The 16 colours of the screen's palette (R, G, B) as the person set them; true when the source answered. One source for the application, set when a core's palette code starts.
+    typedef bool (*StillPalette)(uint8_t rgb[16][3]);
+    static void set_still_palette(StillPalette f);
+    // T256 D10: where the running picture of a frame-buffer core stands on the menu's canvas (the canvas video_place_menu names for the mode), in canvas pixels, the rectangle of the whole shown
+    // picture: it may reach beyond the canvas (a Fit picture on a mode whose canvas is smaller than its active area). False for a C64-type core (its picture is the host's scaler's) or before init().
+    bool picture_rect(int *x, int *y, int *w, int *h) const;
+    // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
     // shown. show() then writes the layer set with the layer off, so every caller that gives the layer back (menu close, Freeze) keeps it dark.
     void set_hidden(bool h) { hidden_ = h; }
     bool hidden() const { return hidden_; }

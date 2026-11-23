@@ -1,6 +1,16 @@
 // T256: the overlay service with a fake layer (S1, S7, S9, S10). The service is pure (overlay.cc); the layer and the board are recorded.
+#include <string>
+#include <vector>
+#include <stdint.h>
+#include <stdlib.h>
+#define private public                          // the test reads the still capture's slots through the pointer Video holds: the register takes 32 bits, a host pointer has more
+#include "video.h"
+#undef private
 #include "overlay.h"
 #include "libapi.h"
+#include "fakes.h"
+#include "videomode.h"
+#include "trxcanvas.h"
 #include "check.h"
 #include <string.h>
 #include <stdlib.h>
@@ -29,11 +39,47 @@ struct FakeHost : OverlayHost {
     void canvas(int *w, int *h) { *w = cw; *h = ch; }
     void *alloc(uint32_t n) { live++; return malloc(n); }
     void release(void *p) { frees++; live--; free(p); }
-    bool grab_still(uint16_t *dst, int w, int h) { grabs++; if (grab_ok) { for (int i = 0; i < w * h; i++) dst[i] = 0x1234; } return grab_ok; }
+    int g_w = 0, g_h = 0, g_fw = 0, g_fh = 0, g_ox = 0, g_oy = 0;
+    bool has_pic = false;
+    OvRect pic = {};
+    bool picture_rect(int, int, OvRect *r) { *r = pic; return has_pic; }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+    {
+        grabs++;
+        g_w = w; g_h = h; g_fw = fw; g_fh = fh; g_ox = ox; g_oy = oy;
+        if (grab_ok) { for (int i = 0; i < w * h; i++) dst[i] = 0x1234; }
+        return grab_ok;
+    }
     void layer_to_ui() { to_ui++; }
     void layer_to_core() { to_core++; }
     void menu_hide() { hide++; }
     void menu_show() { show++; }
+};
+
+
+// A layer that records its writes, and answers the still capture's status (the host's capture of the VIC, which a C64-type core has).
+struct StillPx : PxPort {
+    uint32_t base = 0, status = 0;
+    void w32(uint32_t reg, uint32_t v) { if (reg == 0x6064) base = v; }
+    uint32_t r32(uint32_t reg) { return reg == 0x6068 ? status : 0; }
+};
+static bool g_pal_ok;
+static bool palette_source(uint8_t rgb[16][3])
+{
+    if (!g_pal_ok) {
+        return false;
+    }
+    memset(rgb, 0, 16 * 3);
+    rgb[2][0] = 0xF8; rgb[2][1] = 0x00; rgb[2][2] = 0x00;                   // the person's red
+    rgb[5][0] = 0x00; rgb[5][1] = 0xFC; rgb[5][2] = 0x00;                   // and green
+    return true;
+}
+struct MenuLog : OvMenuPort {
+    int leaves = 0, closes = 0, opens = 0;
+    bool ask_close = false;
+    bool leave_intent() { leaves++; return ask_close; }
+    void close_menu() { closes++; }
+    void open_intent() { opens++; }
 };
 
 static UiElements table()
@@ -326,6 +372,139 @@ int main()
         CHECK_EQ(r.host.show, 2);
         r.svc.frame();
         CHECK_EQ(r.host.show, 2);                                                           // a request is taken once
+    }
+    // ---- (3) the still of a C64-type core carries the person's palette; Colodore only when no source says one
+    {
+        FakeIo io;
+        StillPx px;
+        VideoDesc d = VideoDesc();                                                         // w 0: the picture is the host's own (own_picture)
+        Video v(d, &px, &io);
+        CHECK(v.own_picture());
+        v.still_start();
+        CHECK(px.base != 0);
+        uint8_t *slot = v.still_slots_;
+        memset(slot, 0, 0x10000);
+        slot[0] = 0x52;                                                                    // pixel 0 = colour 2 (low nibble), pixel 1 = colour 5
+        px.status = 1 | (1u << 8);                                                         // a frame was captured, slot 0, 50 Hz (270 rows)
+        uint16_t out[2];
+        g_pal_ok = false;
+        Video::set_still_palette(0);
+        CHECK(v.grab(out, 2, 1, 800, 270, 0, 0));                                          // the first two pixels of a picture fitted to 800 x 270: sampled from VIC pixels 0 and 0
+        CHECK_EQ(out[0], 0x8187);                                                          // Colodore red (813338), nothing set
+        Video::set_still_palette(palette_source);
+        CHECK(v.grab(out, 2, 1, 400, 270, 0, 0));                                          // 1 : 1 across: pixel 0 colour 2, pixel 1 colour 5
+        CHECK_EQ(out[0], 0x8187);                                                          // the source answers false: Colodore again
+        g_pal_ok = true;
+        CHECK(v.grab(out, 2, 1, 400, 270, 0, 0));
+        CHECK_EQ(out[0], 0xF800);                                                          // the person's palette, not Colodore
+        CHECK_EQ(out[1], 0x07E0);
+        uint16_t part[1];
+        CHECK(v.grab(part, 1, 1, 400, 270, 1, 0));                                         // a window that starts at pixel 1 of the fitted picture
+        CHECK_EQ(part[0], 0x07E0);
+        Video::set_still_palette(0);
+    }
+
+    // ---- (3) a frame-buffer core: the rectangle of its running picture on the canvas the menu has in that mode
+    {
+        FakeIo io;
+        StillPx px;
+        VideoDesc d = VideoDesc();
+        d.w = 320; d.h = 200; d.scale = 3; d.bpp = 2; d.nbuf = 1;
+        Video v(d, &px, &io);
+        v.set_gateware(true);
+        v.init();
+        for (int hdmi : { VID_HDMI_1080P, VID_HDMI_720P }) {
+            v.set_mode(hdmi, VID_SYS_PAL50);
+            int fw = 0, fh = 0;
+            video_active_size(hdmi, VID_SYS_PAL50, &fw, &fh);
+            const TrxCanvas c = trx_canvas_for(fw, fh);
+            int x, y, w, h;
+            CHECK(v.picture_rect(&x, &y, &w, &h));
+            const int ox = v.x0() + (int)((d.w - 320) / 2), oy = v.y0();                   // the whole picture is shown: the layer's position is x0, y0 and its size the output's
+            CHECK_EQ(x * c.factor + c.x0, ox);                                             // the rectangle is the output rectangle seen from the canvas
+            CHECK_EQ(y * c.factor + c.y0, oy);
+            CHECK_EQ(w * c.factor, (int)v.out_w());
+            CHECK_EQ(h * c.factor, (int)v.out_h());
+        }
+        Video c64(VideoDesc(), &px, &io);
+        c64.init();
+        int x, y, w, h;
+        CHECK(!c64.picture_rect(&x, &y, &w, &h));                                           // a C64-type core: the host's scaler shows the picture, there is no rectangle
+    }
+
+    // ---- (3) the base's still takes the running picture's rectangle on a frame-buffer core, the still element's on any other
+    {
+        Rig r(false);
+        r.host.has_pic = true;
+        r.host.pic = OvRect{ 100, 50, 640, 400 };                                          // inside the canvas
+        r.svc.paused(true);
+        CHECK_EQ(r.host.g_w, 640);
+        CHECK_EQ(r.host.g_h, 400);
+        CHECK_EQ(r.host.g_fw, 640);
+        CHECK_EQ(r.host.g_ox, 0);
+        CHECK_EQ(r.layer.scene.still.x, 100);
+        CHECK_EQ(r.layer.scene.still.y, 50);
+        CHECK_EQ(r.layer.scene.still.w, 640);
+        r.svc.paused(false);
+        r.host.pic = OvRect{ -80, 20, 1200, 600 };                                         // a Fit picture that reaches beyond the canvas of 960 x 540: the part on the canvas
+        r.svc.paused(true);
+        CHECK_EQ(r.host.g_w, 960);
+        CHECK_EQ(r.host.g_h, 520);
+        CHECK_EQ(r.host.g_fw, 1200);
+        CHECK_EQ(r.host.g_fh, 600);
+        CHECK_EQ(r.host.g_ox, 80);
+        CHECK_EQ(r.host.g_oy, 0);
+        CHECK_EQ(r.layer.scene.still.x, 0);
+        CHECK_EQ(r.layer.scene.still.y, 20);
+        r.svc.paused(false);
+        r.host.has_pic = false;                                                             // no rectangle (a C64-type core): the still element's, fitted
+        r.svc.paused(true);
+        CHECK_EQ(r.host.g_w, 960);
+        CHECK_EQ(r.host.g_fw, 0);
+        CHECK_EQ(r.layer.scene.still.x, 0);
+        r.svc.paused(false);
+    }
+
+    // ---- (2) the element maximum is OVL_ELEMENTS_MAX, which a core's [sizes] sets at link time: a table of that many rows merges, one more is refused
+    {
+        UiElements base, core, out;
+        memset(&base, 0, sizeof(base));
+        memset(&core, 0, sizeof(core));
+        static char names[OVL_ELEMENTS_MAX + 2][8];
+        for (int i = 0; i < OVL_ELEMENTS_MAX + 1; i++) {
+            snprintf(names[i], sizeof(names[i]), "e%d", i);
+        }
+        for (int i = 0; i < OVL_ELEMENTS_MAX; i++) {
+            base.rows[i] = UiElementRow{ names[i], OVA_TOP_LEFT, 0, 0, 10, 10, false };
+        }
+        base.n = OVL_ELEMENTS_MAX;
+        core.rows[0] = UiElementRow{ names[OVL_ELEMENTS_MAX], OVA_TOP_LEFT, 0, 0, 10, 10, false };
+        core.n = 1;
+        char why[120];
+        CHECK_EQ(ovl_merge(&base, &core, &out, why, sizeof(why)), 1);                       // the table is full: the core's row is told and not applied
+        CHECK_EQ(out.n, OVL_ELEMENTS_MAX);
+        core.rows[0] = UiElementRow{ names[3], OVA_CENTER, 0, 0, 10, 10, false };           // a row of a base name replaces it and needs no room
+        CHECK_EQ(ovl_merge(&base, &core, &out, why, sizeof(why)), 0);
+        CHECK_EQ(out.n, OVL_ELEMENTS_MAX);
+    }
+
+    // ---- (4) menu_hide and menu_show change the menu state as D7 says: hide is the person's close, show is the menu key
+    {
+        MenuLog m;
+        CHECK_EQ(ovl_menu_request(OVR_HIDE, true, true, &m), OVM_LEFT);                     // the menu is open: the leave intent
+        CHECK_EQ(m.leaves, 1);
+        CHECK_EQ(m.closes, 0);                                                              // the intent did not ask for the close
+        m.ask_close = true;                                                                 // a menu that is left by closing (nothing behind it to stay on)
+        CHECK_EQ(ovl_menu_request(OVR_HIDE, true, true, &m), OVM_LEFT);
+        CHECK_EQ(m.leaves, 2);
+        CHECK_EQ(m.closes, 1);
+        CHECK_EQ(ovl_menu_request(OVR_SHOW, false, true, &m), OVM_OPENED);                  // closed: the open intent
+        CHECK_EQ(m.opens, 1);
+        CHECK_EQ(ovl_menu_request(OVR_SHOW, true, true, &m), OVM_NOTHING);                  // a request made in the state it wants does nothing
+        CHECK_EQ(ovl_menu_request(OVR_HIDE, false, true, &m), OVM_NOTHING);
+        CHECK_EQ(ovl_menu_request(OVR_SHOW, false, false, &m), OVM_NOTHING);                // the core has not started: nothing to open the menu on
+        CHECK_EQ(ovl_menu_request(OVR_NONE, true, true, &m), OVM_NOTHING);
+        CHECK(m.leaves == 2 && m.closes == 1 && m.opens == 1);
     }
     DONE("overlay");
 }

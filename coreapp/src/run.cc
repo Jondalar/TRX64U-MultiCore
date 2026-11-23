@@ -189,11 +189,12 @@ class BoardOverlayHost : public OverlayHost {
 public:
     void *alloc(uint32_t n) { return malloc(n); }
     void release(void *p) { free(p); }
-    bool grab_still(uint16_t *dst, int w, int h) { return video && video->grab(dst, w, h); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy) { return video && video->grab(dst, w, h, fw, fh, ox, oy); }
+    bool picture_rect(int, int, OvRect *r) { return video && video->picture_rect(&r->x, &r->y, &r->w, &r->h); }
     void layer_to_ui() { video->hide(); }
     void layer_to_core() { video->show(); }
-    void menu_hide() { req_ = 1; }
-    void menu_show() { req_ = 2; }
+    void menu_hide() { req_ = OVR_HIDE; }
+    void menu_show() { req_ = OVR_SHOW; }
     void enter() { portENTER_CRITICAL(); }
     void leave() { portEXIT_CRITICAL(); }
     bool ui_task() { return xTaskGetCurrentTaskHandle() == task_; }
@@ -208,6 +209,18 @@ private:
     TaskHandle_t task_ = 0;
 };
 static BoardOverlayHost ov_host;
+
+// The main loop's side of a library's menu_hide / menu_show (ovl_menu_request, overlay.cc): the intents of the menu's own hotkey, and the loop's close.
+template <class Close> class LoopMenuPort : public OvMenuPort {
+public:
+    LoopMenuPort(bool &close_req, Close &close) : close_req_(close_req), close_(close) { }
+    bool leave_intent() { close_req_ = false; uiapp_local_leave(); const bool c = close_req_; close_req_ = false; return c; }
+    void close_menu() { close_(); }
+    void open_intent() { uiapp_local_open(); }
+private:
+    bool &close_req_;
+    Close &close_;
+};
 
 // T97 5.12: the interrupt guard. Three times (10-21, 10-22, 10-23) the core poll task ran on with mstatus.MIE 0 and no critical section
 // open: the tick stopped, the task spun on taskYIELD() and the core lost its sector service. Nobody may sleep or yield inside a critical
@@ -1107,17 +1120,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             return;
         }
         ov->frame();
-        const int req = ov_host.take_req();
-        if (req == 1 && menu_open) {
-            close_req = false;
-            uiapp_local_leave();
-            if (close_req) {
-                close_req = false;
-                close_menu();
-            }
-        } else if (req == 2 && !menu_open && ctx.started) {
-            uiapp_local_open();
-        }
+        LoopMenuPort<decltype(close_menu)> port(close_req, close_menu);
+        ovl_menu_request(ov_host.take_req(), menu_open, ctx.started, &port);
         if (!menu_open && ov->holds_layer()) {
             ui_poll();
         }

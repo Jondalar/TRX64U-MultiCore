@@ -323,17 +323,36 @@ void OverlaySvc::take_still()
     }
     int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
     host_->canvas(&cw, &ch);
-    UiElementRow row = slot_[still_slot_].row;                  // the capture is the picture fitted to the still's rectangle, cut to the canvas of now
-    row.w = (uint16_t)(row.w < cw ? row.w : cw);
-    row.h = (uint16_t)(row.h < ch ? row.h : ch);
-    base_rect_ = ovl_place_on(row, cw, ch);
+    // A frame-buffer core's still is its running picture: the same scale and place the layer showed it in (the part on the canvas), not the still element's rectangle. Any other still is the
+    // still element's rectangle cut to the canvas of now.
+    OvRect full = { 0, 0, 0, 0 };
+    int fw = 0, fh = 0, ox = 0, oy = 0;
+    if (host_->picture_rect(cw, ch, &full) && full.w > 0 && full.h > 0) {
+        const int x0 = full.x > 0 ? full.x : 0, y0 = full.y > 0 ? full.y : 0;
+        const int x1 = full.x + full.w < cw ? full.x + full.w : cw, y1 = full.y + full.h < ch ? full.y + full.h : ch;
+        if (x1 > x0 && y1 > y0) {
+            base_rect_ = OvRect{ x0, y0, x1 - x0, y1 - y0 };
+            fw = full.w;
+            fh = full.h;
+            ox = x0 - full.x;
+            oy = y0 - full.y;
+        } else {
+            full.w = 0;
+        }
+    }
+    if (full.w <= 0 || fw == 0) {
+        UiElementRow row = slot_[still_slot_].row;
+        row.w = (uint16_t)(row.w < cw ? row.w : cw);
+        row.h = (uint16_t)(row.h < ch ? row.h : ch);
+        base_rect_ = ovl_place_on(row, cw, ch);
+    }
     const OvRect &r = base_rect_;
     base_still_ = (uint16_t *)host_->alloc((uint32_t)r.w * (uint32_t)r.h * 2u);
     if (!base_still_) {
         host_->log("[overlay] no memory for the still");
         return;
     }
-    base_still_ok_ = host_->grab_still(base_still_, r.w, r.h);
+    base_still_ok_ = host_->grab_still(base_still_, r.w, r.h, fw, fh, ox, oy);
     if (!base_still_ok_) {
         host_->log("[overlay] the stopped machine's picture could not be taken: no still");
         host_->release(base_still_);
@@ -671,4 +690,20 @@ bool OverlaySvc::size_of(const char *name, int *w, int *h) const
     *w = slot_[i].row.w;
     *h = slot_[i].row.h;
     return true;
+}
+
+// The main loop's pass over the request of a library (D6, D7): the leave intent and the open intent are the person's, so the hidden menu works like the closed one.
+int ovl_menu_request(int req, bool menu_open, bool started, OvMenuPort *port)
+{
+    if (req == OVR_HIDE && menu_open) {
+        if (port->leave_intent()) {
+            port->close_menu();
+        }
+        return OVM_LEFT;
+    }
+    if (req == OVR_SHOW && !menu_open && started) {
+        port->open_intent();
+        return OVM_OPENED;
+    }
+    return OVM_NOTHING;
 }
