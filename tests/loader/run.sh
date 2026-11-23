@@ -52,7 +52,7 @@ t = sys.argv[1]
 base = '[[area]]\nkey = "F5"\n  [[area.tab]]\n  id = "a"\n  name = "A"\n  widget = "nodes"\n'
 open(t + "/menu_route.bin", "wb").write(descrec.compile_text(base))
 open(t + "/menu_hide.bin", "wb").write(descrec.compile_text('hide = ["x"]\n'))
-open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000500\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n'))
+open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000A00\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n'))
 open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.tick"\nperiod_ms = 10\n'))
 PY
 

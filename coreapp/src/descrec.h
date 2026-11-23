@@ -57,6 +57,7 @@
 //                          The rows are CoreKey (menuintent.h), stage KS_CORE, tried in the record's order where an application's screens end and the menu's grammar begins.
 //        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
 //                          the block ends below 4 GiB).  A window that covers a byte of a block with owner base in the TOML A the app is linked with is refused (basetab.h, generated at build time by tools/descrec.py basetab; D30 point 1); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A.
+//                          The address in the record is the firmware's (the hand-over contract: U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); the reader translates it into the space of that TOML A by its [io] bases before the check and keeps the translated one in DescWindow (V-3c).
 //                          descrec_window finds one by name (io.window).
 //        20 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
 //                          tab (an id, a-z 0-9 _), heading (1 to 31 characters), label (string, none; required for a page), flags (b0 page). They are MenuGroupRoute (menutree.h); a route of the group of a base
@@ -235,7 +236,7 @@ struct DescSections {
     bool has_secmedia; SectorMediaSpec secmedia;
 };
 
-// A register window of a core's API TOML (section 19): io.window hands out `address` for `name`; `size` is the block's length in bytes. The name points into the record.
+// A register window of a core's API TOML (section 19): io.window hands out `address` (in the address space of the app's TOML A, translated by the reader) for `name`; `size` is the block's length in bytes. The name points into the record.
 struct DescWindow {
     const char *name;
     uint32_t address, size;

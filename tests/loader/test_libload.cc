@@ -2210,10 +2210,10 @@ static void services()
         CHECK_EQ(wrec->nwindows, 2);
         w.ld->set_windows(wrec);
         wsz = 77;
-        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0xA0000500u);
+        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0x10100A00u);
         CHECK_EQ(wsz, 0x14u);
         wsz = 77;
-        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0xA0000600u);
+        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0x10100600u);
         CHECK_EQ(wsz, 0x100u);
         wsz = 77;
         CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare

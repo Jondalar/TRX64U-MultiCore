@@ -151,19 +151,22 @@ them into the core's description record (D11):
 
 ```toml
 [[window]]
-name = "audio_mixer"     # the name io.window takes
-address = 0xA0000500     # the CPU address of the block
-size = 0x14              # bytes
+name = "u64_userport"    # the name io.window takes
+address = 0xA0000405     # the block in the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB)
+size = 1                 # bytes
 ```
 
-The base keeps no hand-written table of the registers it drives itself (`basereg.def` is gone, T239.3 D30 point 4): its source is the base blocks of the TOML A the app is linked with (`coreapp/gateware/host.toml` for the shared app and the host app), handed to the app as a table generated at build time. A `[[window]]` is checked for name, address and size, and it is refused when it covers a byte of such a block, by both readers (`descrec.cc`, `tools/descrec.py`); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A. The case LED select is reached
+The base keeps no hand-written table of the registers it drives itself (`basereg.def` is gone, T239.3 D30 point 4): its source is the base blocks of the TOML A the app is linked with (`coreapp/gateware/host.toml` for the shared app and the host app), handed to the app as a table generated at build time. A `[[window]]` is checked for name, address and size, and it is refused when it covers a byte of such a block, by both readers (`descrec.cc`, `tools/descrec.py`); the readers first translate the window from the firmware's address space into that of the TOML A by its `[io]` bases (V-3c), so 0xA0000401 is refused as 0x10100401 is, and `io.window` hands out the translated address; the base blocks of `host.toml` are the one source, the copies in `shared.toml` and the example's TOML A are checked against it by `tools/test_descrec.py`; the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A. The case LED select is reached
 through `board.case_led_select`. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
 A core delivers its two TOML contracts as two files: `menu.toml` (UI TOML: menu, key table) and `desc.toml` (API TOML: the core's
 data sections and `[[window]]`). With 3.3, `cor_pack.py pack` takes `--desc` more than once and compiles them into one record 6; a
-table or key present in both is refused. Granted to trx64u (checked against the base's own writes): `u64_userport` (+0x05),
+table or key present in both is refused. Granted to trx64u and accepted by the readers: `u64_userport` (+0x05),
 `u64_hdmi_connectors` (+0x08, +0x09), `u64_pwm_duty` (+0x0D) of the U64 block, `speaker_enable` (0xA000000C, write only: a read
-returns the board revision), the mixers, the resampler and both palettes.
+returns the board revision) and the resampler. Open (Alex decides): four more windows of the hand-over's `desc.toml` lie over base-owned
+blocks of `host.toml` and are refused by the readers: `audio_mixer` (block `audio_mixer`, 0x10100500), `speaker_mixer` (block
+`speaker_mixer_a`, 0x10100540), `c64_palette` (block `c64_palette`, 0x10180800) and `hdmi_palette` (block `overlay_palette`, 0x10145000).
+Until he decides, packing that `desc.toml` fails.
 
 ## Where a core's menu goes
 
