@@ -12,9 +12,9 @@
 // the command, one command at a time).
 //
 // T113: copy for the C128's VDC: lines doubled. Copy of cores/c264/rtl/trx/c264_pixw.v with these changes only:
-//   - the source is the VDC's 640 x 200 picture (COLS = 640, LINES = 200, 80 words a row; the dot strobe is the VDC's pixel_ce,
+//   - the source is the VDC's 640-dot picture (COLS = 640, 200 lines at T113, LINES = 240 since T257; 80 words a row; the dot strobe is the VDC's pixel_ce,
 //     hblank/vblank are !active_h/!active_v) and every source line is written twice, to rows 2y and 2y+1 of a
-//     640 x 480 buffer (1280 bytes a row, 614,400 bytes a buffer; rows 0..399 are used by a frame that is not interlaced): the pixel layer
+//     640 x 480 buffer (1280 bytes a row, 614,400 bytes a buffer; rows 0..399 for a frame of 200 lines): the pixel layer
 //     scales whole lines, the VDC's 200 lines fill the 400-line window of an 80-column screen;
 //   - three buffers (the ring 0, 1, 2) instead of four;
 //   - the word counter is 7 bits and the line buffer holds 2 x 128 words: the 6 bit counter of the original cannot count the 80
@@ -22,19 +22,26 @@
 //
 // T113 D11: the interlaced VDC (R8[1:0] = 3) is woven. `il` and `field` come from the VDC (vdc_top `ilace`) and are taken at the
 // start of every frame. A field of an interlaced frame has up to LINES_IL = 240 lines and goes to rows 2y + field of the 640 x 480 buffer
-// (one write per line, no doubling); a frame that is not interlaced stays LINES = 200 lines doubled to rows 2y and 2y+1 of the same buffer
-// (rows 0..399). The two fields of one picture go to the SAME buffer (field 0 takes the next buffer of the ring, field 1 the one of
+// (one write per line, no doubling); a frame that is not interlaced was LINES = 200 lines doubled to rows 2y and 2y+1 of the same buffer
+// (rows 0..399); T257 below makes it LINES = 240. The two fields of one picture go to the SAME buffer (field 0 takes the next buffer of the ring, field 1 the one of
 // field 0) and the picture is reported when field 1 is in; a field 1 without its field 0 before it is written but not reported.
 // A frame that has fewer lines than the window is reported at the end of its active area (it was never reported before, the line
-// counter was the only trigger). `latest` b2 says that the reported picture is a woven one with ALL 480 rows written (both fields reached line 240):
+// counter was the only trigger). `latest` b2 says that all 480 rows of the reported picture were written (for a woven pair: both fields reached line 240):
 // the application cuts the layer to 400 rows when it is clear, so a woven pair with fewer lines (200 a field = 400 rows, or 201..239) never shows
-// rows that belong to an older, taller picture; of a pair with 201..239 lines the lines below row 400 are cut. A buffer is 640 x 480 x 2 = 614,400 bytes (the stride of the buffers is the application's: 1 MiB).
+// rows that belong to an older, taller picture; of a woven pair with 201..239 lines the lines below row 400 are cut (a frame that is not interlaced is completed instead, T257). A buffer is 640 x 480 x 2 = 614,400 bytes (the stride of the buffers is the application's: 1 MiB).
+//
+// T257 (#122): a frame that is not interlaced is taken up to LINES = 240 lines too (the instance says LINES(240), LINES_IL(240)); every source line is
+// still written twice, rows 2y and 2y+1, so rows 0..479 are used. A frame with LINES_BASE + 1 .. LINES - 1 lines (201..239) is completed by the writer: the
+// rows after its last line are written black (a blank job per line, the ui side writes zero words) before the frame is reported, so no row of
+// the picture comes from an older frame. `latest` b2 ("480 rows are this picture") is now 1 for such a frame and for one of 240 lines (it was
+// only ever 1 for a woven pair); a frame of up to LINES_BASE = 200 lines keeps b2 = 0 and the application cuts the layer to 400 rows as before.
 `timescale 1ns / 1ps
 module c128_pixw #(
     parameter integer X0 = 0,
     parameter integer Y0 = 0,
     parameter integer COLS = 640,
     parameter integer LINES = 200,                    // lines of a frame that is not interlaced (shown doubled)
+    parameter integer LINES_BASE = 200,               // lines the application shows without b2 (400 rows): a longer frame is completed to 240 and reported with b2
     parameter integer LINES_IL = 240                  // lines of one field of an interlaced frame (shown woven)
 ) (
     input  wire         sys_clk,
@@ -47,7 +54,7 @@ module c128_pixw #(
     input  wire         field,                        // the field being drawn (0: the first of the picture)
     output wire         quiet,                        // sys_clk: no line is on its way to the DDR2
     output reg          frame_tgl = 1'b0,             // toggles with every complete frame
-    output reg  [7:0]   latest = 8'd0,                // b7 valid, b2 the picture is woven (480 rows), b1:0 the buffer of the newest complete picture
+    output reg  [7:0]   latest = 8'd0,                // b7 valid, b2 all 480 rows are this picture (a woven pair, or a frame of more than LINES_BASE lines), b1:0 the buffer of the newest complete picture
     output reg  [7:0]   seq = 8'd0,
     output reg  [15:0]  overruns = 16'd0,
     // quasi static, from the app (cpu_clk)
@@ -83,6 +90,10 @@ module c128_pixw #(
     reg         pair_open = 1'b0;                     // the frame before was field 0 of an interlaced picture, written to fwb
     reg         pair_ok = 1'b0;                       // this field 1 goes to the buffer of its field 0
     reg         fr_full = 1'b0, pf_full = 1'b0;      // this frame / the frame before wrote its line 239 (a field of 240 lines)
+    reg [9:0]   last_row = 10'd0;                     // the row of the last line this frame handed over
+    reg         fill_on = 1'b0, fill_done = 1'b0;     // the rows after last_row are being written black / have been
+    reg [9:0]   fill_row = 10'd0;
+    reg         ln_blank = 1'b0;
     reg         frame_open = 1'b0;                    // a line of this frame is on its way and the frame is not yet closed
     reg [127:0] lb [0:255];                           // two lines of up to 128 words
     reg         ln_tgl = 1'b0;
@@ -94,6 +105,7 @@ module c128_pixw #(
     wire        ack_tgl;
     (* ASYNC_REG = "TRUE" *) reg [1:0] ack_s = 2'b00;
     assign quiet = (ack_s[1] == ln_tgl);
+    wire        fill_need = !il_f && last_row >= LINES_BASE && last_row < LINES - 1;     // not interlaced, more than LINES_BASE lines, fewer than LINES
 
     // the next state of one dot, combinational
     reg         ls, fs, fe, in_n, cap_n, last_word, il_c;
@@ -154,7 +166,7 @@ module c128_pixw #(
             if (last_word) begin                            // the line is complete: hand it to the ui side
                 if (ack_s[1] != ln_tgl) overruns <= overruns + 16'd1;
                 ln_tgl <= ~ln_tgl;
-                ln_row <= row_n; ln_wb <= fwb; ln_half <= half; ln_il <= il_c; ln_fld <= fld_f;
+                ln_row <= row_n; ln_wb <= fwb; ln_half <= half; ln_il <= il_c; ln_fld <= fld_f; ln_blank <= 1'b0; last_row <= row_n;
                 frame_open <= 1'b1;
                 if (row_n == LINES_IL - 10'd1) fr_full <= 1'b1;
                 half <= ~half;
@@ -162,16 +174,28 @@ module c128_pixw #(
                 if (row_n == lim_c - 10'd1) begin waiting_last <= 1'b1; frame_open <= 1'b0; end
             end
         end
-        // frame done: the last line is written (acknowledged by the ui side)
+        // frame done: the last line is written (acknowledged by the ui side). A frame of LINES_BASE + 1 .. LINES - 1 lines first gets its rows up to
+        // line LINES - 1 written black, one blank job per line, then it is reported.
         if (waiting_last && ack_s[1] == ln_tgl) begin
-            waiting_last <= 1'b0;
-            if (!il_f || pair_ok) begin               // an interlaced picture counts when its field 1 is in the buffer of its field 0
-                frame_tgl <= ~frame_tgl;
-                latest <= {1'b1, 4'd0, il_f & fr_full & pf_full, fwb};
-                seq <= seq + 8'd1;
+            if (fill_on) begin
+                if (fill_row == LINES) begin fill_on <= 1'b0; fill_done <= 1'b1; end
+                else begin
+                    ln_row <= fill_row; ln_wb <= fwb; ln_il <= 1'b0; ln_fld <= 1'b0; ln_blank <= 1'b1;
+                    ln_tgl <= ~ln_tgl; fill_row <= fill_row + 10'd1;
+                end
+            end else if (fill_need && !fill_done) begin
+                fill_on <= 1'b1; fill_row <= last_row + 10'd1;
+            end else begin
+                waiting_last <= 1'b0;
+                if (!il_f || pair_ok) begin               // an interlaced picture counts when its field 1 is in the buffer of its field 0
+                    frame_tgl <= ~frame_tgl;
+                    latest <= {1'b1, 4'd0, il_f ? (fr_full & pf_full) : (last_row >= LINES_BASE), fwb};
+                    seq <= seq + 8'd1;
+                end
             end
         end
-        if (sys_rst) begin in_frame <= 1'b0; waiting_last <= 1'b0; cap <= 1'b0; end
+        if (dotst && fs) begin fill_on <= 1'b0; fill_done <= 1'b0; end     // a new frame ends a fill that is still running (after the done block: the last assignment wins)
+        if (sys_rst) begin in_frame <= 1'b0; waiting_last <= 1'b0; cap <= 1'b0; fill_on <= 1'b0; end
     end
 
     // ------------------------------------------------------------------ ui_clk side
@@ -184,7 +208,7 @@ module c128_pixw #(
     reg [6:0]   ug = 7'd0;
     reg [9:0]   u_row = 10'd0;
     reg         u_dup = 1'b0;                              // the second write of the line (row 2y+1)
-    reg         u_il = 1'b0, u_fld = 1'b0;
+    reg         u_il = 1'b0, u_fld = 1'b0, u_blank = 1'b0;
     reg [1:0]   u_wb = 2'd0;
     reg         u_half = 1'b0;
     // the registers cross from cpu_clk: a value counts when two samples in a row agree
@@ -209,7 +233,7 @@ module c128_pixw #(
             us <= U_IDLE; e_en <= 1'b0;
         end else case (us)
         U_IDLE: if (ln_s[2] != ln_s[1]) begin
-            u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; u_il <= ln_il; u_fld <= ln_fld; ug <= 7'd0; u_dup <= 1'b0;
+            u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; u_il <= ln_il; u_fld <= ln_fld; u_blank <= ln_blank; ug <= 7'd0; u_dup <= 1'b0;
             us <= U_BASE;
         end
         U_BASE: begin                                  // buffer base in 16-bit units
@@ -237,5 +261,6 @@ module c128_pixw #(
         end
         default: us <= U_IDLE;
         endcase
+        if (u_blank) e_wdf_data <= 128'd0;               // a blank job writes zero words: a synchronous reset of the data register, no mux
     end
 endmodule

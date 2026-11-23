@@ -1039,7 +1039,8 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
 
 
-// T113 D11: the VDC's buffers are 640 x 480, 480 rows when the picture is woven (FB_LATEST b2: the newest complete picture is interlaced), else 400 rows (200 lines doubled).
+// T113 D11, T257: the VDC's buffers are 640 x 480, 480 rows when FB_LATEST b2 is set (the newest complete picture has all 480 rows: a woven pair, or a frame of more than 200 lines that is not
+// interlaced), else 400 rows (200 lines doubled).
 // The layer follows the newest picture; the height is the layer's geometry, so the layout (Picture, HDMI mode) is made for it.
 static void c128_rows(CoreCtx *c)
 {
