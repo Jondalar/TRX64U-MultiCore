@@ -63,7 +63,7 @@ struct C128State {
     uint8_t jf[2 * IMG_PART];
     DriveRomPick d1541, d1581;
 };
-static const DriveRomKind kind1541 = { "drive.put_rom", "c128", "1541", false, true };
+static const DriveRomKind kind1541 = { "drive.put_rom", "c128", "1541", false, true, true };
 static const DriveRomKind kind1581 = { "drive.put_rom1581", "c128", "1581", true, true };
 
 static C128State *c128_state(CoreCtx *c)
@@ -589,7 +589,7 @@ static const ArgSpec path_arg[] = { ARG_PATH("path") };
 // The person selects each file (a row of the settings or the file action in the browser); nothing is searched. Four roles:
 //   C128  16384 bytes (the C128 KERNAL chip U35: editor + Z80 BIOS + KERNAL -> image +0x4000), or 32768 (the C128DCR kit's one file: the C64 part first)
 //   C64   8192 (the C64 KERNAL alone, reset vector $FCE2 -> image +0x2000) or 16384 (BASIC + KERNAL, "CBMBASIC" at offset 4 -> image +0x0000)
-//   1541  16384 or 32768 (the sizes the drive takes; the 8 KiB form is the upper half of the ROM only and is refused with that reason)
+//   1541  16384 or 32768 (the sizes the drive takes), or 8192 (the upper half of the ROM, the chip 901229: drive_pick_apply puts it over the stock ROM's lower 8 KiB)
 //   1581  32768
 // Each part ends in the 6502 vectors; the reset vector (last four bytes: offset size-4) points into the KERNAL at $E000 or above. What tells the C64 part
 // from the C128 part is, in the 16 KiB form, the C64 BASIC at its start (the text "CBMBASIC" at offset 4; the C128's part has none); the 8 KiB KERNAL has no
@@ -640,7 +640,7 @@ static bool kit_size_ok(int which, uint64_t n)
     switch (which) {
     case KIT_C128: return n == IMG_PART || n == 2 * IMG_PART;
     case KIT_C64:  return n == IMG_PART / 2 || n == IMG_PART;
-    case KIT_1541: return n == 16384u || n == 32768u;
+    case KIT_1541: return n == ROM_HALF || n == 16384u || n == 32768u;
     default:       return n == 32768u;
     }
 }
@@ -648,11 +648,7 @@ static bool kit_size_ok(int which, uint64_t n)
 // One status line each (UX review 2026-11-07): which file sizes are which kit part is in the T185 spec, not on the screen.
 static void kit_size_why(int which, uint64_t n, char *why, int wl)
 {
-    if (which == KIT_1541 && n == 8192u) {
-        snprintf(why, wl, "8192 bytes is the upper half of a 1541 ROM; needs 16384 or 32768");
-        return;
-    }
-    static const char *const want[KIT_N] = { "16384 or 32768", "8192 or 16384", "16384 or 32768", "32768" };
+    static const char *const want[KIT_N] = { "16384 or 32768", "8192 or 16384", "8192, 16384 or 32768", "32768" };
     snprintf(why, wl, "%u bytes, needs %s", (unsigned)fs_size32(n), want[which]);
 }
 

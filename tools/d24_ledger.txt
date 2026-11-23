@@ -31,7 +31,7 @@ file coreapp/cores/atari_sio.cc 362
 file coreapp/cores/atari_sio.h 67
 file coreapp/cores/atari_xex.cc 64
 file coreapp/cores/atari_xex.h 8
-file coreapp/cores/c128.cc 1078
+file coreapp/cores/c128.cc 1074
 file coreapp/cores/c128_keys.h 12
 file coreapp/cores/c128_prg.h 30
 file coreapp/cores/c128_regs.h 52
@@ -59,7 +59,7 @@ file coreapp/cores/cpc_disk.h 27
 file coreapp/cores/cpc_regs.h 41
 file coreapp/cores/ddt_novic.cc 48
 file coreapp/cores/ddt_regs.h 13
-file coreapp/cores/drive_rom_pick.h 98
+file coreapp/cores/drive_rom_pick.h 92
 file coreapp/cores/hk_defaults.h 25
 file coreapp/cores/ines.cc 100
 file coreapp/cores/ines.h 22

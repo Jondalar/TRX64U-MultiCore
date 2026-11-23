@@ -1120,7 +1120,6 @@ int main()
                 { "c128.use_jiffy_c64", "c128part", "no C64 BASIC", OPE_FAILED },
                 { "c128.use_jiffy_c64", "s16383", "16383 bytes", OPE_FAILED },
                 { "c128.use_jiffy_c64", "k8bad", "$FCE2", OPE_FAILED },
-                { "c128.use_jiffy_1541", "s8192", "upper half", OPE_FAILED },
                 { "c128.use_jiffy_1541", "s16383", "16383 bytes", OPE_FAILED },
                 { "c128.use_jiffy_1541", "zero", "empty", OPE_FAILED },
                 { "c128.use_jiffy_1581", "s16384", "32768", OPE_FAILED },
@@ -1208,6 +1207,84 @@ int main()
             CHECK(r->io.dm.rom() == s41);
             delete (CbmDrive *)r->c.drive; r->c.drive = 0;
             delete r;
+            // the window the drive library shows: a 16 KiB ROM lies in both halves of its 32 KiB (d1541_drive.cc put_rom)
+            auto win = [](Bytes b) { if (b.size() == 16384) b.insert(b.end(), b.begin(), b.end()); return b; };
+            // T258 D6 S11: the 8,192-byte JiffyDOS file is the upper half: the stock ROM's first 8 KiB, then the file (a 16 KiB and a 32 KiB stock ROM alike)
+            for (uint32_t stock_n : { 16384u, 32768u }) {
+                Bytes sk = pattern(13, stock_n), half = pattern(12, 8192);
+                Rig *h = new Rig();
+                h->io.dm.multi = true;
+                h->image();
+                put(*h, "c64.bin", c64part(2)); put(*h, "c128.bin", c128part(3)); put(*h, "half.bin", half);
+                h->fs.put("/usb0/roms/c128/1541.rom", sk);
+                OpResult ho;
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c64", "c64.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c128", "c128.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "half.bin", &ho), OPE_OK);
+                h->set("ROM set", 1);
+                CHECK(h->boot());
+                Bytes want16(sk.begin(), sk.begin() + 8192);
+                want16.insert(want16.end(), half.begin(), half.end());
+                CHECK(h->io.dm.rom() == win(want16));
+                setrom(*h, 0, &ho);
+                CHECK(h->io.dm.rom() == win(sk));                                 // back to Standard: the stock ROM whole
+                setrom(*h, 1, &ho);
+                CHECK(h->io.dm.rom() == win(want16));
+                CHECK_EQ(ho.msg[0], 0);
+                delete (CbmDrive *)h->c.drive; h->c.drive = 0;
+                delete h;
+            }
+            // S12: the half without a stock ROM: the line says the stock ROM is needed, drive A holds no ROM, the machine starts
+            {
+                Rig *h = new Rig();
+                h->io.dm.multi = true;
+                h->image();
+                put(*h, "c64.bin", c64part(2)); put(*h, "c128.bin", c128part(3)); put(*h, "half.bin", pattern(12, 8192));
+                OpResult ho;
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c64", "c64.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c128", "c128.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "half.bin", &ho), OPE_OK);
+                CHECK(h->boot());
+                setrom(*h, 1, &ho);
+                if (!strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too")) printf("  S12: \"%s\"\n", ho.msg);
+                CHECK(strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too (in the roms folder)") != 0);
+                CHECK(h->io.dm.rom() == Bytes(32768, 0));
+                // the stock ROM arrives later (put again): the composition follows
+                Bytes sk = pattern(13, 16384);
+                OpIn in = in_blob("data", sk.data(), sk.size());
+                CHECK_EQ(ops_call(&h->c, "c128.put_drive_rom", &in, 1, &ho), OPE_OK);
+                Bytes want16(sk.begin(), sk.begin() + 8192), half = pattern(12, 8192);
+                want16.insert(want16.end(), half.begin(), half.end());
+                CHECK(h->io.dm.rom() == win(want16));
+                delete (CbmDrive *)h->c.drive; h->c.drive = 0;
+                delete h;
+            }
+            // S13: a whole 16,384-byte JiffyDOS 1541 file is taken whole; the half's refusals: 16,383 bytes, empty, all 0xFF
+            {
+                Rig *h = new Rig();
+                h->io.dm.multi = true;
+                h->image();
+                put(*h, "c64.bin", c64part(2)); put(*h, "c128.bin", c128part(3));
+                Bytes j16 = pattern(14, 16384);
+                put(*h, "j16.bin", j16); put(*h, "ff.bin", Bytes(8192, 0xFF)); put(*h, "z.bin", Bytes(8192, 0x00)); put(*h, "s16383", Bytes(16383, 0x55));
+                h->fs.put("/usb0/roms/c128/1541.rom", pattern(13, 16384));
+                OpResult ho;
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c64", "c64.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_c128", "c128.bin", &ho), OPE_OK);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "ff.bin", &ho), OPE_FAILED);
+                CHECK(strstr(ho.msg, "empty") != 0);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "z.bin", &ho), OPE_FAILED);
+                CHECK(strstr(ho.msg, "empty") != 0);
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "s16383", &ho), OPE_FAILED);
+                CHECK(strstr(ho.msg, "needs 8192, 16384 or 32768") != 0);
+                CHECK_STR(txt(*h, "JiffyDOS 1541 ROM").c_str(), "");
+                CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "j16.bin", &ho), OPE_OK);
+                h->set("ROM set", 1);
+                CHECK(h->boot());
+                CHECK(h->io.dm.rom() == win(j16));
+                delete (CbmDrive *)h->c.drive; h->c.drive = 0;
+                delete h;
+            }
             // "Set as 1541 ROM" in the browser replaces the stock 1541 ROM; with JiffyDOS chosen the drive keeps its JiffyDOS ROM
             r = rig(true, true);
             CHECK(r->boot());

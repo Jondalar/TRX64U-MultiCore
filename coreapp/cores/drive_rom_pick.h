@@ -7,7 +7,7 @@
 
 #include "ctx.h"
 #include "ops_glue.h"
-#include "sha256.h"
+#include "rom_pick_util.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -29,6 +29,7 @@ struct DriveRomKind {
     const char *what;
     bool only32k;
     bool quiet;                                         // the core tells what is missing itself: no "not supplied" line from the pick
+    bool half;                                          // T258 D6: an 8,192-byte JiffyDOS ROM is the upper half, put over the stock ROM's lower half
 };
 
 static inline bool drive_pick_size_ok(const DriveRomKind &k, uint64_t n)
@@ -36,30 +37,22 @@ static inline bool drive_pick_size_ok(const DriveRomKind &k, uint64_t n)
     return n == DRIVE_ROM_MAX || (n == 16384u && !k.only32k);
 }
 
-static inline void drive_pick_sha_hex(const uint8_t *d, uint32_t n, char *out)
-{
-    sha256_t h;
-    uint8_t dig[32];
-    sha256_init(&h);
-    sha256_update(&h, d, n);
-    sha256_final(&h, dig);
-    sha256_hex(dig, out);
-}
-
 // The drive holds the JiffyDOS ROM when `jiffy` (the setting) is On and the file was supplied, else the stock ROM when that was supplied. Called after
 // each of the two ROMs came in and after each change of the setting; the drive gets bytes only when the choice changed (or a ROM was put again).
 // Returns a line for the person in msg when the setting wants a ROM that is not there.
 static inline void drive_pick_apply(CoreCtx *c, DriveRomPick &s, const DriveRomKind &k, bool jiffy, char *msg, int msglen)
 {
-    int want = (jiffy && s.n_jiffy) ? DR_JIFFY : (s.n_stock ? DR_STOCK : DR_NONE);
-    if (jiffy && !s.n_jiffy && !k.quiet && msg && msglen) {
-        snprintf(msg, msglen, "JiffyDOS %s ROM not supplied", k.what);
+    static uint8_t whole[2 * ROM_HALF];
+    uint32_t jn = (k.half && s.n_jiffy == ROM_HALF) ? rom_half_over(whole, s.stock, s.n_stock, s.jiffy_rom) : s.n_jiffy;
+    int want = (jiffy && jn) ? DR_JIFFY : (s.n_stock ? DR_STOCK : DR_NONE);
+    if (jiffy && !jn && (!k.quiet || s.n_jiffy) && msg && msglen) {
+        snprintf(msg, msglen, "JiffyDOS %s ROM %s", k.what, s.n_jiffy ? "needs the stock ROM too (in the roms folder)" : "not supplied");
     }
     if (want == DR_NONE || want == s.applied) {
         return;
     }
-    const uint8_t *p = want == DR_JIFFY ? s.jiffy_rom : s.stock;
-    uint32_t n = want == DR_JIFFY ? s.n_jiffy : s.n_stock;
+    const uint8_t *p = want == DR_JIFFY ? (jn == s.n_jiffy ? s.jiffy_rom : whole) : s.stock;
+    uint32_t n = want == DR_JIFFY ? jn : s.n_stock;
     OpIn in = in_blob("data", p, n);
     OpResult r;
     if (ops_call(c, k.put_op, &in, 1, &r)) {
@@ -71,7 +64,7 @@ static inline void drive_pick_apply(CoreCtx *c, DriveRomPick &s, const DriveRomK
     }
     s.applied = (uint8_t)want;
     char h[65];
-    drive_pick_sha_hex(p, n, h);
+    rom_sha_hex(p, n, h);
     printf("[%s] drive A ROM: %s %s, %u bytes, sha256 %s\n", k.tag, want == DR_JIFFY ? "JiffyDOS" : "stock", k.what, (unsigned)n, h);
 }
 
