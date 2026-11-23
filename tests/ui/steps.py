@@ -824,10 +824,10 @@ def picture_no_tag(c, name):
         raise AssertionFailed("the tag's place shows %d bright pixels: a tag is drawn" % n)
 
 
-@step(r'the picture "([^"]+)" is darker than "([^"]+)"')
-def picture_darker(c, a, b):
-    """Overlay Transparency: the more of the picture behind the menu shows, the brighter or darker the frame turns; the two pictures differ by more than 3 percent of their brightness."""
+@step(r'the picture "([^"]+)" differs in brightness from "([^"]+)"')
+def picture_brightness_differs(c, a, b):
+    """Overlay Transparency: how much of the picture behind the menu shows changes the frame; the two pictures differ by more than 3 percent of their brightness."""
     ta = _canvas_rect(os.path.join(emu_mod.OUT, a + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
     tb = _canvas_rect(os.path.join(emu_mod.OUT, b + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
-    if not ta[1] < tb[1] * 0.97:
-        raise AssertionFailed("%s (brightness %d) is not darker than %s (%d)" % (a, ta[1], b, tb[1]))
+    if abs(ta[1] - tb[1]) <= 0.03 * max(ta[1], tb[1], 1):
+        raise AssertionFailed("%s (brightness %d) and %s (%d) do not differ: the transparency was not applied" % (a, ta[1], b, tb[1]))

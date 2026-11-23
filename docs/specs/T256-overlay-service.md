@@ -67,21 +67,20 @@ it would write the layer registers, which belong to the base.
 
 ## §2 Scenarios — what proves it is solved
 
-Aligned with D1-D7 (2026-11-23). The state table of S1 and the calls of S3, S7, S9 and S10 wait for the open decisions of §3 (the
-table of states, the calls, their geometry).
+Aligned with D1-D10 (2026-11-23).
 
 | # | Solves | Scenario | Test | Where it runs |
 |---|---|---|---|---|
-| S1 | P1 | The holder of the layer and its key and alpha are as the state table says, for every change of state | unit test `tests/coreapp/test_overlay.cc` with a fake layer | apptests |
+| S1 | P1 | The holder of the layer and its key and alpha are as the state table says (`ovl_plan`, `coreapp/src/overlay.h`), for every change of state: the open menu with the person's Overlay Transparency, the menu over the still (the layer opaque, the menu blended in software), elements opaque with the key colour transparent, the machine running or standing, a C64-type core or a layer core | unit test `tests/coreapp/test_overlay.cc` with a fake layer | apptests |
 | S2 | P1 | The menu opens with the "Overlay Transparency" the person set, also after the layer was off (tag, splash, core picture) | ue2emu picture, then a board photo | ue2emu, board |
-| S3 | P2, D1, D3, D4 | A library's pixel surface (RGB565, the key colour transparent) stays over the running VIC picture of a C64-type core while the menu is closed; the picture moves under it | ue2emu feature, C64-type profile | ue2emu |
+| S3 | P2, D1, D3, D4, D8, D9 | A library's element (an RGB565 surface; place and size from the core's UI TOML; opaque, the key colour transparent) stays over the running VIC picture of a C64-type core while the menu is closed; the picture moves under it | ue2emu feature with a library that shows an element (TRX64-Ultimate's ring library, T-3), C64-type profile | ue2emu |
 | S4 | P3, D5 | A paused C64-type machine shows its last frame behind the tag, not black; the tag says only "PAUSED" | ue2emu feature, then a board photo | ue2emu, board |
 | S5 | P3, D1 | A standing layer core keeps its picture behind an element; a running layer core shows no element | ue2emu feature, layer-core profile | ue2emu |
 | S6 | P3, D4 | Timewarp shows the frame of the scrub position behind the bar, also under the key-coloured pages of the menu | TRX64-Ultimate's trx64u tests (T239.3 D22) | their ue2emu run |
-| S7 | P4 | A library built against an older table runs; an element of an unloaded library is gone | unit test | apptests |
+| S7 | P4, D10 | A library built against the table before the group runs (`LibApi` ends before `overlay`: `LIB_API_COVERS`); an element of a released library, and all elements when the core is left, are gone at once and the layer takes its state | unit test | apptests |
 | S8 | P5 | Render time of the first frame and of one update, measured | board, numbers in §5 | board |
-| S9 | P1, D4 | While the menu is open no element of a library shows (the open menu covers it); the still is the exception; when the menu closes the elements are back | unit test with a fake layer; ue2emu picture | apptests, ue2emu |
-| S10 | P4, D6, D7 | A library hides the menu and shows it again by a call: while hidden the machine runs unless the library set Pause first, the keys go to the machine, the menu key brings the menu back; showing it works like the menu key | unit test on the menu state; ue2emu feature | apptests, ue2emu |
+| S9 | P1, D4, D10 | While the menu is open no element shows (the open menu covers it); the still is the exception and lies under the open menu; when the menu closes the elements are back | unit test with a fake layer; ue2emu picture (`tests/ui/features/overlay.feature`) | apptests, ue2emu |
+| S10 | P4, D6, D7, D10 | A library hides the menu and shows it again by a call (`menu_hide`, `menu_show`): the main loop takes the call as the person's close of the menu and as the menu key; while hidden the machine runs unless the library set Pause first, the keys go to the machine, the menu key brings the menu back | unit test (the request reaches the board in the order of the calls); ue2emu feature with a library that calls them (T-3) | apptests, ue2emu |
 
 ## §3 Decision
 
@@ -152,7 +151,36 @@ All open decisions are taken (D1-D10).
 
 ## §5 Decisions taken while building
 
-- **Tag (D5):** `ui_paused_tag` (`coreapp/src/ui.cc`) shows only "PAUSED".
-- **Alpha (the old defect of section 1):** `trx_lv_port.cc` keeps `alpha_reg`. `trx_lv_set_alpha` stores it even while the layer is
-  off, `layer_up` writes it with the first picture, and `trx_lv_close`, `trx_lv_yield_layer` and `trx_lv_suspend` reset it to 255.
-- **Not yet proven:** S2 has no ue2emu picture and no board photo; the alpha fix is read from the code only.
+T-2 (T239.3 plan step), 2026-11-23, branch `t239.3-t2-overlay`. Each point is read from the code; none is proven on the board.
+
+- **Tag (D5):** `ui_paused_tag` (`coreapp/src/ui.cc`) shows only "PAUSED". It is an element of the base UI TOML (`coreapp/base_ui.toml`, `paused`, 126 x 30, top right, 14 pixels in), painted
+  by the base into its own surface with the service's `text` call and shown with `show` while Pause is set; it is removed when the machine runs. The parked branch `t239.3-menu-still-wip` (the
+  pull hook `menu_still`) is not merged into this branch; its commit 62bbf183 is not built (P6). The branch stays until the coordinator deletes it.
+- **Alpha (the old defect of section 1):** `trx_lv_port.cc` keeps `alpha_reg`. `trx_lv_set_alpha` stores it even while the layer is off, `layer_up` writes it with the first picture, and
+  `trx_lv_close`, `trx_lv_yield_layer` and `trx_lv_suspend` reset it to 255. The service now writes the alpha from its plan: the person's value while the menu is open without a still, 255
+  otherwise (D9, D10).
+- **The service is pure** (`coreapp/src/overlay.h`, `overlay.cc`): the layer and the board are two interfaces (`OverlayLayer`, `OverlayHost`), so `tests/coreapp/test_overlay.cc` drives it with a
+  fake layer. `ovl_plan` is the state table (S1): a machine STANDS when a C64-type core (`Video::own_picture()`) is stopped for any reason, and any other core when Pause is set. Menu open: the
+  base holds the layer; with a still the layer is opaque and the menu is blended over the still in software (`menu_opa`), without one the layer's alpha is the person's and the key is the page's
+  (`live_key`). Menu closed: with a still, the still and the elements (key off); without a still, a C64-type core shows its elements over the running picture through the key; a layer core
+  that runs shows no element (D1), and one that stands without a still keeps its picture and shows none.
+- **Software blend:** the still is an LVGL image on the display's bottom layer; the menu is the screen with `lv_obj_set_style_opa` = the person's alpha (`ov_apply`, `ui.cc`). An opaque child over
+  an opaque panel is blended twice, so the menu is not pixel-equal to what the layer's global alpha made of it. Seen in the menu simulator (`tools/menusim/run.sh vc20 --stopped`), not on the
+  board. A page that is keyed otherwise (Timewarp, `build_timeline`) is transparent where the still lies under it (`ui_still_under`).
+- **The still:** taken when the machine stands (C64-type: the menu's hold or Pause; any other core: Pause only), from the host's still capture (`Video::grab`, 4 bit VIC colours, Colodore
+  palette; `Video::still_start` points `STILL_BASE` at two 64 KB slots of the base's own heap at the core's start and sets `STILL_CTRL`), from the core's newest frame buffer (`ddr_abs_read`
+  of the rows, nearest sampling, 32 bit pixels cut to RGB565), or from a library's surface shown as the still. The base fits the capture to the still element's size (960 x 540 in the base
+  table) by nearest sampling and holds it in 1 MB of heap only while the machine stands. The user's colour palette setting is not applied (the capture uses Colodore). The cost of the capture's
+  first frame is not measured (S8).
+- **Calls (D10):** any task calls; `show`, `update`, `remove` check and answer at once, their effect is the UI task's next frame (`OverlaySvc::frame`, called by the main loop's `overlay_pass`);
+  `text` and the menu calls are queued (16 each) and taken in the order of the calls. A call that takes a surface away (`remove`, a second `show` with another surface, `drop_owner`) waits for the
+  UI task's next frame, 200 ms at most, so the library may free the surface when the call returns; the UI task does not wait. The LVGL image holds the library's pointer, so no copy is made.
+- **Menu calls:** `menu_hide` is the leave intent (`uiapp_local_leave`) and `menu_show` the open intent (`uiapp_local_open`), both taken in `overlay_pass`; a request made while the menu is in the
+  other state does nothing.
+- **Elements, record and merge:** `[[element]]` is section 25 of the UI TOML's record (`tools/descrec.py`, `descrec.cc`, same checks as `ovl_row_check`: name, anchor, size, a place inside 960 x
+  540, one still), merged over the base's table by name (`ovl_merge`, `bundle_merge`) and drawn in the order of the merged table. The simulator draws every element's rectangle (`--elements`).
+- **Limits:** `OVL_ELEMENTS_MAX` (16) and `OVL_TEXT_MAX` (16) are `#ifndef` defaults in `overlay.h`. P3-2 (`t239.3-mvp-p3-2`, not merged here) sizes record and registry maxima per core with the `[sizes]`
+  table of TOML B and `tools/app_build.py` (`SIZES`, `appsizes.h`). They join with one line each in that table (`"elements": ("OVL_ELEMENTS_MAX", "overlay.h", ...)`) and the same limit in
+  `descrec.py`'s `ELEMENTS_MAX`; that line is the first change after P3-2 merges.
+- **Not proven:** S2 has no ue2emu picture and no board photo; S8 (render time, the capture, the memory) is not measured; `run.cc`, `hw`-side and the LVGL calls of `ui.cc` on the RISC-V build are
+  not compiled here (the menu simulator runs `ui.cc` natively: the still, the tag with the base's text and the blend are seen there).

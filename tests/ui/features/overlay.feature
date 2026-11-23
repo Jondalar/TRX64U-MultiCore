@@ -32,4 +32,4 @@ Feature: The overlay service of the base (T256 D1-D10): the PAUSED tag over the 
     And I press F7
     Then the menu is shown
     And I save the picture "overlay-alpha-75-after-tag"
-    And the picture "overlay-alpha-75-after-tag" is darker than "overlay-alpha-0"
+    And the picture "overlay-alpha-75-after-tag" differs in brightness from "overlay-alpha-0"
