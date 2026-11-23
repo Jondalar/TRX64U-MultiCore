@@ -314,6 +314,17 @@ $(error $(DRV_GEN))
 endif
 VPATH += $(DRV_DIR)
 
+# T239.3 V-3b (D30 point 1): the blocks of the base in the TOML A the app is linked with (the shared app and the host app: coreapp/gateware/host.toml; an app of one core: make
+# BASETAB_TOMLA=<its TOML A>). `descrec.py basetab` writes basetab.h, the table descrec.cc refuses a [[window]] against, into $(OUTPUT)/io before any source is compiled, the file only
+# when its content changes. Nothing is read at run time.
+BASETAB_TOMLA ?= $(PATH_SW)/../../coreapp/gateware/host.toml
+BASETAB_DIR    = $(OUTPUT)/io
+BASETAB_GEN   := $(shell python3 $(PATH_SW)/../../tools/descrec.py basetab $(BASETAB_TOMLA) $(BASETAB_DIR) 2>&1 || echo "basetab: the table of the base blocks was not generated")
+ifneq ($(strip $(BASETAB_GEN)),)
+$(error $(BASETAB_GEN))
+endif
+VPATH += $(BASETAB_DIR)
+
 # T239.3 P3-1 (D31): the libraries. The app is linked with the libraries its TOML B names (the shared app: coreapp/libs/shared.toml); `libtab.py table` writes the library table
 # (libtab_table.cc: what the generic application calls at the start, by the entries the TOML B names) and libtab.mk (LIB_SRCS_CC: the sources of those libraries) into
 # $(OUTPUT)/lib, each file only when its content changes. The sources of a library are not in SRCS_CC above: an app whose TOML B leaves a library out has none of its code.

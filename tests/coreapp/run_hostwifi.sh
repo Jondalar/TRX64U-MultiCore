@@ -5,6 +5,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HS="$ROOT/host-app/software"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h and basetab.h, generated from the TOML A of the host
 T="${1:-}"
 if [ -z "$T" ]; then T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; fi
 T="$T/hostwifi"; mkdir -p "$T"

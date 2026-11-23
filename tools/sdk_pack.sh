@@ -15,7 +15,8 @@
 #   base/     the sources that depend on the core (compiled for each core, with its [sizes]) and the sources of the shared libraries, at their repository paths under src/, the headers
 #             they reach under inc/, SIZED.txt, incdirs.txt, linker.x (tools/app_build.py pack-base)
 #   libs/     shared.toml: the TOML B of the shared app, the catalog of the shared libraries (their sources are in base/)
-#   gateware/ shared.toml: the TOML A of the shared app (the reference a core's TOML A starts from)
+#   gateware/ shared.toml: the TOML A of the shared app (the reference a core's TOML A starts from); host.toml: the TOML A of the host bitstream, whose base blocks no [[window]] may cover
+#             (descrec.py reads it beside itself; --toml-a names the TOML A of an app linked for another design)
 #   menusim/  the menu simulator with the tree it builds from (tools/menusim/run.sh inside), and bin/menusim, which runs it
 #   example/  app/sdkpkg/example: a library of two files with a menu TOML, the core hooks and a host test, and the TOML A, TOML B and description of the example core's app
 #   licenses/ the licence texts of the third-party code the base links (FreeRTOS, lwIP, LVGL, FatFs), copied from vendor/gideon/software
@@ -61,6 +62,7 @@ for f in u2a_pack.py descrec.py cor_pack.py rtl_check.py app_build.py libtab.py;
 mkdir -p "$P/maps" && cp "$ROOT"/app/sdkpkg/maps/*.map.toml "$P/maps/"       # the module maps of the shared drivers (TOML A, api.md 6.14.11)
 cp "$ROOT/coreapp/libs/shared.toml" "$P/libs/shared.toml"
 cp "$ROOT/coreapp/gateware/shared.toml" "$P/gateware/shared.toml"
+cp "$ROOT/coreapp/gateware/host.toml" "$P/gateware/host.toml"
 cp "$ROOT/coreapp/version.toml" "$P/base-version.toml"
 # the base: the archives and the sources that depend on the core (what the core app build listed), the shared libraries' sources, the headers they reach
 python3 -I "$ROOT/tools/app_build.py" pack-base "$bdir" "$P" "$ROOT/coreapp/libs/shared.toml" | tee "$t/base.txt"
@@ -78,7 +80,7 @@ mkdir -p "$M"
         -not -name 'test_*' -not -path '*/golden/*' -not -path '*/render/*' -not -path '*/output/*' -not -path '*/.ci/*' -not -name '.DS_Store' -not -name '*.o' -not -name '*.d'
     done
     echo host-app/target/u64ii/riscv/coreapp/Makefile
-    for f in tools/gen_base_ui.py tools/descrec.py tools/libtab.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh; do [ -f "$f" ] && echo "$f"; done
+    for f in tools/gen_base_ui.py tools/descrec.py tools/libtab.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/hostgen.sh; do [ -f "$f" ] && echo "$f"; done
     find vendor/gideon/software/lvgl -type f -not -path '*/demos/*' -not -path '*/examples/*' -not -path '*/docs/*' -not -path '*/tests/*' -not -path '*/scripts/*' -not -path '*/env_support/*' -not -name '.DS_Store'
   ) | LC_ALL=C sort -u > "$t/menusim.list"
 }

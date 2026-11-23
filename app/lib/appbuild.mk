@@ -3,6 +3,7 @@
 #   build.mk       SDK, SIZED_SRCS (the sources of the package's base/ that depend on the core), SRC_DIRS (the core's own source directories), LIB_SRCS (the sources of the
 #                  libraries its TOML B names), OWN_SRCS ([app] sources), BASE_SOURCES ([app] base_sources), CORE_DESC ([app] desc, empty for a core described by its record)
 #   appsizes.h     the maxima of its [sizes] table                       drv/drvtab.h, drv/drvtab.c   the driver table of its TOML A
+#   drv/basetab.h  the base blocks of its TOML A (descrec.cc refuses a [[window]] that covers one)
 #   lib/libtab_table.cc  the library table of its TOML B                 io.ld        the I/O addresses of its TOML A as linker symbols
 # What the package holds, beside this file (mk/):
 #   base/src/<repository path>/  the sources that depend on the core, and the sources of the shared libraries     base/inc/<repository directory>/  the headers of the build's include path

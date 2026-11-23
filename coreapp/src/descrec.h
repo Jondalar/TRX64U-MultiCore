@@ -56,7 +56,7 @@
 //                          KF_DIRECT 128; none for a decline or a swallow; KF_ARG and KF_KEYARG not together), when (string, none: a state name, "!" in front: while it has none).
 //                          The rows are CoreKey (menuintent.h), stage KS_CORE, tried in the record's order where an application's screens end and the menu's grammar begins.
 //        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
-//                          the block ends below 4 GiB).  No table of the base's registers refuses a window: the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A, not against the base blocks of the host's TOML A.
+//                          the block ends below 4 GiB).  A window that covers a byte of a block with owner base in the TOML A the app is linked with is refused (basetab.h, generated at build time by tools/descrec.py basetab; D30 point 1); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A.
 //                          descrec_window finds one by name (io.window).
 //        20 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
 //                          tab (an id, a-z 0-9 _), heading (1 to 31 characters), label (string, none; required for a page), flags (b0 page). They are MenuGroupRoute (menutree.h); a route of the group of a base
@@ -331,7 +331,7 @@ struct DescRecord {
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
 // The window `name` of the record (io.window of the base calls it with the core's name of the window): null when the record declares none of that name. The record was checked at
-// load: names and sizes only (a window is not checked against any register of the base). A version 7 record (TOML A) hands out its blocks by their names too; the blocks of one TOML A do not overlap, and a core's block is not checked against the base blocks of the host's TOML A.
+// load: names and sizes, and against the base blocks of the app's TOML A (a window that covers one is refused). A version 7 record (TOML A) hands out its blocks by their names too; the blocks of one TOML A do not overlap, and a core's block is checked only against the blocks of its own TOML A.
 const DescWindow *descrec_window(const DescRecord &rec, const char *name);
 // TOML A: the block `name` of a version 7 record, its property `name`, and the field `name` of a property; null when there is none (also for a record without TOML A). Their pointers stay
 // inside the record's DescMap.

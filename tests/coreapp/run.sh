@@ -14,6 +14,7 @@ HA="$ROOT/host-app/software/hostapp"
 TST="$ROOT/tests/coreapp"
 T="$(mktemp -d)"
 source "$ROOT/tests/parallel.sh"
+source "$ROOT/tests/hostgen.sh"     # T239.3 V-3b: the I/O bases and the table of the base blocks from the TOML A of the host, on CPATH (no default in iomap.h, u2p.h, descrec.cc)
 source "$ROOT/tests/ctlcache.sh"   # T100 D13, D14: every test program and control is a unit, served from the cache when what it reads is unchanged
 CC_SUITE=coreapp
 # T174 D3: groups. CA_GROUP=all (default) runs every unit; CA_GROUP=<core>|cross|shared runs only the units of that group (ci/apptests.sh suites

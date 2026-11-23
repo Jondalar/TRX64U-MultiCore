@@ -227,6 +227,17 @@ SRCS_BIN =
 SRCS_IEC =
 SRCS_NANO = nano_minimal.nan
 
+# T239.3 V-3b (D30 point 1): the blocks of the base in the TOML A the app is linked with (the shared app and the host app: coreapp/gateware/host.toml; an app of one core: make
+# BASETAB_TOMLA=<its TOML A>). `descrec.py basetab` writes basetab.h, the table descrec.cc refuses a [[window]] against, into $(OUTPUT)/io before any source is compiled, the file only
+# when its content changes. Nothing is read at run time.
+BASETAB_TOMLA ?= $(PATH_SW)/../../coreapp/gateware/host.toml
+BASETAB_DIR    = $(OUTPUT)/io
+BASETAB_GEN   := $(shell python3 $(PATH_SW)/../../tools/descrec.py basetab $(BASETAB_TOMLA) $(BASETAB_DIR) 2>&1 || echo "basetab: the table of the base blocks was not generated")
+ifneq ($(strip $(BASETAB_GEN)),)
+$(error $(BASETAB_GEN))
+endif
+VPATH += $(BASETAB_DIR)
+
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -march=$(MARCH) -mabi=$(MABI) $(EFFORT) -ffunction-sections -fdata-sections -nostartfiles -mno-div
 OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1

@@ -6,7 +6,7 @@
   app_build.py table                                       the [sizes] keys: macro, header, default, range (the defaults are read from the headers)
   app_build.py record TOML_B RECORD.bin                    the core's menu record against the [sizes] table of its TOML B (the numbers the compiled app refuses at start)
   app_build.py sized INCDIRS SOURCE...                     the sources among SOURCE that depend on the core: their include closure holds a header whose layout the TOML A
-                                                           or the TOML B decides (ops.h, descrec.h, contrib.h, corereport.h, drvtab.h). INCDIRS: a file of
+                                                           or the TOML B decides (ops.h, descrec.h, contrib.h, corereport.h, drvtab.h, basetab.h). INCDIRS: a file of
                                                            directories, one per line (the include path of the build). tools/sdk_pack.sh ships these as sources, the rest as an archive
   app_build.py split INCDIRS OUT_DIR SOURCE...             the same, written to OUT_DIR/sized.real and OUT_DIR/unsized.real (real paths); the Makefile's target sdkbase calls it. The headers of a
                                                            source are the ones its compile listed (the .d file in the directory above OUT_DIR, which the conditions of the preprocessor decided);
@@ -14,8 +14,8 @@
   app_build.py pack-base BASE_DIR PKG_DIR SHARED_TOML_B   what tools/sdk_pack.sh takes from the build's `make sdkbase` directory into the package (base/, lib/)
   app_build.py flags MAKEFILE APPFLAGS                     every -D of the core app Makefile's OPTIONS is in app/lib/appflags.mk (the package compiles with that file)
   app_build.py build --sdk DIR --toml-a A.toml [--base-toml-a BASE.toml] --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--maps DIR_OR_FILE ...] [--dry-run]
-                                                           generates appsizes.h, the driver table (drvtab.h/.c), the library table (libtab_table.cc), the I/O linker fragment and
-                                                           checks the record; then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
+                                                           generates appsizes.h, the driver table (drvtab.h/.c), the table of the base blocks (basetab.h), the library table (libtab_table.cc), the I/O linker fragment and
+                                                           checks the record (a window may not cover a block of the base of the TOML A); then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
                                                            that depend on the core, the libraries of the TOML B. --maps adds the register maps of the core's own blocks to the package's maps/.
                                                            [app] desc names the descriptor symbol of a core compiled into the app; a core described by its record (D17) has none
                                                            A TOML B whose [app] has `base_blocks = [names]` links the core's TOML A with those blocks of the base's TOML A
@@ -66,7 +66,7 @@ SIZES = {
     "rec_states": ("DR_STATES", "descrec.h", COUNT, "states of TOML A, all together"),
 }
 # the headers whose contents decide an object's layout or code: an object that includes one of them, directly or not, is compiled for the core
-SIZING_HEADERS = ("ops.h", "descrec.h", "contrib.h", "corereport.h", "drvtab.h")        # appsizes.h is -include of every object, so it says nothing
+SIZING_HEADERS = ("ops.h", "descrec.h", "contrib.h", "corereport.h", "drvtab.h", "basetab.h")        # appsizes.h is -include of every object, so it says nothing
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]+(["<])([^">]+)[">]', re.M)
 
 
@@ -301,8 +301,6 @@ def cmd_build(a):
     mapargs = [x for m in maps for x in ("--maps", m)]
     os.makedirs(out, exist_ok=True)
     named = cmd_sizes(a["toml-b"], out, incs)
-    if a.get("record"):
-        cmd_record(a["toml-b"], a["record"], incs)
     py = [sys.executable, "-I"]
     app = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {})
     base_blocks = app.get("base_blocks", [])
@@ -311,8 +309,16 @@ def cmd_build(a):
     if base_blocks:
         merge_a(a, base_blocks, maps, out)
     else:
+        run(py + [os.path.join(tools, "descrec.py"), "basetab", a["toml-a"], os.path.join(out, "drv")])
         run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv")] + mapargs)
         run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld")] + mapargs)
+    if not base_blocks:
+        try:
+            descrec.use_base_toml_a(a["toml-a"])                   # a window of the record may not cover a block of the base of this TOML A (D30 point 1)
+        except descrec.DescError as e:
+            raise BuildError(str(e))
+    if a.get("record"):
+        cmd_record(a["toml-b"], a["record"], incs)
     run(py + [os.path.join(tools, "libtab.py"), "table", a["toml-b"], os.path.join(out, "lib")])
     libsrcs = run(py + [os.path.join(tools, "libtab.py"), "sources", a["toml-b"]]).split()
     srcdirs = [os.path.abspath(d) for d in a.get("src", [])]
@@ -360,6 +366,9 @@ def merge_a(a, base_blocks, maps, out):
     except (descrec.DescError, OSError) as e:
         raise BuildError("%s: the TOML A of the app: %s" % (a["toml-b"], e))
     os.makedirs(os.path.join(out, "drv"), exist_ok=True)
+    rows = [(b["name"], b["address"], b["size"]) for b in doc["block"] if b.get("owner") == "base"]
+    descrec._BASE_BLOCKS["path"], descrec._BASE_BLOCKS["rows"] = what, rows            # the base blocks of this one document decide what a window may cover
+    write_if_changed(os.path.join(out, "drv", "basetab.h"), descrec.basetab_text(rows, what))
     write_if_changed(os.path.join(out, "drv", "drvtab.h"), head)
     write_if_changed(os.path.join(out, "drv", "drvtab.c"), src)
     write_if_changed(os.path.join(out, "io.ld"), frag)
