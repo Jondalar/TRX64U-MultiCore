@@ -61,7 +61,7 @@ SIZES = {
     "rec_props": ("DR_PROPS", "descrec.h", COUNT, "properties of TOML A, all together"),
     "rec_fields": ("DR_FIELDS", "descrec.h", COUNT, "fields of TOML A, all together"),
     "rec_states": ("DR_STATES", "descrec.h", COUNT, "states of TOML A, all together"),
-    "elements": ("OVL_ELEMENTS_MAX", "overlay.h", (1, 64), "elements of the merged UI TOML, the base's own and the core's (T256 D8)"),
+    "elements": ("OVL_ELEMENTS_MAX", "overlay.h", (2, 64), "elements of the merged UI TOML, the base's own (2: still, paused, coreapp/base_ui.toml) and the core's (T256 D8)"),
     "overlay_text": ("OVL_TEXT_MAX", "overlay.h", (1, 256), "text calls of the overlay service that wait for the next frame (T256 D10)"),
 }
 # the headers whose contents decide an object's layout or code: an object that includes one of them, directly or not, is compiled for the core
