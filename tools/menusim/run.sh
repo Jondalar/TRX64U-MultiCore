@@ -121,7 +121,7 @@ if cmp -s "$BD/menusim/conf/own_cores.h.new" "$BD/menusim/conf/own_cores.h"; the
 gen menusim "$TOOL/tools/menusim/menusim.cc" \
   "$CORE_DEFS -O0 -g -DGOLDEN_DIR=\\\"$ROOT/tests/coreapp/golden\\\" -I$BD/menusim/conf -iquote $L $CORE_INCS -idirafter $TOOL/tests/coreapp -MMD -MP" \
   "$SRCS" "$OBJS"
-if [ ${#args[@]} -gt 0 ] && [ -f "$ROOT/cores/${args[0]}/app/desc.toml" ] && echo " $OWN_IDS " | grep -q " ${args[0]} " && ! printf '%s\n' "${args[@]}" | grep -qx -e '--toml'; then
+if [ ${#args[@]} -gt 0 ] && [ -f "$ROOT/cores/${args[0]}/app/desc.toml" ] && printf '%s\n' $OWN_IDS | grep -qx "${args[0]}" && ! printf '%s\n' "${args[@]}" | grep -qx -e '--toml'; then
   args+=(--toml "$ROOT/cores/${args[0]}/app/desc.toml")
 fi
 exec "$BD/menusim/menusim" --root "$ROOT" "${args[@]}"

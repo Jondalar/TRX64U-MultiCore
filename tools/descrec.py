@@ -3282,7 +3282,7 @@ def ldfrag(text, maps=None, what="TOML A"):
 
 def merge_toml_a(core, base, names, what="TOML A"):
     """The TOML A an app is linked against when the core's own TOML A (`core`, a parsed document) names the blocks of its own gateware only (T239.3 V-4, D30): the base's blocks
-    that the app's TOML B asks for by name (`names`, [app] base_blocks) come from `base` (the SDK's gateware/shared.toml), the core's own blocks and its identity are the core's.
+    that the app's TOML B asks for by name (`names`, [app] base_blocks) come from `base` (the base's TOML A: [app] base_toml_a, gateware/shared.toml by default), the core's own blocks and its identity are the core's.
     Refused: a name `base` does not have, a name the core's file has too, two different [io] tables. Nothing else of `base` is in the result, so the driver table, the linker
     fragment and the link hold the blocks the two files name and no others. The overlap rule of a record (compile_desc) applies to the result."""
     for doc, n in ((core, "the core's TOML A"), (base, "the base's TOML A")):

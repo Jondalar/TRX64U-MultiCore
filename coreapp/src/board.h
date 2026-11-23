@@ -54,7 +54,7 @@ class BoardProbe {
 public:
     virtual ~BoardProbe() { }
     virtual uint32_t blocks() { return BB_ALL; }   // BB_* of the blocks the app is linked with; a fake without an answer has them all
-    virtual uint8_t icap_id() = 0;           // the ID register of the block icap of the driver table (hw.cc); 0 when the app is linked against a TOML A without that block: standalone by its link
+    virtual uint8_t icap_id() = 0;           // the ID register of the ICAP loader (block icap, or icap_id and its siblings; hw.cc), read only when BB_ICAP is set
     virtual uint32_t fpga_caps() = 0;        // the ITU capability word (read when BB_DRIVE_A or BB_CMD_IF is there: it has no block in TOML A, the drive and the command interface bits are what is asked of it)
     virtual uint8_t trx_caps() = 0;          // TRX_CAPS (ident.caps; read when BB_CART or BB_RING is there)
     virtual uint8_t iec_version() = 0;       // iec_status.version (IEC_BASE + 0; read when BB_IEC is there)

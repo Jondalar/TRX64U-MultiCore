@@ -91,7 +91,7 @@ size = 0x10
 # c64_debug, the block of the C64 machine's debug register above.
 [[block]]
 name = "iec_status"
-module = "iec"
+module = "ultimate_sys"
 owner = "base"
 address = 0x10028000
 size = 0x3
