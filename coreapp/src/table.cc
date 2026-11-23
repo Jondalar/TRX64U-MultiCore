@@ -6,6 +6,9 @@
 // T228 R25 (Alex 2026-11-18): an image of one core. The build links one for each core that has an image of its own (the core app Makefile's
 // target `own`, ci/trxapps.sh); --gc-sections then drops every other core's code and data, and that image may have its own heap.
 const CoreDesc *const core_table[] = { &CORE_ONLY, 0 };
+#elif defined(CORE_NONE)
+// T239.3 S17: an image of a core that is described by its bundle's record (D17): no descriptor is compiled in, start_identify makes it from the record
+const CoreDesc *const core_table[] = { 0 };
 #else
 const CoreDesc *const core_table[] = {
     &atari800_desc,

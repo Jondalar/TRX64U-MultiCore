@@ -46,6 +46,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
     # a [[core_setting]] with file = true, when = "live" | "reset" and apply (kind 3): a file the person selects in a file selector, the text is its path, none by default; apply takes one
     # text argument "path" (Setting::kind 3; no values, default, base, text, secret or reg_bind). reg_bind takes up to 64 bytes (one per value)
+    # a [[core_setting]] with provider = "<name>" (T239.3 D32): only a row of the base UI TOML (coreapp/base_ui.toml; compile_desc app_base) may; its values are what it shows until the provider the
+    # application serves under that name has filled them (one value is enough); the name is the last value string before the lock state, flag 16 of the time code. The C++ reader (descrec.cc) refuses it
     # a [[core_setting]] with romset_choice = true in place of `apply` and reg_bind: the item that chooses the member of the [romset] (its choice_key is this key); no values,
     # the record holds the set's labels (auto_label, then "-" for each of max places) and the reader hands the setting the labels of the set (desc.h Setting::bind)
     # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
@@ -235,7 +237,7 @@ NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=8192, ctab=16,
               task=64, media=6, ftype=32, fact=200, cset=330)
-ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
+ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=28,
              task=36, media=44, ftype=24, fact=36, cset=36)
 ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
@@ -639,8 +641,10 @@ def _expand_apps(doc):
             one(e, "filetype action", True)
 
 
-def compile_desc(doc, merged=()):
-    """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
+def compile_desc(doc, merged=(), app_base=False):
+    """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus).
+    `app_base`: the document is the SDK's base UI TOML (coreapp/base_ui.toml, T239.3 D32), whose [[core_setting]] rows are the application's own: they may take the keys and operations
+    of Picture, Scale, Smoothing and Frame follow and name a `provider`; no core's record may."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
                 "pad", "restart", "key", "window", "group_route", "place"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
@@ -818,7 +822,7 @@ def compile_desc(doc, merged=()):
         t["rename"].append((st.add(_need(r, "id", str, "rename")), st.add(_need(r, "label", str, "rename"))))
 
     for tb in _opt(doc, "tab", list, "description", []):
-        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n"}, "tab")
+        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n", "layout", "ui"}, "tab")
         area = _need(tb, "area", str, "tab")
         if not re.fullmatch(r"F[1-8]", area):
             raise DescError("tab area %r: F1 .. F8" % area)
@@ -833,7 +837,17 @@ def compile_desc(doc, merged=()):
             raise DescError("tab %s: n is 0 .. 99" % tid)
         groups = _tab_groups(tb, tid, widget)
         _tab_pages(tb, tid, widget, groups)
-        t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n))
+        layout = _opt(tb, "layout", str, "tab " + tid, None)         # T239.3 L-3: how the tab is drawn, as the route's own tabs say it (LibRecord::tab_layouts)
+        if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages", "pages_head"}:
+            raise DescError("tab %s: ui without a layout (only `sections`, `pages` and `pages_head` stand alone)" % tid)
+        if layout is not None and layout not in LAYOUTS:
+            raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
+        lay = None
+        if layout is not None or "ui" in tb:
+            params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
+            lay = (layout or "") + (";" + params if params else "")
+        t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n,
+                          st.add(lay) if lay else 0))
 
     # ---- the core's own menu (T104.2 D10)
     def text_key(d, k, what, default=None):
@@ -978,7 +992,7 @@ def compile_desc(doc, merged=()):
     setbinds = []
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file", "romset_choice"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file", "romset_choice", "provider"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
@@ -993,7 +1007,11 @@ def compile_desc(doc, merged=()):
                 raise DescError("%s: romset_choice needs a [romset] whose choice_key is this key" % what)
         elif ("reg_bind" in cs) == ("apply" in cs):
             raise DescError("%s: exactly one of apply (an operation) and reg_bind (the register bits it is, T239.3 D17)" % what)
-        _app_owned(what, key, cs.get("apply") or "")
+        if not app_base:
+            _app_owned(what, key, cs.get("apply") or "")
+        provider = _opt(cs, "provider", str, what, None)
+        if provider is not None and (not app_base or not re.fullmatch(r"[a-z0-9_.]{1,40}", provider) or choice or any(k in cs for k in ("text", "secret", "file", "reg_bind"))):
+            raise DescError("%s: provider is for a row of the application's own base UI TOML, a choice among values (the values are what the row shows until the provider fills it); no text, secret, file or reg_bind" % what)
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
@@ -1044,8 +1062,8 @@ def compile_desc(doc, merged=()):
                     base = rg[0]
             else:
                 vals = _need(cs, "values", list, what)
-            if len(vals) < 2 or not all(isinstance(v, str) and v for v in vals):
-                raise DescError("%s: values are at least two non-empty labels" % what)
+            if len(vals) < (1 if provider else 2) or not all(isinstance(v, str) and v for v in vals):
+                raise DescError("%s: values are at least two non-empty labels (one with a provider)" % what)
             default = cs.get("default", 0)
             if isinstance(default, str):
                 if default not in vals:
@@ -1060,6 +1078,9 @@ def compile_desc(doc, merged=()):
         show = _opt(cs, "show_state", str, what, None)         # the row is listed only while this condition holds (contrib.h cond_holds); packed above the time code
         if show:
             wcode |= (st.add(show) + 1) << 8
+        if provider:
+            vals = list(vals) + [provider]                      # T239.3 D32: the base row's provider, the value string before the lock state; flag 16 of the time code
+            wcode |= 16
         lock = _opt(cs, "lock_state", str, what, None)         # T228 R21: while this state has a text the row shows it in place of the value and refuses edits (FW set_override); the record keeps it as the last value string, flag 4 of the time code
         if lock:
             vals = list(vals) + [lock]
@@ -1748,7 +1769,9 @@ def _sec_windows(rows, st):
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
 #                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap, so a block of the core covers no byte of a block of the base). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
-#                                   or "rw"; two properties share bytes only when no direction is in both)
+#                                   or "rw"; two properties share bytes only when no direction is in both), count (optional, 1 .. PROP_COUNT_MAX, default 1: a run of `count` registers
+#                                   of this width at consecutive offsets, element i at offset + i * width / 8; the run lies inside the block, shares bytes as one register
+#                                   does, and its fields and states hold for every element)
 #       [[block.property.field]]    name (once per property), shift, bits (the field lies inside the width; fields do not overlap)
 #         [[block.property.field.state]]   name (once per owner), value (fits the field's bits, once per owner)
 #       [[block.property.state]]    the states of the whole register: name, value (fits the width)
@@ -1758,8 +1781,8 @@ def _sec_windows(rows, st):
 # (a directory holds the maps of all modules); a name that no file has is refused.
 # Section 20 io        2 words: iobase, u2p_io_base
 # Section 21 identity  4 words: id (string), build flag (0 or 1), build, block (string)
-# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (8 words: name offset
-#                      width dir first_field nfield first_state nstate; dir 1 r, 2 w, 3 rw), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
+# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (9 words: name offset
+#                      width dir first_field nfield first_state nstate count; dir 1 r, 2 w, 3 rw; count 1 for a single register), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
 #                      name value); first_* count in their own table, an owner's entries are a run
 TOMLA_KEYS = ("io", "identity", "block")
 IO_KEYS = ("iobase", "u2p_io_base")
@@ -1767,6 +1790,7 @@ BLOCKS_MAX, PROPS_MAX, FIELDS_MAX, STATES_MAX = 64, 512, 512, 1024
 PROPS_PER_BLOCK, FIELDS_PER_PROP, STATES_PER_OWNER = 64, 32, 64
 BLOCK_NAME_RE = r"[a-z0-9_]{1,31}"
 PROP_WIDTHS = (8, 16, 32)
+PROP_COUNT_MAX = 0x10000
 PROP_DIRS = {"r": 1, "w": 2, "rw": 3}
 IDENT_PROPS = ("id", "build")
 
@@ -1888,7 +1912,7 @@ def _sec_blocks(blocks, st):
             pwhat = "%s, property %d" % (what, k + 1)
             if not isinstance(p, dict):
                 raise DescError("%s: a property is a table" % pwhat)
-            _only(p, {"name", "offset", "width", "dir", "field", "state"}, pwhat)
+            _only(p, {"name", "offset", "width", "dir", "count", "field", "state"}, pwhat)
             pname = _need(p, "name", str, pwhat)
             if not re.fullmatch(BLOCK_NAME_RE, pname):
                 raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % pwhat)
@@ -1901,17 +1925,21 @@ def _sec_blocks(blocks, st):
             dr = _need(p, "dir", str, pwhat)
             if dr not in PROP_DIRS:
                 raise DescError("%s: dir is \"r\", \"w\" or \"rw\"" % pwhat)
-            if off + width // 8 > size:
-                raise DescError("%s: the register lies outside the block (%d bytes)" % (pwhat, size))
+            count = _opt(p, "count", int, pwhat, 1)
+            if isinstance(count, bool) or not 1 <= count <= PROP_COUNT_MAX:
+                raise DescError("%s: count is 1 .. %d" % (pwhat, PROP_COUNT_MAX))
+            span = count * (width // 8)
+            if off + span > size:
+                raise DescError("%s: the register%s lies outside the block (%d bytes)" % (pwhat, " run" if count > 1 else "", size))
             for x in seen:
-                if off < x[1] + x[2] and x[1] < off + width // 8 and PROP_DIRS[dr] & x[3]:
+                if off < x[1] + x[2] and x[1] < off + span and PROP_DIRS[dr] & x[3]:
                     raise DescError("%s: shares a byte and a direction with the property %s" % (pwhat, x[0]))
-            seen.append((pname, off, width // 8, PROP_DIRS[dr]))
+            seen.append((pname, off, span, PROP_DIRS[dr]))
             flds = _opt(p, "field", list, pwhat, [])
             if len(flds) > FIELDS_PER_PROP:
                 raise DescError("%s: %d fields, at most %d" % (pwhat, len(flds), FIELDS_PER_PROP))
             pst = _states_check(p, width, pwhat)
-            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst)))
+            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst), count))
             sw.extend((st.add(x["name"]), x["value"]) for x in pst)
             used, fnames = 0, set()
             for m_, f in enumerate(flds):
@@ -2381,11 +2409,11 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
             out["identity"] = d
         elif sid == SEC_BLOCKS:
             nb, np_, nf, ns = words(4)
-            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 8 * np_ + 5 * nf + 2 * ns):
+            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 9 * np_ + 5 * nf + 2 * ns):
                 raise DescError("%s: the counts or the length do not fit" % what)
             bo = 16
             po = bo + 28 * nb
-            fo = po + 32 * np_
+            fo = po + 36 * np_
             so_ = fo + 20 * nf
             state_at = [0]
 
@@ -2402,11 +2430,13 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                 prop_at[0] += npr
                 props = []
                 for k in range(npr):
-                    pn, off, width, dr, ff, nfl, sf, nst = words(8, po + 32 * (fp + k))
+                    pn, off, width, dr, ff, nfl, sf, nst, cnt = words(9, po + 36 * (fp + k))
                     if ff != fld_at[0] or ff + nfl > nf or dr not in (1, 2, 3):
                         raise DescError("%s: block %d, property %d: its fields are not the next run, or the direction is not known" % (what, i + 1, k + 1))
                     fld_at[0] += nfl
                     pd = {"name": S(pn, True), "offset": off, "width": width, "dir": {1: "r", 2: "w", 3: "rw"}[dr]}
+                    if cnt != 1:
+                        pd["count"] = cnt
                     pst = states(sf, nst)
                     if pst:
                         pd["state"] = pst
@@ -2549,10 +2579,10 @@ def parse_desc(blob):
     out["merged"] = s(merged).split(",") if merged != NONE else []
     out["poll"] = {"op": s(pop), "period_ms": pms} if pop != NONE else None
     out["ctab"] = []
-    for area, tid, name, w, groups, nn in tabs["ctab"]:
-        if not re.fullmatch(r"F[1-8]", s(area) or "") or not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or not s(name) or w >= len(WIDGETS) or nn > 99:
+    for area, tid, name, w, groups, nn, lay in tabs["ctab"]:
+        if not re.fullmatch(r"F[1-8]", s(area) or "") or not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or not s(name) or w >= len(WIDGETS) or nn > 99 or (lay and not s(lay)):
             raise DescError("description record: a bad contributed tab")
-        out["ctab"].append({"area": s(area), "id": s(tid), "name": s(name), "widget": WIDGETS[w], "groups": s(groups), "n": nn})
+        out["ctab"].append({"area": s(area), "id": s(tid), "name": s(name), "widget": WIDGETS[w], "groups": s(groups), "n": nn, "layout": s(lay) if lay else None})
     out["bind"] = []
     for a, k, i, sv in tabs["bind"]:
         if k > 4 or not s(a) or (k == 2 and s(sv) is None):
@@ -2686,11 +2716,18 @@ def parse_desc(blob):
                 raise DescError("description record: a bad core setting")
             lock = out["value"][fv + nv - 1]
             nv -= 1
-            when &= 3
-        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
+            when &= ~4
+        provider = None
+        if when & 16:                                                 # T239.3 D32, only in the base UI TOML: the value string before the lock state names the provider of the row's values
+            if nv < 2 or fv + nv > len(out["value"]):
+                raise DescError("description record: a bad core setting")
+            provider = out["value"][fv + nv - 1]
+            nv -= 1
+            when &= ~16
+        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file or provider else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "file": file})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "provider": provider, "file": file})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     out["sections"] = False
@@ -2790,6 +2827,12 @@ def decoded_to_doc(rec):
             d = {"area": c["area"], "id": c["id"], "name": c["name"], "widget": c["widget"], "n": c["n"]}
             if c["groups"]:
                 d["groups"] = c["groups"].split(",")
+            if c.get("layout"):
+                name, _, params = c["layout"].partition(";")
+                if name:
+                    d["layout"] = name
+                if params:
+                    d["ui"] = _ui_table(params, UI_TAB_KEYS)
             doc["tab"].append(d)
     if rec["poll"]:
         doc["poll"] = dict(rec["poll"])
@@ -3220,9 +3263,9 @@ def compile_files(files, ops_text=None, maps=None):
     return blob
 
 
-def compile_checked(text, ops_text=None, *, what="description", maps=None, path=None):
-    """compile_text, and - given the application's export - check every name and binding of the result against it."""
-    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path), maps))
+def compile_checked(text, ops_text=None, *, what="description", maps=None, path=None, app_base=False):
+    """compile_text, and - given the application's export - check every name and binding of the result against it. `app_base`: the SDK's base UI TOML (compile_desc)."""
+    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path), maps), app_base=app_base)
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
@@ -3238,6 +3281,7 @@ def drivers_files(doc, source="TOML A"):
     """The driver table of a TOML A document (T239.3 D31, D34), generated at build time and linked: (header text, source text).
     The document is checked by compile_desc first, so the generator and both readers hold the same rules. The header has, per block, its address, size and owner,
     per property its address and an access macro for each direction the map allows (`_RD()` for r and rw, `_WR(v)` for w and rw, of the property's width),
+    a property with a count (a run of registers) has `_COUNT` and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`), and `_ADDR` is element 0,
     per field its shift and mask, and every state's value; a driver names a register only by these macros, so a block the bitstream lacks is a compile error
     and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The source holds the table of the blocks (`drv_blocks`)."""
     import copy
@@ -3269,10 +3313,18 @@ def drivers_files(doc, source="TOML A"):
             pn = "%s_%s" % (bn, p["name"])
             ct = DRV_CTYPE[p["width"]]
             define(pn + "_ADDR", "(%s_ADDR + 0x%Xu)" % (bn, p["offset"]))
-            if "r" in p["dir"]:
-                define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))
-            if "w" in p["dir"]:
-                define(pn + "_WR(v)", "(*DRV_PTR(%s, %s_ADDR) = (%s)(v))" % (ct, pn, ct))
+            if p.get("count", 1) > 1:
+                # a run of registers: the element count, and the access macros take the element's index
+                define(pn + "_COUNT", "%du" % p["count"])
+                if "r" in p["dir"]:
+                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du))" % (ct, pn, p["width"] // 8))
+                if "w" in p["dir"]:
+                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du) = (%s)(v))" % (ct, pn, p["width"] // 8, ct))
+            else:
+                if "r" in p["dir"]:
+                    define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))
+                if "w" in p["dir"]:
+                    define(pn + "_WR(v)", "(*DRV_PTR(%s, %s_ADDR) = (%s)(v))" % (ct, pn, ct))
             for x in p.get("state", []):
                 define("%s_%s" % (pn, x["name"]), "%du" % x["value"] if x["value"] >= 0 else "(%d)" % x["value"])
             for f in p.get("field", []):

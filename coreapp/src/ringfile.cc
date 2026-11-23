@@ -34,7 +34,7 @@
 
 #define JSMN_STATIC
 #include "jsmn.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 
 #define LAYOUT         1
 #define PC_ADJ         0     // chip 1 w1's PC at the snap edge minus the next opcode's address

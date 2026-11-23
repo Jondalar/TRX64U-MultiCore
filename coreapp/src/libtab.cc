@@ -48,3 +48,12 @@ bool libtab_freeze_request(void)
     }
     return want;
 }
+
+void libtab_core(CoreCtx *c, const CoreDesc *d, const DescRecord *rec)
+{
+    for (unsigned i = 0; i < g_libtab_n; i++) {
+        if (g_libtab[i].core) {
+            g_libtab[i].core(c, d, rec);
+        }
+    }
+}

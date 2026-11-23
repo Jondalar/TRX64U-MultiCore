@@ -31,7 +31,7 @@ typedef struct SvcBoard {
     // bitstream's; a library keeps its own constants for the bits it tests (D8). Board identity, like is_commodore. Second users: the UCI library, the base. Task: any.
     uint32_t (*fpga_caps)(void);
     // True on the board sold under Commodore's name (isCommodoreBoard, product.cc), false on the other badge of the same board. Board identity that no library can derive; a
-    // single library user today (a first-run default of the menu style), kept because the base uses it too (a64_assembly.h). Task: any.
+    // single library user today (a first-run default of the menu style), kept because the base uses it too (run.cc, board_set_port). Task: any.
     bool (*is_commodore)(void);
     // One request to the ESP32 control module (power mode, wake on Wi-Fi, power off, power cycle, GET commands) over the board's one UART with one reply table;
     // a library cannot own it. `cmd` is the command, `args` its `nargs` bytes (at most 100). Result: with timeout_ms > 0 the number of bytes of the whole answer

@@ -12,7 +12,7 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HID = os.path.join(ROOT, "host-app/software/io/usb/usb_hid.cc")
 CFGH = os.path.join(ROOT, "host-app/software/io/usb/usb_hid_config.h")
-CFG = os.environ.get("TRX_SCALE_CFG") or os.path.join(ROOT, "coreapp/src/mousesink.cc")
+CFG = os.environ.get("TRX_SCALE_CFG") or os.path.join(ROOT, "coreapp/src/baseset.cc")
 fails = 0
 
 
@@ -38,7 +38,7 @@ check(a < b < c < d, "sensitivity, then acceleration, then the sink gets the sca
 cfg = open(CFG).read()
 m = re.search(r'extern "C" int u64_get_usb_hid_config_value\(int key, int default_value\)\n\{(.*?)\n\}', cfg, re.S)
 body2 = m.group(1) if m else ""
-check("mouse_sink_scaling(key, &v)" in body2 and "baseset_usb_config(key, default_value)" in body2
-      and body2.index("mouse_sink_scaling(key, &v)") < body2.index("baseset_usb_config(key, default_value)"),
-      "mousesink.cc answers the driver from the sink's scaling first, then from the application's settings (baseset_usb_config)")
+check("m->scaling(key, &v)" in body2 and "baseset_usb_config(key, default_value)" in body2
+      and body2.index("m->scaling(key, &v)") < body2.index("baseset_usb_config(key, default_value)"),
+      "baseset.cc answers the driver from the mouse table's scaling first, then from the application's settings (baseset_usb_config)")
 sys.exit(1 if fails else 0)

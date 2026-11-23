@@ -73,27 +73,6 @@ area F3 Library
       filetype .c64rering: Load state
       filetype .trxring: Load ring
       filetype .zip: Unzip
-  tab 3 Online
-    node Search = button calls online.search from description
-    node Library = button calls online.library from description
-    node Name = button calls online.set from description
-    node Group = button calls online.set from description
-    node Handle = button calls online.set from description
-    node Event = button calls online.set from description
-    node Choices = button calls online.presets from description
-    node Choice 1 = button calls online.cycle from description
-    node Choice 2 = button calls online.cycle from description
-    node Choice 3 = button calls online.cycle from description
-    node Choice 4 = button calls online.cycle from description
-    node Choice 5 = button calls online.cycle from description
-    node Choice 6 = button calls online.cycle from description
-    node Choice 7 = button calls online.cycle from description
-    node Choice 8 = button calls online.cycle from description
-    node Choice 9 = button calls online.cycle from description
-    node Choice 10 = button calls online.cycle from description
-    node Choice 11 = button calls online.cycle from description
-    node Choice 12 = button calls online.cycle from description
-    node Clear the form = button calls online.clear from description
 area F5 C64
   tab 1 C64
     heading Machine

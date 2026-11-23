@@ -4,7 +4,7 @@
 #include "ops_glue.h"
 #include "diag.h"
 #include "home.h"
-#include "newfile.h"
+#include "textcopy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

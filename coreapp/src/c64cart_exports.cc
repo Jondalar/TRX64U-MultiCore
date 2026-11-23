@@ -49,8 +49,7 @@ static void cart_ram_write(uint32_t off, const uint8_t *src, uint32_t n)
     }
 }
 
-// What the cartridge definition of the firmware (cart_def.require / prohibit) says is not kept by c64_cart.cc: a .crt starts with the port to itself and an application's own start passes its needs
-// to run_image once and keeps nothing. Both members therefore answer 0 for every cartridge.
+// What the cartridge definition of the firmware (cart_def.require / prohibit) says is not kept by c64_cart.cc: a .crt starts with the port to itself and run_image takes only a name and an image. Both members therefore answer 0 for every cartridge.
 static uint16_t cart_require(void) { return 0; }
 static uint16_t cart_prohibit(void) { return 0; }
 // The flash responder (flash_configure) registers the cartridge's file with the write-back service and nothing else does; a type change and a removal unregister it.

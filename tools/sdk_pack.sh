@@ -17,7 +17,7 @@
 #   libs/     shared.toml: the TOML B of the shared app, the catalog of the shared libraries (their sources are in base/)
 #   gateware/ shared.toml: the TOML A of the shared app (the reference a core's TOML A starts from)
 #   menusim/  the menu simulator with the tree it builds from (tools/menusim/run.sh inside), and bin/menusim, which runs it
-#   example/  app/sdkpkg/example: a library of two files with a menu TOML and a host test, and the TOML A, TOML B and description of an app
+#   example/  app/sdkpkg/example: a library of two files with a menu TOML, the core hooks and a host test, and the TOML A, TOML B and description of the example core's app
 #   licenses/ the licence texts of the third-party code the base links (FreeRTOS, lwIP, LVGL, FatFs), copied from vendor/gideon/software
 #   api.md    app/sdkpkg/api.md: the API document; tools/check_api_doc.py (lint) keeps it complete against the headers
 # The package carries no ROM: tools/check_no_roms.sh runs over the finished directory and the pack fails if it finds one.

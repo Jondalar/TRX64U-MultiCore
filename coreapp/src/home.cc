@@ -1,12 +1,10 @@
 #include "home.h"
+#include "menubuild.h"
 #include "ops.h"
 #include "settings.h"
 #include <strings.h>
 
-static const char *const enter_values[] = { "No", "Yes" };                   // the host's Disabled/Enabled (CFG_USERIF_START_HOME) is translated in Settings::load, so its value is the default here
-static const char *const dir_default[] = { "" };
-static const char *const reopen_values[] = { "Home (F1)", "Last screen" };
-
+// The three rows (label, kind, values, default) are the base UI TOML's (coreapp/base_ui.toml). The host's Disabled/Enabled (CFG_USERIF_START_HOME) is translated in Settings::load, so its value is the default there.
 const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
     *out = *d;
@@ -20,6 +18,10 @@ const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     if (!add) {
         return 0;
     }
+    const BaseRow *enter = menu_base_row(HOME_OP, HOME_ENTER_KEY), *dir = menu_base_row(HOME_OP, HOME_DIR_KEY), *reopen = menu_base_row(HOME_OP, REOPEN_KEY);
+    if (!enter || !dir || !reopen) {
+        return "settings: the base UI TOML has no row for the home folder items the application adds";
+    }
     if (d->nsettings + add > SETTINGS_MAX) {
         return "settings: no room for the home folder items the application adds";
     }
@@ -30,38 +32,13 @@ const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     }
     int n = d->nsettings;
     if (!has_enter) {
-        Setting &e = store[n++];
-        e = Setting();
-        e.key = HOME_ENTER_KEY;
-        e.label = "Enter home on startup";
-        e.values = enter_values;
-        e.nvalues = 2;
-        e.def = 0;
-        e.when = WHEN_LIVE;
-        e.apply = HOME_OP;
+        menu_base_setting(store[n++], *enter);
     }
     if (!has_dir) {
-        Setting &h = store[n++];
-        h = Setting();
-        h.key = HOME_DIR_KEY;
-        h.label = "Home directory";
-        h.values = dir_default;
-        h.nvalues = 1;
-        h.kind = 1;                                   // a text; base is its longest length
-        h.base = 60;
-        h.when = WHEN_LIVE;
-        h.apply = HOME_OP;
+        menu_base_setting(store[n++], *dir);          // a text: its base is its longest length
     }
     if (!has_reopen) {                                // T192.3 D30: where the menu opens
-        Setting &r = store[n++];
-        r = Setting();
-        r.key = REOPEN_KEY;
-        r.label = "Menu opens at";
-        r.values = reopen_values;
-        r.nvalues = 2;
-        r.def = 0;
-        r.when = WHEN_LIVE;
-        r.apply = HOME_OP;
+        menu_base_setting(store[n++], *reopen);
     }
     out->settings = store;
     out->nsettings = n;

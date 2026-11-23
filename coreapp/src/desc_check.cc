@@ -1,5 +1,5 @@
 #include "desc_check.h"
-#include "pad.h"
+#include "pad_api.h"
 #include "bindcheck.h"
 #include <string.h>
 #include <strings.h>
@@ -315,7 +315,7 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         }
         for (int k = 0; k < baseset_count(); k++) {
             if (!strcasecmp(s.key, baseset_key(k))) {
-                // the one exception: a core whose own operations scale its mouse keeps its two rows (mousesink.h); baseset_extend does not add them again. Each key with its own operation only.
+                // the one exception: a core whose own operations scale its mouse keeps its two rows (mouse_api.h); baseset_extend does not add them again. Each key with its own operation only.
                 bool own = s.apply && ((!strcasecmp(s.key, "Mouse Sensitivity") && !strcmp(s.apply, "mouse.sens")) || (!strcasecmp(s.key, "Mouse Acceleration") && !strcmp(s.apply, "mouse.accel")));
                 if (!own) return "settings: the look, joystick and mouse keys of baseset.h belong to the application";
             }

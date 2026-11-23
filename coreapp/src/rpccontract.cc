@@ -247,18 +247,6 @@ struct Args {
     }
 };
 
-// The first of "a|b" that some contributor registered; null if none.
-const char *pick(CoreCtx *c, const char *list, char *buf, int cap)
-{
-    snprintf(buf, cap, "%s", list);
-    for (char *t = strtok(buf, "|"); t; t = strtok(0, "|")) {
-        if (ops_of(c)->find_op(t)) {
-            return t;
-        }
-    }
-    return 0;
-}
-
 int missing(const JsonRpcReq &r, const char *method, const char *ops, char *out, int cap)
 {
     char m[200];
@@ -307,7 +295,7 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         return error(r, -32601, msg, out, cap);
     }
     OpResult rr;
-    char buf[96], why[120];
+    char why[120];
     switch (row->kind) {
     case CK_PING: {
         json_put(res, sizeof(res), &rp, "{\"runtime_version\":\"trx64-runtime/2\",\"version\":");
@@ -455,10 +443,10 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         if (!path) {
             return error(r, -32602, r.params.get("bytes_b64") ? "bytes_b64: this application starts a file on a stick; give prg_path" : "prg_path is required", out, cap);
         }
-        const char *list = row->kind == CK_LOAD ? "prg.load|c64.load_prg" : "prg.run|c64.run_prg";
-        const char *op = pick(c, list, buf, sizeof(buf));
-        if (!op) {
-            return missing(r, m, list, out, cap);
+        const char *list = row->kind == CK_LOAD ? "prg.load" : "prg.run";
+        const char *op = list;
+        if (!ops_of(c)->find_op(op)) {
+            return missing(r, m, op, out, cap);
         }
         Args args;
         args.str("path", path);

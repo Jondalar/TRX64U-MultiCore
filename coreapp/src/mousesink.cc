@@ -1,5 +1,4 @@
 #include "mousesink.h"
-#include "baseset.h"
 
 namespace {
 
@@ -142,17 +141,4 @@ bool mouse_sink_pace(CoreCtx *c)
         return true;
     }
     return false;
-}
-
-// The USB driver asks the application for its configuration items through this (weak in usb_hid.cc, Gideon's item numbers CFG_*, usb_hid_config.h). The mouse items are
-// settings of the generic application (baseset.h); the base image defines the function, no library does. A core that declares the two scaling items itself (the Amiga cores:
-// the operations mouse.sens / mouse.accel set them through the sink) is answered first from there; every other core from the application's settings.
-extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
-extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
-{
-    int v;
-    if (mouse_sink_scaling(key, &v)) {
-        return v;
-    }
-    return baseset_usb_config(key, default_value);
 }
