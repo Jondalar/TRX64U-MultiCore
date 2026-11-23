@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
-  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl] [--top top] [--bus ultimate_sys.io_req]
+  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl] [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -16,6 +16,10 @@ check
   only when a strobe derived from the request reaches it (its source is then parsed too).
   Reads only the design's source list (the files named in its build script, here build.tcl); a file whose name says ultisid,
   copper, lp_filter or sampler is never opened (clean room).
+  A partial core has no request record: the host's decode hands it a window of the I/O space over plain ports. --bus MODULE:write=P,read=P,address=P,
+  data=P,response=P names the ports of the one instance of MODULE in the top file (--top, a Verilog file); --window BASE:SIZE is the part of the I/O
+  space the host hands to them (the host's fact): a block must lie inside it and the address port gets the block's address minus BASE. --list takes
+  the core's source list (cores/<id>/core_sources.tcl, relative to --design), whose `set` variables it reads.
   An RTL pattern the check does not know is an error (Unsupported, with file and line), never a pass. Exit 0: every block holds.
   The direction rule: a property's dir must be a subset of what the RTL does at each byte (r needs a read, w needs a write, rw both).
   A request that leaves a followed module over output ports (held address, write flag, data, toggle) and is read by another module of
@@ -655,7 +659,40 @@ class VhdlParser(P):
         elif w == "assert":
             self.skip_to(";")
         elif w == "with":
-            raise self.err("a selected signal assignment")
+            # with SEL select TARGET <= WF when CHOICE {| CHOICE}, ... WF when others;  is the conditional chain of the same choices, in order
+            self.eat()
+            sel = self.expr()
+            self.eat("select")
+            lhs = self.target()
+            self.eat("<=")
+            arms = []
+            while True:
+                wf = self.expr()
+                self.eat("when")
+                ch = []
+                while True:
+                    if self.txt() == "others":
+                        self.eat()
+                        ch = None
+                        break
+                    ch.append(self.expr())
+                    if not self.acc("|"):
+                        break
+                arms.append((wf, ch))
+                if not self.acc(","):
+                    break
+            self.eat(";")
+            if arms[-1][1] is not None:
+                raise self.err("a selected signal assignment without others")
+            rhs = arms[-1][0]
+            for wf, ch in reversed(arms[:-1]):
+                cond = None
+                for c in ch:
+                    t = ("bin", "=", sel, c)
+                    cond = t if cond is None else ("bin", "or", cond, t)
+                rhs = ("cond", cond, wf, rhs)
+            m.cas.append((lhs, rhs, where))
+            m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
         else:
             lhs = self.target()
             self.eat("<=")
@@ -1419,6 +1456,9 @@ def top_instances(design, topname, extra_names):
             n = n.strip()
             if re.fullmatch(r"\w+", n):
                 m.nets.setdefault(n, w)
+    # the ports of the top module itself (ANSI style, one name each): their widths too
+    for dm in re.finditer(r"\b(?:input|output|inout)\s+(?:wire\s+|reg\s+)?(?:\[\s*(\d+)\s*:\s*(\d+)\s*\]\s*)?(\w+)\s*[,)]", text):
+        m.nets.setdefault(dm.group(3), int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1)
     names = set(design.index) | set(extra_names)
     pos = 0
     pat = re.compile(r"\b([A-Za-z_]\w*)\s*(#\s*\()?")
@@ -1558,7 +1598,7 @@ def ids_of(e, out):
 class Ev:
     """One stimulus: the request address (low bits maybe unknown), write or read, data unknown."""
 
-    def __init__(self, design, topmod, busmod, busname, addr, write, link=None):
+    def __init__(self, design, topmod, busmod, busname, addr, write, link=None, ports=None):
         """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
@@ -1576,6 +1616,21 @@ class Ev:
         if len(binst) != 1:
             raise CheckError("the bus module %s is instantiated %d times in %s" % (busmod, len(binst), topmod.name))
         self.bus = self.top.child(binst[0])
+        if ports is not None:
+            # a partial's window: the request is four input ports of the instance (write, read, address, data) and its answer is one output port
+            pw = {r: self.width(self.bus, ports[r]) for r in ("write", "read", "address", "data")}
+            self.rootv = {
+                ports["write"]: T1 if write else F1,
+                ports["read"]: F1 if write else T1,
+                ports["address"]: fit(addr, pw["address"]),
+                ports["data"]: allx(pw["data"]),
+            }
+            self.roott = {n: frozenset("d" if n == ports["data"] else "a") for n in self.rootv}
+            self.resp = [(self.bus, ports["response"])]
+            self.followed = [self.bus]
+            self.phase, self.post = 1, {}
+            self.crossed = False
+            return
         flds = dict(self.record_widths(self.bus, busname))
         self.rootv = {
             busname + ".address": fit(addr, flds["address"]),
@@ -2628,9 +2683,21 @@ def parse_toml_a(path, maps):
 
 
 class Checker:
-    def __init__(self, design, top, bus, doc):
+    def __init__(self, design, top, bus, doc, window=None):
         self.d, self.doc = design, doc
-        self.busmod, self.busname = bus.split(".", 1)
+        self.ports = self.window = None
+        if ":" in bus:
+            # a partial: MODULE:write=P,read=P,address=P,data=P,response=P (the ports of one instance in the top file); its window is the host's decode
+            self.busmod, spec = bus.split(":", 1)
+            self.busname = None
+            self.ports = dict(kv.split("=", 1) for kv in spec.split(","))
+            if set(self.ports) != {"write", "read", "address", "data", "response"}:
+                raise CheckError("--bus MODULE:write=,read=,address=,data=,response= names the five ports")
+            if window is None:
+                raise CheckError("a bus of ports needs --window BASE:SIZE (the part of the I/O space the host hands to these ports)")
+            self.window = window
+        else:
+            self.busmod, self.busname = bus.split(".", 1)
         self.topmod = top_instances(design, top, [self.busmod])
         io = doc["io"]
         self.iobase = io["iobase"]
@@ -2640,7 +2707,10 @@ class Checker:
         key = (rtl_addr, write, lowx)
         if key in self.cache:
             return self.cache[key]
-        ev = Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), write)
+        if self.ports is not None:
+            ev = Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - self.window[0]) & ~mask(lowx), mask(lowx), 24), write, ports=self.ports)
+        else:
+            ev = Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), write)
         res = self.cross(ev.analyze(write), write, 0)
         self.cache[key] = res
         return res
@@ -2700,6 +2770,10 @@ class Checker:
         for b in self.doc["block"]:
             name = b["name"]
             rt = b["address"] - self.iobase
+            if self.window is not None and not (self.window[0] <= rt and rt + b["size"] <= self.window[0] + self.window[1]):
+                errs.append("block %s: 0x%08X..0x%08X lies outside the window the host hands to the core (0x%08X..0x%08X)" % (
+                    name, b["address"], b["address"] + b["size"] - 1, self.window[0] + self.iobase, self.window[0] + self.window[1] - 1 + self.iobase))
+                continue
             if not 0 <= rt < (1 << 24) or rt + b["size"] > (1 << 24):
                 errs.append("block %s: 0x%08X..0x%08X lies outside the request's 24-bit address space (iobase 0x%08X)"
                             % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
@@ -2733,7 +2807,7 @@ class Checker:
 
 
 def cmd_check(args):
-    opts = {"--design": None, "--toml-a": None, "--list": "build.tcl", "--top": "top", "--bus": "ultimate_sys.io_req"}
+    opts = {"--design": None, "--toml-a": None, "--list": "build.tcl", "--top": "top", "--bus": "ultimate_sys.io_req", "--window": None}
     maps = []
     i = 0
     while i < len(args):
@@ -2750,7 +2824,11 @@ def cmd_check(args):
         raise CheckError("usage: rtl_check.py check --design DIR --toml-a FILE [--maps DIR]...")
     doc = parse_toml_a(opts["--toml-a"], maps)
     des = Design(opts["--design"], opts["--list"])
-    ck = Checker(des, opts["--top"], opts["--bus"], doc)
+    window = None
+    if opts["--window"]:
+        wb, _, ws = opts["--window"].partition(":")
+        window = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0))
+    ck = Checker(des, opts["--top"], opts["--bus"], doc, window)
     errs = ck.check()
     for e in errs:
         print("rtl_check: " + e)
