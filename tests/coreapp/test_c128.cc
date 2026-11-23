@@ -303,7 +303,7 @@ int main()
     {
         Rig q;
         q.fs.put(IMG, Bytes(32768, 1));
-        RomResult rr[8];
+        RomResult rr[ROMS_MAX];
         char summary[300];
         CHECK_EQ(rom_scan(&q.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0), ROM_WRONG_SIZE);
         CHECK(strstr(summary, "73728") != 0);
@@ -323,6 +323,77 @@ int main()
         CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
         CHECK(r.io.dw.empty());
         CHECK_EQ(r.io.flushes, 2);
+    }
+    // ---- T258: VICE's six files make the system image (bytes generated here, never a real ROM)
+    {
+        static const struct { const char *name; uint32_t size; } vice[6] = {
+            { "basic64-901226-01.bin", 8192 }, { "kernal64-901227-03.bin", 8192 }, { "kernal-318020-05.bin", 16384 },
+            { "basiclo-318018-04.bin", 16384 }, { "basichi-318019-04.bin", 16384 }, { "chargen-315079-01.bin", 8192 } };
+        Bytes want;
+        for (int k = 0; k < 6; k++) {
+            Bytes b = pattern(20 + k, vice[k].size);
+            want.insert(want.end(), b.begin(), b.end());
+        }
+        CHECK_EQ(want.size(), T_ROM_BYTES);
+        auto put_parts = [&](Rig &r, int skip) {
+            size_t at = 0;
+            for (int k = 0; k < 6; k++) {
+                if (k != skip) r.fs.put(std::string("/usb0/roms/c128/") + vice[k].name, Bytes(want.begin() + at, want.begin() + at + vice[k].size));
+                at += vice[k].size;
+            }
+        };
+        RomResult rr[ROMS_MAX];
+        char summary[400];
+        // S1: the parts alone start the machine with the image they make, the character set in the VIC's store too
+        {
+            Rig r;
+            put_parts(r, -1);
+            CHECK(r.boot());
+            CHECK(r.window(T_ROM_WIN, T_ROM_BYTES) == want);
+            CHECK(memcmp(r.io.chr, want.data() + 0x10000, 8192) == 0);
+            CHECK_EQ(r.io.flushes, 1);
+        }
+        // S2: a whole image wins over the parts
+        {
+            Rig r;
+            put_parts(r, -1);
+            r.image(5);
+            CHECK(r.boot());
+            CHECK(r.window(T_ROM_WIN, T_ROM_BYTES) == pattern(5, T_ROM_BYTES));
+        }
+        // S3: five of six: told by the missing one, all its parts are needed; nothing is put
+        {
+            Rig r;
+            put_parts(r, 3);
+            CHECK_EQ(rom_scan(&r.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0), ROM_MISSING);
+            CHECK(strstr(summary, "basiclo-318018-04.bin") != 0 && strstr(summary, "needs all its parts") != 0);
+            CHECK(!rr[0].composed);
+        }
+        // S4: a part of the wrong size is told by name and size
+        {
+            Rig r;
+            put_parts(r, 5);
+            r.fs.put("/usb0/roms/c128/chargen-315079-01.bin", Bytes(4096, 1));
+            CHECK_EQ(rom_scan(&r.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0), ROM_WRONG_SIZE);
+            CHECK(strstr(summary, "chargen-315079-01.bin") != 0 && strstr(summary, "4096 bytes") != 0 && strstr(summary, "8192") != 0);
+        }
+        // S5: nothing there: the sentence names the image's files and the parts
+        {
+            Rig r;
+            CHECK_EQ(rom_scan(&r.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0), ROM_MISSING);
+            CHECK(strstr(summary, "boot0.rom") != 0 && strstr(summary, "basic64-901226-01.bin") != 0);
+        }
+        // S6: Reload takes parts that arrived after the start
+        {
+            Rig r;
+            r.image();
+            CHECK(r.boot());
+            r.fs.files.erase(IMG);
+            r.fs.names.erase(IMG);
+            put_parts(r, -1);
+            CHECK_EQ(ops_call(&r.c, "machine.reload_roms", 0, 0, &res), OPE_OK);
+            CHECK(r.window(T_ROM_WIN, T_ROM_BYTES) == want);
+        }
     }
     // ---- the menu's file action: .rom -> load as system image (exactly 72 KiB), from any folder
     {

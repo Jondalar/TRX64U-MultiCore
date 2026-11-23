@@ -1,4 +1,4 @@
-// The Commodore 128 descriptor (T113 section 5.5, T104). One system ROM image (72 KiB, the boot0.rom layout) goes through the DDR2 window
+// The Commodore 128 descriptor (T113 section 5.5, T104). One system ROM image (72 KiB, the boot0.rom layout; one file, or made from VICE's six part files, T258) goes through the DDR2 window
 // into the ROM line cache's backing store, then ROM_CTRL.b0 flushes the cache. With the setting ROM set = JiffyDOS (T185) the kit files the person selected
 // (one row each in the settings, or the file action in the browser) are written over the C64 and C128 KERNAL parts of that image first, and drive A takes
 // the JiffyDOS DOS ROM of its type. Settings: the 40/80 DISPLAY switch (D4080, taken at reset)
@@ -603,14 +603,19 @@ static bool jf_basic_at4(const uint8_t *d)
     return memcmp(d + 4, "CBMBASIC", 8) == 0;
 }
 
+static bool all_same(const uint8_t *d, uint32_t n)
+{
+    for (uint32_t i = 1; i < n; i++) {
+        if (d[i] != d[0]) {
+            return false;
+        }
+    }
+    return d[0] == 0x00 || d[0] == 0xFF;
+}
+
 static const char *jf_part_fault(const uint8_t *d, uint32_t size, bool c64_part)
 {
-    bool zero = true, ff = true;
-    for (uint32_t i = 0; i < size; i++) {
-        zero = zero && d[i] == 0x00;
-        ff = ff && d[i] == 0xFF;
-    }
-    if (zero || ff) {
+    if (all_same(d, size)) {
         return "it is empty (all 0x00 or all 0xFF)";
     }
     uint32_t vec = (uint32_t)d[size - 4] | ((uint32_t)d[size - 3] << 8);
@@ -627,16 +632,6 @@ static const char *jf_part_fault(const uint8_t *d, uint32_t size, bool c64_part)
         return "it is the C64 part, not the C128 part";
     }
     return 0;
-}
-
-static bool all_same(const uint8_t *d, uint32_t n)
-{
-    for (uint32_t i = 1; i < n; i++) {
-        if (d[i] != d[0]) {
-            return false;
-        }
-    }
-    return d[0] == 0x00 || d[0] == 0xFF;
 }
 
 // The sizes a role takes (before the file is read), and the check of its content. Returns null when the file is what the role takes.
@@ -895,11 +890,17 @@ static int op_set_romset(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec romset_arg[] = { ARG_INT("value", 0, 1) };
 
-static const RomSpec roms[3] = {
+// The system image is the boot0.rom file, or VICE's six files (T258): the parts at their offsets in the image, found by VICE's names.
+static const RomSpec roms[9] = {
     { "C128 system ROM image", { "boot0.rom", "c128.rom", "c128-system.rom", "c128_system.rom", 0 }, { C128_ROM_BYTES, 0 }, true, 0, "c128.put_rom" },
-    { "1541 drive", { "1541.rom", "1541.bin", "1541-ii.bin", "1541-ii.rom", "1541ii.rom", "1541c.rom", "dos1541.rom", "dos1541-325302-01+901229-05.bin", 0 },
-      { 16384, 32768, 0 }, false, 0, "c128.put_drive_rom", 0, true },
+    { "1541 drive", { "1541.rom", "1541.bin", "1541-ii.bin", "1541-ii.rom", "1541ii.rom", "1541c.rom", "dos1541.rom", "dos1541-325302-01+901229-05.bin", 0 }, { 16384, 32768, 0 }, false, 0, "c128.put_drive_rom", 0, true },
     { "1581 drive", { "1581.rom", "1581.bin", "dos1581.rom", 0 }, { 32768, 0 }, false, 0, "c128.put_drive_rom1581", 0 },
+    { "C64 BASIC", { "basic64-901226-01.bin", 0 }, { 8192, 0 }, false, 0, 0, 0, false, 1, 0x00000 },
+    { "C64 KERNAL", { "kernal64-901227-03.bin", 0 }, { 8192, 0 }, false, 0, 0, 0, false, 1, 0x02000 },
+    { "C128 editor and KERNAL", { "kernal-318020-05.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x04000 },
+    { "C128 BASIC low", { "basiclo-318018-04.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x08000 },
+    { "C128 BASIC high", { "basichi-318019-04.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x0C000 },
+    { "Character set", { "chargen-315079-01.bin", 0 }, { 8192, 0 }, false, 0, 0, 0, false, 1, 0x10000 },
 };
 
 // ---- control -------------------------------------------------------------------------------------------------------------------
@@ -1167,7 +1168,7 @@ const CoreDesc c128_desc = {
     "c128",
     "C128 Settings",
     1,
-    roms, 3,
+    roms, 9,
     settings, 12 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 7,
