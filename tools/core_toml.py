@@ -79,8 +79,8 @@ SCHEMA = {
     "pipeline":     ("bool", False),
     # T239.3 D15 (D11, D13): the core's heap in bytes. The packer writes it into the heap word of the core's copy of the application image
     # (tools/cor_pack.py --heap, coreapp/src/heapcfg.c) and the application defines its FreeRTOS heap_5 region of that size at start; the board
-    # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. At least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image
-    # fits with it is the packer's check.
+    # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. 0 = the region left behind the linked image and the stack reserve (P4-1). Otherwise at
+    # least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image fits with it is the packer's check.
     "heap":         ("int",  False),
 }
 # T239.3 D25: cores/<id>/app/sdk.toml, the switches of a core on its way onto the SDK. It lies in the core's app part (cores/*/app/** is no part of a bitstream key), not in
@@ -223,8 +223,8 @@ def check():
             bad += err("name %r is %d characters, at most 30 (T209 D17: it is the row's text in the boot menu)" % (t["name"], len(t["name"])))
         if "short" in t and not re.fullmatch(r"[A-Za-z0-9+/.]{1,4}", str(t["short"])):
             bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
-        if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0):
-            bad += err("heap 0x%x is not a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
+        if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (t["heap"] == 0 or (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0)):
+            bad += err("heap 0x%x is not 0 (the region left) or a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:
