@@ -782,6 +782,10 @@ run desctoml test_desctoml.cc descrec.cc
 # T239.3 D32: where the rows the application adds stand in the menu: the base UI TOML's table, a core's routes and places over it (golden/desc_places.toml as the real tool compiles it), the menu built from both
 CARGS="$BUN/desc_places.bin" RARGS="$CARGS"
 run uiplace test_uiplace.cc descrec.cc $PICSRC
+
+# T239.3 P1-4 (D30 condition 2, D31): the service's start check of ID and build against the record's identity, the same fixture, a model of the standard block
+CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
+run identity test_identity.cc $BUNSRC
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

@@ -192,6 +192,59 @@ class ShortTest(unittest.TestCase):
             C.parse(bad, C.CONTRACT)
 
 
+class BuildWordTest(unittest.TestCase):
+    """T239.3 P1-4 (D30 condition 2, D31): cor_pack writes the bitstream's AXSS word as the build of TOML A's identity; the service compares ID and build with the standard block at start
+    (tests/coreapp/test_identity.cc is the reader's side)."""
+    TOML = ('[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\n%sblock = "ident"\n'
+            '[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n'
+            '[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n'
+            '[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n')
+    AXSS = 0x553525D3
+
+    def desc(self, build=""):
+        return descrec.compile_text(self.TOML % build)
+
+    def large(self, desc, **kw):
+        return C.pack_large(cid="tsta", name="Tsta", version="1", bit=full_bit(**kw), app=APP, desc=desc)
+
+    def test_the_bitstreams_axss_word_is_the_build_of_the_record(self):
+        src = self.desc()
+        self.assertIsNone(descrec.identity_build(src))
+        blob = self.large(src)
+        m, recs = C.parse(blob)
+        self.assertEqual(descrec.identity_build(recs[C.T_DESC]), self.AXSS)
+        d = descrec.parse_desc(recs[C.T_DESC])
+        self.assertEqual(d["identity"], {"id": "TSTA", "block": "ident", "build": self.AXSS})
+        self.assertEqual(len(recs[C.T_DESC]), len(src))                                  # the flag and the word only
+        self.assertEqual(descrec.compile_desc(descrec.decoded_to_doc(d)), recs[C.T_DESC])  # the stamped bytes are what the compiler makes of that identity
+
+    def test_a_source_with_the_same_build_passes_and_another_is_refused(self):
+        self.large(self.desc("build = 0x%08X\n" % self.AXSS))
+        with self.assertRaises(C.CorError):
+            self.large(self.desc("build = 0x12345678\n"))
+
+    def test_a_bitstream_without_an_axss_word_is_refused(self):
+        with self.assertRaises(C.CorError):
+            self.large(self.desc(), axss=None)
+
+    def test_a_record_that_is_no_toml_a_is_left_alone(self):
+        self.assertIsNone(C.stamp_desc(None, 1, "x"))
+        menu = descrec.compile_text('[core]\nid = "TSTA"\nname = "Tsta"\ntitle = "Tsta"\nshort_title = "Tsta"\nfolder = "tsta"\nstore = "tsta"\n')
+        self.assertEqual(C.stamp_desc(menu, 1, "x"), menu)
+        self.assertEqual(C.stamp_desc(menu, None, "x"), menu)
+
+    def test_check_refuses_a_record_of_another_bitstream(self):
+        blob = self.large(self.desc())
+        _, recs = C.parse(blob)
+        other = dict(recs)
+        other[C.T_DESC] = descrec.stamp_build(self.desc(), 0xDEADBEEF)
+        with self.assertRaises(C.CorError):
+            C.check_build(other, self.AXSS, "the bitstream")
+        with self.assertRaises(C.CorError):
+            C.check_build({C.T_DESC: self.desc()}, self.AXSS, "the bitstream")      # never stamped
+        C.check_build(recs, self.AXSS, "the bitstream")
+
+
 class OriginTest(unittest.TestCase):
     """T137 D1/D2: `origin` and the flash fields of a backup."""
 
