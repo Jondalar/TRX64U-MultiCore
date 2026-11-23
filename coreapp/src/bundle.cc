@@ -258,6 +258,15 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         }
         mm->has_place = true;
     }
+    if (x && x->desc && x->desc->has_elem) {                      // T256 D8: the core's elements over the base's (the still, the PAUSED tag); one that does not fit is told and not applied
+        char why[160];
+        if (ovl_merge(menu_elem_base(), &x->desc->elem, &mm->elem_store, why, sizeof(why)) > 0 && log) {
+            char line[200];
+            snprintf(line, sizeof(line), "[menu] refused: %s", why);
+            log->line(line);
+        }
+        mm->has_elem = true;
+    }
     // D32: the setting group of every row the table places (the extend functions no longer write one; the hotkey rows of the core's tasks came in with the core's own tables)
     menu_place_groups(mm->has_place ? &mm->place_store : menu_place_base(), mm->settings, out->nsettings);
     for (int i = 0; log && i < mm->nerr; i++) {

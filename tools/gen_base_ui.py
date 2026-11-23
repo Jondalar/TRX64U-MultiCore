@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T239.3 D32: coreapp/base_ui.toml (the SDK's base UI TOML) -> coreapp/src/base_ui.inc, the table of routes and places menutree.cc includes, and coreapp/src/base_rows.inc, the table of
+"""T239.3 D32: coreapp/base_ui.toml (the SDK's base UI TOML) -> coreapp/src/base_ui.inc, the tables of routes, places and elements menutree.cc includes, and coreapp/src/base_rows.inc, the table of
 the rows (label, key, kind, values, default, pick) menubuild.cc includes.
 
   tools/gen_base_ui.py            write both .inc files (the TOML is compiled by tools/descrec.py into the record a core's UI TOML carries, read back, and written as C++ initializers)
@@ -42,6 +42,12 @@ def render(rec):
         out.append("        { %s, %s, %s, %s, %s }," % (cstr(p["op"]), cstr(p.get("key")), cstr(p.get("route")), cstr(p.get("group")), order))
     out.append("    }, %d" % len(places))
     out.append("};")
+    out.append("static const UiElements g_base_elem = {")
+    out.append("    {")
+    for e in rec["element"]:
+        out.append("        { %s, OVA_%s, %d, %d, %d, %d, %s }," % (cstr(e["name"]), e["anchor"].upper(), e.get("dx", 0), e.get("dy", 0), e["w"], e["h"], "true" if e.get("still") else "false"))
+    out.append("    }, %d" % len(rec["element"]))
+    out.append("};")
     return "\n".join(out) + "\n"
 
 
@@ -78,8 +84,8 @@ def main(argv):
         ops = open(argv[argv.index("--ops") + 1]).read() if "--ops" in argv else None
         blob = descrec.compile_checked(open(toml).read(), ops, what=os.path.basename(toml), app_base=True)
         rec = descrec.parse_desc(blob)
-        if not rec.get("group_route") or not rec.get("place"):
-            raise descrec.DescError("the base UI TOML needs [[group_route]] and [[place]]")
+        if not rec.get("group_route") or not rec.get("place") or not rec.get("element"):
+            raise descrec.DescError("the base UI TOML needs [[group_route]], [[place]] and [[element]]")
         names = {r["group"] for r in rec["group_route"]}
         for p in rec["place"]:
             if p.get("route") and p["route"] not in names:
@@ -104,11 +110,11 @@ def main(argv):
             have = open(path).read() if os.path.exists(path) else ""
             if have != want:
                 sys.exit("gen_base_ui: %s is not what base_ui.toml compiles to; run tools/gen_base_ui.py" % os.path.relpath(path, ROOT))
-        print("base_ui.inc and base_rows.inc are current (%d routes, %d places, %d rows)" % (len(rec["group_route"]), len(rec["place"]), len(rows)))
+        print("base_ui.inc and base_rows.inc are current (%d routes, %d places, %d elements, %d rows)" % (len(rec["group_route"]), len(rec["place"]), len(rec["element"]), len(rows)))
         return
     open(inc, "w").write(text)
     open(rows_inc, "w").write(rtext)
-    print("wrote %s and %s (%d routes, %d places, %d rows)" % (os.path.relpath(inc, ROOT), os.path.relpath(rows_inc, ROOT), len(rec["group_route"]), len(rec["place"]), len(rows)))
+    print("wrote %s and %s (%d routes, %d places, %d elements, %d rows)" % (os.path.relpath(inc, ROOT), os.path.relpath(rows_inc, ROOT), len(rec["group_route"]), len(rec["place"]), len(rec["element"]), len(rows)))
 
 
 if __name__ == "__main__":

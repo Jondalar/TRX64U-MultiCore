@@ -758,6 +758,7 @@ python3 "$TST/gen_bundle.py" "$T/bundles"
 BUN="$T/bundles"
 CARGS="$BUN/desc_test.bin $BUN/desc_trx64u.bin" RARGS="$BUN/desc_test.bin $BUN/desc_trx64u.bin"
 run descrec test_descrec.cc descrec.cc
+run overlay test_overlay.cc overlay.cc video.cc videomode.cc edid.cc video_stub.cc                # T256: the overlay service with a fake layer (S1, S7, S9, S10)
 # T104.2 D10: the tables of the core's own menu, the groups of the tabs, the lines of an information tab, the libraries merged at pack time
 
 CONSRC="descrec.cc $PICSRC"

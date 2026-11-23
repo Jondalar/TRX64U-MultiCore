@@ -6,6 +6,7 @@
 #include "exec.h"
 #include "corefolder.h"
 #include "descrec.h"
+#include "overlay.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -333,6 +334,44 @@ struct LibSvc {
         return w ? (volatile uint8_t *)(uintptr_t)w->address : 0;
     }
 
+    // ---- overlay (svc_overlay.h): the calls are validated by the service at once; their effect is the UI task's next frame. The caller is the image whose code makes the call (owner_at),
+    // so the elements of a library are its own and go with it.
+    static int ovl_show(const char *name, const SvcSurface *sf)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->show(l->owner_at(__builtin_return_address(0)), name, sf) : OVL_E_NOSERVICE;
+    }
+    static int ovl_update(int el)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->update(l->owner_at(__builtin_return_address(0)), el) : OVL_E_NOSERVICE;
+    }
+    static int ovl_remove(int el)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->remove(l->owner_at(__builtin_return_address(0)), el) : OVL_E_NOSERVICE;
+    }
+    static void ovl_text(const SvcSurface *sf, int x, int y, const char *s, uint16_t colour)
+    {
+        LibLoader *l = L();
+        if (l->overlay_svc_) {
+            l->overlay_svc_->text(l->owner_at(__builtin_return_address(0)), sf, x, y, s, colour);
+        }
+    }
+    static void ovl_menu_hide()
+    {
+        if (L()->overlay_svc_) {
+            L()->overlay_svc_->menu_hide();
+        }
+    }
+    static void ovl_menu_show()
+    {
+        if (L()->overlay_svc_) {
+            L()->overlay_svc_->menu_show();
+        }
+    }
+    static const char *ovl_error(int code) { return OverlaySvc::error(code); }
+
     // ---- board (svc_board.h)
     static uint32_t fpga_caps() { return L()->host_->fpga_caps(); }
     static bool is_commodore() { return L()->host_->is_commodore(); }
@@ -589,6 +628,7 @@ void LibLoader::add_services()
     api_.settings = &settings_;
     api_.ctx = &ctxtab_;
     api_.board = &board_;
+    api_.overlay = &overlay_;
     api_.io = LibSvc::has_window(ctx_) ? &io_ : 0;
     memset(&sync_, 0, sizeof(sync_));
     sync_.size = sizeof(sync_);
@@ -666,6 +706,16 @@ void LibLoader::add_services()
     board_.video_set_pll = LibSvc::video_set_pll;
     board_.sid_socket = LibSvc::sid_socket;
     board_.case_led_select = LibSvc::case_led_select;
+
+    memset(&overlay_, 0, sizeof(overlay_));
+    overlay_.size = sizeof(overlay_);
+    overlay_.show = LibSvc::ovl_show;
+    overlay_.update = LibSvc::ovl_update;
+    overlay_.remove = LibSvc::ovl_remove;
+    overlay_.text = LibSvc::ovl_text;
+    overlay_.menu_hide = LibSvc::ovl_menu_hide;
+    overlay_.menu_show = LibSvc::ovl_menu_show;
+    overlay_.error = LibSvc::ovl_error;
 }
 
 // where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none
