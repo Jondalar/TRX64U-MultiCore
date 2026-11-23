@@ -12,6 +12,16 @@
 #include "gitinfo.h"
 #include "../../host-app/software/components/u64_str.h"   // u64_dec: the board's printf has no 64 bit conversion (T251 D1)
 
+// The digits and the name padding are made here, not by the board's small_printf (T257 S7): it takes the '0' of "%0*X" as
+// width 0 and prints "%*", cuts "%03X" to exactly 3 digits ($E108 came out as $108) and cuts a "%-40s" name at 40 characters.
+static void hexdig(char *out, uint32_t v, int n)
+{
+    out[n] = 0;
+    for (int k = n - 1; k >= 0; k--, v >>= 4) {
+        out[k] = "0123456789ABCDEF"[v & 15];
+    }
+}
+
 // D3: the registers the descriptor names, in its order. Nothing else of the register window is read.
 static void put_regs(BrOut *o, CoreCtx *c)
 {
@@ -26,7 +36,12 @@ static void put_regs(BrOut *o, CoreCtx *c)
         for (int b = r.bytes - 1; b >= 0; b--) {
             v = (v << 8) | c->io->rd((uint32_t)r.reg + (uint32_t)b);
         }
-        br_put(o, "%-40s $%03X = $%0*X\n", r.name, (unsigned)r.reg, r.bytes * 2, (unsigned)v);
+        static const char pad[] = "                                        ";   // 40 spaces: the name column
+        char off[5], val[9];
+        hexdig(off, r.reg, r.reg < 0x1000 ? 3 : 4);
+        hexdig(val, v, (r.bytes >= 1 && r.bytes <= 4) ? r.bytes * 2 : 8);
+        size_t len = strlen(r.name);
+        br_put(o, "%s%s $%s = $%s\n", r.name, len < 40 ? pad + len : "", off, val);
     }
 }
 
