@@ -122,6 +122,9 @@ int http_get(const HttpEnv &env, const char *host, const char *path, const char 
     ot_cat(req, sizeof(req), "\r\nConnection: close\r\n\r\n");
     int rl = ot_len(req);
 
+    if (env.cancelled && env.cancelled(env.user)) {
+        return HTTP_BROKEN;
+    }
     int h = env.net->connect(host, 80, HTTP_CONNECT_MS);
     if (h < 0) {
         return HTTP_NO_NET;

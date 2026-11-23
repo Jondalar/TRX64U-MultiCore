@@ -169,6 +169,8 @@ static void online_run_jobs()
 }
 
 // An operation the way the menu steps it (node attribute `job`, api.md 4.14.9): called again while it answers `more`. The jobs run after `run_after` calls; the sentence is the last answer.
+static size_t g_on_reqs_at_run, g_on_hosts_at_run;
+
 static std::string online_stepped(World &w, CoreCtx &cx, const char *op, int run_after, int *calls)
 {
     cx.job_step = true;
@@ -179,6 +181,8 @@ static std::string online_stepped(World &w, CoreCtx &cx, const char *op, int run
         rc = w.reg.call(0, op, 0, 0, &r);
         n++;
         if (rc == OPE_OK && r.more && n == run_after) {
+            g_on_reqs_at_run = g_on.reqs.size();                // what the stepped calls had sent before the job ran
+            g_on_hosts_at_run = g_on.hosts.size();
             online_run_jobs();
         }
     } while (rc == OPE_OK && r.more && n < 20);
@@ -293,8 +297,12 @@ static void online_subapp()
     g_on.quiet_every = 4;
     g_on.step = 120;
     int calls = 0;
-    CHECK_STR(online_stepped(w, cx, "online.search", 3, &calls).c_str(), "3 found");      // the menu steps it: more, more (the job has not run), then the job has ended
+    size_t reqs0 = g_on.reqs.size(), hosts0 = g_on.hosts.size();
+    CHECK_STR(online_stepped(w, cx, "online.search", 3, &calls).c_str(), "3 found");      // the menu steps it: more, more, more (the job runs after the third), then the done call
     CHECK_EQ(calls, 4);
+    CHECK_EQ(g_on_reqs_at_run, reqs0);                          // the stepped calls made no request and no connection: the job did
+    CHECK_EQ(g_on_hosts_at_run, hosts0);
+    CHECK(g_on.reqs.size() > reqs0);
     CHECK(starts(g_on.reqs[1], "GET /leet/search/aql?query=%28name%3a%22jumpman%22%29%20%26%20%28category%3agames%29 HTTP/1.1\r\nAccept-encoding"));
     CHECK(g_on.reqs[1].find("\r\nClient-Id: Commodore\r\n") != std::string::npos);
     CHECK_STR(w.reg.state(0, "online.results", 0), "3 found");

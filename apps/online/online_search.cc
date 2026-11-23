@@ -361,6 +361,7 @@ void collect(void)
             nres = g_w.nres;
             drop_entries();
             drop_download();
+            g_pf.kind = 0;                                  // a failure told for an index of the old results is not the new results'
         } else if (want && k == W_ENTRIES) {
             memcpy(ent, g_w.ent, sizeof(ent));
             nent = g_w.nent;
@@ -401,12 +402,17 @@ void collect(void)
 // Starts the job for a request. False, with the reason in `why`: another request is in flight (or its result is not taken: call collect first), or the base gave no task.
 bool work_begin(int kind, const char *path, const char *cid, uint32_t max, int ri, int ei, char *why, int whyn)
 {
-    if (g_w.state != 0) {
-        ot_copy(why, whyn, "The server is being asked for something else: try again in a moment");
-        return false;
-    }
     if (!g_api || !g_api->job || !g_api->job->start) {
         ot_copy(why, whyn, "No task for the request");
+        return false;
+    }
+    const SvcSync *sy = g_api->sync;
+    bool locked = g_mx && sy && sy->mutex_lock && sy->mutex_lock(g_mx, SYNC_FOREVER);   // the menu task (prefetch) and an op run by REST or a hotkey both start requests
+    if (g_w.state != 0) {
+        if (locked) {
+            sy->mutex_unlock(g_mx);
+        }
+        ot_copy(why, whyn, "The server is being asked for something else: try again in a moment");
         return false;
     }
     g_w.kind = kind;
@@ -419,8 +425,14 @@ bool work_begin(int kind, const char *path, const char *cid, uint32_t max, int r
     g_w.jh = 0;
     g_w.state = 1;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    if (!g_api->job->start(work_job, 0, WORK_STACK)) {      // an ended job that nobody joined gives its slot to this one (api.md 4.6.6); the menu task never joins (4.6.11.3)
+    bool started = g_api->job->start(work_job, 0, WORK_STACK);   // an ended job that nobody joined gives its slot to this one (api.md 4.6.6); the menu task never joins (4.6.11.3)
+    if (!started) {
         g_w.state = 0;
+    }
+    if (locked) {
+        sy->mutex_unlock(g_mx);
+    }
+    if (!started) {
         ot_copy(why, whyn, "No free task for the request");
         return false;
     }
@@ -439,14 +451,15 @@ int form_step(int kind, const char *path, uint32_t max, OpOut &o, bool *done)
 {
     *done = false;
     o.more = false;
+    if (g_w.form == kind && stepping() && g_api->ctx && g_api->ctx->job_cancelled && g_api->ctx->job_cancelled()) {
+        g_w.abandon = true;                                 // before collect: a result that came in the same tick is dropped, the answer is true
+        g_w.form = 0;
+        collect();
+        ot_copy(o.msg, o.msglen, "Cancelled");
+        return OPE_OK;
+    }
     collect();
-    if (g_w.form == kind) {
-        if (g_api->ctx && g_api->ctx->job_cancelled && g_api->ctx->job_cancelled()) {
-            g_w.abandon = true;
-            g_w.form = 0;
-            ot_copy(o.msg, o.msglen, "Cancelled");
-            return OPE_OK;
-        }
+    if (g_w.form == kind && stepping()) {
         if (g_out.fresh && g_out.kind == kind) {
             g_out.fresh = false;
             g_w.form = 0;
@@ -459,6 +472,10 @@ int form_step(int kind, const char *path, uint32_t max, OpOut &o, bool *done)
         }
         g_w.form = 0;                                       // the job is gone without an answer
         ot_copy(o.msg, o.msglen, "The request was lost");
+        return OPE_FAILED;
+    }
+    if (g_w.form != 0 && !stepping()) {                     // the menu is stepping a request: a call from REST or a hotkey neither takes its answer nor starts another
+        ot_copy(o.msg, o.msglen, "The server is being asked for something else: try again in a moment");
         return OPE_FAILED;
     }
     char why[96];
@@ -827,6 +844,7 @@ uint8_t *tab_fetch(const char *rel, uint8_t *(*alloc)(uint32_t n), uint32_t *len
         return 0;
     }
     if (!(dl_b && dl_res == ri && dl_idx == ent[ei].idx)) {
+        drop_download();                                    // the job never touches dl_b: the old file goes before the new one grows, so one download is the most at once
         char path[160];
         path[0] = 0;
         ot_cat(path, sizeof(path), URL_DOWNLOAD "/");
