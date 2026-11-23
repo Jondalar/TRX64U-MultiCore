@@ -459,7 +459,7 @@ class AgainstTheApplication(unittest.TestCase):
         cases = [
             ("an operation that is not exported", 'op = "machine.cold_reset"', 'op = "machine.cold_resetx"', "does not export"),
             ("an argument the operation lacks", '{ arg = "slot", str = "iec:drive_a" }', '{ arg = "slotx", str = "iec:drive_a" }', "has no argument"),
-            ("an argument left unbound", 'bind = [ { arg = "path", file = true } ]\n  closes_menu = true\n\n[[filetype]]\next = ".d64"', 'bind = [ ]\n  closes_menu = true\n\n[[filetype]]\next = ".d64"', "unbound"),
+            ("an argument left unbound", 'bind = [ { arg = "app", str = "" }, { arg = "action", str = "" }, { arg = "file", file = true } ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', 'bind = [ ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', "unbound"),
             ("a state that is not exported", 'state = "c64.program"', 'state = "c64.programx"', "state"),
             ("an ask_state that is not exported", 'ask_state = "drive.suggest.d64"', 'ask_state = "drive.suggest.d65"', "state"),
             ("a text that is no enum label", 'str = "unlinked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', 'str = "linked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', "does not take"),

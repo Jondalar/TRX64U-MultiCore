@@ -105,6 +105,8 @@ coreapp_srcs
 L="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl"
 OBJS="$(nice -n 15 "$LVSH" "$L" "$HA/lv_conf.h")"
 mkdir -p "$BD/menusim/conf"
+# T239.3 D31: the driver table the drive library and the SID library name their registers through (the same call as tests/coreapp/run.sh)
+python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$BD/drv" --maps "$ROOT/app/sdkpkg/maps" > /dev/null
 cmp -s "$HA/lv_conf.h" "$BD/menusim/conf/lv_conf.h" || cp "$HA/lv_conf.h" "$BD/menusim/conf/lv_conf.h"
 # T239.3 V-4b (D32): a core with an app of its own (cores/<id>/app/sdk.toml, [app] desc) is not in the shared image's core table. Its descriptor is the library's (the symbol its TOML B
 # names, compiled by coreapp_srcs against the driver table of its TOML A) and its menu is its record, cores/<id>/app/desc.toml: own_cores.h gives menusim the descriptors, and the
@@ -119,7 +121,7 @@ OWN_IDS="$(python3 "$ROOT/tools/core_toml.py" list-own-app)"
 } > "$BD/menusim/conf/own_cores.h.new"
 if cmp -s "$BD/menusim/conf/own_cores.h.new" "$BD/menusim/conf/own_cores.h"; then rm "$BD/menusim/conf/own_cores.h.new"; else mv "$BD/menusim/conf/own_cores.h.new" "$BD/menusim/conf/own_cores.h"; fi
 gen menusim "$TOOL/tools/menusim/menusim.cc" \
-  "$CORE_DEFS -O0 -g -DGOLDEN_DIR=\\\"$ROOT/tests/coreapp/golden\\\" -I$BD/menusim/conf -iquote $L $CORE_INCS -idirafter $TOOL/tests/coreapp -MMD -MP" \
+  "$CORE_DEFS -O0 -g -DGOLDEN_DIR=\\\"$ROOT/tests/coreapp/golden\\\" -I$BD/menusim/conf -I$BD/drv -iquote $L $CORE_INCS -idirafter $TOOL/tests/coreapp -MMD -MP" \
   "$SRCS" "$OBJS"
 if [ ${#args[@]} -gt 0 ] && [ -f "$ROOT/cores/${args[0]}/app/desc.toml" ] && printf '%s\n' $OWN_IDS | grep -qx "${args[0]}" && ! printf '%s\n' "${args[@]}" | grep -qx -e '--toml'; then
   args+=(--toml "$ROOT/cores/${args[0]}/app/desc.toml")

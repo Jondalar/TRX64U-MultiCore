@@ -938,7 +938,7 @@ static void build_timeline(lv_obj_t *scr, MenuCtl &m)
     trx_shell_forget();
     lv_obj_clean(scr);
     lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_opa(scr, ui_still_under() ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
     int tww = tw_w();
     trx_box(scr, TW_X0, TW_Y0, tww, 48, 0x101018);
     int g = atoi(glyph);

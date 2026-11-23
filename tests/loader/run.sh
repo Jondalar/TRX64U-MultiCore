@@ -58,7 +58,7 @@ PY
 
 loader_args() {   # loader_args SRCDIR: the compiler flags LA and the files LF of the test, for the product in SRCDIR
   LA=($FLAGS "-DFIXDIR=\"$T\"" -DONLINE_ENTRY_NAME=online_lib_register -I"$ROOT/apps/online" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
-  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
+  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
       "$1/libsvc.cc" "$ROOT"/apps/online/online_{lib,search,http,json}.cc "$1/apphost.cc" "$TST/apphost_stubs.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder; apphost.cc (the base's job table) over stubs of the screens
 }
 build() {   # build OUT SRCDIR
@@ -97,7 +97,7 @@ control() { cc_no_controls && return 0; pjob_spawn control_job "$@"; }
 
 exports_args() {   # exports_args SRCDIR: the test of the base's own tables (T239.3 base 3.3, libexports.cc) over the recording model of the code behind them
   loader_args "$1"
-  LF=("$TST/test_exports.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
+  LF=("$TST/test_exports.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
       "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libexports.cc" "$1/libtab.cc" "$T/lib/libtab_table.cc" "$1/c64cart_exports.cc" "$1/cbm1541_exports.cc" "$1/uci_exports.cc" "$1/sid_exports.cc"
       "$1/tempdisk_exports.cc" "$1/cbmprg_exports.cc" "$1/uci_slot.cc" "$1/sidfile.cc" "$TST/exports_stub.cc" "$ROOT/app/loaders/cbm_prg.cc")
   python3 "$ROOT/tools/libtab.py" table "$TST/libs_exports.toml" "$T/lib"                                          # the library table of the test's TOML B (T239.3 P3-1)

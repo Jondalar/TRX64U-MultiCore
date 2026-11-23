@@ -14,6 +14,7 @@
 #include "color_timings.h"
 #include "videomode.h"
 #include "picture.h"
+#include "video.h"
 #include "sid_decide.h"
 #include "i2c_drv.h"
 #include "resid8.h"                         // the SID library's reSID8 helpers and plan
@@ -1676,9 +1677,17 @@ static int op_power_cycle(CoreCtx *c, const OpArgs &, OpOut &o)
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 static const ArgSpec name_arg[] = { ARG_PATH("name") };
 
+// The palette in force is what the scaler shows; the still of the overlay service (T256 D10) paints the stopped picture's VIC colours with it.
+static bool still_palette(uint8_t rgb[16][3])
+{
+    u64cfg_palette(0, 0, 0, rgb);
+    return true;
+}
+
 void u64cfg_register(OpRegistry &r)
 {
     r.contributor("u64cfg");
+    Video::set_still_palette(still_palette);
     r.add_op("u64.fx_video", value_arg, 1, fx_video);
     r.add_op("u64.fx_audio", value_arg, 1, fx_audio);
     r.add_op("u64.fx_sid", value_arg, 1, fx_sid);

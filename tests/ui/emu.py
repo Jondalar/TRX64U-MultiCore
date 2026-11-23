@@ -36,6 +36,8 @@ class EmuError(Exception):
 
 class Emu:
     def __init__(self, log=None, core="trx64u"):
+        core, _, flags = core.partition("+")  # T256: "vc20+ovtest" is the core with the .cor of the overlay test library (tests/ui/ovtest, fixtures.make_ovtest_cor)
+        self.ovtest = "ovtest" in flags.split("+")
         self.core = core                     # "trx64u" (the C64 record), "amiga1200" or "nes" (the profiles of tests/coreapp/emu/profiles)
         self.token = None
         self.proc = None
@@ -55,7 +57,7 @@ class Emu:
         shutil.rmtree(WORK, ignore_errors=True)
         os.makedirs(WORK)
         stick = os.path.join(WORK, "stick")
-        fixtures.make_stick(stick, ROMS, self.core)
+        fixtures.make_stick(stick, ROMS, self.core, self.ovtest)
         # the SD card: the emulator builds a FAT volume from a directory for a USB stick; the same volume is the SD card's image
         sd_dir = os.path.join(WORK, "sd_src")
         fixtures.make_sd_dir(sd_dir)
@@ -78,6 +80,9 @@ class Emu:
         if self.core in CORES:         # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
             cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
             cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
+        if self.ovtest and self.core not in CORES:      # trx64u has no profile: the hand-over page names the .cor the stick holds (the keys of a profile's [handover])
+            for kv in ("core=" + fixtures.OVTEST_NAMES[self.core], "id=" + self.core, "path=/Usb0/cores/%s.cor" % self.core):
+                cmd += ["--handover", kv]
         cmd += os.environ.get("UI_EMU_ARGS", "").split()      # e.g. UI_EMU_ARGS="--log io" (T210: the register writes of the first frames)
         self.log = open(self.logpath, "w")
         self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=subprocess.STDOUT, cwd=WORK)
@@ -145,6 +150,12 @@ class Emu:
         req = urllib.request.Request("http://127.0.0.1:%d/v1/ui/grant" % REST_PORT, data=b"", method="POST")
         with urllib.request.urlopen(req, timeout=10) as r:
             self.token = json.loads(r.read().decode("utf-8")).get("token")
+
+    def op(self, name):
+        """T256: an operation of the application over REST (POST /v1/ops/NAME), as the person's tools call it."""
+        url = "http://127.0.0.1:%d/v1/ops/%s" % (REST_PORT, name) + ("?t=" + self.token if self.token else "")
+        with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=10) as r:
+            return r.read().decode("utf-8")
 
     def state(self, tries=40):
         last = None

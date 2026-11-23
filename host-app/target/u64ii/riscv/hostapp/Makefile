@@ -177,6 +177,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			libscan.cc \
 			libmenu.cc \
 			descrec.cc \
+			overlay.cc \
 			ops.cc \
 			corefolder.cc \
 			fm_fs.cc \

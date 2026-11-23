@@ -214,6 +214,16 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     group = "audio"                # optional: the setting group the row gets (what a tab with `groups` or `sections` lists)
     order = 20                     # optional: the place among the rows that are placed; equal numbers keep the order the application adds them in
                                    # (at least one of route, group and order; a core's place leaves out what it does not change, the base's value stays)
+    # T256 D8 (section 25, version 6; no [core]): an element a library shows over the machine's picture with api->overlay (svc_overlay.h): its name, where it stands on the 960 x 540 canvas
+    # and its size. The SDK's base UI TOML (coreapp/base_ui.toml) holds the base's own (the still, the PAUSED tag); a core's UI TOML adds its libraries' and may place a base element again.
+    [[element]]
+    name = "bar"                   # a-z, 0-9, _ (at most 15), once; the name a library gives show()
+    anchor = "bottom_mid"          # top_left, top_mid, top_right, left_mid, center, right_mid, bottom_left, bottom_mid, bottom_right: the point of the canvas the offset counts from
+    dx = 0                         # optional: pixels right of the anchor (default 0)
+    dy = -20                       # optional: pixels below the anchor (default 0)
+    w = 400                        # the size in canvas pixels, the surface's size; the whole rectangle has to lie inside the canvas of 960 x 540 (the compiler refuses it otherwise)
+    h = 40
+    still = false                  # optional: the still, under the open menu (at most one element of a table); the base fills it with the stopped machine's picture
     # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
 
     # TOML A (record version 7, T239.3 P1-1, D30, D34): the gateware as capabilities. A file with [io], [identity] and [[block]] and nothing else; see the section "TOML A" below.
@@ -254,7 +264,7 @@ PAD_DIRS = ("up", "down", "left", "right")          # pad.h PAD_SRC_UP (32) .. P
 # T239.3 P3-2 (D31): the maxima of a record are per core. The [sizes] table of a core's TOML B names them (tools/app_build.py has the whole table: its keys rec_* are these);
 # the C reader is compiled with the same numbers (descrec.h), so the compiler and the board refuse the same record.
 SIZE_LIMITS = {"rec_binds": "bind", "rec_values": "value", "rec_csettings": "cset", "rec_facts": "fact", "rec_tasks": "task", "rec_exts": "ext", "rec_ftypes": "ftype"}
-SIZE_MODULE = {"record_bytes": "MAX_SIZE", "rec_keys": "KEYS_MAX", "rec_windows": "WINDOWS_MAX", "rec_blocks": "BLOCKS_MAX", "rec_props": "PROPS_MAX", "rec_fields": "FIELDS_MAX", "rec_states": "STATES_MAX"}
+SIZE_MODULE = {"record_bytes": "MAX_SIZE", "rec_keys": "KEYS_MAX", "rec_windows": "WINDOWS_MAX", "rec_blocks": "BLOCKS_MAX", "rec_props": "PROPS_MAX", "rec_fields": "FIELDS_MAX", "rec_states": "STATES_MAX", "elements": "ELEMENTS_MAX"}
 
 
 def apply_sizes(sizes):
@@ -651,7 +661,7 @@ def compile_desc(doc, merged=(), app_base=False):
     of Picture, Scale, Smoothing and Frame follow; no core's record may."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart", "key", "window", "group_route", "place"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
+                "pad", "restart", "key", "window", "group_route", "place", "element"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
     if any(k in doc for k in TOMLA_KEYS):
         if not all(k in doc for k in TOMLA_KEYS) or any(k not in TOMLA_KEYS for k in doc):
             raise DescError("TOML A (version 7) is [io], [identity] and [[block]] and nothing else: a file has all three and no menu table, setting or window")
@@ -1320,12 +1330,13 @@ def _pad_words(pad, t, st):
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
 (SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
 SEC_IO, SEC_IDENT, SEC_BLOCKS = 20, 21, 22     # version 7 only: TOML A
+SEC_ELEMENTS = 25                      # T256 D8: the elements a library shows over the machine's picture, their place from the UI TOML (no [core] either; a version 6 record only)
 SEC_ROUTES, SEC_PLACES = 23, 24        # T239.3 D32: where the rows the application adds stand in the menu (no [core] either; a version 6 record only)
 SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
 SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
              SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
              SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
-             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_IO: "io", SEC_IDENT: "identity", SEC_BLOCKS: "blocks", SEC_ROUTES: "routes", SEC_PLACES: "places"}
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_IO: "io", SEC_IDENT: "identity", SEC_BLOCKS: "blocks", SEC_ROUTES: "routes", SEC_PLACES: "places", SEC_ELEMENTS: "elements"}
 SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
             "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
@@ -2188,6 +2199,57 @@ def _sec_places(rows, st):
     return b"".join(out)
 
 
+# ---- the elements of the overlay service (T256 D8) ---------------------------------------------------------------------------------------------------------------------
+# Section 25, read by descrec.cc by the same rules (overlay.h ovl_row_check):
+# elements  u32 count (1 .. ELEMENTS_MAX), then per element 6 words: name (string), anchor (0 .. 8, ANCHORS' order), dx and dy (32 bit two's complement), w | h << 16, flags (b0 still)
+ELEMENTS_MAX = 16                       # overlay.h OVL_ELEMENTS_MAX; the [sizes] key "elements" sets both (apply_sizes)
+ANCHORS = ("top_left", "top_mid", "top_right", "left_mid", "center", "right_mid", "bottom_left", "bottom_mid", "bottom_right")
+ELEMENT_KEYS = {"name", "anchor", "dx", "dy", "w", "h", "still"}
+CANVAS_W, CANVAS_H = 960, 540
+
+
+def _element_check(name, anchor, dx, dy, w, h, what):
+    """The rules of overlay.h ovl_row_check: a name, an anchor, a size, and a place inside the canvas of 960 x 540."""
+    if not re.fullmatch(r"[a-z0-9_]{1,15}", name or ""):
+        raise DescError("%s: the name is a-z, 0-9 and _, 1 to 15 characters" % what)
+    if not 0 <= anchor < len(ANCHORS):
+        raise DescError("%s (%s): the anchor is one of %s" % (what, name, ", ".join(ANCHORS)))
+    if not (1 <= w <= CANVAS_W and 1 <= h <= CANVAS_H):
+        raise DescError("%s (%s): the size is 1 .. %d x 1 .. %d" % (what, name, CANVAS_W, CANVAS_H))
+    if not (-CANVAS_W <= dx <= CANVAS_W and -CANVAS_H <= dy <= CANVAS_H):
+        raise DescError("%s (%s): the offset is outside the canvas" % (what, name))
+    col, row = anchor % 3, anchor // 3
+    x = (0, (CANVAS_W - w) // 2, CANVAS_W - w)[col] + dx
+    y = (0, (CANVAS_H - h) // 2, CANVAS_H - h)[row] + dy
+    if x < 0 or y < 0 or x + w > CANVAS_W or y + h > CANVAS_H:
+        raise DescError("%s (%s): the element at x %d, y %d, %d x %d is not inside the canvas of %d x %d" % (what, name, x, y, w, h, CANVAS_W, CANVAS_H))
+
+
+def _sec_elements(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= ELEMENTS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("element: 1 to %d entries, each a table" % ELEMENTS_MAX)
+    out, names, stills = [struct.pack("<I", len(rows))], set(), 0
+    for i, r in enumerate(rows):
+        what = "element %d" % (i + 1)
+        _only(r, ELEMENT_KEYS, what)
+        name = _need(r, "name", str, what)
+        anchor = _need(r, "anchor", str, what)
+        if anchor not in ANCHORS:
+            raise DescError("%s (%s): the anchor is one of %s" % (what, name, ", ".join(ANCHORS)))
+        dx, dy = _opt(r, "dx", int, what, 0), _opt(r, "dy", int, what, 0)
+        w, h = _need(r, "w", int, what), _need(r, "h", int, what)
+        still = _opt(r, "still", bool, what, False)
+        _element_check(name, ANCHORS.index(anchor), dx, dy, w, h, what)
+        if name in names:
+            raise DescError("%s: the name %r twice" % (what, name))
+        names.add(name)
+        stills += 1 if still else 0
+        if stills > 1:
+            raise DescError("%s (%s): a table has one still" % (what, name))
+        out.append(struct.pack("<6I", st.add(name), ANCHORS.index(anchor), dx & 0xFFFFFFFF, dy & 0xFFFFFFFF, w | (h << 16), 1 if still else 0))
+    return b"".join(out)
+
+
 def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
@@ -2249,6 +2311,8 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_ROUTES, _sec_routes(doc["group_route"], st)))
     if "place" in doc:
         secs.append((SEC_PLACES, _sec_places(doc["place"], st)))
+    if "element" in doc:
+        secs.append((SEC_ELEMENTS, _sec_elements(doc["element"], st)))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
@@ -2635,6 +2699,32 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                     r["order"] = order
                 places.append(r)
             out["place"] = places
+        elif sid == SEC_ELEMENTS:
+            n, = words(1)
+            if not 1 <= n <= ELEMENTS_MAX or len(p) != 4 + 24 * n:
+                raise DescError("%s: %d elements, or the length does not fit them" % (what, n))
+            elems, names, stills = [], set(), 0
+            for i in range(n):
+                nm, an, dx, dy, wh, fl = words(6, 4 + 24 * i)
+                dx, dy = (dx - 2 ** 32 if dx >= 2 ** 31 else dx), (dy - 2 ** 32 if dy >= 2 ** 31 else dy)
+                if fl & ~1 or an >= len(ANCHORS):
+                    raise DescError("%s, element %d: an unknown flag or anchor" % (what, i + 1))
+                _element_check(S(nm), an, dx, dy, wh & 0xFFFF, wh >> 16, "%s, element %d" % (what, i + 1))
+                if S(nm) in names:
+                    raise DescError("%s: the name %r twice" % (what, S(nm)))
+                names.add(S(nm))
+                stills += fl & 1
+                if stills > 1:
+                    raise DescError("%s: more than one still" % what)
+                e = {"name": S(nm), "anchor": ANCHORS[an], "w": wh & 0xFFFF, "h": wh >> 16}
+                if dx:
+                    e["dx"] = dx
+                if dy:
+                    e["dy"] = dy
+                if fl & 1:
+                    e["still"] = True
+                elems.append(e)
+            out["element"] = elems
     if ver == 7:
         if seen != {SEC_IO, SEC_IDENT, SEC_BLOCKS}:
             raise DescError("description record: TOML A has the sections io, identity and blocks, each once")
@@ -2968,7 +3058,7 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
-    for k in SEC_KEYS + ("key", "window", "group_route", "place") + TOMLA_KEYS:
+    for k in SEC_KEYS + ("key", "window", "group_route", "place", "element") + TOMLA_KEYS:
         if k in rec:
             doc[k] = rec[k]
     if rec["task"]:
@@ -3081,8 +3171,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("block") or rec.get("group_route") or rec.get("place"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table, windows, routes or places"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("block") or rec.get("group_route") or rec.get("place") or rec.get("element"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table, windows, routes, places or elements"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))

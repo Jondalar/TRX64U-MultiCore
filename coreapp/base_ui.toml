@@ -1,6 +1,6 @@
 # The SDK's base UI TOML (T239.3 D32): the rows the application adds to every core and where each stands in the menu. A row is whole here: its label, key, kind, values and default (and its
 # pick, for a list that changes at run time, as a core's row names it), as a row of a core's UI TOML is otherwise; a place gives it its tab, its group and its order.
-# tools/gen_base_ui.py compiles the file with tools/descrec.py (sections 4, 23 and 24, the records a core's UI TOML carries) into coreapp/src/base_ui.inc (routes and places, menutree.cc) and
+# tools/gen_base_ui.py compiles the file with tools/descrec.py (sections 4, 23, 24 and 25, the records a core's UI TOML carries) into coreapp/src/base_ui.inc (routes, places and elements, menutree.cc) and
 # coreapp/src/base_rows.inc (the rows, menubuild.cc); tools/gen_base_ui.py --check (the lint stage) is red when an .inc is not what this file compiles to. What a row cannot say stays code, in
 # picture.cc, volume.cc, tone.cc, mediamounts.cc, home.cc, hotkeys.cc and baseset.cc: whether a core gets the row, the default a core's own map or the gateware sets, the values of a list that changes at run time, the
 # condition that depends on another row, and the operations. The menu simulator and the board build the same menu from this file.
@@ -401,3 +401,23 @@ label = "Mouse wheel direction"
 values = ["Normal", "Reversed"]
 default = "Normal"
 apply = "base.wheel_dir"
+
+# ---- the elements of the overlay service (T256 D8, D9, D10): what the base itself puts over the machine's picture, and the still every core's libraries may fill. Places in canvas pixels
+# (960 x 540). A core's UI TOML adds the elements of its libraries with [[element]] and places a base element again by naming it (a core's PAUSED tag, for example).
+# the still: the picture of the stopped machine, under the open menu and under the elements while the machine stands. The base takes it when the machine stops; a library may show its own
+# surface as the still (Timewarp's frame). The whole canvas.
+[[element]]
+name = "still"
+anchor = "top_left"
+w = 960
+h = 540
+still = true
+
+# the PAUSED tag (D5: it says only "PAUSED"), the base's first user of the service: top right, 14 pixels from the edge
+[[element]]
+name = "paused"
+anchor = "top_right"
+dx = -14
+dy = 14
+w = 126
+h = 30

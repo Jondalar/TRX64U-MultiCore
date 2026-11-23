@@ -52,6 +52,9 @@
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
     const char *core = 0, *desc = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
+    bool paused = false, stopped = false, elements = false;                         // T256: the PAUSED tag over the still; the places of the elements of the UI TOML
+    bool picture = false;                                                            // T256: --picture X,Y,W,H, the running picture of a frame-buffer core on the canvas (the still has its geometry)
+    int pic[4] = { 0, 0, 0, 0 };
     int scale = 0;
 };
 static Opts o;
@@ -59,7 +62,8 @@ static Opts o;
 static void usage(void)
 {
     fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
-                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n");
+                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n"
+                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H]\n");
     exit(2);
 }
 
@@ -430,6 +434,40 @@ static void shot(const char *path)
     png_out(path, frame_w, frame_h, x, y, w, h);
 }
 
+// ---- T256: the overlay service in the simulator ------------------------------------------------------------------------------------
+// The still of a stopped C64-type machine is made up here (the VIC colours in bands, as a picture to see the menu and the elements over); the menu key calls do nothing.
+struct SimOverlayHost : OverlayHost {
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+    {
+        static const uint16_t pal[8] = { 0x2933, 0x5569, 0x7679, 0xEF8E, 0x8A85, 0xC36E, 0x737D, 0x4A49 };
+        if (fw < 1 || fh < 1) {
+            fw = w;
+            fh = h;
+            ox = oy = 0;
+        }
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                const int px = (ox + x) * 960 / fw, py = (oy + y) * 540 / fh;             // the same checks whatever the size the picture is fitted to
+                dst[y * w + x] = ((px / 40 + py / 40) & 1) ? pal[(py / 68) & 7] : pal[((py / 68) + 3) & 7];
+            }
+        }
+        return true;
+    }
+    bool picture_rect(int, int, OvRect *r)
+    {
+        if (!o.picture) {
+            return false;
+        }
+        *r = OvRect{ o.pic[0], o.pic[1], o.pic[2], o.pic[3] };
+        return true;
+    }
+    void menu_hide() { }
+    void menu_show() { }
+    void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
+};
+
 // ---- reload ----------------------------------------------------------------------------------------
 static void reload(void)
 {
@@ -498,6 +536,10 @@ int main(int argc, char **argv)
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
         else if (a == "--say") { o.say = val(); }
+        else if (a == "--paused") { o.paused = true; }
+        else if (a == "--stopped") { o.stopped = true; }
+        else if (a == "--elements") { o.elements = true; }
+        else if (a == "--picture") { if (sscanf(val(), "%d,%d,%d,%d", &o.pic[0], &o.pic[1], &o.pic[2], &o.pic[3]) != 4) usage(); o.picture = true; }
         else if (a == "--message") { o.msg_title = val(); o.msg_text = val(); }
         else if (a == "--root") { o.root = val(); }
         else if (a == "--scale") { o.scale = atoi(val()); }
@@ -608,6 +650,44 @@ int main(int argc, char **argv)
         if (o.msg_title) {                                        // the message pane of the application (ui_message), as run.cc raises it
             g_open = false;
             ui_message(o.msg_title, o.msg_text, true);
+        }
+        if (o.paused || o.stopped || o.elements) {                             // T256 D8: the elements as the merged UI TOML places them (the base's and the core's)
+            static UiElements table;
+            char why[160];
+            ovl_merge(menu_elem_base(), g_menu.mm && g_menu.mm->has_elem ? &g_menu.mm->elem_store : 0, &table, why, sizeof(why));
+            static SimOverlayHost host;
+            ui_overlay_start(&host, &table, true);
+            if (o.stopped) {                                      // the menu open on the stopped machine: the still under it, the menu blended over it in software (D10)
+                ui_overlay_frozen(true);
+                ui_show();
+            } else {
+                g_open = false;
+                ui_menu_visible(false);
+                ui_hide();
+            }
+            if (o.paused) {
+                ui_paused_tag(true);                              // the machine stands: the still, and the tag, a base element shown through the service
+            }
+            if (o.elements) {                                     // every element's rectangle and name, on LVGL's top layer
+                lv_obj_t *top = lv_display_get_layer_top(lv_display_get_default());
+                for (int i = 0; i < table.n; i++) {
+                    if (ovl_row_check(table.rows[i])) { continue; }
+                    const OvRect r = ovl_place_on(table.rows[i], ui_canvas_w(), ui_canvas_h());          // on the canvas of this video mode
+                    lv_obj_t *b = lv_obj_create(top);
+                    lv_obj_remove_style_all(b);
+                    lv_obj_set_pos(b, r.x, r.y);
+                    lv_obj_set_size(b, r.w, r.h);
+                    lv_obj_set_style_border_width(b, 2, 0);
+                    lv_obj_set_style_border_color(b, lv_color_hex(table.rows[i].still ? 0x00FFFF : 0xFFFF00), 0);
+                    lv_obj_set_style_border_opa(b, LV_OPA_COVER, 0);
+                    lv_obj_t *l = lv_label_create(top);
+                    lv_label_set_text_fmt(l, "%s %dx%d%s", table.rows[i].name, r.w, r.h, table.rows[i].still ? " (still)" : "");
+                    lv_obj_set_style_text_color(l, lv_color_hex(0xFFFF00), 0);
+                    lv_obj_set_style_bg_color(l, lv_color_hex(0x000000), 0);
+                    lv_obj_set_style_bg_opa(l, LV_OPA_70, 0);
+                    lv_obj_set_pos(l, table.rows[i].still ? r.x + 10 : r.x, table.rows[i].still ? r.y + 10 : r.y + r.h + 2);
+                }
+            }
         }
         if (o.shot) { shot(o.shot); }
         return 0;
