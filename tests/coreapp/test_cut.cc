@@ -364,7 +364,7 @@ int main()
         r.m->tick();
         CHECK(!r.m->busy());
         CHECK_EQ(J::steps(), 0);
-        CHECK(strstr(r.m->status(), "Cancelled") != 0);
+        CHECK_STR(r.m->status(), "Cancelled: Dump all");                    // the task, not a file: this job writes none
         // a step that fails ends the job with its sentence, as a failure
         J::steps() = 0;
         J::mode() = 2;

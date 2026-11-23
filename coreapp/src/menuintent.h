@@ -20,7 +20,7 @@ enum MenuStage {
     KS_SHEET,           // the sheet of a file's actions: a letter runs its item
     KS_APP,             // an application's screens: its own keys before the core's grammar
     KS_APP_TERM,        // an application's terminal: every key is the application's
-    KS_CORE,            // the key table of the core's own record (descrec.h section 18, MenuMerge::keys): the monitor's and Timewarp's keys of the TRX64U, in the record's order
+    KS_CORE,            // the key table of the core's own record (descrec.h section 18, MenuMerge::keys): the rows of the core's own key table, in the record's order
     KS_BUSY,            // a file is being written: ESC drops it, nothing else counts
     KS_PICK,            // the folder / file picker: its raw handler (not in the table)
     KS_ENTRY,           // the text field and the address prompt: their raw handler (not in the table)

@@ -2129,7 +2129,13 @@ bool MenuCtl::tick()
     if (!job_started_ && c_->job_cancel) {                          // cancelled before the first chunk: nothing exists yet
         busy_ = false;
         c_->job_cancel = false;
-        set_status("Cancelled: nothing was written.", false);
+        if (job_bare_ && job_task_->label && job_task_->label[0]) {                       // the operation names its own target: say the task, not a file
+            char cm[64];
+            snprintf(cm, sizeof(cm), "Cancelled: %s", job_task_->label);
+            set_status(cm, false);
+        } else {
+            set_status("Cancelled: nothing was written.", false);
+        }
         return true;
     }
     const Task &t = *job_task_;

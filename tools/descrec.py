@@ -1482,7 +1482,7 @@ def _sec_replace(items, st):
 # tab (menuctl.cc layout_is), node the id of the shown tab.
 KEYS_MAX = 64
 WINDOWS_MAX = 32
-WINDOW_SIZE_MAX = 0x100000             # a block of the I/O space is at most 1 MiB (the video block of the U64 core is the largest, 0x10000)
+WINDOW_SIZE_MAX = 0x100000             # a block of the I/O space is at most 1 MiB
 KEY_FLAGS = {"pass_key": 2, "status": 4, "status_ok": 8, "close": 32, "directive": 64, "direct": 128}      # menuintent.h KF_*; `value` is KF_ARG (1)
 KF_ARG = 1
 KEY_KEYS = {"layout", "node", "key", "codes", "do", "op", "value", "when"} | set(KEY_FLAGS)
