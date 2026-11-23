@@ -76,6 +76,8 @@ SCHEMA = {
     # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
     # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
     "pipeline":     ("bool", False),
+    # T170: the ports a large core's layer 2 has beyond the contract's 247 (tools/contract_ports.py): the flat build has no partition to bound it
+    "layer2_extra": ("list", False),
 }
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")
@@ -189,6 +191,8 @@ def check():
             bad += err("app %r is none of %s" % (t.get("app"), ", ".join(APPS)))
         if "delivery" in t and t["delivery"] not in DELIVERIES:
             bad += err("delivery %r is none of %s" % (t["delivery"], ", ".join(DELIVERIES)))
+        if "layer2_extra" in t and not is_large:
+            bad += err("layer2_extra belongs to a large core's cores/%s/mono/core.toml (the flat build has no partition to bound the ports)" % name)
         if is_large and t.get("delivery") != "cfw":
             bad += err("a large-core descriptor (mono/core.toml) says delivery = \"cfw\"")
         if t.get("delivery") == "cfw":

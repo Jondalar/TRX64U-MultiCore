@@ -1,6 +1,6 @@
 # T113 §5.3: the C128 as a monolithic full bitstream, measurement build. The host top (this core's copy mono/top.v of host/top.v, T140) and layer2_c128 (as the
 # module "layer2") in ONE design: no HD.RECONFIGURABLE, no pb_l1 / pb_l2 / pb_cpu pblocks, no out-of-context checkpoints, no host cache.
-# Pins and timing constraints are the host's own (read from mono/host/*.xdc) plus mono/avid_pins.xdc; the one timing exception host/build.tcl adds after synthesis
+# Pins and timing constraints are the host's own (read from mono/host/*.xdc) plus mono/avid_pins.xdc and mono/iec_srq_pins.xdc; the one timing exception host/build.tcl adds after synthesis
 # (the 8502's RDY, two clk2x periods) is repeated. Nothing under host/ is edited: Vivado's working directory is host/ and this
 # script is read from cores/c128/mono/.
 #
@@ -191,6 +191,7 @@ read_xdc $hd/pins.xdc
 read_xdc $hd/gtp_pins.xdc
 read_xdc $hd/usb_pins.xdc
 read_xdc $c128/mono/avid_pins.xdc
+read_xdc $c128/mono/iec_srq_pins.xdc
 
 set incs [list $core $kawari $core/c64_redip_sid/reDIP-SID/gateware $c64u $c128 $hd]
 synth_design -top top -part $part -generic FPGA_TYPE=$fpga_type -include_dirs $incs {*}$synth_defs

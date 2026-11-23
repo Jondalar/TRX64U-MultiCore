@@ -1140,7 +1140,7 @@ static void c128_register(OpRegistry &r)
     cbm1541_register(r);
 }
 
-static const char *const caps[] = { "iec", "drive_a" };
+static const char *const caps[] = { "iec", "drive_a", "iec_trace" };
 
 // T141 P2: the USB keyboard's extra keys. The application hands the usages down (rawkeys.h, held mode); c128_xkeys_apply writes XKEYS / XSPECIAL.
 static void c128_keys_held(CoreCtx *c, const uint8_t *usages, int n)
@@ -1181,7 +1181,7 @@ const CoreDesc c128_desc = {
     "c128.service", 20, false,
     0, 0,
     c128_register,
-    caps, 2,
+    caps, 3,
     false, false, 0, 0, 0, 0, 0, 0, 0,
     "c128.type_script",                                 // type_op (T206: Run Disk)
     "c128.run_prg",                                     // run_op (T217: Load + run, and Mount & Run of a file inside a disk image)

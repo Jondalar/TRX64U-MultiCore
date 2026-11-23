@@ -330,6 +330,34 @@ class Descriptor(unittest.TestCase):
         self.toml('delivery = "cfw"\nmono_env = ["trx z80"]\n')
         self.assertIn("NAME=value", self.check()[1])
 
+    def test_layer2_extra_in_a_large_descriptor(self):
+        self.toml()
+        os.remove(os.path.join(self.d.name, "x", "core.toml"))
+        cv = open(os.path.join(ROOT, "contract", "VERSION")).read().strip()
+        open(os.path.join(self.d.name, "x", "mono", "core.toml"), "w").write(
+            'id = "x"\nname = "X"\nversion = "0.1.0"\ncontract = %s\napp = "blueprint"\norder = 1\ndelivery = "cfw"\nexperimental = true\n'
+            'sources = ["cores/x"]\nlayer2_extra = ["IEC_SRQ_I"]\n' % cv)
+        self.assertEqual(self.check()[0], 0)
+
+    def test_control_layer2_extra_in_a_partial_descriptor(self):
+        self.toml('layer2_extra = ["IEC_SRQ_I"]\n')
+        rc, out = self.check()
+        self.assertEqual(rc, 1)
+        self.assertIn("layer2_extra", out)
+
+    def test_contract_ports_extra_only_without_partial_descriptor(self):
+        import contract_ports as C
+        old = C.ROOT
+        C.ROOT = self.d.name
+        try:
+            os.makedirs(os.path.join(self.d.name, "cores", "y", "mono"))
+            open(os.path.join(self.d.name, "cores", "y", "mono", "core.toml"), "w").write('id = "y"\nlayer2_extra = ["P_I"]\n')
+            self.assertEqual(C.large_extra("y"), ["P_I"])
+            open(os.path.join(self.d.name, "cores", "y", "core.toml"), "w").write('id = "y"\n')   # a partial descriptor too: no extra ports
+            self.assertEqual(C.large_extra("y"), [])
+        finally:
+            C.ROOT = old
+
     def test_the_real_amiga1200(self):
         t = T.parse(os.path.join(ROOT, "cores", "amiga1200", "mono", "core.toml"))
         self.assertEqual((t["delivery"], t["app"], t["experimental"]), ("cfw", "blueprint", True))

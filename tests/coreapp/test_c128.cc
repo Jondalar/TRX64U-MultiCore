@@ -627,6 +627,7 @@ int main()
         CHECK(has_rom81);
         CHECK(desc_has_capability(&c128_desc, "drive_a"));
         CHECK(desc_has_capability(&c128_desc, "iec"));
+        CHECK(desc_has_capability(&c128_desc, "iec_trace"));    // T170: the report reads the bus trace page only for this
         CHECK_EQ(c128_desc.nmedia, 1);
         CHECK_STR(c128_desc.media[0].name, "Drive A:");
         CHECK_STR(c128_desc.roms[0].put_op, "c128.put_rom");

@@ -230,6 +230,8 @@ c64scpu_mdust: large:c64scpu
 c128_vicpic: large:c128
 c128_vicshow: large:c128
 c128_act: large:c128
+c128_iec: large:c128
+c128_iec_cia: large:c128
 c128_vicpic_tear: large:c128
 c64scpu_hdmi_timing: large:c64scpu
 c64scpu_mode_req: large:c64scpu

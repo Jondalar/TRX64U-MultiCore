@@ -247,6 +247,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			diagtest.cc \
 			bugreport.cc \
 			corereport.cc \
+			iectrace.cc \
 			netfs.cc \
 			ftp_client.cc \
 			a64_http.cc \

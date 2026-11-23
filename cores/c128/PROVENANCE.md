@@ -25,6 +25,12 @@ The side-effect-free read-back of the VDC (their `vdc_top.sv` / `vdc_ramiface.sv
 - `vdc/vdcram.v`: the idea and the port names `addr_b` / `dao_b` of their second read port; the code is ours (it reads every clock, no `rd_b`).
 Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` read gating, `dbg_rd`, the `clkdiv` move. The request/answer engine (`c128_x.v`, `vk_*`) and the register window (`c128_regs.v` 100-143) are ours.
 
+## Taken from eilers/c128Mega65 (T170)
+- `c128_iecfs.v`: from eilers/c128Mega65 (`CORE/C128_MiSTer/rtl/fpga64_sid_iec.vhd:1189-1202`, commit `ef48a75`, 2026-11-11; GPL-3.0; Stefan Eilers), which carries Erik Scheffers'
+  MiSTer-devel/C128_MiSTer (Release 20240904, `5f0bdb4`; file header: Peter Wendrich 2014, Dar 2014, Alexey Melnikov 2021, Erik Scheffers 2022, no licence text). Taken: the
+  fast serial wiring equations (`fs_o`, `fclk_o`, `iec_data_o`, `iec_srq_n_o`, `fs_i`, `cia1_flag_n`, `cia1_cnt_i`, `cia1_sp_i`), written again in Verilog in our polarity; no line of
+  VHDL is copied, so there is no header to keep. The file was read outside this repository.
+
 ## Ours (written for this project, or copies of our own tree)
 - `vdc/vdcram.v` (replaces the Intel altsyncram instance; T257: a second read port after the MEGA65 core's, see above), `vdc/vdc_cpu.v` (the CPU-visible part of the VDC, variant 2, not used by the core).
 - `c128_map.v`, `c128_x.v`, `c128_keys.v`, `c128_regs.v`, `c128_rgbi.v`, `c128_romc.v`, `c128_rome.v`, `c128_chr.v`, `c128_joyswap.v` (T157), `c128_act.v` (T194): ours.
@@ -41,7 +47,8 @@ Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` 
 - `mono/c128_yc.v` (T140, 2026-10-30): derived from `vendor/mister/yc_out.sv` (Mike Simone, GPL-2.0-or-later): the same colour matrix, carrier, PAL switching
   and burst, rebuilt with the constant multiplications in DSP48s, a 26-bit carrier and fewer register stages. `mono/c128_avout.v` (T140): ours.
 - `mono/top.v` (T140 D1, T164 WP18): copy of the host copy's `top.v` (`mono/host/top.v`, the A500's set) with the A/V port added and `c64_type` 1 (`mono/top.v.diff`). The Ethernet cut of T140 Q2b is the host's `NO_NET` / `g_net`; the C128 fork of `ultimate_sys.vhd` is gone.
-- `mono/` (the flat build `build_mono.tcl`, `stubs/`, `reports/`), `sim/` (benches), `core.toml`, `core_sources.tcl`, `c64_core_ooc.xdc`.
+- `iec_bus_c128.v` (T170): copy of `cores/c64u/iec_bus_c64u.v` (ours) with the SRQ line and the trace taps. `c128_iecfs.v` (above), `c128_iectrace.v` (T170 D2, the bus trace): ours.
+- `mono/` (the flat build `build_mono.tcl`, `iec_srq_pins.xdc` (T170, the SRQ input's ball), `stubs/`, `reports/`), `sim/` (benches), `core.toml`, `core_sources.tcl`, `c64_core_ooc.xdc`.
 - Unmodified files are read in place from `vendor/icepi`, `cores/c64u`; nothing there is edited.
 - Variant switches: `TAPE`, `SOCK_AUDIO`, `Z80`, `SID2`, `VDC64`, `ROM_P2`, `RAM_P2`, `ROM_CACHE`, `MONO`, `VDC_WHOLE`; negative-control defines `C128_MUT_ONEBANK`,
   `C128_MUT_FASTC64`, `KEYS_MUT_NOCBM`, `ROMC_MUT_*`.

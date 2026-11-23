@@ -35,6 +35,7 @@ module c128_map (
     output wire [15:0] t_addr,          // translated address (page relocation)
     output wire        vic_bank,        // RAM block the VIC reads
     output wire        c128_n,
+    output wire        fsdir,           // $D505 bit 3, the fast serial direction (1 = the machine sends; reset: cpumode or osmode, c128_mmu8722.vhd:112)
     output wire        z80_n,           // the MMU's CPU bit as the machine has it (0: the Z80 is selected)
     output reg         cs_mmu_lo,       // $D500-$D5FF with I/O mapped (or written with I/O mapped)
     output reg         cs_mmu_hi,       // $FF00-$FF04
@@ -155,6 +156,7 @@ module c128_map (
         .fsdiri(1'b1), .fsdiro(m_fsdir),
         .c128_n(c128_n), .z80_n(m_z80_n_mmu), .rombank(m_rombank), .iosel(m_iosel),
         .tAddr(m_taddr), .cpuBank(m_cpubank), .vicBank(m_vicbank));
+    assign fsdir    = m_fsdir;
     assign z80_n    = m_z80_n_mmu;
     assign ram_bank = m_cpubank[0];
     assign vic_bank = m_vicbank[0];

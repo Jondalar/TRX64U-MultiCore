@@ -349,6 +349,9 @@
 1|c128_vicpic|1800|sh cores/c128/sim/run_vicpic.sh
 1|c128_vicshow|7200|sh cores/c128/sim/run_vicshow.sh
 1|c128_act|120|sh cores/c128/sim/run_act.sh
+# T170: the fast serial wiring, the bus with SRQ and the bus trace (iverilog); CIA 1's serial register behind the wiring (Verilator)
+1|c128_iec|120|sh cores/c128/sim/run_iec.sh
+1|c128_iec_cia|600|sh cores/c128/sim/run_iec_cia.sh
 1|c128_vicpic_tear|3600|sh cores/c128/sim/run_vicpic_tear.sh
 # T222 (S1-S6): this core's copy of the host video files (cores/c64scpu/mono/host) with the HDMI rows and scales of TRX64-Ultimate's U16: the timing per row, the mode request / scale register, the TMDS bit repeater, vic_scaler on hdmi_timing (7 rows x 3 scales + 3 controls), c64_text's geometry, hdmi_out end to end (1080p50 and 576p50 from the GTP words)
 1|c64scpu_hdmi_timing|900|sh cores/c64scpu/sim/hdmi/run_one.sh tb_hdmi_timing.v

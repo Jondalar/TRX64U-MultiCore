@@ -57,6 +57,7 @@ module tb_c128;
     reg  drv_on = 1'b0;                                     // -DSIM_DRIVE: the real 1541 below is on the bus instead of the stub (+DRIVE)
     always @(*) begin
         iec_atn_i  = iec_atn_o;
+        iec_srq_i  = iec_srq_o;                         // T170: SRQ is the core's own line here (no device pulls it)
         iec_clk_i  = iec_clk_o & dv_clk & drv_clk_o;
         iec_data_i = iec_data_o & dv_data & drv_data_o & (dv_on | nodev | drv_on | iec_atn_o);
     end

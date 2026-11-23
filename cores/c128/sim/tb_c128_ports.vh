@@ -121,6 +121,9 @@
     reg  iec_atn_i = 0;
     reg  iec_clk_i = 0;
     reg  iec_data_i = 0;
+    wire iec_srq_o;
+    reg  iec_srq_i = 0;
+    wire fs_dir;
     reg  [9:0] cram_addr = 0;
     reg  cram_we = 0;
     reg  [3:0] cram_wdata = 0;

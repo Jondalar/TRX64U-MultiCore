@@ -5,6 +5,7 @@
 #include "board.h"
 #include "listgrow.h"
 #include "edid.h"
+#include "iectrace.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -169,6 +170,13 @@ int core_report_build(CoreCtx *c, uint32_t fattime, bool time_valid, const char 
 
     br_section(&o, "Core state (registers named by the descriptor)");
     put_regs(&o, c);
+
+    // T170 D2: the serial port's bus trace. The descriptor must declare "iec_trace" (only a core whose gateware has the page; no other core's window
+    // is read at 0xF000), and the page must then answer "IECT".
+    if (desc_has_capability(d, "iec_trace") && c->io && iectrace_present(c->io)) {
+        br_section(&o, "Serial port trace (T170)");
+        iectrace_report(c->io, &o, IECTRACE_SHOW);
+    }
 
     br_section(&o, "Heap");
     put_heap(&o);
