@@ -1254,7 +1254,7 @@ group = "audio_2"
         D.compile_checked('[[place]]\nop = "volume.apply"\norder = 1\n', ops)
 
     def test_the_base_table_is_whole_and_current(self):
-        rec = D.parse_desc(D.compile_text(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read()))
+        rec = D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
         names = {r["group"] for r in rec["group_route"]}
         self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "look", "appinput", "storage", "menu"])
         for p in rec["place"]:
@@ -1265,6 +1265,44 @@ group = "audio_2"
         self.assertEqual(orders, sorted(orders))                       # the order the application adds the rows in
         self.assertEqual(len(orders), len(set(orders)))
         r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class BaseRows(unittest.TestCase):
+    """T239.3 D32, P2-4's QC entry: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): label, key, kind, values and default, and for a list that
+    changes at run time its provider. tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\nprovider = "video.modes"\napply = "picture.apply"\n'
+
+    def base(self):
+        return D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
+
+    def test_every_row_is_whole_and_every_row_has_a_place(self):
+        rec = self.base()
+        keys = [r["key"] for r in rec["cset"]]
+        self.assertEqual(len(keys), len(set(k.lower() for k in keys)))
+        for r in rec["cset"]:
+            self.assertTrue(r["apply"], r["key"])
+            self.assertEqual(r["when"] in ("text", "secret") or r["default"] < len(r["values"]), True, r["key"])
+            self.assertTrue(any(p["op"] == r["apply"] and (not p.get("key") or p["key"].lower() == r["key"].lower()) for p in rec["place"]), r["key"])
+        by = {r["key"]: r for r in rec["cset"]}
+        self.assertEqual(by["Picture"]["provider"], "video.modes")
+        self.assertEqual(by["Hotkey modifier"]["provider"], "hotkeys.modifiers")
+        self.assertEqual(by["Volume"]["values"][by["Volume"]["default"]], "100%")
+        self.assertEqual((by["Mouse Sensitivity"]["base"], by["Mouse Sensitivity"]["values"][by["Mouse Sensitivity"]["default"]]), (1, "8"))
+        self.assertEqual(by["Home Directory"]["when"], "text")
+
+    def test_a_provider_is_the_base_rows_not_a_cores(self):
+        r = D.parse_desc(D.compile_desc(D.toml_loads(self.ROW), app_base=True))
+        self.assertEqual((r["cset"][0]["provider"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.ROW)
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.ROW.replace("picture.apply", "x.apply").replace("Picture", "Other"))
+
+    def test_the_rows_are_the_ones_the_application_exports(self):
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],
+                           capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
