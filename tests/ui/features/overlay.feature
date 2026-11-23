@@ -8,10 +8,11 @@ Feature: The overlay service of the base (T256 D1-D10): the PAUSED tag over the 
 
   Scenario: S9 - the open menu covers the tag, the still stays under it, and the tag is back when the menu closes
     Given the machine is paused with the menu closed
+    And I save the picture "overlay-paused-trx64u"
     When I press F1
     Then the menu is shown
     And I save the picture "overlay-paused-menu-open"
-    And the picture "overlay-paused-menu-open" shows no tag
+    And the picture "overlay-paused-menu-open" does not hold the tag of "overlay-paused-trx64u"
     When I press RUN/STOP
     Then I save the picture "overlay-paused-menu-closed-again"
     And the picture "overlay-paused-menu-closed-again" shows the PAUSED tag at its place

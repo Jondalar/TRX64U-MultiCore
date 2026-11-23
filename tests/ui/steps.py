@@ -819,9 +819,30 @@ def picture_still(c, name):
 
 @step(r'the picture "([^"]+)" shows no tag')
 def picture_no_tag(c, name):
+    """With the menu closed: no bright pixel at the tag's place. With the menu open the top bar draws its own text there, so that picture is checked against a picture of the tag
+    (the step below)."""
     n = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 820, 14, 946, 44, lambda r, g, b: max(r, g, b) >= 200)[0]
     if n >= 80:
         raise AssertionFailed("the tag's place shows %d bright pixels: a tag is drawn" % n)
+
+
+@step(r'the picture "([^"]+)" does not hold the tag of "([^"]+)"')
+def picture_not_tag_of(c, name, tagpic):
+    """The text of the tag (bright pixels of PAUSED in `tagpic`, the picture of the tag with the menu closed) is not at the same pixels of `name`: the tag alone makes that text, a menu
+    bar's own text does not land on it."""
+    def pixels(pic):
+        px = []
+        _canvas_rect(os.path.join(emu_mod.OUT, pic + ".png"), 820, 14, 946, 44, lambda r, g, b: px.append((r, g, b)) or False)
+        return px
+    a, t = pixels(name), pixels(tagpic)
+    if len(a) != len(t) or not t:
+        raise AssertionFailed("%s and %s are not pictures of one size" % (name, tagpic))
+    text = [i for i, (r, g, b) in enumerate(t) if max(r, g, b) >= 200]
+    if len(text) < 80:
+        raise AssertionFailed("%s shows no tag text at its place: it is no reference" % tagpic)
+    same = sum(1 for i in text if max(a[i]) >= 200)
+    if same * 10 >= len(text) * 6:
+        raise AssertionFailed("%d of the %d pixels of the tag's text are bright in %s too: the tag is drawn over the open menu" % (same, len(text), name))
 
 
 @step(r'the picture "([^"]+)" differs in brightness from "([^"]+)"')
