@@ -56,7 +56,7 @@
 //                          KF_DIRECT 128; none for a decline or a swallow; KF_ARG and KF_KEYARG not together), when (string, none: a state name, "!" in front: while it has none).
 //                          The rows are CoreKey (menuintent.h), stage KS_CORE, tried in the record's order where an application's screens end and the menu's grammar begins.
 //        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
-//                          the block ends below 4 GiB). A window that covers a byte of a register the base drives itself (basereg.def) is refused with the register's name and code reference.
+//                          the block ends below 4 GiB).  No table of the base's registers refuses a window: the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A, not against the base blocks of the host's TOML A.
 //                          descrec_window finds one by name (io.window).
 //        20 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
 //                          tab (an id, a-z 0-9 _), heading (1 to 31 characters), label (string, none; required for a page), flags (b0 page). They are MenuGroupRoute (menutree.h); a route of the group of a base
@@ -74,7 +74,7 @@
 //        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
 //                          size 1 .. 0x100000, first property, count), the properties (8 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count), the
 //                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
-//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register lies inside its block, two properties share a byte only when
+//                          their table, in order. Blocks of one TOML A do not overlap, a register lies inside its block, two properties share a byte only when
 //                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
@@ -328,22 +328,13 @@ struct DescRecord {
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
 // The window `name` of the record (io.window of the base calls it with the core's name of the window): null when the record declares none of that name. The record was checked at
-// load: no window covers a register the base drives itself. A version 7 record (TOML A) hands out its blocks by their names too (a core's block covers no such register either).
+// load: names and sizes only (a window is not checked against any register of the base). A version 7 record (TOML A) hands out its blocks by their names too; the blocks of one TOML A do not overlap, and a core's block is not checked against the base blocks of the host's TOML A.
 const DescWindow *descrec_window(const DescRecord &rec, const char *name);
 // TOML A: the block `name` of a version 7 record, its property `name`, and the field `name` of a property; null when there is none (also for a record without TOML A). Their pointers stay
 // inside the record's DescMap.
 const DescBlock *descrec_block(const DescRecord &rec, const char *name);
 const DescProp *descrec_prop(const DescRecord &rec, const DescBlock &b, const char *name);
 const DescField *descrec_field(const DescRecord &rec, const DescProp &p, const char *name);
-
-// The registers the base drives itself (basereg.def): the first one that the block [address, address + size) covers, else null. `ref` is the code that drives it.
-struct BaseReg {
-    const char *name;
-    uint32_t address, bytes;
-    const char *ref;
-};
-const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size);
-const BaseReg *descrec_base_regs(int *n);
 
 // What a descriptor holds that is code, not data (T239.3 D17): the control hooks, the operations' registration, the media write-back and the three functions of the mount
 // slot. The compiled-in code of the core provides them, or, when the record names a hooks library (section 1, hooks), the library: CoreDesc::hooks_lib is then set, the control

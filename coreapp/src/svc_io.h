@@ -74,9 +74,8 @@ typedef struct SvcIo {
     // A busy wait of `us` microseconds (CoreIo::delay_us), the same call as sys.delay_us (svc_sys.h). Task: any.
     void (*delay_us)(uint32_t us);
     // A register window of the core's bitstream outside the register block of rd/wr (its video, mixer, palette or resampler block): the window `name` that the
-    // core's API TOML declares (name, address, size). The base checks the window against the registers the base drives itself (it refuses a window that covers
-    // one: split the block into the runs you write) when it loads the API TOML and hands out its base
-    // address; the library adds the offsets its TOML names and accesses the registers through a volatile pointer, one byte per access as above. Null (and
+    // core's API TOML declares (name, address, size). The base hands out its base
+    // address (blocks of one TOML A do not overlap; a core's block is not checked against the base blocks of the host's TOML A); the library adds the offsets its TOML names and accesses the registers through a volatile pointer, one byte per access as above. Null (and
     // *size 0) for a name the TOML does not declare, for a null name and for a core with no description record (descrec_window over the running core's record). Task: any; the registers' own rules are the core's.
     volatile uint8_t *(*window)(const char *name, uint32_t *size);
 } SvcIo;

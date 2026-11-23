@@ -1,7 +1,6 @@
 // T239.3 base 3.3: the key table (section 18), the register windows (section 19) and the job task flag of the description record. The fixture is compiled from
 // tests/coreapp/golden/desc_keys.toml by the real tool (gen_bundle.py), so the two implementations are tested against each other: the reader of the board (descrec.cc) reads every field of
-// every row, finds a window by name (descrec_window), refuses a window that covers a register the base drives itself - each register of basereg.def in turn, with its name and code
-// reference in the sentence - and refuses damaged rows and sections by number; every truncation of the record is refused.
+// every row, finds a window by name (descrec_window), and refuses damaged rows and sections by number; every truncation of the record is refused.
 //
 //   test_deckeys DESC_KEYS.bin
 #include <string>
@@ -122,49 +121,9 @@ int main(int argc, char **argv)
     CHECK(d->tasks[0].job && d->tasks[1].job && !d->tasks[2].job);
     CHECK(d->tasks[1].ask != 0);
 
-    // ---- the registers the base drives itself: the table of the reader, and a window on each of them is refused with its name and its code reference
-    int nreg = 0;
-    const BaseReg *regs = descrec_base_regs(&nreg);
-    CHECK(nreg >= 22);
+    // ---- damage: every truncation, a duplicate name, and rows that break a rule of the reader
     const uint32_t win = section(good, 19);
     CHECK(win != 0);
-    for (int i = 0; i < nreg; i++) {
-        CHECK(descrec_base_reg_hit(regs[i].address, 1) == &regs[i]);       // the register itself
-        CHECK(descrec_base_reg_hit(regs[i].address + regs[i].bytes - 1, 4) != 0);          // a block that ends on it
-        CHECK(regs[i].name[0] && regs[i].bytes >= 1 && strchr(regs[i].ref, ':') != 0);
-        // the window "audio_mixer" (the first of the section, name, address, size at +12, +16, +20) moved onto the register: refused
-        Bytes b = good;
-        wr(b, win + 16, regs[i].address);
-        wr(b, win + 20, 1);
-        DescRecord *x = new DescRecord;
-        CHECK_EQ(parse(b, x, why), -1);
-        CHECK(strstr(why, regs[i].name) != 0);
-        CHECK(strstr(why, regs[i].ref) != 0);
-        CHECK(strstr(why, "audio_mixer") != 0);
-        // a block that starts below and runs over it
-        b = good;
-        wr(b, win + 16, regs[i].address - 2);
-        wr(b, win + 20, 4);
-        CHECK_EQ(parse(b, x, why), -1);
-        // a block that stops just before it (and does not touch another register) and one that starts just behind it are allowed unless another register is there
-        b = good;
-        wr(b, win + 16, regs[i].address + regs[i].bytes);
-        wr(b, win + 20, 1);
-        const bool other = descrec_base_reg_hit(regs[i].address + regs[i].bytes, 1) != 0;
-        CHECK_EQ(parse(b, x, why), other ? -1 : 0);
-        delete x;
-    }
-    // a size that runs over a register from below: the mixer block at 0xA0000500 grown to cover the U64 block's base registers
-    {
-        Bytes b = good;
-        wr(b, win + 16, 0xA0000400);
-        wr(b, win + 20, 0x100);
-        DescRecord *x = new DescRecord;
-        CHECK_EQ(parse(b, x, why), -1);
-        delete x;
-    }
-
-    // ---- damage: every truncation, a duplicate name, and rows that break a rule of the reader
     for (size_t n = 0; n < good.size(); n++) {
         Bytes cut(good.begin(), good.begin() + n);
         DescRecord *x = new DescRecord;

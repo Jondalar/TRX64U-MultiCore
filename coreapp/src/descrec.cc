@@ -84,30 +84,6 @@ bool id_ok(const char *s)
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
                                                          "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places" };
 
-// T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
-static const BaseReg g_base_regs[] = {
-#define BASE_REG(n, a, s, r) { #n, a, s, r },
-#include "basereg.def"
-#undef BASE_REG
-};
-
-const BaseReg *descrec_base_regs(int *n)
-{
-    *n = (int)(sizeof(g_base_regs) / sizeof(g_base_regs[0]));
-    return g_base_regs;
-}
-
-const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size)
-{
-    for (unsigned i = 0; i < sizeof(g_base_regs) / sizeof(g_base_regs[0]); i++) {
-        const BaseReg &g = g_base_regs[i];
-        if ((uint64_t)address < (uint64_t)g.address + g.bytes && (uint64_t)g.address < (uint64_t)address + size) {
-            return &g;
-        }
-    }
-    return 0;
-}
-
 const DescWindow *descrec_window(const DescRecord &rec, const char *name)
 {
     for (int i = 0; name && i < rec.nwindows; i++) {
@@ -253,12 +229,6 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         d.core = ow == 1;
         if (bad || !id_ok(d.win.name) || !id_ok(d.module) || ow > 1 || d.win.size < 1 || d.win.size > DR_WINDOW_MAX || (uint64_t)d.win.address + d.win.size > 0x100000000ull) {
             return r.fail("description record, section %s: block %u has no name or module of a-z 0-9 _, or an owner that is not 0 or 1, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
-        }
-        if (d.core) {
-            if (const BaseReg *g = descrec_base_reg_hit(d.win.address, d.win.size)) {
-                return r.fail("description record, section %s: block \"%s\" of the core covers %s (0x%08X, %u byte%s), a register the base drives itself (%s)",
-                              nm, d.win.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
-            }
         }
         for (uint32_t j = 0; j < i; j++) {
             const DescBlock &o = m->blocks[j];
@@ -810,10 +780,6 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 d.size = SW(3 + 3 * i);
                 if (bad || !id_ok(d.name) || d.size < 1 || d.size > DR_WINDOW_MAX || (uint64_t)d.address + d.size > 0x100000000ull) {
                     return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
-                }
-                if (const BaseReg *g = descrec_base_reg_hit(d.address, d.size)) {
-                    return r.fail("description record, section %s: window \"%s\" covers %s (0x%08X, %u byte%s), a register the base drives itself (%s); split the block into the runs the core writes",
-                                  nm, d.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
                 }
                 for (uint32_t j = 0; j < i; j++) {
                     if (!strcmp(out->windows[j].name, d.name)) {
