@@ -1,5 +1,5 @@
 // The export "uci" (major 1): the Ultimate Command Interface at $DF1C-$DF1F, the shared UCI library of T239.3 D12 (today coreapp/src/uci.cc and uci.h). A library of this
-// repository puts the table into LibRecord::exports (base 3.2); a core's library finds it with SvcLib::find("uci", 1, &size). Not a member of LibApi.
+// repository puts the table into LibRecord::exports (base 3.2); a core's library finds it with SvcLib::find("uci", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
 //
 // Who owns the $DF1C handling: this library. The registers are the UCI's own (CMD_IF_BASE + 0 SLOT_BASE, + 1 SLOT_ENABLE), so the three slot calls are here and nobody else
 // writes them. trx64u_uci_df1c of the old code (called by c64_cart.cc when a cartridge asks for the command interface) is gone: the cartridge library calls

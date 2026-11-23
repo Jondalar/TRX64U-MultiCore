@@ -1,9 +1,12 @@
 // The export "c64cart" (major 1): the cartridge port of the C64 family, the shared cartridge library of T239.3 D12 (today coreapp/cores/c64_cart.cc and c64_cart.h). A
 // library of this repository puts the table into LibRecord::exports (base 3.2); the TRX64-Ultimate libraries (ring, base) and any C64-family core (C64SCPU, C128) find it
-// with SvcLib::find("c64cart", 1, &size). It is not a member of LibApi.
+// with SvcLib::find("c64cart", U2A3_VERSION(1, 0), &size). It is not a member of LibApi.
 //
 // Why no CoreCtx: the functions of c64_cart.h take one; the library behind this table has the api groups (io, ctx, settings, ops, fs) and uses them, so no call here
 // takes it. Run and remove cold reset the machine through the operation "machine.cold_reset"; for_state and run_image do not reset it.
+//
+// The slot: every call that changes what is in the port (run, remove, for_state, run_image and the rest) notifies the slot "Cartridge" itself (ctx.mount_notify,
+// svc_ctx.h); the caller does not.
 //
 // Rules: `size` first; members only appended inside a major; reorder or removal makes the next major. A library tests `size` before it calls a member added later.
 // Strings are owned by the cartridge library and valid until the cartridge in the port changes; copy them at once. Task classes: "lock" = a task holding the core lock

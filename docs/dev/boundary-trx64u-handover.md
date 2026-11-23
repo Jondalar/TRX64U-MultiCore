@@ -5,7 +5,7 @@ Source: `software/trx64u/{base,ring,monitor}/pending_api.h` of the TRX64-Ultimat
 Rules for all rows:
 - No call takes a `CoreCtx *`. The base knows its context. Shared-library tables (c64cart, cbm1541, uci, sid, tempdisk) take none either.
 - A `LibApi` member is a pointer to a table with `size` first. Members are only appended. Test `size` before you call a member that came later.
-- `LibApi` members (3.3): `sync`, `settings`, `ctx`, `io`, `board`, appended after `lib`; `SvcSys` gets six members; `SvcFs` gets `list_long`. Exports of shared libraries come with `SvcLib::find(name, 1, &size)`.
+- `LibApi` members (3.3): `sync`, `settings`, `ctx`, `io`, `board`, appended after `lib`; `SvcSys` gets six members; `SvcFs` gets `list_long`. Exports of shared libraries come with `SvcLib::find(name, U2A3_VERSION(1, 0), &size)`: the second argument is a version, `major << 16 | minor`, so a bare 1 asks for major 0. From 3.3 an export is matched on its exact major.
 - A library starts its engine in the core hook `start` (`core_hooks.h`), never in `lib_register`.
 - The headers compile alone (`cc -fsyntax-only`, `c++ -fsyntax-only`). They are not in `libapi.h` yet; that is the 3.3 build.
 
@@ -181,3 +181,23 @@ core lock for one step, the progress line shows `ctx.job_progress`, and ← canc
 the attribute `job`; with 3.3 a `[[task]]` takes `job = true` as well (the menu's job path already runs a Task). Commands that
 arrive on a task without the lock (a `direct` key row, as the monitor's terminal) are queued and run step by step by the
 library's own poll (lock held), never inside the key handler.
+
+## The core's code in its library: hooks, mount slots, the drive reset, the CBM loader (base 3.3, 2026-11-23)
+
+These answers are for the cut of trx64u, in which `c64.cc` goes to the base library of TRX64-Ultimate.
+
+- The library that holds a core's code: `hooks = "<library name>"` in the [core] section of the core's API TOML. `cor_pack` refuses the core in two cases: the named
+  library is not in the bundle, or its file does not list the export `corehooks=1`. The base takes CoreHooks from that library. `descrec_core` accepts the control
+  and [mount] sections of a record that names a hooks library, because the code comes with the library.
+- Mount slots: `slot_spec`, `slot_mount` and `slot_eject` are appended to CoreHooks (`core_hooks.h`). `slot` is the position in the [mount] list. The meaning is
+  that of MountSlots (`desc.h`). `ctx.state` gets `CTX_MEDIA_RESTORING`, and `ctx` gets `mount_notify(slot)` (`svc_ctx.h`).
+- `cbm1541` gets `reset` (`cbm1541_api.h`). It resets drive A when there is one, as `c64.cc` did, and it never makes a drive (-1 when there is none).
+- The CBM program loader stays here as the export "cbmprg" (`cbmprg_api.h`), because five cores use the same code. Your copy goes when the export is built.
+- `menuvlist.cc` names `c64.run_t64` and `c64.dma_t64` in generic code. That breaks D24. The fix is a container row in the UI TOML (the extension, the lister, and its
+  actions as [[filetype]] actions are written), built with the cut (P4). Until then the names stay, and they resolve to your operations of the same name. The
+  T64 lister (`t64_list`) stays here.
+- The first reset at power-on: the bundle's libraries are loaded and the groups are filled (`lib_board_load`, run.cc) before `boot_start` makes the first reset,
+  so the `init` hook has io and settings there (CTRL+P, CTRL+N). 3.3 keeps this order, and a test holds it.
+- Who notifies a slot change (advisor, 2026-11-23): the engine that makes the change. `ctx.mount_notify` takes the slot's name from [mount], as
+  `ctx.media_source` does, and runs on any task, because it only marks the slot. The shared libraries notify every change they make to their own slot: "Drive A"
+  for `cbm1541`, and "Cartridge" for `c64cart`, `for_state` included. A core's code that calls them does not notify again.

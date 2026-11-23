@@ -1,6 +1,6 @@
 // The export "tempdisk" (major 1): the Temp RAM disk and the file manager's temp folder settings, the shared temp RAM disk library of T239.3 D12 (today coreapp/src/tempdisk.cc;
 // the base mounts "Temp" itself at start, tempdisk_init in coreapp.cc). A library of this repository puts the table into LibRecord::exports (base 3.2); the TRX64-Ultimate
-// base library (its menu's "Temp Auto Cleanup" and "Temp Subfolders" items) finds it with SvcLib::find("tempdisk", 1, &size). Not a member of LibApi.
+// base library (its menu's "Temp Auto Cleanup" and "Temp Subfolders" items) finds it with SvcLib::find("tempdisk", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
 //
 // Rules: `size` first; members only appended inside a major. No call takes a CoreCtx. Task: lock (the call is made from the apply of the two settings, a handler).
 #ifndef COREAPP_TEMPDISK_API_H

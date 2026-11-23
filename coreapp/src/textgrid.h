@@ -1,5 +1,5 @@
 // The export "textgrid" (major 1): a text screen of a library, drawn by the generic UI (T239.3 section 5, boundary 12.2). A node of the core's UI TOML with the layout
-// "terminal" and a layout parameter `grid = "<export name>"` names the export; the base finds it with SvcLib::find(name, 1, &size) and draws the grid the way build_terminal
+// "terminal" and a layout parameter `grid = "<export name>"` names the export; the base finds it with SvcLib::find(name, U2A3_VERSION(1, 0), &size) and draws the grid the way build_terminal
 // draws the monitor today. The sub-app trxmon draws the same grid through ABI 2. It is a table of its own, not a member of LibApi: a library puts it into LibRecord::exports
 // (base 3.2) under any name the TOML uses ("textgrid" is the name of the monitor's).
 //
