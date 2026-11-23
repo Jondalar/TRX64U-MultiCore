@@ -77,10 +77,10 @@ Aligned with D1-D10 (2026-11-23).
 | S4 | P3, D5 | A paused C64-type machine shows its last frame behind the tag, not black; the tag says only "PAUSED" | ue2emu feature, then a board photo | ue2emu, board |
 | S5 | P3, D1 | A standing layer core keeps its picture behind an element; a running layer core shows no element | ue2emu feature, layer-core profile | ue2emu |
 | S6 | P3, D4 | Timewarp shows the frame of the scrub position behind the bar, also under the key-coloured pages of the menu | TRX64-Ultimate's trx64u tests (T239.3 D22) | their ue2emu run |
-| S7 | P4, D10 | A library built against the table before the group runs (`LibApi` ends before `overlay`: `LIB_API_COVERS`); an element of a released library, and all elements when the core is left, are gone at once and the layer takes its state | unit test | apptests |
+| S7 | P4, D10 | A library built against the table before the group runs (`LibApi` ends before `overlay`: `LIB_API_COVERS`); an element of a released library, and all elements when the service ends (`OverlaySvc::clear`), are gone at once and the layer takes its state; leaving a core on the board is the FPGA's reset (`hw_return_to_host`), the service is not told | unit test | apptests |
 | S8 | P5 | Render time of the first frame and of one update, measured | board, numbers in §5 | board |
 | S9 | P1, D4, D10 | While the menu is open no element shows (the open menu covers it); the still is the exception and lies under the open menu; when the menu closes the elements are back | unit test with a fake layer; ue2emu picture (`tests/ui/features/overlay.feature`) | apptests, ue2emu |
-| S10 | P4, D6, D7, D10 | A library hides the menu and shows it again by a call (`menu_hide`, `menu_show`): the main loop takes the call as the person's close of the menu and as the menu key; while hidden the machine runs unless the library set Pause first, the keys go to the machine, the menu key brings the menu back | unit test (the request reaches the board in the order of the calls); ue2emu feature with a library that calls them (T-3) | apptests, ue2emu |
+| S10 | P4, D6, D7, D10 | A library hides the menu and shows it again by a call (`menu_hide`, `menu_show`): the main loop takes the call as the person's close of the menu and as the menu key; while hidden the machine runs unless the library set Pause first, the keys go to the machine, the menu key brings the menu back | unit test (one request waits for the main loop's pass; when a library calls both in one frame, the last call counts); ue2emu feature with a library that calls them (T-3) | apptests, ue2emu |
 
 ## §3 Decision
 
@@ -139,7 +139,7 @@ Aligned with D1-D10 (2026-11-23).
     the core's frame buffer or a library's surface. A TOML element marked as the still lies under the open menu (D4), and the
     menu is blended over it in software, so the menu looks as it does over the running picture.
   - Several libraries may show elements at once, drawn in TOML order. Calls come from any task; the UI task takes them over at
-    the next frame. When a library is released or its core is left, its elements go, and the layer takes its state at once.
+    the next frame. When a library is released, its elements go, and the layer takes its state at once.
   - Limits: the TOML check refuses a place outside the canvas; a call whose buffer is not w x h x 2 bytes is refused with the
     reason; the maxima are sized from the TOML at link time. The PAUSED tag is an element of the base UI TOML (D5).
   The other answer was to talk the points through one by one first.
@@ -157,7 +157,7 @@ T-2 (T239.3 plan step), 2026-11-23, branch `t239.3-t2-overlay`. Each point is re
 
 - **Tag (D5):** `ui_paused_tag` (`coreapp/src/ui.cc`) shows only "PAUSED". It is an element of the base UI TOML (`coreapp/base_ui.toml`, `paused`, 126 x 30, top right, 14 pixels in), painted
   by the base into its own surface with the service's `text` call and shown with `show` while Pause is set; it is removed when the machine runs. The parked branch `t239.3-menu-still-wip` (the
-  pull hook `menu_still`) is not merged into this branch; its commit 62bbf183 is not built (P6). The branch stays until the coordinator deletes it.
+  pull hook `menu_still`) is deleted (local only, never pushed; its last commit was 62bbf1837, not built, P6).
 - **Alpha (the old defect of section 1):** `trx_lv_port.cc` keeps `alpha_reg`. `trx_lv_set_alpha` stores it even while the layer is off, `layer_up` writes it with the first picture, and
   `trx_lv_close`, `trx_lv_yield_layer` and `trx_lv_suspend` reset it to 255. The service now writes the alpha from its plan: the person's value while the menu is open without a still, 255
   otherwise (D9, D10).
@@ -175,14 +175,22 @@ T-2 (T239.3 plan step), 2026-11-23, branch `t239.3-t2-overlay`. Each point is re
   table) by nearest sampling and holds it in 1 MB of heap only while the machine stands. The user's colour palette setting is not applied (the capture uses Colodore). The cost of the capture's
   first frame is not measured (S8).
 - **Calls (D10):** any task calls; `show`, `update`, `remove` check and answer at once, their effect is the UI task's next frame (`OverlaySvc::frame`, called by the main loop's `overlay_pass`);
-  `text` and the menu calls are queued (16 each) and taken in the order of the calls. A call that takes a surface away (`remove`, a second `show` with another surface, `drop_owner`) waits for the
+  `text` calls are queued (16) and taken in the order of the calls; a menu call is one pending request, so the last of two calls in one frame counts (hide, then show: only the show reaches the main loop). A call that takes a surface away (`remove`, a second `show` with another surface, `drop_owner`) first drops the queued text calls that write into that surface, then waits for the
   UI task's next frame, 200 ms at most, so the library may free the surface when the call returns; the UI task does not wait. The LVGL image holds the library's pointer, so no copy is made.
 - **Menu calls:** `menu_hide` is the leave intent (`uiapp_local_leave`) and `menu_show` the open intent (`uiapp_local_open`), both taken in `overlay_pass`; a request made while the menu is in the
   other state does nothing.
 - **Elements, record and merge:** `[[element]]` is section 25 of the UI TOML's record (`tools/descrec.py`, `descrec.cc`, same checks as `ovl_row_check`: name, anchor, size, a place inside 960 x
   540, one still), merged over the base's table by name (`ovl_merge`, `bundle_merge`) and drawn in the order of the merged table. The simulator draws every element's rectangle (`--elements`).
-- **Limits:** `OVL_ELEMENTS_MAX` (16) and `OVL_TEXT_MAX` (16) are `#ifndef` defaults in `overlay.h`. P3-2 (`t239.3-mvp-p3-2`, not merged here) sizes record and registry maxima per core with the `[sizes]`
-  table of TOML B and `tools/app_build.py` (`SIZES`, `appsizes.h`). They join with one line each in that table (`"elements": ("OVL_ELEMENTS_MAX", "overlay.h", ...)`) and the same limit in
-  `descrec.py`'s `ELEMENTS_MAX`; that line is the first change after P3-2 merges.
+- **Limits:** `OVL_ELEMENTS_MAX` (16) and `OVL_TEXT_MAX` (16) are `#ifndef` defaults in `overlay.h`. P3-2 is merged into this branch: the `[sizes]` table of a core's TOML B sizes them at link time
+  through `tools/app_build.py` (`SIZES` keys `elements` and `overlay_text`, written to `appsizes.h`; `overlay.h` is a sizing header, so an object that includes it is compiled per core). The key
+  `elements` also sets `ELEMENTS_MAX` of `descrec.py` (`apply_sizes`, `--sizes`), so the compiler and the reader of the record refuse the same table.
+- **The canvas (review finding):** the places of the TOML are given on 960 x 540, but the canvas follows the video mode (640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, T164 D10a). The service
+  asks the host for the canvas of the moment (`OverlayHost::canvas`, `ui_canvas_w/h`) and places every element again at each frame (`ovl_place_on`): the anchor and the offset count from that
+  canvas's edges, the size stays the row's, and what lies beyond a smaller canvas is cut by LVGL. The base's capture for the still is fitted to the still's size cut to the canvas, at the moment
+  the machine stops (a mode change while it stands keeps the old capture's size). A library's surface for the still keeps its row's size and is cut off at the right and below on a smaller canvas.
+  Whether elements are scaled with the canvas instead is not settled by D1-D10: a question for Alex.
+- **The menu over a paused machine:** `open_menu` no longer calls `ui_paused_tag(false)`: it told the service that Pause ended, so a paused layer core lost its still under the menu. Elements
+  are not drawn while the menu is open anyway (D4), so the tag needs no removal then (`test_overlay.cc`, "S1 on a layer core").
+- **Leaving a core:** `hw_return_to_host` does not return on success (the IPROG reset), so `ui_overlay_end` and its calls in `run.cc` are gone; `OverlaySvc::clear` stays as the service's own end (S7).
 - **Not proven:** S2 has no ue2emu picture and no board photo; S8 (render time, the capture, the memory) is not measured; `run.cc`, `hw`-side and the LVGL calls of `ui.cc` on the RISC-V build are
   not compiled here (the menu simulator runs `ui.cc` natively: the still, the tag with the base's text and the blend are seen there).

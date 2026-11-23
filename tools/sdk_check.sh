@@ -58,7 +58,7 @@ python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "
 [ -f "$P/maps/c64cart.map.toml" ] || fail "the package lacks maps/c64cart.map.toml"
 printf '[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n[[block]]\nname = "cart"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n' > toma.toml
 python3 "$P/tools/descrec.py" compile toma.toml toma.bin --maps "$P/maps" >/dev/null 2>&1 || fail "a TOML A record does not compile from the package"
-# the driver table of that TOML A (api.md 6.15): a block has its macro, and the ICAP block the file lacks has none
+# the driver table of that TOML A (api.md 6.17): a block has its macro, and the ICAP block the file lacks has none
 python3 "$P/tools/descrec.py" drivers toma.toml drv --maps "$P/maps" >/dev/null 2>&1 || fail "the driver table of a TOML A is not generated from the package"
 grep -q -F '#define DRV_cart_fl_enable_WR(v)' drv/drvtab.h && [ -f drv/drvtab.c ] || fail "the driver table lacks the register macro of a block"
 ! grep -q -F 'DRV_HAS_icap' drv/drvtab.h || fail "the driver table names a block the TOML A does not have"
