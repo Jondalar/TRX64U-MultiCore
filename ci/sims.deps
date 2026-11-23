@@ -312,6 +312,8 @@ c64scpu_mdust: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scp
 c128_vicpic: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/run_vicpic.sh cores/c128/sim/tb_vicpic.v
 c128_vicshow: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/pixscale/model.py cores/common/trx_io.v cores/c128/sim/run_vicshow.sh cores/c128/sim/job_vicshow.sh cores/c128/sim/tb_vicshow.v
 c128_act: cores/c128/c128_act.v cores/c128/sim/run_act.sh cores/c128/sim/tb_act.v
+c128_iec: cores/c128/c128_iecfs.v cores/c128/iec_bus_c128.v cores/c128/c128_iectrace.v cores/c128/sim/run_iec.sh cores/c128/sim/tb_iec.v
+c128_iec_cia: cores/c128/c128_iecfs.v cores/c128/sim/run_iec_cia.sh cores/c128/sim/tb_iec_cia.sv vendor/icepi/c64_redip_cia vendor/icepi/c64_redip_cia.v
 c128_vicpic_tear: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/common/trx_io.v cores/c128/sim/run_vicpic_tear.sh cores/c128/sim/job_tear.sh cores/c128/sim/tb_vicpic_tear.v
 # T222
 c64scpu_hdmi_timing: cores/c64scpu/sim/hdmi/run_one.sh cores/c64scpu/sim/hdmi/tb_hdmi_timing.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh
