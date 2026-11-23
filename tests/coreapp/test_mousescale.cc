@@ -1,7 +1,7 @@
-// T190 (GitHub #51), T239.3 base 3.3: the "Mouse Sensitivity" and "Mouse Acceleration" of a core with a mouse (the Amiga cores). The settings are the application's own
-// (baseset.h), added to the core's descriptor by baseset_extend. The USB driver scales every report with the two values it reads through u64_get_usb_hid_config_value
-// (usb_hid.cc process_mouse_report, defined in mousesink.cc) and hands the result to the mouse sink; this test runs that driver sequence on the real HidMouseInterpreter
-// (host-app/.../hid_decoder.h, its containers stubbed in tests/coreapp/hidstub), with the values the application answers, into the Amiga's counters.
+// T190 (GitHub #51): the "Mouse Sensitivity" and "Mouse Acceleration" of the Amiga cores. They are the core's own rows (group "input", operations mouse.sens / mouse.accel, cores/amiga.cc);
+// the application adds no second pair (T239.3 D25). The operations set the mouse sink's scaling (mousesink.h). The USB driver scales every report with the two values it reads through
+// u64_get_usb_hid_config_value (usb_hid.cc process_mouse_report, defined in mousesink.cc: the sink's scaling first, then baseset_usb_config) and hands the result to the mouse sink; this
+// test runs that driver sequence on the real HidMouseInterpreter (host-app/.../hid_decoder.h, its containers stubbed in tests/coreapp/hidstub), into the Amiga's counters.
 // tests/coreapp/test_mousescale.py reads usb_hid.cc / mousesink.cc for the parts that cannot be built here.
 #include "check.h"
 #include "amiga_model.h"

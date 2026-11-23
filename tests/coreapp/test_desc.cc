@@ -642,6 +642,24 @@ int main()
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
     {
         CHECK(!desc_check(&amiga_desc) && !desc_check(&amiga1200_desc));
+        // D25: the Amiga's own mouse rows pass only with their own operation; a base key with another operation is refused
+        {
+            int sens = -1, acc = -1;
+            for (int i = 0; i < amiga_desc.nsettings; i++) {
+                if (!strcmp(amiga_desc.settings[i].key, "Mouse Sensitivity")) sens = i;
+                if (!strcmp(amiga_desc.settings[i].key, "Mouse Acceleration")) acc = i;
+            }
+            CHECK(sens >= 0 && acc >= 0);
+            static Setting mix[1];
+            mix[0] = amiga_desc.settings[acc];
+            mix[0].key = "Mouse Sensitivity";                       // Sensitivity's key on Acceleration's operation
+            d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
+            CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
+            mix[0] = amiga_desc.settings[sens];
+            mix[0].key = "Overlay Transparency";                    // a look key on the mouse operation
+            d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
+            CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
+        }
         // a setting is exactly one of: an operation, register bits, the rom_set's choice
         static Setting both[1];
         both[0] = amiga_desc.settings[1];

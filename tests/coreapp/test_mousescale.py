@@ -2,7 +2,8 @@
 """T190: the parts of the mouse scaling that cannot be built on the Mac - read from the sources.
   1. usb_hid.cc reads the sensitivity and acceleration through CFG_MOUSE_SENSITIVITY / CFG_MOUSE_ACCELERATION (usb_hid_config.h 0x5D / 0x5E), applies
      them to every mouse report and hands the result to the mouse sink (the sequence tests/coreapp/test_mousescale.cc runs);
-  2. mousesink.cc defines u64_get_usb_hid_config_value and answers from the application's own settings (baseset_usb_config, tests/coreapp/test_mousescale.cc runs it).
+  2. mousesink.cc defines u64_get_usb_hid_config_value and answers from the sink's scaling (the Amiga's mouse.sens / mouse.accel) first, then from baseset_usb_config
+     (tests/coreapp/test_mousescale.cc runs it).
 TRX_SCALE_CFG points at another copy of mousesink.cc."""
 import os
 import re
@@ -36,5 +37,8 @@ check(a < b < c < d, "sensitivity, then acceleration, then the sink gets the sca
 
 cfg = open(CFG).read()
 m = re.search(r'extern "C" int u64_get_usb_hid_config_value\(int key, int default_value\)\n\{(.*?)\n\}', cfg, re.S)
-check(m is not None and "baseset_usb_config(key, default_value)" in m.group(1), "mousesink.cc answers the driver from the application's settings (baseset_usb_config)")
+body2 = m.group(1) if m else ""
+check("mouse_sink_scaling(key, &v)" in body2 and "baseset_usb_config(key, default_value)" in body2
+      and body2.index("mouse_sink_scaling(key, &v)") < body2.index("baseset_usb_config(key, default_value)"),
+      "mousesink.cc answers the driver from the sink's scaling first, then from the application's settings (baseset_usb_config)")
 sys.exit(1 if fails else 0)

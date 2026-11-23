@@ -46,7 +46,8 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$BITC" ] || args+=(--bit-commit "$BITC")
 [ -z "$APPC" ] || args+=(--app-commit "$APPC")
 # T239.3 D17, D25: the core's data description (cores/<id>/app/desc.toml) is record 6 only when cores/<id>/app/sdk.toml says desc_record = true; the caller's own --desc files (menu.toml) join it as one record, a table or key in two files is refused by cor_pack
-if [ "$(python3 "$HERE/core_toml.py" sdk "$ID" desc_record)" = true ] && [ -s "$ROOT/cores/$ID/app/desc.toml" ]; then
+DESC_REC="$(python3 "$HERE/core_toml.py" sdk "$ID" desc_record)"      # assigned first: a failing core_toml.py stops the packer
+if [ "$DESC_REC" = true ] && [ -s "$ROOT/cores/$ID/app/desc.toml" ]; then
     DESCS+=("$ROOT/cores/$ID/app/desc.toml")
 fi
 for f in ${DESCS[@]+"${DESCS[@]}"}; do args+=(--desc "$f"); done

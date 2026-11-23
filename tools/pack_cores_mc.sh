@@ -87,7 +87,8 @@ for c in "${CORES[@]}"; do
     [ -z "$idir" ] || files+=(--files "$ROOT/cores/$c/$idir")
     [ -z "$iold" ] || files+=(--files-old "$ROOT/cores/$c/$iold")
     desc=()                                       # record 6: the core's data description, compiled by tools/descrec.py (T239.3 D17), only for a core whose cores/<id>/app/sdk.toml says desc_record = true (D25); any other core carries no record and runs on its compiled-in descriptor
-    [ "$(python3 "$HERE/core_toml.py" sdk "$c" desc_record)" != true ] || [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
+    desc_rec="$(python3 "$HERE/core_toml.py" sdk "$c" desc_record)"      # assigned first: a failing core_toml.py stops the packer
+    [ "$desc_rec" != true ] || [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
     heap=(); h="$(python3 "$HERE/core_toml.py" get "$c" heap)"; [ -z "$h" ] || heap=(--heap "$h")   # T239.3 D15: the core's heap, set in its copy of the app
     python3 "$HERE/cor_pack.py" pack ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
