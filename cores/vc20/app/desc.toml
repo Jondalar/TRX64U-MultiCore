@@ -1,4 +1,4 @@
-# The VIC-20's data description (T239.3 D17): what coreapp/cores/vc20.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The VIC-20's data description (T239.3 D17): what cores/vc20/app/lib/vc20.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the
 # record cannot hold is code, and stays in the core's C++ (T239.3 D17 step 3): init, release, the operations of register_ops, the media write-back
 # and the three functions of the mount slot.

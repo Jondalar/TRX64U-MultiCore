@@ -111,7 +111,7 @@ class Split(unittest.TestCase):
     def test_split_writes_both_lists(self):
         d, inc, src, listing = self.tree()
         out = os.path.join(d, "out", "sdkbase")
-        A.cmd_split([inc], out, [os.path.join(src, f) for f in ("a.cc", "b.cc")], os.path.join(d, "none"))
+        A.cmd_split([inc], out, [os.path.join(src, f) for f in ("a.cc", "b.cc")])
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "sized.real"))], ["b.cc"])
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "unsized.real"))], ["a.cc"])
 
@@ -120,6 +120,24 @@ class Split(unittest.TestCase):
         incs = [os.path.join(ROOT, d) for d in ("coreapp/src", "app/sdk", "app/loaders", "app/lib/cbm1541", "uicore", "coreapp/cores")]
         got = {os.path.basename(x) for x in A.sized(incs, [os.path.join(ROOT, "coreapp/src", f) for f in ("ops.cc", "descrec.cc", "diag.cc", "sha256.c", "heapcfg.c")])}
         self.assertEqual(got, {"ops.cc", "descrec.cc", "diag.cc"})
+
+
+class CoreAppToml(unittest.TestCase):
+    """V-4: the VIC-20's app is linked against its own TOML A and the blocks of the base's TOML A that its TOML B names (descrec.merge_toml_a)."""
+
+    def test_the_vic20_driver_table_holds_the_blocks_its_two_files_name(self):
+        app = os.path.join(ROOT, "cores", "vc20", "app")
+        core = D.toml_loads(open(os.path.join(app, "gateware.toml")).read())
+        base = D.toml_loads(open(os.path.join(ROOT, "coreapp", "gateware", "shared.toml")).read())
+        names = D.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]["base_blocks"]
+        doc = D.resolve_maps(D.merge_toml_a(core, base, names, "t"), D.load_maps([os.path.join(ROOT, "app", "sdkpkg", "maps")]))
+        head, _ = D.drivers_files(doc, "t")
+        self.assertEqual(sorted(b["name"] for b in doc["block"]), sorted(names + [b["name"] for b in core["block"]]))
+        for macro in ("DRV_HAS_cart_regs", "DRV_HAS_drive_a", "DRV_HAS_icap", "DRV_ident_caps_RD()", "DRV_cart_regs_mode_WR(v)", "DRV_machine_ram_ext_ADDR"):
+            self.assertIn(macro, head)
+        self.assertNotIn("DRV_HAS_cmd_if", head)                 # the command interface is no block of this app: the probe of hw.cc is gone with it
+        self.assertEqual(doc["identity"]["id"], "VC20")          # the core's identity, not the shared app's
+        D.ldfrag_doc(doc, "t")
 
 
 class Flags(unittest.TestCase):

@@ -85,8 +85,6 @@ file coreapp/cores/tape_pulses.cc 485
 file coreapp/cores/tape_pulses.h 24
 file coreapp/cores/trx64u/menu.toml 1712
 file coreapp/cores/trx64u/menu_rec.inc 1635
-file coreapp/cores/vc20.cc 273
-file coreapp/cores/vc20_regs.h 25
 file coreapp/cores/zx.cc 311
 file coreapp/cores/zx_regs.h 42
 file coreapp/cores/zx_snap.cc 311

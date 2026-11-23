@@ -213,7 +213,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			tape_deck.cc \
 			cpc.cc \
 			cpc_disk.cc \
-			vc20.cc \
 			c264.cc \
 			pet.cc \
 			c128.cc \
@@ -397,7 +396,8 @@ sdkbase: all
 	@for d in $(PATH_SW)/../../coreapp/ffconf $(PATH_SW)/lvgl $(PATH_SW)/hostapp $(VPATH); do [ -d "$$d" ] && (cd "$$d" && pwd -P); done | awk '!s[$$0]++' > $(SDKBASE)/incdirs.txt
 	@(cd $(PATH_SW)/../.. && pwd -P) > $(SDKBASE)/root.txt
 	@python3 $(PATH_SW)/../../tools/app_build.py split $(SDKBASE)/incdirs.txt $(SDKBASE) $(SDK_PATHS)
-	@sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' $(SDKBASE)/unsized.real > $(SDKBASE)/archive.objs
+	@# the code of the cores that ship with the shared app (coreapp/cores/) is no part of the archive: an app links it only when its TOML B names it ([app] base_sources, a library)
+	@grep -v '/coreapp/cores/' $(SDKBASE)/unsized.real | sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' > $(SDKBASE)/archive.objs
 	@$(AR) rcs $(SDKBASE)/lib/libtrxbase.a `cat $(SDKBASE)/archive.objs`
 	@for o in $(SDK_START); do cp $(OUTPUT)/$$o $(SDKBASE)/lib/; done
 	@cp $(LWIP_A) $(LVGL_A) $(SDKBASE)/lib/
