@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
-  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl] [--top top] [--bus ultimate_sys.io_req]
+  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--top top] [--bus ultimate_sys.io_req]
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -12,9 +12,17 @@ check
   Guards that depend on the request are evaluated, guards that depend on state are unknown and both ways are explored; a register
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
-  request's data through wires; a read is a response whose data does not come from the literal 0 alone. A module is followed
+  request's data through wires, or whose guard comes from the write strobe and the address together (a strobe register that
+  ignores the data byte); a read is a response whose data does not come from the literal 0 alone. A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
-  Reads only the design's source list (the files named in its build script, here build.tcl); a file whose name says ultisid,
+  A block with owner = "core" is a window the base hands to the core: every byte of it must reach a core port of the base's decode (a write
+  whose data leaves over an output port, or a forwarded request); its properties are not checked (they are the core's contract).
+  `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
+  if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
+  another value fails the check. A write also counts when an assignment's guard comes from the write strobe and the address together and
+  the data byte is ignored (a strobe register).
+  Reads only the design's source list (the files named in its build script, here build.tcl, and the lists it `source`s by a literal path
+  relative to the design directory; `--list FILE` names another, repeatable); a file whose name says ultisid,
   copper, lp_filter or sampler is never opened (clean room).
   An RTL pattern the check does not know is an error (Unsupported, with file and line), never a pass. Exit 0: every block holds.
   The direction rule: a property's dir must be a subset of what the RTL does at each byte (r needs a read, w needs a write, rw both).
@@ -210,27 +218,45 @@ VHDL_TOK = re.compile(r'''
 VLOG_TOK = re.compile(r'''
  (?P<ws>\s+)
 |(?P<cm>//[^\n]*|/\*.*?\*/)
-|(?P<attr>\(\*.*?\*\))
+|(?P<attr>\(\*(?!\)).*?\*\))
 |(?P<dir>`[^\n]*)
-|(?P<num>\d*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ_?]+|\d[\d_]*|'[01xXzZ])
+|(?P<num>\d*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ_?]+|\d[\d_]*\.\d[\d_]*|\d[\d_]*|'[01xXzZ])
 |(?P<str>"(?:[^"\\]|\\.)*")
 |(?P<id>[A-Za-z_][\w$]*|\$[A-Za-z_]\w*)
 |(?P<op>===|!==|<<<|>>>|<<|>>|<=|>=|==|!=|&&|\|\||\+:|-:|~&|~\||~\^|[-+*/%&|^~!<>=?:;,.(){}\[\]\#@])
 ''', re.X | re.S)
 
 
+DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
+
+
 def lex(text, lang, fname):
     pat = VHDL_TOK if lang == "vhdl" else VLOG_TOK
     out, pos, line = [], 0, 1
+    cond = []   # one (parent active, a branch was taken, this branch active) per open `ifdef
     while pos < len(text):
         m = pat.match(text, pos)
         if not m:
             raise Unsupported("%s:%d: cannot read %r" % (fname, line, text[pos:pos + 20]))
         k, s = m.lastgroup, m.group()
+        on = all(c[2] for c in cond)
         if k == "dir":
-            if re.match(r"`(ifdef|ifndef|else|elsif|endif)\b", s):
-                raise Unsupported("%s:%d: a conditional-compilation directive (%s) in a followed file" % (fname, line, s.split()[0]))
-        elif k not in ("ws", "cm", "attr"):
+            d = re.match(r"`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", s)
+            if d:
+                kw, nm = d.groups()
+                if kw in ("ifdef", "ifndef"):
+                    hit = (nm in DEFINES) == (kw == "ifdef")
+                    cond.append((on, hit, hit))
+                elif kw == "elsif":
+                    par, taken, _ = cond[-1]
+                    hit = (nm in DEFINES) and not taken
+                    cond[-1] = (par, taken or hit, hit)
+                elif kw == "else":
+                    par, taken, _ = cond[-1]
+                    cond[-1] = (par, True, not taken)
+                else:
+                    cond.pop()
+        elif k not in ("ws", "cm", "attr") and on:
             out.append((k, s.lower() if (lang == "vhdl" and k == "id") else s, line))
         line += s.count("\n")
         pos = m.end()
@@ -285,7 +311,7 @@ def num_vlog(s):
         body = s[1:-1]
         return V(int.from_bytes(body.encode(), "big") if body else 0, 0, 8 * max(len(body), 1))
     if "'" not in s:
-        return V(int(s.replace("_", "")), 0, None)
+        return V(int(float(s.replace("_", ""))), 0, None)
     if s[0] == "'" and len(s) == 2:
         return V(1 if s[1] == "1" else 0, 1 if s[1] in "xXzZ" else 0, None)
     w, rest = s.split("'", 1)
@@ -348,6 +374,7 @@ class Mod:
         self.insts = []
         self.assigns = {}      # base name -> [rhs AST] (every assignment anywhere)
         self.nets = {}         # (top.v only) net -> width
+        self.gen_assumed = {}  # generic name -> value an if-generate condition was decided with (checked at elaboration)
 
 
 def base_name(lhs):
@@ -650,6 +677,8 @@ class VhdlParser(P):
         elif w == "entity" or (label and w not in ("with", "assert", "block", "for", "if", "process")) or \
                 (label is None and self.pk()[0] == "id" and self.txt(1) in ("port", "generic")):
             self.instance(m, label, where)
+        elif w == "if" and label:
+            self.if_generate(m)
         elif w in ("for", "if", "block", "case"):
             raise self.err("a %s generate/block statement" % w)
         elif w == "assert":
@@ -663,6 +692,60 @@ class VhdlParser(P):
             self.eat(";")
             m.cas.append((lhs, rhs, where))
             m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
+
+    def gen_cond(self, m, e):
+        """An if-generate condition over generics with a default, as an int. The generics it names are recorded in
+        m.gen_assumed; elaboration refuses an instance that gives one of them another value."""
+        k = e[0]
+        if k == "n":
+            if e[1].x:
+                raise self.err("a generate condition with an unknown bit")
+            return e[1].v
+        if k == "id" and e[1] in ("true", "false"):
+            return int(e[1] == "true")
+        if k == "id" and e[1] in m.generics and m.generics[e[1]] is not None:
+            v = self.gen_cond(m, m.generics[e[1]])
+            m.gen_assumed[e[1]] = v
+            return v
+        if k == "un" and e[1] == "not":
+            return int(not self.gen_cond(m, e[2]))
+        if k == "paren":
+            return self.gen_cond(m, e[1])
+        if k == "bin" and e[1] in ("=", "/=", "<", ">", "<=", ">=", "and", "or"):
+            a, b = self.gen_cond(m, e[2]), self.gen_cond(m, e[3])
+            return int({"=": a == b, "/=": a != b, "<": a < b, ">": a > b, "<=": a <= b, ">=": a >= b,
+                        "and": bool(a) and bool(b), "or": bool(a) or bool(b)}[e[1]])
+        raise self.err("an if-generate condition that is not a comparison of generics with defaults")
+
+    def if_generate(self, m):
+        """label: if COND generate ... [elsif COND generate ...] [else generate ...] end generate; only the branch the generic
+        defaults select is parsed into the module."""
+        taken = False
+        self.eat("if")
+        while True:
+            c = self.gen_cond(m, self.expr())
+            self.eat("generate")
+            take = bool(c) and not taken
+            taken = taken or take
+            self.gen_body(m, take)
+            if self.txt() == "elsif":
+                self.eat()
+                continue
+            if self.txt() == "else":
+                self.eat()
+                self.eat("generate")
+                self.gen_body(m, not taken)
+            break
+        self.eat("end")
+        self.eat("generate")
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+
+    def gen_body(self, m, take):
+        scratch = Mod(m.name, m.lang, m.fname)
+        while self.txt() not in ("end", "elsif", "else"):
+            self.concurrent(m if take else scratch)
 
     def waveform(self):
         e = self.expr()
@@ -882,7 +965,8 @@ class VhdlParser(P):
             raise self.err("abs")
         e = self.primary()
         if self.txt() == "**":
-            raise self.err("a power")
+            self.eat()
+            return ("bin", "**", e, self.primary())
         return e
 
     def primary(self, lhs=False):
@@ -980,6 +1064,9 @@ class VlogParser(P):
             self.eat("(")
             while self.txt() != ")":
                 self.acc("parameter")
+                while self.txt() in ("integer", "signed") and self.txt(1) != "=":
+                    self.eat()
+                self.rng()
                 n = self.eat()[1]
                 self.eat("=")
                 m.generics[n] = self.expr()
@@ -1004,6 +1091,12 @@ class VlogParser(P):
                 init = self.expr()
             m.ports[names[0]] = ("in" if d == "input" else "out", ty)
             m.decls[names[0]] = Decl(names[0], kind if kind != "wire" or d == "input" else "wire", ty, init)
+            # one direction, type and range for several names: `input wire a, b,`
+            while self.txt() == "," and self.txt(1) not in ("input", "output", "inout", ")"):
+                self.eat()
+                n2 = self.eat()[1]
+                m.ports[n2] = ("in" if d == "input" else "out", ty)
+                m.decls[n2] = Decl(n2, kind if kind != "wire" or d == "input" else "wire", ty, None)
             self.acc(",")
         self.eat(")")
         self.eat(";")
@@ -1048,6 +1141,8 @@ class VlogParser(P):
             self.eat(";")
         elif w in ("parameter", "localparam"):
             self.eat()
+            while self.txt() in ("integer", "signed") and self.txt(1) != "=":
+                self.eat()
             if self.txt() == "[":
                 self.rng()
             while True:
@@ -1093,12 +1188,76 @@ class VlogParser(P):
             while self.txt() != end:
                 self.eat()
             self.eat()
-        elif w in ("genvar", "generate", "defparam", "specify"):
+        elif w == "generate":
+            self.eat()
+            while self.txt() != "endgenerate":
+                if self.txt() != "if":
+                    raise self.err("a generate construct that is not an if")
+                self.if_generate(m)
+            self.eat()
+        elif w in ("genvar", "defparam", "specify"):
             raise self.err("a %s construct" % w)
         elif self.pk()[0] == "id" and w not in VERILOG_KW:
             self.instance(m, where)
         else:
             raise self.err("a module item I do not know")
+
+    def gen_val(self, m, e):
+        """A generate condition over parameters with a default, as an int; the parameters it names are recorded in m.gen_assumed."""
+        k = e[0]
+        if k == "n":
+            if e[1].x:
+                raise self.err("a generate condition with an unknown bit")
+            return e[1].v
+        if k == "paren":
+            return self.gen_val(m, e[1])
+        if k == "id":
+            if e[1] in m.consts:
+                return self.gen_val(m, m.consts[e[1]])
+            if e[1] in m.generics and m.generics[e[1]] is not None:
+                v = self.gen_val(m, m.generics[e[1]])
+                m.gen_assumed[e[1]] = v
+                return v
+        if k == "un" and e[1] in ("!", "~", "-"):
+            a = self.gen_val(m, e[2])
+            return {"!": int(not a), "~": ~a, "-": -a}[e[1]]
+        if k == "bin":
+            ops = {"==": lambda a, b: int(a == b), "!=": lambda a, b: int(a != b), "<": lambda a, b: int(a < b),
+                   ">": lambda a, b: int(a > b), "<=": lambda a, b: int(a <= b), ">=": lambda a, b: int(a >= b),
+                   "&&": lambda a, b: int(bool(a) and bool(b)), "||": lambda a, b: int(bool(a) or bool(b)),
+                   "+": lambda a, b: a + b, "-": lambda a, b: a - b, "*": lambda a, b: a * b, "&": lambda a, b: a & b,
+                   "|": lambda a, b: a | b}
+            if e[1] in ops:
+                return ops[e[1]](self.gen_val(m, e[2]), self.gen_val(m, e[3]))
+        raise self.err("a generate condition that is not an expression of parameters with defaults")
+
+    def gen_block(self, m, take):
+        """begin [: label] items end, parsed into m when take, else into a scratch module."""
+        self.eat("begin")
+        if self.acc(":"):
+            self.eat()
+        tgt = m if take else Mod(m.name, m.lang, m.fname)
+        while self.txt() != "end":
+            self.item(tgt)
+        self.eat("end")
+
+    def if_generate(self, m):
+        self.eat("if")
+        self.eat("(")
+        c = self.gen_val(m, self.expr())
+        self.eat(")")
+        self.gen_block(m, bool(c))
+        if self.acc("else"):
+            if self.txt() == "if":
+                # else if: the rest is an if-generate of its own, taken only if this one was not
+                if c:
+                    scratch = Mod(m.name, m.lang, m.fname)
+                    scratch.generics, scratch.consts, scratch.gen_assumed = m.generics, m.consts, m.gen_assumed
+                    self.if_generate(scratch)
+                else:
+                    self.if_generate(m)
+            else:
+                self.gen_block(m, not c)
 
     def skip_stmt(self):
         if self.txt() == "begin":
@@ -1325,6 +1484,25 @@ def tcl_vars(text):
     return vs
 
 
+def tcl_text(path, seen=None, cwd=None):
+    """The text of a source list with the lists it `source`s (a literal path, relative to the design directory: Vivado runs there) put in
+    front of the line that sources them, so that their `set` lines and file names are read like the including list's own."""
+    seen = seen if seen is not None else set()
+    path = os.path.normpath(path)
+    cwd = cwd or os.path.dirname(path)
+    seen.add(path)
+    out = []
+    for line in open(path).read().split("\n"):
+        m = re.match(r"\s*source\s+(\S+)\s*$", line)
+        if m and "$" not in m.group(1):
+            sub = os.path.normpath(os.path.join(cwd, m.group(1)))
+            if os.path.isfile(sub) and sub not in seen and sub.endswith(".tcl") and "/tools/" not in sub:
+                out.append(tcl_text(sub, seen, cwd))
+                continue
+        out.append(line)
+    return "\n".join(out)
+
+
 class Design:
     def __init__(self, ddir, listname="build.tcl"):
         self.ddir = os.path.abspath(ddir)
@@ -1332,10 +1510,12 @@ class Design:
         self.index = {}
         self.cache = {}
         self.records = None
-        src = os.path.join(self.ddir, listname)
-        if not os.path.isfile(src):
-            raise CheckError("no source list %s" % src)
-        text = open(src).read()
+        text = ""
+        for ln in ([listname] if isinstance(listname, str) else listname):
+            src = os.path.join(self.ddir, ln)
+            if not os.path.isfile(src):
+                raise CheckError("no source list %s" % src)
+            text += tcl_text(src) + "\n"
         vs = tcl_vars(text)
         for m in re.finditer(r"[\w$./{}*+-]+\.(?:vhdl?|sv|v)\b", text):
             t = m.group()
@@ -1583,7 +1763,7 @@ class Ev:
             busname + ".read": F1 if write else T1,
             busname + ".data": allx(flds["data"]),
         }
-        self.roott = {n: frozenset("d" if n.endswith(".data") else "a") for n in self.rootv}
+        self.roott = {n: frozenset("d" if n.endswith(".data") else ("aw" if n.endswith(".write") else "a")) for n in self.rootv}
         self.resp = [(self.bus, busname.replace("req", "resp") + ".data")]
         self.followed = [self.bus]
         self.phase, self.post = 1, {}
@@ -1687,6 +1867,14 @@ class Ev:
         if name in mod.consts:
             return self.ev(ctx, mod.consts[name])
         if name in mod.generics:
+            if name in mod.gen_assumed:
+                if ctx.inst is not None and name in ctx.inst.generics:
+                    got = self.ev(ctx.parent, ctx.inst.generics[name])
+                else:
+                    got = self.ev(ctx, mod.generics[name])
+                if got.x or got.v != mod.gen_assumed[name]:
+                    raise Unsupported("%s: the generic %s is %s here, but an if-generate of the module was decided with its default %s"
+                                      % (mod.fname, name, got, mod.gen_assumed[name]))
             if ctx.inst is not None and name in ctx.inst.generics:
                 return self.ev(ctx.parent, ctx.inst.generics[name])
             if mod.generics[name] is not None:
@@ -1784,7 +1972,7 @@ class Ev:
                 elif d[0] == "inst":
                     ch = [c for c in self.followed if c.parent is ctx and c.inst is d[1]]
                     if ch:
-                        return self.val(ch[0], d[2])
+                        return self.val(ch[0], d[2] + name[len(key):])
                     return allx(w)
         if cur is not None:
             return cur
@@ -1968,6 +2156,10 @@ class Ev:
             return v_cmp(a, b, op)
         if op in ("+", "-", "*"):
             return v_arith(a, b, op)
+        if op == "**":
+            if a.known() and b.known() and b.v < 64:
+                return V(a.v ** b.v, 0, None)
+            return allx(32)
         if op in (">>", "<<") and b.known():
             return V(a.v >> b.v if op == ">>" else a.v << b.v, a.x >> b.v if op == ">>" else a.x << b.v, a.w)
         if op in ("/", "%", "mod", "rem") and a.known() and b.known() and b.v:
@@ -2096,7 +2288,7 @@ class Ev:
             if p.clocked:
                 keys = set()
                 walk_assigned(p.stmts, keys)
-                for k in keys:
+                for k in self.rec_keys(ctx, keys, p):
                     if k not in p.vars and k.partition(".")[0] in ctx.mod.decls:
                         fi = self.flag_init(ctx, k, self.width(ctx, k))
                         if fi is not None:
@@ -2106,6 +2298,19 @@ class Ev:
         finally:
             ctx.running.discard(id(p))
         return r
+
+    def rec_keys(self, ctx, keys, p):
+        """The assigned names with every whole record replaced by its fields (a record is assigned field by field, do_assign)."""
+        out = set()
+        for k in keys:
+            d = ctx.mod.decls.get(k) if "." not in k else None
+            if d is not None and k not in p.vars:
+                ti = self.tyinfo(ctx, d.ty)
+                if ti[0] == "rec":
+                    out.update(k + "." + fn for fn, _ in self.d.record_fields(ti[1]))
+                    continue
+            out.add(k)
+        return out
 
     def width_ty(self, ctx, ty):
         ti = self.tyinfo(ctx, ty)
@@ -2146,6 +2351,7 @@ class Ev:
             rng = range(a, b + 1) if s[4] == "to" else range(a, b - 1, -1)
             for i in rng:
                 st[s[1]] = Ent(kn(i, None))
+                sc.st[s[1]] = st[s[1]]   # the arms of an if or case run on copies of the store; sc.st is the one ev reads
                 sc.names.add(s[1])
                 self.exec_list(ctx, p, s[5], st, certain, pt, r, sc)
             return
@@ -2345,7 +2551,7 @@ class Ev:
                             out |= self.origins_expr(actx, rhs, snap, seen)
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
-                    out |= self.origins(ch[0], d[2], seen) if ch else {("ext", name)}
+                    out |= self.origins(ch[0], d[2] + name[len(key):], seen) if ch else {("ext", name)}
         if any("d" in self.taint(ctx, r) for r in mod.assigns.get(name, [])):
             out.add(("reg", name))
         return out if out else {("reg", name)}
@@ -2458,7 +2664,7 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and "d" in e.taint and not (fw and is_out(e)):
+                    if write and ("d" in e.taint or {"a", "w"} <= e.taint) and not (fw and is_out(e)):
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
@@ -2668,17 +2874,22 @@ class Checker:
         res["certain"] = wr or rd
         return res
 
-    def covered(self, a, lowx):
-        """True if every byte of the aligned span is decoded for sure: by a write, a forwarded request or a module a strobe certainly reaches."""
+    def covered(self, a, lowx, core=False):
+        """True if every byte of the aligned span is decoded for sure: by a write, a forwarded request or a module a strobe certainly reaches.
+        For a block of the core: the request leaves the base for the core, as a write whose data reaches an output port or as a forwarded
+        request (what the core does with it is the core's, checked in the core's own design)."""
+        if core:
+            w = self.stim(a, True, lowx)
+            return bool((w["write"] or w["forward"]) and w["cert"])
         w, r = self.stim(a, True, lowx), self.stim(a, False, lowx)
         if w["forwarded"] or r["forwarded"]:
             return bool(w["write"] or r["read"])
         return bool(w["cert"] or r["cert"] or (lowx == 0 and (w["write"] or r["read"])))
 
-    def undecoded(self, lo, size):
+    def undecoded(self, lo, size, core=False):
         """The first byte of [lo, lo+size) that nothing decodes, or None. A span is trusted when its stimulus (low bits unknown) is certain."""
         def walk(a, n, lx):
-            if self.covered(a, lx):
+            if self.covered(a, lx, core):
                 return None
             if n == 1:
                 return a
@@ -2704,11 +2915,13 @@ class Checker:
                 errs.append("block %s: 0x%08X..0x%08X lies outside the request's 24-bit address space (iobase 0x%08X)"
                             % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
                 continue
-            bad = self.undecoded(rt, b["size"])
+            core = b["owner"] == "core"
+            bad = self.undecoded(rt, b["size"], core)
             if bad is not None:
-                errs.append("block %s: byte +0x%X (0x%08X) is decoded by nothing in the RTL" % (name, bad - rt, bad + self.iobase))
+                errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
+                            "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
                 continue
-            for p in b.get("property", []):
+            for p in ([] if core else b.get("property", [])):
                 nb = p["width"] // 8
                 if p["offset"] + nb > b["size"]:
                     errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
@@ -2733,13 +2946,19 @@ class Checker:
 
 
 def cmd_check(args):
-    opts = {"--design": None, "--toml-a": None, "--list": "build.tcl", "--top": "top", "--bus": "ultimate_sys.io_req"}
-    maps = []
+    opts = {"--design": None, "--toml-a": None, "--top": "top", "--bus": "ultimate_sys.io_req"}
+    maps, lists = [], []
     i = 0
     while i < len(args):
         a = args[i]
         if a == "--maps":
             maps.append(args[i + 1])
+            i += 2
+        elif a == "--list":
+            lists.append(args[i + 1])
+            i += 2
+        elif a == "--define":
+            DEFINES.add(args[i + 1])
             i += 2
         elif a in opts:
             opts[a] = args[i + 1]
@@ -2749,12 +2968,12 @@ def cmd_check(args):
     if not opts["--design"] or not opts["--toml-a"]:
         raise CheckError("usage: rtl_check.py check --design DIR --toml-a FILE [--maps DIR]...")
     doc = parse_toml_a(opts["--toml-a"], maps)
-    des = Design(opts["--design"], opts["--list"])
+    des = Design(opts["--design"], lists or "build.tcl")
     ck = Checker(des, opts["--top"], opts["--bus"], doc)
     errs = ck.check()
     for e in errs:
         print("rtl_check: " + e)
-    n = sum(len(b.get("property", [])) for b in doc["block"])
+    n = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core")
     if errs:
         print("rtl_check: %d finding(s)" % len(errs))
         return 1

@@ -6,7 +6,8 @@
   2. check on c64_basic of TRX64-Ultimate with the fixture tests/rtl_check/c64_basic.toml and the shipped maps of app/sdkpkg/maps,
      when the directory is there
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
-  3. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
+  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1): the host's own decode, no checkout of another repository needed.
+  4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
 import os
 import subprocess
@@ -36,10 +37,15 @@ ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-U
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 54 properties agree" in out,
-         "c64_basic: 10 blocks, 54 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
+    must(rc == 0 and "10 block(s), 56 properties agree" in out,
+         "c64_basic: 10 blocks, 56 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
+              "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "45 block(s), 91 properties agree" in out,
+     "host: 45 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over)", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)
