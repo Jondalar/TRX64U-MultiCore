@@ -1395,6 +1395,14 @@ class ExampleCore(unittest.TestCase):
         self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
         self.assertIn("#define DRV_example_ctl_OWNER 1", h)
 
+    def test_the_base_blocks_of_the_example_are_the_blocks_of_the_shared_toml_a(self):
+        ex = D.toml_loads(self.read("gateware", "example.toml"))
+        with open(os.path.join(self.ROOT, "coreapp", "gateware", "shared.toml")) as f:
+            sh = D.toml_loads(f.read())
+        base = [b for b in ex["block"] if b["owner"] == "base"]
+        self.assertEqual(base, sh["block"])
+        self.assertEqual(ex["io"], sh["io"])
+
     def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):
         desc = D.compile_text(self.read("app", "desc.toml"))
         self.assertEqual(D.parse_desc(desc)["core"]["hooks"], "example")

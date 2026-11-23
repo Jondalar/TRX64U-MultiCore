@@ -69,6 +69,15 @@ grep -q -F '#define OPS_MAX 200' appcheck/appsizes.h && grep -q -F '#define CORE
 python3 "$P/tools/descrec.py" compile app/desc.toml appcheck/desc.bin --sizes app/toml_b.toml >/dev/null || fail "the example's description does not compile from the package"
 # the example core's own TOML A (S17): the base's blocks and the block of the core, whose map is beside the file; the driver table has the macros of the core's block
 python3 "$P/tools/descrec.py" compile gateware/example.toml appcheck/toma_example.bin --maps "$P/maps" --maps gateware >/dev/null || fail "the example's TOML A does not compile from the package"
+# the example's base blocks are the shared TOML A's blocks, so the two cannot drift apart
+python3 -I - "$P/tools" gateware/example.toml "$P/gateware/shared.toml" <<'PY' || fail "the base blocks of the example's TOML A differ from the package's gateware/shared.toml"
+import sys
+sys.path.insert(0, sys.argv[1])
+import descrec as D
+ex = D.toml_loads(open(sys.argv[2]).read())
+sh = D.toml_loads(open(sys.argv[3]).read())
+sys.exit(0 if [b for b in ex["block"] if b["owner"] == "base"] == sh["block"] and ex["io"] == sh["io"] else 1)
+PY
 python3 "$P/tools/descrec.py" drivers gateware/example.toml appcheck/exdrv --maps "$P/maps" --maps gateware >/dev/null || fail "the driver table of the example's TOML A is not generated from the package"
 grep -q -F '#define DRV_example_ctl_control_WR(v)' appcheck/exdrv/drvtab.h && grep -q -F '#define DRV_example_ctl_OWNER 1' appcheck/exdrv/drvtab.h || fail "the driver table lacks the register macro or the owner of the example's own block"
 # the example's app: everything but the compiler runs always; with the compiler the app is linked from the package alone

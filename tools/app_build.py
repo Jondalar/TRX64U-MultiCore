@@ -314,6 +314,8 @@ def cmd_build(a):
     desc = app.get("desc", "")
     if desc and not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", str(desc)):
         raise BuildError("%s: [app] desc is the name of the core's descriptor symbol" % a["toml-b"])
+    if not desc and not a.get("record"):
+        raise BuildError("%s: [app] desc is empty and no --record is given: a core without a description holds every start" % a["toml-b"])
     own = app.get("sources", [])
     if not isinstance(own, list) or not all(isinstance(x, str) and re.match(r"^[A-Za-z0-9_]+\.(cc|c)$", x) for x in own):
         raise BuildError("%s: [app] sources is a list of C or C++ file names" % a["toml-b"])
