@@ -7,10 +7,11 @@
 # reaches a core port, and its properties (a map) are the core's contract, checked in the core's own design, not here.
 # The address of a base block is iobase + its offset in ultimate_sys.vhd's decode process; the page registers (0x10040000, 0x10100300,
 # 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
-# Not in this record: the flash window 0x10060200 (flash_gate.vhd holds the request in p_valid/p_addr/p_data and decides one clock later in a state machine: rtl_check has no
-# model of a held request inside a module, V-1c), the UCI window 0x10044000 (cmd_if: it acks and answers 0; the UCI is the core's), the UDP region 0x10190000 (r_udp names it,
-# nothing decodes it) and the resampler at 0x10100580 (no decode). The ITU, console UART, USB and Ethernet windows are here (V-1c: rtl_check models Gideon's io_bus_splitter).
-# The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries) is one block of 48 properties. A property whose read and write registers differ is two properties
+# Not in this record: the UCI window 0x10044000 (cmd_if: it acks and answers 0; the UCI is the core's), the UDP region 0x10190000 (r_udp names it,
+# nothing decodes it) and the resampler at 0x10100580 (no decode). The ITU, console UART, USB, Ethernet and flash windows are here (V-1c: rtl_check models Gideon's
+# io_bus_splitter and a request that flash_gate holds). The trx_io pages 1, 2, 3, 5 and 7 (trx_sys.v) are not followed yet.
+# The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries, the byte between them undecoded) is three runs of 16 elements with the stride 4, one per colour byte.
+# A property whose read and write registers differ is two properties
 # (irq_mask / status, tx_len / rx_len).
 # There is no [identity] yet: the standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2, so it is the core's block here
 # (core_trx_io) and `descrec.py compile` (it wants a base-owned identity block) does not take this file until that is decided.
@@ -918,244 +919,25 @@ owner = "base"
 address = 0x10145000
 size = 0x40
   [[block.property]]
-  name = "entry0_r"
+  name = "entry_r"
   offset = 0x0
   width = 8
+  count = 16
+  stride = 4
   dir = "w"
   [[block.property]]
-  name = "entry0_g"
+  name = "entry_g"
   offset = 0x1
   width = 8
+  count = 16
+  stride = 4
   dir = "w"
   [[block.property]]
-  name = "entry0_b"
+  name = "entry_b"
   offset = 0x2
   width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry1_r"
-  offset = 0x4
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry1_g"
-  offset = 0x5
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry1_b"
-  offset = 0x6
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry2_r"
-  offset = 0x8
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry2_g"
-  offset = 0x9
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry2_b"
-  offset = 0xa
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry3_r"
-  offset = 0xc
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry3_g"
-  offset = 0xd
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry3_b"
-  offset = 0xe
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry4_r"
-  offset = 0x10
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry4_g"
-  offset = 0x11
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry4_b"
-  offset = 0x12
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry5_r"
-  offset = 0x14
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry5_g"
-  offset = 0x15
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry5_b"
-  offset = 0x16
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry6_r"
-  offset = 0x18
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry6_g"
-  offset = 0x19
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry6_b"
-  offset = 0x1a
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry7_r"
-  offset = 0x1c
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry7_g"
-  offset = 0x1d
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry7_b"
-  offset = 0x1e
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry8_r"
-  offset = 0x20
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry8_g"
-  offset = 0x21
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry8_b"
-  offset = 0x22
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry9_r"
-  offset = 0x24
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry9_g"
-  offset = 0x25
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry9_b"
-  offset = 0x26
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry10_r"
-  offset = 0x28
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry10_g"
-  offset = 0x29
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry10_b"
-  offset = 0x2a
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry11_r"
-  offset = 0x2c
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry11_g"
-  offset = 0x2d
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry11_b"
-  offset = 0x2e
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry12_r"
-  offset = 0x30
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry12_g"
-  offset = 0x31
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry12_b"
-  offset = 0x32
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry13_r"
-  offset = 0x34
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry13_g"
-  offset = 0x35
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry13_b"
-  offset = 0x36
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry14_r"
-  offset = 0x38
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry14_g"
-  offset = 0x39
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry14_b"
-  offset = 0x3a
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry15_r"
-  offset = 0x3c
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry15_g"
-  offset = 0x3d
-  width = 8
-  dir = "w"
-  [[block.property]]
-  name = "entry15_b"
-  offset = 0x3e
-  width = 8
+  count = 16
+  stride = 4
   dir = "w"
 
 [[block]]
@@ -1607,3 +1389,73 @@ size = 0x30
   offset = 0x2F
   width = 8
   dir = "rw"
+
+# ---- V-1c: the configuration flash window 0x10060200..0x100602FF. flash_gate.vhd holds each access in p_valid / p_read / p_addr / p_data and decodes it one clock later (rtl_check's held request).
+# Offsets 0x00-0x0F are the SPI block's (spi_peripheral_io: data, rate, control, crc) passed through the gate; 0x10-0x17 are the gate's own registers (aliases every 32 bytes, not named here):
+# status (a write of 1 in bit 0 clears the sticky bit), blocked count, blocked opcode, blocked address (3 bytes), allowed count, lock bits.
+[[block]]
+name = "flash_gate"
+module = "flash_gate"
+owner = "base"
+address = 0x10060200
+size = 0x18
+  [[block.property]]
+  name = "spi_data"
+  offset = 0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_rate"
+  offset = 4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_ctrl"
+  offset = 8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_crc"
+  offset = 12
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "blk_cnt"
+  offset = 0x11
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_op"
+  offset = 0x12
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_hi"
+  offset = 0x13
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_mid"
+  offset = 0x14
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_lo"
+  offset = 0x15
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ok_cnt"
+  offset = 0x16
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "lock"
+  offset = 0x17
+  width = 8
+  dir = "r"

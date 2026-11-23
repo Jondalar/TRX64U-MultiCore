@@ -69,8 +69,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 SPLITTERS = ("io_bus_splitter",)
 PASSTHROUGH = {"synchronizer_gzw": {"rx_data": "tx_data", "rx_new_data": "tx_push"}}
 # Gideon's RAM entities: their architecture is a vendor file (shared variables, element writes) the check does not parse. A write is the request's data on the
-# data port while the write enable port is 1 for it (module -> (write enable port, data port)); the read data port is an answer that does not come from the literal 0.
-MEMORIES = {"dpram_8x16": ("wea", "dia"), "dpram_8x32": ("wea", "dia"), "pseudo_dpram_8x32": ("wr_en", "wr_data"), "dpram": ("a_we", "a_wdata")}
+# data port and its address on the address port while the write enable port is 1 for it (module -> (write enable port, data port, address port)); the read data port is an answer that does not come from the literal 0.
+MEMORIES = {"dpram_8x16": ("wea", "dia", "addra"), "dpram_8x32": ("wea", "dia", "addra"), "pseudo_dpram_8x32": ("wr_en", "wr_data", "wr_address"), "dpram": ("a_we", "a_wdata", "a_address")}
 
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
 
@@ -1970,10 +1970,10 @@ CORE_PORTS = ("cw_", "dma_", "drv_io_", "gcr_io_", "sidcv_")
 
 
 class Eff:
-    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where")
+    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard")
 
-    def __init__(self, key, rhs, v, certain, taint, ctx, where):
-        self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where = key, rhs, v, certain, taint, ctx, where
+    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset()):
+        self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where, self.guard = key, rhs, v, certain, taint, ctx, where, guard
 
 
 class Run:
@@ -2059,6 +2059,8 @@ class Ev:
         """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
+        self.memcap = None
+        self.hold, self.holdt = {}, {}      # held requests: (id(ctx), register) -> value / taint in the decode cycle (find_held)
         self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
         self.bus, self.rootv, self.roott = None, {}, {}
         self.top = Ctx(self, topmod, None, None)
@@ -2294,16 +2296,28 @@ class Ev:
         return inst.modname.lower() in SPLITTERS or inst.modname.lower() in PASSTHROUGH or inst.modname.lower() in MEMORIES
 
     def memory_write(self, ctx):
-        """(a RAM of this module takes a write from the request, certainly): the write enable is 1 or may be 1 for the request's address, and the data port carries the data."""
+        """(a RAM of this module takes a write from the request, certainly): the write enable is 1 or may be 1 for the request's address, the data port carries the
+        data and the address port the request's address. self.memcap is the smallest size in bytes of such a RAM (2 ** address bits * data bytes)."""
         hit = None
         for inst in ctx.mod.insts:
             mem = MEMORIES.get(inst.modname.lower())
             if mem is None:
                 continue
             ports = {f.lower(): a for f, a in inst.ports}
-            we, di = ports.get(mem[0]), ports.get(mem[1])
-            if we is None or di is None or "a" not in self.taint(ctx, we) or "d" not in self.taint(ctx, di):
+            we, di, ad = ports.get(mem[0]), ports.get(mem[1]), ports.get(mem[2])
+            if we is None or di is None or ad is None or "a" not in self.taint(ctx, we) or "d" not in self.taint(ctx, di) or "a" not in self.taint(ctx, ad):
                 continue
+            if mem[0] == "a_we":       # dpram: g_depth_bits address bits of g_width_bits (the entity's declaration, defaults 9 and 16)
+                g = {}
+                for k, dflt in (("g_depth_bits", 9), ("g_width_bits", 16)):
+                    gv = self.ev(ctx, inst.generics[k]) if k in inst.generics else kn(dflt)
+                    if gv.x or gv.v is None:
+                        raise Unsupported("%s: the generic %s of the RAM is not a constant" % (inst.where, k))
+                    g[k] = gv.v
+                cap = (1 << g["g_depth_bits"]) * max(1, g["g_width_bits"] // 8)
+            else:                       # the 8 bit port of a block RAM of 2 KB (ADDRA / wr_address are 11 bits)
+                cap = 2048
+            self.memcap = cap if self.memcap is None else min(self.memcap, cap)
             t = truth(self.ev(ctx, we))
             if t == 1:
                 return True
@@ -2424,9 +2438,22 @@ class Ev:
             return fit(self.ev(ctx, d.init), w)
         return None
 
+    def flag_varies(self, ctx, name, v):
+        """A flag (every assignment a literal) that some assignment sets to another value than it has now: as data it is a register the response reads."""
+        if self.hold.get((id(ctx), name)) is not None or self.flag_init(ctx, name, v.w or 1) is None:
+            return False
+        for r in ctx.mod.assigns.get(name) or []:
+            rv = self.ev(ctx, r)
+            if rv.x or rv.v != v.v:
+                return True
+        return False
+
     def state_val(self, ctx, name, w):
         """A register as the request sees it. Phase 1 is the request cycle: a handshake flag has its initial value. Phase 2 is the
         response cycle: it has the value the request cycle left. Any other state is unknown."""
+        h = self.hold.get((id(ctx), name))
+        if h is not None:
+            return fit(h, w)
         fi = self.flag_init(ctx, name, w)
         if fi is None:
             return allx(w)
@@ -2798,6 +2825,8 @@ class Ev:
 
     def _taint_name(self, ctx, name):
         mod = ctx.mod
+        if (id(ctx), name) in self.holdt:
+            return self.holdt[(id(ctx), name)]
         if ctx is self.bus and name in self.rootv:
             return self.roott[name]
         base = name.partition(".")[0]
@@ -3092,14 +3121,14 @@ class Ev:
                     raise Unsupported("%s: a record assigned from an expression" % s[-1])
                 for fn, _ in self.d.record_fields(ti[1]):
                     sub = ("id", rhs[1] + "." + fn)
-                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap)
+                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap, pt)
                 return
             w = self.width(ctx, key) if key not in p.vars else self.width_ty(ctx, p.vars[key].ty)
-            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap)
+            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap, pt)
             return
         base = key
         rv = self.ev(ctx, rhs, sc)
-        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1]))
+        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt))
         if self.is_array(ctx, base):
             return
         cur = st.get(base)
@@ -3113,8 +3142,8 @@ class Ev:
             nv = v_merge(curv, nv)
         st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap),))
 
-    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap):
-        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where))
+    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
+        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
         alt = (rhs, ctx, nv, snap)
         old = st.get(key)
         if certain or old is None:
@@ -3130,7 +3159,7 @@ class Ev:
             return set()
         seen.add(k)
         v = self.val(ctx, name)
-        if v.known():
+        if v.known() and not self.flag_varies(ctx, name, v):
             return {("c", v.v)}
         mod = ctx.mod
         base = name.partition(".")[0]
@@ -3298,9 +3327,37 @@ class Ev:
                         res = 1
         return res
 
+    def find_held(self):
+        """A register that the request itself sets (assigned for sure in the request cycle, its value or its guard from the request, the guard no decode of the address:
+        a strobe) holds the request's value in the
+        next clock, where the module decodes it (flash_gate.vhd p_valid, p_read, p_addr, p_data). Its own assignment is a transport, no write."""
+        held = {}
+        for ctx in self.followed:
+            for p in ctx.mod.procs:
+                if not p.clocked or ctx is self.bus:      # the bus module's own registers are the request's entry, its decode is the base model
+                    continue
+                last = {}
+                for e in self.run(ctx, p).effects:
+                    if e.certain:               # an assignment under a guard of the state (a reset, taking the request away) is another path
+                        last[e.key] = e
+                for key, e in last.items():
+                    pt = ctx.mod.ports.get(key)
+                    if (e.taint & {"a", "d"}) and "q" not in e.guard and key.partition(".")[0] in ctx.mod.decls and (pt is None or pt[0] == "in") and key not in p.vars:
+                        held[(id(ctx), key)] = (e.v, e.taint)
+        return held
+
+    def decode_cycle(self, held):
+        """The next clock: the held registers have the request's value and taint, the state is as the request cycle left it (flags) or unknown."""
+        self.hold = {k: v[0] for k, v in held.items()}
+        self.holdt = {k: v[1] for k, v in held.items()}
+        self.phase = 2
+        for ctx in self.followed:
+            ctx.cache, ctx.runs, ctx.tcache, ctx.ptaint, ctx.ocache = {}, {}, {}, {}, {}
+
     def analyze(self, write):
         self.activate()
         res = {"followed": [c.name for c in self.followed], "write": False, "read": False, "forward": []}
+        held = self.find_held()
         for ctx in self.followed:
             for p in ctx.mod.procs:
                 effs = self.run(ctx, p).effects
@@ -3311,7 +3368,7 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and self.is_write(ctx, e) and not (fw and is_out(e)):
+                    if write and self.is_write(ctx, e) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
@@ -3321,6 +3378,7 @@ class Ev:
                 if mw is not None:
                     res["write"] = True
                     res["cert"] = res.get("cert") or (mw and ctx.certain)
+        res["memcap"] = self.memcap
         res["cert"] = res.get("cert") or any(c.certain for c in self.followed[1:])
         res["core"] = write and self.core_handover(res)
         if not write:
@@ -3334,16 +3392,29 @@ class Ev:
                     for k in keys:
                         if k in st and k.partition(".")[0] in ctx.mod.decls and self.flag_init(ctx, k, st[k].v.w) is not None:
                             self.post[(id(ctx), k)] = st[k].v
+        if held:
+            res["links"] = self.find_links()
+            self.decode_cycle(held)
+            if write:
+                for ctx in self.followed:
+                    for p in ctx.mod.procs:
+                        for e in self.run(ctx, p).effects:
+                            if self.is_write(ctx, e) and (id(ctx), e.key) not in held:
+                                res["write"] = True
+                                res["cert"] = res.get("cert") or e.certain
+        if not write:
             self.phase = 2
-            for ctx in self.followed:
-                ctx.cache, ctx.runs = {}, {}
+            if not held:
+                for ctx in self.followed:
+                    ctx.cache, ctx.runs = {}, {}
             og = set()
             for rc, rn in self.resp:
                 og |= self.origins(rc, rn)
             res["read"] = any(t != ("c", 0) for t in og)
             res["origins"] = og
         res["certain"] = res["write"] or res["read"]
-        res["links"] = self.find_links()
+        if not held:
+            res["links"] = self.find_links()
         return res
 
     def is_response(self, ctx, key):
@@ -3715,6 +3786,12 @@ class Checker:
                 errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
                             "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
                 continue
+            if not core:
+                for a in (rt, rt + b["size"] - 1):
+                    cap = self.stim(a, True)["memcap"]
+                    if cap is not None and b["size"] > cap:
+                        errs.append("block %s: it is %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, b["size"], cap))
+                        break
             for p in ([] if core else b.get("property", [])):
                 nb = p["width"] // 8
                 count = p.get("count", 1)
