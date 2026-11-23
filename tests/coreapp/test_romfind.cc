@@ -131,6 +131,70 @@ int main()
     fs5.gone = true;
     CHECK_EQ(rom_scan(&fs5, "atari800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);
 
+    // T258: an image that is also made from parts (RomSpec::into / at); bytes generated here
+    {
+        static const RomSpec img[4] = {
+            { "Image", { "img.rom", 0 }, { 12, 0 }, true, 0, 0 },
+            { "Low", { "low.bin", 0 }, { 4, 0 }, false, 0, 0, 0, false, 1, 0 },
+            { "High", { "high.bin", 0 }, { 4, 0 }, false, 0, 0, 0, false, 1, 8 },
+            { "Other", { "other.rom", 0 }, { 2, 0 }, true, 0, 0 },
+        };
+        RomResult pr[4];
+        FakeFs pf;
+        // one of two parts: told by the missing part, the other required ROM does not lose its place in the summary
+        pf.put("/sd/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3, 4});
+        CHECK_EQ(rom_scan(&pf, "p", img, 4, pr, sum, sizeof(sum)), ROM_MISSING);
+        CHECK(strstr(sum, "high.bin") != 0 && strstr(sum, "needs all its parts") != 0);
+        CHECK(!pr[0].composed);
+        // all parts: found, composed, the gap between them zero
+        pf.put("/usb0/roms/p/high.bin", std::vector<uint8_t>{9, 8, 7, 6});
+        pf.put("/sd/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        CHECK_EQ(rom_scan(&pf, "p", img, 4, pr, sum, sizeof(sum)), ROM_FOUND);
+        CHECK(pr[0].composed && pr[0].status == ROM_FOUND);
+        uint8_t buf[12];
+        memset(buf, 0xEE, sizeof(buf));
+        CHECK(rom_compose(&pf, img, 4, 0, pr, buf));
+        const uint8_t want[12] = { 1, 2, 3, 4, 0, 0, 0, 0, 9, 8, 7, 6 };
+        CHECK(memcmp(buf, want, 12) == 0);
+        // a whole file wins
+        pf.put("/sd/roms/p/img.rom", std::vector<uint8_t>(12, 7));
+        CHECK_EQ(rom_scan(&pf, "p", img, 4, pr, sum, sizeof(sum)), ROM_FOUND);
+        CHECK(!pr[0].composed);
+        CHECK_STR(pr[0].hit.name, "img.rom");
+        // a part of the wrong size: the status and the sentence are the part's
+        FakeFs pw;
+        pw.put("/sd/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3});
+        pw.put("/sd/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        CHECK_EQ(rom_scan(&pw, "p", img, 4, pr, sum, sizeof(sum)), ROM_WRONG_SIZE);
+        CHECK(strstr(sum, "low.bin") != 0 && strstr(sum, "3 bytes") != 0 && strstr(sum, "4 bytes are expected") != 0);
+        // the one-time copy: parts from the old place are copied when the core folder has neither the image nor all parts, never beside an image
+        FakeFs pi;
+        pi.put("/usb0/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3, 4});
+        pi.put("/usb0/roms/p/high.bin", std::vector<uint8_t>{9, 8, 7, 6});
+        pi.put("/usb0/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        CHECK_EQ(rom_import(&pi, "p", img, 4, "/sd/cores/p/roms", 0, 0), 3);
+        CHECK(pi.has("/sd/cores/p/roms/low.bin") && pi.has("/sd/cores/p/roms/high.bin"));
+        CHECK_EQ(rom_scan(&pi, "p", img, 4, pr, sum, sizeof(sum), 0, "/sd/cores/p/roms"), ROM_FOUND);
+        CHECK(pr[0].composed);
+        FakeFs pj;
+        pj.put("/usb0/roms/p/img.rom", std::vector<uint8_t>(12, 3));
+        pj.put("/usb0/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3, 4});
+        pj.put("/usb0/roms/p/high.bin", std::vector<uint8_t>{9, 8, 7, 6});
+        pj.put("/usb0/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        CHECK_EQ(rom_import(&pj, "p", img, 4, "/sd/cores/p/roms", 0, 0), 2);
+        CHECK(pj.has("/sd/cores/p/roms/img.rom") && !pj.has("/sd/cores/p/roms/low.bin"));
+        // the last part arrives from an old place: the image counts as there, a whole file of a later folder is not copied over the parts
+        FakeFs pk;
+        pk.put("/usb0/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3, 4});
+        pk.put("/usb0/roms/p/high.bin", std::vector<uint8_t>{9, 8, 7, 6});
+        pk.put("/usb0/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        pk.put("/sd/roms/p/img.rom", std::vector<uint8_t>(12, 3));
+        CHECK_EQ(rom_import(&pk, "p", img, 4, "/sd/cores/p/roms", 0, 0), 3);
+        CHECK(!pk.has("/sd/cores/p/roms/img.rom") && pk.has("/sd/cores/p/roms/low.bin") && pk.has("/sd/cores/p/roms/high.bin"));
+        CHECK_EQ(rom_scan(&pk, "p", img, 4, pr, sum, sizeof(sum), 0, "/sd/cores/p/roms"), ROM_FOUND);
+        CHECK(pr[0].composed);
+    }
+
     // ROM sets (T91, T92): a machine with variants starts when ONE set is complete; a set that is only partly there does not count
     static const RomSpec sets[5] = {
         { "A OS",    { "a-os.rom", 0 },    { 4, 0 }, false, 0, 0, 1 },

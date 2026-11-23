@@ -102,10 +102,14 @@ def render():
                 what = "any file %s of %s" % (r["names"][0], size)
             else:
                 what = "%s  %s" % (" or ".join(r["names"]), size)
-            if r["set"]:
+            if r["flags"] & 8:
+                need = "optional, a part of the %s: all its parts together make the image" % rs[(r["flags"] >> 4) - 1]["role"]
+            elif r["set"]:
                 need = "needed for set " + "+".join(str(b + 1) for b in range(8) if r["set"] & (1 << b))
             elif r["flags"] & 1:
                 need = "required"
+                if any((q["flags"] & 8) and rs[(q["flags"] >> 4) - 1] is r for q in rs):
+                    need += ", or the parts below"
             else:
                 need = "optional"
             if r["flags"] & 2:

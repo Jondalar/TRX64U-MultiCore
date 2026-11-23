@@ -69,7 +69,7 @@ struct OpArgs {
     uint32_t len(int k) const { return nv[k]; }
 };
 
-#define OP_MSG_MAX 240
+#define OP_MSG_MAX 400
 // The handler writes its reason into msg (at most msglen bytes) and sets more when it had work and wants to be called again at once
 // (a poll). It returns an OpErr.
 // A handler may also return bytes (a memory read): up to datacap bytes into data, ndata of them. They travel with the result, never as an argument.

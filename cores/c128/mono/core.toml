@@ -26,6 +26,7 @@ sources      = ["cores/c128", "cores/c1541", ":(exclude)cores/c1541/sim", "cores
 # T170: the serial port's fast serial line (SRQ) reaches the core's CIA 1; the flat build has no partition, the contract's 247 ports stay as they are
 layer2_extra = ["IEC_SRQ_I", "IEC_SRQ_O"]
 mono_env     = ["TRX_VDC=whole", "TRX_Z80=1", "TRX_REU=1", "TRX_DEFS=VDC64 ROM_CACHE RAM_DDR2 SID2 SOCK_AUDIO TAPE NO_CART_EMU NO_TAP_STREAM NO_NET NO_VIC_SCALER", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
-# The one file the user supplies: the 72 KiB system ROM in the layout of the MiSTer core's boot0.rom (T113 5.5): C64 BASIC+KERNAL 16 KiB,
-# C128 editor+Z80 BIOS+KERNAL 16 KiB, C128 BASIC 32 KiB, character ROMs 8 KiB. Never in the repository, a release or a .cfw.
+# The system ROM the user supplies: the 72 KiB image in the layout of the MiSTer core's boot0.rom (T113 5.5): C64 BASIC+KERNAL 16 KiB,
+# C128 editor+Z80 BIOS+KERNAL 16 KiB, C128 BASIC 32 KiB, character ROMs 8 KiB. One file, or VICE's six files that make it (T258,
+# coreapp/cores/c128.cc). Never in the repository, a release or a .cfw.
 roms         = ["boot0.rom"]

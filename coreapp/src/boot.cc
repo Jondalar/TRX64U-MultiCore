@@ -32,6 +32,9 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
     const CoreDesc *d = c->desc;
     for (int i = 0; i < d->nroms; i++) {
         const RomSpec &s = d->roms[i];
+        if (s.into) {                             // T258: a part is put with the image it belongs to
+            continue;
+        }
         if (res[i].why[0]) {                      // T185 S3: an optional file that was refused: told on the screen's notice line and the console
             printf("[core] %s\n", res[i].why);
             if (!c->notice_pending) {
@@ -42,8 +45,13 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
         if (res[i].status != ROM_FOUND) {
             continue;
         }
-        if (res[i].hit.size > sizeof(rombuf) || !rom_read(c->fs, &res[i].hit, rombuf)) {
-            snprintf(msg, msglen, "%s: cannot read %s/%s (the medium is gone?)", s.role, res[i].hit.dir, res[i].hit.name);
+        if (res[i].hit.size > sizeof(rombuf) ||
+            !(res[i].composed ? rom_compose(c->fs, d->roms, d->nroms, i, res, rombuf) : rom_read(c->fs, &res[i].hit, rombuf))) {
+            if (res[i].composed) {
+                snprintf(msg, msglen, "%s: cannot read the parts of the image in %s (the medium is gone?)", s.role, res[i].hit.dir);
+            } else {
+                snprintf(msg, msglen, "%s: cannot read %s/%s (the medium is gone?)", s.role, res[i].hit.dir, res[i].hit.name);
+            }
             return 1;
         }
         OpIn in = in_blob("data", rombuf, res[i].hit.size);
@@ -53,7 +61,11 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
             snprintf(msg, msglen, "%s", r.msg[0] ? r.msg : "the core did not take the ROM");
             return rc;
         }
-        printf("[core] %s: %s/%s (%u bytes)\n", s.role, res[i].hit.dir, res[i].hit.name, (unsigned)res[i].hit.size);
+        if (res[i].composed) {
+            printf("[core] %s: made from its parts in %s (%u bytes)\n", s.role, res[i].hit.dir, (unsigned)res[i].hit.size);
+        } else {
+            printf("[core] %s: %s/%s (%u bytes)\n", s.role, res[i].hit.dir, res[i].hit.name, (unsigned)res[i].hit.size);
+        }
     }
     c->rom_key_loaded = d->rom_key ? d->rom_key(c) : 0;      // T216 D16: what the ROMs now in the machine were chosen by
     // the ROM set (T104 5.2): the member the choice names, read like a named file and handed to the base's own placement
@@ -85,7 +97,7 @@ int boot_put_builtin_rom(CoreCtx *c, const char *put_op, char *msg, int msglen)
         return 1;
     }
     for (int i = 0; i < c->desc->nroms; i++) {
-        if (!c->desc->roms[i].put_op || strcmp(c->desc->roms[i].put_op, put_op)) {
+        if (!c->desc->roms[i].into && (!c->desc->roms[i].put_op || strcmp(c->desc->roms[i].put_op, put_op))) {
             res[i].status = ROM_MISSING;                 // only this one goes in
         }
     }
@@ -135,7 +147,7 @@ bool boot_leave_key(int key)
 BootResult boot_start(CoreCtx *c, BootUi *ui)
 {
     const CoreDesc *d = c->desc;
-    char msg[240];
+    char msg[OP_MSG_MAX];                       // the sentence of an image that can also be made from its parts names them (T258)
     if (d->romset || d->window_media || d->sector_media || d->mouse) {
         engines_of(c);                            // made here, on the one task there is, before any other task asks for it
     }
@@ -149,7 +161,7 @@ BootResult boot_start(CoreCtx *c, BootUi *ui)
     bool told = false;
     bool refused = false;                         // a ROM set found and refused: told at once, looked at again after 5 s (T104 5.1)
     const bool way_back = boot_offers_return(c);
-    char shown[400];
+    char shown[OP_MSG_MAX + 160];
     while (d->nroms || d->romset) {
         RomStatus st = d->nroms ? scan_roms(c, res, msg, sizeof(msg)) : ROM_FOUND;
         if (st == ROM_FOUND && d->romset) {

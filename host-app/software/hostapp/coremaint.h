@@ -35,7 +35,7 @@ struct CmReq {
     const char *role;
     const char *names;        // "a.rom|b.rom"; for a ROM set the extension
     uint32_t sizes[3];
-    int flags;                // 1 required, 2 shared device ROM, 4 one file of the extension out of a set
+    int flags;                // 1 required, 2 shared device ROM, 4 one file of the extension out of a set, 8 a part of another ROM's image (bits 4 and up: that ROM's number in the core's rows, from 1)
     int set;                  // bit mask of the variants that need it (0: not in a set)
 };
 

@@ -187,6 +187,30 @@ int main()
         cm_rom_status("Nintendo Entertainment System", e, 2, &need, &have, miss, sizeof(miss));
         CHECK(need == 0 && have == 0 && !miss[0]);
     }
+    // ---- T258: the C128's system image is there as its file, or as all of VICE's six files, not as five of them
+    {
+        static const struct { const char *name; uint32_t size; } vice[6] = {
+            { "basic64-901226-01.bin", 8192 }, { "kernal64-901227-03.bin", 8192 }, { "kernal-318020-05.bin", 16384 },
+            { "basiclo-318018-04.bin", 16384 }, { "basichi-318019-04.bin", 16384 }, { "chargen-315079-01.bin", 8192 } };
+        CmEntry e[6];
+        memset(e, 0, sizeof(e));
+        int need, have;
+        char miss[120];
+        cm_rom_status("Commodore 128", e, 0, &need, &have, miss, sizeof(miss));
+        CHECK(need == 1 && have == 0 && !strcmp(miss, "boot0.rom"));
+        for (int k = 0; k < 6; k++) { strcpy(e[k].name, vice[k].name); e[k].size = vice[k].size; }
+        cm_rom_status("Commodore 128", e, 5, &need, &have, miss, sizeof(miss));
+        CHECK(need == 1 && have == 0);
+        cm_rom_status("Commodore 128", e, 6, &need, &have, miss, sizeof(miss));
+        CHECK(need == 1 && have == 1 && !miss[0]);
+        e[5].size = 4096;
+        cm_rom_status("Commodore 128", e, 6, &need, &have, miss, sizeof(miss));
+        CHECK(need == 1 && have == 0);
+        memset(e, 0, sizeof(e));
+        strcpy(e[0].name, "boot0.rom"); e[0].size = 73728;
+        cm_rom_status("Commodore 128", e, 1, &need, &have, miss, sizeof(miss));
+        CHECK(need == 1 && have == 1);
+    }
     Ram *w = world();
     CmReport *rep = new CmReport;
     cm_scan(*w, *w, rep);

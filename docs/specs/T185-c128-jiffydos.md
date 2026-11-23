@@ -87,7 +87,7 @@ tests in `tests/coreapp/test_c128.cc` and `run.sh`. The name search is gone: the
 |---|---|---|
 | JiffyDOS C128 ROM (`c128.use_jiffy_c128`) | 16,384 (kit U35), or 32,768 (the C128DCR kit's file: the C64 part first) | image +0x4000 (32 KiB: +0x0000..0x7FFF) |
 | JiffyDOS C64 ROM (`c128.use_jiffy_c64`) | 16,384 (BASIC + KERNAL), or 8,192 (the KERNAL alone, reset vector $FCE2) | image +0x0000, or +0x2000 for 8,192 |
-| JiffyDOS 1541 ROM (`c128.use_jiffy_1541`) | 16,384 or 32,768 (8,192 is refused: the upper half of the ROM only) | drive A as 1541 |
+| JiffyDOS 1541 ROM (`c128.use_jiffy_1541`) | 16,384 or 32,768; 8,192 (the upper half, chip 901229) since T258 D6: over the stock 1541 ROM's lower 8 KiB | drive A as 1541 |
 | JiffyDOS 1581 ROM (`c128.use_jiffy_1581`) | 32,768 | drive A as 1581 |
 
 Content check (`kit_fault`, `jf_part_fault`): not all 0x00 / 0xFF; reset vector (last four bytes of the part) >= $E000; the 16 KiB C64 part has "CBMBASIC" at offset 4, the C128 part has not;
