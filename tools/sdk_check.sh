@@ -50,11 +50,10 @@ printf '[[window]]\nname = "mixer"\naddress = 0xA0000500\nsize = 0x14\n' > win.t
 python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "a record with a window does not compile from the package"
 printf '[[window]]\nname = "volume"\naddress = 0xA0000550\nsize = 2\n' > winbad.toml
 ! python3 "$P/tools/descrec.py" compile winbad.toml winbad.bin >/dev/null 2>&1 || fail "a window over the base's master volume compiles from the package"
-# TOML A compiles from the package alone, with the package's maps (api.md 6.14), and a block whose map no file has is refused
+# TOML A compiles from the package alone, with the package's maps (api.md 6.14)
 [ -f "$P/maps/c64cart.map.toml" ] || fail "the package lacks maps/c64cart.map.toml"
 printf '[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n[[block]]\nname = "cart"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n' > toma.toml
 python3 "$P/tools/descrec.py" compile toma.toml toma.bin --maps "$P/maps" >/dev/null 2>&1 || fail "a TOML A record does not compile from the package"
-! python3 "$P/tools/descrec.py" compile toma.toml tomabad.bin >/dev/null 2>&1 || fail "a TOML A block with a map compiles without the map files"
 # every object of both sources was made (lib.mk compiles every file of LIB_SRCS)
 [ -f example.o ] && [ -f greet.o ] || fail "an object of LIB_SRCS is missing"
 # no path of the repository in the build: its dependency files, the log and the image

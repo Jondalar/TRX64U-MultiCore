@@ -116,7 +116,7 @@ const DescWindow *descrec_window(const DescRecord &rec, const char *name)
         }
     }
     const DescBlock *b = descrec_block(rec, name);
-    return b ? &b->win : 0;
+    return b && b->core ? &b->win : 0;                          // a block of the base is reached by descrec_block, never granted
 }
 
 const DescBlock *descrec_block(const DescRecord &rec, const char *name)
@@ -295,7 +295,7 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
             uint32_t used = 0;
             for (uint32_t q = 0; q < p.nfield; q++) {
                 const DescField &f = m->fields[p.first_field + q];
-                if (!id_ok(f.name) || f.bits < 1 || f.shift + f.bits > p.width) {
+                if (!id_ok(f.name) || f.bits < 1 || f.shift >= p.width || f.bits > p.width - f.shift) {
                     return r.fail("description record, section %s: property \"%s\", field %u has no name of a-z 0-9 _, or lies outside the register", nm, p.name, (unsigned)(q + 1));
                 }
                 for (uint32_t j = 0; j < q; j++) {

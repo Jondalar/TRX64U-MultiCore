@@ -196,9 +196,9 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     address = 0xA0000500
     size = 0x14                    # bytes, 1 .. 0x100000
 
-    # TOML A (record version 7, T239.3 P1-1, D30, D34): the gateware as capabilities. A file with [io], [identity] and [[block]] and nothing else; see the section "TOML A" below.
     # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
 
+    # TOML A (record version 7, T239.3 P1-1, D30, D34): the gateware as capabilities. A file with [io], [identity] and [[block]] and nothing else; see the section "TOML A" below.
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
@@ -1662,7 +1662,7 @@ def _sec_windows(rows, st):
 #
 #   [io]                            the base addresses of the I/O space, each a 32 bit number (IO_KEYS)
 #   [identity]                      the standard block (D30 condition 2): id = the four characters of the ID, block = the name of the block that holds the identity
-#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, absent in the source
+#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source (cor_pack writes it, P1-4)
 #                                   (cor_pack writes it, P1-4)
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
 #                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core covers no register the base

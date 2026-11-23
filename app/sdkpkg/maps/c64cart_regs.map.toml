@@ -20,6 +20,15 @@ dir = "w"
   value = 1
 
 [[property]]
+name = "reu_size"
+offset = 0x09
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "mb16"
+  value = 7
+
+[[property]]
 name = "sampler"
 offset = 0x0E
 width = 8
