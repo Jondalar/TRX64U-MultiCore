@@ -1,4 +1,4 @@
-// The test library of the overlay service (T256 S3, S5, S10): it calls the SDK group api->overlay and api->ctx the way a library of TRX-Ultimate's does, so the ue2emu features
+// The test library of the overlay service (T256 S3, S5, S10): it calls the SDK group api->overlay and api->ctx the way a library of TRX64-Ultimate's does, so the ue2emu features
 // (tests/ui/features*/overlay_*.feature) prove the service without that library. It has no menu: the features call its operations over REST (POST /v1/ops/ovtest.NAME).
 //   ovtest.show     paints the element "ovtest" (a red box with a white frame and the text OVT) and shows it
 //   ovtest.remove   takes the element away
@@ -75,6 +75,28 @@ static int op_remove(CoreCtx *, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
+#define VC_W 376
+#define VC_H 283
+#define VC_OFF    0x00D00000u                   // VC20_FB_ADDR (0x01D00000) less the start of the core's DDR2 window (0x01000000)
+#define VC_STRIDE 0x00100000u                   // VC20_FB_STRIDE_BYTES
+#define VC_NBUF   4
+
+static int op_paint(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    static const uint16_t bars[8] = { 0xF800, 0x07E0, 0x001F, 0xFFE0, 0xF81F, 0x07FF, 0xFFFF, 0x8410 };
+    static uint16_t line[VC_W];
+    for (int x = 0; x < VC_W; x++) {
+        line[x] = bars[x * 8 / VC_W];
+    }
+    for (int b = 0; b < VC_NBUF; b++) {
+        for (int y = 0; y < VC_H; y++) {
+            g_api->io->ddr_write(VC_OFF + (uint32_t)b * VC_STRIDE + (uint32_t)y * VC_W * 2u, line, sizeof(line));
+        }
+    }
+    say(o, "painted");
+    return OPE_OK;
+}
+
 static int op_pause(CoreCtx *, const OpArgs &, OpOut &o)
 {
     g_api->ctx->set_paused(true);
@@ -114,6 +136,7 @@ static const char *status_text(CoreCtx *) { return g_el ? "ovtest shown" : "ovte
 static const LibOpDecl ops[] = {
     { "ovtest.show", 0, 0, op_show },
     { "ovtest.remove", 0, 0, op_remove },
+    { "ovtest.paint", 0, 0, op_paint },
     { "ovtest.pause", 0, 0, op_pause },
     { "ovtest.resume", 0, 0, op_resume },
     { "ovtest.hide", 0, 0, op_hide },

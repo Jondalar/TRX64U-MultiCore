@@ -885,6 +885,12 @@ def _lib_pause(c, name):
     c.emu.wait(600)
 
 
+@step(r'the test library paints the machine\'s picture')
+def lib_paints(c):
+    _lib_op(c, "paint")
+    c.emu.wait(600)
+
+
 @step(r'the test library pauses the machine')
 def lib_pauses(c):
     _lib_pause(c, "pause")
@@ -935,16 +941,57 @@ def _pixels(path, box):
     return px
 
 
-@step(r'the picture "([^"]+)" shows another running picture than "([^"]+)" above the element')
-def picture_moves(c, a, b):
-    """S3: the machine's picture runs under the element (the cursor of the C64's screen blinks, so two looks a moment apart differ); only the area above the element is compared."""
+def _moved(a, b):
+    """The count of pixels above the element that differ between two saved pictures; the pictures have to be of one size."""
     box = (0, 100, 960, 440)
     pa, pb = _pixels(os.path.join(emu_mod.OUT, a + ".png"), box), _pixels(os.path.join(emu_mod.OUT, b + ".png"), box)
     if len(pa) != len(pb) or not pa:
         raise AssertionFailed("%s and %s are not pictures of one size" % (a, b))
-    diff = sum(1 for x, y in zip(pa, pb) if abs(x[0] - y[0]) + abs(x[1] - y[1]) + abs(x[2] - y[2]) > 48)
-    if diff < 40:
-        raise AssertionFailed("%d pixels above the element differ between %s and %s: the picture under the element does not move" % (diff, a, b))
+    return sum(1 for x, y in zip(pa, pb) if abs(x[0] - y[0]) + abs(x[1] - y[1]) + abs(x[2] - y[2]) > 48)
+
+
+@step(r'the picture "([^"]+)" shows another running picture than "([^"]+)"(?: or than "([^"]+)")? above the element')
+def picture_moves(c, a, b, c2=None):
+    """S3: the machine's picture runs under the element (the cursor of the C64's screen blinks about every 333 ms, so two looks 400 ms apart differ unless two toggles fall between
+    them; with a third look the pair of the two gaps cannot both hold two). Only the area above the element is compared; one pair that differs is enough."""
+    diffs = [_moved(a, b)] + ([_moved(b, c2)] if c2 else [])
+    if max(diffs) < 40:
+        raise AssertionFailed("%s pixels above the element differ between the pictures: the picture under the element does not move" % "/".join(str(d) for d in diffs))
+
+
+def _blocks(path):
+    """The picture as the canvas of 960 x 540 in blocks of 40 x 30 canvas pixels: {(bx, by): the mean (r, g, b)}."""
+    w = struct.unpack(">I", open(path, "rb").read()[16:20])[0]
+    k = w / 960.0
+    px = _pixels(path, (0, 0, 960, 540))
+    W = int(960 * k)
+    out = {}
+    for by in range(18):
+        for bx in range(24):
+            acc, n = [0, 0, 0], 0
+            for y in range(int(by * 30 * k), int((by + 1) * 30 * k)):
+                row = y * W
+                for x in range(int(bx * 40 * k), int((bx + 1) * 40 * k)):
+                    p = px[row + x]
+                    acc[0] += p[0]; acc[1] += p[1]; acc[2] += p[2]
+                    n += 1
+            out[(bx, by)] = tuple(a / n for a in acc) if n else (0, 0, 0)
+    return out
+
+
+@step(r'the picture "([^"]+)" is the picture "([^"]+)" outside the library\'s element and the tag')
+def picture_same_outside(c, still, before):
+    """S5: the picture behind the element is the one the machine showed before it stopped: the blocks of 40 x 30 canvas pixels agree (the still is sampled from the frame buffer,
+    the running picture is scaled by the layer, so a block mean has a tolerance), the blocks of the element and of the tag left out; and it is a picture, not black."""
+    a, b = _blocks(os.path.join(emu_mod.OUT, still + ".png")), _blocks(os.path.join(emu_mod.OUT, before + ".png"))
+    skip = lambda bx, by: (bx * 40 < OV_BOX[2] and (bx + 1) * 40 > OV_BOX[0] and by * 30 < OV_BOX[3] and (by + 1) * 30 > OV_BOX[1]) or (bx * 40 < 946 and (bx + 1) * 40 > 820 and by * 30 < 44 and (by + 1) * 30 > 14)
+    keys = [k for k in a if not skip(*k)]
+    bright = sum(1 for k in keys if max(b[k]) > 24)
+    if bright * 4 < len(keys):
+        raise AssertionFailed("only %d of %d blocks of %s are not black: the machine showed no picture to keep" % (bright, len(keys), before))
+    bad = [k for k in keys if sum(abs(x - y) for x, y in zip(a[k], b[k])) > 90]
+    if len(bad) * 10 > len(keys):
+        raise AssertionFailed("%d of %d blocks of %s differ from %s (first at block %s): the still is not the picture that stopped" % (len(bad), len(keys), still, before, bad[0]))
 
 
 @step(r'the emulator log has no line with "([^"]+)"')

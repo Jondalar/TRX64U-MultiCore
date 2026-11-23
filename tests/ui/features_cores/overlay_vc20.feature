@@ -9,11 +9,18 @@ Feature: A library's element on a core that draws its picture on the pixel layer
     Then the picture "overlay-s5-running" shows no element of the library
 
   Scenario: S5 - a standing layer core keeps its picture and shows the element and the tag over it
-    Given the test library pauses the machine
-    When I save the picture "overlay-s5-standing"
+    Given the test library takes its element away
+    And the test library paints the machine's picture
+    And the menu is closed
+    When I save the picture "overlay-s5-before"
+    And the test library shows its element
+    And the test library pauses the machine
+    And I save the picture "overlay-s5-standing"
     Then the picture "overlay-s5-standing" shows the library's element at its place
     And the picture "overlay-s5-standing" shows the PAUSED tag at its place
+    And the picture "overlay-s5-standing" is the picture "overlay-s5-before" outside the library's element and the tag
     And the emulator log has no line with "no still"
+    And the emulator log has no line with "no memory for the still"
 
   Scenario: S5 - the element goes with the machine's Resume
     Given the test library resumes the machine

@@ -1,5 +1,5 @@
 # core: trx64u+ovtest
-Feature: A library's element over the running picture of a C64-type core, and the library's calls hide_menu and show_menu (T256 S3, S9, S10; the test library of tests/ui/ovtest, not TRX-Ultimate's ring library)
+Feature: A library's element over the running picture of a C64-type core, and the library's calls menu_hide and menu_show (T256 S3, S9, S10; the test library of tests/ui/ovtest, not TRX64-Ultimate's ring library)
 
   Scenario: S3 - the element stays over the running picture while the menu is closed, and the picture moves under it
     Given the menu is open
@@ -8,8 +8,9 @@ Feature: A library's element over the running picture of a C64-type core, and th
     And I save the picture "overlay-s3-a"
     And the picture "overlay-s3-a" shows the library's element at its place
     And I save the picture "overlay-s3-b"
+    And I save the picture "overlay-s3-c"
     Then the picture "overlay-s3-b" shows the library's element at its place
-    And the picture "overlay-s3-b" shows another running picture than "overlay-s3-a" above the element
+    And the picture "overlay-s3-b" shows another running picture than "overlay-s3-a" or than "overlay-s3-c" above the element
 
   Scenario: S9 - while the menu is open the element is not drawn, and it is back when the menu closes
     Given the test library shows its element
