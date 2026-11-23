@@ -1,10 +1,10 @@
 # T258 — The C128 core takes VICE's six ROM files as its system image, through a generic "parts of an image" in the ROM manager
 
-**Status:** BUILT on `t258-c128-roms` and `t258-jiffy8k` (2026-11-23), not merged; S1-S9 and S11-S16 by the units named in §2, S10 and S17 by hand (Alex, his own files).
+**Status:** BUILT on `t258-c128-roms` and `t258-jiffy8k` (2026-11-23), merged into `c128-integ` with T257 and T170 (not on integration, Alex); the UX review of 2026-11-23 failed with three findings (notice never shown, ROMs value cut, file names wrapped), open with Alex; S1-S9 and S11-S16 by the units named in §2, S10 and S17 by hand (Alex, his own files).
 **Repo:** TRX64U-MultiCore — the application only: the generic ROM manager (`coreapp/src/desc.h`, `romfind.cc`, `boot.cc`, `desc_check.cc`), the C128 descriptor's data (`coreapp/cores/c128.cc`), the host application's ROM table (`host-app/software/hostapp/`), `tools/gen_roms_txt.py`, the manual. No gateware.
 **Number:** T258.
 **Origin:** GitHub issue #105 "Enhance ROM import for C128 to also accept Vice rom set" (open, enhancement). Alex, 2026-11-23: build all of it (the research of the same day, `c128_mega65_report.md` §2).
-Open (one line, as in the TODO table): Built on t258-c128-roms (11-23), 8 KiB JiffyDOS 1541 half (D6) on t258-jiffy8k; S10, S17 board (Alex)
+Open (one line, as in the TODO table): Built (VICE parts, 8 KiB JiffyDOS half); on c128-integ with T257, T170; UX review failed (3); S10, S17 board
 **Depends on:** T113 (C128 core, the 72 KiB image, §5.5), T148 (a core reads its ROMs from its own folder, the one-time copy), T185 (JiffyDOS on the C128), T192 D24 / T213 D4 (no per-core code in the generic app).
 **Milestone:** M3.
 

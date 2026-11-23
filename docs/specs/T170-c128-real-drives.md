@@ -1,7 +1,7 @@
 # T170 — The C128 core works with real drives on the board's serial (IEC) port, 1541 and 1571 with fast serial
 
-**Status:** IN PROGRESS (2026-11-23). Built 2026-11-23 (agent, branch `t170-c128-iec`): the fast serial wiring, the SRQ line on the real port, the bus trace and its place in the bug report. Open: the builder benches, the Vivado run, the testers' board steps (D2).
-Open (one line, as in the TODO table): IN PROGRESS 11-23: built (fast serial, SRQ, bus trace in report); open: builder benches, Vivado, testers' drives (D2)
+**Status:** IN PROGRESS (2026-11-23). Built 2026-11-23 (agent, branch `t170-c128-iec`, since merged into `c128-integ` with T257 and T258): the fast serial wiring, the SRQ line on the real port, the bus trace and its place in the bug report. Open: the builder benches, the Vivado run, the testers' board steps (D2).
+Open (one line, as in the TODO table): Built (SRQ, bus trace); on c128-integ with T257, T258; open: builder benches, Vivado, testers' drives (D2)
 **Repo:** TRX64U-MultiCore — `cores/c128/` (large core), the generic core application (`coreapp/src/`), `tools/` (contract check).
 **Number:** T170 (TODO table).
 **Origin:** Alex, 2026-10-31, at the Sony TV: "we should support the analogue ports for the floppies (serial port)" (translated); the room for it

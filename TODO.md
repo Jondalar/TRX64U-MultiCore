@@ -27,7 +27,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | S10/S11/S15/S16 board done 11-18 (Alex: shipped = done); open: board S1 (monolith), S13 flash boot | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
 | T119 | 3 | ✅ | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | Done 11-18 (Alex: shipped = done) | [T119](docs/todo/T119.md) |
-| T258 | 3 | 🔨 | C128: the ROM import takes VICE's ROM set and composes the system image from its parts (#105) | Built on t258-c128-roms (11-23), 8 KiB JiffyDOS 1541 half (D6) on t258-jiffy8k; S10, S17 board (Alex) | [T258](docs/specs/T258-c128-rom-vice-parts.md) |
+| T258 | 3 | 🔨 | C128: the ROM import takes VICE's ROM set and composes the system image from its parts (#105) | Built (VICE parts, 8 KiB JiffyDOS half); on c128-integ with T257, T170; UX review failed (3); S10, S17 board | [T258](docs/specs/T258-c128-rom-vice-parts.md) |
 
 ## Board test required
 
@@ -58,7 +58,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T183 | 3 | 📅 | Game Boy Advance core (large core, if it fits the XC7A50T) | Spec PROPOSED (Alex 11-05): expected no-go (est. 18.5-20k LUT vs 17k usable); synth trial decides, nothing built | [T183](docs/todo/T183.md) |
 | T184 | 3 | ✅ | WiFi in the host menu and the core apps: FTP over WiFi as over Ethernet (#45) | Done 11-15 (Alex: in builds for weeks) | [T184](docs/todo/T184.md) |
 | T185 | 3 | 🔨 | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built; board 11-11 works, faster; J.3 closed 11-18; open: layout of kits other than Alex's | [T185](docs/specs/T185-c128-jiffydos.md) |
-| T257 | 3 | 🔨 | C128 VDC: the whole frame without interlace (not cut at 200 lines) and a register read-back for the application (#122) | Gateware, benches, TOML register list (D6) and the D11 cuts built; needs pipeline and board (S7) | [T257](docs/specs/T257-c128-vdc-frame-readback.md) |
+| T257 | 3 | 🔨 | C128 VDC: the whole frame without interlace (not cut at 200 lines) and a register read-back for the application (#122) | Built (VDC frame, read-back, D6 list, D11 cuts); on c128-integ with T170, T258; needs pipeline and board (S7) | [T257](docs/specs/T257-c128-vdc-frame-readback.md) |
 | T186 | 3 | ✅ | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Done 11-18 (Alex: shipped = done) | [T186](docs/specs/done/T186-ftp-client-fixes.md) |
 | T187 | 3 | ✅ | Core app menus: same layout in every core, selection visible, no overlap (board 11-06, UX review) | Done 11-15 (Alex: in builds for weeks) | [T187](docs/specs/done/T187-core-app-ux-rework.md) |
 | T188 | 3 | ✅ | Amiga cores: output frame follows the core (#48) | Done (Alex 11-15); merged 11-13 (run 1796 green) | [T188](docs/specs/done/T188-amiga-frame-lock.md) |
@@ -147,7 +147,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board S1-S4 11-07; S5, K.5 done 11-18 (shipped = done); mixed press (modifier + USB key) not built | [T181](docs/todo/T181.md) |
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | ✅ | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Done 11-15 (Alex: in builds for weeks) | [T167](docs/todo/T167.md) |
-| T170 | 3 | 🔨 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | IN PROGRESS 11-23: built (fast serial, SRQ, bus trace in report); open: builder benches, Vivado, testers' drives (D2) | [T170](docs/specs/T170-c128-real-drives.md) |
+| T170 | 3 | 🔨 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | Built (SRQ, bus trace); on c128-integ with T257, T258; open: builder benches, Vivado, testers' drives (D2) | [T170](docs/specs/T170-c128-real-drives.md) |
 | T171 | 3 | ✅ | MultiCore publishes into its own generic package trx64u-multicore, not into trx64-ultimate | Done: first CI publish run 279 -> main-a938c680 (2026-10-31); contract §1 written | [T171](docs/todo/T171.md) |
 | T129 | 3 | 📅 | SNES core as a full (large) core | Planned as a full flat core (like the C128); source not chosen, spec not written | [T129](docs/todo/T129.md) |
 | T130 | 3 | 📅 | Atari ST core | Planned; candidate MiSTeryNano has no licence file (authors to be asked); spec not written | [T130](docs/todo/T130.md) |
