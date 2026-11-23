@@ -89,8 +89,10 @@ Draft. It is completed when the open questions of §3 are decided.
 
 - **D3** (Alex, 2026-11-23): a library draws a pixel surface. Asked how a library draws its overlay, he chose "Pixel surface": the
   library paints an RGB565 buffer itself, the base puts it at a place over the picture, pixels in the key colour stay transparent, and
-  the base offers text helpers with its fonts. The still and the elements take the same way, and TRX64-Ultimate's pixel code (the
-  Timewarp bar, `tw_draw_bar`) fits unchanged. Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
+  the base offers text helpers with its fonts. The still and the elements take the same way. (Corrected 2026-11-23, read in
+  TRX64-Ultimate: `tw_draw_bar`, `software/ultimate-app/software/io/c64/trx_video.cc:731`, does not fit unchanged. It paints into
+  the full-screen layer buffer at the absolute place of `tw_layout()` with that buffer's stride (`:735-737`), and it mixes the still
+  under the bar itself (`:739`). T-3 moves it into the ring library and paints into a surface of the service.) Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
   second path for the still), and both (the most work).
 
 - **D4** (Alex, 2026-11-23): an element shows only while the menu is closed. Asked what shows while the menu is open, he chose "Only
