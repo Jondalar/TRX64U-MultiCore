@@ -90,7 +90,24 @@ control_job() {   # control NAME FILE 'sed-expr'; T100 D12: JOBS at a time (test
 }
 control() { cc_no_controls && return 0; pjob_spawn control_job "$@"; }
 
+exports_args() {   # exports_args SRCDIR: the test of the base's own tables (T239.3 base 3.3, libexports.cc) over the recording model of the code behind them
+  loader_args "$1"
+  LF=("$TST/test_exports.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
+      "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libexports.cc" "$1/sidfile.cc" "$TST/exports_stub.cc")
+  LA+=(-DLIBEXPORTS_SLOT_REGS_VAR=g_slot_regs -I"$ROOT/coreapp/cores" -I"$ROOT/app/lib/cbm1541")
+}
+run_exports() {
+  local key t0=$SECONDS; exports_args "$SRC"; key="$(cc_key loader "test exports" -- "${LA[@]}" -- "${LF[@]}")"
+  if cc_cached libexports "$key" test; then PASS=$((PASS + 1)); return 0; fi
+  $CXX "${LA[@]}" -o "$T/libexports" "${LF[@]}"
+  cc_exec "$T/rl_libexports" "$T/libexports"
+  echo "test libexports: PASS $((SECONDS - t0))s"
+  cc_store libexports "$key" "$T/rl_libexports" test
+  PASS=$((PASS + 1))
+}
+
 run
+run_exports
 control fs_flash_save libload.cc 's/return fs \&\& path \&\& !fs_write_refused(path) \&\& fs->save(path, buf, len);/return fs \&\& path \&\& fs->save(path, buf, len);/'
 control fs_flash_rename libload.cc 's/!fs_write_refused(from) \&\& !fs_write_refused(to) \&\& fs->rename/!fs_write_refused(from) \&\& fs->rename/'
 control fs_flash_open libload.cc 's/h->f = fs->open(path, rw \&\& !fs_write_refused(path));/h->f = fs->open(path, rw);/'

@@ -3,7 +3,7 @@
 #include "ui.h"
 #include "contrib.h"
 #include "trx_lv_port.h"
-#include "monitor.h"
+#include "menuflows.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -848,8 +848,9 @@ static char g_mtxt[MON_ROWS_MAX][96];
 static int g_mattr[MON_ROWS_MAX];
 static lv_obj_t *g_mcur;
 
-// The 40 rows are made once; a key writes the rows that changed (the label's text and colour) and moves the cursor cell.
-static void build_terminal(lv_obj_t *scr, bool fresh)
+// The rows are made once; a key writes the rows that changed (the label's text and colour) and moves the cursor cell. `g` is the grid the node's `grid` parameter names (textgrid.h),
+// built by render() before this call; null: no grid, an empty screen without a cursor.
+static void build_terminal(lv_obj_t *scr, bool fresh, const TextGrid *g)
 {
     if (fresh) {
         trx_shell_forget();
@@ -863,12 +864,18 @@ static void build_terminal(lv_obj_t *scr, bool fresh)
             g_mattr[r] = -1;
         }
     }
-    int cx, cy;
-    mon_cursor(&cx, &cy);
-    lv_obj_set_pos(g_mcur, cx * 12, 10 + cy * 13);
-    for (int r = 0; r < mon_rows() && r < MON_ROWS_MAX; r++) {
-        const char *l = mon_line(r);
-        int at = mon_attr(r);
+    int cx = -1, cy = -1;
+    if (g) {
+        g->cursor(&cx, &cy);
+    }
+    lv_obj_set_flag(g_mcur, LV_OBJ_FLAG_HIDDEN, cx < 0 || cy < 0);
+    if (cx >= 0 && cy >= 0) {
+        lv_obj_set_pos(g_mcur, cx * 12, 10 + cy * 13);
+    }
+    int rows = g ? g->rows() : 0;
+    for (int r = 0; r < MON_ROWS_MAX; r++) {
+        const char *l = r < rows && r < TG_ROWS_MAX ? g->line(r) : "";
+        int at = r < rows ? g->attr(r) : TG_NORMAL;
         if (!g_mrow[r]) {
             if (!l[0]) {
                 continue;
@@ -1493,15 +1500,20 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         }
         return true;
     }
-    if (m.layout_is("terminal") && !m.app_mode()) {               // trxmon's screen on the whole layer
-        mon_render();
-        uint32_t h = mon_sig();
+    if (m.layout_is("terminal") && !m.app_mode()) {               // a library's text screen (textgrid.h) on the whole layer
+        char gn[40];
+        const TextGrid *grid = m.layout_param("grid", gn, sizeof(gn)) ? menu_grid(gn) : 0;
+        uint32_t h = 0;
+        if (grid) {
+            grid->render();
+            h = grid->sig();
+        }
         if (!(g_valid && g_full == 2 && h == g_sig)) {
             bool fresh = !(g_valid && g_full == 2);
             if (fresh) {
                 ui_menu_forget_rows();
             }
-            build_terminal(scr, fresh);
+            build_terminal(scr, fresh, grid);
             g_valid = true;
             g_sig = h;
             g_full = 2;

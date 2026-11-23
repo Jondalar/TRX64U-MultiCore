@@ -3,6 +3,8 @@
 #ifndef COREAPP_MENUFLOWS_H
 #define COREAPP_MENUFLOWS_H
 
+#include "textgrid.h"
+
 // A wizard: up while `active` has text. The row shows the three texts, RETURN / the left arrow / ESC call next / back / cancel (the key table, stage KS_WIZARD), and the run loop's pump
 // calls `tick` (its answer: `more` = the screen changed, a text = the status line, a failure = a bad one).
 struct MenuWizard {
@@ -23,11 +25,15 @@ struct MenuFacts {
 };
 const MenuFacts *menu_facts();
 
-// The operation a tab's layout runs when the tab is shown (the monitor starts its session), null when it has none. Not for an application's screens: they name their own `enter`.
-const char *menu_layout_enter(const char *layout_name);
-
-// The operation the run loop's pump runs while a layout is shown (the monitor's stops, finished run-tos and live log); its answer `more` says the screen changed.
-const char *menu_layout_tick(const char *layout_name);
+// The text screen a node with the layout "terminal" draws (textgrid.h): its layout parameter `grid` names an export, found with the finder below. Without a finder, without the name
+// or when the table is too short for the calls the screen needs (up to `sig`), there is no grid and the screen is empty.
+const TextGrid *menu_grid(const char *name);
+// The finder: what answers a name and a minimum version with a table and its size (LibLoader::find_export on the board; a model in the tests). Null: no export is found.
+void menu_set_export_finder(const void *(*find)(const char *name, uint32_t min_version, uint32_t *table_size));
+// The node of the grid was entered (its `enter`, when the table has one): true when the grid had one and it ran.
+bool menu_grid_enter(const char *name);
+// One pass of the menu loop while the node is shown (its `tick`): true when the grid says it changed.
+bool menu_grid_tick(const char *name);
 
 // Does a file action that succeeded close the menu? Its own flag, except a plain mount, which the core's setting "Leave Menu on Mount" can keep open.
 struct FileAction;

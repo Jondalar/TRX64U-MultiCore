@@ -127,7 +127,8 @@ void trx64u_register(OpRegistry &r)
 }
 
 // the monitor session (monitor.cc) that menuctl.cc opens on the F4 tab: no debug block here
-void mon_open(CoreCtx *) { }
+int stub_mon_open_n;                                        // monitor_grid.cc over the stubs (tests/coreapp/test_cut.cc): what the monitor was asked
+void mon_open(CoreCtx *) { stub_mon_open_n++; }
 int stub_mon_key_n, stub_mon_key_last;                      // the monitor keys the controller sent (tests/coreapp/test_cut.cc)
 bool mon_key(CoreCtx *, int k) { stub_mon_key_n++; stub_mon_key_last = k; return true; }
 bool mon_wants_stop(void) { return false; }
@@ -143,14 +144,17 @@ const char *diag_text(int, int *n)
 }
 void diag_help_areas(const char *, const char *) { }
 const char *cfg_text(CoreCtx *, const char *) { return ""; }
-bool mon_tick(CoreCtx *) { return false; }
+int stub_mon_tick_n, stub_mon_render_n;
+bool stub_mon_tick_answer;
+bool mon_tick(CoreCtx *) { stub_mon_tick_n++; bool a = stub_mon_tick_answer; stub_mon_tick_answer = false; return a; }
 void mon_run(CoreCtx *, const char *) { }
-void mon_render(void) { }
+void mon_render(void) { stub_mon_render_n++; }
 int mon_cols(void) { return 80; }
 int mon_rows(void) { return 0; }
 const char *mon_line(int) { return ""; }
 int mon_attr(int) { return 0; }
 int mon_blank_rows(void) { return 0; }
 void mon_cursor(int *x, int *y) { *x = 0; *y = 0; }
-uint32_t mon_sig(void) { return 0; }
+uint32_t stub_mon_sig;
+uint32_t mon_sig(void) { return stub_mon_sig; }
 

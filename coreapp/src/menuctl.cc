@@ -388,11 +388,8 @@ void MenuCtl::go(int area, int tab)
         app_start();                                                // the application's own tab is shown now: its `enter` operation runs
         go_ran_ = true;
     } else if (!app_mode_) {
-        char ln[24];
-        ui_name(cur().layout, ln, sizeof(ln));
-        if (const char *eop = menu_layout_enter(ln)) {              // a screen of the core that starts something when it is shown (the monitor's session)
-            OpResult er;
-            ops_call(c_, eop, 0, 0, &er);
+        char gn[40];
+        if (layout_is("terminal") && layout_param("grid", gn, sizeof(gn)) && menu_grid_enter(gn)) {      // a text screen of a library starts what it needs when it is shown (the monitor's session)
             go_ran_ = true;
         }
     }
@@ -2622,16 +2619,10 @@ bool MenuCtl::pump(bool quiet)
             changed = true;
         }
     }
-    char ln[24];
-    ui_name(cur().layout, ln, sizeof(ln));
-    if (!nk && menu_layout_tick(ln)) {                               // the monitor's stops, finished run-tos and live log
-        OpResult r;
-        r.more = false;
-        ops_call_direct(c_, menu_layout_tick(ln), 0, 0, &r);
-        if (r.more) {
-            nk++;
-            changed = true;
-        }
+    char gn[40];
+    if (!nk && !app_mode_ && layout_is("terminal") && layout_param("grid", gn, sizeof(gn)) && menu_grid_tick(gn)) {      // a text screen of a library: the monitor's stops, finished run-tos and live log
+        nk++;
+        changed = true;
     }
     if (toast_expire()) {                                            // T160: the volume line ran out; the screen takes it away
         nk++;

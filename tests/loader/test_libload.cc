@@ -2722,6 +2722,30 @@ struct AppHostTest {
     }
 };
 
+// What the base kept of an image (a table its code gave) is let go when the image is: the notice comes with the slot, before the memory goes back.
+static std::vector<int> g_gone;
+static uint32_t g_gone_addr, g_gone_size;
+static void gone(int h, uint32_t addr, uint32_t size) { g_gone.push_back(h); g_gone_addr = addr; g_gone_size = size; }
+static void discard_notice()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->set_discard_notify(gone);
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    g_gone.clear();
+    CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+    CHECK(g_gone.empty());
+    int ha = h;
+    CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
+    uint32_t addr_a = w.ld->info(ha)->image_addr, size_a = w.ld->info(ha)->image_size;
+    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    CHECK(g_gone.size() == 1 && g_gone[0] == ha);
+    CHECK(g_gone_addr == addr_a && g_gone_size == size_a && size_a > 0);      // the range of the image that goes
+    w.ld->set_discard_notify(0);
+    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);                    // nobody told: nothing happens
+    CHECK_EQ(g_gone.size(), 1);
+}
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -2742,5 +2766,6 @@ int main()
     net_and_jobs();
     calls_on_the_owners_account();
     AppHostTest::jobs();
+    discard_notice();
     DONE("test_libload");
 }

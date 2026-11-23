@@ -125,6 +125,7 @@ enum LibRc {
 #define LIB_MAX 12              // images loaded at once
 #define LIB_NET_MAX 16          // sockets of api->net held at once (the base's own table is as big)
 #define LIB_JOB_MAX 8           // jobs of api->job held at once, ended ones not yet joined included (the base has 4 slots)
+#define LIB_BASE_EXPORTS_MAX 16 // the tables the base itself answers find with (add_export)
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
@@ -190,6 +191,9 @@ public:
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
     // The call tables libraries export, as api->lib hands them to a library: the base asks it for the table "corehooks" (hookhost.h).
     const SvcLib *svc_lib() const { return &lib_; }
+    // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (an unload, a release, a load that fails after the image was
+    // placed): what the base kept of that image (a table the image's code gave it) is let go there. Null: nobody is told.
+    void set_discard_notify(void (*fn)(int handle, uint32_t image_addr, uint32_t image_size)) { discard_notify_ = fn; }
 
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED. It is also the core that the groups settings, ctx, io
     // and board of base 3.3 act on; api->io is null for a context without a register window (no io, or a core with no machine: CoreDesc::menu_first).
@@ -212,9 +216,14 @@ public:
     // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
     void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
-    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2): api->lib->find answers it for that name unless a loaded library exports a lower or equal major of
-    // that name. Null: the base has none (the core is no C64) and find answers only what libraries export.
-    void set_c64_api(const C64Api *t) { c64api_ = t; }
+    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, uci, sid, tempdisk, textgrid): a name, the major of the table and the table, whose first
+    // member is its size (uint32_t). A table with the name and major of an earlier one replaces it; a null table takes the entry away. `name` is kept, not copied (a string literal). find answers
+    // such a table unless a loaded library exports the name at a lower or equal major. False: the list is full (LIB_BASE_EXPORTS_MAX).
+    bool add_export(const char *name, uint32_t major, const void *table);
+    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2). Null: the base has none (the core is no C64) and find answers only what libraries export.
+    void set_c64_api(const C64Api *t) { add_export(C64_API_NAME, C64_API_MAJOR, t); }
+    // What api->lib->find answers for `name` at the major of min_version or later: the same call a library makes, for the code of the base (the screens that draw a library's TextGrid).
+    static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size) { return svc_lib_find(name, min_version, table_size); }
     // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
     // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
     void set_board_io(CoreIo *io) { board_io_ = io; }
@@ -300,6 +309,7 @@ private:
         int32_t owner;                    // the slot, or -1
     } __attribute__((aligned(16)));
     Blk *acct_[LIB_MAX + 1];              // the lists: one per slot, the last one is nobody's
+    void (*discard_notify_)(int handle, uint32_t image_addr, uint32_t image_size);
     int cur_;                             // the slot of the application that is open (and of an image's lib_register or app_main as run() calls it), -1 none
     CoreCtx *ctx_;
     SvcSys sys_;
@@ -397,8 +407,15 @@ private:
     const SvcNet *base_net_;
     const SvcJob *base_job_;
     void (*job_cancel_)(struct SvcJobH *);
-    const C64Api *c64api_;
     CoreIo *board_io_;
+    struct BaseExport {
+        const char *name;
+        uint32_t major;
+        const void *table;
+    };
+    BaseExport base_[LIB_BASE_EXPORTS_MAX];
+    int nbase_;
+    const BaseExport *base_export(const char *name, uint32_t want_major) const;   // the lowest major of the name that is at least want_major
 };
 
 #endif

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "check.h"
+#include "model_grid.h"
 #include "sio_model.h"
 #include "fakes.h"
 #include "cores.h"
@@ -18,8 +19,25 @@
 #include "volume.h"
 #include "trx64u_menu.h"
 #include "atari_media.h"
+#include "libload.h"
+#include "libexports.h"
+#include "menuflows.h"
 
 extern int stub_mon_key_n, stub_mon_key_last;             // tests/coreapp/board_stubs.cc: what mon_key was given
+extern int stub_mon_open_n, stub_mon_tick_n, stub_mon_render_n;     // what monitor_grid.cc asked of the monitor
+extern bool stub_mon_tick_answer;
+extern uint32_t stub_mon_sig;
+
+// the loader of the application, as libboard.cc makes it, with no images: the table of the monitor's grid goes in through add_export and the menu finds it through LibLoader::find_export
+struct GridHost : LibHost {
+    void *alloc(uint32_t n) override { return malloc(n); }
+    void release(void *p) override { free(p); }
+    uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
+    void sync_code(void *, uint32_t) override { }
+    bool has_capability(const char *) override { return false; }
+    const char *core_name() override { return "Test Core"; }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 99; }
+};
 
 struct Host : MenuHost {
     int leaves = 0;
@@ -182,6 +200,59 @@ int main()
         CHECK_EQ(r.m->key(KEY_MENU), MenuCtl::R_CLOSE);
         CHECK_EQ(r.m->key(KEY_BREAK), MenuCtl::R_CLOSE);
         CHECK_EQ(stub_mon_key_n, n0);
+    }
+    // ---- the monitor's screen is a text grid of a library (T239.3 base 3.3): the terminal node of the record names the export "textgrid"; the page's entry calls its enter once, every pass of
+    // the menu loop its tick (the answer says the grid changed), and nothing names an operation of the monitor
+    {
+        mg_install();
+        Rec r;
+        CHECK_EQ(g_mg.n_enter, 0);
+        CHECK(open_by_home_row(*r.m, "Monitor..."));
+        CHECK(r.m->layout_is("terminal"));
+        char gname[40];
+        CHECK(r.m->layout_param("grid", gname, sizeof(gname)));
+        CHECK_STR(gname, "textgrid");
+        CHECK_EQ(g_mg.n_enter, 1);
+        CHECK_EQ(g_mg.n_tick, 0);
+        g_mg.tick_answer = true;
+        CHECK(r.m->pump(true));
+        CHECK(!r.m->pump(true));
+        CHECK_EQ(g_mg.n_tick, 2);
+        CHECK_EQ(g_mg.n_enter, 1);
+        CHECK_EQ(r.m->key(KEY_F10), MenuCtl::R_CLOSE);
+        mg_uninstall();
+    }
+    // ---- the board's own wiring of that screen (libboard.cc): monitor_grid.cc over mon_*, the table registered with the loader as the base does where the core has the monitor, and the
+    // menu's finder is LibLoader::find_export; the drawing calls reach mon_*, enter is the operation monitor.open, tick is mon_tick
+    {
+        Rec r;
+        GridHost gh;
+        LibLoader ld(&gh, ops_of(&r.c), 3);
+        CHECK(ops_of(&r.c)->find_op("monitor.open") != 0);
+        CHECK(ld.add_export("textgrid", 1, monitor_textgrid(&r.c)));
+        menu_set_export_finder(LibLoader::find_export);
+        const TextGrid *g = menu_grid("textgrid");
+        CHECK(g != 0 && g->size == sizeof(TextGrid));
+        CHECK(menu_grid("nothing") == 0);
+        stub_mon_open_n = stub_mon_tick_n = stub_mon_render_n = 0;
+        stub_mon_sig = 0xC0FFEE;
+        if (g) {
+            g->render();
+            CHECK_EQ(stub_mon_render_n, 1);
+            CHECK_EQ(g->sig(), 0xC0FFEE);
+            CHECK_EQ(g->cols(), 80);
+            CHECK_EQ(g->rows(), 0);
+            CHECK_STR(g->line(0), "");                                  // no rows: "" for a row outside the grid
+            CHECK_EQ(g->attr(3), TG_NORMAL);
+        }
+        CHECK(menu_grid_enter("textgrid"));
+        CHECK_EQ(stub_mon_open_n, 1);                                   // through the operation monitor.open
+        stub_mon_tick_answer = true;
+        CHECK(menu_grid_tick("textgrid"));
+        CHECK(!menu_grid_tick("textgrid"));
+        CHECK_EQ(stub_mon_tick_n, 2);
+        CHECK(!menu_grid_enter("nothing") && !menu_grid_tick("nothing"));
+        menu_set_export_finder(0);
     }
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {

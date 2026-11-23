@@ -1,4 +1,7 @@
 #include "libboard.h"
+#include "libexports.h"
+#include "textgrid.h"
+#include "menuflows.h"
 #include "ops_glue.h"
 #include "romfind.h"
 #include "libguard.h"
@@ -333,9 +336,14 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     g_loader = &loader;
     loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
     loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
+    libexports_register(loader, c);                             // base 3.3 (libexports.cc): the tables c64cart, cbm1541, uci, sid and tempdisk
+    if (ops_of(c)->find_op("monitor.open")) {
+        loader.add_export("textgrid", 1, monitor_textgrid(c));  // the core has the built-in monitor: its screen is the grid the terminal layout names
+    }
     loader.set_settings_apply(regset_apply_setting);
     loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);
+    menu_set_export_finder(LibLoader::find_export);              // the terminal layout finds its text grid by the name of its `grid` parameter
     // The rescue from a crashing library (libguard.h): decided before anything of the stick is touched, and before the wait for it.
     static LibGuard g(c->fs, c->board && c->board->boot_cfg ? c->board->boot_cfg : FS_FLASH_BOOT_MULTICORE);
     guard = &g;

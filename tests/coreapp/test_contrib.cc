@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include "check.h"
+#include "model_grid.h"
 #include "fakes.h"
 #include "test_core.h"
 #include "contrib.h"
@@ -707,33 +708,56 @@ int main(int argc, char **argv)
         CHECK_EQ(contrib_slots(&d2, (const char **)new const char *[4], 4), 2);
     }
 
-    // ---- a tab switch that runs an operation: the tree follows what the operation changed, not the pump's next tick (T239.3 P7)
+    // ---- a tab switch that runs the enter of a text grid: the tree follows what it changed, not the pump's next tick (T239.3 P7); the grid is the model of a library's text screen
     {
-        // a cursor key or a tab key asks no state of the registry; but go() ran the screen's start operation ("terminal" starts monitor.open), which
+        // a cursor key or a tab key asks no state of the registry; but go() ran the screen's start (the `enter` of the grid the layout "terminal" names), which
         // switched a state a node's `hide` reads. The row is gone from the settings tab at once.
-        static const SkelTab tabs5[] = { { "settings", "Settings", 1, TW_SETTINGS, 0, 0 }, { "mon", "Mon", 2, TW_NODES, 0, "terminal" } };
-        static const SkelArea areas[] = { { "F5", "Five", false, tabs5, 2 } };
+        static const SkelTab tabs5[] = { { "settings", "Settings", 1, TW_SETTINGS, 0, 0 }, { "mon", "Mon", 2, TW_NODES, 0, "terminal;grid=model" }, { "bare", "Bare", 3, TW_NODES, 0, "terminal" } };
+        static const SkelArea areas[] = { { "F5", "Five", false, tabs5, 3 } };
         static const Skeleton sk = { areas, 1 };
         static const LibNodeDecl gn[] = {
             { "F5/settings", LN_OP, "Gated", "zl.beep", 0, 1, 0, 0, 0, 0, 0, false, "hide=@zl.gate" },
             { "F5/settings", LN_OP, "Plain", "zl.beep", 0, 2 },
             { "F5/mon", LN_OP, "Mon row", "zl.beep", 0, 1 },
+            { "F5/bare", LN_OP, "Bare row", "zl.beep", 0, 1 },
         };
         LibRecord gr;
         memset(&gr, 0, sizeof(gr));
-        gr.nodes = gn; gr.nnodes = 3;
+        gr.nodes = gn; gr.nnodes = 4;
         Contributor cg[] = { { "gated", CR_LIB, &gr } };
         g_gate.clear();
+        mg_install();
+        g_mg.on_enter = []() { g_gate = "on"; };
         Rig r(cg, 1, &sk);
-        struct Op { static int open(CoreCtx *, const OpArgs &, OpOut &) { g_gate = "on"; return OPE_OK; } };
-        ops_of(&r.c)->contributor("mon");
-        CHECK_EQ(ops_of(&r.c)->add_op("monitor.open", 0, 0, Op::open), OPE_OK);
         r.m->open();
         r.m->key(KEY_F5);
         CHECK_STR(join(r.tab("F5", "settings")).c_str(), "Sound | Speed | Gated | Plain");
-        r.m->key('2');                                              // the tab of the terminal: its start operation sets zl.gate
+        CHECK_EQ(g_mg.n_enter, 0);
+        r.m->key('2');                                              // the tab of the terminal: its grid's enter sets zl.gate
+        CHECK_EQ(g_mg.n_enter, 1);
         CHECK_STR(g_gate.c_str(), "on");
         CHECK_STR(join(r.tab("F5", "settings")).c_str(), "Sound | Speed | Plain");  // before the fix the tree showed "Sound | Speed | Gated | Plain" until the pump's tick
+        // a pass of the menu loop calls the grid's tick while the node is shown; its answer says the screen changed
+        CHECK_EQ(g_mg.n_tick, 0);
+        g_mg.tick_answer = true;
+        CHECK(r.m->pump(true));
+        CHECK_EQ(g_mg.n_tick, 1);
+        CHECK(!r.m->pump(true));                                    // the grid has nothing new: no redraw is asked for
+        CHECK_EQ(g_mg.n_tick, 2);
+        CHECK_EQ(g_mg.n_enter, 1);                                  // the passes did not enter the node again
+        CHECK(r.m->goto_spec("F5/bare"));                           // a terminal without a grid parameter: nothing is entered, nothing is ticked
+        r.m->pump(true);
+        CHECK(g_mg.n_enter == 1 && g_mg.n_tick == 2);
+        CHECK(r.m->goto_spec("F5/settings"));                       // away from the terminal: no tick
+        r.m->pump(true);
+        CHECK_EQ(g_mg.n_tick, 2);
+        CHECK(r.m->goto_spec("F5/mon"));                            // entered again: enter again
+        CHECK_EQ(g_mg.n_enter, 2);
+        mg_uninstall();                                             // no finder: the name finds nothing, the node is entered and ticked by nobody
+        CHECK(r.m->goto_spec("F5/settings"));
+        CHECK(r.m->goto_spec("F5/mon"));
+        r.m->pump(true);
+        CHECK(g_mg.n_enter == 2 && g_mg.n_tick == 2);
         g_gate.clear();
     }
 
