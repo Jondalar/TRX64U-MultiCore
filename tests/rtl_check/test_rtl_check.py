@@ -6,7 +6,9 @@
   2. check on c64_basic of TRX64-Ultimate with the fixture tests/rtl_check/c64_basic.toml and the shipped maps of app/sdkpkg/maps,
      when the directory is there
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
-  3. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
+  3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
+     the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
+  4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
 import os
 import subprocess
@@ -36,10 +38,15 @@ ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-U
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 54 properties agree" in out,
-         "c64_basic: 10 blocks, 54 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
+    must(rc == 0 and "10 block(s), 56 properties agree" in out,
+         "c64_basic: 10 blocks, 56 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--top", "layer2_vc20",
+              "--bus", "vc20_core:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "vc20", "app", "gateware.toml"))
+must(rc == 0 and "6 block(s), 20 properties agree" in out, "vc20: 6 blocks, 20 properties of gateware.toml agree with the RTL of the partial", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)

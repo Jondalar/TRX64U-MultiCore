@@ -522,13 +522,21 @@ class LibraryMenus(unittest.TestCase):
 VC20 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "vc20", "app", "desc.toml")
 
 
+def vc20_numbers():
+    """cores/vc20/app/desc.toml with every name of its TOML A written out as the number it stands for (T239.3 V-2): the text the other tests of this file change."""
+    import re
+    names = D.toml_a_names(D.toml_loads(open(os.path.join(os.path.dirname(VC20), "gateware.toml")).read()))
+    text = open(VC20).read().replace('toml_a = "gateware.toml"\n', "")
+    text = re.sub(r'\b(reg\w*|fb_base|fb_stride) = "([a-z0-9_.]+)"', lambda m: "%s = %d" % (m.group(1), names[m.group(2)]), text)
+    return re.sub(r'\{ reg = "([a-z0-9_.]+)"', lambda m: "{ reg = %d" % names[m.group(1)], text)
+
+
 class CoreSections(unittest.TestCase):
     """T239.3 D17: the data sections of version 6, from the VIC-20's own description."""
 
     @classmethod
     def setUpClass(cls):
-        with open(VC20) as f:
-            cls.text = f.read()
+        cls.text = vc20_numbers()
         cls.blob = D.compile_text(cls.text)
 
     def test_the_vic20_description_is_a_version_6_record_that_reads_back(self):
@@ -1370,6 +1378,19 @@ class DriverTable(unittest.TestCase):
             m = os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns
             subprocess.check_call(cmd)
             self.assertEqual(os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns, m)
+
+
+class TomlANames(unittest.TestCase):
+    """T239.3 V-2: a register of the description named from the core's TOML A (api.md 6.14.20), on the VIC-20's own files."""
+
+    def test_the_names_of_the_vic20_make_the_record_its_numbers_made(self):
+        written_out = vc20_numbers()
+        self.assertNotIn("toml_a", written_out)
+        self.assertNotIn('"machine.status"', written_out)
+        self.assertEqual(D.compile_text(open(VC20).read(), VC20), D.compile_text(written_out))
+        r = D.parse_desc(D.compile_text(open(VC20).read(), VC20))
+        self.assertEqual((r["freeze"]["reg_status"], r["video"]["reg_fb_base"], r["video"]["fb_base"]), (0xA4, 0xC4, 0x01D00000))
+        self.assertEqual([c["reg_bind"]["reg"] for c in r["cset"] if c.get("reg_bind")], [0xA1, 0xA2, 0xB0])
 
 
 if __name__ == "__main__":
