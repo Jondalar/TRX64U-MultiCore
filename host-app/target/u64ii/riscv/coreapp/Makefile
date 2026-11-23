@@ -143,6 +143,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			tone.cc \
 			baseset.cc \
 			hookhost.cc \
+			hooklib.cc \
 			hotkeys.cc \
 			ops.cc \
 			ops_glue.cc \
