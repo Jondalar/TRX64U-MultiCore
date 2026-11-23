@@ -49,7 +49,7 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -fno-exceptions -pthread"
 PASS=0
 # the shared base every core application links, and the one descriptor each blueprint core adds to it
-BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
+BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc folderhd_exports.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc textcopy.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
@@ -827,7 +827,7 @@ control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_ma
 control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 
 # T142 (board, 2026-10-29): the board's printf (small_printf.cc) has no precision: "%.*s" / "%.8s" print wrong text, and the Mac's printf is
-# fine with them, so no test sees it. No format string of the application may carry one (newfile.h nf_copy copies instead).
+# fine with them, so no test sees it. No format string of the application may carry one (textcopy.h nf_copy copies instead).
 printf_lint() {   # printf_lint FILE... : one line for every format with a string precision
   local f
   for f in "$@"; do
@@ -873,7 +873,7 @@ CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
 
 # T186 (S1-S3): the FTP client against a scripted server model (test_ftp.cc, lwIP fakes in ftpstub/, virtual clock); fixes adapted from the fork f7f665ab
-run ftp test_ftp.cc ftp_client.cc
+run ftp test_ftp.cc ftp_client.cc ftp_exports.cc
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

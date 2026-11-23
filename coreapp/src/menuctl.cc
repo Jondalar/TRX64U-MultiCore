@@ -10,7 +10,7 @@
 #include "menuflows.h"
 #include "picmodes.h"
 #include "picture.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
