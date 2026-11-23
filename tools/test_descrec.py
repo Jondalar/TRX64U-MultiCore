@@ -1385,10 +1385,18 @@ class DriverTable(unittest.TestCase):
         lines = h.splitlines()
         self.assertIn("#define DRV_cart_flash_desc_COUNT 43u", lines)
         self.assertIn("#define DRV_cart_flash_desc_ADDR (DRV_cart_flash_ADDR + 0x40u)", lines)
-        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * 1u) = (uint8_t)(v))", lines)
+        self.assertIn("#define DRV_cart_flash_desc_STRIDE 1u", lines)
+        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * DRV_cart_flash_desc_STRIDE) = (uint8_t)(v))", lines)
         names = {ln.split()[1].split("(")[0] for ln in lines if ln.startswith("#define ")}
         self.assertNotIn("DRV_cart_flash_desc_RD", names)                         # w: no read
         self.assertNotIn("DRV_cart_flash_rom_sel_COUNT", names)                 # a single register has no count
+        self.assertNotIn("DRV_cart_flash_rom_sel_STRIDE", names)
+
+    def test_a_run_with_a_stride_has_its_stride_in_the_driver_table(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        lines = h.splitlines()
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE 4u") for ln in lines))
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE) = (uint16_t)(v))") and "(uint32_t)(i) * DRV_" in ln for ln in lines))
 
     def test_the_driver_table_is_the_same_text_for_the_same_toml(self):
         self.assertEqual(self.generate(src("desc_toml_a.toml")), self.generate(src("desc_toml_a.toml")))
@@ -1410,14 +1418,14 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
         import re
         h, _ = self.generate(self.shared())
         defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
-        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc"):
+        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 for n, line in enumerate(fh, 1):
                     for tok in re.findall(r"\bDRV_[A-Za-z0-9_]+", line):

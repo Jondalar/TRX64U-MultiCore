@@ -3266,7 +3266,7 @@ def drivers_files(doc, source="TOML A"):
     """The driver table of a TOML A document (T239.3 D31, D34), generated at build time and linked: (header text, source text).
     The document is checked by compile_desc first, so the generator and both readers hold the same rules. The header has, per block, its address, size and owner,
     per property its address and an access macro for each direction the map allows (`_RD()` for r and rw, `_WR(v)` for w and rw, of the property's width),
-    a property with a count (a run of registers) has `_COUNT` and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`; element i is at `_ADDR` + i * stride), and `_ADDR` is element 0,
+    a property with a count (a run of registers) has `_COUNT` and `_STRIDE` (the bytes from one element to the next, the width unless the map says more) and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`; element i is at `_ADDR` + i * `_STRIDE`), and `_ADDR` is element 0,
     per field its shift and mask, and every state's value; a driver names a register only by these macros, so a block the bitstream lacks is a compile error
     and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The source holds the table of the blocks (`drv_blocks`)."""
     import copy
@@ -3299,12 +3299,13 @@ def drivers_files(doc, source="TOML A"):
             ct = DRV_CTYPE[p["width"]]
             define(pn + "_ADDR", "(%s_ADDR + 0x%Xu)" % (bn, p["offset"]))
             if p.get("count", 1) > 1:
-                # a run of registers: the element count, and the access macros take the element's index
+                # a run of registers: the element count and the stride, and the access macros take the element's index
                 define(pn + "_COUNT", "%du" % p["count"])
+                define(pn + "_STRIDE", "%du" % p.get("stride", p["width"] // 8))
                 if "r" in p["dir"]:
-                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du))" % (ct, pn, p.get("stride", p["width"] // 8)))
+                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE))" % (ct, pn, pn))
                 if "w" in p["dir"]:
-                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du) = (%s)(v))" % (ct, pn, p.get("stride", p["width"] // 8), ct))
+                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE) = (%s)(v))" % (ct, pn, pn, ct))
             else:
                 if "r" in p["dir"]:
                     define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))

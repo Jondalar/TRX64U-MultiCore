@@ -15,7 +15,7 @@ name = "ident"
 module = "trx_io"
 owner = "base"
 address = 0x101A0000
-size = 0x100
+size = 0x10
   [[block.property]]
   name = "id"
   offset = 0x00
@@ -31,6 +31,14 @@ size = 0x100
   offset = 0x08
   width = 32
   dir = "r"
+
+[[block]]
+name = "resid8"
+module = "trx_io"
+owner = "base"
+address = 0x101A0040
+size = 0xE
+map = "sid"
 
 [[block]]
 name = "cart_regs"
