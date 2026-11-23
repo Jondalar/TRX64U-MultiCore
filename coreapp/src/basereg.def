@@ -1,7 +1,7 @@
 // The registers the base drives itself (T239.3, base 3.3): a window of a core's API TOML ([[window]], descrec.h section 19) that covers any byte of them is refused when the
 // record is read, by both readers (descrec.cc, tools/descrec.py). One table, two readers: this file is included by descrec.cc and parsed line by line by tools/descrec.py;
 // keep each entry on one line, BASE_REG(name, address, bytes, "file:line of the code that drives it"). tools/test_descrec.py checks that every reference names the register.
-// U2P_IO_BASE = 0xA0000000, the U64 block at +0x0400 (host-app/software/system/u2p.h, u64.h). A register the base only reads is in the table as well: the core may not map it.
+// The addresses of this table are 0xA0000000 plus the offsets of host-app/software/system/u2p.h and u64.h (the U64 block at +0x0400); the app's own U2P_IO_BASE is the linker symbol __u2p_io_base, 0x10100000 in the fixed fragment. A register the base only reads is in the table as well: the core may not map it.
 BASE_REG(ulpi_reset,      0xA000000F, 1, "host-app/software/io/usb/usb_hwinit.cc:147")
 BASE_REG(i2c_scl,         0xA0000008, 1, "host-app/software/io/i2c/i2c_drv.h:33")
 BASE_REG(i2c_sda,         0xA0000009, 1, "host-app/software/io/i2c/i2c_drv.h:34")

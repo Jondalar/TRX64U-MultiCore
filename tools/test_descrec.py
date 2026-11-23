@@ -1161,9 +1161,45 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "uci"])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "icap", "uci"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+
+    def test_the_fixed_link_fragment_is_what_the_generator_writes(self):
+        base = os.path.join(os.path.dirname(GOLD), "..", "..", "host-app", "target", "u64ii", "riscv")
+        with open(os.path.join(base, "trx_io.toml")) as f, open(os.path.join(base, "trx_io.ld")) as g:
+            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
+            self.assertEqual(g.read(), frag)
+        syms = dict((l.split(" = ")[0], int(l.split(" = ")[1].rstrip(";\n"), 16)) for l in frag.splitlines() if l.startswith("__"))
+        # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
+        self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
+        self.assertEqual(syms["__blk_icap"], syms["__iobase"] + 0x60600)
+        for n, a in (("id", 0x10060600), ("data", 0x10060610), ("enable", 0x10060614), ("count0", 0x10060618), ("count3", 0x1006061B), ("decouple", 0x10060620), ("release", 0x10060621)):
+            self.assertEqual(syms["__reg_icap_" + n], a, n)
+
+    def test_every_symbol_a_driver_names_is_in_the_fragment(self):
+        import re
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        with open(os.path.join(root, "host-app", "target", "u64ii", "riscv", "trx_io.toml")) as f:
+            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
+        have = set(re.findall(r"^(__\w+) =", frag, re.M))
+        for rel in ("coreapp/src/hw.cc", "host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):
+            with open(os.path.join(root, rel)) as f:
+                named = set(re.findall(r"\b(__(?:reg_|blk_)\w+|__iobase|__u2p_io_base)\b", f.read()))
+            self.assertTrue(named, rel)
+            self.assertFalse(named - have, "%s names %s, the fragment has no such symbol" % (rel, sorted(named - have)))
+        for mk in ("coreapp", "hostapp"):
+            with open(os.path.join(root, "host-app", "target", "u64ii", "riscv", mk, "Makefile")) as f:
+                text = f.read()
+            self.assertNotIn("-DIOBASE", text)
+            self.assertNotIn("-DU2P_IO_BASE", text)
+            self.assertIn("LIBS    += $(IOFRAG)", text)
+
+    def test_a_fragment_is_checked_as_a_record_is(self):
+        maps = D.load_maps([self.MAPS])
+        ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
+        self.assertIn("__reg_i_release = 0x00000121;", D.ldfrag(ok, maps))
+
 
 
 class RoutesAndPlaces(unittest.TestCase):

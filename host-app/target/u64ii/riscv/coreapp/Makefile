@@ -341,7 +341,7 @@ SRCS_NANO = nano_minimal.nan
 
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -march=$(MARCH) -mabi=$(MABI) $(EFFORT) -ffunction-sections -fdata-sections -nostartfiles -mno-div
-OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DIOBASE=0x10000000 -DU2P_IO_BASE=0x10100000 -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
+OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
 # coreapp/ffconf first: FatFs finds its ffconf.h there (the original with FF_USE_FASTSEEK on, T104 5.16), before chan_fat/full and hostapp
 OPTIONS += -I$(PATH_SW)/../../coreapp/ffconf
 OPTIONS += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1 -I$(PATH_SW)/hostapp
@@ -354,11 +354,17 @@ CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-sta
 LINK 	 = linker.x
 LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
 LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
+# T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
+# one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
+IOFRAG  ?= ../trx_io.ld
+LIBS    += $(IOFRAG)
 LFLAGS   = --gc-sections --wrap=pvPortMalloc --wrap=_sbrk --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
 VERSION_COMPONENT = coreapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
 include ../../../common/rules.mk
+
+$(OUTPUT)/$(PRJ).out: $(IOFRAG)
 
 # T228 R25 (Alex 2026-11-18): an image of its own for one core - `make own OWN=trx64u OWN_DESC=c64_desc OWN_HEAP=0x...` after the shared build.
 # The same objects as the shared image, except the core table, which holds that core only (table.cc with -DCORE_ONLY: --gc-sections then drops
@@ -381,7 +387,7 @@ $(OUTPUT)/heapcfg_$(OWN).o: heapcfg.c own_force
 	@$(CC) $(COPTIONS) -DHEAPCFG_DEFAULT=$(OWN_HEAP) $(PATH_INC) -B. -c -o $@ $<
 
 # after the shared link (it builds every object); the object paths stand in the recipe only, so make's VPATH search keeps the names of `all`
-$(OUTPUT)/$(PRJ)_$(OWN).out: $(LINK) $(OUTPUT)/$(PRJ).out $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heapcfg_$(OWN).o
+$(OUTPUT)/$(PRJ)_$(OWN).out: $(LINK) $(OUTPUT)/$(PRJ).out $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heapcfg_$(OWN).o $(IOFRAG)
 	@echo Linking the image of $(OWN)
 	$(LD) $(LLIB) $(LFLAGS) -T $(LINK) -Map=$(OUTPUT)/$(PRJ)_$(OWN).map -o $@ $(OWN_OBJS) $(LIBS)
 	@$(SIZE) $@
