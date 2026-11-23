@@ -414,7 +414,7 @@ bool LibLoader::export_name_known(const char *name) const
 
 const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
 {
-    if (!name) {
+    if (!name || !s_ld) {                                              // no loader yet: the first calls (a file system read before lib_board_load) find nothing
         return 0;
     }
     if ((min_version >> 16) == 0 && s_ld->export_name_known(name)) {

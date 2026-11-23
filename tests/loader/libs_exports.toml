@@ -1,0 +1,34 @@
+# TOML B of the exports test (tests/loader/run.sh): the six libraries whose tables test_exports.cc reads, over the recording model of the code behind them (exports_stub.cc).
+# Only the `bind` entries: the other entries name functions of the board code the test does not link.
+[app]
+name = "exports_test"
+
+[[library]]
+name = "c64cart"
+sources = ["c64_cart.cc", "c64cart_exports.cc"]
+bind = "c64cart_bind"
+
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "cbm1541_exports.cc"]
+bind = "cbm1541_bind"
+
+[[library]]
+name = "uci"
+sources = ["uci.cc", "uci_exports.cc"]
+bind = "uci_bind"
+
+[[library]]
+name = "sid"
+sources = ["sidfile.cc", "sid_exports.cc"]
+bind = "sid_bind"
+
+[[library]]
+name = "tempdisk"
+sources = ["tempdisk.cc", "tempdisk_exports.cc"]
+bind = "tempdisk_bind"
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+bind = "cbmprg_bind"

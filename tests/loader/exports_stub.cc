@@ -95,4 +95,5 @@ int CbmDrive::create(const char *path, int format, const char *name, char *msg, 
 
 // ---- uci.h, tempdisk.h
 void uci_start(CoreCtx *c, const UciHost *host) { note(c, "uci_start"); g_stub.uci_starts++; g_stub.host = *host; g_stub.host_live = host; }
+void tempdisk_init(void) {}
 void tempdisk_set(bool auto_cleanup, bool subfolders) { g_stub.temp_auto = auto_cleanup; g_stub.temp_sub = subfolders; }

@@ -22,7 +22,7 @@
 #include "fsif.h"
 #include "fm_fs.h"
 #include "bundle.h"
-#include "tempdisk.h"
+#include "libtab.h"
 #include "run.h"
 
 #include "videomode.h"
@@ -113,9 +113,7 @@ extern "C" void ultimate_main(void *a)
     STARTLOG("phase USB hardware initialised (the USB task enumerates in the background)");
     board = board_detect(hw_board_probe());
     printf("[core] board: %s (%s)\n", board_name(board), board.why);
-    if (board.kind == BOARD_MONOLITH) {
-        tempdisk_init();                          // T228 R21: the Temp RAM disk as in TRX64-Ultimate's firmware (FW ramdisk.cc:16-44), not on the MultiCore host
-    }
+    libtab_init(board);                           // what the linked libraries do once the board is known (the temp RAM disk on the monolith, T228 R21)
     fs_flash_rw() = board.kind == BOARD_MONOLITH;       // T228 R21: /flash writable as in TRX64-Ultimate's firmware, the MultiCore host keeps its protection (T93 S14)
     video_init(board.has_handover ? (const Handover *)HANDOVER_ADDR : 0);
     STARTLOG("phase video mode up (the host's, from the hand-over)");

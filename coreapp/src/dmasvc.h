@@ -6,7 +6,7 @@
 
 #include "ctx.h"
 
-// Called by netsvc_apply after the network settings were pushed: the first call starts the server task (once); it listens only while the setting is on.
+// The `start` entry of the DMA library in the library table (libtab.h), called by netsvc_apply after the network settings were pushed: the first call starts the server task (once); it listens only while the setting is on.
 void dmasvc_start(CoreCtx *c);
 
 #endif

@@ -4,7 +4,8 @@
 #include "netfs.h"
 #include "ftp_client.h"
 #include "ctx.h"
-#include "online.h"
+#include "online_api.h"
+#include "libload.h"
 #include "file.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -192,7 +193,19 @@ public:
 
 }   // namespace
 
-// "/Online" and below: the results of the Assembly64 / CommoServe search (online.cc)
+// "/Online" and below: the results of the Assembly64 / CommoServe search. The library that has it gives the table "online" (online_api.h); an app linked without it has none and no folder.
+static const OnlineApi *online_api(void)
+{
+    uint32_t sz = 0;
+    const OnlineApi *a = (const OnlineApi *)LibLoader::find_export(ONLINE_API_NAME, U2A3_VERSION(ONLINE_API_MAJOR, 0), &sz);
+    return a && sz >= sizeof(OnlineApi) ? a : 0;
+}
+static bool ol_has_results(void) { const OnlineApi *a = online_api(); return a && a->has_results(); }
+static int ol_list(const char *rel, FsEntry *out, int max) { const OnlineApi *a = online_api(); return a ? a->list(rel, out, max) : -1; }
+static bool ol_stat(const char *rel, uint64_t *size, bool *dir) { const OnlineApi *a = online_api(); return a && a->stat(rel, size, dir); }
+static uint8_t *ol_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, len) : 0; }
+static const char *ol_error(void) { const OnlineApi *a = online_api(); return a ? a->error() : "No online search in this app"; }
+
 static bool is_online(const char *p, const char **rel)
 {
     if (strncasecmp(p, "/online", 7) || (p[7] && p[7] != '/')) {
@@ -374,7 +387,7 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
                 break;
             }
         }
-        if (online_has_results() && n < max) {
+        if (ol_has_results() && n < max) {
             memset(&out[n], 0, sizeof(out[n]));
             snprintf(out[n].name, sizeof(out[n].name), "Online");
             out[n].dir = true;
@@ -384,9 +397,9 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
     }
     const char *orel;
     if (is_online(dir, &orel)) {
-        int k = online_list(orel, out, max);
+        int k = ol_list(orel, out, max);
         if (k < 0) {
-            snprintf(err_, sizeof(err_), "%s", online_error());
+            snprintf(err_, sizeof(err_), "%s", ol_error());
         }
         return k;
     }
@@ -467,7 +480,7 @@ bool NetFs::stat(const char *path, uint64_t *size, bool *dir)
 {
     const char *orel;
     if (is_online(path, &orel)) {
-        return online_stat(orel, size, dir);
+        return ol_stat(orel, size, dir);
     }
     int host;
     char remote[FS_PATH_MAX];
@@ -531,7 +544,7 @@ int NetFs::load(const char *path, void *buf, uint32_t max)
     const char *orel;
     if (is_online(path, &orel)) {
         uint32_t n = 0;
-        uint8_t *b = online_fetch(orel, &n);
+        uint8_t *b = ol_fetch(orel, &n);
         if (!b || n > max) {
             free(b);
             return -1;
@@ -625,9 +638,9 @@ CoreFile *NetFs::open(const char *path, bool rw)
     const char *orel;
     if (is_online(path, &orel)) {
         uint32_t n = 0;
-        uint8_t *b = online_fetch(orel, &n);
+        uint8_t *b = ol_fetch(orel, &n);
         if (!b) {
-            snprintf(err_, sizeof(err_), "%s", online_error());
+            snprintf(err_, sizeof(err_), "%s", ol_error());
             return 0;
         }
         MemFile *m = new MemFile();

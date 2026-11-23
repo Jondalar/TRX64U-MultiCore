@@ -8,8 +8,6 @@ static const uint8_t gcr_table[16] = { 0x0A, 0x0B, 0x12, 0x13, 0x0E, 0x0F, 0x16,
                                        0x09, 0x19, 0x1A, 0x1B, 0x0D, 0x1D, 0x1E, 0x15 };
 
 static const int track_lengths[4]       = { 0x1E0C, 0x1BE6, 0x1A0A, 0x186A };
-static const int sectors_per_track_[4]  = { 21, 19, 18, 17 };
-static const int region_end[4]          = { 17, 24, 30, 35 };
 static const int sector_gap_lengths[4]  = { 9, 19, 13, 10 };
 static const int region_speed_codes[4]  = { 3, 2, 1, 0 };
 
@@ -53,27 +51,6 @@ int gcr_decode5(const uint8_t *gcr, uint8_t *bin)
 }
 
 // ---- geometry (track numbers are ZERO based) ----------------------------------------------------------------------------------
-int d64_region(int track)
-{
-    for (int i = 0; i < 4; i++) {
-        if (track < region_end[i]) {
-            return i;
-        }
-    }
-    return 3;
-}
-
-int d64_sectors(int track) { return sectors_per_track_[d64_region(track)]; }
-
-int d64_sectors_before(int track)
-{
-    int count = 0;
-    for (int i = 0; i < track; i++) {
-        count += d64_sectors(i);
-    }
-    return count;
-}
-
 int d64_zone_speed(int track) { return region_speed_codes[d64_region(track)]; }
 
 // ---- the GCR image ------------------------------------------------------------------------------------------------------------
@@ -137,7 +114,7 @@ uint8_t *GcrImage::convert_track(uint8_t logical_track_1b, int region, uint8_t *
     gcr = track_buffer_;
     uint8_t *end = gcr + track_lengths[region];
 
-    for (uint8_t s = 0; s < sectors_per_track_[region]; s++) {
+    for (uint8_t s = 0; s < d64_region_sectors(region); s++) {
         sector_buffer_[0] = 7;
         sector_buffer_[258] = 0;
         sector_buffer_[259] = 0;

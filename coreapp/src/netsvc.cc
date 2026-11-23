@@ -1,5 +1,5 @@
 #include "netsvc.h"
-#include "dmasvc.h"
+#include "libtab.h"
 #include "rest.h"
 #include "network_config.h"
 #include "network_interface.h"
@@ -138,6 +138,6 @@ void netsvc_apply(CoreCtx *c)
     h.unique_id = unique_id;
     rest_set_hooks(h);
     xTaskCreate(ident_task, "UDP Ident Task", 2 * configMINIMAL_STACK_SIZE, NULL, PRIO_NETSERVICE, NULL);
-    dmasvc_start(c);                                                // the Ultimate DMA service (TCP 64): only for a core that has the dma.* operations
+    libtab_start(c);                                                // what the linked libraries start once the network is set (the Ultimate DMA service, TCP 64: only for a core that has the dma.* operations)
     g_syslog_on = syslog.init(8192);                                // FW syslog.cc:14-55: only with a valid server; the setting is read here, once
 }

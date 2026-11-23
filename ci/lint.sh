@@ -80,6 +80,7 @@ check "cor_pack test" python3 tools/test_cor_pack.py
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
 check "descrec test" python3 tools/test_descrec.py
+check "libtab test" python3 tools/test_libtab.py
 # T104.2 D10: the menu record the application carries is what menu.toml compiles to (and every name in it is one the application exports); its areas and tabs are the concept's
 check "TRX64U menu record" python3 tools/gen_menu_rec.py --check
 check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_trx64u.txt
@@ -128,6 +129,7 @@ check "negative controls only in flash and persistence tests" python3 -I tools/c
 # T213 D4 / T192 D24 (Alex 2026-11-16): per-core code in the generic app only shrinks (ledger tools/d24_ledger.txt); the selftest plants each breach
 check "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
 check "D24 per-core code gate" python3 -I tools/check_d24.py
+check "library table: TOML B and the generic sources (T239.3 D31)" python3 -I tools/libtab.py lint coreapp/libs/shared.toml .
 
 check "verilog syntax" bash -c '
   rc=0

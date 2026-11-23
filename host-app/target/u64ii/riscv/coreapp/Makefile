@@ -133,7 +133,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			start.cc \
 			mediumwait.cc \
 			board.cc \
-			tempdisk.cc \
 			blockdev_ram.cc \
 			table.cc \
 			cfgfile.cc \
@@ -232,11 +231,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			c64scpu.cc \
 			ddt_novic.cc \
 			portdiag.cc \
-			cbm_run.cc \
-			cbm1541.cc \
-			d1541_drive.cc \
-			d1541_gcr.cc \
-			d1541_wd.cc \
 			d1541_fs.cc \
 			zxnext.cc \
 			snes.cc \
@@ -256,26 +250,14 @@ SRCS_CC	 =  u64ii_init.cc \
 			corereport.cc \
 			netfs.cc \
 			ftp_client.cc \
-			a64_http.cc \
-			a64_assembly.cc \
-			online.cc \
 			netops.cc \
 			netsvc.cc \
-			dmasvc.cc \
 			hostwifi.cc \
 			ringfile.cc \
-			uci.cc \
-			uci_slot.cc \
-			sidfile.cc \
-			resid8.cc \
 			command_intf.cc \
 			network_target.cc \
 			libfiles.cc \
-			t64.cc \
 			trx64u_ops.cc \
-			c64_go.cc \
-			c64_cart.cc \
-			cbm_prg.cc \
 			kickstart.cc \
 			amiga.cc \
 			atari_sio.cc \
@@ -345,6 +327,19 @@ ifneq ($(strip $(DRV_GEN)),)
 $(error $(DRV_GEN))
 endif
 VPATH += $(DRV_DIR)
+
+# T239.3 P3-1 (D31): the libraries. The app is linked with the libraries its TOML B names (the shared app: coreapp/libs/shared.toml); `libtab.py table` writes the library table
+# (libtab_table.cc: what the generic application calls at the start, by the entries the TOML B names) and libtab.mk (LIB_SRCS_CC: the sources of those libraries) into
+# $(OUTPUT)/lib, each file only when its content changes. The sources of a library are not in SRCS_CC above: an app whose TOML B leaves a library out has none of its code.
+LIB_TOMLB = $(PATH_SW)/../../coreapp/libs/shared.toml
+LIB_DIR   = $(OUTPUT)/lib
+LIB_GEN  := $(shell python3 $(PATH_SW)/../../tools/libtab.py table $(LIB_TOMLB) $(LIB_DIR) 2>&1 || echo "libtab: the library table was not generated")
+ifneq ($(strip $(LIB_GEN)),)
+$(error $(LIB_GEN))
+endif
+include $(LIB_DIR)/libtab.mk
+SRCS_CC += $(LIB_SRCS_CC) libtab.cc libtab_table.cc
+VPATH += $(LIB_DIR)
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S
