@@ -567,7 +567,7 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
-    desc = stamp_desc(desc, scan_config(partial)[1], "the partial bitstream")
+    # P1-4 stamps no build word here: the BUILD register of a DFX core answers the static host (USR_ACCESSE2 in host/top.v), not the partial; which word its identity carries is open (step 2)
     extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     body = rec(T_MANIFEST, man) + rec(T_PARTIAL, partial) + rec(T_APP, app)
@@ -692,8 +692,6 @@ def parse(blob, contract=None, host_key=None):
     if T_ICON in recs and len(recs[T_ICON]) != ICON_BYTES:
         raise CorError("icon: wrong size")
     check_optional(m, recs)
-    if T_DESC in recs:
-        check_build(recs, scan_config(recs[T_PARTIAL])[1], "the partial bitstream")
     norm_host_key(m["host_key"])                            # the field itself must be well formed
     if contract is not None and m["contract"] != contract:
         raise CorError("contract version %s, the host speaks %s" % (m["contract"], contract))

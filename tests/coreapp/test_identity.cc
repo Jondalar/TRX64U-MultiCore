@@ -97,11 +97,12 @@ int main(int argc, char **argv)
     DescRecord *none = new DescRecord;
     CHECK_EQ(bundle_check_identity(&io, none, why, sizeof(why)), 0);
 
-    // a record that carries no build compares the ID alone
+    // a record that carries no build is refused: the pair cannot be shown (D30 condition 2); another ID is refused first
     d->map->has_build = false;
-    io.build = 0x0u;
-    CHECK_EQ(bundle_check_identity(&io, d, why, sizeof(why)), 0);
+    CHECK_EQ(bundle_check_identity(&io, d, why, sizeof(why)), -1);
+    CHECK(strstr(why, "no build word") && strstr(why, "stays held"));
     io.id = 0x42545354u;
     CHECK_EQ(bundle_check_identity(&io, d, why, sizeof(why)), -1);
+    CHECK(strstr(why, "TSTB"));
     DONE("identity");
 }

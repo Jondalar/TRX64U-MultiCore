@@ -74,6 +74,8 @@ struct CoreCtx {
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
     Executor *exec;                       // the one task that runs operations; null: they run on the caller (tests, before the start)
     CoreLock *lock;                       // the core lock (exec.h), set with exec; null: none (tests, before the start)
+    bool identity_refused;                // P1-4: the bitstream that runs is not the one TOML A names: no release path lets the core go, no poll starts (run.cc, boot.cc)
+    char identity_why[240];               // the reason, as the start notice told it
     bool program_loaded;                  // a program the core needs (NES) is in
     char notice[200];                     // one line for the screen from a service (a failed write-back), told once
     bool notice_pending;

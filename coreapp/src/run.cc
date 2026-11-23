@@ -753,7 +753,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it; a record that names its library took its table above
     }
     // T239.3 P1-4 (D30 condition 2, D31): the one check that stays at run time. The record of TOML A names the bitstream it was made for; the standard block of the bitstream that runs has to
-    // say the same (ID and build). A pair that does not match is told and the core is not released: the settings, the menu and the browser still open, the machine stays held.
+    // say the same (ID and build). A pair that does not match is told and the core is not released: the settings, the menu and the browser still open, the machine stays held on every path (CoreCtx::identity_refused: no release in boot.cc, no poll, no write-back task).
     char ident_why[240];
     ident_why[0] = 0;
     bool ident_ok = bundle_check_identity(ctx.io, bundle.desc, ident_why, sizeof(ident_why)) == 0;
@@ -761,12 +761,10 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         printf("[core] identity: %s\n", ident_why);
         snprintf(ctx.notice, sizeof(ctx.notice), "%s", ident_why);
         ctx.notice_pending = true;
+        ctx.identity_refused = true;              // boot.cc releases the core on no path; the polls and the write-back below do not start
+        snprintf(ctx.identity_why, sizeof(ctx.identity_why), "%s", ident_why);
     } else if (bundle.desc && bundle.desc->map) {
-        if (bundle.desc->map->has_build) {
-            printf("[core] identity: %s build %08X, as the description says\n", bundle.desc->map->ident_id, (unsigned)bundle.desc->map->build);
-        } else {
-            printf("[core] identity: %s, as the description says (it carries no build)\n", bundle.desc->map->ident_id);
-        }
+        printf("[core] identity: %s build %08X, as the description says\n", bundle.desc->map->ident_id, (unsigned)bundle.desc->map->build);
     }
     BootResult r = ident_ok ? boot_start(&ctx, &board_ui) : BOOT_WAITING_PROGRAM;
     STARTLOG("phase boot_start returned (%s)", r == BOOT_RUNNING ? "running" : "waiting for a program");
@@ -802,28 +800,32 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         core_lock.unlock();
     }
     static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);   // the first poll: after the start hook (core_hooks.h start)
-    if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
+    if (!ident_ok) {
+        printf("[core] the write-back task does not start: the bitstream is not this core's\n");
+    } else if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the write-back task did not start; a changed cartridge is written at the menu's open only\n");
     }
     rest_report = diag_report_rest;                           // T162: GET /v1/report
     static PollTask poll(&board_os, &core_lock, ops_of(&ctx), &ctx, desc->service_op, desc->service_period_ms, desc->poll_when_frozen);
-    if (desc->service_op && !poll.armed()) {
+    if (!ident_ok) {
+        printf("[core] %s is not polled: the bitstream is not this core's\n", desc->service_op ? desc->service_op : "the service");
+    } else if (desc->service_op && !poll.armed()) {
         printf("[core] %s is not polled: it is not registered, or its name is %d bytes or longer\n", desc->service_op, POLL_OP_MAX - 1);
     }
-    if (desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
+    if (ident_ok && desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the poll task did not start; %s is not served\n", desc->service_op);
     }
     // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock; one runs
     // while the machine is frozen for the menu only when its declaration says when_frozen (libapi.h LibPollDecl). Those of the libraries loaded from here on are added by the loader
     // when they register, and end when they are released (T239.3 S3).
     static LibPolls lib_polls(&board_os, &core_lock, ops_of(&ctx), &ctx, 6 * configMINIMAL_STACK_SIZE);
-    for (int i = 0; i < merge.npolls; i++) {
+    for (int i = 0; ident_ok && i < merge.npolls; i++) {
         char why[120];
         if (!lib_polls.add(merge.polls[i].owner, merge.polls[i].op, merge.polls[i].period_ms, merge.polls[i].when_frozen, why, sizeof(why))) {
             printf("[core] the poll of %s did not start; %s is not served (%s)\n", merge.polls[i].owner, merge.polls[i].op, why);
         }
     }
-    if (lib_board_loader()) {
+    if (ident_ok && lib_board_loader()) {
         lib_board_loader()->set_poll_sink(&lib_polls);
     }
     // T175: the diag core's runner asks the person through the application host's dialogs, on a task of its own (portdiag.h)

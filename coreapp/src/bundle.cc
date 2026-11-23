@@ -128,7 +128,11 @@ int bundle_check_identity(CoreIo *io, const DescRecord *desc, char *why, int why
         snprintf(why, whylen, "The bitstream says it is the core %s, this core's description is for %s. They do not belong together. The core stays held.", have, m.ident_id);
         return -1;
     }
-    if (m.has_build && build != m.build) {
+    if (!m.has_build) {
+        snprintf(why, whylen, "The core's description carries no build word of its bitstream (no packer stamped it), so the bitstream %s cannot be shown to be the one it was made for. The core stays held.", have);
+        return -1;
+    }
+    if (build != m.build) {
         snprintf(why, whylen, "The bitstream of the core %s is build %08X, the description was made for build %08X. They do not belong together. The core stays held.", have, (unsigned)build, (unsigned)m.build);
         return -1;
     }
