@@ -13,6 +13,7 @@ what ci/lib.sh hashes into that core's keys.
   (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
+  tools/core_toml.py list-own-app         the cores whose TOML B names a descriptor symbol ([app] desc): their app is linked from the SDK package (T239.3 V-5)
   tools/core_toml.py sdk <name> <key>     one value of the [app] table of cores/<name>/app/sdk.toml (T239.3 D25, V-4)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
@@ -301,6 +302,8 @@ def main():
         print("\n".join(names))
     elif a[:1] == ["list-cor"]:
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
+    elif a[:1] == ["list-own-app"]:
+        print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:

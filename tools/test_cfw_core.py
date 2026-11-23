@@ -303,6 +303,13 @@ class Descriptor(unittest.TestCase):
         self.assertEqual(self.check()[0], 0)
         self.assertEqual(T.delivery_of(T.descriptors()[0][2]), "cor")
 
+    def test_own_app_core_is_listed(self):
+        self.toml()
+        self.assertEqual([n for n, _, t in T.descriptors() if T.sdk_table(n).get("desc")], [])
+        os.makedirs(os.path.join(self.d.name, "x", "app"))
+        open(os.path.join(self.d.name, "x", "app", "sdk.toml"), "w").write('[app]\nname = "x"\ndesc = "x_desc"\n')
+        self.assertEqual([n for n, _, t in T.descriptors() if T.sdk_table(n).get("desc")], ["x"])
+
     def test_control_unknown_delivery(self):
         self.toml('delivery = "zip"\n')
         rc, out = self.check()
