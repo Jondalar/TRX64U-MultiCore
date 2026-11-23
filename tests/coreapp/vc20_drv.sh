@@ -10,7 +10,7 @@ import app_build, descrec
 app = os.path.join(root, "cores", "vc20", "app")
 blocks = descrec.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]["base_blocks"]
 app_build.merge_a({"toml-a": os.path.join(app, "gateware.toml"), "toml-b": os.path.join(app, "sdk.toml"),
-                   "base-toml-a": os.path.join(root, "coreapp", "gateware", "shared.toml")},
-                  blocks, os.path.join(root, "app", "sdkpkg", "maps"), out)
+                   "base-toml-a": os.path.join(root, "coreapp", "gateware", "host.toml")},
+                  blocks, [os.path.join(root, "app", "sdkpkg", "maps")], out)
 PY
 }
