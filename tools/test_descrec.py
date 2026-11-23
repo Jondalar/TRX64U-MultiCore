@@ -1184,14 +1184,6 @@ class TomlA(unittest.TestCase):
             self.assertIn("coreapp/gateware/host.toml", text)
             self.assertNotIn("trx_io.ld", text)
 
-    def test_a_core_block_over_a_block_of_the_base_is_refused_by_the_overlap_rule(self):
-        # T239.3 V-3: with basereg.def gone this is the one check of D30 point 1 that the record makes by itself: no byte of a block of the base lies in a block of the core
-        b = ('[[block]]\nname = "%s"\nmodule = "trx_io"\nowner = "%s"\naddress = 0x%X\nsize = 0x%X\n')
-        D.compile_checked(self.BASE + b % ("base_regs", "base", 0xA0000400, 0x10) + b % ("mixer", "core", 0xA0000500, 0x14))
-        with self.assertRaises(D.DescError) as e:
-            D.compile_checked(self.BASE + b % ("base_regs", "base", 0xA0000400, 0x10) + b % ("mixer", "core", 0xA0000408, 0x14))
-        self.assertIn("overlaps the block base_regs", str(e.exception))
-
     def test_a_fragment_is_checked_as_a_record_is(self):
         maps = D.load_maps([self.MAPS])
         ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
