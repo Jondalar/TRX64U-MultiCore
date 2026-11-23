@@ -31,5 +31,8 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
   A library whose code a generic source needs too gives its table to that source with its `bind` entry, and the generic source calls the table only: the sector engine (`sectors.cc`) mounts a folder through `folderhd_api.h`, the
   file manager's CoreFs (`fm_fs.cc`) seeks through `fastseek_api.h`, the network file system (`netfs.cc`) reaches FTP through `ftp_api.h`. Without the library the call is refused with a reason (or, for the fast seek, the file seeks the normal way).
   The two string helpers of `newfile.h` that menus and cores use (`nf_base`, `nf_copy`) are `textcopy.h`, generic; the media engines `sectors.cc` and `winslot.cc` are the base's own (engines, mounts and descriptors use them) and stay generic.
+  Besides the entries that run at a point of the start, a library gives the generic application its call table (`table`, found by `libtab_table(name)` with no loader; its header `*_api.h` is the seam), and a library that has to follow the core's
+  description has `core` (run.cc calls `libtab_core` before and after the bundle is read). The USB mouse ("mouse", `mouse_api.h`), the gamepads ("pad", `pad_api.h`, with `hidpad`, the mapping wizard, XInput and its USB driver),
+  pad as keys ("padkeys", `padkeys_api.h`) and the C64U's audio resampling ("resample", `u64_resample.h`, called by `u64cfg.cc`) are libraries of it (T239.3 L-1); the native builds give the tables in `tests/coreapp/libtab_native.cc`.
 
 Spec: `docs/specs/T93-core-app-blueprint.md`, what was decided while building is its section 5.

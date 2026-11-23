@@ -104,8 +104,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			usb_hub.cc \
 			usb_ax88772.cc \
 			usb_hid.cc \
-			usb_xinput.cc \
-			xinput.cc \
 			usb_ms_cbi.cc \
 			keyboard_usb.cc \
 			network_config.cc \
@@ -187,12 +185,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			menubuild.cc \
 			textcopy.cc \
 			romset.cc \
-			mousesink.cc \
 			rawkeys.cc \
-			pad.cc \
-			hidpad.cc \
-			pad_ops.cc \
-			padwiz.cc \
 			fbwin.cc \
 			romfind.cc \
 			corefolder.cc \

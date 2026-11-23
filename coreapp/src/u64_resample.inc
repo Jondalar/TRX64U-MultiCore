@@ -1,5 +1,5 @@
 // The sample-rate converter's coefficient tables, copied unchanged from Gideon's vendor/gideon/software/u64/u64_config.cc (lines 2364-2455, GPL-3.0,
-// Gideon Zweijtzer): PAL (675 taps) and NTSC (512 taps). Used by u64cfg.cc SetResampleFilter, as Gideon's U64Config::SetResampleFilter uses them.
+// Gideon Zweijtzer): PAL (675 taps) and NTSC (512 taps). Used by u64_resample.cc (the resample library), as Gideon's U64Config::SetResampleFilter uses them.
 const int32_t c_filter2_coef_pal_alt[] = {
     5, 4, 5, 6, 8, 10, 13, 16, 19, 22, 26, 31, 36, 41, 47, 54, 61, 68, 75, 84, 92, 101,
     110, 119, 128, 137, 146, 155, 163, 171, 179, 186, 192, 197, 201, 203, 204, 204, 202,
