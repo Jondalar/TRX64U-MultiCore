@@ -750,7 +750,8 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             self.assertEqual(rec[C.T_DESC], self.desc())
             self.assertEqual(m["name"], "VIC-20")
 
-    def test_pack_large_cor_carries_it_and_refuses_a_second_description(self):
+    def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
+        import descrec
         with tempfile.TemporaryDirectory() as d:
             bit, app, out = (os.path.join(d, x) for x in ("a.bit", "app.bin", "out"))
             open(bit, "wb").write(full_bit())
@@ -759,9 +760,16 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             r = subprocess.run(cmd, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
-            r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "tests", "coreapp", "golden", "desc_sections.toml")], capture_output=True, text=True)
+            # a menu.toml (key table, a window) given with --desc is packed with the core's desc.toml as ONE record 6
+            menu = os.path.join(d, "menu.toml")
+            open(menu, "w").write('key = [\n  { layout = "terminal", key = "f10", do = "decline" },\n]\n[[window]]\nname = "speaker_enable"\naddress = 0xA000000C\nsize = 1\n')
+            r = subprocess.run(cmd + ["--desc", menu], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            texts = [(f, open(f).read()) for f in (menu, os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml"))]
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files(texts))
+            # a table in both files is refused
+            r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
-            self.assertIn("one description per core", r.stderr)
             # a core without cores/<id>/app/desc.toml carries no record
             r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

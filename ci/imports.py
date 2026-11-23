@@ -107,8 +107,8 @@ def key(pin, root=ROOT):
     priv = private_files(root)
     items = [("pin", sha256_bytes(open(os.path.join(root, IMPORTS, pin["ID"] + ".pin"), "rb").read()))]
     for k in ("DESC", "OPS", "ICON"):
-        if pin.get(k):
-            items.append((pin[k], sha256_file(rel(root, pin[k]))))
+        for f in (pin.get(k) or "").split():                        # DESC may name several files (menu.toml desc.toml): one record 6
+            items.append((f, sha256_file(rel(root, f))))
     files = pin.get("FILES")
     if files:
         top = rel(root, files)
