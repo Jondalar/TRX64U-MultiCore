@@ -1171,12 +1171,33 @@ class TomlA(unittest.TestCase):
         r = D.parse_desc(blob)
         props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
         self.assertEqual(props["drv"]["dirty"]["count"], 128)
-        self.assertEqual((props["drv"]["param"]["width"], props["drv"]["param"]["count"]), (32, 512))
+        self.assertEqual((props["drv"]["param_addr"]["width"], props["drv"]["param_addr"]["count"]), (32, 256))
+        self.assertNotIn("param", props["drv"])                                   # the interleaved words are two runs (the stride test)
         self.assertEqual(props["win"]["mem"]["count"], 0x10000)
         self.assertEqual((props["regs"]["gain"]["width"], props["regs"]["gain"]["count"]), (16, 4))
         self.assertNotIn("count", props["regs"]["one"])
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
+
+    def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
+        # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
+        maps = D.load_maps([self.MAPS])
+        doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
+                           '[[block]]\nname = "sid"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0030000\nsize = 0x100\nmap = "sid"\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block.property]]\nname = "tight"\noffset = 0x0\nwidth = 16\ncount = 4\ndir = "w"\n'
+                           '[[block.property]]\nname = "wide"\noffset = 0x8\nwidth = 8\ncount = 4\nstride = 3\ndir = "w"\n')
+        blob = D.compile_checked(doc, maps=maps)
+        r = D.parse_desc(blob)
+        props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
+        pa, pl = props["drv"]["param_addr"], props["drv"]["param_len"]
+        self.assertEqual((pa["offset"], pa["count"], pa["stride"], pl["offset"], pl["count"], pl["stride"]), (0x1000, 256, 8, 0x1004, 256, 8))
+        self.assertEqual([f["name"] for f in pl["field"]], ["length_m1", "bit_time"])
+        cb, co = props["sid"]["curve_base"], props["sid"]["curve_offset"]
+        self.assertEqual((cb["offset"], cb["count"], cb["stride"], co["offset"], co["count"], co["stride"]), (0x04, 2, 4, 0x06, 2, 4))
+        self.assertEqual(props["regs"]["wide"]["stride"], 3)
+        self.assertNotIn("stride", props["regs"]["tight"])                        # consecutive registers: the stride is the width and is not written
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the stride, and compiles back to the same bytes
 
     def test_the_key_table_and_windows_records_stay_below_version_7(self):
         for f in FIXTURES:
@@ -1293,9 +1314,9 @@ group = "audio_2"
 
 class BaseRows(unittest.TestCase):
     """T239.3 D32, P2-4's QC entry: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): label, key, kind, values and default, and for a list that
-    changes at run time its provider. tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
+    changes at run time its pick (the key a core's row names it with). tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
     ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\nprovider = "video.modes"\napply = "picture.apply"\n'
+    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\npick = "video.modes"\napply = "picture.apply"\n'
 
     def base(self):
         return D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
@@ -1309,15 +1330,25 @@ class BaseRows(unittest.TestCase):
             self.assertEqual(r["when"] in ("text", "secret") or r["default"] < len(r["values"]), True, r["key"])
             self.assertTrue(any(p["op"] == r["apply"] and (not p.get("key") or p["key"].lower() == r["key"].lower()) for p in rec["place"]), r["key"])
         by = {r["key"]: r for r in rec["cset"]}
-        self.assertEqual(by["Picture"]["provider"], "video.modes")
-        self.assertEqual(by["Hotkey modifier"]["provider"], "hotkeys.modifiers")
+        self.assertEqual(by["Picture"]["pick"], "video.modes")
+        self.assertEqual(by["Hotkey modifier"]["pick"], "hotkeys.modifiers")
         self.assertEqual(by["Volume"]["values"][by["Volume"]["default"]], "100%")
         self.assertEqual((by["Mouse Sensitivity"]["base"], by["Mouse Sensitivity"]["values"][by["Mouse Sensitivity"]["default"]]), (1, "8"))
         self.assertEqual(by["Home Directory"]["when"], "text")
 
-    def test_a_base_row_carries_its_provider_and_values(self):
+    def test_a_base_row_carries_its_pick_and_values(self):
         r = D.parse_desc(D.compile_desc(D.toml_loads(self.ROW), app_base=True))
-        self.assertEqual((r["cset"][0]["provider"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+        self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+
+    def test_a_run_time_list_is_named_by_pick_in_a_base_row_and_in_a_core_row(self):
+        row = '[[core_setting]]\nkey = "Scheme"\nvalues = ["Blue"]\npick = "view.schemes"\napply = "x.apply"\n'
+        for app_base in (True, False):
+            r = D.parse_desc(D.compile_desc(D.toml_loads(row), app_base=app_base))
+            self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("view.schemes", ["Blue"]))
+        with self.assertRaises(D.DescError):
+            D.compile_desc(D.toml_loads(row.replace("view.schemes", "video.modes")))     # a core's row names a list the application serves to it
+        self.assertNotIn("provider", open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read().replace("# ", "").split("[lists]", 1)[1])
+        self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
 
     def test_the_rows_are_the_ones_the_application_exports(self):
         r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],
@@ -1364,10 +1395,18 @@ class DriverTable(unittest.TestCase):
         lines = h.splitlines()
         self.assertIn("#define DRV_cart_flash_desc_COUNT 43u", lines)
         self.assertIn("#define DRV_cart_flash_desc_ADDR (DRV_cart_flash_ADDR + 0x40u)", lines)
-        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * 1u) = (uint8_t)(v))", lines)
+        self.assertIn("#define DRV_cart_flash_desc_STRIDE 1u", lines)
+        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * DRV_cart_flash_desc_STRIDE) = (uint8_t)(v))", lines)
         names = {ln.split()[1].split("(")[0] for ln in lines if ln.startswith("#define ")}
         self.assertNotIn("DRV_cart_flash_desc_RD", names)                         # w: no read
         self.assertNotIn("DRV_cart_flash_rom_sel_COUNT", names)                 # a single register has no count
+        self.assertNotIn("DRV_cart_flash_rom_sel_STRIDE", names)
+
+    def test_a_run_with_a_stride_has_its_stride_in_the_driver_table(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        lines = h.splitlines()
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE 4u") for ln in lines))
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE) = (uint16_t)(v))") and "(uint32_t)(i) * DRV_" in ln for ln in lines))
 
     def test_the_driver_table_is_the_same_text_for_the_same_toml(self):
         self.assertEqual(self.generate(src("desc_toml_a.toml")), self.generate(src("desc_toml_a.toml")))
@@ -1389,14 +1428,14 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
         import re
         h, _ = self.generate(self.shared())
         defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
-        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc"):
+        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 for n, line in enumerate(fh, 1):
                     for tok in re.findall(r"\bDRV_[A-Za-z0-9_]+", line):

@@ -79,11 +79,18 @@ int main(int argc, char **argv)
 
     // a core's block with a property of its own states; one property read and one write share a byte
     const DescBlock *mx = descrec_block(*d, "mixer");
-    CHECK(mx && mx->core && mx->nprop == 2);
+    CHECK(mx && mx->core && mx->nprop == 4);
     const DescProp *mode = descrec_prop(*d, *mx, "mode"), *st = descrec_prop(*d, *mx, "status");
     CHECK(mode && st && mode->offset == st->offset && mode->dir == DR_DIR_W && st->dir == DR_DIR_R);
     CHECK_EQ(mode->nstate, 1u);
     CHECK_STR(m.states[mode->first_state].name, "reset");
+
+    // two interleaved runs: the level and the pan word of four voices, 4 bytes from one element to the next (element i of the second is 2 bytes above the same element of the first)
+    const DescProp *lvl = descrec_prop(*d, *mx, "lvl"), *pan = descrec_prop(*d, *mx, "pan");
+    CHECK(lvl && pan && lvl->width == 16 && pan->width == 16 && lvl->count == 4 && pan->count == 4 && lvl->stride == 4 && pan->stride == 4);
+    CHECK(lvl->offset == 0x04 && pan->offset == 0x06 && lvl->dir == DR_DIR_W && pan->dir == DR_DIR_W);
+    CHECK_EQ(mode->stride, 1u);                                       // a single register: the stride is the width in bytes
+    CHECK_EQ(desc->stride, 1u);                                       // consecutive registers: the same
 
     // io.window hands a block out like a window
     const DescWindow *w = descrec_window(*d, "mixer");

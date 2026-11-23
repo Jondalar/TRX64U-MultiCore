@@ -163,12 +163,12 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     snprintf(g_auto_text, sizeof(g_auto_text), "Auto");        // the text of a core that has not started its picture: picture_start names the mode
     fill_values();
     const BaseRow *prow = menu_base_row(PICTURE_OP, PICTURE_KEY), *srow = menu_base_row(SCALE_OP, SCALE_KEY), *mrow = menu_base_row(SMOOTH_OP, SMOOTH_KEY), *frow = menu_base_row(FOLLOW_OP, FOLLOW_KEY);
-    if (!prow || !srow || !mrow || !frow || !prow->provider || strcmp(prow->provider, "video.modes") || srow->nvalues != VID_SCALE_COUNT) {
+    if (!prow || !srow || !mrow || !frow || !prow->pick || strcmp(prow->pick, "video.modes") || srow->nvalues != VID_SCALE_COUNT) {
         return "settings: the base UI TOML has no Picture, Scale, Smoothing and Frame follow rows that fit the picture service";    // the rows (label, kind, values, default) are the base UI TOML's; below is what a row cannot say
     }
     Setting &p = store[d->nsettings];
     menu_base_setting(p, *prow);                   // every field, `bind` too: the store may be stack memory
-    p.values = g_values;                           // the provider "video.modes": Auto and the rows the screen takes
+    p.values = g_values;                           // the pick "video.modes": Auto and the rows the screen takes
     p.nvalues = 1 + g_nlist;
     if (vic_scaled) {
         Setting &q = store[d->nsettings + 1];

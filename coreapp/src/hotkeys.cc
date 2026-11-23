@@ -27,9 +27,9 @@ static const char *const g_keys[HK_NKEYS] = {
 #define K_CBM 61
 #define K_STOP 63
 
-// The value labels of an action key item - "Off", then the 65 keys - are the base UI TOML's row (coreapp/base_ui.toml, the list hotkey_keys; provider "hotkeys.keys"), the C64's keycaps. T187 gate 1 (R6): a core
+// The value labels of an action key item - "Off", then the 65 keys - are the base UI TOML's row (coreapp/base_ui.toml, the list hotkey_keys; pick "hotkeys.keys"), the C64's keycaps. T187 gate 1 (R6): a core
 // that is not a C64 family keyboard names the three keys the person presses on a USB keyboard that make C=, RUN/STOP and RESTORE (keyboard_usb.cc: a GUI key, ESC, F12), not the C64's keycaps:
-// that list is the provider's.
+// that list is the pick's.
 static bool g_vals_made;
 static const char *g_pc_vals[HK_NKEYS + 1];
 static const char *pc_name(int i)
@@ -445,8 +445,8 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         return "settings: no room for the Hotkey items the application adds";
     }
     const BaseRow *mrow = menu_base_row(HK_OP, HK_KEY_MOD), *krow = item_row(HKA_MENU);
-    if (!mrow || !krow || mrow->nvalues != NPRE || krow->nvalues != HK_NKEYS + 1 || !mrow->provider || strcmp(mrow->provider, "hotkeys.modifiers") ||
-        !krow->provider || strcmp(krow->provider, "hotkeys.keys")) {
+    if (!mrow || !krow || mrow->nvalues != NPRE || krow->nvalues != HK_NKEYS + 1 || !mrow->pick || strcmp(mrow->pick, "hotkeys.modifiers") ||
+        !krow->pick || strcmp(krow->pick, "hotkeys.keys")) {
         return "settings: the base UI TOML has no hotkey rows that fit the map";
     }
     for (int a = 0; a < HKA_CORE; a++) {
@@ -465,14 +465,14 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     int n = d->nsettings;
     Setting &m = store[n++];
     menu_base_setting(m, *mrow);
-    m.values = pc ? g_pc_pre_names : mrow->values;          // the provider "hotkeys.modifiers"
+    m.values = pc ? g_pc_pre_names : mrow->values;          // the pick "hotkeys.modifiers"
     m.def = preset_of(sp->def);                             // the core's map
     for (int a = 0; a < n_items(sp); a++) {
         Setting &s = store[n++];
         menu_base_setting(s, a == HKA_CORE ? *krow : *item_row(a));     // the core's own function has the shape of the others, named by its HkSpec
         s.key = item_of(sp, a).key;
         s.label = item_of(sp, a).label;
-        s.values = pc ? g_pc_vals : krow->values;           // the provider "hotkeys.keys"
+        s.values = pc ? g_pc_vals : krow->values;           // the pick "hotkeys.keys"
         s.def = val_of_key(sp->def.act[a]);
         if (a == HKA_SWAP) {                               // R20: the swap hotkey is offered only while the core has the setting it toggles (menu condition "set.<key>")
             const char *sk = sp->swap_key ? sp->swap_key : "Joystick ports";
@@ -527,7 +527,7 @@ const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
         }
     }
     const BaseRow *krow = item_row(HKA_MENU);
-    if (!krow || krow->nvalues != HK_NKEYS + 1 || !krow->provider || strcmp(krow->provider, "hotkeys.keys")) {
+    if (!krow || krow->nvalues != HK_NKEYS + 1 || !krow->pick || strcmp(krow->pick, "hotkeys.keys")) {
         return "settings: the base UI TOML has no hotkey rows that fit the map";
     }
     make_vals();
