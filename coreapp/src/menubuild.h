@@ -13,8 +13,8 @@
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env);
 
 // T239.3 D32: a row the application adds to every core, as the base UI TOML (coreapp/base_ui.toml, compiled into base_rows.inc by tools/gen_base_ui.py) says it: the key, the label, the kind, the
-// values and the default. The extend functions take their rows from here and keep only what a row cannot say (whether the core gets it, a default the core's own map or the gateware sets, a provider's
-// values, the condition that depends on another row).
+// values and the default. The extend functions take their rows from here and keep only what a row cannot say (whether the core gets it, a default the core's own map or the gateware sets, the values of a list
+// that changes at run time, the condition that depends on another row).
 struct BaseRow {
     const char *key;
     const char *label;          // null: the key
@@ -25,7 +25,7 @@ struct BaseRow {
     uint8_t kind;               // Setting::kind: 0 a choice among values, 1 a text
     const char *apply;
     const char *show_state;     // the condition that lists the row; null: always
-    const char *provider;       // null: the values are the row's; else the name of what fills them at run time ("video.modes", "hotkeys.modifiers", "hotkeys.keys", "view.schemes") and `values` is what the row shows until it has
+    const char *pick;           // null: the values are the row's; else the name of the list that fills them at run time ("video.modes", "hotkeys.modifiers", "hotkeys.keys", "view.schemes") and `values` is what the row shows until it has
 };
 // The row of an operation (and its key, when the operation serves several rows; the case of the key does not matter), null when the base UI TOML has none.
 const BaseRow *menu_base_row(const char *apply, const char *key = 0);

@@ -1,7 +1,7 @@
 // T239.3 D32, P2-4's QC entry: the rows of the seven extend functions (home_extend, baseset_extend, hk_extend, picture_extend, tone_extend, volume_extend, persist_extend) are rows of the base
-// UI TOML (coreapp/base_ui.toml, compiled into base_rows.inc by tools/gen_base_ui.py): label, key, kind, values and default, and a provider for a list that changes at run time. This test reads
+// UI TOML (coreapp/base_ui.toml, compiled into base_rows.inc by tools/gen_base_ui.py): label, key, kind, values and default, and a pick for a list that changes at run time. This test reads
 // the compiled table and checks it against the code that serves it: the keys and operations the code names are rows, the values the code keeps in a table of its own (the key names, the modifier
-// presets, the scale names, the view's colour schemes, the volume steps) are the row's, a provider is one the code serves, and the extend functions hand out the row as it is.
+// presets, the scale names, the view's colour schemes, the volume steps) are the row's, a pick is a list the code serves, and the extend functions hand out the row as it is.
 #include <string>
 #include <string.h>
 #include <strings.h>
@@ -22,9 +22,9 @@
 
 static const BaseRow *row(const char *op, const char *key) { return menu_base_row(op, key); }
 
-static bool provider_is(const BaseRow *r, const char *name)
+static bool pick_is(const BaseRow *r, const char *name)
 {
-    return r && r->provider && !strcmp(r->provider, name);
+    return r && r->pick && !strcmp(r->pick, name);
 }
 
 int main()
@@ -39,8 +39,8 @@ int main()
         CHECK(r.key && r.key[0] && r.apply && r.apply[0] && r.values && r.nvalues >= 1);
         CHECK(r.def >= 0 && r.def < r.nvalues);
         CHECK(r.kind == 0 || r.kind == 1);
-        CHECK(!r.provider || !strcmp(r.provider, "video.modes") || !strcmp(r.provider, "hotkeys.modifiers") || !strcmp(r.provider, "hotkeys.keys") || !strcmp(r.provider, "view.schemes"));
-        CHECK(r.provider || r.nvalues >= 2 || r.kind == 1);                    // a row with no provider is a choice among values, or a text
+        CHECK(!r.pick || !strcmp(r.pick, "video.modes") || !strcmp(r.pick, "hotkeys.modifiers") || !strcmp(r.pick, "hotkeys.keys") || !strcmp(r.pick, "view.schemes"));
+        CHECK(r.pick || r.nvalues >= 2 || r.kind == 1);                    // a row with no pick is a choice among values, or a text
         for (int j = i + 1; j < n; j++) {
             CHECK(strcmp(all[j].apply, r.apply) || strcasecmp(all[j].key, r.key));
         }
@@ -64,8 +64,8 @@ int main()
         CHECK(found);
     }
 
-    // Picture names its provider, and the row's values are what it shows until the provider has filled it
-    CHECK(provider_is(row(PICTURE_OP, PICTURE_KEY), "video.modes"));
+    // Picture names its pick, and the row's values are what it shows until the list has filled it
+    CHECK(pick_is(row(PICTURE_OP, PICTURE_KEY), "video.modes"));
     // what the code keeps in a table of its own is the row's
     const BaseRow *sc = row(SCALE_OP, SCALE_KEY);
     CHECK_EQ(sc->nvalues, VID_SCALE_COUNT);
@@ -84,20 +84,20 @@ int main()
     const BaseRow *tone = row(TONE_OP, TONE_KEY);
     CHECK_EQ(tone->nvalues, TONE_STEPS);
     CHECK_EQ(tone->def, TONE_DEFAULT);
-    const BaseRow *scheme = row("base.scheme", 0);                             // the provider "view.schemes": the names are the view's (app/view/trx_scheme_names.h); the row shows the first until then
-    CHECK(provider_is(scheme, "view.schemes") && scheme->nvalues <= TRX_SCHEME_COUNT && scheme->def < TRX_SCHEME_COUNT);
+    const BaseRow *scheme = row("base.scheme", 0);                             // the pick "view.schemes": the names are the view's (app/view/trx_scheme_names.h); the row shows the first until then
+    CHECK(pick_is(scheme, "view.schemes") && scheme->nvalues <= TRX_SCHEME_COUNT && scheme->def < TRX_SCHEME_COUNT);
     for (int i = 0; i < scheme->nvalues; i++) {
         CHECK_STR(scheme->values[i], trx_scheme_names[i]);
     }
     const BaseRow *mod = row(HK_OP, HK_KEY_MOD);
-    CHECK(provider_is(mod, "hotkeys.modifiers"));
+    CHECK(pick_is(mod, "hotkeys.modifiers"));
     CHECK_EQ(mod->nvalues, hk_modifier_presets());
     for (int i = 0; i < mod->nvalues; i++) {
         CHECK_STR(mod->values[i], hk_modifier_name(i));
     }
     int nkeyrows = 0;
     for (int j = 0; j < n; j++) {
-        if (provider_is(&all[j], "hotkeys.keys")) {
+        if (pick_is(&all[j], "hotkeys.keys")) {
             nkeyrows++;
             CHECK_EQ(all[j].nvalues, HK_NKEYS + 1);
             CHECK_STR(all[j].values[0], "Off");
@@ -134,8 +134,8 @@ int main()
     for (int i = nes_desc.nsettings; i < d4.nsettings; i++) {
         const BaseRow *r = row(d4.settings[i].apply, d4.settings[i].key);
         CHECK(r && d4.settings[i].def == r->def);
-        CHECK(r && (r->provider ? d4.settings[i].nvalues >= r->nvalues : d4.settings[i].values == r->values));
-        if (r && provider_is(r, "view.schemes")) {
+        CHECK(r && (r->pick ? d4.settings[i].nvalues >= r->nvalues : d4.settings[i].values == r->values));
+        if (r && pick_is(r, "view.schemes")) {
             CHECK_EQ(d4.settings[i].nvalues, TRX_SCHEME_COUNT);
         }
     }

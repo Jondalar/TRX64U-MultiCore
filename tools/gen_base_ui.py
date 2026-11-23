@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """T239.3 D32: coreapp/base_ui.toml (the SDK's base UI TOML) -> coreapp/src/base_ui.inc, the table of routes and places menutree.cc includes, and coreapp/src/base_rows.inc, the table of
-the rows (label, key, kind, values, default, provider) menubuild.cc includes.
+the rows (label, key, kind, values, default, pick) menubuild.cc includes.
 
   tools/gen_base_ui.py            write both .inc files (the TOML is compiled by tools/descrec.py into the record a core's UI TOML carries, read back, and written as C++ initializers)
   tools/gen_base_ui.py --check    do not write; exit 1 when an .inc on disk is not what the TOML compiles to (the lint stage)
@@ -62,7 +62,7 @@ def render_rows(rows):
         text = r["when"] in ("text", "secret")
         vals = tuple("" if text and v == " " else v for v in r["values"])
         out.append("    { %s, %s, %s, %d, %d, %d, %d, %s, %s, %s }," % (cstr(r["key"]), cstr(r["label"]), names[vals], len(vals), r["default"], r["base"],
-                                                                     {"live": 0, "text": 1, "secret": 2}[r["when"]], cstr(r["apply"]), cstr(r["show_state"]), cstr(r["provider"])))
+                                                                     {"live": 0, "text": 1, "secret": 2}[r["when"]], cstr(r["apply"]), cstr(r["show_state"]), cstr(r["pick"])))
     out.append("};")
     out.append("static const int g_base_nrows = %d;" % len(rows))
     return "\n".join(out) + "\n"

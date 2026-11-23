@@ -1374,9 +1374,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         const bool file = (when & DR_SET_FILE) != 0;           // T239.3 D17: a file the person selects (Setting::kind 3); its time code is live or reset as any other's
         when &= ~(uint32_t)DR_SET_FILE;
-        if (when & 16) {                                       // T239.3 D32: a provider is the application's own base UI TOML's (tools/gen_base_ui.py reads it); a core's record names none
-            return r.fail("description record: core setting %u names a provider, which only the base UI TOML may", (unsigned)i);
-        }
+        const bool listed = (when & 16) != 0;                  // T239.3 D32: the value string before the lock state names the list that fills the row at run time (its pick)
+        when &= ~(uint32_t)16;
         if (when & 4) {                                        // T228 R21: the last value string is the state that locks the row (its text replaces the value); old records never set the flag
             if (nv >= 1 && (uint64_t)fv + nv <= tb[V].count) {
                 d.lock_state = out->values[fv + nv - 1];
@@ -1384,10 +1383,20 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
             }
             when &= 3;
         }
+        if (listed) {
+            if (nv < 2 || when >= 2 || file || (uint64_t)fv + nv > tb[V].count) {
+                return r.fail("description record: core setting %u has a bad pick", (unsigned)i);
+            }
+            d.pick = out->values[fv + nv - 1];
+            if (!setting_pick_served(d.pick)) {
+                return r.fail("description record: core setting %u names the list \"%s\", which the application does not serve to a core's row", (unsigned)i, d.pick);
+            }
+            nv--;
+        }
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
         d.label = r.str(W(e, 8), &bad);                          // what the menu shows (null: the key); the key stays what the .cfg and REST name
-        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 || file ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3 ||
+        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 || file || d.pick ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3 ||
             (file && (when > 1 || nv != 1 || d.base || !d.apply))) {
             return r.fail("description record: core setting %u has a bad string, value run, default or time", (unsigned)i);
         }

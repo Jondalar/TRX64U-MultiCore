@@ -8,6 +8,7 @@
 #include "home.h"
 #include "hotkeys.h"
 #include "baseset.h"
+#include "trx_scheme_names.h"
 #include <string.h>
 #include <strings.h>
 
@@ -44,6 +45,30 @@ void menu_base_setting(Setting &s, const BaseRow &r)
     s.base = r.base;
     s.kind = r.kind;
     s.show_state = r.show_state;
+    s.pick = r.pick;
+}
+
+// T239.3 D32: a core's choice row that names a run-time list with its pick gets the list as its values (the values it declares are what it shows until then). The base's rows are filled by their extend functions.
+static void menu_pick_fill(Setting *store, int n)
+{
+    for (int i = 0; i < n; i++) {
+        Setting &s = store[i];
+        if (s.kind != 0 || !s.pick || (s.apply && menu_base_row(s.apply, s.key))) {
+            continue;
+        }
+        if (!strcmp(s.pick, "view.schemes")) {
+            s.values = trx_scheme_names;
+            s.nvalues = TRX_SCHEME_COUNT;
+            continue;
+        }
+        for (int j = 0; j < g_base_nrows; j++) {        // hotkeys.keys, hotkeys.modifiers: the list of the base row that names it
+            if (g_base_row[j].pick && !strcmp(g_base_row[j].pick, s.pick)) {
+                s.values = g_base_row[j].values;
+                s.nvalues = g_base_row[j].nvalues;
+                break;
+            }
+        }
+    }
 }
 
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env)
@@ -86,6 +111,7 @@ const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, cons
         if (!first) { first = why; }
     }
     if (out->settings == store) {
+        menu_pick_fill(store, out->nsettings);
         menu_place_groups(menu_place_base(), store, out->nsettings);     // D32: the group of every row the base UI TOML places (coreapp/base_ui.toml); the extend functions write none
     }
     return first;
