@@ -1,0 +1,18 @@
+# TOML B of the example core's app (T239.3 D31, P3-2): what its app is linked with, and how large its registry, contributions, report and record may be. The TOML A is the SDK's
+# reference (../../gateware/shared.toml in the package). `python3 tools/app_build.py build --sdk . --toml-a gateware/shared.toml --toml-b example/app/toml_b.toml --out OUT --src example/app
+# --record OUT/desc.bin` links it (tools/sdk_check.sh does this with the compiler of the build image).
+#
+# The descriptor of the app is a symbol of the base's sources: `desc` names it, `base_sources` the base files of the cores
+# that hold it (coreapp/cores/), `sources` the files of the core's own, found in the directories of --src.
+[app]
+name = "example"
+desc = "portdiag_desc"
+base_sources = ["portdiag.cc"]
+
+# Every key is optional (python3 tools/app_build.py table lists them with the defaults). A small core is sized small: the report buffer is a static array of this size in its image.
+[sizes]
+ops = 200
+states = 160
+report_bytes = 16384
+contrib_filetypes = 40
+rec_ftypes = 8
