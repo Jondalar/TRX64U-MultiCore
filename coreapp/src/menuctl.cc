@@ -274,6 +274,11 @@ const char *MenuCtl::session_word(bool upper) const
 void MenuCtl::set_status(const char *s, bool bad)
 {
     snprintf(status_, sizeof(status_), "%s", s);
+    for (char *p = status_; *p; p++) {                  // T258 D12: the status is one line; a text with lines (the ROM files message) reads on as one
+        if (*p == '\n') {
+            *p = ' ';
+        }
+    }
     status_bad_ = bad;
 }
 

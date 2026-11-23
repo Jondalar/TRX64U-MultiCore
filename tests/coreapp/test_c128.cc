@@ -382,12 +382,13 @@ int main()
             Rig r;
             CHECK_EQ(rom_scan(&r.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0), ROM_MISSING);
             CHECK(strstr(summary, "boot0.rom") != 0 && strstr(summary, "basic64-901226-01.bin") != 0);
-            // the whole sentence arrives, in the buffer the code really uses: every part is named, the end is the last part's name and a full stop, the sentences are joined by full stops
-            CHECK(strstr(summary, "chargen-315079-01.bin.") != 0 && strlen(summary) < sizeof(summary) - 1);
-            CHECK(strstr(summary, ". Or its parts: ") != 0);
+            // the whole sentence arrives, in the buffer the code really uses: the sentence ends with "Or its parts:" and each part's name stands on its own line (T258 D12: six lines, the last is the end of the text), the sentences are joined by full stops
+            CHECK(strstr(summary, "\nchargen-315079-01.bin") != 0 && strlen(summary) < sizeof(summary) - 1);
+            CHECK(strstr(summary, ". Or its parts:\nbasic64-901226-01.bin\nkernal64-901227-03.bin\nkernal-318020-05.bin\nbasiclo-318018-04.bin\nbasichi-318019-04.bin\nchargen-315079-01.bin") != 0);
+            CHECK(strcmp(summary + strlen(summary) - strlen("\nchargen-315079-01.bin"), "\nchargen-315079-01.bin") == 0 && !strchr(strstr(summary, "Or its parts:"), ','));
             // with a core folder (the .cor start): the longest of the C128's own sentences, whole, joined by a full stop
             CHECK_EQ(rom_scan(&r.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0, "/sd/cores/Commodore_128/roms"), ROM_MISSING);
-            CHECK(strstr(summary, "/sd/cores/Commodore_128/roms/. Or its parts: basic64-901226-01.bin, ") != 0 && strstr(summary, "chargen-315079-01.bin.") != 0);
+            CHECK(strstr(summary, "/sd/cores/Commodore_128/roms/. Or its parts:\nbasic64-901226-01.bin\n") != 0 && strstr(summary, "\nchargen-315079-01.bin") != 0);
         }
         // S5b: the same on the real paths of Reload (machine.reload_roms) and of the developer start (no core folder: the roots list would not fit and is cut at a sentence)
         {
@@ -397,14 +398,14 @@ int main()
             r.fs.files.erase(IMG);
             r.fs.names.erase(IMG);
             CHECK_EQ(ops_call(&r.c, "machine.reload_roms", 0, 0, &res), OPE_FAILED);
-            CHECK(strstr(res.msg, "chargen-315079-01.bin.") != 0 && strlen(res.msg) < sizeof(res.msg) - 1);
+            CHECK(strstr(res.msg, "\nchargen-315079-01.bin") != 0 && strlen(res.msg) < sizeof(res.msg) - 1);
             put_parts(r, 3);
             CHECK_EQ(ops_call(&r.c, "machine.reload_roms", 0, 0, &res), OPE_FAILED);
             CHECK(strstr(res.msg, "basiclo-318018-04.bin) not found") != 0 && strstr(res.msg, "needs all its parts. Put it there, or use one boot0.rom.") != 0);
             Rig d;
             CHECK_EQ(rom_scan(&d.fs, c128_desc.folder, c128_desc.roms, c128_desc.nroms, rr, summary, sizeof(summary), 0, 0), ROM_MISSING);
-            CHECK(strstr(summary, "chargen-315079-01.bin.") != 0 && strlen(summary) < sizeof(summary) - 1);
-            CHECK(strstr(summary, ". Or its parts: ") != 0);
+            CHECK(strstr(summary, "\nchargen-315079-01.bin") != 0 && strlen(summary) < sizeof(summary) - 1);
+            CHECK(strstr(summary, ". Or its parts:\n") != 0);
         }
         // S6: Reload takes parts that arrived after the start
         {

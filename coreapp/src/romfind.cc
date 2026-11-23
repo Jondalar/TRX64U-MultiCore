@@ -274,12 +274,10 @@ RomStatus rom_scan(CoreFs *fs, const char *folder, const RomSpec *specs, int n, 
             snprintf(hint, sizeof(hint), " Or its parts:");
             for (int j = 0; j < n; j++) {
                 if (specs[j].into == i + 1) {
-                    strncat(hint, " ", sizeof(hint) - strlen(hint) - 1);
+                    strncat(hint, "\n", sizeof(hint) - strlen(hint) - 1);        // T258 D12: one name per line, so the message pane never breaks a name at its hyphens
                     strncat(hint, specs[j].names[0], sizeof(hint) - strlen(hint) - 1);
-                    strncat(hint, ",", sizeof(hint) - strlen(hint) - 1);
                 }
             }
-            hint[strlen(hint) - 1] = '.';
             if (bad == ROM_MISSING && (refused >= 0 || nf > 0)) {
                 if (refused >= 0) {
                     bad = out[refused].status;
