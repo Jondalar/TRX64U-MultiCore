@@ -1,11 +1,12 @@
 #include "baseset.h"
+#include "menubuild.h"
+#include "trx_scheme_names.h"
 #include "hookhost.h"
 #include "ops.h"
 #include "ops_glue.h"
 #include "settings.h"
 #include "mouse_api.h"
 #include "libtab.h"
-#include "trx_scheme_names.h"
 #include <string.h>
 #include <strings.h>
 
@@ -13,39 +14,35 @@ namespace {
 
 enum { B_TRANSP, B_SCHEME, B_SQUEEZE, B_NAV, B_JOY, B_MODE, B_SENS, B_ACCEL, B_WSENS, B_WDIR, B_N, B_MOUSE0 = B_MODE };
 
-const char *const transp_values[] = { "0 %", "25 %", "50 %", "75 %" };
-const char *const squeeze_values[] = { "None", "Beginning", "Middle", "End" };
-const char *const nav_values[] = { "Quick Search", "WASD Cursors" };
-const char *const joy_values[] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
-const char *const mode_values[] = { "Cursor keys", "Wheel: cursor keys", "Wheel: joystick" };
-const char *const step_values[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
-const char *const accel_values[] = { "Off", "Adaptive" };
-const char *const dir_values[] = { "Normal", "Reversed" };
-
 struct Def {
-    const char *key, *label;
-    const char *const *values;
-    int nvalues, def;
-    int32_t base;
-    const char *op;
-    const char *show;
-    uint8_t kind;
+    const char *op;                     // the operation: the row (key, label, values, default, base, condition) is the base UI TOML's (coreapp/base_ui.toml), found by it
+    uint8_t kind;                       // baseset_kind: 1 a look row, 2 an input row
     const char *needs;                  // the capability (CoreDesc::caps) a core has to name for the row; null: any core (the mouse rows: any core with a mouse)
 };
 #define N(a) (int)(sizeof(a) / sizeof(a[0]))
-const char *const cursor_only = "set.Mouse_Mode==Cursor keys";
 const Def defs[B_N] = {
-    { "Overlay Transparency", "Overlay transparency", transp_values, N(transp_values), 1, 0, "base.overlay", 0, 1, 0 },
-    { "Color Scheme", "Color scheme", trx_scheme_names, TRX_SCHEME_COUNT, 1, 0, "base.scheme", 0, 1, 0 },
-    { "Filename overflow squeeze", 0, squeeze_values, N(squeeze_values), 0, 0, "base.squeeze", 0, 1, 0 },
-    { "Navigation Style", "Navigation style", nav_values, N(nav_values), 0, 0, "base.nav", 0, 1, 0 },
-    { "Joystick Input", "Joystick input", joy_values, N(joy_values), 0, 0, "base.joystick", 0, 2, BASE_CAP_KEYBOARD_JOYSTICK },
-    { "Mouse Mode", "Mouse as", mode_values, N(mode_values), 0, 0, "base.mouse_mode", 0, 2, BASE_CAP_MOUSE_DRIVER },
-    { "Mouse Sensitivity", "Mouse cursor sensitivity", step_values, N(step_values), 7, 1, "base.mouse_sens", cursor_only, 2, 0 },
-    { "Mouse Acceleration", "Mouse cursor acceleration", accel_values, N(accel_values), 0, 0, "base.mouse_accel", cursor_only, 2, 0 },
-    { "Mouse Wheel Sensitivity", "Mouse wheel sensitivity", step_values, N(step_values), 7, 1, "base.wheel_sens", 0, 2, BASE_CAP_MOUSE_DRIVER },
-    { "Mouse Wheel Direction", "Mouse wheel direction", dir_values, N(dir_values), 0, 0, "base.wheel_dir", 0, 2, BASE_CAP_MOUSE_DRIVER },
+    { "base.overlay", 1, 0 },
+    { "base.scheme", 1, 0 },
+    { "base.squeeze", 1, 0 },
+    { "base.nav", 1, 0 },
+    { "base.joystick", 2, BASE_CAP_KEYBOARD_JOYSTICK },
+    { "base.mouse_mode", 2, BASE_CAP_MOUSE_DRIVER },
+    { "base.mouse_sens", 2, 0 },
+    { "base.mouse_accel", 2, 0 },
+    { "base.wheel_sens", 2, BASE_CAP_MOUSE_DRIVER },
+    { "base.wheel_dir", 2, BASE_CAP_MOUSE_DRIVER },
 };
+
+const BaseRow *row_of(int id)
+{
+    static const BaseRow *cache[B_N];
+    if (!cache[id]) {
+        cache[id] = menu_base_row(defs[id].op);
+    }
+    return cache[id];
+}
+const char *key_of(int id) { return row_of(id) ? row_of(id)->key : ""; }
+int def_of(int id) { return row_of(id) ? row_of(id)->def : 0; }
 
 CoreCtx *g_ctx;
 const BaseSetPort *g_port;
@@ -57,7 +54,7 @@ int16_t g_ix[B_N];
 
 int val(CoreCtx *c, int id, int def)
 {
-    int ix = c->settings ? c->settings->find(defs[id].key) : -1;
+    int ix = c->settings ? c->settings->find(key_of(id)) : -1;
     return ix >= 0 ? c->settings->value(ix) : def;
 }
 
@@ -71,7 +68,7 @@ int usb_val(int id, int def)
         g_set = s;
         g_gen = s->generation();
         for (int i = 0; i < B_N; i++) {
-            g_ix[i] = (int16_t)s->find(defs[i].key);
+            g_ix[i] = (int16_t)s->find(key_of(i));
         }
     }
     return g_ix[id] >= 0 ? s->value(g_ix[id]) : def;
@@ -86,17 +83,17 @@ int apply(CoreCtx *c, int id)
     case B_TRANSP:
     case B_SCHEME:
         if (p && p->look) {
-            p->look(val(c, B_TRANSP, defs[B_TRANSP].def), val(c, B_SCHEME, defs[B_SCHEME].def));
+            p->look(val(c, B_TRANSP, def_of(B_TRANSP)), val(c, B_SCHEME, def_of(B_SCHEME)));
         }
         break;
     case B_SQUEEZE:
         if (p && p->squeeze) {
-            p->squeeze(val(c, B_SQUEEZE, defs[B_SQUEEZE].def));
+            p->squeeze(val(c, B_SQUEEZE, def_of(B_SQUEEZE)));
         }
         break;
     case B_NAV: {
         // The default of a machine that has never been set up is WASD Cursors on the product sold under Commodore's name; a value the person stored stays.
-        int ix = c->settings ? c->settings->find(defs[B_NAV].key) : -1;
+        int ix = c->settings ? c->settings->find(key_of(B_NAV)) : -1;
         if (ix >= 0 && c->settings->layer(ix) == Settings::L_DEFAULT && p && p->commodore && p->commodore()) {
             c->settings->override_value(ix, 1);
         }
@@ -112,7 +109,7 @@ int apply(CoreCtx *c, int id)
     default:
         break;                                                      // the mouse is read by the USB driver at each report
     }
-    hooks_base_changed(defs[id].key);
+    hooks_base_changed(key_of(id));
     return OPE_OK;
 }
 
@@ -135,7 +132,7 @@ bool declared(const CoreDesc *d, const char *key)
 // (A core's description can hide a row of the base by its key; contrib_merge drops it when the menu is merged.)
 bool wanted(const CoreDesc *d, int id)
 {
-    if (declared(d, defs[id].key)) {
+    if (declared(d, key_of(id))) {
         return false;
     }
     if (id >= B_MOUSE0 && !d->mouse) {
@@ -149,7 +146,7 @@ bool wanted(const CoreDesc *d, int id)
 bool baseset_adds(const CoreDesc *d, const char *key)
 {
     for (int i = 0; i < B_N; i++) {
-        if (!strcasecmp(defs[i].key, key)) {
+        if (!strcasecmp(key_of(i), key)) {
             return wanted(d, i);
         }
     }
@@ -181,17 +178,17 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         if (!want[i]) {
             continue;
         }
+        const BaseRow *r = row_of(i);
+        if (!r) {
+            return "settings: the base UI TOML lacks a row of the application's look, joystick or mouse";
+        }
         Setting &s = store[n++];
-        s = Setting();
-        s.key = defs[i].key;
-        s.label = defs[i].label;
-        s.values = defs[i].values;
-        s.nvalues = defs[i].nvalues;
-        s.def = defs[i].def;
-        s.when = WHEN_LIVE;
-        s.apply = defs[i].op;
-        s.base = defs[i].base;
-        s.show_state = defs[i].show && want[B_MODE] ? defs[i].show : 0;     // "only while Mouse Mode says cursor keys" needs the row that says it
+        menu_base_setting(s, *r);
+        if (r->provider && !strcmp(r->provider, "view.schemes")) {      // the provider "view.schemes": the colour schemes of the view (app/view/trx_scheme_names.h), the row's values until then
+            s.values = trx_scheme_names;
+            s.nvalues = TRX_SCHEME_COUNT;
+        }
+        s.show_state = r->show_state && want[B_MODE] ? r->show_state : 0;     // "only while Mouse Mode says cursor keys" needs the row that says it
     }
     out->settings = store;
     out->nsettings = n;
@@ -226,7 +223,7 @@ int baseset_count(void)
 
 const char *baseset_key(int i)
 {
-    return i >= 0 && i < B_N ? defs[i].key : "";
+    return i >= 0 && i < B_N ? key_of(i) : "";
 }
 
 int baseset_usb_config(int key, int default_value)

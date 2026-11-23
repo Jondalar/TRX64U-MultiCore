@@ -41,7 +41,7 @@ struct BaseSetPort {
 // The context the USB driver's answers (baseset_usb_config) are read from, and the port. Called once at the start of a run (and by every test).
 void baseset_attach(CoreCtx *c, const BaseSetPort *port);
 
-// 0 for a setting that is not the application's base.* row, 1 for a look row, 2 for an input row. The route, group and order of these rows come from coreapp/base_ui.toml; the kind is
+// 0 for a setting that is not the application's base.* row, 1 for a look row, 2 for an input row. The rows and their route, group and order come from coreapp/base_ui.toml; the kind is
 // only what baseset_is_generic answers (contrib.cc's hide list) and what the tests check.
 int baseset_kind(const Setting &s);
 static inline bool baseset_is_generic(const Setting &s) { return baseset_kind(s) != 0; }
