@@ -20,10 +20,12 @@ check
   must carry the request's data; its properties are not checked (they are the core's contract).
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
-  another value fails the check, read or not (the parameter lists of the top-level Verilog file are read for it).
+  another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
+  unknown (X) (the parameter lists of the top-level Verilog file are read for it).
   Reads only the design's source list (the files named in its build script, here build.tcl, and the lists it `source`s by a literal path
-  relative to the design directory; `--list FILE` names another, repeatable); a file whose name says ultisid,
-  copper, lp_filter or sampler is never opened (clean room).
+  relative to the design directory; `--list FILE` names another, repeatable); a VHDL file (.vhd, .vhdl) whose base name says ultisid,
+  copper, lp_filter or sampler is on the deny list (clean room: Gideon's files; a directory name or a Verilog file does not count): read_source refuses it, so it is never opened or parsed, and the check
+  lists the denied files of the source list in its output. The block of such a module is checked at the port only (the hand-over rule).
   A partial core has no request record: the host's decode hands it a window of the I/O space over plain ports. --bus MODULE:write=P,read=P,address=P,
   data=P,response=P names the ports of the one instance of MODULE in the top file (--top, a Verilog file); --window BASE:SIZE is the part of the I/O
   space the host hands to them (the host's fact): a block must lie inside it and the address port gets the block's address minus BASE. --list takes
@@ -34,8 +36,9 @@ check
   the top-level file crosses a clock domain over a handshake: that module is run on the held request (stage 2: its ports take the
   forwarded values, its state is unknown, only the module itself is followed) and decides write and read of the byte (dma_win). A decode
   there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). What is not followed yet: the
-  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), uci (io_bus_bridge2 and Gideon's synchronizer), the drive
-  (drive_unit: generate blocks); a property there fails with the pattern the parser does not know.
+  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), the request behind Gideon's io_bus_splitter (an array of request
+  records: ITU, uci, the drive, Ethernet, USB) and the clock-domain bridges (io_bus_bridge2, synchronizer_gzw). The check stops there with
+  Unsupported (the request reaches such an instance); it never passes a property on the transport registers of a bridge.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -55,7 +58,23 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+BRIDGES = ("io_bus_splitter",)
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
+
+
+def denied(path):
+    """Gideon's UltiSID, Copper, lp_filter and sampler VHDL are never read (clean room, T239.3 D30). The deny list is by file name: the base name of a
+    VHDL file (.vhd, .vhdl) that has one of these words in it. A directory name does not count, and a Verilog file (the Minimig copper, a module of
+    TRX64-Ultimate) is not Gideon's."""
+    b = os.path.basename(path).lower()
+    return b.endswith((".vhd", ".vhdl")) and any(c in b for c in CLEAN_ROOM)
+
+
+def read_source(path):
+    """The one place that opens an RTL source file. A denied file is never opened: its blocks are checked at the port only (the hand-over rule)."""
+    if denied(path):
+        raise CheckError("%s is on the clean-room deny list and is never opened" % path)
+    return open(path, errors="replace").read()
 VERILOG_KW = {"module", "endmodule", "always", "assign", "initial", "wire", "reg", "input", "output", "inout", "parameter",
               "localparam", "function", "task", "generate", "genvar", "begin", "end", "if", "else", "case", "for", "integer",
               "posedge", "negedge", "or", "and", "not", "defparam", "specify"}
@@ -390,12 +409,38 @@ def base_name(lhs):
     raise Unsupported("an assignment target of kind %s" % lhs[0])
 
 
+class CatInfo:
+    """The parts of a concatenation target {a, b[3:0], c[2]} = rhs (opaque to the expression walkers: the targets are no operands)."""
+    __slots__ = ("parts",)
+
+    def __init__(self, parts):
+        self.parts = parts
+
+
+def cat_leaves(lhs):
+    if lhs[0] == "paren":
+        return cat_leaves(lhs[1])
+    if lhs[0] == "cat":
+        return [x for part in lhs[1] for x in cat_leaves(part)]
+    return [lhs]
+
+
+def split_cat(lhs, rhs):
+    """A concatenation target is one assignment per part, each taking its slice of the right side (MSB part first)."""
+    leaves = cat_leaves(lhs)
+    if len(leaves) == 1 and lhs[0] != "cat":
+        return [(leaves[0], rhs)]
+    info = CatInfo(leaves)
+    return [(part, ("catpart", rhs, info, i)) for i, part in enumerate(leaves)]
+
+
 # ---------------------------------------------------------------------------------------------------------------------------
 # VHDL parser
 
 class P:
-    def __init__(self, toks, fname):
+    def __init__(self, toks, fname, ovr=None):
         self.t, self.i, self.fname = toks, 0, fname
+        self.ovr = ovr or {}
 
     def pk(self, n=0):
         return self.t[min(self.i + n, len(self.t) - 1)]
@@ -453,6 +498,8 @@ class VhdlParser(P):
                 if self.txt() == "port":
                     self.eat()
                     self.port_list(m)
+                while self.txt() in ("attribute", "constant", "alias", "use"):
+                    self.skip_to(";")
                 self.eat("end")
                 self.acc("entity")
                 if self.txt() != ";":
@@ -507,7 +554,7 @@ class VhdlParser(P):
             if self.acc(":="):
                 dflt = self.expr()
             for n in names:
-                m.generics[n] = dflt
+                m.generics[n] = ("n", kn(self.ovr[n])) if n in self.ovr else dflt
             if not self.acc(";"):
                 break
         self.eat(")")
@@ -732,7 +779,8 @@ class VhdlParser(P):
 
     def gen_cond(self, m, e):
         """An if-generate condition over generics with a default, as an int. The generics it names are recorded in
-        m.gen_assumed; elaboration refuses an instance that gives one of them another value."""
+        m.gen_assumed; an instance that gives one of them another known value gets the module parsed again with it (Ctx.child), and an unknown
+        value fails the check (check_assumed)."""
         k = e[0]
         if k == "n":
             if e[1].x:
@@ -1107,6 +1155,8 @@ class VlogParser(P):
                 n = self.eat()[1]
                 self.eat("=")
                 m.generics[n] = self.expr()
+                if n in self.ovr:
+                    m.generics[n] = ("n", kn(self.ovr[n]))
                 self.acc(",")
             self.eat(")")
         self.eat("(")
@@ -1195,8 +1245,9 @@ class VlogParser(P):
             self.eat("=")
             rhs = self.expr()
             self.eat(";")
-            m.cas.append((lhs, rhs, where))
-            m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
+            for l1, r1 in split_cat(lhs, rhs):
+                m.cas.append((l1, r1, where))
+                m.assigns.setdefault(base_name(l1)[0], []).append(r1)
         elif w == "always":
             self.eat()
             self.eat("@")
@@ -1404,6 +1455,38 @@ class VlogParser(P):
         if w == ";":
             self.eat()
             return ("nop",)
+        if w == "for":
+            # for (i = A; i <= B; i = i + 1) STMT   (also <, and i = i - 1 with >= / >): unrolled by the evaluator, like the VHDL for loop
+            self.eat()
+            self.eat("(")
+            var = self.eat()[1]
+            self.eat("=")
+            lo = self.expr()
+            self.eat(";")
+            if self.eat()[1] != var:
+                raise self.err("a for loop whose condition is not on its variable")
+            op = self.eat()[1]
+            hi = self.expr()
+            self.eat(";")
+            if self.eat()[1] != var or self.eat()[1] != "=" or self.eat()[1] != var:
+                raise self.err("a for loop whose step is not on its variable")
+            sg = self.eat()[1]
+            one = self.eat()
+            self.eat(")")
+            if one[1] != "1'b1" and not (one[0] == "num" and one[1] in ("1",)) and one[1] not in ("1", "1'd1", "32'd1"):
+                raise self.err("a for loop with a step other than one")
+            if (sg, op) == ("+", "<="):
+                d, top = "to", hi
+            elif (sg, op) == ("+", "<"):
+                d, top = "to", ("bin", "-", hi, ("n", kn(1)))
+            elif (sg, op) == ("-", ">="):
+                d, top = "downto", hi
+            elif (sg, op) == ("-", ">"):
+                d, top = "downto", ("bin", "+", hi, ("n", kn(1)))
+            else:
+                raise self.err("a for loop I do not know")
+            body = self.stmt(m)
+            return ("for", var, lo, top, d, [body], where)
         if w in ("for", "while", "repeat", "forever", "wait", "disable", "fork", "force", "release", "#", "@"):
             raise self.err("a %s statement" % w)
         if w.startswith("$"):
@@ -1420,8 +1503,11 @@ class VlogParser(P):
             raise self.err("a statement I do not know")
         rhs = self.expr()
         self.eat(";")
-        m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
-        return ("as", lhs, rhs, kind, where)
+        out = []
+        for l1, r1 in split_cat(lhs, rhs):
+            m.assigns.setdefault(base_name(l1)[0], []).append(r1)
+            out.append(("as", l1, r1, kind, where))
+        return out[0] if len(out) == 1 else ("blk", out)
 
     # ---- expressions
     def expr(self):
@@ -1562,10 +1648,11 @@ class Design:
             for pth in (glob.glob(os.path.join(self.ddir, t)) if "*" in t else [os.path.join(self.ddir, t)]):
                 if os.path.isfile(pth):
                     self.files[os.path.normpath(pth)] = True
+        self.denied = sorted(f for f in self.files if self.blocked(f))
         for f in sorted(self.files):
             if self.blocked(f):
                 continue
-            body = open(f, errors="replace").read()
+            body = read_source(f)
             if f.endswith((".vhd", ".vhdl")):
                 for m in re.finditer(r"^\s*entity\s+(\w+)\s+is", body, re.M | re.I):
                     self.index.setdefault(m.group(1).lower(), f)
@@ -1574,31 +1661,31 @@ class Design:
                     self.index.setdefault(m.group(1), f)
 
     def blocked(self, f):
-        low = f.lower()
-        return any(c in low for c in CLEAN_ROOM)
+        return denied(f)
 
-    def load(self, f):
+    def load(self, f, ovr=None):
         f = os.path.normpath(f)
         if f not in self.files:
             raise Unsupported("%s is not in the design's source list" % f)
         if self.blocked(f):
             raise Unsupported("%s is never opened (clean room)" % f)
-        if f in self.cache:
-            return self.cache[f]
-        text = open(f, errors="replace").read()
+        ck = (f, tuple(sorted((ovr or {}).items())))
+        if ck in self.cache:
+            return self.cache[ck]
+        text = read_source(f)
         if f.endswith((".vhd", ".vhdl")):
-            mods = VhdlParser(lex(text, "vhdl", f), f).parse_file()
+            mods = VhdlParser(lex(text, "vhdl", f), f, ovr).parse_file()
         else:
-            mods = VlogParser(lex(text, "vlog", f), f).parse_file()
-        self.cache[f] = mods
+            mods = VlogParser(lex(text, "vlog", f), f, ovr).parse_file()
+        self.cache[ck] = mods
         return mods
 
-    def module(self, name):
+    def module(self, name, ovr=None):
         key = name.lower() if name.lower() in self.index else name
         f = self.index.get(key)
         if f is None:
             raise Unsupported("the module %s is not in the design's source list" % name)
-        mods = self.load(f)
+        mods = self.load(f, ovr)
         for k, m in mods.items():
             if k.lower() == name.lower():
                 return m
@@ -1611,7 +1698,7 @@ class Design:
             for f in sorted(self.files):
                 if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
                     continue
-                body = open(f, errors="replace").read()
+                body = read_source(f)
                 body = re.sub(r"--[^\n]*", "", body)
                 for m in re.finditer(r"\btype\s+(\w+)\s+is\s+record\b(.*?)\bend\s+record", body, re.S | re.I):
                     flds = []
@@ -1627,7 +1714,7 @@ def top_instances(design, topname, extra_names):
     f = design.index.get(topname)
     if f is None:
         raise CheckError("no top module %s in the source list" % topname)
-    text = open(f, errors="replace").read()
+    text = read_source(f)
     text = re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S)
     m = Mod(topname, "vlog", f)
     for dm in re.finditer(r"\b(?:wire|reg)\s*(?:\[\s*(\d+)\s*:\s*(\d+)\s*\])?\s*([\w\s,]+?)\s*(?:=|;)", text):
@@ -1742,7 +1829,18 @@ class Ctx:
     def child(self, inst):
         c = self.kids.get(inst.label)
         if c is None:
-            c = Ctx(self.ev, self.ev.d.module(inst.modname), self, inst)
+            mod = self.ev.d.module(inst.modname)
+            ovr = {}
+            for gn, want in mod.gen_assumed.items():
+                if gn in inst.generics:
+                    got = self.ev.ev(self, inst.generics[gn])
+                    if not got.x and got.v != want:
+                        ovr[gn] = got.v
+            if ovr:
+                # an if-generate of the module was decided with a default this instance does not have: the module is parsed again with the
+                # instance's value for that generic, the generate branches follow it
+                mod = self.ev.d.module(inst.modname, ovr)
+            c = Ctx(self.ev, mod, self, inst)
             self.kids[inst.label] = c
         return c
 
@@ -1789,6 +1887,7 @@ class Ev:
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
         self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
+        self.bus, self.rootv, self.roott = None, {}, {}
         self.top = Ctx(self, topmod, None, None)
         self.busname = busname
         if link is not None:
@@ -1927,6 +2026,8 @@ class Ev:
             return self.rootv[name]
         if name in mod.enums:
             return kn(mod.enums[name], 8)
+        if name in ("true", "false") and name not in mod.decls:
+            return T1 if name == "true" else F1
         if name in mod.consts:
             return self.ev(ctx, mod.consts[name])
         if name in mod.generics:
@@ -2134,6 +2235,10 @@ class Ev:
             n = self.const_int(ctx, e[1], sc)
             inner = self.ev(ctx, e[2], sc)
             return v_cat([inner] * n)
+        if k == "catpart":
+            ws = [self.lhs_width(ctx, x, sc) for x in e[2].parts]
+            lo = sum(ws[e[3] + 1:])
+            return v_slice(fit(self.ev(ctx, e[1], sc), sum(ws)), lo + ws[e[3]] - 1, lo)
         if k == "others":
             b = self.ev(ctx, e[1], sc)
             return V((mask(64) if b.v & 1 else 0), (mask(64) if b.x & 1 else 0), None)
@@ -2154,6 +2259,19 @@ class Ev:
         if k == "call":
             return self.call(ctx, e, sc)
         raise Unsupported("an expression of kind %s" % k)
+
+    def lhs_width(self, ctx, lhs, sc=None):
+        """The width of one part of a concatenation target."""
+        k = lhs[0]
+        if k == "id":
+            return self.width(ctx, lhs[1])
+        if k == "sl":
+            return self.const_int(ctx, lhs[2], sc) - self.const_int(ctx, lhs[3], sc) + 1
+        if k == "psl":
+            return self.const_int(ctx, lhs[3], sc)
+        if k in ("ix", "call") and lhs[1][0] == "id":
+            return self.width(ctx, lhs[1][1]) if self.is_array(ctx, lhs[1][1]) else 1
+        raise Unsupported("a part of a concatenation target of kind %s" % k)
 
     def index(self, ctx, base, ix, sc):
         if base[0] == "id" and self.is_array(ctx, base[1]):
@@ -2681,6 +2799,9 @@ class Ev:
                         continue
                     act = self.inst_active(ctx, inst)
                     if act:
+                        if inst.modname.lower() in BRIDGES:
+                            raise Unsupported("%s: the request reaches %s, a clock-domain bridge or an array of request records; its decode is not followed (a pass behind it would be the transport registers, not a decode)"
+                                              % (ctx.mod.fname, inst.modname))
                         c = ctx.child(inst)
                         self.check_assumed(c)
                         c.certain = act == 2
@@ -2874,7 +2995,7 @@ def _port_dir(self, modname, formal):
     f = self.index.get(modname.lower()) or self.index.get(modname)
     res = None
     if f is not None and not self.blocked(f):
-        text = open(f, errors="replace").read()
+        text = read_source(f)
         if f.endswith((".vhd", ".vhdl")):
             text = re.sub(r"--[^\n]*", "", text)
             m = re.search(r"\bentity\s+%s\s+is\b(.*?)\bend\b" % re.escape(modname), text, re.S | re.I)
@@ -2908,7 +3029,7 @@ def _pkg_const(self, name):
     for f in sorted(self.files):
         if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
             continue
-        body = re.sub(r"--[^\n]*", "", open(f, errors="replace").read())
+        body = re.sub(r"--[^\n]*", "", read_source(f))
         m = re.search(r"\bconstant\s+%s\s*:\s*\w+\s*:=\s*\((.*?)\)\s*;" % re.escape(base), body, re.S | re.I)
         if m:
             for fm in re.finditer(r"(\w+)\s*=>\s*([^,]+?)\s*(?:,|$)", m.group(1).strip()):
@@ -3151,6 +3272,9 @@ def cmd_check(args):
         wb, _, ws = opts["--window"].partition(":")
         window = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0))
     ck = Checker(des, opts["--top"], opts["--bus"], doc, window)
+    if des.denied:
+        print("rtl_check: clean room: %d file(s) of the source list are on the deny list and never opened: %s"
+              % (len(des.denied), ", ".join(os.path.basename(f) for f in des.denied)))
     errs = ck.check()
     for e in errs:
         print("rtl_check: " + e)

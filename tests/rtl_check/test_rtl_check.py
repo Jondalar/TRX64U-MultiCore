@@ -8,7 +8,7 @@
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
-  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1): the host's own decode, no checkout of another repository needed.
+  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
 import os
@@ -33,14 +33,19 @@ def must(cond, what, out=""):
 
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini"), "--toml-a", os.path.join(HERE, "mini.toml"), "--top", "top", "--bus", "msys.io_req")
-must(rc == 0 and "2 block(s), 4 properties agree" in out, "mini design: 2 blocks, 4 properties (one a run of 2 elements) agree with the RTL", out)
+must(rc == 0 and "5 block(s), 8 properties agree" in out, "mini design: 5 blocks, 8 properties agree with the RTL (a concatenation target, a Verilog for loop with <, a generate branch the instance parameter opens)", out)
+must("ultisid_stub.vhd" in out and "never opened" in out,
+     "mini design: ultisid_stub.vhd (not valid VHDL) is on the deny list by its name, listed and never opened", out)
 
 ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-Ultimate"))
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 56 properties agree" in out,
-         "c64_basic: 10 blocks, 56 properties agree with the RTL (the maps c64cart and c64cart_regs of app/sdkpkg/maps, dma behind its handshake)", out)
+    must(rc == 0 and "10 block(s), 53 properties agree" in out,
+         "c64_basic: 10 blocks, 53 properties agree with the RTL (the maps sid, c64cart, c64cart_regs and dma of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake)", out)
+    rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic_uci.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+    must(rc == 1 and "an RTL pattern I do not know" in out and "clock-domain bridge" in out,
+         "c64_basic: uci and the drive (maps uci, cbm1541) stop the check at the bridge/splitter pattern, they do not pass on the transport registers", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
 
@@ -51,8 +56,9 @@ must(rc == 0 and "6 block(s), 20 properties agree" in out, "vc20: 6 blocks, 20 p
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "45 block(s), 91 properties agree" in out,
-     "host: 45 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over)", out)
+must(rc == 0 and "57 block(s), 176 properties agree" in out and "clean room" not in out,
+     "host: 56 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows, the 16 overlay palette entries; no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)
