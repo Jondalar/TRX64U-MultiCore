@@ -979,6 +979,7 @@ size = 0x14
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
     def test_the_windows_granted_to_trx64u_are_accepted(self):
+        # these addresses are in the firmware space (U2P_IO_BASE 0xA0000000); the table of base blocks is in the CPU space of the host TOML A (0x10100000), so the check does not compare them (open question, T239.3 V-3b)
         # the runs next to the base's own registers that the handover grants: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D of the U64 block, speaker_enable
         text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2), ("u64_pwm_duty", 0xA000040D, 1),
                                                                                       ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400)))
@@ -1012,7 +1013,7 @@ size = 0x14
             beside = (("next_to_the_last", top, 0x10), ("below_the_first", lo - 0x10, 0x10), ("between_two_blocks", 0x10100405, 1))
             text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
             self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
-            self.assertEqual(D.base_block_hit(0x10100404, 1)[0:2][1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
+            self.assertEqual(D.base_block_hit(0x10100404, 1)[1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
             self.assertEqual(D.base_block_hit(top, 0x10), None)                  # the table is what the check reads: the first byte past the last block is free
         finally:
             D._BASE_BLOCKS["rows"] = None
