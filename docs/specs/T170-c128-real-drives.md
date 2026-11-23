@@ -77,7 +77,9 @@ The design below was chosen while building (agent, 2026-11-23); Alex's decisions
   ties them (`cia1_*`); CIA 2 stays as it was (user port). Polarity of the core's bus (1 = released) is kept.
 - **D4 The line on the port.** `cores/c128/iec_bus_c128.v` is a copy of `iec_bus_c64u.v` with SRQ (in and out); drive A has no SRQ. `IEC_SRQ_O = 1` pulls low like the other `_O`; `IEC_SRQ_I = 1` while low.
   The ball K14 is constrained in `cores/c128/mono/iec_srq_pins.xdc` (the host's `pins.xdc` is not touched). `layer2_c128.v` gets the two ports beyond the contract's 247: the flat build has no partition, so
-  the core's descriptor says so (`layer2_extra` in `cores/c128/mono/core.toml`, a field of `tools/core_toml.py`), and `tools/contract_ports.py` checks that the 247 are unchanged and the extra ones are exactly those named.
+  the core's descriptor says so (`layer2_extra` in `cores/c128/mono/core.toml`, a field of `tools/core_toml.py`), and `tools/contract_ports.py` checks that the 247 are unchanged and the extra ones are exactly those named. Alex, 2026-11-23, asked whether this is right or the contract itself should
+  grow (a new version, every .cor rebuilt, tie-offs in the partial cores), chose "layer2_extra ok": the field holds for large cores only;
+  the contract stays at its version and its 247 ports.
 - **D5 The trace.** `cores/c128/c128_iectrace.v`: a ring of 1024 events of 32 bits (one RAMB36), written in `sys_clk`: [31:16] ticks since the event before (saturating), [9] C128 mode, [8] FSDIR,
   [7:4] the board port's lines, [3:0] the bus as the core hears it. Every change of ATN, CLK, FSDIR or the mode is an event; DATA and SRQ changes too, except while SRQ moves (changed less than 256 ticks = 8 us ago, a burst): the
   first edge and the state after the quiet are events. Counters of every edge of the four lines (32 bit) count what the ring leaves out. Without that rule one 20 KB burst would overwrite the ring many times
