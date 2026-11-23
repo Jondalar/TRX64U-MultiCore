@@ -4,8 +4,7 @@
 #include "FreeRTOS.h"
 #include "run.h"
 #include "diag.h"
-#include "online.h"
-#include "cbm1541.h"
+#include "libtab.h"
 #include "ui.h"
 #include "netfs.h"
 #include "hw.h"
@@ -28,7 +27,6 @@
 #include "mediamounts.h"
 #include "home.h"
 #include "freeze.h"
-#include "uci.h"
 #include "menuctl.h"
 #include "romfind.h"
 #include "ops_glue.h"
@@ -447,14 +445,12 @@ void coreapp_held(const char *why, const BoardProfile *board)
 static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
 
 // T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
-// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, online, diag); a record core gets them by its data.
+// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, online, diag); a record core gets them by its data: the Diagnostics tab here, the groups
+// of the linked libraries from the library table (libtab.h, P3-1: the TOML B of the app names them, this file names none).
 static void record_groups(OpRegistry &r, const CoreDesc *d)
 {
     diag_register(r);                                         // the Diagnostics tab (diag.cc): the log, the EDID, the heap, the media and USB states
-    online_register(r);                                       // the Assembly64 / CommoServe search, a central library (D12)
-    if (desc_has_capability(d, "drive_a")) {                  // drive A is the 1541 in every core that names it (cbm1541.cc): drive.put_rom and the drive's rows
-        cbm1541_register(r);
-    }
+    libtab_register_ops(r, d);
 }
 
 static bool early_open;
@@ -1108,7 +1104,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                     continue;
                 }
             }
-            bool want = hw_menu_button_pressed() | uci_take_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
+            bool want = hw_menu_button_pressed() | libtab_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
             int k;
             while ((k = getch_nowait()) >= 0) {
                 if (picture_confirm_pending()) {
@@ -1124,7 +1120,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             app_host.service(false);
             vTaskDelay(1);
         } else {
-            uci_take_freeze_request();                // the menu is open already: the request is answered
+            libtab_freeze_request();                // the menu is open already: the request is answered
             if (!app_host.session() && !menu->learning() && (hotkey_poll() & (1u << HKA_MENU))) {   // T207: not while a key is being learned
                 uiapp_local_leave();                  // T181: the menu hotkey closes it again (the leave intent; the loop closes below)
                 if (!close_req) {

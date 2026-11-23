@@ -4,7 +4,8 @@
 #include "netfs.h"
 #include "ftp_client.h"
 #include "ctx.h"
-#include "online.h"
+#include "online_api.h"
+#include "libload.h"
 #include "file.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -192,7 +193,19 @@ public:
 
 }   // namespace
 
-// "/Online" and below: the results of the Assembly64 / CommoServe search (online.cc)
+// "/Online" and below: the results of the Assembly64 / CommoServe search. The library that has it gives the table "online" (online_api.h); an app linked without it has none and no folder.
+static const OnlineApi *online_api(void)
+{
+    uint32_t sz = 0;
+    const OnlineApi *a = (const OnlineApi *)LibLoader::find_export(ONLINE_API_NAME, U2A3_VERSION(ONLINE_API_MAJOR, 0), &sz);
+    return a && sz >= sizeof(OnlineApi) ? a : 0;
+}
+static bool online_has_results(void) { const OnlineApi *a = online_api(); return a && a->has_results(); }
+static int online_list(const char *rel, FsEntry *out, int max) { const OnlineApi *a = online_api(); return a ? a->list(rel, out, max) : -1; }
+static bool online_stat(const char *rel, uint64_t *size, bool *dir) { const OnlineApi *a = online_api(); return a && a->stat(rel, size, dir); }
+static uint8_t *online_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, len) : 0; }
+static const char *online_error(void) { const OnlineApi *a = online_api(); return a ? a->error() : "No online search in this app"; }
+
 static bool is_online(const char *p, const char **rel)
 {
     if (strncasecmp(p, "/online", 7) || (p[7] && p[7] != '/')) {

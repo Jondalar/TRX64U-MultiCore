@@ -1,6 +1,7 @@
 // The Assembly64 / CommoServe search (online.h). The query is built the way assembly_search.cc's send_query() builds it: (field:"value") joined by &, drop-down fields unquoted by their
 // aqlKey, a rating as >=; the library field selects the client id ("Ultimate" is Assembly64, "Commodore" is CommoServe).
 #include "online.h"
+#include "online_api.h"
 #include "ops_glue.h"
 #include "a64_assembly.h"
 #include <stdio.h>
@@ -516,4 +517,12 @@ uint8_t *online_fetch(const char *rel, uint32_t *len)
         *len = dl_len;
     }
     return c;
+}
+
+// The table the file manager reads the folder "/Online" through (online_api.h), given to the loader when the library is bound (libtab.h).
+static const OnlineApi g_online = { sizeof(OnlineApi), online_has_results, online_list, online_stat, online_fetch, online_error };
+
+void online_bind(CoreCtx *, LibLoader &ld)
+{
+    ld.add_export(ONLINE_API_NAME, ONLINE_API_MAJOR, &g_online);
 }

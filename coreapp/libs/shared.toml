@@ -1,0 +1,77 @@
+# TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with. A library is a set of sources, the headers that name its functions, and the entries it hands the
+# generic application; tools/libtab.py turns this file into the library table (libtab_table.cc) and the list of sources the build compiles, and checks that no generic source
+# names a library. An app linked without a library has none of its code. Entries (each a function, see libtab.h):
+#   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: only for a core that names it)
+#   init          once the board is known                                    start          once the network settings are pushed
+#   freeze_request  the library asks for the menu (read by the service loop)
+# `needs` names the libraries this one calls; the build refuses a library whose need is not in the file. `sources` and `headers` are file names, found in coreapp/src, coreapp/cores,
+# app/loaders or app/lib/cbm1541.
+
+[app]
+name = "shared"
+
+[[library]]
+name = "c64cart"
+sources = ["c64_cart.cc", "c64cart_exports.cc"]
+headers = ["c64_cart.h", "c64_cart_desc.h", "c64cart_api.h"]
+bind = "c64cart_bind"
+
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
+headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
+bind = "cbm1541_bind"
+register_ops = "cbm1541_register"
+capability = "drive_a"
+
+[[library]]
+name = "uci"
+sources = ["uci.cc", "uci_slot.cc", "uci_exports.cc"]
+headers = ["uci.h", "uci_slot.h", "uci_api.h"]
+bind = "uci_bind"
+freeze_request = "uci_take_freeze_request"
+
+[[library]]
+name = "sid"
+sources = ["sidfile.cc", "resid8.cc", "sid_exports.cc"]
+headers = ["sidfile.h", "resid8.h", "sid_api.h"]
+bind = "sid_bind"
+
+[[library]]
+name = "tempdisk"
+sources = ["tempdisk.cc", "tempdisk_exports.cc"]
+headers = ["tempdisk.h", "tempdisk_api.h"]
+bind = "tempdisk_bind"
+init = "tempdisk_lib_init"
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+headers = ["cbm_prg.h", "cbmprg_api.h"]
+bind = "cbmprg_bind"
+
+# The program loader of the CBM family and the C64's go-to-address (c64_go.cc, P1-8: it stays here as part of this library).
+[[library]]
+name = "cbmrun"
+sources = ["cbm_run.cc", "c64_go.cc"]
+headers = ["cbm_run.h", "c64_go.h"]
+needs = ["cbmprg"]
+
+[[library]]
+name = "dma"
+sources = ["dmasvc.cc"]
+headers = ["dmasvc.h"]
+start = "dmasvc_start"
+
+[[library]]
+name = "t64"
+sources = ["t64.cc", "t64_vlist.cc"]
+headers = ["t64.h"]
+bind = "t64_bind"
+
+[[library]]
+name = "online"
+sources = ["online.cc", "a64_assembly.cc", "a64_http.cc"]
+headers = ["online.h", "online_api.h", "a64_assembly.h", "a64_http.h"]
+bind = "online_bind"
+register_ops = "online_register"
