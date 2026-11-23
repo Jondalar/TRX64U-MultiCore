@@ -1334,8 +1334,8 @@ void ui_paused_tag(bool on)
         lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
         lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
         const TrxTheme &t = trx_theme();
-        lv_obj_t *b = trx_box(scr, SW - 250, 14, 236, 30, 0x101018);
-        trx_txt(b, 12, 6, "PAUSED   P RESUME", t.caption, 0xFFFFFF);
+        lv_obj_t *b = trx_box(scr, SW - 140, 14, 126, 30, 0x101018);
+        trx_txt(b, 12, 6, "PAUSED", t.caption, 0xFFFFFF);
         ui_live_key(true);
         trx_lv_resume();
         trx_lv_set_alpha(255);

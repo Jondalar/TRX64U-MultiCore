@@ -74,7 +74,8 @@ bool trx_lv_show_picture(const uint16_t *fb);
 // one the user feels. Does nothing when the layer was taken away or suspended.
 void trx_lv_refresh_now(void);
 
-// UI task: global alpha of the layer (255 opaque .. 0 invisible), written now.
+// UI task: global alpha of the layer (255 opaque .. 0 invisible), written now when the layer is up, else with the first picture.
+// The layer going off (close, yield, suspend) sets it back to 255.
 // False when the layer was taken away.
 bool trx_lv_set_alpha(uint8_t alpha);
 
