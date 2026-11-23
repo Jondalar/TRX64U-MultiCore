@@ -50,18 +50,26 @@
 
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
-    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
+    const char *core = 0, *desc = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
     int scale = 0;
 };
 static Opts o;
 
 static void usage(void)
 {
-    fprintf(stderr, "menusim <core> [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
+    fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
                     "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n");
     exit(2);
 }
 
+// T239.3 P3-2 (D32): a core that is in no table - the SDK's - is its TOML: --desc FILE is the description (core sections and menu tables). It is compiled by the tree's tools/descrec.py, the
+// descriptor is made of it as the service does for a core's .cor (descrec_core), and the same file is the menu TOML. The core's code (its control hooks) is not here: the menu shows the core's
+// operations as the TOML names them and a hook does nothing.
+static const CoreDesc *g_src;
+static CoreDesc g_desc_core;
+static DescRecord *g_desc_rec;
+static std::vector<uint8_t> g_desc_bytes;
+static std::string g_desc_id;
 static bool same(const char *a, const char *b) { return a && b && !strcasecmp(a, b); }
 
 static const CoreDesc *find_core(const char *name)
@@ -88,6 +96,22 @@ static Mode mode;
 static int frame_w, frame_h;
 
 // ---- the menu: the core's descriptor, or its descriptor with the menu record merged in ---------------------------------------------
+static bool compile_toml(std::vector<uint8_t> *rec, std::string *why);
+static bool core_from_desc(std::string *why)
+{
+    o.toml = o.desc;
+    if (!compile_toml(&g_desc_bytes, why)) { return false; }
+    g_desc_rec = new DescRecord();
+    char w[200];
+    if (descrec_parse(g_desc_bytes.data(), (uint32_t)g_desc_bytes.size(), g_desc_rec, w, sizeof(w)) != 0) { *why = w; return false; }
+    if (!g_desc_rec->has_core) { *why = "the description has no core section ([core]): it describes a menu, not a core"; return false; }
+    DescCode code = DescCode();
+    if (descrec_core(g_desc_rec, &code, &g_desc_core, w, sizeof(w)) != 0) { *why = w; return false; }
+    g_desc_id = g_desc_core.core_id ? g_desc_core.core_id : g_desc_core.folder ? g_desc_core.folder : "core";
+    o.core = g_desc_id.c_str();
+    g_src = &g_desc_core;
+    return true;
+}
 struct Menu {
     const CoreDesc *open;                 // what ui_open() gets: the core's own descriptor
     CoreDesc *desc;                       // what the menu runs on
@@ -252,7 +276,6 @@ static void sum_line(const char *tag, const Sum &s)
 }
 
 // ---- the session -----------------------------------------------------------------------------------
-static const CoreDesc *g_src;
 static Menu g_menu;
 static Rig *g_rig;
 static bool g_open = true;                                    // the menu is up
@@ -464,6 +487,7 @@ int main(int argc, char **argv)
         else if (a == "--stats") { o.stats = val(); }
         else if (a == "--shots") { o.shots = val(); }
         else if (a == "--toml") { o.toml = val(); }
+        else if (a == "--desc") { o.desc = val(); }
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
         else if (a == "--say") { o.say = val(); }
@@ -478,8 +502,13 @@ int main(int argc, char **argv)
         else if (!o.core) { o.core = argv[i]; }
         else { usage(); }
     }
-    if (!o.core) { usage(); }
-    g_src = find_core(o.core);
+    if (!o.core && !o.desc) { usage(); }
+    if (o.desc) {
+        std::string why_desc;
+        if (!core_from_desc(&why_desc)) { fprintf(stderr, "menusim: %s: %s\n", o.desc, why_desc.c_str()); return 1; }
+    } else {
+        g_src = find_core(o.core);
+    }
     if (!g_src) {
         fprintf(stderr, "menusim: no core \"%s\"; the core table has:", o.core);
         for (int i = 0; core_table[i]; i++) { fprintf(stderr, " %s", core_table[i]->core_id ? core_table[i]->core_id : core_table[i]->folder); }
@@ -492,7 +521,7 @@ int main(int argc, char **argv)
     video_active_size(mode.hdmi, mode.sys, &frame_w, &frame_h);
     // the menu TOML: --toml, else coreapp/cores/<core>/menu.toml of the tree; its ops list: --ops, else tests/coreapp/golden/ops_<core>.txt
     static std::string toml_s, ops_s;
-    if (!o.toml) {
+    if (!o.toml && !o.desc) {
         toml_s = std::string(o.root) + "/coreapp/cores/" + o.core + "/menu.toml";
         if (exists(toml_s)) { o.toml = toml_s.c_str(); }
     }

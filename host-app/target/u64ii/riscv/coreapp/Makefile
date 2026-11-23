@@ -338,6 +338,14 @@ ifneq ($(strip $(LIB_GEN)),)
 $(error $(LIB_GEN))
 endif
 include $(LIB_DIR)/libtab.mk
+
+# T239.3 P3-2 (D31): the maxima of the registry, the contributions, the report and the record are the [sizes] table of the TOML B (empty here: the headers' defaults). `app_build.py sizes`
+# writes appsizes.h, and every object is compiled with it (OPTIONS below), so the objects that tools/app_build.py sized names and the ones of the SDK package agree by construction.
+SIZES_DIR = $(OUTPUT)/sizes
+SIZES_GEN := $(shell python3 $(PATH_SW)/../../tools/app_build.py sizes $(LIB_TOMLB) $(SIZES_DIR) 2>&1 || echo "app_build: the sizes were not generated")
+ifneq ($(strip $(SIZES_GEN)),)
+$(error $(SIZES_GEN))
+endif
 SRCS_CC += $(LIB_SRCS_CC) libtab.cc libtab_table.cc
 VPATH += $(LIB_DIR)
 
@@ -357,12 +365,15 @@ OPTIONS += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1 -I$(PATH_S
 OPTIONS += -I$(PATH_SW)/lvgl -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
 # T239.3 D15: heap_5 with one region defined at the first allocation (coreapp/src/heapcfg.c); its size is the heap word of the image, set per core by the packer
 OPTIONS += -DCORE_OWN_IMAGE_C64    # T228 R25: the shared image leaves the TRX64U C64 out (coreapp/src/table.cc); it has an image of its own (target own)
-OPTIONS += $(COREAPP_EXTRA)      # #93: -DLISTGROW_START=40 -DLISTGROW_HARD=60 for the mock-up image that shows the "more entries not shown" line; never for a board
+OPTIONS += -include $(SIZES_DIR)/appsizes.h    # T239.3 P3-2: the [sizes] of the TOML B, see above
+OPTIONS += $(COREAPP_EXTRA)     # #93: -DLISTGROW_START=40 -DLISTGROW_HARD=60 for the mock-up image that shows the "more entries not shown" line; never for a board
 COPTIONS = $(OPTIONS) -std=gnu99
 CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
 LINK 	 = linker.x
-LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
-LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
+LWIP_A  = ../../../libs/riscv/lwip/result/liblwip.a
+LVGL_A  = ../../../libs/riscv/lvgl/result/liblvgl.a
+LIBS    = $(LWIP_A)
+LIBS   += $(LVGL_A)
 # T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
 # one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
 IOFRAG  ?= ../trx_io.ld
@@ -374,6 +385,34 @@ VERSION_COMPONENT = coreapp          # T221: ci/version.sh <component> names the
 include ../../../common/rules.mk
 
 $(OUTPUT)/$(PRJ).out: $(IOFRAG)
+
+# T239.3 P3-2 (D31): what the SDK package takes from this build (tools/sdk_pack.sh --base-dir): `make sdkbase` after the build. The sources whose include closure holds a header that the
+# core's TOML A or TOML B decides (tools/app_build.py sized) are compiled again for each core, from the package's sources; the objects of every other source go into one archive
+# (libtrxbase.a, linked whole), with the two libraries (lwip, lvgl) and the start-up objects, the linker script and the include path. The registry, the contributions and the report are
+# sized per core, so most of the application is in the first group; the vendor drivers, FreeRTOS, FatFs and the sources that touch none of those headers are the archive.
+SDKBASE       = $(OUTPUT)/sdkbase
+SDK_GENERATED = drvtab.c libtab_table.cc
+SDK_START     = crt0.o port_asm.o
+SDK_SRCS_ALL  = $(filter-out $(SDK_GENERATED) $(LIB_SRCS_CC),$(SRCS_C) $(SRCS_CC))
+SDK_PATHS     = $(foreach f,$(SDK_SRCS_ALL),$(firstword $(wildcard $(addsuffix /$(f),$(VPATH)))))
+sdkbase: all
+	@rm -rf $(SDKBASE)/lib $(SDKBASE)/incdirs.txt $(SDKBASE)/archive.objs
+	@mkdir -p $(SDKBASE)/lib
+	@# the include path of the build, in order, as real paths: ffconf first, then the directories the sources are found in
+	@for d in $(PATH_SW)/../../coreapp/ffconf $(PATH_SW)/lvgl $(PATH_SW)/hostapp $(VPATH); do [ -d "$$d" ] && (cd "$$d" && pwd -P); done | awk '!s[$$0]++' > $(SDKBASE)/incdirs.txt
+	@(cd $(PATH_SW)/../.. && pwd -P) > $(SDKBASE)/root.txt
+	@python3 $(PATH_SW)/../../tools/app_build.py split $(SDKBASE)/incdirs.txt $(SDKBASE) $(SDK_PATHS)
+	@sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' $(SDKBASE)/unsized.real > $(SDKBASE)/archive.objs
+	@$(AR) rcs $(SDKBASE)/lib/libtrxbase.a `cat $(SDKBASE)/archive.objs`
+	@for o in $(SDK_START); do cp $(OUTPUT)/$$o $(SDKBASE)/lib/; done
+	@cp $(LWIP_A) $(LVGL_A) $(SDKBASE)/lib/
+	@# the shipped objects carry no debug sections: they name the checkout they were compiled in, and an app linked from the package must name none
+	@$(CROSS)strip --strip-debug $(SDKBASE)/lib/*.a $(SDKBASE)/lib/*.o
+	@cp $(LINK) $(SDKBASE)/linker.x
+	@mkdir -p $(SDKBASE)/gen && cp $(OUTPUT)/gitinfo.h $(SDKBASE)/gen/gitinfo.h
+	@echo "sdkbase: `wc -l < $(SDKBASE)/sized.real | tr -d ' '` sources are compiled for the core, `wc -l < $(SDKBASE)/archive.objs | tr -d ' '` objects are in libtrxbase.a"
+
+.PHONY: sdkbase
 
 # T228 R25 (Alex 2026-11-18): an image of its own for one core - `make own OWN=trx64u OWN_DESC=c64_desc OWN_HEAP=0x...` after the shared build.
 # The same objects as the shared image, except the core table, which holds that core only (table.cc with -DCORE_ONLY: --gc-sections then drops

@@ -64,16 +64,34 @@ struct Overrides {
 
 const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 added the Settings area
 
-// ---- the result -------------------------------------------------------------------------------------------------------------
+// ---- the result: the maxima are defaults; an app linked from the SDK sets them in the [sizes] table of its TOML B (tools/app_build.py) ----
+#ifndef CONTRIB_SETTINGS_MAX
 #define CONTRIB_SETTINGS_MAX 16           // settings contributed by all together
+#endif
+#ifndef CONTRIB_VALUES_MAX
 #define CONTRIB_VALUES_MAX 16             // values of one contributed setting (a range wider than this is refused)
-#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES = 32; the TRX64U has 24 since T228 R21) and the new ones
+#endif
+#ifndef CONTRIB_FILETYPES_MAX
+#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES of them; the TRX64U has 24 since T228 R21) and the new ones
+#endif
+#ifndef CONTRIB_ACTIONS_MAX
 #define CONTRIB_ACTIONS_MAX 96            // actions over all of those
+#endif
+#ifndef CONTRIB_POOL_MAX
 #define CONTRIB_POOL_MAX 1024             // characters of the labels made for contributed range settings
+#endif
+#ifndef CONTRIB_ERR_MAX
 #define CONTRIB_ERR_MAX 24
+#endif
+#ifndef CONTRIB_POLLS_MAX
 #define CONTRIB_POLLS_MAX 12
+#endif
+#ifndef CONTRIB_SLOTPOOL
 #define CONTRIB_SLOTPOOL 3072             // characters of the strings made by $slot expansion
+#endif
+#ifndef CONTRIB_BINDPOOL
 #define CONTRIB_BINDPOOL 64
+#endif
 #define CONTRIB_ERR_LEN 200
 
 struct MergedNode {

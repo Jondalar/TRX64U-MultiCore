@@ -151,9 +151,17 @@ struct EventDef {
     int nsubs;
 };
 
-#define OPS_MAX 400                       // T228 review: trx64u's record and an application's own (TREX CRT: about 30 ops, 41 states) did not fit
-#define STATES_MAX 320                    // in 300 / 200; 24 bytes an entry on RV32, so the two cost 4.4 KB more of static RAM
+// The registry's maxima are the defaults of the shared app. An app linked from the SDK takes its own from the [sizes] table of its TOML B (tools/app_build.py writes them as
+// appsizes.h, which every object that includes this header is compiled with: the registry's arrays are part of the class).
+#ifndef OPS_MAX
+#define OPS_MAX 400
+#endif
+#ifndef STATES_MAX
+#define STATES_MAX 320
+#endif
+#ifndef EVENTS_MAX
 #define EVENTS_MAX 8
+#endif
 
 // What the registry held at one moment: a loader takes one before a library registers and gives it back when the library fails, so a
 // refused library leaves no name behind (T104.1 D10.3). Only valid while nothing was registered after it by someone else.
