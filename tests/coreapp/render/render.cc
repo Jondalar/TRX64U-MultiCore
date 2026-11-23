@@ -417,8 +417,9 @@ static void a1200_menu(const char *out)
         ui_menu_render(*r.m);
         lv_timer_handler();
     }
-    // T190: the Amiga's Mouse sensitivity / Mouse acceleration rows (group "input") on the Settings page, each selected in turn at 1080p: the selected row
-    // is inside the view (R1) and nothing lies outside the canvas.
+    // T190: the Amiga's Mouse Sensitivity / Mouse Acceleration rows, each selected in turn at 1080p: the selected row is inside the view (R1) and nothing
+    // lies outside the canvas. Since base 3.3 they are settings of the application (baseset.h, group "input"), listed on the APP page (F7) of a core
+    // whose descriptor has a mouse, no longer on the core's Settings page.
     {
         Rig m(&a12, "/usb0/cores/amiga1200.cfg");
         m.c.started = true;
@@ -427,8 +428,7 @@ static void a1200_menu(const char *out)
         picture_start(&m.c, VID_SYS_PAL50, VID_HDMI_1080P);
         m.vid->init();
         m.m->open();
-        m.m->key(KEY_F5);
-        m.m->key('4');                                       // the core, Video, Audio, Input: the Amiga's mouse rows are the fourth tab here
+        m.m->key(KEY_F7);                                    // the APP page: the application's own settings (T212 D12: no tab strip)
         int found = 0;
         for (int i = 0; i < m.m->rows(); i++) {
             char l[120], v[120]; bool ap;
