@@ -199,5 +199,5 @@ exception coreapp/src/trx64u_ops.h +5 T228-R20 (Alex 2026-11-18: "repair. It has
 exception coreapp/cores/hk_defaults.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64scpu.cc +18 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 exception coreapp/cores/c64scpu_regs.h +1 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
-exception coreapp/cores/c128.cc +1 T258 D10 (Alex 2026-11-23: "Exception +1 line")
+exception coreapp/cores/c128.cc +1 T258-D10 (Alex 2026-11-23: "Exception +1 line")
 # t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.
