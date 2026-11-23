@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1-D7 (Alex 11-23); API draft agreed with TRX64-Ultimate in parts; next: §2 and §3 complete
+Open (one line, as in the TODO table): Decided D1-D10 (Alex 11-23); service built as T239.3 T-2 (branch t239.3-t2-overlay); TRX64-Ultimate T-3 next
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -92,8 +92,10 @@ table of states, the calls, their geometry).
 
 - **D3** (Alex, 2026-11-23): a library draws a pixel surface. Asked how a library draws its overlay, he chose "Pixel surface": the
   library paints an RGB565 buffer itself, the base puts it at a place over the picture, pixels in the key colour stay transparent, and
-  the base offers text helpers with its fonts. The still and the elements take the same way, and TRX64-Ultimate's pixel code (the
-  Timewarp bar, `tw_draw_bar`) fits unchanged. Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
+  the base offers text helpers with its fonts. The still and the elements take the same way. (Corrected 2026-11-23, read in
+  TRX64-Ultimate: `tw_draw_bar`, `software/ultimate-app/software/io/c64/trx_video.cc:731`, does not fit unchanged. It paints into
+  the full-screen layer buffer at the absolute place of `tw_layout()` with that buffer's stride (`:735-737`), and it mixes the still
+  under the bar itself (`:739`). T-3 moves it into the ring library and paints into a surface of the service.) Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
   second path for the still), and both (the most work).
 
 - **D4** (Alex, 2026-11-23): an element shows only while the menu is closed. Asked what shows while the menu is open, he chose "Only
@@ -117,7 +119,33 @@ table of states, the calls, their geometry).
   menu after an operation of its own (`closes_menu`, api.md 1621, 1683). Lost: a modal hidden menu (the machine frozen, the keys
   to the library through a new key callback).
 
-The other decisions are asked one at a time and recorded here.
+- **D8** (Alex, 2026-11-23): an element's place comes from the TOML. Asked where a library element's place on the 960x540
+  canvas comes from, he chose "From the TOML": the core's UI TOML names each element with its anchor, offset and size, as the
+  menu rows take their place from the TOML (T239.3 D32), and the menu simulator shows it. The library's call hands over the
+  surface and redraws it. Lost: a place the library sets at run time, from the call or as a move beside a TOML default.
+
+- **D9** (Alex, 2026-11-23): elements are opaque. Asked how opaque a library element is over the picture while the menu is closed
+  (the layer has one alpha; key-colour pixels are always transparent), he chose "Opaque": elements show at full opacity, only
+  their key-colour pixels let the picture through, and the person's "Overlay Transparency" applies to the open menu only. Lost:
+  elements that follow the person's transparency, and one opacity per core set in its TOML.
+
+- **D10** (Alex, 2026-11-23): the rest of the design follows from D1-D9. Asked whether T-2 builds it as read here, he chose
+  "Yes, build it":
+  - The calls of the SDK group: `show(name, surface)` gives an element whose place and size come from the core's UI TOML (D8);
+    `update(el)` redraws it at the next frame; `remove(el)` takes it away; `text(surface, x, y, s, colour)` writes with the
+    base's fonts (D3); `menu_hide()` and `menu_show()` act as closing the menu and as the menu key (D6, D7).
+  - An element shows only while the menu is closed (D4): on a C64-type core over the running picture, on a layer core only while
+    the machine stands (D1). Elements are opaque (D9); the open menu has the person's Overlay Transparency.
+  - The still is taken when the machine stops (Pause, or the menu's stop of a C64-type machine): from the host's still capture,
+    the core's frame buffer or a library's surface. A TOML element marked as the still lies under the open menu (D4), and the
+    menu is blended over it in software, so the menu looks as it does over the running picture.
+  - Several libraries may show elements at once, drawn in TOML order. Calls come from any task; the UI task takes them over at
+    the next frame. When a library is released or its core is left, its elements go, and the layer takes its state at once.
+  - Limits: the TOML check refuses a place outside the canvas; a call whose buffer is not w x h x 2 bytes is refused with the
+    reason; the maxima are sized from the TOML at link time. The PAUSED tag is an element of the base UI TOML (D5).
+  The other answer was to talk the points through one by one first.
+
+All open decisions are taken (D1-D10).
 
 ## §4 Out
 
