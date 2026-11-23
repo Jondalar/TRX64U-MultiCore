@@ -13,6 +13,8 @@ op	sectors.eject	unit:int:0:1:0:
 op	sectors.mount_folder	path:string:0:0:255:	unit:int:0:1:0:
 op	romset.put	data:blob:0:0:0:
 op	led.load	value:enum:0:1:0:On|Off
+op	mouse.sens	value:int:1:16:0:
+op	mouse.accel	value:enum:0:1:0:Off|Adaptive
 op	media.poll
 op	media.flush_for_core
 op	media.persist_apply	value:int:0:1:0:
