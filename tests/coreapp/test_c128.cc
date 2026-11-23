@@ -1246,7 +1246,7 @@ int main()
                 CHECK_EQ(sel(*h, "c128.use_jiffy_1541", "half.bin", &ho), OPE_OK);
                 h->set("ROM set", 1);
                 CHECK(h->boot());
-                Bytes want16(sk.begin(), sk.begin() + 8192);
+                Bytes want16(sk.begin() + (stock_n - 16384), sk.begin() + (stock_n - 16384) + 8192);   // the 1541 part of the file is its last 16 KiB
                 want16.insert(want16.end(), half.begin(), half.end());
                 CHECK(h->io.dm.rom() == win(want16));
                 setrom(*h, 0, &ho);
@@ -1270,7 +1270,7 @@ int main()
                 CHECK(h->boot());
                 setrom(*h, 1, &ho);
                 if (!strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too")) printf("  S12: \"%s\"\n", ho.msg);
-                CHECK(strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too (in the roms folder)") != 0);
+                CHECK(strstr(ho.msg, "JiffyDOS 1541 ROM needs the stock ROM too. Put it in roms/c128 on a USB stick or SD card.") != 0);
                 CHECK(h->io.dm.rom() == Bytes(32768, 0));
                 // the stock ROM arrives later (put again): the composition follows
                 Bytes sk = pattern(13, 16384);

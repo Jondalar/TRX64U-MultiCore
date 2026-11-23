@@ -42,16 +42,16 @@ static inline bool drive_pick_size_ok(const DriveRomKind &k, uint64_t n)
 // Returns a line for the person in msg when the setting wants a ROM that is not there.
 static inline void drive_pick_apply(CoreCtx *c, DriveRomPick &s, const DriveRomKind &k, bool jiffy, char *msg, int msglen)
 {
-    static uint8_t whole[2 * ROM_HALF];
-    uint32_t jn = (k.half && s.n_jiffy == ROM_HALF) ? rom_half_over(whole, s.stock, s.n_stock, s.jiffy_rom) : s.n_jiffy;
+    bool half = k.half && s.n_jiffy == ROM_HALF;        // the composed ROM lies in jiffy_rom behind the half (no buffer of its own)
+    uint32_t jn = half ? rom_half_over(s.jiffy_rom + ROM_HALF, s.stock, s.n_stock, s.jiffy_rom) : s.n_jiffy;
     int want = (jiffy && jn) ? DR_JIFFY : (s.n_stock ? DR_STOCK : DR_NONE);
     if (jiffy && !jn && (!k.quiet || s.n_jiffy) && msg && msglen) {
-        snprintf(msg, msglen, "JiffyDOS %s ROM %s", k.what, s.n_jiffy ? "needs the stock ROM too (in the roms folder)" : "not supplied");
+        snprintf(msg, msglen, s.n_jiffy ? "JiffyDOS %s ROM needs the stock ROM too. Put it in roms/%s on a USB stick or SD card." : "JiffyDOS %s ROM not supplied", k.what, c->desc->folder);
     }
     if (want == DR_NONE || want == s.applied) {
         return;
     }
-    const uint8_t *p = want == DR_JIFFY ? (jn == s.n_jiffy ? s.jiffy_rom : whole) : s.stock;
+    const uint8_t *p = want == DR_JIFFY ? (half ? s.jiffy_rom + ROM_HALF : s.jiffy_rom) : s.stock;
     uint32_t n = want == DR_JIFFY ? jn : s.n_stock;
     OpIn in = in_blob("data", p, n);
     OpResult r;
