@@ -92,3 +92,45 @@ size = 0x10
   offset = 0x00
   width = 8
   dir = "rw"
+
+# The blocks a board probe asks for (board.cc, hw.cc HwBoardProbe): a probe runs only when the app's driver table has its block (DRV_HAS_<block>). iec_status is the IEC block's
+# version byte at IEC_BASE (the same bytes as the host's TOML A); c64cart is the cartridge page of trx_io (page 4, TRX_IO_BASE + 0x4000) and dma the 64 KiB DMA window of the C64
+# machine (host.toml has it at the same address): the cartridge probe (TRX_CAPS b4) and the REU probe (the REU is part of the C64 machine) ask for them. The ring probe (TRX_CAPS b0-b2) asks for
+# c64_debug, the block of the C64 machine's debug register above.
+[[block]]
+name = "iec_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10028000
+size = 0x3
+  [[block.property]]
+  name = "version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo0"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo1"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "c64cart"
+module = "trx_io"
+owner = "base"
+address = 0x101A4000
+size = 0x70
+map = "c64cart"
+
+[[block]]
+name = "dma"
+module = "dma_win"
+owner = "base"
+address = 0x10050000
+size = 0x10000
+map = "dma"

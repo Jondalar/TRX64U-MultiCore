@@ -25,10 +25,13 @@ struct FakeProbe : BoardProbe {
     uint8_t iec = BOARD_IEC_VERSION;
     bool valid = false;
     int calls = 0;
+    uint32_t has = BB_ALL;                                // the blocks of the app's driver table (hw.cc builds it from DRV_HAS_<block>)
+    int fpga_reads = 0, caps_reads = 0, iec_reads = 0;    // the reads board_detect() made: a probe whose block is not there is not read
+    uint32_t blocks() { return has; }
     uint8_t icap_id() { calls++; return icap; }
-    uint32_t fpga_caps() { return fpga; }
-    uint8_t trx_caps() { return caps; }
-    uint8_t iec_version() { return iec; }
+    uint32_t fpga_caps() { fpga_reads++; return fpga; }
+    uint8_t trx_caps() { caps_reads++; return caps; }
+    uint8_t iec_version() { iec_reads++; return iec; }
     bool handover_valid() { return valid; }
 };
 
@@ -90,6 +93,52 @@ int main()
     CHECK_EQ(hd.kind, BOARD_MULTICORE);
     CHECK(!hd.has_handover && hd.can_return_host);
     CHECK(strstr(hd.why, "no valid hand-over") != 0);
+    // T239.3 V-4b: a probe runs only when the block it asks of is in the app's driver table. The whole table (the shared app's): every probe is read and holds.
+    FakeProbe all;
+    all.icap = 0x7A;
+    BoardProfile ba = board_detect(&all);
+    CHECK_EQ(ba.probes & (BC_DRIVE_A | BC_IEC | BC_CARTRIDGE | BC_REU | BC_RING | BC_UCI), BC_DRIVE_A | BC_IEC | BC_CARTRIDGE | BC_REU | BC_RING | BC_UCI);
+    CHECK_EQ(all.calls, 1); CHECK_EQ(all.fpga_reads, 1); CHECK_EQ(all.caps_reads, 1); CHECK_EQ(all.iec_reads, 1);
+    // the VIC-20's table: the ICAP loader, drive_a and iec_status, no cmd_if, c64cart, c64_debug or dma. The hardware would answer yes to every bit; the app asks only for its own.
+    FakeProbe vic;
+    vic.icap = 0x7A;
+    vic.has = BB_ICAP | BB_DRIVE_A | BB_IEC;
+    BoardProfile bv = board_detect(&vic);
+    CHECK_EQ(bv.kind, BOARD_MULTICORE);
+    CHECK_EQ(bv.probes & (BC_DRIVE_A | BC_IEC), BC_DRIVE_A | BC_IEC);
+    CHECK_EQ(bv.probes & (BC_CARTRIDGE | BC_REU | BC_RING | BC_UCI), 0u);
+    CHECK_EQ(vic.caps_reads, 0);                          // TRX_CAPS is read for the cartridge and the ring only
+    CHECK_EQ(vic.fpga_reads, 1);                          // the ITU word is read for the drive bit; the command interface bit in it is not asked
+    // no ICAP block: the byte is not read, the profile is the standalone installation's, and a drive without its block is not asked either
+    FakeProbe none;
+    none.icap = 0x7A;
+    none.has = 0;
+    BoardProfile bn = board_detect(&none);
+    CHECK_EQ(bn.kind, BOARD_MONOLITH);
+    CHECK_EQ(none.calls, 0); CHECK_EQ(none.fpga_reads, 0); CHECK_EQ(none.caps_reads, 0); CHECK_EQ(none.iec_reads, 0);
+    CHECK_EQ(bn.probes & ~(uint32_t)BC_SID_SOCKETS, 0u);
+    // the cartridge and the ring ask for their own block each: the byte is read once for either, the bit of the other is not struck for it
+    FakeProbe cart;
+    cart.has = BB_CART;
+    BoardProfile bc = board_detect(&cart);
+    CHECK_EQ(bc.probes & (BC_CARTRIDGE | BC_RING | BC_REU), BC_CARTRIDGE);
+    CHECK_EQ(cart.caps_reads, 1);
+    FakeProbe ring;
+    ring.has = BB_RING | BB_REU;
+    BoardProfile br = board_detect(&ring);
+    CHECK_EQ(br.probes & (BC_CARTRIDGE | BC_RING | BC_REU), BC_RING | BC_REU);
+    // a command interface block without the drive: the UCI bit holds, the drive bit is not taken from the same word
+    FakeProbe uci;
+    uci.has = BB_CMD_IF;
+    BoardProfile bu = board_detect(&uci);
+    CHECK_EQ(bu.probes & (BC_DRIVE_A | BC_UCI), BC_UCI);
+    // the capabilities the descriptor lists are struck by that profile: a VIC-20 listing cartridge, reu, ring and uci loses all four, drive_a and iec stay
+    const char *vcaps[] = { "drive_a", "iec", "cartridge", "reu", "ring", "uci" };
+    const char *kept[6];
+    int nk = board_effective_caps(bv, vcaps, 6, kept, 6, 0, 0);
+    CHECK_EQ(nk, 2);
+    CHECK(names(kept, nk, "drive_a") && names(kept, nk, "iec"));
+
     // a byte that is neither 0 nor 0x7A is no loader
     FakeProbe odd;
     odd.icap = 0x41;

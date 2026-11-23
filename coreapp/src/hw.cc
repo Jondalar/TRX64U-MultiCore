@@ -258,10 +258,52 @@ CoreIo *hw_io(void)
     return &io;
 }
 
-// The host's ICAP loader is the block icap of the driver table (drvtab.h). An app linked against a TOML A without that block has no ICAP access at all: no partial port
-// (hw_partial is null), no way back to the host, and the board probe's ICAP byte reads 0, which board_detect() takes for a standalone installation (board.cc).
-#ifdef DRV_HAS_icap
-static bool icap_loader(void) { return DRV_icap_id_RD() == DRV_icap_id_loader; }
+// The host's ICAP loader is in the driver table (drvtab.h) in one of two forms: the block icap (the shared app's TOML A, coreapp/gateware/shared.toml) or the blocks icap_id,
+// icap_data, icap_enable, icap_count and icap_decouple (the host's TOML A, coreapp/gateware/host.toml, which the VIC-20's app takes its base blocks from, T239.3 V-4b). HW_ICAP_*
+// name the registers in either form. An app linked against a TOML A with neither has no ICAP access at all: no partial port (hw_partial is null), no way back to the host, and the
+// board probe's ICAP byte is not read (BB_ICAP absent), which board_detect() takes for a standalone installation (board.cc).
+#if defined(DRV_HAS_icap_id) && defined(DRV_HAS_icap_data) && defined(DRV_HAS_icap_enable) && defined(DRV_HAS_icap_count) && defined(DRV_HAS_icap_decouple)
+#define HW_HAS_ICAP 1
+#define HW_ICAP_ID_RD()              DRV_icap_id_id_RD()
+#define HW_ICAP_ID_LOADER            DRV_icap_id_id_loader
+#define HW_ICAP_DECOUPLE_WR(v)       DRV_icap_decouple_decouple_WR(v)
+#define HW_ICAP_DECOUPLE_RD()        DRV_icap_decouple_decouple_RD()
+#define HW_ICAP_DECOUPLE_REQUEST     DRV_icap_decouple_decouple_request_MASK
+#define HW_ICAP_DECOUPLE_EFFECTIVE   DRV_icap_decouple_decouple_effective_MASK
+#define HW_ICAP_RELEASE_WR(v)        DRV_icap_decouple_release_WR(v)
+#define HW_ICAP_RELEASE_PORT         DRV_icap_decouple_release_port_MASK
+#define HW_ICAP_ENABLE_WR(v)         DRV_icap_enable_enable_WR(v)
+#define HW_ICAP_ENABLE_ON            DRV_icap_enable_enable_on_on
+#define HW_ICAP_ENABLE_OFF           DRV_icap_enable_enable_on_off
+#define HW_ICAP_DATA_ADDR            DRV_icap_data_data_ADDR
+#define HW_ICAP_DATA_WR(v)           DRV_icap_data_data_WR(v)
+#define HW_ICAP_COUNT0()              DRV_icap_count_count0_RD()
+#define HW_ICAP_COUNT1()              DRV_icap_count_count1_RD()
+#define HW_ICAP_COUNT2()              DRV_icap_count_count2_RD()
+#define HW_ICAP_COUNT3()              DRV_icap_count_count3_RD()
+#elif defined(DRV_HAS_icap)
+#define HW_HAS_ICAP 1
+#define HW_ICAP_ID_RD()              DRV_icap_id_RD()
+#define HW_ICAP_ID_LOADER            DRV_icap_id_loader
+#define HW_ICAP_DECOUPLE_WR(v)       DRV_icap_decouple_WR(v)
+#define HW_ICAP_DECOUPLE_RD()        DRV_icap_decouple_RD()
+#define HW_ICAP_DECOUPLE_REQUEST     DRV_icap_decouple_request_MASK
+#define HW_ICAP_DECOUPLE_EFFECTIVE   DRV_icap_decouple_effective_MASK
+#define HW_ICAP_RELEASE_WR(v)        DRV_icap_release_WR(v)
+#define HW_ICAP_RELEASE_PORT         DRV_icap_release_port_MASK
+#define HW_ICAP_ENABLE_WR(v)         DRV_icap_enable_WR(v)
+#define HW_ICAP_ENABLE_ON            DRV_icap_enable_on_on
+#define HW_ICAP_ENABLE_OFF           DRV_icap_enable_on_off
+#define HW_ICAP_DATA_ADDR            DRV_icap_data_ADDR
+#define HW_ICAP_DATA_WR(v)           DRV_icap_data_WR(v)
+#define HW_ICAP_COUNT0()              DRV_icap_count0_RD()
+#define HW_ICAP_COUNT1()              DRV_icap_count1_RD()
+#define HW_ICAP_COUNT2()              DRV_icap_count2_RD()
+#define HW_ICAP_COUNT3()              DRV_icap_count3_RD()
+#endif
+
+#ifdef HW_HAS_ICAP
+static bool icap_loader(void) { return HW_ICAP_ID_RD() == HW_ICAP_ID_LOADER; }
 
 namespace {
 
@@ -273,29 +315,29 @@ public:
     bool present() { return icap_loader(); }
     bool decouple(bool on)
     {
-        DRV_icap_decouple_WR(on ? DRV_icap_decouple_request_MASK : 0);
+        HW_ICAP_DECOUPLE_WR(on ? HW_ICAP_DECOUPLE_REQUEST : 0);
         if (!on) {
             return true;
         }
         vTaskDelay(pdMS_TO_TICKS(10) + 1);              // the core's DDR2 request is served (T79.1: about 1 ms)
-        if (!(DRV_icap_decouple_RD() & DRV_icap_decouple_effective_MASK)) {
-            DRV_icap_decouple_WR(0);
+        if (!(HW_ICAP_DECOUPLE_RD() & HW_ICAP_DECOUPLE_EFFECTIVE)) {
+            HW_ICAP_DECOUPLE_WR(0);
             return false;
         }
         return true;
     }
-    void begin() { DRV_icap_enable_WR(DRV_icap_enable_on_on); }
+    void begin() { HW_ICAP_ENABLE_WR(HW_ICAP_ENABLE_ON); }
     void write(const uint8_t *p, uint32_t n)
     {
-        volatile uint8_t *dp = DRV_PTR(uint8_t, DRV_icap_data_ADDR);
+        volatile uint8_t *dp = DRV_PTR(uint8_t, HW_ICAP_DATA_ADDR);
         const uint32_t *w = (const uint32_t *)p;        // the buffer is word aligned (partial.cc)
         for (uint32_t words = n >> 2; words; words--, w++) {
             uint32_t a = *w;
             *dp = (uint8_t)a; *dp = (uint8_t)(a >> 8); *dp = (uint8_t)(a >> 16); *dp = (uint8_t)(a >> 24);
         }
     }
-    void end() { DRV_icap_enable_WR(DRV_icap_enable_on_off); }
-    uint32_t words() { return DRV_icap_count0_RD() | (DRV_icap_count1_RD() << 8) | (DRV_icap_count2_RD() << 16) | ((uint32_t)DRV_icap_count3_RD() << 24); }
+    void end() { HW_ICAP_ENABLE_WR(HW_ICAP_ENABLE_OFF); }
+    uint32_t words() { return HW_ICAP_COUNT0() | (HW_ICAP_COUNT1() << 8) | (HW_ICAP_COUNT2() << 16) | ((uint32_t)HW_ICAP_COUNT3() << 24); }
 };
 
 }
@@ -314,29 +356,53 @@ namespace {
 // The reads board_detect() is made of (T104.2 D2, D3). Every one is a read; nothing here writes.
 class HwBoardProbe : public BoardProbe {
 public:
+    // A probe runs only when the app's driver table has the block it asks of (T239.3 V-4b, board.h BB_*): the ICAP loader (HW_HAS_ICAP), drive_a, cmd_if, iec_status, and for the three
+    // that have no register of their own, the block that stands for the capability in the design's TOML A: the cartridge page c64cart (TRX_CAPS b4), c64_debug for the ring (TRX_CAPS
+    // b0-b2), dma for the REU. An app linked against a TOML A without them (the VIC-20's) reads none of them.
+    uint32_t blocks()
+    {
+        uint32_t b = 0;
+#ifdef HW_HAS_ICAP
+        b |= BB_ICAP;
+#endif
+#ifdef DRV_HAS_drive_a
+        b |= BB_DRIVE_A;
+#endif
+#ifdef DRV_HAS_cmd_if
+        b |= BB_CMD_IF;
+#endif
+#ifdef DRV_HAS_iec_status
+        b |= BB_IEC;
+#endif
+#ifdef DRV_HAS_c64cart
+        b |= BB_CART;
+#endif
+#ifdef DRV_HAS_c64_debug
+        b |= BB_RING;
+#endif
+#ifdef DRV_HAS_dma
+        b |= BB_REU;
+#endif
+        return b;
+    }
     uint8_t icap_id()
     {
-#ifdef DRV_HAS_icap
-        return DRV_icap_id_RD();
+#ifdef HW_HAS_ICAP
+        return HW_ICAP_ID_RD();
 #else
-        return 0;                                    // no ICAP block linked: board_detect() takes the profile of a standalone installation
+        return 0;
 #endif
     }
-    // A probe asks for a capability of a block; an app linked against a TOML A without that block has no such probe (T239.3 V-4): the drive bit is read only with the block drive_a, the
-    // command interface bit only with the block cmd_if. The bits of the capabilities without a block in TOML A (the cartridge, the ring, the IEC version) are still read.
-    uint32_t fpga_caps()
-    {
-        uint32_t c = getFpgaCapabilities();
-#ifndef DRV_HAS_drive_a
-        c &= ~BOARD_FPGA_DRIVE_1541_1;
-#endif
-#ifndef DRV_HAS_cmd_if
-        c &= ~BOARD_FPGA_COMMAND_INTF;
-#endif
-        return c;
-    }
+    uint32_t fpga_caps() { return getFpgaCapabilities(); }
     uint8_t trx_caps() { return DRV_ident_caps_RD(); }
-    uint8_t iec_version() { return ioRead8(IEC_BASE); }
+    uint8_t iec_version()
+    {
+#ifdef DRV_HAS_iec_status
+        return DRV_iec_status_version_RD();
+#else
+        return 0;
+#endif
+    }
     bool handover_valid()
     {
         Handover h;
@@ -502,20 +568,20 @@ bool hw_menu_button_pressed(void)
     return hit;
 }
 
-#ifdef DRV_HAS_icap
+#ifdef HW_HAS_ICAP
 void hw_release_expansion_port(void)
 {
     if (!icap_loader()) {
         return;
     }
-    DRV_icap_release_WR(DRV_icap_release_port_MASK);
+    HW_ICAP_RELEASE_WR(HW_ICAP_RELEASE_PORT);
     printf("[core] expansion port released\n");
 }
 
 bool hw_return_to_host(char *msg, int n)
 {
     if (!icap_loader()) {
-        snprintf(msg, n, "no ICAP loader in this bitstream (ID byte is not 0x%02X)", DRV_icap_id_loader);
+        snprintf(msg, n, "no ICAP loader in this bitstream (ID byte is not 0x%02X)", HW_ICAP_ID_LOADER);
         return false;
     }
     // dummy word, sync word, NOP, write WBSTAR := 0, write CMD := IPROG, NOP, NOP - the bytes in bitstream (file) order
@@ -530,12 +596,12 @@ bool hw_return_to_host(char *msg, int n)
     trx_lv_yield_layer();
     ioWrite8(ITU_IRQ_GLOBAL, 0);
     portDISABLE_INTERRUPTS();
-    DRV_icap_decouple_WR(0);
-    DRV_icap_enable_WR(DRV_icap_enable_on_on);
+    HW_ICAP_DECOUPLE_WR(0);
+    HW_ICAP_ENABLE_WR(HW_ICAP_ENABLE_ON);
     for (unsigned i = 0; i < sizeof(seq); i++) {
-        DRV_icap_data_WR(seq[i]);
+        HW_ICAP_DATA_WR(seq[i]);
     }
-    DRV_icap_enable_WR(DRV_icap_enable_on_off);
+    HW_ICAP_ENABLE_WR(HW_ICAP_ENABLE_OFF);
     for (;;) {                                        // the FPGA reconfigures; nothing here runs on
     }
     return true;

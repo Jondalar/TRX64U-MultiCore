@@ -92,6 +92,44 @@ size = 0x10
   width = 8
   dir = "rw"
 
+[[block]]
+name = "iec_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10028000
+size = 0x3
+  [[block.property]]
+  name = "version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo0"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo1"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "c64cart"
+module = "trx_io"
+owner = "base"
+address = 0x101A4000
+size = 0x70
+map = "c64cart"
+
+[[block]]
+name = "dma"
+module = "dma_win"
+owner = "base"
+address = 0x10050000
+size = 0x10000
+map = "dma"
+
 # The core's own block: one control register and one status register of the example core's gateware (module example_ctl). The address lies in no window the base drives itself.
 [[block]]
 name = "example_ctl"

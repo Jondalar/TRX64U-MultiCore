@@ -8,10 +8,14 @@ name = "vc20"
 desc_record = true
 # the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
 desc = "vc20_desc"
-# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the base's TOML A that the shared drivers (hw.cc) name: the host's mode register,
-# its drive window and the ICAP loader (the VIC-20 is a partial core: it can return to the host)
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
+# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), its drive window (drive_a, a block of the host that layer 2 serves: the VIC-20's own drive blocks
+# come into gateware.toml with V-1c, until then it keeps this one), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host) and the IEC block,
+# whose version byte the board's IEC probe reads. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
+# cartridge, ring, REU or command interface probe in this app.
 toml_a = "gateware.toml"
-base_blocks = ["cart_regs", "drive_a", "icap"]
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "drive_a", "icap_id", "icap_data", "icap_enable", "icap_count", "icap_decouple", "iec_status"]
 # coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
 base_sources = ["portdiag.cc"]
 

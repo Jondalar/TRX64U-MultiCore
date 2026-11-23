@@ -36,5 +36,15 @@ coreapp_srcs() {
     case " $NOT_HERE " in *" $f "*) continue ;; esac
     for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
   done
+  # T239.3 V-4b: a core with an app of its own is not in the shared image's list: the libraries of its TOML B (cores/<id>/app/sdk.toml, [app] desc) are compiled here as its own build
+  # compiles them, against the driver table of its own TOML A (vc20_drv_dir above), so the render benches and the menu simulator have its descriptor. A source the shared list has is not added twice.
+  local own
+  for own in $(python3 "$ROOT/tools/core_toml.py" list-own-app 2>/dev/null); do
+    for f in $(python3 "$ROOT/tools/libtab.py" sources "$ROOT/cores/$own/app/sdk.toml"); do
+      case " $NOT_HERE " in *" $f "*) continue ;; esac
+      case " $SRCS " in *"/$f "*) continue ;; esac
+      for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
+    done
+  done
   SRCS="$SRCS $TEST_SRCS"
 }

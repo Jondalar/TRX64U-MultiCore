@@ -1500,13 +1500,19 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug", "iec_status", "c64cart", "dma"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
         import re
         h, _ = self.generate(self.shared())
         defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        # hw.cc names the ICAP registers in two forms (HW_ICAP_*): the shared app's block icap, and the five blocks of the host's TOML A that the VIC-20's app takes (V-4b)
+        host = D.toml_loads(open(os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")).read())
+        shared = D.toml_loads(self.shared())
+        merged = D.resolve_maps(D.merge_toml_a({"io": shared["io"], "identity": shared["identity"], "block": [shared["block"][0]]}, host,
+                                               ["icap_id", "icap_data", "icap_enable", "icap_count", "icap_decouple"], "t"), D.load_maps([self.MAPS]))
+        defined |= {ln.split()[1].split("(")[0] for ln in D.drivers_files(merged, "t")[0].splitlines() if ln.startswith("#define ")}
         for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 for n, line in enumerate(fh, 1):
@@ -1516,7 +1522,8 @@ class DriverTable(unittest.TestCase):
                         self.assertIn(tok, defined, "%s:%d names %s, which the shared TOML A does not define" % (f, n, tok))
 
     def test_an_app_linked_for_a_toml_a_without_icap_has_no_icap_access_in_its_sources(self):
-        # the ICAP registers are named only under #ifdef DRV_HAS_icap (hw.cc), and no other source of coreapp/src names an ICAP register of the table
+        # the ICAP registers of the table are named only in the alias block of hw.cc (HW_ICAP_*, under #if/#elif on DRV_HAS_icap*), everything else asks for HW_HAS_ICAP, and no other
+        # source of coreapp/src names an ICAP register of the table
         import re
         for f in sorted(os.listdir(os.path.join(self.ROOT, "coreapp", "src"))):
             if not f.endswith((".cc", ".h")) or f == "hw.cc":
@@ -1524,10 +1531,14 @@ class DriverTable(unittest.TestCase):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 self.assertIsNone(re.search(r"DRV_icap_", fh.read()), f)
         with open(os.path.join(self.ROOT, "coreapp", "src", "hw.cc")) as fh:
-            depth, bad = 0, []
+            depth, bad, alias = 0, [], 0
             for n, line in enumerate(fh, 1):
                 t = line.strip()
-                if t.startswith("#ifdef DRV_HAS_icap"):
+                if t.startswith("#if defined(DRV_HAS_icap_id)") or t.startswith("#elif defined(DRV_HAS_icap)"):
+                    alias = 1
+                elif alias and t.startswith("#endif"):
+                    alias = 0
+                elif t.startswith("#ifdef HW_HAS_ICAP"):
                     depth += 1
                 elif t.startswith("#if") and depth:
                     depth += 1
@@ -1535,9 +1546,11 @@ class DriverTable(unittest.TestCase):
                     depth = 0
                 elif t.startswith("#endif") and depth:
                     depth -= 1
-                elif "DRV_icap_" in line and depth == 0:
+                elif "DRV_icap_" in line and not alias:
                     bad.append(n)
-            self.assertEqual(bad, [], "hw.cc names the ICAP block outside #ifdef DRV_HAS_icap at lines %s" % bad)
+                elif "HW_ICAP_" in line and not alias and not depth and not t.startswith("//"):
+                    bad.append(n)
+            self.assertEqual(bad, [], "hw.cc names the ICAP registers outside the alias block and #ifdef HW_HAS_ICAP at lines %s" % bad)
 
     def test_the_command_line_writes_both_files_and_leaves_an_unchanged_one_alone(self):
         import subprocess, tempfile
@@ -1611,15 +1624,15 @@ class ExampleCore(unittest.TestCase):
         # block by block: a shared.toml block of the same name has the address and size of host.toml's; the owner differs only where named here
         hblocks = {b["name"]: b for b in host["block"]}
         by_name = {b["name"]: b for b in shared["block"]}
-        owner_core_in_host = ["drive_a", "gcr_coder"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
-        absent_in_host = ["cmd_if", "ident", "icap"]                           # cmd_if: no decode; ident: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml
+        owner_core_in_host = ["drive_a", "gcr_coder", "dma"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart"]      # cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
         self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
         for n, b in by_name.items():
             if n in absent_in_host:
                 continue
             self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
             self.assertEqual(b["owner"] != hblocks[n]["owner"], n in owner_core_in_host, n)
-        self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core", "core"])
+        self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core"] * len(owner_core_in_host))
         icap = by_name["icap"]
         inside = sorted(b["name"] for b in host["block"] if b["owner"] == "base" and icap["address"] <= b["address"] and b["address"] + b["size"] <= icap["address"] + icap["size"] and b["name"].startswith("icap_"))
         self.assertEqual(len(inside), 5)
