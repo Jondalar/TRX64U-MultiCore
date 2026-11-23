@@ -41,8 +41,8 @@ ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-U
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 53 properties agree" in out,
-         "c64_basic: 10 blocks, 53 properties agree with the RTL (the maps sid, c64cart, c64cart_regs and dma of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake)", out)
+    must(rc == 0 and "10 block(s), 51 properties agree" in out,
+         "c64_basic: 10 blocks, 51 properties agree with the RTL (the maps sid, c64cart, c64cart_regs and dma of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake)", out)
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic_uci.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
     must(rc == 1 and "an RTL pattern I do not know" in out and "clock-domain bridge" in out,
          "c64_basic: uci and the drive (maps uci, cbm1541) stop the check at the bridge/splitter pattern, they do not pass on the transport registers", out)

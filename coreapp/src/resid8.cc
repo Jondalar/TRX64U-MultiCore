@@ -1,6 +1,6 @@
 #include "resid8.h"
 #include "trx_io.h"
-#include "iomap.h"
+#include "drvtab.h"
 
 bool resid8_present(void)
 {
@@ -15,17 +15,15 @@ void resid8_filter(int u, uint8_t src, uint8_t auto_bits, int base, int offset)
     u &= 1;
     base &= 0x1FF;
     offset &= 0x7FF;
-    ioWrite8(TRX_RS8_FCSEL(u), src & 3);
-    ioWrite8(TRX_RS8_AUTO(u), auto_bits & 3);
-    ioWrite8(TRX_RS8_BASE(u), uint8_t(base));
-    ioWrite8(TRX_RS8_BASE(u) + 1, uint8_t(base >> 8));
-    ioWrite8(TRX_RS8_OFFSET(u), uint8_t(offset));
-    ioWrite8(TRX_RS8_OFFSET(u) + 1, uint8_t(offset >> 8));
+    DRV_resid8_fcsel_WR(u, src & 3);
+    DRV_resid8_auto_WR(u, auto_bits & 3);
+    DRV_resid8_curve_base_WR(u, base);
+    DRV_resid8_curve_offset_WR(u, offset);
 }
 
 void resid8_bypass(int u, bool bypass)
 {
     if (resid8_present()) {
-        ioWrite8(TRX_RS8_BYPASS(u & 1), bypass ? 1 : 0);
+        DRV_resid8_bypass_WR(u & 1, bypass ? 1 : 0);
     }
 }

@@ -1,7 +1,7 @@
 # The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc, d1541_wd.h WDR_*, d1541_wd.cc WD_BASE). Offsets are bytes from the block's address (DRIVE_A_BASE).
 # Only what the library reads or writes is here. "dirty" is a run of 128 bytes (floppy.vhd decodes 7 address bits; the library uses elements 0 .. 41, DR_DIRTY + track): every element reads b7 = any track written
-# and b0 = its own flag; a write with b7 set clears "any", else the element's flag. "param" is the parameter RAM, 2048 bytes (floppy_param_mem.vhd: 11 address bits), 512 words: per half track two
-# (the DDR2 address of the track; (length - 1) | bit time << 16), 128 half tracks per side, side 1 at +0x400.
+# and b0 = its own flag; a write with b7 set clears "any", else the element's flag. The parameter RAM is 2048 bytes (floppy_param_mem.vhd: 11 address bits), per half track two words, 128 half tracks per side, side 1 at +0x400: its words interleave, so it is two runs
+# of 256 elements with the stride 8, element = side * 128 + half track: "param_addr" (the DDR2 address of the track) and "param_len" ((length - 1) | bit time << 16).
 map = "cbm1541"
 
 [[property]]
@@ -110,11 +110,28 @@ dir = "rw"
   bits = 1
 
 [[property]]
-name = "param"
+name = "param_addr"
 offset = 0x1000
 width = 32
-count = 512
+count = 256
+stride = 8
 dir = "w"
+
+[[property]]
+name = "param_len"
+offset = 0x1004
+width = 32
+count = 256
+stride = 8
+dir = "w"
+  [[property.field]]
+  name = "length_m1"
+  shift = 0
+  bits = 16
+  [[property.field]]
+  name = "bit_time"
+  shift = 16
+  bits = 16
 
 [[property]]
 name = "wd_command"
