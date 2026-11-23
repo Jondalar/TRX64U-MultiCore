@@ -36,14 +36,28 @@ enum BoardCap {
 #define BOARD_FPGA_COMMAND_INTF 0x00040000u
 #define BOARD_IEC_VERSION       0x25
 
+// The blocks of the app's driver table that a probe asks for (T239.3 V-4b, D31): board_detect() runs a probe only when its bit is here, and the probe's capability is
+// struck without a read when it is not. hw.cc sets a bit from DRV_HAS_<block>; the block of each bit is named at the member of BoardProbe.
+enum BoardBlocks {
+    BB_ICAP    = 1u << 0,    // the ICAP loader (block icap, or icap_id with its siblings in the host's TOML A)
+    BB_DRIVE_A = 1u << 1,    // drive_a
+    BB_CMD_IF  = 1u << 2,    // cmd_if
+    BB_IEC     = 1u << 3,    // iec_status
+    BB_CART    = 1u << 4,    // c64cart
+    BB_RING    = 1u << 5,    // c64_debug
+    BB_REU     = 1u << 6,    // dma
+    BB_ALL     = 0x7Fu
+};
+
 // Every read the profile is made of. The board's implementation is hw.cc.
 class BoardProbe {
 public:
     virtual ~BoardProbe() { }
+    virtual uint32_t blocks() { return BB_ALL; }   // BB_* of the blocks the app is linked with; a fake without an answer has them all
     virtual uint8_t icap_id() = 0;           // the ID register of the block icap of the driver table (hw.cc); 0 when the app is linked against a TOML A without that block: standalone by its link
-    virtual uint32_t fpga_caps() = 0;        // the ITU capability word
-    virtual uint8_t trx_caps() = 0;          // TRX_CAPS
-    virtual uint8_t iec_version() = 0;       // IEC_BASE + 0
+    virtual uint32_t fpga_caps() = 0;        // the ITU capability word (read when BB_DRIVE_A or BB_CMD_IF is there: it has no block in TOML A, the drive and the command interface bits are what is asked of it)
+    virtual uint8_t trx_caps() = 0;          // TRX_CAPS (ident.caps; read when BB_CART or BB_RING is there)
+    virtual uint8_t iec_version() = 0;       // iec_status.version (IEC_BASE + 0; read when BB_IEC is there)
     virtual bool handover_valid() = 0;       // the page at HANDOVER_ADDR holds a block that handover_valid() accepts
 };
 

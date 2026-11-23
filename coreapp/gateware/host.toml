@@ -594,6 +594,9 @@ size = 0x1
   offset = 0x0
   width = 8
   dir = "r"
+    [[block.property.state]]
+    name = "loader"
+    value = 0x7A
 
 [[block]]
 name = "icap_data"
@@ -618,6 +621,16 @@ size = 0x1
   offset = 0x0
   width = 8
   dir = "rw"
+    [[block.property.field]]
+    name = "on"
+    shift = 0
+    bits = 1
+      [[block.property.field.state]]
+      name = "off"
+      value = 0
+      [[block.property.field.state]]
+      name = "on"
+      value = 1
 
 [[block]]
 name = "icap_count"
@@ -657,11 +670,23 @@ size = 0x2
   offset = 0x0
   width = 8
   dir = "rw"
+    [[block.property.field]]
+    name = "request"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "effective"
+    shift = 1
+    bits = 1
   [[block.property]]
   name = "release"
   offset = 0x1
   width = 8
   dir = "rw"
+    [[block.property.field]]
+    name = "port"
+    shift = 0
+    bits = 1
 
 [[block]]
 name = "core_eeprom"

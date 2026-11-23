@@ -28,7 +28,7 @@ mkdir -p "$out"; out="$(cd "$out" && pwd)"
 tar -xzf "$tgz" -C "$W"
 P="$(echo "$W"/trx64-sdk-*)"
 [ -d "$P" ] || fail "no trx64-sdk-* folder in $tgz"
-for f in tools/app_build.py tools/libtab.py tools/descrec.py mk/appbuild.mk mk/appflags.mk gateware/shared.toml base/SIZED.txt base/linker.x lib/libtrxbase.a; do
+for f in tools/app_build.py tools/libtab.py tools/descrec.py mk/appbuild.mk mk/appflags.mk gateware/shared.toml gateware/host.toml base/SIZED.txt base/linker.x lib/libtrxbase.a; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
 # the record of the core against the sizes of its TOML B; the TOML A names its registers by block.property (descrec resolves them), the maps are the package's

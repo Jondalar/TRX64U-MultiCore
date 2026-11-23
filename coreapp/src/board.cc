@@ -7,7 +7,8 @@ BoardProfile board_detect(BoardProbe *p)
 {
     BoardProfile b;
     memset(&b, 0, sizeof(b));
-    uint8_t icap = p->icap_id();
+    uint32_t has = p->blocks();
+    uint8_t icap = (has & BB_ICAP) ? p->icap_id() : 0;   // no ICAP block linked: the profile of a standalone installation
     bool mc = icap == BOARD_ICAP_ID;
     b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
     b.has_handover = p->handover_valid();              // T112 Q1: a large .cor start fills the page for the monolith profile too
@@ -18,23 +19,25 @@ BoardProfile board_detect(BoardProbe *p)
     }
     b.rom_dir = mc ? 0 : BOARD_MONOLITH_ROM_DIR;
 
-    uint32_t fpga = p->fpga_caps();
-    uint8_t caps = p->trx_caps();
-    if (fpga & BOARD_FPGA_DRIVE_1541_1) {
+    uint32_t fpga = (has & (BB_DRIVE_A | BB_CMD_IF)) ? p->fpga_caps() : 0;
+    uint8_t caps = (has & (BB_CART | BB_RING)) ? p->trx_caps() : 0;
+    if ((has & BB_DRIVE_A) && (fpga & BOARD_FPGA_DRIVE_1541_1)) {
         b.probes |= BC_DRIVE_A;
     }
-    if (p->iec_version() == BOARD_IEC_VERSION) {
+    if ((has & BB_IEC) && p->iec_version() == BOARD_IEC_VERSION) {
         b.probes |= BC_IEC;
     }
-    if (caps & BOARD_TRX_CAPS_CART) {
+    if ((has & BB_CART) && (caps & BOARD_TRX_CAPS_CART)) {
         b.probes |= BC_CARTRIDGE;
     }
-    b.probes |= BC_REU;                                  // on every C64 core of this line (ADR-0053 refuses it only while a cartridge forbids it)
-    if ((caps & (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) ==
+    if (has & BB_REU) {
+        b.probes |= BC_REU;                              // on every C64 core of this line (ADR-0053 refuses it only while a cartridge forbids it)
+    }
+    if ((has & BB_RING) && (caps & (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) ==
         (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) {
         b.probes |= BC_RING;
     }
-    if (fpga & BOARD_FPGA_COMMAND_INTF) {
+    if ((has & BB_CMD_IF) && (fpga & BOARD_FPGA_COMMAND_INTF)) {
         b.probes |= BC_UCI;
     }
     if (!mc) {

@@ -19,7 +19,8 @@
                                                            that depend on the core, the libraries of the TOML B. --maps adds the register maps of the core's own blocks to the package's maps/.
                                                            [app] desc names the descriptor symbol of a core compiled into the app; a core described by its record (D17) has none
                                                            A TOML B whose [app] has `base_blocks = [names]` links the core's TOML A with those blocks of the base's TOML A
-                                                           (--base-toml-a, default the package's gateware/shared.toml); out/blocks.txt lists the blocks
+                                                           (--base-toml-a, default the package's gateware/<[app] base_toml_a>, which is shared.toml when the key is absent;
+                                                           the VIC-20's is host.toml: it runs on the host bitstream); out/blocks.txt lists the blocks
 
 The [sizes] table of a TOML B (every key is optional; a key that is not there keeps the default of the header). The registry, the contributions and the report are sized per core;
 a core that needs more registry than the shared app has says so here and pays for it in its own image only. A number outside its range, or a number its neighbours cannot hold, is refused."""
@@ -355,8 +356,11 @@ def cmd_build(a):
 
 def merge_a(a, base_blocks, maps, out):
     """The app's TOML A is the core's own (--toml-a) with the blocks of the base's TOML A that [app] base_blocks names (descrec.merge_toml_a); the base's is --base-toml-a, the
-    package's gateware/shared.toml when none is given. The driver table and the I/O fragment are made of that one document, as `descrec.py drivers` and `ldfrag` do for a file."""
-    base = a.get("base-toml-a") or os.path.join(a["sdk"], "gateware", "shared.toml")
+    package's gateware/<[app] base_toml_a> (shared.toml by default) when none is given. The driver table and the I/O fragment are made of that one document, as `descrec.py drivers` and `ldfrag` do for a file."""
+    named = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {}).get("base_toml_a", "shared.toml")
+    if not isinstance(named, str) or not re.match(r"^[A-Za-z0-9_]+\.toml$", named):
+        raise BuildError("%s: [app] base_toml_a is the file name of a TOML A in the package's gateware/" % a["toml-b"])
+    base = a.get("base-toml-a") or os.path.join(a["sdk"], "gateware", named)
     try:
         doc = descrec.merge_toml_a(descrec.toml_loads(open(a["toml-a"]).read()), descrec.toml_loads(open(base).read()), base_blocks, a["toml-b"])
         doc = descrec.resolve_maps(doc, descrec.load_maps(maps))
