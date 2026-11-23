@@ -37,7 +37,7 @@ static CoreHooks g_table;
 static uint32_t g_table_size, g_table_major;
 static const void *lib_find(const char *name, uint32_t min_version, uint32_t *size)
 {
-    if (strcmp(name, "corehooks") || (min_version >> 16) > g_table_major) return 0;
+    if (strcmp(name, "corehooks") || (min_version >> 16) != g_table_major) return 0;
     if (size) *size = g_table_size;
     return &g_table;
 }

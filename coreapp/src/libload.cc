@@ -301,14 +301,15 @@ int LibLoader::svc_call(const char *name, const OpIn *in, int nin, OpResult *r)
     return L->reg_->call(L->ctx_, name, in, nin, r);
 }
 
-// What `find` and a `needs` entry resolve a name against, in this order: a table a loaded library exports under that name (the lowest major that is at least the one
-// asked for; the minor of min_version means nothing to an export, which has a major only), then the library of that name at that version or later.
-const LibLoader::Slot *LibLoader::provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const
+// What `find` and a `needs` entry resolve a name against, in this order: a table a loaded library exports under that name at exactly the major asked for (a caller of major 1 never
+// gets a table of major 2, whose layout it does not know; the minor of min_version means nothing to an export, which has a major only), then the library of that name at that version or later.
+// *other is the highest major of the name that is not the one asked for, 0 when none (a refusal can say "2.0 is loaded").
+const LibLoader::Slot *LibLoader::provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *other) const
 {
     uint32_t want = min_version >> 16;
     const Slot *best = 0;
     *ex = 0;
-    *below = 0;
+    *other = 0;
     for (int i = 0; i < LIB_MAX; i++) {
         const Slot &s = slot_[i];
         if (!s.used || s.info.kind != U2A3_KIND_LIB || !LIB_RECORD_COVERS(s.info.record.struct_size, export_list)) {
@@ -319,24 +320,41 @@ const LibLoader::Slot *LibLoader::provider(const char *name, uint32_t min_versio
             if (strcmp(e->name, name)) {
                 continue;
             }
-            if (e->major >= want) {
-                if (!*ex || e->major < (*ex)->major) {
+            if (e->major == want) {
+                if (!*ex) {
                     best = &s;
                     *ex = e;
                 }
-            } else if (e->major > *below) {
-                *below = e->major;
+            } else if (e->major > *other) {
+                *other = e->major;
             }
         }
     }
     return best;
 }
 
+// The loaded library that exports `name` at any major (the name is taken, whatever the majors are).
+const LibLoader::Slot *LibLoader::exporter_of(const char *name) const
+{
+    for (int i = 0; i < LIB_MAX; i++) {
+        const Slot &s = slot_[i];
+        if (!s.used || s.info.kind != U2A3_KIND_LIB || !LIB_RECORD_COVERS(s.info.record.struct_size, export_list)) {
+            continue;
+        }
+        for (int k = 0; k < s.info.record.nexport_list; k++) {
+            if (!strcmp(s.info.record.export_list[k].name, name)) {
+                return &s;
+            }
+        }
+    }
+    return 0;
+}
+
 int LibLoader::handle_providing(const char *name, uint32_t min_version) const
 {
     const LibExportDecl *ex;
-    uint32_t below;
-    const Slot *s = name ? provider(name, min_version, &ex, &below) : 0;
+    uint32_t other;
+    const Slot *s = name ? provider(name, min_version, &ex, &other) : 0;
     if (!s && name) {
         s = find(name);
         if (s && (s->info.kind != U2A3_KIND_LIB || s->info.version < min_version)) {
@@ -375,13 +393,22 @@ bool LibLoader::add_export(const char *name, uint32_t major, const void *table)
 
 const LibLoader::BaseExport *LibLoader::base_export(const char *name, uint32_t want_major) const
 {
-    const BaseExport *best = 0;
     for (int i = 0; i < nbase_; i++) {
-        if (!strcmp(base_[i].name, name) && base_[i].major >= want_major && (!best || base_[i].major < best->major)) {
-            best = &base_[i];
+        if (!strcmp(base_[i].name, name) && base_[i].major == want_major) {
+            return &base_[i];
         }
     }
-    return best;
+    return 0;
+}
+
+bool LibLoader::export_name_known(const char *name) const
+{
+    for (int i = 0; i < nbase_; i++) {
+        if (!strcmp(base_[i].name, name)) {
+            return true;
+        }
+    }
+    return exporter_of(name) != 0;
 }
 
 const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
@@ -389,12 +416,17 @@ const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint
     if (!name) {
         return 0;
     }
+    if ((min_version >> 16) == 0 && s_ld->export_name_known(name)) {
+        char line[160];                                                // majors start at 1: min_version is U2A3_VERSION(major, minor), a bare major finds nothing
+        snprintf(line, sizeof(line), "api->lib->find(\"%s\", 0x%X) asks for major 0, which no export has; pass U2A3_VERSION(major, 0).", name, (unsigned)min_version);
+        s_ld->api_.log(line);
+    }
     const LibExportDecl *ex;
-    uint32_t below;
-    const Slot *p = s_ld->provider(name, min_version, &ex, &below);
-    // the base's own tables compete as a major of their own: the lowest major that is at least the one asked for wins, and a library that exports the same major wins over the base
+    uint32_t other;
+    const Slot *p = s_ld->provider(name, min_version, &ex, &other);
+    // the base's own tables compete as a major of their own: a library that exports the same major wins over the base
     const BaseExport *own = s_ld->base_export(name, min_version >> 16);
-    if (own && (!p || own->major < ex->major)) {
+    if (own && !p) {
         if (table_size) {
             *table_size = *(const uint32_t *)own->table;
         }
@@ -1233,13 +1265,13 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         }
         // a table a loaded library exports under that name comes first, then a library of that name (D20)
         const LibExportDecl *ex = 0;
-        uint32_t below = 0;
-        const Slot *dep = provider(nd.name, nd.min_version, &ex, &below);
+        uint32_t other = 0;
+        const Slot *dep = provider(nd.name, nd.min_version, &ex, &other);
         if (!dep) {
             dep = find(nd.name);
             if (!dep) {
-                if (below) {
-                    version_text(vh, U2A3_VERSION(below, 0));
+                if (other) {
+                    version_text(vh, U2A3_VERSION(other, 0));
                     return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
                 }
                 return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);
@@ -1262,9 +1294,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is loaded already (%s).", name, vh);
     }
     {   // a name that a loaded library exports is not free for another library: find would always answer the export
-        const LibExportDecl *ex = 0;
-        uint32_t below = 0;
-        if (const Slot *owner = provider(name, 0, &ex, &below)) {
+        if (const Slot *owner = exporter_of(name)) {
             return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is the name of a table that \"%s\" exports.", name, owner->info.name);
         }
     }
