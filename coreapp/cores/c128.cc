@@ -1132,7 +1132,8 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.type_script", text_arg, 1, op_type);
     r.add_op("c128.run_prg", path_arg, 1, op_run);
     r.add_op("c128.load_prg", path_arg, 1, op_load);
-    r.add_state("c128.auto_diag", state_auto_diag); r.add_state("c128.jf1541_note", [](CoreCtx *c) { const DriveRomPick &p = c128_state(c)->d1541; return rom_half_note(c->desc->folder, kind1541.what, p.n_jiffy, p.n_stock); });   // T258 D10: the foot note of the JiffyDOS 1541 row
+    r.add_state("c128.auto_diag", state_auto_diag);
+    r.add_state("c128.jf1541_note", [](CoreCtx *c) { const DriveRomPick &p = c128_state(c)->d1541; return rom_half_note(c->desc->folder, kind1541.what, p.n_jiffy, p.n_stock); });   // T258 D10: the foot note of the JiffyDOS 1541 row
     cbm1541_register(r);
 }
 
