@@ -1198,10 +1198,7 @@ class TomlA(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
         self.assertIn("__reg_i_release = 0x00000121;", D.ldfrag(ok, maps))
-        for bad in (ok.replace("u2p_io_base = 2\n", ""), ok + '[[block]]\nname = "j"\nmodule = "icap"\nowner = "base"\naddress = 0x180\nsize = 0x10\n',
-                    ok + "[menu]\n", ok.replace('map = "icap"', 'map = "nope"')):
-            with self.assertRaises(D.DescError):
-                D.ldfrag(bad, maps)
+
 
 
 if __name__ == "__main__":

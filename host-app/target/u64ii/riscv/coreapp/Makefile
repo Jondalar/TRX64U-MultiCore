@@ -354,7 +354,7 @@ CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-sta
 LINK 	 = linker.x
 LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
 LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
-# T239.3 P1-2: the base addresses and the base blocks' registers are linker symbols (iomap.h, u2p.h, hw.cc), none is a -D or a literal. The fragment is the fixed
+# T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
 # one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
 IOFRAG  ?= ../trx_io.ld
 LIBS    += $(IOFRAG)
