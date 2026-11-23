@@ -129,7 +129,7 @@ class Split(unittest.TestCase):
     def test_split_writes_both_lists(self):
         d, inc, src, listing = self.tree()
         out = os.path.join(d, "out", "sdkbase")
-        A.cmd_split([inc], out, [os.path.join(src, f) for f in ("a.cc", "b.cc")], os.path.join(d, "none"))
+        A.cmd_split([inc], out, [os.path.join(src, f) for f in ("a.cc", "b.cc")])
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "sized.real"))], ["b.cc"])
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "unsized.real"))], ["a.cc"])
 
