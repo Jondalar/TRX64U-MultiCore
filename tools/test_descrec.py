@@ -1372,5 +1372,37 @@ class DriverTable(unittest.TestCase):
             self.assertEqual(os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns, m)
 
 
+class ExampleCore(unittest.TestCase):
+    """T239.3 S17: the SDK's example core has a TOML A of its own (the base's blocks and one block of the core's, its map beside it), a description with the library that is its code, and
+    the menu record of its library; the three compile and merge from the files of the package alone."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    EX = os.path.join(ROOT, "app", "sdkpkg", "example")
+    MAPS = [os.path.join(ROOT, "app", "sdkpkg", "maps"), os.path.join(EX, "gateware")]
+
+    def read(self, *p):
+        with open(os.path.join(self.EX, *p)) as f:
+            return f.read()
+
+    def test_the_toml_a_of_the_example_has_a_block_of_the_core_and_its_map(self):
+        blob = D.compile_checked(self.read("gateware", "example.toml"), maps=D.load_maps(self.MAPS))
+        r = D.parse_desc(blob)
+        self.assertEqual(r["identity"]["id"], "EXMP")
+        own = [b for b in r["block"] if b["owner"] == "core"]
+        self.assertEqual([b["name"] for b in own], ["example_ctl"])
+        self.assertEqual([p["name"] for p in own[0]["property"]], ["control", "status"])
+        self.assertTrue(all(b["owner"] == "base" for b in r["block"] if b["name"] != "example_ctl"))
+        h, _ = D.drivers_files(D.resolve_maps(D.toml_loads(self.read("gateware", "example.toml")), D.load_maps(self.MAPS)))
+        self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
+        self.assertIn("#define DRV_example_ctl_OWNER 1", h)
+
+    def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):
+        desc = D.compile_text(self.read("app", "desc.toml"))
+        self.assertEqual(D.parse_desc(desc)["core"]["hooks"], "example")
+        menu = D.compile_text(self.read("menu.toml"))
+        blob, merged, kept = D.merge_lib_menus(desc, [("example", menu)])
+        self.assertEqual((merged, kept), (["example"], []))
+        self.assertEqual(D.parse_desc(blob)["core"]["hooks"], "example")
+
+
 if __name__ == "__main__":
     unittest.main()

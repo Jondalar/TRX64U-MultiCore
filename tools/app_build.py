@@ -13,10 +13,11 @@
                                                            a source with none is read as text
   app_build.py pack-base BASE_DIR PKG_DIR SHARED_TOML_B   what tools/sdk_pack.sh takes from the build's `make sdkbase` directory into the package (base/, lib/)
   app_build.py flags MAKEFILE APPFLAGS                     every -D of the core app Makefile's OPTIONS is in app/lib/appflags.mk (the package compiles with that file)
-  app_build.py build --sdk DIR --toml-a A.toml --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--dry-run]
+  app_build.py build --sdk DIR --toml-a A.toml --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--maps DIR_OR_FILE ...] [--dry-run]
                                                            generates appsizes.h, the driver table (drvtab.h/.c), the library table (libtab_table.cc), the I/O linker fragment and
                                                            checks the record; then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
-                                                           that depend on the core, the libraries of the TOML B
+                                                           that depend on the core, the libraries of the TOML B. --maps adds the register maps of the core's own blocks to the package's maps/.
+                                                           [app] desc names the descriptor symbol of a core compiled into the app; a core described by its record (D17) has none
 
 The [sizes] table of a TOML B (every key is optional; a key that is not there keeps the default of the header). The registry, the contributions and the report are sized per core;
 a core that needs more registry than the shared app has says so here and pays for it in its own image only. A number outside its range, or a number its neighbours cannot hold, is refused."""
@@ -293,14 +294,15 @@ def cmd_build(a):
     sdk, out = os.path.abspath(a["sdk"]), os.path.abspath(a["out"])
     tools = os.path.join(sdk, "tools")
     incs = [os.path.join(sdk, "base", "inc", "coreapp", "src")]
-    maps = os.path.join(sdk, "maps")
+    maps = [os.path.join(sdk, "maps")] + [os.path.abspath(m) for m in a.get("maps", [])]
+    mapargs = [x for m in maps for x in ("--maps", m)]
     os.makedirs(out, exist_ok=True)
     named = cmd_sizes(a["toml-b"], out, incs)
     if a.get("record"):
         cmd_record(a["toml-b"], a["record"], incs)
     py = [sys.executable, "-I"]
-    run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv"), "--maps", maps])
-    run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld"), "--maps", maps])
+    run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv")] + mapargs)
+    run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld")] + mapargs)
     run(py + [os.path.join(tools, "libtab.py"), "table", a["toml-b"], os.path.join(out, "lib")])
     libsrcs = run(py + [os.path.join(tools, "libtab.py"), "sources", a["toml-b"]]).split()
     srcdirs = [os.path.abspath(d) for d in a.get("src", [])]
@@ -376,15 +378,15 @@ def main(argv):
             cmd_flags(argv[1], argv[2])
             return 0
         if argv[:1] == ["build"]:
-            a, i = {"src": []}, 1
+            a, i = {"src": [], "maps": []}, 1
             while i < len(argv):
                 k = argv[i]
                 if k == "--dry-run":
                     a["dry-run"] = True
                     i += 1
-                elif k in ("--sdk", "--toml-a", "--toml-b", "--out", "--record", "--src") and i + 1 < len(argv):
-                    if k == "--src":
-                        a["src"].append(argv[i + 1])
+                elif k in ("--sdk", "--toml-a", "--toml-b", "--out", "--record", "--src", "--maps") and i + 1 < len(argv):
+                    if k in ("--src", "--maps"):
+                        a[k[2:]].append(argv[i + 1])
                     else:
                         a[k[2:]] = argv[i + 1]
                     i += 2
