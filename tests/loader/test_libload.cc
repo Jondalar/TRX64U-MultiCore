@@ -2096,6 +2096,56 @@ static std::string st_of(const LibApi *api, const char *name)
     return t ? t : "(null)";
 }
 
+// ------------------------------------------------------------------------------------------------ T239.3 P2-6a: the tables of an image's needs at slots
+
+static void need_slots()
+{
+    char err[LIB_ERR_MAX];
+    int hl = -1, ha = -1, hring = -1;
+    uint32_t sz = 99;
+    World w(U2A_BASE_MINOR);
+    use_exports(w, "ringlib", g_ringlib_exports, 2);
+    Img p("ringlib", "R");
+    p.exp = exp_bytes("ring", 1, "trx", 2);
+    CHECK_EQ(w.load(build(p), &hring, err), LIB_OK);
+    w.m.twins["oldlib"] = twin_old_table;
+    CHECK_EQ(w.load(build(Img("oldlib", "O")), &hl, err), LIB_OK);
+
+    // the slots are the order of the file: an export by name and major, the base, the table of a library of base 3.1 by its name
+    Img c("alpha", "A");
+    c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
+    c.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 1)));
+    c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
+    c.needs.push_back(std::make_pair(std::string("oldlib"), U2A3_VERSION(1, 0)));
+    CHECK_EQ(w.load(build(c), &ha, err), LIB_OK);
+    const SvcLib *lib = g_xapi->lib;
+    CHECK(lib && lib->need && lib->size >= offsetof(SvcLib, need) + sizeof(lib->need));
+    {
+        LibLoader::Scope in(w.ld, ha);
+        CHECK(lib->need(0, &sz) == &g_trx_tab && sz == 12);
+        CHECK(lib->need(1, &sz) == 0 && sz == 0);                                        // `base` names no table
+        CHECK(lib->need(2, &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(lib->need(3, &sz) == &g_old_tab && sz == sizeof(ExpTab));
+        sz = 99;
+        CHECK(lib->need(4, &sz) == 0 && sz == 0);                                        // past the list
+        CHECK(lib->need(2, 0) == &g_ring_tab);                                           // the size may be left out
+    }
+    CHECK(lib->need(0, &sz) == 0 && sz == 0);                                            // a caller that is no image has no needs
+    {
+        LibLoader::Scope in(w.ld, hl);                                                   // a library with no needs entry
+        CHECK(lib->need(0, &sz) == 0);
+    }
+    // the provider cannot go while the image that needs it is loaded, and the image's slots go with it
+    CHECK_EQ(w.ld->unload(hring, err, sizeof(err)), LIB_STATE);
+    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    int hb = -1;
+    CHECK_EQ(w.load(build(Img("beta", "B")), &hb, err), LIB_OK);                         // the slot is reused: it must not show alpha's tables
+    {
+        LibLoader::Scope in(w.ld, hb);
+        CHECK(lib->need(0, &sz) == 0 && sz == 0);
+    }
+}
+
 static void services()
 {
     char err[LIB_ERR_MAX];
@@ -2469,7 +2519,10 @@ static int fk_recv(int, void *, int) { return -5; }
 static int fk_send(int, const void *, int len) { return len; }
 static int fk_wait(const int *, int, uint32_t) { return 0; }
 static int fk_peer(int, char *, int) { return -1; }
-static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer };
+static uint32_t g_connect_ms;
+static int fk_connect(const char *host, uint16_t port, uint32_t ms) { g_connect_ms = ms; if (!strcmp(host, "nowhere") || port == 0) { return -6; } int h = g_next_fd++; g_open[h] = false; return h; }
+static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 8) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
+static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer, fk_connect, fk_resolve };
 static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
 {
     for (int i = 0; i < 4; i++) {
@@ -2513,6 +2566,9 @@ static void net_and_jobs()
     CHECK_EQ(w.load(build(Img("libb", "B")), &hb, err), LIB_OK);
     // before the base gives its tables: no socket, no job, and nothing breaks
     CHECK_EQ(api0->net->listen(9000, 2), -7);
+    CHECK_EQ(api0->net->connect("host", 80, 1000), -7);                                     // the same for the outgoing half
+    char ipbuf[20];
+    CHECK_EQ(api0->net->resolve("host", ipbuf, sizeof(ipbuf)), -1);
     CHECK(api0->job->start(job_fn, 0, 4096) == 0);
     CHECK(!api0->job->running(0) && !api0->job->stop_requested());
     w.ld->set_net(&g_fknet);
@@ -2540,6 +2596,19 @@ static void net_and_jobs()
         lib_job = api0->job->start(job_fn, 0, 4096);
     }
     CHECK(lib_listener >= 100 && lib_conn == 300 && lib_job);
+    int lib_out;
+    {   // an outgoing connection is on the account of the image whose code asked, as a listener is
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_out = api0->net->connect("example", 80, 1234);
+    }
+    CHECK(lib_out >= 100 && g_connect_ms == 1234);
+    CHECK_EQ(w.ld->account_sockets(ha), 3);
+    CHECK_EQ(api0->net->connect("nowhere", 80, 10), -6);                                    // a refusal leaves no record
+    CHECK_EQ(w.ld->account_sockets(ha), 3);
+    CHECK_EQ(api0->net->resolve("example", ipbuf, sizeof(ipbuf)), 8);
+    CHECK(!strcmp(ipbuf, "0.0.0.77"));
+    CHECK_EQ(api0->net->close(lib_out), 0);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
     app_listener = api0->net->listen(9001, 2);
     app_job = api0->job->start(job_fn, 0, 4096);
     CHECK(app_job && app_job != lib_job);
@@ -2805,6 +2874,7 @@ int main()
     accounts();
     scopes();
     named_exports();
+    need_slots();
     services();
     net_and_jobs();
     calls_on_the_owners_account();

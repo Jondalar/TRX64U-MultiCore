@@ -43,6 +43,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     ops_.state = svc_state;
     lib_.size = sizeof(lib_);
     lib_.find = svc_lib_find;
+    lib_.need = svc_lib_need;
     fs_.size = sizeof(fs_);
     fs_.open = svc_open;
     fs_.read = svc_fread;
@@ -446,6 +447,22 @@ const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint
         *table_size = s->info.record.exports_size;
     }
     return s->info.record.exports;
+}
+
+const void *LibLoader::svc_lib_need(uint32_t n, uint32_t *table_size)
+{
+    if (table_size) {
+        *table_size = 0;
+    }
+    LibLoader *L = s_ld;
+    int o = L->owner_at(__builtin_return_address(0));
+    if (o < 0 || o >= LIB_MAX || !L->slot_[o].used || n >= (uint32_t)L->slot_[o].nneed || !L->slot_[o].need_tab[n]) {
+        return 0;
+    }
+    if (table_size) {
+        *table_size = L->slot_[o].need_size[n];
+    }
+    return L->slot_[o].need_tab[n];
 }
 
 const char *LibLoader::svc_state(const char *name, uint32_t *rev)
@@ -1246,6 +1263,10 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     // D11: what it needs, by name and both versions
     char vw[16], vh[16];
     int deps[U2A3_NEEDS_MAX], ndeps = 0;                // the loaded images this one needs (T197 D8: counted as used while this one is loaded)
+    const void *need_tab[U2A3_NEEDS_MAX];               // SvcLib::need: the table of entry i, in the order of the file
+    uint32_t need_size[U2A3_NEEDS_MAX];
+    memset(need_tab, 0, sizeof(need_tab));
+    memset(need_size, 0, sizeof(need_size));
     for (int i = 0; i < h.needs_count; i++) {
         U2a3Need nd;
         if (!src->read(h.needs_offset + i * U2A3_NEED_SIZE, &nd, sizeof(nd)) || !field_ok(nd.name, false)) {
@@ -1282,6 +1303,13 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
         }
         deps[ndeps++] = (int)(dep - slot_);
+        if (ex) {
+            need_tab[i] = ex->table;
+            need_size[i] = ex->size;
+        } else if (dep->info.kind == U2A3_KIND_LIB && dep->info.record.exports) {
+            need_tab[i] = dep->info.record.exports;
+            need_size[i] = dep->info.record.exports_size;
+        }
     }
 
     // Q10: a library whose capability the core lacks is refused, with a message, before any memory is spent
@@ -1390,6 +1418,9 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         use(deps[i]);
     }
     s.ndep = ndeps;
+    memcpy(s.need_tab, need_tab, sizeof(need_tab));
+    memcpy(s.need_size, need_size, sizeof(need_size));
+    s.nneed = h.needs_count;
 
     // the poll of the library: lib_register's record or the menu record carries it, not both (the one the other would silently replace)
     RegMark mark = reg_->mark();

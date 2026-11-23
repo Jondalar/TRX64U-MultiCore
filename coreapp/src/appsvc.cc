@@ -12,6 +12,7 @@
 #include "trx_lv_port.h"
 #include "trx_ring.h"
 #include "lwip/sockets.h"
+#include "netdb.h"
 #include <errno.h>
 #include "FreeRTOS.h"
 #include "task.h"
@@ -447,7 +448,75 @@ static int net_peer(int h, char *buf, int len)
     return (int)strlen(buf);
 }
 
-static const SvcNet g_net = { sizeof(SvcNet), net_listen, net_accept, net_recv, net_send, net_close, net_wait, net_peer };
+// The outgoing half (base 3.3). The name goes through lwIP's resolver (a dotted address is taken as it is).
+static int net_resolve(const char *name, char *buf, int len)
+{
+    struct hostent he, *rh = 0;
+    char hb[256];
+    int err = 0;
+    if (!name || !buf || len < 8 || lwip_gethostbyname_r(name, &he, hb, sizeof(hb), &rh, &err) != 0 || !rh || rh->h_addrtype != AF_INET || !rh->h_addr) {
+        return -1;
+    }
+    struct in_addr a;
+    memcpy(&a, rh->h_addr, sizeof(a));
+    char ip[20];
+    inet_ntoa_r(a, ip, sizeof(ip));
+    if ((int)strlen(ip) >= len) {
+        return -1;
+    }
+    strcpy(buf, ip);
+    return (int)strlen(buf);
+}
+
+static int net_connect(const char *host, uint16_t port, uint32_t timeout_ms)
+{
+    if (s_nsocks >= NET_MAX) {
+        return -5;
+    }
+    char ip[20];
+    if (net_resolve(host, ip, sizeof(ip)) < 0) {
+        return -6;
+    }
+    struct sockaddr_in a;
+    memset(&a, 0, sizeof(a));
+    a.sin_family = AF_INET;
+    a.sin_port = htons(port);
+    if (!inet_aton(ip, &a.sin_addr)) {
+        return -6;
+    }
+    int s = lwip_socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) {
+        return -7;
+    }
+    net_nonblocking(s);
+    int r = lwip_connect(s, (struct sockaddr *)&a, sizeof(a));
+    if (r < 0 && errno == EINPROGRESS) {
+        if (timeout_ms < portTICK_PERIOD_MS) {
+            timeout_ms = portTICK_PERIOD_MS;
+        }
+        fd_set wr;
+        FD_ZERO(&wr);
+        FD_SET(s, &wr);
+        struct timeval tv;
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        int so = 0;
+        socklen_t sl = sizeof(so);
+        if (lwip_select(s + 1, NULL, &wr, NULL, &tv) > 0 && lwip_getsockopt(s, SOL_SOCKET, SO_ERROR, &so, &sl) == 0 && so == 0) {
+            r = 0;
+        }
+    }
+    if (r < 0) {
+        lwip_close(s);
+        return -3;
+    }
+    int one = 1;
+    lwip_setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    net_track(s);
+    return s;
+}
+
+static const SvcNet g_net = { sizeof(SvcNet), net_listen, net_accept, net_recv, net_send, net_close, net_wait, net_peer, net_connect, net_resolve };
 const SvcNet *appsvc_net(void) { return &g_net; }
 
 // An application ended: the debug block goes back. Its sockets and jobs are not here: the loader closes the ones on its account before this runs (AppHost::end_application),
