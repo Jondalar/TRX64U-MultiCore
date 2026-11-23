@@ -81,7 +81,7 @@ cores of the C64 family provide. `api->trx`, `api->trx->ring` and `api->c64` lea
 
 A library that is the code of a core exports the table `CoreHooks` (`include/core_hooks.h`) as `corehooks`, major 1 (`LIB_EXPORTS = corehooks=1`). Besides the hooks of the core description it has `start`
 (once, before the first poll), `menu_closed` (when the menu closes) and `base_setting_changed` (after a setting of the base changes, and once per such setting after `start`). A member that is null
-is a call the base makes itself. A library that exports `corehooks` is never unloaded to make room. The base owns ten settings (`Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`,
+is a call the base makes itself. The library that is the whole code of a core is named in the core's API TOML (`hooks = "<library name>"` in `[core]`; `cor_pack` refuses a bundle without it, or a file that does not list `corehooks=1`): the base then calls `init`, `release`, `warm_reset`, `cold_start`, `media_flush` and `media_pending` where it calls the members of the core description, and serves the `[mount]` slots through `slot_spec`, `slot_mount` and `slot_eject` (`api.md` 9.7.9 to 9.7.11). A library that exports `corehooks` is never unloaded to make room. The base owns ten settings (`Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`,
 `Navigation Style`, `Joystick Input` and the five USB mouse settings): a library reads them by key and must not declare them; a descriptor that does is refused. `api.md` sections 4.13.19 and 9.5 have the contract.
 
 ## The version of the base API

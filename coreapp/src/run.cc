@@ -51,6 +51,7 @@ extern "C" bool rtc_time_valid(void);
 #include "mousesink.h"
 #include "baseset.h"
 #include "hookhost.h"
+#include "hooklib.h"
 #include "product.h"
 #include "rawkeys.h"
 #include "trx_io.h"
@@ -640,9 +641,27 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static AppIndex app_index;
     static LogStdout say_out;
     const CoreDesc *merge_base = ctx.desc;
+    // A core whose record names the library that is its code (CoreDesc::hooks_lib, core_hooks.h): its table of hooks is taken here, after the libraries are loaded and before the first
+    // reset (boot_start below), and the descriptor of every merge gets the library's hooks and mount slots (hooks_bind) before the menu is built from it. What goes wrong is told, the core runs on.
+    auto hooks_told = [&](const char *what) {
+        printf("[core] %s\n", what);
+        if (!ctx.notice_pending) {
+            snprintf(ctx.notice, sizeof(ctx.notice), "%s", what);
+            ctx.notice_pending = true;
+        }
+    };
+    if (desc->hooks_lib) {
+        char why[200];
+        if (hooks_attach_lib(lib_board_loader(), desc->hooks_lib, why, sizeof(why))) {
+            hooks_told(why);
+        }
+    }
     auto do_merge = [&]() {
         app_index.set_room(lib_board_loader() ? lib_board_loader()->room() : 0xFFFFFFFFu, lib_board_loader());   // T197 P4: the loader window of this moment
         int refused = bundle_merge(&ctx, merge_base, &bundle, lib_board_loader(), &say_out, &merged_desc, &merge, &app_index);
+        if (const char *bad = hooks_bind(&merged_desc)) {
+            hooks_told(bad);
+        }
         lib_board_menu_note(refused);
         ctx.desc = &merged_desc;
         ctx.merge = &merge;
@@ -676,7 +695,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
-    hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it
+    if (!desc->hooks_lib) {
+        hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it; a record that names its library took its table above
+    }
     BootResult r = boot_start(&ctx, &board_ui);
     STARTLOG("phase boot_start returned (%s)", r == BOOT_RUNNING ? "running" : "waiting for a program");
     lib_board_started();                          // the start finished: the boot-attempt counter (libguard.h) goes back to 0
