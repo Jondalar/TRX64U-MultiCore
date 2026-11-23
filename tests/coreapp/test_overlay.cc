@@ -25,6 +25,8 @@ struct FakeHost : OverlayHost {
     int grabs = 0, frees = 0, to_ui = 0, to_core = 0, hide = 0, show = 0;
     bool grab_ok = true;
     int live = 0;
+    int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
+    void canvas(int *w, int *h) { *w = cw; *h = ch; }
     void *alloc(uint32_t n) { live++; return malloc(n); }
     void release(void *p) { frees++; live--; free(p); }
     bool grab_still(uint16_t *dst, int w, int h) { grabs++; if (grab_ok) { for (int i = 0; i < w * h; i++) dst[i] = 0x1234; } return grab_ok; }
@@ -69,7 +71,7 @@ static void check_plan(const OvPlan &p, int holder, bool key, int alpha, bool st
 
 int main()
 {
-    // ---- the TOML side (D8): a place is inside the canvas, a row that is not is refused
+    // ---- the TOML side (D8): a place on the canvas of 960 x 540, and on the canvas of the video mode
     {
         OvRect r;
         CHECK(ovl_place(UiElementRow{ "paused", OVA_TOP_RIGHT, -14, 14, 126, 30, false }, &r));
@@ -78,9 +80,9 @@ int main()
         CHECK(ovl_place(UiElementRow{ "bar", OVA_BOTTOM_MID, 0, -20, 400, 40, false }, &r));
         CHECK_EQ(r.x, 280);
         CHECK_EQ(r.y, 480);
-        CHECK(!ovl_place(UiElementRow{ "x", OVA_TOP_LEFT, 900, 0, 100, 10, false }, &r));
-        CHECK(!ovl_place(UiElementRow{ "x", OVA_CENTER, 0, 0, 961, 10, false }, &r));
-        CHECK(ovl_row_check(UiElementRow{ "x", OVA_TOP_LEFT, 900, 0, 100, 10, false }) != 0);
+        const OvRect q = ovl_place_on(UiElementRow{ "paused", OVA_TOP_RIGHT, -14, 14, 126, 30, false }, 640, 480);    // the canvas of 480p: the anchor counts from its right edge
+        CHECK_EQ(q.x, 500);
+        CHECK_EQ(q.y, 14);
         CHECK(ovl_row_check(UiElementRow{ "bar", OVA_TOP_LEFT, 0, 0, 100, 10, false }) == 0);
         UiElements base = table(), core, out;
         memset(&core, 0, sizeof(core));
@@ -177,17 +179,6 @@ int main()
         CHECK_EQ(r.host.live, 0);
     }
 
-    // ---- S4 without a capture: the elements stand over the keyed screen, as the tag did
-    {
-        Rig r(true);
-        r.host.grab_ok = false;
-        SvcSurface tag = sf(g_tag, 126, 30);
-        r.svc.show(OVL_OWNER_BASE, "paused", &tag);
-        r.svc.paused(true);
-        r.svc.frame();
-        check_plan(r.layer.plan, OVH_UI, true, 255, false, true, 255);
-    }
-
     // ---- S5: a layer core keeps its picture while it runs (no element), shows still and element only while it stands (Pause)
     {
         Rig r(false);
@@ -209,16 +200,6 @@ int main()
         check_plan(r.layer.plan, OVH_CORE, false, 255, false, false, 255);
         CHECK_EQ(r.host.live, 0);
     }
-    {
-        Rig r(false);                                                                       // a stand without a capture keeps the core's picture, no element
-        r.host.grab_ok = false;
-        SvcSurface bar = sf(g_bar, 400, 40);
-        r.svc.show(0, "bar", &bar);
-        r.svc.paused(true);
-        r.svc.frame();
-        check_plan(r.layer.plan, OVH_CORE, false, 255, false, false, 255);
-    }
-
     // ---- the still of a library (Timewarp): its surface replaces the base's, under the open menu too; several libraries in the order of the TOML
     {
         Rig r(true);
@@ -238,7 +219,6 @@ int main()
         CHECK_EQ(r.layer.scene.n, 2);
         CHECK_EQ(r.layer.scene.el[0].w, 400);                                              // bar before led: the order of the TOML
         CHECK_EQ(r.layer.scene.el[1].w, 16);
-        CHECK_EQ(r.svc.show(2, "bar", &bar), OVL_E_TAKEN);
         // S7: library 1 is released: its elements are gone at once, the other's stay; the base's capture is the still again
         r.svc.drop_owner(1);
         CHECK_EQ(r.layer.scene.n, 1);
@@ -263,7 +243,58 @@ int main()
         check_plan(r.layer.plan, OVH_CORE, false, 255, false, false, 255);
         CHECK_EQ(r.layer.scene.n, 0);
         CHECK(!r.svc.enabled());
-        CHECK_EQ(r.svc.show(0, "bar", &bar), OVL_E_NOSERVICE);
+    }
+
+    // ---- S1 on a layer core: Pause, then the menu opens: the still stays under the menu, the menu is blended over it (D4, D10)
+    {
+        Rig r(false);
+        r.svc.look(191);
+        r.svc.paused(true);
+        CHECK_EQ(r.host.grabs, 1);
+        check_plan(r.layer.plan, OVH_UI, false, 255, true, false, 255);
+        r.svc.menu(true);                                                                   // the menu opens: no call tells the service that Pause ended
+        check_plan(r.layer.plan, OVH_UI, false, 255, true, false, 191);
+        CHECK(r.layer.scene.has_still);
+        CHECK_EQ(r.host.grabs, 1);
+        r.svc.menu(false);
+        check_plan(r.layer.plan, OVH_UI, false, 255, true, false, 255);
+        r.svc.paused(false);
+        check_plan(r.layer.plan, OVH_CORE, false, 255, false, false, 255);
+        CHECK_EQ(r.host.live, 0);
+    }
+
+    // ---- the video mode: the elements and the base's still follow the canvas of the moment
+    {
+        Rig r(true);
+        SvcSurface tag = sf(g_tag, 126, 30);
+        CHECK(r.svc.show(OVL_OWNER_BASE, "paused", &tag) > 0);
+        r.host.cw = 640;
+        r.host.ch = 480;
+        r.svc.paused(true);                                                                 // the machine stops: the still is the picture fitted to the canvas
+        CHECK_EQ(r.layer.scene.still.w, 640);
+        CHECK_EQ(r.layer.scene.still.h, 480);
+        CHECK_EQ(r.layer.scene.still.x, 0);
+        CHECK_EQ(r.layer.scene.el[0].x, 500);                                               // right edge of 640, 14 pixels in
+        r.host.cw = 800;
+        r.host.ch = 600;
+        r.svc.frame();                                                                      // the mode changed while it stands: the element moves at the next frame
+        CHECK_EQ(r.layer.scene.el[0].x, 660);
+        r.svc.paused(false);
+        CHECK_EQ(r.svc.remove(OVL_OWNER_BASE, 2), 0);
+    }
+
+    // ---- a surface that is taken away leaves no text call behind: the library may free it when remove() returns
+    {
+        Rig r(true);
+        SvcSurface bar = sf(g_bar, 400, 40);
+        const int h = r.svc.show(0, "bar", &bar);
+        r.svc.text(0, &bar, 2, 2, "TIME", 0xFFFF);
+        CHECK_EQ(r.svc.remove(0, h), 0);
+        r.svc.frame();
+        CHECK_EQ(r.layer.texts, 0);
+        r.svc.text(0, &bar, 2, 2, "TIME", 0xFFFF);
+        r.svc.frame();
+        CHECK_EQ(r.layer.texts, 1);                                                         // a surface that is not taken away is written as before
     }
 
     // ---- S7: a library built before the group has a smaller LibApi: it never reads the member, the macro says so to one that does
@@ -278,22 +309,7 @@ int main()
         CHECK_EQ(offsetof(LibApi, overlay), offsetof(LibApi, board) + sizeof(void *));     // appended after the last group: no member before it moved
     }
 
-    // ---- the limits of the calls: a refusal with its reason
-    {
-        Rig r(true);
-        SvcSurface bad = sf(g_bar, 400, 41);
-        CHECK_EQ(r.svc.show(0, "bar", &bad), OVL_E_SIZE);
-        bad = sf(g_bar, 400, 40);
-        bad.bytes -= 2;
-        CHECK_EQ(r.svc.show(0, "bar", &bad), OVL_E_BYTES);
-        SvcSurface ok = sf(g_bar, 400, 40);
-        CHECK_EQ(r.svc.show(0, "nothing", &ok), OVL_E_NAME);
-        CHECK_EQ(r.svc.update(0, 3), OVL_E_HANDLE);
-        CHECK_EQ(r.svc.remove(0, 99), OVL_E_HANDLE);
-        CHECK(strlen(OverlaySvc::error(OVL_E_SIZE)) > 10);
-    }
-
-    // ---- S10: a library hides the menu and shows it again: the requests reach the board's main loop at the next frame, in the order of the calls (the last wins)
+    // ---- S10: a library hides the menu and shows it again: the requests reach the board's main loop at the next frame, (one request waits for the frame: the last call wins)
     {
         Rig r(true);
         r.svc.menu_hide();

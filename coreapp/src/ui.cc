@@ -1492,12 +1492,8 @@ void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_pictu
     g_svc->set_table(table, own_picture);
 }
 
-void ui_overlay_end(void)
-{
-    if (g_svc) {
-        g_svc->clear();
-    }
-}
+int ui_canvas_w(void) { return trx_canvas_w(); }
+int ui_canvas_h(void) { return trx_canvas_h(); }
 
 void ui_overlay_frozen(bool on)
 {
@@ -1563,6 +1559,12 @@ void ui_paused_tag(bool on)
         }
         g_svc->text(OVL_OWNER_BASE, &g_tag_sf, 12, 6, "PAUSED", 0xFFFF);
         g_tag_el = g_svc->show(OVL_OWNER_BASE, "paused", &g_tag_sf);
+        if (g_tag_el <= 0) {
+            int ew = 0, eh = 0;
+            g_svc->size_of("paused", &ew, &eh);
+            printf("[overlay] the PAUSED tag is not shown: %s (the element \"paused\" of the UI TOML is %d x %d, the tag's surface %d x %d)\n", OverlaySvc::error(g_tag_el), ew, eh, g_tag_sf.w, g_tag_sf.h);
+            g_tag_el = 0;
+        }
         g_svc->frame();                                                        // the text is in the surface before the layer draws it
     }
     g_svc->paused(on);

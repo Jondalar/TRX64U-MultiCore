@@ -110,14 +110,7 @@ public:
         }
         return leave;
     }
-    bool return_to_host(char *msg, int n)
-    {
-        bool ok = hw_return_to_host(msg, n);
-        if (ok) {
-            ui_overlay_end();                         // T256: the core is left, its libraries' elements go
-        }
-        return ok;
-    }
+    bool return_to_host(char *msg, int n) { return hw_return_to_host(msg, n); }
 };
 
 class LogStdout : public LibLog {
@@ -210,6 +203,7 @@ public:
     uint32_t now_ms() { return ctx.io->now_ms(); }
     void wait_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) : 1); }
     void log(const char *line) { printf("%s\n", line); }
+    void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
     int take_req() { int r = req_; req_ = 0; return r; }
     void bind_task() { task_ = xTaskGetCurrentTaskHandle(); }
 private:
@@ -414,14 +408,7 @@ public:
             break;
         }
     }
-    bool return_to_host(char *msg, int n)
-    {
-        bool ok = hw_return_to_host(msg, n);
-        if (ok) {
-            ui_overlay_end();                         // T256: the core is left, its libraries' elements go
-        }
-        return ok;
-    }
+    bool return_to_host(char *msg, int n) { return hw_return_to_host(msg, n); }
 };
 
 }
@@ -923,7 +910,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
 
     auto open_menu = [&]() {
         t_req = ctx.io->now_ms();
-        ui_paused_tag(false);                     // the tag of a paused machine goes, the menu draws itself
         if (ctx.started) {
             ctx.frozen = true;                    // no poll starts from here on ...
             core_lock.lock();                     // ... and one that is in the core is finished (it holds the lock)
@@ -1122,7 +1108,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             if (menu_open) {
                 ui_menu_visible(true);
             } else if (ctx.paused) {
-                ui_paused_tag(true);                  // the machine stands: the layer goes back to the keyed screen with its tag
+                ui_paused_tag(true);                  // the machine stands: the service shows the still and the tag element again
             } else {
                 ui_hide();                            // the layer is the core's again
             }

@@ -45,7 +45,10 @@ struct OvRect {
 const char *ovl_anchor_name(int anchor);   // "top_left", ...; null for a number outside OVA_*
 int ovl_anchor_of(const char *name);       // the number of the name, -1 when it is none
 bool ovl_name_ok(const char *name);
-// The place of a row on the canvas. False when the row has no size, or its rectangle is not inside the canvas (the TOML check refuses such a row).
+// The place of a row on a canvas of cw x ch (the active one: 640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above): the anchor and the offset count from that canvas's edges, the size is
+// the row's. The rectangle may reach beyond a smaller canvas (the layer clips it); the TOML check below is always made against the canvas of 960 x 540.
+OvRect ovl_place_on(const UiElementRow &r, int cw, int ch);
+// The place of a row on the canvas of 960 x 540. False when the row has no size, or its rectangle is not inside the canvas (the TOML check refuses such a row).
 bool ovl_place(const UiElementRow &r, OvRect *out);
 // The row's refusal as a sentence, or null when it is fine. The compiler (tools/descrec.py _element_check) holds the same rules.
 const char *ovl_row_check(const UiElementRow &r);
@@ -126,6 +129,8 @@ public:
     virtual uint32_t now_ms() { return 0; }
     virtual void wait_ms(uint32_t ms) { (void)ms; }
     virtual void log(const char *line) { (void)line; }
+    // The size of the canvas LVGL draws on now (it follows the video mode). The service places the elements on it at every frame.
+    virtual void canvas(int *w, int *h) { *w = OVL_CANVAS_W; *h = OVL_CANVAS_H; }
 };
 
 #define OVL_OWNER_BASE (-1)                // the base's own elements (the PAUSED tag); a library's owner is its slot, 0 and up
@@ -167,6 +172,7 @@ public:
     const OvScene &scene() const { return scene_; }
     OvState state() const;
     int shown() const;                     // the elements shown now (the still too)
+    bool size_of(const char *name, int *w, int *h) const;   // the size of the element's row in the UI TOML; false when there is none
     int owner_of(const char *name) const;  // OVL_OWNER_NONE when nobody shows it, -2 when there is no such element
 
 private:
@@ -186,7 +192,9 @@ private:
         char s[OVL_TEXT_LEN];
     };
     void settle();
+    void drop_text_of(const uint16_t *px);
     void sync_ui();                        // a surface was taken away: the UI task has settled before this returns (or after 200 ms, with a line in the log)
+    void place_slots();                    // every element's rectangle on the canvas of now (the lock is held)
     void build_scene(OvScene *sc, bool *elems, bool *lib_still) const;
     void take_still();
     void drop_still();
@@ -197,7 +205,8 @@ private:
     Slot slot_[OVL_ELEMENTS_MAX];
     int n_;
     int still_slot_;                       // the slot of the still, -1: the table has none
-    uint16_t *base_still_;                 // the base's capture of the stopped machine, w x h of the still's row
+    uint16_t *base_still_;                 // the base's capture of the stopped machine, base_rect_ in size (the still's row, cut to the canvas of the moment it was taken)
+    OvRect base_rect_;
     bool base_still_ok_;
     bool menu_up_, frozen_, paused_, live_key_;
     bool was_standing_;

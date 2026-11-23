@@ -318,7 +318,7 @@ struct DescRecord {
     DescWindow windows[DR_WINDOWS]; int nwindows;
     // T239.3 D32 (sections 23 and 24): the core's routes and places over the base's (coreapp/base_ui.toml); strings point into the record. bundle_merge merges them with the base's table.
     UiPlace place; bool has_place;
-    // T256 D8 (section 25): the core's elements over the base's (the base UI TOML, coreapp/base_ui.toml); strings point into the record. run.cc merges them with the base's table (ovl_merge).
+    // T256 D8 (section 25): the core's elements over the base's (the base UI TOML, coreapp/base_ui.toml); strings point into the record. bundle_merge (bundle.cc) merges them with the base's table (ovl_merge).
     UiElements elem; bool has_elem;
     // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
     bool has_core;

@@ -34,24 +34,28 @@ bool ovl_name_ok(const char *s)
     return true;
 }
 
+OvRect ovl_place_on(const UiElementRow &r, int cw, int ch)
+{
+    const int col = r.anchor % 3, row = (r.anchor / 3) % 3;            // 0 left, 1 mid, 2 right; 0 top, 1 mid, 2 bottom
+    OvRect o;
+    o.x = (col == 0 ? 0 : col == 1 ? (cw - r.w) / 2 : cw - r.w) + r.dx;
+    o.y = (row == 0 ? 0 : row == 1 ? (ch - r.h) / 2 : ch - r.h) + r.dy;
+    o.w = r.w;
+    o.h = r.h;
+    return o;
+}
+
 bool ovl_place(const UiElementRow &r, OvRect *out)
 {
     if (r.anchor >= OVA_COUNT || r.w < 1 || r.h < 1 || r.w > OVL_CANVAS_W || r.h > OVL_CANVAS_H) {
         return false;
     }
-    const int col = r.anchor % 3, row = r.anchor / 3;                  // 0 left, 1 mid, 2 right; 0 top, 1 mid, 2 bottom
-    int x = col == 0 ? 0 : col == 1 ? (OVL_CANVAS_W - r.w) / 2 : OVL_CANVAS_W - r.w;
-    int y = row == 0 ? 0 : row == 1 ? (OVL_CANVAS_H - r.h) / 2 : OVL_CANVAS_H - r.h;
-    x += r.dx;
-    y += r.dy;
-    if (x < 0 || y < 0 || x + r.w > OVL_CANVAS_W || y + r.h > OVL_CANVAS_H) {
+    const OvRect o = ovl_place_on(r, OVL_CANVAS_W, OVL_CANVAS_H);
+    if (o.x < 0 || o.y < 0 || o.x + o.w > OVL_CANVAS_W || o.y + o.h > OVL_CANVAS_H) {
         return false;
     }
     if (out) {
-        out->x = x;
-        out->y = y;
-        out->w = r.w;
-        out->h = r.h;
+        *out = o;
     }
     return true;
 }
@@ -173,6 +177,7 @@ OverlaySvc::OverlaySvc(OverlayLayer *layer, OverlayHost *host)
     plan_.alpha = 255;
     plan_.menu_opa = 255;
     memset(&scene_, 0, sizeof(scene_));
+    memset(&base_rect_, 0, sizeof(base_rect_));
 }
 
 OverlaySvc::~OverlaySvc()
@@ -222,11 +227,22 @@ void OverlaySvc::build_scene(OvScene *sc, bool *elems, bool *lib_still) const
                 *lib_still = true;
             } else if (base_still_ok_ && base_still_ && s.placed) {
                 sc->has_still = true;
-                sc->still = OvDraw{ base_still_, s.rect.x, s.rect.y, s.rect.w, s.rect.h, s.serial };
+                sc->still = OvDraw{ base_still_, base_rect_.x, base_rect_.y, base_rect_.w, base_rect_.h, s.serial };
             }
         } else if (s.owner != OVL_OWNER_NONE && s.px && s.placed) {
             sc->el[sc->n++] = OvDraw{ s.px, s.rect.x, s.rect.y, s.rect.w, s.rect.h, s.serial };
             *elems = true;
+        }
+    }
+}
+
+void OverlaySvc::place_slots()
+{
+    int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
+    host_->canvas(&cw, &ch);
+    for (int i = 0; i < n_; i++) {
+        if (slot_[i].placed) {
+            slot_[i].rect = ovl_place_on(slot_[i].row, cw, ch);
         }
     }
 }
@@ -240,6 +256,7 @@ void OverlaySvc::set_table(const UiElements *t, bool own_picture)
     }
     n_ = 0;
     still_slot_ = -1;
+    memset(&base_rect_, 0, sizeof(base_rect_));
     for (int i = 0; t && i < t->n && i < OVL_ELEMENTS_MAX; i++) {
         Slot &s = slot_[n_];
         memset(&s, 0, sizeof(s));
@@ -304,7 +321,13 @@ void OverlaySvc::take_still()
     if (still_slot_ < 0) {
         return;
     }
-    const OvRect &r = slot_[still_slot_].rect;
+    int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
+    host_->canvas(&cw, &ch);
+    UiElementRow row = slot_[still_slot_].row;                  // the capture is the picture fitted to the still's rectangle, cut to the canvas of now
+    row.w = (uint16_t)(row.w < cw ? row.w : cw);
+    row.h = (uint16_t)(row.h < ch ? row.h : ch);
+    base_rect_ = ovl_place_on(row, cw, ch);
+    const OvRect &r = base_rect_;
     base_still_ = (uint16_t *)host_->alloc((uint32_t)r.w * (uint32_t)r.h * 2u);
     if (!base_still_) {
         host_->log("[overlay] no memory for the still");
@@ -341,6 +364,7 @@ void OverlaySvc::settle()
     }
     was_standing_ = standing;
     host_->enter();
+    place_slots();
     OvScene sc;
     bool elems = false, lib_still = false;
     build_scene(&sc, &elems, &lib_still);
@@ -367,10 +391,10 @@ void OverlaySvc::settle()
     host_->leave();
     bool same = applied_ && ovl_plan_same(p, plan_) && sc.has_still == scene_.has_still && sc.n == scene_.n;
     for (int i = 0; same && i < sc.n; i++) {
-        same = sc.el[i].px == scene_.el[i].px && sc.el[i].serial == scene_.el[i].serial && sc.el[i].x == scene_.el[i].x && sc.el[i].y == scene_.el[i].y;
+        same = sc.el[i].px == scene_.el[i].px && sc.el[i].serial == scene_.el[i].serial && sc.el[i].x == scene_.el[i].x && sc.el[i].y == scene_.el[i].y && sc.el[i].w == scene_.el[i].w && sc.el[i].h == scene_.el[i].h;
     }
     if (same && sc.has_still) {
-        same = sc.still.px == scene_.still.px && sc.still.serial == scene_.still.serial;
+        same = sc.still.px == scene_.still.px && sc.still.serial == scene_.still.serial && sc.still.x == scene_.still.x && sc.still.y == scene_.still.y && sc.still.w == scene_.still.w && sc.still.h == scene_.still.h;
     }
     if (!same) {
         if (p.holder == OVH_UI && plan_.holder != OVH_UI) {
@@ -388,6 +412,18 @@ void OverlaySvc::settle()
         drop_still();
     }
     frames_++;
+}
+
+// The text calls that wait for the next frame and write into this surface go (the lock is held): the surface is the library's again when remove() or show() returns, so no later frame may write into it.
+void OverlaySvc::drop_text_of(const uint16_t *px)
+{
+    int k = 0;
+    for (int i = 0; i < ntext_; i++) {
+        if (text_[i].sf.px != px) {
+            text_[k++] = text_[i];
+        }
+    }
+    ntext_ = k;
 }
 
 void OverlaySvc::sync_ui()
@@ -505,6 +541,9 @@ int OverlaySvc::show(int owner, const char *name, const SvcSurface *sf)
         rc = OVL_E_TAKEN;
     } else {
         replaced = slot_[i].px && slot_[i].px != sf->px;
+        if (replaced) {
+            drop_text_of(slot_[i].px);
+        }
         slot_[i].owner = owner;
         slot_[i].px = sf->px;
         slot_[i].serial = ++serial_;
@@ -540,6 +579,7 @@ int OverlaySvc::remove(int owner, int el)
     host_->enter();
     int rc = OVL_E_HANDLE;
     if (el >= 1 && el <= n_ && slot_[el - 1].owner == owner && slot_[el - 1].px) {
+        drop_text_of(slot_[el - 1].px);
         slot_[el - 1].owner = OVL_OWNER_NONE;
         slot_[el - 1].px = 0;
         rc = 0;
@@ -620,4 +660,15 @@ int OverlaySvc::owner_of(const char *name) const
 {
     const int i = find(name);
     return i < 0 ? -2 : slot_[i].owner;
+}
+
+bool OverlaySvc::size_of(const char *name, int *w, int *h) const
+{
+    const int i = find(name);
+    if (i < 0) {
+        return false;
+    }
+    *w = slot_[i].row.w;
+    *h = slot_[i].row.h;
+    return true;
 }

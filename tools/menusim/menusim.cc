@@ -442,6 +442,7 @@ struct SimOverlayHost : OverlayHost {
     }
     void menu_hide() { }
     void menu_show() { }
+    void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
 };
 
 // ---- reload ----------------------------------------------------------------------------------------
@@ -644,8 +645,8 @@ int main(int argc, char **argv)
             if (o.elements) {                                     // every element's rectangle and name, on LVGL's top layer
                 lv_obj_t *top = lv_display_get_layer_top(lv_display_get_default());
                 for (int i = 0; i < table.n; i++) {
-                    OvRect r;
-                    if (!ovl_place(table.rows[i], &r)) { continue; }
+                    if (ovl_row_check(table.rows[i])) { continue; }
+                    const OvRect r = ovl_place_on(table.rows[i], ui_canvas_w(), ui_canvas_h());          // on the canvas of this video mode
                     lv_obj_t *b = lv_obj_create(top);
                     lv_obj_remove_style_all(b);
                     lv_obj_set_pos(b, r.x, r.y);
