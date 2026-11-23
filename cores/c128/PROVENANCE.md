@@ -11,6 +11,8 @@ files carry their header, no ROM-like file is present.
   (Erik Scheffers, no licence text). Edits: `output` ports that are assigned in procedures become `output reg` (`vdc_top.sv` `db_out`;
   `vdc_ramiface.sv` `reg_ua reg_wc reg_da reg_ba busy rowbuf attrbuf charbuf dispaddr`); `vdc_signals_h.sv` / `vdc_signals.sv` / `vdc_top.sv` (T113 D1, T257): `reg_cdh` and `reg_hss` wired through, the capture window opens on the dot `ps` where the first character is loaded (`vstart`); `vdc_video.sv`: the scalar-port variant under
   `ifdef VERILATOR` is now under `VDC_SCALAR_BUFS` (never defined; it did not match `vdc_top.sv`'s array connection under Verilator 5).
+  `vdc_signals_v.sv`: the `field` output and the interlaced-bitmap rule at the frame wrap (T113 D11; T257 fault 2: no line is fetched before row 1, so the
+  second field carries on right after the first).
 - `c128_mmu8722.vhd`: `rtl/mmu8722.vhd` (same author/terms). Edits: `crBank` expression parenthesised (width mismatch), port `do` renamed `dout`
   (`do` is a Verilog keyword), the `case page(15 downto 14)` ends in `when others` (GHDL), the negative-control define `C128_MUT_ONEBANK` in `c128_map.v`.
 - `z80/cpu_z80.vhd`: `rtl/cpu_z80.vhd` (Erik Scheffers). Edits: `work.T80pa` instantiated as an entity, port `do` renamed `dout`, the reset inverted in a

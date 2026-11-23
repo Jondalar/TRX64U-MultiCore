@@ -256,11 +256,11 @@ module tb_c128_pixw;
                 $display("     woven picture %0d: buffer %0d, frame %0d, %0d rows compared, %0d pixel mismatches, glyph mismatches %0d", il_cmp, latest[1:0], vf, nrows, bad, glyph_chk);
                 if (il_cmp == 4 && dumpcur != "") dump_ppm(latest[1:0]);
                 if (bmmode) begin
-                    // field 0 (even rows) shows memory lines 0, 1, 2 ..., field 1 carries on after them: line 240 + (R5 + 1) / 2 = 244 (the 4 lines the
-                    // second field takes in the top vertical adjust); the 5th line of every 5-line cell is blank (R23 = 8: 9 of the 10 lines show)
+                    // field 0 (even rows) shows memory lines 0, 1, 2 ..., field 1 carries on right after them: line 240 + y (T257 fault 2, the layout
+                    // of the real-hardware programs); the 5th line of every 5-line cell is blank (R23 = 8: 9 of the 10 lines show)
                     for (bmn = 0; bmn < 240; bmn = bmn + 1) begin
                         if (bm_id(latest[1:0], 2 * bmn) != bmn) bm_abad = bm_abad + 1;
-                        if (bm_id(latest[1:0], 2 * bmn + 1) != ((bmn % 5 == 4 || bmn >= 236) ? 0 : 244 + bmn)) bm_bbad = bm_bbad + 1;
+                        if (bm_id(latest[1:0], 2 * bmn + 1) != ((bmn % 5 == 4) ? 0 : 240 + bmn)) bm_bbad = bm_bbad + 1;
                     end
                     bm_n = bm_n + 1;
                 end
@@ -504,8 +504,8 @@ module tb_c128_pixw;
         check(il_cmp >= 6 && bm_n >= 3, "S9 interlaced bitmap: six woven pictures were reported");
         check(il_fld_bad == 0 && il_buf_bad == 0 && il_seq_bad == 0, "S9 interlaced bitmap: field 0 then field 1, one report per pair, buffers go round, seq +1");
         check(il_cmp_bad == 0, "S9 interlaced bitmap: row 2y = line y of field 0, row 2y+1 = line y of field 1, every pixel");
-        check(bm_abad == 0, "S9 interlaced bitmap: field 0 shows memory lines 0..239 in order (VICE: the pointer starts at the screen address)");
-        check(bm_bbad == 0, "S9 interlaced bitmap: field 1 carries on after field 0 (line 244 + y, VICE: the pointer is reset after an odd frame only)");
+        check(bm_abad == 0, "S9 interlaced bitmap: field 0 shows memory lines 0..239 in order (it starts at the screen address)");
+        check(bm_bbad == 0, "S9 interlaced bitmap: field 1 carries on right after field 0 (line 240 + y, T257 fault 2)");
         check(il_stale_bad == 0, "S9 interlaced bitmap: b2 = 1 and all 480 rows are this picture");
         check(overruns == 16'd0, "S9 interlaced bitmap: no late line (overruns == 0)");
         $display("     bitmap: %0d woven pictures checked, field 0 mismatches %0d, field 1 mismatches %0d", bm_n, bm_abad, bm_bbad);

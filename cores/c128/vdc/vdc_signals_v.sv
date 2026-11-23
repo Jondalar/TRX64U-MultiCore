@@ -130,14 +130,15 @@ always @(posedge clk) begin
 					newsrow <= 1;
 
 					frameFetched <= 0;
-					// T113 D11: interlaced bitmap (R8 = 3, R25[7] = 1): the field that starts here (cfield 0, the second of the pair)
-					// carries on at the memory line after the last one of the field before; only the bottom prefetch below (ncfield)
-					// sends the first field of a pair back to the start address (VICE vdc.c: the pointers are reset after an odd
-					// frame only)
+					// Interlaced bitmap (R8 = 3, R25[7] = 1, T113 D11, T257 fault 2): the field that starts here (cfield 0, the second
+					// of the pair) is not sent back to the start address; only the bottom prefetch below (ncfield) does that, for the
+					// first field of a pair. No line is fetched before row 1 of any field, so the second field shows the memory line
+					// after the last one the first field showed (no lines skipped in its vertical adjust), and every field of R8 = 1
+					// starts at the start address
 					if (~&reg_im || !reg_text)
 						fetchFrame <= ~frameFetched;
 
-					fetchLine <= cfield & reg_text & |ctv;
+					fetchLine <= 0;
 				end
 			end
 			else begin
@@ -191,12 +192,8 @@ always @(posedge clk) begin
 						nsline <= 6'd0;
 						fetchLine <= |ctv;
 					end
-					else begin
+					else
 						nsline <= nsline+1'd1;
-
-						if (nsline==reg_va)
-							fetchLine <= 0;
-					end
 				end
 				else begin
 					if (nsline==ctv) begin

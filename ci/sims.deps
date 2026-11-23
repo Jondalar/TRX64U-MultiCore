@@ -251,6 +251,7 @@ c128_pause: @c128
 c128_scan: cores/c128 :(exclude)cores/c128/mono/reports tools/check_c128_tree.py
 c128_vdc: cores/c128 :(exclude)cores/c128/mono
 c128_pixw: cores/c128 :(exclude)cores/c128/mono
+c128_vdcil: cores/c128 :(exclude)cores/c128/mono
 c128_vkpeek: cores/c128 :(exclude)cores/c128/mono
 c128_romc: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
 c128_ramd: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
