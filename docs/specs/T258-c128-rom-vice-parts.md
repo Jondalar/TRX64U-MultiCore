@@ -24,7 +24,7 @@ The generic ROM manager has no way to say "this ROM is these files at these offs
 - **P4 Nothing changes for the single file:** `boot0.rom` and its names behave as before; a whole image wins over parts.
 - **P5 What the application tells about ROMs:** the host application's "Cores and ROMs" page and `ROMS.txt` do not call a core with VICE's six files "missing its system ROM"; the manual and the release notes name the files.
 - **P6 Generic, no per-core code:** the mechanism is data in the descriptor, checked by `desc_check`; `c128.cc` does not grow (`tools/check_d24.py`).
-- **P7 The 1541's 8 KiB JiffyDOS half:** whether the same mechanism takes it (the MEGA65 core does).
+- **P7 The 1541's 8 KiB JiffyDOS half:** the 8 KiB file of the old 1541 (the upper half, the chip 901229) is taken as the JiffyDOS 1541 ROM; drive A gets the stock ROM's lower 8 KiB with it (the MEGA65 core does the same).
 
 ## §2 Scenarios
 
@@ -78,6 +78,41 @@ Scenario: S10 real files, the board
   Given VICE's real six files in cores/c128/roms/ (Alex)
   When  the C128 core starts on the C64U
   Then  it reaches the BASIC 7.0 READY screen as with boot0.rom
+
+Scenario: S11 the 8 KiB half over the stock lower half
+  Given a stock 1541 ROM of 16,384 bytes in the core's folder, an 8,192-byte JiffyDOS 1541 file selected, ROM set JiffyDOS
+  When  the core starts, and when the setting is switched to Standard and back
+  Then  drive A holds 16,384 bytes: the stock bytes 0x0000-0x1FFF, the file 0x2000-0x3FFF; Standard holds the stock ROM again
+
+Scenario: S12 the half without a stock ROM
+  Given the 8,192-byte file selected, no stock 1541 ROM in the folder
+  When  the core starts with ROM set JiffyDOS
+  Then  the notice says the stock 1541 ROM is needed too and where it goes; drive A is left without a ROM and the machine starts
+
+Scenario: S13 a whole 1541 ROM as before
+  Given a 16,384- or 32,768-byte JiffyDOS 1541 file selected
+  When  the core starts with ROM set JiffyDOS
+  Then  drive A holds the file whole, as before this change; a 16,383-byte file and an empty or all-0xFF 8,192-byte file are refused with their reason and nothing is kept
+
+Scenario: S14 the T185 kit layouts as before
+  Given the C128, C64 and 1581 kit files of T185
+  When  the T185 scenarios run
+  Then  every T185 check passes unchanged, except the one that refused 8,192 bytes for the 1541 (it now takes them)
+
+Scenario: S15 the one-time copy
+  Given a stock 1541 ROM in an old place
+  When  the core folder is prepared
+  Then  it is copied as before (S7); the JiffyDOS file is selected, never searched, so nothing of it is copied
+
+Scenario: S16 the maintenance page and ROMS.txt
+  Given the C128 descriptor
+  When  `gen_romreq` and `gen_roms_txt.py` run
+  Then  their output equals the committed `romreq_table.inc` and the test's expectation: no new row, because the JiffyDOS file is selected, not named
+
+Scenario: S17 the board, Alex's own 8 KiB file
+  Given Alex's 8 KiB JiffyDOS 1541 file selected, the stock 1541 ROM in cores/c128/roms/
+  When  the C128 core starts with ROM set JiffyDOS
+  Then  `LOAD"$",8` runs with the JiffyDOS protocol on drive A
 ```
 
 | # | Solves | Scenario | Test | Where it runs |
@@ -92,8 +127,15 @@ Scenario: S10 real files, the board
 | S8 | P5 | maintenance page | `tests/hostapp/test_coremaint.cc` (T258 block); the table `romreq_table.inc` is compared with `gen_romreq` by `run.sh` (`t_romreq`) | `tests/hostapp/run.sh`, `tests/coreapp/run.sh` |
 | S9 | P6 | descriptor check; no growth of `c128.cc` | `tests/coreapp/test_desc.cc` (T258 block); `python3 tools/check_d24.py` | `run.sh` (unit `desc`), lint |
 | S10 | P1 | real files on the board | by hand: Alex puts VICE's files into `cores/c128/roms/` on the board | board session |
+| S11 | P7 | half over the stock lower half | `test_c128.cc` ("T258 D6" block, S11) | `run.sh` (unit `c128`) |
+| S12 | P7 | half without stock | `test_c128.cc` (S12) | same |
+| S13 | P7 | whole 1541 ROM as before | `test_c128.cc` (S13; the T185 drive block) | same |
+| S14 | P7 | T185 as before | `test_c128.cc` (the T185 block, its 8,192 check changed to "taken") | same |
+| S15 | P7 | one-time copy | `test_romfind.cc` (T258 block, unchanged: the 1541 spec's names and sizes did not move) | `run.sh` (unit `romfind`) |
+| S16 | P7 | maintenance page, ROMS.txt | `gen_romreq` output against `romreq_table.inc` (`t_romreq`), `tools/test_roms_txt.py` | `run.sh`, lint |
+| S17 | P7 | board, Alex's file | by hand | board session |
 
-P4 also rests on the existing C128 unit (7,145 checks before this spec, unchanged and green after). P7 has no scenario: it is out (§4, D6).
+P4 also rests on the existing C128 unit (7,145 checks before this spec, unchanged and green after). P7 is S11-S17.
 
 ## §3 Decision
 
@@ -102,7 +144,7 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
 - **D3 Put** (`rom_compose`, `boot.cc` `boot_put_roms`): the buffer is zeroed to the image size, each part is read to its offset, the image's `put_op` gets the whole image. The parts have no put operation and are skipped in the loop. The C128's `put_image` still checks the size (73,728), so no core code changed for this.
 - **D4 One-time copy** (`rom_import`): a part is copied like any spec, except that parts are not copied while their image is in the core folder or has just been copied, and an image is not copied when all its parts are already there.
 - **D5 `desc_check`**: a part has a role, a name, exactly one size, no put operation, not required, no set; its image is a spec that is not itself a part and has one size; the part ends inside it; two parts of one image do not overlap.
-- **D6 The 1541 takes the 8 KiB JiffyDOS half (Alex, 2026-11-23).** Asked whether the 8 KiB JiffyDOS file of the old 1541 (the upper half, which replaces the chip 901229) is taken over the lower half of the stock 1541 ROM, he chose "Yes, in T258". The lower half comes from a part of a file (the first 8 KiB of the stock ROM, which VICE ships as one 16 KiB file); T185's refusal of 8,192 bytes for the 1541 (`kit_size_ok(KIT_1541)`) is lifted for this case. How it is built: §5.
+- **D6 The 1541 takes the 8 KiB JiffyDOS half (Alex, 2026-11-23).** Asked whether the 8 KiB JiffyDOS file of the old 1541 (the upper half, which replaces the chip 901229) is taken over the lower half of the stock 1541 ROM, he chose "Yes, in T258". How it is built (§5): the file is one the person selects (T185 D4: the JiffyDOS files are never searched, so it has no names), and the stock lower half is the first 8 KiB of the stock 1541 ROM the drive already holds (`DriveRomPick::stock`, put from `roms[1]`, 16,384 or 32,768 bytes, VICE's `dos1541-325302-01+901229-05.bin` among its names). So the composition is a step of the shared drive-ROM pick (`drive_rom_pick.h`, a flag `DriveRomKind::half`), not a part spec of the scan: a scan part needs a name to find, and a "part of a file" in `RomSpec` would have nothing to read it from. T185's refusal of 8,192 bytes for the 1541 (`kit_size_ok(KIT_1541)`) is lifted for this case; every other size rule stays. A whole JiffyDOS ROM and an 8 KiB half cannot meet: one file is selected per role, and its size says which it is.
 - **D7 The C128's data** (`c128.cc` `roms[]`): six part specs after the three that existed (indexes 0-2 unchanged), VICE's names and sizes from `tools/c128_rom_image.py`; offsets +0x0000, +0x2000, +0x4000, +0x8000, +0xC000, +0x10000. D24: the file stays at its ledger value (1,078 code lines): the six lines are paid for by taking the zero/0xFF scan of `jf_part_fault` from the existing `all_same` (it did the same loop) and by the 1541 spec on one line. No exception line, none asked for.
 - **D8 Application tell-tales**: `boot.cc` `boot_start`'s message buffer is 360 bytes (the sentence is longer), `run.cc` `collect_rom_names` lists the parts' names for an image made from parts. The host application's table (`romreq_table.inc`, generated by `tests/coreapp/gen_romreq.cc`) gets the parts as rows with flag 8 and the image's row number in bits 4 and up; `coremaint.cc` counts the image as present when all its parts are, and counts no part as a need; `tools/gen_roms_txt.py`, `tools/release_notes_mc.py` and the manual (11.14.1, 12.2, 12.4.7) name the files.
 - **D9 No ROM bytes in the tree.** The tests make their bytes (`pattern()`, fills); VICE's file names are names only.
@@ -114,6 +156,8 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
 - The browser action "Load as system ROM image" still takes one 72 KiB file; parts are found in the folder, never selected one by one.
 - `cores/c128/mono/core.toml` (`roms = ["boot0.rom"]` and its comment) is not touched: a change there reaches the build keys of the core.
 - Other cores using `into` (the C64, the C16): not asked.
+
+- A stock 1541 ROM that is only the 8 KiB lower half (`325302-01`) as its own file: not built (the stock slot takes whole 16 or 32 KiB files only); asked of Alex, see the report of D6.
 
 ## §5 Decisions taken while building
 
