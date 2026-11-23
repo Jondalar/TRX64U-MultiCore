@@ -18,8 +18,8 @@ bool hooks_present(void);
 
 // The table of the library the core's record names (DescSections::ident.hooks, CoreDesc::hooks_lib), exact major COREHOOKS_MAJOR: the table the library lists as the export "corehooks"
 // in its record. Every call into it is made through the scope the caller gives, which takes the library's account for the call (LibLoader::Scope, hooklib.h): `enter` fills
-// `token` (HOOK_TOKEN_BYTES, 8-aligned), `leave` closes it. Forgets the previous state like hooks_attach. 0: attached. -1: no table, and `why` says which (the library is not loaded,
-// it has no export "corehooks" at major 1); the core then has no hooks.
+// `token` (HOOK_TOKEN_BYTES, 8-aligned), `leave` closes it. Forgets the previous state like hooks_attach. 0: attached. -1: no table (null or too short); the core then has no hooks.
+// The reason a library is not found (not loaded, no export "corehooks" at major 1) is told by hooks_attach_lib (hooklib.h).
 #define HOOK_TOKEN_BYTES 32
 typedef void (*HookEnter)(void *user, void *token);
 typedef void (*HookLeave)(void *user, void *token);
@@ -31,7 +31,7 @@ void hooks_detach(void);
 // media_pending are the library's when its table has the member, else null in the descriptor (no hook), each member with the meaning and the place of CoreDesc's (boot.cc, run.cc,
 // engines.cc). The core's [mount] list (CoreDesc::mount_slots, names only until now) gets the three functions of slot_spec, slot_mount and slot_eject, through adapters: the base's
 // own buffer (Settings::MOUNT_VAL_LEN bytes) for the spec, the length 0 an empty slot, -1 a spec that does not fit (logged, the slot reads as empty). A table without all three
-// takes the slots away and is the answer. Null: all done. A descriptor with no hooks_lib is not touched.
+// takes the slots away (and the row "Persist medium mounts" with them, when no other media slot is left) and is the answer. Null: all done. A descriptor with no hooks_lib is not touched.
 const char *hooks_bind(CoreDesc *d);
 
 // `start` (core_hooks.h): called once, after the core started and before any poll. 0: done, or no hook. A reason from the hook is cut into msg (msglen - 1 characters) and 1 is

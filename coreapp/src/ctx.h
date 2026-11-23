@@ -12,6 +12,7 @@
 class Video;
 class OpRegistry;
 class Executor;
+class CoreLock;
 class PartialPort;
 
 // What the Library shows and has marked (T104.2 UI): the menu writes it as the browser moves, the file operations (fileops.cc) read it. One writer, and the
@@ -72,6 +73,7 @@ struct CoreCtx {
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
     Executor *exec;                       // the one task that runs operations; null: they run on the caller (tests, before the start)
+    CoreLock *lock;                       // the core lock (exec.h), set with exec; null: none (tests, before the start)
     bool program_loaded;                  // a program the core needs (NES) is in
     char notice[200];                     // one line for the screen from a service (a failed write-back), told once
     bool notice_pending;

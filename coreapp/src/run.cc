@@ -655,13 +655,16 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (hooks_attach_lib(lib_board_loader(), desc->hooks_lib, why, sizeof(why))) {
             hooks_told(why);
         }
+        static CoreDesc bound_desc;                          // bound once: every merge copies a descriptor whose hooks and mount slots are in place (init and release are never null for the tasks that run meanwhile)
+        bound_desc = *merge_base;
+        if (const char *bad = hooks_bind(&bound_desc)) {
+            hooks_told(bad);
+        }
+        merge_base = &bound_desc;
     }
     auto do_merge = [&]() {
         app_index.set_room(lib_board_loader() ? lib_board_loader()->room() : 0xFFFFFFFFu, lib_board_loader());   // T197 P4: the loader window of this moment
         int refused = bundle_merge(&ctx, merge_base, &bundle, lib_board_loader(), &say_out, &merged_desc, &merge, &app_index);
-        if (const char *bad = hooks_bind(&merged_desc)) {
-            hooks_told(bad);
-        }
         lib_board_menu_note(refused);
         ctx.desc = &merged_desc;
         ctx.merge = &merge;
@@ -720,6 +723,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         printf("[core] the executor task did not start; operations run on the menu's task\n");
     } else {
         ctx.exec = &executor;
+        ctx.lock = &core_lock;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
     ring_autostart = cfg_value(&ctx, "Timewarp Ring", 1) != 0;

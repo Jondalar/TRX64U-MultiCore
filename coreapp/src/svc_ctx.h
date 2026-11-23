@@ -62,7 +62,7 @@ typedef struct SvcCtx {
     //   - a mount slot of the core's own engine (MountSlots::names: "D1", "Drive A", "Cartridge"), or
     //   - a media slot of the descriptor (MediaSlot::name, "D1:" with the colon dropped) that is none of these, when its state answers a spec.
     // These are the names of the slots the base stores for "Persist medium mounts" and the media sets. Result: true with the spec in buf (cut to len - 1); false for no such slot
-    // or an empty one (buf is ""). Task: any.
+    // or an empty one (buf is ""). Task: any (for a slot of the core's own engine the base reads the spec under the core lock and copies it before it lets go).
     bool (*media_source)(const char *slot, char *buf, int len);
     // A slot changed by its engine's own doing; `slot` is its name in the core's [mount] list ("Drive A", "Cartridge"), as ctx.media_source takes it. The call only
     // marks the slot: the base reads its spec on its next pass, under the core lock, and stores it for "Persist medium mounts" and the media sets once the start has

@@ -3,6 +3,7 @@
 // machine (a mutex, the 1 ms counter, the ESP32, the PLL, the SID expander) is a LibHost virtual, what needs the core is the CoreCtx the loader was given (set_ctx).
 #include "libload.h"
 #include "ctx.h"
+#include "exec.h"
 #include "corefolder.h"
 #include "descrec.h"
 #include <stdio.h>
@@ -258,12 +259,20 @@ struct LibSvc {
         const MountSlots *ms = c->desc->mount_slots;
         for (int i = 0; ms && i < ms->n; i++) {
             if (same_slot(ms->names[i], slot)) {
-                const char *spec = ms->spec(c, i);
-                if (!spec || !spec[0]) {
-                    return false;
+                // the engine's slot_spec is Task: lock (core_hooks.h) and answers in one static buffer: read it under the core lock, and copy before it is let go
+                CoreLock *lk = c->lock && !c->lock->mine() ? c->lock : 0;
+                if (lk) {
+                    lk->lock();
                 }
-                snprintf(buf, len, "%s", spec);
-                return true;
+                const char *spec = ms->spec(c, i);
+                bool have = spec && spec[0];
+                if (have) {
+                    snprintf(buf, len, "%s", spec);
+                }
+                if (lk) {
+                    lk->unlock();
+                }
+                return have;
             }
         }
         // a window drive or a sector unit, which the base mounts itself (the engines of winslot.h and sectors.h): the base's own lookup (mediamounts.cc, set_media_source)

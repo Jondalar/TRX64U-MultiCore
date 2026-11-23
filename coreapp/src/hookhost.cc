@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <strings.h>
 
 namespace {
 const CoreHooks *g_hooks;
@@ -185,6 +186,7 @@ bool d_media_pending(CoreCtx *)
 char g_spec[Settings::MOUNT_VAL_LEN];
 const char *mount_names[MOUNT_SLOTS_MAX];
 MountSlots g_slots;
+Setting g_settings[SETTINGS_MAX];                       // the descriptor's settings without the Persist row, when the slots are taken away
 
 const char *s_spec(CoreCtx *, int i)
 {
@@ -274,6 +276,16 @@ const char *hooks_bind(CoreDesc *d)
             d->mount_slots = &g_slots;
         } else {
             d->mount_slots = 0;                         // a slot the code cannot serve is no row (R20)
+            if (!mounts_have_slots(d)) {                // and "Persist medium mounts" (added from the record's names) does nothing without a slot: out too
+                int n = 0;
+                for (int i = 0; i < d->nsettings && n < SETTINGS_MAX; i++) {
+                    if (strcasecmp(d->settings[i].key, PERSIST_KEY)) {
+                        g_settings[n++] = d->settings[i];
+                    }
+                }
+                d->settings = g_settings;
+                d->nsettings = n;
+            }
             if (!err) {
                 err = "the library's table lacks slot_spec, slot_mount or slot_eject: the media slots of the record are left out";
             }

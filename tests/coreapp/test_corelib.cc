@@ -9,6 +9,7 @@
 //
 //   test_corelib FIXTURE_DIR
 #include <string>
+#include <strings.h>
 #include <vector>
 #include <stdio.h>
 #include "check.h"
@@ -24,6 +25,7 @@
 #include "svc_ctx.h"
 #include "svc_settings.h"
 #include "ops.h"
+#include "exec.h"
 
 static std::string g_dir;
 
@@ -205,6 +207,21 @@ static std::string joined()
 }
 
 // a run: the context, the loader with the model library, the descriptor made of the record and bound to the library
+// An OsPort that only counts the lock: the core lock's owner and the calls media_source makes (it reads an engine's slot under the lock, and never takes it twice on one task)
+struct CountOs : OsPort {
+    int locks = 0, unlocks = 0;
+    void *mutex_new() { return this; }
+    void lock(void *) { locks++; }
+    void unlock(void *) { unlocks++; }
+    void *sem_new() { return this; }
+    void give(void *) { }
+    bool take(void *, uint32_t) { return true; }
+    bool task_new(const char *, void (*)(void *), void *, int, uint32_t) { return false; }
+    void *self() { return this; }
+    uint32_t now_ms() { return 0; }
+    void sleep_ms(uint32_t) { }
+};
+
 struct Run {
     FakeFs fs;
     FakeIo io;
@@ -330,6 +347,25 @@ int main(int argc, char **argv)
         CHECK_STR(buf, "/usb0/a.d64");
         CHECK(!cx->media_source("Cart", buf, sizeof(buf)));                  // length 0: empty
         CHECK(!cx->media_source("Nope", buf, sizeof(buf)));
+        {                                                                    // the engine's slot_spec is Task: lock: read under the core lock, taken by media_source unless this task holds it
+            CountOs os;
+            CoreLock lk(&os);
+            r.c.lock = &lk;
+            CHECK(cx->media_source("D1", buf, sizeof(buf)) && !strcmp(buf, "/usb0/a.d64"));
+            CHECK_EQ(os.locks, 1);
+            CHECK_EQ(os.unlocks, 1);
+            CHECK(!lk.mine());
+            lk.lock();                                                       // a handler or a hook that holds it already: no second take (the lock is not recursive)
+            CHECK(lk.mine());
+            CHECK(cx->media_source("D1", buf, sizeof(buf)) && !strcmp(buf, "/usb0/a.d64"));
+            CHECK_EQ(os.locks, 2);
+            lk.unlock();
+            CHECK_EQ(os.unlocks, 2);
+            CHECK(!cx->media_source("Cart", buf, sizeof(buf)));              // an empty slot gives the lock back too
+            CHECK_EQ(os.locks, 3);
+            CHECK_EQ(os.unlocks, 3);
+            r.c.lock = 0;
+        }
         g_slot[1] = "ro /usb0/g.crt";                                        // the engine changes by its own doing
         cx->mount_notify("Cart");
         CHECK_EQ(r.c.mounts_dirty[1], 1);
@@ -430,6 +466,20 @@ int main(int argc, char **argv)
         CHECK(r.bind_err != 0 && strstr(r.bind_err, "slot_spec"));
         CHECK(r.d.mount_slots == 0);                                         // "a row that does nothing is a defect": no slot rows
         CHECK(r.d.init != 0);
+        hooks_detach();
+    }
+    {
+        make_table(false);                                                   // the slots go, so does "Persist medium mounts" that the record's [mount] names brought (it does nothing without a slot)
+        Run r(0);
+        auto has_persist_in = [](const Setting *v, int n) { for (int i = 0; i < n; i++) { if (!strcasecmp(v[i].key, PERSIST_KEY)) return true; } return false; };
+        auto has_persist = [&](const CoreDesc &x) { return has_persist_in(x.settings, x.nsettings); };
+        const int before = r.d.nsettings;
+        const Setting *own = r.d.settings;
+        CHECK(has_persist(r.d));                                             // persist_extend put it there, from the record's [mount] names
+        CHECK_EQ(r.attach(), 0);
+        CHECK(r.d.mount_slots == 0 && !mounts_have_slots(&r.d));
+        CHECK(!has_persist(r.d) && r.d.nsettings == before - 1);
+        CHECK(own != r.d.settings && has_persist_in(own, before));            // the array persist_extend filled is not written, the descriptor got a copy
         hooks_detach();
     }
     {
