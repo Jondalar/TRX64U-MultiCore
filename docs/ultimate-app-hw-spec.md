@@ -7,7 +7,7 @@ Sources (paths): firmware `1541ultimate/` (`software/`, `target/u64ii/riscv/`), 
 `1541ultimate/fpga/`, emulator `u64-emulator/docs/hw/00..12-*.md` + `crates/ue2-core/src/devices/*.rs`.
 ue2emu boots the unmodified ELF on these models, so its doc 00 ("boot hazard checklist") is the
 executable proof of every "REQ" below. Build defines of the app:
-`-march=rv32im -mabi=ilp32 -mno-div -DU64=2 -DIOBASE=0x10000000 -DU2P_IO_BASE=0x10100000 -DCLOCK_FREQ=100000000`.
+`-march=rv32im -mabi=ilp32 -mno-div -DU64=2 -DCLOCK_FREQ=100000000`. IOBASE and U2P_IO_BASE are not defined by -D: on RISC-V they are the linker symbols `__iobase` and `__u2p_io_base` of the link fragment of TOML A (`descrec.py ldfrag`); on a host build they come from `hostio.h` (`descrec.py hostio`, `tests/hostgen.sh`).
 
 Tier marks: **REQ** = needed to reach the main loop / network. **STUB** = a fixed read value or
 latch is enough for now. **OPT** = RAZ/WI (read 0, ignore writes) is fine. **REAL** = the board has

@@ -1009,9 +1009,10 @@ size = 0x14
             rows = D.base_blocks_of(open(D.HOST_TOML_A).read())
             top = max(a + n for _, a, n in rows)
             lo = min(a for _, a, _ in rows)
-            beside = (("next_to_the_last", top, 0x10), ("below_the_first", lo - 0x10, 0x10), ("trx64u_mixer", 0xA0000500, 0x14))
+            beside = (("next_to_the_last", top, 0x10), ("below_the_first", lo - 0x10, 0x10), ("between_two_blocks", 0x10100405, 1))
             text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
             self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
+            self.assertEqual(D.base_block_hit(0x10100404, 1)[0:2][1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
             self.assertEqual(D.base_block_hit(top, 0x10), None)                  # the table is what the check reads: the first byte past the last block is free
         finally:
             D._BASE_BLOCKS["rows"] = None
