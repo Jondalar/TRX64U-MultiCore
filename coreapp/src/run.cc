@@ -387,12 +387,21 @@ static void collect_rom_names(void)
     char own[96];
     rom_scan(ctx.fs, ctx.desc->folder, ctx.desc->roms, ctx.desc->nroms, res, sum, sizeof(sum), ctx.board ? ctx.board->rom_dir : 0,
              rom_own_dir(ctx.cor_path, own, sizeof(own)) ? own : 0);
+    int parts = 0;
     for (int i = 0; i < ctx.desc->nroms; i++) {
-        const int of = ctx.desc->roms[i].into;                 // T258: an image made from its parts is listed by the parts' names, a part of an image that is not made so is not listed
-        if (res[i].status == ROM_FOUND && !res[i].composed && (!of || res[of - 1].composed)) {
+        const int of = ctx.desc->roms[i].into;                 // T258 D11: an image made from its parts is one value, "VICE parts (n)" (n = the parts used); a part of an image that is not made so is not listed
+        if (res[i].status == ROM_FOUND && !res[i].composed && of && res[of - 1].composed) {
+            parts++;
+        } else if (res[i].status == ROM_FOUND && !res[i].composed && !of) {
             strncat(rom_names, rom_names[0] ? ", " : "", sizeof(rom_names) - strlen(rom_names) - 1);
             strncat(rom_names, res[i].hit.name, sizeof(rom_names) - strlen(rom_names) - 1);
         }
+    }
+    if (parts) {
+        char pn[24];
+        snprintf(pn, sizeof(pn), "VICE parts (%d)", parts);
+        strncat(rom_names, rom_names[0] ? ", " : "", sizeof(rom_names) - strlen(rom_names) - 1);
+        strncat(rom_names, pn, sizeof(rom_names) - strlen(rom_names) - 1);
     }
 }
 
