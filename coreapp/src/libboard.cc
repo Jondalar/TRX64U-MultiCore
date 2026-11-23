@@ -339,7 +339,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     loader.set_media_source(mounts_unit_source);                // ctx.media_source for the window drives and the sector units
     loader.set_windows(bundle ? bundle->desc : 0);              // io.window: the register windows of the core's description record (section 19)
     loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
-    libexports_register(loader, c);                             // base 3.3 (libexports.cc): the tables c64cart, cbm1541, uci, sid and tempdisk
+    libexports_register(loader, c);                             // base 3.3 (libexports.cc): the bind entry of every library TOML B names (libtab.h)
     if (ops_of(c)->find_op("monitor.open")) {
         loader.add_export("textgrid", 1, monitor_textgrid(c));  // the core has the built-in monitor: its screen is the grid the terminal layout names
     }

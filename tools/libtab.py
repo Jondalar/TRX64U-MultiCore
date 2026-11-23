@@ -26,7 +26,7 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
 }
 KEYS = {"name", "sources", "headers", "needs", "capability"} | set(ENTRIES)
 SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541")
-GENERIC_DIRS = ("coreapp/src", "uicore")
+GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 FILE = re.compile(r"^[A-Za-z0-9_]+\.(cc|c|h)$")
 
@@ -141,7 +141,7 @@ def lint(libs, root):
     found = []
     for d in GENERIC_DIRS:
         base = os.path.join(root, d)
-        for fn in sorted(os.listdir(base)):
+        for fn in sorted(os.listdir(base) if os.path.isdir(base) else []):
             if not fn.endswith((".cc", ".c", ".h")) or fn in lib_sources or fn in headers:
                 continue
             if any(re.fullmatch(rx, "%s/%s" % (d, fn)) for rx in check_d24.D12_TRX64U):
@@ -159,7 +159,11 @@ def lint(libs, root):
 
 
 def nm_symbols(obj):
-    r = subprocess.run(["nm", "-P", obj], capture_output=True, text=True)
+    nm = os.environ.get("NM", "nm")                                      # the build passes the toolchain's riscv nm
+    try:
+        r = subprocess.run([nm, "-P", obj], capture_output=True, text=True)
+    except OSError as e:
+        raise LibTabError("%s: %s" % (nm, e))
     if r.returncode != 0:
         raise LibTabError("nm %s: %s" % (obj, r.stderr.strip()))
     defd, und = set(), set()
@@ -175,12 +179,12 @@ def nm_symbols(obj):
 
 
 def symcheck(libs, objdir, root):
-    """nm over the objects: a generic object (a source of coreapp/src or uicore that is no library's) must not use a symbol a library object defines."""
+    """nm over the objects: a generic object (a source of a GENERIC_DIRS directory that is no library's) must not use a symbol a library object defines."""
     import check_d24                                       # the files that go to TRX64-Ultimate are a core's code (they name their libraries in their own TOML B)
     lib_stems = {os.path.splitext(f)[0]: lib["name"] for lib in libs for f in lib["sources"]}
     generic_stems = set()
     for d in GENERIC_DIRS:
-        for fn in os.listdir(os.path.join(root, d)):
+        for fn in (os.listdir(os.path.join(root, d)) if os.path.isdir(os.path.join(root, d)) else []):
             if fn.endswith((".cc", ".c")) and not any(re.fullmatch(rx, "%s/%s" % (d, fn)) for rx in check_d24.D12_TRX64U):
                 generic_stems.add(os.path.splitext(fn)[0])
     objs = {}

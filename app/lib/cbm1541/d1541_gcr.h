@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "fsif.h"
+#include "d64_geom.h"
 
 #define GCR_TRACKS            84          // half tracks, index 2 * (track - 1) is the whole track
 #define GCR_USED_TRACKS       80          // the half tracks that get a blank track (40 whole tracks)
@@ -22,7 +23,6 @@
 #define D64_35_WITH_ERRORS    175531
 #define D64_40_NO_ERRORS      196608
 #define D64_40_WITH_ERRORS    197376
-#define D64_MAX_TRACKS        42
 #define D64_MAX_SECTORS       (683 + 7 * 17)
 #define D64_BUF_SIZE          (D64_MAX_SECTORS * 256 + D64_MAX_SECTORS)
 
@@ -31,10 +31,7 @@ void gcr_encode4(const uint8_t *bin, uint8_t *gcr);
 // Returns the number of 5 bit groups that are no GCR code (0: clean); the nibbles of those come out as 0.
 int gcr_decode5(const uint8_t *gcr, uint8_t *bin);
 
-// Zones of the 1541: whole track 1 .. 35 (36 .. 40 like the last zone). Track numbers here are ZERO based.
-int d64_region(int track);
-int d64_sectors(int track);
-int d64_sectors_before(int track);
+// Zones of the 1541: d64_geom.h (whole track 1 .. 35, 36 .. 40 like the last zone; track numbers ZERO based).
 int d64_zone_speed(int track);        // the speed code (3 .. 0) the drive's bit time follows
 
 struct GcrTrack {
