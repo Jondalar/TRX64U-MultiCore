@@ -264,7 +264,7 @@ public:
     bool present() { return icap_loader(); }
     bool decouple(bool on)
     {
-        DRV_icap_decouple_WR(on ? 1 : 0);
+        DRV_icap_decouple_WR(on ? DRV_icap_decouple_request_MASK : 0);
         if (!on) {
             return true;
         }

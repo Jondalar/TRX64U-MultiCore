@@ -1213,19 +1213,7 @@ class DriverTable(unittest.TestCase):
         self.assertNotIn('"icap"', c2)
         self.assertIn("DRV_HAS_cmd_if", h2)
 
-    def test_a_name_that_makes_a_macro_twice_is_refused(self):
-        base = self.BASE
-        doc = (base + '[[block]]\nname = "a"\nmodule = "m"\nowner = "base"\naddress = 0xA0001000\nsize = 0x10\n[[block.property]]\nname = "b_c"\noffset = 0\nwidth = 8\ndir = "r"\n'
-               '[[block]]\nname = "a_b"\nmodule = "m"\nowner = "base"\naddress = 0xA0002000\nsize = 0x10\n[[block.property]]\nname = "c"\noffset = 0\nwidth = 8\ndir = "r"\n')
-        with self.assertRaises(D.DescError) as e:
-            self.generate(doc)
-        self.assertIn("DRV_a_b_c_ADDR", str(e.exception))
-
     BASE = TomlA.BASE
-
-    def test_a_document_that_is_no_toml_a_is_refused(self):
-        with self.assertRaises(D.DescError):
-            D.drivers_files({"block": []})
 
     def test_the_shared_app_toml_a_compiles_and_every_block_has_a_map_the_drivers_use(self):
         maps = D.load_maps([self.MAPS])

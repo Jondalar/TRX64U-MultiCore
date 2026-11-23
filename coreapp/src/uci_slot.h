@@ -13,7 +13,4 @@ uint8_t uci_slot_read_enable(void);
 void uci_slot_write_enable(uint8_t v);
 void uci_slot_write_base(uint8_t v);
 
-// A cartridge or the module player asks for the command interface at $DF1C: enable and base, when uci_slot_present(c).
-void uci_cart_slot(const CoreCtx *c);
-
 #endif

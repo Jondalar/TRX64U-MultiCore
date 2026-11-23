@@ -20,7 +20,6 @@
 #include "uci_slot.h"
 
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
-void uci_cart_slot(const CoreCtx *) { }
 void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
 void trx64u_basic_put(CoreCtx *, const uint8_t *, uint32_t) { }           // T228 R21 item 7: the SID player's BASIC copy
 void trx64u_sid_service(CoreCtx *) { }

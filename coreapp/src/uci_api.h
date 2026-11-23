@@ -2,8 +2,7 @@
 // repository puts the table into LibRecord::exports (base 3.2); a core's library finds it with SvcLib::find("uci", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
 //
 // Who owns the $DF1C handling: this library. The registers are the block "cmd_if" of the driver table (slot_base, slot_enable; uci_slot.cc), so the three slot calls are here and
-// nobody else writes them. The cartridge library calls the same driver (uci_cart_slot, uci_slot.h) when a cartridge asks for the command interface, and the ring library reads and
-// sets the slot for a .c64re with set_slot_enable(1) and set_slot_base(0x47) of this table. No call into the TRX64-Ultimate libraries remains. The test is made in uci_slot_present:
+// nobody else writes them. The ring library reads and sets the slot for a .c64re with set_slot_enable(1) and set_slot_base(0x47) of this table. No call into the TRX64-Ultimate libraries remains. The test is made in uci_slot_present:
 // the core lists the capability "uci" and the board probe BC_UCI was not struck.
 //
 // Why no CoreCtx: the functions of uci.h take one; the library behind this table has the api groups and uses them. The callbacks of the host table (UciHooks) follow: they lose it too.
