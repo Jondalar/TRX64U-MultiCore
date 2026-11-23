@@ -9,7 +9,7 @@
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
 1.1.4 A library and an application are both called an image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
 1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
 1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
@@ -123,7 +123,7 @@ Since base 3.0.
 
 | Member | Contract |
 |---|---|
-| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the five groups after it. |
+| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the six groups after it (a development base of 3.3 before the overlay service by the last one: test `LIB_API_COVERS(api, overlay)`). |
 | `api->abi_major` | `U2A_ABI_MAJOR` of the base. |
 | `api->abi_minor` | `U2A_BASE_MINOR` of the base. |
 
@@ -167,6 +167,7 @@ Since base 3.0.
 | `api->ctx` | `SvcCtx` | Always. Since base 3.3. |
 | `api->io` | `SvcIo` | Null on a core without a register window. Since base 3.3. |
 | `api->board` | `SvcBoard` | Always. Since base 3.3. |
+| `api->overlay` | `SvcOverlay` | After the start (the loader that has a core), else null. Since base 3.3. |
 
 ## 4. The call tables
 
@@ -1323,6 +1324,72 @@ Since base 3.3.
 
 4.16.8.1 `void case_led_select(uint8_t v)` writes the source select of the two case LEDs: the high nibble for LED 1, the low nibble for LED 0, each a source code of the board. The task holds the core lock.
 
+### 4.17 `api->overlay` (`SvcOverlay`)
+
+Since base 3.3.
+
+The overlay service: a library shows pixels over the machine's picture, and only the base drives the pixel layer (T256). An element is a rectangle that a library paints itself in an RGB565 surface; its name, its place and its size are the core's UI TOML's. Any task may call. A call checks its arguments at once and answers with its result; its effect (a redraw, text in a surface, the menu hidden or shown) is taken over by the UI task at its next frame, in the order of the calls. No call takes a context, and none is allowed from an interrupt. A library built before the group never reads it: its `LibApi` is smaller (3.1), and a loader without a core leaves the member null (3.2.12).
+
+4.17.1 The state decides whether an element is on the screen, not the call. The call is valid at any time.
+4.17.2 While the menu is open no element shows. The still is the exception: it lies under the menu, and the base blends the menu over it in software with the person's Overlay Transparency.
+4.17.3 On a C64-type core (the picture goes through the host's own video path) elements show over the running picture while the menu is closed. On any other core they show only while the machine stands (Pause). Elements are opaque: only the pixels of the colour key of the layer, `0x0841` (RGB565), let the picture through. The person's Overlay Transparency applies to the open menu only.
+4.17.4 Several libraries may show elements at once. They are drawn in the order of the elements in the UI TOML. When a library is released, or its core is left, its elements go at once, and the layer takes its state.
+4.17.5 The elements of a core are the `[[element]]` tables of its UI TOML over the base's (api.md 6.16). The base has two: `still` (the whole canvas, the still) and `paused` (the PAUSED tag).
+
+#### 4.17.6 `SvcSurface`
+
+Since base 3.3.
+
+| Member | Contract |
+|---|---|
+| `SvcSurface` | A surface of RGB565 pixels with the stride `w`, in a buffer the library owns. The base reads it from the UI task until `remove`, the end of the library or the end of the core. |
+| `SvcSurface.px` | The pixels. |
+| `SvcSurface.bytes` | The size of the buffer in bytes. It has to be `w * h * 2`. |
+| `SvcSurface.w`, `SvcSurface.h` | The size of the surface in pixels. It has to be the element's size in the TOML. |
+
+#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`
+
+Since base 3.3.
+
+| Symbol | Contract |
+|---|---|
+| `OVL_E_NONE` | 0: done. |
+| `OVL_E_NAME` | -1: the core's UI TOML has no element of that name. |
+| `OVL_E_SIZE` | -2: the width and height of the surface are not the element's size. |
+| `OVL_E_BYTES` | -3: the surface is null or has no buffer, or `bytes` is not `w * h * 2`. |
+| `OVL_E_TAKEN` | -4: another library shows the element. |
+| `OVL_E_HANDLE` | -5: not a handle of an element of this library. |
+| `OVL_E_NOSERVICE` | -6: no core runs, or the service is not up. |
+
+#### 4.17.8 `api->overlay->show`
+
+4.17.8.1 `int show(const char *name, const SvcSurface *surface)` shows the element `name` with `surface`. It returns the handle (greater than 0) or an `OVL_E_*` code. The place and the size are the TOML's.
+4.17.8.2 The library that shows an element already may call `show` again with another surface. The element is drawn again at the next frame, and the old surface is the library's again when the call returns (4.17.10.2).
+4.17.8.3 The still is shown like any element: `show("still", surface)` replaces the base's own picture of the stopped machine with the library's surface (Timewarp's frame). It is drawn only while the machine stands.
+
+#### 4.17.9 `api->overlay->update`
+
+4.17.9.1 `int update(int el)` says that the surface of the element was painted again: it is drawn again at the next frame. It returns 0 or `OVL_E_HANDLE`.
+
+#### 4.17.10 `api->overlay->remove`
+
+4.17.10.1 `int remove(int el)` takes the element away. It returns 0 or `OVL_E_HANDLE`.
+4.17.10.2 The surface is the library's again when the call returns: the call waits for the UI task's next frame, 200 ms at most (the log says when that time ran out). A call from the UI task itself does not wait. The same holds for `show` with another surface than the element has now, and for the end of a library.
+
+#### 4.17.11 `api->overlay->text`
+
+4.17.11.1 `void text(const SvcSurface *surface, int x, int y, const char *s, uint16_t colour)` writes `s` into the surface with the base's fonts (the font of the menu's captions), its top left at `x`, `y`, in the RGB565 `colour`. The pixels outside the surface are not written. A string longer than 47 characters is cut.
+4.17.11.2 The UI task writes it at the next frame, before the redraw. A shown element whose surface is written is drawn again then. A surface that is not valid is ignored, and so is a call while 16 others wait for the frame.
+
+#### 4.17.12 `api->overlay->menu_hide`, `api->overlay->menu_show`
+
+4.17.12.1 `void menu_hide(void)` acts as the person's close of the menu (the leave intent). `void menu_show(void)` acts as the menu key. The main loop takes the call over at its next pass. `menu_hide` while the menu is closed and `menu_show` while it is open do nothing.
+4.17.12.2 While the menu is hidden, it is closed: the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the machine, and the menu key brings the menu back.
+
+#### 4.17.13 `api->overlay->error`
+
+4.17.13.1 `const char *error(int code)` returns the words of an `OVL_E_*` code, for the log.
+
 ## 5. Operation types
 
 Since base 3.0.
@@ -1829,6 +1896,17 @@ Since base 3.3.
 6.15.6 A place of the core names an operation and a key that the base's table has: it changes only what it names, and the rest stays as the base's table has it. A place of another operation or key is added to the table, at most 64 in all. A place without a key is a row of its own: it does not change the keyed rows of the same operation (picture.apply, scale.apply, smooth.apply, follow.apply and home.apply have only keyed places in the base's table), so a core names the key to move one of them.
 6.15.7 A place that names a route which neither table has is refused when the menu is built: the log has the line `[menu] refused: place of "<op>": the route "<route>" is in neither the base's table nor the core's`, and the row stays where it was.
 6.15.8 `cor_pack.py` refuses a place whose `op` the application does not export, with the `--ops` list. The menu simulator builds the menu from the same records, so a place changed in `menu.toml` shows at the next reload.
+
+### 6.16 The elements of the overlay service: `[[element]]`
+
+Since base 3.3.
+
+6.16.1 An element is a rectangle a library paints itself and shows with `api->overlay->show` (4.17). Its name, its place and its size are not the library's: they come from `[[element]]` tables of the core's UI TOML (section 25 of its record, which needs no `[core]`).
+6.16.2 The base's own record, `coreapp/base_ui.toml`, holds two: `still` (the whole canvas, marked `still = true`) and `paused` (the PAUSED tag, top right).
+6.16.3 An `[[element]]` has `name` (`a-z`, `0-9` and `_`, 1 to 15 characters, once), `anchor` (`top_left`, `top_mid`, `top_right`, `left_mid`, `center`, `right_mid`, `bottom_left`, `bottom_mid` or `bottom_right`), `dx` and `dy` (the offset from the anchor in canvas pixels, right and down positive, default 0), `w` and `h` (the size in canvas pixels, the size of the surface) and optionally `still = true` (at most one still in a table).
+6.16.4 The canvas is 960 x 540. The compiler (`tools/descrec.py`) and the reader of the record (`descrec.cc`) refuse an element whose rectangle is not inside it, with the element and its place in the sentence.
+6.16.5 An element of the core with the name of a base element replaces it (the core places the PAUSED tag elsewhere); another is added, at most 16 in all (`OVL_ELEMENTS_MAX`; a core's TOML B sizes the maximum at link time through its `[sizes]` table). One that does not fit is told in the log (`[menu] refused: element "<name>": <why>`) and is not applied.
+6.16.6 The elements are drawn in the order of the table: the base's first, then the core's in the order of its file. The menu simulator draws the places of the elements from the same records.
 
 ### 6.15 The driver table: TOML A at build time
 

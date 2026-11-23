@@ -13,7 +13,8 @@
 //
 // Contracts of the whole group:
 //   - Any task may call. A call checks its arguments at once and answers with the result below; its effect (a redraw, text in a surface, the menu hidden or shown) is taken over by the
-//     UI task at its next frame, in the order of the calls. The surface stays the library's: it is read by the UI task until `remove`, the end of the library or the end of the core.
+//     UI task at its next frame, in the order of the calls. The surface stays the library's: it is read by the UI task until `remove`, the end of the library or the end of the core (the call or
+//     the end waits until the UI task has let go of it).
 //   - No call takes a CoreCtx. None is allowed from an interrupt.
 #ifndef COREAPP_SVC_OVERLAY_H
 #define COREAPP_SVC_OVERLAY_H
@@ -50,7 +51,8 @@ typedef struct SvcOverlay {
     int (*show)(const char *name, const SvcSurface *surface);
     // The surface was painted again: the element is drawn again at the next frame. 0 or an OVL_E_* code.
     int (*update)(int el);
-    // The element goes (the surface stays the library's, and is no longer read after the call returned and the UI task took it: the next frame). 0 or an OVL_E_* code.
+    // The element goes. The surface is the library's again when the call returns: the call waits for the UI task's next frame, 200 ms at most (a call from the UI task does not wait). 0 or an
+    // OVL_E_* code. The same holds for show() with another surface than the element has, and for the end of a library.
     int (*remove)(int el);
     // Writes `s` into the surface with the base's fonts (the font of the menu's captions), its top left at x, y, in the RGB565 colour; clipped to the surface. Done by the UI task at
     // the next frame, before the redraw an update asks for. No result; a string longer than 47 characters is cut, a surface that is not valid is ignored, and so is a call while 16 others wait for the frame.

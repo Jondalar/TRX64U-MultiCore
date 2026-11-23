@@ -49,7 +49,10 @@ struct LibApi {
     const SvcCtx *ctx;
     const SvcIo *io;
     const SvcBoard *board;
+    const SvcOverlay *overlay;            // base 3.3 (svc_overlay.h): the overlay service; null in a loader without a core, and in a LibApi of a base before the group (api->struct_size)
 };
+// Does a LibApi of this struct_size have the member? A library built against a header with the group `overlay` that must also run on a base before it tests `LIB_API_COVERS(api, overlay)`.
+#define LIB_API_COVERS(api, member) ((api)->struct_size >= offsetof(LibApi, member) + sizeof(((const LibApi *)0)->member))
 // The app ABI: SvcFsEntry is frozen at 72 bytes (a 56 byte name); FsEntry carries the whole long name and the bridge (LibLoader::svc_list) converts.
 typedef char svc_fsentry_layout_check[(sizeof(SvcFsEntry) == 72 && sizeof(((SvcFsEntry *)0)->name) == 56) ? 1 : -1];
 // Base 3.3 list_long: SvcFsEntryLong is FsEntry, member for member, so the base hands CoreFs::list the caller's array as it is.

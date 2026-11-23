@@ -96,7 +96,7 @@ struct OvScene {
 class OverlayLayer {
 public:
     virtual ~OverlayLayer() { }
-    // Takes the plan and the scene: the holder, the key, the alpha, and what LVGL draws. Idempotent. Any task (a library that is released takes its elements away from another task).
+    // Takes the plan and the scene: the holder, the key, the alpha, and what LVGL draws. Idempotent. The UI task only.
     virtual void apply(const OvPlan &p, const OvScene &s) = 0;
     // Writes text into a surface with the base's fonts (the UI task only).
     virtual void text(const SvcSurface &sf, int x, int y, const char *s, uint16_t colour) = 0;
@@ -116,6 +116,11 @@ public:
     // A short critical section around the service's tables (calls come from any task).
     virtual void enter() { }
     virtual void leave() { }
+    // The layer is touched by the UI task only (LVGL has no lock around the menu's own drawing). A call from another task that takes a surface away (remove, a second show, a released
+    // library) waits until the UI task's next frame has let go of it: ui_task() says whether the caller is the UI task (then it settles itself), now_ms() and wait_ms() bound the wait.
+    virtual bool ui_task() { return true; }
+    virtual uint32_t now_ms() { return 0; }
+    virtual void wait_ms(uint32_t ms) { (void)ms; }
     virtual void log(const char *line) { (void)line; }
 };
 
@@ -176,7 +181,8 @@ private:
         uint16_t colour;
         char s[OVL_TEXT_LEN];
     };
-    void settle(bool ui_task);
+    void settle();
+    void sync_ui();                        // a surface was taken away: the UI task has settled before this returns (or after 200 ms, with a line in the log)
     void build_scene(OvScene *sc, bool *elems, bool *lib_still) const;
     void take_still();
     void drop_still();
@@ -196,6 +202,7 @@ private:
     int ntext_;
     int menu_req_;                         // 0 none, 1 hide, 2 show: the last call of a library
     uint32_t serial_;
+    volatile uint32_t frames_;             // counts the settles of the UI task: sync_ui waits for it to move
     OvPlan plan_;
     OvScene scene_;
     bool applied_;

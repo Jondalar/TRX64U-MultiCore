@@ -198,6 +198,8 @@ public:
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED. It is also the core that the groups settings, ctx, io
     // and board of base 3.3 act on; api->io is null for a context without a register window (no io, or a core with no machine: CoreDesc::menu_first).
     void set_ctx(CoreCtx *c);
+    // T256: the overlay service the group api->overlay calls. A released image's elements go with it (discard). Null: the group answers OVL_E_NOSERVICE.
+    void set_overlay(class OverlaySvc *o) { overlay_svc_ = o; }
     // Base 3.3 (libsvc.cc, svc_*.h): fills the groups sync, settings, ctx, io and board of api. The core application calls it once, when it makes the loader (libboard.cc), and links
     // libsvc.cc; a loader of another application (the host's zip reader) does not, and its api has those five groups null. The members 3.3 added to api->sys and api->fs are in every loader.
     void add_services();
@@ -334,6 +336,8 @@ private:
     SvcCtx ctxtab_;
     SvcIo io_;
     SvcBoard board_;
+    SvcOverlay overlay_;                  // base 3.3, T256: api->overlay; the service behind it is the base's (set_overlay)
+    class OverlaySvc *overlay_svc_;
     SvcMutex *mus_[LIB_MAX + 1];          // the mutexes of api->sync, one list per slot as acct_
     void (*apply_)(CoreCtx *, int);
     bool (*gated_)(void);

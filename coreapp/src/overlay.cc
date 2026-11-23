@@ -163,7 +163,7 @@ OvPlan ovl_plan(const OvState &s)
 // ---- the service ------------------------------------------------------------------------------------------------------------------------------------------------------
 OverlaySvc::OverlaySvc(OverlayLayer *layer, OverlayHost *host)
     : layer_(layer), host_(host), enabled_(false), own_picture_(false), n_(0), still_slot_(-1), base_still_(0), base_still_ok_(false), menu_up_(false), frozen_(false), paused_(false),
-      live_key_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), applied_(false)
+      live_key_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), frames_(0), applied_(false)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(&plan_, 0, sizeof(plan_));
@@ -254,7 +254,7 @@ void OverlaySvc::set_table(const UiElements *t, bool own_picture)
     menu_req_ = 0;
     host_->leave();
     was_standing_ = false;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::clear()
@@ -320,21 +320,19 @@ void OverlaySvc::drop_still()
     }
 }
 
-void OverlaySvc::settle(bool ui_task)
+void OverlaySvc::settle()
 {
     if (!enabled_) {
         return;
     }
     const bool standing = own_picture_ ? (frozen_ || paused_) : paused_;
     bool released = false;
-    if (ui_task) {
-        if (standing && !was_standing_) {
-            take_still();
-        } else if (!standing && was_standing_) {
-            released = true;                            // the layer lets go of the still first, then the memory goes
-        }
-        was_standing_ = standing;
+    if (standing && !was_standing_) {
+        take_still();
+    } else if (!standing && was_standing_) {
+        released = true;                                // the layer lets go of the still first, then the memory goes
     }
+    was_standing_ = standing;
     host_->enter();
     OvScene sc;
     bool elems = false, lib_still = false;
@@ -376,36 +374,56 @@ void OverlaySvc::settle(bool ui_task)
     if (released) {
         drop_still();
     }
+    frames_++;
+}
+
+void OverlaySvc::sync_ui()
+{
+    if (!enabled_) {
+        return;
+    }
+    if (host_->ui_task()) {
+        settle();
+        return;
+    }
+    const uint32_t f0 = frames_, t0 = host_->now_ms();
+    while (frames_ == f0) {
+        if ((uint32_t)(host_->now_ms() - t0) > 200) {
+            host_->log("[overlay] the UI task did not take a surface away within 200 ms");
+            return;
+        }
+        host_->wait_ms(2);
+    }
 }
 
 void OverlaySvc::menu(bool up)
 {
     menu_up_ = up;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::frozen(bool on)
 {
     frozen_ = on;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::paused(bool on)
 {
     paused_ = on;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::live_key(bool on)
 {
     live_key_ = on;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::look(uint8_t alpha)
 {
     alpha_ = alpha;
-    settle(true);
+    settle();
 }
 
 void OverlaySvc::frame()
@@ -432,7 +450,7 @@ void OverlaySvc::frame()
         }
         host_->leave();
     }
-    settle(true);
+    settle();
     if (req == 1) {
         host_->menu_hide();
     } else if (req == 2) {
@@ -462,6 +480,7 @@ int OverlaySvc::show(int owner, const char *name, const SvcSurface *sf)
     }
     host_->enter();
     int rc;
+    bool replaced = false;
     const int i = find(name);
     if (i < 0) {
         rc = OVL_E_NAME;
@@ -472,12 +491,16 @@ int OverlaySvc::show(int owner, const char *name, const SvcSurface *sf)
     } else if (slot_[i].owner != OVL_OWNER_NONE && slot_[i].owner != owner) {
         rc = OVL_E_TAKEN;
     } else {
+        replaced = slot_[i].px && slot_[i].px != sf->px;
         slot_[i].owner = owner;
         slot_[i].px = sf->px;
         slot_[i].serial = ++serial_;
         rc = i + 1;
     }
     host_->leave();
+    if (replaced) {
+        sync_ui();                                      // the old surface is the library's again when this returns
+    }
     return rc;
 }
 
@@ -509,6 +532,9 @@ int OverlaySvc::remove(int owner, int el)
         rc = 0;
     }
     host_->leave();
+    if (rc == 0) {
+        sync_ui();                                      // the surface is the library's again when this returns
+    }
     return rc;
 }
 
@@ -565,7 +591,7 @@ void OverlaySvc::drop_owner(int owner)
     }
     ntext_ = k;
     host_->leave();
-    settle(false);                                      // the layer lets go of the surfaces before the library's memory goes
+    sync_ui();                                          // the layer lets go of the surfaces before the library's memory goes
 }
 
 int OverlaySvc::shown() const
