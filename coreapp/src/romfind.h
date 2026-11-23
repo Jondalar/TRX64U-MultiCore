@@ -26,6 +26,7 @@ struct RomHit {
 struct RomResult {
     RomStatus status;
     RomHit hit;          // valid for ROM_FOUND
+    bool composed;       // T258: a ROM found as the parts that name it (RomSpec::into), not as a file of its own; hit.dir is the first part's folder, hit.name is empty
     char why[160];       // an optional ROM (not required, no set) whose file was refused (status ROM_WRONG_SIZE / ROM_BAD_CONTENT): the reason, as the summary would tell it; else ""
 };
 
@@ -59,6 +60,10 @@ int rom_import(CoreFs *fs, const char *folder, const RomSpec *specs, int n, cons
 
 // The one buffer the ROM manager reads files into (512 KiB), lent to the ROM set's import so the application holds one.
 uint8_t *rom_scratch(uint32_t *size);
+
+// T258: the image of spec i made from its parts (res[i].composed): buf (at least sizes[0] bytes) is zero-filled, every part is read to its offset. False when a
+// part cannot be read any more (stick pulled).
+bool rom_compose(CoreFs *fs, const RomSpec *specs, int n, int i, const RomResult *res, uint8_t *buf);
 
 // Reads the file of a hit into buf (at least hit.size bytes). False when it cannot be read any more (stick pulled).
 bool rom_read(CoreFs *fs, const RomHit *hit, uint8_t *buf);
