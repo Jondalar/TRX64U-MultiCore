@@ -37,7 +37,7 @@ area F3 Library
       filetype .mus: Play main tune | Show info
       filetype .str: Play main tune | Show info
       filetype .reu: Load into REU | Preload on startup
-      filetype .mod: Play MOD | Load into REU | Preload on startup
+      filetype .mod: Load into REU | Preload on startup
       filetype .t64: Enter
       filetype .cfg: Load settings
       filetype .vpl: Apply palette | Set as default
@@ -63,7 +63,7 @@ area F3 Library
       filetype .mus: Play main tune | Show info
       filetype .str: Play main tune | Show info
       filetype .reu: Load into REU | Preload on startup
-      filetype .mod: Play MOD | Load into REU | Preload on startup
+      filetype .mod: Load into REU | Preload on startup
       filetype .t64: Enter
       filetype .cfg: Load settings
       filetype .vpl: Apply palette | Set as default

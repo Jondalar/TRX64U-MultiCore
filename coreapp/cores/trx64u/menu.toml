@@ -1002,16 +1002,9 @@ ext = ".reu"
   bind = [ { arg = "path", file = true } ]
   key = "P"
 
-# FW filetype_reu.cc:42-48: .mod = Play MOD (through the sampler), Load into REU, Preload on Startup
+# FW filetype_reu.cc:42-48: .mod = Load into REU, Preload on Startup (the firmware's Play MOD is not here: T239.3 D5)
 [[filetype]]
 ext = ".mod"
-  [[filetype.action]]
-  label = "Play MOD"
-  op = "reu.playmod"
-  bind = [ { arg = "path", file = true } ]
-  key = "M"
-  closes_menu = true
-  show_state = "reu.sampler"
   [[filetype.action]]
   label = "Load into REU"
   op = "reu.load"
