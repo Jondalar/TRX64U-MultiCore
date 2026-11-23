@@ -91,9 +91,10 @@ for c in "${CORES[@]}"; do
     [ "$desc_rec" != true ] || [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
     heap=(); h="$(python3 "$HERE/core_toml.py" get "$c" heap)"; [ -z "$h" ] || heap=(--heap "$h")   # T239.3 D15: the core's heap, set in its copy of the app
     # T239.3 P4-1: --sizes is the TOML B of the shared app the cores run (coreapp/libs/shared.toml): cor_pack reports the figures and the linked libraries' heap needs and refuses a core whose libraries keep more than its heap. It adds no record maxima: the table has no [sizes], so the description is compiled against the headers' defaults as before.
-    python3 "$HERE/cor_pack.py" pack --sizes "$ROOT/coreapp/libs/shared.toml" ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
+    rep="$(python3 "$HERE/cor_pack.py" pack --sizes "$ROOT/coreapp/libs/shared.toml" ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
-        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)" | grep '^heap (' | sed 's/^/    /' || true
+        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)")"      # captured first: a refused pack (keep check, desc error) stops the packer under set -e
+    grep '^heap (' <<<"$rep" | sed 's/^/    /' || true
     python3 "$HERE/cor_pack.py" check --contract "$CV" --host-key "$HK" "$OUT/$c.cor" > /dev/null
     printf '    %-9s %-28s %8d bytes  %s\n' "$c" "$name" "$(wc -c < "$OUT/$c.cor")" "$ver"
     n=$((n + 1))

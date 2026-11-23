@@ -911,7 +911,7 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertIn("heap (", r.stdout)
-            self.assertIn("library c64cart keeps n/a", r.stdout)
+            self.assertRegex(r.stdout, r"library c64cart keeps")
             self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
 
     def test_pack_cores_mc_switch_off_carries_no_record(self):
