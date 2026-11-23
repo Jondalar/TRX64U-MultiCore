@@ -25,8 +25,9 @@ coreapp_srcs() {
     for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
   done
   [ -n "$SRCS" ] || { echo "coreapp: no sources from $MK" >&2; return 1; }
-  # T239.3 P3-1: the libraries are the sources the app's TOML B names (the Makefile takes them from the same file). The library table and the tables the libraries give the loader
-  # (libtab.cc, *_exports.cc) stay out of the native build with the loader's start (libboard.cc), as libexports.cc did.
+  # T239.3 P3-1: the libraries are the sources the app's TOML B names (the Makefile takes them from the same file). Only the loader-bound exports (the bind entries: libtab.cc,
+  # c64cart_exports.cc ...) stay out of the native build with the loader's start (libboard.cc); a library's `table` file (mouse_exports.cc, pad_exports.cc, padkeys_exports.cc) is
+  # linked natively, as libtab_native.cc expects.
   for f in $(python3 "$ROOT/tools/libtab.py" sources "$ROOT/coreapp/libs/shared.toml"); do
     case " $NOT_HERE " in *" $f "*) continue ;; esac
     for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done

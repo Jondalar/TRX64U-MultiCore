@@ -3,7 +3,7 @@
 #ifndef COREAPP_U64_RESAMPLE_H
 #define COREAPP_U64_RESAMPLE_H
 
-#include "videomode.h"
+#include "u64.h"   // t_video_mode
 
 // Loads the coefficient table of the mode's colour clock (PAL: 675 taps, NTSC: 512) into the resampler and sets its labour.
 void u64_resample_filter(t_video_mode m);

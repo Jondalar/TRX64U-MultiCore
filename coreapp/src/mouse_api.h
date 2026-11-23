@@ -17,7 +17,7 @@ struct MouseSinkSpec {
     MouseKind kind;                       // the backend; MOUSE_POT1351 uses none of the fields above
 };
 
-// The critical section around the accumulators (the input task and the poll task share them; the pad service shares it too, pad_api.h). The board sets it once; null: none (benches).
+// The critical section around the accumulators (the input task and the poll task share them; each library sets its own: mouse_board.cc here, pad_board.cc for the pad service; both use portENTER_CRITICAL). The board sets it once; null: none (benches).
 class MouseCrit {
 public:
     virtual ~MouseCrit() { }
