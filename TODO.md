@@ -147,7 +147,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board S1-S4 11-07; S5, K.5 done 11-18 (shipped = done); mixed press (modifier + USB key) not built | [T181](docs/todo/T181.md) |
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | ✅ | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Done 11-15 (Alex: in builds for weeks) | [T167](docs/todo/T167.md) |
-| T170 | 3 | 📅 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | Spec proposed (Alex 10-31); D1/D2 decided; nothing built, needs room (T140 D24) | [T170](docs/specs/T170-c128-real-drives.md) |
+| T170 | 3 | 🔨 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | IN PROGRESS 11-23: built (fast serial, SRQ, bus trace in report); open: builder benches, Vivado, testers' drives (D2) | [T170](docs/specs/T170-c128-real-drives.md) |
 | T171 | 3 | ✅ | MultiCore publishes into its own generic package trx64u-multicore, not into trx64-ultimate | Done: first CI publish run 279 -> main-a938c680 (2026-10-31); contract §1 written | [T171](docs/todo/T171.md) |
 | T129 | 3 | 📅 | SNES core as a full (large) core | Planned as a full flat core (like the C128); source not chosen, spec not written | [T129](docs/todo/T129.md) |
 | T130 | 3 | 📅 | Atari ST core | Planned; candidate MiSTeryNano has no licence file (authors to be asked); spec not written | [T130](docs/todo/T130.md) |
