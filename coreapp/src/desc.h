@@ -52,7 +52,7 @@ struct RomSpec {
     bool shared;
     // T258: a ROM that is one part of another ROM's image (VICE ships the C128 system image as six files). `into` is the 1-based index of the spec
     // whose image this file is a part of (0: none), `at` the byte offset of the file in that image. The part has its own names and its one size and is
-    // searched like any ROM, but it is never put by itself (put_op null, not required). The spec it goes into is found when its own file is found, or
+    // searched like any ROM, but it is never put by itself (put_op null, no check function, not required). The image's spec comes before its parts in the list. The spec it goes into is found when its own file is found, or
     // else when every part that names it is found; then boot puts the image the parts make, zero-filled where no part lies. The parts fit inside the
     // image's one size and do not overlap (desc_check).
     uint8_t into;

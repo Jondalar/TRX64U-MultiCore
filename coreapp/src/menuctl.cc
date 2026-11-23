@@ -2157,7 +2157,7 @@ bool MenuCtl::tick()
         fm_.load_dir();
         fm_.up_while_gone();
     }
-    char s[240];
+    char s[OP_MSG_MAX];
     if (r.msg[0]) {
         snprintf(s, sizeof(s), "%s", r.msg);
     } else {
@@ -2452,7 +2452,7 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
         set_status("", false);
         return R_REDRAW;
     }
-    char s[240];
+    char s[OP_MSG_MAX];
     if (t.ask && r.msg[0]) {
         snprintf(s, sizeof(s), "%s", r.msg);
     } else {
@@ -2875,7 +2875,7 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         return drive_row(copy);
     }
     const MenuEntry &e = e0;
-    char msg[240];
+    char msg[OP_MSG_MAX];
     msg[0] = 0;
     switch (e.kind) {
     case EK_TASK: {
@@ -3100,7 +3100,7 @@ MenuCtl::Result MenuCtl::run_fixed(const MenuEntry &e)
     if (!fd) {
         return R_NONE;
     }
-    char msg[240];
+    char msg[OP_MSG_MAX];
     OpResult r;
     msg[0] = 0;
     if (fd->pre_op) {
@@ -3217,7 +3217,7 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
         if (take_screen()) {                                                    // T228 R1: a row that opens a screen (menu.screen)
             return R_REDRAW;
         }
-        char s[240];
+        char s[OP_MSG_MAX];
         snprintf(s, sizeof(s), "%s", r.msg[0] ? r.msg : label);
         set_status(s, false);
         fm_.apply_pending();

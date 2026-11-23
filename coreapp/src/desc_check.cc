@@ -262,8 +262,8 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
     for (int i = 0; i < d->nroms; i++) {
         const RomSpec &r = d->roms[i];
         if (r.into) {                                   // T258: a part of another ROM's image: put with that image, never by itself
-            if (!text(r.role) || !text(r.names[0]) || !r.sizes[0] || r.sizes[1] || r.put_op || r.required || r.set) return fail("roms: part \"%s\" needs a role, a name and exactly one size, and has no put operation, set or required flag", r.role ? r.role : "?");
-            if (r.into > d->nroms || d->roms[r.into - 1].into || !d->roms[r.into - 1].sizes[0] || d->roms[r.into - 1].sizes[1]) return fail("roms: part \"%s\" goes into spec %d, which is not an image of one size", r.role, (int)r.into);
+            if (!text(r.role) || !text(r.names[0]) || !r.sizes[0] || r.sizes[1] || r.put_op || r.required || r.set || r.check) return fail("roms: part \"%s\" needs a role, a name and exactly one size, and has no put operation, set, check function or required flag", r.role ? r.role : "?");
+            if (r.into > d->nroms || r.into > i || d->roms[r.into - 1].into || !d->roms[r.into - 1].sizes[0] || d->roms[r.into - 1].sizes[1]) return fail("roms: part \"%s\" goes into spec %d, which is not an image of one size that comes before the part in the list", r.role, (int)r.into);
             if ((uint64_t)r.at + r.sizes[0] > d->roms[r.into - 1].sizes[0]) return fail("roms: part \"%s\" ends beyond its image", r.role);
             for (int j = 0; j < i; j++) {
                 const RomSpec &q = d->roms[j];

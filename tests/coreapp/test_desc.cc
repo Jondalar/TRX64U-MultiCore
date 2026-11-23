@@ -432,6 +432,7 @@ int main()
     d = testcore::desc; d.roms = ghost_rom; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.noput"));
     // T258: the parts of an image: they fit in it, do not overlap, and are put with it (no put operation of their own)
     {
+        struct Fn { static bool ok(const uint8_t *, uint32_t) { return true; } };
         static const RomSpec ok_parts[3] = { { "I", { "I.ROM", 0 }, { 16, 0 }, true, 0, "test.put" },
                                              { "P1", { "P1.BIN", 0 }, { 8, 0 }, false, 0, 0, 0, false, 1, 0 },
                                              { "P2", { "P2.BIN", 0 }, { 8, 0 }, false, 0, 0, 0, false, 1, 8 } };
@@ -442,6 +443,12 @@ int main()
         d = testcore::desc; d.roms = overlap; d.nroms = 3; CHECK(desc_check(&d) && strstr(desc_check(&d), "overlap"));
         static const RomSpec own_put[2] = { ok_parts[0], { "P1", { "P1.BIN", 0 }, { 8, 0 }, false, 0, "test.put", 0, false, 1, 0 } };
         d = testcore::desc; d.roms = own_put; d.nroms = 2; CHECK(desc_check(&d) && strstr(desc_check(&d), "part"));
+        static const RomSpec part_of_part[3] = { ok_parts[0], ok_parts[1], { "P2", { "P2.BIN", 0 }, { 8, 0 }, false, 0, 0, 0, false, 2, 0 } };
+        d = testcore::desc; d.roms = part_of_part; d.nroms = 3; CHECK(desc_check(&d) && strstr(desc_check(&d), "goes into"));
+        static const RomSpec part_first[2] = { ok_parts[1], ok_parts[0] };   // the image's spec after its part
+        d = testcore::desc; d.roms = part_first; d.nroms = 2; CHECK(desc_check(&d) && strstr(desc_check(&d), "goes into") && strstr(desc_check(&d), "before"));
+        static const RomSpec with_check[2] = { ok_parts[0], { "P1", { "P1.BIN", 0 }, { 8, 0 }, false, Fn::ok, 0, 0, false, 1, 0 } };
+        d = testcore::desc; d.roms = with_check; d.nroms = 2; CHECK(desc_check(&d) && strstr(desc_check(&d), "check function"));
         static const RomSpec no_image[1] = { { "P1", { "P1.BIN", 0 }, { 8, 0 }, false, 0, 0, 0, false, 5, 0 } };
         d = testcore::desc; d.roms = no_image; d.nroms = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "goes into"));
     }

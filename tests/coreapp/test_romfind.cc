@@ -183,6 +183,16 @@ int main()
         pj.put("/usb0/roms/p/other.rom", std::vector<uint8_t>{5, 5});
         CHECK_EQ(rom_import(&pj, "p", img, 4, "/sd/cores/p/roms", 0, 0), 2);
         CHECK(pj.has("/sd/cores/p/roms/img.rom") && !pj.has("/sd/cores/p/roms/low.bin"));
+        // the last part arrives from an old place: the image counts as there, a whole file of a later folder is not copied over the parts
+        FakeFs pk;
+        pk.put("/usb0/roms/p/low.bin", std::vector<uint8_t>{1, 2, 3, 4});
+        pk.put("/usb0/roms/p/high.bin", std::vector<uint8_t>{9, 8, 7, 6});
+        pk.put("/usb0/roms/p/other.rom", std::vector<uint8_t>{5, 5});
+        pk.put("/sd/roms/p/img.rom", std::vector<uint8_t>(12, 3));
+        CHECK_EQ(rom_import(&pk, "p", img, 4, "/sd/cores/p/roms", 0, 0), 3);
+        CHECK(!pk.has("/sd/cores/p/roms/img.rom") && pk.has("/sd/cores/p/roms/low.bin") && pk.has("/sd/cores/p/roms/high.bin"));
+        CHECK_EQ(rom_scan(&pk, "p", img, 4, pr, sum, sizeof(sum), 0, "/sd/cores/p/roms"), ROM_FOUND);
+        CHECK(pr[0].composed);
     }
 
     // ROM sets (T91, T92): a machine with variants starts when ONE set is complete; a set that is only partly there does not count

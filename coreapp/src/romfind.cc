@@ -103,12 +103,36 @@ static void names_of(const RomSpec &s, char *out, int n)
 
 static void make_text_base(const RomSpec &s, RomStatus bad, const char *bad_text, const char *folder, char *out, int outlen);
 
+// The sentence ends with a full stop (the text of a missing ROM ends with the folder's "/").
+static void end_sentence(char *out, int outlen)
+{
+    size_t l = strlen(out);
+    if (l && out[l - 1] != '.' && (int)l + 1 < outlen) {
+        out[l] = '.';
+        out[l + 1] = 0;
+    }
+}
+
 // The sentence for a ROM that is not found: what was looked for and where, or what was wrong with the file that was there.
 // `extra` (T258: the names of a ROM's parts) is added to the sentence of a ROM that is missing; a file that was there and refused has its own sentence.
 static void make_text(const RomSpec &s, RomStatus bad, const char *bad_text, const char *folder, char *out, int outlen, const char *extra = "")
 {
     make_text_base(s, bad, bad_text, folder, out, outlen);
     if (extra[0] && bad == ROM_MISSING) {
+        const size_t le = strlen(extra);
+        while (strlen(out) + 1 + le >= (size_t)outlen) {   // what is added must arrive whole: the sentences of the base text are dropped from the end (the developer start's list of roots) until it fits
+            char *cut = 0;
+            for (char *p = out; *p; p++) {
+                if (p[0] == '.' && p[1] == ' ') {
+                    cut = p;
+                }
+            }
+            if (!cut) {
+                break;
+            }
+            cut[1] = 0;
+        }
+        end_sentence(out, outlen);
         strncat(out, extra, outlen - strlen(out) - 1);
     }
 }
@@ -219,7 +243,7 @@ RomStatus rom_scan(CoreFs *fs, const char *folder, const RomSpec *specs, int n, 
                 }
             }
         }
-        char text[360] = "";                           // T258: what is told instead of the standard sentence when the ROM's parts are (partly) there
+        char text[400] = "";                           // T258: what is told instead of the standard sentence when the ROM's parts are (partly) there
         char hint[200] = "";
         int np = 0, nf = 0, miss = -1, refused = -1;
         for (int j = 0; j < n && !found; j++) {
@@ -264,9 +288,17 @@ RomStatus rom_scan(CoreFs *fs, const char *folder, const RomSpec *specs, int n, 
                     make_text(specs[miss], ROM_MISSING, "", folder, text, sizeof(text));
                     bad = ROM_MISSING;
                 }
+                end_sentence(text, sizeof(text));
                 strncat(text, " The ", sizeof(text) - strlen(text) - 1);
                 strncat(text, s.role, sizeof(text) - strlen(text) - 1);
-                strncat(text, " needs all its parts.", sizeof(text) - strlen(text) - 1);
+                strncat(text, " needs all its parts", sizeof(text) - strlen(text) - 1);
+                if (bad == ROM_MISSING) {
+                    strncat(text, ". Put it there, or use one ", sizeof(text) - strlen(text) - 1);
+                } else {
+                    strncat(text, ", or use one ", sizeof(text) - strlen(text) - 1);
+                }
+                strncat(text, s.names[0], sizeof(text) - strlen(text) - 1);
+                strncat(text, bad == ROM_MISSING ? "." : " instead.", sizeof(text) - strlen(text) - 1);
             }
         }
         if (found) {
@@ -420,7 +452,7 @@ int rom_import(CoreFs *fs, const char *folder, const RomSpec *specs, int n, cons
                 continue;
             }
             const RomSpec &s = specs[i];
-            if (s.into && s.into <= m && !lack[s.into - 1]) {   // the image it is a part of has come (the image's spec comes first in the list)
+            if (s.into && s.into <= m && !lack[s.into - 1]) {   // the image it is a part of has come (desc_check: the image's spec comes first in the list)
                 lack[i] = false;
                 nl--;
                 continue;
@@ -447,6 +479,16 @@ int rom_import(CoreFs *fs, const char *folder, const RomSpec *specs, int n, cons
                         lack[i] = false;
                         nl--;
                         copied++;
+                        if (s.into && s.into <= m && lack[s.into - 1]) {   // T258: the last part has come: the image is there, a whole file of a later folder is not looked for
+                            bool all = true;
+                            for (int j = 0; j < m; j++) {
+                                all = all && !(specs[j].into == s.into && lack[j]);
+                            }
+                            if (all) {
+                                lack[s.into - 1] = false;
+                                nl--;
+                            }
+                        }
                     }
                 }
             }
