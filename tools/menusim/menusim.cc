@@ -232,13 +232,14 @@ static int objs_in_areas(lv_obj_t *obj)
     return n;
 }
 
-struct Sum { int n = 0; long long px = 0, px_max = 0, calls = 0, us = 0, us_max = 0, objs = 0; };
+struct Sum { int n = 0; long long px = 0, px_max = 0, calls = 0, us = 0, us_max = 0, objs = 0, finds = 0, cmps = 0, lin = 0; };
 static Sum s_all, s_move;
 static FILE *s_out;
 
-static void sum_add(Sum *s, long px, int calls, int objs, long long us)
+static void sum_add(Sum *s, long px, int calls, int objs, long long us, const Settings::FindStats &f)
 {
     s->n++; s->px += px; s->calls += calls; s->objs += objs; s->us += us;
+    s->finds += f.calls; s->cmps += f.compares; s->lin += f.linear;
     if (px > s->px_max) { s->px_max = px; }
     if (us > s->us_max) { s->us_max = us; }
 }
@@ -246,8 +247,8 @@ static void sum_add(Sum *s, long px, int calls, int objs, long long us)
 static void sum_line(const char *tag, const Sum &s)
 {
     int n = s.n ? s.n : 1;
-    fprintf(s_out, "%s keys=%d px_sum=%lld px_mean=%lld px_max=%lld calls_sum=%lld calls_mean=%.1f objs_mean=%lld us_sum=%lld us_mean=%lld us_max=%lld\n",
-            tag, s.n, s.px, s.px / n, s.px_max, s.calls, (double)s.calls / n, s.objs / n, s.us, s.us / n, s.us_max);
+    fprintf(s_out, "%s keys=%d px_sum=%lld px_mean=%lld px_max=%lld calls_sum=%lld calls_mean=%.1f objs_mean=%lld us_sum=%lld us_mean=%lld us_max=%lld finds_mean=%.1f cmps_mean=%.1f lin_mean=%.1f\n",
+            tag, s.n, s.px, s.px / n, s.px_max, s.calls, (double)s.calls / n, s.objs / n, s.us, s.us / n, s.us_max, (double)s.finds / n, (double)s.cmps / n, (double)s.lin / n);
 }
 
 // ---- the session -----------------------------------------------------------------------------------
@@ -331,6 +332,7 @@ static void press(int code, bool log, const char *name)
     }
     g_fl_px = 0; g_fl_calls = 0; g_fl_areas.clear(); g_us_ui = g_us_lv = 0;
     int st0 = stub_state_calls, ls0 = g_rig->fs.lists, wr0 = g_rig->fs.writes;
+    const Settings::FindStats fs0 = Settings::find_stats();
     uint32_t ch0 = ui_cheap_moves(), ip0 = ui_inplace_moves();
     long long t0 = now_us();
     give_key(code, log);
@@ -347,14 +349,16 @@ static void press(int code, bool log, const char *name)
                objs_in_areas(lv_display_get_layer_sys(lv_display_get_default()));
     const char *path = !g_open ? "closed" : ui_cheap_moves() != ch0 ? "cheap" : ui_inplace_moves() != ip0 ? "inplace" : g_fl_px ? "build" : "none";
     ++g_press_n;
+    const Settings::FindStats fs1 = Settings::find_stats();
+    const Settings::FindStats fd = { fs1.calls - fs0.calls, fs1.compares - fs0.compares, fs1.linear - fs0.linear };     // Settings::find in this key: calls, key comparisons, what the linear scan would have compared
     if (s_out) {
-        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld states=%d fs_lists=%d fs_writes=%d\n", g_press_n, name, path,
-                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, stub_state_calls - st0, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0);
+        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld states=%d fs_lists=%d fs_writes=%d finds=%u cmps=%u lin=%u\n", g_press_n, name, path,
+                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, stub_state_calls - st0, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0, fd.calls, fd.compares, fd.linear);
     }
     if (o.shots) { shot_now(o.shots, g_press_n, name); }
     if (s_out) {
-        sum_add(&s_all, g_fl_px, g_fl_calls, objs, us);
-        if (code == KEY_UP || code == KEY_DOWN) { sum_add(&s_move, g_fl_px, g_fl_calls, objs, us); }
+        sum_add(&s_all, g_fl_px, g_fl_calls, objs, us, fd);
+        if (code == KEY_UP || code == KEY_DOWN) { sum_add(&s_move, g_fl_px, g_fl_calls, objs, us, fd); }
     }
 }
 

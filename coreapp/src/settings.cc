@@ -6,6 +6,17 @@
 #include <strings.h>
 
 static uint32_t s_generation;
+static uint32_t s_find_calls, s_find_compares, s_find_linear;   // find_stats: plain counters, a lookup from another task may miss an increment
+
+static uint32_t key_hash(const char *k)
+{
+    uint32_t h = 2166136261u;                                    // FNV-1a over the case-folded characters
+    for (; *k; k++) {
+        char c = *k;
+        h = (h ^ (uint8_t)(c >= 'A' && c <= 'Z' ? c + 32 : c)) * 16777619u;
+    }
+    return h;
+}
 
 Settings::Settings(const Setting *items, int n, const char *store, CoreFs *fs, const char *cfg_path, FlashLayer *flash)
     : items_(items), gen_(++s_generation), n_(n > SETTINGS_MAX ? SETTINGS_MAX : n), store_(store), fs_(fs), flash_(flash),
@@ -23,6 +34,31 @@ Settings::Settings(const Setting *items, int n, const char *store, CoreFs *fs, c
     for (int i = 0; i < SETTINGS_MAX; i++) {
         host_[i] = core_[i] = ovr_[i] = -1;
         tix_[i] = hix_[i] = -1;
+    }
+    index_build();
+}
+
+void Settings::index_build()
+{
+    for (int h = 0; h < SETTINGS_HASH; h++) {
+        hidx_[h] = -1;
+    }
+    for (int i = 0; i < n_; i++) {
+        if (!items_[i].key) {
+            continue;
+        }
+        uint32_t h = key_hash(items_[i].key) & (SETTINGS_HASH - 1);
+        bool dup = false;
+        while (hidx_[h] >= 0) {
+            if (!strcasecmp(items_[hidx_[h]].key, items_[i].key)) {
+                dup = true;                                      // the first of two equal keys is the one find answers
+                break;
+            }
+            h = (h + 1) & (SETTINGS_HASH - 1);
+        }
+        if (!dup) {
+            hidx_[h] = (int16_t)i;
+        }
     }
 }
 
@@ -55,12 +91,29 @@ void Settings::remap(int i, const char *const *old_values, int old_n)
 
 int Settings::find(const char *key) const
 {
-    for (int i = 0; i < n_; i++) {
-        if (!strcasecmp(items_[i].key, key)) {
-            return i;
+    s_find_calls++;
+    if (key) {
+        for (uint32_t h = key_hash(key) & (SETTINGS_HASH - 1); hidx_[h] >= 0; h = (h + 1) & (SETTINGS_HASH - 1)) {
+            s_find_compares++;
+            if (!strcasecmp(items_[hidx_[h]].key, key)) {
+                s_find_linear += (uint32_t)hidx_[h] + 1;
+                return hidx_[h];
+            }
         }
     }
+    s_find_linear += (uint32_t)n_;
     return -1;
+}
+
+Settings::FindStats Settings::find_stats()
+{
+    FindStats s = { s_find_calls, s_find_compares, s_find_linear };
+    return s;
+}
+
+void Settings::find_stats_reset()
+{
+    s_find_calls = s_find_compares = s_find_linear = 0;
 }
 
 void Settings::on_item(void *user, const char *store, const char *key, const char *value)
@@ -255,6 +308,7 @@ bool Settings::export_config(const char *path, const char *const *mk, const char
 void Settings::rebind(const char *path)
 {
     gen_ = ++s_generation;
+    index_build();
     snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
     safe_ = false;                                     // a config loaded on purpose: its changes are written as always
     save_failed_ = false;
