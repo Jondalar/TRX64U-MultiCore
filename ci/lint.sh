@@ -83,6 +83,8 @@ check "reverse lint: no literal I/O address in a library source (T239.3 D30)" py
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
 check "descrec test" python3 tools/test_descrec.py
 check "libtab test" python3 tools/test_libtab.py
+check "app_build test (T239.3 D31: the maxima per core, the split of the base)" python3 tools/test_app_build.py
+check "the SDK links with the options of the core app Makefile (T239.3 D31)" python3 -I tools/app_build.py flags host-app/target/u64ii/riscv/coreapp/Makefile app/lib/appflags.mk
 # T104.2 D10: the menu record the application carries is what menu.toml compiles to (and every name in it is one the application exports); its areas and tabs are the concept's
 check "TRX64U menu record" python3 tools/gen_menu_rec.py --check
 check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_trx64u.txt
