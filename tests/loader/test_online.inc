@@ -1,7 +1,8 @@
 // T239.3 L-3: the online search as a sub-app (apps/online), included by test_libload.cc before main. What is real: apps/online's sources, compiled for the host (the entry under another name,
 // -DONLINE_ENTRY_NAME), loaded by the real loader from a file that carries the menu record the real tool compiled from apps/online/app.toml and the export list the Makefile gives it;
 // the registry, the loader's table of api->net (add_services) and the account of the image. What is a model: the network (a script of canned HTTP answers behind SvcNet) and the heap.
-// What a RISC-V instruction does with the image is the board's.
+// What a RISC-V instruction does with the image is the board's. The base's job table is the model of the loader tests (g_fkjob): a job runs when the test says so (online_run_jobs), which is the
+// proof that a call of the menu or the executor makes no request itself (api.md 1.3.9): the requests of the network model are counted before and after.
 #include "online_impl.h"
 #include "online_http.h"
 #include "online_json.h"
@@ -156,6 +157,40 @@ static void online_client()
 
 // ---------------------------------------------------------------------------------------------------------------------- the sub-app in the loader
 
+// the jobs the sub-app started, run now (the model of the base's job task)
+static void online_run_jobs()
+{
+    for (int i = 0; i < 4; i++) {
+        if (g_jobs[i].used && !g_jobs[i].done) {
+            g_jobs[i].rc = g_jobs[i].fn(&g_jobs[i], g_jobs[i].user);
+            g_jobs[i].done = true;
+        }
+    }
+}
+
+// An operation the way the menu steps it (node attribute `job`, api.md 4.14.9): called again while it answers `more`. The jobs run after `run_after` calls; the sentence is the last answer.
+static size_t g_on_reqs_at_run, g_on_hosts_at_run;
+
+static std::string online_stepped(World &w, CoreCtx &cx, const char *op, int run_after, int *calls)
+{
+    cx.job_step = true;
+    OpResult r;
+    int n = 0;
+    int rc = OPE_OK;
+    do {
+        rc = w.reg.call(0, op, 0, 0, &r);
+        n++;
+        if (rc == OPE_OK && r.more && n == run_after) {
+            g_on_reqs_at_run = g_on.reqs.size();                // what the stepped calls had sent before the job ran
+            g_on_hosts_at_run = g_on.hosts.size();
+            online_run_jobs();
+        }
+    } while (rc == OPE_OK && r.more && n < 20);
+    cx.job_step = false;
+    *calls = n;
+    return rc == OPE_OK ? std::string(r.msg) : "ERR " + std::string(r.msg);
+}
+
 static void online_subapp()
 {
     g_on = ONet();
@@ -167,6 +202,15 @@ static void online_subapp()
     World w(U2A_BASE_MINOR);
     w.ld->add_services();                                       // the loader's own api->net (the account of the image) over the model of the network
     w.ld->set_net(&g_onet);
+    w.ld->set_job(&g_fkjob);
+    w.ld->set_job_cancel(fj_cancel_one);
+    for (int i = 0; i < 4; i++) {
+        g_jobs[i].used = false;
+        g_jobs[i].done = false;
+    }
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    w.ld->set_ctx(&cx);
     w.m.twins["online"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) { return online_lib_register(api, rec); };
     std::string heap0 = w.m.shape();
     char err[LIB_ERR_MAX] = "";
@@ -214,9 +258,15 @@ static void online_subapp()
     CHECK(t == &online_table && sz == sizeof(OnlineApi));
     CHECK(t && !t->has_results());
 
-    // the form: the choices from the server (the answer has a length)
+    // the form: the choices from the server (the answer has a length). The caller that does not step (REST, a hotkey) is not kept waiting: the call starts the job and answers; the request
+    // goes out on the job, and the state values show the choices once the job has ended.
     g_on.replies.push_back(http(PRESETS, 0));
-    CHECK_STR(call(w, "online.presets").c_str(), "2 fields to choose from");
+    CHECK(call(w, "online.presets").find("Asking the server") == 0);
+    CHECK_EQ(g_on.reqs.size(), 0u);                               // nothing was sent on the task of the call
+    CHECK_EQ(g_on.hosts.size(), 0u);                              // nothing was connected either
+    CHECK(w.reg.state(0, "online.loaded", 0) == 0);
+    online_run_jobs();
+    CHECK(w.reg.state(0, "online.loaded", 0) != 0 && w.reg.state(0, "online.unloaded", 0) == 0);
     CHECK_EQ(g_on.reqs.size(), 1u);
     CHECK(starts(g_on.reqs[0], "GET /leet/search/aql/presets HTTP/1.1\r\nAccept-encoding"));
     CHECK(g_on.reqs[0].find("\r\nHost: hackerswithstyle.se\r\n") != std::string::npos && g_on.reqs[0].find("\r\nClient-Id: Ultimate\r\n") != std::string::npos);
@@ -225,7 +275,6 @@ static void online_subapp()
     CHECK_STR(w.reg.state(0, "online.p0.value", 0), "Any");
     CHECK(w.reg.state(0, "online.p0.hide", 0) == 0);            // shown
     CHECK_STR(w.reg.state(0, "online.p2.hide", 0), "yes");      // no third field
-    CHECK(w.reg.state(0, "online.loaded", 0) != 0 && w.reg.state(0, "online.unloaded", 0) == 0);
     {                                                           // a cycle takes the number of the field
         OpIn in = in_int("slot", 0);
         OpResult r;
@@ -247,7 +296,13 @@ static void online_subapp()
     g_on.replies.push_back(http(RESULTS, 1));
     g_on.quiet_every = 4;
     g_on.step = 120;
-    CHECK_STR(call(w, "online.search").c_str(), "3 found");
+    int calls = 0;
+    size_t reqs0 = g_on.reqs.size(), hosts0 = g_on.hosts.size();
+    CHECK_STR(online_stepped(w, cx, "online.search", 3, &calls).c_str(), "3 found");      // the menu steps it: more, more, more (the job runs after the third), then the done call
+    CHECK_EQ(calls, 4);
+    CHECK_EQ(g_on_reqs_at_run, reqs0);                          // the stepped calls made no request and no connection: the job did
+    CHECK_EQ(g_on_hosts_at_run, hosts0);
+    CHECK(g_on.reqs.size() > reqs0);
     CHECK(starts(g_on.reqs[1], "GET /leet/search/aql?query=%28name%3a%22jumpman%22%29%20%26%20%28category%3agames%29 HTTP/1.1\r\nAccept-encoding"));
     CHECK(g_on.reqs[1].find("\r\nClient-Id: Commodore\r\n") != std::string::npos);
     CHECK_STR(w.reg.state(0, "online.results", 0), "3 found");
@@ -267,8 +322,17 @@ static void online_subapp()
     bool dir = false;
     CHECK(t->stat("", &size, &dir) && dir);
     CHECK(t->stat(l1.c_str(), &size, &dir) && dir && size == 0);
+    // the files of a result are not asked for on the menu task: the call fails at once and says it loads, the job fetches, the next call has them
     size_t before = g_on.reqs.size();
+    size_t conns = g_on.hosts.size();
     g_on.replies.push_back(http(ENTRIES, 0));
+    CHECK_EQ(t->list(l1.c_str(), e, 8), -1);
+    CHECK(std::string(t->error()).find("Loading the files") == 0);
+    CHECK(!t->stat((l1 + "/jumpmanjunior-wcs.d64").c_str(), &size, &dir));
+    CHECK_EQ(g_on.reqs.size(), before);
+    CHECK_EQ(g_on.hosts.size(), conns);
+    online_run_jobs();
+    CHECK_EQ(g_on.reqs.size(), before + 1);
     n = t->list(l1.c_str(), e, 8);
     CHECK_EQ(n, 2);
     CHECK(n == 2 && std::string("jumpmanjunior-wcs.d64") == e[0].name && e[0].size == 174848 && !e[0].dir);
@@ -280,7 +344,11 @@ static void online_subapp()
 
     g_on.replies.push_back(http(binary_body(), 2));
     uint32_t len = 0;
-    uint8_t *b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);
+    uint8_t *b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);     // the download is a prefetch as well
+    CHECK(!b && std::string(t->error()).find("Downloading") == 0);
+    CHECK_EQ(g_on.reqs.size(), before + 1);
+    online_run_jobs();
+    b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);
     CHECK(b && len == 300 && binary_body() == std::string((const char *)b, len));
     free(b);
     CHECK_EQ(g_on.reqs.size(), before + 2);
