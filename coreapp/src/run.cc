@@ -49,6 +49,9 @@ extern "C" bool rtc_time_valid(void);
 #include "appsvc.h"
 #include "engines.h"
 #include "mousesink.h"
+#include "baseset.h"
+#include "hookhost.h"
+#include "product.h"
 #include "rawkeys.h"
 #include "trx_io.h"
 #include "trx_lv_port.h"
@@ -433,12 +436,16 @@ void coreapp_held(const char *why, const BoardProfile *board)
     }
 }
 
+// What the application's own settings (baseset.h) put into the board: the menu's look, the product, the host keyboard's joystick registers.
+static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
+
 void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
 {
     static BoardUi board_ui;
     static BoardFreeze board_freeze;
     static BoardMenuHost board_host;
     memset(&ctx, 0, sizeof(ctx));
+    baseset_attach(&ctx, &board_set_port);        // the USB driver reads the mouse settings through it, the settings' operations act through the port
     // T101 S9: the picture comes first. LVGL and the pixel layer are opened here, the splash is the first frame, and every step
     // below that waits for something (the stick, the file system, a library, a ROM) is named on it.
     STARTLOG("phase core app run: pixel layer");
@@ -669,6 +676,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
+    hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it
     BootResult r = boot_start(&ctx, &board_ui);
     STARTLOG("phase boot_start returned (%s)", r == BOOT_RUNNING ? "running" : "waiting for a program");
     lib_board_started();                          // the start finished: the boot-attempt counter (libguard.h) goes back to 0
@@ -693,12 +701,25 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.exec = &executor;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
-    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);
+    ring_autostart = cfg_value(&ctx, "Timewarp Ring", 1) != 0;
+    bool hook_started = false;
+    if (hooks_present()) {                                   // a library of the core starts its own engine (core_hooks.h start): the ring's buffers and its init, the monitor's engine
+        char why[120];
+        core_lock.lock();
+        if (hooks_start(&ctx, why, sizeof(why), &hook_started)) {
+            printf("[core] the core's start hook failed: %s\n", why);
+            snprintf(ctx.notice, sizeof(ctx.notice), "A part of the core did not start: %s", why);
+            ctx.notice_pending = true;
+        }
+        core_lock.unlock();
+    }
+    if (!hook_started) {
+        trx_ring_engine_init();                              // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
+    }
+    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);   // the first poll: after the start hook (core_hooks.h start)
     if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the write-back task did not start; a changed cartridge is written at the menu's open only\n");
     }
-    ring_autostart = cfg_value(&ctx, "Timewarp Ring", 1) != 0;
-    trx_ring_engine_init();                                  // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
     rest_report = diag_report_rest;                           // T162: GET /v1/report
     static PollTask poll(&board_os, &core_lock, ops_of(&ctx), &ctx, desc->service_op, desc->service_period_ms, desc->poll_when_frozen);
     if (desc->service_op && !poll.armed()) {
@@ -809,11 +830,16 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     auto close_menu = [&]() {
         t_req = ctx.io->now_ms();
         rawkeys_menu(&ctx, false);                // T141: the keys still held are ignored until they are up
-        mon_release();                            // the monitor's hold on the machine, its breakpoints and observers go with the menu
+        const bool hooked = hooks_has_menu_closed();
+        if (!hooked) {
+            mon_release();                        // the monitor's hold on the machine, its breakpoints and observers go with the menu
+        }
         menu->toast_clear();                      // T160: the volume line does not stay over the running core
         ui_toast_render(*menu);
         ui_menu_visible(false);
-        if (trx_ring_pending()) {
+        if (hooked) {
+            hooks_menu_closed();                  // the core's library gives back its debugger's hold and lands what the menu chose (core_hooks.h menu_closed)
+        } else if (trx_ring_pending()) {
             trx_ring_unfreeze();                  // Timewarp: the frame chosen in the menu is where the machine runs on
         }
         if (freeze->frozen()) {

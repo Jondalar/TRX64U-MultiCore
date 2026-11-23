@@ -1174,10 +1174,6 @@ turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
 speeds = ["1", "2", "3", "4", "6", "8", "10", "12", "14", "16", "20", "24", "32", "40", "48", "64"]
 poweron = ["Off", "On", "Last State"]
 ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAAct + DrvBAct", "DrvAPwr ^ DrvAAct", "USB Activity", "Any Activity", "!(DrvAAct)", "!(DrvAAct+DrvBAct)", "!(USB Act)", "!(Any Act)", "IRQ Line", "!(IRQ Line)", "Drive B Act"]
-alpha = ["0 %", "25 %", "50 %", "75 %"]
-squeeze = ["None", "Beginning", "Middle", "End"]
-navstyles = ["Quick Search", "WASD Cursors"]
-schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
 cartmodes = ["Auto", "Internal", "External", "Manual"]
 sharing = ["Internal", "External"]
 gameexrom = ["On", "Off"]
@@ -2325,56 +2321,6 @@ default = 0
 when = "live"
 apply = "u64.fx_sid"
 
-# T228 R21 (Alex 2026-11-18): the USB mouse as TRX64-Ultimate's driver has it, only what the bitstream does. Motion reaches the C64 as cursor keys through the keyboard
-# matrix (usb_hid.cc:1413-1417, 1562); the 1351 pots are not decoded, so the values that move a 1351 are out. The wheel is pulsed through the joystick output
-# (joystick_output.cc:130). The list's three values are the driver's modes 0, 2, 3 (u64cfg.cc maps them).
-[[core_setting]]
-group = "input"
-key = "Mouse Mode"
-label = "Mouse as"
-values = ["Cursor keys", "Wheel: cursor keys", "Wheel: joystick"]
-default = 0
-when = "live"
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Sensitivity"
-label = "Mouse cursor sensitivity"
-range = [1, 16]
-unit = ""
-default = 8
-apply = "u64.fx_input"
-show_state = "set.Mouse_Mode==Cursor keys"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Acceleration"
-label = "Mouse cursor acceleration"
-values = ["Off", "Adaptive"]
-default = 0
-when = "live"
-apply = "u64.fx_input"
-show_state = "set.Mouse_Mode==Cursor keys"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Wheel Sensitivity"
-label = "Mouse wheel sensitivity"
-range = [1, 16]
-unit = ""
-default = 8
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Wheel Direction"
-label = "Mouse wheel direction"
-values = ["Normal", "Reversed"]
-default = 0
-when = "live"
-apply = "u64.fx_input"
-
 [[core_setting]]
 group = "Emulated_SIDs"
 key = "UltiSID 1 Filter"
@@ -2495,33 +2441,6 @@ values = ["Port 1", "Port 2"]
 default = 1
 when = "live"
 apply = "pad.port"
-
-[[core_setting]]
-group = "Application"
-key = "Overlay Transparency"
-label = "Overlay transparency"
-list = "alpha"
-default = 1
-when = "live"
-apply = "ui.fx"
-
-# FW userinterface.cc:163, 339, 1081: the keys of the lists and sheets (menuctl.cc nav_fold); the default of a machine that has never been set up is Quick Search, WASD Cursors on the C64 Ultimate product (fx_ui)
-[[core_setting]]
-group = "Application"
-key = "Navigation Style"
-label = "Navigation style"
-list = "navstyles"
-default = 0
-when = "live"
-apply = "ui.fx"
-
-[[core_setting]]
-group = "Application"
-key = "Filename overflow squeeze"
-list = "squeeze"
-default = 0
-when = "live"
-apply = "ui.fx"
 
 [[core_setting]]
 group = "Application"
@@ -2893,15 +2812,6 @@ list = "ledsel"
 default = 4
 when = "live"
 apply = "u64.fx_misc"
-
-[[core_setting]]
-group = "hidden"
-key = "Color Scheme"
-label = "Color scheme"
-list = "schemes"
-default = 1
-when = "live"
-apply = "ui.fx"
 
 [[core_setting]]
 group = "Recording"

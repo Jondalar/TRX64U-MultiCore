@@ -141,6 +141,8 @@ SRCS_CC	 =  u64ii_init.cc \
 			picmodes.cc \
 			volume.cc \
 			tone.cc \
+			baseset.cc \
+			hookhost.cc \
 			hotkeys.cc \
 			ops.cc \
 			ops_glue.cc \

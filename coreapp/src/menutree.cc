@@ -9,6 +9,7 @@
 #include "volume.h"
 #include "tone.h"
 #include "hotkeys.h"
+#include "baseset.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -212,6 +213,8 @@ static const MenuGroupRoute g_routes[] = {
     { "video",   "F5", "video", "Video",   0,         false },
     { "audio",   "F5", "audio", "Audio",   0,         false },
     { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "look",    "F7", "settings", "Look",    0,      false },          // T239.3 base 3.3: the application's own settings (baseset.h), the blocks before Storage
+    { "appinput","F7", "settings", "Input",   0,      false },
     { "storage", "F7", "settings", "Storage", 0,      false },
     { "menu",    "F7", "settings", "Menu",    0,      false },
 };
@@ -231,6 +234,8 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
         g = "audio";
     } else if (hk_is_generic(s)) {
         g = "hotkeys";
+    } else if (baseset_is_generic(s)) {
+        g = baseset_kind(s) == 1 ? "look" : "appinput";
     } else if (home_is_generic(s) && !strcasecmp(s.key, REOPEN_KEY)) {
         g = "menu";
     } else if (persist_is_generic(s) || home_is_generic(s)) {

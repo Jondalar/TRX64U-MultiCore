@@ -231,8 +231,8 @@ class OwnMenu(unittest.TestCase):
         r = D.parse_desc(D.compile_text(menu_text()))
         self.assertTrue(r["own"] and r["route"])
         # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
-        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 216 core settings and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 24, 216))
+        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 207 core settings (T239.3: the look and the mouse are the application's) and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
+        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 24, 207))
         self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
         self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
         d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")

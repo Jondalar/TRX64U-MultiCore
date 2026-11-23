@@ -50,9 +50,7 @@ extern "C" void ResetHdmiPll(void);
     X(U1_OFFS, "UltiSID 1 6581 Offset") X(U2_OFFS, "UltiSID 2 6581 Offset")                                                                          \
     X(JOY, "Joystick Input") X(USERPORT, "UserPort Power Enable") X(TURBO, "Turbo Control") X(SPEED, "CPU Speed") X(BADLINE, "Badline Timing")        \
     X(SUPERCPU, "SuperCPU Detect (D0BC)") X(IECMODE, "Serial Bus Mode") X(PARCABLE, "SpeedDOS Parallel Cable") X(BURST, "Burst Mode Patch")          \
-    X(LED0, "LED Select Top") X(LED1, "LED Select Bot")                                                                                              \
-    X(MOUSEMODE, "Mouse Mode") X(MOUSESENS, "Mouse Sensitivity") X(MOUSEACC, "Mouse Acceleration") X(WHEELSENS, "Mouse Wheel Sensitivity")          \
-    X(WHEELDIR, "Mouse Wheel Direction")
+    X(LED0, "LED Select Top") X(LED1, "LED Select Bot")
 
 enum {
 #define X(i, k) K_##i,
@@ -1629,19 +1627,12 @@ bool u64cfg_sid_autoconfig(CoreCtx *c, int count, const uint8_t *base, const uin
     return true;
 }
 
-// ---- the rest: joystick, user port, turbo, serial bus, LEDs ---------------------------------------------------------------------------------
+// ---- the rest: user port, turbo, serial bus, LEDs ---------------------------------------------------------------------------------
 static const uint8_t speedregs_regvalues[] = { 0x00, 0x00, 0x01, 0x05 };
 static const uint8_t c_iec_connectors[] = { 0x70, 0x60, 0x30, 0x50 };      // 4: ext, 5: ult, 6: cia
-static const uint8_t wasd_settings[] = { 0x00, 0x00, 0x01, 0x01, 0x03, 0x03 };
-extern uint8_t keyb_joy_select;
-extern uint8_t wasd_to_joy;
 
 static int fx_misc(CoreCtx *c, const OpArgs &, OpOut &)
 {
-    C64_PADDLE_SWAP = (uint8_t)(V(c, K_JOY) & 1);
-    int swap = V(c, K_JOY);
-    U64II_KEYB_JOY = keyb_joy_select = (uint8_t)(swap & 1);
-    MATRIX_WASD_TO_JOY = wasd_to_joy = wasd_settings[swap];
     uint8_t en = V(c, K_USERPORT, 1) ? 3 : 0;
     U64_USERPORT_EN = en;
     U64_PWM_DUTY = en ? 0xD8 : 0x00;
@@ -1662,39 +1653,6 @@ static int fx_misc(CoreCtx *c, const OpArgs &, OpOut &)
     U64_INT_CONNECTORS = (uint8_t)(V(c, K_PARCABLE) | (V(c, K_BURST) << 1) | c_iec_connectors[V(c, K_IECMODE)]);
     // LEDs
     U64_CASELED_SELECT = (uint8_t)((V(c, K_LED1, 4) << 4) | V(c, K_LED0, 0));
-    return OPE_OK;
-}
-
-// the mouse and wheel items are read by usb_hid.cc through this (weak there): the value of Gideon's item numbers CFG_MOUSE_* (usb_hid_config.h)
-extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
-static CoreCtx *g_ctx;
-extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
-{
-    int v;
-    if (mouse_sink_scaling(key, &v)) {                           // T190: a core with a mouse sink and its own settings (Amiga): mouse.sens / mouse.accel
-        return v;
-    }
-    if (!g_ctx || !g_ctx->settings) {
-        return default_value;
-    }
-    switch (key) {
-    case 0x55: {                                                 // CFG_MOUSE_MODE: the menu offers the modes that work (motion as cursor keys; wheel to cursor / to the joystick output): the driver's 0, 2, 3
-        static const int driver_mode[3] = { 0, 2, 3 };
-        int m = V(g_ctx, K_MOUSEMODE, 0);
-        return driver_mode[m >= 0 && m < 3 ? m : 0];
-    }
-    case 0x56: return V(g_ctx, K_WHEELSENS, 7) + 1;              // CFG_SCROLL_FACTOR 1..16
-    case 0x57: return V(g_ctx, K_WHEELDIR);                      // CFG_WHEEL_DIRECTION
-    case 0x58: return 0; // CFG_MENU_MOUSE_NAV: never. Our menus are keys only (T104.1, Alex 2026-10-29: "menumouse raus"); the driver queues no menu key from the mouse
-    case 0x5D: return V(g_ctx, K_MOUSESENS, 7) + 1;              // CFG_MOUSE_SENSITIVITY 1..16
-    case 0x5E: return V(g_ctx, K_MOUSEACC);                      // CFG_MOUSE_ACCELERATION
-    }
-    return default_value;
-}
-
-static int fx_input(CoreCtx *c, const OpArgs &, OpOut &)
-{
-    g_ctx = c;                                                   // the values are read when the report comes in
     return OPE_OK;
 }
 
@@ -1749,7 +1707,6 @@ void u64cfg_register(OpRegistry &r)
     r.add_op("u64.fx_fsid_q20", value_arg, 1, fx_fsid_q20);
     r.add_op("u64.fx_fsid_q21", value_arg, 1, fx_fsid_q21);
     r.add_op("u64.fx_misc", value_arg, 1, fx_misc);
-    r.add_op("u64.fx_input", value_arg, 1, fx_input);
     r.add_op("u64.apply_palette", name_arg, 1, op_palette_apply);
     r.add_op("u64.set_palette", name_arg, 1, op_palette_default);
     r.add_op("u64.power_off", 0, 0, op_power_off);

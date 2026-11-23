@@ -9,7 +9,7 @@
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
 1.1.4 A library and an application are both called an image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h` and `svc_fs.h`.
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
 1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
 1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
@@ -1068,6 +1068,30 @@ The settings group: the settings of the running core by key, as the base holds t
 4.13.18.1 `const char *cfg_text(const char *key)` returns the text of the text setting `key` with the leading blanks skipped. It never returns null: it returns the empty string when the core has no such setting or the setting is no text.
 4.13.18.2 The pointer lives as long as that of `text`.
 
+#### 4.13.19 The settings the base owns
+
+Since base 3.3.
+
+4.13.19.1 The base declares ten settings for every core, as it does Picture and Volume. A library reads them by key with `find`, `value` or `cfg_value`, and the keys are the stored keys of every `.cfg`. The base applies them itself; a library does not.
+4.13.19.2 The keys, with the values in the order of their positions (the first is position 0):
+
+| Key | Values | Default |
+|---|---|---|
+| `Overlay Transparency` | `0 %`, `25 %`, `50 %`, `75 %` | position 1 |
+| `Color Scheme` | `Standard Blue`, `Ultimate Black`, `C128 Style`, `Commodore Blue`, `Commodore 1`, `Commodore 2`, `Commodore 3` | position 1 |
+| `Filename overflow squeeze` | `None`, `Beginning`, `Middle`, `End` | position 0 |
+| `Navigation Style` | `Quick Search`, `WASD Cursors` | position 0; position 1 on the Commodore product while no value is stored |
+| `Joystick Input` | `Normal`, `Swapped`, `WASD Port 2`, `WASD Port 1`, `WASD P2 No KB`, `WASD P1 No KB` | position 0 |
+| `Mouse Mode` | `Cursor keys`, `Wheel: cursor keys`, `Wheel: joystick` | position 0 |
+| `Mouse Sensitivity` | range 1 to 16 | position 7 |
+| `Mouse Acceleration` | `Off`, `Adaptive` | position 0 |
+| `Mouse Wheel Sensitivity` | range 1 to 16 | position 7 |
+| `Mouse Wheel Direction` | `Normal`, `Reversed` | position 0 |
+
+4.13.19.3 The five mouse settings exist for a core whose descriptor has a mouse. The other five exist for every core. The menu lists them on the page of the application (F7), under Look and Input.
+4.13.19.4 `Joystick Input` is applied in part by the base: it sets the port that the keyboard joystick drives and the WASD mapping of the keyboard. Hardware of the core that follows the setting, such as the paddle swap of a C64, is the library's; it hears the change through `base_setting_changed` (9.5.5).
+4.13.19.5 A descriptor, a menu TOML `core_setting` and a library must not declare one of these keys. The check of the descriptor in the build and the tests refuses it. On the board the base adds a key only when the descriptor does not declare it, so a core's own item would stay and the base would not apply it.
+
 ### 4.14 `api->ctx` (`SvcCtx`)
 
 Since base 3.3.
@@ -1865,3 +1889,19 @@ Since base 3.2.
 9.4.4 `cart_preference()` returns the cartridge preference: 0 Auto, 1 Internal, 2 External, 3 Manual.
 9.4.5 `reset()` resets the C64. It replaces `api->trx->reset_c64`, which calls the same operation.
 9.4.6 The base answers `find("c64", ...)` with its own table, when the core is the C64: the members of `api->c64` and `reset`. `dma_read_frozen` and `cart_preference` are null in that table. The table is major 1 and competes with the libraries' exports like any export: the lowest major that is at least the one asked for wins. A library of the core that has the two members exports a `c64` of major 1, which takes the place of the base's table. A `c64` of a higher major does not hide it from a caller that asks for major 1; that caller still gets the base's table. A caller that asks for a higher major gets the library's.
+
+### 9.5 The core hooks
+
+Since base 3.3. The header is `core_hooks.h`.
+
+9.5.1 The code of a core is its library. A library that implements the hooks of its core exports the table `CoreHooks` under the name `corehooks` at major 1 (`LIB_EXPORTS = corehooks=1`, 9.2). the base asks `api->lib->find` for the name `corehooks` at major 1 once, after the libraries are loaded and before the core starts.
+9.5.2 The table starts with `size`. The base calls a member only when `size` of the table and the size the export carries both cover it and its pointer is not null. A member that is null is as if there were no hook: the base makes its own call where it has one (9.5.6).
+9.5.3 A major higher than 1 is not read: when the lowest export of the name at major 1 or later is of a later major, the base finds no hooks. Within major 1 the table is only appended to.
+9.5.4 The members, in this order: `size`, `init`, `release`, `warm_reset`, `cold_start`, `media_flush`, `media_pending`, `start`, `menu_closed`, `base_setting_changed`. The first six mean what the members of the same name of the core description mean. No call takes a context. A hook returns 0 for done, or non-zero with the reason in `msg` (at most `msglen - 1` characters).
+9.5.5 The three members of base 3.3:
+9.5.5.1 `int start(char *msg, int msglen)` is called once, after the groups of the API are installed and the libraries named in `needs` are loaded, and before the first poll. It is the place to start an engine (the ring's buffers, the monitor, `uci.start`); `lib_register` is not, because the groups do not exist when it runs. A non-zero result is logged and shown to the person as a notice, and the core runs on without what failed. Task: the start task, holding the core lock.
+9.5.5.2 `void menu_closed(void)` is called once when the menu closes, by any way, and the machine is about to run. The hook gives back what the debugger of the core held and lands what the menu chose. It cannot refuse. Task: the main loop of the application. The core lock is not held: the hook protects state it shares with a poll declared `when_frozen`, or with the executor, by its own mutex (`api->sync`). `CTX_MENU_OPEN` and `CTX_FROZEN` are still set when it runs, the menu is hidden, and the machine is still stopped. It does not block for long.
+9.5.5.3 `void base_setting_changed(const char *key)` is called after the base applied one of its own settings (4.13.19), with its key. It is called once for each of those settings the core has, in the order of the table in 4.13.19.2, after `start` returned; a change is not told before that. After that it is called after every change. Task: lock, like the operation of a setting.
+9.5.6 A member the table does not have is a call the base makes itself: with no `start` the base starts the frame ring (`trx_ring_engine_init`), with no `menu_closed` it releases the monitor and unfreezes the ring after the menu closes. A core with no table at all gets these calls too.
+9.5.7 A library that exports `corehooks` is never unloaded to make room for an application, whatever else it declares: the base keeps a pointer into the table for the whole run.
+9.5.8 The order of the calls in one run: `start`; `base_setting_changed` for each base setting the core has; then, until the end, `menu_closed` for each close of the menu and `base_setting_changed` for each change.

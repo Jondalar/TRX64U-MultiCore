@@ -23,7 +23,7 @@
 // CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode (Alex 2026-11-04 for the first four).
 static const HkSpec hk_cbm = {
     { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, HKO_DIGITS };
-// The TRX64U C64: its volume is the mixer's "Vol Master" (1 dB steps) and its swap item names "Joystick Input" (trx64u has none: the J hotkey then stays off).
+// The TRX64U C64: its volume is the mixer's "Vol Master" (1 dB steps) and its swap item names "Joystick Input" (the application's setting, baseset.h, present in every core).
 static const HkSpec hk_c64 = {
 // CTRL + D swaps the disk of drive A without the menu, as TRX-Ultimate's userinterface.cc:444-445 (the same function as the menu's Swap disk).
     { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HKK_D } }, "Vol Master", "Joystick Input", HKO_DIGITS,

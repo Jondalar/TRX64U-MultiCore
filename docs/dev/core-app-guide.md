@@ -153,6 +153,8 @@ flash: `FlashLayer` has no write method, and a test counts the flash accesses of
 refused, except a core with its own Volume or `own_volume = true`. SHIFT+ and SHIFT- on the menu step the item named `Volume` (`change_volume` in `menuctl.cc`).
 `tone_extend` (T189) adds *Tone* (`TONE_KEY`: Flat / Bass boost / Treble boost, the host's shelf filter in `trx_tone.v`, register `U64_AUDIO_MIXER + 0x51`) right after Volume in the same Audio group; `own_volume` does not remove it, a descriptor with its own *Tone* keeps it, `CoreDesc::no_tone` (neogeo, whose build has no filter) removes it.
 
+`baseset_extend` (T239.3, base 3.3, `baseset.h`) adds ten more, last of all: the look of the menu (*Overlay Transparency*, *Color Scheme*, *Filename overflow squeeze*, *Navigation Style*), *Joystick Input* (the host keyboard's port and WASD mapping) and, for a core whose descriptor has a `mouse`, the five USB mouse items (*Mouse Mode*, *Mouse Sensitivity*, *Mouse Acceleration*, *Mouse Wheel Sensitivity*, *Mouse Wheel Direction*). Their operations are `base.*`; the application applies them itself (`ui_set_look`, the keyboard registers through `BaseSetPort`) and answers the USB driver's configuration items from them (`u64_get_usb_hid_config_value` in `mousesink.cc`). `menutree.cc` lists them on F7 under *Look* and *Input*. A descriptor or menu TOML never declares one (`desc_check` refuses a descriptor that does; the keys stay the stored keys of every `.cfg`). A library of the core reads them by key and hears a change through the core hook `base_setting_changed` (`core_hooks.h`, `hookhost.h`).
+
 Settings can also carry `group`, `show_state` (show the row only while a state value holds) and `kind` 1/2 (a text the person types, shown plain or as stars).
 
 ## 5. ROMs

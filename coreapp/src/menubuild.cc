@@ -6,6 +6,7 @@
 #include "mediamounts.h"
 #include "home.h"
 #include "hotkeys.h"
+#include "baseset.h"
 
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env)
 {
@@ -37,6 +38,11 @@ const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, cons
         if (!first) { first = why; }
     }
     why = hk_extend(out, out, store);         // T181 D3: the hotkey map (modifier and one key per action), for a core with a default map
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+        if (!first) { first = why; }
+    }
+    why = baseset_extend(out, out, store);    // T239.3 base 3.3: the look, the joystick and the mouse of the generic application, after the hotkeys (their swap item names the joystick setting)
     if (why) {
         printf("[core] %s: %s\n", desc->cor_name, why);
         if (!first) { first = why; }

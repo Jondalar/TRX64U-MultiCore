@@ -96,6 +96,12 @@ struct Host : DescLibHost {
             rec->export_list = list;
             rec->nexport_list = 1;
         }
+        if (!strcmp(e.name, "hooklib")) {                                   // the library that only exports the table "corehooks" (core_hooks.h): no poll, no menu
+            static const uint32_t table[2] = { sizeof(table), 0 };
+            static const LibExportDecl list[1] = { { "corehooks", 1, table, sizeof(table) } };
+            rec->export_list = list;
+            rec->nexport_list = 1;
+        }
         return !strcmp(e.name, "miniz") ? lib_register(api, rec) : 0;
     }
     int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return !strcmp(e.name, "ziplist") ? ziplist_main(api, ctx) : app_main(api, ctx); }
@@ -394,9 +400,9 @@ int main(int argc, char **argv)
                 CHECK(ld.handle_of("miniz") < 0);
                 printf("S6b/S7: in use kept, freed after the end, then evicted\n");
             }
-            // a library that declares a poll, or a file action, is never evicted: unzip is refused, by name and with the figures, and the library stays loaded
-            for (int which = 0; which < 2; which++) {
-                const char *nm = which ? "menulib" : "pollib";
+            // a library that declares a poll, or a file action, or exports the table "corehooks", is never evicted: unzip is refused, by name and with the figures, and the library stays loaded
+            for (int which = 0; which < 3; which++) {
+                const char *nm = which == 2 ? "hooklib" : which ? "menulib" : "pollib";
                 fs.put(std::string("/sd/cores/apps/") + nm + ".u2a", slurp(dir + "/" + nm + ".u2a"));
                 HeapHost hh(&testcore::desc, 1u << 24);
                 LibLoader ld(&hh, reg);
@@ -410,7 +416,7 @@ int main(int argc, char **argv)
                 CHECK(!idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
                 CHECK(strstr(err, "Not enough memory for unzip (needs ") != 0);
                 CHECK(ld.handle_of(nm) >= 0);
-                printf("S6e: %s with a %s is not evicted; %s\n", nm, which ? "file action" : "poll", err);
+                printf("S6e: %s with a %s is not evicted; %s\n", nm, which == 2 ? "corehooks export" : which ? "file action" : "poll", err);
             }
             // a library that contributes nothing is evictable (S6a above), and the loader says so
             {

@@ -61,18 +61,11 @@ const char *cfg_text(CoreCtx *c, const char *key)
     return t;
 }
 
-// ---- the look of the menu ---------------------------------------------------------------------------------------------------------------------
+// ---- the temp RAM disk ------------------------------------------------------------------------------------------------------------------------
+// The look of the menu (Overlay Transparency, Color Scheme, Filename overflow squeeze, Navigation Style) is the application's own setting now (baseset.cc).
 #include "tempdisk.h"
-#include "product.h"
 static int fx_ui(CoreCtx *c, const OpArgs &, OpOut &)
 {
-    // FW userinterface.cc:244-248: a machine that has never been set up starts with WASD Cursors on the C64 Ultimate product (isCommodoreBoard); a value the person stored stays.
-    int nv = c->settings ? c->settings->find("Navigation Style") : -1;
-    if (nv >= 0 && c->settings->layer(nv) == Settings::L_DEFAULT && isCommodoreBoard()) {
-        c->settings->override_value(nv, 1);
-    }
-    ui_set_look(cfg_value(c, "Overlay Transparency", 1), cfg_value(c, "Color Scheme", 1));
-    ui_set_name_squeeze(cfg_value(c, "Filename overflow squeeze", 0));
     tempdisk_set(cfg_value(c, "Temp Auto Cleanup", 1) != 0, cfg_value(c, "Temp Subfolders", 1) != 0);
     return OPE_OK;
 }
