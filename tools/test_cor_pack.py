@@ -817,6 +817,60 @@ class HeapTest(unittest.TestCase):
                 C.app_heap(heap_app(), bad, "x")
 
 
+class HeapLeftTest(unittest.TestCase):
+    """T239.3 P4-1: heap word 0 is the region left behind the image and the stack reserve; the report has the figures and the libraries' heap needs."""
+
+    def words(self, app):
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        return struct.unpack_from("<4I", app, o)
+
+    def test_zero_is_the_region_left_and_the_word_stays_zero(self):
+        rep = []
+        app = heap_app(heap=0x7A0000, image_end=0x400004)
+        out = C.app_heap(app, 0, "trx64u", report=rep)
+        self.assertEqual(self.words(out)[0], 0)
+        left = 0xE90000 - 0x20000 - 0x400010                    # the end of the image aligned up to 16
+        self.assertIn("heap 0x%x = %d bytes (word 0: the region left)" % (left, left), rep[0])
+
+    def test_zero_fits_exactly_by_definition(self):
+        C.app_heap(heap_app(image_end=0x400010), 0, "x")
+        C.app_heap(heap_app(image_end=0x400001), 0, "x")
+
+    def test_zero_with_nothing_left_is_refused(self):
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(image_end=0xE70000 - 0x8000), 0, "tiny")
+        self.assertIn("tiny", str(e.exception))
+        self.assertIn("region left", str(e.exception))
+
+    def test_libraries_keeping_more_than_the_heap_fail_the_build(self):
+        needs = [("a", 0x300000, 0x400000), ("b", 0x300000, None)]
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(), 0x500000, "vic20", needs)
+        msg = str(e.exception)
+        for part in ("vic20", "a 3145728", "b 3145728", "5242880", "1048576 too much"):
+            self.assertIn(part, msg)
+
+    def test_report_lists_each_library_and_the_sum(self):
+        rep = []
+        C.app_heap(heap_app(), 0x500000, "vic20", [("ring", 4096, 65536), ("online", None, None)], rep)
+        self.assertTrue(any("library ring keeps 4096, peak 65536" in l for l in rep))
+        self.assertTrue(any("library online keeps n/a, peak n/a" in l for l in rep))
+        self.assertTrue(any("libraries keep 4096 of 5242880 bytes" in l for l in rep))
+
+    def test_needs_of_the_toml_b(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "b.toml")
+            open(f, "w").write('[[library]]\nname = "ring"\nsources = ["ring.cc"]\nheap_keep = 100\nheap_peak = 200\n\n[[library]]\nname = "x"\nsources = ["x.cc"]\n')
+            self.assertEqual(C.toml_b_heap_needs(f), [("ring", 100, 200), ("x", None, None)])
+
+    def test_pack_large_reports_through_the_list(self):
+        rep = []
+        blob = make_large(app=heap_app(), heap=0, heap_needs=[("ring", 10, 20)], report=rep)
+        self.assertEqual(self.words(C.parse(blob)[1][C.T_APP])[0], 0)
+        self.assertEqual(len(rep), 3)
+
+
 class PackersCarryTheDescriptionTest(unittest.TestCase):
     """T239.3 D17 part 2, D25: the packers put cores/<id>/app/desc.toml into record 6 of the .cor when the core's cores/<id>/app/sdk.toml says desc_record = true
     (the VIC-20); a core with the file and the switch off carries no record; the bundle checks it."""

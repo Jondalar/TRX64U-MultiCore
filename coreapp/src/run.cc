@@ -35,6 +35,7 @@
 #include "writeback.h"
 #include "portdiag.h"
 extern "C" uint32_t get_fattime(void);
+extern "C" void heapcfg_report(uint32_t *start, uint32_t *size, uint32_t *word, uint32_t *reserve, uint32_t *region_end);   // heapcfg.c
 extern "C" bool rtc_time_valid(void);
 #include "libboard.h"
 #include "restsrv.h"
@@ -541,6 +542,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     net_fs.bind(&ctx);
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
+    {
+        uint32_t hs, hz, hw, hr, he;                    // P4-1: the one heap line of the start log: the region, the word that set it, the reserve under the stack, what is free now
+        heapcfg_report(&hs, &hz, &hw, &hr, &he);
+        STARTLOG("heap 0x%08x + 0x%x = 0x%08x (word 0x%x%s, stack reserve 0x%x, region end 0x%08x), %u free", (unsigned)hs, (unsigned)hz, (unsigned)(hs + hz),
+                 (unsigned)hw, hw ? "" : " = the region left", (unsigned)hr, (unsigned)he, (unsigned)xPortGetFreeHeapSize());
+    }
     ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
     core_report_edid_reader() = video_read_edid;       // R8: the bug report names the screen's EDID
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
