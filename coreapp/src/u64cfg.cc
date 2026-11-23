@@ -1627,13 +1627,12 @@ bool u64cfg_sid_autoconfig(CoreCtx *c, int count, const uint8_t *base, const uin
     return true;
 }
 
-// ---- the rest: joystick, user port, turbo, serial bus, LEDs ---------------------------------------------------------------------------------
+// ---- the rest: user port, turbo, serial bus, LEDs ---------------------------------------------------------------------------------
 static const uint8_t speedregs_regvalues[] = { 0x00, 0x00, 0x01, 0x05 };
 static const uint8_t c_iec_connectors[] = { 0x70, 0x60, 0x30, 0x50 };      // 4: ext, 5: ult, 6: cia
 
 static int fx_misc(CoreCtx *c, const OpArgs &, OpOut &)
 {
-    C64_PADDLE_SWAP = (uint8_t)(V(c, K_JOY) & 1);                // the keyboard's part of "Joystick Input" is the application's (baseset.cc)
     uint8_t en = V(c, K_USERPORT, 1) ? 3 : 0;
     U64_USERPORT_EN = en;
     U64_PWM_DUTY = en ? 0xD8 : 0x00;

@@ -49,6 +49,10 @@ for lib in ("pollib", "menulib"):
     subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, lib + ".u2a"),
                            "--kind", "lib", "--name", lib, "--version", "1", "--needs", "base>=3.1", "--menu", os.path.join(out, lib + ".toml")], stdout=subprocess.DEVNULL)
 
+# the export "corehooks" (core_hooks.h): the base keeps a pointer into the table for the whole run, so a library that only exports it (no poll, no menu) is never evicted
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "hooklib.u2a"),
+                       "--kind", "lib", "--name", "hooklib", "--version", "1", "--export", "corehooks=1"], stdout=subprocess.DEVNULL)
+
 # D8 (holds): a library that imports miniz, and a resident application that needs miniz
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "outerlib.u2a"),
                        "--kind", "lib", "--name", "outerlib", "--version", "1", "--needs", "base>=3.1", "--needs", "miniz>=1.0"], stdout=subprocess.DEVNULL)

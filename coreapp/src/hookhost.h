@@ -1,5 +1,6 @@
 // The base's side of the core hooks (core_hooks.h, export "corehooks", major 1; T239.3 base 3.3): finds the table a library of the core exports and calls its members
-// at the places the header names. A core with no such export has no hooks, and run.cc then makes today's built-in calls (the monitor's release, the ring) itself.
+// at the places the header names. A member the table lacks is a call the base makes itself (run.cc): the ring's start, the monitor's release and the ring's unfreeze. A core with no
+// such export has no hooks at all.
 #ifndef COREAPP_HOOKHOST_H
 #define COREAPP_HOOKHOST_H
 
@@ -17,9 +18,12 @@ bool hooks_present(void);
 // `start` (core_hooks.h): called once, after the core started and before any poll. 0: done, or no hook. A reason from the hook is cut into msg (msglen - 1 characters) and 1 is
 // returned; the caller tells the person. Arms base_setting_changed, which was not called until now, and calls it once for each base-owned setting the core has, in the order of
 // svc_settings.h (baseset.h).
-int hooks_start(CoreCtx *c, char *msg, int msglen);
+// *ran (when given) tells whether the table has a `start` member and it was called; false: the caller's built-in start is due (the ring's engine, trx_ring_engine_init).
+int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran = 0);
 
-// `menu_closed`: true when a hook was called (false: none, the built-in calls are the caller's).
+// `menu_closed`: whether the table has the member. When it has, hooks_menu_closed() calls it and the caller makes no built-in call (the monitor's release, the ring's unfreeze); when it
+// has not, those are the caller's, as with no table at all.
+bool hooks_has_menu_closed(void);
 bool hooks_menu_closed(void);
 
 // The base applied the setting `key`. A hook called only after hooks_start: the start applies every setting before it, and those are not told.

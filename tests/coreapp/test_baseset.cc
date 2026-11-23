@@ -225,7 +225,10 @@ int main()
         CHECK_STR(g_log[0].c_str(), "joy 1 0");
         g_log.clear();
         char msg[40] = "x";
-        CHECK_EQ(hooks_start(&r.c, msg, sizeof(msg)), 0);
+        bool ran = false;
+        CHECK(hooks_has_menu_closed());
+        CHECK_EQ(hooks_start(&r.c, msg, sizeof(msg), &ran), 0);
+        CHECK(ran);                                                        // the table's start member ran: the base makes no start call of its own
         CHECK_EQ(g_log.size(), 11u);
         CHECK_STR(g_log[0].c_str(), "start");
         for (int k = 0; k < 10; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
@@ -267,6 +270,7 @@ int main()
         hooks_attach(&lib);
         g_log.clear();
         CHECK(!hooks_menu_closed());
+        CHECK(!hooks_has_menu_closed());
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         CHECK_EQ(g_log.size(), 1u);                                        // start only
         make_table((uint32_t)offsetof(CoreHooks, base_setting_changed), true);
@@ -279,8 +283,23 @@ int main()
         hooks_attach(&lib);
         g_log.clear();
         CHECK(!hooks_menu_closed());
+        CHECK(!hooks_has_menu_closed());
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         CHECK_EQ(g_log.size(), 1u);
+
+        // a table that has base_setting_changed only (the C64's paddle swap): present, but no start and no menu_closed, so the base's own start and menu calls are due
+        make_table(sizeof(CoreHooks), true);
+        g_table.start = 0;
+        g_table.menu_closed = 0;
+        hooks_attach(&lib);
+        CHECK(hooks_present());
+        CHECK(!hooks_has_menu_closed());
+        g_log.clear();
+        ran = true;
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg), &ran), 0);
+        CHECK(!ran);
+        CHECK_EQ(g_log.size(), 5u);                                        // no start, but the five settings of a core without a mouse are told
+        CHECK_STR(g_log[0].c_str(), "changed Overlay Transparency");
 
         // a table of a later major only, no table, no lib: no hooks, nothing is called
         make_table(sizeof(CoreHooks), true);

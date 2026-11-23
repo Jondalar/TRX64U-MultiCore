@@ -667,10 +667,28 @@ static bool record_contributes(const LibRecord &r)
     return (r.poll.op && r.poll.op[0]) || r.nnodes > 0 || r.nfile_actions > 0 || r.nsettings > 0 || r.ntabs > 0;
 }
 
+// A library that exports the table "corehooks" (core_hooks.h): the base keeps a pointer into it for the whole run (hookhost.cc) and calls it from the menu close and every
+// change of a base-owned setting, so the library is never evicted, whatever else it declares.
+static bool exports_corehooks(const LibInfo *li)
+{
+    if (!strcmp(li->name, "corehooks") && li->record.exports) {
+        return true;
+    }
+    if (!LIB_RECORD_COVERS(li->record.struct_size, export_list)) {
+        return false;
+    }
+    for (int k = 0; k < li->record.nexport_list; k++) {
+        if (!strcmp(li->record.export_list[k].name, "corehooks")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool LibLoader::contributes(int handle) const
 {
     const LibInfo *li = info(handle);
-    return li && (record_contributes(li->record) || (li->menu && record_contributes(li->menu->rec)));
+    return li && (record_contributes(li->record) || (li->menu && record_contributes(li->menu->rec)) || exports_corehooks(li));
 }
 
 bool LibLoader::unserved_text(const char *, const LibRecord &, char *, int)

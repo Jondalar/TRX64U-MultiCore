@@ -701,22 +701,24 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.exec = &executor;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
-    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);
-    if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
-        printf("[core] the write-back task did not start; a changed cartridge is written at the menu's open only\n");
-    }
     ring_autostart = cfg_value(&ctx, "Timewarp Ring", 1) != 0;
+    bool hook_started = false;
     if (hooks_present()) {                                   // a library of the core starts its own engine (core_hooks.h start): the ring's buffers and its init, the monitor's engine
         char why[120];
         core_lock.lock();
-        if (hooks_start(&ctx, why, sizeof(why))) {
+        if (hooks_start(&ctx, why, sizeof(why), &hook_started)) {
             printf("[core] the core's start hook failed: %s\n", why);
             snprintf(ctx.notice, sizeof(ctx.notice), "A part of the core did not start: %s", why);
             ctx.notice_pending = true;
         }
         core_lock.unlock();
-    } else {
+    }
+    if (!hook_started) {
         trx_ring_engine_init();                              // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
+    }
+    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);   // the first poll: after the start hook (core_hooks.h start)
+    if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
+        printf("[core] the write-back task did not start; a changed cartridge is written at the menu's open only\n");
     }
     rest_report = diag_report_rest;                           // T162: GET /v1/report
     static PollTask poll(&board_os, &core_lock, ops_of(&ctx), &ctx, desc->service_op, desc->service_period_ms, desc->poll_when_frozen);
@@ -828,13 +830,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     auto close_menu = [&]() {
         t_req = ctx.io->now_ms();
         rawkeys_menu(&ctx, false);                // T141: the keys still held are ignored until they are up
-        if (!hooks_present()) {
+        const bool hooked = hooks_has_menu_closed();
+        if (!hooked) {
             mon_release();                        // the monitor's hold on the machine, its breakpoints and observers go with the menu
         }
         menu->toast_clear();                      // T160: the volume line does not stay over the running core
         ui_toast_render(*menu);
         ui_menu_visible(false);
-        if (hooks_present()) {
+        if (hooked) {
             hooks_menu_closed();                  // the core's library gives back its debugger's hold and lands what the menu chose (core_hooks.h menu_closed)
         } else if (trx_ring_pending()) {
             trx_ring_unfreeze();                  // Timewarp: the frame chosen in the menu is where the machine runs on

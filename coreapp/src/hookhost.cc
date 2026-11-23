@@ -44,9 +44,12 @@ bool hooks_present(void)
     return g_hooks != 0;
 }
 
-int hooks_start(CoreCtx *c, char *msg, int msglen)
+int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran)
 {
     int rc = 0;
+    if (ran) {
+        *ran = false;
+    }
     if (msg && msglen > 0) {
         msg[0] = 0;
     }
@@ -54,6 +57,9 @@ int hooks_start(CoreCtx *c, char *msg, int msglen)
     if (start && msg && msglen > 0) {
         rc = start(msg, msglen) ? 1 : 0;
         msg[msglen - 1] = 0;
+        if (ran) {
+            *ran = true;
+        }
     }
     if (!g_hooks) {
         return rc;
@@ -66,6 +72,11 @@ int hooks_start(CoreCtx *c, char *msg, int msglen)
         }
     }
     return rc;
+}
+
+bool hooks_has_menu_closed(void)
+{
+    return HOOK(menu_closed) != 0;
 }
 
 bool hooks_menu_closed(void)
