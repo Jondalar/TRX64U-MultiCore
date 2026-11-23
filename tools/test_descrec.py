@@ -5,6 +5,7 @@ writes a record that its own reader (and the board's, tests/coreapp/test_descrec
   python3 tools/test_descrec.py        (also collected by python3 -m pytest tools/test_descrec.py)
 """
 import os
+import subprocess
 import sys
 import unittest
 
@@ -1116,6 +1117,98 @@ size = 0x14
             self.assertNotIn("key", r)
             self.assertNotIn("window", r)
             self.assertLess(int.from_bytes(b[4:6], "little"), 6)
+
+
+class RoutesAndPlaces(unittest.TestCase):
+    """T239.3 D32: the routes and places of a core's UI TOML (sections 20 and 21). The C++ reader of the same rules is tests/coreapp/test_uiplace.cc (fixture
+    tests/coreapp/golden/desc_places.toml); the SDK's own table is coreapp/base_ui.toml, which tools/gen_base_ui.py turns into the C++ table."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    T = """
+[[group_route]]
+group = "extras"
+area = "F5"
+tab = "video"
+heading = "Extras"
+
+[[group_route]]
+group = "hk"
+area = "F7"
+tab = "settings"
+heading = "Hotkeys"
+label = "Hotkeys"
+page = true
+
+[[place]]
+op = "volume.apply"
+route = "extras"
+group = "video"
+order = -5
+
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+order = 75
+
+[[place]]
+op = "tone.apply"
+group = "audio_2"
+"""
+
+    def test_the_tables_are_a_version_6_record_that_needs_no_core_and_read_back(self):
+        b = D.compile_text(self.T)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertEqual(r["group_route"], [{"group": "extras", "area": "F5", "tab": "video", "heading": "Extras"},
+                                            {"group": "hk", "area": "F7", "tab": "settings", "heading": "Hotkeys", "label": "Hotkeys", "page": True}])
+        self.assertEqual(r["place"], [{"op": "volume.apply", "route": "extras", "group": "video", "order": -5},
+                                      {"op": "home.apply", "key": "Home Directory", "order": 75},
+                                      {"op": "tone.apply", "group": "audio_2"}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(__import__("tomllib").loads(self.T)), b)
+
+    def test_the_writer_refuses_what_the_reader_would(self):
+        bad = [
+            ('[[group_route]]\ngroup = "A"\narea = "F5"\ntab = "t"\nheading = "H"\n', "group"),
+            ('[[group_route]]\ngroup = "g"\narea = "F9"\ntab = "t"\nheading = "H"\n', "area"),
+            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "T"\nheading = "H"\n', "tab"),
+            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = ""\n', "heading"),
+            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\npage = true\n', "label"),
+            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\nx = 1\n', "x"),
+            ('[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\n[[group_route]]\ngroup = "g"\narea = "F5"\ntab = "t"\nheading = "H"\n', "twice"),
+            ('[[place]]\nop = "volume.apply"\n', "places nothing"),
+            ('[[place]]\nop = "a b"\norder = 1\n', "op"),
+            ('[[place]]\nop = "volume.apply"\nroute = "No"\n', "route"),
+            ('[[place]]\nop = "volume.apply"\ngroup = "a,b"\n', "group"),
+            ('[[place]]\nop = "volume.apply"\norder = 1\n[[place]]\nop = "volume.apply"\norder = 2\n', "twice"),
+            ('[[place]]\nop = "volume.apply"\nkey = "K"\norder = 1\n[[place]]\nop = "volume.apply"\nkey = "k"\norder = 2\n', "twice"),
+            ('[[place]]\nop = "volume.apply"\norder = 4294967296\n', "order"),
+        ]
+        for text, what in bad:
+            with self.assertRaises(D.DescError, msg=what) as cm:
+                D.compile_text(text)
+            self.assertIn(what, str(cm.exception))
+        D.compile_text('[[place]]\nop = "volume.apply"\nkey = "K"\norder = 1\n[[place]]\nop = "volume.apply"\norder = 2\n')    # a place with a key and one without are two
+
+    def test_a_place_names_an_operation_the_application_exports(self):
+        ops = "op\tvolume.apply\tvalue:int:0:40:0:\nop\thome.apply\tvalue:int:0:2000:0:\n"
+        D.compile_checked('[[place]]\nop = "volume.apply"\norder = 1\n', ops)
+        with self.assertRaises(D.DescError) as cm:
+            D.compile_checked('[[place]]\nop = "volume.aply"\norder = 1\n', ops)
+        self.assertIn("volume.aply", str(cm.exception))
+
+    def test_the_base_table_is_whole_and_current(self):
+        rec = D.parse_desc(D.compile_text(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read()))
+        names = {r["group"] for r in rec["group_route"]}
+        self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "look", "appinput", "storage", "menu"])
+        for p in rec["place"]:
+            self.assertIn(p["route"], names, p["op"])
+            self.assertIn("group", p)
+            self.assertIn("order", p)
+        orders = [p["order"] for p in rec["place"]]
+        self.assertEqual(orders, sorted(orders))                       # the order the application adds the rows in
+        self.assertEqual(len(orders), len(set(orders)))
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

@@ -195,6 +195,22 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
     address = 0xA0000500
     size = 0x14                    # bytes, 1 .. 0x100000
+    # T239.3 D32 (sections 20 and 21, version 6; they need no [core]): where the rows the application adds to every core (Picture, Scale, Volume, Tone, the hotkeys, Persist, Home, the
+    # look, joystick and mouse) stand in the menu. The SDK's base UI TOML (coreapp/base_ui.toml) holds them all; a core's UI TOML (menu.toml) places a base row elsewhere by naming it again.
+    [[group_route]]                # a block of rows in a tab of the area: the group a place names. A route of the core's record with the name of a base route replaces it; others are added
+    group = "storage"              # a-z, 0-9, _ (at most 31)
+    area = "F7"                    # F1 .. F8
+    tab = "settings"               # the id of the tab (a core whose area has no such tab lists the rows in the area's tab "settings")
+    heading = "Storage"            # the block's heading, 1 to 31 characters
+    label = "Hotkeys"              # optional, required with page: the row that opens the page
+    page = false                   # optional: the rows are not in the tab, one row (label) there opens a page of them
+    [[place]]                      # one row of the application: found by its operation (and its key, when the operation serves several rows); at most once per operation and key
+    op = "volume.apply"            # the operation of the row (Setting::apply)
+    key = "Volume"                 # optional: the row's key (case does not matter); a place with a key wins over one without
+    route = "audio"                # optional: the route the row stands in (a name of a [[group_route]] of this record or of the base)
+    group = "audio"                # optional: the setting group the row gets (what a tab with `groups` or `sections` lists)
+    order = 20                     # optional: the place among the rows that are placed; equal numbers keep the order the application adds them in
+                                   # (at least one of route, group and order; a core's place leaves out what it does not change, the base's value stays)
     # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
 
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
@@ -607,7 +623,7 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart", "key", "window"} | set(SEC_KEYS), "description")
+                "pad", "restart", "key", "window", "group_route", "place"} | set(SEC_KEYS), "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -1172,11 +1188,12 @@ def _pad_words(pad, t, st):
 
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
 (SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
+SEC_ROUTES, SEC_PLACES = 20, 21        # T239.3 D32: where the rows the application adds stand in the menu (no [core] either)
 SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
 SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
              SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
              SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
-             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows"}
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_ROUTES: "routes", SEC_PLACES: "places"}
 SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
             "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
@@ -1650,6 +1667,86 @@ def _sec_windows(rows, st):
     return b"".join(out)
 
 
+# ---- where the application's rows stand (T239.3 D32) ------------------------------------------------------------------------
+# Sections 20 and 21, one table each, read by descrec.cc by the same rules.
+#
+# routes   u32 count (1 .. ROUTES_MAX), then per route 6 words: group, area (F1 .. F8), tab, heading (strings), label (string, none), flags (b0 page)
+# places   u32 count (1 .. PLACES_MAX), then per place 5 words: op (string), key (string, none), route (string, none), group (string, none), order (32 bit two's complement; PLACE_NO_ORDER: none)
+ROUTES_MAX = 16
+PLACES_MAX = 64
+PLACE_NO_ORDER = 0x80000000
+ROUTE_KEYS = {"group", "area", "tab", "heading", "label", "page"}
+PLACE_KEYS = {"op", "key", "route", "group", "order"}
+
+
+def _route_check(group, area, tab, heading, label, page, what):
+    if not re.fullmatch(r"[a-z0-9_]{1,31}", group or ""):
+        raise DescError("%s: group is a-z, 0-9 and _, 1 to 31 characters" % what)
+    if not re.fullmatch(r"F[1-8]", area or ""):
+        raise DescError("%s (%s): area is F1 .. F8" % (what, group))
+    if not re.fullmatch(r"[a-z0-9_]{1,31}", tab or ""):
+        raise DescError("%s (%s): tab is the id of a tab (a-z, 0-9, _, at most 31)" % (what, group))
+    if not heading or len(heading) > 31:
+        raise DescError("%s (%s): heading is 1 to 31 characters" % (what, group))
+    if label is not None and (not label or len(label) > 31):
+        raise DescError("%s (%s): label is 1 to 31 characters" % (what, group))
+    if page and label is None:
+        raise DescError("%s (%s): a page needs the label of the row that opens it" % (what, group))
+
+
+def _sec_routes(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= ROUTES_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("group_route: 1 to %d entries, each a table" % ROUTES_MAX)
+    out, names = [struct.pack("<I", len(rows))], set()
+    for i, r in enumerate(rows):
+        what = "group_route %d" % (i + 1)
+        _only(r, ROUTE_KEYS, what)
+        group, area, tab, heading = (_need(r, k, str, what) for k in ("group", "area", "tab", "heading"))
+        label = _opt(r, "label", str, what, None)
+        page = _opt(r, "page", bool, what, False)
+        _route_check(group, area, tab, heading, label, page, what)
+        if group in names:
+            raise DescError("%s: the group %r twice" % (what, group))
+        names.add(group)
+        out.append(struct.pack("<6I", st.add(group), st.add(area), st.add(tab), st.add(heading), st.add(label), 1 if page else 0))
+    return b"".join(out)
+
+
+def _place_check(op, key, route, group, order, what):
+    if not op or len(op) > 63 or re.search(r"\s", op):
+        raise DescError("%s: op is the operation of the row (1 to 63 characters, no blanks)" % what)
+    if key is not None and (not key or len(key) > 63):
+        raise DescError("%s (%s): key is 1 to 63 characters" % (what, op))
+    if route is not None and not re.fullmatch(r"[a-z0-9_]{1,31}", route):
+        raise DescError("%s (%s): route is the group of a route (a-z, 0-9, _, at most 31)" % (what, op))
+    if group is not None and not re.fullmatch(r"[A-Za-z0-9_]{1,31}", group):
+        raise DescError("%s (%s): group is 1 to 31 characters of A-Z, a-z, 0-9 and _" % (what, op))
+    if order is not None and not -2 ** 31 < order < 2 ** 31:
+        raise DescError("%s (%s): order does not fit 31 bits" % (what, op))
+    if route is None and group is None and order is None:
+        raise DescError("%s (%s): it places nothing (give a route, a group or an order)" % (what, op))
+
+
+def _sec_places(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= PLACES_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("place: 1 to %d entries, each a table" % PLACES_MAX)
+    out, seen = [struct.pack("<I", len(rows))], set()
+    for i, r in enumerate(rows):
+        what = "place %d" % (i + 1)
+        _only(r, PLACE_KEYS, what)
+        op = _need(r, "op", str, what)
+        key = _opt(r, "key", str, what, None)
+        route = _opt(r, "route", str, what, None)
+        group = _opt(r, "group", str, what, None)
+        order = _opt(r, "order", int, what, None)
+        _place_check(op, key, route, group, order, what)
+        if (op, (key or "").lower()) in seen:
+            raise DescError("%s: the operation %r with the key %r twice" % (what, op, key))
+        seen.add((op, (key or "").lower()))
+        out.append(struct.pack("<5I", st.add(op), st.add(key), st.add(route), st.add(group), PLACE_NO_ORDER if order is None else order & 0xFFFFFFFF))
+    return b"".join(out)
+
+
 def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
@@ -1701,6 +1798,10 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_KEYROWS, _sec_keys(doc["key"], st)))
     if "window" in doc:
         secs.append((SEC_WINDOWS, _sec_windows(doc["window"], st)))
+    if "group_route" in doc:
+        secs.append((SEC_ROUTES, _sec_routes(doc["group_route"], st)))
+    if "place" in doc:
+        secs.append((SEC_PLACES, _sec_places(doc["place"], st)))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
@@ -1974,6 +2075,47 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 names.add(S(nm))
                 wins.append({"name": S(nm), "address": addr, "size": size})
             out["window"] = wins
+        elif sid == SEC_ROUTES:
+            n, = words(1)
+            if not 1 <= n <= ROUTES_MAX or len(p) != 4 + 24 * n:
+                raise DescError("%s: %d routes, or the length does not fit them" % (what, n))
+            routes, names = [], set()
+            for i in range(n):
+                g, a, t, h, lb, fl = words(6, 4 + 24 * i)
+                if fl & ~1:
+                    raise DescError("%s, route %d: an unknown flag" % (what, i + 1))
+                _route_check(S(g), S(a), S(t), S(h), S(lb) if lb != NONE else None, bool(fl & 1), "%s, route %d" % (what, i + 1))
+                if S(g) in names:
+                    raise DescError("%s: the group %r twice" % (what, S(g)))
+                names.add(S(g))
+                r = {"group": S(g), "area": S(a), "tab": S(t), "heading": S(h)}
+                if lb != NONE:
+                    r["label"] = S(lb)
+                if fl & 1:
+                    r["page"] = True
+                routes.append(r)
+            out["group_route"] = routes
+        elif sid == SEC_PLACES:
+            n, = words(1)
+            if not 1 <= n <= PLACES_MAX or len(p) != 4 + 20 * n:
+                raise DescError("%s: %d places, or the length does not fit them" % (what, n))
+            places, seen_p = [], set()
+            for i in range(n):
+                op, k, rt, g, o = words(5, 4 + 20 * i)
+                order = None if o == PLACE_NO_ORDER else (o - 2 ** 32 if o >= 2 ** 31 else o)
+                pw = "%s, place %d" % (what, i + 1)
+                _place_check(S(op), S(k) if k != NONE else None, S(rt) if rt != NONE else None, S(g) if g != NONE else None, order, pw)
+                if (S(op), (S(k) or "").lower()) in seen_p:
+                    raise DescError("%s: the operation %r with the key %r twice" % (what, S(op), S(k)))
+                seen_p.add((S(op), (S(k) or "").lower()))
+                r = {"op": S(op)}
+                for name, v in (("key", k), ("route", rt), ("group", g)):
+                    if v != NONE:
+                        r[name] = S(v)
+                if order is not None:
+                    r["order"] = order
+                places.append(r)
+            out["place"] = places
     if SEC_CORE not in seen and any(i <= SEC_REPLACE for i in seen):
         raise DescError("description record: the data sections have no core section")
     rs = out.get("romset")
@@ -2288,7 +2430,7 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
-    for k in SEC_KEYS + ("key", "window"):
+    for k in SEC_KEYS + ("key", "window", "group_route", "place"):
         if k in rec:
             doc[k] = rec[k]
     if rec["task"]:
@@ -2399,8 +2541,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table or windows"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("group_route") or rec.get("place"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table, windows, routes or places"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))
@@ -2548,6 +2690,9 @@ def check_ops(rec, ops, states):
                 bad.append('key row %d: value %d is outside %d .. %d of "%s"' % (i + 1, kr["value"], args[0]["lo"], args[0]["hi"], kr["op"]))
         if kr.get("when"):
             state_ok("key row %d" % (i + 1), kr.get("op") or kr["do"], kr["when"].lstrip("!").split()[0])
+    for i, pl in enumerate(rec.get("place") or []):                   # D32: a place names an operation the application exports (a typo must not leave a row where it was)
+        if pl["op"] not in ops:
+            bad.append('place %d: operation "%s" is not exported by the application' % (i + 1, pl["op"]))
     for tk in rec["task"]:
         add(_bind_problem(ops, "task", tk["label"], tk["op"], tk["bind"], False, False, bool(tk["ask"])))
         if tk["ask"]:
