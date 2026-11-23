@@ -8,7 +8,6 @@ root=$(cd "$(dirname "$0")/../../.." && pwd)
 out=${1:?build dir}; shift || true
 C=$root/vendor/icepi
 K=$C/vicii-kawari/hdl
-U=$root/cores/c64u
 X=$root/cores/c128
 mkdir -p "$out/gen" "$out/run/mem"
 defs=${C128_SIM_DEFS:-"Z80 SID_REDIP NO_TURBO NO_REU VDC_WHOLE VDC64 TRX_SIM_ROMS"}
@@ -53,10 +52,10 @@ EOT
     echo $K/$f.v
   done
   echo $X/vicii_c128.v
-  echo $X/c64_top_c128.v $X/cpu6510_c128.v $U/c64_turbo_c64u.v $X/c64_bus_arbiter_c128.v $X/c64_pla_c128.v $X/c128_map.v $X/c128_x.v $X/c128_act.v
+  echo $X/c64_top_c128.v $X/cpu6510_c128.v $X/c64_turbo_c64u.v $X/c64_bus_arbiter_c128.v $X/c64_pla_c128.v $X/c128_map.v $X/c128_x.v $X/c128_act.v
   echo $X/vdc/vdcram.v $X/vdc/vdc_cpu.v
   echo $X/vdc/vdc_top.sv $X/vdc/vdc_signals.sv $X/vdc/vdc_signals_h.sv $X/vdc/vdc_signals_v.sv $X/vdc/vdc_ramiface.sv $X/vdc/vdc_video.sv
-  echo $X/c64_core_c128.v $X/c64_mem_c128.v $X/c64_mem_c128d.v $X/c128_ramd.v $X/dma_win_c128.v $X/c128_romc.v $X/c128_chr.v $U/cart_slot_c64u.v $U/slot_port_c64u.v
+  echo $X/c64_core_c128.v $X/c64_mem_c128.v $X/c64_mem_c128d.v $X/c128_ramd.v $X/dma_win_c128.v $X/c128_romc.v $X/c128_chr.v $X/cart_slot_c64u.v $X/slot_port_c64u.v
   echo $out/gen/proc_core.v $out/gen/iecdrv_via6522.v $out/gen/T65.v $out/gen/mmu8722.v $out/gen/cpu_z80.v
 } > "$out/gen/files.f"
 

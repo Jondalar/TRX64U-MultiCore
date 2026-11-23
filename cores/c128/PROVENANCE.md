@@ -30,6 +30,8 @@ Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` 
 - `c128_map.v`, `c128_x.v`, `c128_keys.v`, `c128_regs.v`, `c128_rgbi.v`, `c128_romc.v`, `c128_rome.v`, `c128_chr.v`, `c128_joyswap.v` (T157), `c128_act.v` (T194): ours.
 - `c128_ramd.v`, `c128_ddrx.v` (T140 D25/D27, the RAM in the DDR2; `c128_ddrx.v` replaces `c128_rome.v` in that build): ours. `c64_mem_c128d.v`: copy of `c64_mem_c128.v` with the RAM behind `c128_ramd.v`;
   `dma_win_c128.v`: copy of `cores/c64u/dma_win_c64u.v` that waits for the RAM port's answer.
+- `cart_slot_c64u.v`, `cart_fill_c64u.v`, `slot_port_c64u.v`, `c64_turbo_c64u.v` (T257 D11, 2026-11-23): copies of the files of the same names in `cores/c64u/` (first line names the source; content unchanged), so the C128 reads nothing of the c64u tree for them.
+  `cart_slot_c64u.v` and `cart_fill_c64u.v` are read but unused while the define `NO_CART_EMU` is set (the mono build sets it); they stay so the define is switchable.
 - `c128_pixw.v`: copy of `cores/c264/rtl/trx/c264_pixw.v` (ours) for the VDC's 640-dot picture, every line written twice, three buffers, 7 bit word counter; T257: frames of up to 240 lines, the rows after a shorter frame written black (ours).
 - `vicii_c128.v`: copy of `vendor/icepi/vicii-kawari/hdl/vicii.v` (Kawari, GPL-3.0-or-later). One change: the dot phase (`dot_rising`) stops while `stall` is up and the enable
   the dot-clocked logic sees is 0 then (the original lets raster_x count on while only the PHI generator stops: a stall of the ROM line cache moved the VIC against the CPU).
