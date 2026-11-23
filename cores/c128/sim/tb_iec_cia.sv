@@ -57,6 +57,7 @@ module tb_iec_cia;
         end
     endtask
     // the receiver of the send test: DATA at each rising edge of SRQ
+    reg test_send = 1'b0;
     reg [7:0] got = 8'd0;
     integer nrise = 0;
     reg srq_q = 1'b1;
@@ -64,7 +65,6 @@ module tb_iec_cia;
         srq_q <= srq_bus;
         if (srq_bus && !srq_q && test_send) begin got <= {got[6:0], data_bus}; nrise <= nrise + 1; end
     end
-    reg test_send = 1'b0;
     integer i;
     initial begin
         repeat (10) @(posedge clk); #1 reset = 0;

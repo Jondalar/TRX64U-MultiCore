@@ -347,6 +347,8 @@ module layer2_c128 #(
     // the C128's own register page (c128_regs.v) at cw_addr[16:12] = 4'hE; the c64u window answers everything else
     wire        io_ack, io_irq, rg_ack, rg_irq;
     wire  [7:0] io_rdata, rg_rdata;
+    wire        it_ack;                                             // T170: the bus trace's answer, declared before cw_rdata/cw_ack use it
+    wire  [7:0] it_rdata;
     wire        pg_e = !cw_addr[16] && cw_addr[15:12] == 4'hE;
     wire        pg_f = !cw_addr[16] && cw_addr[15:12] == 4'hF;      // T170: the bus trace (c128_iectrace.v)
     reg         pg_e_q = 1'b0, pg_f_q = 1'b0, pg_id_q = 1'b0;
@@ -480,8 +482,6 @@ module layer2_c128 #(
         .tap_bus(iec_tap_bus), .tap_port(iec_tap_port)
     );
     // T170 D2: the bus trace, a register page of its own (page F, c128_iectrace.v), read by the application's bug report
-    wire       it_ack;
-    wire [7:0] it_rdata;
     c128_iectrace iectr (
         .sys_clk(sys_clk), .bus(iec_tap_bus), .port(iec_tap_port), .fs_dir(fs_dir_w), .c128_mode(!c128_stat[0]),
         .tick_hz(vmode_sys == 2'd0 ? 32'd31527778 : 32'd32727273),

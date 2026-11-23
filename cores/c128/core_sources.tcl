@@ -59,7 +59,7 @@ set core_read {
     $kawari/hires_pixel_sequencer.v $kawari/hires_matrix.v $kawari/hires_addressgen.v $kawari/cycles.v \
     $kawari/comp_sync.v $kawari/bus_access.v $kawari/border.v $kawari/addressgen_spartan.v $c128/vicii_c128.v ]
   read_verilog -sv [list $c128/c64_top_c128.v $c128/cpu6510_c128.v $c64u/c64_turbo_c64u.v $c128/c64_bus_arbiter_c128.v $c128/c64_pla_c128.v \
-    $c128/c128_map.v $c128/c128_x.v]
+    $c128/c128_map.v $c128/c128_x.v $c128/c128_iecfs.v]
   read_verilog -sv [list $c128/vdc/vdcram.v $c128/vdc/vdc_cpu.v]
   if {$vdef eq "VDC_WHOLE"} {
     read_verilog -sv [list $c128/vdc/vdc_top.sv $c128/vdc/vdc_signals.sv $c128/vdc/vdc_signals_h.sv $c128/vdc/vdc_signals_v.sv \
@@ -83,7 +83,7 @@ set g_files {}
 foreach n $g_names { lappend g_files $gdir/$n }
 lappend g_files $gdir/c64u_pseudo_dpram_8x32_x7.vhd $gdir/c64u_drive_mem.vhd $gdir/uci_unit_c64u.vhd $gdir/c64u_l2.vhd
 set l2_v [list $c128/layer2_c128.v ../cores/c1541/drive_leds_map.v $c64u/c64u_io.v $c64u/c64u_sys.v $c64u/cart_fill_c64u.v \
-  $c64u/dma_win_c64u.v $c128/iec_bus_c128.v $c128/c128_iecfs.v $c128/c128_iectrace.v $c64u/sid_sock_audio_c64u.v $c128/c128_rome.v $c128/c128_ddrx.v $c128/dma_win_c128.v $c128/c128_regs.v $c128/c128_act.v $c128/c128_keys.v $c128/c128_joyswap.v $c128/c128_pixw.v $c128/c128_rgbi.v]
+  $c64u/dma_win_c64u.v $c128/iec_bus_c128.v $c128/c128_iectrace.v $c64u/sid_sock_audio_c64u.v $c128/c128_rome.v $c128/c128_ddrx.v $c128/dma_win_c128.v $c128/c128_regs.v $c128/c128_act.v $c128/c128_keys.v $c128/c128_joyswap.v $c128/c128_pixw.v $c128/c128_rgbi.v]
 # Flat build (cores/c128/mono/build_mono.tcl): no out-of-context run, the caller reads core_read and the layer-2 sources itself.
 if {[info exists ::env(TRX_MONO)] && $::env(TRX_MONO) eq "1"} { return }
 lassign [trx_ooc c64_core_c128 $part $core_files $core_read $core_synth] core_dcp core_stub

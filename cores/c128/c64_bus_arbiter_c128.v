@@ -207,7 +207,7 @@ module c64_bus_arbiter_c128 (
   output reg         ram_vic,                   // T140 D25: this RAM access is the VIC's (the last branch of the address decoding)
   output wire [2:0]  vic_bank_tag,              // T140 D25: the bank the VIC addresses now {VIC RAM block, va15, va14}
   output wire        c128_n,                    // 0: C128 mode, 1: C64 mode
-  output wire        fsdir,                     // T170: $D505 bit 3, the fast serial direction (1 = the machine sends)
+  output wire        fsdir,                     // T170: $D505 bit 3, the fast serial direction (1 = the machine sends; reset: cpumode or osmode, c128_mmu8722.vhd:112)
   output wire        z80_n,                     // the MMU's CPU bit: 0 = the Z80 is selected
   input  wire        z80io,                     // the Z80 is on the bus and this is an IN/OUT cycle
   input  wire        z80_act,                   // the Z80 has the bus

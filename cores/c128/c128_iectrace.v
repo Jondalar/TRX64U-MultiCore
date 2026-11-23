@@ -12,7 +12,7 @@
 //                    clear - also those the ring leaves out while a fast serial burst runs
 //   030-031 RD_IDX   RW slot number (b9:0)
 //   034-037 RD_DATA  R 32 bit: the event in slot RD_IDX
-// An event: [31:16] ticks since the previous event (saturates at 65535; the first event after the clear counts from the clear),
+// An event: [31:16] ticks since the previous event (saturates at 65535; after the clear dt starts saturated, so the first event reads 65535),
 //   [9] C128 mode, [8] FSDIR (1 = the machine sends), [7:4] the board port's lines, [3:0] the bus as the core hears it; line bits {SRQ, DATA, CLK, ATN}, 1 = high.
 // Rule of the ring: a change of ATN, CLK, FSDIR or the mode is an event. A change of DATA or SRQ is one too, except while SRQ is moving (a burst: SRQ changed
 // less than 256 ticks ago, 8 us) - the burst's first edge is an event, and so is the state after its last (when SRQ has been quiet for 256 ticks).
@@ -40,7 +40,6 @@ module c128_iectrace (
     reg  [9:0] prev = 10'h3FF, rec = 10'h3FF;
     reg  [15:0] dt = 16'hFFFF;
     reg   [8:0] sage = 9'h1FF;
-    reg  [9:0] wp = 10'd0;
     reg [31:0] total = 32'd0, c_atn = 32'd0, c_clk = 32'd0, c_dat = 32'd0, c_srq = 32'd0;
     (* ram_style = "block" *) reg [31:0] ring [0:1023];
 
@@ -69,8 +68,7 @@ module c128_iectrace (
         if (cur[2] != prev[2]) c_dat <= c_dat + 32'd1;
         if (cur[3] != prev[3]) c_srq <= c_srq + 32'd1;
         if (ev) begin
-            ring[wp] <= {dt, 6'd0, cur};
-            wp    <= wp + 10'd1;
+            ring[total[9:0]] <= {dt, 6'd0, cur};
             total <= total + 32'd1;
             rec   <= cur;
             dt    <= 16'd0;
@@ -80,7 +78,7 @@ module c128_iectrace (
             done_tgl <= ~done_tgl;
         end
         if (clr_ev) begin
-            wp <= 10'd0; total <= 32'd0; c_atn <= 32'd0; c_clk <= 32'd0; c_dat <= 32'd0; c_srq <= 32'd0;
+            total <= 32'd0; c_atn <= 32'd0; c_clk <= 32'd0; c_dat <= 32'd0; c_srq <= 32'd0;
             dt <= 16'hFFFF;
         end
     end

@@ -53,7 +53,7 @@ Scenario: S4 the bus trace is in the bug report
   Then  the file has a section "Serial port trace (T170)": the totals, the edge counts of ATN, CLK, DATA and SRQ, the state now, and the newest 96 events with their time
         and the fast serial direction; a core without the page has no section
   # unit: test_iectrace (the page found by "IECT", the events in order, saturated time, a wrapped ring, the counters from one snapshot); test_corereport (the section only with
-  # the capability "iec" and the page). Gateware: bench c128_iec (the page: events and their times, a burst the ring leaves out and the counters do not, the wrap, snapshot, clear). board (tester): the file of S1 / S2 on the SD card
+  # the capability "iec_trace" and the page; a ring depth outside 2^1 .. 2^10 is "invalid"). Gateware: bench c128_iec (the page: events and their times, a burst the ring leaves out and the counters do not, the wrap, snapshot, clear). board (tester): the file of S1 / S2 on the SD card
 
 Scenario: S5 a C128 in C64 mode and the other cores are not disturbed
   Given the C128 in C64 mode (GO64) with a real 1541, and another core with a real port started afterwards
@@ -106,15 +106,15 @@ The design below was chosen while building (agent, 2026-11-23); Alex's decisions
   - Application: `coreapp/src/iectrace.{h,cc}`, `corereport.cc` (the section before "Heap"), the RISC-V Makefile.
   - Tests: `cores/c128/sim/tb_iec.v` (iverilog, **PASS, 38 checks, run here once**), `tb_iec_cia.sv` (Verilator: **written and linted, not run here** - first run is the coordinator's, `sh cores/c128/sim/run_iec_cia.sh`; if a check fails, look at
     the bench's timing first), `tests/coreapp/test_iectrace.cc` (24 checks, PASS) and a block in `test_corereport.cc` (94 checks, PASS). Both benches are in `ci/sims.txt`, `sims.deps`, `sims.lane`.
-  - Checks green: `tools/check_todo.py`, `check_d24.py`, `check_c128_tree.py` (and its selftest), `core_toml.py --check`, `contract_ports.py --check` (c128: 247 ports, 2 extra), `ci/orchestrate.py check`; yosys parse of every changed Verilog file (no new implicit net).
+  - Checks green: `tools/check_todo.py`, `check_d24.py`, `check_c128_tree.py` (and its selftest), `core_toml.py --check`, `contract_ports.py --check` (c128: 247 ports, 2 extra), `ci/orchestrate.py check`; `iverilog -g2012` and `verilator --lint-only` on the changed files, and a scan for any declaration after its first use (review fix 2026-11-23: yosys had accepted a forward use of `it_rdata` / `it_ack` as an implicit net; declared above their use now).
   - Bug found by the bench while building: the trace tap of the port's lines had SRQ and ATN swapped; fixed (`iec_bus_c128.v`).
 - **Cost estimate (no Vivado; the last numbers are T164 §5 WP18: 27,670 LUT = 84.9 % in run 1079, about 27,900 LUT = 85.6 % and 61 of 75 RAMB36 estimated since, WNS -0.095 in run 1142).**
   `c128_iectrace`: about 350 LUT (four 32-bit edge counters about 130, the register read mux about 70, event logic and the 16-bit delta about 60, snapshot control and CDC about 40, the rest glue), about 480 FF
   (counters 128, snapshot 170, the rest), **1 RAMB36** (1024 x 32), 0 DSP. `iec_bus_c128` +8 LUT, +14 FF; `c128_iecfs` about 6 LUT; routing of FSDIR and SRQ about 10 LUT. **Total about 380 LUT (+1.2 % of the 32,600), about 500 FF, 1 RAMB36.**
-  Next to T257 (the estimate in the research report: 60-100 LUT, about 10 FF, no new BRAM tile): about 28,400 LUT = 87 %, 62 of 75 RAMB36. It fits by these numbers; it is not a placement
+  Next to T257 (the estimate in the research report: 60-100 LUT, about 10 FF, no new BRAM tile): about 28,400 LUT = 87 %. RAMB36: the last build stood at 72.5 of 75, so the ring makes it **73.5 of 75** (the estimate of 61 above is out of date). It fits by these numbers; it is not a placement
   guarantee - the C128 was red on WNS in run 1142 with this density, and Vivado decides. If it does not close: drop the 32-bit counters to 16 bit (about -100 LUT, -64 FF), then the snapshot of the DATA counter.
 - **Risks to look at in the first Vivado run and the first board run:**
-  - `IEC_SRQ_I` is a new input (K14, LVCMOS33, no pull): its idle level on the board with no drive is not known from the boundary scan. A line stuck low means no FLAG edge and no CNT clock, nothing worse.
+  - `IEC_SRQ_I` is a new input (K14, LVCMOS33): its idle level on the board with no drive is not known from the boundary scan. `iec_srq_pins.xdc` sets PULLDOWN, so a released line reads as idle (`_I` = 1 means the line is low). A line stuck low means no FLAG edge and no CNT clock - and it also blocks tape input: CIA 1 FLAG = `srq_bus & srq_out & tape_read` (`c128_iecfs.v:26`), so a stuck-low SRQ holds FLAG low and the tape signal never reaches it.
   - (Closed 2026-11-23) The report no longer probes page F on every core with "iec": it reads it only for a core that declares the capability "iec_trace" (`corereport.cc`), which only the C128 does. No other core's window is read at 0xF000.
   - The trace has not been seen with a drive. Whether the burst rule (8 us) fits a real 1571's bit clock is a guess from the protocol: the counters are right either way; only the ring's content changes.
 - **D7 decision (coordinator, 2026-11-23): the time base stays the nominal tick rate** (31,527,778 PAL, 32,727,273 NTSC). The trace serves to read a tester's failed load; the NTSC clock's error of about 48 ppm moves an 8 us burst edge by less than a nanosecond, so the real MMCM value is not measured.
