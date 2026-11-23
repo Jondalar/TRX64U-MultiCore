@@ -212,12 +212,12 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
 - A core can also describe the rest of its descriptor as data (T239.3 D17, record version 6, sections behind the string table): identity, ROMs, video and freeze,
   hotkeys, mount slots and the register bits of a setting (`reg_bind`). `cores/vc20/app/desc.toml` is the example; `descrec_core` (`descrec.cc`) makes the
   `CoreDesc` of the record and `BundleDescSource` (`bundle.h`) finds it in the bundle when no descriptor is compiled in (`start_identify`). Function hooks
-  (`init`, `release`, `register_ops`, the media write-back, the mount slot's three functions) are code and come from `CoreHooks`, not from the record.
+  (`init`, `release`, `register_ops`, the media write-back, the mount slot's three functions) are code and come from `DescCode` (descrec.h; a core whose record names a hooks library gets them from that library, `CoreHooks` of core_hooks.h), not from the record.
   Every data field of `CoreDesc` has a place in the record, so any core can be described: the sections are
 
   | section | TOML | `CoreDesc` field |
   |---|---|---|
-  | 1 core | `[core]` | id, cor_name, title, short_title, folder, store, min_contract, reset_ms, service_op/period, flags (poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps |
+  | 1 core | `[core]` | id, cor_name, title, short_title, folder, store, min_contract, reset_ms, service_op/period, flags (poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps, hooks (the library that is the core's code, core_hooks.h) |
   | 2 video | `[video]`, `[freeze]` | video, freeze |
   | 3 roms | `[[rom]]` | roms (`check = true`: the content check is a hook) |
   | 4 setting register bits | `reg_bind` in a `[[core_setting]]` | Setting::bind |
@@ -236,7 +236,7 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
   | 17 media replace | `replace` in a `[[media]]` | MediaSlot::replace |
 
   The menu tables (tasks, media, file types, settings), the pad (`[pad]`), the restart (`[restart]`) and `machine_info` are the older record parts. The keys of every
-  table are listed at the top of `tools/descrec.py`. `menu_rec` is the record itself, not a field of it. Hooks that sit inside these tables come from `CoreHooks`
+  table are listed at the top of `tools/descrec.py`. `menu_rec` is the record itself, not a field of it. Hooks that sit inside these tables come from `DescCode`
   (`rom_check[i]`, `romset_version`, `romset_pick`, `rawkeys_held`, `pad_id_loaded`); a hook the record names and the code lacks refuses the record with a sentence.
   Which description wins: while a descriptor is compiled in for the core, it is the core, `start_identify` uses it and a record with data sections beside it changes nothing at
   run time (`descrec_applies`); only a core with no compiled-in descriptor is made of the record (`CoreDesc::from_record`). The packers (`tools/pack_cores_mc.sh`,

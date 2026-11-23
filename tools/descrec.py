@@ -19,25 +19,26 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     id = "VC20"                    # the four characters of the ID block
     name = "VIC-20"                # the .cor manifest's name (CoreDesc::cor_name); title, short_title, folder, store are the other texts of the descriptor
     min_contract = 1               # reset_ms, service_op + service_period_ms, live_ms, type_op, run_op, needs_program, program_ext, core_id, caps = ["iec"], and the flags
-                                   # poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first
+                                   # poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first; hooks = "<library>" names the library of the bundle whose export
+                                   # corehooks (coreapp/src/core_hooks.h) is the code of the core: init, release, warm_reset, cold_start, media_flush, media_pending and the mount slots
     [video]                        # section 2 with [freeze]: CoreDesc::video (w, h, scale, x0, y0, fb_base, fb_stride, nbuf, reg_latest, reg_seq, reg_fb_base, reg_fb_stride, and bpp,
     [freeze]                       # pxfmt, h60 where 0 is not meant) and CoreDesc::freeze (reg_status, mask, timeout_ms, word); scale 0 with every other number 0 = the core has no
                                    # picture of its own (it goes through the host's scaler) and a freeze alone
     [[rom]]                        # section 3: a RomSpec - role, names (first match wins), sizes, required, set, shared, put_op; check = true says the core's code checks the content
-                                   # (CoreHooks::rom_check[i]; the check is code and stays so)
+                                   # (DescCode::rom_check[i]; the check is code and stays so)
     [hotkeys]                      # section 5: a HkSpec - mod, actions (7), tasks, own_keys, vol_key, swap_key, core_op + core_key + core_label, pc_keys
     [mount]                        # section 6: names = the slots of CoreDesc::mount_slots; their three functions (spec, mount, eject) are code
     [[reset_write]]                # section 7: RegWrite, written with every settings commit - reg, value (1 .. 8 of them)
     [id_feature]                   # section 8: CoreDesc::id_feat_reg / mask / val - reg, mask (not 0), value: how an id_shared core is told apart by its gateware
     [[report_reg]]                 # section 9: ReportReg of the bug report - name, reg, bytes (1, 2 or 4); 1 .. 24 of them
     [rawkeys]                      # section 10: RawKeySpec, a USB keyboard as the core's own key events - reg, hid (the machine's code per HID usage, 0xFF none), mod (8 codes),
-                                   # caps_usage, caps_code; or held = true + caps_usage: the core's code takes the keys that are down (CoreHooks::rawkeys_held), no tables
+                                   # caps_usage, caps_code; or held = true + caps_usage: the core's code takes the keys that are down (DescCode::rawkeys_held), no tables
     [alt_video]                    # section 11: CoreDesc::alt_video, the keys of [video]
     [fbwin]                        # section 12: FbWinSpec, the picture window - reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines
                                    # x_per_unit x_origin y_origin src_w src_h def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms
     [mouse]                        # section 13: MouseSinkSpec - kind ("counters" | "pot1351"), reg_dx reg_dy reg_btn clamp step interval_ms
     [romset]                       # section 14: RomSetSpec, a ROM chosen out of a directory - role ext sizes size_text example max choice_key auto_label want head_bytes window_off
-                                   # mirror_size mirror_stride clear_below; version = true and pick = true say the core's code has the two functions (CoreHooks::romset_version, romset_pick)
+                                   # mirror_size mirror_stride clear_below; version = true and pick = true say the core's code has the two functions (DescCode::romset_version, romset_pick)
     [window_media]                 # section 15: WindowMediaSpec - prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop
                                    # idle_flush_ms max_dirty_ms
     [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
@@ -1190,6 +1191,7 @@ SETBIND_MAX = 16
 SETBIND_BYTES_MAX = 64
 MOUNT_NAMES_MAX = 6
 CAP_RE = r"[a-z0-9_]{1,15}"
+HOOKS_RE = r"[a-z0-9_]{1,15}"                                               # the name of a library (u2a_pack.py field), coreapp/src/descrec.cc DR_HOOKS_NAME
 CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
 
 
@@ -1209,7 +1211,7 @@ def _int_in(d, k, lo, hi, what, default=None):
 
 
 def _sec_core(c, st):
-    _only(c, {"id", "min_contract", "reset_ms", "service_period_ms", "live_ms", "caps"} | set(CORE_REQ) | set(CORE_OPT) | set(CORE_FLAGS), "core")
+    _only(c, {"id", "min_contract", "reset_ms", "service_period_ms", "live_ms", "caps", "hooks"} | set(CORE_REQ) | set(CORE_OPT) | set(CORE_FLAGS), "core")
     cid = _need(c, "id", str, "core")
     if len(cid) != 4 or not cid.isascii() or not cid.isprintable():
         raise DescError("core: id is the four characters of the ID block")
@@ -1233,6 +1235,10 @@ def _sec_core(c, st):
          _int_in(c, "min_contract", 0, 255, "core", 1), _int_in(c, "reset_ms", 0, 65535, "core", 0), st.add(c.get("service_op")), period, flags,
          st.add(c.get("needs_program")), st.add(c.get("program_ext")), st.add(c.get("type_op")), st.add(c.get("run_op")), st.add(c.get("core_id")),
          _int_in(c, "live_ms", 0, 65535, "core", 0), st.add(",".join(caps)) if caps else NONE]
+    if "hooks" in c:                                                         # a 19th word, only for a core whose code is a library (core_hooks.h); a record without it stays 18 words
+        if not isinstance(c["hooks"], str) or not re.fullmatch(HOOKS_RE, c["hooks"]):
+            raise DescError("core: hooks names a library of 1 to 15 characters of a-z, 0-9 and _")
+        w.append(st.add(c["hooks"]))
     return struct.pack("<%dI" % len(w), *w)
 
 
@@ -1442,7 +1448,7 @@ def _sec_rawkeys(r):
     _only(r, {"reg", "hid", "mod", "caps_usage", "caps_code", "held"}, "rawkeys")
     held = _opt(r, "held", bool, "rawkeys", False)
     usage = _int_in(r, "caps_usage", 0, 255, "rawkeys")
-    if held:       # the core's code reads the keys that are down (CoreHooks::rawkeys_held); no key queue, no tables
+    if held:       # the core's code reads the keys that are down (DescCode::rawkeys_held); no key queue, no tables
         if any(k in r for k in ("reg", "hid", "mod", "caps_code")):
             raise DescError("rawkeys: held has no reg, hid, mod or caps_code")
         return struct.pack("<6I", 1, 0, usage, 0, 0, 0)
@@ -1719,9 +1725,9 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 raise DescError("%s: a text is missing" % what)
             return v
         if sid == SEC_CORE:
-            w = words(18)
-            if len(p) != 72:
-                raise DescError("%s: %d bytes, 72 expected" % (what, len(p)))
+            if len(p) not in (72, 76):
+                raise DescError("%s: %d bytes, 72 or 76 expected" % (what, len(p)))
+            w = words(len(p) // 4)
             c = {"id": struct.pack("<I", w[0]).decode("ascii", "replace")}
             for k, o in zip(CORE_REQ, w[1:6]):
                 c[k] = S(o, True)
@@ -1744,6 +1750,10 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 if not all(re.fullmatch(CAP_RE, x) for x in caps) or len(caps) > CAPS_MAX:
                     raise DescError("%s: a capability name is not one, or there are more than %d" % (what, CAPS_MAX))
                 c["caps"] = caps
+            if len(w) == 19:
+                c["hooks"] = S(w[18], True)
+                if not re.fullmatch(HOOKS_RE, c["hooks"]):
+                    raise DescError("%s: the hooks library name is not one" % what)
             out["core"] = c
         elif sid == SEC_VIDEO:
             if len(p) != 4 * (len(VIDEO_INTS) + 4):

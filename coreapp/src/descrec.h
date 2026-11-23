@@ -25,8 +25,9 @@
 //   208 version 6 only (T239.3 D17: a record with the core's data sections; the writer keeps version 5 or 4 for one without): u32 offset and u32 size of the sections. They lie
 //       behind the string table to the end of the record (flags bit 2). A section is u32 id, u32 length (a multiple of 4), the length's bytes; each at most once, an id
 //       this reader does not know is refused with its number. Words are u32, strings offsets into the string table (none = 0xFFFFFFFF):
-//         1 core       18 words: id (4 bytes), name, title, short_title, folder, store, min_contract, reset_ms, service_op, service_period_ms, flags (b0 poll_when_frozen, b1 board_caps,
-//                      b2 id_shared, b3 own_volume, b4 no_tone, b5 menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps (comma separated)
+//         1 core       18 words, or 19: id (4 bytes), name, title, short_title, folder, store, min_contract, reset_ms, service_op, service_period_ms, flags (b0 poll_when_frozen, b1 board_caps,
+//                      b2 id_shared, b3 own_volume, b4 no_tone, b5 menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps (comma separated), and the 19th: hooks, the name of
+//                      the library of the bundle whose export "corehooks" is the core's code (1 to 15 characters of a-z 0-9 _; none = 0xFFFFFFFF, and the writer then leaves the word out)
 //         2 video      19 words: w h scale x0 y0 fb_base fb_stride nbuf reg_latest reg_seq reg_fb_base reg_fb_stride bpp pxfmt h60, then the freeze: reg_status mask timeout_ms word
 //                      (scale 0 with every other video word 0: no picture of the core's own, the freeze alone)
 //         3 roms       u32 count, then per ROM 16 words: role, put_op, flags (b0 required, b1 shared, bits 15:8 set), 3 sizes (0 = none), 10 file names (none = end)
@@ -37,18 +38,18 @@
 //         7 reset writes   u32 count (1..8), then per entry reg, value (CoreDesc::reset_writes)
 //         8 id feature     3 words: reg, mask (1..255), value (CoreDesc::id_feat_reg, id_feat_mask, id_feat_val)
 //         9 report regs    u32 count (1..24), then per entry name, reg, bytes (1, 2 or 4) (CoreDesc::report_regs)
-//        10 raw keys       6 words: flags (b0 the core's code takes the keys that are down, CoreHooks::rawkeys_held: then reg, code and both tables are 0), reg, caps_usage, caps_code, nhid, nmod,
+//        10 raw keys       6 words: flags (b0 the core's code takes the keys that are down, DescCode::rawkeys_held: then reg, code and both tables are 0), reg, caps_usage, caps_code, nhid, nmod,
 //                          then the nhid key codes and the nmod (8) modifier codes, each table padded to a multiple of 4 (CoreDesc::rawkeys)
 //        11 alt video      15 words of section 2's video part (CoreDesc::alt_video)
 //        12 picture window 23 words: reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines x_per_unit x_origin y_origin src_w src_h
 //                          def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms (fbwin.h FbWinSpec; the signed ones as 32 bit two's complement)
 //        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mousesink.h MouseSinkSpec)
-//        14 rom set        17 words: flags (b0 CoreHooks::romset_version, b1 CoreHooks::romset_pick), 3 sizes (0 = none), role ext size_text example max choice_key auto_label want head_bytes
+//        14 rom set        17 words: flags (b0 DescCode::romset_version, b1 DescCode::romset_pick), 3 sizes (0 = none), role ext size_text example max choice_key auto_label want head_bytes
 //                          window_off mirror_size mirror_stride clear_below (romset.h RomSetSpec; role, ext, size_text, example, choice_key, auto_label are strings)
 //        15 window media   15 words: prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop idle_flush_ms max_dirty_ms (winslot.h)
 //        16 sector media   12 words: prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask (sectors.h)
 //        17 media replace  u32 count, then per entry the index of the media slot (ascending) and the label (MediaSlot::replace)
-//                          (a ROM's flag bit 2 in section 3 says that the core's code checks its content, CoreHooks::rom_check[i])
+//                          (a ROM's flag bit 2 in section 3 says that the core's code checks its content, DescCode::rom_check[i])
 //        18 key rows       T239.3 base 3.3, the key table of a core's UI TOML ([[key]]); u32 count (1 .. DR_KEYS), then per row 9 words: layout (string, none), node (string, none) - exactly
 //                          one of them -, lo, hi (both 0xFFFFFFFF: every key; else 0 <= lo <= hi <= 0x1FF), do (0 op, 1 decline, 2 swallow), op (string, none; present exactly for do 0), value
 //                          (32 bit two's complement; 0 unless flags bit 0), flags (menuintent.h KF_ARG 1, KF_KEYARG 2, KF_STATUS 4, KF_STATUS_OK 8, KF_CLOSE 32, KF_DIRECTIVE 64,
@@ -150,6 +151,7 @@ struct DescSections {
         uint32_t service_period_ms, flags;
         const char *needs_program, *program_ext, *type_op, *run_op, *core_id;
         uint32_t live_ms;
+        const char *hooks;                        // the 19th word, null for a record of 18: the library whose export corehooks is the code of the core (hookhost.h)
     } ident;
     char cap_names[DR_CAPS][16];                  // the comma separated list of the core section, one name each
     const char *caps[DR_CAPS]; int ncaps;
@@ -245,8 +247,9 @@ const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size);
 const BaseReg *descrec_base_regs(int *n);
 
 // What a descriptor holds that is code, not data (T239.3 D17): the control hooks, the operations' registration, the media write-back and the three functions of the mount
-// slot. In this step the compiled-in code of the core provides them; the record has none of it.
-struct CoreHooks {
+// slot. The compiled-in code of the core provides them, or, when the record names a hooks library (section 1, hooks), the library: CoreDesc::hooks_lib is then set, the control
+// hooks and the three mount functions stay null in the descriptor descrec_core makes, and hookhost.h hooks_bind puts the library's in once the library is loaded.
+struct DescCode {
     core_hook_t init, release, warm_reset, cold_start, media_flush;
     bool (*media_pending)(CoreCtx *c);
     void (*register_ops)(OpRegistry &r);
@@ -262,7 +265,7 @@ struct CoreHooks {
 
 // The descriptor of the record's data sections: `out` is made whole from `rec` (which has to outlive it and is written to: the mount slots) and `hooks` (null: no code);
 // nothing is copied from another descriptor. 0, or a negative number and a sentence in why that names the record and the section.
-int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *why, int whylen);
+int descrec_core(DescRecord *rec, const DescCode *hooks, CoreDesc *out, char *why, int whylen);
 
 // Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's, the settings followed by
 // those of `base` (the application's own items, T228 D10; a record with no settings leaves the base's); a record without the own tables leaves `out` equal to

@@ -367,6 +367,10 @@ struct CoreDesc {
     // T239.3 D17: the descriptor was made of a bundle's description record (descrec_core), not compiled in. Last in the record, so the positional initialisers stay as they are.
     // While a descriptor is compiled in, the compiled-in one is the core: a record with data sections beside it changes nothing at run time (descrec_applies).
     bool from_record;
+    // T239.3 base 3.3: the library of the bundle whose export "corehooks" (core_hooks.h) is the code of this core, named by the record (section 1, hooks); null: the core's code is compiled in.
+    // Such a descriptor leaves init, release, warm_reset, cold_start, media_flush, media_pending and the mount slot's three functions to the library: hookhost.h hooks_bind puts them in
+    // after the libraries are loaded. Last in the record, so the positional initialisers stay as they are.
+    const char *hooks_lib;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

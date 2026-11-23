@@ -649,6 +649,30 @@ class CoreSections(unittest.TestCase):
         with self.assertRaisesRegex(D.DescError, "section video"):
             D.parse_desc(bytes(b))
 
+    def test_the_hooks_library_of_a_core_is_a_19th_word_and_the_reader_holds_the_same_limits(self):
+        # T239.3 base 3.3 (core_hooks.h): [core] hooks = "<library name>" says the core's code is the export corehooks of that library of the bundle
+        import struct
+        self.assertNotIn("hooks", D.parse_desc(self.blob)["core"])
+        plain = D.compile_text(self.text)
+        b = D.compile_text(self.text.replace("[core]\n", '[core]\nhooks = "cmodel"\n', 1))
+        r = D.parse_desc(b)
+        self.assertEqual(r["core"]["hooks"], "cmodel")
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+        def core_len(blob):                                                       # section 1 is the first: its header (id, length) stands at the sections' offset
+            at = struct.unpack_from("<I", blob, D.HEADER_V5)[0]
+            self.assertEqual(struct.unpack_from("<I", blob, at)[0], 1)
+            return struct.unpack_from("<I", blob, at + 4)[0]
+        self.assertEqual((core_len(plain), core_len(b)), (72, 76))                # 18 words without the name, 19 with it
+        for what, text in (("empty", '""'), ("capitals", '"CModel"'), ("16 characters", '"0123456789abcdef"'), ("a dash", '"c-model"'), ("a number", "3")):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(self.text.replace("[core]\n", "[core]\nhooks = %s\n" % text, 1))
+        D.compile_text(self.text.replace("[core]\n", '[core]\nhooks = "0123456789abcde"\n', 1))      # 15 characters: the longest
+        with self.assertRaisesRegex(D.DescError, "hooks library name"):          # the reader refuses what the writer would not have written
+            D.parse_desc(b.replace(b"cmodel\0", b"cModel\0"))
+        with self.assertRaisesRegex(D.DescError, "hooks library name|a text is missing"):
+            D.parse_desc(b.replace(b"cmodel\0", b"\0model\0"))
+
     def test_a_file_setting_is_kind_3_and_reads_back(self):
         # T239.3 D17: a file the person selects (Setting::kind 3), live or reset, no values of its own
         text = self.text + '\n[[core_setting]]\nkey = "Kit file"\nfile = true\nwhen = "reset"\napply = "vc20.use_kit"\n'

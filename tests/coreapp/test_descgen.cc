@@ -259,9 +259,9 @@ static void compare(const CoreDesc &want, const CoreDesc &got)
 }
 
 // the hooks of the compiled-in descriptor: what the record cannot hold
-static CoreHooks hooks_of(const CoreDesc &d)
+static DescCode hooks_of(const CoreDesc &d)
 {
-    CoreHooks h;
+    DescCode h;
     memset(&h, 0, sizeof(h));
     h.init = d.init; h.release = d.release; h.warm_reset = d.warm_reset; h.cold_start = d.cold_start; h.media_flush = d.media_flush;
     h.media_pending = d.media_pending; h.register_ops = d.register_ops; h.rom_key = d.rom_key; h.mount_slots = d.mount_slots;
@@ -362,7 +362,7 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
     if (!want || rec.size() <= DESCREC_HEADER_V6) {
         return g_fails - fails0;
     }
-    const CoreHooks hooks = hooks_of(*want);
+    const DescCode hooks = hooks_of(*want);
 
     // ---- 1. the record, read by the generic reader, against the compiled-in descriptor
     {
