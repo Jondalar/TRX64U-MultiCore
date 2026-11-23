@@ -278,6 +278,12 @@ run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menufl
 run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
 # T239.3 base 3.3: the application's own settings (look, keyboard joystick, USB mouse) and the core hooks of a library's table "corehooks"
 run baseset test_baseset.cc amiga.cc nes.cc ines.cc $ATARI
+# T239.3 base 3.3, a core whose code is a library (core_hooks.h): the record names it (hooks), the base takes its table of that library through the real loader, calls the descriptor's hooks
+# (init, release, warm_reset, cold_start, media_flush, media_pending) and serves the [mount] slots through it; the records and library files are made by the real tools
+CL="$T/corelib_fx"
+python3 -I "$TST/gen_corelib.py" "$CL" "$ROOT"
+RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/desc_empty.rec $CL/desc_long.rec $CL/cmodel.u2a $CL/cnohooks.u2a $CL/cmajor2.u2a" \
+  run corelib test_corelib.cc libload.cc libmenu.cc descrec.cc libsvc.cc hooklib.cc nes.cc ines.cc $ATARI
 # T164 WP11: the host's master volume for every core (the generic item, the register write, the toast on every page)
 # T104.1 Q10: the capability list the loader asks
 # a tab that silently drops the last of its entries: the golden would differ, and so must the count check

@@ -53,6 +53,18 @@ bool cap_char(char c)
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
 }
 
+// The name of the hooks library (section 1, word 19): 1 to 15 characters of a-z 0-9 _, the rule of a library's name (libfmt.h U2A3_NAME_MAX); tools/descrec.py HOOKS_RE the same.
+bool hooks_name_ok(const char *s)
+{
+    size_t l = s ? strlen(s) : 0;
+    for (size_t i = 0; i < l; i++) {
+        if (!cap_char(s[i])) {
+            return false;
+        }
+    }
+    return l >= 1 && l <= 15;
+}
+
 bool id_ok(const char *s)
 {
     if (!s || !s[0] || strlen(s) > 31) {
@@ -134,7 +146,9 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
 #define SW(i) r.u32(b + 4 * (uint32_t)(i))
 #define NEED(words) do { if (len != 4 * (uint32_t)(words)) { return r.fail("description record, section %s: %u bytes, %u expected", nm, (unsigned)len, 4 * (unsigned)(words)); } } while (0)
         if (id == 1) {
-            NEED(18);
+            if (len != 72 && len != 76) {                                     // 18 words, or 19 with the name of the hooks library
+                return r.fail("description record, section %s: %u bytes, 72 or 76 expected", nm, (unsigned)len);
+            }
             uint32_t idw = SW(0);
             for (int i = 0; i < 4; i++) {
                 out->sec->ident.id[i] = (char)(idw >> (8 * i));
@@ -156,6 +170,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             out->sec->ident.core_id = r.str(SW(15), &bad);
             out->sec->ident.live_ms = SW(16);
             const char *caps = r.str(SW(17), &bad);
+            out->sec->ident.hooks = len == 76 ? r.str(SW(18), &bad) : 0;
+            if (len == 76 && !hooks_name_ok(out->sec->ident.hooks)) {
+                return r.fail("description record, section %s: the hooks library is missing or its name is not 1 to 15 characters of a-z 0-9 _", nm);
+            }
             if (bad || !opt_ok(out->sec->ident.needs_program) || !opt_ok(out->sec->ident.program_ext) || !opt_ok(out->sec->ident.type_op) || !opt_ok(out->sec->ident.run_op) || !opt_ok(out->sec->ident.core_id) || !out->sec->ident.name || !out->sec->ident.name[0] || !out->sec->ident.title || !out->sec->ident.title[0] || !out->sec->ident.short_title || !out->sec->ident.short_title[0] ||
                 !out->sec->ident.folder || !out->sec->ident.folder[0] || !out->sec->ident.store || !out->sec->ident.store[0] || (out->sec->ident.flags >> 6) || out->sec->ident.min_contract > 255 ||
                 out->sec->ident.reset_ms > 65535 || out->sec->ident.live_ms > 65535 || out->sec->ident.service_period_ms > 60000 ||
@@ -1206,7 +1224,7 @@ bool descrec_merged(const DescRecord &rec, const char *name)
     return false;
 }
 
-int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *why, int whylen)
+int descrec_core(DescRecord *rec, const DescCode *hooks, CoreDesc *out, char *why, int whylen)
 {
     if (!rec->has_core) {
         snprintf(why, whylen, "description record: it has no data sections (no core section)");
@@ -1257,6 +1275,7 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
     out->cold_ram_bytes = rec->restart_clear;
     out->cold_ram_only = rec->restart_ram_only;
     out->from_record = true;
+    out->hooks_lib = rec->sec->ident.hooks;
     out->hotkeys = rec->sec->has_hot ? &rec->sec->hot : 0;
     if (hooks) {
         out->init = hooks->init;
@@ -1314,16 +1333,26 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
         rec->pad.id_loaded = hooks->pad_id_loaded;
     }
     if (rec->sec->nmount) {
-        if (!hooks || !hooks->mount_slots) {
+        // a record that names a hooks library has its slots' code with it (core_hooks.h slot_spec, slot_mount, slot_eject): the descriptor carries the names, and hookhost.h hooks_bind
+        // puts the three functions in once the library is loaded
+        const bool lib = rec->sec->ident.hooks != 0;
+        if (!lib && (!hooks || !hooks->mount_slots)) {
             snprintf(why, whylen, "description record, section mount slots: the core's code has no functions for the slots");
             return -1;
         }
         rec->sec->mount.n = rec->sec->nmount;
         rec->sec->mount.names = rec->sec->mount_names;
-        rec->sec->mount.spec = hooks->mount_slots->spec;
-        rec->sec->mount.mount = hooks->mount_slots->mount;
-        rec->sec->mount.eject = hooks->mount_slots->eject;
+        rec->sec->mount.spec = lib ? 0 : hooks->mount_slots->spec;
+        rec->sec->mount.mount = lib ? 0 : hooks->mount_slots->mount;
+        rec->sec->mount.eject = lib ? 0 : hooks->mount_slots->eject;
         out->mount_slots = &rec->sec->mount;
+    }
+    if (rec->sec->ident.hooks) {                                    // the code is the library's: whatever compiled-in functions were handed over give way (hooks_bind)
+        out->init = out->release = out->warm_reset = out->cold_start = out->media_flush = 0;
+        out->media_pending = 0;
+        if (!rec->sec->nmount) {
+            out->mount_slots = 0;
+        }
     }
     return 0;
 }

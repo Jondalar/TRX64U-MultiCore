@@ -139,7 +139,7 @@ static const char *check_engines(const CoreDesc *d, const OpRegistry &reg)
     }
     if (d->mount_slots) {                                           // T180 D2, D5: the slots are keys of the .cfg ("Mount <name>=<spec>")
         const MountSlots &m = *d->mount_slots;
-        if (m.n < 1 || m.n > MOUNT_SLOTS_MAX || !m.names || !m.spec || !m.mount || !m.eject) {
+        if (m.n < 1 || m.n > MOUNT_SLOTS_MAX || !m.names || (!d->hooks_lib && (!m.spec || !m.mount || !m.eject))) {      // a hooks library's three functions come with hooks_bind
             return "mount_slots: 1..8 slots with names and the three operations (spec, mount, eject) are needed";
         }
         if ((d->window_media ? d->window_media->nslots : 0) + (d->sector_media ? d->sector_media->nunits : 0) + m.n > Settings::MOUNT_MAX) {
@@ -230,7 +230,7 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
     if (!text(d->folder)) return "folder (roms/<folder>) is missing";
     if (!text(d->store)) return "store (the [section] of the .cfg) is missing";
     if (d->min_contract < 1) return "min_contract must be 1 or more";
-    if (!d->init || !d->release) return "init and release: the control hooks are missing";
+    if ((!d->init || !d->release) && !d->hooks_lib) return "init and release: the control hooks are missing";      // a hooks library's come with hooks_bind (hookhost.h)
     if (!d->reset_ms) return "reset_ms: how long a reset is held is missing";
     if (d->video.w == 0) {
         // T104.2 D5: the core draws its own picture; nothing of the video service applies, and a half-filled descriptor is a mistake

@@ -297,6 +297,55 @@ def lib_menu(u2a):
     return name, u2a[off:off + total]
 
 
+U2A_FLAG_BUDGET, U2A_FLAG_EXPORTS = 2, 4                # coreapp/src/libfmt.h
+U2A_BUDGET_MAX, U2A_BUDGET_MIN, U2A_EXPORT_SIZE, U2A_EXPORTS_MAX = 256, 48, 20, 8
+
+
+def lib_exports(u2a):
+    """(name, [(export name, major), ...]) of a format-3 library: the list its header flag U2A3_FLAG_EXPORTS says stands behind the header and the budget record (libload.cc
+    lib_read_exports reads it the same way). The names of the exports are the static form of the table the library's lib_register returns; an empty list: it exports nothing."""
+    name = u2a[20:36].split(b"\0")[0].decode("ascii", "replace")
+    flags, = struct.unpack_from("<I", u2a, 16)
+    if not flags & U2A_FLAG_EXPORTS:
+        return name, []
+    at = LIB_U2A_HEADER
+    if flags & U2A_FLAG_BUDGET:
+        bsz, = struct.unpack_from("<I", u2a, at) if at + 4 <= len(u2a) else (0,)
+        if bsz < U2A_BUDGET_MIN or bsz > U2A_BUDGET_MAX or bsz & 3:
+            raise CorError("library %s: its budget record is malformed" % name)
+        at += bsz
+    cnt, = struct.unpack_from("<I", u2a, at) if at + 4 <= len(u2a) else (0,)
+    if not 1 <= cnt <= U2A_EXPORTS_MAX or at + 4 + cnt * U2A_EXPORT_SIZE > len(u2a):
+        raise CorError("library %s: its list of exported names is malformed" % name)
+    out = []
+    for i in range(cnt):
+        e = u2a[at + 4 + i * U2A_EXPORT_SIZE:at + 4 + (i + 1) * U2A_EXPORT_SIZE]
+        out.append((e[:16].split(b"\0")[0].decode("ascii", "replace"), struct.unpack_from("<I", e, 16)[0]))
+    return name, out
+
+
+def check_hooks(desc, libs):
+    """T239.3 base 3.3 (core_hooks.h): a core whose description record names its hooks library (`hooks` in [core]) needs that library in the bundle, and its file has to list the
+    export corehooks=1 (u2a_pack.py --export corehooks=1): the base takes the table of that library, at exact major 1."""
+    if desc is None:
+        return
+    try:
+        d = descrec.parse_desc(desc)
+    except descrec.DescError as e:
+        raise CorError(str(e))
+    hooks = (d.get("core") or {}).get("hooks")
+    if not hooks:
+        return
+    found = [lib_exports(u) for u in libs or [] if len(u) >= LIB_U2A_HEADER and u[:4] == LIB_U2A_MAGIC]
+    mine = [ex for n, ex in found if n == hooks]
+    if not mine:
+        raise CorError('desc: the core names the hooks library "%s" ([core] hooks), which is not among the libraries of the bundle (%s)'
+                       % (hooks, ", ".join(n for n, _ in found) or "none"))
+    if ("corehooks", 1) not in mine[0]:
+        raise CorError('library %s is the code of the core ([core] hooks), but its file does not list the export corehooks=1 (u2a_pack.py --export corehooks=1); it lists %s'
+                       % (hooks, ", ".join("%s=%d" % x for x in mine[0]) or "no export"))
+
+
 def merge_menus(desc, libs):
     """T104.2 D10: what the libraries of the bundle contribute to the menu goes into the description when it is packed, so the bundle carries the finished menu
     and the application does not add the libraries' menus again at run time. Returns the description to pack (the one given when nothing was merged)."""
@@ -335,9 +384,10 @@ def optional_records(m, desc, libs, files=None):
         m.update(desc_size=len(desc), desc_sha256=sha(desc))
         body += rec(T_DESC, desc)
     if libs:
-        blob = pack_libs(libs)
+        blob = pack_libs(libs)                  # each library's magic and header first: a file that is no library is that refusal, not the hooks one
         m.update(libs_size=len(blob), libs_sha256=sha(blob), libs_count=len(libs))
         body += rec(T_LIBS, blob)
+    check_hooks(desc, libs)
     if files:
         blob = pack_files(files)
         m.update(files_size=len(blob), files_sha256=sha(blob), files_count=len(files))
@@ -365,6 +415,7 @@ def check_optional(m, recs):
         libs = parse_libs(recs[T_LIBS])
         if m.get("libs_count") != len(libs):
             raise CorError("libs: the manifest says %r libraries, the record holds %d" % (m.get("libs_count"), len(libs)))
+    check_hooks(recs.get(T_DESC), parse_libs(recs[T_LIBS]) if T_LIBS in recs else [])
     if T_FILES in recs:
         files = parse_files(recs[T_FILES])
         if m.get("files_count") != len(files):

@@ -497,6 +497,44 @@ class RecordsTest(unittest.TestCase):
             with self.assertRaises(C.CorError):
                 C.parse_libs(bad)
 
+    def test_a_core_whose_code_is_a_library_needs_that_library_with_the_export_corehooks(self):
+        # T239.3 base 3.3 (core_hooks.h): [core] hooks = "<library>" names the library whose export corehooks=1 is the core's code. The packer refuses a bundle whose named library is not
+        # in it, or whose file does not list the export (the list u2a_pack.py writes, U2A3_FLAG_EXPORTS), or lists it at another major; with the list and a budget record both, the list is found
+        import u2a_pack as U
+        elf = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "loader", "fixtures", "testlib.at0.elf"), "rb").read()
+
+        def lib(name, exports=None, budget=None):
+            return U.pack(elf, "lib", name, U.parse_version("1"), exports=exports, budget=budget)[0]
+        desc = descrec.compile_text('[core]\nid = "VC20"\nname = "VIC-20"\ntitle = "V"\nshort_title = "V"\nfolder = "vic"\nstore = "V"\nhooks = "cmodel"\n')
+        good = lib("cmodel", [("corehooks", 1)])
+        self.assertEqual(C.lib_exports(good), ("cmodel", [("corehooks", 1)]))
+        blob, _ = make(desc=desc, libs=[lib("other"), good])
+        m, r = C.parse(blob, C.CONTRACT)
+        C.check_optional(m, r)                                                    # a made file passes its own check
+        self.assertEqual(descrec.parse_desc(r[C.T_DESC])["core"]["hooks"], "cmodel")
+        C.pack_large("amiga1200", "VIC-20", "1", full_bit(), APP, ICON, desc=desc, libs=[good])                     # the large kind has the same records
+        budgeted = lib("cmodel", [("corehooks", 1), ("ring", 2)], U.parse_budget(["heap_keep=0"]))
+        self.assertEqual(C.lib_exports(budgeted)[1], [("corehooks", 1), ("ring", 2)])
+        make(desc=desc, libs=[budgeted])
+        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*not among the libraries'):
+            make(desc=desc)                                                       # no library at all
+        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*other'):
+            make(desc=desc, libs=[lib("other", [("corehooks", 1)])])              # the export is there, in another library
+        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*no export"):
+            make(desc=desc, libs=[lib("cmodel")])                                 # the library has no list
+        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*corehooks=2"):
+            make(desc=desc, libs=[lib("cmodel", [("corehooks", 2)])])             # exact major 1
+        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*ring=1"):
+            make(desc=desc, libs=[lib("cmodel", [("ring", 1)])])
+        with self.assertRaisesRegex(C.CorError, "does not list the export"):
+            make_large(name="VIC-20", desc=desc, libs=[lib("cmodel")])
+        with self.assertRaisesRegex(C.CorError, "not a .u2a"):                    # a file that is no library is that refusal first
+            make(desc=desc, libs=[b"XXXX" + bytes(200)])
+        blob, _ = make(desc=desc_record(), libs=[lib("cmodel")])                  # a core that names no library is as before
+        C.check_optional(*C.parse(blob, C.CONTRACT))
+        with self.assertRaisesRegex(C.CorError, "malformed"):                     # a list that runs past the file
+            C.lib_exports(good[:106 + 4 * 0] + struct.pack("<I", 9) + good[110:])
+
     def test_a_record_twice_or_out_of_order_refused(self):
         blob, _ = make(desc=desc_record())
         m, r = C.parse(blob)

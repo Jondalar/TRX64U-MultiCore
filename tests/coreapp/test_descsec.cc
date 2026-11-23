@@ -73,7 +73,7 @@ int main(int argc, char **argv)
         if (g_fails) {
             printf("%s\n", why);
         }
-        CoreHooks hooks;
+        DescCode hooks;
         memset(&hooks, 0, sizeof(hooks));
         hooks.init = amiga1200_desc.init; hooks.release = amiga1200_desc.release; hooks.register_ops = amiga1200_desc.register_ops;
         hooks.romset_version = amiga1200_desc.romset->version;
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
         if (g_fails) {
             printf("%s\n", why);
         }
-        CoreHooks hooks;
+        DescCode hooks;
         memset(&hooks, 0, sizeof(hooks));
         CoreDesc got;
         // the ROM check, the keys that are down: the code has neither -> refused, by section

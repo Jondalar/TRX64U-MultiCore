@@ -144,7 +144,7 @@ const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *
         delete d;
         return 0;
     }
-    if (!d->init || !d->release) {
+    if ((!d->init || !d->release) && !d->hooks_lib) {                       // a record that names a hooks library has its control hooks with it (core_hooks.h)
         snprintf(msg, msglen, "%s: the description record is complete, but the code of the core (the control hooks init and release) is not in this application. The core stays held.", h->path);
         delete d;
         return 0;
