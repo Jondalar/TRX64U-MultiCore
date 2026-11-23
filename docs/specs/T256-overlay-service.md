@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1 no new gateware (Alex 11-23); next: the shape of the SDK group
+Open (one line, as in the TODO table): Spec in work: D1 no new gateware, D3 pixel surfaces (Alex 11-23); next: what shows while the menu is open
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -67,7 +67,7 @@ it would write the layer registers, which belong to the base.
 
 ## §2 Scenarios — what proves it is solved
 
-Draft. It is completed when the shape of the SDK group (P4) is decided.
+Draft. It is completed when the open questions of §3 are decided.
 
 | # | Solves | Scenario | Test | Where it runs |
 |---|---|---|---|---|
@@ -86,6 +86,12 @@ Draft. It is completed when the shape of the SDK group (P4) is decided.
   every running picture, all cores rebuilt), he chose "Without hardware": software only; a live overlay on the C64-type cores; on
   the 16 other cores only while the machine stands. The second layer is out (§4) and comes as its own spec if a library needs it.
 - **D2** (T239.3 D23, Alex, 2026-11-23): the overlay is a service of the base in the SDK. A library never writes the layer.
+
+- **D3** (Alex, 2026-11-23): a library draws a pixel surface. Asked how a library draws its overlay, he chose "Pixel surface": the
+  library paints an RGB565 buffer itself, the base puts it at a place over the picture, pixels in the key colour stay transparent, and
+  the base offers text helpers with its fonts. The still and the elements take the same way, and TRX64-Ultimate's pixel code (the
+  Timewarp bar, `tw_draw_bar`) fits unchanged. Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
+  second path for the still), and both (the most work).
 
 The other decisions are asked one at a time and recorded here.
 
