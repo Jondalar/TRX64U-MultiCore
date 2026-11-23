@@ -72,7 +72,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     if (ver < DESCREC_VERSION_MIN || ver > DESCREC_VERSION) {         // version 2 is version 3 without a layout and attributes (those words were 0); 4 widens the media slot and gives the header's last word a use
         return r.fail("description record: version %u, this application reads %u to %u", (unsigned)ver, DESCREC_VERSION_MIN, DESCREC_VERSION);
     }
-    const uint32_t hdr = ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line
+    const uint32_t hdr = ver >= 6 ? DESCREC_HEADER_V6 : ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line, 6 the register table's two
     if ((vh >> 16) != hdr || r.u32(8) != n || n < hdr) {
         return r.fail("description record: the header or the length does not match the file");
     }
@@ -213,6 +213,25 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         out->restart_clear = clear;
         out->restart_ram_only = (fl & 1) != 0;
+    }
+    // T257 D6, version 6: the register table of the bug report (name, reg, bytes), after the tables of the directory
+    if (ver >= 6) {
+        uint32_t ro = r.u32(DESCREC_HEADER_V5), rc = r.u32(DESCREC_HEADER_V5 + 4);
+        if (rc > DR_REGS || (rc && (ro < hdr || (uint64_t)ro + (uint64_t)rc * 12 > n)) || (!rc && ro)) {
+            return r.fail("description record: the register table is out of place or has more than %u entries", (unsigned)DR_REGS);
+        }
+        for (uint32_t i = 0; i < rc; i++) {
+            const uint8_t *e = r.p + ro + i * 12;
+            const char *nm = r.str(W(e, 0), &bad);
+            uint32_t reg = W(e, 1), nb = W(e, 2);
+            if (bad || !nm || !nm[0] || strlen(nm) > 60 || (nb != 1 && nb != 2 && nb != 4) || (uint64_t)reg + nb > 0x10000) {
+                return r.fail("description record: register %u has no name, a width other than 1, 2 or 4, or lies outside the 64 KiB window", (unsigned)i);
+            }
+            out->regs[i].name = nm;
+            out->regs[i].reg = (uint16_t)reg;
+            out->regs[i].bytes = (uint8_t)nb;
+        }
+        out->nregs = (int)rc;
     }
     // contributed tabs
     for (uint32_t i = 0; i < tb[C].count; i++) {
@@ -537,6 +556,10 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     }
     if (rec.has_pad) {
         out->pad = &rec.pad;                                   // T228 R10: the record's pad is the core's
+    }
+    if (rec.nregs) {
+        out->report_regs = rec.regs;                           // T257 D6: the bug report's list is the record's; without one, the descriptor's own stays
+        out->nreport_regs = rec.nregs;
     }
     if (rec.restart_clear) {
         out->cold_ram_bytes = rec.restart_clear;               // T228 R17: what "Restart core" clears, as the core's TOML declares it

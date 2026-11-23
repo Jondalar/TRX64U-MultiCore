@@ -172,7 +172,9 @@ if [ -n "$mono" ]; then
     if [ "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" app)" = none ]; then
       appbin="$out/.noapp_$core.bin"; head -c 128 /dev/zero > "$appbin"
     fi
-    if ! "$ROOT/tools/pack_large_cor.sh" --id "$core" --name "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" name)" \
+    # T257 D6: cores/<id>/mono/desc.toml = the core's description record (the bug report's register list); none = the .cor has no record
+    descarg=(); [ ! -f "$ROOT/cores/$core/mono/desc.toml" ] || descarg=(--desc "$ROOT/cores/$core/mono/desc.toml")
+    if ! "$ROOT/tools/pack_large_cor.sh" ${descarg[@]+"${descarg[@]}"} --id "$core" --name "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" name)" \
         --version "$("$ROOT/ci/version.sh" with "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)")" \
       --short "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" short)" --bit "$bit" --app-bin "$appbin" \
         --bit-commit "$(git -C "$ROOT" rev-parse --short=8 HEAD)" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then

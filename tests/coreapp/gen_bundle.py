@@ -4,7 +4,7 @@ board are tested against what the tools write (T104.1 D9, D12).
 
     gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
+                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U), desc_regs.bin and desc_c128.bin (T257 D6: the bug report's register table),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
                               nofiles.cor (the same core without record 8)
 """
@@ -49,6 +49,9 @@ def main(out):
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
     # the menu of TRX64U as menu.toml compiles (T104.2 D10): the record with the core's own tables
     open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
+    # T257 D6: the register table of the bug report - a small description of its own, and the C128's real one (cores/c128/mono/desc.toml, what the packer puts into c128.cor)
+    open(os.path.join(out, "desc_regs.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_regs.toml")).read()))
+    open(os.path.join(out, "desc_c128.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "cores", "c128", "mono", "desc.toml")).read()))
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")

@@ -6,7 +6,7 @@
 //
 // Layout, little endian, every entry fixed size, strings in one table (NUL terminated, offsets into it, 0xFFFFFFFF = none):
 //
-//   0   u32 magic "TRXD"        4  u16 version (5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208)
+//   0   u32 magic "TRXD"        4  u16 version (6 with a register table, 5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208; version 6: 216)
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
@@ -21,6 +21,9 @@
 //       role 40-47, FF none)
 //   200 version 5 only: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
 //       core's own value; else a multiple of 256, at most 16 MiB), u32 flags (bit 0: the RAM window in its memory-only mode while it clears)
+//
+//   208 version 6 only (T257 D6: a record with a [[report_reg]]): u32 offset, u32 count of the register table (header 216); an entry is 12 bytes: u32 name (string
+//       offset), u32 reg (the byte offset from the core window), u32 bytes (1, 2 or 4), reg + bytes <= 0x10000; the table follows the tables above, in order
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
@@ -53,9 +56,10 @@
 #include "pad.h"
 
 #define DESCREC_MAGIC 0x44585254U                 /* "TRXD" */
-#define DESCREC_VERSION 5
+#define DESCREC_VERSION 6
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
 #define DESCREC_HEADER 176                        /* versions 2 to 4, and the least a record has */
+#define DESCREC_HEADER_V6 216                     /* version 6 (T257 D6): the register table's offset and count follow */
 #define DESCREC_HEADER_V5 208                     /* version 5: the pad's six words and the restart's two follow */
 #define DESCREC_RESTART_MAX (1u << 24)            /* the most RAM a restart clears: 16 MiB */
 #define DESCREC_NONE 0xFFFFFFFFU
@@ -79,6 +83,7 @@
 #define DR_FACTS 200
 #define DR_CSETS 330
 #define DR_TABLES 17
+#define DR_REGS REPORT_REGS_MAX                   // T257 D6: the registers the bug report lists
 
 // What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
 struct DescRecord {
@@ -106,6 +111,7 @@ struct DescRecord {
     uint8_t pad_def[PAD_BUTTONS_MAX];
     uint32_t restart_clear;                       // version 5 (T228 R17): the bytes "Restart core" clears (CoreDesc::cold_ram_bytes), 0: the core's own value
     bool restart_ram_only;                        // ... through the RAM window in its memory-only mode (CoreDesc::cold_ram_only)
+    ReportReg regs[DR_REGS]; int nregs;           // version 6 (T257 D6): the bug report's register list; the names point into the record
     bool has_own;
     Task tasks[DR_TASKS]; int ntasks;
     MediaSlot media[DR_MEDIA]; int nmedia;

@@ -130,6 +130,11 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     op = "drive.poll"
     period_ms = 10
 
+    [[report_reg]]                 # optional (T257 D6, record v6): a register of the core the bug report (F8 -> Bug report, GET /v1/report) lists, in this order
+    name = "VDC R4 vertical total" # the line's text: one line, at most 60 characters
+    reg = 0xE104                   # the byte offset from the core window; the whole 64 KiB window (reg + bytes <= 0x10000). A read of it must change nothing (no FIFO, pop or mailbox)
+    bytes = 1                      # optional: 1 (the default), 2 or 4, little endian. At most 64 entries; they take the place of a C descriptor's report_regs
+
     [pad]                          # T228 R10: the core's USB pads through the pad service (coreapp/src/pad.h PadSpec); a record with it is version 5
     output = "joystick"            # "joystick": the host's joystick lines, port 1 (reg 0) and port 2 (reg 1), at most 5 buttons (up down left right fire);
                                    # "registers" (the default): a 16 bit pair per player in the core's register block, `regs = [r1, r2]`
@@ -147,9 +152,12 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 5                 # 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
+VERSION = 6                 # 6 (T257 D6) adds the register table of the bug report: two words (offset, count) behind the restart, header 216 - written only for a record with a [[report_reg]]; 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
 HEADER = 176                # versions 2 to 4
+HEADER_V6 = 216             # version 6: + the register table (offset, count; entries of name, reg, bytes: 12 bytes, after the tables of ORDER)
+REG_LIMIT = 64
+REG_ESIZE = 12
 HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map; kind NONE: no pad) + the restart (clear_ram bytes, flags bit 0 ram_only)
 RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
@@ -545,7 +553,7 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart"}, "description")
+                "pad", "restart", "report_reg"}, "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -956,16 +964,19 @@ def compile_desc(doc, merged=()):
     mi_off = st.add(mi) if mi else NONE
     pad_words = _pad_words(_opt(doc, "pad", dict, "description", None), t, st)
     restart_words = _restart_words(_opt(doc, "restart", dict, "description", None))
+    regs = _reg_entries(_opt(doc, "report_reg", list, "description", None), st)
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
     # layout: header, tables in ORDER, strings last
-    version, header = (VERSION, HEADER_V5) if pad_words or restart_words else (4, HEADER)
+    version, header = (VERSION, HEADER_V6) if regs else (5, HEADER_V5) if pad_words or restart_words else (4, HEADER)
     pos = header
     offs = {}
     for k in ORDER:
         offs[k] = pos if t[k] else 0
         pos += ESIZE[k] * len(t[k])
+    reg_off = pos if regs else 0
+    pos += REG_ESIZE * len(regs)
     str_off = pos
     total = str_off + len(st.buf)
     if total > MAX_SIZE:
@@ -977,10 +988,14 @@ def compile_desc(doc, merged=()):
     if version >= 5:
         out += struct.pack("<6I", *(pad_words or (NONE, 0, 0, 0, 0, NONE)))
         out += struct.pack("<II", *(restart_words or (0, 0)))
+    if version >= 6:
+        out += struct.pack("<II", reg_off, len(regs))
     assert len(out) == header, len(out)
     for k in ORDER:
         for e in t[k]:
             out += struct.pack("<%dI" % (ESIZE[k] // 4), *e)
+    for e in regs:
+        out += struct.pack("<3I", *e)
     out += st.buf
     assert len(out) == total
     return bytes(out)
@@ -1012,6 +1027,34 @@ def _pad_token(code):
     if code == 0xFF:
         return "none"
     return "button%d" % (code + 1)
+
+
+def _reg_entries(rows, st):
+    """[[report_reg]] -> the register table of version 6 (T257 D6): (name offset, reg, bytes) per entry, in order. Empty list: no table."""
+    if rows is None:
+        return []
+    if not rows or len(rows) > REG_LIMIT:
+        raise DescError("report_reg: 1 to %d registers" % REG_LIMIT)
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            raise DescError("report_reg: an entry is a table { name = .., reg = .., bytes = .. }")
+        _only(r, {"name", "reg", "bytes"}, "report_reg")
+        name = _need(r, "name", str, "report_reg")
+        reg = _need(r, "reg", int, "report_reg")
+        nb = _opt(r, "bytes", int, "report_reg", 1)
+        out.append(_reg_check(name, reg, nb, st.add(name)))
+    return out
+
+
+def _reg_check(name, reg, nb, name_off):
+    if not name or "\n" in name or len(name.encode()) > 60:
+        raise DescError("report_reg: every register needs a one line name of at most 60 bytes")
+    if isinstance(nb, bool) or nb not in (1, 2, 4):
+        raise DescError("report_reg: \"%s\" is %s bytes wide (1, 2 or 4)" % (name, nb))
+    if isinstance(reg, bool) or not 0 <= reg or reg + nb > 0x10000:
+        raise DescError("report_reg: \"%s\" lies outside the 64 KiB register window" % name)
+    return (name_off, reg, nb)
 
 
 def _restart_words(rs):
@@ -1071,7 +1114,7 @@ def parse_desc(blob):
     esz = dict(ESIZE)
     if ver < 4:
         esz["media"] = ESIZE_V3_MEDIA
-    hdr = HEADER_V5 if ver >= 5 else HEADER
+    hdr = HEADER_V6 if ver >= 6 else HEADER_V5 if ver >= 5 else HEADER
     if hsz != hdr or total != n or flags & ~3 or n < hdr:
         raise DescError("description record: header or length does not match")
     if so < hdr or so + ss > n or ss == 0:
@@ -1142,6 +1185,19 @@ def parse_desc(blob):
             raise DescError("description record: a bad restart")
         if clear:
             out["restart"] = {"clear_ram": clear, "ram_only": bool(rfl & 1)}
+    out["report_reg"] = []
+    if ver >= 6:
+        roff, rcnt = struct.unpack_from("<II", blob, HEADER_V5)
+        if rcnt > REG_LIMIT or (rcnt and (roff < hdr or roff + rcnt * REG_ESIZE > n)) or (not rcnt and roff):
+            raise DescError("description record: the register table is out of place or too long")
+        for j in range(rcnt):
+            no, reg, nb = struct.unpack_from("<3I", blob, roff + j * REG_ESIZE)
+            name = s(no)
+            try:
+                _reg_check(name, reg, nb, no)
+            except DescError as e:
+                raise DescError("description record: %s" % e)
+            out["report_reg"].append({"name": name, "reg": reg, "bytes": nb})
     out["hide"] = [s(e[0]) for e in tabs["hide"]]
     out["rename"] = [(s(a), s(b)) for a, b in tabs["rename"]]
     if any(not h for h in out["hide"]) or any(not a or not b for a, b in out["rename"]):
@@ -1351,6 +1407,8 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
+    if rec.get("report_reg"):
+        doc["report_reg"] = [dict(r) for r in rec["report_reg"]]
     if rec["task"]:
         doc["task"] = []
         for t in rec["task"]:
@@ -1448,8 +1506,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad or restart"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("report_reg"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart or register list"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))

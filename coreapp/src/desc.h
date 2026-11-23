@@ -239,7 +239,7 @@ struct ReportReg {
     uint16_t reg;
     uint8_t bytes;
 };
-#define REPORT_REGS_MAX 24
+#define REPORT_REGS_MAX 64                // T257 D6: the C128 declares R0-R37 and the status, 38 or more one-byte entries; a record's table (descrec.h DR_REGS) is as long
 
 struct CoreDesc {
     char id[4];                           // the ID block at the core window: "A8XL", "NES_"

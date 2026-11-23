@@ -1,0 +1,14 @@
+# T257 D6: a description that only declares the bug report's registers - one in page 0, a word in the C128's page E, a double word at the top of the 64 KiB window.
+[[report_reg]]
+name = "LOW byte"
+reg = 0x0010
+
+[[report_reg]]
+name = "WINDOW word"
+reg = 0xE100
+bytes = 2
+
+[[report_reg]]
+name = "TOP dword"
+reg = 0xFFFC
+bytes = 4
