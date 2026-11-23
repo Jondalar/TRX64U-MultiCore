@@ -10,7 +10,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "socket.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

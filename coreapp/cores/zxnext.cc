@@ -5,10 +5,10 @@
 // is the application's: the service writes the time into the register block once a second. The register block is cores/zxnext/trx/zxn_regs.v;
 // the picture is the core's own frame writer into the DDR2 (640 x 512, four buffers) which the host's pixel layer shows.
 #include "hk_defaults.h"
-#include "ctx.h"
 #include "memops.h"
 #include "boot.h"
 #include "engines.h"
+#include "mousesink.h"
 #include "romfind.h"
 #include "zxnext_regs.h"
 #include "cores.h"

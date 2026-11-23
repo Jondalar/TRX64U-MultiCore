@@ -46,11 +46,11 @@ sed -E 's/^(#define FF_USE_FASTSEEK)[[:space:]]+0/\1 1/' "$SW/chan_fat/pc/ffconf
 grep -q '^#define FF_USE_FASTSEEK 1' "$T/ffc/ffconf.h" || { echo "fmfs64: the seek ffconf.h did not get fast seek" >&2; exit 2; }
 $CC -g -O0 -w -I"$T/ffc" -I"$FF" -I"$SW/filesystem" -c "$FF/ff.c" -o "$T/ff_seek.o"
 $CC -g -O0 -w -I"$T/ffc" -I"$FF" -I"$SW/filesystem" -c "$FF/ffunicode.c" -o "$T/ffunicode_seek.o"
-# build_seek NAME COREDIR: COREDIR holds fsif.h fm_fs.h fm_fs.cc fastseek.h fastseek.cc board.h
+# build_seek NAME COREDIR: COREDIR holds fsif.h fm_fs.h fm_fs.cc fastseek.h fastseek.cc fastseek_api.h fastseek_exports.cc board.h
 build_seek() {
   local name="$1" core="$2"
   local inc="-I$core -I$T/ffc -I$SW/filesystem -I$SW/network -I$SW/components -I$SW/api -I$SW/filemanager -I$SW/infra -I$SW/system -I$SW/userinterface -I$SW/io/stream -I$SW/io/usb/tests -I$FF"
-  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$SW/filesystem/blockdev.cc" "$SW/filesystem/blockdev_emul.cc" "$SW/filesystem/partition.cc"
+  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$core/fastseek_exports.cc" "$SW/filesystem/blockdev.cc" "$SW/filesystem/blockdev_emul.cc" "$SW/filesystem/partition.cc"
               "$SW/filesystem/file_system.cc" "$SW/filesystem/directory.cc" "$SW/filesystem/file.cc" "$SW/filesystem/filesystem_fat.cc"
               "$SW/filesystem/filesystem_root.cc" "$SW/filesystem/diskio.cc" "$SW/filemanager/filemanager.cc" "$SW/filemanager/path.cc"
               "$SW/components/mystring.cc" "$SW/components/pattern.cc" "$HERE/test_fmfs_seek.cc" "$SW/io/usb/tests/host_test_main.cpp")
@@ -64,7 +64,7 @@ build_seek seek_product "$SRC"
 build_folder() {
   local name="$1" core="$2"
   local inc="-I$core -I$HERE/.. -I$T/ffc -I$SW/filesystem -I$SW/network -I$SW/components -I$SW/api -I$SW/filemanager -I$SW/infra -I$SW/system -I$SW/userinterface -I$SW/io/stream -I$SW/io/usb/tests -I$FF"
-  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$core/folderhd.cc" "$core/folderhd_fold.cc" "$core/amiga_ffs.cc" "$SW/filesystem/blockdev.cc"
+  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$core/fastseek_exports.cc" "$core/folderhd.cc" "$core/folderhd_fold.cc" "$core/amiga_ffs.cc" "$SW/filesystem/blockdev.cc"
               "$SW/filesystem/blockdev_emul.cc" "$SW/filesystem/partition.cc" "$SW/filesystem/file_system.cc" "$SW/filesystem/directory.cc"
               "$SW/filesystem/file.cc" "$SW/filesystem/filesystem_fat.cc" "$SW/filesystem/filesystem_root.cc" "$SW/filesystem/diskio.cc"
               "$SW/filemanager/filemanager.cc" "$SW/filemanager/path.cc" "$SW/components/mystring.cc" "$SW/components/pattern.cc"
@@ -80,7 +80,7 @@ build_folder folder_product "$SRC"
 build_list() {
   local name="$1" core="$2"
   local inc="-I$core -I$HERE/.. -I$T/ffc -I$SW/filesystem -I$SW/network -I$SW/components -I$SW/api -I$SW/filemanager -I$SW/infra -I$SW/system -I$SW/userinterface -I$SW/io/stream -I$SW/io/usb/tests -I$FF"
-  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$SW/filesystem/blockdev.cc" "$SW/filesystem/blockdev_emul.cc" "$SW/filesystem/partition.cc"
+  local srcs=("$core/fm_fs.cc" "$HERE/medium_stub.cc" "$core/fastseek.cc" "$core/fastseek_exports.cc" "$SW/filesystem/blockdev.cc" "$SW/filesystem/blockdev_emul.cc" "$SW/filesystem/partition.cc"
               "$SW/filesystem/file_system.cc" "$SW/filesystem/directory.cc" "$SW/filesystem/file.cc" "$SW/filesystem/filesystem_fat.cc"
               "$SW/filesystem/filesystem_root.cc" "$SW/filesystem/diskio.cc" "$SW/filemanager/filemanager.cc" "$SW/filemanager/path.cc"
               "$SW/components/mystring.cc" "$SW/components/pattern.cc" "$HERE/test_fmfs_list.cc" "$SW/io/usb/tests/host_test_main.cpp")

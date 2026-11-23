@@ -8,6 +8,43 @@
 #include "home.h"
 #include "hotkeys.h"
 #include "baseset.h"
+#include <string.h>
+#include <strings.h>
+
+#include "base_rows.inc"
+
+const BaseRow *menu_base_rows(int *n)
+{
+    if (n) {
+        *n = g_base_nrows;
+    }
+    return g_base_row;
+}
+
+const BaseRow *menu_base_row(const char *apply, const char *key)
+{
+    for (int i = 0; apply && i < g_base_nrows; i++) {
+        if (!strcmp(g_base_row[i].apply, apply) && (!key || !strcasecmp(g_base_row[i].key, key))) {
+            return &g_base_row[i];
+        }
+    }
+    return 0;
+}
+
+void menu_base_setting(Setting &s, const BaseRow &r)
+{
+    s = Setting();
+    s.key = r.key;
+    s.label = r.label;
+    s.values = r.values;
+    s.nvalues = r.nvalues;
+    s.def = r.def;
+    s.when = WHEN_LIVE;
+    s.apply = r.apply;
+    s.base = r.base;
+    s.kind = r.kind;
+    s.show_state = r.show_state;
+}
 
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env)
 {

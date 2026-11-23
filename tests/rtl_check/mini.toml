@@ -14,12 +14,13 @@ size = 0x2
   name = "ctl"
   offset = 0x0
   width = 8
-  dir = "rw"
+  dir = "w"
 
   [[block.property]]
   name = "tag"
-  offset = 0x1
+  offset = 0x0
   width = 8
+  count = 2
   dir = "r"
 
 [[block]]

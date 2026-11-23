@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import descrec as D  # noqa: E402
 import libtab as L  # noqa: E402
+import sdk_api  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SHARED = os.path.join(ROOT, "coreapp", "libs", "shared.toml")
@@ -39,21 +40,83 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         L.check_files(libs, ROOT)
         names = [x["name"] for x in libs]
-        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "online"):
+        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "mouse", "pad", "padkeys", "resample",
+                     "newfile", "newdisk", "folderhd", "fastseek", "ftp"):
             self.assertIn(need, names)
         run = [x for x in libs if x["name"] == "cbmrun"][0]
         self.assertIn("c64_go.cc", run["sources"])                   # c64_go is part of cbmrun (P1-8)
+
+    def test_the_new_file_and_folder_libraries_are_whole(self):
+        libs = {x["name"]: x for x in L.load(SHARED)}
+        self.assertEqual(libs["newdisk"]["needs"], ["newfile"])                  # the image builders place their file by newfile
+        self.assertIn("newfile", libs["cbm1541"]["needs"])                       # so does the 1541's Create and Save
+        self.assertEqual(sorted(libs["folderhd"]["sources"]), ["amiga_ffs.cc", "folderhd.cc", "folderhd_exports.cc", "folderhd_fold.cc"])
+        self.assertEqual(libs["ftp"]["sources"], ["ftp_client.cc", "ftp_exports.cc"])
+        srcs = [f for x in libs.values() for f in x["sources"]]
+        for generic in ("textcopy.cc", "sectors.cc", "winslot.cc", "netfs.cc", "fm_fs.cc"):   # the files that generic code needs stay out of every library
+            self.assertNotIn(generic, srcs)
 
     def test_table_has_a_row_per_library_with_its_entries(self):
         libs = L.load(SHARED)
         t = L.table_text(libs)
         self.assertEqual(t.count('\n    { "'), len(libs))
-        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, "drive_a", 0, 0, 0 },', t)
-        self.assertIn('{ "uci", uci_bind, 0, 0, 0, 0, uci_take_freeze_request },', t)
-        self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0 },', t)
+        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, cap_cbm1541, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('static const char *const cap_cbm1541[] = { "drive_a", 0 };', t)
+        self.assertIn('{ "uci", uci_bind, 0, 0, 0, 0, uci_take_freeze_request, 0, 0 },', t)
+        self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0, 0, 0 },', t)
+        self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0, 0, 0 },', t)                      # a library without an entry: its code is called by the libraries that need it
+        self.assertIn('{ "newdisk", 0, newdisk_register, cap_newdisk, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('static const char *const cap_newdisk[] = { "floppy", "sio", 0 };', t)       # L-1b: an entry names several capabilities (a record-described atari800 names "sio")
+        self.assertIn('{ "folderhd", folderhd_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "fastseek", fastseek_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "ftp", ftp_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "mouse", 0, 0, 0, mouse_lib_init, 0, 0, mouse_table, 0 },', t)           # the gamepad, mouse and pad-key libraries (L-1): a call table, the USB hook at init, the XInput claim at the core
+        self.assertIn('{ "pad", 0, 0, 0, pad_lib_init, 0, 0, pad_table, pad_lib_core },', t)
+        self.assertIn('{ "padkeys", 0, 0, 0, 0, 0, 0, padkeys_table, 0 },', t)
+        self.assertIn('{ "resample", 0, 0, 0, 0, 0, 0, 0, 0 },', t)
+        self.assertIn("const void * mouse_table(void);", t)
+        self.assertIn("void pad_lib_core(CoreCtx *, const CoreDesc *, const DescRecord *);", t)
         self.assertIn("void tempdisk_lib_init(const BoardProfile &);", t)
         self.assertIn("const unsigned g_libtab_n = %d;" % len(libs), t)
         self.assertEqual(L.mk_text(libs).split()[0:2], ["LIB_SRCS_CC", "="])
+
+    def test_an_entry_names_one_capability_or_several(self):
+        p = toml_b('[[library]]\nname = "a"\nsources = ["newdisk.cc"]\nregister_ops = "newdisk_register"\ncapability = ["floppy", "sio"]\n'
+                   '[[library]]\nname = "b"\nsources = ["newfile.cc"]\nregister_ops = "newfile_register"\ncapability = "iec"\n')
+        t = L.table_text(L.load(p))
+        self.assertIn('static const char *const cap_a[] = { "floppy", "sio", 0 };', t)
+        self.assertIn('static const char *const cap_b[] = { "iec", 0 };', t)
+        self.assertIn('{ "a", 0, newdisk_register, cap_a, 0, 0, 0, 0, 0 },', t)
+
+    def test_the_four_libraries_of_l_1_are_listed_with_their_headers(self):
+        libs = {x["name"]: x for x in L.load(SHARED)}
+        for name in ("mouse", "pad", "padkeys", "resample"):
+            self.assertIn(name, libs)
+            self.assertTrue(libs[name]["sources"], name)
+        for name, api in (("mouse", "mouse_api.h"), ("pad", "pad_api.h"), ("padkeys", "padkeys_api.h")):
+            self.assertIn(api, libs[name]["headers"])
+            self.assertIn(api, [os.path.basename(h) for h in sdk_api.headers(ROOT)], "%s is a public header of the SDK" % api)    # the package's include/ carries it (tools/sdk_pack.sh copies this list)
+
+    def test_every_entry_is_defined_in_a_source_of_its_library(self):
+        import re
+        for lib in L.load(SHARED):
+            text = ""
+            for f in lib["sources"]:
+                text += open(L.find_file(ROOT, f)).read()
+            for key in L.ENTRIES:
+                if key in lib:
+                    self.assertRegex(text, r"(^|\n)[A-Za-z_][^\n;]*\b%s\(" % re.escape(lib[key]), "%s: %s = %s is defined in none of its sources" % (lib["name"], key, lib[key]))
+
+    def test_the_mouse_pad_and_padkeys_libraries_give_the_generic_code_a_table(self):
+        libs = {x["name"]: x for x in L.load(SHARED)}
+        for name, table in (("mouse", "mouse_table"), ("pad", "pad_table"), ("padkeys", "padkeys_table")):
+            self.assertEqual(libs[name]["table"], table)
+            self.assertTrue(any(h.endswith("_api.h") for h in libs[name]["headers"]), name)          # the table's header: the seam the generic code reads through
+        self.assertEqual(libs["pad"]["core"], "pad_lib_core")
+        self.assertIn("u64_resample.cc", libs["resample"]["sources"])
+        for gen in ("coreapp/src/engines.cc", "coreapp/src/baseset.cc", "coreapp/src/hotkeys.cc", "coreapp/src/ops_glue.cc", "coreapp/src/run.cc"):    # the generic users name the tables, no function of the libraries
+            text = open(os.path.join(ROOT, gen)).read()
+            self.assertNotRegex(text, r"\b(mouse_sink_\w+|pad_(pace|reset|register)|padkey_row|usb_xinput_set_sink)\(", gen)
 
     def test_heap_figures_of_a_library(self):
         ok = toml_b('[[library]]\nname = "a"\nsources = ["x.cc"]\nheap_keep = 100\nheap_peak = 200\n')

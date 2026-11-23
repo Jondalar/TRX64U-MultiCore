@@ -4,7 +4,7 @@
 The driver (usb_hid.cc) cannot be built on the Mac, so this reads the two places that decide it:
   1. process_mouse_report(): the mouse sink is called, and returns, BEFORE the first use of menu_override (the menu navigation by mouse and
      the wheel keys), so a sink that consumes the report leaves the navigation no way to run;
-  2. the application (coreapp/src/run.cc) registers the library as that sink, and nothing in coreapp/ queues a menu key or switches the
+  2. the mouse library (coreapp/src/mouse_board.cc) registers itself as that sink, and nothing in coreapp/ queues a menu key or switches the
      mouse navigation setting on.
 Fails if any of it is not so. TRX_MOUSE_HID / TRX_MOUSE_RUN / TRX_MOUSE_CFG / TRX_MOUSE_TOML point at other copies (the negative controls in run.sh)."""
 import os
@@ -13,7 +13,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HID = os.environ.get("TRX_MOUSE_HID") or os.path.join(ROOT, "host-app/software/io/usb/usb_hid.cc")
-RUN = os.environ.get("TRX_MOUSE_RUN") or os.path.join(ROOT, "coreapp/src/run.cc")
+RUN = os.environ.get("TRX_MOUSE_RUN") or os.path.join(ROOT, "coreapp/src/mouse_board.cc")
 COREAPP = os.path.join(ROOT, "coreapp")
 CFG = os.environ.get("TRX_MOUSE_CFG") or os.path.join(COREAPP, "src/baseset.cc")
 TOML = os.environ.get("TRX_MOUSE_TOML") or os.path.join(COREAPP, "cores/trx64u/menu.toml")
@@ -47,9 +47,9 @@ check("usb_hid_mouse_sink(motion_x, motion_y," in tail, "the sink gets the motio
 
 run = open(RUN).read()
 check(re.search(r"^\s*usb_hid_set_mouse_sink\(mouse_sink_usb_report\);", run, re.M) is not None,
-      "run.cc registers the library as the USB mouse sink")
+      "the mouse library (mouse_board.cc, its init entry) registers itself as the USB mouse sink")
 
-# "menumouse raus" (Alex, 2026-10-29, T104.1: no mouse control in our application): the driver asks the application (baseset.cc, through mousesink.cc) for Gideon's item CFG_MENU_MOUSE_NAV (0x58) and is told 0, always;
+# "menumouse raus" (Alex, 2026-10-29, T104.1: no mouse control in our application): the driver asks the application (baseset.cc, u64_get_usb_hid_config_value) for Gideon's item CFG_MENU_MOUSE_NAV (0x58) and is told 0, always;
 # the setting is not in the TRX64U's menu; and nothing else in coreapp/ names the navigation or queues a menu key.
 cfg = open(CFG).read()
 m = re.search(r"case 0x58:([^\n]*)", cfg)

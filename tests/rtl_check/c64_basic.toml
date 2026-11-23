@@ -1,7 +1,7 @@
 # TOML A of c64_basic as rtl_check reads it (fixture, T239.3 P1-3). The blocks are written from what the RTL decodes
 # (designs/c64_basic/ultimate_sys.vhd, trx_io.v) and nothing else: a dir is what the code does at the byte, not what a driver header says.
-# P1-7 writes the real one. The blocks c64cart and cart_regs are the shipped maps (--maps app/sdkpkg/maps); the bytes of the dma block
-# are decoded in dma_win.v behind a toggle handshake (stage 2 of the check). Not here, because the check does not follow them yet
+# P1-7 writes the real one. The blocks resid8, c64cart, cart_regs and dma are the shipped maps (--maps app/sdkpkg/maps); the bytes of the dma block
+# are decoded in dma_win.v behind a toggle handshake (stage 2 of the check; its map is the shipped map "dma", a run of 65536 byte registers). Not here, because the check does not follow them yet
 # (T239.3 P1-3, not_done): the C64-clock pages of trx_io (page 1, 2, 3, 5, 7 and page 0 from 0x100: trx_sys.v), uci (io_bus_bridge2),
 # the drive (drive_unit); the sampler window is clean room.
 [io]
@@ -89,73 +89,14 @@ module = "trx_io"
 owner = "base"
 address = 0x101A0040
 size = 0xE
-
-  [[block.property]]
-  name = "fcsel0"
-  offset = 0x0
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "fcsel1"
-  offset = 0x1
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "auto0"
-  offset = 0x2
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "auto1"
-  offset = 0x3
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "base0"
-  offset = 0x4
-  width = 16
-  dir = "rw"
-
-  [[block.property]]
-  name = "off0"
-  offset = 0x6
-  width = 16
-  dir = "rw"
-
-  [[block.property]]
-  name = "base1"
-  offset = 0x8
-  width = 16
-  dir = "rw"
-
-  [[block.property]]
-  name = "off1"
-  offset = 0xA
-  width = 16
-  dir = "rw"
-
-  [[block.property]]
-  name = "byp0"
-  offset = 0xC
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "byp1"
-  offset = 0xD
-  width = 8
-  dir = "rw"
+map = "sid"
 
 [[block]]
 name = "c64cart"
 module = "trx_io"
 owner = "base"
 address = 0x101A4000
-size = 0x40
+size = 0x6B
 map = "c64cart"
 
 [[block]]
@@ -289,15 +230,4 @@ module = "dma"
 owner = "base"
 address = 0x10050000
 size = 0x10000
-
-  [[block.property]]
-  name = "ram_first"
-  offset = 0x0
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "ram_last"
-  offset = 0xFFFF
-  width = 8
-  dir = "rw"
+map = "dma"

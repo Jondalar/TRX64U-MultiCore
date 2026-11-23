@@ -383,18 +383,9 @@ static int alias_reply(char *out, int cap, const OpResult &r)
 
 static int serve_alias(CoreCtx *c, const HttpReq &q, JsonObj *o, const RestAlias *al, char *out, int cap)
 {
-    OpRegistry *reg = ops_of(c);
-    char names[96];
-    snprintf(names, sizeof(names), "%s", al->ops);
-    const char *op = 0;
-    for (char *tok = strtok(names, "|"); tok; tok = strtok(0, "|")) {
-        if (reg->find_op(tok)) {
-            op = tok;
-            break;
-        }
-    }
+    const char *op = al->ops;
     OpResult r;
-    if (!op) {
+    if (!ops_of(c)->find_op(op)) {
         svc_fail(&r, OPE_UNSUPPORTED, "%s needs the operation %s, which this core did not register", q.path, al->ops);
         return alias_reply(out, cap, r);
     }

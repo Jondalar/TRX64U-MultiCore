@@ -1,9 +1,10 @@
 # TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with. A library is a set of sources, the headers that name its functions, and the entries it hands the
 # generic application; tools/libtab.py turns this file into the library table (libtab_table.cc) and the list of sources the build compiles, and checks that no generic source
 # names a library. An app linked without a library has none of its code. Entries (each a function, see libtab.h):
-#   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: only for a core that names it)
+#   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: a name or a list of names, only for a core that names one of them)
 #   init          once the board is known                                    start          once the network settings are pushed
 #   freeze_request  the library asks for the menu (read by the service loop)
+#   table         the library's call table for the generic application (its *_api.h), found by libtab_table(name)   core   the core's description is known (the library takes what it needs from it)
 # `needs` names the libraries this one calls; the build refuses a library whose need is not in the file. `sources` and `headers` are file names, found in coreapp/src, coreapp/cores,
 # app/loaders or app/lib/cbm1541.
 
@@ -17,19 +18,13 @@ headers = ["c64_cart.h", "c64_cart_desc.h", "c64cart_api.h"]
 bind = "c64cart_bind"
 
 [[library]]
-name = "online"
-sources = ["online.cc", "a64_assembly.cc", "a64_http.cc"]
-headers = ["online.h", "online_api.h", "a64_assembly.h", "a64_http.h"]
-bind = "online_bind"
-register_ops = "online_register"
-
-[[library]]
 name = "cbm1541"
 sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
 headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
 bind = "cbm1541_bind"
 register_ops = "cbm1541_register"
 capability = "drive_a"
+needs = ["newfile"]
 
 [[library]]
 name = "uci"
@@ -75,3 +70,73 @@ name = "t64"
 sources = ["t64.cc", "t64_vlist.cc"]
 headers = ["t64.h"]
 bind = "t64_bind"
+
+# Where a new file goes and under what name (T122): used by the 1541's Create and Save and by newdisk. The two string helpers generic code needs (nf_base, nf_copy) are in textcopy.h, not here.
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+# "Create blank ..." for the cores with a floppy that is not the 1541 (T122). A core that is compiled registers it itself (newdisk_register, last in its register_ops); a core described by its record gets it by the capability "floppy" (a drive on the floppy interface) or "sio" (the Atari's serial bus, so that a record-described atari800 keeps "New disk image").
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]
+
+# A folder of a medium as an Amiga hard disk (T128). The sector engine (sectors.cc, generic: the base's media engine, its users are engines.cc, mediamounts.cc and the descriptors) mounts it through the table of folderhd_api.h.
+[[library]]
+name = "folderhd"
+sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
+headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
+bind = "folderhd_bind"
+
+# The cluster link map of an open FatFs file (T104 5.16). The file manager's CoreFs (fm_fs.cc) uses it through the table of fastseek_api.h.
+[[library]]
+name = "fastseek"
+sources = ["fastseek.cc", "fastseek_exports.cc"]
+headers = ["fastseek.h", "fastseek_api.h"]
+bind = "fastseek_bind"
+
+# The FTP medium's client and what the Library's FTP folder needs of it (T104.2). netfs.cc (generic: the file system of the application, with the online results) uses it through the table of ftp_api.h.
+[[library]]
+name = "ftp"
+sources = ["ftp_client.cc", "ftp_exports.cc"]
+headers = ["ftp_client.h", "ftp_api.h"]
+bind = "ftp_bind"
+
+# The USB mouse (T104.1 5.6, Alex's placement: mouse lib). `table` is its call table "mouse" (mouse_api.h: engines.cc and baseset.cc call it, nothing else of the library); `init` registers the USB hook, the
+# critical section and the 1351's pots (mouse_board.cc). The types a core's description names (MouseSinkSpec) are in mouse_api.h.
+[[library]]
+name = "mouse"
+sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
+headers = ["mousesink.h", "mouse_api.h"]
+table = "mouse_table"
+init = "mouse_lib_init"
+
+# The USB gamepads (T156, T196, Alex's placement: gamepad lib): the pad service with its maps and mapping wizard, the HID descriptor reader, the XInput protocol and its USB driver. `table` is its call table
+# "pad" (pad_api.h, which also holds PadSpec); `register_ops` is not used: the pad operations are the base's own and go to every core through the table. `init` registers the USB hook and the critical
+# section, `core` the XInput claim (pad_board.cc).
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"
+
+# Pad and joystick as keys (T216 P4, T232, Alex's placement: padkeys): the key lists a core's rows name (padkeys.h) and the pad-key row test and key learning (padkeys.cc), through the call table "padkeys".
+[[library]]
+name = "padkeys"
+sources = ["padkeys.cc", "padkeys_exports.cc"]
+headers = ["padkeys.h", "padkeys_api.h"]
+table = "padkeys_table"
+
+# The C64U's audio resampling (T228): the filter coefficients and their programming into the resampler (u64_resample.cc, u64_resample.inc). The file that calls it, u64cfg.cc, is a placed core's and goes to
+# TRX64-Ultimate (D12); it calls this library directly.
+[[library]]
+name = "resample"
+sources = ["u64_resample.cc"]
+headers = ["u64_resample.h"]

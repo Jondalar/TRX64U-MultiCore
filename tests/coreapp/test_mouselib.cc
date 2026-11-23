@@ -4,6 +4,7 @@
 #include "check.h"
 #include "amiga_model.h"
 #include "engines.h"
+#include "mousesink.h"
 
 extern const CoreDesc c64_desc;
 

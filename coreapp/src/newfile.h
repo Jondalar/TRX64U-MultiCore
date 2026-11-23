@@ -10,11 +10,8 @@
 #include <stdint.h>
 #include "fsif.h"
 
-// the file name part of a path
-const char *nf_base(const char *path);
-
-// `out` (outlen bytes) takes the first `n` characters of `s`, terminated. Use this where a format would say "%.*s": the board's printf cannot.
-void nf_copy(char *out, int outlen, const char *s, size_t n);
+// nf_base and nf_copy are in textcopy.h: generic code needs them and does not link this library
+#include "textcopy.h"
 
 // The folders a new file may go to, in this order: `hint` (the one asked for), else `pref` (the menu's folder, the folder of the last disk),
 // then the media of the browser. `out` takes six. Returns the count.

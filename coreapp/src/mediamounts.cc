@@ -1,4 +1,5 @@
 #include "mediamounts.h"
+#include "menubuild.h"
 #include "engines.h"
 #include "boot.h"
 #include "cfgfile.h"
@@ -7,8 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-
-static const char *const persist_values[] = { "No", "Yes" };
 
 const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
@@ -21,6 +20,10 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             return 0;
         }
     }
+    const BaseRow *row = menu_base_row(PERSIST_OP, PERSIST_KEY);      // the row is the base UI TOML's: off by default, it has to be set actively (Alex, 2026-11-04)
+    if (!row) {
+        return "settings: the base UI TOML has no Persist row";
+    }
     if (d->nsettings + 1 > SETTINGS_MAX) {
         return "settings: no room for the Persist item the application adds";
     }
@@ -29,14 +32,7 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             store[i] = d->settings[i];
         }
     }
-    Setting &p = store[d->nsettings];
-    p = Setting();
-    p.key = PERSIST_KEY;
-    p.values = persist_values;
-    p.nvalues = 2;
-    p.def = 0;                                     // Alex, 2026-11-04: "off by default, it has to be set actively"
-    p.when = WHEN_LIVE;
-    p.apply = PERSIST_OP;
+    menu_base_setting(store[d->nsettings], *row);
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;
