@@ -24,9 +24,9 @@ version = "3.2"
 released = true
 headers = "da3811e51230c29e52fd338f2e8bbbee8db70746b5d37311a4da7f95de7fa25d"
 #
-# 3.3 (T239.3, SDK 0.3.0): api->sync, settings, ctx, io, board and overlay (svc_sync.h, svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h), the members appended to sys (svc_sys.h) and to fs
+# 3.3 (T239.3, SDK 0.4.0): api->sync, settings, ctx, io, board and overlay (svc_sync.h, svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h), the members appended to sys (svc_sys.h) and to fs
 # (list_long, svc_fs.h), the states "set.<key>" and "net.gated". Not released yet: its hash follows the headers (python3 tools/sdk_api.py update).
 [[lock]]
 version = "3.3"
 released = false
-headers = "e4a404cdb3d967060858c31bb564f94c760e31778b7c75b623f0ae89fae1a9d8"
+headers = "579824478f52de637fe83f2e0cc91d967298c547ede5a49f06b8fef1c6be1b1a"

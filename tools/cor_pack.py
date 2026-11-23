@@ -72,6 +72,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import descrec  # noqa: E402
+import libtab  # noqa: E402
 
 MAGIC = b"TRXCOR01"
 T_MANIFEST, T_PARTIAL, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS, T_FILES = 1, 2, 3, 4, 5, 6, 7, 8
@@ -92,9 +93,10 @@ LARGE_APP_ADDR = 0x30000                  # cfw.h CFW_APP_ADDR: load and entry o
 LARGE_APP_MAX = 0x400000                  # cfw.h CFW_APP_MAX
 LARGE_BIT_MAX = 0x800000                  # cfw.h CFW_BIT_MAX
 MAPS = ("identity", "gideon_bl4")
-# T239.3 D15: the heap word. The application image carries one record `TRXHEAP:` (coreapp/src/heapcfg.c): heap size, image end (the linker's _end),
+# T239.3 D15, P4-1: the heap word. The application image carries one record `TRXHEAP:` (coreapp/src/heapcfg.c): heap size, image end (the linker's _end),
 # end of the application region (__heap_limit) and the stack reserve, four little-endian words. The packer sets the heap from the core's core.toml `heap`
-# in the copy it packs and refuses an image whose end + heap + reserve does not fit the region.
+# in the copy it packs and refuses an image whose end + heap + reserve does not fit the region. A heap of 0 is the region that is left: from the 16-aligned
+# image end to the region end less the reserve (the application computes the same at start); the packer leaves the word 0 and reports the figure.
 HEAP_MAGIC = b"TRXHEAP:"
 HEAP_WORDS = 4
 HEAP_DEFAULT = 0x7A0000                   # coreapp/src/heapcfg.c: what the image says when the core's TOML sets nothing
@@ -508,10 +510,21 @@ def put_short(m, short):
     m["short"] = short
 
 
-def app_heap(app, heap, core):
-    """T239.3 D15: `app` with the heap word set to `heap` (the core's core.toml `heap`; None keeps the image's own, the default). The image must hold one
-    TRXHEAP record; one without it is left alone when no heap is asked for (an imported core's own app) and refused when one is. Refused too: an image whose
-    end + heap + stack reserve is beyond the end of the application region; the message names the core, the figures and the limit."""
+def toml_b_heap_needs(path):
+    """[(name, heap_keep, heap_peak)] of the libraries the TOML B of a core's app links (`heap_keep` and `heap_peak` of a [[library]] table, read and checked by libtab.load; None: not declared). Sub-apps (.u2a, record 7) are not counted: S13 checks them at load."""
+    try:
+        libs = libtab.load(path)
+    except libtab.LibTabError as e:
+        raise CorError(str(e))
+    return [(l["name"], l.get("heap_keep"), l.get("heap_peak")) for l in libs]
+
+
+def app_heap(app, heap, core, needs=None, report=None):
+    """T239.3 D15, P4-1: `app` with the heap word set to `heap` (the core's core.toml `heap`; None keeps the image's own, the default; 0 is the region that is
+    left behind the image and the stack reserve). The image must hold one TRXHEAP record; one without it is left alone when no heap is asked for (an imported
+    core's own app) and refused when one is. Refused too: an image whose end + heap + stack reserve is beyond the end of the application region, and a core whose
+    libraries keep (`heap_keep`, `needs`: (name, keep, peak) per linked library) more than the heap; the message names the core, the figures and
+    the limit. `report`, a list, gets the lines of the build report: the figures of the layout and the needs of each library."""
     at, i = [], -1
     while True:
         i = app.find(HEAP_MAGIC, i + 1)
@@ -530,21 +543,40 @@ def app_heap(app, heap, core):
     cur, image_end, region_end, reserve = struct.unpack_from("<4I", app, o)
     if heap is None:
         heap = cur
+    start = (image_end + 15) & ~15
+    left = region_end - reserve - start                 # what heapcfg.c's heapcfg_define makes of the word 0
+    word = heap
+    if heap == 0:
+        heap = left
+        if heap < HEAP_MIN:
+            raise CorError("core %s: image end 0x%x, stack reserve 0x%x, region end 0x%x: the region left is %d bytes, below 0x%x" % (core, image_end, reserve, region_end, max(heap, 0), HEAP_MIN))
     if heap < HEAP_MIN or heap % 16:
         raise CorError("core %s: heap 0x%x is below 0x%x or not a multiple of 16" % (core, heap, HEAP_MIN))
-    need = ((image_end + 15) & ~15) + heap + reserve
+    need = start + heap + reserve
     if need > region_end:
         raise CorError("core %s: image end 0x%x + heap 0x%x + stack reserve 0x%x = 0x%x, the application region ends at 0x%x (%d bytes too much)"
                        % (core, image_end, heap, reserve, need, region_end, need - region_end))
-    return app[:o] + struct.pack("<I", heap) + app[o + 4:]
+    keeps = [(n, k) for n, k, _ in needs or [] if k]
+    keep_sum = sum(k for _, k in keeps)
+    if report is not None:
+        report.append("heap (%s): image end 0x%x (aligned 0x%x), region end 0x%x, stack reserve 0x%x; heap 0x%x = %d bytes%s"
+                      % (core, image_end, start, region_end, reserve, heap, heap, " (word 0: the region left)" if word == 0 else ""))
+        for n, k, pk in needs or []:
+            report.append("heap (%s): library %s keeps %s, peak %s" % (core, n, "n/a" if k is None else "%d" % k, "n/a" if pk is None else "%d" % pk))
+        if needs:
+            report.append("heap (%s): libraries keep %d of %d bytes, %d left" % (core, keep_sum, heap, heap - keep_sum))
+    if keep_sum > heap:
+        raise CorError("core %s: its libraries keep %d bytes of heap (%s), the heap of the core is %d bytes (%d too much)"
+                       % (core, keep_sum, ", ".join("%s %d" % kv for kv in keeps), heap, keep_sum - heap))
+    return app[:o] + struct.pack("<I", word) + app[o + 4:]
 
 
-def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None, heap=None):
+def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None, heap=None, heap_needs=None, report=None):
     partial = bit_config_data(partial)
     check_partial(partial)
     if not app:
         raise CorError("app: empty")
-    app = app_heap(app, heap, name)
+    app = app_heap(app, heap, name, heap_needs, report)
     if not (load <= entry < load + len(app)):
         raise CorError("app: entry outside the image")
     # Record 3 is the raw image: the boot app copies it to app_load and jumps to app_entry. A `.app` file is that
@@ -740,7 +772,7 @@ FLASH_ID_MAX = 40
 
 
 def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_commit=None, app_commit=None,
-               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None, heap=None):
+               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None, heap=None, heap_needs=None, report=None):
     """A .cor that carries a LARGE core: the full bitstream and the application (see the docstring).
     origin (T137 D1): None or "trx" writes no key (the bytes of every .cor before T137); "foreign" and "backup" write `origin`; a backup also
     writes flash_bit, flash_app and flash_id (D2: the chip the parts were read from, so they are written back only to the layout they came from)."""
@@ -756,7 +788,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         raise CorError("bitstream: IDCODE %08x is not the XC7A50T (%08x)" % (idcode, IDCODE_XC7A50T))
     if not app:
         raise CorError("app: empty")
-    app = app_heap(app, heap, cid)
+    app = app_heap(app, heap, cid, heap_needs, report)
     if len(app) > LARGE_APP_MAX:
         raise CorError("app: %d bytes, the host stages at most %d" % (len(app), LARGE_APP_MAX))
     if len(app) > 12:
@@ -867,11 +899,18 @@ def read_extras(a):
     desc = None
     if a.desc:
         try:
+            if getattr(a, "sizes", None):                  # the core's TOML B: its [sizes] are the record maxima the app is linked with (tools/app_build.py)
+                descrec.apply_sizes(descrec.toml_loads(open(a.sizes).read()).get("sizes", {}))
             desc = descrec.compile_files([(f, open(f).read()) for f in a.desc], open(a.ops).read() if a.ops else None)
         except descrec.DescError as e:
             raise CorError("%s: %s" % (" + ".join(a.desc), e))
     files = collect_files(a.files, a.files_old) if a.files else None
     return desc, [open(f, "rb").read() for f in a.lib] or None, files
+
+
+def heap_needs_of(a):
+    """The heap the core's linked libraries keep (P4-1): the [[library]] tables of the TOML B (--sizes) the app is linked with."""
+    return toml_b_heap_needs(a.sizes) if getattr(a, "sizes", None) else []
 
 
 def main(argv=None):
@@ -890,8 +929,9 @@ def main(argv=None):
     p.add_argument("--fpga", default="xc7a50t")
     p.add_argument("--icon")
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
-    p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
+    p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application; 0: the region left behind the image and the stack reserve (P4-1)")
     p.add_argument("--desc", action="append", default=[], help="the menu description (TOML, tools/descrec.py): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    p.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2)")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
     p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
@@ -905,8 +945,9 @@ def main(argv=None):
     g.add_argument("--app", required=True, help="the application image (coreapp.bin, raw, linked to 0x30000)")
     g.add_argument("--icon")
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
-    g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
+    g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application; 0: the region left behind the image and the stack reserve (P4-1)")
     g.add_argument("--desc", action="append", default=[], help="the menu description (TOML): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    g.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2)")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
     g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
@@ -932,19 +973,20 @@ def main(argv=None):
     c.add_argument("--host-key", default=None, help="refuse a bundle built for another host")
     a = ap.parse_args(argv)
     try:
+        rep = []
         if a.cmd == "pack":
             entry = a.load if a.entry is None else a.entry
             blob = pack(a.name, a.version, open(a.partial, "rb").read(), open(a.app, "rb").read(),
                         a.load, entry, a.host_key, a.contract, a.fpga,
-                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short, heap=a.heap)
+                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short, heap=a.heap, heap_needs=heap_needs_of(a), report=rep)
             open(a.out, "wb").write(blob)
-            print("%s: %d bytes" % (a.out, len(blob)))
+            print("\n".join(rep + ["%s: %d bytes" % (a.out, len(blob))]))
         elif a.cmd == "pack-large":
             blob = pack_large(a.id, a.name, a.version, open(a.bit, "rb").read(), open(a.app, "rb").read(),
                               load_icon(a.icon) if a.icon else None, a.map, a.bit_commit, a.app_commit, "xc7a50t", *read_extras(a),
-                              origin=a.origin, flash_id=a.flash_id, short=a.short, heap=a.heap)
+                              origin=a.origin, flash_id=a.flash_id, short=a.short, heap=a.heap, heap_needs=heap_needs_of(a), report=rep)
             open(a.out, "wb").write(blob)
-            print("%s: %d bytes" % (a.out, len(blob)))
+            print("\n".join(rep + ["%s: %d bytes" % (a.out, len(blob))]))
         elif a.cmd == "files-record":
             blob = pack_files(collect_files(a.dir, a.old))
             open(a.out, "wb").write(blob)

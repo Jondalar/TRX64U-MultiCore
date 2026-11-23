@@ -1,11 +1,11 @@
 # TRX64 SDK @SDK_VERSION@
 
-This package builds a library for the generic core application, the menu record of that library, and a `.cor` bundle that carries both.
+This package builds a library for the generic core application, the menu record of that library, the app of a core linked from its TOML A and TOML B, and a `.cor` bundle that carries them.
 It needs nothing from the TRX64 repository.
 
 The document [`api.md`](api.md) is the contract of the interface a library and an application use.
 
-The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `image/coreapp.bin`.
+The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `lib/libtrxbase.a`.
 It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The version of the base API").
 
 ## Contents
@@ -14,12 +14,14 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 |---|---|
 | `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
 | `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h`, `svc_fs.h`, `svc_sys.h`), `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h` and the export tables a library finds with `api->lib->find` (`c64_api.h`, `c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `uci_api.h`, `sid_api.h`, `tempdisk_api.h`). `tools/sdk_api.py headers` lists them. |
-| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files, or a library with `APP_KIND = lib`), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
+| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files, or a library with `APP_KIND = lib`), `lib.ld` (the linker script), `sdkroot.mk` (finds the package), `appflags.mk` and `appbuild.mk` (the app of a core, run by `tools/app_build.py build`). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
-| `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle), `rtl_check.py` (TOML A against the RTL of your design, and the lint for literal I/O addresses in C/C++). |
-| `image/` | `coreapp.bin`, the shared core application image of this SDK version, and its `version.toml`. See "The application image". |
-| `licenses/` | The licence texts of the third-party code the image links. `NOTICE` names it. |
-| `example/` | A library of two source files with a menu TOML and a host test. |
+| `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle), `rtl_check.py` (TOML A against the RTL of your design, and the lint for literal I/O addresses in C/C++), `app_build.py` (the app of a core: its sizes, tables, link) and `libtab.py` (the library table of a TOML B). |
+| `lib/`, `base/` | The base of the core application as archives and sources, and the shared libraries as sources. See "The app of a core". There is no app image. |
+| `libs/`, `gateware/` | `shared.toml` of each: the TOML B (the catalog of the shared libraries) and the TOML A of the shared app, the references a core's own start from. |
+| `menusim/`, `bin/menusim` | The menu simulator and the tree it builds from. See "The menu simulator". |
+| `licenses/` | The licence texts of the third-party code the base links. `NOTICE` names it. |
+| `example/` | A library of two source files with a menu TOML and a host test, and the example core's own TOML A (`example/gateware/`), TOML B and description (`example/app/`). |
 
 ## Requirements
 
@@ -87,7 +89,7 @@ is a call the base makes itself. The library that is the whole code of a core is
 ## The version of the base API
 
 This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of
-`image/version.toml` (the core application image of this package), and the `base_api` line of `VERSION`. A library or an application says in `LIB_NEEDS`
+`base/version.toml` (the base of this package), and the `base_api` line of `VERSION`. A library or an application says in `LIB_NEEDS`
 (`base>=@ABI_MAJOR@.@ABI_MINOR@`) which base API it needs; the loader refuses a file that needs a newer base, with a message that names both versions
 ("needs base 3.3, this base is 3.2"), and a file built for another major.
 
@@ -120,14 +122,14 @@ A core that does not fit the host's partition is one full bitstream (a large or 
 
 ```
 python3 tools/cor_pack.py pack-large -o mycore.cor --id mycore --name "My Core" --version 1.0.0 \
-    --bit core.bit --app image/coreapp.bin --desc menu.toml --lib mylib.u2a
+    --bit core.bit --app app.bin --desc menu.toml --sizes toml_b.toml --lib mylib.u2a
 ```
 
 A core that runs in the host's partition is a partial bitstream routed against one host:
 
 ```
 python3 tools/cor_pack.py pack -o mycore.cor --name "My Core" --version 1.0.0 \
-    --partial core.bit --app image/coreapp.bin --host-key <host key> \
+    --partial core.bit --app app.bin --host-key <host key> --sizes toml_b.toml \
     --desc menu.toml --lib mylib.u2a
 ```
 
@@ -140,13 +142,36 @@ Both commands take `--heap <bytes>` (the heap of the core application for this c
 is not in this package yet (see below). `python3 tools/cor_pack.py check mycore.cor` checks the bundle. For the other options read the head of
 `tools/cor_pack.py`.
 
-## The application image
+## The app of a core
 
-`image/coreapp.bin` is the shared core application image: one image for every core. The heap comes from the core's own record. The table of
-the image has no compiled-in TRX64U C64. The built-in TRX64U is only in an image of its own (`coreapp_trx64u.bin`), and this package does not
-carry it. A core needs no compiled-in descriptor when its `.cor` carries its description (record 6) and names its code library: `hooks =
-"<library>"` in the [core] section of its API TOML (base 3.3, T239.3 D17). This image runs such a core. TRX64U built from the TRX64-Ultimate
-libraries is such a core. This path is new in base 3.3. It has not run on the board yet.
+There is no app image in this package. A core's app is linked from the package with the core's TOML A (its gateware, one block per register range) and its TOML B (what the
+app is linked with and how large its maxima are), and the library table and the driver table are made when it is linked: no library is loaded at run time and no name is looked
+up (T239.3 D31).
+
+```
+python3 tools/app_build.py build --sdk . --toml-a mycore/toml_a.toml --maps mycore --toml-b mycore/toml_b.toml --out out --src mycore --record out/desc.bin
+```
+
+`--maps` adds the register maps of the core's own blocks (`<name>.map.toml`) to the package's `maps/`. A core that is described by its record names no `desc` symbol: the core table of its app is empty and the start makes the descriptor from the record of the `.cor`; the code of that core is the library its record names (`hooks = "<library>"`, api.md 9.7). `example/` is such a core: its own TOML A (`example/gateware/`), TOML B and description (`example/app/`) and the library `example.u2a` that is its code.
+
+The TOML B has `[app]` (`desc`: the symbol of the descriptor of a core that is compiled into the app, none for a core described by its record, `base_sources`: files of the package's `coreapp/cores` that hold it, `sources`: the core's own files, found in the
+`--src` directories), the libraries (`[[library]]`, as `libs/shared.toml`: sources found in the package's `base/src` or in `--src`) and `[sizes]`. The record is compiled against the same
+`[sizes]` (`descrec.py compile ... --sizes toml_b.toml`, `cor_pack.py pack ... --sizes toml_b.toml`), so the compiler and the app refuse the same record.
+
+`[sizes]` names the maxima of the registry (`ops`, `states`, `events`), of the contributions the libraries make to the menu (`contrib_*`), of the bug report (`report_bytes`) and of the
+menu record (`record_bytes`, `rec_*`). A key that is left out keeps the default of the headers; `python3 tools/app_build.py table` lists them. A maximum is part of the layout
+of every object that includes `ops.h`, `descrec.h`, `contrib.h` or `corereport.h`, so the package carries the sources of those objects (`base/`, listed in `base/SIZED.txt`) and compiles them
+for the core; the objects of every other source are in `lib/libtrxbase.a`, with `liblwip.a`, `liblvgl.a` and the start-up objects.
+
+The example core is `example/app/`: `make app` in `example/` links it. The TOML A is `gateware/shared.toml`, the reference.
+
+## The menu simulator
+
+`bin/menusim --desc example/app/desc.toml` opens the menu of a core on this machine, in a window, from its description: the identity (`[core]`), the tabs, the nodes, the settings and
+their places. Change the TOML and press Cmd+R (Ctrl+R elsewhere): the menu is built again and the page stays. The place of every row (tab, group, order) is in the TOML, the base's own
+rows included (`menusim/coreapp/base_ui.toml`). `--keys F3,DOWN,RETURN --shot out.png` runs headless and writes a picture. It needs a C++ compiler, python3 and SDL2 (`brew install sdl2`); the
+first start compiles the application's sources natively (a few minutes), the next start only what changed. The core's own code is not in the simulator: a hook does nothing, and an
+operation shows its row without running. The real app is checked in the emulator.
 
 ## The example
 
@@ -157,19 +182,18 @@ make menu
 make test
 ```
 
-`make` builds `example.u2a` from `example.cc` and `greet.cc`, with `menu.toml` as its menu record. `make menu` writes `example.menu.bin`.
+`make` builds `example.u2a` from `example.cc` and `greet.cc`, with `menu.toml` as its menu record. `make menu` writes `example.menu.bin`. `make app` links the example core's app (see above).
 `make test` builds `example.cc` and `greet.cc` with the host compiler, registers the library against a fake `LibApi` and calls its operation.
 
 ## Not in this package yet
 
-- The menu simulator. It builds from the sources of the core application.
 - The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
-- The image of TRX64U (`coreapp_trx64u.bin`). It goes when the TRX64U parts are libraries (T239.3 D12) or when its own image is dropped (D15).
+- A descriptor for a core made of its record alone: the app of a core names the symbol of a descriptor in the base's sources (`[app] desc`).
 - The code of the shared 1541 drive library. Its export table `cbm1541_api.h` is public; the library itself uses the core application's `CoreIo` and file headers, which are not.
 - The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.
 
 ## Licence
 
-GNU General Public License, version 3 or later: `LICENSE`. `image/coreapp.bin` also links FreeRTOS, lwIP, LVGL and FatFs under their own
+GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own
 licences: the texts are in `licenses/`, and `NOTICE` names them, the source commit and the origin of the interface headers.

@@ -1,9 +1,11 @@
 // Host test of the example library: it compiles example.cc and greet.cc natively, registers the library against a fake LibApi and calls the operation.
 // `make test` builds and runs it with the host's C++ compiler.
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include "libapi.h"
 #include "libfmt.h"
+#include "core_hooks.h"
 
 extern "C" int lib_register(const LibApi *api, LibRecord *out);
 
@@ -22,6 +24,12 @@ int main()
     CHECK(lib_register(&api, &rec) == 0);
     CHECK(rec.nops == 1 && strcmp(rec.ops[0].name, "example.greet") == 0);
     CHECK(rec.nstates == 1 && strcmp(rec.states[0].name, "example.version") == 0);
+    // the code of the example core: the export corehooks at major 1, init and release answer done, the members after media_pending are not in the table
+    CHECK(rec.nexport_list == 1 && strcmp(rec.export_list[0].name, "corehooks") == 0 && rec.export_list[0].major == 1);
+    const CoreHooks *h = (const CoreHooks *)rec.export_list[0].table;
+    char hmsg[8] = "";
+    CHECK(h && h->size == rec.export_list[0].size && h->size == offsetof(CoreHooks, start));
+    CHECK(h && h->init(hmsg, sizeof hmsg) == 0 && h->release(hmsg, sizeof hmsg) == 0 && !h->warm_reset && !h->cold_start);
 
     char msg[16];
     OpArgs a;

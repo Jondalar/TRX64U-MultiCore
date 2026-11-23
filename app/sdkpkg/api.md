@@ -24,7 +24,7 @@
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
 1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.3.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.4.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
 | Symbol | Contract |
 |---|---|
@@ -1589,9 +1589,11 @@ The macros fill an `OpBind`.
 | `OP_ARGS_MAX` | The arguments of one operation, 4. |
 | `OP_MSG_MAX` | The size of the message of a result, 240 bytes with the NUL. |
 | `OP_DATA_MAX` | The bytes an operation may return, 256. |
-| `OPS_MAX` | The operations of the registry, 400, over the base and every image. A registration past it is refused. |
-| `STATES_MAX` | The state values of the registry, 320. |
-| `EVENTS_MAX` | The events of the registry, 8. |
+| `OPS_MAX` | The operations of the registry over the base and every image: 400 in the shared app, `ops` of the `[sizes]` table of an app's TOML B otherwise. A registration past it is refused. |
+| `STATES_MAX` | The state values of the registry: 320, or `states` of `[sizes]`. |
+| `EVENTS_MAX` | The events of the registry: 8, or `events` of `[sizes]`. |
+
+5.6.1 These three are the defaults of the headers. The app of a core is linked with the numbers of its own TOML B (`python3 tools/app_build.py table` lists every key of `[sizes]` with its default and its range), and the objects that depend on them are compiled for that core: the registry's arrays are part of the class. A registration past a maximum is refused with the message that names it (`OPS_MAX`, `STATES_MAX`, `EVENTS_MAX`).
 
 ## 6. The record
 

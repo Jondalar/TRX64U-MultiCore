@@ -259,6 +259,24 @@ BIND_KINDS = {"file": 0, "int": 1, "str": 2, "ask": 3, "text": 4}
 PAD_OUTPUTS = {"registers": 0, "joystick": 1}       # pad.h PAD_OUT_REGS, PAD_OUT_JOY
 PAD_ROLES = ("face_right", "face_bottom", "face_left", "face_top", "l", "r", "select", "start")   # pad.h PAD_ROLE_RIGHT (0x40) .. PAD_ROLE_START (0x47)
 PAD_DIRS = ("up", "down", "left", "right")          # pad.h PAD_SRC_UP (32) .. PAD_SRC_RIGHT (35)
+# T239.3 P3-2 (D31): the maxima of a record are per core. The [sizes] table of a core's TOML B names them (tools/app_build.py has the whole table: its keys rec_* are these);
+# the C reader is compiled with the same numbers (descrec.h), so the compiler and the board refuse the same record.
+SIZE_LIMITS = {"rec_binds": "bind", "rec_values": "value", "rec_csettings": "cset", "rec_facts": "fact", "rec_tasks": "task", "rec_exts": "ext", "rec_ftypes": "ftype"}
+SIZE_MODULE = {"record_bytes": "MAX_SIZE", "rec_keys": "KEYS_MAX", "rec_windows": "WINDOWS_MAX", "rec_blocks": "BLOCKS_MAX", "rec_props": "PROPS_MAX", "rec_fields": "FIELDS_MAX", "rec_states": "STATES_MAX", "elements": "ELEMENTS_MAX"}
+
+
+def apply_sizes(sizes):
+    """Sets the maxima of this module from a [sizes] table (a dict of key -> int); keys that are not a record maximum are not this module's and are left alone."""
+    for k, v in sizes.items():
+        if k in SIZE_LIMITS or k in SIZE_MODULE:
+            if isinstance(v, bool) or not isinstance(v, int) or v < 1:
+                raise DescError("sizes: %s is a positive integer" % k)
+        if k in SIZE_LIMITS:
+            LIMITS[SIZE_LIMITS[k]] = v
+        elif k in SIZE_MODULE:
+            globals()[SIZE_MODULE[k]] = v
+
+
 TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for eight of them (TRX_TABS_MAX) (an application's hidden screens are tabs that are not on it)
 
 
@@ -1997,7 +2015,7 @@ def _sec_places(rows, st):
 # ---- the elements of the overlay service (T256 D8) ---------------------------------------------------------------------------------------------------------------------
 # Section 25, read by descrec.cc by the same rules (overlay.h ovl_row_check):
 # elements  u32 count (1 .. ELEMENTS_MAX), then per element 6 words: name (string), anchor (0 .. 8, ANCHORS' order), dx and dy (32 bit two's complement), w | h << 16, flags (b0 still)
-ELEMENTS_MAX = 16                       # overlay.h OVL_ELEMENTS_MAX
+ELEMENTS_MAX = 16                       # overlay.h OVL_ELEMENTS_MAX; the [sizes] key "elements" sets both (apply_sizes)
 ANCHORS = ("top_left", "top_mid", "top_right", "left_mid", "center", "right_mid", "bottom_left", "bottom_mid", "bottom_right")
 ELEMENT_KEYS = {"name", "anchor", "dx", "dy", "w", "h", "still"}
 CANVAS_W, CANVAS_H = 960, 540
@@ -3336,11 +3354,20 @@ if __name__ == "__main__":
         i = argv.index("--ops")
         ops_file = argv[i + 1] if i + 1 < len(argv) else None
         del argv[i:i + 2]
+    if "--sizes" in argv:                                   # a TOML B: its [sizes] table sets the record maxima before anything is compiled or read
+        i = argv.index("--sizes")
+        if i + 1 >= len(argv):
+            sys.exit("descrec.py: --sizes needs the TOML B file")
+        try:
+            apply_sizes(toml_loads(open(argv[i + 1]).read()).get("sizes", {}))
+        except (DescError, OSError) as e:
+            sys.exit("descrec: %s: %s" % (argv[i + 1], e))
+        del argv[i:i + 2]
     map_paths = []
     while "--maps" in argv:
         i = argv.index("--maps")
         if i + 1 >= len(argv):
-            sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] | descrec.py dump record.bin | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
+            sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] [--sizes TOML_B] | descrec.py dump record.bin [--sizes TOML_B] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
         map_paths.append(argv[i + 1])
         del argv[i:i + 2]
     if len(argv) == 3 and argv[0] == "drivers":
@@ -3356,7 +3383,7 @@ if __name__ == "__main__":
                 open(fn, "w").write(txt)
         sys.exit(0)
     if len(argv) not in (2, 3) or argv[0] not in ("compile", "dump", "ldfrag") or (argv[0] == "compile" and ops_file is None and "--ops" in sys.argv):
-        sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] | descrec.py dump record.bin | descrec.py ldfrag toml_a.toml out.ld [--maps DIR_OR_FILE ...] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
+        sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] [--sizes TOML_B] | descrec.py dump record.bin [--sizes TOML_B] | descrec.py ldfrag toml_a.toml out.ld [--maps DIR_OR_FILE ...] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
     try:
         if argv[0] == "compile":
             blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths))
