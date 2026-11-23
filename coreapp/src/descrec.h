@@ -72,9 +72,9 @@
 //        21 identity       4 words: id (string, 4 printable ASCII characters), build flag (0 or 1), build (0 without the flag), block (string: the base-owned block that has the readable
 //                          properties "id" and "build")
 //        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
-//                          size 1 .. 0x100000, first property, count), the properties (8 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count), the
+//                          size 1 .. 0x100000, first property, count), the properties (9 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count, element count 1 .. DR_PROP_COUNT_MAX), the
 //                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
-//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register lies inside its block, two properties share a byte only when
+//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register (or the run of its elements) lies inside its block, two properties share a byte only when
 //                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
@@ -157,6 +157,7 @@
 #define DR_FIELDS 512
 #define DR_STATES 1024
 #define DR_PROPS_PER_BLOCK 64
+#define DR_PROP_COUNT_MAX 0x10000
 #define DR_FIELDS_PER_PROP 32
 #define DR_STATES_PER_OWNER 64
 #define DESCREC_KEY_MAX 0x1FF                     // the largest key code of a key row
@@ -227,6 +228,7 @@ struct DescProp {
     const char *name;
     uint32_t offset, width, dir;                  // bytes from the block; 8, 16 or 32 bits; DR_DIR_R | DR_DIR_W
     uint32_t first_field, nfield, first_state, nstate;
+    uint32_t count;                               // elements: a run of registers of this width at consecutive offsets (1 for a single register); fields and states hold for every element
 };
 struct DescBlock {
     DescWindow win;                               // name, address and size: io.window hands the block out like a window

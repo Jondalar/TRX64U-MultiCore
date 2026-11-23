@@ -210,10 +210,10 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         return r.fail("description record, section %s: cut off", nm);
     }
     const uint32_t nb = W(0), np = W(1), nf = W(2), ns = W(3);
-    if (nb < 1 || nb > DR_BLOCKS || np > DR_PROPS || nf > DR_FIELDS || ns > DR_STATES || len != 16 + 4 * (7 * nb + 8 * np + 5 * nf + 2 * ns)) {
+    if (nb < 1 || nb > DR_BLOCKS || np > DR_PROPS || nf > DR_FIELDS || ns > DR_STATES || len != 16 + 4 * (7 * nb + 9 * np + 5 * nf + 2 * ns)) {
         return r.fail("description record, section %s: the counts or the length do not fit", nm);
     }
-    const uint32_t bo = 4, po = bo + 7 * nb, fo = po + 8 * np, so = fo + 5 * nf;
+    const uint32_t bo = 4, po = bo + 7 * nb, fo = po + 9 * np, so = fo + 5 * nf;
     for (uint32_t i = 0; i < ns; i++) {
         m->states[i].name = r.str(W(so + 2 * i), &bad);
         m->states[i].value = W(so + 2 * i + 1);
@@ -228,14 +228,15 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
     }
     for (uint32_t i = 0; i < np; i++) {
         DescProp &p = m->props[i];
-        p.name = r.str(W(po + 8 * i), &bad);
-        p.offset = W(po + 8 * i + 1);
-        p.width = W(po + 8 * i + 2);
-        p.dir = W(po + 8 * i + 3);
-        p.first_field = W(po + 8 * i + 4);
-        p.nfield = W(po + 8 * i + 5);
-        p.first_state = W(po + 8 * i + 6);
-        p.nstate = W(po + 8 * i + 7);
+        p.name = r.str(W(po + 9 * i), &bad);
+        p.offset = W(po + 9 * i + 1);
+        p.width = W(po + 9 * i + 2);
+        p.dir = W(po + 9 * i + 3);
+        p.first_field = W(po + 9 * i + 4);
+        p.nfield = W(po + 9 * i + 5);
+        p.first_state = W(po + 9 * i + 6);
+        p.nstate = W(po + 9 * i + 7);
+        p.count = W(po + 9 * i + 8);
     }
     if (bad) {
         return r.fail("description record, section %s: a name is missing or outside the string table", nm);
@@ -275,15 +276,15 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         prop_at += d.nprop;
         for (uint32_t k = 0; k < d.nprop; k++) {
             const DescProp &p = m->props[d.first_prop + k];
-            if (!id_ok(p.name) || (p.width != 8 && p.width != 16 && p.width != 32) || p.dir < 1 || p.dir > 3 || (uint64_t)p.offset + p.width / 8 > d.win.size) {
-                return r.fail("description record, section %s: block \"%s\", property %u has no name of a-z 0-9 _, or a width that is not 8, 16 or 32, or a direction that is not 1 .. 3, or lies outside the block", nm, d.win.name, (unsigned)(k + 1));
+            if (!id_ok(p.name) || (p.width != 8 && p.width != 16 && p.width != 32) || p.dir < 1 || p.dir > 3 || p.count < 1 || p.count > DR_PROP_COUNT_MAX || (uint64_t)p.offset + (uint64_t)p.count * (p.width / 8) > d.win.size) {
+                return r.fail("description record, section %s: block \"%s\", property %u has no name of a-z 0-9 _, or a width that is not 8, 16 or 32, or a direction that is not 1 .. 3, or a count outside 1 .. %d, or lies outside the block", nm, d.win.name, (unsigned)(k + 1), DR_PROP_COUNT_MAX);
             }
             for (uint32_t j = 0; j < k; j++) {
                 const DescProp &q = m->props[d.first_prop + j];
                 if (!strcmp(p.name, q.name)) {
                     return r.fail("description record, section %s: block \"%s\": the property \"%s\" twice", nm, d.win.name, p.name);
                 }
-                if (p.offset < q.offset + q.width / 8 && q.offset < p.offset + p.width / 8 && (p.dir & q.dir)) {
+                if ((uint64_t)p.offset < (uint64_t)q.offset + (uint64_t)q.count * (q.width / 8) && (uint64_t)q.offset < (uint64_t)p.offset + (uint64_t)p.count * (p.width / 8) && (p.dir & q.dir)) {
                     return r.fail("description record, section %s: block \"%s\": the property \"%s\" shares a byte and a direction with \"%s\"", nm, d.win.name, p.name, q.name);
                 }
             }

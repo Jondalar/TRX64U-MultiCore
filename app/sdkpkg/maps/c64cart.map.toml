@@ -1,5 +1,5 @@
 # The map of the cartridge page of trx_io (coreapp/cores/c64_regs.h C64_CART_*, used by coreapp/cores/c64_cart.cc): offsets are bytes from the block's address
-# (the block of that register range, D34). The descriptor at +0x40 (43 bytes, written byte by byte) is not a register and is not in the map.
+# (the block of that register range, D34). The descriptor at +0x40 is a run of 43 byte registers (trx_io.v: off 0x040 .. 0x06A), the property "desc"; the block is at least 0x6B bytes.
 map = "c64cart"
 
 [[property]]
@@ -140,3 +140,10 @@ dir = "r"
   name = "ef3_banking"
   shift = 1
   bits = 1
+
+[[property]]
+name = "desc"
+offset = 0x40
+width = 8
+count = 43
+dir = "w"

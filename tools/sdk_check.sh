@@ -57,6 +57,7 @@ python3 "$P/tools/descrec.py" compile toma.toml toma.bin --maps "$P/maps" >/dev/
 # the driver table of that TOML A (api.md 6.15): a block has its macro, and the ICAP block the file lacks has none
 python3 "$P/tools/descrec.py" drivers toma.toml drv --maps "$P/maps" >/dev/null 2>&1 || fail "the driver table of a TOML A is not generated from the package"
 grep -q -F '#define DRV_cart_fl_enable_WR(v)' drv/drvtab.h && [ -f drv/drvtab.c ] || fail "the driver table lacks the register macro of a block"
+grep -q -F '#define DRV_cart_desc_COUNT 43u' drv/drvtab.h && grep -q -F '#define DRV_cart_desc_WR(i, v)' drv/drvtab.h || fail "the driver table lacks the count and the indexed access of a run of registers"
 ! grep -q -F 'DRV_HAS_icap' drv/drvtab.h || fail "the driver table names a block the TOML A does not have"
 # every object of both sources was made (lib.mk compiles every file of LIB_SRCS)
 [ -f example.o ] && [ -f greet.o ] || fail "an object of LIB_SRCS is missing"
