@@ -44,7 +44,7 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/app_build.py tools/rtl_check.py tools/cor_pack.py tools/menusim tools/gen_base_ui.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/coreapp LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/sdk_core_app.sh tools/app_build.py tools/rtl_check.py tools/cor_pack.py tools/menusim tools/gen_base_ui.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/coreapp cores/vc20/app LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
@@ -53,11 +53,14 @@ fi
 # The table also holds the C64 ("TRX2", T104.2), but `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's
 # application for it, and the C64 descriptor is for the TRX64 Ultimate monolith (coreapp.bin from this stage, staged over JTAG).
 # Every core whose core.toml says blueprint is in the list below. The A1200 runs the generic image since 2026-10-20 (T104, Alex: "Yes of
-# course ... A1200 with the new app in a core please", translated), vc20 and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
+# course ... A1200 with the new app in a core please", translated), vc20 (since V-4 its own app, SDK_OWN_APPS) and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
 # switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
-# to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. coreapp/cores/vc20.cc and c264.cc
+# to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. cores/vc20/app/lib/vc20.cc and coreapp/cores/c264.cc
 # replace the machine code of the fork branch t90-c16app.
-BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet amiga ddt_novic diag}"
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo c264 pet amiga ddt_novic diag}"
+# T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the
+# shared image. The VIC-20 is the first (S11); the shared image still holds its code (CORE_OWN_IMAGE_VC20 only leaves it out of the table), the packages' coreapps/vc20.app is the linked app.
+SDK_OWN_APPS="${SDK_OWN_APPS:-vc20}"
 # T228 R25 (Alex 2026-11-18): the cores with a core app image of their own, <name>:<descriptor>:<heap>. Linked from the objects of the shared
 # image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).
 # trx64u: 0x950000 (the shared image keeps 0x7A0000). Its own image ends its static part at 12.4 MB of the 14.4 MB region with 0x7A0000;
@@ -200,6 +203,13 @@ else
   nice -n 15 make -C "$H/u64ii/riscv/coreapp" sdkbase
   SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out" "$H/u64ii/riscv/coreapp/output/sdkbase"
   RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
+  # T239.3 V-4 (S11): the app of each core of SDK_OWN_APPS, linked from the unpacked package alone against its TOML A and TOML B; the check of its link map is in the script. coreapps/<core>.app is the
+  # linked image (cor_pack takes the .bin, as for the shared image above), <core>.map beside it.
+  for c in $SDK_OWN_APPS; do
+    RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_core_app.sh" "$out"/trx64-sdk-*.tar.gz "$c" "$out/coreapps"
+  done
+  # S12: the cbm1541 library of the VIC-20's TOML B is the one of the shared app's (and so of trx64u's own image, which is linked from the same objects), and both link maps have its sources as inputs
+  python3 -I "$B/tools/libtab.py" samelib "$B/coreapp/libs/shared.toml" "$B/cores/vc20/app/sdk.toml" cbm1541 "$H/u64ii/riscv/coreapp/output/coreapp_trx64u.map" "$out/coreapps/vc20.map"
 
   if [ -n "$cache" ]; then
     mkdir -p "$cache.tmp.$$"

@@ -103,5 +103,42 @@ class Planted(unittest.TestCase):
         self.assertEqual(L.symcheck(libs, o, d), ([], []))
 
 
+VC20_B = os.path.join(ROOT, "cores", "vc20", "app", "sdk.toml")
+
+
+class Vic20App(unittest.TestCase):
+    """T239.3 V-4 (S11, S12): the TOML B of the VIC-20's own app."""
+
+    def test_the_toml_b_loads_and_its_files_exist(self):
+        libs = L.load(VC20_B)
+        self.assertEqual([lib["name"] for lib in libs], ["vc20", "cbm1541", "cbmrun", "cbmprg"])
+        own = os.path.join(ROOT, "cores", "vc20", "app", "lib")
+        for lib in libs:
+            for f in lib["sources"] + lib.get("headers", []):
+                self.assertTrue(os.path.isfile(os.path.join(own, f)) or L.find_file(ROOT, f), "%s of library %s is in none of the source directories" % (f, lib["name"]))
+        app = D.toml_loads(open(VC20_B).read())["app"]
+        self.assertEqual(app["desc"], "vc20_desc")
+        self.assertIn("const CoreDesc vc20_desc", open(os.path.join(own, "vc20.cc")).read())
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, "cores", "vc20", "app", app["toml_a"])))
+        for f in app["base_sources"]:
+            self.assertTrue(os.path.isfile(os.path.join(ROOT, "coreapp", "cores", f)))
+
+    def test_it_names_no_library_the_core_does_not_use(self):
+        # S11: the shared app links every library; the VIC-20 has the drive, the PRG run and its own code, nothing of the cartridge, UCI, SID, DMA, the temp disk, T64 or online search
+        names = {lib["name"] for lib in L.load(VC20_B)}
+        self.assertEqual(names & {"c64cart", "uci", "sid", "dma", "tempdisk", "t64", "online"}, set())
+
+    def test_the_drive_library_is_the_shared_one(self):
+        # S12: the same sources and entries as the shared app's, which trx64u's own image links
+        self.assertEqual(L.samelib(L.load(SHARED), L.load(VC20_B), "cbm1541"), [])
+
+    def test_a_link_map_with_what_the_toml_b_names_passes(self):
+        libs = L.load(VC20_B)
+        objs = ["obj/%s.o" % os.path.splitext(f)[0] for lib in libs for f in lib["sources"]] + ["obj/portdiag.o", "obj/table.o", "lib/libtrxbase.a(ops.o)", "lib/libtrxbase.a(settings.o)"]
+        text = "Linker script and memory map\n" + "".join(" .text 0x1000 0x20 %s\n" % o for o in objs)
+        self.assertEqual(L.mapcheck(libs, L.load(SHARED), text, ROOT, ["portdiag.cc"]), [])
+        self.assertEqual(L.samelib(L.load(SHARED), libs, "cbm1541", [], text=lambda p: text), [])
+
+
 if __name__ == "__main__":
     unittest.main()

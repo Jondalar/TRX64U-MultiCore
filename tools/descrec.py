@@ -3162,7 +3162,39 @@ def ldfrag(text, maps=None, what="TOML A"):
     `__reg_<block>_<property>` (the address plus the offset) for every block and property. The headers take the two bases from these symbols and a driver takes
     its registers from them, so no address is a literal in the code. [io] and [[block]] are checked as in a record; [identity] is checked when there is one
     (a fragment of two bases and a few blocks needs none)."""
-    doc = resolve_maps(toml_loads(text), maps)
+    return ldfrag_doc(resolve_maps(toml_loads(text), maps), what)
+
+
+def merge_toml_a(core, base, names, what="TOML A"):
+    """The TOML A an app is linked against when the core's own TOML A (`core`, a parsed document) names the blocks of its own gateware only (T239.3 V-4, D30): the base's blocks
+    that the app's TOML B asks for by name (`names`, [app] base_blocks) come from `base` (the SDK's gateware/shared.toml), the core's own blocks and its identity are the core's.
+    Refused: a name `base` does not have, a name the core's file has too, two different [io] tables. Nothing else of `base` is in the result, so the driver table, the linker
+    fragment and the link hold the blocks the two files name and no others. The overlap rule of a record (compile_desc) applies to the result."""
+    for doc, n in ((core, "the core's TOML A"), (base, "the base's TOML A")):
+        extra = set(doc) - set(TOMLA_KEYS)
+        if extra:
+            raise DescError("%s: %s: %s is not a table of TOML A" % (what, n, ", ".join(sorted(extra))))
+    if core.get("io") != base.get("io"):
+        raise DescError("%s: the [io] of the core's TOML A (%s) is not the base's (%s)" % (what, core.get("io"), base.get("io")))
+    have = {b["name"]: b for b in base.get("block", [])}
+    own = {b["name"] for b in core.get("block", [])}
+    blocks = []
+    for n in names:
+        if n not in have:
+            raise DescError("%s: base_blocks names %s, which the base's TOML A does not have (it has: %s)" % (what, n, ", ".join(sorted(have))))
+        if n in own:
+            raise DescError("%s: base_blocks names %s, which the core's TOML A has too" % (what, n))
+        if any(b["name"] == n for b in blocks):
+            raise DescError("%s: base_blocks names %s twice" % (what, n))
+        blocks.append(have[n])
+    out = {"io": core["io"], "block": blocks + list(core.get("block", []))}
+    if "identity" in core:
+        out["identity"] = core["identity"]
+    return out
+
+
+def ldfrag_doc(doc, what="TOML A"):
+    """ldfrag of a document that has been read and had its maps resolved."""
     extra = set(doc) - set(TOMLA_KEYS)
     if extra:
         raise DescError("%s: %s is not a table of TOML A" % (what, ", ".join(sorted(extra))))

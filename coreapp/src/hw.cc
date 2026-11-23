@@ -322,7 +322,19 @@ public:
         return 0;                                    // no ICAP block linked: board_detect() takes the profile of a standalone installation
 #endif
     }
-    uint32_t fpga_caps() { return getFpgaCapabilities(); }
+    // A probe asks for a capability of a block; an app linked against a TOML A without that block has no such probe (T239.3 V-4): the drive bit is read only with the block drive_a, the
+    // command interface bit only with the block cmd_if. The bits of the capabilities without a block in TOML A (the cartridge, the ring, the IEC version) are still read.
+    uint32_t fpga_caps()
+    {
+        uint32_t c = getFpgaCapabilities();
+#ifndef DRV_HAS_drive_a
+        c &= ~BOARD_FPGA_DRIVE_1541_1;
+#endif
+#ifndef DRV_HAS_cmd_if
+        c &= ~BOARD_FPGA_COMMAND_INTF;
+#endif
+        return c;
+    }
     uint8_t trx_caps() { return DRV_ident_caps_RD(); }
     uint8_t iec_version() { return ioRead8(IEC_BASE); }
     bool handover_valid()

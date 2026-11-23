@@ -13,10 +13,11 @@
                                                            a source with none is read as text
   app_build.py pack-base BASE_DIR PKG_DIR SHARED_TOML_B   what tools/sdk_pack.sh takes from the build's `make sdkbase` directory into the package (base/, lib/)
   app_build.py flags MAKEFILE APPFLAGS                     every -D of the core app Makefile's OPTIONS is in app/lib/appflags.mk (the package compiles with that file)
-  app_build.py build --sdk DIR --toml-a A.toml --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--dry-run]
+  app_build.py build --sdk DIR [--toml-a A.toml] [--base-toml-a BASE.toml] --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--dry-run]
                                                            generates appsizes.h, the driver table (drvtab.h/.c), the library table (libtab_table.cc), the I/O linker fragment and
                                                            checks the record; then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
-                                                           that depend on the core, the libraries of the TOML B
+                                                           that depend on the core, the libraries of the TOML B. A TOML B whose [app] has `base_blocks = [names]` links the core's TOML A
+                                                           with those blocks of the base's TOML A (--base-toml-a, default the package's gateware/shared.toml); out/blocks.txt lists the blocks
 
 The [sizes] table of a TOML B (every key is optional; a key that is not there keeps the default of the header). The registry, the contributions and the report are sized per core;
 a core that needs more registry than the shared app has says so here and pays for it in its own image only. A number outside its range, or a number its neighbours cannot hold, is refused."""
@@ -29,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import descrec  # noqa: E402
 
+IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 COUNT = (1, 65535)
 BYTES = (256, 1 << 22)
 # key -> (macro, header, (lowest, highest), what it is)
@@ -255,6 +257,13 @@ def cmd_split(incdirs, out, sources):
     """Writes OUT/sized.real and OUT/unsized.real: the real paths of the sources that depend on the core and of the ones that do not."""
     os.makedirs(out, exist_ok=True)
     srcs = [os.path.realpath(s) for s in sources]
+    root = os.path.join(out, "root.txt")
+    if os.path.isfile(root):                                   # the code that goes to TRX64-Ultimate (check_d24.D12_TRX64U: the ring, the monitor, trx64u_ops, u64cfg, trxmon) is no part of the base:
+        import check_d24                                       # an app that wants it links it from its own repository (T239.3 D21, V-4)
+        top = os.path.realpath(open(root).read().strip())
+        gone = [s for s in srcs if any(re.fullmatch(rx, os.path.relpath(s, top)) for rx in check_d24.D12_TRX64U)]
+        srcs = [s for s in srcs if s not in gone]
+        write_if_changed(os.path.join(out, "trx64u_code.real"), "".join(s + "\n" for s in gone))
     hit = set(sized(incdirs, srcs))
     for name, lst in (("sized.real", [s for s in srcs if s in hit]), ("unsized.real", [s for s in srcs if s not in hit])):
         write_if_changed(os.path.join(out, name), "".join(s + "\n" for s in lst))
@@ -299,8 +308,15 @@ def cmd_build(a):
     if a.get("record"):
         cmd_record(a["toml-b"], a["record"], incs)
     py = [sys.executable, "-I"]
-    run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv"), "--maps", maps])
-    run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld"), "--maps", maps])
+    app = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {})
+    base_blocks = app.get("base_blocks", [])
+    if not isinstance(base_blocks, list) or not all(isinstance(x, str) and IDENT.match(x) for x in base_blocks):
+        raise BuildError("%s: [app] base_blocks is a list of block names of the base's TOML A" % a["toml-b"])
+    if base_blocks:
+        merge_a(a, base_blocks, maps, out)
+    else:
+        run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv"), "--maps", maps])
+        run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld"), "--maps", maps])
     run(py + [os.path.join(tools, "libtab.py"), "table", a["toml-b"], os.path.join(out, "lib")])
     libsrcs = run(py + [os.path.join(tools, "libtab.py"), "sources", a["toml-b"]]).split()
     srcdirs = [os.path.abspath(d) for d in a.get("src", [])]
@@ -308,7 +324,6 @@ def cmd_build(a):
         if not find_source(sdk, srcdirs, f):
             raise BuildError("the source %s of a library of %s is in the package's base/ and in none of %s" % (f, a["toml-b"], ", ".join(srcdirs) or "(no --src)"))
     sized_list = open(os.path.join(sdk, "base", "SIZED.txt")).read().split()
-    app = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {})
     desc = app.get("desc", "")
     if desc and not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", str(desc)):
         raise BuildError("%s: [app] desc is the name of the core's descriptor symbol" % a["toml-b"])
@@ -332,6 +347,26 @@ def cmd_build(a):
     r = subprocess.run(cmd)
     if r.returncode != 0:
         raise BuildError("the link of the app failed")
+
+
+def merge_a(a, base_blocks, maps, out):
+    """The app's TOML A is the core's own (--toml-a) with the blocks of the base's TOML A that [app] base_blocks names (descrec.merge_toml_a); the base's is --base-toml-a, the
+    package's gateware/shared.toml when none is given. The driver table and the I/O fragment are made of that one document, as `descrec.py drivers` and `ldfrag` do for a file."""
+    base = a.get("base-toml-a") or os.path.join(a["sdk"], "gateware", "shared.toml")
+    try:
+        doc = descrec.merge_toml_a(descrec.toml_loads(open(a["toml-a"]).read()), descrec.toml_loads(open(base).read()), base_blocks, a["toml-b"])
+        doc = descrec.resolve_maps(doc, descrec.load_maps([maps]))
+        what = "%s + %s of %s" % (os.path.basename(a["toml-a"]), ", ".join(base_blocks), os.path.basename(base))
+        head, src = descrec.drivers_files(doc, what)
+        frag = descrec.ldfrag_doc(doc, what)
+    except (descrec.DescError, OSError) as e:
+        raise BuildError("%s: the TOML A of the app: %s" % (a["toml-b"], e))
+    os.makedirs(os.path.join(out, "drv"), exist_ok=True)
+    write_if_changed(os.path.join(out, "drv", "drvtab.h"), head)
+    write_if_changed(os.path.join(out, "drv", "drvtab.c"), src)
+    write_if_changed(os.path.join(out, "io.ld"), frag)
+    with open(os.path.join(out, "blocks.txt"), "w") as f:            # what the TOML A names, for the check of the link (libtab.py mapcheck)
+        f.write("".join("%s\n" % b["name"] for b in doc["block"]))
 
 
 def find_source(sdk, srcdirs, name):
@@ -382,7 +417,7 @@ def main(argv):
                 if k == "--dry-run":
                     a["dry-run"] = True
                     i += 1
-                elif k in ("--sdk", "--toml-a", "--toml-b", "--out", "--record", "--src") and i + 1 < len(argv):
+                elif k in ("--sdk", "--toml-a", "--base-toml-a", "--toml-b", "--out", "--record", "--src") and i + 1 < len(argv):
                     if k == "--src":
                         a["src"].append(argv[i + 1])
                     else:
@@ -391,6 +426,10 @@ def main(argv):
                 else:
                     break
             else:
+                if "toml-a" not in a and "toml-b" in a and os.path.isfile(a["toml-b"]):         # [app] toml_a of the TOML B, a file beside it
+                    ta = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {}).get("toml_a")
+                    if isinstance(ta, str):
+                        a["toml-a"] = os.path.join(os.path.dirname(os.path.abspath(a["toml-b"])), ta)
                 if all(x in a for x in ("sdk", "toml-a", "toml-b", "out")):
                     cmd_build(a)
                     return 0
