@@ -114,6 +114,11 @@ Draft. It is completed when the open questions of §3 are decided.
   menu after an operation of its own (`closes_menu`, api.md 1621, 1683). Lost: a modal hidden menu (the machine frozen, the keys
   to the library through a new key callback).
 
+- **D8** (Alex, 2026-11-23): an element's place comes from the TOML. Asked where a library element's place on the 960x540
+  canvas comes from, he chose "From the TOML": the core's UI TOML names each element with its anchor, offset and size, as the
+  menu rows take their place from the TOML (T239.3 D32), and the menu simulator shows it. The library's call hands over the
+  surface and redraws it. Lost: a place the library sets at run time, from the call or as a move beside a TOML default.
+
 The other decisions are asked one at a time and recorded here.
 
 ## §4 Out
