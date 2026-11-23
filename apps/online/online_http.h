@@ -30,7 +30,8 @@ struct HttpOut {
 };
 
 // GET `path` (already URL encoded, begins with "/") from host:80. `client_id` is the value of the header Client-Id. A body of more than `max_body` bytes is refused (HTTP_TOO_BIG).
-// Blocks the calling task (SvcNet::connect says: not the menu task, not the executor task is the base's rule for a library; an operation handler runs on the executor).
+// Blocks the calling task, for up to HTTP_CONNECT_MS to connect and HTTP_IDLE_MS for each quiet gap of the answer. SvcNet::connect forbids the menu task and the executor task (api.md 1.3.9),
+// and this client is called from both (the form's operations run on the executor, a listing or a download of the file manager on the menu task): api.md 9.5.11 states that, the exemption is Alex's to decide.
 int http_get(const HttpEnv &env, const char *host, const char *path, const char *client_id, uint32_t max_body, HttpOut *out);
 
 #define HTTP_CONNECT_MS 10000    // the time a connection may take

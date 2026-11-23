@@ -554,10 +554,15 @@ int main(int argc, char **argv)
             { "F5", "flat", "Flat", TW_NODES, 0, 0 },
         };
         static const char *const looks[] = { "split;title=Look;side=Side", 0 };
+        static const LibNodeDecl lnodes[] = {                                      // a tab without a node is dropped from the strip
+            { "F5/looked", LN_OP, "In looked", "zl.beep", 0, 1 },
+            { "F5/flat", LN_OP, "In flat", "zl.beep", 0, 1 },
+        };
         LibRecord rec;
         memset(&rec, 0, sizeof(rec));
         rec.struct_size = sizeof(rec);
         rec.tabs = tabs; rec.ntabs = 2;
+        rec.nodes = lnodes; rec.nnodes = 2;
         rec.tab_layouts = looks;
         Contributor cs[] = { { "looker", CR_LIB, &rec } };
         for (int variant = 0; variant < 3; variant++) {

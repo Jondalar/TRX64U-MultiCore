@@ -1,4 +1,4 @@
-// The few text helpers the online sub-app uses. An application image has no C library: sdk/libc.c gives memcpy, memset, strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strrchr
+// The few text helpers the online sub-app uses. An application image has no C library: sdk/libc.c gives memcpy, memmove, memset, memcmp, strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strrchr
 // and nothing else, so no snprintf, no strcasecmp, no strstr. These are the same calls over plain loops; the host test compiles the very same file.
 #ifndef APPS_ONLINE_OTEXT_H
 #define APPS_ONLINE_OTEXT_H
