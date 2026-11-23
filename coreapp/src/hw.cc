@@ -249,11 +249,16 @@ CoreIo *hw_io(void)
     return &io;
 }
 
-#define ICAP_ID_REG   (*(volatile uint8_t *)0x10060600)
-#define ICAP_DATA_REG (*(volatile uint8_t *)0x10060610)
-#define ICAP_EN_REG   (*(volatile uint8_t *)0x10060614)
-#define ICAP_DC_REG   (*(volatile uint8_t *)0x10060620)
-#define ICAP_CNT_REG(i) (*(volatile uint8_t *)(0x10060618 + (i)))
+// The ICAP block's registers (map icap) are linker symbols: the link fragment of the build (tools/descrec.py ldfrag, T239.3 P1-2) gives each its address.
+extern "C" {
+extern char __reg_icap_id[], __reg_icap_data[], __reg_icap_enable[], __reg_icap_decouple[], __reg_icap_release[];
+extern char __reg_icap_count0[], __reg_icap_count1[], __reg_icap_count2[], __reg_icap_count3[];
+}
+#define ICAP_ID_REG      (*(volatile uint8_t *)__reg_icap_id)
+#define ICAP_DATA_REG    (*(volatile uint8_t *)__reg_icap_data)
+#define ICAP_EN_REG      (*(volatile uint8_t *)__reg_icap_enable)
+#define ICAP_DC_REG      (*(volatile uint8_t *)__reg_icap_decouple)
+#define ICAP_RELEASE_REG (*(volatile uint8_t *)__reg_icap_release)
 
 namespace {
 
@@ -287,7 +292,11 @@ public:
         }
     }
     void end() { ICAP_EN_REG = 0; }
-    uint32_t words() { return ICAP_CNT_REG(0) | (ICAP_CNT_REG(1) << 8) | (ICAP_CNT_REG(2) << 16) | ((uint32_t)ICAP_CNT_REG(3) << 24); }
+    uint32_t words()
+    {
+        return *(volatile uint8_t *)__reg_icap_count0 | (*(volatile uint8_t *)__reg_icap_count1 << 8) | (*(volatile uint8_t *)__reg_icap_count2 << 16)
+               | ((uint32_t)*(volatile uint8_t *)__reg_icap_count3 << 24);
+    }
 };
 
 }
@@ -477,7 +486,7 @@ void hw_release_expansion_port(void)
     if (ICAP_ID_REG != 0x7A) {
         return;
     }
-    *(volatile uint8_t *)0x10060621 = 1;
+    ICAP_RELEASE_REG = 1;
     printf("[core] expansion port released\n");
 }
 

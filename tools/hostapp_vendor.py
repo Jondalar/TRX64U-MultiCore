@@ -46,6 +46,8 @@ MODIFIED = {
     "filemanager/file_device.cc": "T111: a list of all FileDevices and find(name); release_volume(), the unmount the format needs (detach_disk is not changed)",
     "filemanager/file_device.h": "T111: declares them and get_block_device()",
     "lvgl_port/trx_lv_port.cc": "T101: UI_RES (scale and PX_POS from the build); T93 D9: trx_lv_suspend() / trx_lv_resume(), the layer handed to a core's picture and back; 5.14: trx_lv_refresh_now()",
+    "system/iomap.h": "T239.3 P1-2: on RISC-V IOBASE is the linker symbol __iobase (the link fragment of tools/descrec.py ldfrag), no -D and no default; a host build keeps the old value",
+    "system/u2p.h": "T239.3 P1-2: on RISC-V U2P_IO_BASE is the linker symbol __u2p_io_base (the link fragment of tools/descrec.py ldfrag), no -D and no default; a host build keeps the old value",
     "lvgl_port/trx_lv_port.h": "T93 D9 and 5.14: declares them; T101: UI_RES, TRX_LV_SCALE/X0/Y0",
 }
 THIRD = {"lwip", "lvgl", "FreeRTOS", "chan_fat", "httpd"}

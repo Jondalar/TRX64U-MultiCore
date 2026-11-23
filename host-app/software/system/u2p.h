@@ -10,8 +10,20 @@
 
 #include <stdint.h>
 
-#ifndef U2P_IO_BASE
-#define U2P_IO_BASE 0xA0000000
+#if defined(__riscv)
+#ifdef U2P_IO_BASE
+#error "U2P_IO_BASE comes from the link fragment (tools/descrec.py ldfrag), not from -D"
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern char __u2p_io_base[];
+#ifdef __cplusplus
+}
+#endif
+#define U2P_IO_BASE ((uintptr_t)__u2p_io_base)
+#elif !defined(U2P_IO_BASE)
+#define U2P_IO_BASE 0xA0000000  // a build on a host machine (tests): no board, no link fragment
 #endif
 
 #define DDR2_BASE       (U2P_IO_BASE + 0x0100)
