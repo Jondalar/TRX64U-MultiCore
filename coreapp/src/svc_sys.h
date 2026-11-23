@@ -1,7 +1,6 @@
 // Base 3.3, members added to `SvcSys` (svctab.h; T239.3 section 5, boundary rows 4.3, 11.6).
 //
-// They are appended to SvcSys after `machine_handover`, in this order, with the names below, when 3.3 is built (svctab.h is changed then; another branch
-// holds it until 3.2 is in). SvcSys::size covers them, so a library tests `U2P_HAS`-style (api->sys->size) before it calls one. SvcSysAdd is the same
+// They are appended to SvcSys after `machine_handover`, in this order, with the names below (svctab.h has them since base 3.3). SvcSys::size covers them, so a library tests `U2P_HAS`-style (api->sys->size) before it calls one. SvcSysAdd is the same
 // list as a struct of its own, so this header compiles alone and the TRX64-Ultimate libraries have the signatures now.
 //
 // A call without a context argument acts on the running core. No call takes a CoreCtx.

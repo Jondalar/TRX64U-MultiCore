@@ -13,7 +13,7 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 | Folder | Content |
 |---|---|
 | `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
-| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes, `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`. |
+| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_fs.h`, `svc_sys.h`), `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h` and the export tables a library finds with `api->lib->find` (`c64_api.h`, `c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `uci_api.h`, `sid_api.h`, `tempdisk_api.h`). `tools/sdk_api.py headers` lists them. |
 | `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
 | `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle). |
@@ -153,12 +153,10 @@ make test
 
 ## Not in this package yet
 
-- The ABI document: the services of `LibApi`, `OpArgs`/`OpOut` and the bindings of the menu record. Today the comments of the headers are
-  the only description.
 - The menu simulator. It builds from the sources of the core application.
 - The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
 - The image of TRX64U (`coreapp_trx64u.bin`). It goes when the TRX64U parts are libraries (T239.3 D12) or when its own image is dropped (D15).
-- The shared 1541 drive library. It uses the core application's `CoreIo` and file headers, which are not public.
+- The code of the shared 1541 drive library. Its export table `cbm1541_api.h` is public; the library itself uses the core application's `CoreIo` and file headers, which are not.
 - The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.
 

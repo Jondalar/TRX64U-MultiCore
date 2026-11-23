@@ -1,5 +1,5 @@
 // Base 3.3, a second listing call for `SvcFs` (T239.3 section 5; boundary 3.4): `SvcFsEntry` is frozen at 72 bytes with a 56 byte name (the app ABI), so a name of up to 255
-// characters needs an entry of its own. The call is appended to SvcFs after `rename` (svctab.h is changed when 3.3 is built); SvcFsAdd is the same member as a struct of
+// characters needs an entry of its own. The call is appended to SvcFs after `rename` (svctab.h has it since base 3.3); SvcFsAdd is the same member as a struct of
 // its own so that this header compiles alone. No other member of SvcFs changes; `CoreFs::open(rw)` needs no create flag (`save(path, "", 0)` first, then `open(path, true)`).
 #ifndef COREAPP_SVC_FS_H
 #define COREAPP_SVC_FS_H

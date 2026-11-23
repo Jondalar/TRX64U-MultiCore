@@ -6,7 +6,7 @@
 //
 // Index rule: `find` gives an index that is valid while `generation` is unchanged. The core application makes a new Settings object when it merges what the
 // libraries contribute (run.cc) and when a config is loaded (rebind), and every such change counts `generation` up. A library that keeps indexes
-//  compares the generation before it uses one and finds the keys again when it changed. The base keeps the lookup cache; keys are compared by content.
+//  compares the generation before it uses one and finds the keys again when it changed. `find` compares the keys by content, with no lookup cache (a cache is not built).
 //
 // Contracts of the whole group:
 //   - No call takes a CoreCtx.
@@ -95,8 +95,8 @@ typedef struct SvcSettings {
 //   "Mouse Acceleration"              "Off", "Adaptive"; default 0.
 //   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
 //   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
-// The base declares the five for every core with a mouse. Two cores declare them today, one in its menu TOML (all five) and the Amiga in cores/amiga.cc
-// (Mouse Sensitivity and Mouse Acceleration, with the same keys and values); both drop their declarations when 3.3 is built.
+// The base does not declare them yet: two cores declare them today, one in its menu TOML (all five) and the Amiga in cores/amiga.cc (Mouse Sensitivity and Mouse
+// Acceleration, with the same keys and values). The base's declaration for every core with a mouse, and the removal of those two, are not built.
 
 #ifdef __cplusplus
 }

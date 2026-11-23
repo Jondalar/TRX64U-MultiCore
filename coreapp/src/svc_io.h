@@ -55,7 +55,7 @@ typedef struct SvcIo {
     void (*cart_wr)(uint32_t reg, uint8_t v);
     // The core's bus-side I/O block (CoreIo::bus_wr, bus_rd): every byte register the block has, off relative to its start (the whole block, not only the bridge registers). bus_rd is the read side of bus_wr and generic as the pair of an existing
     // window; its one user today is the ring (it reads back the video format and the DMA mode it wrote). It is new in CoreIo with a default that returns 0, and the board's
-    // HwIo reads the byte at the address when 3.3 is built; no existing call reads the block.
+    // HwIo reads the byte at the address; no call that existed before 3.3 reads the block.
     void (*bus_wr)(uint32_t off, uint8_t v);
     uint8_t (*bus_rd)(uint32_t off);
     // The EEPROM window of the cartridge port (CoreIo::eeprom_read, eeprom_write): byte 0 is the dirty flag (read: written since the last write of this byte; any write
