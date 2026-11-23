@@ -1,5 +1,6 @@
 #include "coremaint.h"
 #include "sha256.h"
+#include "descrec.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -76,7 +77,8 @@ static void first_name(const CmReq &r, char *out, int len)
     out[l] = 0;
 }
 
-void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *need, int *have, char *missing, int missing_len)
+// `core` null: every row of `reqs` is the core's (the rows of a record); else the rows of the table whose manifest name is `core`.
+static void rom_status(const CmReq *reqs, int nreq, const char *core, const CmEntry *entries, int n, int *need, int *have, char *missing, int missing_len)
 {
     *need = *have = 0;
     missing[0] = 0;
@@ -86,9 +88,9 @@ void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *ne
     for (int bit = 0; bit < 8; bit++) {
         int rows = 0, miss = 0;
         char first[56] = "";
-        for (int i = 0; i < CM_NREQ; i++) {
-            const CmReq &r = cm_reqs[i];
-            if (strcasecmp(r.core, core_name) || !(r.set & (1 << bit))) {
+        for (int i = 0; i < nreq; i++) {
+            const CmReq &r = reqs[i];
+            if ((core && strcasecmp(r.core, core)) || !(r.set & (1 << bit))) {
                 continue;
             }
             rows++;
@@ -109,9 +111,9 @@ void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *ne
             }
         }
     }
-    for (int i = 0; i < CM_NREQ; i++) {
-        const CmReq &r = cm_reqs[i];
-        if (strcasecmp(r.core, core_name) || r.set || !(r.flags & 1)) {
+    for (int i = 0; i < nreq; i++) {
+        const CmReq &r = reqs[i];
+        if ((core && strcasecmp(r.core, core)) || r.set || !(r.flags & 1)) {
             continue;
         }
         (*need)++;
@@ -135,6 +137,73 @@ void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *ne
         }
     }
 }
+
+void cm_rom_status(const char *core_name, const CmEntry *entries, int n, int *need, int *have, char *missing, int missing_len)
+{
+    rom_status(cm_reqs, CM_NREQ, core_name, entries, n, need, have, missing, missing_len);
+}
+
+void cm_rom_status_rows(const CmRows &rows, const CmEntry *entries, int n, int *need, int *have, char *missing, int missing_len)
+{
+    rom_status(rows.req, rows.n, 0, entries, n, need, have, missing, missing_len);
+}
+
+static bool row_add(CmRows *o, const char *role, const char *const *names, int nnames, const uint32_t *sizes, int flags, int set)
+{
+    if (o->n >= CM_ROWS) {
+        return false;
+    }
+    int i = o->n;
+    snprintf(o->role[i], sizeof(o->role[i]), "%s", role);
+    char *p = o->names[i];
+    p[0] = 0;
+    size_t l = 0;
+    for (int k = 0; k < nnames && names[k]; k++) {
+        size_t nl = strlen(names[k]);
+        if (l + (l ? 1 : 0) + nl + 1 > CM_ROW_NAMES) {
+            return false;                         // a name that does not fit whole would match a wrong file: refuse the row
+        }
+        if (l) {
+            p[l++] = '|';
+        }
+        memcpy(p + l, names[k], nl + 1);
+        l += nl;
+    }
+    CmReq &r = o->req[i];
+    r.core = "";
+    r.folder = "";
+    r.role = o->role[i];
+    r.names = o->names[i];
+    for (int k = 0; k < 3; k++) {
+        r.sizes[k] = sizes ? sizes[k] : 0;
+    }
+    r.flags = flags;
+    r.set = set;
+    o->n++;
+    return true;
+}
+
+bool cm_rows_from_record(const uint8_t *rec, uint32_t n, CmRows *out)
+{
+    out->n = 0;
+    DescRecord *d = new DescRecord;                  // large (the tables of a menu): on the heap, and only while a core is read
+    char why[120];
+    bool ok = descrec_parse(rec, n, d, why, sizeof(why)) == 0 && d->has_core && d->sec;
+    for (int i = 0; ok && i < d->sec->nroms; i++) {
+        const RomSpec &r = d->sec->roms[i];
+        ok = row_add(out, r.role, r.names, ROM_NAMES_MAX, r.sizes, (r.required ? 1 : 0) | (r.shared ? 2 : 0), r.set);
+    }
+    if (ok && d->sec->has_romset) {
+        const RomSetSpec &q = d->sec->romset;
+        ok = row_add(out, q.role, &q.ext, 1, q.sizes, 1 | 4, 0);
+    }
+    delete d;
+    if (!ok) {
+        out->n = 0;
+    }
+    return ok;
+}
+
 
 // ---- the scan ------------------------------------------------------------------------------------------------------------------------
 
@@ -315,7 +384,12 @@ static void scan_medium(CmFs &list, FoFs &fs, CmReport *rep, const char *medium)
         if (m < 0) {
             m = 0;
         }
-        cm_rom_status(c.name, lroms, m, &c.need, &c.have, c.missing, sizeof(c.missing));
+        static CmRows rows;                              // a record core states its own needs (record 6); the table is for the cores that have none
+        if (list.core_roms(path, &rows)) {
+            cm_rom_status_rows(rows, lroms, m, &c.need, &c.have, c.missing, sizeof(c.missing));
+        } else {
+            cm_rom_status(c.name, lroms, m, &c.need, &c.have, c.missing, sizeof(c.missing));
+        }
         for (int k = 0; k < m; k++) {
             if (!lroms[k].dir) {
                 add_cand(rep, dir, lroms[k], false);

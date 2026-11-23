@@ -19,6 +19,7 @@ struct Ram : FoFs, CmFs {
     std::map<std::string, Bytes> files;
     std::set<std::string> dirs;
     std::map<std::string, std::string> names;           // .cor path -> manifest name
+    std::map<std::string, Bytes> records;               // .cor path -> record 6 (T239.3 P1-6)
     struct H { std::string path; size_t pos; };
 
     void put(const std::string &p, size_t n, int seed)
@@ -103,7 +104,24 @@ struct Ram : FoFs, CmFs {
         snprintf(name, n, "%s", names[p].c_str());
         return true;
     }
+    bool core_roms(const char *p, CmRows *out)
+    {
+        if (!records.count(p)) return false;
+        return cm_rows_from_record(records[p].data(), (uint32_t)records[p].size(), out);
+    }
 };
+
+static bool slurp(const char *path, Bytes *b)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    uint8_t buf[4096];
+    size_t n;
+    b->clear();
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) b->insert(b->end(), buf, buf + n);
+    fclose(f);
+    return true;
+}
 
 static Ram *world()
 {
@@ -165,7 +183,7 @@ static const CmOrphan *orph_of(const CmReport &rep, const char *path)
     return 0;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     // ---- the table: what a core needs, against the files in its folder
     {
@@ -271,6 +289,64 @@ int main()
     for (const char *t : tamper) CHECK(w2->has(t));
     CHECK(cm_may_delete(*w2, "/SD/cores/ghost/ghost.cfg") && cm_may_delete(*w2, "/SD/cores/junk.txt") && cm_may_delete(*w2, "/SD/roms/atari800/basic.rom"));
     CHECK(!cm_may_delete(*w2, "/SD/cores/amiga/amiga.cfg"));                                  // the one-folder layout: the .cor is in the folder
+
+    // ---- T239.3 P1-6: a record core states its ROM needs in record 6 of its .cor; the host reads them there, not from the table
+    // argv[1] = the record of tests/hostapp/golden/roms_record.toml (trx64u's four ROMs), argv[2] = the record of cores/amiga/app/desc.toml (a ROM set); both are made by run.sh
+    if (argc >= 3) {
+        Bytes rec4, recks;
+        CHECK(slurp(argv[1], &rec4) && slurp(argv[2], &recks));
+        CmRows *rows = new CmRows;
+        CHECK(cm_rows_from_record(rec4.data(), (uint32_t)rec4.size(), rows));
+        CHECK(rows->n == 4);
+        const char *role[4] = { "BASIC", "KERNAL", "CHAR", "1541 drive" };
+        for (int i = 0; i < 4 && i < rows->n; i++) CHECK_STR(rows->req[i].role, role[i]);
+        CHECK(rows->n == 4 && rows->req[0].flags == 1 && rows->req[0].sizes[0] == 8192 && !rows->req[0].sizes[1]);
+        CHECK(rows->n == 4 && rows->req[2].sizes[0] == 4096);
+        CHECK(rows->n == 4 && rows->req[3].flags == 2 && rows->req[3].sizes[0] == 16384 && rows->req[3].sizes[1] == 32768);
+        CHECK(rows->n == 4 && !strncmp(rows->req[0].names, "basic-901226-01.bin|basic.bin|", 30));
+        CHECK(!cm_rows_from_record(rec4.data(), 100, rows) && rows->n == 0);                // a cut record is refused, no rows
+        Bytes bad = rec4;
+        bad[0] ^= 0xFF;                                                                     // not a description
+        CHECK(!cm_rows_from_record(bad.data(), (uint32_t)bad.size(), rows));
+
+        // a core the table does not know ("Zork"): its rows come from its record alone
+        Ram *r = new Ram;
+        r->put("/SD/cores/zork.cor", 100, 1);
+        r->names["/SD/cores/zork.cor"] = "Zork";
+        r->records["/SD/cores/zork.cor"] = rec4;
+        r->put("/SD/cores/zork/roms/basic.bin", 8192, 2);
+        r->put("/SD/cores/zork/roms/kernal.bin", 8192, 3);
+        r->put("/SD/cores/zork/roms/chargen.bin", 4096, 4);
+        // a ROM set from a record: Kickstart-like, any file of the extension with an allowed size
+        r->put("/SD/cores/zork2.cor", 100, 5);
+        r->names["/SD/cores/zork2.cor"] = "Zork Amiga";
+        r->records["/SD/cores/zork2.cor"] = recks;
+        r->put("/SD/cores/zork2/roms/kick13.rom", 262144, 6);
+        // the same four ROMs under trx64u's manifest name: the record answers, and a record-less core of that name still has the table
+        r->put("/SD/cores/trx64u.cor", 100, 7);
+        r->names["/SD/cores/trx64u.cor"] = "TRX64U";
+        r->records["/SD/cores/trx64u.cor"] = rec4;
+        r->put("/SD/cores/trx64u/roms/kernal.bin", 8192, 8);
+        r->put("/SD/cores/c64.cor", 100, 9);
+        r->names["/SD/cores/c64.cor"] = "TRX64U";
+        r->put("/SD/cores/c64/roms/kernal.bin", 8192, 8);
+        CmReport *rr = new CmReport;
+        cm_scan(*r, *r, rr);
+        const CmCore *z = core_of(*rr, "zork.cor");
+        CHECK(z && z->need == 3 && z->have == 3 && !z->missing[0]);                         // 4 rows, the shared 1541 ROM is not required
+        const CmCore *z2 = core_of(*rr, "zork2.cor");
+        CHECK(z2 && z2->need == 1 && z2->have == 1 && !z2->missing[0]);
+        const CmCore *t = core_of(*rr, "trx64u.cor");
+        CHECK(t && t->need == 3 && t->have == 1);
+        CHECK(t && strstr(t->missing, "basic-901226-01.bin") && strstr(t->missing, "chargen-901225-01.bin") && !strstr(t->missing, "kernal"));
+        const CmCore *c = core_of(*rr, "c64.cor");
+        CHECK(c && c->need == 3 && c->have == 1 && c->missing[0]);                           // no record: the table of the compiled-in descriptors
+        delete rr;
+        delete r;
+        delete rows;
+    } else {
+        printf("SKIP the record part: no record files given\n");
+    }
     printf("test_coremaint: %d failed\n", fails);
     return fails ? 1 : 0;
 }

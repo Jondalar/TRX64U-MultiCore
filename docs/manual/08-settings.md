@@ -189,7 +189,7 @@ there twice. It deletes the files that belong to no core.
 
 | Block | Content |
 |---|---|
-| `Cores` | One line per `.cor` or `.cfw`: the medium, the file name, then `ROMs <have>/<need>` (with `missing <names>`) and `saves <n>`. `ROMs: none needed` for a core without ROMs. `no folder yet (made at the first start)` when the folder of the core does not exist. Green: all ROMs are there. Amber: a ROM is missing |
+| `Cores` | One line per `.cor` or `.cfw`: the medium, the file name, then `ROMs <have>/<need>` (with `missing <names>`) and `saves <n>`. `ROMs: none needed` for a core without ROMs. The ROMs a core needs are the ones its `.cor` names in its description record (record 6); a `.cor` without that record is judged by the table of the cores compiled into the application. `no folder yet (made at the first start)` when the folder of the core does not exist. Green: all ROMs are there. Amber: a ROM is missing |
 | `Belong to no core` | The files and folders in `cores` that no `.cor` or `.cfw` accounts for. `goes` marks an entry that the delete removes. `kept` marks an entry that stays |
 | `There twice or more (the same bytes)` | Files with the same content and their places |
 
