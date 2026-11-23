@@ -1,5 +1,5 @@
 # The SDK's base UI TOML (T239.3 D32): the rows the application adds to every core and where each stands in the menu. A row is whole here: its label, key, kind, values and default (and its
-# provider, for a list that changes at run time), as a row of a core's UI TOML is; a place gives it its tab, its group and its order.
+# provider, for a list that changes at run time, which only the base's rows name), as a row of a core's UI TOML is otherwise; a place gives it its tab, its group and its order.
 # tools/gen_base_ui.py compiles the file with tools/descrec.py (sections 4, 23 and 24, the records a core's UI TOML carries) into coreapp/src/base_ui.inc (routes and places, menutree.cc) and
 # coreapp/src/base_rows.inc (the rows, menubuild.cc); tools/gen_base_ui.py --check (the lint stage) is red when an .inc is not what this file compiles to. What a row cannot say stays code, in
 # picture.cc, volume.cc, tone.cc, mediamounts.cc, home.cc, hotkeys.cc and baseset.cc: whether a core gets the row, the default a core's own map or the gateware sets, a provider's values, the

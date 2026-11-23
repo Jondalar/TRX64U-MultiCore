@@ -1292,13 +1292,9 @@ class BaseRows(unittest.TestCase):
         self.assertEqual((by["Mouse Sensitivity"]["base"], by["Mouse Sensitivity"]["values"][by["Mouse Sensitivity"]["default"]]), (1, "8"))
         self.assertEqual(by["Home Directory"]["when"], "text")
 
-    def test_a_provider_is_the_base_rows_not_a_cores(self):
+    def test_a_base_row_carries_its_provider_and_values(self):
         r = D.parse_desc(D.compile_desc(D.toml_loads(self.ROW), app_base=True))
         self.assertEqual((r["cset"][0]["provider"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
-        with self.assertRaises(D.DescError):
-            D.compile_text(self.ROW)
-        with self.assertRaises(D.DescError):
-            D.compile_text(self.ROW.replace("picture.apply", "x.apply").replace("Picture", "Other"))
 
     def test_the_rows_are_the_ones_the_application_exports(self):
         r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],

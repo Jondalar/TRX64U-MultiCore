@@ -92,6 +92,8 @@ def main(argv):
         for r in rows:
             if r["file"] or r["lock_state"]:
                 raise descrec.DescError('row "%s": a file row or a locked row is a core\'s, not the base\'s' % r["key"])
+            if r["when"] not in ("live", "text", "secret"):
+                raise descrec.DescError('row "%s": the base has live, text and secret rows (when = "%s")' % (r["key"], r["when"]))
             if not any(p["op"] == r["apply"] and (not p.get("key") or p["key"].lower() == r["key"].lower()) for p in rec["place"]):
                 raise descrec.DescError('row "%s" (%s) has no [[place]]' % (r["key"], r["apply"]))
     except descrec.DescError as e:

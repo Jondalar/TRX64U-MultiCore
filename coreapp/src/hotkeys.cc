@@ -445,7 +445,8 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         return "settings: no room for the Hotkey items the application adds";
     }
     const BaseRow *mrow = menu_base_row(HK_OP, HK_KEY_MOD), *krow = item_row(HKA_MENU);
-    if (!mrow || !krow || mrow->nvalues != NPRE || krow->nvalues != HK_NKEYS + 1) {
+    if (!mrow || !krow || mrow->nvalues != NPRE || krow->nvalues != HK_NKEYS + 1 || !mrow->provider || strcmp(mrow->provider, "hotkeys.modifiers") ||
+        !krow->provider || strcmp(krow->provider, "hotkeys.keys")) {
         return "settings: the base UI TOML has no hotkey rows that fit the map";
     }
     for (int a = 0; a < HKA_CORE; a++) {
@@ -526,7 +527,7 @@ const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
         }
     }
     const BaseRow *krow = item_row(HKA_MENU);
-    if (!krow || krow->nvalues != HK_NKEYS + 1) {
+    if (!krow || krow->nvalues != HK_NKEYS + 1 || !krow->provider || strcmp(krow->provider, "hotkeys.keys")) {
         return "settings: the base UI TOML has no hotkey rows that fit the map";
     }
     make_vals();
