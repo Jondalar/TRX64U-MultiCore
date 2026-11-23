@@ -439,6 +439,44 @@ def split_cat(lhs, rhs):
     return [(part, ("catpart", rhs, info, i)) for i, part in enumerate(leaves)]
 
 
+def subst(e, mp):
+    """An expression or statement with the identifiers of mp (formal -> actual expression) replaced."""
+    if isinstance(e, tuple):
+        if e and e[0] == "id" and len(e) == 2 and e[1] in mp:
+            return mp[e[1]]
+        return tuple(subst(x, mp) for x in e)
+    if isinstance(e, list):
+        return [subst(x, mp) for x in e]
+    return e
+
+
+def subst_stmt(s, mp):
+    return subst(s, mp)
+
+
+def reg_assigns(m, s):
+    """The assignments of an inlined statement, entered in the module's table of right sides as the parser enters those of its own statements."""
+    k = s[0]
+    if k == "as":
+        m.assigns.setdefault(base_name(s[1])[0], []).append(s[2])
+    elif k == "blk":
+        for b in s[1]:
+            reg_assigns(m, b)
+    elif k == "if":
+        for _, b in s[1]:
+            for x in b:
+                reg_assigns(m, x)
+        for x in s[2]:
+            reg_assigns(m, x)
+    elif k == "case":
+        for _, b in s[2]:
+            for x in b:
+                reg_assigns(m, x)
+    elif k == "for":
+        for x in s[5]:
+            reg_assigns(m, x)
+
+
 # ---------------------------------------------------------------------------------------------------------------------------
 # VHDL parser
 
@@ -446,6 +484,7 @@ class P:
     def __init__(self, toks, fname, ovr=None):
         self.t, self.i, self.fname = toks, 0, fname
         self.ovr = ovr or {}
+        self.procs, self.noreg, self.aliases = {}, 0, {}
 
     def pk(self, n=0):
         return self.t[min(self.i + n, len(self.t) - 1)]
@@ -617,6 +656,7 @@ class VhdlParser(P):
         return Ty(name)
 
     def arch_body(self, m):
+        self.aliases = {}
         while self.txt() != "begin":
             w = self.txt()
             if w in ("signal", "constant", "shared"):
@@ -650,7 +690,16 @@ class VhdlParser(P):
                 self.skip_subprogram(fname)
             elif w == "component":
                 self.skip_to_end("component")
-            elif w in ("attribute", "alias", "file", "use"):
+            elif w == "alias":
+                # an alias names a part of a signal: every later use of the name is that part (parsed in place)
+                self.eat()
+                an = self.eat()[1]
+                if self.acc(":"):
+                    self.subtype()
+                self.eat("is")
+                self.aliases[an] = self.expr()
+                self.eat(";")
+            elif w in ("attribute", "file", "use"):
                 self.skip_to(";")
             else:
                 raise self.err("a declaration I do not know")
@@ -847,7 +896,49 @@ class VhdlParser(P):
             return ("cond", c, e, rest)
         return e
 
+    def procedure(self, m):
+        """A procedure declared in a process: its body is parsed once and inlined at each call (the formals replaced by the actual expressions; only
+        in-parameters, a formal is never an assignment target)."""
+        self.eat("procedure")
+        name = self.eat()[1]
+        formals = []
+        if self.txt() == "(":
+            self.eat()
+            while True:
+                names = [self.eat()[1]]
+                while self.acc(","):
+                    names.append(self.eat()[1])
+                self.eat(":")
+                mode = self.txt()
+                if mode in ("in", "out", "inout"):
+                    self.eat()
+                    if mode != "in":
+                        raise self.err("a procedure parameter of mode %s" % mode)
+                if self.txt() in ("signal", "variable", "constant"):
+                    raise self.err("a procedure parameter class")
+                self.subtype()
+                if self.acc(":="):
+                    self.expr()
+                formals += names
+                if not self.acc(";"):
+                    break
+            self.eat(")")
+        self.eat("is")
+        if self.txt() != "begin":
+            raise self.err("a declaration inside a procedure")
+        self.eat("begin")
+        self.noreg += 1
+        body = self.seq(m, ("end",))
+        self.noreg -= 1
+        self.eat("end")
+        self.acc("procedure")
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+        self.procs[name] = (formals, body)
+
     def process(self, m, where):
+        self.procs = {}
         self.acc("postponed")
         self.eat("process")
         if self.txt() == "(":
@@ -868,6 +959,8 @@ class VhdlParser(P):
                 self.eat(";")
                 for n in names:
                     vars_[n] = Decl(n, "var", ty, init)
+            elif self.txt() == "procedure":
+                self.procedure(m)
             elif self.txt() in ("constant", "type", "subtype"):
                 raise self.err("a process-local %s" % self.txt())
             else:
@@ -1013,6 +1106,22 @@ class VhdlParser(P):
             return ("nop",)
         if w in ("wait", "return", "exit", "next", "while", "loop"):
             raise self.err("a %s statement" % w)
+        if w in self.procs and self.txt(1) in (";", "("):
+            self.eat()
+            args = []
+            if self.acc("("):
+                args.append(self.expr())
+                while self.acc(","):
+                    args.append(self.expr())
+                self.eat(")")
+            self.eat(";")
+            formals, body = self.procs[w]
+            if len(args) != len(formals):
+                raise self.err("a call of %s with named or missing arguments" % w)
+            out = [subst_stmt(b, dict(zip(formals, args))) for b in body]
+            for b in out:
+                reg_assigns(m, b)
+            return ("blk", out)
         lhs = self.target()
         if self.acc("<="):
             kind = "sig"
@@ -1022,7 +1131,8 @@ class VhdlParser(P):
             raise self.err("a statement I do not know")
         rhs = self.waveform()
         self.eat(";")
-        m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
+        if not self.noreg:
+            m.assigns.setdefault(base_name(lhs)[0], []).append(rhs)
         return ("as", lhs, rhs, kind, where)
 
     def target(self):
@@ -1089,7 +1199,7 @@ class VhdlParser(P):
             while self.txt() == "." and self.pk(1)[0] == "id":
                 self.eat()
                 name += "." + self.eat()[1]
-            e = ("id", name)
+            e = self.aliases[name] if name in self.aliases else ("id", name)
             while self.txt() == "(":
                 e = self.suffix(e)
             if self.txt() == "'":
@@ -2077,6 +2187,9 @@ class Ev:
             pc = self.d.pkg_const(name)
             if pc is not None:
                 return pc
+            pe = self.d.pkg_expr(name) if "." not in name else None
+            if pe is not None:
+                return self.ev(ctx, pe)
             raise Unsupported("%s: the identifier %s is not declared" % (mod.fname, name))
         port = mod.ports.get(base)
         if port is not None and port[0] == "in":
@@ -2392,6 +2505,11 @@ class Ev:
 
     def call(self, ctx, e, sc):
         f, args = e[1], e[2]
+        if len(args) == 1 and args[0][0] == "attr" and args[0][2] == "range" and args[0][1][0] == "id":
+            # x(y'range): the part of x that has the indices of y
+            y = args[0][1][1]
+            wy, ly = self.width(ctx, y), self.lowbound(ctx, args[0][1])
+            return v_slice(self.ev(ctx, f, sc), ly + wy - 1 - self.lowbound(ctx, f), ly - self.lowbound(ctx, f))
         if f[0] != "id":
             if len(args) == 1:
                 return self.index(ctx, f, args[0], sc)
@@ -2529,7 +2647,7 @@ class Ev:
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
                     if ch:
-                        t |= self.taint_name(ch[0], d[2])
+                        t |= self.taint_name(ch[0], d[2] + name[len(key):])
         return t
 
     def proc_taint(self, ctx, p):
@@ -3184,8 +3302,31 @@ def _pkg_const(self, name):
     return res
 
 
+def _pkg_expr(self, name):
+    """The expression of a scalar constant of a VHDL package of the list (to_unsigned(896, 11), a sum of other constants), parsed; the evaluator reads it in the
+    place that names the constant."""
+    c = self.__dict__.setdefault("_pe", {})
+    if name in c:
+        return c[name]
+    res = None
+    for f in sorted(self.files):
+        if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
+            continue
+        body = re.sub(r"--[^\n]*", "", read_source(f))
+        m = re.search(r"\bconstant\s+%s\s*:\s*[^:;]+:=\s*([^;]+?)\s*;" % re.escape(name), body, re.I)
+        if m:
+            try:
+                res = VhdlParser(lex(m.group(1), "vhdl", f), f).expr()
+            except Unsupported:
+                res = None
+            break
+    c[name] = res
+    return res
+
+
 Design.port_dir = _port_dir
 Design.pkg_const = _pkg_const
+Design.pkg_expr = _pkg_expr
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
