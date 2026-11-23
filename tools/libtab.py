@@ -8,7 +8,8 @@
                                      nm over the objects of a build: no generic object has an undefined symbol that a library object defines (only libtab_table's entries may)
 
 A library: name, sources, headers (the headers that name its functions), and the entries it hands the generic application: bind, register_ops (with capability), init, start,
-freeze_request, core, table (the library's call table, found by libtab_table(name) in libtab.h; a table's header, *_api.h, is the seam the generic code reads it through). `needs` names other libraries of the file. See coreapp/src/libtab.h for what each entry is."""
+freeze_request, core, table (the library's call table, found by libtab_table(name) in libtab.h; a table's header, *_api.h, is the seam the generic code reads it through). `needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
+(the figures of a .u2a budget, P4-1): tools/cor_pack.py sums the first against the core's heap and reports both. See coreapp/src/libtab.h for what each entry is."""
 import os
 import re
 import subprocess
@@ -26,7 +27,7 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
     "table": ("const void *", "void"),
     "core": ("void", "CoreCtx *, const CoreDesc *, const DescRecord *"),
 }
-KEYS = {"name", "sources", "headers", "needs", "capability"} | set(ENTRIES)
+KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak"} | set(ENTRIES)
 SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541")
 GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -74,6 +75,11 @@ def load(path):
         for key in ENTRIES:
             if key in lib and not (isinstance(lib[key], str) and IDENT.match(lib[key])):
                 raise LibTabError("%s: library '%s': %s is a function name" % (path, n, key))
+        for key in ("heap_keep", "heap_peak"):
+            if key in lib and (isinstance(lib[key], bool) or not isinstance(lib[key], int) or lib[key] < 0):
+                raise LibTabError("%s: library '%s': %s is a number of bytes" % (path, n, key))
+        if "heap_keep" in lib and "heap_peak" in lib and lib["heap_keep"] > lib["heap_peak"]:
+            raise LibTabError("%s: library '%s': heap_keep %d is above heap_peak %d" % (path, n, lib["heap_keep"], lib["heap_peak"]))
         if "capability" in lib and "register_ops" not in lib:
             raise LibTabError("%s: library '%s': a capability belongs to register_ops" % (path, n))
         if "capability" in lib and not re.match(r"^[a-z0-9_]+$", str(lib["capability"])):

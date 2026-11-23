@@ -98,6 +98,10 @@ class SharedApp(unittest.TestCase):
             text = open(os.path.join(ROOT, gen)).read()
             self.assertNotRegex(text, r"\b(mouse_sink_\w+|pad_(pace|reset|register)|padkey_row|usb_xinput_set_sink)\(", gen)
 
+    def test_heap_figures_of_a_library(self):
+        ok = toml_b('[[library]]\nname = "a"\nsources = ["x.cc"]\nheap_keep = 100\nheap_peak = 200\n')
+        self.assertEqual(L.load(ok)[0]["heap_keep"], 100)
+
     def test_subset_reader_agrees_with_tomllib(self):
         text = open(SHARED).read()
         try:
