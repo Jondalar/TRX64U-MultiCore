@@ -1,6 +1,6 @@
 # T255 — DDT's Mandelbrot demo is a large core: his engines, a frame buffer, HDMI, nothing else
 
-**Status:** PROPOSED (2026-11-22, Alex: GitHub issue #123).
+**Status:** DONE (2026-11-23, Alex, after the board run of both DDT cores, D11); proposed 2026-11-22 (Alex: GitHub issue #123).
 **Repo:** TRX64U-MultiCore — `cores/ddt_mandel/mono/` (the large core), `cores/ddt_mandel/{rtl,trx}` (his engines, our glue), tools and CI where the partial lane was named.
 **Number:** T255 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-22 (translated): "Basically give DDT's demo *only* HDMI. No menu, nothing, and then pack it as a .cor. Large core." In #123: "I will rebuild it as a large core, currently it is a partial/dfx and that limits space and capabilities a lot." DDT in #123: an engine is 6 DSP, the 50T has 120, so 20 engines; "if you really need 6 DSPs for HDMI, then there should be no problem instantiating 19 Mandelbrot engines instead of 20".
@@ -35,7 +35,7 @@
 
 Negative controls: none (no flash, no persistence).
 
-S4, S5, S6 are dropped by D10. Still open: S1, S2, S3, S7, S8.
+S4, S5, S6 are dropped by D10. Proven: S1, S2, S3, S8 (section 5, 2026-11-23). S7 was not checked on the board: Alex closed T255 without it (D11).
 
 ## §3 Decision
 
@@ -51,6 +51,10 @@ Alex's: the demo plus HDMI only; no menu; a large core packed as `.cor`; replace
 - **D8 Partial core removed (PROPOSAL).** Deleted: `cores/ddt_mandel/{core.toml,core_sources.tcl,layer2_ddt_mandel.v}`, the glue only the partial core used (`trx/ddt_mandel_core.v`, `ddt_mandel_video.v`, `ddt_palette.v`), its Verilator benches (`ddt_mandel_pix/joy/pins`), `coreapp/cores/ddt_mandel.cc` with its table, header, Makefile, ledger, test and golden entries. Kept: `rtl/`, `trx/` files `ddt_novic` reads (`ddt_regs.v`, `ddt_dots.v`, `ddt_pixw.v`, `ddt_clk_load.v`, `c64_font_rom.v`), `ddt_regs.h`, the sim helpers `ddt_novic` uses.
 - **D9 Own copies.** The HDMI files and the two ROM images (palette, font) are copies in `cores/ddt_mandel/mono/` (T164 3a Q1: "Copies instead."); `mono/host/FROM` names the source commit and lists the files (`tools/check_large_copies.py`).
 - **D10 No tests of his core code.** Alex, 2026-11-22: "We do not need to test his core code ... basically it should only build, then we run it once, and after that we freeze it." The benches `ddt_mandel_pix` and `ddt_mandel_joy` are out of `ci/sims.txt`, `ci/sims.lane` and `ci/sims.deps`; their sources stay in `cores/ddt_mandel/sim/` for use by hand. S4, S5, S6 are dropped. Freezing the core after the board run (S3) is open, not done.
+- **D11 Done after one board run.** Alex, 2026-11-23 (translated): "Both DDT cores run well. The joystick in the Mandelbrot works well too,
+  it also shows 20 DSPs. As far as I am concerned we are done with it then. Off to integration with it and then on to main." His run covered S1
+  and S3; S7 (the power cycle back to the host, the demo as the boot default) was not part of it and stays unchecked. This close is D10's freeze:
+  the core gets no further work; no mechanism beyond that was decided.
 
 ## §4 Out
 
@@ -60,7 +64,7 @@ Alex's: the demo plus HDMI only; no menu; a large core packed as `.cor`; replace
 - DDT's PAL / composite modulator and the A/V port: not built (HDMI only).
 - Resolution choice, EDID reading, hot-plug re-lock after the sink is replaced: the picture is 1080p50 fixed; a re-plug is a power cycle.
 - `ddt_novic`: unchanged except that it no longer shares a tree with a lane.
-- New CI infrastructure: none. The two benches keep their names `ddt_mandel_pix` / `ddt_mandel_joy` in `ci/sims.txt` (tier 2: they run on pushes to `integration`, not before a merge: Alex, "No benches before a merge"); the pin bench `ddt_mandel_pins` goes (no partition edge).
+- New CI infrastructure: none. The two benches `ddt_mandel_pix` / `ddt_mandel_joy` left `ci/sims.txt`, `ci/sims.lane` and `ci/sims.deps` with D10 and stay in `cores/ddt_mandel/sim/` for use by hand; the pin bench `ddt_mandel_pins` goes (no partition edge).
 
 ## §5 Decisions taken while building
 
@@ -84,7 +88,14 @@ Alex's: the demo plus HDMI only; no menu; a large core packed as `.cor`; replace
 - 2026-11-22, run #86 (45053073122), job `apptests / Apptests` red in two units, both because the tree lost the ddt_mandel application: (1) `coreapp:cross` `test_keywalk` (`DIFF want DDT Mandelbrot (mandelbrUlt) F1/home ...`, `test_keywalk.cc:203` and `:213`): `tests/coreapp/golden/keywalk.txt` (51 lines) and `ids.txt` (15 lines) still listed the removed application; those lines are removed. (2) `coreapp_render` `render.cc:1607` (`ucn_leg > 480`): the walk now has 19 cores and exactly 480 legends; the floor is `>= 480`. The sims `ddt_mandel_pix`, `ddt_mandel_joy` leave CI (D10).
 - 2026-11-22, run 45057941644 (head 8f5c38e2), lane `large-ddt_mandel` red on timing: only `pix_mmcm` fails (best pass -0.788 ns, 23 endpoints, TNS -9.241; last pass -0.891 / -13.180); `cpu_mmcm` +0.107, GT TXOUTCLK +10.508, hdmi_refclk +4.999, rmii +13.775, hold +0.010 ... +0.089. Worst path: frame buffer RAMB36 cascade (X0Y27 -> X0Y28, no output register, `READ_LATENCY_B 1`) `mem_reg_0_6` -> `iter5` -> compare/rotation arithmetic (2 CARRY4, 2 LUT4, LUT6, 6 levels) -> `pidx6_reg[0]`, data path 7.984 ns (BRAM 3.3 ns + 1.4 + 1.35 route) against 6.667 ns. Utilisation: 6532 LUT (20.0 %), 25.5 RAMB tiles, 120 DSP48E1 (all, the engines). Fix: a register-only stage S5b behind the frame buffer output (and the character code and the carried counters) in `mono/ddt_mandel_hd.v`; the pipeline is 9 clocks, the counters travel with the colour. `sim/run.sh pix`: PASS, all 2073600 pixels equal the model, with and without the splash. Only the next Vivado run shows whether `pix_mmcm` closes (the S6 arithmetic now starts from a fabric register).
 - 2026-11-22, run 45063655824 (head 1f828f21) green: `cor (large:ddt_mandel)` and `cor (core:ddt_novic)` built, the builder "approved the bitstreams of this run are published"; the register stage closed `pix_mmcm`. The two `.cor` (sha256 aa69ad9f..., fee35fd2...) wait for the board test of S3 and S7.
+- 2026-11-23, S2 (builder run 3272, job 16091, `build large:ddt_mandel @1f828f21`): `WNS mono ddt_mandel: 0.038 ns` ("The design met the timing
+  requirement", WHS 0.014 ns); `=== T255 synth | DSPs | 120 | ... | 120 | 100.00 |` = 6 x 20 engines, no DSP outside them; Slice LUTs 6,542
+  (20.07 %), Block RAM Tile 25.5 (34.00 %). S1: the jobs `cor (large:ddt_mandel)` and `cor (core:ddt_novic)` of run 45063655824 were green
+  (`tools/pack_large_cor.sh` ends with `cor_pack.py check`). S8: the lint stage of the same run was green.
+- 2026-11-23, board (Alex): `ddt_mandel.cor` (sha256 fee35fd2...) and `ddt_novic.cor` (sha256 aa69ad9f...), copied to `/SD/cores` the same
+  morning, started from the boot menu: "Both DDT cores run well. The joystick in the Mandelbrot works well too, it also shows 20 DSPs"
+  (translated). S1 and S3 pass. S7 was not part of the run (D11).
 
 ---
 
-Open (one line, as in the TODO table): IN PROGRESS 11-22: bitstreams build (run 45063655824); open: board S3, S7, freeze after board run (D10)
+Open (one line, as in the TODO table): Done (Alex 11-23): both DDT cores run on the board; S7 not checked; WNS 0.038 ns, 120 DSP

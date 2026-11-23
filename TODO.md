@@ -133,7 +133,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T251 | 1 | ✅ | Core app texts show their numbers on the board: no printf length modifier (#121 "%llu" file size) | Done 11-22: S1, S2 PASS; on integration with #129 (d68f4b3a), ships in 0.2.1 | [T251](docs/specs/done/T251-printf-no-length-modifiers.md) |
 | T253 | 2 | 🔨 | P7 keyboard scan on the keyboard's I2C bus only (no scan on HDMI: the picture dropouts); apps start it as PR #112 | IN PROGRESS 11-22: S1, S3, S4 PASS (board 11-22); open: S2, the log at minute 10 (Alex saw 10 min, no dropout) | [T253](docs/specs/T253-scanner-keyboard-bus.md) |
 | T254 | 1 | 🔨 | Foreign firmware shows its own name and version ("Gideon 3.15", "Commodore 1.2.1"), not its bitstream's date | IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); D10: re-pack, no fix; later: the installer writes the version | [T254](docs/specs/T254-fw-self-name.md) |
-| T255 | 2 | 🔨 | DDT's Mandelbrot as a large core: 20 engines, frame buffer, HDMI only, no menu (#123, replaces the partial core) | IN PROGRESS 11-22: bitstreams build (run 45063655824); open: board S3, S7, freeze after board run (D10) | [T255](docs/specs/T255-ddt-mandel-large.md) |
 | T224 | 2 | ✅ | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Done 11-18 (Alex: shipped = done) | [T224](docs/specs/done/T224-picture-reset.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; tests in diag.cor (rec 8) board PASS 11-16; S4 board, S8 open; redraw UX -> T231 | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
@@ -177,6 +176,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 ## Done
 
 | ID | M | Status | Task | Open | Details |
+| T255 | 2 | ✅ | DDT's Mandelbrot as a large core: 20 engines, frame buffer, HDMI only, no menu (#123, replaces the partial core) | Done (Alex 11-23): both DDT cores run on the board; S7 not checked; WNS 0.038 ns, 120 DSP | [T255](docs/specs/done/T255-ddt-mandel-large.md) |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
 | T227 | 3 | ✅ | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Done: D3 sharp smoothing, board PASS 11-16 (Fill + Smooth) | [T227](docs/specs/done/T227-scpu-vic-smoothing.md) |
 |---|---|---|---|---|---|
