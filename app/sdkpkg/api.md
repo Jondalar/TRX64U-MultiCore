@@ -22,7 +22,7 @@
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), and the states `set.<key>` and `net.gated` (4.13.5). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
 1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.3.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
@@ -819,7 +819,7 @@ The network group. It serves TCP over the sockets of the board. A handle is a so
 4.8.2 The base closes the handles that an application holds when the application ends, and the handles of a library when the library is unloaded. A handle belongs to the image whose code opened it (4.2.2.1). The end of one application does not close the sockets of another image.
 4.8.3 A handle is non-blocking. `accept` and `recv` return at once.
 4.8.4 Any task of the application may call the group.
-4.8.5 A call before the base has a socket table behind the group fails: `listen` and `accept` return -7, the others -1 (3.2.6).
+4.8.5 A call before the base has a socket table behind the group fails: `listen`, `accept` and `connect` return -7, the others -1 (3.2.6).
 
 #### 4.8.6 `api->net->listen`
 
@@ -859,6 +859,23 @@ The network group. It serves TCP over the sockets of the board. A handle is a so
 
 4.8.12.1 `int peer(int h, char *buf, int len)` writes the address of the peer as `a.b.c.d:port` into `buf`.
 4.8.12.2 It returns the length of the text. It returns -1 when `buf` is null, `len` is below 1, or the handle has no peer.
+
+#### 4.8.13 `api->net->connect`
+
+Since base 3.3.
+
+4.8.13.1 `int connect(const char *host, uint16_t port, uint32_t timeout_ms)` opens a TCP connection to `host`. `host` is a name or a dotted address; the name is resolved as `resolve` does (4.8.14).
+4.8.13.2 The call blocks until the connection stands or `timeout_ms` has passed (at least one tick, 5 ms). The caller is never the menu task or the executor task (1.3.9).
+4.8.13.3 It returns the handle. The handle is non-blocking, with Nagle's algorithm off, counts among the 16 of 4.8.1 and belongs to the image whose code made the call (4.8.2). `close` closes it.
+4.8.13.4 It returns -5 when 16 handles are open, -6 when the name does not resolve, -3 when the connection is refused or does not stand within `timeout_ms`, and -7 when no socket can be made or the base has no socket table behind the group (4.8.5). A refusal leaves no handle.
+
+#### 4.8.14 `api->net->resolve`
+
+Since base 3.3.
+
+4.8.14.1 `int resolve(const char *name, char *buf, int len)` looks up the IPv4 address of `name` and writes it as `a.b.c.d` into `buf`. A dotted address is returned as it is.
+4.8.14.2 It returns the length of the text. It returns -1 when `name` or `buf` is null, `len` is below 8, the text does not fit, the lookup fails, or the base has no socket table behind the group.
+4.8.14.3 The call blocks the caller while the lookup runs (1.3.9). It takes no handle.
 
 ### 4.9 `api->c64` (`SvcC64`)
 
@@ -923,6 +940,15 @@ The library group. A library puts a table of function pointers in its record (`L
 4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
 4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs and that contributes nothing (4.10.2.7) may be unloaded when an application is opened and the heap is short.
 4.10.2.7 A library that declares a poll, menu nodes, file actions, settings or tabs, in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
+
+#### 4.10.3 `api->lib->need`
+
+Since base 3.3.
+
+4.10.3.1 `const void *need(uint32_t n, uint32_t *table_size)` returns the table of the entry number `n` of the `needs` list of the calling image. The entries are numbered from 0 in the order of the file, which is the order of `LIB_NEEDS` when the image is packed, so the number is fixed when the application is linked. No name is looked up.
+4.10.3.2 The loader resolved the entry when it loaded the image: the table is the one the provider exports under that name (9.1) or, for a provider that exports one table of base 3.1, its `exports`. The entries `base`, `standalone` and `cart_port` take a number and have no table.
+4.10.3.3 It returns null and sets `*table_size` to 0 when `n` is past the list, the entry has no table, or the call does not come from a loaded image. `table_size` may be null; otherwise it receives the size of the table as in 4.10.2.4.
+4.10.3.4 The caller is the image whose code makes the call, as for `api->mem` (4.2.2.1): `lib_register`, `app_main`, the operations and the screens of the image all see their own list. The table stays valid while the image is loaded, because the image counts as a user of its providers (4.10.2.6).
 
 ### 4.11 The member `size`
 

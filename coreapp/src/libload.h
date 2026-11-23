@@ -294,6 +294,9 @@ private:
         int uses;                         // loaded images that need it (T197 D8)
         int dep[U2A3_NEEDS_MAX];          // the slots this image counted as used when it loaded; unuse()d when it goes
         int ndep;
+        const void *need_tab[U2A3_NEEDS_MAX];   // per `needs` entry of the file, in its order: the table the provider exports (SvcLib::need), null where there is none
+        uint32_t need_size[U2A3_NEEDS_MAX];
+        int nneed;
         void *raw;                        // what the heap gave; the image lies in it, aligned
         uint32_t raw_size;                // the bytes asked for it (image, bss, alignment)
         uint32_t menu_cost;               // the bytes of the menu record (the record and its bytes, from the heap by new)
@@ -354,6 +357,7 @@ private:
     static int svc_call(const char *name, const OpIn *in, int nin, OpResult *r);
     static const char *svc_state(const char *name, uint32_t *rev);
     static const void *svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size);
+    static const void *svc_lib_need(uint32_t n, uint32_t *table_size);
     static void svc_log(const char *text);
     static uint32_t svc_ms(void);
     static void svc_sleep(uint32_t ms);

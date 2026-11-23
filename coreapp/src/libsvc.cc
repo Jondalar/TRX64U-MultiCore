@@ -6,6 +6,7 @@
 #include "exec.h"
 #include "corefolder.h"
 #include "descrec.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -450,6 +451,19 @@ struct LibSvc {
         }
         return net_adopt(l, k, l->base_net_->accept(listener));
     }
+    static int net_connect(const char *host, uint16_t port, uint32_t timeout_ms)
+    {
+        LibLoader *l = L();
+        if (!l->base_net_ || !l->base_net_->connect || l->base_net_->size < offsetof(SvcNet, resolve)) {
+            return -7;
+        }
+        int k = net_new_rec(l, l->owner_at(__builtin_return_address(0)));
+        if (k < 0) {
+            return -5;
+        }
+        return net_adopt(l, k, l->base_net_->connect(host, port, timeout_ms));
+    }
+    static int net_resolve(const char *name, char *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->size >= sizeof(SvcNet) && n->resolve ? n->resolve(name, buf, len) : -1; }
     static int net_close(int h)
     {
         LibLoader *l = L();
@@ -561,6 +575,8 @@ void LibLoader::add_services()
     net_.close = LibSvc::net_close;
     net_.wait = LibSvc::net_wait;
     net_.peer = LibSvc::net_peer;
+    net_.connect = LibSvc::net_connect;
+    net_.resolve = LibSvc::net_resolve;
     job_.size = sizeof(job_);
     job_.start = LibSvc::job_start;
     job_.cancelled = LibSvc::job_cancelled;

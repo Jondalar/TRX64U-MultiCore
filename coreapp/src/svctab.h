@@ -233,6 +233,9 @@ typedef struct SvcNet {
     int (*close)(int h);
     int (*wait)(const int *handles, int n, uint32_t timeout_ms);   // a mask, bit i for handles[i]; 0 on timeout
     int (*peer)(int h, char *buf, int len);
+    // base 3.3, appended: the outgoing half. Both calls block the caller (never from the menu task or the executor task).
+    int (*connect)(const char *host, uint16_t port, uint32_t timeout_ms);   // a handle as listen gives it, or -5 (no handle free), -6 (the name does not resolve), -3 (refused or no answer within timeout_ms), -7 (no socket)
+    int (*resolve)(const char *name, char *buf, int len);                   // the IPv4 address of a name (or of a dotted address) as "a.b.c.d" in buf; the length, or -1
 } SvcNet;
 
 // The call tables libraries export (T197 P1, base 3.1): find() hands back the table a loaded library put in its record (LibRecord::exports), when a library
@@ -240,6 +243,10 @@ typedef struct SvcNet {
 typedef struct SvcLib {
     uint32_t size;
     const void *(*find)(const char *name, uint32_t min_version, uint32_t *table_size);
+    // base 3.3, appended: the table of the calling image's own `needs` entry number `n` (the file lists them in the order of LIB_NEEDS; the numbers are fixed when the image is packed).
+    // No name is looked up: the loader resolved the entry when it loaded the image. Null (and *table_size 0) for a number past the list, for the entries `base`, `standalone` and
+    // `cart_port`, and for a provider that exports no table. The caller is the image whose code makes the call, as for api->mem.
+    const void *(*need)(uint32_t n, uint32_t *table_size);
 } SvcLib;
 
 #ifdef __cplusplus
