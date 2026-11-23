@@ -193,7 +193,7 @@ int main(int argc, char **argv)
             delete o;
         }
 
-        // the C128's record (cores/c128/mono/desc.toml): R0-R37, the status and the selected register at page E, one byte each, in order
+        // the C128's record (cores/c128/app/desc.toml): R0-R37, the status and the selected register at page E, one byte each, in order
         std::vector<uint8_t> cb = slurp(argv[2]);
         DescRecord *c128 = parse_rec(cb, why);
         CHECK(c128 != 0);

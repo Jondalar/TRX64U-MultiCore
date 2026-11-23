@@ -550,7 +550,7 @@ class ReportRegs(unittest.TestCase):
 
     def test_the_c128_description_compiles_and_lists_r0_to_r37(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        r = D.parse_desc(D.compile_text(open(os.path.join(here, "..", "cores", "c128", "mono", "desc.toml")).read()))
+        r = D.parse_desc(D.compile_text(open(os.path.join(here, "..", "cores", "c128", "app", "desc.toml")).read()))
         regs = r["report_reg"]
         self.assertEqual([x["reg"] for x in regs], [0xE100 + i for i in range(40)])
         self.assertEqual(regs[4]["name"], "VDC R4 vertical total")

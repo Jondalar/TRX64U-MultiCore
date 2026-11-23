@@ -49,9 +49,9 @@ def main(out):
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
     # the menu of TRX64U as menu.toml compiles (T104.2 D10): the record with the core's own tables
     open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
-    # T257 D6: the register table of the bug report - a small description of its own, and the C128's real one (cores/c128/mono/desc.toml, what the packer puts into c128.cor)
+    # T257 D6: the register table of the bug report - a small description of its own, and the C128's real one (cores/c128/app/desc.toml, what the packer puts into c128.cor)
     open(os.path.join(out, "desc_regs.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_regs.toml")).read()))
-    open(os.path.join(out, "desc_c128.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "cores", "c128", "mono", "desc.toml")).read()))
+    open(os.path.join(out, "desc_c128.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "cores", "c128", "app", "desc.toml")).read()))
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")
