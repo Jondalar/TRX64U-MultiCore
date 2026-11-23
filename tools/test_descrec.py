@@ -870,7 +870,7 @@ key = [
     WIN = """
 [[window]]
 name = "audio_mixer"
-address = 0xA0000500
+address = 0xA0000600
 size = 0x14
 """
 
@@ -974,16 +974,46 @@ size = 0x14
     def test_a_window_is_written_and_read_back_by_name(self):
         b = D.compile_text(self.WIN + '[[window]]\nname = "u64_userport"\naddress = 0xA0000405\nsize = 1\n')
         r = D.parse_desc(b)
-        self.assertEqual(r["window"], [{"name": "audio_mixer", "address": 0xA0000500, "size": 0x14}, {"name": "u64_userport", "address": 0xA0000405, "size": 1}])
+        self.assertEqual(r["window"], [{"name": "audio_mixer", "address": 0xA0000600, "size": 0x14}, {"name": "u64_userport", "address": 0xA0000405, "size": 1}])
         self.assertFalse(r["sections"])
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
-    def test_the_windows_granted_to_trx64u_are_accepted(self):
-        # these addresses are in the firmware space (U2P_IO_BASE 0xA0000000); the table of base blocks is in the CPU space of the host TOML A (0x10100000), so the check does not compare them (open question, T239.3 V-3b)
-        # the runs next to the base's own registers that the handover grants: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D of the U64 block, speaker_enable
-        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2), ("u64_pwm_duty", 0xA000040D, 1),
-                                                                                      ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400)))
-        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 6)
+    def test_the_windows_granted_to_trx64u_are_accepted_and_the_two_over_base_blocks_are_refused(self):
+        # the addresses are in the firmware space (U2P_IO_BASE 0xA0000000); the readers translate them by the [io] of host.toml (0x10100000) before the check against its base blocks
+        # (T239.3 V-3c). The runs next to the base's own registers that the handover grants are accepted: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D
+        # of the U64 block, speaker_enable.
+        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2),
+                                                                                      ("u64_pwm_duty", 0xA000040D, 1), ("speaker_enable", 0xA000000C, 1)))
+        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 4)
+        # the other two of the handover's list lie over base blocks of host.toml (audio_mixer at 0x10100500, c64_palette at 0x10180800): refused
+        for name, addr, size, block in (("audio_mixer", 0xA0000500, 0x14, "audio_mixer"), ("palette", 0xA0080800, 0x400, "c64_palette")):
+            with self.assertRaisesRegex(D.DescError, "covers the block %s of the base" % block):
+                D.compile_text('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % (name, addr, size))
+
+    def test_a_window_in_firmware_space_is_translated_and_checked_as_in_the_toml_a(self):
+        # T239.3 V-3c: the same byte is refused at 0xA0000401 (firmware space), at 0x10100401 (the host TOML A's) and, through IOBASE 0x04000000, at 0x04100401
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            io = D._BASE_BLOCKS["io"] or (D.use_base_toml_a(D.HOST_TOML_A) or D._BASE_BLOCKS["io"])
+            self.assertEqual(io, (0x10000000, 0x10100000))
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x04100401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x10100401, 1, io), 0x10100401)       # an address of the TOML A stays
+            self.assertEqual(D.window_to_toml_a(0xA0100000, 1, io), 0xA0100000)       # beyond the 1 MiB of the firmware's U2P space: not translated
+            with self.assertRaises(D.DescError):
+                D.window_to_toml_a(0xA00FFFFF, 2, io)                                  # a block that leaves the space it starts in
+            msgs = []
+            for a in (0xA0000401, 0x10100401, 0x04100401):
+                with self.assertRaises(D.DescError) as c:
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
+                msgs.append(re.search(r"covers the block (\w+) of the base \(0x([0-9A-F]+)", str(c.exception)).groups())
+            self.assertEqual(msgs[0], msgs[1])
+            self.assertEqual(msgs[1], msgs[2])
+            self.assertEqual(msgs[0][0], "u64_sys")
+            # the board's reader of the record is the same: a version 7 TOML A with other bases moves the window by them
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, (0x20000000, 0x20100000)), 0x20100401)
+        finally:
+            D._BASE_BLOCKS["rows"] = None
 
     def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
         # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
@@ -996,8 +1026,9 @@ size = 0x14
         self.assertEqual(rows, [(b["name"], b["address"], b["size"]) for b in doc["block"] if b["owner"] == "base"])
         self.assertIn(("cart_regs", 0x10040000, 0x100), rows)
         self.assertNotIn("core_trx_io", [r[0] for r in rows])                  # a block of the core is not in the table
-        tab = D.basetab_text(rows, "host.toml").splitlines()
-        self.assertEqual(len(tab) - 1, len(rows))
+        tab = D.basetab_text(rows, "host.toml", D.io_bases_of(text, path)).splitlines()
+        self.assertEqual(len(tab) - 2, len(rows))
+        self.assertIn("BASE_IO(0x10000000u, 0x10100000u)", tab)
         self.assertIn("BASE_BLOCK(cart_regs, 0x10040000u, 0x100u)", tab)
         src = open(os.path.join(self.ROOT, "coreapp", "src", "descrec.cc")).read()
         self.assertIn('#include "basetab.h"', src)
@@ -1022,21 +1053,21 @@ size = 0x14
         def bad(text):
             with self.assertRaises(D.DescError):
                 D.compile_text(text)
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 0\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 0x100001\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0x100001\n')
         bad('[[window]]\nname = "w"\naddress = 0xFFFFFFF0\nsize = 0x20\n')
-        bad('[[window]]\nname = "W"\naddress = 0xA0000500\nsize = 4\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 4\n[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 4\nflags = 1\n')
-        bad('[[window]]\naddress = 0xA0000500\nsize = 4\n')
+        bad('[[window]]\nname = "W"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\nflags = 1\n')
+        bad('[[window]]\naddress = 0xA0000600\nsize = 4\n')
         bad('[[window]]\nname = "w"\naddress = -1\nsize = 4\n')
         D.compile_text('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')
         import struct
         b = bytearray(D.compile_text(self.WIN))
         at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4
-        struct.pack_into("<I", b, at + 4, 0xA0000008)                       # the reader takes a window beside the base blocks as the compiler does
+        struct.pack_into("<I", b, at + 4, 0xA0000408)                       # the reader takes a window beside the base blocks as the compiler does
         struct.pack_into("<I", b, at + 8, 1)
-        self.assertEqual(D.parse_desc(bytes(b))["window"][0]["address"], 0xA0000008)
+        self.assertEqual(D.parse_desc(bytes(b))["window"][0]["address"], 0xA0000408)
         for n in range(len(b)):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b[:n]))
@@ -1161,7 +1192,7 @@ class TomlA(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
                            '[[block]]\nname = "win"\nmodule = "dma"\nowner = "base"\naddress = 0xA0050000\nsize = 0x10000\nmap = "dma"\n'
-                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000600\nsize = 0x20\n'
                            '[[block.property]]\nname = "gain"\noffset = 0x4\nwidth = 16\ncount = 4\ndir = "rw"\n'
                            '[[block.property.field]]\nname = "g"\nshift = 0\nbits = 4\n'
                            '[[block.property]]\nname = "one"\noffset = 0xC\nwidth = 8\ndir = "rw"\n')
@@ -1517,13 +1548,32 @@ class ExampleCore(unittest.TestCase):
         self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
         self.assertIn("#define DRV_example_ctl_OWNER 1", h)
 
-    def test_the_base_blocks_of_the_example_are_the_blocks_of_the_shared_toml_a(self):
+    # the registers of a TOML A as {(absolute address, width, dir): (block, property)} with the maps resolved, and the windows of its core blocks that have no property of their own
+    def _registers(self, path):
+        doc = D.resolve_maps(D.toml_loads(open(path).read()), D.load_maps(self.MAPS))
+        regs, windows = {}, []
+        for b in doc["block"]:
+            if b["owner"] == "core" and not b.get("property"):
+                windows.append((b["address"], b["address"] + b["size"]))
+            for p in b.get("property", []):
+                regs[(b["address"] + p["offset"], p["width"], p["dir"])] = (b["name"], p["name"])
+        return doc, regs, windows
+
+    def test_the_base_blocks_come_from_one_source_the_toml_a_of_the_host(self):
+        # T239.3 V-3c (D30 point 4): coreapp/gateware/host.toml (checked against the RTL of host/ by tools/rtl_check.py) is the one source of the base blocks. The copies are
+        # shared.toml (the TOML A of the shared app) and, through it, example.toml: every register a copy names is a register of host.toml at the same address, width and direction,
+        # or lies in a window of host.toml that the host hands to layer 2 (the identity block at 0x101A0000 is in the window of core_trx_io); the bases agree.
+        gw = os.path.join(self.ROOT, "coreapp", "gateware")
+        host, hregs, hwin = self._registers(os.path.join(gw, "host.toml"))
+        shared, sregs, _ = self._registers(os.path.join(gw, "shared.toml"))
+        self.assertEqual(shared["io"], host["io"])
+        missing = sorted(set(v[0] for k, v in sregs.items() if k not in hregs and not any(lo <= k[0] < hi for lo, hi in hwin)))
+        # not in host.toml, not decoded in host/: the UCI window answers 0 (host.toml's header names it); the one block of the shared app that this check cannot tie to the RTL
+        self.assertEqual(missing, ["cmd_if"])
         ex = D.toml_loads(self.read("gateware", "example.toml"))
-        with open(os.path.join(self.ROOT, "coreapp", "gateware", "shared.toml")) as f:
-            sh = D.toml_loads(f.read())
-        base = [b for b in ex["block"] if b["owner"] == "base"]
-        self.assertEqual(base, sh["block"])
-        self.assertEqual(ex["io"], sh["io"])
+        raw = D.toml_loads(open(os.path.join(gw, "shared.toml")).read())
+        self.assertEqual([b for b in ex["block"] if b["owner"] == "base"], raw["block"])
+        self.assertEqual(ex["io"], raw["io"])
 
     def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):
         desc = D.compile_text(self.read("app", "desc.toml"))

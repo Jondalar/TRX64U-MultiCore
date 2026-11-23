@@ -151,12 +151,12 @@ them into the core's description record (D11):
 
 ```toml
 [[window]]
-name = "audio_mixer"     # the name io.window takes
-address = 0xA0000500     # the CPU address of the block
+name = "mixer_regs"      # the name io.window takes
+address = 0xA0000600     # the block in the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB)
 size = 0x14              # bytes
 ```
 
-The base keeps no hand-written table of the registers it drives itself (`basereg.def` is gone, T239.3 D30 point 4): its source is the base blocks of the TOML A the app is linked with (`coreapp/gateware/host.toml` for the shared app and the host app), handed to the app as a table generated at build time. A `[[window]]` is checked for name, address and size, and it is refused when it covers a byte of such a block, by both readers (`descrec.cc`, `tools/descrec.py`); the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A. The case LED select is reached
+The base keeps no hand-written table of the registers it drives itself (`basereg.def` is gone, T239.3 D30 point 4): its source is the base blocks of the TOML A the app is linked with (`coreapp/gateware/host.toml` for the shared app and the host app), handed to the app as a table generated at build time. A `[[window]]` is checked for name, address and size, and it is refused when it covers a byte of such a block, by both readers (`descrec.cc`, `tools/descrec.py`); the readers first translate the window from the firmware's address space into that of the TOML A by its `[io]` bases (V-3c), so 0xA0000401 is refused as 0x10100401 is, and `io.window` hands out the translated address; the base blocks of `host.toml` are the one source, the copies in `shared.toml` and the example's TOML A are checked against it by `tools/test_descrec.py`; the blocks of one TOML A may not overlap, and a core's block is checked only against the blocks of its own TOML A. The case LED select is reached
 through `board.case_led_select`. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
 A core delivers its two TOML contracts as two files: `menu.toml` (UI TOML: menu, key table) and `desc.toml` (API TOML: the core's

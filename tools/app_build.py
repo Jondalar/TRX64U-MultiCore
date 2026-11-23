@@ -367,8 +367,9 @@ def merge_a(a, base_blocks, maps, out):
         raise BuildError("%s: the TOML A of the app: %s" % (a["toml-b"], e))
     os.makedirs(os.path.join(out, "drv"), exist_ok=True)
     rows = [(b["name"], b["address"], b["size"]) for b in doc["block"] if b.get("owner") == "base"]
-    descrec._BASE_BLOCKS["path"], descrec._BASE_BLOCKS["rows"] = what, rows            # the base blocks of this one document decide what a window may cover
-    write_if_changed(os.path.join(out, "drv", "basetab.h"), descrec.basetab_text(rows, what))
+    io = (doc["io"]["iobase"], doc["io"]["u2p_io_base"])
+    descrec._BASE_BLOCKS["path"], descrec._BASE_BLOCKS["rows"], descrec._BASE_BLOCKS["io"] = what, rows, io    # the base blocks and bases of this one document decide what a window may cover
+    write_if_changed(os.path.join(out, "drv", "basetab.h"), descrec.basetab_text(rows, what, io))
     write_if_changed(os.path.join(out, "drv", "drvtab.h"), head)
     write_if_changed(os.path.join(out, "drv", "drvtab.c"), src)
     write_if_changed(os.path.join(out, "io.ld"), frag)

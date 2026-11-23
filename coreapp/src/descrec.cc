@@ -90,11 +90,39 @@ struct BaseBlock {
     const char *name;
     uint32_t address, size;
 };
-static const BaseBlock g_base_blocks[] = {
-#define BASE_BLOCK(n, a, s) { #n, a, s },
+#define BASE_BLOCK(n, a, s)
+#define BASE_IO(i, u) static const uint32_t g_base_iobase = i, g_base_u2p_io_base = u;
 #include "basetab.h"
 #undef BASE_BLOCK
+#undef BASE_IO
+static const BaseBlock g_base_blocks[] = {
+#define BASE_BLOCK(n, a, s) { #n, a, s },
+#define BASE_IO(i, u)
+#include "basetab.h"
+#undef BASE_BLOCK
+#undef BASE_IO
 };
+
+// T239.3 V-3c: a [[window]] row is written in the firmware's address space of the hand-over contract (Gideon's defaults of iomap.h and u2p.h: IOBASE 0x04000000 with the 24 bit I/O
+// address space, U2P_IO_BASE 0xA0000000 with 1 MiB); the reader hands out, and checks against the base blocks, the address in the space of the TOML A the app is linked with
+// (its [io] bases above). An address outside both spans is one of that space already. tools/descrec.py window_to_toml_a does the same.
+static const uint32_t FW_IOBASE = 0x04000000u, FW_IOBASE_SPAN = 0x01000000u, FW_U2P_IO_BASE = 0xA0000000u, FW_U2P_IO_SPAN = 0x00100000u;
+
+static bool window_to_toml_a(uint32_t address, uint32_t size, uint32_t *out)
+{
+    const struct { uint32_t base, span, to; } sp[2] = { { FW_U2P_IO_BASE, FW_U2P_IO_SPAN, g_base_u2p_io_base }, { FW_IOBASE, FW_IOBASE_SPAN, g_base_iobase } };
+    *out = address;
+    for (int i = 0; i < 2; i++) {
+        if (address >= sp[i].base && address - sp[i].base < sp[i].span) {
+            if ((uint64_t)address + size > (uint64_t)sp[i].base + sp[i].span) {
+                return false;
+            }
+            *out = address - sp[i].base + sp[i].to;
+            return true;
+        }
+    }
+    return true;
+}
 
 static const BaseBlock *base_block_hit(uint32_t address, uint32_t size)
 {
@@ -804,6 +832,9 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 d.size = SW(3 + 3 * i);
                 if (bad || !id_ok(d.name) || d.size < 1 || d.size > DR_WINDOW_MAX || (uint64_t)d.address + d.size > 0x100000000ull) {
                     return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
+                }
+                if (!window_to_toml_a(d.address, d.size, &d.address)) {
+                    return r.fail("description record, section %s: window \"%s\" ends beyond the firmware's I/O space it starts in", nm, d.name);
                 }
                 if (const BaseBlock *g = base_block_hit(d.address, d.size)) {
                     return r.fail("description record, section %s: window \"%s\" covers the block %s of the base (0x%08X, %u byte%s); the window may not take a byte of it",

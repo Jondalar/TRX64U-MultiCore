@@ -630,7 +630,7 @@ class RecordsTest(unittest.TestCase):
         """T239.3 base 3.3: a core's menu.toml (menu, key table) and desc.toml (core data, windows) are one record 6; a table or key in both files is refused naming both."""
         menu = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true } ]\n[[task]]\nlabel = "Dump"\nop = "ring.dump"\njob = true\n'
         desc = ('[core]\nid = "VC20"\nname = "T"\ntitle = "T"\nshort_title = "T"\nfolder = "t"\nstore = "t"\n'
-                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000500\nsize = 0x14\n')
+                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000600\nsize = 0x14\n')
         bit, _ = bit_file()
         with tempfile.TemporaryDirectory() as d:
             p, a, o, m_, d_ = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "menu.toml", "desc.toml"))

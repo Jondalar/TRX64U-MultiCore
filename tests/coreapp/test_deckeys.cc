@@ -95,18 +95,18 @@ int main(int argc, char **argv)
     CHECK_EQ(d->keys[2].row.lo, -1);                                       // "any"
     CHECK_EQ(d->keys[2].row.hi, -1);
 
-    // ---- the windows, by name
+    // ---- the windows, by name: the record holds the firmware's addresses (0xA0000xxx), the reader hands out the host TOML A's (U2P_IO_BASE 0x10100000), V-3c
     CHECK_EQ(d->nwindows, 5);
     const DescWindow *w = descrec_window(*d, "audio_mixer");
     CHECK(w != 0);
-    CHECK_EQ(w ? w->address : 0, 0xA0000500u);
+    CHECK_EQ(w ? w->address : 0, 0x10100600u);
     CHECK_EQ(w ? w->size : 0, 0x14u);
     w = descrec_window(*d, "u64_userport");                                // the runs of the U64 block that a core may write: next to the base's own registers
-    CHECK(w && w->address == 0xA0000405u && w->size == 1);
+    CHECK(w && w->address == 0x10100405u && w->size == 1);
     w = descrec_window(*d, "u64_hdmi_connectors");
-    CHECK(w && w->address == 0xA0000408u && w->size == 2);
+    CHECK(w && w->address == 0x10100408u && w->size == 2);
     w = descrec_window(*d, "speaker_enable");
-    CHECK(w && w->address == 0xA000000Cu && w->size == 1);
+    CHECK(w && w->address == 0x1010000Cu && w->size == 1);
     CHECK(descrec_window(*d, "palette") != 0);
     CHECK(descrec_window(*d, "no_such_window") == 0);                      // an unknown name
     CHECK(descrec_window(*d, "") == 0);
