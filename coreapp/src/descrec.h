@@ -15,11 +15,11 @@
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
 //       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
 //       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
-//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
+//   176 versions 5 and 6 (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
 //       u32 kind (bits 7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id; none = no pad), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the
 //       first of its button names in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a
 //       role 40-47, FF none)
-//   200 version 5 only: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
+//   200 versions 5 and 6: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
 //       core's own value; else a multiple of 256, at most 16 MiB), u32 flags (bit 0: the RAM window in its memory-only mode while it clears)
 //
 //   208 version 6 only (T257 D6: a record with a [[report_reg]]): u32 offset, u32 count of the register table (header 216); an entry is 12 bytes: u32 name (string
