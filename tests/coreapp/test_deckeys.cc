@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     // ---- the registers the base drives itself: the table of the reader, and a window on each of them is refused with its name and its code reference
     int nreg = 0;
     const BaseReg *regs = descrec_base_regs(&nreg);
-    CHECK(nreg >= 12);
+    CHECK(nreg >= 22);
     const uint32_t win = section(good, 19);
     CHECK(win != 0);
     for (int i = 0; i < nreg; i++) {

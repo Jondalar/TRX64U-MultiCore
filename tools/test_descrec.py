@@ -952,8 +952,9 @@ size = 0x14
 
     def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
         regs = D.base_registers()
-        self.assertGreaterEqual(len(regs), 12)
-        wanted = {"i2c_scl", "i2c_sda", "mdio_get", "mdio_mdc", "mdio_data", "usb_hub_reset", "hw_i2c", "power", "restore", "hdmi_pll_reset", "keyb_joy", "keyb_col", "keyb_row", "case_led_select"}
+        self.assertGreaterEqual(len(regs), 22)
+        wanted = {"i2c_scl", "i2c_sda", "mdio_get", "mdio_mdc", "mdio_data", "usb_hub_reset", "hw_i2c", "power", "restore", "hdmi_pll_reset", "keyb_joy", "keyb_col", "keyb_row", "case_led_select",
+                  "ulpi_reset", "hdmi_reg", "ethstream_ena", "matrix_keyb", "master_volume", "master_tone", "hotkey_mask", "bling_rx_flags"}
         self.assertEqual({r[0] for r in regs}, wanted)
         for name, address, nbytes, ref in regs:
             for i, (a, size) in enumerate(((address, 1), (address + nbytes - 1, 4), (address - 3, 4))):         # the register, a block that starts on its last byte, a block that runs into it
@@ -971,7 +972,9 @@ size = 0x14
     def test_the_references_of_the_table_name_their_register(self):
         token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
                  "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
-                 "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT"}
+                 "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT",
+                 "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "U64_AUDIO_MIXER + 0x50",
+                 "master_tone": "U64_AUDIO_MIXER + 0x51", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS"}
         for name, address, nbytes, ref in D.base_registers():
             path, _, line = ref.rpartition(":")
             with open(os.path.join(self.ROOT, path)) as f:
@@ -985,9 +988,11 @@ size = 0x14
                 for m in re.finditer(r"#define\s+(\w+)\s+\(U2P_IO_BASE\s*\+\s*(0x[0-9A-Fa-f]+)\)", f.read()):
                     defs[m.group(1)] = 0xA0000000 + int(m.group(2), 16)
         u64 = defs["U64_IO_BASE"]
-        for name, off in (("power", 1), ("restore", 2), ("hdmi_pll_reset", 4), ("keyb_joy", 6), ("keyb_col", 0xA), ("keyb_row", 0xB), ("case_led_select", 0xE)):
+        for name, off in (("power", 1), ("restore", 2), ("hdmi_pll_reset", 4), ("keyb_joy", 6), ("keyb_col", 0xA), ("keyb_row", 0xB), ("case_led_select", 0xE), ("hdmi_reg", 0), ("ethstream_ena", 0xF)):
             self.assertEqual({r[0]: r[1] for r in D.base_registers()}[name], u64 + off, name)
         self.assertEqual({r[0]: r[1] for r in D.base_registers()}["hw_i2c"], defs["U64II_HW_I2C_BASE"])
+        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["matrix_keyb"], defs["MATRIX_KEYB"])
+        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["ulpi_reset"], 0xA0000000 + 0xF)
 
     def test_what_a_window_must_be(self):
         def bad(text):
