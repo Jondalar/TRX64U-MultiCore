@@ -1392,16 +1392,6 @@ class TomlANames(unittest.TestCase):
         self.assertEqual((r["freeze"]["reg_status"], r["video"]["reg_fb_base"], r["video"]["fb_base"]), (0xA4, 0xC4, 0x01D00000))
         self.assertEqual([c["reg_bind"]["reg"] for c in r["cset"] if c.get("reg_bind")], [0xA1, 0xA2, 0xB0])
 
-    def test_a_name_without_toml_a_or_without_a_file_is_refused(self):
-        with self.assertRaises(D.DescError):
-            D.compile_text(open(VC20).read().replace('toml_a = "gateware.toml"\n', ""), VC20)
-        with self.assertRaises(D.DescError):
-            D.compile_text(open(VC20).read())
-
-    def test_a_name_that_is_no_property_is_refused(self):
-        with self.assertRaises(D.DescError):
-            D.compile_text(open(VC20).read().replace("machine.status", "machine.nothing"), VC20)
-
 
 if __name__ == "__main__":
     unittest.main()

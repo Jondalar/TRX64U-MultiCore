@@ -2,8 +2,9 @@
 # (tools/rtl_check.py proves it against the RTL, code to code; tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19).
 # The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register
 # offset of the core's own app is the address minus 0x101A0000. The ident block is where the standard block of the core window sits (descrec
-# demands the base as the owner of the standard block). The host's pixel layer (page 6, 0x101A6000) and the 1541 (0x10020000, 0x10060500) are the
-# host's decode and are not described here.
+# demands the base as the owner of the standard block). Page 6 (0x101A6000) is decoded by vc20_regs and forwarded to the host's pixel layer. The
+# 1541 blocks (0x10020000, 0x10060500) belong to the partial's drive_l2 and reach it over drv_io_*/gcr_io_*; rtl_check does not follow that bus
+# yet, so they are not described here (open, see the V-2 question).
 # desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
 [io]
 iobase = 0x10000000
