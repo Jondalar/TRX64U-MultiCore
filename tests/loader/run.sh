@@ -48,6 +48,7 @@ t = sys.argv[1]
 base = '[[area]]\nkey = "F5"\n  [[area.tab]]\n  id = "a"\n  name = "A"\n  widget = "nodes"\n'
 open(t + "/menu_route.bin", "wb").write(descrec.compile_text(base))
 open(t + "/menu_hide.bin", "wb").write(descrec.compile_text('hide = ["x"]\n'))
+open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000500\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n'))
 open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.tick"\nperiod_ms = 10\n'))
 PY
 
@@ -61,7 +62,7 @@ build() {   # build OUT SRCDIR
   $CXX "${LA[@]}" -o "$1" "${LF[@]}"
 }
 # the fixtures the generators above left in $T and the test reads through FIXDIR: named, so that they are part of every unit's key (T100 D14)
-CC_EXTRA="$T/testlib.u2a $T/testlib.exports.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin"
+CC_EXTRA="$T/testlib.u2a $T/testlib.exports.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin $T/windows.bin"
 run() {
   local key t0=$SECONDS; loader_args "$SRC"; key="$(cc_key loader "test libload" -- "${LA[@]}" -- "${LF[@]}")"
   if cc_cached libload "$key" test; then PASS=$((PASS + 1)); return 0; fi

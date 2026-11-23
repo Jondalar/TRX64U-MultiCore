@@ -4,6 +4,7 @@
 #include "libload.h"
 #include "ctx.h"
 #include "corefolder.h"
+#include "descrec.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -265,6 +266,13 @@ struct LibSvc {
                 return true;
             }
         }
+        // a window drive or a sector unit, which the base mounts itself (the engines of winslot.h and sectors.h): the base's own lookup (mediamounts.cc, set_media_source)
+        if (L()->media_src_) {
+            int r = L()->media_src_(c, slot, buf, len);
+            if (r >= 0) {
+                return r > 0;
+            }
+        }
         // a media slot of the descriptor: what its state says, when that is a spec (the medium's path, a word in front allowed; a path starts with '/')
         for (int i = 0; i < c->desc->nmedia; i++) {
             const MediaSlot &m = c->desc->media[i];
@@ -306,11 +314,13 @@ struct LibSvc {
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
-        (void)name;
+        // the windows of the running core's description record (section 19); the record was refused at the read when a window covered a register the base drives itself
+        const DescRecord *rec = L()->windows_rec_;
+        const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
         if (size) {
-            *size = 0;                                   // the API TOML's windows are read in a later step: none is granted yet
+            *size = w ? w->size : 0;
         }
-        return 0;
+        return w ? (volatile uint8_t *)(uintptr_t)w->address : 0;
     }
 
     // ---- board (svc_board.h)

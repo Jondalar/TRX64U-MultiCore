@@ -1,5 +1,6 @@
 #include "libboard.h"
 #include "libexports.h"
+#include "mediamounts.h"
 #include "textgrid.h"
 #include "menuflows.h"
 #include "ops_glue.h"
@@ -335,6 +336,8 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
     loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
+    loader.set_media_source(mounts_unit_source);                // ctx.media_source for the window drives and the sector units
+    loader.set_windows(bundle ? bundle->desc : 0);              // io.window: the register windows of the core's description record (section 19)
     loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
     libexports_register(loader, c);                             // base 3.3 (libexports.cc): the tables c64cart, cbm1541, uci, sid and tempdisk
     if (ops_of(c)->find_op("monitor.open")) {

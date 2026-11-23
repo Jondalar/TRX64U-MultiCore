@@ -227,6 +227,13 @@ public:
     // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
     // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
     void set_board_io(CoreIo *io) { board_io_ = io; }
+    // ctx.media_source for the slots the base mounts itself, a window drive ("DF0") or a sector unit ("HD0"), which the loader cannot see (their engines are the base's, mediamounts.cc):
+    // `fn` answers 1 with the spec in buf, 0 for a slot of that name that is empty (buf ""), -1 for a name that is none of them. Null: none (the engine's own slots and the descriptor's
+    // media slots are answered as before).
+    void set_media_source(int (*fn)(CoreCtx *, const char *, char *, int)) { media_src_ = fn; }
+    // The description record of the running core's bundle (bundle.h): io.window hands out the register windows of its section 19 (descrec_window). Null: the core has none, and
+    // io.window answers null for every name. The record must stay valid as long as the loader runs (libboard.cc passes the description of the static BundleExtras of the start).
+    void set_windows(const DescRecord *rec) { windows_rec_ = rec; }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
@@ -408,6 +415,8 @@ private:
     const SvcJob *base_job_;
     void (*job_cancel_)(struct SvcJobH *);
     CoreIo *board_io_;
+    const DescRecord *windows_rec_;
+    int (*media_src_)(CoreCtx *, const char *, char *, int);
     struct BaseExport {
         const char *name;
         uint32_t major;

@@ -192,6 +192,24 @@ int main()
             CHECK(has(cfg, "Mount HD0=folder /usb0/hd, 0.1 GB"));        // the folder keeps the size as it was typed
             CHECK(has(cfg, "Mount HD1=/usb0/h.hdf"));
             CHECK(!has(cfg, "Mount DF1"));
+            // ctx.media_source for the slots the base mounts itself (mounts_unit_source, which libboard.cc gives the loader): the spec of the engine, by the name of the slot
+            char src[300];
+            CHECK_EQ(mounts_unit_source(a.c(), "DF0", src, sizeof(src)), 1);
+            CHECK_STR(src, "/usb0/a.adf");
+            CHECK_EQ(mounts_unit_source(a.c(), "df0:", src, sizeof(src)), 1);                     // no case, no colon
+            CHECK_STR(src, "/usb0/a.adf");
+            CHECK_EQ(mounts_unit_source(a.c(), "DF1", src, sizeof(src)), 0);                      // a drive with nothing in it
+            CHECK_STR(src, "");
+            CHECK_EQ(mounts_unit_source(a.c(), "HD0", src, sizeof(src)), 1);
+            CHECK_STR(src, "folder /usb0/hd, 0.1 GB");
+            CHECK_EQ(mounts_unit_source(a.c(), "HD1", src, sizeof(src)), 1);
+            CHECK_STR(src, "/usb0/h.hdf");
+            CHECK_EQ(mounts_unit_source(a.c(), "HD1", src, 7), 1);                                // cut to n - 1
+            CHECK_STR(src, "/usb0/");
+            CHECK_EQ(mounts_unit_source(a.c(), "DF4", src, sizeof(src)), -1);                     // none of the base's slots
+            CHECK_EQ(mounts_unit_source(a.c(), "Drive A", src, sizeof(src)), -1);
+            CHECK_EQ(mounts_unit_source(a.c(), "", src, sizeof(src)), -1);
+            CHECK_EQ(mounts_unit_source(a.c(), 0, src, sizeof(src)), -1);
             size0 = a.hd_size(0);
             spec0 = a.spec(0);
             specd = a.spec(4);
