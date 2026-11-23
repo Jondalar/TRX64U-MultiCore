@@ -1,4 +1,4 @@
-tests/coreapp/run.sh : noflash_.*|board_bootcfg|board_cfg_dir|cart_flash_banks   # flash - nothing but the one config path may be written to /flash; boot config and bank geometry of the flash
+tests/coreapp/run.sh : noflash_.*|board_bootcfg|board_cfg_dir|cart_flash_banks   # flash - nothing but the standalone core's two registered files (<folder>.cfg, boot.cfg) and the host's boot.cfg may be written to /flash; boot config and bank geometry of the flash
 tests/coreapp/run.sh : wb_.*|longnames_side   # flash - write-back of a cartridge's flash writes (EF3/S6 program, erase, EEPROM) to the .crt and the .bak side file
 tests/coreapp/run.sh : mwb_.*|wbm_.*   # persistence - media write-back before reset, eject, replace and return to the host
 tests/coreapp/run.sh : set_writes_all|set_loses_value|set_reset_keeps|set_case|scale_store|pad_cfgkeys|pad_wiz_not_saved|pad_wiz_saved_lie|rs_setop|home_not_stored   # persistence - settings written to the .cfg and read back

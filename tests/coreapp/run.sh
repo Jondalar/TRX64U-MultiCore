@@ -342,9 +342,9 @@ ALLC="$ATARI nes.cc ines.cc $C64 start.cc handover.cc menutree.cc menuctl.cc pic
 run board test_board.cc $ALLC
 control board_migrate_overwrite start.cc 's/if (c->fs->stat(c->cfg_path, \&size, \&dir) || /if (/' test_board.cc $ALLC
 control board_migrate_move start.cc 's/    int got = c->fs->load(old, buf, sizeof(buf));/    int got = c->fs->load(old, buf, sizeof(buf)); c->fs->remove(old);/' test_board.cc $ALLC
-control board_cfg_dir board.h 's|#define BOARD_MONOLITH_CFG_DIR "/flash/trx64u"|#define BOARD_MONOLITH_CFG_DIR "/flash/trx64"|' test_board.cc $ALLC
+control board_cfg_dir board.cc 's|"/flash/%s", core_id);|"/flash/trx64", core_id);|' test_board.cc $ALLC
 # T115 7 H1: the held page (R1-R5)
-control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->flash_cfg \&\& prof->cfg_dir \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
+control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->flash_cfg \&\& prof->cfg_dir\[0\] \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
 control board_cfg_named_by_store start.cc 's/prof->cfg_dir, c->desc->folder);/prof->cfg_dir, c->desc->store);/' test_board.cc $ALLC
 
 # S6, S7, S9: the ROMs at the aperture's offsets, the reset, the freeze
@@ -396,14 +396,14 @@ run prompt test_prompt.cc $ALLC
 # D5, S5: w == 0 means the core draws its own picture
 
 # T104.2 Q1: the flash stays closed to the application except for the one settings file
-control noflash_exception fsif.h 's/    return !strcasecmp(path, FS_FLASH_CFG_PATH) .*/    return fs_path_is_flash(path);/' test_noflash.cc
-control noflash_exact fsif.h 's/!strcasecmp(path, FS_FLASH_CFG_PATH)/!strncasecmp(path, FS_FLASH_CFG_PATH, 20)/' test_noflash.cc
+control noflash_exception fsif.h 's/        if (e.path\[i\]\[0\] \&\& !strcasecmp(path, e.path\[i\])) {/        if (fs_path_is_flash(path)) {/' test_noflash.cc
+control noflash_exact fsif.h 's/e.path\[i\]\[0\] \&\& !strcasecmp(path, e.path\[i\])/e.path[i][0] \&\& !strncasecmp(path, e.path[i], 20)/' test_noflash.cc
 control noflash_refuse fsif.h 's/return fs_path_is_flash(path) \&\& !fs_flash_rw() \&\& !fs_flash_exception(path);/return false;/' test_noflash.cc
-control noflash_boot_exact fsif.h 's/!strcasecmp(path, FS_FLASH_BOOT_MONOLITH)/!strncasecmp(path, FS_FLASH_BOOT_MONOLITH, 20)/' test_noflash.cc
+control noflash_stale_kept fsif.h 's/        e.path\[i\]\[0\] = 0;//' test_noflash.cc
 control noflash_boot_mc_exact fsif.h 's/!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)/!strncasecmp(path, FS_FLASH_BOOT_MULTICORE, 12)/' test_noflash.cc
-control noflash_boot_missing fsif.h 's/ || !strcasecmp(path, FS_FLASH_BOOT_MONOLITH)//' test_noflash.cc
-control noflash_boot_mc_missing fsif.h 's/ || !strcasecmp(path, FS_FLASH_BOOT_MULTICORE)//' test_noflash.cc
-control board_bootcfg board.cc 's/    b.boot_cfg = mc ? FS_FLASH_BOOT_MULTICORE : FS_FLASH_BOOT_MONOLITH;/    b.boot_cfg = FS_FLASH_BOOT_MONOLITH;/' test_board.cc $ALLC
+control noflash_deep_path fsif.h 's/ || strchr(slash + 1, .\/.))/)/' test_noflash.cc
+control noflash_boot_mc_missing fsif.h 's/if (!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {/if (false) {/' test_noflash.cc
+control board_bootcfg board.cc 's/    snprintf(b->boot_cfg, sizeof(b->boot_cfg), "\/flash\/%s\/boot.cfg", core_id);/    snprintf(b->boot_cfg, sizeof(b->boot_cfg), "%s", FS_FLASH_BOOT_MULTICORE);/' test_board.cc $ALLC
 
 # T89 Apple //e disk: 6-and-2 nibblizer (golden from the RWTS definition + an independent POSTNIB decoder), file orders, the track window service
 A2D="apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc"

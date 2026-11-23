@@ -149,7 +149,6 @@ file coreapp/src/u64cfg.cc 583
 file coreapp/src/u64cfg.h 9
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/appsvc.h c64 1
-ids coreapp/src/board.h trx64u 1
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/c64_api.h c64 1
 ids coreapp/src/desc_check.cc null 1
@@ -158,8 +157,6 @@ ids coreapp/src/filemgr.cc diag 1
 ids coreapp/src/folderhd.cc amiga 2
 ids coreapp/src/folderhd.h amiga 1
 ids coreapp/src/folderhd_fold.cc amiga 2
-ids coreapp/src/fsif.h c64 1
-ids coreapp/src/fsif.h trx64u 2
 ids coreapp/src/libboard.cc c64 1
 # T239.3 D12 (Alex's decision 2026-11-22: C64 cartridges, SID and UCI stay here as shared libraries): the id c64 names the shared C64 cartridge library, not per-core code
 ids coreapp/src/libexports.cc c64 1

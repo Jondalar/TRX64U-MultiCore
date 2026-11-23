@@ -71,7 +71,7 @@ typedef struct SvcFsEntry {
 } SvcFsEntry;
 
 // The files of the core's CoreFs: 64-bit offsets, all-or-nothing reads and writes. The rule of fsif.h holds here too: a write, delete, mkdir or rename
-// under /flash is refused (the three paths of fs_flash_exception excepted), and a read-write open there gives a read-only file. A file an
+// under /flash is refused (the paths of fs_flash_exception excepted: the host's boot.cfg and the standalone core's two files), and a read-write open there gives a read-only file. A file an
 // application leaves open is closed when it ends.
 struct SvcFile;
 typedef struct SvcFs {

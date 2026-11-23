@@ -13,8 +13,9 @@ BoardProfile board_detect(BoardProbe *p)
     b.has_handover = p->handover_valid();              // T112 Q1: a large .cor start fills the page for the monolith profile too
     b.can_return_host = mc;
     b.flash_cfg = !mc;                                 // DC13: the parameter; the standalone installation has no host to keep its settings
-    b.cfg_dir = b.flash_cfg ? BOARD_MONOLITH_CFG_DIR : 0;
-    b.boot_cfg = mc ? FS_FLASH_BOOT_MULTICORE : FS_FLASH_BOOT_MONOLITH;
+    if (mc) {
+        snprintf(b.boot_cfg, sizeof(b.boot_cfg), "%s", FS_FLASH_BOOT_MULTICORE);
+    }
     b.rom_dir = mc ? 0 : BOARD_MONOLITH_ROM_DIR;
 
     uint32_t fpga = p->fpga_caps();
@@ -48,6 +49,49 @@ BoardProfile board_detect(BoardProbe *p)
         snprintf(b.why, sizeof(b.why), "ICAP byte 0x%02X is not 0x%02X, %s", icap, BOARD_ICAP_ID, b.has_handover ? "hand-over valid" : "no hand-over");
     }
     return b;
+}
+
+static bool name_ok(const char *s, size_t max)
+{
+    size_t n = s ? strlen(s) : 0;
+    if (n == 0 || n > max) {
+        return false;
+    }
+    for (size_t i = 0; i < n; i++) {
+        char ch = s[i];
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool board_set_core(BoardProfile *b, const char *core_id, const char *folder)
+{
+    if (b->kind != BOARD_MONOLITH) {
+        return true;
+    }
+    b->cfg_dir[0] = 0;
+    b->boot_cfg[0] = 0;
+    fs_flash_set_exceptions(0, 0);
+    if (!core_id || !core_id[0]) {
+        return true;
+    }
+    if (!name_ok(core_id, BOARD_CORE_ID_MAX)) {
+        return false;
+    }
+    char cfg[FS_FLASH_EXC_LEN] = "";
+    bool fits = true;
+    snprintf(b->cfg_dir, sizeof(b->cfg_dir), "/flash/%s", core_id);
+    snprintf(b->boot_cfg, sizeof(b->boot_cfg), "/flash/%s/boot.cfg", core_id);
+    if (b->flash_cfg && name_ok(folder, 63)) {
+        int n = snprintf(cfg, sizeof(cfg), "%s/%s.cfg", b->cfg_dir, folder);
+        if (n < 0 || n >= (int)sizeof(cfg)) {       // a truncated path would register another file than the one the settings are written to
+            cfg[0] = 0;
+            fits = false;
+        }
+    }
+    return fs_flash_set_exceptions(b->boot_cfg, cfg) && fits;
 }
 
 const char *board_name(const BoardProfile &b)

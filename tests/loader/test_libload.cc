@@ -1246,7 +1246,8 @@ static int app_files(const LibHost::Entry &, const LibApi *api, AppCtx *ctx)
     SvcFile *k = fs->open("/flash/roms/kernal.bin", true);
     CHECK(k && !fs->writable(k) && !fs->write(k, 0, "x", 1));
     fs->close(k);
-    CHECK(fs->save(FS_FLASH_CFG_PATH, "a=1", 3));                       // the exception of fsif.h
+    CHECK(fs_flash_set_exceptions("/flash/trx64u/boot.cfg", "/flash/trx64u/c64.cfg"));
+    CHECK(fs->save("/flash/trx64u/c64.cfg", "a=1", 3));                       // the exception of fsif.h
     CHECK(fs->open("/USB0/missing.bin", false) == 0);
     SvcFile *left = fs->open("/USB0/dump.bin", false);                  // left open: closed when the app returns
     CHECK(left != 0);
@@ -1283,7 +1284,7 @@ static void files()
     CHECK(heap0 == w.m.shape());                                         // ... and its handle given back
     CHECK(!disk.has("/flash/evil.bin") && !disk.has("/flash/dump.bin") && disk.has("/flash/roms/kernal.bin"));
     CHECK(disk.text("/flash/roms/kernal.bin") == std::string(8192, (char)0xA5));
-    CHECK(disk.text(FS_FLASH_CFG_PATH) == "a=1");
+    CHECK(disk.text("/flash/trx64u/c64.cfg") == "a=1");
     CHECK(disk.text("/USB0/dump.bin").substr(4, 4) == "TRX!");
 
     // without a core context there are no files

@@ -80,6 +80,9 @@ static void app_task(void *)
     if (r != START_OK) {
         coreapp_held(msg, &board);                // the core stays held (the host's power-up hold, nobody writes C64_MODE)
     }
+    if (!board_set_core(&board, desc->core_id, desc->folder)) {
+        STARTLOG("core id or folder not valid for the flash paths: the settings stay in memory");
+    }     // T239.3 P1-5: the standalone paths come from the core's record, before the guard or the settings read them
     coreapp_run(desc, hp, &board);                // never returns
 }
 

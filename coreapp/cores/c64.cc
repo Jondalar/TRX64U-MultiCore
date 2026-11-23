@@ -753,7 +753,7 @@ const CoreDesc c64_desc = {
     "c64.run_prg",
     0, 0, 0, 0, 0,                             // cold_ram_bytes, cold_start, id_feat_reg, id_feat_mask, id_feat_val
     c64_menu_rec, sizeof(c64_menu_rec),
-    0,                                         // core_id
+    "trx64u",                                  // core_id: names /flash/trx64u/ of the standalone installation (board_set_core)
     report_regs, (int)(sizeof(report_regs) / sizeof(report_regs[0])),
     0,                                         // rawkeys
     true,                                      // own_volume: the TRX64U mixer (T160 P4), no generic Volume

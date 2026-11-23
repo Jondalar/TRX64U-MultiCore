@@ -10,9 +10,8 @@ enum BoardKind { BOARD_MULTICORE = 0, BOARD_MONOLITH = 1 };
 
 // The ID byte the ICAP loader of the MultiCore host answers at ICAP_BASE (0x10060600). The monolith decodes nothing there and reads 0.
 #define BOARD_ICAP_ID 0x7A
-// The directory of the settings file when there is no .cor beside which it could live (Alex, 2026-10-18, T104.2 Q1), and the only
-// place of the flash the application may write (fsif.h: fs_flash_exception).
-#define BOARD_MONOLITH_CFG_DIR "/flash/trx64u"
+// The longest core id a standalone installation's flash directory is named after ("/flash/<id>", board_set_core).
+#define BOARD_CORE_ID_MAX 31
 // Gideon's layout: the ROM files lie in this directory itself, not in a roms/<folder> below it.
 #define BOARD_MONOLITH_ROM_DIR "/flash/roms"
 
@@ -55,14 +54,21 @@ struct BoardProfile {
     bool can_return_host;        // the ICAP loader is there; "Return to host menu" exists only then
     bool flash_cfg;              // T228 DC13: a start without a .cor keeps its settings in a cfg file in the flash. Off under the MultiCore host (D11: the menu writes and
                                  // erases nothing in the flash); on for a standalone installation, where nothing else could persist them
-    const char *cfg_dir;         // where <folder>.cfg lives when there is no hand-over path (the flash directory when flash_cfg); null: in memory only
-    const char *boot_cfg;        // the file that holds the boot-attempt counter (libguard.h); in the flash, one of the two paths fs_flash_exception lets through
+    char cfg_dir[8 + BOARD_CORE_ID_MAX + 1];   // where <folder>.cfg lives when there is no hand-over path: "/flash/<core id>", set by board_set_core when flash_cfg; empty: in memory only
+    char boot_cfg[8 + BOARD_CORE_ID_MAX + 10]; // the file that holds the boot-attempt counter (libguard.h): "/flash/<core id>/boot.cfg" (board_set_core) or the host's "/Flash/boot.cfg"; empty until the core is known
     const char *rom_dir;         // searched first for the ROM files, as a directory; null: only <root>/roms/<folder>
     uint32_t probes;             // BC_* the hardware answered for
     char why[96];                // "ICAP absent, no hand-over", for the log line
 };
 
 BoardProfile board_detect(BoardProbe *p);
+
+// T239.3 P1-5: the standalone paths come from the core's description record. Called once the core is chosen, with its id (CoreDesc::core_id, the .cor id of
+// core.toml) and its settings folder (CoreDesc::folder). On the monolith: cfg_dir "/flash/<id>", boot_cfg "/flash/<id>/boot.cfg", and those two files, "<cfg_dir>/<folder>.cfg"
+// and boot_cfg, are what fs_flash_exception lets through the flash guard (fsif.h). A null, empty or malformed id (anything but A-Z a-z 0-9 _ -, 1 .. BOARD_CORE_ID_MAX) leaves
+// the settings in memory and registers nothing; the result is false for a malformed one. A folder that is null or malformed registers no settings file. The MultiCore profile is
+// not touched (its settings live beside the .cor, its counter in the host's file).
+bool board_set_core(BoardProfile *b, const char *core_id, const char *folder);
 
 const char *board_name(const BoardProfile &b);
 
