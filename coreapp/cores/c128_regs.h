@@ -28,7 +28,7 @@
 #define C128_ROM_HITS    C128_REG(0x044)
 #define C128_ROM_MISSES  C128_REG(0x048)
 #define C128_ROM_BASE    C128_REG(0x050)              // 32 bit, little endian: the DDR2 byte address of the system ROM image
-#define C128_FB_LATEST   C128_REG(0x060)              // b7 valid, b2 the picture is woven (interlace, 480 rows; else 400), b1:0 the buffer of the newest complete VDC picture
+#define C128_FB_LATEST   C128_REG(0x060)              // b7 valid, b2 the picture has 480 rows (woven in interlace, or more than 200 lines, T257; else 400), b1:0 the buffer of the newest complete VDC picture
 #define C128_FRAME_SEQ   C128_REG(0x061)
 #define C128_FB_OVERRUNS C128_REG(0x062)
 #define C128_FB_BASE     C128_REG(0x064)              // 32 bit, reset 0x01D00000
