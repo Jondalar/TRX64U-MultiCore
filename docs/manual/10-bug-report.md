@@ -79,4 +79,8 @@ including `trx64u.cor`. **RETURN** writes the report of the core. It goes to `re
 of each mounted file, no hash), the last lines of the log (up to 200 lines or 16 KB), the heap, the EDID of the screen, and the values of the registers that the core names. The cores
 that name registers are the Amiga, the Amiga 1200, the Apple IIe, the C64 core and the C128 (the 38 registers of the VDC, its status and the selected register). The other cores print `declares no register list`. Passwords and keys are withheld as in 10.6.
 
+10.7.3 The report of the C128 also holds the section `Serial port trace (T170)`: the totals, how often each of the lines ATN, CLK,
+DATA and SRQ changed, the state of the lines now, and the newest 96 events with their time and the direction of the fast serial line.
+Attach the report to an issue when a real drive on the serial port does not load.
+
 > **NOTE** The report of a core is built and tested in the bench. It has not been written on a real board yet.
