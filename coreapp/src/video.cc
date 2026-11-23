@@ -92,6 +92,11 @@ void Video::set_smoothing(bool on)
     }
 }
 
+void Video::set_vic_scale(int m)
+{
+    vic_mode_ = (m >= 0 && m < VID_SCALE_COUNT) ? m : -1;
+}
+
 void Video::set_scale_mode(int m)
 {
     if (!gw_ || m < 0 || m >= VID_SCALE_COUNT || m == scale_mode_) {
@@ -107,18 +112,24 @@ void Video::set_scale_mode(int m)
 // 960 x 540 at max(1, active height / 540) in a mode 960 or more wide, the mode's own size at 1 below that (the compact layout). Centred in the
 // mode's active area, the rest black. The canvas is told to the port first (the display is laid out for it), then its place in the output.
 // The canvas the menu has in a mode, and its place in the mode's active area (what video_place_menu tells the port).
+// T222: the row the gateware with the VIC scaler really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
+static void vic_row(int *hdmi, int *sys)
+{
+    if (*hdmi > VID_HDMI_800x600) {
+        *hdmi = VID_HDMI_800x600;
+    }
+    if (*hdmi == VID_HDMI_800x600 && *sys != VID_SYS_NTSC60) {
+        *hdmi = VID_HDMI_480_576;
+    }
+    if (*sys == VID_SYS_PAL60) {
+        *sys = VID_SYS_NTSC60;
+    }
+}
+
 static TrxCanvas menu_canvas_of(int hdmi, int sys)
 {
-    if (hdmi >= 0 && video_gateware_vic_scale()) {  // T222: the row the gateware really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
-        if (hdmi > VID_HDMI_800x600) {
-            hdmi = VID_HDMI_800x600;
-        }
-        if (hdmi == VID_HDMI_800x600 && sys != VID_SYS_NTSC60) {
-            hdmi = VID_HDMI_480_576;
-        }
-        if (sys == VID_SYS_PAL60) {
-            sys = VID_SYS_NTSC60;
-        }
+    if (hdmi >= 0 && video_gateware_vic_scale()) {
+        vic_row(&hdmi, &sys);
     }
     int fw = 0, fh = 0;
     video_active_size(hdmi, sys, &fw, &fh);
@@ -355,11 +366,23 @@ static int floor_div(int a, int b)
 // (menu_canvas_of), so the rectangle on the canvas is the output rectangle minus the canvas's corner, over the whole factor the canvas is shown with.
 bool Video::picture_rect(int *x, int *y, int *w, int *h) const
 {
-    if (own_picture() || !ready_ || !vw_ || !vh_ || !d_.w || !d_.h) {
-        return false;
-    }
     int ox, oy, ow, oh;
-    if (gw_) {
+    int canvas_mode = mode_ >= 0 && gw_ ? mode_ : VID_HDMI_1080P;
+    if (own_picture()) {
+        // A C64-type core on the gateware with the VIC scaler: the window of 400 x 270 VIC pixels (400 x 240 in the 60 Hz family) in the mode's active area, laid out by the Scale the person set
+        // (set_vic_scale, the register at 0x4F01) as video_layout_scaled lays out any picture; the row is the one the gateware runs.
+        if (vic_mode_ < 0 || !gw_ || mode_ < 0) {
+            return false;
+        }
+        int hdmi = mode_, sys = sys_;
+        vic_row(&hdmi, &sys);
+        const int fam = msys_ >= 0 ? msys_ : sys_;
+        const int rows = (fam == VID_SYS_NTSC60 || fam == VID_SYS_PAL60) ? 240 : 270;
+        video_layout_scaled(STILL_W, rows, hdmi, sys, vic_mode_, 0, 0, &ow, &oh, &ox, &oy);
+        canvas_mode = mode_;
+    } else if (!ready_ || !vw_ || !vh_ || !d_.w || !d_.h) {
+        return false;
+    } else if (gw_) {
         ox = d_.x0 + (int32_t)((d_.w - vw_) / 2 * ow_ / d_.w);
         oy = d_.y0 + (int32_t)((d_.h - vh_) / 2 * oh_ / d_.h);
         ow = (int)(vw_ * ow_ / d_.w);
@@ -371,7 +394,7 @@ bool Video::picture_rect(int *x, int *y, int *w, int *h) const
         ow = (int)vw_ * s;
         oh = (int)vh_ * s;
     }
-    const TrxCanvas c = menu_canvas_of(mode_ >= 0 && gw_ ? mode_ : VID_HDMI_1080P, sys_);     // without the gateware the frame is 1080p and the menu stays where video_menu_start put it
+    const TrxCanvas c = menu_canvas_of(canvas_mode, sys_);     // without the gateware the frame is 1080p and the menu stays where video_menu_start put it
     const int f = c.factor < 1 ? 1 : c.factor;
     *x = floor_div(ox - c.x0, f);
     *y = floor_div(oy - c.y0, f);

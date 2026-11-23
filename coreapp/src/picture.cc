@@ -431,6 +431,8 @@ void scale_apply(CoreCtx *c, int value)
     if (g_vic_scale) {                             // T222: the VIC's picture is scaled by the gateware, at 0x4F01
         if (!video_set_scale_gateware(value)) {
             printf("[core] scale: the gateware did not take %s\n", video_scale_name(value));
+        } else if (c->video) {
+            c->video->set_vic_scale(value);          // T256: the still of this core is laid out as the scaler shows the picture
         }
         return;
     }

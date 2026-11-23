@@ -63,6 +63,8 @@ struct StillPx : PxPort {
     void w32(uint32_t reg, uint32_t v) { if (reg == 0x6064) base = v; }
     uint32_t r32(uint32_t reg) { return reg == 0x6068 ? status : 0; }
 };
+static bool g_vic_gw = false;
+bool video_gateware_vic_scale(void) { return g_vic_gw; }                                 // the test says whether the gateware has the VIC scaler (the stub in video_stub.cc is weak)
 static bool g_pal_ok;
 static bool palette_source(uint8_t rgb[16][3])
 {
@@ -429,7 +431,34 @@ int main()
         Video c64(VideoDesc(), &px, &io);
         c64.init();
         int x, y, w, h;
-        CHECK(!c64.picture_rect(&x, &y, &w, &h));                                           // a C64-type core: the host's scaler shows the picture, there is no rectangle
+        CHECK(!c64.picture_rect(&x, &y, &w, &h));                                           // a C64-type core on no gateware: the host's scaler shows the picture, there is no rectangle
+    }
+
+    // ---- (3) a C64-type core on the gateware with the VIC scaler: the window of 400 x 270 VIC pixels laid out by the Scale in force, in the 1280 x 720 row (its canvas is 960 x 540 at 160, 90 of it)
+    {
+        FakeIo io;
+        StillPx px;
+        Video c64(VideoDesc(), &px, &io);
+        c64.set_gateware(true);
+        g_vic_gw = true;
+        int x, y, w, h;
+        c64.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
+        CHECK(!c64.picture_rect(&x, &y, &w, &h));                                           // the Scale is not told yet
+        c64.set_vic_scale(VID_SCALE_FIT);
+        CHECK(c64.picture_rect(&x, &y, &w, &h));
+        CHECK(x == -53 && y == -90 && w == 1066 && h == 720);                               // Fit: the height of the row, the aspect of 400 x 270 kept; it reaches beyond the canvas
+        c64.set_vic_scale(VID_SCALE_INTEGER);
+        CHECK(c64.picture_rect(&x, &y, &w, &h));
+        CHECK(x == 80 && y == 0 && w == 800 && h == 540);                                   // Integer: twice, centred
+        c64.set_vic_scale(VID_SCALE_FILL);
+        CHECK(c64.picture_rect(&x, &y, &w, &h));
+        CHECK(x == -160 && y == -90 && w == 1280 && h == 720);
+        c64.set_machine_sys(VID_SYS_NTSC60);                                               // the 60 Hz family has 240 lines of the window: three times
+        c64.set_vic_scale(VID_SCALE_INTEGER);
+        c64.set_mode(VID_HDMI_720P, VID_SYS_NTSC60);
+        CHECK(c64.picture_rect(&x, &y, &w, &h));
+        CHECK(w == 1200 && h == 720);
+        g_vic_gw = false;
     }
 
     // ---- (3) the base's still takes the running picture's rectangle on a frame-buffer core, the still element's on any other

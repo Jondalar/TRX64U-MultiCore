@@ -84,6 +84,7 @@ public:
     // T107 D8: Integer / Fit / Fill (VID_SCALE_*), with the gateware; the layout is redone at once. Without it ignored.
     void set_scale_mode(int m);
     int scale_mode() const { return scale_mode_; }
+    void set_vic_scale(int m);   // a C64-type core: the Scale (VID_SCALE_*) the gateware's VIC scaler runs at, for picture_rect; -1: not told
     // T164 Q3: bilinear smoothing of Fit and Fill, with the gateware
     void set_smoothing(bool on);
     bool smoothing() const { return smooth_; }
@@ -109,7 +110,7 @@ public:
     typedef bool (*StillPalette)(uint8_t rgb[16][3]);
     static void set_still_palette(StillPalette f);
     // T256 D10: where the running picture of a frame-buffer core stands on the menu's canvas (the canvas video_place_menu names for the mode), in canvas pixels, the rectangle of the whole shown
-    // picture: it may reach beyond the canvas (a Fit picture on a mode whose canvas is smaller than its active area). False for a C64-type core (its picture is the host's scaler's) or before init().
+    // picture: it may reach beyond the canvas (a Fit picture on a mode whose canvas is smaller than its active area). A C64-type core (its picture is the host's scaler's) has one when the gateware has the VIC scaler and set_vic_scale told the Scale in force: the 400 x 270 (400 x 240 at 60 Hz) window laid out by that Scale in the mode's active area. False otherwise, and for any other core before init().
     bool picture_rect(int *x, int *y, int *w, int *h) const;
     // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
     // shown. show() then writes the layer set with the layer off, so every caller that gives the layer back (menu close, Freeze) keeps it dark.
@@ -140,6 +141,7 @@ private:
     CoreIo *io_;
     void init_bias();
     int mode_;
+    int vic_mode_ = -1;
     int scale_mode_ = 0, sys_ = 0;                 // VID_SCALE_*; the 50/60 Hz family of the last set_mode
     bool gw_ = false, smooth_ = false;
     uint32_t ow_ = 0, oh_ = 0;                     // gateware: the picture's output size

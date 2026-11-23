@@ -323,8 +323,8 @@ void OverlaySvc::take_still()
     }
     int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
     host_->canvas(&cw, &ch);
-    // A frame-buffer core's still is its running picture: the same scale and place the layer showed it in (the part on the canvas), not the still element's rectangle. Any other still is the
-    // still element's rectangle cut to the canvas of now.
+    // A core's still is its running picture: the same scale and place it was shown in (the part on the canvas; a C64-type core on the gateware's VIC scaler: as its Scale lays it out), not the
+    // still element's rectangle. Without a rectangle (a C64-type core on no VIC scaler) the still is the still element's rectangle cut to the canvas of now.
     OvRect full = { 0, 0, 0, 0 };
     int fw = 0, fh = 0, ox = 0, oy = 0;
     if (host_->picture_rect(cw, ch, &full) && full.w > 0 && full.h > 0) {
