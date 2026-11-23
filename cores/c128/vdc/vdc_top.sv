@@ -145,6 +145,17 @@ assign ilace = {&reg_im, ~vfield};
 assign      vsync = vsync_pos ^ (~version & reg_vspol);
 assign      hsync = hsync_pos ^ (~version & reg_hspol);
 
+// T257 fault 5: the smooth scroll R25[3:0] the line is drawn with is the value at the end of the previous line, not the live register: an R25 write
+// in the middle of a row (the CREST part of Risen from Oblivion writes it once per line, its loop drifting through the line) moved the rest of the row
+// by the difference (tb_c128_vdcsw.sv). Read-back of R25 stays the live register.
+reg   [3:0] hss_l;
+always @(posedge clk) begin
+	if (reset)
+		hss_l <= 0;
+	else if (enable && endCol && col == reg_ht)
+		hss_l <= reg_hss;
+end
+
 vdc_signals signals (
 	.clk(clk),
 	.reset(reset || init),
@@ -167,7 +178,7 @@ vdc_signals signals (
 	.reg_ce(reg_ce),
 	.reg_cth(reg_cth),
 	.reg_cdh(reg_cdh),
-	.reg_hss(reg_hss),
+	.reg_hss(hss_l),
 	.reg_vss(reg_vss),
 	.reg_text(reg_text),
 	.reg_atr(reg_atr),
@@ -271,7 +282,7 @@ vdc_video #(
 	.reg_cth(reg_cth),
 	.reg_cdh(reg_cdh),
 	.reg_cdv(reg_cdv),
-	.reg_hss(reg_hss),
+	.reg_hss(hss_l),
 
 	.reg_ul(reg_ul),
 	.reg_cbrate(reg_cbrate),
