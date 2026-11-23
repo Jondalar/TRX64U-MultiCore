@@ -76,6 +76,8 @@ SCHEMA = {
     # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
     # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
     "pipeline":     ("bool", False),
+    # T170: the ports a large core's layer 2 has beyond the contract's 247 (tools/contract_ports.py): the flat build has no partition to bound it
+    "layer2_extra": ("list", False),
 }
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")
