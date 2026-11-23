@@ -14,7 +14,14 @@ void libtab_register_ops(OpRegistry &r, const CoreDesc *d)
 {
     for (unsigned i = 0; i < g_libtab_n; i++) {
         const LibEntry &e = g_libtab[i];
-        if (e.register_ops && (!e.capability || (d && desc_has_capability(d, e.capability)))) {
+        if (!e.register_ops) {
+            continue;
+        }
+        bool want = !e.capability;
+        for (unsigned k = 0; d && e.capability && e.capability[k] && !want; k++) {
+            want = desc_has_capability(d, e.capability[k]);
+        }
+        if (want) {
             e.register_ops(r);
         }
     }
