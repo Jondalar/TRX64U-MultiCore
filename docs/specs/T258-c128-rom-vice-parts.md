@@ -152,6 +152,10 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
   half and the stock 1541 ROM is missing, the row's foot note says so while the row is selected: the half needs the stock 1541 ROM, and
   where to put it. Today the warning is set when the menu opens (`menuctl.cc:548`) and no screen draws it. Asked where it should
   appear (the foot of the row, a status line on Home, or a toast when the menu opens), Alex chose the foot of the row.
+- **D11 F8's "ROMs" value says "VICE parts (6)" for an image built from parts (Alex, 2026-11-23; UX review finding 2).** A single
+  file keeps its name. Today the value joins the six part names (`run.cc:376-392`), and the pane cuts it in the middle and at the edge, so
+  the Character ROM part is lost. Asked between the short value, the six names wrapped over three lines, and the short names on one
+  line, Alex chose "VICE parts (6)".
 
 ## §4 Out
 
