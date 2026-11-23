@@ -2,6 +2,7 @@
 #ifndef COREAPP_CTX_H
 #define COREAPP_CTX_H
 
+#include <strings.h>
 #include "desc.h"
 #include "settings.h"
 #include "handover.h"
@@ -122,6 +123,28 @@ static inline void mount_notify(CoreCtx *c, int slot)
 {
     if (c->mount_changed) {
         c->mount_changed(c, slot);
+    }
+}
+
+// The index of the slot `name` in the core's [mount] list (MountSlots::names, compared without regard to case), -1 when the core has no such slot.
+static inline int mount_slot_index(const CoreCtx *c, const char *name)
+{
+    const MountSlots *ms = c && c->desc && name ? c->desc->mount_slots : 0;
+    for (int i = 0; ms && i < ms->n; i++) {
+        if (!strcasecmp(ms->names[i], name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// What the shared engines call (the cartridge port: "Cartridge", the drive library: "Drive A"): the slot is looked up by its name in the running core's list, so the core's order
+// does not matter. A name the core does not list: nothing is told.
+static inline void mount_notify_name(CoreCtx *c, const char *name)
+{
+    int i = mount_slot_index(c, name);
+    if (i >= 0) {
+        mount_notify(c, i);
     }
 }
 

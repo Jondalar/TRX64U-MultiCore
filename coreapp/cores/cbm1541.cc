@@ -7,10 +7,10 @@
 #include <string.h>
 #include <strings.h>
 
-// T180 D2: a mount or eject of the disk is told to the application (slot 0 of every descriptor with a drive is Drive A)
+// T180 D2: a mount or eject of the disk is told to the application, by the name of the slot in the core's [mount] list
 static void drive_changed(void *user)
 {
-    mount_notify((CoreCtx *)user, 0);
+    mount_notify_name((CoreCtx *)user, "Drive A");
 }
 
 static CbmDrive *make_drive(CoreCtx *c)

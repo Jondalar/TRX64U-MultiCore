@@ -1858,10 +1858,11 @@ static void named_exports()
         CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab && sz == sizeof(ExpTab));
         CHECK(lib->find("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab && sz == 12);
         CHECK(lib->find("ring", U2A3_VERSION(1, 0), 0) == &g_ring_tab);              // the size may be left out
-        // a major above the one asked for is found too (the lowest that is at least it); the minor of the version means nothing to an export
-        CHECK(lib->find("trx", U2A3_VERSION(1, 7), &sz) == &g_trx_tab && sz == 12);
-        // a major that is too low is not found, nor is a name nobody exports, nor a null name
+        // the major matches exactly: a table of a higher major is not given to a caller of a lower one (its layout is not the caller's); the minor of the version means nothing to an export
+        CHECK(lib->find("trx", U2A3_VERSION(2, 7), &sz) == &g_trx_tab && sz == 12);
         sz = 99;
+        CHECK(lib->find("trx", U2A3_VERSION(1, 7), &sz) == 0 && sz == 99);
+        // a major that is too low or too high is not found, nor is a name nobody exports, nor a null name
         CHECK(lib->find("trx", U2A3_VERSION(3, 0), &sz) == 0 && sz == 99);
         CHECK(lib->find("ring", U2A3_VERSION(2, 0), &sz) == 0);
         CHECK(lib->find("uci", U2A3_VERSION(1, 0), &sz) == 0);
@@ -1876,6 +1877,24 @@ static void named_exports()
         // the exports leave with the library
         CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
         CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == 0);
+    }
+    {   // the major is matched exactly: a need of major 1 is not met by a table of major 2; a find at major 0 (a bare major in the place of U2A3_VERSION) finds nothing and logs the call
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
+        Img c("alpha", "A");
+        c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(1, 0)));
+        refused("a need on an export at a lower major than the one loaded", w, build(c), LIB_NEEDS, "alpha", "\"trx\" 1.0", "2.0 is loaded");
+        const SvcLib *lib = g_xapi->lib;
+        w.ld->set_log(log_to_test);
+        g_log.clear();
+        sz = 99;
+        CHECK(lib->find("ring", 1, &sz) == 0 && sz == 99);                               // the bare number 1 is 0.1: major 0
+        CHECK_EQ((int)g_log.size(), 1);
+        CHECK(g_log.size() == 1 && g_log[0].find("api->lib->find(\"ring\"") != std::string::npos && g_log[0].find("major 0") != std::string::npos);
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab);                // the right call says nothing
+        CHECK(lib->find("nobody", 1, &sz) == 0);                                         // a name no export has is not an export name: no line
+        CHECK_EQ((int)g_log.size(), 1);
     }
     {   // a library of base 3.1 (one table, no list) is found by its name as before; its table is not found by any other name
         World w(U2A_BASE_MINOR);

@@ -216,13 +216,13 @@ public:
     // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
     void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
-    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, uci, sid, tempdisk, textgrid): a name, the major of the table and the table, whose first
+    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, uci, sid, tempdisk, cbmprg, textgrid): a name, the major of the table and the table, whose first
     // member is its size (uint32_t). A table with the name and major of an earlier one replaces it; a null table takes the entry away. `name` is kept, not copied (a string literal). find answers
-    // such a table unless a loaded library exports the name at a lower or equal major. False: the list is full (LIB_BASE_EXPORTS_MAX).
+    // such a table only for exactly its major, and a loaded library that exports the same major wins. False: the list is full (LIB_BASE_EXPORTS_MAX).
     bool add_export(const char *name, uint32_t major, const void *table);
     // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2). Null: the base has none (the core is no C64) and find answers only what libraries export.
     void set_c64_api(const C64Api *t) { add_export(C64_API_NAME, C64_API_MAJOR, t); }
-    // What api->lib->find answers for `name` at the major of min_version or later: the same call a library makes, for the code of the base (the screens that draw a library's TextGrid).
+    // What api->lib->find answers for `name` at exactly the major of min_version: the same call a library makes, for the code of the base (the screens that draw a library's TextGrid).
     static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size) { return svc_lib_find(name, min_version, table_size); }
     // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
     // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
@@ -382,9 +382,11 @@ private:
     void discard(int si);                 // gives the image of a slot back and empties it
     int fail(int rc, char *err, int errlen, const char *fmt, ...);
     const Slot *find(const char *name) const;
-    // The loaded library that exports `name` with the lowest major that is at least the major of min_version (*ex is that entry); *below is the highest major of the name that is
-    // lower, 0 when none (a refusal can say "1.0 is loaded"). Null: no library exports it at that major.
-    const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const;
+    // The loaded library that exports `name` at exactly the major of min_version (*ex is that entry); *other is the highest major of the name that is a different one, 0 when none
+    // (a refusal can say "2.0 is loaded"). Null: no library exports it at that major.
+    const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *other) const;
+    const Slot *exporter_of(const char *name) const;          // a loaded library that exports the name at any major
+    bool export_name_known(const char *name) const;           // a loaded library or the base itself offers a table of that name (at any major)
     bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
 
     // sockets and jobs (S14): what api->net and api->job handed out, with the account. Fixed tables: the base's own tables are as small (16 sockets, 4 jobs).
@@ -415,7 +417,7 @@ private:
     };
     BaseExport base_[LIB_BASE_EXPORTS_MAX];
     int nbase_;
-    const BaseExport *base_export(const char *name, uint32_t want_major) const;   // the lowest major of the name that is at least want_major
+    const BaseExport *base_export(const char *name, uint32_t want_major) const;   // the table of the name at exactly want_major
 };
 
 #endif

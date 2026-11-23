@@ -1,5 +1,6 @@
 #include "hookhost.h"
 #include "core_hooks.h"
+#include "libfmt.h"
 #include "baseset.h"
 #include "settings.h"
 #include "mediamounts.h"
@@ -47,13 +48,9 @@ void hooks_attach(const SvcLib *lib)
         return;
     }
     uint32_t size = 0;
-    const CoreHooks *t = (const CoreHooks *)lib->find(COREHOOKS_NAME, (uint32_t)COREHOOKS_MAJOR << 16, &size);
-    uint32_t later = 0;
+    const CoreHooks *t = (const CoreHooks *)lib->find(COREHOOKS_NAME, U2A3_VERSION(COREHOOKS_MAJOR, 0), &size);
     if (!t || size < sizeof(uint32_t) || t->size < sizeof(uint32_t)) {
         return;
-    }
-    if (lib->find(COREHOOKS_NAME, (uint32_t)(COREHOOKS_MAJOR + 1) << 16, &later) == (const void *)t) {
-        return;                    // the lowest major that is at least 1 is a later one: its layout is not ours
     }
     g_hooks = t;
     g_size = size < t->size ? size : t->size;

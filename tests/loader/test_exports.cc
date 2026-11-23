@@ -1,4 +1,4 @@
-// T239.3 base 3.3: the tables the base answers api->lib->find with for the shared libraries that stay in it (libexports.cc): c64cart, cbm1541, uci, sid, tempdisk. The application's code
+// T239.3 base 3.3: the tables the base answers api->lib->find with for the shared libraries that stay in it (libexports.cc): c64cart, cbm1541, uci, sid, tempdisk, cbmprg. The application's code
 // behind the members is a recording model (exports_stub.cc); what is proven is the table: found by name, size first, every member there, and each member calling the code the header
 // names with the core's context.
 #include <string>
@@ -12,6 +12,8 @@
 #include "uci_api.h"
 #include "sid_api.h"
 #include "tempdisk_api.h"
+#include "cbmprg_api.h"
+#include "cbm_prg.h"
 #include "sidfile.h"
 #include "ctx.h"
 #include "desc.h"
@@ -56,7 +58,8 @@ public:
     void eeprom_read(uint32_t off, void *p, uint32_t n) override { memcpy(p, ee + off, n); }
 };
 
-static const void *find(const char *name, uint32_t major, uint32_t *size) { return LibLoader::find_export(name, U2A3_VERSION(major, 0), size); }
+// the major of the table, as U2A3_VERSION(major, 0): the base matches it exactly
+static const void *find_major(const char *name, uint32_t major, uint32_t *size) { return LibLoader::find_export(name, U2A3_VERSION(major, 0), size); }
 
 // how many of the pointer-sized members of a table of `size` bytes, from offset `first` on, are null
 static int null_members(const void *t, uint32_t size, size_t first)
@@ -75,16 +78,16 @@ static void base_list()
     LibLoader ld(&h, &reg, 3);
     static const uint32_t ta[3] = { 12, 0, 0 }, tb[3] = { 12, 1, 1 };
     uint32_t sz = 0;
-    CHECK(find("x", 1, &sz) == 0);
+    CHECK(find_major("x", 1, &sz) == 0);
     CHECK(ld.add_export("x", 1, ta));
-    CHECK(find("x", 1, &sz) == ta && sz == 12);
-    CHECK(find("x", 2, &sz) == 0 && find("y", 1, &sz) == 0);
+    CHECK(find_major("x", 1, &sz) == ta && sz == 12);
+    CHECK(find_major("x", 2, &sz) == 0 && find_major("y", 1, &sz) == 0);
     CHECK(ld.add_export("x", 1, tb));                                      // the same name and major: replaced
-    CHECK(find("x", 1, &sz) == tb);
-    CHECK(ld.add_export("x", 3, ta));                                      // a higher major beside it: the lowest one that is at least the one asked for
-    CHECK(find("x", 1, &sz) == tb && find("x", 2, &sz) == ta && find("x", 3, &sz) == ta && find("x", 4, &sz) == 0);
+    CHECK(find_major("x", 1, &sz) == tb);
+    CHECK(ld.add_export("x", 3, ta));                                      // a higher major beside it: each major answers for itself, none for a major in between
+    CHECK(find_major("x", 1, &sz) == tb && find_major("x", 2, &sz) == 0 && find_major("x", 3, &sz) == ta && find_major("x", 4, &sz) == 0);
     CHECK(ld.add_export("x", 1, 0));                                       // a null table takes the entry away
-    CHECK(find("x", 1, &sz) == ta);
+    CHECK(find_major("x", 1, &sz) == 0 && find_major("x", 3, &sz) == ta);
     CHECK(ld.add_export("x", 9, 0));                                       // nothing there: nothing to do
     static const char *const names[] = { "n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11", "n12", "n13", "n14", "n15" };
     int added = 0;
@@ -100,26 +103,29 @@ static void tables(CoreCtx *cx)
     Host h;
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
-    CHECK(find("c64cart", 1, 0) == 0 && find("sid", 1, 0) == 0);           // nothing registered yet
+    CHECK(find_major("c64cart", 1, 0) == 0 && find_major("sid", 1, 0) == 0);           // nothing registered yet
     libexports_register(ld, cx);
     uint32_t sz = 0;
-    const C64CartApi *cart = (const C64CartApi *)find("c64cart", 1, &sz);
+    const C64CartApi *cart = (const C64CartApi *)find_major("c64cart", 1, &sz);
     CHECK(cart && sz == sizeof(C64CartApi) && cart->size == sizeof(C64CartApi));
     CHECK_EQ(null_members(cart, sz, offsetof(C64CartApi, active)), 0);
-    const Cbm1541Api *drv = (const Cbm1541Api *)find("cbm1541", 1, &sz);
+    const Cbm1541Api *drv = (const Cbm1541Api *)find_major("cbm1541", 1, &sz);
     CHECK(drv && sz == sizeof(Cbm1541Api) && drv->size == sizeof(Cbm1541Api));
     CHECK_EQ(null_members(drv, sz, offsetof(Cbm1541Api, slot_spec)), 0);
-    const UciApi *uci = (const UciApi *)find("uci", 1, &sz);
+    const UciApi *uci = (const UciApi *)find_major("uci", 1, &sz);
     CHECK(uci && sz == sizeof(UciApi) && uci->size == sizeof(UciApi));
     CHECK_EQ(null_members(uci, sz, offsetof(UciApi, start)), 0);
-    const SidApi *sid = (const SidApi *)find("sid", 1, &sz);
+    const SidApi *sid = (const SidApi *)find_major("sid", 1, &sz);
     CHECK(sid && sz == sizeof(SidApi) && sid->size == sizeof(SidApi));
     CHECK_EQ(null_members(sid, sz, offsetof(SidApi, parse)), 0);
-    const TempDiskApi *tmp = (const TempDiskApi *)find("tempdisk", 1, &sz);
+    const TempDiskApi *tmp = (const TempDiskApi *)find_major("tempdisk", 1, &sz);
     CHECK(tmp && sz == sizeof(TempDiskApi) && tmp->size == sizeof(TempDiskApi));
     CHECK_EQ(null_members(tmp, sz, offsetof(TempDiskApi, set)), 0);
-    CHECK(find("c64cart", 2, &sz) == 0 && find("uci", 2, &sz) == 0);
-    CHECK(find("textgrid", 1, &sz) == 0);                                  // the monitor's grid is registered where the core has the monitor (libboard.cc)
+    const CbmPrgApi *prg = (const CbmPrgApi *)find_major("cbmprg", 1, &sz);
+    CHECK(prg && sz == sizeof(CbmPrgApi) && prg->size == sizeof(CbmPrgApi));
+    CHECK_EQ(null_members(prg, sz, offsetof(CbmPrgApi, place)), 0);
+    CHECK(find_major("c64cart", 2, &sz) == 0 && find_major("uci", 2, &sz) == 0 && find_major("cbmprg", 2, &sz) == 0);
+    CHECK(find_major("textgrid", 1, &sz) == 0);                                  // the monitor's grid is registered where the core has the monitor (libboard.cc)
 }
 
 static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
@@ -128,7 +134,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
     libexports_register(ld, cx);
-    const C64CartApi *c = (const C64CartApi *)find("c64cart", 1, 0);
+    const C64CartApi *c = (const C64CartApi *)find_major("c64cart", 1, 0);
     g_stub = ExportsStub();
     g_stub.cart_active = true; g_stub.cart_name = "game.crt"; g_stub.cart_path = "/usb0/game.crt"; g_stub.crt_type = 32; g_stub.image_bytes = 0x100000;
     CHECK(c->active() && c->crt_type() == 32 && c->image_bytes() == 0x100000);
@@ -204,6 +210,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     g_stub.wb_active = true;
     CHECK(!c->writable());                                                 // no cartridge in the port: false whatever the write-back service holds
     g_stub.cart_active = true;
+    CHECK(c->require() == 0 && c->prohibit() == 0);                        // "not known by the base": 0 also with a cartridge in the port
     CHECK(c->writable());
     g_stub.wb_active = false;
     CHECK(!c->writable());                                                 // a cartridge without flash or EEPROM
@@ -226,7 +233,7 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
     libexports_register(ld, cx);
-    const Cbm1541Api *d = (const Cbm1541Api *)find("cbm1541", 1, 0);
+    const Cbm1541Api *d = (const Cbm1541Api *)find_major("cbm1541", 1, 0);
     g_stub = ExportsStub();
     g_stub.rc = 2;
     g_stub.slot_spec = "ro /usb0/x.d64";
@@ -350,7 +357,7 @@ static void uci_table(CoreCtx *cx, CoreDesc &desc, BoardProfile &board)
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
     libexports_register(ld, cx);
-    const UciApi *u = (const UciApi *)find("uci", 1, 0);
+    const UciApi *u = (const UciApi *)find_major("uci", 1, 0);
     g_stub = ExportsStub();
     // the callbacks of a library, adapted to the application's UciHost: the context in front, a member past the caller's size is null
     static UciHooks hooks = { sizeof(UciHooks), Hk::reu, Hk::drive_info, Hk::drive_do, Hk::sid_map, "/temp/mem.bin", Hk::ef_clear, Hk::ramdrive, Hk::palette };
@@ -499,7 +506,7 @@ static void uci_hooks_lifetime(CoreCtx *cx)
     LibLoader ld(&h, &reg, 3);
     h.on_register = Reg::call;
     libexports_register(ld, cx);
-    Reg::u = (const UciApi *)find("uci", 1, 0);
+    Reg::u = (const UciApi *)find_major("uci", 1, 0);
     Reg::ld = &ld;
     static UciHooks a = { sizeof(UciHooks), 0, 0, 0, Hk::sid_map, 0, 0, 0, 0 };
     static UciHooks b = { sizeof(UciHooks), 0, 0, 0, Hk2::sid_map, 0, 0, 0, 0 };
@@ -551,7 +558,7 @@ static void sid_temp_tables(CoreCtx *cx)
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
     libexports_register(ld, cx);
-    const SidApi *a = (const SidApi *)find("sid", 1, 0);
+    const SidApi *a = (const SidApi *)find_major("sid", 1, 0);
     // the numbers of tests/coreapp/test_sidfile.cc, through the table
     uint8_t hd[SID_HDR_READ];
     memset(hd, 0, sizeof(hd));
@@ -581,11 +588,189 @@ static void sid_temp_tables(CoreCtx *cx)
     sid_mus_header(&td, true);
     CHECK(!memcmp(&tm, &td, sizeof(tm)));
     // tempdisk
-    const TempDiskApi *d = (const TempDiskApi *)find("tempdisk", 1, 0);
+    const TempDiskApi *d = (const TempDiskApi *)find_major("tempdisk", 1, 0);
     d->set(true, false);
     CHECK(g_stub.temp_auto == 1 && g_stub.temp_sub == 0);
     d->set(false, true);
     CHECK(g_stub.temp_auto == 0 && g_stub.temp_sub == 1);
+}
+
+
+// The VC-20's numbers (the machine cbm_prg.cc was read from), as the caller's CbmPrgMachine
+static CbmPrgMachine vc20_machine(void)
+{
+    CbmPrgMachine m;
+    memset(&m, 0, sizeof(m));
+    m.size = sizeof(m);
+    m.basic_starts[0] = 0x1001; m.basic_starts[1] = 0x0401; m.basic_starts[2] = 0x1201;
+    m.nbasic_starts = 3;
+    m.txttab = 0x2B; m.txttab_min = 0x0400; m.txttab_max = 0x2000;
+    m.vartab = 0x2D; m.arytab = 0x2F; m.strend = 0x31;
+    m.kbd_buffer = 0x0277; m.kbd_count = 0xC6;
+    m.ready_ms = 2500; m.p00_header = 0x1A;
+    m.min_size = 3; m.max_size = 0x10020;
+    return m;
+}
+
+// "10 PRINT" twice as a .prg at `load`
+static std::vector<uint8_t> basic_prg(uint16_t load)
+{
+    std::vector<uint8_t> v;
+    uint16_t l2 = (uint16_t)(load + 6), l3 = (uint16_t)(l2 + 6);
+    const uint8_t b[] = { (uint8_t)load, (uint8_t)(load >> 8), (uint8_t)l2, (uint8_t)(l2 >> 8), 10, 0, 0x99, 0, (uint8_t)l3, (uint8_t)(l3 >> 8), 20, 0, 0x99, 0, 0, 0 };
+    v.assign(b, b + sizeof(b));
+    return v;
+}
+
+static void prg_table(CoreCtx *cx, WinIo &io)
+{
+    Host h;
+    OpRegistry reg;
+    LibLoader ld(&h, &reg, 3);
+    libexports_register(ld, cx);
+    const CbmPrgApi *a = (const CbmPrgApi *)find_major("cbmprg", 1, 0);
+    CHECK(a);
+    CbmPrgMachine m = vc20_machine();
+    char msg[160];
+    // a BASIC program saved for $1001 on a machine that says BASIC starts at $1201: relinked and placed there, the three pointers follow
+    io.ram_write(m.txttab, "\x01\x12", 2);
+    std::vector<uint8_t> f = basic_prg(0x1001);
+    CbmPrgPlaced r;
+    CHECK_EQ(a->place(f.data(), (uint32_t)f.size(), &m, false, &r, msg, sizeof(msg)), 0);
+    CHECK(r.basic && r.load == 0x1201 && r.end == 0x1201 + 14 && r.start == 0);
+    uint8_t out[14];
+    a->mem_read(&m, 0x1201, out, sizeof(out));
+    CHECK_EQ(out[0] | (out[1] << 8), 0x1207);                              // the first link moved by 0x200
+    CHECK_EQ(out[6] | (out[7] << 8), 0x120D);
+    CHECK(out[12] == 0 && out[13] == 0);
+    uint8_t ptr[2];
+    io.ram_read(m.vartab, ptr, 2);
+    CHECK_EQ(ptr[0] | (ptr[1] << 8), 0x1201 + 14);
+    // the same bytes through the model's own call (cbm_prg.cc): the table is that code with the core's io
+    uint8_t direct[14];
+    io.ram_read(0x1201, direct, sizeof(direct));
+    CHECK(!memcmp(direct, out, sizeof(out)));
+    // typed start: RUN for BASIC, SYS<start> for a machine-language file
+    a->type_start(&m, &r);
+    uint8_t kb[5];
+    io.ram_read(m.kbd_buffer, kb, 4);
+    uint8_t cnt;
+    io.ram_read(m.kbd_count, &cnt, 1);
+    CHECK(!memcmp(kb, "RUN\r", 4) && cnt == 4);
+    uint8_t ml[] = { 0x00, 0x20, 0xA9, 0x01, 0x60 };                         // $2000: LDA #1, RTS
+    CHECK_EQ(a->place(ml, sizeof(ml), &m, false, &r, msg, sizeof(msg)), 0);
+    CHECK(!r.basic && r.load == 0x2000 && r.end == 0x2003 && r.start == 0x2000);
+    a->type_start(&m, &r);
+    io.ram_read(m.kbd_buffer, kb, 5);
+    CHECK(!memcmp(kb, "SYS8192\r", 5));
+    // a refusal: the window of BASIC's start; the reason comes back, also with no buffer given
+    io.ram_write(m.txttab, "\x00\x40", 2);
+    CHECK_EQ(a->place(f.data(), (uint32_t)f.size(), &m, false, &r, msg, sizeof(msg)), 1);
+    CHECK(strstr(msg, "cannot be right") != 0);
+    CHECK_EQ(a->place(f.data(), (uint32_t)f.size(), &m, false, &r, 0, 0), 1);
+    CHECK_EQ(a->place(f.data(), 2, &m, false, &r, msg, sizeof(msg)), 1);          // two bytes: below min_size 3 plus nothing
+    CHECK(strstr(msg, "not a program") != 0);
+    // a machine checked by its size: one that stops before max_size is no machine, a shorter one than ours reads its missing members as 0
+    CbmPrgMachine bad = m;
+    bad.size = offsetof(CbmPrgMachine, max_size);
+    io.ram_write(m.txttab, "\x01\x12", 2);
+    CHECK_EQ(a->place(f.data(), (uint32_t)f.size(), &bad, false, &r, msg, sizeof(msg)), 1);
+    CHECK(strstr(msg, "No machine") != 0);
+    CHECK_EQ(a->place(f.data(), (uint32_t)f.size(), 0, false, &r, msg, sizeof(msg)), 1);
+    uint8_t before[2] = { 0x55, 0x55 }, zeros[2] = { 0x55, 0x55 };
+    io.ram_write(0x3000, before, 2);
+    a->mem_write(&bad, 0x3000, "\x01\x02", 2);                               // no machine: nothing written
+    io.ram_read(0x3000, zeros, 2);
+    CHECK(zeros[0] == 0x55 && zeros[1] == 0x55);
+    a->mem_read(&bad, 0x3000, zeros, 2);                                   // ... and zeros read
+    CHECK(zeros[0] == 0 && zeros[1] == 0);
+    CbmPrgMachine old = m;                                                 // a caller built before mem_ddr existed: its size ends at max_size, mem_ddr is 0
+    old.size = offsetof(CbmPrgMachine, max_size) + sizeof(old.max_size);
+    old.mem_ddr = 0x1000;                                                  // past its size: not read
+    a->mem_write(&old, 0x3000, "\x07\x08", 2);
+    io.ram_read(0x3000, zeros, 2);
+    CHECK(zeros[0] == 7 && zeros[1] == 8);
+    uint8_t d0[2];
+    io.ddr_read(0x1000 + 0x3000, d0, 2);
+    CHECK(d0[0] == 0 && d0[1] == 0);
+    // mem_ddr: the DDR2 window as well, and the read comes from there
+    CbmPrgMachine scpu = m;
+    scpu.mem_ddr = 0x20000;
+    a->mem_write(&scpu, 0x3002, "\x09\x0A", 2);
+    io.ddr_read(0x20000 + 0x3002, d0, 2);
+    CHECK(d0[0] == 9 && d0[1] == 0x0A);
+    io.ram_read(0x3002, zeros, 2);
+    CHECK(zeros[0] == 9 && zeros[1] == 0x0A);
+    uint8_t viaddr[2] = { 0, 0 };
+    a->mem_read(&scpu, 0x3002, viaddr, 2);
+    CHECK(viaddr[0] == 9 && viaddr[1] == 0x0A);
+    // the script: checked, then typed piece by piece when the buffer is empty
+    CHECK_EQ(a->script_check("LOAD\"X\",8|RUN", msg, sizeof(msg)), 0);
+    CHECK_EQ(a->script_check("12345678901|RUN", msg, sizeof(msg)), 1);
+    CHECK(strstr(msg, "11 keys") != 0);
+    CHECK_EQ(a->script_check("12345678901", 0, 0), 1);                     // no buffer given: the same answer
+    uint8_t zero = 0;
+    io.ram_write(m.kbd_count, &zero, 1);
+    int pos = 0;
+    CHECK_EQ(a->script_step(&m, "AB|CD", &pos), 0);
+    io.ram_read(m.kbd_buffer, kb, 2);
+    io.ram_read(m.kbd_count, &cnt, 1);
+    CHECK(kb[0] == 'A' && kb[1] == 'B' && cnt == 2 && pos == 3);
+    CHECK_EQ(a->script_step(&m, "AB|CD", &pos), 0);                        // the machine has not taken the first piece
+    io.ram_write(m.kbd_count, &zero, 1);
+    CHECK_EQ(a->script_step(&m, "AB|CD", &pos), 0);
+    io.ram_read(m.kbd_buffer, kb, 2);
+    CHECK(kb[0] == 'C' && kb[1] == 'D' && pos == 5);
+    io.ram_write(m.kbd_count, &zero, 1);
+    CHECK_EQ(a->script_step(&m, "AB|CD", &pos), 1);                        // all in and taken
+    // relink on a buffer and the key of a character
+    std::vector<uint8_t> g = basic_prg(0x1001);
+    CHECK_EQ(a->relink(g.data() + 2, (uint32_t)g.size() - 2, 0x1001, 0x0801), 0x0801 + 14);
+    CHECK_EQ(g[2] | (g[3] << 8), 0x0807);
+    uint8_t idx = 0;
+    bool shift = true;
+    CHECK(a->key_for('A', &idx, &shift) && idx == 10 && !shift);
+    CHECK(a->key_for('!', &idx, &shift) && shift);
+    CHECK(!a->key_for(0x01, &idx, &shift));
+}
+
+// The slot of a shared engine is told by its name (ctx.h): the index comes from the running core's [mount] list
+static int g_told[4], g_told_n;
+static void told(CoreCtx *, int slot) { if (g_told_n < 4) g_told[g_told_n++] = slot; }
+static const char *slot_spec_none(CoreCtx *, int) { return 0; }
+static void notify_by_name()
+{
+    static const char *const c64_order[] = { "Drive A", "Cartridge" };
+    static const char *const other_order[] = { "Tape", "Cartridge", "Drive A" };
+    MountSlots c64s = { 2, c64_order, slot_spec_none, 0, 0 };
+    MountSlots other = { 3, other_order, slot_spec_none, 0, 0 };
+    CoreDesc d;
+    memset(&d, 0, sizeof(d));
+    CoreCtx c;
+    memset(&c, 0, sizeof(c));
+    c.desc = &d;
+    c.mount_changed = told;
+    g_told_n = 0;
+    d.mount_slots = &c64s;
+    mount_notify_name(&c, "Cartridge");
+    mount_notify_name(&c, "Drive A");
+    CHECK(g_told_n == 2 && g_told[0] == 1 && g_told[1] == 0);
+    d.mount_slots = &other;                                                // another order: the same names reach the other indexes
+    mount_notify_name(&c, "Cartridge");
+    mount_notify_name(&c, "Drive A");
+    CHECK(g_told_n == 4 && g_told[2] == 1 && g_told[3] == 2);
+    g_told_n = 0;
+    mount_notify_name(&c, "Disk");                                         // a name the core does not list: nothing
+    mount_notify_name(&c, 0);
+    d.mount_slots = 0;                                                     // a core without a list: nothing
+    mount_notify_name(&c, "Cartridge");
+    c.desc = 0;
+    mount_notify_name(&c, "Cartridge");
+    CHECK_EQ(g_told_n, 0);
+    CHECK_EQ(mount_slot_index(0, "Cartridge"), -1);
+    d.mount_slots = &other;
+    c.desc = &d;
+    CHECK_EQ(mount_slot_index(&c, "cartridge"), 1);                        // without regard to case
 }
 
 int main()
@@ -607,5 +792,7 @@ int main()
     uci_table(&cx, desc, board);
     uci_hooks_lifetime(&cx);
     sid_temp_tables(&cx);
+    prg_table(&cx, io);
+    notify_by_name();
     DONE("test_exports");
 }
