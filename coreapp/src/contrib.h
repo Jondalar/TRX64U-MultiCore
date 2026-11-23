@@ -21,6 +21,7 @@
 #include "settings.h"
 #include "libapi.h"
 #include "menutree.h"
+#include "overlay.h"
 #include "menuintent.h"
 
 enum ContribRank { CR_DESC = 0, CR_LIB = 1, CR_APP = 2 };
@@ -129,6 +130,9 @@ struct MenuMerge {
     // T239.3 D32: where the application's rows stand: the base's table with the core's routes and places over it (menu_place_merge), in place_store, when has_place (false after contrib_merge: the base's table alone). A struct, not a pointer into itself: a MenuMerge may be copied.
     bool has_place;
     UiPlace place_store;
+    // T256 D8: the elements of the overlay service: the base's table with the core's over it (ovl_merge), in elem_store, when has_elem (false after contrib_merge: the base's table stands)
+    bool has_elem;
+    UiElements elem_store;
 };
 
 // Merges the contributions into `d`. `reg` (optional) is asked whether the operations and states the contributions name exist and whether

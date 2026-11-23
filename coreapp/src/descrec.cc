@@ -82,7 +82,7 @@ bool id_ok(const char *s)
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
-                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places" };
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places", "elements" };
 
 // T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
 static const BaseReg g_base_regs[] = {
@@ -884,6 +884,38 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             }
             out->place.nrows = (int)SW(0);
             out->has_place = true;
+        } else if (id == 25) {
+            if (len < 4 || SW(0) < 1 || SW(0) > OVL_ELEMENTS_MAX || len != 4 + 24 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, OVL_ELEMENTS_MAX);
+            }
+            int stills = 0;
+            for (uint32_t i = 0; i < SW(0); i++) {
+                const uint32_t w = 1 + 6 * i;
+                UiElementRow &e = out->elem.rows[i];
+                e.name = r.str(SW(w), &bad);
+                e.anchor = (uint8_t)(SW(w + 1) < 256 ? SW(w + 1) : 255);
+                e.dx = (int16_t)(int32_t)SW(w + 2);
+                e.dy = (int16_t)(int32_t)SW(w + 3);
+                e.w = (uint16_t)(SW(w + 4) & 0xFFFF);
+                e.h = (uint16_t)(SW(w + 4) >> 16);
+                e.still = (SW(w + 5) & 1) != 0;
+                // the same rules as tools/descrec.py _element_check (ovl_row_check); a dx or dy that does not fit 16 bits cannot be inside the canvas
+                const int32_t dx = (int32_t)SW(w + 2), dy = (int32_t)SW(w + 3);
+                if (bad || (SW(w + 5) & ~1u) || dx != e.dx || dy != e.dy || ovl_row_check(e)) {
+                    return r.fail("description record, section %s: element %u has a bad name, anchor or size, or lies outside the canvas of %d x %d", nm, (unsigned)(i + 1), OVL_CANVAS_W, OVL_CANVAS_H);
+                }
+                stills += e.still;
+                for (uint32_t j = 0; j < i; j++) {
+                    if (!strcmp(out->elem.rows[j].name, e.name)) {
+                        return r.fail("description record, section %s: the name \"%s\" twice", nm, e.name);
+                    }
+                }
+            }
+            if (stills > 1) {
+                return r.fail("description record, section %s: more than one still", nm);
+            }
+            out->elem.n = (int)SW(0);
+            out->has_elem = true;
         } else {
             if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
@@ -913,7 +945,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         return 0;
     }
-    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table, the windows, the routes and the places (18, 19, 23, 24) do not
+    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table, the windows, the routes and the places (18, 19, 23, 24, 25) do not
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {

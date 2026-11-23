@@ -1,5 +1,6 @@
 #include "menutree.h"
 #include "contrib.h"
+#include "overlay.h"
 #include "mediamounts.h"
 #include "home.h"
 #include "partial.h"
@@ -215,6 +216,11 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 const UiPlace *menu_place_base()
 {
     return &g_base_place;
+}
+
+const UiElements *menu_elem_base()
+{
+    return &g_base_elem;
 }
 
 static const MenuGroupRoute *route_named(const UiPlace *pl, const char *group)

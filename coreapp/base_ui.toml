@@ -1,5 +1,5 @@
 # The SDK's base UI TOML (T239.3 D32): where every row the application adds to every core stands in the menu - its tab, its group and its place among the others.
-# tools/gen_base_ui.py compiles it with tools/descrec.py (sections 23 and 24, the same record a core's UI TOML carries) into coreapp/src/base_ui.inc, which menutree.cc includes;
+# tools/gen_base_ui.py compiles it with tools/descrec.py (sections 23, 24 and 25, the same record a core's UI TOML carries) into coreapp/src/base_ui.inc, which menutree.cc includes;
 # tools/gen_base_ui.py --check (the lint stage) is red when the .inc is not what this file compiles to. The rows themselves (their values, defaults and operations) are code:
 # picture.cc, volume.cc, tone.cc, mediamounts.cc, home.cc, hotkeys.cc, baseset.cc; the menu simulator and the board build the same menu from this file.
 #
@@ -189,3 +189,23 @@ op = "base.wheel_dir"
 route = "appinput"
 group = "app"
 order = 210
+
+# ---- the elements of the overlay service (T256 D8, D9, D10): what the base itself puts over the machine's picture, and the still every core's libraries may fill. Places in canvas pixels
+# (960 x 540). A core's UI TOML adds the elements of its libraries with [[element]] and places a base element again by naming it (a core's PAUSED tag, for example).
+# the still: the picture of the stopped machine, under the open menu and under the elements while the machine stands. The base takes it when the machine stops; a library may show its own
+# surface as the still (Timewarp's frame). The whole canvas.
+[[element]]
+name = "still"
+anchor = "top_left"
+w = 960
+h = 540
+still = true
+
+# the PAUSED tag (D5: it says only "PAUSED"), the base's first user of the service: top right, 14 pixels from the edge
+[[element]]
+name = "paused"
+anchor = "top_right"
+dx = -14
+dy = 14
+w = 126
+h = 30
