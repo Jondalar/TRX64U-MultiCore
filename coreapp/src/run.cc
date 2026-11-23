@@ -423,7 +423,7 @@ void coreapp_held(const char *why, const BoardProfile *board)
     if (!matrix_kb && held_offers_return(board)) {
         matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
     }
-    char text[400], err[100] = "";
+    char text[720], err[100] = "";                 // the reason (up to 511 bytes, coreapp.cc) and the RETURN line after it
     held_text(why, board, 0, text, sizeof(text));
     ui_message("This core cannot be started", text, true);
     for (;;) {
@@ -713,7 +713,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
     // The libraries' groups before the first reset and the start hook (api.md 9.7.10, 9.7.5.1): a library's init and start have api->io, the operations, the
-    // machine's groups, the dialogs and the jobs. The application host fills them when it installs; the executor and the polls start after the start hook.
+    // machine's groups and the jobs. The application host fills them when it installs. A dialog is served by the main loop only, so init and start ask none
+    // (api.md 4.5.5). The executor starts before the start hook (a call from the hook, which holds the core lock, runs on its task: exec.cc), the polls after it.
     static BoardOs board_os;
     static CoreLock core_lock(&board_os);
     // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
@@ -762,6 +763,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     }
     if (!hook_started) {
         trx_ring_engine_init();                              // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
+        appsvc_trx_ring_update();                            // api->trx->ring: the table was made when the application host was installed, before this start (api.md 4.7.2)
     }
     static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);   // the first poll: after the start hook (core_hooks.h start)
     if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {

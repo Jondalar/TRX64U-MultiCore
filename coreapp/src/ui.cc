@@ -28,7 +28,7 @@ static lv_obj_t *scr;
 static bool msg_up;
 static lv_obj_t *g_msg_label, *g_msg_panel;                  // the message pane's text and box while it stands (the picture question updates the text in place)
 static bool pq_up;                                  // T187 F1: the picture question owns the pane; a menu render in the same pass (the NES waiting menu) must not paint over it
-static char msg_title_s[80], msg_text_s[400];
+static char msg_title_s[80], msg_text_s[720];
 static bool msg_bad;
 static const CoreDesc *g_desc;
 static volatile int g_look_t = 1, g_look_scheme = 1;           // "Overlay Transparency" and "Color Scheme" (ui_set_look)

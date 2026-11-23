@@ -263,6 +263,15 @@ const SvcTrx *appsvc_trx(void)
     return &g_trx;
 }
 
+void appsvc_trx_ring_update(void)
+{
+    if (g_trx.size) {                                    // only the member changes: a library may hold the table and read it meanwhile
+        TrxRingStatus rs;
+        trx_ring_status(&rs);
+        g_trx.ring = rs.present ? &g_ring : 0;
+    }
+}
+
 // ---- net -------------------------------------------------------------------------------------------------------------------------------------------
 // PROVENANCE: app_api_net.cc's api_net_* (same source as above). The loader (libload.cc) keeps the owner of every handle and closes the sockets of an image that ends.
 

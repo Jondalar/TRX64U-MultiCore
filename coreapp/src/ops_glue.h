@@ -6,8 +6,8 @@
 
 #include "ctx.h"
 
-// The registry of this core application: the base's operations (the shared resets, the Picture item), then the descriptor's contributor.
-// Made on first use. Returns null when a registration was refused; ops_error() says which.
+// The registry of this core application: the base's operations (the shared resets, the Picture item), then the descriptor's register_ops, or
+// ops_record_groups for a record core that has none. Made on first use, never null: a refused registration leaves its reason in ops_error().
 OpRegistry *ops_of(CoreCtx *c);
 
 // T239.3 (advisor 2026-11-23): the base's own operation groups for a core described by its record (D17, CoreDesc::from_record) that registers no

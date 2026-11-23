@@ -13,6 +13,7 @@ void appsvc_init(CoreCtx *c);
 const SvcC64 *appsvc_c64(void);                         // null when the core is not the C64
 const C64Api *appsvc_c64_api(void);                     // the same table as api->c64 as C64Api (c64_api.h), what api->lib->find answers under C64_API_NAME; null when the core is not the C64
 const SvcTrx *appsvc_trx(void);                         // null unless the ID block reads "TRX2"
+void appsvc_trx_ring_update(void);                      // the table's ring member again, after the base started its frame ring (run.cc): the table is made before
 const SvcNet *appsvc_net(void);
 
 void appsvc_end(void);                                  // an application ended: the debug block is released (its sockets and jobs are closed through the loader's account of it)
