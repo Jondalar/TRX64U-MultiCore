@@ -6,6 +6,7 @@
 #include "uci.h"
 #include "tempdisk.h"
 #include "writeback.h"
+#include "appsvc.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -49,6 +50,9 @@ void c64_cart_player_end(CoreCtx *c) { note(c, "player_end"); }
 bool c64_cart_player_active(void) { return g_stub.player; }
 int c64_cart_run_modplayer(CoreCtx *, const uint8_t *, uint32_t, char *, int) { return 1; }
 
+// ---- appsvc.h
+const SvcC64 *appsvc_c64(void) { static SvcC64 t; return g_stub.c64core ? &t : 0; }
+
 // ---- writeback.h
 bool wb_active(void) { return g_stub.wb_active; }
 
@@ -85,5 +89,5 @@ int CbmDrive::create(const char *path, int format, const char *name, char *msg, 
 }
 
 // ---- uci.h, tempdisk.h
-void uci_start(CoreCtx *c, const UciHost *host) { note(c, "uci_start"); g_stub.uci_starts++; g_stub.host = *host; }
+void uci_start(CoreCtx *c, const UciHost *host) { note(c, "uci_start"); g_stub.uci_starts++; g_stub.host = *host; g_stub.host_live = host; }
 void tempdisk_set(bool auto_cleanup, bool subfolders) { g_stub.temp_auto = auto_cleanup; g_stub.temp_sub = subfolders; }

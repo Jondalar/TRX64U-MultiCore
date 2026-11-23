@@ -184,6 +184,9 @@ public:
     // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
     // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
+    // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (an unload, a release, a load that fails after the image was
+    // placed): what the base kept of that image (a table the image's code gave it) is let go there. Null: nobody is told.
+    void set_discard_notify(void (*fn)(int handle, uint32_t image_addr, uint32_t image_size)) { discard_notify_ = fn; }
 
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED. It is also the core that the groups settings, ctx, io
     // and board of base 3.3 act on; api->io is null for a context without a register window (no io, or a core with no machine: CoreDesc::menu_first).
@@ -272,6 +275,7 @@ private:
         int32_t owner;                    // the slot, or -1
     } __attribute__((aligned(16)));
     Blk *acct_[LIB_MAX + 1];              // the lists: one per slot, the last one is nobody's
+    void (*discard_notify_)(int handle, uint32_t image_addr, uint32_t image_size);
     int cur_;                             // the slot of the application that is open (and of an image's lib_register or app_main as run() calls it), -1 none
     CoreCtx *ctx_;
     SvcSys sys_;

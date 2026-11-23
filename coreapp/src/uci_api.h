@@ -50,7 +50,8 @@ typedef struct UciHooks {
 typedef struct UciApi {
     uint32_t size;
     // Starts the command interface once, with the machine's side (`hooks`). It does nothing when the bitstream lacks it (the UCI and cartridge capability bits of the ITU) and on a second
-    // call. Call it from the core's start hook (core_hooks.h), never from lib_register. Task: lock.
+    // call while the first table is in use; when the library that gave the table is unloaded, the base stops calling through it and a later start gives a new one (the interface itself is not started again; memory_file is copied).
+    // Call it from the core's start hook (core_hooks.h), never from lib_register. Task: lock.
     void (*start)(const UciHooks *hooks);
     // The slot of the interface: whether it answers at $DF1C (SLOT_ENABLE, 0 or 1) and the base address it answers at (SLOT_BASE; 0x47 is $DF1C, the cartridge library's
     // value). slot_enable reads the register; set_slot_enable and set_slot_base write it. The rule of this export: the writes are ignored and slot_enable reads 0 unless

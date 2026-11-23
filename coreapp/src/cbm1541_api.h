@@ -60,7 +60,8 @@ typedef struct Cbm1541Api {
     const char *(*slot_spec)(void);
     int (*slot_mount)(const char *spec, char *msg, int msglen);
     int (*slot_eject)(char *msg, int msglen);
-    // Drive A as it stands. Result: false when `slot` is not 0 (there is one drive) or the core has no drive window (info is not written). Task: any.
+    // Drive A as it stands. Result: false when `slot` is not 0 (there is one drive), the core has no drive window, or no member of class lock has made the drive yet (info is not written);
+    // a member of class any never makes it. Task: any.
     bool (*drive_info)(int slot, Cbm1541Info *info);
     // The image of drive A in DDR2 (the 64 KB the drive's hardware reads and writes; the bodies use CoreIo::ddr_abs_read and ddr_abs_write of the shared library). image_size(slot):
     // the bytes of the image of drive `slot` (65536 for 0), 0 when `slot` is not 0 or the core has no drive window. image_read copies n bytes from offset `off` into dst,

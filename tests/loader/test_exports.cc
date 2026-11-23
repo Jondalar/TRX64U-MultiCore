@@ -32,7 +32,14 @@ struct Host : LibHost {
     void sync_code(void *, uint32_t) override { }
     bool has_capability(const char *) override { return false; }
     const char *core_name() override { return "Test Core"; }
-    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 99; }
+    int call_register(const Entry &e, const LibApi *, LibRecord *) override
+    {
+        if (on_register) {
+            on_register(e);
+        }
+        return 99;
+    }
+    void (*on_register)(const Entry &) = 0;
 };
 
 // the machine side of the DDR2 windows and of the EEPROM, recorded
@@ -40,6 +47,8 @@ class WinIo : public FakeIo {
 public:
     std::vector<uint8_t> win;          // absolute 0x00EA8000 .. 0x00F00000
     uint8_t ee[4096];
+    bool drv = true;                   // the core has the drive window (CoreIo::drv_present)
+    bool drv_present() override { return drv; }
     WinIo() : win(0x00F00000u - 0x00EA8000u, 0) { memset(ee, 0, sizeof(ee)); }
     void ddr_abs_write(uint32_t a, const void *p, uint32_t n) override { memcpy(&win.at(a - 0x00EA8000u), p, n); }
     void ddr_abs_read(uint32_t a, void *p, uint32_t n) override { memcpy(p, &win.at(a - 0x00EA8000u), n); }
@@ -151,7 +160,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     CHECK(!c->ef_clear(8, true) && !c->player_active());
     g_stub.player = true;
     CHECK(c->player_active());
-    // the RAM window: only a core with the cartridge port has it
+    // the RAM window: only a core with the cartridge port of the C64 family has it
     CHECK_EQ(c->ram_size(), 0);
     uint8_t one = 9, z[4] = { 1, 1, 1, 1 };
     c->ram_write(0, &one, 1);
@@ -160,6 +169,20 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     static const char *const caps[] = { "cartridge" };
     desc.caps = caps;
     desc.ncaps = 1;
+    // a core that lists the capability and is no C64 (the Atari, the NES ...): no RAM window, no EEPROM window; nothing is read or written
+    uint8_t ee_in[2048], ee_out[2048];
+    memset(ee_in, 0x33, sizeof(ee_in));
+    memset(ee_out, 0x44, sizeof(ee_out));
+    io.ee[0] = 0xAA;
+    io.ee[2048] = 0xBB;
+    CHECK_EQ(c->ram_size(), 0);
+    c->ram_write(0, &one, 1);
+    c->ram_read(0, z, 4);
+    c->eeprom_put(ee_in);
+    c->eeprom_get(ee_out);
+    CHECK(io.win[0x00EF0000u - 0x00EA8000u] == 0 && z[0] == 0 && z[3] == 0);
+    CHECK(io.ee[0] == 0xAA && io.ee[2048] == 0xBB && ee_out[0] == 0 && ee_out[2047] == 0);
+    g_stub.c64core = true;
     CHECK_EQ(c->ram_size(), 65536);
     uint8_t w[3] = { 7, 8, 9 }, r[3] = { 5, 5, 5 };
     c->ram_write(0xFFFD, w, 3);
@@ -176,6 +199,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     CHECK(r[0] == 0 && r[1] == 0 && r[2] == 0);
     // what the cartridge says about itself
     g_stub = ExportsStub();
+    g_stub.c64core = true;
     CHECK(c->require() == 0 && c->prohibit() == 0 && !c->writable());
     g_stub.wb_active = true;
     CHECK(!c->writable());                                                 // no cartridge in the port: false whatever the write-back service holds
@@ -220,6 +244,8 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     CHECK(d->slot_spec() == 0);                                            // an empty slot: null
     // no drive window in the core: nothing is answered, nothing is written
     g_stub.drive = 0;
+    io.drv = false;
+    cx->drive = 0;
     Cbm1541Info info;
     memset(&info, 0xEE, sizeof(info));
     info.size = sizeof(info);
@@ -234,9 +260,28 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     char m2[40];
     CHECK_EQ(d->create("/x.d64", CBM1541_FORMAT_D64, "disk", m2, sizeof(m2)), 1);
     CHECK(strstr(m2, "No drive") != 0 && g_stub.log.find("create") == std::string::npos);
-    // drive A
+    // the members of class any never make the drive: the core has the window and cbm1541_drive would make one, but until a lock member did, drive_info says no and no call reaches it
     CbmDrive drive(0, 0);
+    drive.attached_ = true;
     g_stub.drive = &drive;
+    io.drv = true;
+    g_stub.log.clear();
+    memset(&info, 0xEE, sizeof(info));
+    info.size = sizeof(info);
+    CHECK(!d->drive_info(0, &info) && info.type == (int32_t)0xEEEEEEEE);
+    CHECK_EQ(d->image_size(0), 65536);                                     // the window answers, the drive is not needed
+    uint8_t any4[4] = { 1, 2, 3, 4 };
+    d->image_write(0, 0, any4, 4);
+    d->image_read(0, 0, any4, 4);
+    CHECK(g_stub.log.empty());
+    CHECK(io.win[0x00EE0000u - 0x00EA8000u + 3] == 4 && any4[3] == 4);
+    memset(&io.win[0x00EE0000u - 0x00EA8000u], 0, 4);
+    cx->drive = &drive;                                                    // made, but not attached to the hardware yet: still no
+    drive.attached_ = false;
+    CHECK(!d->drive_info(0, &info));
+    CHECK(g_stub.log.empty());
+    drive.attached_ = true;
+    // drive A
     CHECK(d->drive_info(0, &info));
     CHECK(info.size == sizeof(info) && info.type == CBM1541_TYPE_1581 && info.powered == 1 && info.unit == 9 && info.mode == CBM1541_MODE_RO && info.swap_delay_ms == 700);
     CHECK_STR(info.image_path, "/usb0/games/x.d81");
@@ -272,6 +317,7 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     g_stub.rc = 0;
     CHECK_EQ(d->create("/x.d81", CBM1541_FORMAT_D81, "blank", 0, 0), 0);
     CHECK(g_stub.log.find("create(/x.d81,2,blank)") != std::string::npos);
+    cx->drive = 0;
 }
 
 namespace {
@@ -378,6 +424,115 @@ static void uci_table(CoreCtx *cx, CoreDesc &desc, BoardProfile &board)
     desc.ncaps = 0;
 }
 
+// The table of UciHooks lies in the image of the library that gave it: when that image is let go (here: a load that fails after the library called start) the adapters stop calling
+// through it, and a library loaded later may give its own table. uci_start itself runs once.
+namespace {
+struct FileSource : LibSource {
+    std::vector<uint8_t> d;
+    explicit FileSource(const char *name)
+    {
+        std::string p = std::string(FIXDIR) + "/" + name;
+        FILE *f = fopen(p.c_str(), "rb");
+        if (!f) {
+            printf("FAIL cannot open %s\n", p.c_str());
+            g_fails++;
+            return;
+        }
+        uint8_t b[4096];
+        size_t n;
+        while ((n = fread(b, 1, sizeof(b), f)) > 0) {
+            d.insert(d.end(), b, b + n);
+        }
+        fclose(f);
+    }
+    uint32_t size() override { return (uint32_t)d.size(); }
+    bool read(uint32_t off, void *dst, uint32_t n) override
+    {
+        if (off > d.size() || n > d.size() - off) {
+            return false;
+        }
+        memcpy(dst, d.data() + off, n);
+        return true;
+    }
+};
+struct Reg {
+    static const UciApi *u;
+    static LibLoader *ld;
+    static const UciHooks *tab;
+    static bool in_image;               // the table is copied into the image the call came from, and the loader is told no image is running (the hook of a base task)
+    static void call(const LibHost::Entry &e)
+    {
+        const UciHooks *t = tab;
+        if (in_image) {
+            memcpy(e.image, tab, sizeof(UciHooks));
+            t = (const UciHooks *)e.image;
+            ld->set_current(-1);
+        }
+        u->start(t);
+    }
+};
+const UciApi *Reg::u;
+LibLoader *Reg::ld;
+const UciHooks *Reg::tab;
+bool Reg::in_image;
+struct Hk2 {
+    static int sid_map(uint8_t *d) { d[0] = 0x43; return 1; }
+};
+}
+
+static void uci_hooks_lifetime(CoreCtx *cx)
+{
+    Host h;
+    OpRegistry reg;
+    LibLoader ld(&h, &reg, 3);
+    h.on_register = Reg::call;
+    libexports_register(ld, cx);
+    Reg::u = (const UciApi *)find("uci", 1, 0);
+    Reg::ld = &ld;
+    static UciHooks a = { sizeof(UciHooks), 0, 0, 0, Hk::sid_map, 0, 0, 0, 0 };
+    static UciHooks b = { sizeof(UciHooks), 0, 0, 0, Hk2::sid_map, 0, 0, 0, 0 };
+    static UciHooks mem = { sizeof(UciHooks), 0, 0, 0, Hk::sid_map, "/temp/gone.bin", 0, 0, 0 };
+    uint8_t map[16] = { 0 };
+    char err[LIB_ERR_MAX];
+    int hd = -1;
+    // a table of the base's own side (no image runs): a library that is let go does not take it away
+    g_stub = ExportsStub();
+    Reg::tab = &a;
+    Reg::in_image = false;
+    Reg::u->start(&a);
+    CHECK_EQ(g_stub.uci_starts, 1);
+    Reg::tab = 0;
+    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
+    Reg::u->start(&b);
+    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x42);
+    // the call came from the library's own code (the loader says which image runs): its table goes with it, and a later one is taken; uci_start does not run again
+    libexports_register(ld, cx);
+    g_stub = ExportsStub();
+    Reg::tab = &mem;
+    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
+    CHECK_EQ(g_stub.uci_starts, 1);
+    CHECK_STR(g_stub.host_live->memory_file, "/temp/gone.bin");          // a copy: the library's own string goes with its image
+    CHECK(g_stub.host_live->memory_file != (const char *)mem.memory_file);
+    Reg::tab = 0;
+    Reg::u->start(&b);
+    CHECK_EQ(g_stub.uci_starts, 1);
+    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
+    CHECK(g_stub.host_live->memory_file == 0);                             // the new table names none
+    Reg::u->start(&a);                                                     // a table in use is not replaced
+    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
+    // the table lies inside the image and no image is running: found by its address
+    libexports_register(ld, cx);
+    g_stub = ExportsStub();
+    Reg::tab = &a;
+    Reg::in_image = true;
+    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
+    Reg::in_image = false;
+    CHECK_EQ(g_stub.uci_starts, 1);
+    Reg::u->start(&b);
+    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
+    h.on_register = 0;
+}
+
 static void sid_temp_tables(CoreCtx *cx)
 {
     Host h;
@@ -438,6 +593,7 @@ int main()
     cart_table(&cx, io, desc);
     drive_table(&cx, io);
     uci_table(&cx, desc, board);
+    uci_hooks_lifetime(&cx);
     sid_temp_tables(&cx);
     DONE("test_exports");
 }

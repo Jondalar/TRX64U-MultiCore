@@ -12,6 +12,7 @@ class CbmDrive;
 struct ExportsStub {
     std::string log;                       // "name(args);" of every call, in order
     const CoreCtx *ctx = 0;                // the context the last call got
+    bool c64core = false;                  // appsvc_c64: the core is the C64 (the cartridge port of the C64 family)
     bool cart_active = false, wb_active = false, ef_ok = true, player = false, pending = false, service_work = false;
     std::string cart_name = "", cart_path = "";
     int crt_type = 0;
@@ -21,6 +22,7 @@ struct ExportsStub {
     CbmDrive *drive = 0;                   // cbm1541_drive: null = the core has no drive
     std::string slot_spec = "";
     UciHost host;                          // what uci_start was given (a copy)
+    const UciHost *host_live = 0;          // the same, not a copy: what the application keeps
     int uci_starts = 0;
     int temp_auto = -1, temp_sub = -1;
 };

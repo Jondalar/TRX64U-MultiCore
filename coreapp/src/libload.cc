@@ -13,7 +13,7 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), nbase_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), discard_notify_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), nbase_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -659,6 +659,9 @@ void LibLoader::retire(const Slot &s)
 
 void LibLoader::discard(int si)
 {
+    if (discard_notify_) {
+        discard_notify_(si, slot_[si].info.image_addr, slot_[si].info.image_size);
+    }
     for (int i = 0; i < slot_[si].ndep; i++) {
         unuse(slot_[si].dep[i]);                        // what this image needed is free for eviction once nothing else uses it
     }

@@ -14,9 +14,11 @@
 #include "tempdisk.h"
 #include "writeback.h"
 #include "ctx.h"
+#include "appsvc.h"
 #include "desc.h"
 #include "board.h"
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -48,7 +50,10 @@ static void cart_image_read(uint32_t off, uint8_t *dst, uint32_t n) { c64_cart_i
 static void cart_image_write(uint32_t off, const uint8_t *src, uint32_t n) { c64_cart_image_write(g_c, off, src, n); }
 static int cart_for_state(const char *path, char *msg, int msglen) { REASON(msg, msglen); return c64_cart_for_state(g_c, path, msg, msglen); }
 
-static uint32_t cart_ram_size(void) { return g_c && g_c->desc && desc_has_capability(g_c->desc, "cartridge") ? CART_RAM_BYTES : 0; }
+// The port of the C64 family: the capability "cartridge" alone is also listed by cores with a cartridge of their own (the Atari, the NES, the SNES, the Neo Geo), whose windows are not these;
+// the core that has the port is the one the base gives its "c64" table (appsvc_c64).
+static bool cart_port(void) { return g_c && g_c->desc && appsvc_c64() && desc_has_capability(g_c->desc, "cartridge"); }
+static uint32_t cart_ram_size(void) { return cart_port() ? CART_RAM_BYTES : 0; }
 static void cart_ram_read(uint32_t off, uint8_t *dst, uint32_t n)
 {
     if (off > cart_ram_size() || n > cart_ram_size() - off) {
@@ -71,9 +76,19 @@ static uint16_t cart_prohibit(void) { return 0; }
 // The flash responder (flash_configure) registers the cartridge's file with the write-back service and nothing else does; a type change and a removal unregister it.
 static bool cart_writable(void) { return c64_cart_active() && wb_active(); }
 
-static void cart_eeprom_get(uint8_t out[2048]) { g_c->io->eeprom_read(EE_BYTES, out, EE_BYTES); }
+static void cart_eeprom_get(uint8_t out[2048])
+{
+    if (cart_port()) {
+        g_c->io->eeprom_read(EE_BYTES, out, EE_BYTES);
+    } else {
+        memset(out, 0, EE_BYTES);                                     // a core without the window reads 0
+    }
+}
 static void cart_eeprom_put(const uint8_t data[2048])
 {
+    if (!cart_port()) {
+        return;
+    }
     uint8_t clean = 1;
     g_c->io->eeprom_write(EE_BYTES, data, EE_BYTES);
     g_c->io->eeprom_write(0, &clean, 1);                              // the dirty flag cleared: only what the C64 writes from here on is a change (c64_cart.cc load_eeprom)
@@ -95,7 +110,15 @@ static const C64CartApi g_cart = {
 
 // ---- cbm1541 (cbm1541_api.h) -------------------------------------------------------------------------------------------------------------------------
 
+// A member of task class "any" never makes the drive (that runs CbmDrive::attach, which writes the drive's registers, on a task that does not hold the core lock): it answers from the drive as
+// it is (drive_made) or from the window (drive_window). The members of class lock make the drive through cbm1541_drive (drive_a).
+static CbmDrive *drive_made(void)
+{
+    CbmDrive *d = g_c ? (CbmDrive *)g_c->drive : 0;
+    return d && d->attached() ? d : 0;
+}
 static CbmDrive *drive_a(void) { return g_c ? cbm1541_drive(g_c) : 0; }
+static bool drive_window(void) { return g_c && g_c->io && g_c->io->drv_present(); }
 
 static const char *drv_slot_spec(void) { return cbm1541_slot_spec(g_c); }
 static int drv_slot_mount(const char *spec, char *msg, int msglen) { REASON(msg, msglen); return cbm1541_slot_mount(g_c, spec, msg, msglen); }
@@ -103,7 +126,7 @@ static int drv_slot_eject(char *msg, int msglen) { REASON(msg, msglen); return c
 
 static bool drv_info(int slot, Cbm1541Info *info)
 {
-    CbmDrive *d = slot == 0 && info && info->size >= sizeof(info->size) ? drive_a() : 0;
+    CbmDrive *d = slot == 0 && info && info->size >= sizeof(info->size) ? drive_made() : 0;
     if (!d) {
         return false;
     }
@@ -124,10 +147,10 @@ static bool drv_info(int slot, Cbm1541Info *info)
     return true;
 }
 
-static uint32_t drv_image_size(int slot) { return slot == 0 && drive_a() ? 0x10000u : 0; }
+static uint32_t drv_image_size(int slot) { return slot == 0 && drive_window() ? 0x10000u : 0; }
 static void drv_image_read(int slot, uint32_t off, uint8_t *dst, uint32_t n)
 {
-    if (slot != 0 || !drive_a() || off > 0x10000u || n > 0x10000u - off) {
+    if (slot != 0 || !drive_window() || off > 0x10000u || n > 0x10000u - off) {
         memset(dst, 0, n);
         return;
     }
@@ -135,7 +158,7 @@ static void drv_image_read(int slot, uint32_t off, uint8_t *dst, uint32_t n)
 }
 static void drv_image_write(int slot, uint32_t off, const uint8_t *src, uint32_t n)
 {
-    if (slot == 0 && drive_a() && off <= 0x10000u && n <= 0x10000u - off) {
+    if (slot == 0 && drive_window() && off <= 0x10000u && n <= 0x10000u - off) {
         g_c->io->ddr_abs_write(DRIVE_A_AREA + off, src, n);
     }
 }
@@ -177,6 +200,10 @@ static const Cbm1541Api g_drv = {
 
 // The callbacks of the core's library arrive as UciHooks; uci.cc takes a UciHost with the context in front, so each one is adapted. A member past the caller's `size` is null.
 static const UciHooks *g_hooks;
+static int g_hooks_owner = -1;                                        // the slot of the image whose code was running when the table was given; -1: none
+static bool g_uci_started;                                            // uci_start ran: it takes its host once, and the host below stays for good
+static char g_memory_file[96];                                        // a copy: the hooks' own string lies in the library's image
+static LibLoader *g_ld;
 #define HOOK(m) (g_hooks && g_hooks->size >= offsetof(UciHooks, m) + sizeof(g_hooks->m) && g_hooks->m)
 
 static int uh_reu(CoreCtx *, uint32_t *size, uint32_t *offset, char *img, int imgn, char *busy, int busyn)
@@ -214,22 +241,45 @@ static void uh_palette(CoreCtx *, int what, uint8_t idx, uint8_t (*rgb)[3])
     }
 }
 
+// The table lives in the image of the library that gave it: when that image goes (an unload, a failed load), the adapters stop calling through it and a library loaded later may
+// give its own table. uci_start itself is a one-time call; the host it was given stays, and the adapters read g_hooks at every call.
+static void hooks_image_gone(int handle, uint32_t image_addr, uint32_t image_size)
+{
+    if (!g_hooks) {
+        return;
+    }
+    uint32_t at = (uint32_t)(uintptr_t)g_hooks;                       // the CPU's view of the address: the pointer itself on the board, its low word in the tests (LibHost::addr_of)
+    bool inside = at >= image_addr && at - image_addr < image_size;
+    if (inside || (g_hooks_owner >= 0 && handle == g_hooks_owner)) {
+        g_hooks = 0;
+        g_hooks_owner = -1;
+    }
+}
+
 static void uci_api_start(const UciHooks *hooks)
 {
     static UciHost host;
-    if (!hooks || g_hooks) {                                          // no hooks, or the interface was started already (uci_start itself does nothing the second time)
+    if (!hooks || g_hooks) {                                          // no hooks, or a table is in use already
         return;
     }
     g_hooks = hooks;
+    g_hooks_owner = g_ld ? g_ld->current() : -1;
     host.reu = uh_reu;
     host.drive_info = uh_drive_info;
     host.drive_do = uh_drive_do;
     host.sid_map = uh_sid_map;
-    host.memory_file = HOOK(memory_file) ? g_hooks->memory_file : 0;                                   // null: uci.cc's own default name
+    g_memory_file[0] = 0;
+    if (HOOK(memory_file)) {
+        snprintf(g_memory_file, sizeof(g_memory_file), "%s", g_hooks->memory_file);
+    }
+    host.memory_file = g_memory_file[0] ? g_memory_file : 0;                                           // null: uci.cc's own default name
     host.ef_clear = uh_ef_clear;
     host.ramdrive = uh_ramdrive;
     host.palette = uh_palette;
-    uci_start(g_c, &host);
+    if (!g_uci_started) {
+        g_uci_started = true;
+        uci_start(g_c, &host);
+    }
 }
 
 // The rule of the slot calls (uci_api.h): ignored unless the running core has "uci" and the board did not strike it.
@@ -277,7 +327,11 @@ static const TempDiskApi g_temp = { sizeof(TempDiskApi), temp_set };
 void libexports_register(LibLoader &ld, CoreCtx *c)
 {
     g_c = c;
+    g_ld = &ld;
     g_hooks = 0;
+    g_hooks_owner = -1;
+    g_uci_started = false;
+    ld.set_discard_notify(hooks_image_gone);
     ld.add_export("c64cart", 1, &g_cart);
     ld.add_export("cbm1541", 1, &g_drv);
     ld.add_export("uci", 1, &g_uci);
