@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1 no gateware, D3 surfaces, D4 menu closed, D5 tag PAUSED (Alex 11-23); next: §2 and the API draft
+Open (one line, as in the TODO table): Spec in work: D1-D6 (Alex 11-23); API draft with TRX64-Ultimate; next: menu hide/show - machine state and keys
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -103,6 +103,11 @@ Draft. It is completed when the open questions of §3 are decided.
   `coreapp/src/trx64u_ops.cc:714-723`). Asked what the tag should be, he chose "Only PAUSED": the tag promises no key; the
   library that paused shows how to go on with an element of its own; the tag is the service's first user. Lost: a P key read by
   the base while the machine holds the keyboard, and no tag at all.
+
+- **D6** (Alex, 2026-11-23, translated): "that also means the plugin/lib must be able to 'hide' and 'show' the menu by a
+  function." A library hides the menu and shows it again with calls of the SDK group. It follows from D4: its elements show only
+  while the menu is closed. Open, asked one at a time: what the machine does while the menu is hidden, who gets the keys, and how
+  the person always gets back to the menu.
 
 The other decisions are asked one at a time and recorded here.
 
