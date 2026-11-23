@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1-D7 (Alex 11-23); API draft agreed with TRX64-Ultimate in parts; next: §2 and §3 complete
+Open (one line, as in the TODO table): Decided D1-D10 (Alex 11-23); service built as T239.3 T-2 (branch t239.3-t2-overlay); TRX64-Ultimate T-3 next
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
