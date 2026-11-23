@@ -123,6 +123,8 @@ enum LibRc {
 };
 
 #define LIB_MAX 12              // images loaded at once
+#define LIB_NET_MAX 16          // sockets of api->net held at once (the base's own table is as big)
+#define LIB_JOB_MAX 8           // jobs of api->job held at once, ended ones not yet joined included (the base has 4 slots)
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
@@ -178,7 +180,8 @@ public:
     // lib_register record or in its menu record. Such a library is never evicted (AppIndex::prepare_open): the poll would call into freed code and the
     // merged menu would point into freed strings.
     bool contributes(int handle) const;
-    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
+    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, a library in use, or one with a job that still runs (the jobs are asked
+    // to stop, none is waited for: the caller holds the core lock, which a job may need to end).
     int unload(int handle, char *err, int errlen);
 
     // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
@@ -198,9 +201,14 @@ public:
     void set_gate_probe(bool (*fn)(void)) { gated_ = fn; }
     // The groups the base fills in itself (appsvc.cc): dialogs, jobs, the debug block, the network. Null: the application finds a null pointer.
     void set_dlg(const SvcDlg *t) { api_.dlg = t; }
-    void set_job(const SvcJob *t) { api_.job = t; }
+    // job and net (base 3.3, S14): in a loader that has the services (add_services) a library and an application get the loader's own tables, which put every socket and every job on
+    // the account of the image whose code asked and call the table given here; one of them given before or after add_services is the same, and with none given the calls fail (a socket
+    // -7, a job null). A loader without the services hands the table on as it is.
+    void set_job(const SvcJob *t) { base_job_ = t; api_.job = services_ ? &job_ : t; }
     void set_trx(const SvcTrx *t) { api_.trx = t; }
-    void set_net(const SvcNet *t) { api_.net = t; }
+    void set_net(const SvcNet *t) { base_net_ = t; api_.net = services_ ? &net_ : t; }
+    // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
+    void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
     // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2): api->lib->find answers it for that name unless a loaded library exports a lower or equal major of
     // that name. Null: the base has none (the core is no C64) and find answers only what libraries export.
@@ -222,6 +230,25 @@ public:
     int account_blocks(int handle) const;     // handle -1: the blocks of nobody
     uint32_t account_bytes(int handle) const;
     int account_files(int handle) const;      // files opened through api->fs and not closed yet
+    int account_sockets(int handle) const;    // sockets of api->net not closed yet (base 3.3)
+    int account_jobs(int handle) const;       // jobs of api->job started and not joined yet (a job that has ended counts until it is joined or its slot is used again)
+    // What one image holds of the machine (S14); the base calls these when an application ends (apphost.cc) and discard() calls them when an image goes. Nothing of any other image is touched.
+    void close_sockets(int handle);           // closes the sockets of the account
+    void cancel_jobs(int handle);             // asks the jobs of the account to stop (set_job_cancel)
+    bool jobs_running(int handle) const;      // does one of them run
+    void reap_jobs(int handle);               // joins the jobs of the account that have ended, so their slots are free
+    bool stop_jobs(int handle);               // cancel, wait up to 5 s, reap; false: one still runs
+    // Runs the code of an image as its owner: for the calls whose code lies in no loaded image (the base, a core hook it makes), the calling task takes everything api->mem, fs, sync, net and
+    // job give from here to the end of the object on the account of `handle`; a call made by code inside a loaded image is always on that image's account (owner_at). The base puts one around a call into a core hook or an export table that it makes itself; no-op for a handle that is not loaded.
+    class Scope {
+    public:
+        Scope(LibLoader *l, int handle);
+        ~Scope();
+    private:
+        LibLoader *l_;
+        int prev_;
+        bool on_;
+    };
 
     // Where a library's api->log goes (nothing, until this is called).
     void set_log(void (*fn)(const char *text));
@@ -299,6 +326,8 @@ private:
     int enter(int slot) override;
     void leave(int prev) override { host_->set_task_scope(prev); }
     int owner() const;                    // the account of the calling task: its handler's image, else cur_
+    int owner_at(const void *ra) const;   // the account of a service call made from the code at `ra`: the image that holds it, else owner()
+    void *alloc_for(int owner, uint32_t n);
     bool over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const;
     static void *svc_malloc(uint32_t n);
     static void svc_free(void *p);
@@ -345,6 +374,27 @@ private:
     // lower, 0 when none (a refusal can say "1.0 is loaded"). Null: no library exports it at that major.
     const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const;
     bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
+
+    // sockets and jobs (S14): what api->net and api->job handed out, with the account. Fixed tables: the base's own tables are as small (16 sockets, 4 jobs).
+    struct NetRec {
+        int h;
+        int32_t owner;
+        bool used;
+    };
+    struct JobRec {
+        struct SvcJobH *h;                // null while the base has not returned it
+        int32_t owner;
+        bool used;
+        int (*fn)(struct SvcJobH *, void *);
+        void *user;
+    };
+    NetRec nets_[LIB_NET_MAX];
+    JobRec jobs_[LIB_JOB_MAX];
+    SvcNet net_;
+    SvcJob job_;
+    const SvcNet *base_net_;
+    const SvcJob *base_job_;
+    void (*job_cancel_)(struct SvcJobH *);
     const C64Api *c64api_;
     CoreIo *board_io_;
 };

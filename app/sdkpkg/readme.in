@@ -14,7 +14,7 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 |---|---|
 | `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
 | `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_fs.h`, `svc_sys.h`), `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h` and the export tables a library finds with `api->lib->find` (`c64_api.h`, `c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `uci_api.h`, `sid_api.h`, `tempdisk_api.h`). `tools/sdk_api.py headers` lists them. |
-| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
+| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files, or a library with `APP_KIND = lib`), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
 | `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle). |
 | `image/` | `coreapp.bin`, the shared core application image of this SDK version, and its `version.toml`. See "The application image". |

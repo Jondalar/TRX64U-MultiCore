@@ -126,7 +126,7 @@ LibPolls::~LibPolls()
     }
 }
 
-bool LibPolls::add(const char *owner, const char *op, uint16_t period_ms, char *why, int whylen)
+bool LibPolls::add(const char *owner, const char *op, uint16_t period_ms, bool when_frozen, char *why, int whylen)
 {
     if (!owner || !op || !op[0]) {
         snprintf(why, whylen, "a poll with no owner or no operation");
@@ -176,7 +176,7 @@ bool LibPolls::add(const char *owner, const char *op, uint16_t period_ms, char *
         s.started = true;
     }
     s.t->disarm();
-    s.t->arm(op, period_ms, false);                        // a library's poll never runs while the machine is frozen (run.cc)
+    s.t->arm(op, period_ms, when_frozen);                  // the library's declaration: true keeps it running while the menu has the machine frozen
     snprintf(s.owner, sizeof(s.owner), "%s", owner);
     s.used = true;
     return true;

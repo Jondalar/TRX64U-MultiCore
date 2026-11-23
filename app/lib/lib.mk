@@ -37,10 +37,11 @@ LIB_KIND ?= lib
 LIB_RES  ?= $(if $(filter app,$(LIB_KIND)),transient,resident)
 LIB_OUT  ?= $(LIB_NAME).u2a
 LIB_BASE ?= 0
+# No sibling calls: the base takes the account of an allocation from the return address of the call (libload.cc owner_at), which a tail call would replace by the caller's.
 LIB_CXXFLAGS = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 \
-               -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables -fvisibility=hidden \
+               -fno-optimize-sibling-calls -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables -fvisibility=hidden \
                -std=gnu++11 $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
-LIB_CFLAGS   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 -fno-builtin \
+LIB_CFLAGS   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 -fno-builtin -fno-optimize-sibling-calls \
                -fno-asynchronous-unwind-tables -fvisibility=hidden $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
 CC_RV    ?= $(RV_PREFIX)gcc
 LIB_OBJS = $(addsuffix .o,$(basename $(LIB_SRCS))) $(if $(LIB_LIBC),libc_sdk.o)

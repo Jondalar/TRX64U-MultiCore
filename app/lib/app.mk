@@ -9,6 +9,7 @@
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
 #   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)
 #
+# Tail calls are off (-fno-optimize-sibling-calls), as in lib.mk: a call into api->mem, fs, net or job must carry the return address of this image (owner_at, api.md 4.2.2.2).
 # A constructor or a destructor in an object is refused before the link (u2a_pack.py --check-objects, T239.3 D19): the loader runs none.
 # The compiler is the build image's (make RV_PREFIX=riscv32-unknown-elf-) or riscv64-elf-*. Division is sdk/libc.c's (-mno-div; libgcc's is not position independent).
 APP_DIR  := $(dir $(lastword $(MAKEFILE_LIST)))
@@ -22,7 +23,7 @@ APP_KIND ?= app
 APP_RES  ?= $(if $(filter lib,$(APP_KIND)),resident,transient)
 APP_OUT  ?= $(APP_NAME).u2a
 COMMON   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 -ffunction-sections -fdata-sections \
-           -fvisibility=hidden -include $(SDK_HIDDEN) -Wall $(SDK_INC) $(APP_INC)
+           -fvisibility=hidden -fno-optimize-sibling-calls -include $(SDK_HIDDEN) -Wall $(SDK_INC) $(APP_INC)
 CFLAGS_RV   = $(COMMON) -fno-builtin -fno-asynchronous-unwind-tables
 CXXFLAGS_RV = $(COMMON) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables
 OBJS     = $(addprefix obj/,$(APP_CSRCS:.c=.o) $(APP_CCSRCS:.cc=.o) $(if $(filter lib,$(APP_KIND)),,sdk/u2p_compat.o) sdk/libc.o)

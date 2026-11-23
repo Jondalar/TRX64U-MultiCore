@@ -707,13 +707,13 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     if (desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the poll task did not start; %s is not served\n", desc->service_op);
     }
-    // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock, none
-    // while the machine is frozen (Alex 2026-10-20: poll_when_frozen is gone). Those of the libraries loaded from here on are added by the loader
+    // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock; one runs
+    // while the machine is frozen for the menu only when its declaration says when_frozen (libapi.h LibPollDecl). Those of the libraries loaded from here on are added by the loader
     // when they register, and end when they are released (T239.3 S3).
     static LibPolls lib_polls(&board_os, &core_lock, ops_of(&ctx), &ctx, 6 * configMINIMAL_STACK_SIZE);
     for (int i = 0; i < merge.npolls; i++) {
         char why[120];
-        if (!lib_polls.add(merge.polls[i].owner, merge.polls[i].op, merge.polls[i].period_ms, why, sizeof(why))) {
+        if (!lib_polls.add(merge.polls[i].owner, merge.polls[i].op, merge.polls[i].period_ms, merge.polls[i].when_frozen, why, sizeof(why))) {
             printf("[core] the poll of %s did not start; %s is not served (%s)\n", merge.polls[i].owner, merge.polls[i].op, why);
         }
     }

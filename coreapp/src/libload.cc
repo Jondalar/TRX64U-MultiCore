@@ -13,12 +13,16 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), c64api_(0), board_io_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), base_net_(0), base_job_(0), job_cancel_(0), c64api_(0), board_io_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
     memset(files_, 0, sizeof(files_));
     memset(mus_, 0, sizeof(mus_));
+    memset(nets_, 0, sizeof(nets_));
+    memset(jobs_, 0, sizeof(jobs_));
+    memset(&net_, 0, sizeof(net_));
+    memset(&job_, 0, sizeof(job_));
     s_ld = this;
     reg_->set_scope(this);
     sys_.size = sizeof(sys_);
@@ -137,6 +141,39 @@ int LibLoader::owner() const
     return t >= 0 && t < LIB_MAX && slot_[t].used ? t : cur_;
 }
 
+// Whose account a service call goes on, by the code that made it (base 3.3, S14): the image that holds the return address `ra`, else owner(). A library's export table
+// (lib->find) is called by whoever found it, straight through the function pointers of the library, so no bracket of the base is around that call; the allocation
+// that the exported function makes is still the library's, because its code is what asks. The same holds for a core hook, a job function, a callback. Only the code
+// of a loaded image counts (a call from the base, or from an image that is not in a slot, goes on the account owner() names). A tail call hides the library's address
+// (the return address is the one of its caller), so lib.mk builds libraries with -fno-optimize-sibling-calls.
+int LibLoader::owner_at(const void *ra) const
+{
+    uint32_t a = host_->addr_of(ra);
+    for (int i = 0; i < LIB_MAX; i++) {
+        if (slot_[i].used && a - slot_[i].info.image_addr < slot_[i].info.image_size) {
+            return i;
+        }
+    }
+    return owner();
+}
+
+// An image's code runs for the calling task as the owner of everything it takes, for as long as the object lives: what the base does around a call into an image
+// that it makes itself (a core hook, an export table it calls on its own account, the function of a job).
+LibLoader::Scope::Scope(LibLoader *l, int handle) : l_(l), prev_(-1), on_(false)
+{
+    if (l_ && handle >= 0 && handle < LIB_MAX && l_->slot_[handle].used) {
+        prev_ = l_->enter(handle);
+        on_ = true;
+    }
+}
+
+LibLoader::Scope::~Scope()
+{
+    if (on_) {
+        l_->leave(prev_);
+    }
+}
+
 // ---- the service table (T104.3 D2)
 
 void LibLoader::svc_log(const char *text) { s_ld->api_.log(text); }
@@ -147,13 +184,17 @@ bool LibLoader::svc_has_capability(const char *c) { return c && s_ld->host_->has
 
 void *LibLoader::svc_malloc(uint32_t n)
 {
-    LibLoader *L = s_ld;
+    return s_ld->alloc_for(s_ld->owner_at(__builtin_return_address(0)), n);
+}
+
+void *LibLoader::alloc_for(int owner, uint32_t n)
+{
+    LibLoader *L = this;
     if (n > 0x7FFFFFF0u - sizeof(Blk)) {
         return 0;
     }
     // the heap budget of the image whose code runs: what its blocks hold plus this one may not pass it; the figure is reserved before the heap is asked
     // and given back when the heap has no room
-    int owner = L->owner();
     L->host_->enter();
     if (owner >= 0) {
         Slot &s = L->slot_[owner];
@@ -226,15 +267,17 @@ void LibLoader::svc_free(void *p)
 
 void *LibLoader::svc_realloc(void *p, uint32_t n)
 {
+    LibLoader *L = s_ld;
+    int owner = L->owner_at(__builtin_return_address(0));
     if (!p) {
-        return svc_malloc(n);
+        return L->alloc_for(owner, n);
     }
     if (!n) {
         svc_free(p);
         return 0;
     }
     Blk *b = (Blk *)p - 1;
-    void *q = svc_malloc(n);
+    void *q = L->alloc_for(owner, n);
     if (!q) {
         return 0;                                       // as realloc: the old block stays
     }
@@ -376,7 +419,7 @@ SvcFile *LibLoader::svc_open(const char *path, bool rw)
         L->host_->release(h);
         return 0;
     }
-    int owner = L->owner();
+    int owner = L->owner_at(__builtin_return_address(0));
     L->host_->enter();
     SvcFile **head = &L->files_[owner < 0 ? LIB_MAX : owner];
     h->fs = fs;
@@ -546,6 +589,91 @@ void LibLoader::free_account(int si)
     }
 }
 
+// ---- sockets and jobs of an account (S14): the records are made by api->net and api->job (libsvc.cc); here they are counted and given up
+
+int LibLoader::account_sockets(int handle) const
+{
+    int n = 0;
+    for (int i = 0; i < LIB_NET_MAX; i++) {
+        n += nets_[i].used && nets_[i].owner == handle;
+    }
+    return n;
+}
+
+int LibLoader::account_jobs(int handle) const
+{
+    int n = 0;
+    for (int i = 0; i < LIB_JOB_MAX; i++) {
+        n += jobs_[i].used && jobs_[i].owner == handle;
+    }
+    return n;
+}
+
+void LibLoader::close_sockets(int handle)
+{
+    for (int i = 0; i < LIB_NET_MAX; i++) {
+        host_->enter();
+        bool mine = nets_[i].used && nets_[i].owner == handle;
+        int h = nets_[i].h;
+        if (mine) {
+            nets_[i].used = false;
+        }
+        host_->leave();
+        if (mine && base_net_ && base_net_->close) {
+            base_net_->close(h);
+        }
+    }
+}
+
+// The records are read and cleared inside the critical section, as api->job's own (libsvc.cc) are: another task may claim a record whose job has ended while this one looks at it.
+void LibLoader::cancel_jobs(int handle)
+{
+    host_->enter();
+    for (int i = 0; i < LIB_JOB_MAX; i++) {
+        if (jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && job_cancel_) {
+            job_cancel_(jobs_[i].h);
+        }
+    }
+    host_->leave();
+}
+
+bool LibLoader::jobs_running(int handle) const
+{
+    bool any = false;
+    host_->enter();
+    for (int i = 0; i < LIB_JOB_MAX && !any; i++) {
+        any = jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && base_job_ && base_job_->running && base_job_->running(jobs_[i].h);
+    }
+    host_->leave();
+    return any;
+}
+
+void LibLoader::reap_jobs(int handle)
+{
+    for (int i = 0; i < LIB_JOB_MAX; i++) {
+        host_->enter();                                 // claim the record and join in one step: a job that has ended does not wait in join, and no other task can take the record or the base slot in between
+        if (jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && !(base_job_ && base_job_->running && base_job_->running(jobs_[i].h))) {
+            SvcJobH *h = jobs_[i].h;
+            jobs_[i].used = false;
+            if (base_job_ && base_job_->join) {
+                base_job_->join(h);                     // this frees its slot
+            }
+        }
+        host_->leave();
+    }
+}
+
+bool LibLoader::stop_jobs(int handle)
+{
+    cancel_jobs(handle);
+    for (int n = 0; n < 500 && jobs_running(handle); n++) {
+        host_->delay_ms(10);
+    }
+    bool done = !jobs_running(handle);
+    reap_jobs(handle);
+    return done;
+}
+
 int LibLoader::account_blocks(int handle) const
 {
     int n = 0;
@@ -623,6 +751,15 @@ void LibLoader::discard(int si)
     for (int i = 0; i < slot_[si].ndep; i++) {
         unuse(slot_[si].dep[i]);                        // what this image needed is free for eviction once nothing else uses it
     }
+    if (!stop_jobs(si)) {
+        api_.log("An image went while a job of it was still running; the job did not answer a request to stop.");
+        for (int i = 0; i < LIB_JOB_MAX; i++) {         // the slot is used again: no record may name it
+            if (jobs_[i].used && jobs_[i].owner == si) {
+                jobs_[i].used = false;
+            }
+        }
+    }
+    close_sockets(si);
     delete slot_[si].info.menu;
     delete[] slot_[si].info.menu_bytes;
     free_account(si);
@@ -1236,7 +1373,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     }
     if (pd && polls_) {
         char why[120];
-        if (!polls_->add(s.info.name, pd->op, pd->period_ms, why, sizeof(why))) {
+        if (!polls_->add(s.info.name, pd->op, pd->period_ms, pd->when_frozen, why, sizeof(why))) {
             reg_->rollback(mark);
             if (!had_error) {
                 reg_->clear_error();
@@ -1346,6 +1483,11 @@ int LibLoader::unload(int handle, char *err, int errlen)
     Slot &s = slot_[handle];
     if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
         return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
+    }
+    // The caller holds the core lock (the eviction of apphost.cc): a job of the library that needs the lock to end would stall everything here, so the jobs are asked to stop and the library stays until they have.
+    cancel_jobs(handle);
+    if (jobs_running(handle)) {
+        return fail(LIB_STATE, err, errlen, "\"%s\" has a job that is still running; it was asked to stop.", s.info.name);
     }
     retire(s);
     if (cur_ == handle) {

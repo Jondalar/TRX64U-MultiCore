@@ -627,6 +627,7 @@ int main(int argc, char **argv)
         Rig r(cs, 4);
         CHECK_EQ(r.mm->npolls, 1);
         CHECK_STR(r.mm->polls[0].owner, "lib1"); CHECK_STR(r.mm->polls[0].op, "zl.poll"); CHECK_EQ(r.mm->polls[0].period_ms, 10);
+        CHECK(!r.mm->polls[0].when_frozen);
         CHECK(r.has_err("poll operation \"zl.nopoll\" is not registered"));
         CHECK(r.has_err("takes arguments; a poll takes none"));
         CHECK(r.has_err("has no period"));
@@ -635,6 +636,14 @@ int main(int argc, char **argv)
         OpResult o;
         CHECK_EQ(ops_call(&r.c, r.mm->polls[0].op, 0, 0, &o), OPE_OK);
         CHECK_EQ(g_polls, 1);
+        // base 3.3: the declaration when_frozen goes on to the poll sink with the rest of the poll
+        static LibRecord frozen;
+        memset(&frozen, 0, sizeof(frozen));
+        frozen.poll.op = "zl.poll"; frozen.poll.period_ms = 5; frozen.poll.when_frozen = true;
+        Contributor cf[] = { { "lib5", CR_LIB, &frozen } };
+        Rig rf(cf, 1);
+        CHECK_EQ(rf.mm->npolls, 1);
+        CHECK(rf.mm->polls[0].when_frozen);
     }
 
     // ---- $slot: a declaration is made once for each drive slot the core has (D15)

@@ -18,6 +18,7 @@
 #include "fakes.h"
 #include "hostos.h"
 #include "service.h"
+#include "apphost.h"
 
 #ifndef FIXDIR
 #error FIXDIR is the directory of testlib.u2a and testlib.at1000.raw (tests/loader/run.sh makes them)
@@ -117,7 +118,13 @@ struct Model : LibHost {
         }
         CHECK(!"release of a block that is not allocated");
     }
-    uint32_t addr_of(const void *p) override { return ARENA_BASE + (uint32_t)((const uint8_t *)p - arena); }
+    // a pointer outside the arena is the return address of a call made by code of the test: it is where a test puts it (code_addr), by default in no image (base 3.3 owner_at)
+    uint32_t code_addr = 0;
+    uint32_t addr_of(const void *p) override
+    {
+        const uint8_t *b = (const uint8_t *)p;
+        return b >= arena && b < arena + ARENA_SIZE ? ARENA_BASE + (uint32_t)(b - arena) : code_addr;
+    }
     void sync_code(void *, uint32_t) override { syncs++; }
     bool has_capability(const char *c) override
     {
@@ -141,7 +148,8 @@ struct Model : LibHost {
         return t == mains.end() ? 99 : t->second(e, api, ctx);
     }
     uint32_t now_ms() override { return clock; }
-    void delay_ms(uint32_t ms) override { clock += ms; }
+    std::function<void()> on_delay;                          // what the other tasks do while this one waits
+    void delay_ms(uint32_t ms) override { clock += ms; if (on_delay) { on_delay(); } }
     uint32_t room_v = 0xFFFFFFFFu;
     uint32_t room() override { return room_v; }
     // two tasks of the model: the owner of a handler is kept by task (libload.h); a test switches the task it speaks for
@@ -896,12 +904,12 @@ static void polls()
     CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
     // an add that is refused leaves the owner's poll running; one that is accepted replaces it in its own slot
     char why[120];
-    CHECK(!lp.add("pa", "pa.missing", 10, why, sizeof(why)));
+    CHECK(!lp.add("pa", "pa.missing", 10, false, why, sizeof(why)));
     CHECK_EQ(lp.count(), 1);
     a0 = g_polled[0];
     spin(os, lp, 100);
     CHECK(g_polled[0] >= a0 + 9);
-    CHECK(lp.add("pa", "pa.tick", 20, why, sizeof(why)));
+    CHECK(lp.add("pa", "pa.tick", 20, false, why, sizeof(why)));
     CHECK_EQ(lp.count(), 1);
     CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
     CHECK_EQ(lp.count(), 0);
@@ -909,6 +917,29 @@ static void polls()
     refused("a poll in lib_register and in the menu record", w, with_menu(Img("pa", "A"), read_file("menu_poll.bin")), LIB_REGISTER, "pa", "one is allowed");
     CHECK_EQ(lp.count(), 0);
     CHECK(w.reg.find_op("pa.tick") == 0);
+
+    // base 3.3: a poll declared when_frozen keeps running while the machine is frozen for the menu, one that is not waits for the menu to close
+    {
+        w.m.twins["pa"] = [](const LibHost::Entry &e, const LibApi *a, LibRecord *rec) { int rc = twin_poll<0>(e, a, rec); rec->poll.when_frozen = true; return rc; };
+        w.m.twins["pb"] = twin_poll<1>;
+        memset(g_polled, 0, sizeof(g_polled));
+        int hpa = -1, hpb = -1;
+        CHECK_EQ(w.load(build(Img("pa", "A")), &hpa, err), LIB_OK);
+        CHECK_EQ(w.load(build(Img("pb", "B")), &hpb, err), LIB_OK);
+        CHECK_EQ(lp.count(), 2);
+        cx.frozen = true;
+        spin(os, lp, 500);
+        printf("S3 menu open (frozen), 500 ms: pa (when_frozen, 10 ms) %d calls, pb (20 ms) %d calls\n", g_polled[0], g_polled[1]);
+        CHECK(g_polled[0] >= 48 && g_polled[0] <= 51);
+        CHECK_EQ(g_polled[1], 0);
+        cx.frozen = false;
+        spin(os, lp, 200);
+        CHECK(g_polled[1] >= 9);
+        CHECK_EQ(w.ld->unload(hpa, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->unload(hpb, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(lp.count(), 0);
+        w.m.twins["pa"] = twin_poll<0>;
+    }
 
     // no sink (a loader whose core has not started): the library loads, the record keeps the declaration for the menu merge
     World w2(U2A_BASE_MINOR);
@@ -2380,6 +2411,317 @@ static void services()
     CHECK(shape0 == w.m.shape());
 }
 
+// ------------------------------------------------------------------------------------------------ T239.3 base 3.3 fixes: sockets, jobs and calls on the owner's account
+
+// the base's job is AppHost's SvcJobH (apphost.h); the model below uses its used, done, cancel, rc, fn and user
+static SvcJobH g_jobs[4];
+static std::map<int, bool> g_open;                           // the sockets the base has open (handle, listener)
+static int g_next_fd = 100, g_accept_fd = -5, g_net_closes;
+static LibLoader *g_probe_ld;                                // the loader whose account fk_close looks at when the base closes a handle
+static int g_probe_owner = -2, g_close_seen = -1;               // the sockets the owner still has on its account at that moment
+static bool g_app_stop;                                      // the base asks the application to end (AppHost::stop_)
+static int fk_listen(uint16_t, int) { int h = g_next_fd++; g_open[h] = true; return h; }
+static int fk_accept(int) { if (g_accept_fd < 0) { return g_accept_fd; } int h = g_accept_fd; g_accept_fd = -5; g_open[h] = false; return h; }
+static int fk_close(int h) { if (g_probe_ld) { g_close_seen = g_probe_ld->account_sockets(g_probe_owner); } if (!g_open.count(h)) { return -1; } g_open.erase(h); g_net_closes++; return 0; }
+static int fk_recv(int, void *, int) { return -5; }
+static int fk_send(int, const void *, int len) { return len; }
+static int fk_wait(const int *, int, uint32_t) { return 0; }
+static int fk_peer(int, char *, int) { return -1; }
+static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer };
+static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
+{
+    for (int i = 0; i < 4; i++) {
+        if (!g_jobs[i].used || g_jobs[i].done) {
+            g_jobs[i].used = true; g_jobs[i].done = false; g_jobs[i].cancel = false; g_jobs[i].rc = 0; g_jobs[i].fn = fn; g_jobs[i].user = user;
+            return &g_jobs[i];
+        }
+    }
+    return 0;
+}
+static bool fj_cancelled(SvcJobH *j) { return j && j->cancel; }
+static int fj_join(SvcJobH *j) { if (!j || !j->used) { return -1; } while (!j->done) { j->rc = j->fn(j, j->user); j->done = true; } j->used = false; return j->rc; }
+static bool fj_running(SvcJobH *j) { return j && j->used && !j->done; }
+static bool fj_stop(void) { return g_app_stop; }                      // AppHost::job_stop_requested; job_cancelled answers for the job alone (fj_cancelled)
+static const SvcJob g_fkjob = { sizeof(SvcJob), fj_start, fj_cancelled, fj_join, fj_running, fj_stop };
+static void fj_cancel_one(SvcJobH *j) { if (j) { j->cancel = true; } }
+// the job runs when the model says so: its function takes memory, the way a library's job does
+static const LibApi *g_jobapi;
+static int g_job_runs;
+static void *g_job_block;
+static int job_fn(SvcJobH *, void *) { g_job_runs++; g_job_block = g_jobapi->mem->malloc(32); return 7; }
+
+static void net_and_jobs()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    memset(g_jobs, 0, sizeof(g_jobs));
+    g_open.clear();
+    g_next_fd = 100;
+    g_net_closes = 0;
+    char err[LIB_ERR_MAX] = "";
+    const LibApi *api0 = 0;
+    w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
+    w.m.twins["libb"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { return api->net && api->job ? 0 : 1; };      // a library sees both groups when it registers
+    w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    int ha = -1, hb = -1;
+    std::string shape0 = w.m.shape();
+    CHECK_EQ(w.load(build(Img("liba", "A")), &ha, err), LIB_OK);
+    api0 = g_jobapi;
+    CHECK(api0->net && api0->job && api0->net->size == sizeof(SvcNet) && api0->job->size == sizeof(SvcJob));
+    CHECK_EQ(w.load(build(Img("libb", "B")), &hb, err), LIB_OK);
+    // before the base gives its tables: no socket, no job, and nothing breaks
+    CHECK_EQ(api0->net->listen(9000, 2), -7);
+    CHECK(api0->job->start(job_fn, 0, 4096) == 0);
+    CHECK(!api0->job->running(0) && !api0->job->stop_requested());
+    w.ld->set_net(&g_fknet);
+    w.ld->set_job(&g_fkjob);
+    w.ld->set_job_cancel(fj_cancel_one);
+    CHECK(w.ld->info(ha) && api0->net != &g_fknet && api0->job != &g_fkjob);                // the loader's tables, not the base's
+
+    Img a("capp", "P");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+    int hp = -1;
+    CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+    w.ld->set_current(hp);
+
+    // the library takes a listener and a job inside its handler (the loader puts the image as owner), the application takes its own outside
+    int lib_listener, lib_conn, app_listener;
+    SvcJobH *lib_job, *app_job;
+    {
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_listener = api0->net->listen(9000, 2);
+        g_accept_fd = 300;
+        lib_conn = api0->net->accept(lib_listener);
+        lib_job = api0->job->start(job_fn, 0, 4096);
+    }
+    CHECK(lib_listener >= 100 && lib_conn == 300 && lib_job);
+    app_listener = api0->net->listen(9001, 2);
+    app_job = api0->job->start(job_fn, 0, 4096);
+    CHECK(app_job && app_job != lib_job);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(w.ld->account_sockets(hp), 1);
+    CHECK_EQ(w.ld->account_jobs(ha), 1);
+    CHECK_EQ(w.ld->account_jobs(hp), 1);
+    CHECK_EQ(w.ld->account_sockets(-1) + w.ld->account_jobs(-1), 0);
+    CHECK_EQ(api0->net->send(lib_conn, "x", 1), 1);                                         // the other members pass through
+    CHECK_EQ(api0->net->recv(lib_conn, 0, 0), -5);
+
+    // the application ends: its listener and its job go, the library's two sockets and its job stay (appsvc_end no longer kills all)
+    w.m.on_delay = [&]() { for (int i = 0; i < 4; i++) { if (g_jobs[i].used && g_jobs[i].cancel && !g_jobs[i].done) { g_jobs[i].done = true; } } };
+    CHECK(w.ld->stop_jobs(hp));
+    w.ld->close_sockets(hp);
+    CHECK(g_jobs[app_job - g_jobs].cancel && !g_jobs[lib_job - g_jobs].cancel);
+    CHECK_EQ(w.ld->account_jobs(hp), 0);
+    CHECK_EQ(w.ld->account_sockets(hp), 0);
+    CHECK(!g_open.count(app_listener) && g_open.count(lib_listener));
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(w.ld->account_jobs(ha), 1);
+    CHECK(api0->job->running(lib_job));
+
+    // an application's stop is the application's: a library's job and a library's code do not see it (S14)
+    g_app_stop = true;
+    w.m.code_addr = w.ld->info(ha)->image_addr + 4;
+    CHECK(!api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    w.m.code_addr = w.ld->info(hp)->image_addr + 4;
+    CHECK(api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    w.m.code_addr = 0;
+    CHECK(api0->job->stop_requested());                                                     // code that is in no image: the base's answer
+    g_app_stop = false;
+    CHECK(!api0->job->stop_requested());
+
+    // the library closes one itself: the record goes before the base closes the handle (the number may be handed out again at once)
+    g_probe_ld = w.ld;
+    g_probe_owner = ha;
+    CHECK_EQ(api0->net->close(lib_conn), 0);
+    CHECK_EQ(g_close_seen, 1);                                                              // the library had two records, one was already gone when the base ran
+    g_probe_ld = 0;
+    CHECK_EQ(w.ld->account_sockets(ha), 1);
+    g_accept_fd = 300;
+    lib_conn = 0;
+    {
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_conn = api0->net->accept(lib_listener);                                         // taken again below, as before
+    }
+    CHECK_EQ(lib_conn, 300);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    // a handle the base does not know is refused
+    CHECK_EQ(api0->net->close(999), -1);                                                    // a handle the base does not know: refused, no record touched
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(api0->net->close(lib_conn), 0);
+    CHECK_EQ(w.ld->account_sockets(ha), 1);
+    CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+
+    // the job's function runs with the library as owner (a trampoline scope), also on a task that has no scope of its own
+    int blocks0 = w.ld->account_blocks(ha), nobody0 = w.ld->account_blocks(-1);
+    CHECK_EQ(api0->job->join(lib_job), 7);                                                  // the base runs fn(j, user) through the loader's trampoline
+    CHECK_EQ(g_job_runs, 1);
+    CHECK(g_job_block != 0);
+    CHECK_EQ(w.ld->account_blocks(ha), blocks0 + 1);
+    CHECK_EQ(w.ld->account_blocks(-1), nobody0);
+    CHECK(w.m.scopes.empty());                                                              // the scope ended with the function
+    CHECK_EQ(w.ld->account_jobs(ha), 0);                                                    // a job the base joined is off the account
+
+    // freeing the library: its listener closed, its job asked to stop and waited for; nothing of it is left
+    int j2 = api0->net->listen(9002, 1);                                                    // owner: nobody (no scope, no application)
+    CHECK_EQ(w.ld->account_sockets(-1), 1);
+    CHECK(j2 >= 100);
+    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);                                   // the listener of the library is closed in discard()
+    CHECK(!g_open.count(lib_listener));
+    CHECK_EQ(w.ld->account_sockets(ha), 0);
+    {
+        LibLoader::Scope in_b(w.ld, hb);
+        api0->net->listen(9003, 1);
+        api0->job->start(job_fn, 0, 4096);
+    }
+    CHECK_EQ(w.ld->account_sockets(hb), 1);
+    CHECK_EQ(w.ld->account_jobs(hb), 1);
+    SvcJobH *bj = 0;
+    for (int i = 0; i < 4; i++) { if (g_jobs[i].used && !g_jobs[i].done) { bj = &g_jobs[i]; } }
+    CHECK(bj != 0);
+    int delays0 = 0;
+    w.m.on_delay = [&]() { delays0++; };
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_STATE);                                // the caller holds the core lock: the job is asked to stop, nothing is waited for
+    CHECK(bj->cancel && bj->used && delays0 == 0 && w.ld->info(hb));
+    CHECK_EQ(w.ld->account_jobs(hb), 1);
+    bj->done = true;                                                                        // the job answered
+    w.m.on_delay = 0;
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);                                   // joined, its socket closed
+    CHECK(!bj->used);
+    CHECK_EQ(w.ld->account_sockets(hb) + w.ld->account_jobs(hb), 0);
+    CHECK(g_open.size() == 1 && g_open.count(j2));                                          // only the socket of nobody is left
+    w.m.on_delay = 0;
+    w.ld->close_sockets(-1);
+    CHECK(g_open.empty());
+}
+
+// An allocation goes on the account of the code that asks (owner_at): a library's export called from anywhere takes its blocks on the library's account.
+static void calls_on_the_owners_account()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    char err[LIB_ERR_MAX] = "";
+    const LibApi *api = 0;
+    w.m.twins["libx"] = [](const LibHost::Entry &, const LibApi *a, LibRecord *) { g_jobapi = a; return 0; };
+    w.m.twins["liby"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+    int hx = -1, hy = -1;
+    CHECK_EQ(w.load(build(Img("libx", "X")), &hx, err), LIB_OK);
+    api = g_jobapi;
+    CHECK_EQ(w.load(build(Img("liby", "Y")), &hy, err), LIB_OK);
+    w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    Img a("capp", "P");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+    int hp = -1;
+    CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+    w.ld->set_current(hp);
+    const LibInfo *ix = w.ld->info(hx), *iy = w.ld->info(hy);
+    CHECK(ix && iy && ix->image_size > 8 && iy->image_size > 8);
+
+    // the application calls an export of libx: the return address of the call into malloc lies in libx's image, so the block is libx's
+    w.m.code_addr = ix->image_addr + 4;
+    void *p1 = api->mem->malloc(40);
+    uint32_t held1 = w.ld->held_bytes(hx);
+    SvcMutex *m1 = api->sync->mutex_new();
+    CHECK(p1 && m1);
+    CHECK_EQ(w.ld->account_blocks(hx), 1);
+    CHECK_EQ(w.ld->account_blocks(hp), 0);
+    CHECK_EQ(w.ld->held_bytes(hx), held1 + (uint32_t)sizeof(SvcMutex));                    // the mutex is libx's as well
+    // libx's export calls into liby's export, which allocates: liby's account, not the one of the first caller
+    w.m.code_addr = iy->image_addr + 8;
+    void *p2 = api->mem->malloc(24);
+    CHECK_EQ(w.ld->account_blocks(hy), 1);
+    CHECK_EQ(w.ld->account_blocks(hx), 1);
+    void *p3 = api->mem->realloc(p2, 48);                                                  // the new block is the account of the code that calls realloc
+    CHECK_EQ(w.ld->account_blocks(hy), 1);
+    // code that is in no image (the base, a native twin): the owner of the task, as before
+    w.m.code_addr = 0;
+    void *p4 = api->mem->malloc(16);
+    CHECK_EQ(w.ld->account_blocks(hp), 1);
+    // the scope of a call the base makes itself wins when the code is in no image, and ends with the object
+    {
+        LibLoader::Scope s(w.ld, hy);
+        void *p5 = api->mem->malloc(8);
+        CHECK_EQ(w.ld->account_blocks(hy), 2);
+        CHECK_EQ(w.ld->current(), hy);
+        api->mem->free(p5);
+    }
+    CHECK_EQ(w.ld->current(), hp);
+    { LibLoader::Scope none(w.ld, -1); CHECK_EQ(w.ld->current(), hp); }                    // a handle that is not loaded: no scope
+    api->mem->free(p4);
+    api->mem->free(p3);
+    api->mem->free(p1);
+    api->sync->mutex_free(m1);
+    CHECK_EQ(w.ld->account_blocks(hx) + w.ld->account_blocks(hy) + w.ld->account_blocks(hp), 0);
+    CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->unload(hy, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->unload(hx, err, sizeof(err)), LIB_OK);
+}
+
+// The base's own job table (AppHost, linked for real with stubs of the screens): an application's stop and the end of an application reach the application's jobs and no library's (S14).
+struct StoreOs : VirtOs {
+    std::vector<std::pair<void (*)(void *), void *> > tasks;           // the tasks the base made; the test runs them when it wants
+    bool task_new(const char *, void (*fn)(void *), void *arg, int, uint32_t) { tasks.push_back(std::make_pair(fn, arg)); return true; }
+};
+static int ah_job(SvcJobH *, void *) { return 5; }
+struct AppHostTest {
+    static void jobs()
+    {
+        World w(U2A_BASE_MINOR);
+        w.ld->add_services();
+        CoreCtx cx;
+        StoreOs os;
+        CoreLock lock(&os);
+        AppIndex idx;
+        AppHost H(&cx, w.ld, &idx, &os, &lock, 0, 0);
+        H.install();                                                                   // set_job(its table), set_job_cancel
+        char err[LIB_ERR_MAX] = "";
+        w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
+        w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+        int ha = -1, hp = -1;
+        CHECK_EQ(w.load(build(Img("liba", "A")), &ha, err), LIB_OK);
+        const LibApi *api = g_jobapi;
+        Img a("capp", "P");
+        a.kind = U2A3_KIND_APP;
+        a.residence = U2A3_RES_TRANSIENT;
+        a.reg = U2A3_NONE;
+        a.main = 4;
+        CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+        w.ld->set_current(hp);
+        SvcJobH *lib_job = 0;
+        {
+            LibLoader::Scope in_lib(w.ld, ha);
+            lib_job = api->job->start(ah_job, 0, 4096);
+        }
+        SvcJobH *app_job = api->job->start(ah_job, 0, 4096);
+        CHECK(lib_job && app_job && lib_job != app_job && os.tasks.size() == 2);
+        CHECK_EQ(w.ld->account_jobs(ha), 1);
+        CHECK_EQ(w.ld->account_jobs(hp), 1);
+        H.stop_ = true;                                                                // the application is asked to end (close_session, or another application is opened)
+        w.m.code_addr = w.ld->info(ha)->image_addr + 4;                                // a call from the library's code
+        CHECK(!api->job->cancelled(lib_job) && !api->job->stop_requested());
+        w.m.code_addr = w.ld->info(hp)->image_addr + 4;                                // a call from the application's code
+        CHECK(api->job->stop_requested() && !api->job->cancelled(lib_job));
+        w.ld->cancel_jobs(hp);                                                         // what stop_jobs, close_session and the asked-to-end path do
+        CHECK(api->job->cancelled(app_job) && !api->job->cancelled(lib_job));
+        w.m.code_addr = 0;
+        H.stop_ = false;
+        CHECK(!api->job->cancelled(lib_job));
+        for (size_t i = 0; i < os.tasks.size(); i++) {
+            os.tasks[i].first(os.tasks[i].second);                                     // job_entry
+        }
+        CHECK_EQ(api->job->join(lib_job), 5);
+        CHECK_EQ(api->job->join(app_job), 5);
+        CHECK_EQ(w.ld->account_jobs(ha) + w.ld->account_jobs(hp), 0);
+        CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    }
+};
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -2397,5 +2739,8 @@ int main()
     scopes();
     named_exports();
     services();
+    net_and_jobs();
+    calls_on_the_owners_account();
+    AppHostTest::jobs();
     DONE("test_libload");
 }

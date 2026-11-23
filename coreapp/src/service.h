@@ -66,7 +66,7 @@ public:
     // of their own).
     LibPolls(OsPort *os, CoreLock *lock, const OpRegistry *reg, CoreCtx *c, uint32_t stack_words);
     ~LibPolls();
-    bool add(const char *owner, const char *op, uint16_t period_ms, char *why, int whylen) override;
+    bool add(const char *owner, const char *op, uint16_t period_ms, bool when_frozen, char *why, int whylen) override;
     void drop(const char *owner) override;
     int count() const;                                     // polls running
     PollTask *slot(int i) const { return i >= 0 && i < LIB_POLLS_MAX ? slot_[i].t : 0; }

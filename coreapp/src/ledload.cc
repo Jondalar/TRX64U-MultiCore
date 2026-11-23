@@ -1,7 +1,7 @@
 #include "ledload.h"
 #include "engines.h"
 
-// LED 2's nibble: the bring-up meaning (host/top.v) is "transmitters running and the picture locked", which no selector source is; a core
+// The high nibble (LED 1, zero-based as svc_board.h; output 2 of host/case_leds.v): the bring-up meaning (host/top.v) is "transmitters running and the picture locked", which no selector source is; a core
 // that is running has both, so On.
 void ledload_set(CoreCtx *c, bool on)
 {
