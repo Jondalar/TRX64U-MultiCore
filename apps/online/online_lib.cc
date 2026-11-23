@@ -19,8 +19,8 @@ static const LibExportDecl k_exports[] = { { ONLINE_API_NAME, ONLINE_API_MAJOR, 
 #endif
 extern "C" LIB_ENTRY_ATTR int ONLINE_ENTRY_NAME(const LibApi *api, LibRecord *out)
 {
-    if (api->abi_major != U2A_ABI_MAJOR || api->abi_minor < 3 || !api->mem || !api->net || !LIB_RECORD_COVERS(out->struct_size, export_list)) {
-        return 1;                                                    // needs the outgoing sockets of base 3.3 and the named exports of 3.2
+    if (api->abi_major != U2A_ABI_MAJOR || api->abi_minor < 3 || !api->mem || !api->net || !api->job || !LIB_RECORD_COVERS(out->struct_size, export_list)) {
+        return 1;                                                    // needs the outgoing sockets and the jobs of base 3.3 (every request runs on a job) and the named exports of 3.2
     }
     if (api->net->size < __builtin_offsetof(SvcNet, resolve) + sizeof(api->net->resolve)) {
         return 1;

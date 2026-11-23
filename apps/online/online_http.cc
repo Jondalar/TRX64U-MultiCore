@@ -155,6 +155,10 @@ int http_get(const HttpEnv &env, const char *host, const char *path, const char 
         if (n == -5) {                                        // nothing waiting
             int hh = h;
             env.net->wait(&hh, 1, 1000);
+            if (env.cancelled && env.cancelled(env.user)) {
+                ok = false;                                   // the job was asked to end
+                continue;
+            }
             if (env.sys && env.sys->ms && env.sys->ms() - last > HTTP_IDLE_MS) {
                 ok = false;
             }
