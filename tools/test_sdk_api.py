@@ -129,6 +129,10 @@ def main():
             shutil.rmtree(t3)
     finally:
         shutil.rmtree(t)
+    names = [os.path.basename(h) for h in sdk_api.headers(REAL)]
+    for h in ("mouse_api.h", "pad_api.h", "padkeys_api.h", "ops.h"):             # L-1b: the tables of the shared libraries mouse, pad and padkeys, and what they need, ship in include/
+        check(h in names, "%s is a public header" % h)
+    check("ctx.h" not in names and "libtab.h" not in names, "the tables' headers pull in neither ctx.h nor libtab.h (the generic application's)")
     sdk_api.selftest()
     if FAILS:
         print("test_sdk_api: %d failed" % len(FAILS))

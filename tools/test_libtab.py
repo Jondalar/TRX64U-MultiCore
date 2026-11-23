@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import descrec as D  # noqa: E402
 import libtab as L  # noqa: E402
+import sdk_api  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SHARED = os.path.join(ROOT, "coreapp", "libs", "shared.toml")
@@ -59,11 +60,13 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         t = L.table_text(libs)
         self.assertEqual(t.count('\n    { "'), len(libs))
-        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, "drive_a", 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, cap_cbm1541, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('static const char *const cap_cbm1541[] = { "drive_a", 0 };', t)
         self.assertIn('{ "uci", uci_bind, 0, 0, 0, 0, uci_take_freeze_request, 0, 0 },', t)
         self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0, 0, 0 },', t)
         self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0, 0, 0 },', t)                      # a library without an entry: its code is called by the libraries that need it
-        self.assertIn('{ "newdisk", 0, newdisk_register, "floppy", 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "newdisk", 0, newdisk_register, cap_newdisk, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('static const char *const cap_newdisk[] = { "floppy", "sio", 0 };', t)       # L-1b: an entry names several capabilities (a record-described atari800 names "sio")
         self.assertIn('{ "folderhd", folderhd_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
         self.assertIn('{ "fastseek", fastseek_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
         self.assertIn('{ "ftp", ftp_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
@@ -76,6 +79,27 @@ class SharedApp(unittest.TestCase):
         self.assertIn("void tempdisk_lib_init(const BoardProfile &);", t)
         self.assertIn("const unsigned g_libtab_n = %d;" % len(libs), t)
         self.assertEqual(L.mk_text(libs).split()[0:2], ["LIB_SRCS_CC", "="])
+
+    def test_an_entry_names_one_capability_or_several(self):
+        p = toml_b('[[library]]\nname = "a"\nsources = ["newdisk.cc"]\nregister_ops = "newdisk_register"\ncapability = ["floppy", "sio"]\n'
+                   '[[library]]\nname = "b"\nsources = ["newfile.cc"]\nregister_ops = "newfile_register"\ncapability = "iec"\n')
+        t = L.table_text(L.load(p))
+        self.assertIn('static const char *const cap_a[] = { "floppy", "sio", 0 };', t)
+        self.assertIn('static const char *const cap_b[] = { "iec", 0 };', t)
+        self.assertIn('{ "a", 0, newdisk_register, cap_a, 0, 0, 0, 0, 0 },', t)
+        for bad in ('capability = []', 'capability = ["floppy", "floppy"]', 'capability = ["Floppy"]', 'capability = [1]'):
+            q = toml_b('[[library]]\nname = "a"\nsources = ["newdisk.cc"]\nregister_ops = "newdisk_register"\n' + bad + '\n')
+            with self.assertRaises(L.LibTabError):
+                L.load(q)
+
+    def test_the_four_libraries_of_l_1_are_listed_with_their_headers(self):
+        libs = {x["name"]: x for x in L.load(SHARED)}
+        for name in ("mouse", "pad", "padkeys", "resample"):
+            self.assertIn(name, libs)
+            self.assertTrue(libs[name]["sources"], name)
+        for name, api in (("mouse", "mouse_api.h"), ("pad", "pad_api.h"), ("padkeys", "padkeys_api.h")):
+            self.assertIn(api, libs[name]["headers"])
+            self.assertIn(api, [os.path.basename(h) for h in sdk_api.headers(ROOT)], "%s is a public header of the SDK" % api)    # the package's include/ carries it (tools/sdk_pack.sh copies this list)
 
     def test_every_entry_is_defined_in_a_source_of_its_library(self):
         import re

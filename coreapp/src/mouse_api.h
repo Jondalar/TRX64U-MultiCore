@@ -1,11 +1,12 @@
 // The table "mouse": what the generic application asks of the USB mouse library (mousesink.cc) and the types a core's description uses to name a mouse. The generic code finds the table
 // through libtab_table("mouse") (libtab.h) and calls no function of the library; an app linked without the library has no table and no mouse: the report is dropped by the USB driver's own
-// path, and the application's settings answer the driver (baseset.cc). Size first; within a major members are only appended. The table is the application's own (not shipped in the SDK).
+// path, and the application's settings answer the driver (baseset.cc). Size first; within a major members are only appended. The header ships in the SDK (include/), so a library or a core's app can read the table.
 #ifndef COREAPP_MOUSE_API_H
 #define COREAPP_MOUSE_API_H
 
 #include <stdint.h>
-#include "ctx.h"
+
+struct CoreCtx;
 
 enum MouseKind : uint8_t { MOUSE_COUNTERS = 0, MOUSE_POT1351 = 1 };
 

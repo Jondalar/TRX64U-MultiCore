@@ -17,7 +17,7 @@ struct LibEntry {
     const char *name;
     void (*bind)(CoreCtx *c, LibLoader &ld);            // gives the library its context and registers its tables (add_export); once, when the loader is made. Null: none
     void (*register_ops)(OpRegistry &r);                // the operation groups of the library, for a core described by its record (ops_glue.h ops_record_groups). Null: none
-    const char *capability;                             // register_ops runs only for a core whose description names this capability (desc_has_capability). Null: every core
+    const char *const *capability;                      // register_ops runs only for a core whose description names one of these capabilities (desc_has_capability), a null-terminated list. Null: every core
     void (*init)(const BoardProfile &b);                // once, when the board is known (coreapp.cc), before the core runs. Null: none
     void (*start)(CoreCtx *c);                          // once, after the network settings are pushed (netsvc.cc). Null: none
     bool (*freeze_request)(void);                       // true once when the library asks for the menu (the command interface's FREEZE); read by the service loop. Null: none

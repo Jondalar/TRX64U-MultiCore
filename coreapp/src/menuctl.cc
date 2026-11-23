@@ -1,5 +1,4 @@
 #include "menuctl.h"
-#include "padkeys_api.h"
 #include "listgrow.h"
 #include "keyboard.h"
 #include "ops_glue.h"
