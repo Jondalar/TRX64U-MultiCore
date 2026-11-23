@@ -1374,15 +1374,21 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         const bool file = (when & DR_SET_FILE) != 0;           // T239.3 D17: a file the person selects (Setting::kind 3); its time code is live or reset as any other's
         when &= ~(uint32_t)DR_SET_FILE;
-        if (when & 16) {                                       // T239.3 D32: a provider is the application's own base UI TOML's (tools/gen_base_ui.py reads it); a core's record names none
-            return r.fail("description record: core setting %u names a provider, which only the base UI TOML may", (unsigned)i);
-        }
+        const bool listed = (when & 16) != 0;                  // T239.3 D32: the value string before the lock state names the list that fills the row at run time (its pick)
+        when &= ~(uint32_t)16;
         if (when & 4) {                                        // T228 R21: the last value string is the state that locks the row (its text replaces the value); old records never set the flag
             if (nv >= 1 && (uint64_t)fv + nv <= tb[V].count) {
                 d.lock_state = out->values[fv + nv - 1];
                 nv--;
             }
             when &= 3;
+        }
+        if (listed) {
+            if (nv < 2 || when >= 2 || file || (uint64_t)fv + nv > tb[V].count) {
+                return r.fail("description record: core setting %u has a bad pick", (unsigned)i);
+            }
+            d.pick = out->values[fv + nv - 1];
+            nv--;
         }
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);

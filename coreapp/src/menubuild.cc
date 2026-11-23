@@ -44,6 +44,7 @@ void menu_base_setting(Setting &s, const BaseRow &r)
     s.base = r.base;
     s.kind = r.kind;
     s.show_state = r.show_state;
+    s.pick = r.pick;
 }
 
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env)

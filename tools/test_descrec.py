@@ -1293,9 +1293,9 @@ group = "audio_2"
 
 class BaseRows(unittest.TestCase):
     """T239.3 D32, P2-4's QC entry: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): label, key, kind, values and default, and for a list that
-    changes at run time its provider. tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
+    changes at run time its pick (the key a core's row names it with). tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
     ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\nprovider = "video.modes"\napply = "picture.apply"\n'
+    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\npick = "video.modes"\napply = "picture.apply"\n'
 
     def base(self):
         return D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
@@ -1309,15 +1309,23 @@ class BaseRows(unittest.TestCase):
             self.assertEqual(r["when"] in ("text", "secret") or r["default"] < len(r["values"]), True, r["key"])
             self.assertTrue(any(p["op"] == r["apply"] and (not p.get("key") or p["key"].lower() == r["key"].lower()) for p in rec["place"]), r["key"])
         by = {r["key"]: r for r in rec["cset"]}
-        self.assertEqual(by["Picture"]["provider"], "video.modes")
-        self.assertEqual(by["Hotkey modifier"]["provider"], "hotkeys.modifiers")
+        self.assertEqual(by["Picture"]["pick"], "video.modes")
+        self.assertEqual(by["Hotkey modifier"]["pick"], "hotkeys.modifiers")
         self.assertEqual(by["Volume"]["values"][by["Volume"]["default"]], "100%")
         self.assertEqual((by["Mouse Sensitivity"]["base"], by["Mouse Sensitivity"]["values"][by["Mouse Sensitivity"]["default"]]), (1, "8"))
         self.assertEqual(by["Home Directory"]["when"], "text")
 
-    def test_a_base_row_carries_its_provider_and_values(self):
+    def test_a_base_row_carries_its_pick_and_values(self):
         r = D.parse_desc(D.compile_desc(D.toml_loads(self.ROW), app_base=True))
-        self.assertEqual((r["cset"][0]["provider"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+        self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+
+    def test_a_run_time_list_is_named_by_pick_in_a_base_row_and_in_a_core_row(self):
+        row = '[[core_setting]]\nkey = "Scheme"\nvalues = ["Blue"]\npick = "view.schemes"\napply = "x.apply"\n'
+        for app_base in (True, False):
+            r = D.parse_desc(D.compile_desc(D.toml_loads(row), app_base=app_base))
+            self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("view.schemes", ["Blue"]))
+        self.assertNotIn("provider", open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read().replace("# ", "").split("[lists]", 1)[1])
+        self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
 
     def test_the_rows_are_the_ones_the_application_exports(self):
         r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],

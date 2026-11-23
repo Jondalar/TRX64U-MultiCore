@@ -101,6 +101,8 @@ struct Setting {
     const char *label;
     // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
     const char *lock_state;
+    // T239.3 D32: a choice among values whose list changes at run time names it (the TOML's `pick`); `values` is what the row shows until the list has filled it. Null: the values are the row's. Last.
+    const char *pick;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------

@@ -46,8 +46,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
     # a [[core_setting]] with file = true, when = "live" | "reset" and apply (kind 3): a file the person selects in a file selector, the text is its path, none by default; apply takes one
     # text argument "path" (Setting::kind 3; no values, default, base, text, secret or reg_bind). reg_bind takes up to 64 bytes (one per value)
-    # a [[core_setting]] with provider = "<name>" (T239.3 D32): only a row of the base UI TOML (coreapp/base_ui.toml; compile_desc app_base) may; its values are what it shows until the provider the
-    # application serves under that name has filled them (one value is enough); the name is the last value string before the lock state, flag 16 of the time code. The C++ reader (descrec.cc) refuses it
+    # a [[core_setting]] (a choice among values) with pick = "<name>" (T239.3 D32, QC of wave 2): the list changes at run time, as a text row's pick names the state that holds its list; the values are what the row
+    # shows until the state's list has filled them (one value is enough); the name is the last value string before the lock state, flag 16 of the time code, in a row of the base UI TOML and of a core's alike
     # a [[core_setting]] with romset_choice = true in place of `apply` and reg_bind: the item that chooses the member of the [romset] (its choice_key is this key); no values,
     # the record holds the set's labels (auto_label, then "-" for each of max places) and the reader hands the setting the labels of the set (desc.h Setting::bind)
     # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
@@ -644,7 +644,7 @@ def _expand_apps(doc):
 def compile_desc(doc, merged=(), app_base=False):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus).
     `app_base`: the document is the SDK's base UI TOML (coreapp/base_ui.toml, T239.3 D32), whose [[core_setting]] rows are the application's own: they may take the keys and operations
-    of Picture, Scale, Smoothing and Frame follow and name a `provider`; no core's record may."""
+    of Picture, Scale, Smoothing and Frame follow; no core's record may."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
                 "pad", "restart", "key", "window", "group_route", "place"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
@@ -992,7 +992,7 @@ def compile_desc(doc, merged=(), app_base=False):
     setbinds = []
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file", "romset_choice", "provider"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file", "romset_choice"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
@@ -1009,9 +1009,11 @@ def compile_desc(doc, merged=(), app_base=False):
             raise DescError("%s: exactly one of apply (an operation) and reg_bind (the register bits it is, T239.3 D17)" % what)
         if not app_base:
             _app_owned(what, key, cs.get("apply") or "")
-        provider = _opt(cs, "provider", str, what, None)
-        if provider is not None and (not app_base or not re.fullmatch(r"[a-z0-9_.]{1,40}", provider) or choice or any(k in cs for k in ("text", "secret", "file", "reg_bind"))):
-            raise DescError("%s: provider is for a row of the application's own base UI TOML, a choice among values (the values are what the row shows until the provider fills it); no text, secret, file or reg_bind" % what)
+        provider = None                     # a choice row's pick: the name of the list that fills its values at run time (a text row's pick is its own, below)
+        if "pick" in cs and not (cs.get("text") or cs.get("secret") or cs.get("file")):
+            provider = _opt(cs, "pick", str, what, None)
+            if not re.fullmatch(r"[a-z0-9_.]{1,40}", provider) or choice or "reg_bind" in cs:
+                raise DescError("%s: pick on a choice among values names the list that fills the values at run time (the values are what the row shows until then); no romset_choice or reg_bind" % what)
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
@@ -1063,7 +1065,7 @@ def compile_desc(doc, merged=(), app_base=False):
             else:
                 vals = _need(cs, "values", list, what)
             if len(vals) < (1 if provider else 2) or not all(isinstance(v, str) and v for v in vals):
-                raise DescError("%s: values are at least two non-empty labels (one with a provider)" % what)
+                raise DescError("%s: values are at least two non-empty labels (one with a pick)" % what)
             default = cs.get("default", 0)
             if isinstance(default, str):
                 if default not in vals:
@@ -1079,7 +1081,7 @@ def compile_desc(doc, merged=(), app_base=False):
         if show:
             wcode |= (st.add(show) + 1) << 8
         if provider:
-            vals = list(vals) + [provider]                      # T239.3 D32: the base row's provider, the value string before the lock state; flag 16 of the time code
+            vals = list(vals) + [provider]                      # T239.3 D32: the row's pick (the run-time list), the value string before the lock state; flag 16 of the time code
             wcode |= 16
         lock = _opt(cs, "lock_state", str, what, None)         # T228 R21: while this state has a text the row shows it in place of the value and refuses edits (FW set_override); the record keeps it as the last value string, flag 4 of the time code
         if lock:
@@ -2677,7 +2679,7 @@ def parse_desc(blob):
             nv -= 1
             when &= ~4
         provider = None
-        if when & 16:                                                 # T239.3 D32, only in the base UI TOML: the value string before the lock state names the provider of the row's values
+        if when & 16:                                                 # T239.3 D32: the value string before the lock state names the list that fills the row's values (its pick)
             if nv < 2 or fv + nv > len(out["value"]):
                 raise DescError("description record: a bad core setting")
             provider = out["value"][fv + nv - 1]
@@ -2686,7 +2688,7 @@ def parse_desc(blob):
         if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file or provider else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "provider": provider, "file": file})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "pick": provider, "file": file})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     out["sections"] = False
@@ -2892,6 +2894,8 @@ def decoded_to_doc(rec):
                     d["empty"] = c["values"][1]
                 if len(c["values"]) > 2:
                     d["pick"] = c["values"][2]
+            elif c.get("pick"):                          # a choice among values whose list is filled at run time
+                d["pick"] = c["pick"]
             if c["group"] is not None:
                 d["group"] = c["group"]
             if c.get("label"):

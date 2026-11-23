@@ -184,7 +184,7 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         }
         Setting &s = store[n++];
         menu_base_setting(s, *r);
-        if (r->provider && !strcmp(r->provider, "view.schemes")) {      // the provider "view.schemes": the colour schemes of the view (app/view/trx_scheme_names.h), the row's values until then
+        if (r->pick && !strcmp(r->pick, "view.schemes")) {      // the pick "view.schemes": the colour schemes of the view (app/view/trx_scheme_names.h), the row's values until then
             s.values = trx_scheme_names;
             s.nvalues = TRX_SCHEME_COUNT;
         }
