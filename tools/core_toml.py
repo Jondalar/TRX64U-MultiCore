@@ -134,6 +134,11 @@ def in_pipeline(table):
     return table.get("pipeline", True) is not False
 
 
+def own_app_cores():
+    """T239.3 V-5 (D25): the cores in the pipeline whose TOML B names a descriptor ([app] desc); their app is linked from the SDK package."""
+    return [n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+
+
 def delivery_of(table):
     return table.get("delivery", "cor")
 
@@ -303,7 +308,7 @@ def main():
     elif a[:1] == ["list-cor"]:
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
     elif a[:1] == ["list-own-app"]:
-        print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")))
+        print("\n".join(own_app_cores()))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:

@@ -127,7 +127,8 @@ coreapps="$out/.coreapps"
 mkdir -p "$coreapps"
 cp "$trxapps/coreapps"/*.app "$coreapps/"
 # V-5: a core with a TOML B of its own must have its linked app here, and it is not the blueprint image the others were copied from (the stage checks it too; a hand-over from the cache or an older run must not slip past)
-for c in $(python3 -I "$ROOT/tools/core_toml.py" list-own-app); do
+own_apps="$(python3 -I "$ROOT/tools/core_toml.py" list-own-app)" || mark_red package own-app "core_toml.py list-own-app failed"
+for c in $own_apps; do
   [ -s "$coreapps/$c.app" ] || mark_red package "$c" "stage trxapps made no linked app for $c (TOML B of its own)"
   ! cmp -s "$coreapps/$c.app" "$trxapps/coreapp.bin" || mark_red package "$c" "coreapps/$c.app is the shared image, not the app linked from the SDK package"
 done
