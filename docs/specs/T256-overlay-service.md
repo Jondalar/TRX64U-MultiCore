@@ -119,6 +119,11 @@ Draft. It is completed when the open questions of §3 are decided.
   menu rows take their place from the TOML (T239.3 D32), and the menu simulator shows it. The library's call hands over the
   surface and redraws it. Lost: a place the library sets at run time, from the call or as a move beside a TOML default.
 
+- **D9** (Alex, 2026-11-23): elements are opaque. Asked how opaque a library element is over the picture while the menu is closed
+  (the layer has one alpha; key-colour pixels are always transparent), he chose "Opaque": elements show at full opacity, only
+  their key-colour pixels let the picture through, and the person's "Overlay Transparency" applies to the open menu only. Lost:
+  elements that follow the person's transparency, and one opacity per core set in its TOML.
+
 The other decisions are asked one at a time and recorded here.
 
 ## §4 Out
