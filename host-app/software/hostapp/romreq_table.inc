@@ -49,7 +49,7 @@
     { "Commodore 128", "c128", "C128 editor and KERNAL", "kernal-318020-05.bin", { 16384, 0, 0 }, 24, 0 },
     { "Commodore 128", "c128", "C128 BASIC low", "basiclo-318018-04.bin", { 16384, 0, 0 }, 24, 0 },
     { "Commodore 128", "c128", "C128 BASIC high", "basichi-318019-04.bin", { 16384, 0, 0 }, 24, 0 },
-    { "Commodore 128", "c128", "Character set", "chargen-315079-01.bin", { 8192, 0, 0 }, 24, 0 },
+    { "Commodore 128", "c128", "Character ROM", "chargen-315079-01.bin", { 8192, 0, 0 }, 24, 0 },
     { "C64 with SuperCPU", "c64scpu", "SuperCPU ROM", "scpu64.rom|scpu.rom|supercpu.rom|scpu64-v2.04.rom", { 131072, 65536, 262144 }, 1, 0 },
     { "C64 with SuperCPU", "c64scpu", "BASIC", "basic-901226-01.bin|basic.bin|basic.901226-01|basic.901226-01.bin|basic.rom", { 8192, 0, 0 }, 1, 0 },
     { "C64 with SuperCPU", "c64scpu", "KERNAL", "kernal-901227-03.bin|kernal.bin|kernal.901227-03|kernal.901227-03.bin|kernal.rom", { 8192, 0, 0 }, 1, 0 },

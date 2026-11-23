@@ -31,7 +31,7 @@ file coreapp/cores/atari_sio.cc 362
 file coreapp/cores/atari_sio.h 67
 file coreapp/cores/atari_xex.cc 64
 file coreapp/cores/atari_xex.h 8
-file coreapp/cores/c128.cc 1074
+file coreapp/cores/c128.cc 1073
 file coreapp/cores/c128_keys.h 12
 file coreapp/cores/c128_prg.h 30
 file coreapp/cores/c128_regs.h 52

@@ -605,10 +605,9 @@ static bool jf_basic_at4(const uint8_t *d)
 
 static bool all_same(const uint8_t *d, uint32_t n)
 {
+    if (!n) return true;                                // nothing to read: empty
     for (uint32_t i = 1; i < n; i++) {
-        if (d[i] != d[0]) {
-            return false;
-        }
+        if (d[i] != d[0]) return false;
     }
     return d[0] == 0x00 || d[0] == 0xFF;
 }
@@ -896,7 +895,7 @@ static const RomSpec roms[9] = {
     { "C128 editor and KERNAL", { "kernal-318020-05.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x04000 },
     { "C128 BASIC low", { "basiclo-318018-04.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x08000 },
     { "C128 BASIC high", { "basichi-318019-04.bin", 0 }, { 16384, 0 }, false, 0, 0, 0, false, 1, 0x0C000 },
-    { "Character set", { "chargen-315079-01.bin", 0 }, { 8192, 0 }, false, 0, 0, 0, false, 1, 0x10000 },
+    { "Character ROM", { "chargen-315079-01.bin", 0 }, { 8192, 0 }, false, 0, 0, 0, false, 1, 0x10000 },
 };
 
 // ---- control -------------------------------------------------------------------------------------------------------------------
