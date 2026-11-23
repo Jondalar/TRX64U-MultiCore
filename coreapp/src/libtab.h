@@ -8,6 +8,10 @@
 #include "ops.h"
 #include "board.h"
 #include "libload.h"
+#include <string.h>
+
+struct CoreDesc;
+struct DescRecord;
 
 struct LibEntry {
     const char *name;
@@ -17,6 +21,8 @@ struct LibEntry {
     void (*init)(const BoardProfile &b);                // once, when the board is known (coreapp.cc), before the core runs. Null: none
     void (*start)(CoreCtx *c);                          // once, after the network settings are pushed (netsvc.cc). Null: none
     bool (*freeze_request)(void);                       // true once when the library asks for the menu (the command interface's FREEZE); read by the service loop. Null: none
+    const void *(*table)(void);                         // the library's call table for the generic application (its *_api.h): found by libtab_table(name), with no loader and at any time after the program starts. Null: none
+    void (*core)(CoreCtx *c, const CoreDesc *d, const DescRecord *rec);   // the core's description is known (rec: the bundle's record, null before it is read; run.cc calls this again once it is): the library takes what it needs from it. Null: none
 };
 
 extern const LibEntry g_libtab[];                       // libtab_table.cc, generated
@@ -27,5 +33,18 @@ void libtab_register_ops(OpRegistry &r, const CoreDesc *d);
 void libtab_init(const BoardProfile &b);
 void libtab_start(CoreCtx *c);
 bool libtab_freeze_request(void);
+void libtab_core(CoreCtx *c, const CoreDesc *d, const DescRecord *rec);
+
+// The call table the library `name` gives the generic application (its `table` entry), null when the app is not linked with the library. The size of a table is its first member;
+// the caller checks it against the struct it knows. A table of a library that has none does not exist: the generic code treats null as "no such function".
+static inline const void *libtab_table(const char *name)
+{
+    for (unsigned i = 0; i < g_libtab_n; i++) {
+        if (g_libtab[i].table && !strcmp(g_libtab[i].name, name)) {
+            return g_libtab[i].table();
+        }
+    }
+    return 0;
+}
 
 #endif

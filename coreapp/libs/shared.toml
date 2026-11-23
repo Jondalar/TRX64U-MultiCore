@@ -4,6 +4,7 @@
 #   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: only for a core that names it)
 #   init          once the board is known                                    start          once the network settings are pushed
 #   freeze_request  the library asks for the menu (read by the service loop)
+#   table         the library's call table for the generic application (its *_api.h), found by libtab_table(name)   core   the core's description is known (the library takes what it needs from it)
 # `needs` names the libraries this one calls; the build refuses a library whose need is not in the file. `sources` and `headers` are file names, found in coreapp/src, coreapp/cores,
 # app/loaders or app/lib/cbm1541.
 
@@ -75,3 +76,37 @@ name = "t64"
 sources = ["t64.cc", "t64_vlist.cc"]
 headers = ["t64.h"]
 bind = "t64_bind"
+
+# The USB mouse (T104.1 5.6, Alex's placement: mouse lib). `table` is its call table "mouse" (mouse_api.h: engines.cc and baseset.cc call it, nothing else of the library); `init` registers the USB hook, the
+# critical section and the 1351's pots (mouse_board.cc). The types a core's description names (MouseSinkSpec) are in mouse_api.h.
+[[library]]
+name = "mouse"
+sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
+headers = ["mousesink.h", "mouse_api.h"]
+table = "mouse_table"
+init = "mouse_lib_init"
+
+# The USB gamepads (T156, T196, Alex's placement: gamepad lib): the pad service with its maps and mapping wizard, the HID descriptor reader, the XInput protocol and its USB driver. `table` is its call table
+# "pad" (pad_api.h, which also holds PadSpec); `register_ops` is not used: the pad operations are the base's own and go to every core through the table. `init` registers the USB hook and the critical
+# section, `core` the XInput claim (pad_board.cc).
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"
+
+# Pad and joystick as keys (T216 P4, T232, Alex's placement: padkeys): the key lists a core's rows name (padkeys.h) and the pad-key row test and key learning (padkeys.cc), through the call table "padkeys".
+[[library]]
+name = "padkeys"
+sources = ["padkeys.cc", "padkeys_exports.cc"]
+headers = ["padkeys.h", "padkeys_api.h"]
+table = "padkeys_table"
+
+# The C64U's audio resampling (T228): the filter coefficients and their programming into the resampler (u64_resample.cc, u64_resample.inc). The file that calls it, u64cfg.cc, is a placed core's and goes to
+# TRX64-Ultimate (D12); it calls this library directly.
+[[library]]
+name = "resample"
+sources = ["u64_resample.cc"]
+headers = ["u64_resample.h"]

@@ -12,7 +12,8 @@
 #include "mediamounts.h"
 #include "settings_ops.h"
 #include "writeback.h"
-#include "pad.h"
+#include "pad_api.h"
+#include "libtab.h"
 #include "libfiles.h"
 #include <stdio.h>
 #include <string.h>
@@ -70,7 +71,11 @@ void ops_register_base(OpRegistry &r)
     home_register(r);
     settings_register(r);
     wb_register_ops(r);
-    pad_register(r);
+    if (const PadApi *p = (const PadApi *)libtab_table(PAD_API_NAME)) {       // the gamepad library's operations and states (pad_api.h); an app linked without it has none
+        if (p->size >= sizeof(PadApi)) {
+            p->register_ops(r);
+        }
+    }
     netops_register(r);                                            // T210 D1: WiFi, Ethernet and the streams are the board's, every core has them
     libfiles_register(r);                                          // the Library's file operations belong to the F3 browser, which every core has
 }

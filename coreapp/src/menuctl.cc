@@ -1,5 +1,5 @@
 #include "menuctl.h"
-#include "padkeys.h"
+#include "padkeys_api.h"
 #include "listgrow.h"
 #include "keyboard.h"
 #include "ops_glue.h"
@@ -1381,7 +1381,7 @@ void MenuCtl::begin_learn(int set)
     confirm_node_ = 0;
     confirm_task_ = 0;
     learn_ = set;
-    lrn_.begin(hk_read_keys(c_), hk_learn_is_modifier(c_, set) || padkey_row(c_->desc->settings[set]), c_->io->now_ms(), padkey_row(c_->desc->settings[set]));   // T232: a pad-key row takes the keys held as the modifier does (SHIFT + cursor arrives as two keys); SHIFT alone does not end it
+    lrn_.begin(hk_read_keys(c_), hk_learn_is_modifier(c_, set) || padkeys_is_row(c_->desc->settings[set]), c_->io->now_ms(), padkeys_is_row(c_->desc->settings[set]));   // T232: a pad-key row takes the keys held as the modifier does (SHIFT + cursor arrives as two keys); SHIFT alone does not end it
     status_[0] = 0;                                                  // the row and the foot already say it
     status_bad_ = false;
 }

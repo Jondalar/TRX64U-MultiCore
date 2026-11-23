@@ -49,7 +49,7 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -fno-exceptions -pthread"
 PASS=0
 # the shared base every core application links, and the one descriptor each blueprint core adds to it
-BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
+BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc mouse_exports.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc pad_exports.cc padkeys.cc padkeys_exports.cc libtab_native.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
@@ -867,7 +867,7 @@ PASS=$((PASS + 1))
 # and the Mac build of apps/unzip runs inside the real loader over the FakeFs; the test needs no RISC-V instruction.
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; ATARI_NOSTUB="${ATARI/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
-UZSRC="descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
+UZSRC="libtab_native.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
 CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/otherlib.u2a $UZ/pollib.u2a $UZ/menulib.u2a $UZ/hooklib.u2a $UZ/plain.u2a $UZ/ringlib.u2a $UZ/ring2lib.u2a $UZ/ringapp.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC

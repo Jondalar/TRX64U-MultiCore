@@ -4,6 +4,7 @@
 #include "check.h"
 #include "amiga_model.h"
 #include "engines.h"
+#include "mousesink.h"
 
 static int count(const AmigaIo &io, uint32_t reg)
 {

@@ -1053,7 +1053,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
             return r.fail("description record: the list of merged libraries is empty or outside the table");
         }
     }
-    // T228 R10, version 5: the core's pad (pad.h PadSpec): the output and by_id, two registers (or ports), the button names (a run of the value table) and the
+    // T228 R10, version 5: the core's pad (pad_api.h PadSpec): the output and by_id, two registers (or ports), the button names (a run of the value table) and the
     // default map (two hex digits per button)
     if (ver >= 5 && r.u32(DESCREC_HEADER) != DESCREC_NONE) {
         uint32_t kind = r.u32(DESCREC_HEADER), r0 = r.u32(DESCREC_HEADER + 4), r1 = r.u32(DESCREC_HEADER + 8);

@@ -4,7 +4,7 @@
 #include "ops_glue.h"
 #include "io.h"
 #include "settings.h"
-#include "padkeys.h"
+#include "padkeys_api.h"
 #include <string.h>
 #include <stdio.h>
 #include <strings.h>
@@ -889,7 +889,7 @@ bool hk_learn_is_modifier(const CoreCtx *c, int set)
 
 bool hk_learn_item(const CoreCtx *c, int set)
 {
-    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0 || (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set]));   // T232: the pad-key rows learn the same way
+    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0 || (set >= 0 && set < c->desc->nsettings && padkeys_is_row(c->desc->settings[set]));   // T232: the pad-key rows learn the same way
 }
 
 int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
@@ -910,12 +910,14 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
         snprintf(line, n, "No key");
         return -1;
     }
-    if (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
+    if (set >= 0 && set < c->desc->nsettings && padkeys_is_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
         if (got.restore) {                                  // RESTORE has no matrix place, so it is no entry of the list (it said "No key" before)
-            snprintf(line, n, "%s", PADKEY_NOT_AVAILABLE);
+            const PadkeysApi *pk = padkeys_api();
+            snprintf(line, n, "%s", pk ? pk->not_available : "");
             return -1;
         }
-        return padkey_learn_value(got.k, line, n);
+        const PadkeysApi *pk = padkeys_api();
+        return pk ? pk->learn_value(got.k, line, n) : -1;
     }
     if (hk_learn_is_modifier(c, set)) {
         for (int p = 1; p < NPRE; p++) {

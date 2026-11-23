@@ -28,5 +28,8 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
 - `libs/shared.toml` is the TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with (sources, headers, the entries each hands the generic application). `tools/libtab.py` makes the library table
   (`libtab_table.cc`, walked by `src/libtab.cc`) and the list of library sources the core app Makefile compiles from it; `libtab.py lint` (ci/lint.sh) and `libtab.py symcheck` (ci/trxapps.sh) check that
   no generic source or object names a library. The generic application calls `libtab_*` and no function of a library.
+  Besides the entries that run at a point of the start, a library gives the generic application its call table (`table`, found by `libtab_table(name)` with no loader; its header `*_api.h` is the seam), and a library that has to follow the core's
+  description has `core` (run.cc calls `libtab_core` before and after the bundle is read). The USB mouse ("mouse", `mouse_api.h`), the gamepads ("pad", `pad_api.h`, with `hidpad`, the mapping wizard, XInput and its USB driver),
+  pad as keys ("padkeys", `padkeys_api.h`) and the C64U's audio resampling ("resample", `u64_resample.h`, called by `u64cfg.cc`) are libraries of it (T239.3 L-1); the native builds give the tables in `tests/coreapp/libtab_native.cc`.
 
 Spec: `docs/specs/T93-core-app-blueprint.md`, what was decided while building is its section 5.

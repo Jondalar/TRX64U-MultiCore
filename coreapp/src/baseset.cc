@@ -3,6 +3,8 @@
 #include "ops.h"
 #include "ops_glue.h"
 #include "settings.h"
+#include "mouse_api.h"
+#include "libtab.h"
 #include "trx_scheme_names.h"
 #include <string.h>
 #include <strings.h>
@@ -245,6 +247,20 @@ int baseset_usb_config(int key, int default_value)
     case 0x5E: return usb_val(B_ACCEL, 0);                       // CFG_MOUSE_ACCELERATION
     }
     return default_value;
+}
+
+// The USB driver asks the application for its configuration items through this (weak in usb_hid.cc, Gideon's item numbers CFG_*, usb_hid_config.h). The mouse items are settings of the
+// generic application (above); the base image defines the function, so an app linked without the mouse library has it too. A core that declares the two scaling items itself (the Amiga cores:
+// the operations mouse.sens / mouse.accel set them through the mouse library's table, mouse_api.h) is answered first from there; every other core from the application's settings.
+extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
+extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
+{
+    const MouseApi *m = (const MouseApi *)libtab_table(MOUSE_API_NAME);
+    int v;
+    if (m && m->size >= sizeof(MouseApi) && m->scaling(key, &v)) {
+        return v;
+    }
+    return baseset_usb_config(key, default_value);
 }
 
 void baseset_register(OpRegistry &r)

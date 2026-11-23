@@ -15,7 +15,7 @@
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
 //       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
 //       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
-//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
+//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad_api.h PadSpec):
 //       u32 kind (bits 7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id; none = no pad), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the
 //       first of its button names in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a
 //       role 40-47, FF none)
@@ -43,7 +43,7 @@
 //        11 alt video      15 words of section 2's video part (CoreDesc::alt_video)
 //        12 picture window 23 words: reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines x_per_unit x_origin y_origin src_w src_h
 //                          def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms (fbwin.h FbWinSpec; the signed ones as 32 bit two's complement)
-//        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mousesink.h MouseSinkSpec)
+//        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mouse_api.h MouseSinkSpec)
 //        14 rom set        17 words: flags (b0 DescCode::romset_version, b1 DescCode::romset_pick), 3 sizes (0 = none), role ext size_text example max choice_key auto_label want head_bytes
 //                          window_off mirror_size mirror_stride clear_below (romset.h RomSetSpec; role, ext, size_text, example, choice_key, auto_label are strings)
 //        15 window media   15 words: prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop idle_flush_ms max_dirty_ms (winslot.h)
@@ -106,12 +106,12 @@
 
 #include <stdint.h>
 #include "contrib.h"
-#include "pad.h"
+#include "pad_api.h"
 #include "hotkeys.h"
 #include "romsetspec.h"
 #include "winslot.h"
 #include "sectors.h"
-#include "mousesink.h"
+#include "mouse_api.h"
 #include "fbwin.h"
 #include "rawkeys.h"
 
