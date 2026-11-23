@@ -1,0 +1,2 @@
+# T239.3 D25: the VIC-20 is a test core of the SDK; its desc.toml goes into the .cor as record 6
+desc_record = true

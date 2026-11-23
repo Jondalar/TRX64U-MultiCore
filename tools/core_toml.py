@@ -13,6 +13,7 @@ what ci/lib.sh hashes into that core's keys.
   (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
+  tools/core_toml.py sdk <name> <key>     one value of cores/<name>/app/sdk.toml (T239.3 D25)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
 
@@ -81,11 +82,12 @@ SCHEMA = {
     # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. At least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image
     # fits with it is the packer's check.
     "heap":         ("int",  False),
-    # T239.3 D25: true = the packers put the core's data description cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the
-    # core's data from it (coreapp/src/bundle.cc). Absent or false = the file rests in the tree (test_descgen keeps it equal to the C tables) and the .cor
-    # carries no record: the core runs on its compiled-in descriptor. Switched on core by core, as each is pulled onto the SDK. True needs the file.
-    "desc_record":  ("bool", False),
 }
+# T239.3 D25: cores/<id>/app/sdk.toml, the switches of a core on its way onto the SDK. It lies in the core's app part (cores/*/app/** is no part of a bitstream key), not in
+# core.toml (cores/<id> is). desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
+# (coreapp/src/bundle.cc). Absent file, absent key or false: the file rests in the tree (test_descgen keeps it equal to the C tables), the .cor carries no record and the core runs on
+# its compiled-in descriptor. True needs the file.
+SDK_SCHEMA = {"desc_record": "bool"}
 HEAP_DEFAULT = 0x7A0000
 HEAP_MIN = 0x10000
 HEAP_MAX = 0xE60000                           # the application region's length (host-app/target/u64ii/riscv/coreapp/linker.x)
@@ -169,8 +171,34 @@ def table_of(name):
     return dict((n, t) for n, _, t in large_descriptors())[name]
 
 
-def check():
+def sdk_table(name):
+    """The flat table of cores/<name>/app/sdk.toml ({} when there is none)."""
+    p = os.path.join(CORES, name, "app", "sdk.toml")
+    return parse(p) if os.path.isfile(p) else {}
+
+
+def check_sdk():
     bad = 0
+    for name in sorted(os.listdir(CORES)):
+        p = os.path.join(CORES, name, "app", "sdk.toml")
+        if not os.path.isfile(p):
+            continue
+        rel = p.replace(ROOT + "/", "")
+        for key, v in parse(p).items():
+            if key not in SDK_SCHEMA:
+                print("%s: %s is not a field of the format" % (rel, key))
+                bad += 1
+            elif not isinstance(v, bool):
+                print("%s: %s is not a bool" % (rel, key))
+                bad += 1
+        if parse(p).get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
+            print("%s: desc_record = true, but cores/%s/app/desc.toml does not exist" % (rel, name))
+            bad += 1
+    return bad
+
+
+def check():
+    bad = check_sdk()
     seen = {}
     large = large_descriptors()
     for name, path, t in descriptors() + large:
@@ -197,8 +225,6 @@ def check():
             bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
         if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0):
             bad += err("heap 0x%x is not a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
-        if t.get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
-            bad += err("desc_record = true, but cores/%s/app/desc.toml does not exist" % name)
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:
@@ -261,6 +287,9 @@ def main():
     elif a[:1] == ["env"] and len(a) == 2:
         t = table_of(a[1])
         print("\n".join(t.get("mono_env", [])))
+    elif a[:1] == ["sdk"] and len(a) == 3:          # one value of cores/<name>/app/sdk.toml ("" when there is none)
+        v = sdk_table(a[1]).get(a[2], "")
+        print("true" if v is True else "false" if v is False else v)
     elif a[:1] == ["get"] and len(a) == 3:
         t = table_of(a[1])
         v = t.get(a[2], "")
