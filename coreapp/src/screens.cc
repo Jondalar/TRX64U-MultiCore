@@ -1490,6 +1490,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         m.layout_param("track", sp, sizeof(sp)); m.spec_text(sp, track, sizeof(track));
         uint32_t h = hs(hs(hs(hs(2166136261u, pos), info), glyph), track);
         if (!(g_valid && g_live && g_full == 1 && h == g_sig)) {
+            g_live = false;                                       // a rebuild (each scrub step) keeps the key on: screens_forget would switch it off, the core would hear off, then on (menu_video)
             ui_menu_forget_rows();
             build_timeline(scr, m);
             g_valid = true;
