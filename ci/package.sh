@@ -119,12 +119,19 @@ for f in "$out"/coreapp_*.bin; do
     || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
 done
 
-# The applications the .cor bundles are packed with: the stage's blueprint image of every core that has a descriptor (stage trxapps, coreapps/). trx64 is a
+# The applications the .cor bundles are packed with (stage trxapps, coreapps/): the blueprint image of every blueprint core, and for a core with a TOML B of its own
+# (cores/<id>/app/sdk.toml, tools/core_toml.py list-own-app) its app linked from the SDK package (T239.3 V-5, D25: the other cores keep the shared image until each is pulled). trx64 is a
 # Gideon-base build that lives in another tree and is not built in this repository (T93 5.2); a core without an application is named and skipped by
 # pack_cores_mc.sh.
 coreapps="$out/.coreapps"
 mkdir -p "$coreapps"
 cp "$trxapps/coreapps"/*.app "$coreapps/"
+# V-5: a core with a TOML B of its own must have its linked app here, and it is not the blueprint image the others were copied from (the stage checks it too; a hand-over from the cache or an older run must not slip past)
+own_apps="$(python3 -I "$ROOT/tools/core_toml.py" list-own-app)" || mark_red package own-app "core_toml.py list-own-app failed"
+for c in $own_apps; do
+  [ -s "$coreapps/$c.app" ] || mark_red package "$c" "stage trxapps made no linked app for $c (TOML B of its own)"
+  ! cmp -s "$coreapps/$c.app" "$trxapps/coreapp.bin" || mark_red package "$c" "coreapps/$c.app is the shared image, not the app linked from the SDK package"
+done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$coreapps"/*.app --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the version into the blueprint core apps"
 ls -l "$coreapps"
