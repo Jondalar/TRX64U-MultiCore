@@ -370,7 +370,7 @@ build   ldy #79
 -       sta lbuf,y
         dey
         bpl -
-        lda pline                       ; line 0 and 479: all black
+        lda pline                       ; line 0 and 479: all white ($FF, foreground of R26 = $F0)
         ora pline+1
         bne +
         jmp bfull

@@ -11,7 +11,7 @@ fail=0
 files="$x/c128_x.v $x/vdc/vdc_top.sv $x/vdc/vdc_signals.sv $x/vdc/vdc_signals_h.sv $x/vdc/vdc_signals_v.sv $x/vdc/vdc_ramiface.sv $x/vdc/vdc_video.sv $x/vdc/vdcram.v"
 build() { # build <name> <defines>
   [ -x "$out/$1/Vtb_c128_vdc" ] && [ -z "$REBUILD" ] && return 0
-  # -UVERILATOR: vdc_video.sv has a scalar-port variant for Verilator that does not match vdc_top.sv's array connection
+  # -UVERILATOR: kept; vdc_video.sv's scalar-port variant is under VDC_SCALAR_BUFS now (PROVENANCE), not under VERILATOR
   nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -UVERILATOR --x-assign 0 --x-initial 0 -j 2 \
     --top-module tb_c128_vdc -I"$here" -Mdir "$out/$1" $2 "$here/tb_c128_vdc.sv" $files > "$out/$1.build.log" 2>&1 \
     || { tail -30 "$out/$1.build.log"; echo "FAIL build $1"; exit 1; }

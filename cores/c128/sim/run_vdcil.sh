@@ -13,7 +13,7 @@ files="$x/c128_x.v $x/c128_rgbi.v $x/c128_pixw.v $x/vdc/vdc_top.sv $x/vdc/vdc_si
 python3 "$here/vdcil_model.py" gen "$out" || { echo "FAIL model"; exit 1; }
 build() { # build <name> <extra verilator options>
   [ -x "$out/$1/Vtb_c128_vdcil" ] && [ -z "$REBUILD" ] && return 0
-  # -UVERILATOR: vdc_video.sv has a scalar-port variant for Verilator that does not match vdc_top.sv's array connection
+  # -UVERILATOR: kept; vdc_video.sv's scalar-port variant is under VDC_SCALAR_BUFS now (PROVENANCE), not under VERILATOR
   nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -UVERILATOR --x-assign 0 --x-initial 0 -j 2 \
     -DVDC_WHOLE -DVDC64 --top-module tb_c128_vdcil -I"$here" -Mdir "$out/$1" $2 "$here/tb_c128_vdcil.sv" $files > "$out/$1.build.log" 2>&1 \
     || { tail -30 "$out/$1.build.log"; echo "FAIL build $1"; exit 1; }

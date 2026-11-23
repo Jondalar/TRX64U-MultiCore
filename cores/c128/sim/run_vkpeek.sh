@@ -8,7 +8,7 @@ out=${1:-$here/build/vkpeek}
 mkdir -p "$out"
 files="$x/c128_x.v $x/c128_regs.v $x/vdc/vdc_top.sv $x/vdc/vdc_signals.sv $x/vdc/vdc_signals_h.sv $x/vdc/vdc_signals_v.sv $x/vdc/vdc_ramiface.sv $x/vdc/vdc_video.sv $x/vdc/vdcram.v"
 [ -x "$out/main/Vtb_c128_vkpeek" ] && [ -z "$REBUILD" ] || {
-  # -UVERILATOR: vdc_video.sv has a scalar-port variant for Verilator that does not match vdc_top.sv's array connection
+  # -UVERILATOR: kept; vdc_video.sv's scalar-port variant is under VDC_SCALAR_BUFS now (PROVENANCE), not under VERILATOR
   nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -UVERILATOR --x-assign 0 --x-initial 0 -j 2 \
     -DVDC_WHOLE -DVDC64 --top-module tb_c128_vkpeek -I"$here" -Mdir "$out/main" "$here/tb_c128_vkpeek.sv" $files > "$out/build.log" 2>&1 \
     || { tail -30 "$out/build.log"; echo "FAIL build"; exit 1; }
