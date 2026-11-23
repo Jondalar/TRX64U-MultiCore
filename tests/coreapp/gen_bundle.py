@@ -8,7 +8,7 @@ board are tested against what the tools write (T104.1 D9, D12).
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
                               nofiles.cor (the same core without record 8), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
                               data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
-                              desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks)
+                              desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks), desc_toml_a.bin (P1-1: TOML A, record version 7)
 """
 import glob
 import os
@@ -54,6 +54,8 @@ def main(out):
     open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
     # base 3.3: a key table, register windows and job tasks (tests/coreapp/test_deckeys.cc)
     open(os.path.join(out, "desc_keys.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_keys.toml")).read()))
+    # P1-1: TOML A (record version 7), its module maps from the SDK's (tests/coreapp/test_desctoml.cc)
+    open(os.path.join(out, "desc_toml_a.bin"), "wb").write(descrec.compile_checked(open(os.path.join(gold, "desc_toml_a.toml")).read(), maps=descrec.load_maps([os.path.join(here, "..", "..", "app", "sdkpkg", "maps")])))
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")

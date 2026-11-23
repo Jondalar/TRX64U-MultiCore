@@ -1118,5 +1118,52 @@ size = 0x14
             self.assertLess(int.from_bytes(b[4:6], "little"), 6)
 
 
+class TomlA(unittest.TestCase):
+    """T239.3 P1-1 (D30, D34): TOML A, record version 7. The C++ reader's side is tests/coreapp/test_desctoml.cc (same fixture)."""
+    MAPS = os.path.join(os.path.dirname(GOLD), "..", "..", "app", "sdkpkg", "maps")
+    BASE = ('[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n'
+            '[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n'
+            '[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n'
+            '[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n')
+
+    def fixture(self):
+        return D.compile_checked(src("desc_toml_a.toml"), maps=D.load_maps([self.MAPS]))
+
+    def test_the_fixture_is_version_7_and_reads_back_whole(self):
+        b = self.fixture()
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 7)
+        r = D.parse_desc(b)
+        self.assertEqual(r["io"], {"iobase": 0x04000000, "u2p_io_base": 0xA0000000})
+        self.assertEqual(r["identity"], {"id": "TSTA", "block": "ident", "build": 0x1234ABCD})
+        self.assertEqual([x["name"] for x in r["block"]], ["ident", "cart_flash", "cmd_if", "mixer"])
+        cart = r["block"][1]
+        self.assertEqual(len(cart["property"]), 13)
+        evt = next(p for p in cart["property"] if p["name"] == "evt")
+        self.assertEqual((evt["width"], evt["dir"]), (32, "r"))
+        op = next(f for f in evt["field"] if f["name"] == "op")
+        self.assertEqual([(x["name"], x["value"]) for x in op["state"]], [("program", 1), ("sector_erase", 2), ("chip_erase", 3)])
+        self.assertEqual(r["block"][3]["owner"], "core")
+
+    def test_what_is_decoded_compiles_to_the_same_bytes(self):
+        b = self.fixture()
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_a_module_that_serves_several_drivers_is_one_block_per_range(self):
+        doc = self.BASE + ('[[block]]\nname = "page4"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n'
+                           '[[block]]\nname = "page3"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0003000\nsize = 0x100\n')
+        r = D.parse_desc(D.compile_checked(doc, maps=D.load_maps([self.MAPS])))
+        self.assertEqual([x["module"] for x in r["block"]], ["trx_io"] * 3)
+
+    def test_the_key_table_and_windows_records_stay_below_version_7(self):
+        for f in FIXTURES:
+            self.assertLess(int.from_bytes(D.compile_text(src(f))[4:6], "little"), 7)
+
+    def test_a_map_comes_from_a_file(self):
+        maps = D.load_maps([self.MAPS])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "uci"])
+        b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
+        self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+
+
 if __name__ == "__main__":
     unittest.main()

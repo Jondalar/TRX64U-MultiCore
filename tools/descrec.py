@@ -195,8 +195,10 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
     address = 0xA0000500
     size = 0x14                    # bytes, 1 .. 0x100000
+
     # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
 
+    # TOML A (record version 7, T239.3 P1-1, D30, D34): the gateware as capabilities. A file with [io], [identity] and [[block]] and nothing else; see the section "TOML A" below.
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
@@ -207,7 +209,7 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 6                 # 6 (T239.3 D17) appends the core's data sections after the string table (header 216: the sections' offset and size) - written only for a record that has one, so a record without stays what it was; 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
+VERSION = 7                 # 7 (T239.3 P1-1, D30, D34) is TOML A: no menu tables, only sections 20 to 22 (see "TOML A" below). 6 (T239.3 D17) appends the core's data sections after the string table (header 216: the sections' offset and size) - written only for a record that has one, so a record without stays what it was; 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
 HEADER = 176                # versions 2 to 4
 HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map; kind NONE: no pad) + the restart (clear_ram bytes, flags bit 0 ram_only)
@@ -607,7 +609,10 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart", "key", "window"} | set(SEC_KEYS), "description")
+                "pad", "restart", "key", "window"} | set(SEC_KEYS) | set(TOMLA_KEYS), "description")
+    if any(k in doc for k in TOMLA_KEYS):
+        if not all(k in doc for k in TOMLA_KEYS) or any(k not in TOMLA_KEYS for k in doc):
+            raise DescError("TOML A (version 7) is [io], [identity] and [[block]] and nothing else: a file has all three and no menu table, setting or window")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -1062,8 +1067,8 @@ def compile_desc(doc, merged=()):
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
     sect_bytes = _sections(doc, setbinds, st, replaces)
-    # layout: header, tables in ORDER, strings, then the data sections (version 6)
-    version, header = (VERSION, HEADER_V6) if sect_bytes else (5, HEADER_V5) if pad_words or restart_words else (4, HEADER)
+    # layout: header, tables in ORDER, strings, then the data sections (version 6; TOML A is version 7 with the same header)
+    version, header = (7 if TOMLA_KEYS[0] in doc else 6, HEADER_V6) if sect_bytes else (5, HEADER_V5) if pad_words or restart_words else (4, HEADER)
     pos = header
     offs = {}
     for k in ORDER:
@@ -1172,11 +1177,12 @@ def _pad_words(pad, t, st):
 
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
 (SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
+SEC_IO, SEC_IDENT, SEC_BLOCKS = 20, 21, 22     # version 7 only: TOML A
 SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
 SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
              SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
              SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
-             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows"}
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows", SEC_IO: "io", SEC_IDENT: "identity", SEC_BLOCKS: "blocks"}
 SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
             "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
@@ -1650,6 +1656,236 @@ def _sec_windows(rows, st):
     return b"".join(out)
 
 
+# ---- TOML A: the gateware as capabilities (T239.3 P1-1, D30, D34) ---------------------------------------------------------------
+# Record version 7: no menu table, only the sections 20 to 22, each once and all three. Both readers (this file and coreapp/src/descrec.cc) hold a record to the same rules.
+# TOML A holds no logic (D30 condition 3): addresses, registers, fields and the states they can take, and the name of the driver library of each block.
+#
+#   [io]                            the base addresses of the I/O space, each a 32 bit number (IO_KEYS)
+#   [identity]                      the standard block (D30 condition 2): id = the four characters of the ID, block = the name of the block that holds the identity
+#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source (cor_pack writes it, P1-4)
+#                                   (cor_pack writes it, P1-4)
+#   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
+#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core covers no register the base
+#                                   drives itself). A module whose registers serve several drivers is several blocks, one per register range (D34).
+#     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
+#                                   or "rw"; two properties share bytes only when no direction is in both)
+#       [[block.property.field]]    name (once per property), shift, bits (the field lies inside the width; fields do not overlap)
+#         [[block.property.field.state]]   name (once per owner), value (fits the field's bits, once per owner)
+#       [[block.property.state]]    the states of the whole register: name, value (fits the width)
+# A module map lives with its driver library (a map file `<name>.map.toml`: `map = "<name>"` and `[[property]]` tables as above; the shared drivers' maps are in the SDK, a core's own in its
+# repository). A block says `map = "<name>"` instead of its own [[block.property]]; `compile ... --maps DIR` (repeatable) reads the files and the compiler puts the map's properties
+# into the block, so the record carries the finished map and the readers need no map file. A block with both is refused. An unused map is allowed
+# (a directory holds the maps of all modules); a name that no file has is refused.
+# Section 20 io        2 words: iobase, u2p_io_base
+# Section 21 identity  4 words: id (string), build flag (0 or 1), build, block (string)
+# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (8 words: name offset
+#                      width dir first_field nfield first_state nstate; dir 1 r, 2 w, 3 rw), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
+#                      name value); first_* count in their own table, an owner's entries are a run
+TOMLA_KEYS = ("io", "identity", "block")
+IO_KEYS = ("iobase", "u2p_io_base")
+BLOCKS_MAX, PROPS_MAX, FIELDS_MAX, STATES_MAX = 64, 512, 512, 1024
+PROPS_PER_BLOCK, FIELDS_PER_PROP, STATES_PER_OWNER = 64, 32, 64
+BLOCK_NAME_RE = r"[a-z0-9_]{1,31}"
+PROP_WIDTHS = (8, 16, 32)
+PROP_DIRS = {"r": 1, "w": 2, "rw": 3}
+IDENT_PROPS = ("id", "build")
+
+
+def _u32(d, k, what):
+    v = _need(d, k, int, what)
+    if not 0 <= v < 2 ** 32:
+        raise DescError("%s: %s is a 32 bit number" % (what, k))
+    return v
+
+
+MAP_SUFFIX = ".map.toml"
+
+
+def load_maps(paths):
+    """The module maps of files or directories (every `*.map.toml` of a directory): {name: [property tables]}. A name twice is refused with both files."""
+    files = []
+    for pth in paths:
+        if os.path.isdir(pth):
+            files.extend(sorted(os.path.join(pth, f) for f in os.listdir(pth) if f.endswith(MAP_SUFFIX)))
+        else:
+            files.append(pth)
+    maps, where = {}, {}
+    for f in files:
+        try:
+            with open(f) as fh:
+                d = toml_loads(fh.read())
+            _only(d, {"map", "property"}, "module map")
+            nm = _need(d, "map", str, "module map")
+            props = _need(d, "property", list, "module map")
+        except (DescError, OSError) as e:
+            raise DescError("%s: %s" % (f, e.strerror if isinstance(e, OSError) else e))
+        if not re.fullmatch(BLOCK_NAME_RE, nm):
+            raise DescError("%s: the map's name is a-z, 0-9 and _, 1 to 31 characters" % f)
+        if nm in maps:
+            raise DescError("%s and %s both define the map %r" % (where[nm], f, nm))
+        maps[nm] = props
+        where[nm] = f
+    return maps
+
+
+def resolve_maps(doc, maps):
+    """A [[block]] with `map = "name"` gets that map's properties (copied) in place of its own; doc is changed. Without a map table a block that names one is refused."""
+    import copy
+    for b in doc.get("block", []) if isinstance(doc.get("block"), list) else []:
+        if isinstance(b, dict) and "map" in b:
+            nm = b.pop("map")
+            if "property" in b:
+                raise DescError("block %s: a map and its own properties" % b.get("name"))
+            if not isinstance(nm, str) or not maps or nm not in maps:
+                raise DescError("block %s: the map %r is in none of the map files" % (b.get("name"), nm))
+            b["property"] = copy.deepcopy(maps[nm])
+    return doc
+
+
+def _sec_io(io):
+    _only(io, set(IO_KEYS), "io")
+    return struct.pack("<%dI" % len(IO_KEYS), *(_u32(io, k, "io") for k in IO_KEYS))
+
+
+def _states_check(owner, bits, what):
+    """The states of one owner (a property or a field): at most STATES_PER_OWNER, each a name and a value that fits `bits`, both once."""
+    sts = _opt(owner, "state", list, what, [])
+    if len(sts) > STATES_PER_OWNER:
+        raise DescError("%s: %d states, at most %d" % (what, len(sts), STATES_PER_OWNER))
+    names, vals = set(), set()
+    for j, x in enumerate(sts):
+        w = "%s, state %d" % (what, j + 1)
+        if not isinstance(x, dict):
+            raise DescError("%s: a state is a table" % w)
+        _only(x, {"name", "value"}, w)
+        nm = _need(x, "name", str, w)
+        if not re.fullmatch(BLOCK_NAME_RE, nm):
+            raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % w)
+        v = _need(x, "value", int, w)
+        if not 0 <= v < 1 << bits:
+            raise DescError("%s (%s): value does not fit %d bits" % (w, nm, bits))
+        if nm in names or v in vals:
+            raise DescError("%s (%s): the name or the value is in a state of the same owner already" % (w, nm))
+        names.add(nm)
+        vals.add(v)
+    return sts
+
+
+def _sec_blocks(blocks, st):
+    """Section 22 and the names of the blocks in order. The checks here and in descrec.cc are the same."""
+    if not 1 <= len(blocks) <= BLOCKS_MAX or not all(isinstance(b, dict) for b in blocks):
+        raise DescError("block: 1 to %d entries, each a table" % BLOCKS_MAX)
+    bw, pw, fw, sw, names, spans = [], [], [], [], [], []
+    for i, b in enumerate(blocks):
+        what = "block %d" % (i + 1)
+        _only(b, {"name", "module", "owner", "address", "size", "property"}, what)
+        name = _need(b, "name", str, what)
+        if not re.fullmatch(BLOCK_NAME_RE, name):
+            raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
+        what = "block %s" % name
+        if name in names:
+            raise DescError("%s: the name twice" % what)
+        module = _need(b, "module", str, what)
+        if not re.fullmatch(BLOCK_NAME_RE, module):
+            raise DescError("%s: module is a-z, 0-9 and _, 1 to 31 characters" % what)
+        owner = _need(b, "owner", str, what)
+        if owner not in ("base", "core"):
+            raise DescError("%s: owner is \"base\" or \"core\"" % what)
+        address, size = _u32(b, "address", what), _need(b, "size", int, what)
+        if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
+            raise DescError("%s: size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, WINDOW_SIZE_MAX))
+        if owner == "core":
+            reg = window_conflict(address, size)
+            if reg:
+                raise DescError("%s: a block of the core covers %s (0x%08X, %d byte%s), a register the base drives itself (%s)" % (what, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
+        for n2, a2, s2 in spans:
+            if address < a2 + s2 and a2 < address + size:
+                raise DescError("%s: overlaps the block %s" % (what, n2))
+        names.append(name)
+        spans.append((name, address, size))
+        props = _opt(b, "property", list, what, [])
+        if len(props) > PROPS_PER_BLOCK:
+            raise DescError("%s: %d properties, at most %d" % (what, len(props), PROPS_PER_BLOCK))
+        bw.append((st.add(name), st.add(module), 0 if owner == "base" else 1, address, size, len(pw), len(props)))
+        seen = []
+        for k, p in enumerate(props):
+            pwhat = "%s, property %d" % (what, k + 1)
+            if not isinstance(p, dict):
+                raise DescError("%s: a property is a table" % pwhat)
+            _only(p, {"name", "offset", "width", "dir", "field", "state"}, pwhat)
+            pname = _need(p, "name", str, pwhat)
+            if not re.fullmatch(BLOCK_NAME_RE, pname):
+                raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % pwhat)
+            pwhat = "%s, property %s" % (what, pname)
+            if any(pname == x[0] for x in seen):
+                raise DescError("%s: the name twice" % pwhat)
+            off, width = _u32(p, "offset", pwhat), _need(p, "width", int, pwhat)
+            if width not in PROP_WIDTHS:
+                raise DescError("%s: width is 8, 16 or 32 bits" % pwhat)
+            dr = _need(p, "dir", str, pwhat)
+            if dr not in PROP_DIRS:
+                raise DescError("%s: dir is \"r\", \"w\" or \"rw\"" % pwhat)
+            if off + width // 8 > size:
+                raise DescError("%s: the register lies outside the block (%d bytes)" % (pwhat, size))
+            for x in seen:
+                if off < x[1] + x[2] and x[1] < off + width // 8 and PROP_DIRS[dr] & x[3]:
+                    raise DescError("%s: shares a byte and a direction with the property %s" % (pwhat, x[0]))
+            seen.append((pname, off, width // 8, PROP_DIRS[dr]))
+            flds = _opt(p, "field", list, pwhat, [])
+            if len(flds) > FIELDS_PER_PROP:
+                raise DescError("%s: %d fields, at most %d" % (pwhat, len(flds), FIELDS_PER_PROP))
+            pst = _states_check(p, width, pwhat)
+            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst)))
+            sw.extend((st.add(x["name"]), x["value"]) for x in pst)
+            used, fnames = 0, set()
+            for m_, f in enumerate(flds):
+                fwhat = "%s, field %d" % (pwhat, m_ + 1)
+                if not isinstance(f, dict):
+                    raise DescError("%s: a field is a table" % fwhat)
+                _only(f, {"name", "shift", "bits", "state"}, fwhat)
+                fname = _need(f, "name", str, fwhat)
+                if not re.fullmatch(BLOCK_NAME_RE, fname):
+                    raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % fwhat)
+                fwhat = "%s, field %s" % (pwhat, fname)
+                if fname in fnames:
+                    raise DescError("%s: the name twice" % fwhat)
+                fnames.add(fname)
+                shift, bits = _need(f, "shift", int, fwhat), _need(f, "bits", int, fwhat)
+                if shift < 0 or bits < 1 or shift + bits > width:
+                    raise DescError("%s: shift and bits lie inside the %d bit register" % (fwhat, width))
+                mask = ((1 << bits) - 1) << shift
+                if used & mask:
+                    raise DescError("%s: shares a bit with another field" % fwhat)
+                used |= mask
+                fst = _states_check(f, bits, fwhat)
+                fw.append((st.add(fname), shift, bits, len(sw), len(fst)))
+                sw.extend((st.add(x["name"]), x["value"]) for x in fst)
+    if len(pw) > PROPS_MAX or len(fw) > FIELDS_MAX or len(sw) > STATES_MAX:
+        raise DescError("block: %d properties, %d fields and %d states (at most %d, %d and %d)" % (len(pw), len(fw), len(sw), PROPS_MAX, FIELDS_MAX, STATES_MAX))
+    out = [struct.pack("<4I", len(bw), len(pw), len(fw), len(sw))]
+    for t in (bw, pw, fw, sw):
+        out.extend(struct.pack("<%dI" % len(e), *e) for e in t)
+    return b"".join(out), names
+
+
+def _sec_ident(ident, names, blocks, st):
+    _only(ident, {"id", "build", "block"}, "identity")
+    cid = _need(ident, "id", str, "identity")
+    if len(cid) != 4 or not cid.isascii() or not cid.isprintable():
+        raise DescError("identity: id is the four characters of the ID")
+    bname = _need(ident, "block", str, "identity")
+    if bname not in names:
+        raise DescError("identity: block %r is no block of this record" % bname)
+    blk = blocks[names.index(bname)]
+    if blk["owner"] != "base":
+        raise DescError("identity: the block %s is owned by the core; the standard block belongs to the base" % bname)
+    for pn in IDENT_PROPS:
+        if not any(p["name"] == pn and "r" in p["dir"] for p in blk.get("property", [])):
+            raise DescError("identity: the block %s has no readable property %r" % (bname, pn))
+    build = _u32(ident, "build", "identity") if "build" in ident else 0
+    return struct.pack("<4I", st.add(cid), 1 if "build" in ident else 0, build, st.add(bname))
+
+
 def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
@@ -1701,10 +1937,16 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_KEYROWS, _sec_keys(doc["key"], st)))
     if "window" in doc:
         secs.append((SEC_WINDOWS, _sec_windows(doc["window"], st)))
+    if "block" in doc:
+        io, ident, blocks = _need(doc, "io", dict, "TOML A"), _need(doc, "identity", dict, "TOML A"), _need(doc, "block", list, "TOML A")
+        bpack, names = _sec_blocks(blocks, st)
+        secs.append((SEC_IO, _sec_io(io)))
+        secs.append((SEC_IDENT, _sec_ident(ident, names, blocks, st)))
+        secs.append((SEC_BLOCKS, bpack))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
-def _parse_sections(blob, off, size, s, ncset, out):
+def _parse_sections(blob, off, size, s, ncset, out, ver=6):
     """The sections of a version 6 record, decoded into the TOML shape (out gets the keys of SEC_KEYS and `reg_bind` on the core settings)."""
     pos, end, seen = off, off + size, set()
     while pos < end:
@@ -1714,6 +1956,8 @@ def _parse_sections(blob, off, size, s, ncset, out):
         if sid not in SEC_NAMES:
             raise DescError("description record, section %d: this reader does not know it" % sid)
         what = "description record, section %s" % SEC_NAMES[sid]
+        if (sid >= SEC_IO) != (ver == 7):
+            raise DescError("%s: a version %d record has %s" % (what, ver, "only the sections 20 to 22 of TOML A" if ver == 7 else "no TOML A section"))
         if sid in seen or ln % 4 or pos + 8 + ln > end:
             raise DescError("%s: twice, not a multiple of 4, or longer than the record" % what)
         seen.add(sid)
@@ -1961,6 +2205,70 @@ def _parse_sections(blob, off, size, s, ncset, out):
                     row["when"] = S(wh)
                 rows.append(row)
             out["key"] = rows
+        elif sid == SEC_IO:
+            if len(p) != 4 * len(IO_KEYS):
+                raise DescError("%s: %d bytes, %d expected" % (what, len(p), 4 * len(IO_KEYS)))
+            out["io"] = dict(zip(IO_KEYS, words(len(IO_KEYS))))
+        elif sid == SEC_IDENT:
+            if len(p) != 16:
+                raise DescError("%s: %d bytes, 16 expected" % (what, len(p)))
+            iid, bf, bw_, bk = words(4)
+            if bf > 1 or (bf == 0 and bw_ != 0):
+                raise DescError("%s: the build flag is 0 or 1, and the build 0 without it" % what)
+            d = {"id": S(iid, True), "block": S(bk, True)}
+            if bf:
+                d["build"] = bw_
+            out["identity"] = d
+        elif sid == SEC_BLOCKS:
+            nb, np_, nf, ns = words(4)
+            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 8 * np_ + 5 * nf + 2 * ns):
+                raise DescError("%s: the counts or the length do not fit" % what)
+            bo = 16
+            po = bo + 28 * nb
+            fo = po + 32 * np_
+            so_ = fo + 20 * nf
+            state_at = [0]
+
+            def states(first, n_):
+                if first != state_at[0] or first + n_ > ns:
+                    raise DescError("%s: the states of an owner are not the next run" % what)
+                state_at[0] += n_
+                return [{"name": S(a, True), "value": v} for a, v in (words(2, so_ + 8 * (first + j)) for j in range(n_))]
+            fld_at, prop_at, blocks = [0], [0], []
+            for i in range(nb):
+                nm, mod, ow, addr, size, fp, npr = words(7, bo + 28 * i)
+                if fp != prop_at[0] or fp + npr > np_ or ow > 1:
+                    raise DescError("%s: block %d: its properties are not the next run, or the owner is not known" % (what, i + 1))
+                prop_at[0] += npr
+                props = []
+                for k in range(npr):
+                    pn, off, width, dr, ff, nfl, sf, nst = words(8, po + 32 * (fp + k))
+                    if ff != fld_at[0] or ff + nfl > nf or dr not in (1, 2, 3):
+                        raise DescError("%s: block %d, property %d: its fields are not the next run, or the direction is not known" % (what, i + 1, k + 1))
+                    fld_at[0] += nfl
+                    pd = {"name": S(pn, True), "offset": off, "width": width, "dir": {1: "r", 2: "w", 3: "rw"}[dr]}
+                    pst = states(sf, nst)
+                    if pst:
+                        pd["state"] = pst
+                    fl = []
+                    for m_ in range(nfl):
+                        fn, sh, bits, fs, fns = words(5, fo + 20 * (ff + m_))
+                        fd = {"name": S(fn, True), "shift": sh, "bits": bits}
+                        fst = states(fs, fns)
+                        if fst:
+                            fd["state"] = fst
+                        fl.append(fd)
+                    if fl:
+                        pd["field"] = fl
+                    props.append(pd)
+                bd = {"name": S(nm, True), "module": S(mod, True), "owner": "core" if ow else "base", "address": addr, "size": size}
+                if props:
+                    bd["property"] = props
+                blocks.append(bd)
+            if prop_at[0] != np_ or fld_at[0] != nf or state_at[0] != ns:
+                raise DescError("%s: entries that no block owns" % what)
+            _sec_blocks(blocks, _Strings())                       # the rules of the compiler, on what was read
+            out["block"] = blocks
         elif sid == SEC_WINDOWS:
             n, = words(1)
             if not 1 <= n <= WINDOWS_MAX or len(p) != 4 + 12 * n:
@@ -1974,6 +2282,10 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 names.add(S(nm))
                 wins.append({"name": S(nm), "address": addr, "size": size})
             out["window"] = wins
+    if ver == 7:
+        if seen != {SEC_IO, SEC_IDENT, SEC_BLOCKS}:
+            raise DescError("description record: TOML A has the sections io, identity and blocks, each once")
+        _sec_ident(out["identity"], [b["name"] for b in out["block"]], out["block"], _Strings())
     if SEC_CORE not in seen and any(i <= SEC_REPLACE for i in seen):
         raise DescError("description record: the data sections have no core section")
     rs = out.get("romset")
@@ -2000,7 +2312,7 @@ def parse_desc(blob):
     if ver < 4:
         esz["media"] = ESIZE_V3_MEDIA
     hdr = HEADER_V6 if ver >= 6 else HEADER_V5 if ver >= 5 else HEADER
-    if hsz != hdr or total != n or flags & ~(7 if ver >= 6 else 3) or n < hdr or bool(flags & 4) != (ver >= 6):
+    if hsz != hdr or total != n or flags & ~(7 if ver >= 6 else 3) or n < hdr or bool(flags & 4) != (ver >= 6) or (ver == 7 and flags != 4):
         raise DescError("description record: header or length does not match")
     if so < hdr or so + ss > n or ss == 0:
         raise DescError("description record: string table outside the record")
@@ -2185,7 +2497,9 @@ def parse_desc(blob):
         soff, ssize = struct.unpack_from("<II", blob, HEADER_V5)
         if soff < so + ss or soff + ssize != n or ssize == 0:
             raise DescError("description record: the sections lie outside the record")
-        _parse_sections(blob, soff, ssize, s, len(out["cset"]), out)
+        if ver == 7 and any(tabs[k] for k in ORDER):
+            raise DescError("description record: a TOML A record (version 7) has no menu table")
+        _parse_sections(blob, soff, ssize, s, len(out["cset"]), out, ver)
         out["sections"] = "core" in out                              # the core's data sections; a record of the key table or the windows alone has none
     return out
 
@@ -2288,7 +2602,7 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
-    for k in SEC_KEYS + ("key", "window"):
+    for k in SEC_KEYS + ("key", "window") + TOMLA_KEYS:
         if k in rec:
             doc[k] = rec[k]
     if rec["task"]:
@@ -2399,7 +2713,7 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window"):
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window") or rec.get("block"):
             kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table or windows"))
             continue
         if rec["poll"]:
@@ -2613,7 +2927,7 @@ def merge_docs(docs):
     return out
 
 
-def compile_files(files, ops_text=None):
+def compile_files(files, ops_text=None, maps=None):
     """The record of one or more TOML files ((name, text) pairs): the files are read one by one and merged (merge_docs), then compiled as one. Errors of a
     file's own syntax name the file; a table in two files names both."""
     docs = []
@@ -2622,7 +2936,8 @@ def compile_files(files, ops_text=None):
             docs.append((name, toml_loads(text)))
         except DescError as e:
             raise DescError("%s: %s" % (name, e))
-    blob = compile_desc(merge_docs(docs)) if len(docs) > 1 else compile_desc(docs[0][1])
+    doc = merge_docs(docs) if len(docs) > 1 else docs[0][1]
+    blob = compile_desc(resolve_maps(doc, maps))
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
@@ -2631,9 +2946,9 @@ def compile_files(files, ops_text=None):
     return blob
 
 
-def compile_checked(text, ops_text=None, *, what="description"):
+def compile_checked(text, ops_text=None, *, what="description", maps=None):
     """compile_text, and - given the application's export - check every name and binding of the result against it."""
-    blob = compile_text(text)
+    blob = compile_desc(resolve_maps(toml_loads(text), maps))
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
@@ -2650,11 +2965,18 @@ if __name__ == "__main__":
         i = argv.index("--ops")
         ops_file = argv[i + 1] if i + 1 < len(argv) else None
         del argv[i:i + 2]
+    map_paths = []
+    while "--maps" in argv:
+        i = argv.index("--maps")
+        if i + 1 >= len(argv):
+            sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] | descrec.py dump record.bin")
+        map_paths.append(argv[i + 1])
+        del argv[i:i + 2]
     if len(argv) not in (2, 3) or argv[0] not in ("compile", "dump") or (argv[0] == "compile" and ops_file is None and "--ops" in sys.argv):
         sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] | descrec.py dump record.bin")
     try:
         if argv[0] == "compile":
-            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1])
+            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths))
             open(argv[2] if len(argv) > 2 else argv[1] + ".bin", "wb").write(blob)
         else:
             import json

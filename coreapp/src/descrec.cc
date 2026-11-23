@@ -82,7 +82,7 @@ bool id_ok(const char *s)
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
-                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows" };
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks" };
 
 // T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
 static const BaseReg g_base_regs[] = {
@@ -115,10 +115,217 @@ const DescWindow *descrec_window(const DescRecord &rec, const char *name)
             return &rec.windows[i];
         }
     }
+    const DescBlock *b = descrec_block(rec, name);
+    return b && b->core ? &b->win : 0;                          // a block of the base is reached by descrec_block, never granted
+}
+
+const DescBlock *descrec_block(const DescRecord &rec, const char *name)
+{
+    for (int i = 0; name && rec.map && i < rec.map->nblocks; i++) {
+        if (!strcmp(rec.map->blocks[i].win.name, name)) {
+            return &rec.map->blocks[i];
+        }
+    }
     return 0;
 }
 
-static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, uint32_t ncset)
+const DescProp *descrec_prop(const DescRecord &rec, const DescBlock &b, const char *name)
+{
+    for (uint32_t i = 0; name && rec.map && i < b.nprop; i++) {
+        if (!strcmp(rec.map->props[b.first_prop + i].name, name)) {
+            return &rec.map->props[b.first_prop + i];
+        }
+    }
+    return 0;
+}
+
+const DescField *descrec_field(const DescRecord &rec, const DescProp &p, const char *name)
+{
+    for (uint32_t i = 0; name && rec.map && i < p.nfield; i++) {
+        if (!strcmp(rec.map->fields[p.first_field + i].name, name)) {
+            return &rec.map->fields[p.first_field + i];
+        }
+    }
+    return 0;
+}
+
+// TOML A (version 7), sections 20 .. 22: the same rules as tools/descrec.py (_sec_io, _sec_ident, _sec_blocks).
+static bool states_ok(const DescMap *m, uint32_t first, uint32_t n, uint32_t bits)
+{
+    if (n > DR_STATES_PER_OWNER) {
+        return false;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        const DescState &a = m->states[first + i];
+        if (!id_ok(a.name) || (bits < 32 && a.value >= (1u << bits))) {
+            return false;
+        }
+        for (uint32_t j = 0; j < i; j++) {
+            const DescState &b = m->states[first + j];
+            if (!strcmp(a.name, b.name) || a.value == b.value) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord *out, const char *nm)
+{
+    bool bad = false;
+    if (!out->map) {
+        out->map = new DescMap;
+        memset((void *)out->map, 0, sizeof(*out->map));
+    }
+    DescMap *m = out->map;
+    auto W = [&](uint32_t i) { return r.u32(b + 4 * i); };
+    if (id == 20) {
+        if (len != 8) {
+            return r.fail("description record, section %s: %u bytes, 8 expected", nm, (unsigned)len);
+        }
+        m->iobase = W(0);
+        m->u2p_io_base = W(1);
+        return 0;
+    }
+    if (id == 21) {
+        if (len != 16) {
+            return r.fail("description record, section %s: %u bytes, 16 expected", nm, (unsigned)len);
+        }
+        m->ident_id = r.str(W(0), &bad);
+        m->has_build = W(1) == 1;
+        m->build = W(2);
+        m->ident_block = r.str(W(3), &bad);
+        if (bad || W(1) > 1 || (!m->has_build && m->build) || !m->ident_id || strlen(m->ident_id) != 4 || !m->ident_block || !m->ident_block[0]) {
+            return r.fail("description record, section %s: the ID is not four characters, the build flag is not 0 or 1, or the block has no name", nm);
+        }
+        for (int i = 0; i < 4; i++) {
+            if (m->ident_id[i] < 0x20 || m->ident_id[i] > 0x7E) {
+                return r.fail("description record, section %s: the ID is not four printable ASCII characters", nm);
+            }
+        }
+        return 0;
+    }
+    // id 22
+    if (len < 16) {
+        return r.fail("description record, section %s: cut off", nm);
+    }
+    const uint32_t nb = W(0), np = W(1), nf = W(2), ns = W(3);
+    if (nb < 1 || nb > DR_BLOCKS || np > DR_PROPS || nf > DR_FIELDS || ns > DR_STATES || len != 16 + 4 * (7 * nb + 8 * np + 5 * nf + 2 * ns)) {
+        return r.fail("description record, section %s: the counts or the length do not fit", nm);
+    }
+    const uint32_t bo = 4, po = bo + 7 * nb, fo = po + 8 * np, so = fo + 5 * nf;
+    for (uint32_t i = 0; i < ns; i++) {
+        m->states[i].name = r.str(W(so + 2 * i), &bad);
+        m->states[i].value = W(so + 2 * i + 1);
+    }
+    for (uint32_t i = 0; i < nf; i++) {
+        DescField &f = m->fields[i];
+        f.name = r.str(W(fo + 5 * i), &bad);
+        f.shift = W(fo + 5 * i + 1);
+        f.bits = W(fo + 5 * i + 2);
+        f.first_state = W(fo + 5 * i + 3);
+        f.nstate = W(fo + 5 * i + 4);
+    }
+    for (uint32_t i = 0; i < np; i++) {
+        DescProp &p = m->props[i];
+        p.name = r.str(W(po + 8 * i), &bad);
+        p.offset = W(po + 8 * i + 1);
+        p.width = W(po + 8 * i + 2);
+        p.dir = W(po + 8 * i + 3);
+        p.first_field = W(po + 8 * i + 4);
+        p.nfield = W(po + 8 * i + 5);
+        p.first_state = W(po + 8 * i + 6);
+        p.nstate = W(po + 8 * i + 7);
+    }
+    if (bad) {
+        return r.fail("description record, section %s: a name is missing or outside the string table", nm);
+    }
+    uint32_t prop_at = 0, fld_at = 0, st_at = 0;
+    for (uint32_t i = 0; i < nb; i++) {
+        DescBlock &d = m->blocks[i];
+        d.win.name = r.str(W(bo + 7 * i), &bad);
+        d.module = r.str(W(bo + 7 * i + 1), &bad);
+        const uint32_t ow = W(bo + 7 * i + 2);
+        d.win.address = W(bo + 7 * i + 3);
+        d.win.size = W(bo + 7 * i + 4);
+        d.first_prop = W(bo + 7 * i + 5);
+        d.nprop = W(bo + 7 * i + 6);
+        d.core = ow == 1;
+        if (bad || !id_ok(d.win.name) || !id_ok(d.module) || ow > 1 || d.win.size < 1 || d.win.size > DR_WINDOW_MAX || (uint64_t)d.win.address + d.win.size > 0x100000000ull) {
+            return r.fail("description record, section %s: block %u has no name or module of a-z 0-9 _, or an owner that is not 0 or 1, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
+        }
+        if (d.core) {
+            if (const BaseReg *g = descrec_base_reg_hit(d.win.address, d.win.size)) {
+                return r.fail("description record, section %s: block \"%s\" of the core covers %s (0x%08X, %u byte%s), a register the base drives itself (%s)",
+                              nm, d.win.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
+            }
+        }
+        for (uint32_t j = 0; j < i; j++) {
+            const DescBlock &o = m->blocks[j];
+            if (!strcmp(o.win.name, d.win.name)) {
+                return r.fail("description record, section %s: the name \"%s\" twice", nm, d.win.name);
+            }
+            if ((uint64_t)d.win.address < (uint64_t)o.win.address + o.win.size && (uint64_t)o.win.address < (uint64_t)d.win.address + d.win.size) {
+                return r.fail("description record, section %s: block \"%s\" overlaps the block \"%s\"", nm, d.win.name, o.win.name);
+            }
+        }
+        if (d.first_prop != prop_at || d.nprop > DR_PROPS_PER_BLOCK || d.first_prop + d.nprop > np) {
+            return r.fail("description record, section %s: block \"%s\": its properties are not the next run, or more than %d", nm, d.win.name, DR_PROPS_PER_BLOCK);
+        }
+        prop_at += d.nprop;
+        for (uint32_t k = 0; k < d.nprop; k++) {
+            const DescProp &p = m->props[d.first_prop + k];
+            if (!id_ok(p.name) || (p.width != 8 && p.width != 16 && p.width != 32) || p.dir < 1 || p.dir > 3 || (uint64_t)p.offset + p.width / 8 > d.win.size) {
+                return r.fail("description record, section %s: block \"%s\", property %u has no name of a-z 0-9 _, or a width that is not 8, 16 or 32, or a direction that is not 1 .. 3, or lies outside the block", nm, d.win.name, (unsigned)(k + 1));
+            }
+            for (uint32_t j = 0; j < k; j++) {
+                const DescProp &q = m->props[d.first_prop + j];
+                if (!strcmp(p.name, q.name)) {
+                    return r.fail("description record, section %s: block \"%s\": the property \"%s\" twice", nm, d.win.name, p.name);
+                }
+                if (p.offset < q.offset + q.width / 8 && q.offset < p.offset + p.width / 8 && (p.dir & q.dir)) {
+                    return r.fail("description record, section %s: block \"%s\": the property \"%s\" shares a byte and a direction with \"%s\"", nm, d.win.name, p.name, q.name);
+                }
+            }
+            if (p.first_field != fld_at || p.nfield > DR_FIELDS_PER_PROP || p.first_field + p.nfield > nf || p.first_state != st_at || p.first_state + p.nstate > ns || !states_ok(m, p.first_state, p.nstate, p.width)) {
+                return r.fail("description record, section %s: property \"%s\": its fields or states are not the next run, are too many, or a state has no name, a value that does not fit, or repeats a name or value", nm, p.name);
+            }
+            fld_at += p.nfield;
+            st_at += p.nstate;
+            uint32_t used = 0;
+            for (uint32_t q = 0; q < p.nfield; q++) {
+                const DescField &f = m->fields[p.first_field + q];
+                if (!id_ok(f.name) || f.bits < 1 || f.shift >= p.width || f.bits > p.width - f.shift) {
+                    return r.fail("description record, section %s: property \"%s\", field %u has no name of a-z 0-9 _, or lies outside the register", nm, p.name, (unsigned)(q + 1));
+                }
+                for (uint32_t j = 0; j < q; j++) {
+                    if (!strcmp(f.name, m->fields[p.first_field + j].name)) {
+                        return r.fail("description record, section %s: property \"%s\": the field \"%s\" twice", nm, p.name, f.name);
+                    }
+                }
+                const uint32_t mask = (f.bits == 32 ? 0xFFFFFFFFu : ((1u << f.bits) - 1)) << f.shift;
+                if (used & mask) {
+                    return r.fail("description record, section %s: property \"%s\": the field \"%s\" shares a bit with another", nm, p.name, f.name);
+                }
+                used |= mask;
+                if (f.first_state != st_at || f.first_state + f.nstate > ns || !states_ok(m, f.first_state, f.nstate, f.bits)) {
+                    return r.fail("description record, section %s: field \"%s\": its states are not the next run, are too many, or one has no name, a value that does not fit, or repeats a name or value", nm, f.name);
+                }
+                st_at += f.nstate;
+            }
+        }
+    }
+    if (prop_at != np || fld_at != nf || st_at != ns) {
+        return r.fail("description record, section %s: entries that no block owns", nm);
+    }
+    m->nblocks = (int)nb;
+    m->nprops = (int)np;
+    m->nfields = (int)nf;
+    m->nstates = (int)ns;
+    return 0;
+}
+
+static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, uint32_t ncset, uint32_t ver)
 {
     uint32_t seen = 0;
     bool bad = false;
@@ -133,6 +340,9 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             return r.fail("description record, section %u: this application does not know it", (unsigned)id);
         }
         const char *nm = secnames[id];
+        if ((id >= 20) != (ver == 7)) {
+            return r.fail("description record, section %s: a version %u record has %s", nm, (unsigned)ver, ver == 7 ? "only the sections 20 to 22 of TOML A" : "no TOML A section");
+        }
         if (id <= 17 && !out->sec) {                                  // the core's data sections get their room; a record of the key table or the windows alone never does (descrec.h)
             out->sec = new DescSections;
             memset(out->sec, 0, sizeof(*out->sec));
@@ -143,6 +353,12 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         seen |= 1u << id;
         const uint32_t b = pos + 8;
         pos = b + len;
+        if (id >= 20) {
+            if (parse_tomla(r, id, b, len, out, nm) != 0) {
+                return -1;
+            }
+            continue;
+        }
 #define SW(i) r.u32(b + 4 * (uint32_t)(i))
 #define NEED(words) do { if (len != 4 * (uint32_t)(words)) { return r.fail("description record, section %s: %u bytes, %u expected", nm, (unsigned)len, 4 * (unsigned)(words)); } } while (0)
         if (id == 1) {
@@ -624,6 +840,17 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
 #undef SW
 #undef NEED
     }
+    if (ver == 7) {
+        if (seen != (7u << 20)) {
+            return r.fail("description record: TOML A has the sections io, identity and blocks, each once");
+        }
+        const DescBlock *ib = descrec_block(*out, out->map->ident_block);
+        const DescProp *ip = ib ? descrec_prop(*out, *ib, "id") : 0, *bp = ib ? descrec_prop(*out, *ib, "build") : 0;
+        if (!ib || ib->core || !ip || !bp || !(ip->dir & DR_DIR_R) || !(bp->dir & DR_DIR_R)) {
+            return r.fail("description record, section %s: the block \"%s\" is no block of the base with the readable properties \"id\" and \"build\"", secnames[21], out->map->ident_block);
+        }
+        return 0;
+    }
     if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table and the windows (18, 19) do not
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
@@ -654,6 +881,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
 {
     Rd r = { rec, n, 0, 0, why, whylen };
     delete out->sec;                                              // a record parsed again gives up what the first parse allocated
+    delete out->map;
     memset((void *)out, 0, sizeof(*out));
     if (n < DESCREC_HEADER || n > DESCREC_MAX_SIZE) {
         return r.fail("description record: %u bytes (%u to %u are allowed)", (unsigned)n, DESCREC_HEADER, DESCREC_MAX_SIZE);
@@ -671,7 +899,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         return r.fail("description record: the header or the length does not match the file");
     }
     uint32_t flags = r.u32(12);
-    if ((flags & ~(ver >= 6 ? 7u : 3u)) || ((flags & 4) != 0) != (ver >= 6)) {
+    if ((flags & ~(ver >= 6 ? 7u : 3u)) || ((flags & 4) != 0) != (ver >= 6) || (ver == 7 && flags != 4)) {
         return r.fail("description record: flags 0x%x are not known", (unsigned)flags);
     }
     r.str_off = r.u32(16);
@@ -1109,12 +1337,16 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
     }
     out->ncsettings = (int)tb[Q].count;
+    if (ver == 7 && (tb[A].count || tb[T].count || tb[N].count || tb[F].count || tb[S].count || tb[H].count || tb[R].count || tb[B].count || tb[E].count || tb[Z].count ||
+                     tb[V].count || tb[C].count || tb[K].count || tb[M].count || tb[Y].count || tb[X].count || tb[Q].count)) {
+        return r.fail("description record: a TOML A record (version 7) has no menu table");
+    }
     if (ver >= 6) {                                            // T239.3 D17: the data sections, behind the string table to the record's end
         uint32_t soff = r.u32(DESCREC_HEADER_V5), ssz = r.u32(DESCREC_HEADER_V5 + 4);
         if (soff < r.str_off + r.str_size || (uint64_t)soff + ssz != n || ssz == 0) {
             return r.fail("description record: the data sections lie outside the record");
         }
-        if (parse_sections(r, soff, ssz, out, tb[Q].count) != 0) {
+        if (parse_sections(r, soff, ssz, out, tb[Q].count, ver) != 0) {
             return -1;
         }
     }

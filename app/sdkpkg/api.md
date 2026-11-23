@@ -1271,6 +1271,7 @@ The io group: the hardware of the running core, as the base's own `CoreIo` has i
 
 4.15.19.1 `volatile uint8_t *window(const char *name, uint32_t *size)` returns the base address of a register window of the bitstream that the API description of the core declares by `name`, and its size in `*size`.
 4.15.19.2 The windows are the ones of the API description of the core that is running (`[[window]]`, section 19 of its record). For a name that it declares the call returns the address of the window and writes its size to `*size`. For any other name, a null `name` and a core without a description it returns null and writes 0 to `*size`. A null `size` is allowed. A caller treats a null result as a window the core does not grant. The record is refused when a window covers a register that the base drives itself, so a granted window never does.
+4.15.19.3 A core whose gateware is described by TOML A (6.14) is granted the blocks it owns by their names in the same way: the name of a block of the core is the name of a window. A block of the core never covers a register that the base drives itself. A block of the base is not a window: `window` returns null for its name, and a shared driver reaches it through its map, not through a grant.
 
 ### 4.16 `api->board` (`SvcBoard`)
 
@@ -1794,6 +1795,21 @@ Since base 3.2.
 | `LibExportDecl.major` | The major version of the layout of the table, at least 1. |
 | `LibExportDecl.table` | The table: a block that starts with a `uint32_t` `size`, in the image or in memory the library keeps. It is not null. |
 | `LibExportDecl.size` | The size of the table in bytes, at least 4. `find` hands it back as `table_size`. |
+
+### 6.14 TOML A: the description of the gateware
+
+6.14.1 TOML A describes the gateware of a bitstream as capabilities. It is a description record of version 7. It has no menu table and no section 1 to 19. It has the three sections 20 (`[io]`), 21 (`[identity]`) and 22 (`[[block]]`), each once.
+6.14.2 A TOML A file holds `[io]`, `[identity]` and at least one `[[block]]` and nothing else. A table or key that is not named here is refused. TOML A holds no logic: no sequence, no operation, no setting and no text for a person.
+6.14.3 `[io]` holds the two base addresses of the I/O space as 32 bit numbers: `iobase` and `u2p_io_base`.
+6.14.4 `[identity]` is the standard block of the bitstream. `id` is four printable ASCII characters. `block` names the block that holds the identity registers. That block is owned by the base and has the readable properties `id` and `build`. `build` is the build word of the bitstream. It is optional in the source file (a record that is decoded and compiled again carries it); the packer writes it (P1-4).
+6.14.5 A `[[block]]` is a capability. `name` is 1 to 31 characters of `a-z`, `0-9` and `_`, once per record. `module` is the gateware module, and so the driver library, with the same characters. `owner` is `"base"` or `"core"`. `address` is a 32 bit number. `size` is 1 to 0x100000 bytes, and the block ends below 4 GiB. Blocks do not overlap. A block of the core covers no register that the base drives itself.
+6.14.6 A module whose registers serve several drivers is several blocks, one per register range. Each block has its own map.
+6.14.7 The map of a block is its `[[block.property]]` tables. `name` is once per block. `offset` is in bytes from the address of the block, and the register lies inside the block. `width` is 8, 16 or 32 bits. `dir` is `"r"`, `"w"` or `"rw"`. Two properties share a byte only when no direction is in both of them. A block has at most 64 properties.
+6.14.8 A property has fields: `[[block.property.field]]` with `name` (once per property), `shift` and `bits`. A field lies inside the width and shares no bit with another field. A property has at most 32 fields.
+6.14.9 The possible states are `[[block.property.state]]` for the whole register and `[[block.property.field.state]]` for a field: `name` and `value`. The value fits the width or the bits. A name and a value are once per owner. An owner has at most 64 states.
+6.14.10 A record has at most 64 blocks, 512 properties, 512 fields and 1024 states.
+6.14.11 The map of a module lives with its driver library. A map file is named `<name>.map.toml` and holds `map = "<name>"` and `[[property]]` tables as in 6.14.7. A block says `map = "<name>"` in place of its own properties. `tools/descrec.py compile desc.toml out.bin --maps DIR` reads the map files of `DIR` (repeat the option for more), and the record carries the finished map. A name that no map file has is refused. The SDK ships the maps of the shared drivers in `maps/`.
+6.14.12 The reader refuses a record that breaks a rule of 6.14.2 to 6.14.10 with a sentence that names the section, the block and the property. `tools/descrec.py` and the application read the same rules.
 
 ## 7. Limits
 

@@ -1,0 +1,200 @@
+# The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc, d1541_wd.h WDR_*, d1541_wd.cc WD_BASE). Offsets are bytes from the block's address (DRIVE_A_BASE).
+# Only what the library reads or writes is here. DR_DIRTY is a byte per half track after the first (the library reads and clears DR_DIRTY + track), and DR_PARAM repeats two words per half track
+# (128 per side, side 1 at +0x400); a map holds one register per property, so the first of each run stands for the run.
+map = "cbm1541"
+
+[[property]]
+name = "power"
+offset = 0x0
+width = 8
+dir = "w"
+
+[[property]]
+name = "reset"
+offset = 0x1
+width = 8
+dir = "w"
+
+[[property]]
+name = "hw_addr"
+offset = 0x2
+width = 8
+dir = "w"
+
+[[property]]
+name = "sensor"
+offset = 0x3
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "dark"
+  value = 0
+  [[property.state]]
+  name = "light"
+  value = 1
+
+[[property]]
+name = "inserted"
+offset = 0x4
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "no"
+  value = 0
+  [[property.state]]
+  name = "yes"
+  value = 1
+
+[[property]]
+name = "rammap"
+offset = 0x5
+width = 8
+dir = "w"
+
+[[property]]
+name = "side"
+offset = 0x6
+width = 8
+dir = "r"
+
+[[property]]
+name = "track"
+offset = 0x8
+width = 8
+dir = "r"
+
+[[property]]
+name = "status"
+offset = 0x9
+width = 8
+dir = "r"
+  [[property.field]]
+  name = "motor"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "writing"
+  shift = 1
+  bits = 1
+  [[property.field]]
+  name = "writebusy"
+  shift = 2
+  bits = 1
+
+[[property]]
+name = "diskchange"
+offset = 0xC
+width = 8
+dir = "w"
+
+[[property]]
+name = "drivetype"
+offset = 0xD
+width = 8
+dir = "rw"
+
+[[property]]
+name = "dirty"
+offset = 0x800
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "any"
+  shift = 7
+  bits = 1
+  [[property.field]]
+  name = "this"
+  shift = 0
+  bits = 1
+
+[[property]]
+name = "param_addr"
+offset = 0x1000
+width = 32
+dir = "w"
+
+[[property]]
+name = "param_len_time"
+offset = 0x1004
+width = 32
+dir = "w"
+
+[[property]]
+name = "wd_command"
+offset = 0x1800
+width = 8
+dir = "rw"
+
+[[property]]
+name = "wd_track"
+offset = 0x1801
+width = 8
+dir = "rw"
+
+[[property]]
+name = "wd_sector"
+offset = 0x1802
+width = 8
+dir = "r"
+
+[[property]]
+name = "wd_datareg"
+offset = 0x1803
+width = 8
+dir = "r"
+
+[[property]]
+name = "wd_status_clear"
+offset = 0x1804
+width = 8
+dir = "w"
+
+[[property]]
+name = "wd_status_set"
+offset = 0x1805
+width = 8
+dir = "w"
+
+[[property]]
+name = "wd_irq_ack"
+offset = 0x1806
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "command_waits"
+  shift = 7
+  bits = 1
+  [[property.field]]
+  name = "dma_done"
+  shift = 0
+  bits = 1
+
+[[property]]
+name = "wd_dma_mode"
+offset = 0x1807
+width = 8
+dir = "w"
+
+[[property]]
+name = "wd_dma_addr"
+offset = 0x1808
+width = 32
+dir = "w"
+
+[[property]]
+name = "wd_dma_len"
+offset = 0x180C
+width = 16
+dir = "w"
+
+[[property]]
+name = "wd_stepper"
+offset = 0x180E
+width = 8
+dir = "rw"
+
+[[property]]
+name = "wd_step_time"
+offset = 0x180F
+width = 8
+dir = "w"

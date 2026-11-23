@@ -6,7 +6,7 @@
 //
 // Layout, little endian, every entry fixed size, strings in one table (NUL terminated, offsets into it, 0xFFFFFFFF = none):
 //
-//   0   u32 magic "TRXD"        4  u16 version (5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208)
+//   0   u32 magic "TRXD"        4  u16 version (7 TOML A; 6 with data sections; 5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208)
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
@@ -60,6 +60,17 @@
 //                          descrec_window finds one by name (io.window).
 //                          Sections 18 and 19 need no core section (a menu.toml carries the key table, a desc.toml the windows); sections 1 .. 17 need it.
 //
+// Version 7 is TOML A (T239.3 P1-1, D30, D34): the gateware as capabilities. Same header as version 6, flags exactly 4, every table empty, and the three sections 20 .. 22, each once
+// (a record of versions 2 .. 6 has none of them, a version 7 record none of 1 .. 19). tools/descrec.py holds the same rules and its comment "TOML A" says what the TOML keys are.
+//        20 io             2 words: iobase, u2p_io_base
+//        21 identity       4 words: id (string, 4 printable ASCII characters), build flag (0 or 1), build (0 without the flag), block (string: the base-owned block that has the readable
+//                          properties "id" and "build")
+//        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
+//                          size 1 .. 0x100000, first property, count), the properties (8 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count), the
+//                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
+//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register lies inside its block, two properties share a byte only when
+//                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
+//
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
 //   node   anchor kind label op state order when_state capability id first_bind nbind flags attr      (flags bit 0: closes the menu; attr: string offset, 0 = none,
@@ -99,7 +110,7 @@
 #include "rawkeys.h"
 
 #define DESCREC_MAGIC 0x44585254U                 /* "TRXD" */
-#define DESCREC_VERSION 6
+#define DESCREC_VERSION 7
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
 #define DESCREC_HEADER 176                        /* versions 2 to 4, and the least a record has */
 #define DESCREC_HEADER_V5 208                     /* version 5: the pad's six words and the restart's two follow */
@@ -131,10 +142,17 @@
 #define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
 #define DR_CAPS 8
 #define DR_MOUNT 6
-#define DR_SECTIONS 19                            // the ids 1 .. 19
+#define DR_SECTIONS 22                            // the ids 1 .. 22 (20 .. 22: TOML A, version 7 only)
 #define DR_KEYS 64                                // base 3.3: rows of the key table
 #define DR_WINDOWS 32                             // base 3.3: register windows
 #define DR_WINDOW_MAX 0x100000u                   // the largest window, bytes
+#define DR_BLOCKS 64                              // TOML A (version 7): blocks, and in all their properties, fields and states
+#define DR_PROPS 512
+#define DR_FIELDS 512
+#define DR_STATES 1024
+#define DR_PROPS_PER_BLOCK 64
+#define DR_FIELDS_PER_PROP 32
+#define DR_STATES_PER_OWNER 64
 #define DESCREC_KEY_MAX 0x1FF                     // the largest key code of a key row
 #define DR_RESETW 8                               // reset writes
 #define DR_RAWKEY_HID 255
@@ -186,6 +204,43 @@ struct DescWindow {
     uint32_t address, size;
 };
 
+// TOML A (version 7, sections 20 .. 22): a block is a capability, its map the properties (registers) with their fields and the states each can take. The names point into the record.
+// Properties, fields and states are tables of DescMap; an owner's entries are the run first .. first + count of its table.
+struct DescState {
+    const char *name;
+    uint32_t value;
+};
+struct DescField {
+    const char *name;
+    uint32_t shift, bits;
+    uint32_t first_state, nstate;
+};
+#define DR_DIR_R 1
+#define DR_DIR_W 2
+struct DescProp {
+    const char *name;
+    uint32_t offset, width, dir;                  // bytes from the block; 8, 16 or 32 bits; DR_DIR_R | DR_DIR_W
+    uint32_t first_field, nfield, first_state, nstate;
+};
+struct DescBlock {
+    DescWindow win;                               // name, address and size: io.window hands the block out like a window
+    const char *module;                           // the gateware module, and so the driver library
+    bool core;                                    // owner: the core (else the base)
+    uint32_t first_prop, nprop;
+};
+struct DescMap {
+    uint32_t iobase, u2p_io_base;
+    const char *ident_id;                         // the standard block: the ID, optionally the build word (as cor_pack wrote it), and the block that holds the registers
+    bool has_build;
+    uint32_t build;
+    const char *ident_block;
+    int nblocks, nprops, nfields, nstates;
+    DescBlock blocks[DR_BLOCKS];
+    DescProp props[DR_PROPS];
+    DescField fields[DR_FIELDS];
+    DescState states[DR_STATES];
+};
+
 // What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
 struct DescRecord {
     bool has_route;                               // the record gives the route; else the default one stays
@@ -224,8 +279,9 @@ struct DescRecord {
     // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
     bool has_core;
     DescSections *sec;
-    DescRecord() : sec(0) { }
-    ~DescRecord() { delete sec; }
+    DescMap *map;                                 // version 7 (TOML A): the blocks of the gateware; null for every other record
+    DescRecord() : sec(0), map(0) { }
+    ~DescRecord() { delete sec; delete map; }
     DescRecord(const DescRecord &) = delete;
     DescRecord &operator=(const DescRecord &) = delete;
 };
@@ -234,8 +290,13 @@ struct DescRecord {
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
 // The window `name` of the record (io.window of the base calls it with the core's name of the window): null when the record declares none of that name. The record was checked at
-// load: no window covers a register the base drives itself.
+// load: no window covers a register the base drives itself. A version 7 record (TOML A) hands out its blocks by their names too (a core's block covers no such register either).
 const DescWindow *descrec_window(const DescRecord &rec, const char *name);
+// TOML A: the block `name` of a version 7 record, its property `name`, and the field `name` of a property; null when there is none (also for a record without TOML A). Their pointers stay
+// inside the record's DescMap.
+const DescBlock *descrec_block(const DescRecord &rec, const char *name);
+const DescProp *descrec_prop(const DescRecord &rec, const DescBlock &b, const char *name);
+const DescField *descrec_field(const DescRecord &rec, const DescProp &p, const char *name);
 
 // The registers the base drives itself (basereg.def): the first one that the block [address, address + size) covers, else null. `ref` is the code that drives it.
 struct BaseReg {
