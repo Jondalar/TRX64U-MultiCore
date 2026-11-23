@@ -844,7 +844,7 @@ static void atari_xex(const Prof &p)
     printf("Atari: the .xex boot disk is stored as \"xex <path>\" and restored into D1\n");
 }
 
-// SvcCtx::mount_notify marks a slot (CoreCtx::mounts_dirty bit i = engine slot i); the pass stores it once the start has mounted what the .cfg stores
+// SvcCtx::mount_notify marks a slot (CoreCtx::mounts_dirty[i] = engine slot i); the pass stores it once the start has mounted what the .cfg stores
 static void notify_pass(const Prof &p)
 {
     char msg[240];
@@ -859,12 +859,12 @@ static void notify_pass(const Prof &p)
     mounts_pass(&a.c);
     CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));                               // nothing marked: nothing stored
     a.c.mounts_ready = false;
-    a.c.mounts_dirty = 1u << 0;
+    a.c.mounts_dirty[0] = 1;
     mounts_pass(&a.c);
-    CHECK(a.c.mounts_dirty == 1u && !has(a.cfg(), "Mount D1=/usb0/a0.atr"));     // the start is not done: the mark waits
+    CHECK(a.c.mounts_dirty[0] == 1 && !has(a.cfg(), "Mount D1=/usb0/a0.atr"));     // the start is not done: the mark waits
     a.c.mounts_ready = true;
     mounts_pass(&a.c);
-    CHECK(a.c.mounts_dirty == 0u && has(a.cfg(), "Mount D1=/usb0/a0.atr"));
+    CHECK(a.c.mounts_dirty[0] == 0 && has(a.cfg(), "Mount D1=/usb0/a0.atr"));
     printf("Atari: a slot marked by mount_notify is stored on the next pass\n");
 }
 

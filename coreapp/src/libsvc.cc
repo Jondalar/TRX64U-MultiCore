@@ -239,7 +239,7 @@ struct LibSvc {
         const MountSlots *ms = c && c->desc && slot ? c->desc->mount_slots : 0;
         for (int i = 0; ms && i < ms->n && i < 32; i++) {
             if (same_slot(ms->names[i], slot)) {
-                __atomic_fetch_or(&c->mounts_dirty, 1u << i, __ATOMIC_ACQ_REL);
+                c->mounts_dirty[i] = 1;
                 return;
             }
         }

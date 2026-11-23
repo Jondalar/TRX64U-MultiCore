@@ -2321,19 +2321,19 @@ static void services()
     CHECK(!cc->media_source("Drive A", src, sizeof(src)));
     // mount_notify marks a slot of the [mount] list; the base takes the marks on its pass
     desc.mount_slots = &ms;
-    cx.mounts_dirty = 0;
+    memset((void *)cx.mounts_dirty, 0, sizeof(cx.mounts_dirty));
     cc->mount_notify("Tape");
-    CHECK_EQ(cx.mounts_dirty, 2u);
+    CHECK(!cx.mounts_dirty[0] && cx.mounts_dirty[1]);
     cc->mount_notify("drive a:");
     cc->mount_notify("drive a");                                                                            // a second call stores once
-    CHECK_EQ(cx.mounts_dirty, 3u);
+    CHECK(cx.mounts_dirty[0] && cx.mounts_dirty[1]);
     cc->mount_notify("Nope");
     cc->mount_notify(0);
-    CHECK_EQ(cx.mounts_dirty, 3u);                                                                          // a name the core does not list does nothing
-    cx.mounts_dirty = 0;
+    CHECK(cx.mounts_dirty[0] + cx.mounts_dirty[1] == 2 && !cx.mounts_dirty[2]);                                                                          // a name the core does not list does nothing
+    memset((void *)cx.mounts_dirty, 0, sizeof(cx.mounts_dirty));
     desc.mount_slots = 0;
     cc->mount_notify("Drive A");
-    CHECK_EQ(cx.mounts_dirty, 0u);
+    CHECK(!cx.mounts_dirty[0] && !cx.mounts_dirty[1]);
     cx.media_restoring = true;
     CHECK(cc->state() & CTX_MEDIA_RESTORING);
     cx.media_restoring = false;

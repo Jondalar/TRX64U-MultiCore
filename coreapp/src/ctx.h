@@ -103,8 +103,9 @@ struct CoreCtx {
     // (mediamounts.cc); null: nothing to store (tests of an engine alone).
     void (*mount_changed)(CoreCtx *c, int slot);
     bool mounts_ready;                    // the start has mounted what the .cfg stores; from here on a mount or unmount is stored
-    // SvcCtx::mount_notify (libsvc.cc) marks, any task: bit i = slot i of CoreDesc::mount_slots. mounts_pass (mediamounts.cc) takes the marks under the core lock.
-    uint32_t mounts_dirty;
+    // SvcCtx::mount_notify (libsvc.cc) marks, any task: byte i = slot i of CoreDesc::mount_slots (the RISC-V build has no atomic instructions: one byte each, set by the
+    // notifier, cleared by mounts_pass before it reads the spec, so a mark that comes in meanwhile is stored again at the next pass).
+    volatile uint8_t mounts_dirty[32];
     // The machine is held and its caller releases it: the stored media are being mounted at the start, or a media set is being loaded. A mount then does not
     // reset or release the machine (boot_cold_reset applies the reset-time settings and returns, boot_finish does nothing), the caller does it once.
     bool media_restoring;

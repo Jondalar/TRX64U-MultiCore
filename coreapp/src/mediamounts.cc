@@ -159,12 +159,12 @@ void mounts_engine_changed(CoreCtx *c, int n)
 // .cfg stores (mounts_ready), as a change of the core's own engine does.
 void mounts_pass(CoreCtx *c)
 {
-    if (!c->mounts_dirty || !c->mounts_ready) {
+    if (!c->mounts_ready) {
         return;
     }
-    uint32_t m = __atomic_exchange_n(&c->mounts_dirty, 0u, __ATOMIC_ACQ_REL);
     for (int i = 0; i < 32 && i < neng(c); i++) {
-        if (m & (1u << i)) {
+        if (c->mounts_dirty[i]) {
+            c->mounts_dirty[i] = 0;                                 // before the spec is read: a mark that comes in now is stored at the next pass
             changed_idx(c, nwin(c) + nsec(c) + i);
         }
     }
