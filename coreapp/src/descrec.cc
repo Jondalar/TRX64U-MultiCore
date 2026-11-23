@@ -82,7 +82,7 @@ bool id_ok(const char *s)
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
-                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks" };
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places" };
 
 // T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
 static const BaseReg g_base_regs[] = {
@@ -340,7 +340,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             return r.fail("description record, section %u: this application does not know it", (unsigned)id);
         }
         const char *nm = secnames[id];
-        if ((id >= 20) != (ver == 7)) {
+        if ((id >= 20 && id <= 22) != (ver == 7)) {
             return r.fail("description record, section %s: a version %u record has %s", nm, (unsigned)ver, ver == 7 ? "only the sections 20 to 22 of TOML A" : "no TOML A section");
         }
         if (id <= 17 && !out->sec) {                                  // the core's data sections get their room; a record of the key table or the windows alone never does (descrec.h)
@@ -353,7 +353,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         seen |= 1u << id;
         const uint32_t b = pos + 8;
         pos = b + len;
-        if (id >= 20) {
+        if (id >= 20 && id <= 22) {
             if (parse_tomla(r, id, b, len, out, nm) != 0) {
                 return -1;
             }
@@ -822,6 +822,68 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 }
             }
             out->nwindows = (int)SW(0);
+        } else if (id == 23) {
+            if (len < 4 || SW(0) < 1 || SW(0) > UI_ROUTES_MAX || len != 4 + 24 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, UI_ROUTES_MAX);
+            }
+            for (uint32_t i = 0; i < SW(0); i++) {
+                const uint32_t w = 1 + 6 * i;
+                MenuGroupRoute &g = out->place.routes[i];
+                g.group = r.str(SW(w), &bad);
+                g.area = r.str(SW(w + 1), &bad);
+                g.tab = r.str(SW(w + 2), &bad);
+                g.heading = r.str(SW(w + 3), &bad);
+                g.label = r.str(SW(w + 4), &bad);
+                const uint32_t fl = SW(w + 5);
+                g.page = (fl & 1) != 0;
+                // the same rules as tools/descrec.py _route_check
+                const bool area_ok = !bad && g.area && strlen(g.area) == 2 && g.area[0] == 'F' && g.area[1] >= '1' && g.area[1] <= '8';
+                if (bad || !id_ok(g.group) || !area_ok || !id_ok(g.tab) || !g.heading || !g.heading[0] || strlen(g.heading) > 31 || (g.label && (!g.label[0] || strlen(g.label) > 31)) ||
+                    (fl & ~1u) || (g.page && !g.label)) {
+                    return r.fail("description record, section %s: route %u has a bad group, area, tab, heading or label, or a page without a label", nm, (unsigned)(i + 1));
+                }
+                for (uint32_t j = 0; j < i; j++) {
+                    if (!strcmp(out->place.routes[j].group, g.group)) {
+                        return r.fail("description record, section %s: the group \"%s\" twice", nm, g.group);
+                    }
+                }
+            }
+            out->place.nroutes = (int)SW(0);
+            out->has_place = true;
+        } else if (id == 24) {
+            if (len < 4 || SW(0) < 1 || SW(0) > UI_PLACES_MAX || len != 4 + 20 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, UI_PLACES_MAX);
+            }
+            for (uint32_t i = 0; i < SW(0); i++) {
+                const uint32_t w = 1 + 5 * i;
+                UiPlaceRow &q = out->place.rows[i];
+                q.op = r.str(SW(w), &bad);
+                q.key = r.str(SW(w + 1), &bad);
+                q.route = r.str(SW(w + 2), &bad);
+                q.group = r.str(SW(w + 3), &bad);
+                q.order = SW(w + 4) == 0x80000000u ? UI_NO_ORDER : (int32_t)SW(w + 4);
+                // the same rules as tools/descrec.py _place_check
+                bool ok = !bad && q.op && q.op[0] && strlen(q.op) <= 63 && (!q.key || (q.key[0] && strlen(q.key) <= 63)) && (!q.route || id_ok(q.route)) &&
+                          (q.route || q.group || q.order != UI_NO_ORDER);
+                for (const char *c = ok ? q.op : ""; *c; c++) {
+                    ok = ok && *c > ' ' && *c != 0x7F;
+                }
+                for (const char *c = ok && q.group ? q.group : ""; *c; c++) {
+                    ok = ok && (cap_char(*c) || (*c >= 'A' && *c <= 'Z'));
+                }
+                ok = ok && (!q.group || (q.group[0] && strlen(q.group) <= 31));
+                if (!ok) {
+                    return r.fail("description record, section %s: place %u has a bad operation, key, route or group, or places nothing", nm, (unsigned)(i + 1));
+                }
+                for (uint32_t j = 0; j < i; j++) {
+                    const UiPlaceRow &o = out->place.rows[j];
+                    if (!strcmp(o.op, q.op) && ((!o.key && !q.key) || (o.key && q.key && !strcasecmp(o.key, q.key)))) {
+                        return r.fail("description record, section %s: the operation \"%s\" with the same key twice", nm, q.op);
+                    }
+                }
+            }
+            out->place.nrows = (int)SW(0);
+            out->has_place = true;
         } else {
             if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
@@ -851,7 +913,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         return 0;
     }
-    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table and the windows (18, 19) do not
+    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table, the windows, the routes and the places (18, 19, 23, 24) do not
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {

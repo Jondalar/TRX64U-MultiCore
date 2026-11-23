@@ -126,6 +126,9 @@ struct MenuMerge {
     // description sets it (bundle_merge, the tests' trx64u menu).
     const CoreKey *keys;
     int nkeys;
+    // T239.3 D32: where the application's rows stand: the base's table with the core's routes and places over it (menu_place_merge), in place_store, when has_place (false after contrib_merge: the base's table alone). A struct, not a pointer into itself: a MenuMerge may be copied.
+    bool has_place;
+    UiPlace place_store;
 };
 
 // Merges the contributions into `d`. `reg` (optional) is asked whether the operations and states the contributions name exist and whether

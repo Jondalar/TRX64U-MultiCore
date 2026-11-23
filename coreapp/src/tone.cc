@@ -34,7 +34,6 @@ const char *tone_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     p.def = TONE_DEFAULT;
     p.when = WHEN_LIVE;
     p.apply = TONE_OP;
-    p.group = "audio";
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;

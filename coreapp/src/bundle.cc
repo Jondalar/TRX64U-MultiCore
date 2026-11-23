@@ -211,6 +211,17 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         mm->keys = x->desc->keys;
         mm->nkeys = x->desc->nkeys;
     }
+    if (x && x->desc && x->desc->has_place) {                     // D32: the core's routes and places over the base's; a place that names an absent route is told and not applied
+        char why[160];
+        if (menu_place_merge(&x->desc->place, &mm->place_store, why, sizeof(why)) > 0 && log) {
+            char line[200];
+            snprintf(line, sizeof(line), "[menu] refused: %s", why);
+            log->line(line);
+        }
+        mm->has_place = true;
+    }
+    // D32: the setting group of every row the table places (the extend functions no longer write one; the hotkey rows of the core's tasks came in with the core's own tables)
+    menu_place_groups(mm->has_place ? &mm->place_store : menu_place_base(), mm->settings, out->nsettings);
     for (int i = 0; log && i < mm->nerr; i++) {
         char line[CONTRIB_ERR_LEN + 24];
         snprintf(line, sizeof(line), "[menu] refused: %s", mm->err[i]);

@@ -778,6 +778,10 @@ run deckeys test_deckeys.cc descrec.cc
 # T239.3 P1-1 (D30, D34): TOML A, the record of version 7, from golden/desc_toml_a.toml and the SDK's module maps as the real tool compiles them
 CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
 run desctoml test_desctoml.cc descrec.cc
+
+# T239.3 D32: where the rows the application adds stand in the menu: the base UI TOML's table, a core's routes and places over it (golden/desc_places.toml as the real tool compiles it), the menu built from both
+CARGS="$BUN/desc_places.bin" RARGS="$CARGS"
+run uiplace test_uiplace.cc descrec.cc $PICSRC
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

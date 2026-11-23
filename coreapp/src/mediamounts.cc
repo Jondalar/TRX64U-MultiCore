@@ -37,7 +37,6 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     p.def = 0;                                     // Alex, 2026-11-04: "off by default, it has to be set actively"
     p.when = WHEN_LIVE;
     p.apply = PERSIST_OP;
-    p.group = "storage";
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;

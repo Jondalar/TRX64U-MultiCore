@@ -45,7 +45,6 @@ const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     p.def = VOLUME_DEFAULT;
     p.when = WHEN_LIVE;
     p.apply = VOLUME_OP;
-    p.group = "audio";
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;

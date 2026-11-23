@@ -1,0 +1,26 @@
+# T239.3 D32: a core's UI TOML that places rows of the base (tests/coreapp/test_uiplace.cc compiles it with the real tool, gen_bundle.py). The base's table is coreapp/base_ui.toml.
+
+# a block of the core's own in F5's Video tab
+[[group_route]]
+group = "extras"
+area = "F5"
+tab = "video"
+heading = "Extras"
+
+# Volume leaves F5 Audio for that block, first among the placed rows
+[[place]]
+op = "volume.apply"
+route = "extras"
+group = "video"
+order = 5
+
+# Home Directory moves ahead of Enter Home on Startup in the Storage block: the route and the group stay the base's
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+order = 75
+
+# a route that neither table has: refused, and Tone stays in F5 Audio
+[[place]]
+op = "tone.apply"
+route = "nosuch"

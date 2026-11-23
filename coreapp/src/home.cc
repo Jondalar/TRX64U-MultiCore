@@ -39,7 +39,6 @@ const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         e.def = 0;
         e.when = WHEN_LIVE;
         e.apply = HOME_OP;
-        e.group = "storage";
     }
     if (!has_dir) {
         Setting &h = store[n++];
@@ -52,7 +51,6 @@ const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         h.base = 60;
         h.when = WHEN_LIVE;
         h.apply = HOME_OP;
-        h.group = "storage";
     }
     if (!has_reopen) {                                // T192.3 D30: where the menu opens
         Setting &r = store[n++];
@@ -64,7 +62,6 @@ const char *home_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         r.def = 0;
         r.when = WHEN_LIVE;
         r.apply = HOME_OP;
-        r.group = "system";
     }
     out->settings = store;
     out->nsettings = n;

@@ -172,7 +172,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     p.def = 0;
     p.when = WHEN_LIVE;
     p.apply = PICTURE_OP;
-    p.group = "video";                             // the setting group "video": the menu route sends the row by op and key (menu_route_of); the group only picks its block on a tab with sections
     if (vic_scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
             g_scale_values[m] = video_scale_name(m);
@@ -185,7 +184,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         q.def = VID_SCALE_FIT;                         // the gateware powers up at Fit (U16 D3)
         q.when = WHEN_LIVE;
         q.apply = SCALE_OP;
-        q.group = "video";
     }
     if (vic_smooth) {
         Setting &r = store[d->nsettings + 2];
@@ -196,7 +194,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         r.def = 0;                                     // the gateware powers up with the smoothing off (T227)
         r.when = WHEN_LIVE;
         r.apply = SMOOTH_OP;
-        r.group = "video";
     }
     if (scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
@@ -210,7 +207,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         q.def = VID_SCALE_INTEGER;
         q.when = WHEN_LIVE;
         q.apply = SCALE_OP;
-        q.group = "video";
         Setting &r = store[d->nsettings + 2];
         r = Setting();
         r.key = SMOOTH_KEY;
@@ -219,7 +215,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         r.def = 0;
         r.when = WHEN_LIVE;
         r.apply = SMOOTH_OP;
-        r.group = "video";
     }
     if (g_gw && env && env->follow && d->video.w != 0 && d->nsettings + extra + 1 <= SETTINGS_MAX) {      // T234: the Amiga cores' Frame follow, with the other picture rows (F5 Video)
         Setting &f = store[d->nsettings + extra];
@@ -230,7 +225,6 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         f.def = 0;                                     // the gateware powers up Off (T234 D1)
         f.when = WHEN_LIVE;
         f.apply = FOLLOW_OP;
-        f.group = "video";
         extra++;
     }
     *out = *d;

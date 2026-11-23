@@ -1,6 +1,7 @@
 // The menu's descriptor, see menubuild.h.
 #include <stdio.h>
 #include "menubuild.h"
+#include "menutree.h"
 #include "volume.h"
 #include "tone.h"
 #include "mediamounts.h"
@@ -46,6 +47,9 @@ const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, cons
     if (why) {
         printf("[core] %s: %s\n", desc->cor_name, why);
         if (!first) { first = why; }
+    }
+    if (out->settings == store) {
+        menu_place_groups(menu_place_base(), store, out->nsettings);     // D32: the group of every row the base UI TOML places (coreapp/base_ui.toml); the extend functions write none
     }
     return first;
 }

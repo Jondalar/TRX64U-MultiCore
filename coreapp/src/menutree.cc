@@ -208,45 +208,157 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
     return false;
 }
 
-// ---- T187 D1: where a generic row lands, one table for every core ---------------------------------------------------------------------------
-static const MenuGroupRoute g_routes[] = {
-    { "video",   "F5", "video", "Video",   0,         false },
-    { "audio",   "F5", "audio", "Audio",   0,         false },
-    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
-    { "look",    "F7", "settings", "Look",    0,      false },          // T239.3 base 3.3: the application's own settings (baseset.h), the blocks before Storage
-    { "appinput","F7", "settings", "Input",   0,      false },
-    { "storage", "F7", "settings", "Storage", 0,      false },
-    { "menu",    "F7", "settings", "Menu",    0,      false },
-};
+// ---- T187 D1, T239.3 D32: where a generic row lands, one table for every core. The table is a record: coreapp/base_ui.toml compiled into base_ui.inc, and a core's own
+// places over it (menu_place_merge); nothing in this file names a row.
+#include "base_ui.inc"
 
-const MenuGroupRoute *menu_route_of(const Setting &s)
+const UiPlace *menu_place_base()
 {
-    const char *g = 0;
-    if (!s.apply) {
-        return 0;
-    }
-    // the application's own Picture, Scale, Smoothing and Frame follow items, matched by op and key: this branch routes them into the Video tab.
-    // desc_check refuses a core setting that uses either the key or the op (tests only); on the board this match is the guard
-    if ((!strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) || (!strcmp(s.apply, SCALE_OP) && !strcasecmp(s.key, SCALE_KEY)) ||
-        (!strcmp(s.apply, SMOOTH_OP) && !strcasecmp(s.key, SMOOTH_KEY)) || (!strcmp(s.apply, FOLLOW_OP) && !strcasecmp(s.key, FOLLOW_KEY))) {
-        g = "video";
-    } else if (volume_is_generic(s) || tone_is_generic(s)) {
-        g = "audio";
-    } else if (hk_is_generic(s)) {
-        g = "hotkeys";
-    } else if (baseset_is_generic(s)) {
-        g = baseset_kind(s) == 1 ? "look" : "appinput";
-    } else if (home_is_generic(s) && !strcasecmp(s.key, REOPEN_KEY)) {
-        g = "menu";
-    } else if (persist_is_generic(s) || home_is_generic(s)) {
-        g = "storage";
-    }
-    for (unsigned i = 0; g && i < sizeof(g_routes) / sizeof(g_routes[0]); i++) {
-        if (!strcmp(g_routes[i].group, g)) {
-            return &g_routes[i];
+    return &g_base_place;
+}
+
+static const MenuGroupRoute *route_named(const UiPlace *pl, const char *group)
+{
+    for (int i = 0; group && i < pl->nroutes; i++) {
+        if (!strcmp(pl->routes[i].group, group)) {
+            return &pl->routes[i];
         }
     }
     return 0;
+}
+
+static bool key_same(const char *a, const char *b)
+{
+    return (!a && !b) || (a && b && !strcasecmp(a, b));
+}
+
+int menu_place_merge(const UiPlace *core, UiPlace *out, char *why, int whylen)
+{
+    *out = g_base_place;
+    if (whylen > 0) {
+        why[0] = 0;
+    }
+    int refused = 0;
+    auto note = [&](const char *op, const char *what) {
+        refused++;
+        size_t l = whylen > 0 ? strlen(why) : 0;
+        if (whylen > 0 && l + 1 < (size_t)whylen) {
+            snprintf(why + l, (size_t)whylen - l, "%splace of \"%s\": %s", l ? "; " : "", op, what);
+        }
+    };
+    for (int i = 0; core && i < core->nroutes; i++) {
+        int at = -1;
+        for (int k = 0; k < out->nroutes; k++) {
+            if (!strcmp(out->routes[k].group, core->routes[i].group)) {
+                at = k;
+            }
+        }
+        if (at < 0 && out->nroutes < UI_ROUTES_MAX) {
+            at = out->nroutes++;
+        }
+        if (at < 0) {
+            note(core->routes[i].group, "no room for another route");
+            continue;
+        }
+        out->routes[at] = core->routes[i];
+    }
+    for (int i = 0; core && i < core->nrows; i++) {
+        const UiPlaceRow &c = core->rows[i];
+        int at = -1;
+        for (int k = 0; k < out->nrows; k++) {
+            if (!strcmp(out->rows[k].op, c.op) && key_same(out->rows[k].key, c.key)) {
+                at = k;
+            }
+        }
+        UiPlaceRow r = at >= 0 ? out->rows[at] : UiPlaceRow{ c.op, c.key, 0, 0, UI_NO_ORDER };
+        r.route = c.route ? c.route : r.route;
+        r.group = c.group ? c.group : r.group;
+        r.order = c.order != UI_NO_ORDER ? c.order : r.order;
+        if (r.route && !route_named(out, r.route)) {
+            char what[96];
+            snprintf(what, sizeof(what), "the route \"%s\" is in neither the base's table nor the core's", r.route);
+            note(c.op, what);
+            continue;
+        }
+        if (at < 0 && out->nrows < UI_PLACES_MAX) {
+            at = out->nrows++;
+        }
+        if (at < 0) {
+            note(c.op, "no room for another place");
+            continue;
+        }
+        out->rows[at] = r;
+    }
+    return refused;
+}
+
+const UiPlaceRow *menu_place_of(const UiPlace *pl, const Setting &s)
+{
+    if (!pl) {
+        pl = &g_base_place;
+    }
+    if (!s.apply) {
+        return 0;
+    }
+    const UiPlaceRow *any = 0;
+    for (int i = 0; i < pl->nrows; i++) {
+        const UiPlaceRow &r = pl->rows[i];
+        if (strcmp(r.op, s.apply)) {
+            continue;
+        }
+        if (!r.key) {
+            any = &r;
+        } else if (s.key && !strcasecmp(r.key, s.key)) {
+            return &r;                                                  // a place with the row's key wins over one for the operation alone
+        }
+    }
+    return any;
+}
+
+const MenuGroupRoute *menu_route_of(const Setting &s, const UiPlace *pl)
+{
+    if (!pl) {
+        pl = &g_base_place;
+    }
+    const UiPlaceRow *r = menu_place_of(pl, s);
+    return r ? route_named(pl, r->route) : 0;
+}
+
+void menu_place_groups(const UiPlace *pl, Setting *settings, int n)
+{
+    for (int i = 0; i < n; i++) {
+        const UiPlaceRow *r = menu_place_of(pl, settings[i]);
+        if (r && r->group) {
+            settings[i].group = r->group;
+        }
+    }
+}
+
+// The order in which the rows are visited: every row keeps its index, except that the rows the table gives an order take the places of those rows among themselves in the order
+// of their numbers (equal numbers keep their indices). A table whose numbers rise with the indices changes nothing.
+static void place_order(const UiPlace *pl, const CoreDesc *d, int16_t *ord, int16_t *tmp)
+{
+    int n = 0;
+    for (int i = 0; i < d->nsettings; i++) {
+        ord[i] = (int16_t)i;
+        const UiPlaceRow *r = menu_place_of(pl, d->settings[i]);
+        if (r && r->order != UI_NO_ORDER) {
+            tmp[n++] = (int16_t)i;
+        }
+    }
+    int16_t *sorted = tmp + n;
+    for (int k = 0; k < n; k++) {
+        int32_t o = menu_place_of(pl, d->settings[tmp[k]])->order;
+        int j = k;
+        while (j > 0 && menu_place_of(pl, d->settings[sorted[j - 1]])->order > o) {
+            sorted[j] = sorted[j - 1];
+            j--;
+        }
+        sorted[j] = tmp[k];
+    }
+    for (int k = 0; k < n; k++) {
+        ord[tmp[k]] = sorted[k];
+    }
 }
 
 // The tab of the route where the rows of `r` are listed: the area's tab of that id, else (a core that has no such tab) its tab "settings"; null when the area has neither,
@@ -310,6 +422,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
 {
     memset(t, 0, sizeof(*t));
     const Skeleton *sk = mm && mm->skel ? mm->skel : contrib_default_skeleton();
+    const UiPlace *pl = mm && mm->has_place ? &mm->place_store : &g_base_place;
+    int16_t ord[SETTINGS_MAX], ord_tmp[2 * SETTINGS_MAX];                   // D32: the order of the rows the table places
+    place_order(pl, d, ord, ord_tmp);
     for (int ai = 0; ai < sk->nareas; ai++) {
         const SkelArea &sa = sk->areas[ai];
         MenuArea *a = area(t, sa.key, sa.name ? sa.name : (d->short_title ? d->short_title : d->cor_name), sa.shifted);
@@ -384,7 +499,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             };
             // a setting of this tab in the group g (gl characters): not one the route places in a tab of its own
             auto setting_in = [&](int i, const char *g, size_t gl) {
-                const MenuGroupRoute *r = menu_route_of(d->settings[i]);
+                const MenuGroupRoute *r = menu_route_of(d->settings[i], pl);
                 const char *sg = setting_group(d, mm, i);
                 return !(r && route_tab(sk, r)) && sg && strlen(sg) == gl && !strncmp(sg, g, gl) && group_in_tab(sk, TW_SETTINGS, st, sg);
             };
@@ -500,11 +615,11 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             case TW_SETTINGS: {
                 // the rows the table places in this tab (routed), and the machine's own (the descriptor's groups); with both a heading names each block
                 auto routed_here = [&](int i) -> const MenuGroupRoute * {
-                    const MenuGroupRoute *r = menu_route_of(d->settings[i]);
+                    const MenuGroupRoute *r = menu_route_of(d->settings[i], pl);
                     return r && route_tab(sk, r) == &st ? r : 0;
                 };
                 auto machine_here = [&](int i) -> bool {
-                    const MenuGroupRoute *r = menu_route_of(d->settings[i]);
+                    const MenuGroupRoute *r = menu_route_of(d->settings[i], pl);
                     if (r && route_tab(sk, r)) {
                         return false;
                     }
@@ -565,7 +680,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         if (pages.of(sec_g[g], sec_l[g]) >= 0) {
                             continue;
                         }
-                        for (int i = 0; i < d->nsettings; i++) {
+                        for (int oi = 0; oi < d->nsettings; oi++) {
+                            const int i = ord[oi];
                             const MenuGroupRoute *rt = routed_here(i);
                             // a routed row that names one of the tab's groups stands in it, unless it opens a page (its EK_OPENS row is made below)
                             const char *sg = (machine_here(i) || (!heads && rt && !rt->page)) ? setting_group(d, mm, i) : 0;
@@ -584,7 +700,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                             add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                         }
                         if (g == 0 && !heads) {
-                            for (int i = 0; i < d->nsettings; i++) {
+                            for (int oi = 0; oi < d->nsettings; oi++) {
+                                const int i = ord[oi];
                                 const MenuGroupRoute *rt = routed_here(i);
                                 if (!machine_here(i) && rt && (rt->page || !in_section(setting_group(d, mm, i)))) {
                                     add_routed(i, rt);
@@ -603,7 +720,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 if (heads && nmachine > 0) {
                     add(t, EK_HEADING, "Machine", 0);
                 }
-                for (int i = 0; i < d->nsettings; i++) {                     // the descriptor's order; without headings the routed rows keep their place among them
+                for (int oi = 0; oi < d->nsettings; oi++) {                     // the descriptor's order; without headings the routed rows keep their place among them
+                    const int i = ord[oi];
                     if (machine_here(i)) {
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                     } else if (!heads && routed_here(i)) {
@@ -612,11 +730,12 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 }
                 }
                 if (heads) {                                                 // one block per route group (Storage, Menu), each under its heading
-                    for (int g = 0; g < (int)(sizeof(g_routes) / sizeof(g_routes[0])); g++) {
+                    for (int g = 0; g < pl->nroutes; g++) {
                         bool head_done = false;
-                        for (int i = 0; i < d->nsettings; i++) {
+                        for (int oi = 0; oi < d->nsettings; oi++) {
+                            const int i = ord[oi];
                             const MenuGroupRoute *r = machine_here(i) ? 0 : routed_here(i);
-                            if (r != &g_routes[g]) {
+                            if (r != &pl->routes[g]) {
                                 continue;
                             }
                             if (!head_done && !r->page) {                    // a page row brings its heading where the row stands (below), not before it is placed
@@ -739,7 +858,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         } else if (h) {
                             t->nheads--;
                         }
-                        for (int i = 0; i < d->nsettings; i++) {
+                        for (int oi = 0; oi < d->nsettings; oi++) {
+                            const int i = ord[oi];
                             if (setting_in(i, g, gl)) {
                                 add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                             }
@@ -761,8 +881,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     pg->n = 0;
                     pg->page = true;
                     pg->parent = (int8_t)parent;
-                    for (int i = 0; i < d->nsettings; i++) {
-                        const MenuGroupRoute *r = menu_route_of(d->settings[i]);
+                    for (int oi = 0; oi < d->nsettings; oi++) {
+                        const int i = ord[oi];
+                        const MenuGroupRoute *r = menu_route_of(d->settings[i], pl);
                         if (r && r == page_route && route_tab(sk, r) == &st) {
                             add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                         }

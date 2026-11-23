@@ -5,6 +5,7 @@ writes a record that its own reader (and the board's, tests/coreapp/test_descrec
   python3 tools/test_descrec.py        (also collected by python3 -m pytest tools/test_descrec.py)
 """
 import os
+import subprocess
 import sys
 import unittest
 
@@ -1163,6 +1164,72 @@ class TomlA(unittest.TestCase):
         self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "uci"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+
+
+class RoutesAndPlaces(unittest.TestCase):
+    """T239.3 D32: the routes and places of a core's UI TOML (sections 23 and 24). The C++ reader of the same rules is tests/coreapp/test_uiplace.cc (fixture
+    tests/coreapp/golden/desc_places.toml); the SDK's own table is coreapp/base_ui.toml, which tools/gen_base_ui.py turns into the C++ table."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    T = """
+[[group_route]]
+group = "extras"
+area = "F5"
+tab = "video"
+heading = "Extras"
+
+[[group_route]]
+group = "hk"
+area = "F7"
+tab = "settings"
+heading = "Hotkeys"
+label = "Hotkeys"
+page = true
+
+[[place]]
+op = "volume.apply"
+route = "extras"
+group = "video"
+order = -5
+
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+order = 75
+
+[[place]]
+op = "tone.apply"
+group = "audio_2"
+"""
+
+    def test_the_tables_are_a_version_6_record_that_needs_no_core_and_read_back(self):
+        b = D.compile_text(self.T)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertEqual(r["group_route"], [{"group": "extras", "area": "F5", "tab": "video", "heading": "Extras"},
+                                            {"group": "hk", "area": "F7", "tab": "settings", "heading": "Hotkeys", "label": "Hotkeys", "page": True}])
+        self.assertEqual(r["place"], [{"op": "volume.apply", "route": "extras", "group": "video", "order": -5},
+                                      {"op": "home.apply", "key": "Home Directory", "order": 75},
+                                      {"op": "tone.apply", "group": "audio_2"}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(__import__("tomllib").loads(self.T)), b)
+
+    def test_a_place_names_an_operation_the_application_exports(self):
+        ops = "op\tvolume.apply\tvalue:int:0:40:0:\nop\thome.apply\tvalue:int:0:2000:0:\n"
+        D.compile_checked('[[place]]\nop = "volume.apply"\norder = 1\n', ops)
+
+    def test_the_base_table_is_whole_and_current(self):
+        rec = D.parse_desc(D.compile_text(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read()))
+        names = {r["group"] for r in rec["group_route"]}
+        self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "look", "appinput", "storage", "menu"])
+        for p in rec["place"]:
+            self.assertIn(p["route"], names, p["op"])
+            self.assertIn("group", p)
+            self.assertIn("order", p)
+        orders = [p["order"] for p in rec["place"]]
+        self.assertEqual(orders, sorted(orders))                       # the order the application adds the rows in
+        self.assertEqual(len(orders), len(set(orders)))
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

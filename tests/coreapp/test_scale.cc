@@ -109,6 +109,7 @@ static void follow_item()
         const MenuGroupRoute *rt = menu_route_of(f);                              // D5: with the other picture rows, F5 Video
         CHECK(rt != 0);
         if (rt) { CHECK_STR(rt->area, "F5"); CHECK_STR(rt->tab, "video"); }
+        menu_place_groups(menu_place_base(), items, ext.nsettings);                // D32: the group of a base row comes from the base UI TOML, not from picture_extend
         CHECK_EQ(ext.settings[picture_index(&ext)].group != 0 && !strcmp(ext.settings[picture_index(&ext)].group, f.group), 1);
         OpRegistry reg; picture_register(reg);
         CHECK(reg.find_op(FOLLOW_OP) != 0);

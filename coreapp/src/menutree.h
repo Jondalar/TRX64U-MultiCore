@@ -11,6 +11,7 @@
 #define COREAPP_MENUTREE_H
 
 #include "desc.h"
+#include <stdint.h>
 
 enum EntryKind {
     EK_TASK,            // a descriptor task
@@ -149,9 +150,9 @@ void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis = 0, void *vis_
 // Takes entry `i` of a tab out of the tree; the tabs behind it keep their entries (T228 DC1: MenuCtl drops a flat list's row whose `hide` holds).
 void menu_drop_entry(MenuTree *t, int area, int tab, int i);
 
-// T187 D1: the one table that says where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
+// T187 D1, T239.3 D32: a block of rows of a tab, where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
 // core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup, the look, joystick and mouse of baseset.h) is named by what it does (its
-// operation), not by the group a descriptor wrote on it. `area` is the key of the area, `tab` the tab's id there, `heading` the group's name; a core whose
+// operation), not by the group a descriptor wrote on it; the routes are the base UI TOML's (below). `area` is the key of the area, `tab` the tab's id there, `heading` the group's name; a core whose
 // route has no such tab (a record without the area) lists the row where the ungrouped settings are.
 struct MenuGroupRoute {
     const char *group;      // "video", "audio", "hotkeys", "look", "appinput", "storage", "menu"
@@ -161,7 +162,36 @@ struct MenuGroupRoute {
     const char *label;      // a page's row in the tab ("Hotkeys")
     bool page;              // the rows are not in the tab: one row there opens a page of them (Hotkeys)
 };
-const MenuGroupRoute *menu_route_of(const Setting &s);
+// T239.3 D32: where each of those rows stands comes from records. The SDK's base UI TOML (coreapp/base_ui.toml, compiled into base_ui.inc by tools/gen_base_ui.py) holds the routes and one
+// place per row; a core's UI TOML (descrec.h sections 23 and 24) places a base row elsewhere. A place finds its row by the operation (`op`, Setting::apply) and, when the operation serves
+// several rows, the key; a place with a key wins over one without. Null route / group, and UI_NO_ORDER, mean "not placed by this table".
+#define UI_ROUTES_MAX 16
+#define UI_PLACES_MAX 64
+#define UI_NO_ORDER (-2147483647 - 1)
+struct UiPlaceRow {
+    const char *op;
+    const char *key;        // null: every row of the operation
+    const char *route;      // the group of a MenuGroupRoute: the block, tab and area the row stands in; null: not routed by this table
+    const char *group;      // the Setting::group the row gets (what a tab that lists `groups` or `sections` goes by); null: the row's own
+    int32_t order;          // the row's place among the placed rows (equal numbers keep the order the application added them in), UI_NO_ORDER: its index
+};
+struct UiPlace {
+    MenuGroupRoute routes[UI_ROUTES_MAX];
+    int nroutes;
+    UiPlaceRow rows[UI_PLACES_MAX];
+    int nrows;
+};
+// The base's table (base_ui.inc).
+const UiPlace *menu_place_base();
+// base + core: `out` is the base's table with the core's routes (a route of an existing group replaces it, others are added) and its places (a place of an existing operation and key changes only
+// what it names; others are added). A core place that names a route which neither table has is not applied; the sentence names it in why (as many as fit). Returns how many were refused.
+int menu_place_merge(const UiPlace *core, UiPlace *out, char *why, int whylen);
+// The place of a row: null when the table has none for its operation (and key).
+const UiPlaceRow *menu_place_of(const UiPlace *pl, const Setting &s);
+// The route of a row (null: it is not a row the table places) in `pl`, the base's table when null.
+const MenuGroupRoute *menu_route_of(const Setting &s, const UiPlace *pl = 0);
+// Gives every row of `settings` that the table places the group the table names (the extend functions of menubuild.cc no longer write one).
+void menu_place_groups(const UiPlace *pl, Setting *settings, int n);
 
 // The area a key selects, or -1. Takes the logical key (KEY_F1..KEY_F8), not a shift state.
 int menu_area_of_key(const MenuTree *t, int key);
