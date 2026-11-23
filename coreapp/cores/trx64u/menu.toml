@@ -713,13 +713,13 @@ ext = ".prg"
   [[filetype.action]]
   label = "Run PRG"
   key = "R"
-  op = "c64.run_prg"
+  op = "prg.run"
   bind = [ { arg = "path", file = true } ]
   closes_menu = true
   [[filetype.action]]
   label = "Load PRG and start from"
   key = "L"
-  op = "c64.load_prg"
+  op = "prg.load"
   bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
   closes_menu = true
   ask = "Start address"
@@ -734,13 +734,13 @@ ext = ".p00"
   [[filetype.action]]
   label = "Run PRG"
   key = "R"
-  op = "c64.run_prg"
+  op = "prg.run"
   bind = [ { arg = "path", file = true } ]
   closes_menu = true
   [[filetype.action]]
   label = "Load PRG and start from"
   key = "L"
-  op = "c64.load_prg"
+  op = "prg.load"
   bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
   closes_menu = true
   ask = "Start address"

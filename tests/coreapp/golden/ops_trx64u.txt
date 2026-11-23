@@ -90,9 +90,9 @@ op	c64.put_basic	data:blob:0:0:0:
 op	c64.put_kernal	data:blob:0:0:0:
 op	c64.put_char	data:blob:0:0:0:
 op	c64.set_freeze_mode	value:int:0:1:0:
-op	c64.run_prg	path:path:0:0:519:
+op	prg.run	path:path:0:0:519:
 op	files.run_with_app	path:path:0:0:519:
-op	c64.load_prg	path:path:0:0:519:	start:int:0:65535:0:
+op	prg.load	path:path:0:0:519:	start:int:0:65535:0:
 op	c64.run_crt	path:path:0:0:519:
 op	c64.dma_prg	path:path:0:0:519:
 op	dma.write	address:int:0:65535:0:	data:blob:0:0:0:

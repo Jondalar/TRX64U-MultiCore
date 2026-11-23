@@ -64,7 +64,7 @@ int rest_serve_bad(const HttpReq &q, char *out, int cap);
 struct RestAlias {
     const char *method;                   // "PUT"
     const char *pattern;                  // "/v1/machine:reset", or segments with {name} (becomes the argument `name`) and {_} (ignored)
-    const char *ops;                      // "prg.run|c64.run_prg": the first one registered is called
+    const char *ops;                      // the operation names, several joined by |: the first one registered is called
     const char *from;                     // an argument the client names `from` is `to` for the operation; null: none renamed
     const char *to;
 };
