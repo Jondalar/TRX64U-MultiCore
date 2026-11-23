@@ -31,7 +31,7 @@ _R9 = "T228 R9 (Alex 2026-11-17: F5 C64 = C64 | TRX | Expansion | Video | Audio 
 # T228 R1: no F2 and no F4 area (Timewarp and Monitor are pages of Home, tab 0); R6-R8: F8 is one System tab (Network settings, Streams and FTP hosts
 # are its pages, no Device and no Diagnostics tab); R5b: the SID pages are pages of Audio; F7 is one tab with the apps under their heading.
 DEVIATIONS = {
-    ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT),
+    ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search); the sub-app apps/online brings it, so a menu record of the core alone has none (T239.3 L-3)"),
     ("F5", 1): ("C64", "tab 1 is C64 (Machine, Drive A, Drive extras, Hardware), " + _R9),
     ("F5", 2): ("TRX", "tab 2 is TRX (TRX64, Recording), " + _R9),
     ("F5", 3): ("Expansion", "tab 3 is Expansion (Cartridge, REU, Ultimate), " + _R9),

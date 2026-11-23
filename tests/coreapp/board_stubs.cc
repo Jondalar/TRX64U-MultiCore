@@ -1,5 +1,5 @@
 // The board side of the TRX64U application, as far as the core application's base (menuctl.cc, c64.cc) reaches it. The contributors the C64 descriptor registers
-// (u64cfg, libfiles, ringops, monitor, online, diag, netops, trx64u_ops) and the monitor session menuctl.cc drives need the board's headers (U64 registers, USB HID,
+// (u64cfg, libfiles, ringops, monitor, diag, netops, trx64u_ops) and the monitor session menuctl.cc drives need the board's headers (U64 registers, USB HID,
 // FileManager, the network stack, FreeRTOS), which this native build does not have: each registers nothing and answers nothing here. The image registers them,
 // and its export is tests/coreapp/golden/ops_trx64u.txt (tests/ui/export.py; the suite's export.feature compares it with a running image). t64.cc is linked for real.
 #include <deque>
@@ -13,7 +13,6 @@
 #include "libfiles.h"
 #include "ringops.h"
 #include "monitor.h"
-#include "online.h"
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
@@ -41,7 +40,6 @@ void monitor_register(OpRegistry &r)
     r.add_op("monitor.tick", 0, 0, stub_mon_tick);
     r.add_state("monitor.wants_stop", stub_mon_wants_stop);
 }
-void online_register(OpRegistry &) { }
 void diag_register(OpRegistry &) { }
 void netops_register(OpRegistry &) { }
 
@@ -53,13 +51,13 @@ static int stub_op(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
 int stub_state_calls;                                       // how often a menu asked one of these states (tools/menusim --stats counts it per key)
 static const char *stub_state(CoreCtx *) { stub_state_calls++; return ""; }
 // T228: the states that decide which rows the TRX64U menu shows, answered as the board does under the MultiCore host with the ring in the bitstream:
-// Softboot is not offered (DC1), Save frame and Save the ring can run, the Online form's twelve choice rows stay hidden until the choices are loaded
+// Softboot is not offered (DC1), Save frame and Save the ring can run
 static const char *stub_multicore(CoreCtx *) { stub_state_calls++; return "MultiCore host"; }
 static const char *stub_yes(CoreCtx *) { stub_state_calls++; return "1"; }
 static state_fn stub_state_of(const std::string &n)
 {
     if (n == "host.multicore") return stub_multicore;
-    if (n == "tw.present" || (n.compare(0, 8, "online.p") == 0 && n.size() > 5 && n.compare(n.size() - 5, 5, ".hide") == 0)) return stub_yes;
+    if (n == "tw.present") return stub_yes;
     return stub_state;
 }
 void trx64u_register(OpRegistry &r)

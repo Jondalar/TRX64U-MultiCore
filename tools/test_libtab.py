@@ -39,7 +39,7 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         L.check_files(libs, ROOT)
         names = [x["name"] for x in libs]
-        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "online"):
+        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64"):
             self.assertIn(need, names)
         run = [x for x in libs if x["name"] == "cbmrun"][0]
         self.assertIn("c64_go.cc", run["sources"])                   # c64_go is part of cbmrun (P1-8)

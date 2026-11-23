@@ -156,12 +156,6 @@ op	mon.run	line:string:0:0:60:
 op	monitor.key	key:int:0:8191:0:
 op	monitor.open
 op	monitor.tick
-op	online.set	field:string:0:0:12:	text:string:0:0:47:
-op	online.library
-op	online.presets
-op	online.cycle	slot:int:0:11:0:
-op	online.clear
-op	online.search
 op	diag.save_log	name:string:0:0:55:
 op	diag.save_edid	name:string:0:0:55:
 op	diag.clear_log
@@ -298,54 +292,6 @@ state	tw.present
 state	tw.running
 state	tw.stopped
 state	monitor.wants_stop
-state	online.library
-state	online.name
-state	online.group
-state	online.handle
-state	online.event
-state	online.v.name
-state	online.v.group
-state	online.v.handle
-state	online.v.event
-state	online.loaded
-state	online.unloaded
-state	online.results
-state	online.p0.title
-state	online.p0.value
-state	online.p0.hide
-state	online.p1.title
-state	online.p1.value
-state	online.p1.hide
-state	online.p2.title
-state	online.p2.value
-state	online.p2.hide
-state	online.p3.title
-state	online.p3.value
-state	online.p3.hide
-state	online.p4.title
-state	online.p4.value
-state	online.p4.hide
-state	online.p5.title
-state	online.p5.value
-state	online.p5.hide
-state	online.p6.title
-state	online.p6.value
-state	online.p6.hide
-state	online.p7.title
-state	online.p7.value
-state	online.p7.hide
-state	online.p8.title
-state	online.p8.value
-state	online.p8.hide
-state	online.p9.title
-state	online.p9.value
-state	online.p9.hide
-state	online.p10.title
-state	online.p10.value
-state	online.p10.hide
-state	online.p11.title
-state	online.p11.value
-state	online.p11.hide
 state	usb.mouse
 state	usb.mouse_mode
 state	usb.keyboard

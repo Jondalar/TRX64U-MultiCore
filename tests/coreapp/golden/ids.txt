@@ -381,26 +381,6 @@ TRX64U F1/home 8 fixed:10:Save as config...
 TRX64U F1/home 9 fixed:11:Load config...
 TRX64U F1/timewarp 0 node:tw.resume
 TRX64U F1/monitor 0 node:mon.run:?
-TRX64U F3/online 0 node:online.search
-TRX64U F3/online 1 node:online.library
-TRX64U F3/online 2 node:online.set:name:
-TRX64U F3/online 3 node:online.set:group:
-TRX64U F3/online 4 node:online.set:handle:
-TRX64U F3/online 5 node:online.set:event:
-TRX64U F3/online 6 node:online.presets
-TRX64U F3/online 7 node:online.cycle:n0
-TRX64U F3/online 8 node:online.cycle:n1
-TRX64U F3/online 9 node:online.cycle:n2
-TRX64U F3/online 10 node:online.cycle:n3
-TRX64U F3/online 11 node:online.cycle:n4
-TRX64U F3/online 12 node:online.cycle:n5
-TRX64U F3/online 13 node:online.cycle:n6
-TRX64U F3/online 14 node:online.cycle:n7
-TRX64U F3/online 15 node:online.cycle:n8
-TRX64U F3/online 16 node:online.cycle:n9
-TRX64U F3/online 17 node:online.cycle:n10
-TRX64U F3/online 18 node:online.cycle:n11
-TRX64U F3/online 19 node:online.clear
 TRX64U F5/machine 0 fixed:13:Machine
 TRX64U F5/machine 1 set:Fast Reset
 TRX64U F5/machine 2 set:Kernal ROM
