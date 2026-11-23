@@ -65,6 +65,11 @@ gen() {
        "linked in $(python3 -c "print('%.1f' % ($(now) - $t0))") s"
 }
 
+# T239.3 D32: the rows' tab, group and order are the base UI TOML's (coreapp/base_ui.toml, a core's menu.toml places over it): the table the simulator links is made of that file now
+if [ -z "$HOST" ] && [ -f "$ROOT/tools/gen_base_ui.py" ]; then
+  python3 "$ROOT/tools/gen_base_ui.py" --check > /dev/null 2>&1 || python3 "$ROOT/tools/gen_base_ui.py" > /dev/null
+fi
+
 if [ -n "$HOST" ]; then
   [ -f "$ROOT/tests/hostapp/srclist.sh" ] || { echo "menusim: $ROOT has no tests/hostapp/srclist.sh (older than T236): --host needs it" >&2; exit 1; }
   # shellcheck source=/dev/null

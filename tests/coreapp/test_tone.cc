@@ -48,6 +48,7 @@ int main()
     CHECK(!tone_extend(&nes_desc, &gd, gs));
     CHECK_EQ(gd.nsettings, nes_desc.nsettings + 1);
     CHECK_EQ(count_key(gd, TONE_KEY), 1);
+    menu_place_groups(menu_place_base(), gs, gd.nsettings);          // D32: the group of a base row comes from the base UI TOML, not from tone_extend
     {   const Setting &t = gd.settings[gd.nsettings - 1];
         CHECK(tone_is_generic(t) && !t.bind);
         CHECK_EQ(t.when, WHEN_LIVE);

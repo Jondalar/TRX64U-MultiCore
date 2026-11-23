@@ -189,7 +189,6 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         s.when = WHEN_LIVE;
         s.apply = defs[i].op;
         s.base = defs[i].base;
-        s.group = "app";
         s.show_state = defs[i].show && want[B_MODE] ? defs[i].show : 0;     // "only while Mouse Mode says cursor keys" needs the row that says it
     }
     out->settings = store;

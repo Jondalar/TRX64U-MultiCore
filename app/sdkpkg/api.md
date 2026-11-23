@@ -1769,6 +1769,19 @@ Since base 3.2.
 | `LibExportDecl.table` | The table: a block that starts with a `uint32_t` `size`, in the image or in memory the library keeps. It is not null. |
 | `LibExportDecl.size` | The size of the table in bytes, at least 4. `find` hands it back as `table_size`. |
 
+### 6.14 Where the rows of the base stand: `[[group_route]]` and `[[place]]`
+
+Since base 3.3.
+
+6.14.1 The base adds rows to the menu of every core: Picture, Scale, Smoothing, Frame follow, Volume, Tone, Persist medium mounts, Home directory, Enter home on startup, Menu opens at, the hotkeys, and the look, joystick and mouse rows. The tab, the heading, the setting group and the place among the other rows of each come from records, not from code.
+6.14.2 The base's own record is `coreapp/base_ui.toml`. It holds one `[[group_route]]` per block (`group`, `area` F1 to F8, `tab`, `heading`, and for a page `label` and `page = true`) and one `[[place]]` per row.
+6.14.3 A `[[place]]` finds its row by `op` (the operation of the row, `Setting::apply`) and, when one operation serves several rows, by `key` (case does not matter). A place with a key wins over a place for the operation alone. Its `route` names the block, its `group` is the setting group the row gets, its `order` is the place among the placed rows.
+6.14.4 The rows are visited in the order of the numbers; equal numbers keep the order in which the base adds the rows. The rows that are not placed keep their positions.
+6.14.5 The UI TOML of a core (`menu.toml`) may contain `[[group_route]]` and `[[place]]` tables too (sections 20 and 21 of its record, which need no `[core]`). A route of an existing `group` replaces the base's route; another is added, at most 16 in all.
+6.14.6 A place of the core names an operation and a key that the base's table has: it changes only what it names, and the rest stays as the base's table has it. A place of another operation or key is added to the table, at most 64 in all.
+6.14.7 A place that names a route which neither table has is refused when the menu is built: the log has the line `[menu] refused: place of "<op>": the route "<route>" is in neither the base's table nor the core's`, and the row stays where it was.
+6.14.8 `cor_pack.py` refuses a place whose `op` the application does not export, with the `--ops` list. The menu simulator builds the menu from the same records, so a place changed in `menu.toml` shows at the next reload.
+
 ## 7. Limits
 
 | Limit | Value |

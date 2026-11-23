@@ -470,7 +470,6 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     m.def = preset_of(sp->def);
     m.when = WHEN_LIVE;
     m.apply = HK_OP;
-    m.group = "input";
     for (int a = 0; a < n_items(sp); a++) {
         Setting &s = store[n++];
         s = Setting();
@@ -498,7 +497,6 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         }
         s.when = WHEN_LIVE;
         s.apply = HK_OP;
-        s.group = "input";
     }
     out->settings = store;
     out->nsettings = n;
@@ -551,7 +549,6 @@ const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
         s.def = val_of_key(task_default(d, idx, j));
         s.when = WHEN_LIVE;
         s.apply = HK_OP;
-        s.group = "input";
     }
     d->settings = store;
     d->nsettings = n;

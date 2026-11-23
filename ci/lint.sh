@@ -82,6 +82,7 @@ check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/
 check "descrec test" python3 tools/test_descrec.py
 # T104.2 D10: the menu record the application carries is what menu.toml compiles to (and every name in it is one the application exports); its areas and tabs are the concept's
 check "TRX64U menu record" python3 tools/gen_menu_rec.py --check
+check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_trx64u.txt
 # T192 D23 (Alex, 2026-11-09: "Until the UI, including the UX, works completely as an API client, it is a botch"): the host's screen changes no state outside host_core, acts on
 # no key itself (the key map is one table), carries no hand-written legend; what is not cut yet is the ledger (tools/host_cut_ledger.txt) and only shrinks.
 check "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'

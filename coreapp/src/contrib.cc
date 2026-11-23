@@ -16,7 +16,7 @@ static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0 } };
 // are the ones menutree.cc's group table names. What the old Summary tab showed (the media slots, the configs) is on Home.
 static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },
                                      { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
-// T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (menutree.cc g_routes) and what a library registers
+// T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (the base UI TOML, menutree.cc) and what a library registers
 // land here. The drive and reset tasks that were its Quick list are on Home.
 static const SkelTab t_app[] = { { "settings", "Settings", 0, TW_SETTINGS, "app" } };
 static const SkelTab t_system[] = { { "expert", "System", 0, TW_SYSTEM, 0 } };       // T187 D8: named System; the id stays, anchors name it

@@ -1,0 +1,191 @@
+# The SDK's base UI TOML (T239.3 D32): where every row the application adds to every core stands in the menu - its tab, its group and its place among the others.
+# tools/gen_base_ui.py compiles it with tools/descrec.py (sections 20 and 21, the same record a core's UI TOML carries) into coreapp/src/base_ui.inc, which menutree.cc includes;
+# tools/gen_base_ui.py --check (the lint stage) is red when the .inc is not what this file compiles to. The rows themselves (their values, defaults and operations) are code:
+# picture.cc, volume.cc, tone.cc, mediamounts.cc, home.cc, hotkeys.cc, baseset.cc; the menu simulator and the board build the same menu from this file.
+#
+# A core's UI TOML (menu.toml) puts a base row elsewhere with a [[place]] of the same operation (and key): it names the route, the group or the order it changes and leaves
+# the rest as it is here; a [[group_route]] of its own adds a block in a tab of its own route. The order numbers follow the order in which menubuild.cc adds the rows.
+
+# ---- the blocks: the tab of an area and the heading of the group (menutree.cc routes a row by the place it names)
+[[group_route]]
+group = "video"
+area = "F5"
+tab = "video"
+heading = "Video"
+
+[[group_route]]
+group = "audio"
+area = "F5"
+tab = "audio"
+heading = "Audio"
+
+# the app's settings stand on F7 (APP), not in the machine's F5 (T212 D1/D6); the hotkeys are one row that opens a page of them
+[[group_route]]
+group = "hotkeys"
+area = "F7"
+tab = "settings"
+heading = "Hotkeys"
+label = "Hotkeys"
+page = true
+
+[[group_route]]
+group = "look"
+area = "F7"
+tab = "settings"
+heading = "Look"
+
+[[group_route]]
+group = "appinput"
+area = "F7"
+tab = "settings"
+heading = "Input"
+
+[[group_route]]
+group = "storage"
+area = "F7"
+tab = "settings"
+heading = "Storage"
+
+[[group_route]]
+group = "menu"
+area = "F7"
+tab = "settings"
+heading = "Menu"
+
+# ---- the rows. Picture, Scale, Smoothing and Frame follow (picture.cc): the operations are the application's own, the key tells the rows apart
+[[place]]
+op = "picture.apply"
+key = "Picture"
+route = "video"
+group = "video"
+order = 10
+
+[[place]]
+op = "scale.apply"
+key = "Scale"
+route = "video"
+group = "video"
+order = 20
+
+[[place]]
+op = "smooth.apply"
+key = "Smoothing"
+route = "video"
+group = "video"
+order = 30
+
+[[place]]
+op = "follow.apply"
+key = "Frame follow"
+route = "video"
+group = "video"
+order = 40
+
+# Volume (volume.cc) and Tone (tone.cc)
+[[place]]
+op = "volume.apply"
+route = "audio"
+group = "audio"
+order = 50
+
+[[place]]
+op = "tone.apply"
+route = "audio"
+group = "audio"
+order = 60
+
+# Persist medium mounts (mediamounts.cc), Home directory, Enter home on startup and Menu opens at (home.cc)
+[[place]]
+op = "media.persist_apply"
+route = "storage"
+group = "storage"
+order = 70
+
+[[place]]
+op = "home.apply"
+key = "Enter Home on Startup"
+route = "storage"
+group = "storage"
+order = 80
+
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+route = "storage"
+group = "storage"
+order = 90
+
+[[place]]
+op = "home.apply"
+key = "Menu opens at"
+route = "menu"
+group = "system"
+order = 100
+
+# the hotkey map (hotkeys.cc): the modifier and one key per action and task, all on the Hotkeys page
+[[place]]
+op = "hotkeys.apply"
+route = "hotkeys"
+group = "input"
+order = 110
+
+# the look, the joystick and the mouse of the generic application (baseset.cc)
+[[place]]
+op = "base.overlay"
+route = "look"
+group = "app"
+order = 120
+
+[[place]]
+op = "base.scheme"
+route = "look"
+group = "app"
+order = 130
+
+[[place]]
+op = "base.squeeze"
+route = "look"
+group = "app"
+order = 140
+
+[[place]]
+op = "base.nav"
+route = "look"
+group = "app"
+order = 150
+
+[[place]]
+op = "base.joystick"
+route = "appinput"
+group = "app"
+order = 160
+
+[[place]]
+op = "base.mouse_mode"
+route = "appinput"
+group = "app"
+order = 170
+
+[[place]]
+op = "base.mouse_sens"
+route = "appinput"
+group = "app"
+order = 180
+
+[[place]]
+op = "base.mouse_accel"
+route = "appinput"
+group = "app"
+order = 190
+
+[[place]]
+op = "base.wheel_sens"
+route = "appinput"
+group = "app"
+order = 200
+
+[[place]]
+op = "base.wheel_dir"
+route = "appinput"
+group = "app"
+order = 210
