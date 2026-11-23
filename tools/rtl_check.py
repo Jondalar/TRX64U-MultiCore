@@ -62,6 +62,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # The clock-domain bridge's synchronizer carries its vector unchanged to the other clock: its outputs are its inputs (PASSTHROUGH: output port -> input port).
 SPLITTERS = ("io_bus_splitter",)
 PASSTHROUGH = {"synchronizer_gzw": {"rx_data": "tx_data", "rx_new_data": "tx_push"}}
+# Gideon's RAM entities: their architecture is a vendor file (shared variables, element writes) the check does not parse. A write is the request's data on the
+# data port while the write enable port is 1 for it (module -> (write enable port, data port)); the read data port is an answer that does not come from the literal 0.
+MEMORIES = {"dpram_8x16": ("wea", "dia"), "dpram_8x32": ("wea", "dia"), "pseudo_dpram_8x32": ("wr_en", "wr_data"), "dpram": ("a_we", "a_wdata")}
 
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
 
@@ -657,6 +660,16 @@ class VhdlParser(P):
 
     def arch_body(self, m):
         self.aliases = {}
+        self.arch_decls(m)
+        self.eat("begin")
+        while self.txt() != "end":
+            self.concurrent(m)
+        self.eat("end")
+        while self.txt() != ";":
+            self.eat()
+        self.eat(";")
+
+    def arch_decls(self, m):
         while self.txt() != "begin":
             w = self.txt()
             if w in ("signal", "constant", "shared"):
@@ -703,13 +716,6 @@ class VhdlParser(P):
                 self.skip_to(";")
             else:
                 raise self.err("a declaration I do not know")
-        self.eat("begin")
-        while self.txt() != "end":
-            self.concurrent(m)
-        self.eat("end")
-        while self.txt() != ";":
-            self.eat()
-        self.eat(";")
 
     def skip_to_end(self, kw):
         while not (self.txt() == "end" and self.txt(1) == kw):
@@ -784,6 +790,21 @@ class VhdlParser(P):
             self.instance(m, label, where)
         elif w == "if" and label:
             self.if_generate(m)
+        elif w == "block" and label:
+            # a block: its signals are the module's (names are unique in the files the check reads), its statements run as the module's own
+            self.eat()
+            if self.txt() == "(":
+                self.skip_to(")")
+            self.acc("is")
+            self.arch_decls(m)
+            self.eat("begin")
+            while self.txt() != "end":
+                self.concurrent(m)
+            self.eat("end")
+            self.eat("block")
+            if self.txt() != ";":
+                self.eat()
+            self.eat(";")
         elif w in ("for", "if", "block", "case"):
             raise self.err("a %s generate/block statement" % w)
         elif w == "assert":
@@ -891,6 +912,10 @@ class VhdlParser(P):
         if self.txt() == "when":
             self.eat()
             c = self.expr()
+            if self.txt() == ";":
+                # x <= e when rising_edge(clock);  the register takes e at the edge, no value otherwise: read like the clocked processes are (the
+                # request cycle's value)
+                return ("cond", c, e, ("n", V(0, mask(64), None)))
             self.eat("else")
             rest = self.waveform()
             return ("cond", c, e, rest)
@@ -2254,7 +2279,25 @@ class Ev:
         ctx.drv = drv
 
     def native(self, inst):
-        return inst.modname.lower() in SPLITTERS or inst.modname.lower() in PASSTHROUGH
+        return inst.modname.lower() in SPLITTERS or inst.modname.lower() in PASSTHROUGH or inst.modname.lower() in MEMORIES
+
+    def memory_write(self, ctx):
+        """(a RAM of this module takes a write from the request, certainly): the write enable is 1 or may be 1 for the request's address, and the data port carries the data."""
+        hit = None
+        for inst in ctx.mod.insts:
+            mem = MEMORIES.get(inst.modname.lower())
+            if mem is None:
+                continue
+            ports = {f.lower(): a for f, a in inst.ports}
+            we, di = ports.get(mem[0]), ports.get(mem[1])
+            if we is None or di is None or "a" not in self.taint(ctx, we) or "d" not in self.taint(ctx, di):
+                continue
+            t = truth(self.ev(ctx, we))
+            if t == 1:
+                return True
+            if t is None:
+                hit = False
+        return hit
 
     def split_info(self, ctx, inst):
         """Gideon's io_bus_splitter, read from its source: port i is selected by the address bits g_range_hi downto g_range_lo being i; it gets the request
@@ -3114,6 +3157,12 @@ class Ev:
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
+        if write:
+            for ctx in self.followed:
+                mw = self.memory_write(ctx)
+                if mw is not None:
+                    res["write"] = True
+                    res["cert"] = res.get("cert") or (mw and ctx.certain)
         res["cert"] = res.get("cert") or any(c.certain for c in self.followed[1:])
         res["core"] = write and self.core_handover(res)
         if not write:
