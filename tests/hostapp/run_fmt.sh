@@ -41,7 +41,7 @@ print("T111 bench ffconf.h: the board's, but for the RTOS mutex (REENTRANT 0) an
 PY
 
 CXXF=(-std=gnu++14 -w -g -O1 -DU64=2 -DRUNS_ON_PC)
-INC=(-I"$T/ffc" -I"$FFS" -I"$ROOT/tests/hostapp/stubfs" -I"$ROOT/tests/hostapp" -I"$H" -I"$HS/filesystem" -I"$HS/filemanager" -I"$HS/components" -I"$HS/infra" -I"$HS/system" -I"$HS/api")
+INC=(-I"$T/ffc" -I"$FFS" -I"$ROOT/tests/hostapp/stubfs" -I"$ROOT/tests/hostapp" -I"$H" -I"$HS/filesystem" -I"$HS/filemanager" -I"$HS/components" -I"$HS/infra" -I"$HS/system" -I"$HS/api" -I"$ROOT/coreapp/src" -I"$ROOT/uicore")
 obj() { local s="$1" o="$2"; shift 2; c++ "${CXXF[@]}" "${INC[@]}" ${1+"$@"} -c -o "$o" "$s"; }   # obj SRC OUT [flags]
 for c in ff ffunicode ffsystem; do cc -w -g -O1 -I"$T/ffc" -I"$FFS" -I"$HS/filesystem" -c -o "$T/o/$c.o" "$FFS/$c.c" & done
 cc -w -g -O1 -I"$H" -c -o "$T/o/sha256.o" "$H/sha256.c" &   # cor.cc (hostfs.cc names a core by cor_probe, T148)
@@ -51,7 +51,8 @@ SRCS=("$HS/filesystem/blockdev.cc" "$HS/filesystem/partition.cc" "$HS/filesystem
       "$HS/filesystem/file.cc" "$HS/filesystem/filesystem_fat.cc" "$HS/filesystem/filesystem_root.cc" "$HS/filesystem/diskio.cc"
       "$HS/filemanager/filemanager.cc" "$HS/filemanager/path.cc" "$HS/filemanager/file_device.cc" "$HS/filemanager/file_partition.cc"
       "$HS/components/mystring.cc" "$HS/components/pattern.cc" "$HS/components/size_str.cc"
-      "$H/hostfs.cc" "$H/discover.cc" "$H/mbr.cc" "$H/mediasniff.cc" "$H/mediaui.cc" "$H/mediaglue.cc" "$H/fmt.cc" "$H/fmtconfirm.cc" "$H/cor.cc")
+      "$H/hostfs.cc" "$H/discover.cc" "$H/mbr.cc" "$H/mediasniff.cc" "$H/mediaui.cc" "$H/mediaglue.cc" "$H/fmt.cc" "$H/fmtconfirm.cc" "$H/cor.cc"
+      "$H/coremaint.cc" "$H/fileops.cc" "$H/bootcfg.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/overlay.cc")   # hostfs.cc::core_roms reads record 6 through cm_rows_from_record (T239.3 P1-6; descrec.cc needs overlay.cc: T256)
 n=0
 for s in "${SRCS[@]}"; do
   obj "$s" "$T/o/$(basename "${s%.cc}").o" &

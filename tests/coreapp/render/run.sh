@@ -22,10 +22,12 @@ cp "$HA/lv_conf.h" "$B/"   # what lvgl_objs.sh puts beside the objects, made at 
 need_objs() { [ -n "${OBJS:-}" ] || OBJS="$("$ROOT/tests/lvgl_objs.sh" "$L" "$HA/lv_conf.h")"; }
 source "$ROOT/tests/coreapp/srclist.sh"   # T236 D2: the sources, defines and include path, shared with tools/menusim
 coreapp_srcs || exit 1
+# the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) names its registers through drvtab.h
+python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$B/drv" --maps "$ROOT/app/sdkpkg/maps" > /dev/null
 build() {   # build <output> [extra defines]
   need_objs
   # shellcheck disable=SC2086
-  c++ $CORE_DEFS -O1 -DGOLDEN_DIR=\"$ROOT/tests/coreapp/golden\" ${2:-} -I"$B" -iquote "$L" $CORE_INCS \
+  c++ $CORE_DEFS -O1 -DGOLDEN_DIR=\"$ROOT/tests/coreapp/golden\" ${2:-} -I"$B" -I"$B/drv" -iquote "$L" $CORE_INCS \
     -pthread -o "$1" "$R/render.cc" $SRCS "$OBJS"/*.o -lz -lm
 }
 CC_KEYEXTRA="lvgl=$LK srcs=$SRCS cheap=${CHEAP_DEBUG:-}"

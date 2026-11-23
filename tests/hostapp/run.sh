@@ -491,7 +491,7 @@ cc_block test_flashwrite t_test_flashwrite
 
 # T148 S6: the "Cores and ROMs" scan and the removal of what belongs to no core, over a RAM disk. Controls only for what protects saves and the flash medium.
 CMT="$ROOT/tests/hostapp/test_coremaint.cc"
-CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$ROOT/coreapp/src/descrec.cc" "$T/sha256.o")
+CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/overlay.cc" "$T/sha256.o")
 # T239.3 P1-6: the records the host reads a core's ROM needs from (record 6): trx64u's four ROMs, and the Amiga's ROM set
 mkdir -p "$T/cmrec"
 python3 -I - "$ROOT" "$T/cmrec" <<'PY'
