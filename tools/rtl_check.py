@@ -58,7 +58,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-BRIDGES = ("io_bus_splitter",)
+# Gideon's request splitter is modelled by the check itself (an array of request records is not in the evaluator's types): see Ev.split_info.
+# The clock-domain bridge's synchronizer carries its vector unchanged to the other clock: its outputs are its inputs (PASSTHROUGH: output port -> input port).
+SPLITTERS = ("io_bus_splitter",)
+PASSTHROUGH = {"synchronizer_gzw": {"rx_data": "tx_data", "rx_new_data": "tx_push"}}
+
 CLEAN_ROOM = ("ultisid", "copper", "lp_filter", "sampler")
 
 
@@ -311,7 +315,8 @@ def num_vhdl(kind, s):
                 else:
                     v |= int(ch)
             return V(v, x, len(body))
-        raise Unsupported("a string literal %s" % s)
+        # a text (a memory style, a vendor name): no value the decode can depend on, unknown if something compares it
+        return V(0, mask(64), None)
     if kind == "chr":
         ch = s[1]
         if ch in "01":
@@ -912,11 +917,13 @@ class VhdlParser(P):
                 f += "." + self.eat()[1]
             if self.txt() == "(":
                 self.eat()
-                depth = 1
+                depth, txt = 1, ""
                 while depth:
                     t = self.eat()[1]
                     depth += (t == "(") - (t == ")")
-                f += "()"
+                    if depth:
+                        txt += t
+                f += "(" + txt + ")"
             self.eat("=>")
             if self.txt() == "open":
                 self.eat()
@@ -1726,6 +1733,25 @@ def top_instances(design, topname, extra_names):
     # the ports of the top module itself (ANSI style, one name each): their widths too
     for dm in re.finditer(r"\b(?:input|output|inout)\s+(?:wire\s+|reg\s+)?(?:\[\s*(\d+)\s*:\s*(\d+)\s*\]\s*)?(\w+)\s*[,)]", text):
         m.nets.setdefault(dm.group(3), int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1)
+    # the parameters and localparams of the top file (its `ifdef branches decided by the defines): an instance's generic that names one has its value
+    toks = lex(text, "vlog", f)
+    for ti, tk in enumerate(toks):
+        if tk[1] in ("parameter", "localparam"):
+            pp = VlogParser(toks[ti + 1:], f)
+            try:
+                while pp.txt() in ("integer", "signed"):
+                    pp.eat()
+                if pp.txt() == "[":
+                    pp.rng()
+                while True:
+                    nm = pp.eat()[1]
+                    pp.eat("=")
+                    m.consts[nm] = pp.expr()
+                    if not (pp.txt() == "," and pp.txt(1) not in ("parameter", "localparam") and pp.txt(2) == "="):
+                        break
+                    pp.eat()
+            except Unsupported:
+                pass
     names = set(design.index) | set(extra_names)
     pos = 0
     pat = re.compile(r"\b([A-Za-z_]\w*)\s*(#\s*\()?")
@@ -2096,10 +2122,80 @@ class Ev:
             for k in out:
                 drv.setdefault(k, []).append(("proc", p))
         for inst in ctx.mod.insts:
+            mn = inst.modname.lower()
+            if mn in SPLITTERS:
+                si = self.split_info(ctx, inst)
+                for i, a in si["reqs"].items():
+                    drv.setdefault(a[1], []).append(("split", inst, i))
+                if si["resp"] is not None:
+                    drv.setdefault(si["resp"], []).append(("splitr", inst))
+                continue
+            if mn in PASSTHROUGH:
+                for f, a in inst.ports:
+                    if f in PASSTHROUGH[mn] and a is not None and a[0] == "id":
+                        drv.setdefault(a[1], []).append(("pass", inst, f))
+                continue
             for f, a in inst.ports:
                 if a is not None and a[0] == "id" and self.d.port_dir(inst.modname, f) == "out":
                     drv.setdefault(a[1], []).append(("inst", inst, f))
         ctx.drv = drv
+
+    def native(self, inst):
+        return inst.modname.lower() in SPLITTERS or inst.modname.lower() in PASSTHROUGH
+
+    def split_info(self, ctx, inst):
+        """Gideon's io_bus_splitter, read from its source: port i is selected by the address bits g_range_hi downto g_range_lo being i; it gets the request
+        with write and read cleared otherwise; the response is the OR of the responses of the ports. {lo, hi, n, req, resp, reqs: {i: id}, resps: {i: id}}"""
+        c = ctx.__dict__.setdefault("_split", {})
+        if id(inst) in c:
+            return c[id(inst)]
+        g = {"g_range_lo": 16, "g_range_hi": 19, "g_ports": 3}
+        for k in g:
+            if k in inst.generics:
+                v = self.ev(ctx, inst.generics[k])
+                if v.x or v.v is None:
+                    raise Unsupported("%s: the generic %s of the io_bus_splitter is not a constant" % (inst.where, k))
+                g[k] = v.v
+        si = {"lo": g["g_range_lo"], "hi": g["g_range_hi"], "n": g["g_ports"], "req": None, "resp": None, "reqs": {}, "resps": {}}
+        for f, a in inst.ports:
+            if a is None:
+                continue
+            fl = f.lower()
+            m = re.fullmatch(r"(reqs|resps)\((\d+)\)", fl)
+            if fl in ("req", "resp") and a[0] == "id":
+                si[fl] = a[1]
+            elif m and a[0] == "id":
+                si[m.group(1)][int(m.group(2))] = a
+            elif fl not in ("clock",):
+                raise Unsupported("%s: the io_bus_splitter port %s is connected in a form I do not know" % (inst.where, f))
+        if si["req"] is None:
+            raise Unsupported("%s: the io_bus_splitter has no request" % inst.where)
+        c[id(inst)] = si
+        return si
+
+    def split_sel(self, ctx, si, i):
+        """1, 0 or unknown: this request selects port i."""
+        a = self.val(ctx, si["req"] + ".address")
+        return v_eq(v_slice(a, si["hi"], si["lo"]), kn(i, si["hi"] - si["lo"] + 1))
+
+    def split_val(self, ctx, inst, i, fld, w):
+        si = self.split_info(ctx, inst)
+        v = self.val(ctx, si["req"] + "." + fld)
+        if fld in ("read", "write"):
+            return fit(v_bit(v, self.split_sel(ctx, si, i), "and"), w)
+        return fit(v, w)
+
+    def split_taint(self, ctx, inst, fld):
+        si = self.split_info(ctx, inst)
+        t = self.taint_name(ctx, si["req"] + "." + fld)
+        if fld in ("read", "write"):
+            t |= self.taint_name(ctx, si["req"] + ".address")
+        return t
+
+    def split_resps(self, ctx, inst):
+        """The response signals of the ports this request can select (the others are no origin of the answer)."""
+        si = self.split_info(ctx, inst)
+        return [a[1] for i, a in sorted(si["resps"].items()) if truth(self.split_sel(ctx, si, i)) != 0]
 
     def driven(self, ctx, name):
         if ctx.drv is None:
@@ -2133,6 +2229,15 @@ class Ev:
                     if p.clocked and not ent.v.known():
                         return self.state_val(ctx, name, w)
                     return fit(ent.v, w)
+                elif d[0] == "split":
+                    if key == name:
+                        raise Unsupported("a record of the io_bus_splitter used as a value")
+                    return self.split_val(ctx, d[1], d[2], name[len(key) + 1:], w)
+                elif d[0] == "splitr":
+                    return allx(w)
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    return fit(self.ev(ctx, src[0]), w) if src and src[0] is not None else allx(w)
                 elif d[0] == "inst":
                     ch = [c for c in self.followed if c.parent is ctx and c.inst is d[1]]
                     if ch:
@@ -2239,6 +2344,8 @@ class Ev:
             ws = [self.lhs_width(ctx, x, sc) for x in e[2].parts]
             lo = sum(ws[e[3] + 1:])
             return v_slice(fit(self.ev(ctx, e[1], sc), sum(ws)), lo + ws[e[3]] - 1, lo)
+        if k == "agg":
+            return V(0, mask(64), None)
         if k == "others":
             b = self.ev(ctx, e[1], sc)
             return V((mask(64) if b.v & 1 else 0), (mask(64) if b.x & 1 else 0), None)
@@ -2410,6 +2517,15 @@ class Ev:
                         t |= self.taint(ctx, r)
                 elif d[0] == "proc" and not d[1].clocked:
                     t |= self.proc_taint(ctx, d[1]).get(name, frozenset()) | self.proc_taint(ctx, d[1]).get(key, frozenset())
+                elif d[0] == "split" and key != name:
+                    t |= self.split_taint(ctx, d[1], name[len(key) + 1:])
+                elif d[0] == "splitr":
+                    for r in self.split_resps(ctx, d[1]):
+                        t |= self.taint_name(ctx, r + name[len(key):])
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    if src and src[0] is not None:
+                        t |= self.taint(ctx, src[0])
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
                     if ch:
@@ -2737,6 +2853,14 @@ class Ev:
                             out.add(("c", nv.v))
                         else:
                             out |= self.origins_expr(actx, rhs, snap, seen)
+                elif d[0] == "split":
+                    out |= {("c", None)}
+                elif d[0] == "splitr":
+                    for r in self.split_resps(ctx, d[1]):
+                        out |= self.origins(ctx, r + name[len(key):], seen)
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    out |= self.origins_expr(ctx, src[0], None, seen) if src and src[0] is not None else {("ext", name)}
                 elif d[0] == "inst":
                     ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
                     out |= self.origins(ch[0], d[2] + name[len(key):], seen) if ch else {("ext", name)}
@@ -2797,11 +2921,10 @@ class Ev:
                         continue
                     if ctx is self.top and inst is self.bus.inst:
                         continue
+                    if self.native(inst):
+                        continue
                     act = self.inst_active(ctx, inst)
                     if act:
-                        if inst.modname.lower() in BRIDGES:
-                            raise Unsupported("%s: the request reaches %s, a clock-domain bridge or an array of request records; its decode is not followed (a pass behind it would be the transport registers, not a decode)"
-                                              % (ctx.mod.fname, inst.modname))
                         c = ctx.child(inst)
                         self.check_assumed(c)
                         c.certain = act == 2
@@ -3023,8 +3146,25 @@ def _pkg_const(self, name):
         return c[name]
     res = None
     if "." not in name:
-        c[name] = None
-        return None
+        # a scalar constant of a package of the list with a literal (a bit string, a character, a decimal number)
+        for f in sorted(self.files):
+            if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
+                continue
+            body = re.sub(r"--[^\n]*", "", read_source(f))
+            m = re.search(r"\bconstant\s+%s\s*:\s*[^:;]+:=\s*([^;]+?)\s*;" % re.escape(name), body, re.I)
+            if m:
+                lit = m.group(1).strip()
+                if re.fullmatch(r"[xXbB]\"[0-9a-fA-F_]*\"", lit):
+                    res = num_vhdl("bs", lit)
+                elif re.fullmatch(r"\"[01]*\"", lit):
+                    res = num_vhdl("str", lit)
+                elif re.fullmatch(r"'.'", lit):
+                    res = num_vhdl("chr", lit)
+                elif re.fullmatch(r"\d[\d_]*", lit):
+                    res = num_vhdl("num", lit)
+                break
+        c[name] = res
+        return res
     base, field = name.split(".", 1)
     for f in sorted(self.files):
         if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
@@ -3411,6 +3551,8 @@ def main(argv):
     try:
         return (cmd_check if argv[1] == "check" else cmd_lint)(argv[2:])
     except (Unsupported, CheckError) as e:
+        if os.environ.get("RTL_CHECK_TRACE"):
+            raise
         print("rtl_check: %s%s" % ("an RTL pattern I do not know: " if isinstance(e, Unsupported) else "", e))
         return 1
 
