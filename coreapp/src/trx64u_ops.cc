@@ -1016,7 +1016,7 @@ static int uci_drive_do(CoreCtx *c, int idx, int what, const char *path, char *m
     static const char *const names[] = { "drive.mount", "drive.eject", "drive.swap", "drive.set_power", "drive.set_power" };
     OpIn in[3] = { in_str("slot", "iec:drive_a"), in_str("path", path ? path : ""), in_str("mode", "rw") };
     OpIn pw[1] = { in_int("value", what == 4 ? 1 : 0) };
-    OpResult *r = new OpResult;
+    OpResult *r = new OpResult();                            // zeroed: an index other than 0 fails without a call, so nothing else fills the message
     int rc = idx != 0 ? OPE_FAILED : ops_call(c, names[what], what == 0 ? in : what == 1 ? in : what == 2 ? in + 3 : pw, what == 0 ? 3 : what == 1 ? 1 : what == 2 ? 0 : 1, r);
     snprintf(msg, msglen, "%s", r->msg);
     delete r;

@@ -236,8 +236,10 @@ def check():
         if t.get("delivery") == "cfw":
             if not os.path.exists(os.path.join(CORES, name, "mono", "build_mono.tcl")):
                 bad += err("delivery = \"cfw\" needs cores/%s/mono/build_mono.tcl" % name)
-            if t.get("app") != "blueprint":
-                bad += err("delivery = \"cfw\" runs the generic application: app = \"blueprint\"")
+            # T255 D6: a large core that is not a machine (cores/ddt_mandel: the demo and its HDMI, no CPU in the bitstream) runs no application: app = "none", the .cor
+            # carries a placeholder record (ci/package.sh)
+            if t.get("app") not in ("blueprint", "none"):
+                bad += err("delivery = \"cfw\" runs the generic application (app = \"blueprint\") or none (app = \"none\")")
         elif "mono_env" in t:
             bad += err("mono_env belongs to delivery = \"cfw\"")
         for e in t.get("mono_env", []):

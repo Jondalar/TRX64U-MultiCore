@@ -54,7 +54,6 @@ coreapp/cores/cpc.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/cpc_disk.cc core-library the core's own file format or engine (D9)
 coreapp/cores/cpc_disk.h core-library the core's own file format or engine (D9)
 coreapp/cores/cpc_regs.h data register map (D8)
-coreapp/cores/ddt_mandel.cc core-library hooks and tables; no desc.toml yet (D9)
 coreapp/cores/ddt_novic.cc core-library hooks and tables; no desc.toml yet (D9)
 coreapp/cores/ddt_regs.h data register map (D8)
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores

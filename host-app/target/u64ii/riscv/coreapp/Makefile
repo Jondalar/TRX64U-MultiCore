@@ -230,7 +230,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			pet.cc \
 			c128.cc \
 			c64scpu.cc \
-			ddt_mandel.cc \
 			ddt_novic.cc \
 			portdiag.cc \
 			cbm_run.cc \

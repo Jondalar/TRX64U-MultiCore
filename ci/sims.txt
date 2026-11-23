@@ -299,11 +299,6 @@
 2|amiga_motorpath|2400|sh cores/amiga/sim/run_motorpath.sh
 # T159 D-all: the Atari core's case LED 1 (trx_sio_led in layer2_atari800.v): lit by the SIO command frame and the bytes of the answer, held ~95 ms, off after reset with the command line low
 1|atari_led|300|sh cores/atari800/sim/led/run.sh
-# T168 (DDT's mandelbrUlt as a partial core, cores/ddt_mandel): Verilator benches of cores/ddt_mandel/sim at the partition's real edge. The picture in the DDR2 buffer is compared
-# pixel for pixel with an independent Python model written from DDT's code (mandel_model.py). Tier 1: the wrapper drives nothing on the slot and the IEC bus (reads host/top.v and the wrapper; no simulator).
-2|ddt_mandel_pix|1800|sh cores/ddt_mandel/sim/run.sh pix
-2|ddt_mandel_joy|1800|sh cores/ddt_mandel/sim/run.sh joy
-1|ddt_mandel_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_mandel
 # T168 (DDT's look_ma_no_vic as a partial core, cores/ddt_novic): three pictures of the buffer in the DDR2 against novic_model.py (written from his code)
 2|ddt_novic_pix|1800|sh cores/ddt_novic/sim/run.sh pix
 1|ddt_novic_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_novic

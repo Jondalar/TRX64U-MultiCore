@@ -377,8 +377,8 @@ refused as vacuous). Results are cached by the dependency list of each test and 
   `run.sh` break the ID, the width, the y position, the status register, the hold write and the release write, one each:
 
   ```
-  control ddt_id      ddt_novic.cc "s/'D', 'D', 'T', 'N'/'D', 'D', 'N', 'T'/"  test_ddt.cc ddt_mandel.cc ddt_novic.cc $BASEL
-  control ddt_release ddt_novic.cc 's/    c->io->wr(DDT_CTRL, 0);//'            test_ddt.cc ddt_mandel.cc ddt_novic.cc $BASEL
+  control ddt_id      ddt_novic.cc "s/'D', 'D', 'T', 'N'/'D', 'D', 'N', 'T'/"  test_ddt.cc ddt_novic.cc $BASEL
+  control ddt_release ddt_novic.cc 's/    c->io->wr(DDT_CTRL, 0);//'            test_ddt.cc ddt_novic.cc $BASEL
   ```
 - **Table checks** `test_desc.cc` runs `desc_check` over the whole table (every name registered, every binding fits, no two cores share an ID, video record
   complete, at most `REPORT_REGS_MAX` report registers).

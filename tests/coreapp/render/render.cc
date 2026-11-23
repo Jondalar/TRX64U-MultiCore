@@ -43,7 +43,6 @@ extern const CoreDesc c128_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc amiga1200_desc;
 extern const CoreDesc amiga_desc;
-extern const CoreDesc ddt_mandel_desc;
 extern const CoreDesc ddt_novic_desc;
 #include "picture.h"
 #include "volume.h"
@@ -778,7 +777,7 @@ static void modes_picture_row(const char *out)
 static void ddt_menu(const char *out)
 {
     char p[512];
-    const struct { const CoreDesc *d; const char *name; } cores[] = { { &ddt_mandel_desc, "ddt_mandel" }, { &ddt_novic_desc, "ddt_novic" } };
+    const struct { const CoreDesc *d; const char *name; } cores[] = { { &ddt_novic_desc, "ddt_novic" } };
     for (const auto &k : cores) {
         CoreDesc *kb = board_desc(k.d);
         Rig r(kb, "/usb0/cores/ddt.cfg");
@@ -1605,8 +1604,8 @@ static void ux_chrome(void)
     ui_set_canvas(960, 540);
     printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
     // T228 R1, R5b, R6-R9: trx64u's walk has 16 views per canvas instead of 22 (12 tabs instead of 19 - no F2, no F4, F5 6 tabs, F7 and F8 one each -
-    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor is 480 (was 500)
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 480 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
+    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor is 480 (was 500); T255: ddt_mandel is a large core without an application, 19 cores give exactly 480 legends, so the check is >= 480
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 480 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------

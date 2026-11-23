@@ -1,4 +1,6 @@
-// screen_matrix.v - CHANGED by T168 (one line, row 2: the engine count; see rtl/screen_matrix.v.diff), otherwise DDT's file (CC BY 4.0)
+// screen_matrix.v - CHANGED by T168 and T255 (see rtl/screen_matrix.v.diff), otherwise DDT's file (CC BY 4.0).
+// T255: row 2 takes the engine count from the parameter ENGINES (his TODO asks for the actual count); the read has two register stages (index, then the code):
+// a clock port and a latency of two clocks, so that the character address and the table lookup do not share one clock at 148 MHz.
 // 
 // Implements a 44x25 character screen matrix (C64 screen codes).
 // Each character is rendered as an 8x8 glyph.
@@ -19,11 +21,14 @@
 // Keep the cy * 44 character-address network in LUT carry chains to avoid Vivado "stealing" DSP from mandel engines.
 
 (* use_dsp = "no" *)
-module screen_matrix (
+module screen_matrix #(
+  parameter integer ENGINES = 20   // the number of Mandelbrot engines of the design, 1..99
+) (
+  input  wire       clk,
   input  wire       text_enable,
   input  wire [5:0] cx,   // 0..43
   input  wire [4:0] cy,   // 0..24
-  output wire [7:0] code
+  output reg  [7:0] code  // two clocks after cx, cy
 );
 
   localparam integer W = 44;
@@ -56,7 +61,9 @@ module screen_matrix (
 
     // Row 2, column 0: "20 HARDWARE MANDEL ENGINES"
     idx = 2*W;
-    mem[idx +  0] = 8'd32; mem[idx +  1] = 8'd56; mem[idx +  2] = 8'd32;   // T168: " 8" for his "20": this partition has 8 engines (his TODO asks for the actual count)
+    mem[idx +  0] = (ENGINES >= 10) ? (8'd48 + ENGINES / 10) : 8'd32;      // T255: the digits of ENGINES for his "20" (his TODO asks for the actual count)
+    mem[idx +  1] = 8'd48 + ENGINES % 10;
+    mem[idx +  2] = 8'd32;
     mem[idx +  3] = 8'd8;  mem[idx +  4] = 8'd1;  mem[idx +  5] = 8'd18;
     mem[idx +  6] = 8'd4;  mem[idx +  7] = 8'd23; mem[idx +  8] = 8'd1;
     mem[idx +  9] = 8'd18; mem[idx + 10] = 8'd5; mem[idx + 11] = 8'd32;
@@ -73,6 +80,12 @@ module screen_matrix (
                        ( {6'd0, cy} << 2 ) +
                        {5'd0, cx};
 
-  assign code = text_enable && (cx < W) && (cy < H) ? mem[idx_rd] : 8'd32;
+  reg [10:0] idx_q;
+  reg        ok_q;
+  always @(posedge clk) begin
+    idx_q <= idx_rd;
+    ok_q  <= text_enable && (cx < W) && (cy < H);
+    code  <= ok_q ? mem[idx_q] : 8'd32;
+  end
 
 endmodule

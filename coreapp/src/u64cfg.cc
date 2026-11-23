@@ -81,11 +81,12 @@ static void resolve(CoreCtx *c)
     }
 }
 
-// The index of the value of a setting (an enum's position), `def` when the menu has no such item. A range setting (mouse sensitivity) is value + base.
+// The value of a setting: an enum's position (a list's base is 0), a range setting's number (`range = [lo, hi]`: base lo plus the index), as FV;
+// `def` when the menu has no such item.
 static int V(CoreCtx *c, int id, int def = 0)
 {
     resolve(c);
-    return g_ix[id] >= 0 ? c->settings->value(g_ix[id]) : def;
+    return g_ix[id] >= 0 ? c->settings->item(g_ix[id]).base + c->settings->value(g_ix[id]) : def;
 }
 
 // ---- video ---------------------------------------------------------------------------------------------------------------------------------
@@ -260,7 +261,7 @@ static int fx_video(CoreCtx *c, const OpArgs &, OpOut &o)
     uint8_t format = V(c, K_ANALOG) ? VIDEO_FMT_RGB_OUTPUT : 0;
     const t_video_color_timing *ct = color_timings[sys];
     C64_PHASE_INCR = ct->phase_inc;
-    int ppm = V(c, K_PPM, 100) - 100;                 // the range -100 .. 100 ppm is stored as the index 0 .. 200
+    int ppm = V(c, K_PPM, 0);                         // -100 .. 100 ppm (FW u64_config.cc:409); V gives the number of a range setting
     C64_VIDEOFORMAT = (uint8_t)(ct->mode_bits | format);
     if (sys != g_sys) {
         printf("[u64cfg] system mode %s\n", video_sys_name(sys));

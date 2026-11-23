@@ -102,7 +102,7 @@ tree_key() {
   (
     set -eo pipefail
     # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key; nor does a core's app part
-    # (cores/<id>/app/, T239.3 D10/D11: the descriptor TOML the packers compile into record 6 of the .cor)
+    # (cores/<id>/app/, T239.3 D10/D11, D27: data the application reads, which no Vivado step reads)
     # set -e / pipefail are off on the left of `|| {...}` (bash ignores them there): every stage ends in an explicit `|| exit 1`
     local idx; idx="$(mktemp)" || exit 1
     git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' ':(exclude,glob)cores/*/app/**' > "$idx" || { rm -f "$idx"; exit 1; }
