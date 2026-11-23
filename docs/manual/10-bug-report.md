@@ -77,6 +77,6 @@ including `trx64u.cor`. **RETURN** writes the report of the core. It goes to `re
 
 10.7.2 The report of a core holds the versions, the settings of the core, the state of its media (the name and the size
 of each mounted file, no hash), the last lines of the log (up to 200 lines or 16 KB), the heap, the EDID of the screen, and the values of the registers that the core names. The cores
-that name registers are the Amiga, the Amiga 1200, the Apple IIe and the C64 core. The other cores print `declares no register list`. Passwords and keys are withheld as in 10.6.
+that name registers are the Amiga, the Amiga 1200, the Apple IIe, the C64 core and the C128 (the 38 registers of the VDC, its status and the selected register). The other cores print `declares no register list`. Passwords and keys are withheld as in 10.6.
 
 > **NOTE** The report of a core is built and tested in the bench. It has not been written on a real board yet.
