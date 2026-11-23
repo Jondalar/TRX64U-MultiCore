@@ -59,11 +59,18 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "vc20", "app", "gateware.toml"))
 must(rc == 0 and "6 block(s), 20 properties agree" in out, "vc20: 6 blocks, 20 properties of gateware.toml agree with the RTL of the partial", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--list", "gideon_vhdl.tcl", "--top", "layer2_vc20",
+              "--bus", "layer2_vc20:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata", "--window", "0x10020000:0x4000:full",
+              "--toml-a", os.path.join(HERE, "vc20_drive.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "1 block(s), 11 properties agree" in out,
+     "vc20 drive: the 1541 window of the VIC-20 (drive_l2 behind the register stage of layer2_vc20, the ports of the top module as the bus, the whole address on the port; "
+     "the 2 KB parameter RAM as a run of 512 words, the dirty RAM as a run of 128) agrees with the RTL", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "63 block(s), 221 properties agree" in out and "clean room" not in out,
-     "host: 63 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
-     "IEC, SD and WiFi windows, the 16 overlay palette entries, and behind io_bus_splitter the ITU with its console UART, USB and Ethernet; no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
+must(rc == 0 and "64 block(s), 188 properties agree" in out and "clean room" not in out,
+     "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)

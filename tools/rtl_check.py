@@ -40,11 +40,16 @@ check
   The synchronizers of a clock-domain bridge (synchronizer_gzw) carry the vector unchanged: their outputs are their inputs, io_bus_bridge2 itself is read from its source.
   A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
   A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
-  The taint of a concatenated vector is that of the whole signal (the bridge's request vector): behind a bridge a `w` that no register takes can pass.
+  The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
+  A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
+  assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
+  A request that a module holds in registers it sets itself (flash_gate.vhd: p_valid, p_read, p_addr, p_data, assigned for sure under a guard that is no address decode) is decoded in the next clock: those registers
+  take the request's value and taint there, and their own assignments are no writes. A flag whose assignments set it to another value than it has now is, as response data, a register.
+  --bus MODULE:... with MODULE the top module itself (--top): the ports of the top module are the request; a register stage of the top file (`always @(posedge clk) q <= expr;`) holds it one clock, the reset
+  released. --window BASE:SIZE:full puts the whole address on the address port. --bus and --window may be repeated: a block goes to the bus whose window holds it.
   RTL_CHECK_TRACE=1 raises the error with its traceback.
-  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks) and a request a module holds in its own registers and decides one
-  clock later (flash_gate.vhd: a flag the request itself sets is taken at its initial value). The check stops with Unsupported or finds no write/read there; it never
-  passes a property on the transport registers of a bridge.
+  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks, hierarchical names) and a VHDL for-generate with ascending ranges (gcr_codec.vhd). The check stops with
+  Unsupported or finds no write/read there.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -1899,6 +1904,11 @@ def top_instances(design, topname, extra_names):
                     pp.eat()
             except Unsupported:
                 pass
+    # the register stage of the top file: `always @(posedge clk) [begin] q <= expr; ... [end]` (assignments only): q holds the value of expr one clock later
+    m.regcopies = {}
+    for am in re.finditer(r"\balways\s*@\s*\(\s*posedge\s+\w+\s*\)\s*(?:begin\s*)?((?:\w+\s*<=[^;]+;\s*)+)(?:end\b)?", text):
+        for sm in re.finditer(r"(\w+)\s*<=\s*([^;]+);", am.group(1)):
+            m.regcopies[sm.group(1)] = VlogParser(lex(sm.group(2).strip(), "vlog", f), f).expr()
     names = set(design.index) | set(extra_names)
     pos = 0
     pat = re.compile(r"\b([A-Za-z_]\w*)\s*(#\s*\()?")
@@ -2060,6 +2070,7 @@ class Ev:
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
         self.memcap = None
+        self.reset_off = 0
         self.hold, self.holdt = {}, {}      # held requests: (id(ctx), register) -> value / taint in the decode cycle (find_held)
         self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
         self.bus, self.rootv, self.roott = None, {}, {}
@@ -2075,12 +2086,15 @@ class Ev:
             self.crossed = True
             return
         binst = [i for i in topmod.insts if i.modname.lower() == busmod.lower()]
-        if len(binst) != 1:
+        if busmod.lower() == topmod.name.lower() and ports is not None:
+            self.bus = self.top         # the request is the ports of the top module itself
+        elif len(binst) != 1:
             raise CheckError("the bus module %s is instantiated %d times in %s" % (busmod, len(binst), topmod.name))
-        self.bus = self.top.child(binst[0])
+        else:
+            self.bus = self.top.child(binst[0])
         if ports is not None:
             # a partial's window: the request is four input ports of the instance (write, read, address, data) and its answer is one output port
-            pw = {r: self.width(self.bus, ports[r]) for r in ("write", "read", "address", "data")}
+            pw = {r: (self.top.mod.nets[ports[r]] if self.bus is self.top else self.width(self.bus, ports[r])) for r in ("write", "read", "address", "data")}
             self.rootv = {
                 ports["write"]: T1 if write else F1,
                 ports["read"]: F1 if write else T1,
@@ -2255,6 +2269,15 @@ class Ev:
     def net_val(self, ctx, name):
         """A net of the top-level file: its value is that of the followed instance that drives it, else unknown."""
         w = ctx.mod.nets.get(name)
+        rc = getattr(ctx.mod, "regcopies", {}).get(name) if self.bus is self.top else None      # only where the top module's ports are the bus
+        if rc is not None:
+            self.reset_off += 1                         # a register stage of the top file holds the request one clock later, the reset released
+            try:
+                return fit(self.ev(ctx, rc), w or 1)
+            finally:
+                self.reset_off -= 1
+        if self.reset_off and re.search(r"(^|_)(rst|reset)(_n)?$", name):
+            return kn(1 if name.endswith("_n") else 0, w or 1)
         for inst in ctx.mod.insts:
             for f, a in inst.ports:
                 if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
@@ -2833,6 +2856,9 @@ class Ev:
         if base not in mod.decls and not (ctx.parent is None and mod.nets):
             return frozenset()
         if ctx.parent is None and mod.nets:
+            rc = getattr(mod, "regcopies", {}).get(name) if self.bus is self.top else None
+            if rc is not None:
+                return self.taint(ctx, rc)
             for inst in mod.insts:
                 for f, a in inst.ports:
                     if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
@@ -3646,8 +3672,8 @@ def parse_toml_a(path, maps):
 
 
 class Checker:
-    def __init__(self, design, top, bus, doc, window=None):
-        self.d, self.doc = design, doc
+    def __init__(self, design, top, bus, doc, window=None, full=False):
+        self.d, self.doc, self.full = design, doc, full
         self.ports = self.window = None
         if ":" in bus:
             # a partial: MODULE:write=P,read=P,address=P,data=P,response=P (the ports of one instance in the top file); its window is the host's decode
@@ -3672,7 +3698,8 @@ class Checker:
             return self.cache[key]
         def mk(w):
             if self.ports is not None:
-                return Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - self.window[0]) & ~mask(lowx), mask(lowx), 24), w, ports=self.ports)
+                base = 0 if self.full else self.window[0]       # full: the address port carries the whole address (the drive's window), else the offset in the window
+                return Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - base) & ~mask(lowx), mask(lowx), 24), w, ports=self.ports)
             return Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), w)
         ev = mk(write)
         if write:
@@ -3767,9 +3794,11 @@ class Checker:
             a += n
         return None
 
-    def check(self):
+    def check(self, only=None):
         errs = []
         for b in self.doc["block"]:
+            if only is not None and b["name"] not in only:
+                continue
             name = b["name"]
             rt = b["address"] - self.iobase
             if self.window is not None and not (self.window[0] <= rt and rt + b["size"] <= self.window[0] + self.window[1]):
@@ -3786,18 +3815,17 @@ class Checker:
                 errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
                             "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
                 continue
-            if not core:
-                for a in (rt, rt + b["size"] - 1):
-                    cap = self.stim(a, True)["memcap"]
-                    if cap is not None and b["size"] > cap:
-                        errs.append("block %s: it is %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, b["size"], cap))
-                        break
             for p in ([] if core else b.get("property", [])):
                 nb = p["width"] // 8
                 count = p.get("count", 1)
                 stride = p.get("stride", nb)
                 if p["offset"] + (count - 1) * stride + nb > b["size"]:
                     errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
+                    continue
+                cap = self.stim(rt + p["offset"], True)["memcap"] if "w" in p["dir"] else None
+                span = (count - 1) * stride + nb
+                if cap is not None and span > cap:
+                    errs.append("block %s, property %s: it spans %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, p["name"], span, cap))
                     continue
                 if count > 1:
                     for need, wr in (("w", True), ("r", False)):
@@ -3840,8 +3868,8 @@ class Checker:
 
 
 def cmd_check(args):
-    opts = {"--design": None, "--toml-a": None, "--top": "top", "--bus": "ultimate_sys.io_req", "--window": None}
-    maps, lists = [], []
+    opts = {"--design": None, "--toml-a": None, "--top": "top"}
+    maps, lists, buses, windows = [], [], [], []
     i = 0
     while i < len(args):
         a = args[i]
@@ -3850,6 +3878,12 @@ def cmd_check(args):
             i += 2
         elif a == "--list":
             lists.append(args[i + 1])
+            i += 2
+        elif a == "--bus":
+            buses.append(args[i + 1])
+            i += 2
+        elif a == "--window":
+            windows.append(args[i + 1])
             i += 2
         elif a == "--define":
             DEFINES.add(args[i + 1])
@@ -3861,31 +3895,50 @@ def cmd_check(args):
             raise CheckError("unknown option %s" % a)
     if not opts["--design"] or not opts["--toml-a"]:
         raise CheckError("usage: rtl_check.py check --design DIR --toml-a FILE [--maps DIR]...")
+    buses = buses or ["ultimate_sys.io_req"]
+    if len(windows) not in (0, len(buses)) and len(windows) != len([b for b in buses if ":" in b]):
+        raise CheckError("every --bus of ports needs its --window")
     doc = parse_toml_a(opts["--toml-a"], maps)
     des = Design(opts["--design"], lists or "build.tcl")
-    window = None
-    if opts["--window"]:
-        wb, _, ws = opts["--window"].partition(":")
-        window = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0))
-    ck = Checker(des, opts["--top"], opts["--bus"], doc, window)
+    cks = []
+    wi = 0
+    for bus in buses:
+        window, full = None, False
+        if ":" in bus:
+            wb, _, rest = windows[wi].partition(":")
+            ws, _, fl = rest.partition(":")
+            if fl not in ("", "full"):
+                raise CheckError("--window BASE:SIZE[:full]")
+            window, full = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0)), fl == "full"
+            wi += 1
+        cks.append(Checker(des, opts["--top"], bus, doc, window, full))
     if des.denied:
         print("rtl_check: clean room: %d file(s) of the source list are on the deny list and never opened: %s"
               % (len(des.denied), ", ".join(os.path.basename(f) for f in des.denied)))
-    errs = ck.check()
+    errs, nprop = [], 0
+    if len(cks) == 1:
+        errs = cks[0].check()
+        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None)
+    else:
+        # several buses (the ports of a partial that has more than one window): a block goes to the bus whose window holds it
+        mine = [[] for _ in cks]
+        for b in doc["block"]:
+            rt = b["address"] - doc["io"]["iobase"]
+            hit = [k for k, c in enumerate(cks) if c.window is not None and c.window[0] <= rt and rt + b["size"] <= c.window[0] + c.window[1]]
+            if not hit:
+                errs.append("block %s: 0x%08X..0x%08X lies in no window of the buses" % (b["name"], b["address"], b["address"] + b["size"] - 1))
+                continue
+            mine[hit[0]].append(b["name"])
+            nprop += len(b.get("property", []))
+        for c, only in zip(cks, mine):
+            errs += c.check(only)
     for e in errs:
         print("rtl_check: " + e)
-    n = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or ck.ports is not None)
     if errs:
         print("rtl_check: %d finding(s)" % len(errs))
         return 1
-    print("rtl_check: %d block(s), %d propert%s agree with the RTL of %s" % (len(doc["block"]), n, "y" if n == 1 else "ies", opts["--design"]))
+    print("rtl_check: %d block(s), %d propert%s agree with the RTL of %s" % (len(doc["block"]), nprop, "y" if nprop == 1 else "ies", opts["--design"]))
     return 0
-
-
-# ---------------------------------------------------------------------------------------------------------------------------
-# the reverse lint
-
-C_EXT = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc")
 
 
 def strip_c(text):
