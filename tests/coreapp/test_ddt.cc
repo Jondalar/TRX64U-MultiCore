@@ -1,4 +1,4 @@
-// T168 S7: the two DDT descriptors against the code they describe. The numbers (ID, register offsets, status bit, buffer defaults, picture size) are read
+// T168 S7: the DDT descriptor (ddt_novic; ddt_mandel is a large core without an application since T255) against the code it describes. The numbers (ID, register offsets, status bit, buffer defaults, picture size) are read
 // from cores/ddt_mandel/trx/ddt_regs.v and the two layer2 files, the name from core.toml; a descriptor that disagrees with any of them fails. The start
 // sequence (held, then released last) runs against the register model.
 #include <fstream>
@@ -98,7 +98,6 @@ static void one(const CoreDesc &d, const char *id, const char *name_toml, const 
 
 int main()
 {
-    one(ddt_mandel_desc, "DDTM", "cores/ddt_mandel/core.toml", "cores/ddt_mandel/layer2_ddt_mandel.v", "4D544444", 256);
     one(ddt_novic_desc, "DDTN", "cores/ddt_novic/core.toml", "cores/ddt_novic/layer2_ddt_novic.v", "4E544444", 200);
     DONE("test_ddt");
 }

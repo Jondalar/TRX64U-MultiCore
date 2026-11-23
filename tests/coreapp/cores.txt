@@ -10,7 +10,7 @@ c128: c128.cc c128_keys.h c128_regs.h
 c264: c264.cc c264_regs.h
 pet: pet.cc pet_regs.h
 cpc: cpc.cc cpc_disk.cc cpc_disk.h cpc_regs.h
-ddt: ddt_mandel.cc ddt_novic.cc ddt_regs.h
+ddt: ddt_novic.cc ddt_regs.h
 neogeo: neogeo.cc neogeo_regs.h neoset.cc neoset.h
 nes: nes.cc nes_regs.h ines.cc ines.h
 snes: snes.cc snes_regs.h snes_rom.cc snes_rom.h

@@ -40,7 +40,7 @@ done.
 | ZX Spectrum Next | ZX Spectrum Next | Boots from an SD card image | Older `TBBLUE.FW` images stop | runs | done |
 | SNES | Super Nintendo | Games run, sound, USB pad, no ROM needed | - | runs | done |
 | Neo Geo | SNK Neo Geo MVS / AES | Playable, sound, USB pad, saves | - | runs | n/a |
-| DDT demos | mandelbrUlt and Look Ma, No VIC as showcase cores | Both run | No media, demo only | good | n/a |
+| DDT demos | mandelbrUlt (a large core: 20 engines, HDMI only, no menu, power cycle to leave) and Look Ma, No VIC as showcase cores | Look Ma, No VIC runs; mandelbrUlt as a large core is not on the board yet (T255) | No media, demo only | good | n/a |
 | Port Diagnostics | No machine: measures joystick/paddle ports from TOML test files | Built and benched | Not on the board yet; packed into the release like every large core that is not build only (experimental) | alpha | in progress |
 
 Corrections welcome in the replies, with the bundle name and a photo.

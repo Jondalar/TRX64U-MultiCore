@@ -689,21 +689,6 @@ Amiga 1200 (AGA, 68020) F8/expert 10 fixed:13:Status
 Amiga 1200 (AGA, 68020) F8/expert 11 info:Build
 Amiga 1200 (AGA, 68020) F8/expert 12 info:ROMs
 Amiga 1200 (AGA, 68020) F8/expert 13 info:Libraries
-DDT Mandelbrot (mandelbrUlt) F1/home 0 task:Reset
-DDT Mandelbrot (mandelbrUlt) F8/expert 0 fixed:13:Actions
-DDT Mandelbrot (mandelbrUlt) F8/expert 1 fixed:6:Restart core
-DDT Mandelbrot (mandelbrUlt) F8/expert 2 fixed:7:Return to host menu
-DDT Mandelbrot (mandelbrUlt) F8/expert 3 fixed:13:Network
-DDT Mandelbrot (mandelbrUlt) F8/expert 4 fixed:9:WiFi
-DDT Mandelbrot (mandelbrUlt) F8/expert 5 fixed:13:Support
-DDT Mandelbrot (mandelbrUlt) F8/expert 6 fixed:8:Bug report
-DDT Mandelbrot (mandelbrUlt) F8/expert 7 fixed:17:Keys and help
-DDT Mandelbrot (mandelbrUlt) F8/expert 8 fixed:13:Reset
-DDT Mandelbrot (mandelbrUlt) F8/expert 9 fixed:5:Reset to host defaults
-DDT Mandelbrot (mandelbrUlt) F8/expert 10 fixed:13:Status
-DDT Mandelbrot (mandelbrUlt) F8/expert 11 info:Build
-DDT Mandelbrot (mandelbrUlt) F8/expert 12 info:ROMs
-DDT Mandelbrot (mandelbrUlt) F8/expert 13 info:Libraries
 DDT Look Ma, No VIC F1/home 0 task:Reset
 DDT Look Ma, No VIC F8/expert 0 fixed:13:Actions
 DDT Look Ma, No VIC F8/expert 1 fixed:6:Restart core

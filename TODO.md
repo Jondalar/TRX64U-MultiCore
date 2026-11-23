@@ -21,11 +21,13 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
+| T256 | 2 | 🔨 | Overlay service of the base in the SDK: a library puts pixels over the machine's picture, also while it runs (T239.3 D23) | Spec in work: D1 no gateware, D3 surfaces, D4 menu closed, D5 tag PAUSED (Alex 11-23); next: §2 and the API draft | [T256](docs/specs/T256-overlay-service.md) |
 | T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fixed by T233 (board PASS 11-18); CPC back in pipeline and manual; old board steps closed 11-18 | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | S10/S11/S15/S16 board done 11-18 (Alex: shipped = done); open: board S1 (monolith), S13 flash boot | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
 | T119 | 3 | ✅ | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | Done 11-18 (Alex: shipped = done) | [T119](docs/todo/T119.md) |
+| T258 | 3 | 🔨 | C128: the ROM import takes VICE's ROM set and composes the system image from its parts (#105) | Agent builds on t258-c128-roms (11-23): the system image from VICE's parts, generic, no D24 exception | [T258](docs/specs/T258-c128-rom-vice-parts.md) |
 
 ## Board test required
 
@@ -56,6 +58,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T183 | 3 | 📅 | Game Boy Advance core (large core, if it fits the XC7A50T) | Spec PROPOSED (Alex 11-05): expected no-go (est. 18.5-20k LUT vs 17k usable); synth trial decides, nothing built | [T183](docs/todo/T183.md) |
 | T184 | 3 | ✅ | WiFi in the host menu and the core apps: FTP over WiFi as over Ethernet (#45) | Done 11-15 (Alex: in builds for weeks) | [T184](docs/todo/T184.md) |
 | T185 | 3 | 🔨 | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built; board 11-11 works, faster; J.3 closed 11-18; open: layout of kits other than Alex's | [T185](docs/specs/T185-c128-jiffydos.md) |
+| T257 | 3 | 🔨 | C128 VDC: the whole frame without interlace (not cut at 200 lines) and a register read-back for the application (#122) | Agent builds on t257-c128-vdc (11-23): frame up to 240 lines, register read-back; with T170 P2 | [T257](docs/specs/T257-c128-vdc-frame-readback.md) |
 | T186 | 3 | ✅ | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Done 11-18 (Alex: shipped = done) | [T186](docs/specs/done/T186-ftp-client-fixes.md) |
 | T187 | 3 | ✅ | Core app menus: same layout in every core, selection visible, no overlap (board 11-06, UX review) | Done 11-15 (Alex: in builds for weeks) | [T187](docs/specs/done/T187-core-app-ux-rework.md) |
 | T188 | 3 | ✅ | Amiga cores: output frame follows the core (#48) | Done (Alex 11-15); merged 11-13 (run 1796 green) | [T188](docs/specs/done/T188-amiga-frame-lock.md) |
@@ -113,14 +116,14 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T236 | 2 | 🔨 | Native menu simulator (Mac): real coreapp UI with board stubs, live keys, menu TOML reloaded at run time | Merged 11-17 (C64U_emu built it); window not looked at yet: tools/menusim/run.sh | [T236](docs/specs/T236-menu-simulator.md) |
 | T237 | 2 | 📝 | Core app: a key pressed on a USB keyboard is learned (hotkeys T207, pad keys T232) | PROPOSED 11-18 (T232 review; Alex: "B") | [T237](docs/specs/T237-usb-key-learn.md) |
 | T238 | 2 | 🔨 | GitHub: experimental cores get their own issue form; issue forms fit the released packages | On GitHub 11-19 (e5e0b6fcb, 4 labels); S3 Alex looks; adjusted after discussion #103 | [T238](docs/specs/T238-experimental-core-issues.md) |
-| T239 | 2 | 📝 | Epic: this repo delivers host + app + SDK; cores built outside; a registry for host and cores | Epic 11-19; D1-D13; children decided (T239.1 D1-D20, .2 D1-D5, .3 D1-D5, .4 D1-D6); build A next | [T239](docs/specs/T239-host-app-sdk-cores-outside.md) |
-| T239.1 | 2 | ⏭ | GitHub is the development home (A): PRs and CI there, private material in a Gitea side repo | D1-D48 built; open: S2 S3 S7 S8 S11-S13 S16, scratch layout | [T239.1](docs/specs/T239.1-github-home.md) |
+| T239 | 2 | 📝 | Epic: this repo delivers host + app + SDK; cores built outside; a registry for host and cores | Epic 11-19; D1-D16; A (T239.1) done 11-22; B (T239.3) started 11-22 before D (.3 D16); .4 D1-D6 decided | [T239](docs/specs/T239-host-app-sdk-cores-outside.md) |
+| T239.1 | 2 | ✅ | GitHub is the development home (A): PRs and CI there, private material in a Gitea side repo | Done 11-22 (D50): release 0.2.1 from GitHub; S2 S3 S7 S11 S16, scratch layout wait for external code | [T239.1](docs/specs/done/T239.1-github-home.md) |
 | T239.2 | 2 | 📅 | Platform checkpoint (D): each host gateware release publishes static checkpoint + core template | Decided 11-19 (D1-D5, every question answered); build after T239.1 as step D | [T239.2](docs/specs/T239.2-platform-checkpoint.md) |
 | T53 | 2 | 📅 | 100T (XC7A100T machines at users): universal packages 50T+100T | Lifted 11-20 (Alex); emu builds 100T (S46/S47); structures once a 100T bitstream can be tested | [T53](docs/specs/T53-ue2-build.md) |
-| T239.3 | 2 | 📅 | App core with an API for sub-apps and libraries (B); trx64u as library; the app SDK | Decided 11-19 (D1-D5); build after T239.2 as step B; Play MOD goes (D5) | [T239.3](docs/specs/T239.3-app-core-sdk.md) |
+| T239.3 | 2 | 🔨 | App core with an API for sub-apps and libraries (B); trx64u as library; the app SDK | D1-D21; base 3.3 on t239.3; trx64u libraries run in ue2emu (11-23); open: M1 wait before splash, menu_video | [T239.3](docs/specs/T239.3-app-core-sdk.md) |
 | T239.4 | 2 | 📅 | Registry (C): the host menu installs cores and host updates over HTTPS; TRNG in the null core | Decided 11-19 (D1-D6, every question answered); build after T239.3 as step C | [T239.4](docs/specs/T239.4-registry-tls.md) |
 | T240 | 1 | ✅ | Installer: every core found into the boot menu (up to 32, #107) and each core's folder with roms/ | Done 11-20: S1-S4 in ue2emu (S4 without board, Alex); ships in 0.2.1 | [T240](docs/specs/done/T240-installer-all-cores-and-folders.md) |
-| T241 | 2 | ⏸ | SCPU: SuperCPU releases show wrong graphics (Boom intro, #108): find where SRAM and C64 RAM part | 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: scpu5 d, bigr | [T241](docs/specs/T241-scpu-repack-graphics.md) |
+| T241 | 2 | ⏸ | SCPU: SuperCPU releases show wrong graphics (Boom intro, #108): find where SRAM and C64 RAM part | 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: #135 (scpu5 d, bigr) | [T241](docs/specs/T241-scpu-repack-graphics.md) |
 | T242 | 1 | ✅ | P7 keyboard dead in host and core apps (#111): no app hands the I2C bus back to the scanner | Done 11-20: board S1-S5 PASS (package A, C64 keyboard on P7) |
 | T243 | 1 | ✅ | ROM wait screen: RUN/STOP and ESC take the way back to the host (#106) | Done 11-20: units S1-S4, ue2emu S5-S6 (S6 without board, Alex) | [T243](docs/specs/done/T243-rom-wait-run-stop.md) |
 | T244 | 1 | ✅ | A long status line or message stays on the screen (#109) | Done 11-20: menusim S1-S4, render tests (CI 748d1d75), ue2emu 480p/720p/1080p; UX PASS, 2 low findings (§5) | [T244](docs/specs/done/T244-message-pane-fits.md) |
@@ -176,6 +179,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 ## Done
 
 | ID | M | Status | Task | Open | Details |
+| T255 | 2 | ✅ | DDT's Mandelbrot as a large core: 20 engines, frame buffer, HDMI only, no menu (#123, replaces the partial core) | Done (Alex 11-23): both DDT cores run on the board; S7 not checked; WNS 0.038 ns, 120 DSP | [T255](docs/specs/done/T255-ddt-mandel-large.md) |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
 | T227 | 3 | ✅ | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Done: D3 sharp smoothing, board PASS 11-16 (Fill + Smooth) | [T227](docs/specs/done/T227-scpu-vic-smoothing.md) |
 |---|---|---|---|---|---|

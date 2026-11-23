@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: scpu5 d, bigr
+Open (one line, as in the TODO table): 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: #135 (scpu5 d, bigr)
 
 ---
 
@@ -633,3 +633,7 @@ Open.
   answered (translated) "All good." Open for 0.3.0: scpu5 d, bigr.
 - **2026-11-22, merged:** Alex merged #129 into `integration` (`d68f4b3a`): the fixes of `t241-scpu-fix` and
   `t241-s2-irq` ship in 0.2.1. Both branches are deleted.
+- **2026-11-22, issue #135:** the two items open for 0.3.0 (scpu5 d, scpu6 bigr) are GitHub issue #135, asked by Alex: "we do that some other time" (translated).
+- **2026-11-22, the S4 measurement program in the repository:** `tests/scpu_meas/` (`meas.asm`, its `meas.prg`: 64tass output, byte-identical; two
+  end screens of earlier versions). It lay only in a session's scratch folder. Alex (translated): "241 was for the SuperCPU, that may go
+  into the repository too". Outside `cores/c64scpu`, so the core's bitstream key does not move.

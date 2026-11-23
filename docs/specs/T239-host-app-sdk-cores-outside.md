@@ -1,6 +1,6 @@
 # T239 — This repository delivers host, app and SDK; cores are built outside it and found through a registry
 
-**Status:** EPIC, PROPOSED (2026-11-19, Alex); D1-D13 decided; the children T239.1-T239.4 carry the work (§2).
+**Status:** EPIC, PROPOSED (2026-11-19, Alex); D1-D16 decided; the children T239.1-T239.4 carry the work (§2).
 **Repo:** TRX64U-MultiCore (host, app, SDK); TREX/TRX64-Ultimate (the TRX64 core); the registry (place open).
 **Number:** T239.
 **Origin:** Alex, 2026-11-19 (translated): "We already have as a 'big' todo: the abstraction of the app (framework, services,
@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Epic 11-19; D1-D13; children decided (T239.1 D1-D20, .2 D1-D5, .3 D1-D5, .4 D1-D6); build A next
+Open (one line, as in the TODO table): Epic 11-19; D1-D16; A (T239.1) done 11-22; B (T239.3) started 11-22 before D (.3 D16); .4 D1-D6 decided
 
 ---
 
@@ -47,7 +47,7 @@ The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du eine
 
 | Child | Step | What is true when it is done | Builds on | Spec |
 |---|---|---|---|---|
-| T239.1 | A | GitHub is the development home of host, app and SDK: pull requests and CI run there, private material sits in a Gitea side repository | D11 | [T239.1](T239.1-github-home.md) |
+| T239.1 | A | GitHub is the development home of host, app and SDK: pull requests and CI run there, private material sits in a Gitea side repository | D11 | [T239.1](done/T239.1-github-home.md) |
 | T239.2 | D | Every host gateware release publishes its static checkpoint and a core template, so DFX cores are built outside this repository | D2, D3; T239.1 | [T239.2](T239.2-platform-checkpoint.md) |
 | T239.3 | B | The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it | D9, D10; T239.1, T239.2 | [T239.3](T239.3-app-core-sdk.md) |
 | T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
@@ -133,6 +133,16 @@ question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, 
   (D5), not into this repository.** On pull request #102 (TI-99/4A, from a fork), translated: "we can look at #102 sometime, but
   it would be one more core with us, and I actually want [the author of #102] and whoever wants to build a core themselves in a
   repository and then fill the registry." Our experimental cores stay under D12.
+
+- **D15 (Alex, 2026-11-22): one repository until T239.3 is done; then the layout is decided again.** Asked between one
+  repository as today (D12), a platform repository (host, SDK, shared libraries) next to one monorepo for our cores, and one
+  repository per core. Recommended: the first until T239.3 is done, because T239.3 changes the SDK and every core together
+  (T239.3 D8-D10). With it: CI builds our cores only against the SDK package and the published checkpoint, as it would build an
+  outside core; a lint stops access past the SDK; every core goes into the registry on its own (T239.4). Alex (translated): "Ok,
+  then we leave it like that."
+- **D16 (Alex, 2026-11-22): the SDK documentation lets an outside developer build alone.** Alex (translated): "Important: the
+  documentation of the SDK must enable [an outside developer] and others to build by themselves." This applies to T239.2 (the
+  checkpoint and the core template) and to T239.3 (the app SDK).
 
 ## §4 Out
 
