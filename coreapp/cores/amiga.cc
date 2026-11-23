@@ -67,6 +67,8 @@ static const char *const rtc_names[]   = { "Off", "On" };
 static const char *const pad2_names[]  = { "Off", "On" };
 static const char *const pad2_type_names[] = { "Joystick 1 button", "Joystick 2 buttons", "CD32 gamepad" };
 // T190: the USB driver's sensitivity 1 .. 16 (8 = 1:1) and acceleration, as Gideon's items offer them (u64_config.cc CFG_MOUSE_SENSITIVITY 1 .. 16 default 8, CFG_MOUSE_ACCELERATION Off / Adaptive default Off)
+static const char *const mouse_sens_names[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
+static const char *const mouse_acc_names[]  = { "Off", "Adaptive" };
 static const uint8_t chipset_bytes[]    = { 0x00, AM_CHS_ECS, AM_CHS_AGA };     // value -> CHIPSET_CFG
 
 static const RegBind b_chip    = { AM_MEM_CFG, 0, 3, 0 };         // chip [1:0] and slow [3:2] share MEM_CFG
@@ -357,6 +359,10 @@ static CoreDesc make(int v)
     // T225: a USB gamepad as game port 2 (Input tab): On = port 2 comes from the pad only (D1), the type is what the Amiga sees, the task "Map port 2 buttons" opens the dialog
     s[ns++] = Setting{ "Map port 2 to USB controller", pad2_names, 2, 0, WHEN_LIVE, "amiga.pad2_on", 0, 0, "input", 0, 0 };
     s[ns++] = Setting{ "Port 2 acts as", pad2_type_names, 3, 0, WHEN_LIVE, "amiga.pad2_type", 0, 0, "input", 0, 0, 0 };
+
+    // T190: the mouse's scaling, applied by the base operations mouse.sens (the value is the sensitivity itself: base 1) and mouse.accel
+    s[ns++] = Setting{ "Mouse Sensitivity", mouse_sens_names, 16, 7, WHEN_LIVE, "mouse.sens", 0, 1, "input", 0, 0, "Mouse sensitivity" };
+    s[ns++] = Setting{ "Mouse Acceleration", mouse_acc_names, 2, 0, WHEN_LIVE, "mouse.accel", 0, 0, "input", 0, 0, "Mouse acceleration" };
 
     CoreDesc d;
     memset(&d, 0, sizeof(d));

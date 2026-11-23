@@ -91,18 +91,17 @@ int main()
 {
     const CoreDesc *both[2] = { with_base(&amiga_desc), with_base(&amiga1200_desc) };
 
-    // ---- S1: the rows, in both Amiga cores, the application's items (group routed by baseset.h), Gideon's range and defaults; the cores' own descriptors declare none
+    // ---- S1: the rows, in both Amiga cores, the cores' own rows (group "input", operations mouse.sens / mouse.accel), Gideon's range and defaults; the application adds no second pair
     for (int k = 0; k < 2; k++) {
         const CoreDesc *d = both[k];
         const CoreDesc *own = k ? &amiga1200_desc : &amiga_desc;
-        for (int i = 0; i < own->nsettings; i++) {
-            CHECK(strcmp(own->settings[i].key, "Mouse Sensitivity") != 0 && strcmp(own->settings[i].key, "Mouse Acceleration") != 0);
-        }
-        int ns = -1, na = -1;
+        CHECK_EQ(d->nsettings - own->nsettings, 4);        // the application's look rows only (baseset.h): the mouse rows are the core's
+        int ns = -1, na = -1, cnt = 0;
         for (int i = 0; i < d->nsettings; i++) {
-            if (!strcmp(d->settings[i].key, "Mouse Sensitivity")) ns = i;
-            if (!strcmp(d->settings[i].key, "Mouse Acceleration")) na = i;
+            if (!strcmp(d->settings[i].key, "Mouse Sensitivity")) { ns = i; cnt++; }
+            if (!strcmp(d->settings[i].key, "Mouse Acceleration")) { na = i; cnt++; }
         }
+        CHECK_EQ(cnt, 2);
         CHECK(ns >= 0 && na >= 0);
         if (ns < 0 || na < 0) continue;
         const Setting &s = d->settings[ns], &a = d->settings[na];
@@ -111,15 +110,17 @@ int main()
         CHECK_STR(s.values[15], "16");
         CHECK_STR(s.values[s.def], "8");                   // default 8 = 1:1
         CHECK_EQ(s.base, 1);
-        CHECK_EQ(baseset_kind(s), 2);
-        CHECK_STR(s.apply, "base.mouse_sens");
+        CHECK_EQ(baseset_kind(s), 0);
+        CHECK_STR(s.group, "input");
+        CHECK_STR(s.apply, "mouse.sens");
         CHECK_EQ(s.when, WHEN_LIVE);
         CHECK_EQ(a.nvalues, 2);
         CHECK_STR(a.values[0], "Off");
         CHECK_STR(a.values[1], "Adaptive");
         CHECK_EQ(a.def, 0);
-        CHECK_EQ(baseset_kind(a), 2);
-        CHECK_STR(a.apply, "base.mouse_accel");
+        CHECK_EQ(baseset_kind(a), 0);
+        CHECK_STR(a.group, "input");
+        CHECK_STR(a.apply, "mouse.accel");
         CHECK_EQ(a.when, WHEN_LIVE);
     }
 

@@ -111,6 +111,8 @@ bool engines_poll(CoreCtx *c)
 
 static int op_led_load(CoreCtx *c, const OpArgs &a, OpOut &) { ledload_set(c, a.i(0) == 0); return OPE_OK; }
 
+static int op_mouse_sens(CoreCtx *, const OpArgs &a, OpOut &) { mouse_sink_set_sensitivity(a.i(0)); return OPE_OK; }
+static int op_mouse_accel(CoreCtx *, const OpArgs &a, OpOut &) { mouse_sink_set_acceleration(a.i(0)); return OPE_OK; }
 
 static int op_poll(CoreCtx *c, const OpArgs &, OpOut &o)
 {
@@ -125,6 +127,9 @@ static const ArgSpec sec_folder_args[] = { ARG_STRING("path", 255), ARG_INT("uni
 static const ArgSpec sec_eject_args[] = { ARG_INT("unit", 0, SEC_UNITS_MAX - 1) };
 static const char *const led_values[] = { "On", "Off" };
 static const ArgSpec led_args[] = { ARG_ENUM("value", led_values, 2) };
+static const ArgSpec mouse_sens_args[] = { ARG_INT("value", 1, 16) };
+static const char *const mouse_accel_values[] = { "Off", "Adaptive" };
+static const ArgSpec mouse_accel_args[] = { ARG_ENUM("value", mouse_accel_values, 2) };
 static const ArgSpec put_args[] = { ARG_BLOB("data") };
 
 // T192.3 (the controller's "Return to host menu", menutree.cc FixedDef::pre_op): the media are written back first; one that cannot be written back keeps the core.
@@ -146,6 +151,8 @@ void engines_register(OpRegistry &r)
     r.add_state("sectors.folder.offer", sec_folder_offer);
     r.add_op("romset.put", put_args, 1, op_romset_put);
     r.add_op("led.load", led_args, 1, op_led_load);
+    r.add_op("mouse.sens", mouse_sens_args, 1, op_mouse_sens);
+    r.add_op("mouse.accel", mouse_accel_args, 1, op_mouse_accel);
     r.add_op("media.poll", 0, 0, op_poll);
     r.add_op("media.flush_for_core", 0, 0, op_flush_for_core);
 }

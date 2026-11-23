@@ -12,6 +12,7 @@ int16_t pot_x, pot_y;
 uint8_t pot_joy = 0x1F;
 uint32_t last_ms;
 bool first = true;
+int g_sens = -1, g_acc = -1;                 // -1: not set
 
 struct Guard {
     Guard() { if (crit) crit->enter(); }
@@ -43,6 +44,31 @@ void mouse_sink_reset()
     btn = btn_sent = 0;
     last_ms = 0;
     first = true;
+}
+
+void mouse_sink_set_sensitivity(int value)
+{
+    g_sens = value < 1 ? 1 : (value > 16 ? 16 : value);
+}
+
+void mouse_sink_set_acceleration(int value)
+{
+    g_acc = value ? 1 : 0;
+}
+
+bool mouse_sink_scaling(int cfg_key, int *value)
+{
+    int v = cfg_key == 0x5D ? g_sens : (cfg_key == 0x5E ? g_acc : -1);
+    if (v < 0) {
+        return false;
+    }
+    *value = v;
+    return true;
+}
+
+void mouse_sink_scaling_forget()
+{
+    g_sens = g_acc = -1;
 }
 
 void mouse_sink_configure(const MouseSinkSpec *spec)
@@ -119,9 +145,14 @@ bool mouse_sink_pace(CoreCtx *c)
 }
 
 // The USB driver asks the application for its configuration items through this (weak in usb_hid.cc, Gideon's item numbers CFG_*, usb_hid_config.h). The mouse items are
-// settings of the generic application (baseset.h); the base image defines the function, no library does.
+// settings of the generic application (baseset.h); the base image defines the function, no library does. A core that declares the two scaling items itself (the Amiga cores:
+// the operations mouse.sens / mouse.accel set them through the sink) is answered first from there; every other core from the application's settings.
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
 {
+    int v;
+    if (mouse_sink_scaling(key, &v)) {
+        return v;
+    }
     return baseset_usb_config(key, default_value);
 }

@@ -1,6 +1,7 @@
 // The settings of the generic application (T239.3 base 3.3, svc_settings.h): the menu's look, the keyboard as a joystick and the USB mouse. The application declares
 // them, as it does Picture and Volume, applies them itself and lists them on the APP page (F7) of every core; a core's menu or descriptor declares none of them (desc_check
-// refuses a descriptor that does). The keys are the stored keys of every .cfg, so the values a core's own menu used to hold carry over. A library reads them by key
+// refuses a descriptor that does; the one exception is the Amiga cores' own Mouse Sensitivity / Mouse Acceleration with the operations mouse.sens / mouse.accel, T239.3 D25: baseset_extend
+// does not add a key the descriptor declares, so the Amiga keeps its rows on F5 and has no second pair on F7). The keys are the stored keys of every .cfg, so the values a core's own menu used to hold carry over. A library reads them by key
 // (settings.value) and hears of a change through the core hook base_setting_changed (core_hooks.h, hookhost.h).
 //
 //   look       Overlay Transparency, Color Scheme, Filename overflow squeeze, Navigation Style

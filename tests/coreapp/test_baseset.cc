@@ -24,6 +24,21 @@ static const char *const order[10] = { "Overlay Transparency", "Color Scheme", "
                                        "Mouse Sensitivity", "Mouse Acceleration", "Mouse Wheel Sensitivity", "Mouse Wheel Direction" };
 
 // A descriptor that names the two capabilities of the rows that no real core has (baseset.h): the rows a core with them would show.
+// a core with a USB mouse whose descriptor declares none of the ten keys: the Amiga's without its own two mouse rows (those are the core's, D25)
+static const CoreDesc &mouse_core_of(const CoreDesc &src)
+{
+    static CoreDesc d;
+    static Setting s[SETTINGS_MAX];
+    int n = 0;
+    for (int i = 0; i < src.nsettings; i++) {
+        if (strcmp(src.settings[i].key, "Mouse Sensitivity") && strcmp(src.settings[i].key, "Mouse Acceleration")) s[n++] = src.settings[i];
+    }
+    d = src;
+    d.settings = s;
+    d.nsettings = n;
+    return d;
+}
+
 static const CoreDesc &rich_of(const CoreDesc &src, int slot)
 {
     static CoreDesc d[4];
@@ -100,8 +115,12 @@ static int count_key(const CoreDesc &d, const char *key)
 int main()
 {
     // ---- the rows: a core without a mouse gets five, a core with one gets ten, in the order of svc_settings.h; no descriptor declares one
-    CHECK(amiga1200_desc.mouse != 0 && atari800_desc.mouse == 0);
-    const CoreDesc &rich_amiga = rich_of(amiga1200_desc, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
+    const CoreDesc &mouse_core = mouse_core_of(amiga1200_desc);
+    CHECK(mouse_core.mouse != 0 && atari800_desc.mouse == 0);
+    // D25: the Amiga declares Mouse Sensitivity / Acceleration itself (operations mouse.sens / mouse.accel); the application adds neither
+    CHECK_EQ(count_key(amiga1200_desc, "Mouse Sensitivity"), 1);
+    CHECK(!baseset_adds(&amiga1200_desc, "Mouse Sensitivity") && !baseset_adds(&amiga1200_desc, "Mouse Acceleration"));
+    const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
     {
         // a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
         const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
@@ -111,21 +130,21 @@ int main()
             for (size_t i = 0; i < l; i++) CHECK((names[k][i] >= 'a' && names[k][i] <= 'z') || (names[k][i] >= '0' && names[k][i] <= '9') || names[k][i] == '_');
         }
         CHECK(desc_has_capability(&rich_amiga, BASE_CAP_KEYBOARD_JOYSTICK) && desc_has_capability(&rich_amiga, BASE_CAP_MOUSE_DRIVER));
-        CHECK(!desc_has_capability(&amiga1200_desc, BASE_CAP_KEYBOARD_JOYSTICK) && !desc_has_capability(&amiga1200_desc, BASE_CAP_MOUSE_DRIVER));
+        CHECK(!desc_has_capability(&mouse_core, BASE_CAP_KEYBOARD_JOYSTICK) && !desc_has_capability(&mouse_core, BASE_CAP_MOUSE_DRIVER));
     }
     for (int k = 0; k < 10; k++) {
         CHECK_EQ(count_key(atari800_desc, order[k]), 0);
-        CHECK_EQ(count_key(amiga1200_desc, order[k]), 0);
+        CHECK_EQ(count_key(mouse_core, order[k]), 0);
     }
     {
         Rig nm(&atari800_desc), wm(&rich_amiga);
         CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings + 4);
-        CHECK_EQ(wm.d.nsettings, amiga1200_desc.nsettings + 10);
+        CHECK_EQ(wm.d.nsettings, mouse_core.nsettings + 10);
         for (int k = 0; k < 10; k++) {
             CHECK_EQ(count_key(nm.d, order[k]), k < 4 ? 1 : 0);          // the look for every core; the joystick, the mouse and the wheel only where the code can do them
             CHECK_EQ(count_key(wm.d, order[k]), 1);
-            CHECK_STR(wm.d.settings[amiga1200_desc.nsettings + k].key, order[k]);
-            const Setting &s = wm.d.settings[amiga1200_desc.nsettings + k];
+            CHECK_STR(wm.d.settings[mouse_core.nsettings + k].key, order[k]);
+            const Setting &s = wm.d.settings[mouse_core.nsettings + k];
             CHECK(baseset_is_generic(s) && !s.bind);
             CHECK_EQ(baseset_kind(s), k < 4 ? 1 : 2);
             CHECK_EQ(s.when, WHEN_LIVE);
@@ -134,12 +153,12 @@ int main()
         // what the real cores get (T228 R20, "our menu may only show what the code can do"): no core of this tree names a capability, so the joystick row and the mouse mode and wheel rows
         // are nobody's; the sensitivity and the acceleration, which the USB driver applies before the core's mouse sink, are every core with a mouse's
         {
-            Rig am(&amiga1200_desc);
-            CHECK_EQ(am.d.nsettings, amiga1200_desc.nsettings + 6);
+            Rig am(&mouse_core);
+            CHECK_EQ(am.d.nsettings, mouse_core.nsettings + 6);
             for (int k = 0; k < 10; k++) {
                 bool want = k < 4 || k == 6 || k == 7;
                 CHECK_EQ(count_key(am.d, order[k]), want ? 1 : 0);
-                CHECK_EQ(baseset_adds(&amiga1200_desc, order[k]), want);
+                CHECK_EQ(baseset_adds(&mouse_core, order[k]), want);
                 CHECK_EQ(baseset_adds(&atari800_desc, order[k]), k < 4);
                 CHECK_EQ(baseset_adds(&rich_amiga, order[k]), true);
                 CHECK_EQ(baseset_adds(&rich_atari, order[k]), k < 5);
@@ -150,7 +169,7 @@ int main()
             CHECK_EQ(am.ix("Mouse Mode"), -1);
             CHECK_EQ(am.ix("Mouse Wheel Sensitivity"), -1);
             CHECK_EQ(am.ix("Mouse Wheel Direction"), -1);
-            CHECK(!baseset_adds(&amiga1200_desc, "No Such Key"));
+            CHECK(!baseset_adds(&mouse_core, "No Such Key"));
             // the capability alone is not enough for a mouse row: a core without a mouse has none
             CHECK_EQ(count_key(Rig(&rich_atari).d, "Mouse Mode"), 0);
             CHECK_EQ(count_key(Rig(&rich_atari).d, "Joystick Input"), 1);

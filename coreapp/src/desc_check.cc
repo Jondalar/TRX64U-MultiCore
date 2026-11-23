@@ -314,7 +314,11 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
             if (!strcasecmp(d->settings[j].key, s.key)) return "settings: two items with the same key";
         }
         for (int k = 0; k < baseset_count(); k++) {
-            if (!strcasecmp(s.key, baseset_key(k))) return "settings: the look, joystick and mouse keys of baseset.h belong to the application";
+            if (!strcasecmp(s.key, baseset_key(k))) {
+                // the one exception: a core whose own operations scale its mouse (mouse.sens / mouse.accel, mousesink.h) keeps its rows; baseset_extend does not add them again
+                bool own = s.apply && (!strcmp(s.apply, "mouse.sens") || !strcmp(s.apply, "mouse.accel"));
+                if (!own) return "settings: the look, joystick and mouse keys of baseset.h belong to the application";
+            }
         }
         if (!strcasecmp(s.key, PICTURE_KEY) || !strcasecmp(s.key, SCALE_KEY) || !strcasecmp(s.key, SMOOTH_KEY) || !strcasecmp(s.key, FOLLOW_KEY)) return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
         if (s.apply && (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP))) return "settings: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows";
