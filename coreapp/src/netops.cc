@@ -3,7 +3,7 @@
 // into the flash (the stores are not written). The WiFi is set in the host (T184 D3, T228 R26): the core reads its state here and switches the radio.
 #include "netops.h"
 #include "ops_glue.h"
-#include "trx64u_ops.h"
+#include "ctx.h"
 #include "hw.h"
 #include "wifinet.h"
 #include "config.h"

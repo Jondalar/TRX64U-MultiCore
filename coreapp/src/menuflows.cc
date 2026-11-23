@@ -2,7 +2,7 @@
 #include "desc.h"
 #include "ctx.h"
 #include "regset.h"
-#include "trx64u_ops.h"
+#include "ctx.h"
 #include "wifinet.h"
 #include "libfmt.h"
 #include <stddef.h>

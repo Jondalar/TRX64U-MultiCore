@@ -2079,7 +2079,7 @@ MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name, bool bare)
 {
     const char *dir = c_->media_dir;
     int dl = (int)strlen(dir);
-    if (bare) {                                                      // the operation places the name itself (trx_target_path)
+    if (bare) {                                                      // the operation places the name itself (ctx_target_path)
         snprintf(job_name_, sizeof(job_name_), "%s", name ? name : "");
     } else {
         snprintf(job_name_, sizeof(job_name_), "%s%s%s", dir, dl && dir[dl - 1] != '/' ? "/" : "", name ? name : "");
@@ -3171,7 +3171,7 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             return goto_spec(arg) ? R_REDRAW : R_NONE;
         }
         if (n.kind == LN_OP && ui_attr(n.attr, "view", arg, sizeof(arg))) {         // the viewer on something the application keeps in memory
-            static const char *const kinds[] = { "log", "edid", "trace", "info", "scan", "help" };
+            static const char *const kinds[] = { "log", "edid", "", "info", "scan", "help" };
             for (int k = 0; k < 6; k++) {
                 if (!strcmp(arg, kinds[k])) {
                     fm_.start_view_mem(label, k, k == 1);
