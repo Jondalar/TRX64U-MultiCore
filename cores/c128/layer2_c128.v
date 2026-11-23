@@ -339,7 +339,12 @@ module layer2_c128 #(
     wire [12:0] uci_addr;
     wire  [7:0] uci_rdata, pb_rdata, rc_rdata;
     wire        uci_irq, drva_irq, rc_irq;
-    wire [31:0] core_caps = host_caps | `CAPAB_HARDWARE_GCR | `CAPAB_C2N_STREAMER | `CAPAB_C2N_RECORDER |
+`ifdef NO_TAP_STREAM
+    wire [31:0] core_tape_caps = 32'd0;     // T257 D11: no .tap streamer, no recorder: the caps the app reads do not claim them
+`else
+    wire [31:0] core_tape_caps = `CAPAB_C2N_STREAMER | `CAPAB_C2N_RECORDER;
+`endif
+    wire [31:0] core_caps = host_caps | `CAPAB_HARDWARE_GCR | core_tape_caps |
                             `CAPAB_RAM_EXPANSION | `CAPAB_MM_DRIVE | `CAPAB_EXTENDED_REU | `CAPAB_COMMAND_INTF;
 
     // the C128's own register page (c128_regs.v) at cw_addr[16:12] = 4'hE; the c64u window answers everything else
@@ -428,6 +433,13 @@ module layer2_c128 #(
     wire  [8:0] cart_fill_addr;
     wire  [7:0] cart_fill_be;
     wire [63:0] cart_fill_data;
+`ifdef NO_CART_EMU
+    // T257 D11: no emulated cartridge, so no DDR2 fill for it: the `c` command port stays idle (c_en 0, no write data; the host's
+    // ddr2_port takes nothing from it, the ROM/RAM line fetches and the frame writer use the `e` port), the cache-fill side of the
+    // core is quiet and the request is never answered because it is never made (c64_core_c128 ties cart_req_tgl to 0).
+    assign cart_ack_tgl = 1'b0, cart_fill_be = 8'd0, cart_fill_addr = 9'd0, cart_fill_data = 64'd0;
+    c128_tie_ff #(.W(176)) tie_c (.clk(cpu_clk), .o({k_c_addr, c_cmd, c_en, c_wdf_data, c_wdf_mask, c_wdf_wren}));
+`else
     cart_fill_c64u #(.ROM_BASE_BLOCK({1'b0, REU_BASE})) cfill (
         .ui_clk(ui_clk), .ui_rst(ui_rst || !ddr_calib), .rom_sel(cart_rom_sel),
         .req_tgl(cart_req_tgl), .req_we(cart_req_we), .req_addr(cart_req_addr),
@@ -438,6 +450,7 @@ module layer2_c128 #(
         .app_wdf_data(c_wdf_data), .app_wdf_mask(c_wdf_mask), .app_wdf_wren(c_wdf_wren),
         .app_wdf_rdy(c_wdf_rdy), .app_rd_data(c_rd_data), .app_rd_data_valid(c_rd_valid)
     );
+`endif
 
     // ---- the app's DMA window into the C64 -----------------------------------------------------------------------------------
     wire        dma_cyc_req, dma_cyc_we, dma_cyc_done, cram_we_w;
@@ -517,11 +530,13 @@ module layer2_c128 #(
 `ifdef TAPE
     // ---- the cassette port ----------------------------------------------------------------------------------------------------
     // A pulse in cpu_clk per C64 cycle (the recorder's time base) from the C64's bus events (sys_clk, gated: none while paused).
+`ifndef NO_TAP_STREAM
     reg ev_tgl = 1'b0;
     always @(posedge sys_clk) if (io_ev) ev_tgl <= ~ev_tgl;
     (* ASYNC_REG = "TRUE" *) reg [2:0] ev_s = 3'b000;
     always @(posedge cpu_clk) ev_s <= {ev_s[1:0], ev_tgl};
     wire phi2_pulse = ev_s[2] != ev_s[1];
+`endif
     // the machine's side of the port into cpu_clk
     (* ASYNC_REG = "TRUE" *) reg [1:0] mot_s = 2'b11, wr_s = 2'b11, rdp_s = 2'b11, snp_s = 2'b11;
     always @(posedge cpu_clk) begin
@@ -532,7 +547,14 @@ module layer2_c128 #(
     end
     wire motor_on = !mot_s[1];
     wire sense_pull, c2n_rd_o, c2n_rd_en, c2n_wr_o, c2n_wr_en;
+`ifdef NO_TAP_STREAM
+    // T257 D11: no .tap streamer (c64u_c2n_l2): the cassette port is the external datasette's only. Nothing pulls SENSE, nothing drives
+    // the read pin, the playback (pb_*) and record (rc_*) windows answer 0 with an ack and raise no IRQ.
+    assign sense_pull = 1'b0, c2n_rd_o = 1'b1, c2n_rd_en = 1'b0, c2n_wr_o = 1'b1, c2n_wr_en = 1'b0;
+    assign pb_rdata = 8'd0, pb_ack = 1'b1, rc_rdata = 8'd0, rc_ack = 1'b1, rc_irq = 1'b0;
+`endif
     wire sense_low = sense_pull || (pin_ctrl[4] && !snp_s[1]);   // the SENSE line is low: our own pull, or an external datasette's key
+`ifndef NO_TAP_STREAM
     c64u_c2n_l2 c2n (
         .clock(cpu_clk), .reset(cpu_rst), .c64_stopped(drv_halt), .phi2_tick(phi2_pulse),
         .pb_read(pb_re), .pb_write(pb_we), .pb_addr(cw_addr[11:0]), .pb_wdata(cw_wdata), .pb_rdata(pb_rdata), .pb_ack(pb_ack),
@@ -542,7 +564,8 @@ module layer2_c128 #(
         .read_i(pin_ctrl[4] ? rdp_s[1] : 1'b1), .write_i(wr_s[1]),
         .read_o(c2n_rd_o), .read_en(c2n_rd_en), .write_o(c2n_wr_o), .write_en(c2n_wr_en)
     );
-    // and back into the C64's clock: CIA 1 FLAG = the streamer's line while it drives it, else the pin if used, else idle high
+`endif
+    // and back into the C64's clock: CIA 1 FLAG = the streamer's line while it drives it (never with NO_TAP_STREAM), else the pin if used, else idle high
     wire rd_line = c2n_rd_en ? c2n_rd_o : (pin_ctrl[4] ? rdp_s[1] : 1'b1);
     (* ASYNC_REG = "TRUE" *) reg [1:0] trd_s = 2'b11, tsn_s = 2'b11;
     always @(posedge sys_clk) begin

@@ -6,7 +6,7 @@
 // Auto switch (T194 D12: on/off, time) moves to the chip that is being used, and a core hotkey (40/80) flips by hand.
 // Drive A is the cbm1541 library with the 1541 and the 1581 (cbm1541_desc.h, CBM1581_*). The register page is c128_regs.h; the extra keys of
 // the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Run Disk (T206) resets the machine and types the start at
-// READY (c128.type_script, the shared cbm_run job). T217: Load / Load + run of a .prg and the inner Mount & Run (run_op). Not in this descriptor: cartridge port, REU, see T113 section 5.5 "Open".
+// READY (c128.type_script, the shared cbm_run job). T217: Load / Load + run of a .prg and the inner Mount & Run (run_op). Not in this descriptor: cartridge port, REU, .tap streamer (T257 D11: the gateware has no emulated cartridge and no streamer), see T113 section 5.5 "Open".
 #include "hk_defaults.h"
 #include "ctx.h"
 #include "boot.h"
@@ -103,7 +103,7 @@ static const uint32_t autot_ms[] = { 500, 1000, 2000, 3000 };
 #define AUTOT_DEF 1
 
 static const char *const joy_names[]   = { "Normal", "Swapped" };
-static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
+static const char *const dset_names[]  = { "Off", "External datasette" };
 // T140 D24: the System Mode, the four the C64 Ultimate offers (menu.toml sysmodes): the VIC's line and frame, the machine's clock and the colour standard of the
 // analogue output (cores/c128/mono/c128_avout.v) follow it. Values in the order of t_video_mode.
 #define KEY_SYSMODE "System Mode"
@@ -411,7 +411,7 @@ static int op_toggle_picture(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 
 // T214: an external datasette on the C2N port (same device as on the PET, GitHub #26). PIN_CTRL b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are inputs (0x13);
-// b2 / b3 stay off (the file streamer must not drive READ or pull SENSE then). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
+// b2 / b3 stay off (the gateware has no .tap streamer since T257 D11; there is nothing else on the port). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
 static int op_set_dset(CoreCtx *c, const OpArgs &a, OpOut &)
 {
     c->io->wr(C128_PIN_CTRL, (uint8_t)(a.i(0) ? 0x13 : 0x00));
