@@ -6,6 +6,7 @@
 // panel skin, UNSCII for the terminal skin, so no font binary is added to the repository.
 #include <ctype.h>
 #include "trxview.h"
+#include "trx_scheme_names.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -45,7 +46,7 @@ void trx_skin_set(TrxSkin s) { g_skin = s; }
 
 // The colour schemes of Gideon's "Color Scheme" item (userinterface.cc `colors`): the panel skin's eleven colours, in the order of TrxTheme (bg, surface, surface2,
 // line, ink, muted, accent, ok, warn, bad, accent_soft). Scheme 1, "Ultimate Black", is the concept's own palette.
-static const uint32_t k_schemes[7][11] = {
+static const uint32_t k_schemes[TRX_SCHEME_COUNT][11] = {
     { 0x2b2070, 0x352879, 0x40318d, 0x5a4ab0, 0xe8e0ff, 0xb0a6e8, 0xffffff, 0x8bdc8b, 0xffd070, 0xff8080, 0x4a3da0 },     // Standard Blue
     { 0x070a12, 0x0d1220, 0x111827, 0x273047, 0xf4f2fb, 0x9da6bd, 0x8376ff, 0x6de7ff, 0xffc15a, 0xff7a72, 0x1c1a3f },     // Ultimate Black
     { 0x0a140c, 0x101e12, 0x16281a, 0x2a4a30, 0xd8f4da, 0x86b08a, 0x70e070, 0x70e0b0, 0xe8d060, 0xff7a72, 0x143018 },     // C128 Style
@@ -56,7 +57,7 @@ static const uint32_t k_schemes[7][11] = {
 };
 void trx_scheme_set(int n)
 {
-    if (n < 0 || n > 6) {
+    if (n < 0 || n >= TRX_SCHEME_COUNT) {
         return;
     }
     const uint32_t *c = k_schemes[n];

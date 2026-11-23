@@ -6,7 +6,7 @@
 #include "desc.h"
 #include "picture.h"
 
-// out = *desc with Picture (and Scale, Smoothing), Volume, Persist medium mounts, Home Directory / Enter Home on Startup and the hotkey map appended;
+// out = *desc with Picture (and Scale, Smoothing), Volume, Persist medium mounts, Home Directory / Enter Home on Startup, the hotkey map and the application's look, joystick and mouse settings appended;
 // `store` holds the merged settings and has to outlive `out`. An extension that has no room or does not apply is named on stdout ("[core] <name>: <why>")
 // and skipped; the return value is the first reason, null when every extension went in. If Picture is refused, `out` starts as a copy of *desc.
 const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, const PictureEnv *env);

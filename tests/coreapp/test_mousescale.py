@@ -2,8 +2,8 @@
 """T190: the parts of the mouse scaling that cannot be built on the Mac - read from the sources.
   1. usb_hid.cc reads the sensitivity and acceleration through CFG_MOUSE_SENSITIVITY / CFG_MOUSE_ACCELERATION (usb_hid_config.h 0x5D / 0x5E), applies
      them to every mouse report and hands the result to the mouse sink (the sequence tests/coreapp/test_mousescale.cc runs);
-  2. u64cfg.cc answers those two keys from the mouse library (mouse_sink_scaling) before it looks at the TRX64U core's own menu.
-TRX_SCALE_CFG points at another copy of u64cfg.cc (the negative control in run.sh)."""
+  2. mousesink.cc defines u64_get_usb_hid_config_value and answers from the application's own settings (baseset_usb_config, tests/coreapp/test_mousescale.cc runs it).
+TRX_SCALE_CFG points at another copy of mousesink.cc."""
 import os
 import re
 import sys
@@ -11,7 +11,7 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HID = os.path.join(ROOT, "host-app/software/io/usb/usb_hid.cc")
 CFGH = os.path.join(ROOT, "host-app/software/io/usb/usb_hid_config.h")
-CFG = os.environ.get("TRX_SCALE_CFG") or os.path.join(ROOT, "coreapp/src/u64cfg.cc")
+CFG = os.environ.get("TRX_SCALE_CFG") or os.path.join(ROOT, "coreapp/src/mousesink.cc")
 fails = 0
 
 
@@ -35,7 +35,6 @@ d = body.index("usb_hid_mouse_sink(motion_x, motion_y, hid_buttons)")
 check(a < b < c < d, "sensitivity, then acceleration, then the sink gets the scaled motion")
 
 cfg = open(CFG).read()
-m = re.search(r"u64_get_usb_hid_config_value\(int key, int default_value\)\n\{(.*?)\n    switch \(key\)", cfg, re.S)
-check(m is not None and "mouse_sink_scaling(key, &v)" in m.group(1) and "return v;" in m.group(1),
-      "u64cfg.cc answers the driver from mouse_sink_scaling before the TRX64U menu's values")
+m = re.search(r'extern "C" int u64_get_usb_hid_config_value\(int key, int default_value\)\n\{(.*?)\n\}', cfg, re.S)
+check(m is not None and "baseset_usb_config(key, default_value)" in m.group(1), "mousesink.cc answers the driver from the application's settings (baseset_usb_config)")
 sys.exit(1 if fails else 0)

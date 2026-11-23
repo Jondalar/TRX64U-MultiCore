@@ -499,38 +499,43 @@ TRX64U F5/Emulated SIDs 13 set:UltiSID 1 Filter Resonance
 TRX64U F5/Emulated SIDs 14 set:UltiSID 2 Filter Resonance
 TRX64U F5/Emulated SIDs 15 set:UltiSID 1 Digis Level
 TRX64U F5/Emulated SIDs 16 set:UltiSID 2 Digis Level
-TRX64U F5/input 0 set:Mouse Mode
-TRX64U F5/input 1 set:Mouse Sensitivity
-TRX64U F5/input 2 set:Mouse Acceleration
-TRX64U F5/input 3 set:Mouse Wheel Sensitivity
-TRX64U F5/input 4 set:Mouse Wheel Direction
-TRX64U F5/input 5 set:USB Controller Port
-TRX64U F5/input 6 task:Map USB controller buttons
+TRX64U F5/input 0 set:USB Controller Port
+TRX64U F5/input 1 task:Map USB controller buttons
 TRX64U F7/settings 0 fixed:13:Application
-TRX64U F7/settings 1 set:Overlay Transparency
-TRX64U F7/settings 2 set:Navigation Style
-TRX64U F7/settings 3 set:Filename overflow squeeze
-TRX64U F7/settings 4 set:Temp Auto Cleanup
-TRX64U F7/settings 5 set:Temp Subfolders
-TRX64U F7/settings 6 set:Splash
-TRX64U F7/settings 7 set:Leave Menu on Mount
-TRX64U F7/settings 8 fixed:13:Storage
-TRX64U F7/settings 9 set:Persist medium mounts
-TRX64U F7/settings 10 set:Enter Home on Startup
-TRX64U F7/settings 11 set:Home Directory
-TRX64U F7/settings 12 fixed:13:Menu
-TRX64U F7/settings 13 set:Menu opens at
-TRX64U F7/settings 14 fixed:13:Hotkeys
-TRX64U F7/settings 15 fixed:16:Hotkeys
+TRX64U F7/settings 1 set:Temp Auto Cleanup
+TRX64U F7/settings 2 set:Temp Subfolders
+TRX64U F7/settings 3 set:Splash
+TRX64U F7/settings 4 set:Leave Menu on Mount
+TRX64U F7/settings 5 fixed:13:Look
+TRX64U F7/settings 6 set:Overlay Transparency
+TRX64U F7/settings 7 set:Color Scheme
+TRX64U F7/settings 8 set:Filename overflow squeeze
+TRX64U F7/settings 9 set:Navigation Style
+TRX64U F7/settings 10 fixed:13:Input
+TRX64U F7/settings 11 set:Joystick Input
+TRX64U F7/settings 12 set:Mouse Mode
+TRX64U F7/settings 13 set:Mouse Sensitivity
+TRX64U F7/settings 14 set:Mouse Acceleration
+TRX64U F7/settings 15 set:Mouse Wheel Sensitivity
+TRX64U F7/settings 16 set:Mouse Wheel Direction
+TRX64U F7/settings 17 fixed:13:Storage
+TRX64U F7/settings 18 set:Persist medium mounts
+TRX64U F7/settings 19 set:Enter Home on Startup
+TRX64U F7/settings 20 set:Home Directory
+TRX64U F7/settings 21 fixed:13:Menu
+TRX64U F7/settings 22 set:Menu opens at
+TRX64U F7/settings 23 fixed:13:Hotkeys
+TRX64U F7/settings 24 fixed:16:Hotkeys
 TRX64U F7/hotkeys 0 set:Hotkey modifier
 TRX64U F7/hotkeys 1 set:Hotkey menu
 TRX64U F7/hotkeys 2 set:Hotkey volume up
 TRX64U F7/hotkeys 3 set:Hotkey volume down
 TRX64U F7/hotkeys 4 set:Hotkey reset
-TRX64U F7/hotkeys 5 set:Hotkey picture mode
-TRX64U F7/hotkeys 6 set:Hotkey swap disk
-TRX64U F7/hotkeys 7 set:Hotkey Timewarp
-TRX64U F7/hotkeys 8 set:Hotkey Monitor
+TRX64U F7/hotkeys 5 set:Hotkey swap joystick
+TRX64U F7/hotkeys 6 set:Hotkey picture mode
+TRX64U F7/hotkeys 7 set:Hotkey swap disk
+TRX64U F7/hotkeys 8 set:Hotkey Timewarp
+TRX64U F7/hotkeys 9 set:Hotkey Monitor
 TRX64U F8/expert 0 fixed:13:Actions
 TRX64U F8/expert 1 fixed:6:Restart core
 TRX64U F8/expert 2 fixed:7:Return to host menu
@@ -633,9 +638,7 @@ Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
 Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
 Amiga (OCS/ECS, 68000) F5/input 0 set:Map port 2 to USB controller
 Amiga (OCS/ECS, 68000) F5/input 1 set:Port 2 acts as
-Amiga (OCS/ECS, 68000) F5/input 2 set:Mouse Sensitivity
-Amiga (OCS/ECS, 68000) F5/input 3 set:Mouse Acceleration
-Amiga (OCS/ECS, 68000) F5/input 4 task:Map port 2 buttons
+Amiga (OCS/ECS, 68000) F5/input 2 task:Map port 2 buttons
 Amiga (OCS/ECS, 68000) F8/expert 0 fixed:13:Actions
 Amiga (OCS/ECS, 68000) F8/expert 1 fixed:6:Restart core
 Amiga (OCS/ECS, 68000) F8/expert 2 fixed:7:Return to host menu
@@ -672,9 +675,7 @@ Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
 Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
 Amiga 1200 (AGA, 68020) F5/input 0 set:Map port 2 to USB controller
 Amiga 1200 (AGA, 68020) F5/input 1 set:Port 2 acts as
-Amiga 1200 (AGA, 68020) F5/input 2 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/input 3 set:Mouse Acceleration
-Amiga 1200 (AGA, 68020) F5/input 4 task:Map port 2 buttons
+Amiga 1200 (AGA, 68020) F5/input 2 task:Map port 2 buttons
 Amiga 1200 (AGA, 68020) F8/expert 0 fixed:13:Actions
 Amiga 1200 (AGA, 68020) F8/expert 1 fixed:6:Restart core
 Amiga 1200 (AGA, 68020) F8/expert 2 fixed:7:Return to host menu

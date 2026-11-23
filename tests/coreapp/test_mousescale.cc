@@ -1,21 +1,31 @@
-// T190 (GitHub #51): the Amiga cores' "Mouse sensitivity" and "Mouse acceleration". The USB driver scales every report with the two values it reads
-// through u64_get_usb_hid_config_value (usb_hid.cc process_mouse_report) and hands the result to the mouse sink; this test runs that driver sequence
-// on the real HidMouseInterpreter (host-app/.../hid_decoder.h, its containers stubbed in tests/coreapp/hidstub), with the values the application
-// answers (mouse_sink_scaling), into the Amiga's counters. tests/coreapp/test_mousescale.py reads usb_hid.cc / u64cfg.cc for the parts that cannot be built here.
+// T190 (GitHub #51), T239.3 base 3.3: the "Mouse Sensitivity" and "Mouse Acceleration" of a core with a mouse (the Amiga cores). The settings are the application's own
+// (baseset.h), added to the core's descriptor by baseset_extend. The USB driver scales every report with the two values it reads through u64_get_usb_hid_config_value
+// (usb_hid.cc process_mouse_report, defined in mousesink.cc) and hands the result to the mouse sink; this test runs that driver sequence on the real HidMouseInterpreter
+// (host-app/.../hid_decoder.h, its containers stubbed in tests/coreapp/hidstub), with the values the application answers, into the Amiga's counters.
+// tests/coreapp/test_mousescale.py reads usb_hid.cc / mousesink.cc for the parts that cannot be built here.
 #include "check.h"
 #include "amiga_model.h"
 #include "engines.h"
 #include "regset.h"
 #include "ops_glue.h"
 #include "hid_decoder.h"
+#include "baseset.h"
 
-extern const CoreDesc c64_desc;
+extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 
 // usb_hid_get_config_value(key, default) as the driver sees it: the application's answer, else the default
 static int cfg_value(int key, int def)
 {
-    int v;
-    return mouse_sink_scaling(key, &v) ? v : def;
+    return u64_get_usb_hid_config_value(key, def);
+}
+
+// the descriptor of a core with the application's own settings added (what run.cc's menu_build does last)
+static const CoreDesc *with_base(const CoreDesc *d)
+{
+    CoreDesc *o = new CoreDesc();
+    Setting *store = new Setting[SETTINGS_MAX];
+    CHECK(!baseset_extend(d, o, store));
+    return o;
 }
 
 // The sequence of process_mouse_report for one report (lines "int sensitivity = ..." to the sink call), usb_hid_apply_pointer_sensitivity /
@@ -79,11 +89,15 @@ static int one_report(AmigaRig &r, int dx)
 
 int main()
 {
-    const CoreDesc *both[2] = { &amiga_desc, &amiga1200_desc };
+    const CoreDesc *both[2] = { with_base(&amiga_desc), with_base(&amiga1200_desc) };
 
-    // ---- S1: the rows, in both Amiga cores, group "input", Gideon's range and defaults; no other core has them
+    // ---- S1: the rows, in both Amiga cores, the application's items (group routed by baseset.h), Gideon's range and defaults; the cores' own descriptors declare none
     for (int k = 0; k < 2; k++) {
         const CoreDesc *d = both[k];
+        const CoreDesc *own = k ? &amiga1200_desc : &amiga_desc;
+        for (int i = 0; i < own->nsettings; i++) {
+            CHECK(strcmp(own->settings[i].key, "Mouse Sensitivity") != 0 && strcmp(own->settings[i].key, "Mouse Acceleration") != 0);
+        }
         int ns = -1, na = -1;
         for (int i = 0; i < d->nsettings; i++) {
             if (!strcmp(d->settings[i].key, "Mouse Sensitivity")) ns = i;
@@ -97,26 +111,23 @@ int main()
         CHECK_STR(s.values[15], "16");
         CHECK_STR(s.values[s.def], "8");                   // default 8 = 1:1
         CHECK_EQ(s.base, 1);
-        CHECK_STR(s.group, "input");
-        CHECK_STR(s.apply, "mouse.sens");
+        CHECK_EQ(baseset_kind(s), 2);
+        CHECK_STR(s.apply, "base.mouse_sens");
         CHECK_EQ(s.when, WHEN_LIVE);
         CHECK_EQ(a.nvalues, 2);
         CHECK_STR(a.values[0], "Off");
         CHECK_STR(a.values[1], "Adaptive");
         CHECK_EQ(a.def, 0);
-        CHECK_STR(a.group, "input");
-        CHECK_STR(a.apply, "mouse.accel");
+        CHECK_EQ(baseset_kind(a), 2);
+        CHECK_STR(a.apply, "base.mouse_accel");
         CHECK_EQ(a.when, WHEN_LIVE);
-    }
-    for (int i = 0; i < c64_desc.nsettings; i++) {
-        CHECK(strcmp(c64_desc.settings[i].key, "Mouse Sensitivity") != 0 && strcmp(c64_desc.settings[i].key, "Mouse Acceleration") != 0);
     }
 
     // ---- S2: a model report of +10 counts arrives as each setting says
     {
         FakeFs fs;
-        AmigaRig r(&fs);
-        mouse_sink_scaling_forget();
+        AmigaRig r(&fs, both[0]);
+        baseset_attach(&r.c, 0);
         regset_apply(&r.c, true);                          // the start: the defaults go in
         CHECK_EQ(one_report(r, 10), 10);                   // 8 = 1.0
         set_value(r, "Mouse Sensitivity", 15);             // 16 = 2.0
@@ -150,30 +161,25 @@ int main()
         CHECK_EQ(sum_off, 360);                            // and Off again is Off
     }
 
-    // ---- the library clamps what a caller hands it to the driver's range (1 .. 16, acceleration 0 / 1)
+    // ---- no context: the driver's own defaults (sensitivity 8, acceleration off)
     {
-        int v;
-        mouse_sink_set_sensitivity(40);
-        CHECK(mouse_sink_scaling(0x5D, &v) && v == 16);
-        mouse_sink_set_sensitivity(-3);
-        CHECK(mouse_sink_scaling(0x5D, &v) && v == 1);
-        mouse_sink_set_acceleration(7);
-        CHECK(mouse_sink_scaling(0x5E, &v) && v == 1);
-        CHECK(!mouse_sink_scaling(0x55, &v));              // another key is not the library's
-        mouse_sink_scaling_forget();
+        baseset_attach(0, 0);
+        CHECK_EQ(cfg_value(0x5D, 8), 8);
+        CHECK_EQ(cfg_value(0x5E, 0), 0);
+        CHECK_EQ(cfg_value(0x55, 5), 5);
     }
 
-    // ---- S2b: both cores answer the driver from their own settings through the same operations
+    // ---- S2b: both cores answer the driver from their own settings
     for (int k = 0; k < 2; k++) {
         FakeFs fs;
         AmigaRig r(&fs, both[k]);
-        mouse_sink_scaling_forget();
+        baseset_attach(&r.c, 0);
         regset_apply(&r.c, true);
         set_value(r, "Mouse Sensitivity", 11);             // 12 = 1.5
         CHECK_EQ(one_report(r, 10), 15);
     }
 
-    // ---- S3: the restart applies the stored values (a new process: nothing set, the .cfg read, the start applies every setting)
+    // ---- S3: the restart applies the stored values (a new process: the .cfg read, the start applies every setting)
     for (int k = 0; k < 2; k++) {
         const CoreDesc *d = both[k];
         FakeFs fs;
@@ -183,18 +189,17 @@ int main()
             CHECK(s1.set(s1.find("Mouse Sensitivity"), 3));       // 4
             CHECK(s1.set(s1.find("Mouse Acceleration"), 1));
         }
-        mouse_sink_scaling_forget();
-        int v;
-        CHECK(!mouse_sink_scaling(0x5D, &v));              // the new process knows nothing yet
         Settings s2(d->settings, d->nsettings, d->store, &fs, "/sd/cores/amiga.cfg", 0);
         s2.load();
         AmigaIo io;
         CoreCtx c;
         memset(&c, 0, sizeof(c));
         c.desc = d; c.io = &io; c.fs = &fs; c.settings = &s2;
+        baseset_attach(&c, 0);
         regset_apply(&c, true);
-        CHECK(mouse_sink_scaling(0x5D, &v) && v == 4);
-        CHECK(mouse_sink_scaling(0x5E, &v) && v == 1);
+        CHECK_EQ(cfg_value(0x5D, 8), 4);
+        CHECK_EQ(cfg_value(0x5E, 0), 1);
     }
+    baseset_attach(0, 0);
     DONE("mousescale");
 }

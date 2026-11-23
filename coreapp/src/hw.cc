@@ -524,3 +524,11 @@ bool hw_return_to_host(char *msg, int n)
     }
     return true;
 }
+
+extern uint8_t keyb_joy_select;
+extern uint8_t wasd_to_joy;
+void hw_keyboard_joystick(uint8_t port, uint8_t wasd)
+{
+    U64II_KEYB_JOY = keyb_joy_select = port;
+    MATRIX_WASD_TO_JOY = wasd_to_joy = wasd;
+}

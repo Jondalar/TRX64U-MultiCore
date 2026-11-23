@@ -150,14 +150,14 @@ void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis = 0, void *vis_
 void menu_drop_entry(MenuTree *t, int area, int tab, int i);
 
 // T187 D1: the one table that says where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
-// core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup) is named by what it does (its
+// core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup, the look, joystick and mouse of baseset.h) is named by what it does (its
 // operation), not by the group a descriptor wrote on it. `area` is the key of the area, `tab` the tab's id there, `heading` the group's name; a core whose
 // route has no such tab (a record without the area) lists the row where the ungrouped settings are.
 struct MenuGroupRoute {
-    const char *group;      // "video", "audio", "hotkeys", "storage", "menu"
+    const char *group;      // "video", "audio", "hotkeys", "look", "appinput", "storage", "menu"
     const char *area;       // "F5" machine (video, audio), "F7" the app (T212)
     const char *tab;        // "video", "audio", "input", "settings" (a core without that tab lists the row in the area's tab "settings", under the heading)
-    const char *heading;    // the group as a person reads it: "Video", "Audio", "Input", "Storage", "Menu"
+    const char *heading;    // the group as a person reads it: "Video", "Audio", "Look", "Input", "Storage", "Menu"
     const char *label;      // a page's row in the tab ("Hotkeys")
     bool page;              // the rows are not in the tab: one row there opens a page of them (Hotkeys)
 };

@@ -95,8 +95,8 @@ typedef struct SvcSettings {
 //   "Mouse Acceleration"              "Off", "Adaptive"; default 0.
 //   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
 //   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
-// The base declares the five for every core with a mouse. Two cores declare them today, one in its menu TOML (all five) and the Amiga in cores/amiga.cc
-// (Mouse Sensitivity and Mouse Acceleration, with the same keys and values); both drop their declarations when 3.3 is built.
+// The base declares the five for every core with a mouse (coreapp/src/baseset.cc). The two cores that declared them before 3.3, trx64u in its menu TOML (all five) and the Amiga
+// in cores/amiga.cc (Mouse Sensitivity and Mouse Acceleration, with the same keys and values), no longer do, and desc_check refuses a descriptor that declares one.
 
 #ifdef __cplusplus
 }

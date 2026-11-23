@@ -1,0 +1,300 @@
+// T239.3 base 3.3: the settings of the generic application (baseset.h: the menu's look, the keyboard as a joystick, the USB mouse) and the core hooks (core_hooks.h,
+// hookhost.h). Every core gets the five of the look and joystick; a core whose descriptor has a mouse gets the five mouse settings too; no descriptor declares one.
+// A change reaches the board port (the look, the keyboard's joystick registers), the first-run Navigation Style is WASD Cursors on the Commodore product only while nothing is
+// stored, the USB driver's answers come from the settings by key, and the hooks of a library's table "corehooks" are called in the order the header gives:
+// start, then base_setting_changed once per setting the core has, then once per change; menu_closed on its own; a table without a member, or of another major, is no hook.
+#include <string>
+#include <vector>
+#include "check.h"
+#include "fakes.h"
+#include "cores.h"
+#include "regset.h"
+#include "ops.h"
+#include "ops_glue.h"
+#include "baseset.h"
+#include "hookhost.h"
+#include "core_hooks.h"
+#include "mousesink.h"
+
+extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
+
+static const char *const order[10] = { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style", "Joystick Input", "Mouse Mode",
+                                       "Mouse Sensitivity", "Mouse Acceleration", "Mouse Wheel Sensitivity", "Mouse Wheel Direction" };
+
+static std::vector<std::string> g_log;                    // what the port and the hooks were told, in order
+static bool g_commodore;
+static void port_look(int t, int s) { g_log.push_back("look " + std::to_string(t) + " " + std::to_string(s)); }
+static void port_squeeze(int q) { g_log.push_back("squeeze " + std::to_string(q)); }
+static bool port_commodore(void) { return g_commodore; }
+static void port_joy(uint8_t port, uint8_t wasd) { g_log.push_back("joy " + std::to_string(port) + " " + std::to_string(wasd)); }
+static const BaseSetPort port = { port_look, port_squeeze, port_commodore, port_joy };
+
+static bool g_fail_start;
+static int h_start(char *msg, int n) { g_log.push_back("start"); if (g_fail_start) { snprintf(msg, n, "no memory for the ring buffers of this core, a reason that is longer than the message"); return 1; } return 0; }
+static void h_menu_closed(void) { g_log.push_back("menu_closed"); }
+static void h_changed(const char *key) { g_log.push_back(std::string("changed ") + key); }
+static CoreHooks g_table;
+static uint32_t g_table_size, g_table_major;
+static const void *lib_find(const char *name, uint32_t min_version, uint32_t *size)
+{
+    if (strcmp(name, "corehooks") || (min_version >> 16) > g_table_major) return 0;
+    if (size) *size = g_table_size;
+    return &g_table;
+}
+static const SvcLib lib = { sizeof(SvcLib), lib_find };
+static void make_table(uint32_t size, bool all)
+{
+    memset(&g_table, 0, sizeof(g_table));
+    g_table.size = size;
+    g_table.start = h_start;
+    if (all) { g_table.menu_closed = h_menu_closed; g_table.base_setting_changed = h_changed; }
+    g_table_size = size;
+    g_table_major = 1;
+}
+
+struct Rig {
+    FakeIo io; FakeFs fs; CoreCtx c; Settings *st; CoreDesc d; Setting store[SETTINGS_MAX];
+    explicit Rig(const CoreDesc *src)
+    {
+        CHECK(!baseset_extend(src, &d, store));
+        memset(&c, 0, sizeof(c));
+        c.desc = &d; c.io = &io; c.fs = &fs;
+        st = new Settings(d.settings, d.nsettings, d.store, &fs, "/sd/cores/base.cfg", 0);
+        st->load();
+        c.settings = st;
+        baseset_attach(&c, &port);
+    }
+    void set(const char *key, const char *value)
+    {
+        OpIn in[2] = { in_str("key", key), in_str("value", value) };
+        OpResult res;
+        CHECK_EQ(ops_call(&c, "settings.set", in, 2, &res), 0);
+    }
+    int ix(const char *key) { return st->find(key); }
+};
+static int count_key(const CoreDesc &d, const char *key)
+{
+    int n = 0;
+    for (int i = 0; i < d.nsettings; i++) n += strcasecmp(d.settings[i].key, key) == 0;
+    return n;
+}
+
+int main()
+{
+    // ---- the rows: a core without a mouse gets five, a core with one gets ten, in the order of svc_settings.h; no descriptor declares one
+    CHECK(amiga1200_desc.mouse != 0 && atari800_desc.mouse == 0);
+    for (int k = 0; k < 10; k++) {
+        CHECK_EQ(count_key(atari800_desc, order[k]), 0);
+        CHECK_EQ(count_key(amiga1200_desc, order[k]), 0);
+    }
+    {
+        Rig nm(&atari800_desc), wm(&amiga1200_desc);
+        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings + 5);
+        CHECK_EQ(wm.d.nsettings, amiga1200_desc.nsettings + 10);
+        for (int k = 0; k < 10; k++) {
+            CHECK_EQ(count_key(nm.d, order[k]), k < 5 ? 1 : 0);          // the mouse settings only for a core with a mouse
+            CHECK_EQ(count_key(wm.d, order[k]), 1);
+            CHECK_STR(wm.d.settings[amiga1200_desc.nsettings + k].key, order[k]);
+            const Setting &s = wm.d.settings[amiga1200_desc.nsettings + k];
+            CHECK(baseset_is_generic(s) && !s.bind);
+            CHECK_EQ(baseset_kind(s), k < 4 ? 1 : 2);
+            CHECK_EQ(s.when, WHEN_LIVE);
+            CHECK_EQ(s.kind, 0);
+        }
+        CHECK_STR(baseset_key(0), "Overlay Transparency");
+        CHECK_EQ(baseset_count(), 10);
+        auto at = [&](Rig &r, const char *key) -> const Setting & { return r.d.settings[r.ix(key)]; };
+        const Setting &tr = at(wm, "Overlay Transparency"), &sc = at(wm, "Color Scheme"), &sq = at(wm, "Filename overflow squeeze"), &nv = at(wm, "Navigation Style");
+        const Setting &jy = at(wm, "Joystick Input"), &mm = at(wm, "Mouse Mode"), &ms = at(wm, "Mouse Sensitivity"), &ma = at(wm, "Mouse Acceleration");
+        const Setting &ws = at(wm, "Mouse Wheel Sensitivity"), &wd = at(wm, "Mouse Wheel Direction");
+        CHECK_EQ(tr.nvalues, 4); CHECK_STR(tr.values[tr.def], "25 %"); CHECK_STR(tr.values[0], "0 %"); CHECK_STR(tr.values[3], "75 %");
+        CHECK_EQ(sc.nvalues, 7); CHECK_STR(sc.values[sc.def], "Ultimate Black"); CHECK_STR(sc.values[6], "Commodore 3");
+        CHECK_EQ(sq.nvalues, 4); CHECK_STR(sq.values[sq.def], "None"); CHECK_STR(sq.values[3], "End");
+        CHECK_EQ(nv.nvalues, 2); CHECK_STR(nv.values[nv.def], "Quick Search"); CHECK_STR(nv.values[1], "WASD Cursors");
+        CHECK_EQ(jy.nvalues, 6); CHECK_STR(jy.values[jy.def], "Normal"); CHECK_STR(jy.values[2], "WASD Port 2"); CHECK_STR(jy.values[5], "WASD P1 No KB");
+        CHECK_EQ(mm.nvalues, 3); CHECK_STR(mm.values[mm.def], "Cursor keys"); CHECK_STR(mm.values[2], "Wheel: joystick");
+        CHECK_EQ(ms.nvalues, 16); CHECK_EQ(ms.base, 1); CHECK_STR(ms.values[ms.def], "8");
+        CHECK_EQ(ma.nvalues, 2); CHECK_STR(ma.values[1], "Adaptive");
+        CHECK_EQ(ws.nvalues, 16); CHECK_EQ(ws.base, 1); CHECK_STR(ws.values[ws.def], "8");
+        CHECK_EQ(wd.nvalues, 2); CHECK_STR(wd.values[1], "Reversed");
+        CHECK_STR(ms.show_state, "set.Mouse_Mode==Cursor keys");
+        CHECK_STR(sq.apply, "base.squeeze");
+        // a descriptor that declares a key itself keeps it: no second one
+        static const char *const two[] = { "A", "B" };
+        static Setting own[SETTINGS_MAX];
+        for (int i = 0; i < atari800_desc.nsettings; i++) own[i] = atari800_desc.settings[i];
+        own[atari800_desc.nsettings] = Setting{ "Joystick Input", two, 2, 0, WHEN_LIVE, 0, 0 };
+        CoreDesc od = atari800_desc, ox;
+        static Setting os[SETTINGS_MAX];
+        od.settings = own; od.nsettings = atari800_desc.nsettings + 1;
+        CHECK(!baseset_extend(&od, &ox, os));
+        CHECK_EQ(ox.nsettings, od.nsettings + 4);
+        CHECK_EQ(count_key(ox, "Joystick Input"), 1);
+    }
+
+    // ---- the settings reach the port: the look, the squeeze, the keyboard's joystick; each also tells the hook, which is not armed yet
+    {
+        Rig r(&nes_desc);
+        g_log.clear();
+        hooks_attach(0);
+        r.set("Overlay Transparency", "50 %");
+        r.set("Color Scheme", "Commodore 2");
+        r.set("Filename overflow squeeze", "Middle");
+        CHECK_EQ(g_log.size(), 3u);
+        CHECK_STR(g_log[0].c_str(), "look 2 1");                           // the colour scheme still at its default (Ultimate Black)
+        CHECK_STR(g_log[1].c_str(), "look 2 5");
+        CHECK_STR(g_log[2].c_str(), "squeeze 2");
+        g_log.clear();
+        const char *names[6] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
+        const char *want[6] = { "joy 0 0", "joy 1 0", "joy 0 1", "joy 1 1", "joy 0 3", "joy 1 3" };
+        for (int i = 0; i < 6; i++) {
+            g_log.clear();
+            r.set("Joystick Input", names[i]);
+            CHECK_EQ(g_log.size(), 1u);
+            CHECK_STR(g_log.empty() ? "" : g_log[0].c_str(), want[i]);
+        }
+        // the start applies every setting once: the port gets the stored look
+        g_log.clear();
+        regset_apply(&r.c, true);
+        bool saw_look = false, saw_joy = false;
+        for (size_t i = 0; i < g_log.size(); i++) { saw_look |= g_log[i] == "look 2 5"; saw_joy |= g_log[i] == "joy 1 3"; }
+        CHECK(saw_look && saw_joy);
+    }
+
+    // ---- the first run: WASD Cursors on the Commodore product while nothing is stored; a stored value stays; the other product keeps Quick Search
+    {
+        g_commodore = true;
+        Rig a(&nes_desc);
+        regset_apply(&a.c, true);
+        CHECK_EQ(a.st->value(a.ix("Navigation Style")), 1);                // nothing stored: WASD Cursors
+        CHECK_EQ(a.st->layer(a.ix("Navigation Style")), Settings::L_DEFAULT);
+        Rig b(&nes_desc);
+        CHECK(b.st->set(b.ix("Navigation Style"), 0));                     // the person chose Quick Search: stored
+        regset_apply(&b.c, true);
+        CHECK_EQ(b.st->value(b.ix("Navigation Style")), 0);
+        g_commodore = false;
+        Rig c2(&nes_desc);
+        regset_apply(&c2.c, true);
+        CHECK_EQ(c2.st->value(c2.ix("Navigation Style")), 0);
+    }
+
+    // ---- the USB driver's answers come from the settings by key; a core without a mouse answers the driver's defaults
+    {
+        Rig r(&amiga1200_desc);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 8);               // sensitivity default 8
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5E, 99), 0);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x55, 99), 0);               // mode: Cursor keys is the driver's 0
+        CHECK_EQ(u64_get_usb_hid_config_value(0x56, 99), 8);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x57, 99), 0);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x58, 99), 0);               // the menu is keys only
+        CHECK_EQ(u64_get_usb_hid_config_value(0x01, 99), 99);              // any other item: the driver's own default
+        r.set("Mouse Sensitivity", "4");
+        r.set("Mouse Acceleration", "Adaptive");
+        r.set("Mouse Wheel Sensitivity", "16");
+        r.set("Mouse Wheel Direction", "Reversed");
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 4);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5E, 99), 1);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x56, 99), 16);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x57, 99), 1);
+        r.set("Mouse Mode", "Wheel: cursor keys");
+        CHECK_EQ(u64_get_usb_hid_config_value(0x55, 99), 2);               // the list's second value is the driver's mode 2, the third its mode 3
+        r.set("Mouse Mode", "Wheel: joystick");
+        CHECK_EQ(u64_get_usb_hid_config_value(0x55, 99), 3);
+        // the settings are replaced (a new config is loaded, a new object): the answers follow the new object, not the old index
+        Rig nm(&atari800_desc);
+        baseset_attach(&r.c, &port);                                       // (a Rig attaches itself)
+        r.c.settings = nm.st;
+        r.c.desc = &nm.d;
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 8);               // a core without the setting: the default sensitivity
+        r.c.settings = r.st;
+        r.c.desc = &r.d;
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 4);
+        baseset_attach(0, 0);
+        CHECK_EQ(u64_get_usb_hid_config_value(0x5D, 99), 99);              // no context: the default the driver gave
+    }
+
+    // ---- the hooks, in order: start, then one base_setting_changed per setting the core has (five without a mouse, ten with), then one per change; menu_closed apart
+    {
+        Rig r(&amiga1200_desc);
+        make_table(sizeof(CoreHooks), true);
+        hooks_attach(&lib);
+        CHECK(hooks_present());
+        g_log.clear();
+        r.set("Joystick Input", "Swapped");                                // before the start: the port acts, the hook is not told
+        CHECK_EQ(g_log.size(), 1u);
+        CHECK_STR(g_log[0].c_str(), "joy 1 0");
+        g_log.clear();
+        char msg[40] = "x";
+        CHECK_EQ(hooks_start(&r.c, msg, sizeof(msg)), 0);
+        CHECK_EQ(g_log.size(), 11u);
+        CHECK_STR(g_log[0].c_str(), "start");
+        for (int k = 0; k < 10; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
+        g_log.clear();
+        r.set("Color Scheme", "Commodore 1");                              // a change after the start: the port, then the hook
+        CHECK_EQ(g_log.size(), 2u);
+        CHECK_STR(g_log[0].c_str(), "look 1 4");
+        CHECK_STR(g_log[1].c_str(), "changed Color Scheme");
+        g_log.clear();
+        r.set("Mouse Sensitivity", "9");
+        CHECK_EQ(g_log.size(), 1u);
+        CHECK_STR(g_log[0].c_str(), "changed Mouse Sensitivity");
+        g_log.clear();
+        CHECK(hooks_menu_closed());
+        CHECK_EQ(g_log.size(), 1u);
+        CHECK_STR(g_log[0].c_str(), "menu_closed");
+
+        Rig nm(&atari800_desc);                                            // a core without a mouse: five
+        make_table(sizeof(CoreHooks), true);
+        hooks_attach(&lib);
+        g_log.clear();
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
+        CHECK_EQ(g_log.size(), 6u);
+        for (int k = 0; k < 5; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
+
+        // a start that fails says why (cut to the buffer) and returns 1; the settings are still told after it
+        make_table(sizeof(CoreHooks), true);
+        hooks_attach(&lib);
+        g_fail_start = true;
+        g_log.clear();
+        char small[24];
+        CHECK_EQ(hooks_start(&nm.c, small, sizeof(small)), 1);
+        CHECK_EQ(strlen(small), sizeof(small) - 1);
+        CHECK_EQ(g_log.size(), 6u);
+        g_fail_start = false;
+
+        // a table of an older 3.x that ends before menu_closed: no such hook; one that ends before base_setting_changed: no such hook
+        make_table((uint32_t)offsetof(CoreHooks, menu_closed), true);
+        hooks_attach(&lib);
+        g_log.clear();
+        CHECK(!hooks_menu_closed());
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
+        CHECK_EQ(g_log.size(), 1u);                                        // start only
+        make_table((uint32_t)offsetof(CoreHooks, base_setting_changed), true);
+        hooks_attach(&lib);
+        g_log.clear();
+        CHECK(hooks_menu_closed());
+        CHECK_EQ(g_log.size(), 1u);
+        // a member left null is no hook
+        make_table(sizeof(CoreHooks), false);
+        hooks_attach(&lib);
+        g_log.clear();
+        CHECK(!hooks_menu_closed());
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
+        CHECK_EQ(g_log.size(), 1u);
+
+        // a table of a later major only, no table, no lib: no hooks, nothing is called
+        make_table(sizeof(CoreHooks), true);
+        g_table_major = 2;
+        hooks_attach(&lib);
+        CHECK(!hooks_present());
+        hooks_attach(0);
+        CHECK(!hooks_present());
+        g_log.clear();
+        CHECK(!hooks_menu_closed());
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
+        hooks_base_changed("Color Scheme");
+        CHECK(g_log.empty());
+    }
+    baseset_attach(0, 0);
+    DONE("baseset");
+}
