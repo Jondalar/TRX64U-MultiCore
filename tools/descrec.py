@@ -1725,8 +1725,10 @@ def _sec_windows(rows, st):
 #                                   drives itself). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
 #                                   or "rw"; two properties share bytes only when no direction is in both), count (optional, 1 .. PROP_COUNT_MAX, default 1: a run of `count` registers
-#                                   of this width at consecutive offsets, element i at offset + i * width / 8; the run lies inside the block, shares bytes as one register
-#                                   does, and its fields and states hold for every element)
+#                                   of this width, element i at offset + i * stride), stride (optional, only with a count above 1: the bytes from one element to the next, the
+#                                   width .. 0x100000, default the width = consecutive registers; a stride above the width leaves room for another run between the elements, e.g.
+#                                   the two words of an interleaved pair are two runs of one stride and two offsets; the run lies inside the block, shares a byte with another
+#                                   property only when one of its own elements is on that byte, and its fields and states hold for every element)
 #       [[block.property.field]]    name (once per property), shift, bits (the field lies inside the width; fields do not overlap)
 #         [[block.property.field.state]]   name (once per owner), value (fits the field's bits, once per owner)
 #       [[block.property.state]]    the states of the whole register: name, value (fits the width)
@@ -1736,8 +1738,8 @@ def _sec_windows(rows, st):
 # (a directory holds the maps of all modules); a name that no file has is refused.
 # Section 20 io        2 words: iobase, u2p_io_base
 # Section 21 identity  4 words: id (string), build flag (0 or 1), build, block (string)
-# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (9 words: name offset
-#                      width dir first_field nfield first_state nstate count; dir 1 r, 2 w, 3 rw; count 1 for a single register), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
+# Section 22 blocks    4 words: nblocks nprops nfields nstates; then the blocks (7 words: name module owner address size first_prop nprop), the properties (10 words: name offset
+#                      width dir first_field nfield first_state nstate count stride; dir 1 r, 2 w, 3 rw; count 1 and stride the width in bytes for a single register), the fields (5 words: name shift bits first_state nstate) and the states (2 words:
 #                      name value); first_* count in their own table, an owner's entries are a run
 TOMLA_KEYS = ("io", "identity", "block")
 IO_KEYS = ("iobase", "u2p_io_base")
@@ -1830,6 +1832,22 @@ def _states_check(owner, bits, what):
     return sts
 
 
+def _runs_share(a, b):
+    """True when two runs (offset, element bytes, stride, count) have a byte in common: element i of a run is the bytes offset + i * stride .. + width."""
+    if a[3] > b[3]:
+        a, b = b, a                                           # walk the run with fewer elements
+    (oa, wa, sa, na), (ob, wb, sb, nb) = a, b
+    if oa >= ob + (nb - 1) * sb + wb or ob >= oa + (na - 1) * sa + wa:
+        return False
+    for i in range(na):
+        lo = oa + i * sa
+        hi = lo + wa                                          # element j of b: [ob + j * sb, + wb) meets [lo, hi)
+        j0 = max(0, (lo - ob - wb) // sb + 1)
+        if j0 < nb and ob + j0 * sb < hi:
+            return True
+    return False
+
+
 def _sec_blocks(blocks, st):
     """Section 22 and the names of the blocks in order. The checks here and in descrec.cc are the same."""
     if not 1 <= len(blocks) <= BLOCKS_MAX or not all(isinstance(b, dict) for b in blocks):
@@ -1871,7 +1889,7 @@ def _sec_blocks(blocks, st):
             pwhat = "%s, property %d" % (what, k + 1)
             if not isinstance(p, dict):
                 raise DescError("%s: a property is a table" % pwhat)
-            _only(p, {"name", "offset", "width", "dir", "count", "field", "state"}, pwhat)
+            _only(p, {"name", "offset", "width", "dir", "count", "stride", "field", "state"}, pwhat)
             pname = _need(p, "name", str, pwhat)
             if not re.fullmatch(BLOCK_NAME_RE, pname):
                 raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % pwhat)
@@ -1887,18 +1905,22 @@ def _sec_blocks(blocks, st):
             count = _opt(p, "count", int, pwhat, 1)
             if isinstance(count, bool) or not 1 <= count <= PROP_COUNT_MAX:
                 raise DescError("%s: count is 1 .. %d" % (pwhat, PROP_COUNT_MAX))
-            span = count * (width // 8)
+            nb_ = width // 8
+            stride = _opt(p, "stride", int, pwhat, nb_)
+            if isinstance(stride, bool) or (count == 1 and stride != nb_) or not nb_ <= stride <= WINDOW_SIZE_MAX:
+                raise DescError("%s: stride is the bytes from one element to the next, %d (the width) .. 0x%X, and only a run (a count above 1) has one" % (pwhat, nb_, WINDOW_SIZE_MAX))
+            span = (count - 1) * stride + nb_
             if off + span > size:
                 raise DescError("%s: the register%s lies outside the block (%d bytes)" % (pwhat, " run" if count > 1 else "", size))
             for x in seen:
-                if off < x[1] + x[2] and x[1] < off + span and PROP_DIRS[dr] & x[3]:
+                if PROP_DIRS[dr] & x[5] and _runs_share((off, nb_, stride, count), x[1:5]):
                     raise DescError("%s: shares a byte and a direction with the property %s" % (pwhat, x[0]))
-            seen.append((pname, off, span, PROP_DIRS[dr]))
+            seen.append((pname, off, nb_, stride, count, PROP_DIRS[dr]))
             flds = _opt(p, "field", list, pwhat, [])
             if len(flds) > FIELDS_PER_PROP:
                 raise DescError("%s: %d fields, at most %d" % (pwhat, len(flds), FIELDS_PER_PROP))
             pst = _states_check(p, width, pwhat)
-            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst), count))
+            pw.append((st.add(pname), off, width, PROP_DIRS[dr], len(fw), len(flds), len(sw), len(pst), count, stride))
             sw.extend((st.add(x["name"]), x["value"]) for x in pst)
             used, fnames = 0, set()
             for m_, f in enumerate(flds):
@@ -2368,11 +2390,11 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
             out["identity"] = d
         elif sid == SEC_BLOCKS:
             nb, np_, nf, ns = words(4)
-            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 9 * np_ + 5 * nf + 2 * ns):
+            if not 1 <= nb <= BLOCKS_MAX or np_ > PROPS_MAX or nf > FIELDS_MAX or ns > STATES_MAX or len(p) != 16 + 4 * (7 * nb + 10 * np_ + 5 * nf + 2 * ns):
                 raise DescError("%s: the counts or the length do not fit" % what)
             bo = 16
             po = bo + 28 * nb
-            fo = po + 36 * np_
+            fo = po + 40 * np_
             so_ = fo + 20 * nf
             state_at = [0]
 
@@ -2389,13 +2411,17 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                 prop_at[0] += npr
                 props = []
                 for k in range(npr):
-                    pn, off, width, dr, ff, nfl, sf, nst, cnt = words(9, po + 36 * (fp + k))
+                    pn, off, width, dr, ff, nfl, sf, nst, cnt, strd = words(10, po + 40 * (fp + k))
                     if ff != fld_at[0] or ff + nfl > nf or dr not in (1, 2, 3):
                         raise DescError("%s: block %d, property %d: its fields are not the next run, or the direction is not known" % (what, i + 1, k + 1))
                     fld_at[0] += nfl
                     pd = {"name": S(pn, True), "offset": off, "width": width, "dir": {1: "r", 2: "w", 3: "rw"}[dr]}
+                    if cnt == 1 and strd != width // 8:
+                        raise DescError("%s: block %d, property %d: a single register has a stride" % (what, i + 1, k + 1))
                     if cnt != 1:
                         pd["count"] = cnt
+                        if strd != width // 8:
+                            pd["stride"] = strd
                     pst = states(sf, nst)
                     if pst:
                         pd["state"] = pst
@@ -3240,7 +3266,7 @@ def drivers_files(doc, source="TOML A"):
     """The driver table of a TOML A document (T239.3 D31, D34), generated at build time and linked: (header text, source text).
     The document is checked by compile_desc first, so the generator and both readers hold the same rules. The header has, per block, its address, size and owner,
     per property its address and an access macro for each direction the map allows (`_RD()` for r and rw, `_WR(v)` for w and rw, of the property's width),
-    a property with a count (a run of registers) has `_COUNT` and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`), and `_ADDR` is element 0,
+    a property with a count (a run of registers) has `_COUNT` and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`; element i is at `_ADDR` + i * stride), and `_ADDR` is element 0,
     per field its shift and mask, and every state's value; a driver names a register only by these macros, so a block the bitstream lacks is a compile error
     and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The source holds the table of the blocks (`drv_blocks`)."""
     import copy
@@ -3276,9 +3302,9 @@ def drivers_files(doc, source="TOML A"):
                 # a run of registers: the element count, and the access macros take the element's index
                 define(pn + "_COUNT", "%du" % p["count"])
                 if "r" in p["dir"]:
-                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du))" % (ct, pn, p["width"] // 8))
+                    define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du))" % (ct, pn, p.get("stride", p["width"] // 8)))
                 if "w" in p["dir"]:
-                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du) = (%s)(v))" % (ct, pn, p["width"] // 8, ct))
+                    define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %du) = (%s)(v))" % (ct, pn, p.get("stride", p["width"] // 8), ct))
             else:
                 if "r" in p["dir"]:
                     define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))

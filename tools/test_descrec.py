@@ -1171,12 +1171,33 @@ class TomlA(unittest.TestCase):
         r = D.parse_desc(blob)
         props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
         self.assertEqual(props["drv"]["dirty"]["count"], 128)
-        self.assertEqual((props["drv"]["param"]["width"], props["drv"]["param"]["count"]), (32, 512))
+        self.assertEqual((props["drv"]["param_addr"]["width"], props["drv"]["param_addr"]["count"]), (32, 256))
+        self.assertNotIn("param", props["drv"])                                   # the interleaved words are two runs (the stride test)
         self.assertEqual(props["win"]["mem"]["count"], 0x10000)
         self.assertEqual((props["regs"]["gain"]["width"], props["regs"]["gain"]["count"]), (16, 4))
         self.assertNotIn("count", props["regs"]["one"])
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
+
+    def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
+        # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
+        maps = D.load_maps([self.MAPS])
+        doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
+                           '[[block]]\nname = "sid"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0030000\nsize = 0x100\nmap = "sid"\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block.property]]\nname = "tight"\noffset = 0x0\nwidth = 16\ncount = 4\ndir = "w"\n'
+                           '[[block.property]]\nname = "wide"\noffset = 0x8\nwidth = 8\ncount = 4\nstride = 3\ndir = "w"\n')
+        blob = D.compile_checked(doc, maps=maps)
+        r = D.parse_desc(blob)
+        props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
+        pa, pl = props["drv"]["param_addr"], props["drv"]["param_len"]
+        self.assertEqual((pa["offset"], pa["count"], pa["stride"], pl["offset"], pl["count"], pl["stride"]), (0x1000, 256, 8, 0x1004, 256, 8))
+        self.assertEqual([f["name"] for f in pl["field"]], ["length_m1", "bit_time"])
+        cb, co = props["sid"]["curve_base"], props["sid"]["curve_offset"]
+        self.assertEqual((cb["offset"], cb["count"], cb["stride"], co["offset"], co["count"], co["stride"]), (0x04, 2, 4, 0x06, 2, 4))
+        self.assertEqual(props["regs"]["wide"]["stride"], 3)
+        self.assertNotIn("stride", props["regs"]["tight"])                        # consecutive registers: the stride is the width and is not written
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the stride, and compiles back to the same bytes
 
     def test_the_key_table_and_windows_records_stay_below_version_7(self):
         for f in FIXTURES:
