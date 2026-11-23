@@ -15,9 +15,9 @@ enum ContractKind {
     CK_PING, CK_KEEP, CK_CREATE, CK_LIST, CK_CLOSE, CK_STATE, CK_READ, CK_RESET, CK_POWER, CK_LOAD, CK_RUN, CK_MOUNT, CK_UNMOUNT, CK_OPEN, CK_DRIVERESET,
     // -32601, by reason
     CK_NO_SANDBOX,   // only the emulator can do it (history, scenarios, recorders, VIC inspection, audio export, batches)
-    CK_NO_RING,      // needs the Timewarp ring of the monolith (T20)
+    CK_NO_RING,      // needs the Timewarp ring (T20): no operation of this core answers
     CK_NO_TRACE,     // needs the trace engine
-    CK_NO_DEBUG,     // the debugger and the monitor are an application of their own (trxmon)
+    CK_NO_DEBUG,     // the debugger and the monitor are a core library's: no operation of this core answers
     CK_NO_PACING,    // the machine runs in real time
     CK_NO_INPUT,     // no operation of the core presses a key or moves a joystick
     CK_NO_MEDIA,     // the browser of the menu does it
