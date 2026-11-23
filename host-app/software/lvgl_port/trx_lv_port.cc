@@ -46,6 +46,7 @@ static volatile bool suspended;      // T93 D9: trx_lv_suspend(): the layer belo
 static int cv_w = TRX_LV_W, cv_h = TRX_LV_H;   // T164 D10a: the canvas LVGL draws (trx_lv_set_canvas); the stride of the buffers is its width
 static bool place_set;               // T107 5.9: trx_lv_set_place() was called; the menu has its own position and output size
 static uint32_t place_pos, place_osize;
+static uint8_t alpha_reg = 255;      // PX_GALPHA as last asked for; written with the first picture and when it changes; 255 whenever the layer was given up
 static uint32_t key_reg;             // PX_KEY as last asked for (b16 on, b15:0 the RGB565 colour); written with the first picture and when it changes
 
 bool trx_lv_available(void)
@@ -105,7 +106,7 @@ static void layer_up(const uint16_t *fb)
         trx_io_write32(PX_POS, (uint32_t((1080 - cv_h * TRX_LV_SCALE) / 2) << 16) | (uint32_t)((1920 - cv_w * TRX_LV_SCALE) / 2));
         trx_io_write32(PX_OSIZE, (uint32_t(cv_h * TRX_LV_SCALE) << 16) | (uint32_t)(cv_w * TRX_LV_SCALE));   // the MultiCore pix_layer scales to this size
     }
-    trx_io_write32(PX_GALPHA, 255);
+    trx_io_write32(PX_GALPHA, alpha_reg);
     trx_io_write32(PX_KEY, key_reg);
     trx_io_write32(PX_FRONT, (uint32_t)fb);
     trx_io_write32(PX_CTRL, px_ctrl(true));
@@ -243,8 +244,11 @@ bool trx_lv_set_alpha(uint8_t alpha)
 {
     xSemaphoreTake(lock, portMAX_DELAY);
     bool ok = !taken;
-    if (ok && layer_on) {
-        trx_io_write32(PX_GALPHA, alpha);
+    if (ok) {
+        alpha_reg = alpha;
+        if (layer_on) {
+            trx_io_write32(PX_GALPHA, alpha);
+        }
     }
     xSemaphoreGive(lock);
     return ok;
@@ -279,6 +283,7 @@ void trx_lv_close(void)
         trx_io_write32(PX_CTRL, px_ctrl(false));
         trx_io_write32(PX_GALPHA, 255);
     }
+    alpha_reg = 255;
     layer_on = false;
     if (disp) {
         lv_display_delete(disp);
@@ -301,6 +306,7 @@ void trx_lv_yield_layer(void)
             trx_io_write32(PX_GALPHA, 255);
             layer_on = false;
         }
+        alpha_reg = 255;
         taken = true;
         printf("[TRX UI] pixel layer handed over\n");
     }
@@ -323,6 +329,7 @@ void trx_lv_suspend(void)
             trx_io_write32(PX_GALPHA, 255);
             layer_on = false;
         }
+        alpha_reg = 255;
         suspended = true;
     }
     xSemaphoreGive(lock);
