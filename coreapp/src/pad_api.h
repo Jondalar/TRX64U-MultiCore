@@ -1,12 +1,13 @@
 // The table "pad": what the generic application asks of the gamepad library (pad.cc, hidpad.cc, pad_ops.cc, padwiz.cc, xinput.cc, usb_xinput.cc) and the types a core's description uses to name a pad
 // (PadSpec). The generic code finds the table through libtab_table("pad") (libtab.h) and calls no function of the library; an app linked without it has no table and no pad: no operation pad.*,
-// no pace. Size first; within a major members are only appended. The table is the application's own (not shipped in the SDK).
+// no pace. Size first; within a major members are only appended. The header ships in the SDK (include/), so a library or a core's app can read the table.
 #ifndef COREAPP_PAD_API_H
 #define COREAPP_PAD_API_H
 
 #include <stdint.h>
-#include "ctx.h"
 #include "ops.h"
+
+struct CoreCtx;
 
 #define PAD_PLAYERS      2
 #define PAD_SRC_UP       32

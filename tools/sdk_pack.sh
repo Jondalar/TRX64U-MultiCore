@@ -6,8 +6,8 @@
 # <version> is the SDK SemVer, kept in one place: app/sdkpkg/SDK_VERSION. <base dir> is what the core app build leaves with `make sdkbase` (host-app/target/u64ii/riscv/coreapp/output/sdkbase,
 # ci/trxapps.sh): the archive of the base, the libraries, the start-up objects, the linker script and the lists of what depends on the core. The package carries no app image (D31): a core's
 # app is linked from it (tools/app_build.py build), with the maxima its TOML B names. What goes in, and from where:
-#   include/  every header a library or an application includes: the closure of libapi.h, libfmt.h, c64_api.h, glue.h, u2p_app.h, u2p_ui.h and hidden.h,
-#             from coreapp/src and app/sdk (tools/sdk_api.py), flat
+#   include/  every header a library or an application includes: the closure of libapi.h, libfmt.h, c64_api.h, glue.h, u2p_app.h, u2p_ui.h and hidden.h
+#             and the tables of the shared libraries (the *_api.h that tools/sdk_api.py names), from coreapp/src and app/sdk (tools/sdk_api.py), flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout; appflags.mk and appbuild.mk link a core's app
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
 #   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)

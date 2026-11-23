@@ -1,7 +1,7 @@
 # TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with. A library is a set of sources, the headers that name its functions, and the entries it hands the
 # generic application; tools/libtab.py turns this file into the library table (libtab_table.cc) and the list of sources the build compiles, and checks that no generic source
 # names a library. An app linked without a library has none of its code. Entries (each a function, see libtab.h):
-#   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: only for a core that names it)
+#   bind          the library's tables, once, when the loader is made        register_ops   its operation groups, for a core described by its record (capability: a name or a list of names, only for a core that names one of them)
 #   init          once the board is known                                    start          once the network settings are pushed
 #   freeze_request  the library asks for the menu (read by the service loop)
 #   table         the library's call table for the generic application (its *_api.h), found by libtab_table(name)   core   the core's description is known (the library takes what it needs from it)
@@ -77,13 +77,13 @@ name = "newfile"
 sources = ["newfile.cc"]
 headers = ["newfile.h"]
 
-# "Create blank ..." for the cores with a floppy that is not the 1541 (T122). A core that is compiled registers it itself (newdisk_register, last in its register_ops); a core described by its record gets it by the capability "floppy".
+# "Create blank ..." for the cores with a floppy that is not the 1541 (T122). A core that is compiled registers it itself (newdisk_register, last in its register_ops); a core described by its record gets it by the capability "floppy" (a drive on the floppy interface) or "sio" (the Atari's serial bus, so that a record-described atari800 keeps "New disk image").
 [[library]]
 name = "newdisk"
 sources = ["newdisk.cc"]
 headers = ["newdisk.h"]
 register_ops = "newdisk_register"
-capability = "floppy"
+capability = ["floppy", "sio"]
 needs = ["newfile"]
 
 # A folder of a medium as an Amiga hard disk (T128). The sector engine (sectors.cc, generic: the base's media engine, its users are engines.cc, mediamounts.cc and the descriptors) mounts it through the table of folderhd_api.h.
