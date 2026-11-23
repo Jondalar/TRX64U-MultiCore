@@ -157,7 +157,7 @@ P4 also rests on the existing C128 unit (7,145 checks before this spec, unchange
 - `cores/c128/mono/core.toml`: `roms = ["boot0.rom"]` is not touched. Its comment was changed to name VICE's six files (commit d8c6cec3); `ci/code_hash.py` normalises TOML comments, so no build key moves.
 - Other cores using `into` (the C64, the C16): not asked.
 
-- A stock 1541 ROM that is only the 8 KiB lower half (`325302-01`) as its own file: not built (the stock slot takes whole 16 or 32 KiB files only); asked of Alex, see the report of D6.
+- A stock 1541 ROM that is only the 8 KiB lower half (`325302-01`) as its own file: not built (the stock slot takes whole 16 or 32 KiB files only). Alex, 2026-11-23, asked whether it may stand here as not built, chose "Yes, out": until a tester asks for it.
 
 ## §5 Decisions taken while building
 
