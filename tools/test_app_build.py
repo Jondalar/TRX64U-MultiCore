@@ -115,21 +115,6 @@ class Split(unittest.TestCase):
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "sized.real"))], ["b.cc"])
         self.assertEqual([os.path.basename(x.strip()) for x in open(os.path.join(out, "unsized.real"))], ["a.cc"])
 
-    def test_split_leaves_the_code_of_trx64_ultimate_out(self):
-        # V-4: the ring, the monitor, trx64u_ops, u64cfg and trxmon go to TRX64-Ultimate (check_d24.D12_TRX64U); the package's base holds none of them, in either list
-        d, inc, src, listing = self.tree()
-        top = os.path.join(d, "top")
-        for rel in ("coreapp/src/ring.cc", "coreapp/src/trxmon/tm_x.c", "coreapp/src/a.cc"):
-            write(os.path.join(top, rel), "int x;\n")
-        out = os.path.join(d, "out2")
-        os.makedirs(out)
-        write(os.path.join(out, "root.txt"), top + "\n")
-        A.cmd_split([inc], out, [os.path.join(top, rel) for rel in ("coreapp/src/ring.cc", "coreapp/src/trxmon/tm_x.c", "coreapp/src/a.cc")])
-        got = [os.path.relpath(x.strip(), os.path.realpath(top)) for f in ("sized.real", "unsized.real") for x in open(os.path.join(out, f))]
-        self.assertEqual(got, ["coreapp/src/a.cc"])
-        gone = [os.path.relpath(x.strip(), os.path.realpath(top)) for x in open(os.path.join(out, "trx64u_code.real"))]
-        self.assertEqual(sorted(gone), ["coreapp/src/ring.cc", "coreapp/src/trxmon/tm_x.c"])
-
     def test_the_core_apps_sources_split_into_both_groups(self):
         # the real include path: what the closure of the text says about the tree's own sources
         incs = [os.path.join(ROOT, d) for d in ("coreapp/src", "app/sdk", "app/loaders", "app/lib/cbm1541", "uicore", "coreapp/cores")]

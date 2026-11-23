@@ -160,7 +160,7 @@ A core whose TOML A holds only its own blocks (the gateware window the host hand
 `base_blocks` (the blocks of the package's `gateware/shared.toml`, or of `--base-toml-a`, that the shared drivers of the base name: the host's mode register, the drive window, the ICAP
 loader). The app is linked against the core's blocks and those, and no other (`tools/descrec.py` `merge_toml_a`): the driver table, the linker fragment and `out/blocks.txt` hold them. A core of
 this repository's tree builds its app so with `tools/sdk_core_app.sh <package> <core id> <out dir>`, which also checks the link map (`tools/libtab.py mapcheck`): the sources of the libraries
-the TOML B names are in it, those of no other library and of no other core's code are. The package's base holds none of the code that goes to TRX64-Ultimate (`check_d24.py` `D12_TRX64U`).
+the TOML B names are in it, those of no other library and of no other core's code are.
 
 `[sizes]` names the maxima of the registry (`ops`, `states`, `events`), of the contributions the libraries make to the menu (`contrib_*`), of the bug report (`report_bytes`) and of the
 menu record (`record_bytes`, `rec_*`). A key that is left out keeps the default of the headers; `python3 tools/app_build.py table` lists them. A maximum is part of the layout

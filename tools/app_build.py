@@ -257,13 +257,6 @@ def cmd_split(incdirs, out, sources):
     """Writes OUT/sized.real and OUT/unsized.real: the real paths of the sources that depend on the core and of the ones that do not."""
     os.makedirs(out, exist_ok=True)
     srcs = [os.path.realpath(s) for s in sources]
-    root = os.path.join(out, "root.txt")
-    if os.path.isfile(root):                                   # the code that goes to TRX64-Ultimate (check_d24.D12_TRX64U: the ring, the monitor, trx64u_ops, u64cfg, trxmon) is no part of the base:
-        import check_d24                                       # an app that wants it links it from its own repository (T239.3 D21, V-4)
-        top = os.path.realpath(open(root).read().strip())
-        gone = [s for s in srcs if any(re.fullmatch(rx, os.path.relpath(s, top)) for rx in check_d24.D12_TRX64U)]
-        srcs = [s for s in srcs if s not in gone]
-        write_if_changed(os.path.join(out, "trx64u_code.real"), "".join(s + "\n" for s in gone))
     hit = set(sized(incdirs, srcs))
     for name, lst in (("sized.real", [s for s in srcs if s in hit]), ("unsized.real", [s for s in srcs if s not in hit])):
         write_if_changed(os.path.join(out, name), "".join(s + "\n" for s in lst))
