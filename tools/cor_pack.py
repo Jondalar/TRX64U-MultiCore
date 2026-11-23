@@ -36,6 +36,7 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
   6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h). Since T239.3 D17 it may also carry the core's data
            sections (the descriptor's identity, ROMs, video, hotkeys, mount slots; cores/vc20/app/desc.toml): its [core] name has to be the manifest's name
   7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
+           A record of TOML A (version 7, T239.3 P1-4) gets the bitstream's AXSS word as the build of its identity; `check` refuses a record with another one.
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
   8 files  files the core installs on the SD (T175 D-files, Alex 2026-11-16: the diag core's example tests ride in diag.cor, no other core carries them):
@@ -371,6 +372,43 @@ def check_desc(m, desc):
         raise CorError('desc: the core section names "%s", the manifest "%s"' % (d["core"]["name"], m.get("name")))
 
 
+def stamp_desc(desc, axss, what):
+    """T239.3 P1-4 (D30 condition 2, D31): a record of TOML A (version 7) gets the bitstream's build word, its AXSS word (the BUILD register of the gateware answers it, trx_io.v), into
+    its identity; the service compares ID and build with the standard block at start. Every other record comes back as it was. TOML A without a bitstream that has an AXSS word is refused:
+    it could not be told from another bitstream."""
+    if desc is None:
+        return desc
+    try:
+        if descrec.identity_build(desc) is None and not _is_toml_a(desc):
+            return desc
+        if axss is None:
+            raise CorError("desc: TOML A needs the bitstream's build word, and %s has no AXSS write (built without USR_ACCESS)" % what)
+        return descrec.stamp_build(desc, axss)
+    except descrec.DescError as e:
+        raise CorError("desc: %s" % e)
+
+
+def _is_toml_a(desc):
+    return "identity" in descrec.parse_desc(desc)
+
+
+def check_build(recs, axss, what):
+    """A made .cor with TOML A carries the build word of its own bitstream (the pair the service compares at start)."""
+    if T_DESC not in recs:
+        return
+    try:
+        have = descrec.identity_build(recs[T_DESC])
+        toml_a = _is_toml_a(recs[T_DESC])
+    except descrec.DescError as e:
+        raise CorError("desc: %s" % e)
+    if not toml_a:
+        return
+    if have is None:
+        raise CorError("desc: TOML A carries no build word (cor_pack writes it)")
+    if axss is None or have != axss:
+        raise CorError("desc: TOML A carries the build %08x, %s has %s" % (have, what, "no AXSS word" if axss is None else "%08x" % axss))
+
+
 def optional_records(m, desc, libs, files=None):
     """The manifest keys and the records for the optional description and libraries; nothing at all when both are None (the bytes of a bundle
     without them stay what they were)."""
@@ -529,6 +567,7 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
+    desc = stamp_desc(desc, scan_config(partial)[1], "the partial bitstream")
     extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     body = rec(T_MANIFEST, man) + rec(T_PARTIAL, partial) + rec(T_APP, app)
@@ -653,6 +692,8 @@ def parse(blob, contract=None, host_key=None):
     if T_ICON in recs and len(recs[T_ICON]) != ICON_BYTES:
         raise CorError("icon: wrong size")
     check_optional(m, recs)
+    if T_DESC in recs:
+        check_build(recs, scan_config(recs[T_PARTIAL])[1], "the partial bitstream")
     norm_host_key(m["host_key"])                            # the field itself must be well formed
     if contract is not None and m["contract"] != contract:
         raise CorError("contract version %s, the host speaks %s" % (m["contract"], contract))
@@ -751,6 +792,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         if len(flash_id) > FLASH_ID_MAX:
             raise CorError("flash_id: %d characters, at most %d" % (len(flash_id), FLASH_ID_MAX))
         m.update(flash_bit=FLASH_BIT, flash_app=FLASH_APP, flash_id=flash_id)
+    desc = stamp_desc(desc, axss, "the bitstream")
     extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     if len(man) > 2048:
@@ -802,6 +844,7 @@ def parse_large(m, recs, order):
     if m.get("origin") == "backup" and (m["flash_bit"], m["flash_app"]) != (FLASH_BIT, FLASH_APP):
         raise CorError("backup: the parts lay at 0x%x and 0x%x, this layout is 0x%x and 0x%x" % (m["flash_bit"], m["flash_app"], FLASH_BIT, FLASH_APP))
     idcode, axss = scan_config(bit_config_data(recs[T_BIT]))
+    check_build(recs, axss, "the bitstream")
     if idcode is None or "%08x" % idcode != m["idcode"]:
         raise CorError("manifest says IDCODE %s, the bitstream has %s" % (m["idcode"], "none" if idcode is None else "%08x" % idcode))
     if (idcode ^ IDCODE_XC7A50T) & IDCODE_MASK:

@@ -1662,8 +1662,8 @@ def _sec_windows(rows, st):
 #
 #   [io]                            the base addresses of the I/O space, each a 32 bit number (IO_KEYS)
 #   [identity]                      the standard block (D30 condition 2): id = the four characters of the ID, block = the name of the block that holds the identity
-#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source (cor_pack writes it, P1-4)
-#                                   (cor_pack writes it, P1-4)
+#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source: cor_pack
+#                                   writes the AXSS word of the bitstream into the record (stamp_build, P1-4), and the service compares id and build with the block at start
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
 #                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core covers no register the base
 #                                   drives itself). A module whose registers serve several drivers is several blocks, one per register range (D34).
@@ -2912,6 +2912,45 @@ def check_ops(rec, ops, states):
         if a is None or a:
             bad.append('poll: "%s" is not an exported operation without arguments' % rec["poll"]["op"])
     return bad
+
+
+def _ident_at(blob):
+    """(offset of the identity section's four words, the record's decoded identity) of a version 7 record, or None for a record without TOML A. The record is read whole first
+    (parse_desc), so a damaged one is the same refusal as everywhere."""
+    d = parse_desc(blob)
+    if "identity" not in d:
+        return None
+    soff, ssize = struct.unpack_from("<II", blob, HEADER_V5)
+    pos = soff
+    while pos < soff + ssize:
+        sid, ln = struct.unpack_from("<II", blob, pos)
+        if sid == SEC_IDENT:
+            return pos + 8, d["identity"]
+        pos += 8 + ln
+    raise DescError("description record: the identity section is not where the reader found it")
+
+
+def identity_build(blob):
+    """The build word the record of TOML A carries (P1-4), or None: a record without TOML A, or one that no packer has stamped yet."""
+    at = _ident_at(blob)
+    return None if at is None else at[1].get("build")
+
+
+def stamp_build(blob, build):
+    """T239.3 P1-4 (D30 condition 2, D31): the bitstream's build word into the identity of a version 7 record (cor_pack writes it, the service compares it with the standard block at start).
+    A record without TOML A comes back as it was. A record that already carries another build word is refused: the source's number says it was meant for another bitstream.
+    The bytes of the record change in the build word and the flag only."""
+    at = _ident_at(blob)
+    if at is None:
+        return blob
+    off, ident = at
+    if not 0 <= build < 2 ** 32:
+        raise DescError("identity: the build word is a 32 bit number")
+    if "build" in ident and ident["build"] != build:
+        raise DescError("identity: the record carries the build %08x, the bitstream %08x" % (ident["build"], build))
+    out = bytearray(blob)
+    struct.pack_into("<II", out, off + 4, 1, build)          # words of the section: id, build flag, build, block
+    return bytes(out)
 
 
 def merge_docs(docs):
