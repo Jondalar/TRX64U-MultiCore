@@ -248,6 +248,19 @@ int main()
         // a folder that is no name leaves the counter's file open and the settings file shut
         CHECK(board_set_core(&bad, "vc20", "a/b"));
         CHECK(!fs_write_refused("/flash/vc20/boot.cfg") && fs_write_refused("/flash/vc20/a/b.cfg"));
+        // an id and a folder of the longest allowed names make a settings path that does not fit: refused, and no other file is registered in its place
+        {
+            BoardProfile lg = m;
+            char id[BOARD_CORE_ID_MAX + 1], fo[64];
+            memset(id, 'i', BOARD_CORE_ID_MAX); id[BOARD_CORE_ID_MAX] = 0;
+            memset(fo, 'f', 63); fo[63] = 0;
+            CHECK(!board_set_core(&lg, id, fo));
+            CHECK(!fs_write_refused(lg.boot_cfg));
+            std::string cut = std::string(lg.cfg_dir) + "/" + fo + ".cfg";
+            cut.resize(FS_FLASH_EXC_LEN - 1);
+            CHECK(fs_write_refused(cut.c_str()));
+            CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));
+        }
         // the MultiCore profile is not touched: no flash directory, the host's file, nothing registered
         BoardProfile hh = h;
         CHECK(board_set_core(&hh, "vc20", "vic20") && !hh.cfg_dir[0]);

@@ -81,12 +81,17 @@ bool board_set_core(BoardProfile *b, const char *core_id, const char *folder)
         return false;
     }
     char cfg[FS_FLASH_EXC_LEN] = "";
+    bool fits = true;
     snprintf(b->cfg_dir, sizeof(b->cfg_dir), "/flash/%s", core_id);
     snprintf(b->boot_cfg, sizeof(b->boot_cfg), "/flash/%s/boot.cfg", core_id);
     if (b->flash_cfg && name_ok(folder, 63)) {
-        snprintf(cfg, sizeof(cfg), "%s/%s.cfg", b->cfg_dir, folder);
+        int n = snprintf(cfg, sizeof(cfg), "%s/%s.cfg", b->cfg_dir, folder);
+        if (n < 0 || n >= (int)sizeof(cfg)) {       // a truncated path would register another file than the one the settings are written to
+            cfg[0] = 0;
+            fits = false;
+        }
     }
-    return fs_flash_set_exceptions(b->boot_cfg, cfg);
+    return fs_flash_set_exceptions(b->boot_cfg, cfg) && fits;
 }
 
 const char *board_name(const BoardProfile &b)
