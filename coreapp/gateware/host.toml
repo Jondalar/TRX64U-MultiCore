@@ -7,8 +7,10 @@
 # reaches a core port, and its properties (a map) are the core's contract, checked in the core's own design, not here.
 # The address of a base block is iobase + its offset in ultimate_sys.vhd's decode process; the page registers (0x10040000, 0x10100300,
 # 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
-# Not in this record (see T239.3 section 5, V-1): the ITU, UART, SD, flash, USB, Ethernet and WiFi windows (Gideon's blocks), the video windows
-# (overlay 0x10140000, palette 0x10180800), the IEC window and the UDP window.
+# Not in this record (T239.3 section 5, V-1b): the ITU, USB, Ethernet and flash windows (rtl_check does not follow Gideon's io_bus_splitter, an array of
+# request records, nor a procedure that assigns signals, flash_gate.vhd), the 16 palette entries of the overlay (0x10145000 + 4 * n, three bytes each: a
+# TOML A takes 64 blocks at most), and three windows the host RTL has no register in: the UCI window 0x10044000 (it acks and answers 0), the UDP
+# region 0x10190000 (r_udp names it, nothing decodes it) and the resampler at 0x10100580 (no decode).
 # There is no [identity] yet: the standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2, so it is the core's block here
 # (core_trx_io) and `descrec.py compile` (it wants a base-owned identity block) does not take this file until that is decided.
 [io]
@@ -781,3 +783,255 @@ size = 0x3
   width = 8
   dir = "w"
 
+
+[[block]]
+name = "overlay_geometry"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10140002
+size = 0x4
+  [[block.property]]
+  name = "char_width"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "char_height"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "chars_per_line"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "lines"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_pointer"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1014000A
+size = 0x2
+  [[block.property]]
+  name = "pointer_hi"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "pointer_lo"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_control"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1014000D
+size = 0x1
+  [[block.property]]
+  name = "control"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_screen"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10141000
+size = 0x1000
+  [[block.property]]
+  name = "first"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "last"
+  offset = 0xFFF
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "overlay_colour"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10142000
+size = 0x1000
+  [[block.property]]
+  name = "first"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "last"
+  offset = 0xFFF
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "overlay_mode_request"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10144F00
+size = 0x1
+  [[block.property]]
+  name = "mode"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_mode_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10144F04
+size = 0x6
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "version"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "mode"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "write_count"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ack_count"
+  offset = 0x5
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "c64_palette"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180800
+size = 0x40
+  [[block.property]]
+  name = "entry"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "iec_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10028000
+size = 0x3
+  [[block.property]]
+  name = "version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo0"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo1"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "wifi_uart"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060900
+size = 0x10
+  [[block.property]]
+  name = "divisor_l"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "divisor_h"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "flowctrl"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "tx_addr"
+  offset = 0x4
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "len"
+  offset = 0x8
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "tx_push"
+  offset = 0xA
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_get"
+  offset = 0xB
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_addr"
+  offset = 0xC
+  width = 32
+  dir = "w"
+
+[[block]]
+name = "sd_spi"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060000
+size = 0x10
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rate"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "select"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "crc"
+  offset = 0xC
+  width = 8
+  dir = "rw"
