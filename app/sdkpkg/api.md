@@ -332,7 +332,7 @@ The file group. It is the file system of the core, `CoreFs`.
 
 4.4.1 A path starts with `/`. The first element names a medium. The listing of `/` names the media that are mounted. The media of the board are `/flash`, `/sd` and `/usb0` to `/usb3`. On the board the listing of `/` can also hold the folders `FTP` (when an FTP host is configured) and `Online` (when an online search has results). A path under them reaches the network, not a medium of the board: do not rely on them in an image that has to run without a network.
 4.4.2 A name on a FAT medium is matched without regard to case.
-4.4.3 Under `/flash`, a write, a delete, a mkdir, a rename and a read-write open fail. A read-write open gives a read-only file. Three files are the exception: `/flash/trx64u/c64.cfg`, `/flash/trx64u/boot.cfg` and `/Flash/boot.cfg`.
+4.4.3 Under `/flash`, a write, a delete, a mkdir, a rename and a read-write open fail. A read-write open gives a read-only file. Three files are the exception: the standalone core's settings file `/flash/<core id>/<folder>.cfg`, its boot counter `/flash/<core id>/boot.cfg` and the host's `/Flash/boot.cfg`. The core id is the `core_id` of the core's description record (the `.cor` id of `core.toml`), the folder its `folder`; both are read at start, and a core with no valid id (A-Z a-z 0-9 `_` `-`, at most 31 characters) keeps its settings in memory and has no flash exception. For trx64u these are `/flash/trx64u/c64.cfg` and `/flash/trx64u/boot.cfg`.
 4.4.4 On the monolith board profile the flash drive is writable.
 4.4.5 A file an image leaves open is closed when its application ends.
 4.4.6 Any task of the image may call the group.

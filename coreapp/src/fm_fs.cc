@@ -184,9 +184,6 @@ public:
         if (fs_write_refused(path)) {
             return false;
         }
-        if (!strncasecmp(path, BOARD_MONOLITH_CFG_DIR "/", sizeof(BOARD_MONOLITH_CFG_DIR))) {   // the monolith's two files: the directory may not exist yet (FR_EXIST is fine)
-            FileManager :: getFileManager()->create_dir(BOARD_MONOLITH_CFG_DIR);
-        }
         char dir[FS_PATH_MAX];
         const char *slash = strrchr(path, '/');
         if (!slash || slash == path || (size_t)(slash - path) >= sizeof(dir)) {
@@ -194,6 +191,9 @@ public:
         }
         memcpy(dir, path, slash - path);
         dir[slash - path] = 0;
+        if (fs_path_is_flash(path) && fs_flash_exception(path) && strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {   // the standalone core's two files: the directory may not exist yet (FR_EXIST is fine)
+            FileManager :: getFileManager()->create_dir(dir);
+        }
         uint32_t tr = 0;
         FRESULT r = FileManager :: getFileManager()->save_file(true, dir, slash + 1, (const uint8_t *)buf, len, &tr);
         return r == FR_OK && tr == len;

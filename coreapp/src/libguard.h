@@ -4,8 +4,8 @@
 //   - the Commodore key is held while the core starts;
 //   - the previous start never finished: a boot-attempt counter is set before the libraries load and cleared once the core has started.
 // Pure: the file is a CoreFs, the key is a bool the board reads. The counter is one key, `lib_attempt=N`, in the boot.cfg of the profile
-// (BoardProfile::boot_cfg): the host's boot menu file on the MultiCore host (BootCfg, host-app/.../bootcfg.h), the file of its own beside
-// c64.cfg on the monolith. It is written when its value changes: set 0 -> 1 just before the first library loads, cleared 1 -> 0 after the start, so two
+// (BoardProfile::boot_cfg): the host's boot menu file on the MultiCore host (BootCfg, host-app/.../bootcfg.h), "/flash/<core id>/boot.cfg" of the
+// core's description record on the monolith (board_set_core). It is written when its value changes: set 0 -> 1 just before the first library loads, cleared 1 -> 0 after the start, so two
 // writes per start at most, none when no library is found or the libraries are skipped and the counter was 0. A DDR2 marker would not do: the usual reaction to a
 // hang is a power cycle and DDR2 does not survive one.
 #ifndef COREAPP_LIBGUARD_H

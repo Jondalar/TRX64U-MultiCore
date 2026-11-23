@@ -59,7 +59,7 @@ enum HeldKeyResult { HELD_IGNORED = 0, HELD_RETURN_FAILED };
 HeldKeyResult held_key(const BoardProfile *b, int key, HeldReturnFn ret, char *msg, int msglen);
 
 // Fills the context's paths and version from the hand-over (empty strings when h is null or invalid). Without a hand-over path the
-// board profile may name a directory for the settings file (T104.2 D7): then cfg_path is "<cfg_dir>/<folder>.cfg" of the context's
+// board profile may name a directory for the settings file (T104.2 D7): then cfg_path is "<cfg_dir>/<folder>.cfg" (cfg_dir: board_set_core) of the context's
 // descriptor, which has to be set. The file is named by the folder, not by the store: the store is the [section] of the file and
 // reads "Atari 800 XL Settings".
 void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof = 0);
@@ -71,7 +71,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof = 0);
 bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bool *safe);
 
 // T112 Q1, "never lose a user's settings": a large core that used to keep its settings in the profile's directory (the monolith's
-// /flash/trx64u/<folder>.cfg) now has its .cfg in its core folder (T148 D1). When that file does not exist and the profile's file does, the profile's file is copied
+// /flash/<core id>/<folder>.cfg) now has its .cfg in its core folder (T148 D1). When that file does not exist and the profile's file does, the profile's file is copied
 // there once; the original stays. True when it was copied. Call after start_paths, with c->fs set.
 bool start_migrate_cfg(CoreCtx *c, const BoardProfile *prof);
 

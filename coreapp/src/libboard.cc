@@ -348,7 +348,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     loader.set_log(lib_log);
     menu_set_export_finder(LibLoader::find_export);              // the terminal layout finds its text grid by the name of its `grid` parameter
     // The rescue from a crashing library (libguard.h): decided before anything of the stick is touched, and before the wait for it.
-    static LibGuard g(c->fs, c->board && c->board->boot_cfg ? c->board->boot_cfg : FS_FLASH_BOOT_MULTICORE);
+    static LibGuard g(c->fs, c->board && c->board->boot_cfg[0] ? c->board->boot_cfg : FS_FLASH_BOOT_MULTICORE);
     guard = &g;
     LibGuardPlan plan;
     g.begin(commodore_key_held(c->io), &plan);

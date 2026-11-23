@@ -56,10 +56,11 @@ struct C64Rig {
     Video *vid;
     std::vector<uint8_t> basic, kernal, chars;
 
-    explicit C64Rig(bool monolith = true, const char *cfg = FS_FLASH_CFG_PATH) : basic(c64_rom(1, 8192)), kernal(c64_rom(2, 8192)), chars(c64_rom(3, 4096))
+    explicit C64Rig(bool monolith = true, const char *cfg = "/flash/trx64u/c64.cfg") : basic(c64_rom(1, 8192)), kernal(c64_rom(2, 8192)), chars(c64_rom(3, 4096))
     {
         probe.icap = monolith ? 0 : 0x7A;
         board = board_detect(&probe);
+        board_set_core(&board, c64_desc.core_id, c64_desc.folder);
         memset(&c, 0, sizeof(c));
         c.desc = trx64u::desc();                    // the C64's menu is its record (T104.2 D10): tasks, file types, media and settings come from there
         c.merge = trx64u::merge();

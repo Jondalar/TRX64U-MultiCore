@@ -18,7 +18,7 @@ struct FlashFs : FakeFs {
     }
 };
 
-static const char *MONO = FS_FLASH_BOOT_MONOLITH, *MC = FS_FLASH_BOOT_MULTICORE;
+static const char *MONO = "/flash/trx64u/boot.cfg", *MC = FS_FLASH_BOOT_MULTICORE;
 
 static bool has_attempt(FlashFs &fs, const char *path)
 {
@@ -27,7 +27,7 @@ static bool has_attempt(FlashFs &fs, const char *path)
 
 int main()
 {
-    CHECK_STR(MONO, "/flash/trx64u/boot.cfg");
+    CHECK(fs_flash_set_exceptions(MONO, 0));                            // what board_set_core registers for the core "trx64u"
     CHECK_STR(MC, "/Flash/boot.cfg");
     for (const char *path : { MONO, MC }) {
         // ---- an undisturbed start: the counter is set before the libraries and cleared after the start; two writes, no more

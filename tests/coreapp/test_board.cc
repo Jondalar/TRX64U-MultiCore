@@ -70,7 +70,8 @@ int main()
     CHECK(!m.can_return_host);
     CHECK_STR(board_name(m), "monolith");
     CHECK_STR(m.why, "ICAP absent, no hand-over");
-    CHECK_STR(m.cfg_dir, "/flash/trx64u");
+    CHECK_STR(m.cfg_dir, "");                              // T239.3 P1-5: the directory is named by the core's record, board_set_core below
+    CHECK_STR(m.boot_cfg, "");
     CHECK_STR(m.rom_dir, "/flash/roms");
 
     // the MultiCore host: ICAP answers 0x7A, the hand-over is valid
@@ -82,7 +83,7 @@ int main()
     CHECK(h.has_handover);
     CHECK(h.can_return_host);
     CHECK_STR(board_name(h), "multicore");
-    CHECK(h.cfg_dir == 0 && h.rom_dir == 0);              // its settings live beside the .cor, its ROMs under <root>/roms/<folder>
+    CHECK(!h.cfg_dir[0] && h.rom_dir == 0);              // its settings live beside the .cor, its ROMs under <root>/roms/<folder>
     // ... and the same host started over JTAG: no valid page, but the ICAP loader is there
     mc.valid = false;
     BoardProfile hd = board_detect(&mc);
@@ -205,10 +206,55 @@ int main()
     CHECK(!atari800_desc.board_caps && !nes_desc.board_caps && c64_desc.board_caps);
 
     // ---- T104.1 5.5: where the boot-attempt counter lives - a path the flash guard lets through, one per profile
-    CHECK_STR(m.boot_cfg, "/flash/trx64u/boot.cfg");
     CHECK_STR(h.boot_cfg, "/Flash/boot.cfg");
     CHECK_STR(hd.boot_cfg, "/Flash/boot.cfg");
-    CHECK(!fs_write_refused(m.boot_cfg) && !fs_write_refused(h.boot_cfg) && !fs_write_refused(o.boot_cfg));
+    CHECK(!fs_write_refused(h.boot_cfg));
+    CHECK(fs_write_refused("/flash/trx64u/boot.cfg") && fs_write_refused("/flash/trx64u/c64.cfg"));   // before the core is known nothing of the flash is open
+    CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));        // trx64u's descriptor: today's paths
+    CHECK_STR(m.cfg_dir, "/flash/trx64u");
+    CHECK_STR(m.boot_cfg, "/flash/trx64u/boot.cfg");
+    CHECK(!fs_write_refused(m.boot_cfg) && !fs_write_refused("/flash/trx64u/c64.cfg") && !fs_write_refused("/Flash/boot.cfg"));
+    CHECK(fs_write_refused("/flash/trx64u/other.cfg"));
+    // T239.3 P1-5, the paths come from the record: another core id names another directory, and the old core's files close again (a persistence path: control in run.sh)
+    {
+        BoardProfile v = m;
+        CHECK(board_set_core(&v, "vc20", "vic20"));
+        CHECK_STR(v.cfg_dir, "/flash/vc20");
+        CHECK_STR(v.boot_cfg, "/flash/vc20/boot.cfg");
+        CHECK(!fs_write_refused("/flash/vc20/vic20.cfg") && !fs_write_refused("/FLASH/VC20/BOOT.CFG"));
+        CHECK(fs_write_refused("/flash/trx64u/c64.cfg") && fs_write_refused("/flash/trx64u/boot.cfg"));
+        CHECK(fs_write_refused("/flash/vc20/c64.cfg") && fs_write_refused("/flash/vc20/boot.cfg.bak"));
+        CoreDesc d = c64_desc;                                           // the settings file is "<cfg_dir>/<folder>.cfg": the folder of the descriptor, in the id's directory
+        d.folder = "vic20";
+        CoreCtx cv;
+        memset(&cv, 0, sizeof(cv));
+        cv.desc = &d;
+        start_paths(&cv, 0, &v);
+        CHECK_STR(cv.cfg_path, "/flash/vc20/vic20.cfg");
+        CHECK(!fs_write_refused(cv.cfg_path));
+        // a malformed id (a path piece, a space, too long) is refused and opens nothing; no id keeps the settings in memory
+        BoardProfile bad = m;
+        CHECK(!board_set_core(&bad, "../x", "c64") && !bad.cfg_dir[0] && !bad.boot_cfg[0]);
+        CHECK(!board_set_core(&bad, "a b", "c64") && !board_set_core(&bad, "a/b", "c64"));
+        CHECK(!board_set_core(&bad, "abcdefghijklmnopqrstuvwxyz0123456", "c64") && !bad.cfg_dir[0]);
+        CHECK(fs_write_refused("/flash/x/boot.cfg") && fs_write_refused("/flash/vc20/vic20.cfg"));
+        CHECK(board_set_core(&bad, 0, "c64") && !bad.cfg_dir[0] && !bad.boot_cfg[0]);
+        CHECK(board_set_core(&bad, "", "c64") && !bad.cfg_dir[0]);
+        CoreCtx cn;
+        memset(&cn, 0, sizeof(cn));
+        cn.desc = &c64_desc;
+        start_paths(&cn, 0, &bad);
+        CHECK_STR(cn.cfg_path, "");
+        // a folder that is no name leaves the counter's file open and the settings file shut
+        CHECK(board_set_core(&bad, "vc20", "a/b"));
+        CHECK(!fs_write_refused("/flash/vc20/boot.cfg") && fs_write_refused("/flash/vc20/a/b.cfg"));
+        // the MultiCore profile is not touched: no flash directory, the host's file, nothing registered
+        BoardProfile hh = h;
+        CHECK(board_set_core(&hh, "vc20", "vic20") && !hh.cfg_dir[0]);
+        CHECK_STR(hh.boot_cfg, "/Flash/boot.cfg");
+        CHECK(fs_write_refused("/flash/vc20/vic20.cfg"));
+        CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));    // back to trx64u for the rest
+    }
 
     // ---- S11: where the settings live. The monolith has no .cor, so the profile gives the directory, and the file is named by the folder.
     {
@@ -216,7 +262,7 @@ int main()
         memset(&c, 0, sizeof(c));
         c.desc = &c64_desc;
         start_paths(&c, 0, &m);
-        CHECK_STR(c.cfg_path, FS_FLASH_CFG_PATH);          // the one file the CoreFs lets through the flash guard (fsif.h)
+        CHECK_STR(c.cfg_path, "/flash/trx64u/c64.cfg");    // the one file the CoreFs lets through the flash guard (fsif.h)
         CHECK_STR(c.cfg_path, "/flash/trx64u/c64.cfg");
         CHECK(fs_flash_exception(c.cfg_path) && !fs_write_refused(c.cfg_path));
         // T228 DC13: the parameter flash_cfg decides, not the board's kind: on for the monolith (standalone), off under the MultiCore host (D11)
@@ -231,7 +277,7 @@ int main()
             CHECK(!c2.cfg_path[0]);
             BoardProfile on = h;                           // the MultiCore profile with the parameter on: the flash file again
             on.flash_cfg = true;
-            on.cfg_dir = BOARD_MONOLITH_CFG_DIR;
+            snprintf(on.cfg_dir, sizeof(on.cfg_dir), "%s", m.cfg_dir);
             start_paths(&c2, 0, &on);
             CHECK_STR(c2.cfg_path, "/flash/trx64u/c64.cfg");
             CHECK(!start_migrate_cfg(&c2, &off));          // off: no old file is looked for
@@ -297,17 +343,17 @@ int main()
         const Setting *it = cd->settings;
         FakeFs fs;
         {
-            Settings s(it, cd->nsettings, cd->store, &fs, FS_FLASH_CFG_PATH, 0);
+            Settings s(it, cd->nsettings, cd->store, &fs, "/flash/trx64u/c64.cfg", 0);
             s.load();
             int i = s.find("Freeze mode");
             CHECK(i >= 0);
             CHECK_EQ(s.value(i), 0);                       // Whole machine
             CHECK(s.set(i, 1));
-            CHECK(fs.has(FS_FLASH_CFG_PATH));
-            CHECK_TXT(fs.text(FS_FLASH_CFG_PATH), "[C64 Settings]\nFreeze mode=CPU only\n\n");
+            CHECK(fs.has("/flash/trx64u/c64.cfg"));
+            CHECK_TXT(fs.text("/flash/trx64u/c64.cfg"), "[C64 Settings]\nFreeze mode=CPU only\n\n");
         }
         {
-            Settings s(it, cd->nsettings, cd->store, &fs, FS_FLASH_CFG_PATH, 0);
+            Settings s(it, cd->nsettings, cd->store, &fs, "/flash/trx64u/c64.cfg", 0);
             s.load();                                      // the restart
             CHECK_EQ(s.value(s.find("Freeze mode")), 1);
             CHECK_EQ(s.layer(s.find("Freeze mode")), Settings::L_CORE);
@@ -315,7 +361,7 @@ int main()
         FakeFs ro;
         ro.read_only = true;
         {
-            Settings s(it, cd->nsettings, cd->store, &ro, FS_FLASH_CFG_PATH, 0);
+            Settings s(it, cd->nsettings, cd->store, &ro, "/flash/trx64u/c64.cfg", 0);
             s.load();
             int i = s.find("Freeze mode");
             CHECK(!s.set(i, 1));
@@ -324,7 +370,7 @@ int main()
             CHECK(strstr(why, "cannot be saved") != 0);    // ... and the screen is told why
         }
         {
-            Settings s(it, cd->nsettings, cd->store, &ro, FS_FLASH_CFG_PATH, 0);
+            Settings s(it, cd->nsettings, cd->store, &ro, "/flash/trx64u/c64.cfg", 0);
             s.load();
             CHECK_EQ(s.value(s.find("Freeze mode")), 0);   // after the restart it is the default again
             CHECK_EQ(s.layer(s.find("Freeze mode")), Settings::L_DEFAULT);

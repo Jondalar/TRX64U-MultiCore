@@ -10,7 +10,7 @@
 
 // T93 S14, D11 of T84: on the MultiCore host a core application never writes the flash. The board's CoreFs refuses every write, delete
 // and read-write open under /flash (any case, "/flash" itself or "/flash/..."), so a .cfg beside a .cor that lies in the flash stays in
-// memory - except the files below. T228 R21: on the monolith board profile the flash drive is writable as in TRX64-Ultimate's firmware
+// memory - except the files of fs_flash_exception below. T228 R21: on the monolith board profile the flash drive is writable as in TRX64-Ultimate's firmware
 // (its FLASH_ID_FLASHDRIVE window, vendor blockdev_flash.cc, is the only part of the chip the block device can reach); the startup sets
 // fs_flash_rw() from the board profile and fs_write_refused then lets /flash through.
 static inline bool fs_path_is_flash(const char *path)
@@ -18,19 +18,55 @@ static inline bool fs_path_is_flash(const char *path)
     return !strncasecmp(path, "/flash", 6) && (path[6] == 0 || path[6] == '/');
 }
 
-// T104.2 Q1 (Alex, 2026-10-18: "1 /flash/trx64u/c64.cfg"): the exception. On the monolith there is no .cor and so no .cfg beside
-// it; the C64's settings live in the internal flash drive, in this file and nowhere else. Gideon's own config sectors (0xFF0000) are not
-// touched, so his firmware stays a clean way back. The comparison is the whole path, case-insensitive like FAT: a sibling, a
-// subdirectory or any other file under /flash is still refused.
-// T104.1 5.5 (Alex, 2026-10-18, the rescue from a crashing library): the boot-attempt counter is a key in one file per profile - on the
-// monolith the second file of /flash/trx64u, on the MultiCore host the host's own boot menu file (host-app bootcfg.h BOOTCFG_PATH). Those
-// two paths are the rest of the exception; every other path under /flash is refused.
-#define FS_FLASH_CFG_PATH "/flash/trx64u/c64.cfg"
-#define FS_FLASH_BOOT_MONOLITH "/flash/trx64u/boot.cfg"
+// The exception (T104.2 Q1, T104.1 5.5, T239.3 P1-5): a standalone installation has no .cor and so no .cfg beside it; the core's settings
+// file and the boot-attempt counter (libguard.h) live in the internal flash drive, in /flash/<core id>/<folder>.cfg and /flash/<core id>/boot.cfg,
+// the core id from the core's description record (board_set_core, board.cc, registers the two). Gideon's own config sectors (0xFF0000) are not
+// touched, so his firmware stays a clean way back. The comparison is the whole path, case-insensitive like FAT: a sibling, a subdirectory or any
+// other file under /flash is still refused. The MultiCore host's own boot menu file (host-app bootcfg.h BOOTCFG_PATH) is the fixed rest.
 #define FS_FLASH_BOOT_MULTICORE "/Flash/boot.cfg"
+#define FS_FLASH_EXC_MAX 2
+#define FS_FLASH_EXC_LEN 96
+struct FsFlashExceptions {
+    char path[FS_FLASH_EXC_MAX][FS_FLASH_EXC_LEN];
+};
+inline FsFlashExceptions &fs_flash_exceptions()
+{
+    static FsFlashExceptions v;      // one object across translation units, like fs_flash_rw()
+    return v;
+}
+// Replaces the registered paths; a null or empty entry registers nothing. False when a path does not fit or lies outside /flash/<dir>/.
+static inline bool fs_flash_set_exceptions(const char *a, const char *b)
+{
+    FsFlashExceptions &e = fs_flash_exceptions();
+    const char *in[FS_FLASH_EXC_MAX] = { a, b };
+    bool ok = true;
+    for (int i = 0; i < FS_FLASH_EXC_MAX; i++) {
+        e.path[i][0] = 0;
+        if (!in[i] || !in[i][0]) {
+            continue;
+        }
+        bool fits = fs_path_is_flash(in[i]) && in[i][6] == '/' && in[i][7] && strlen(in[i]) < FS_FLASH_EXC_LEN;
+        const char *slash = fits ? strchr(in[i] + 7, '/') : 0;      // "/flash/", a directory, the file: no deeper, no file in /flash itself
+        if (!slash || !slash[1] || strchr(slash + 1, '/')) {
+            ok = false;
+            continue;
+        }
+        strcpy(e.path[i], in[i]);
+    }
+    return ok;
+}
 static inline bool fs_flash_exception(const char *path)
 {
-    return !strcasecmp(path, FS_FLASH_CFG_PATH) || !strcasecmp(path, FS_FLASH_BOOT_MONOLITH) || !strcasecmp(path, FS_FLASH_BOOT_MULTICORE);
+    if (!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {
+        return true;
+    }
+    FsFlashExceptions &e = fs_flash_exceptions();
+    for (int i = 0; i < FS_FLASH_EXC_MAX; i++) {
+        if (e.path[i][0] && !strcasecmp(path, e.path[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // One flag for the whole app (a function-local static of an extern inline function is one object across translation units).

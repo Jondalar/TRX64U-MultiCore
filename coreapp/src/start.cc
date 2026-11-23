@@ -134,7 +134,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
             c->cfg_path[0] = 0;
         }
     }
-    if (!c->cfg_path[0] && prof && prof->flash_cfg && prof->cfg_dir && c->desc && c->desc->folder) {       // T228 DC13: the parameter decides
+    if (!c->cfg_path[0] && prof && prof->flash_cfg && prof->cfg_dir[0] && c->desc && c->desc->folder) {       // T228 DC13: the parameter decides
         snprintf(c->cfg_path, sizeof(c->cfg_path), "%s/%s.cfg", prof->cfg_dir, c->desc->folder);
     }
 }
@@ -227,7 +227,7 @@ bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bo
 bool start_migrate_cfg(CoreCtx *c, const BoardProfile *prof)
 {
     char old[HANDOVER_PATH_MAX];
-    if (!c->fs || !c->cfg_path[0] || !prof || !prof->flash_cfg || !prof->cfg_dir || !c->desc || !c->desc->folder) {
+    if (!c->fs || !c->cfg_path[0] || !prof || !prof->flash_cfg || !prof->cfg_dir[0] || !c->desc || !c->desc->folder) {
         return false;
     }
     snprintf(old, sizeof(old), "%s/%s.cfg", prof->cfg_dir, c->desc->folder);
