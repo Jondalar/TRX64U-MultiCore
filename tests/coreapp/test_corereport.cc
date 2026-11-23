@@ -362,5 +362,22 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
+    // ---- T170 D2: the serial port trace section - only for a core with the capability "iec" whose page answers "IECT" (FakeIo masks the page to 0x000-0xFFF) ----
+    {
+        static const char *const iec_caps[] = { "iec" };
+        Rig r;
+        r.d.caps = iec_caps; r.d.ncaps = 1;
+        std::string t0(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
+        CHECK(!has(t0, "Serial port trace"));                      // the capability, no page
+        memcpy(r.io.regs, "IECT", 4); r.io.regs[4] = 1; r.io.regs[5] = 10;
+        r.io.regs[0x14] = 0;                                       // no event
+        std::string t1(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
+        CHECK(has(t1, "== Serial port trace (T170) =="));
+        CHECK(has(t1, "No event recorded."));
+        CHECK(t1.find("== Serial port trace") < t1.find("== Heap =="));
+        r.d.caps = 0; r.d.ncaps = 0;                               // the page, no capability: not read
+        std::string t2(g_out, core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out)));
+        CHECK(!has(t2, "Serial port trace"));
+    }
     DONE("test_corereport");
 }
