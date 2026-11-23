@@ -1,0 +1,9 @@
+# The UI TOML of the test core of the overlay features (T256 S3, S5, S10): the element that tests/ui/ovtest/ovtest.cc shows. Compiled to the description record with
+# python3 tools/descrec.py compile; the fixtures (tests/ui/fixtures.py make_ovtest_cor) pack it with ovtest.u2a into the .cor of the core the feature runs.
+# The element is 160 x 40 canvas pixels, 40 above the bottom edge, in the middle.
+[[element]]
+name = "ovtest"
+anchor = "bottom_mid"
+dy = -40
+w = 160
+h = 40

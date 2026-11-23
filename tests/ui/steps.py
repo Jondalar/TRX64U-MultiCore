@@ -852,3 +852,104 @@ def picture_brightness_differs(c, a, b):
     tb = _canvas_rect(os.path.join(emu_mod.OUT, b + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
     if abs(ta[1] - tb[1]) <= 0.03 * max(ta[1], tb[1], 1):
         raise AssertionFailed("%s (brightness %d) and %s (%d) do not differ: the transparency was not applied" % (a, ta[1], b, tb[1]))
+
+
+# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the core runs from a .cor that carries it (`# core: vc20+ovtest`) -----------------
+def _lib_op(c, name):
+    """The test library's operation over REST. A 404 is a core that did not load the library: the log of the emulator says why."""
+    import urllib.error
+    try:
+        return c.emu.op("ovtest." + name)
+    except urllib.error.HTTPError as e:
+        raise StepError("ovtest.%s answered %s %s: the library is not loaded (the emulator log, [lib] and [menu] lines) or the call was refused" % (name, e.code, e.read().decode("utf-8", "replace")[:200]))
+
+
+@step(r'the test library shows its element')
+def lib_shows(c):
+    _lib_op(c, "show")
+    c.emu.wait(600)
+
+
+@step(r'the test library takes its element away')
+def lib_removes(c):
+    _lib_op(c, "remove")
+    c.emu.wait(600)
+
+
+def _lib_pause(c, name):
+    """Pause is a flag the menu's close turns into the stop (api.md 4.14.4): the library sets it while the menu is open, then the menu closes."""
+    c.open_menu()
+    _lib_op(c, name)
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the test library pauses the machine')
+def lib_pauses(c):
+    _lib_pause(c, "pause")
+
+
+@step(r'the test library resumes the machine')
+def lib_resumes(c):
+    _lib_pause(c, "resume")
+
+
+@step(r'the test library hides the menu')
+def lib_hides(c):
+    _lib_op(c, "hide")
+    c.emu.wait(900)
+
+
+@step(r'the test library shows the menu')
+def lib_shows_menu(c):
+    _lib_op(c, "show_menu")
+    c.emu.wait(900)
+
+
+# the element of tests/ui/ovtest/ovtest.toml: 160 x 40, bottom_mid, 40 above the bottom edge of the 960 x 540 canvas; the library paints it red with a white frame
+OV_BOX = (400, 460, 560, 500)
+
+
+def _ov_red(r, g, b):
+    return r >= 200 and g <= 60 and b <= 60
+
+
+@step(r'the picture "([^"]+)" shows the library\'s element at its place')
+def picture_ov_element(c, name):
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), OV_BOX[0], OV_BOX[1], OV_BOX[2], OV_BOX[3], _ov_red)
+    if allp == 0 or n * 2 < allp:
+        raise AssertionFailed("%d of the %d pixels at the element's place are the element's red: it is not on the screen" % (n, allp))
+
+
+@step(r'the picture "([^"]+)" shows no element of the library')
+def picture_no_ov_element(c, name):
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), OV_BOX[0], OV_BOX[1], OV_BOX[2], OV_BOX[3], _ov_red)
+    if n * 10 >= allp:
+        raise AssertionFailed("%d of the %d pixels at the element's place are the element's red: it is on the screen" % (n, allp))
+
+
+def _pixels(path, box):
+    px = []
+    _canvas_rect(path, box[0], box[1], box[2], box[3], lambda r, g, b: px.append((r, g, b)) or False)
+    return px
+
+
+@step(r'the picture "([^"]+)" shows another running picture than "([^"]+)" above the element')
+def picture_moves(c, a, b):
+    """S3: the machine's picture runs under the element (the cursor of the C64's screen blinks, so two looks a moment apart differ); only the area above the element is compared."""
+    box = (0, 100, 960, 440)
+    pa, pb = _pixels(os.path.join(emu_mod.OUT, a + ".png"), box), _pixels(os.path.join(emu_mod.OUT, b + ".png"), box)
+    if len(pa) != len(pb) or not pa:
+        raise AssertionFailed("%s and %s are not pictures of one size" % (a, b))
+    diff = sum(1 for x, y in zip(pa, pb) if abs(x[0] - y[0]) + abs(x[1] - y[1]) + abs(x[2] - y[2]) > 48)
+    if diff < 40:
+        raise AssertionFailed("%d pixels above the element differ between %s and %s: the picture under the element does not move" % (diff, a, b))
+
+
+@step(r'the emulator log has no line with "([^"]+)"')
+def log_has_no(c, text):
+    """S5: the base took the stopped machine's picture (a failed grab logs `no still`)."""
+    lines = [l.rstrip() for l in open(c.emu.logpath, errors="replace") if text in l]
+    if lines:
+        raise AssertionFailed("the emulator log says: %s" % lines[0][:200])
