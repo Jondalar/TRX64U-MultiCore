@@ -178,7 +178,8 @@ public:
     // lib_register record or in its menu record. Such a library is never evicted (AppIndex::prepare_open): the poll would call into freed code and the
     // merged menu would point into freed strings.
     bool contributes(int handle) const;
-    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
+    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, a library in use, or one with a job that still runs (the jobs are asked
+    // to stop, none is waited for: the caller holds the core lock, which a job may need to end).
     int unload(int handle, char *err, int errlen);
 
     // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
@@ -232,8 +233,8 @@ public:
     bool jobs_running(int handle) const;      // does one of them run
     void reap_jobs(int handle);               // joins the jobs of the account that have ended, so their slots are free
     bool stop_jobs(int handle);               // cancel, wait up to 5 s, reap; false: one still runs
-    // Runs the code of an image as its owner: the calling task takes everything api->mem, fs, sync, net and job give from here to the end of the object on the account of `handle`
-    // (the account of the call is the image's code otherwise, owner_at). The base puts one around a call into a core hook or an export table that it makes itself; no-op for a handle that is not loaded.
+    // Runs the code of an image as its owner: for the calls whose code lies in no loaded image (the base, a core hook it makes), the calling task takes everything api->mem, fs, sync, net and
+    // job give from here to the end of the object on the account of `handle`; a call made by code inside a loaded image is always on that image's account (owner_at). The base puts one around a call into a core hook or an export table that it makes itself; no-op for a handle that is not loaded.
     class Scope {
     public:
         Scope(LibLoader *l, int handle);

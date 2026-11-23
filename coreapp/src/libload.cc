@@ -625,35 +625,41 @@ void LibLoader::close_sockets(int handle)
     }
 }
 
+// The records are read and cleared inside the critical section, as api->job's own (libsvc.cc) are: another task may claim a record whose job has ended while this one looks at it.
 void LibLoader::cancel_jobs(int handle)
 {
+    host_->enter();
     for (int i = 0; i < LIB_JOB_MAX; i++) {
         if (jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && job_cancel_) {
             job_cancel_(jobs_[i].h);
         }
     }
+    host_->leave();
 }
 
 bool LibLoader::jobs_running(int handle) const
 {
-    for (int i = 0; i < LIB_JOB_MAX; i++) {
-        if (jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && base_job_ && base_job_->running && base_job_->running(jobs_[i].h)) {
-            return true;
-        }
+    bool any = false;
+    host_->enter();
+    for (int i = 0; i < LIB_JOB_MAX && !any; i++) {
+        any = jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && base_job_ && base_job_->running && base_job_->running(jobs_[i].h);
     }
-    return false;
+    host_->leave();
+    return any;
 }
 
 void LibLoader::reap_jobs(int handle)
 {
     for (int i = 0; i < LIB_JOB_MAX; i++) {
+        host_->enter();                                 // claim the record and join in one step: a job that has ended does not wait in join, and no other task can take the record or the base slot in between
         if (jobs_[i].used && jobs_[i].owner == handle && jobs_[i].h && !(base_job_ && base_job_->running && base_job_->running(jobs_[i].h))) {
             SvcJobH *h = jobs_[i].h;
             jobs_[i].used = false;
             if (base_job_ && base_job_->join) {
-                base_job_->join(h);                     // the job has ended: this frees its slot
+                base_job_->join(h);                     // this frees its slot
             }
         }
+        host_->leave();
     }
 }
 
@@ -1477,6 +1483,11 @@ int LibLoader::unload(int handle, char *err, int errlen)
     Slot &s = slot_[handle];
     if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
         return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
+    }
+    // The caller holds the core lock (the eviction of apphost.cc): a job of the library that needs the lock to end would stall everything here, so the jobs are asked to stop and the library stays until they have.
+    cancel_jobs(handle);
+    if (jobs_running(handle)) {
+        return fail(LIB_STATE, err, errlen, "\"%s\" has a job that is still running; it was asked to stop.", s.info.name);
     }
     retire(s);
     if (cur_ == handle) {

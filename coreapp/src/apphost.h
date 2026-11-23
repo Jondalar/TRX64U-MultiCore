@@ -83,6 +83,7 @@ public:
     bool take_reply(char *out, int n, bool *bad);
 
 private:
+    friend struct AppHostTest;            // tests/loader: the job table against the real loader
     CoreCtx *c_;
     LibLoader *ld_;
     AppIndex *idx_;

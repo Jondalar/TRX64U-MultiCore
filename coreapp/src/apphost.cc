@@ -186,6 +186,7 @@ void AppHost::open_now()
         // as the firmware did when a person started another app from the menu.
         printf("[app] %s is asked to end for %s\n", name_, e->name);
         stop_ = true;
+        ld_->cancel_jobs(handle_);
         uint32_t t0 = c_->io->now_ms();
         while (task_alive_ && !task_done_ && c_->io->now_ms() - t0 < 4000) {
             os_->sleep_ms(10);
@@ -499,7 +500,8 @@ void AppHost::job_entry(void *p)
 }
 
 void AppHost::job_cancel_one(SvcJobH *j) { if (j) { j->cancel = true; } }
-bool AppHost::job_cancelled(SvcJobH *j) { return (j && j->cancel) || (g_host && g_host->stop_); }
+// Only the job's own flag: the jobs of the application are marked by cancel_jobs(handle_) when it ends or its screens close, and the jobs of a library (S14) must not see an application's stop.
+bool AppHost::job_cancelled(SvcJobH *j) { return j && j->cancel; }
 bool AppHost::job_running(SvcJobH *j) { return j && j->used && !j->done; }
 bool AppHost::job_stop_requested(void) { return g_host && g_host->stop_; }
 

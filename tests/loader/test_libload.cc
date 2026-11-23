@@ -18,6 +18,7 @@
 #include "fakes.h"
 #include "hostos.h"
 #include "service.h"
+#include "apphost.h"
 
 #ifndef FIXDIR
 #error FIXDIR is the directory of testlib.u2a and testlib.at1000.raw (tests/loader/run.sh makes them)
@@ -2380,18 +2381,16 @@ static void services()
 
 // ------------------------------------------------------------------------------------------------ T239.3 base 3.3 fixes: sockets, jobs and calls on the owner's account
 
-struct SvcJobH {                                             // the base's job: what the model of it keeps
-    bool used, done, cancel;
-    int rc;
-    int (*fn)(SvcJobH *, void *);
-    void *user;
-};
+// the base's job is AppHost's SvcJobH (apphost.h); the model below uses its used, done, cancel, rc, fn and user
 static SvcJobH g_jobs[4];
 static std::map<int, bool> g_open;                           // the sockets the base has open (handle, listener)
 static int g_next_fd = 100, g_accept_fd = -5, g_net_closes;
+static LibLoader *g_probe_ld;                                // the loader whose account fk_close looks at when the base closes a handle
+static int g_probe_owner = -2, g_close_seen = -1;               // the sockets the owner still has on its account at that moment
+static bool g_app_stop;                                      // the base asks the application to end (AppHost::stop_)
 static int fk_listen(uint16_t, int) { int h = g_next_fd++; g_open[h] = true; return h; }
 static int fk_accept(int) { if (g_accept_fd < 0) { return g_accept_fd; } int h = g_accept_fd; g_accept_fd = -5; g_open[h] = false; return h; }
-static int fk_close(int h) { if (!g_open.count(h)) { return -1; } g_open.erase(h); g_net_closes++; return 0; }
+static int fk_close(int h) { if (g_probe_ld) { g_close_seen = g_probe_ld->account_sockets(g_probe_owner); } if (!g_open.count(h)) { return -1; } g_open.erase(h); g_net_closes++; return 0; }
 static int fk_recv(int, void *, int) { return -5; }
 static int fk_send(int, const void *, int len) { return len; }
 static int fk_wait(const int *, int, uint32_t) { return 0; }
@@ -2410,7 +2409,7 @@ static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
 static bool fj_cancelled(SvcJobH *j) { return j && j->cancel; }
 static int fj_join(SvcJobH *j) { if (!j || !j->used) { return -1; } while (!j->done) { j->rc = j->fn(j, j->user); j->done = true; } j->used = false; return j->rc; }
 static bool fj_running(SvcJobH *j) { return j && j->used && !j->done; }
-static bool fj_stop(void) { return false; }
+static bool fj_stop(void) { return g_app_stop; }                      // AppHost::job_stop_requested; job_cancelled answers for the job alone (fj_cancelled)
 static const SvcJob g_fkjob = { sizeof(SvcJob), fj_start, fj_cancelled, fj_join, fj_running, fj_stop };
 static void fj_cancel_one(SvcJobH *j) { if (j) { j->cancel = true; } }
 // the job runs when the model says so: its function takes memory, the way a library's job does
@@ -2490,7 +2489,33 @@ static void net_and_jobs()
     CHECK_EQ(w.ld->account_jobs(ha), 1);
     CHECK(api0->job->running(lib_job));
 
-    // the library closes one itself: the record goes, a handle the base does not know is refused
+    // an application's stop is the application's: a library's job and a library's code do not see it (S14)
+    g_app_stop = true;
+    w.m.code_addr = w.ld->info(ha)->image_addr + 4;
+    CHECK(!api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    w.m.code_addr = w.ld->info(hp)->image_addr + 4;
+    CHECK(api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    w.m.code_addr = 0;
+    CHECK(api0->job->stop_requested());                                                     // code that is in no image: the base's answer
+    g_app_stop = false;
+    CHECK(!api0->job->stop_requested());
+
+    // the library closes one itself: the record goes before the base closes the handle (the number may be handed out again at once)
+    g_probe_ld = w.ld;
+    g_probe_owner = ha;
+    CHECK_EQ(api0->net->close(lib_conn), 0);
+    CHECK_EQ(g_close_seen, 1);                                                              // the library had two records, one was already gone when the base ran
+    g_probe_ld = 0;
+    CHECK_EQ(w.ld->account_sockets(ha), 1);
+    g_accept_fd = 300;
+    lib_conn = 0;
+    {
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_conn = api0->net->accept(lib_listener);                                         // taken again below, as before
+    }
+    CHECK_EQ(lib_conn, 300);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    // a handle the base does not know is refused
     CHECK_EQ(api0->net->close(999), -1);                                                    // a handle the base does not know: refused, no record touched
     CHECK_EQ(w.ld->account_sockets(ha), 2);
     CHECK_EQ(api0->net->close(lib_conn), 0);
@@ -2524,8 +2549,15 @@ static void net_and_jobs()
     SvcJobH *bj = 0;
     for (int i = 0; i < 4; i++) { if (g_jobs[i].used && !g_jobs[i].done) { bj = &g_jobs[i]; } }
     CHECK(bj != 0);
-    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);                                   // cancelled, waited for through delay_ms, joined, closed
-    CHECK(bj->cancel && !bj->used);
+    int delays0 = 0;
+    w.m.on_delay = [&]() { delays0++; };
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_STATE);                                // the caller holds the core lock: the job is asked to stop, nothing is waited for
+    CHECK(bj->cancel && bj->used && delays0 == 0 && w.ld->info(hb));
+    CHECK_EQ(w.ld->account_jobs(hb), 1);
+    bj->done = true;                                                                        // the job answered
+    w.m.on_delay = 0;
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);                                   // joined, its socket closed
+    CHECK(!bj->used);
     CHECK_EQ(w.ld->account_sockets(hb) + w.ld->account_jobs(hb), 0);
     CHECK(g_open.size() == 1 && g_open.count(j2));                                          // only the socket of nobody is left
     w.m.on_delay = 0;
@@ -2598,6 +2630,66 @@ static void calls_on_the_owners_account()
     CHECK_EQ(w.ld->unload(hx, err, sizeof(err)), LIB_OK);
 }
 
+// The base's own job table (AppHost, linked for real with stubs of the screens): an application's stop and the end of an application reach the application's jobs and no library's (S14).
+struct StoreOs : VirtOs {
+    std::vector<std::pair<void (*)(void *), void *> > tasks;           // the tasks the base made; the test runs them when it wants
+    bool task_new(const char *, void (*fn)(void *), void *arg, int, uint32_t) { tasks.push_back(std::make_pair(fn, arg)); return true; }
+};
+static int ah_job(SvcJobH *, void *) { return 5; }
+struct AppHostTest {
+    static void jobs()
+    {
+        World w(U2A_BASE_MINOR);
+        w.ld->add_services();
+        CoreCtx cx;
+        StoreOs os;
+        CoreLock lock(&os);
+        AppIndex idx;
+        AppHost H(&cx, w.ld, &idx, &os, &lock, 0, 0);
+        H.install();                                                                   // set_job(its table), set_job_cancel
+        char err[LIB_ERR_MAX] = "";
+        w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
+        w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+        int ha = -1, hp = -1;
+        CHECK_EQ(w.load(build(Img("liba", "A")), &ha, err), LIB_OK);
+        const LibApi *api = g_jobapi;
+        Img a("capp", "P");
+        a.kind = U2A3_KIND_APP;
+        a.residence = U2A3_RES_TRANSIENT;
+        a.reg = U2A3_NONE;
+        a.main = 4;
+        CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+        w.ld->set_current(hp);
+        SvcJobH *lib_job = 0;
+        {
+            LibLoader::Scope in_lib(w.ld, ha);
+            lib_job = api->job->start(ah_job, 0, 4096);
+        }
+        SvcJobH *app_job = api->job->start(ah_job, 0, 4096);
+        CHECK(lib_job && app_job && lib_job != app_job && os.tasks.size() == 2);
+        CHECK_EQ(w.ld->account_jobs(ha), 1);
+        CHECK_EQ(w.ld->account_jobs(hp), 1);
+        H.stop_ = true;                                                                // the application is asked to end (close_session, or another application is opened)
+        w.m.code_addr = w.ld->info(ha)->image_addr + 4;                                // a call from the library's code
+        CHECK(!api->job->cancelled(lib_job) && !api->job->stop_requested());
+        w.m.code_addr = w.ld->info(hp)->image_addr + 4;                                // a call from the application's code
+        CHECK(api->job->stop_requested() && !api->job->cancelled(lib_job));
+        w.ld->cancel_jobs(hp);                                                         // what stop_jobs, close_session and the asked-to-end path do
+        CHECK(api->job->cancelled(app_job) && !api->job->cancelled(lib_job));
+        w.m.code_addr = 0;
+        H.stop_ = false;
+        CHECK(!api->job->cancelled(lib_job));
+        for (size_t i = 0; i < os.tasks.size(); i++) {
+            os.tasks[i].first(os.tasks[i].second);                                     // job_entry
+        }
+        CHECK_EQ(api->job->join(lib_job), 5);
+        CHECK_EQ(api->job->join(app_job), 5);
+        CHECK_EQ(w.ld->account_jobs(ha) + w.ld->account_jobs(hp), 0);
+        CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    }
+};
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -2617,5 +2709,6 @@ int main()
     services();
     net_and_jobs();
     calls_on_the_owners_account();
+    AppHostTest::jobs();
     DONE("test_libload");
 }

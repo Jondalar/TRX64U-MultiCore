@@ -14,8 +14,8 @@ public:
     // of LibPollDecl, libapi.h). false: refused, `why` says why in a sentence; nothing started.
     // The same owner again replaces its poll.
     virtual bool add(const char *owner, const char *op, uint16_t period_ms, bool when_frozen, char *why, int whylen) = 0;
-    // Ends the poll of `owner`; none: nothing happens. The caller holds the core lock, or the machine is frozen (the precondition of the registry's
-    // drop_owner, which follows), so no poll of this owner is inside its operation when this returns.
+    // Ends the poll of `owner`; none: nothing happens. The caller holds the core lock (the precondition of the registry's drop_owner, which follows), so no poll of this
+    // owner is inside its operation when this returns; a frozen machine does not say so, a poll with when_frozen runs while it is frozen.
     virtual void drop(const char *owner) = 0;
 };
 

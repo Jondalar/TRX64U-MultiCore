@@ -420,15 +420,14 @@ struct LibSvc {
         if (!l->base_net_ || !l->base_net_->close) {
             return -1;
         }
-        int rc = l->base_net_->close(h);
         l->host_->enter();
-        for (int i = 0; i < LIB_NET_MAX; i++) {
+        for (int i = 0; i < LIB_NET_MAX; i++) {                 // the record goes first: once the base has closed the handle, another task may be given the same number and takes a record of its own
             if (l->nets_[i].used && l->nets_[i].h == h) {
                 l->nets_[i].used = false;
             }
         }
         l->host_->leave();
-        return rc;
+        return l->base_net_->close(h);
     }
     static int net_recv(int h, void *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->recv ? n->recv(h, buf, len) : -1; }
     static int net_send(int h, const void *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->send ? n->send(h, buf, len) : -1; }
@@ -485,7 +484,17 @@ struct LibSvc {
     }
     static bool job_cancelled(SvcJobH *j) { const SvcJob *t = L()->base_job_; return t && t->cancelled && t->cancelled(j); }
     static bool job_running(SvcJobH *j) { const SvcJob *t = L()->base_job_; return t && t->running && t->running(j); }
-    static bool job_stop_requested(void) { const SvcJob *t = L()->base_job_; return t && t->stop_requested && t->stop_requested(); }
+    // "The application is asked to end": it is no question for a library, whose jobs end by their own cancel flag or when the library goes (S14)
+    static bool job_stop_requested(void)
+    {
+        LibLoader *l = L();
+        int o = l->owner_at(__builtin_return_address(0));
+        if (o >= 0 && o < LIB_MAX && l->slot_[o].used && l->slot_[o].info.kind == U2A3_KIND_LIB) {
+            return false;
+        }
+        const SvcJob *t = l->base_job_;
+        return t && t->stop_requested && t->stop_requested();
+    }
     static int job_join(SvcJobH *j)
     {
         LibLoader *l = L();
