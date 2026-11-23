@@ -704,18 +704,21 @@ class VhdlParser(P):
             elif w == "component":
                 self.skip_to_end("component")
             elif w == "alias":
-                # an alias names a part of a signal: every later use of the name is that part (parsed in place)
-                self.eat()
-                an = self.eat()[1]
-                if self.acc(":"):
-                    self.subtype()
-                self.eat("is")
-                self.aliases[an] = self.expr()
-                self.eat(";")
+                self.alias_decl()
             elif w in ("attribute", "file", "use"):
                 self.skip_to(";")
             else:
                 raise self.err("a declaration I do not know")
+
+    def alias_decl(self):
+        """An alias names a part of a signal: every later use of the name is that part (parsed in place)."""
+        self.eat("alias")
+        an = self.eat()[1]
+        if self.acc(":"):
+            self.subtype()
+        self.eat("is")
+        self.aliases[an] = self.expr()
+        self.eat(";")
 
     def skip_to_end(self, kw):
         while not (self.txt() == "end" and self.txt(1) == kw):
@@ -727,10 +730,11 @@ class VhdlParser(P):
         self.eat(";")
 
     def skip_subprogram(self, fname):
-        depth = 0
+        depth = par = 0
         while not self.eof():
             t = self.txt()
-            if t == ";" and depth == 0:
+            par += (t == "(") - (t == ")")
+            if t == ";" and depth == 0 and par == 0:
                 self.eat()
                 return
             if t == "is":
@@ -986,6 +990,8 @@ class VhdlParser(P):
                     vars_[n] = Decl(n, "var", ty, init)
             elif self.txt() == "procedure":
                 self.procedure(m)
+            elif self.txt() == "alias":
+                self.alias_decl()
             elif self.txt() in ("constant", "type", "subtype"):
                 raise self.err("a process-local %s" % self.txt())
             else:
@@ -2109,7 +2115,7 @@ class Ev:
     def const_int(self, ctx, e, sc=None):
         v = self.ev(ctx, e, sc)
         if v.x or v.v is None:
-            raise Unsupported("a bound that is not a constant")
+            raise Unsupported("%s: a bound that is not a constant" % ctx.mod.fname)
         return v.v
 
     def tyinfo(self, ctx, ty):
@@ -2507,7 +2513,11 @@ class Ev:
             return V((mask(64) if b.v & 1 else 0), (mask(64) if b.x & 1 else 0), None)
         if k == "sl":
             a = self.ev(ctx, e[1], sc)
-            hi, lo = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            try:
+                hi, lo = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            except Unsupported:
+                # a slice whose position is state (a byte lane picked by a register): its value is unknown, whatever the register is
+                return V(0, mask(64), None)
             lo0 = self.lowbound(ctx, e[1])
             return v_slice(a, hi - lo0, lo - lo0)
         if k == "psl":
@@ -3337,11 +3347,20 @@ def _pkg_const(self, name):
         if not f.endswith((".vhd", ".vhdl")) or self.blocked(f):
             continue
         body = re.sub(r"--[^\n]*", "", read_source(f))
-        m = re.search(r"\bconstant\s+%s\s*:\s*\w+\s*:=\s*\((.*?)\)\s*;" % re.escape(base), body, re.S | re.I)
+        m = re.search(r"\bconstant\s+%s\s*:\s*\w+\s*:=\s*\(" % re.escape(base), body, re.S | re.I)
         if m:
-            for fm in re.finditer(r"(\w+)\s*=>\s*([^,]+?)\s*(?:,|$)", m.group(1).strip()):
+            depth, j = 1, m.end()
+            while depth and j < len(body):
+                depth += (body[j] == "(") - (body[j] == ")")
+                j += 1
+            inner = body[m.end():j - 1]
+            for fm in re.finditer(r"(\w+)\s*=>\s*(\(\s*others\s*=>\s*'[01]'\s*\)|[^,]+?)\s*(?:,|$)", inner.strip()):
                 if fm.group(1).lower() == field:
                     lit = fm.group(2).strip()
+                    om = re.fullmatch(r"\(\s*others\s*=>\s*'([01])'\s*\)", lit)
+                    if om:
+                        res = V(mask(64) if om.group(1) == "1" else 0, 0, None)
+                        break
                     mm = re.fullmatch(r"([xXbB]\"[0-9a-fA-F_]*\"|'.'|\"[01]*\")", lit)
                     if mm:
                         k = "bs" if lit[0] in "xXbB" else ("chr" if lit[0] == "'" else "str")
