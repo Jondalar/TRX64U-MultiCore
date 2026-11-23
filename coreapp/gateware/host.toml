@@ -7,11 +7,11 @@
 # reaches a core port, and its properties (a map) are the core's contract, checked in the core's own design, not here.
 # The address of a base block is iobase + its offset in ultimate_sys.vhd's decode process; the page registers (0x10040000, 0x10100300,
 # 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
-# Not in this record (T239.3 section 5, V-1b): the ITU (with its console UART), USB, Ethernet and flash windows (rtl_check stops at Gideon's
-# io_bus_splitter, an array of request records, and at the procedure that assigns signals in flash_gate.vhd: a block there would fail the check), and
-# three windows the host RTL has no register in: the UCI window 0x10044000 (it acks and answers 0), the UDP region 0x10190000 (r_udp names it,
-# nothing decodes it) and the resampler at 0x10100580 (no decode). The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries) is one
-# block of 48 properties. A property whose read and write registers differ is two properties (irq_mask / status, tx_len / rx_len).
+# Not in this record: the flash window 0x10060200 (flash_gate.vhd holds the request in p_valid/p_addr/p_data and decides one clock later in a state machine: rtl_check has no
+# model of a held request inside a module, V-1c), the UCI window 0x10044000 (cmd_if: it acks and answers 0; the UCI is the core's), the UDP region 0x10190000 (r_udp names it,
+# nothing decodes it) and the resampler at 0x10100580 (no decode). The ITU, console UART, USB and Ethernet windows are here (V-1c: rtl_check models Gideon's io_bus_splitter).
+# The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries) is one block of 48 properties. A property whose read and write registers differ is two properties
+# (irq_mask / status, tx_len / rx_len).
 # There is no [identity] yet: the standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2, so it is the core's block here
 # (core_trx_io) and `descrec.py compile` (it wants a base-owned identity block) does not take this file until that is decided.
 [io]
@@ -1327,5 +1327,283 @@ size = 0x10
   [[block.property]]
   name = "crc"
   offset = 0xC
+  width = 8
+  dir = "rw"
+
+# ---- V-1c: the windows behind Gideon's io_bus_splitter (rtl_check models the splitter: port i is selected by the address bits range_hi:range_lo = i)
+# ITU 0x10000000: the splitter has the ports 0 (irq, timer, capabilities), 1 (the console UART), 2 (the millisecond timer, busy flags), range bits 5:4. g_edge_write is false in
+# the host, so the edge register reads only.
+
+[[block]]
+name = "itu"
+module = "itu"
+owner = "base"
+address = 0x10000000
+size = 0x10
+  [[block.property]]
+  name = "irq_global"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_enable_set"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_disable"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_edge"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "irq_clear"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_active"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "timer"
+  offset = 0x6
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_en"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_hi"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_lo"
+  offset = 0x9
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "buttons"
+  offset = 0xA
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fpga_version"
+  offset = 0xB
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities0"
+  offset = 0xC
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities1"
+  offset = 0xD
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities2"
+  offset = 0xE
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities3"
+  offset = 0xF
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "itu_uart"
+module = "uart_peripheral_io"
+owner = "base"
+address = 0x10000010
+size = 0x4
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "get"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "flags"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "imask"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "itu_ms"
+module = "itu"
+owner = "base"
+address = 0x10000020
+size = 0x10
+  [[block.property]]
+  name = "ms_timer_hi"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ms_timer_lo"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "usb_busy"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sd_busy"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "misc_io"
+  offset = 0x6
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_en_high"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_act_high"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "printer_busy"
+  offset = 0x9
+  width = 8
+  dir = "w"
+
+# USB 0x10080000 (usb_host_nano, nano.vhd's splitter bit 11): the nano CPU's program RAM (2 KB, byte port) and the register at 0x800 whose any write sets the core's reset to not data bit 0 (it never reads back).
+
+[[block]]
+name = "usb_code"
+module = "nano"
+owner = "base"
+address = 0x10080000
+size = 0x800
+  [[block.property]]
+  name = "code"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  count = 2048
+
+[[block]]
+name = "usb_ctrl"
+module = "nano"
+owner = "base"
+address = 0x10080800
+size = 0x1
+  [[block.property]]
+  name = "core_run"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+# Ethernet 0x10060800 (ethernet_interface.vhd, splitter bits 5:4: 0 eth_filter, 1 eth_transmit, 2 free_queue). Left out: the transmit busy flag at +0x1A (a flag the
+# write of +0x18 sets and the done pulse clears; rtl_check takes a flag with only literal assignments at its initial value, so its read is not provable here).
+
+[[block]]
+name = "ethernet"
+module = "ethernet_interface"
+owner = "base"
+address = 0x10060800
+size = 0x30
+  [[block.property]]
+  name = "mac"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  count = 6
+  [[block.property]]
+  name = "promiscuous"
+  offset = 0x7
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_enable"
+  offset = 0x8
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "tx_addr"
+  offset = 0x10
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "tx_length"
+  offset = 0x14
+  width = 16
+  dir = "w"
+  [[block.property]]
+  name = "tx_start"
+  offset = 0x18
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "tx_irq_ack"
+  offset = 0x19
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b1"
+  offset = 0x21
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b2"
+  offset = 0x22
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b3"
+  offset = 0x23
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_insert"
+  offset = 0x24
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "fq_pop_id"
+  offset = 0x28
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fq_pop_size"
+  offset = 0x2A
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fq_reset"
+  offset = 0x2E
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_used_valid"
+  offset = 0x2F
   width = 8
   dir = "rw"

@@ -35,10 +35,16 @@ check
   A request that leaves a followed module over output ports (held address, write flag, data, toggle) and is read by another module of
   the top-level file crosses a clock domain over a handshake: that module is run on the held request (stage 2: its ports take the
   forwarded values, its state is unknown, only the module itself is followed) and decides write and read of the byte (dma_win). A decode
-  there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). What is not followed yet: the
-  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), the request behind Gideon's io_bus_splitter (an array of request
-  records: ITU, uci, the drive, Ethernet, USB) and the clock-domain bridges (io_bus_bridge2, synchronizer_gzw). The check stops there with
-  Unsupported (the request reaches such an instance); it never passes a property on the transport registers of a bridge.
+  there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). Gideon's io_bus_splitter is modelled by the check (its architecture is not read): port i of reqs gets the request with write and read cleared unless the
+  address bits g_range_hi downto g_range_lo are i, and resp is the OR of the answers of the ports the address can select (only those are an origin of the answer).
+  The synchronizers of a clock-domain bridge (synchronizer_gzw) carry the vector unchanged: their outputs are their inputs, io_bus_bridge2 itself is read from its source.
+  A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
+  A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
+  The taint of a concatenated vector is that of the whole signal (the bridge's request vector): behind a bridge a `w` that no register takes can pass.
+  RTL_CHECK_TRACE=1 raises the error with its traceback.
+  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks) and a request a module holds in its own registers and decides one
+  clock later (flash_gate.vhd: a flag the request itself sets is taken at its initial value). The check stops with Unsupported or finds no write/read there; it never
+  passes a property on the transport registers of a bridge.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++

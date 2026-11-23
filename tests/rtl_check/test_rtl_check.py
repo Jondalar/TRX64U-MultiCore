@@ -6,6 +6,7 @@
   2. check on c64_basic of TRX64-Ultimate with the fixture tests/rtl_check/c64_basic.toml and the shipped maps of app/sdkpkg/maps,
      when the directory is there
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
+  2b. the miniature design tests/rtl_check/mini2 (V-1c): a request splitter, a process alias and procedure, a VHDL block, a RAM write sink.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
@@ -41,13 +42,17 @@ ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-U
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
     rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "10 block(s), 53 properties agree" in out,
-         "c64_basic: 10 blocks, 53 properties agree with the RTL (the maps sid, c64cart, c64cart_regs and dma of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake)", out)
-    rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic_uci.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 1 and "an RTL pattern I do not know" in out and "clock-domain bridge" in out,
-         "c64_basic: uci and the drive (maps uci, cbm1541) stop the check at the bridge/splitter pattern, they do not pass on the transport registers", out)
+    must(rc == 0 and "12 block(s), 66 properties agree" in out,
+         "c64_basic: 12 blocks, 66 properties agree with the RTL (the maps sid, c64cart, c64cart_regs, dma and uci of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake; "
+         "uci behind io_bus_bridge2 with its synchronizers and command_protocol (a process procedure, an alias); the 1541 drive behind c1541_drive's io_bus_splitter, with a VHDL block "
+         "statement, a clocked concurrent assignment and Gideon's RAM entities)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
+
+rc, out = run("check", "--design", os.path.join(HERE, "mini2"), "--toml-a", os.path.join(HERE, "mini2.toml"), "--top", "top", "--bus", "m2sys.io_req")
+must(rc == 0 and "2 block(s), 3 properties agree" in out,
+     "mini2 design: a request splitter (io_bus_splitter, modelled by the check) with a register port (process alias, procedure inlined at its call) and a RAM port (a VHDL block, "
+     "a clocked concurrent assignment, a RAM entity as a write sink) agree with the RTL", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--top", "layer2_vc20",
               "--bus", "vc20_core:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
@@ -56,9 +61,9 @@ must(rc == 0 and "6 block(s), 20 properties agree" in out, "vc20: 6 blocks, 20 p
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "57 block(s), 176 properties agree" in out and "clean room" not in out,
-     "host: 56 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
-     "IEC, SD and WiFi windows, the 16 overlay palette entries; no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
+must(rc == 0 and "63 block(s), 221 properties agree" in out and "clean room" not in out,
+     "host: 63 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows, the 16 overlay palette entries, and behind io_bus_splitter the ITU with its console UART, USB and Ethernet; no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)
