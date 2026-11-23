@@ -34,3 +34,5 @@ cores/c64scpu/sim/run_prgrun.sh|T217: needs the real scpu64.rom and C64 ROMs (C6
 cores/c64scpu/sim/run_irqmir.sh|T241 S2: the diagnosis bench of the mirror-everything mode at 1 MHz (IRQs taken vs underflows); no negative control, not a proof; by hand
 cores/c128/sim/run_prgrun.sh|T217: needs the real C128 ROMs (C128_ROMDIR), which never go into the repository or CI; local proof of the .prg start only
 cores/pet/sim/run_chrwin.sh|one case of run_boot.sh (pet_boot), which is listed (T216: the 4 KiB character ROM window)
+cores/c128/sim/run_ruler.sh|T257 fault 4: needs the real C128 ROMs (C128_ROMDIR), which never go into the repository or CI; local machine bench
+cores/c128/sim/run_vdcsw.sh|T257 fault 5: needs the demo's VRAM image and logged writes (VDCSW_DATA), never in the repository; SKIPs without them

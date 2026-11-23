@@ -56,3 +56,5 @@ cores/c64scpu/sim/*.lock
 .gitnexus/
 # dis65816 default output: listings of a program are its data, never committed (tools/dis65816/README.md)
 /analysis/
+# T257: the C128 machine benches build into build.<name>/ and write the real ROMs there (C128_ROMDIR): never tracked
+cores/c128/sim/build.*/

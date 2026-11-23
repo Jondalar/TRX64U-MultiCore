@@ -11,6 +11,7 @@ files carry their header, no ROM-like file is present.
   (Erik Scheffers, no licence text). Edits: `output` ports that are assigned in procedures become `output reg` (`vdc_top.sv` `db_out`;
   `vdc_ramiface.sv` `reg_ua reg_wc reg_da reg_ba busy rowbuf attrbuf charbuf dispaddr`); `vdc_signals_h.sv` / `vdc_signals.sv` / `vdc_top.sv` (T113 D1, T257): `reg_cdh` and `reg_hss` wired through, the capture window opens on the dot `ps` where the first character is loaded (`vstart`); `vdc_video.sv`: the scalar-port variant under
   `ifdef VERILATOR` is now under `VDC_SCALAR_BUFS` (never defined; it did not match `vdc_top.sv`'s array connection under Verilator 5).
+  `vdc_top.sv` (T257 fault 5): R25[3:0] is taken once per line into `hss_l` (at the end of the last column), and the picture logic reads `hss_l`; the R25 read-back stays `reg_hss`.
   `vdc_signals_v.sv`: the `field` output and the interlaced-bitmap rule at the frame wrap (T113 D11; T257 fault 2: no line is fetched before row 1, so the
   second field carries on right after the first).
 - `c128_mmu8722.vhd`: `rtl/mmu8722.vhd` (same author/terms). Edits: `crBank` expression parenthesised (width mismatch), port `do` renamed `dout`
@@ -22,9 +23,9 @@ files carry their header, no ROM-like file is present.
 ## Taken from eilers/c128Mega65 (T257, header kept; GPL v3, Stefan Eilers and Jeff Flitton, read at `ef48a75`, 2026-11-11)
 The side-effect-free read-back of the VDC (their `vdc_top.sv` / `vdc_ramiface.sv` / `vdcram.v` under `CORE/C128_MiSTer/rtl/vdc856x/`, a MEGA65 edit of Erik Scheffers' files):
 - `vdc/vdc_top.sv`: the ports `dbg_addr`, `dbg_ram`, `dbg_reg`, the function `regval()` (R0-R37 without a read's side effects) and the `dbg_reg` process (38 = status, 39 = selected register),
-  copied from their `vdc_top.sv:290-345`; `status` is a wire there as in theirs. The read values equal our `db_out` case (checked register by register, 2026-11-23).
+  copied from their `vdc_top.sv:290-345`; `status` is a wire there as in theirs. Since T257 fault 3 the `dbg_reg` process runs on our `dbg_clk` (the ungated sys_clk), not on the machine's clock. The read values equal our `db_out` case (checked register by register, 2026-11-23).
 - `vdc/vdc_ramiface.sv`: the ports `dbg_addr`, `dbg_do` and the two lines that connect the second RAM port through `shuffleAddr` (their `vdc_ramiface.sv:35-37,110-112`); their `dbg_rd` is not taken.
-- `vdc/vdcram.v`: the idea and the port names `addr_b` / `dao_b` of their second read port; the code is ours (it reads every clock, no `rd_b`).
+- `vdc/vdcram.v`: the idea and the port names `addr_b` / `dao_b` of their second read port; the code is ours (it reads every clock, no `rd_b`; since T257 fault 3 port B has its own clock `clk_b`, the ungated sys_clk).
 Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` read gating, `dbg_rd`, the `clkdiv` move. The request/answer engine (`c128_x.v`, `vk_*`) and the register window (`c128_regs.v` 100-143) are ours.
 
 ## Taken from eilers/c128Mega65 (T170)
@@ -54,6 +55,7 @@ Not taken: `vdc_peek.vhd` (the MEGA65's HyperRAM/REST window), their `vdcram.v` 
 - Unmodified files are read in place from `vendor/icepi`, `cores/c64u`; nothing there is edited.
 - Variant switches: `TAPE`, `SOCK_AUDIO`, `Z80`, `SID2`, `VDC64`, `ROM_P2`, `RAM_P2`, `ROM_CACHE`, `MONO`, `VDC_WHOLE`; negative-control defines `C128_MUT_ONEBANK`,
   `C128_MUT_FASTC64`, `KEYS_MUT_NOCBM`, `ROMC_MUT_*`.
-- VDC benches (S8, S9, T257 S4-S6): `sim/run_vkpeek.sh` (the read-back), `sim/run_vdc.sh` + `sim/vdc_model.py` (independent model from the 8563 programmer's reference), `sim/run_pixw.sh`.
+- VDC benches (S8, S9, T257 S4-S6): `sim/run_vkpeek.sh` (the read-back), `sim/run_vdc.sh` + `sim/vdc_model.py` (independent model from the 8563 programmer's reference), `sim/run_pixw.sh`,
+  `sim/run_vdcsw.sh` (T257 fault 5; needs the demo's data, never in the repository) and `sim/run_ruler.sh` (T257 fault 4; needs the real ROMs, local only).
 
 No ROM byte is in this tree.

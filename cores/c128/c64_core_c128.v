@@ -6,8 +6,8 @@
 //
 // Machine pause (T12 B): the C64 runs on gclk, clk through a BUFGCE in top.v whose CE is gate_ce. halt_req stops
 // that clock right after a phi2 falling edge, so the VIC, CPU (mid-instruction as it is), CIAs with their TOD, SID,
-// REU, cartridge and keyboard scan all stop on the same cycle boundary; only c64_mem's second port (the app's RAM
-// DMA, the text layer) stays on clk. A bus DMA byte while halted opens the clock until its cycle is over: the
+// REU, cartridge and keyboard scan all stop on the same cycle boundary; c64_mem's second port (the app's RAM DMA,
+// the text layer), the colour RAM's port (cram_clk) and the VDC read-back (vk_clk, T257 fault 3) stay on clk. A bus DMA byte while halted opens the clock until its cycle is over: the
 // first one also holds the CPU (RDY, as under the REU) for the rest of the pause, so each byte costs the machine
 // one cycle, the way a real DMA does. Resume waits until the clock has been stopped for a whole number of VIC
 // frames, so the VIC keeps its phase (the 1080p frame of vic_scaler needed it; since T194 the C128's build has no vic_scaler, the whole-frame resume stays).
