@@ -184,7 +184,6 @@ op	c64.sid_valid	path:path:0:0:519:	song:int:0:65535:0:
 op	c64.sid_info	path:path:0:0:519:	song:int:0:65535:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
-op	reu.playmod	path:path:0:0:519:
 op	drive.insert_blank
 op	drive.swap
 op	machine.after_roms
@@ -367,7 +366,6 @@ state	reu.mp3.a
 state	reu.mp3.b
 state	reu.mp3.c
 state	reu.mp3.d
-state	reu.sampler
 state	reu.nomp3.a
 state	reu.nomp3.b
 state	reu.nomp3.c

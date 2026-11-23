@@ -40,7 +40,7 @@ enum BoardCap {
 class BoardProbe {
 public:
     virtual ~BoardProbe() { }
-    virtual uint8_t icap_id() = 0;           // ICAP_BASE + 0
+    virtual uint8_t icap_id() = 0;           // the ID register of the block icap of the driver table (hw.cc); 0 when the app is linked against a TOML A without that block: standalone by its link
     virtual uint32_t fpga_caps() = 0;        // the ITU capability word
     virtual uint8_t trx_caps() = 0;          // TRX_CAPS
     virtual uint8_t iec_version() = 0;       // IEC_BASE + 0

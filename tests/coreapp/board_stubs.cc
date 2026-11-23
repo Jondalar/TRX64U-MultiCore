@@ -17,9 +17,9 @@
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
+#include "uci_slot.h"
 
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
-void trx64u_uci_df1c(CoreCtx *) { }
 void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
 void trx64u_basic_put(CoreCtx *, const uint8_t *, uint32_t) { }           // T228 R21 item 7: the SID player's BASIC copy
 void trx64u_sid_service(CoreCtx *) { }

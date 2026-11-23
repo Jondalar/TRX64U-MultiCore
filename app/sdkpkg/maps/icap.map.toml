@@ -9,6 +9,9 @@ name = "id"
 offset = 0x00
 width = 8
 dir = "r"
+  [[property.state]]
+  name = "loader"
+  value = 0x7A
 
 [[property]]
 name = "data"

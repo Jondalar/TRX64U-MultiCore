@@ -167,7 +167,7 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at
         snprintf(msg, msglen, "A cartridge uses the REU's memory: remove it first");
         return 1;
     }
-    uint32_t off = at_zero ? 0 : reu_offset(c), room = 0x1000000u - off;     // Load into REU and Play MOD: REU_MEMORY_BASE (FW filetype_reu.cc:125, 135); only the start's preload takes "REU Preload Offset"
+    uint32_t off = at_zero ? 0 : reu_offset(c), room = 0x1000000u - off;     // Load into REU: REU_MEMORY_BASE (FW filetype_reu.cc:125, 135); only the start's preload takes "REU Preload Offset"
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "Cannot open %s", path);
@@ -192,61 +192,6 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at
 }
 
 static int op_reu_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return reu_load(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
-// FW filetype_reu.cc:42-45, 103-105, 143-150 (REUFILE_PLAYMOD): the sampler's registers cleared, the module into the REU, the sampler's output selected
-// (audio_select.h:41-55), the module player's cartridge started with the REU, the sampler and the UCI. Without the sampler there is nothing to play it with
-// (route_runners.cc:244-248: "Sampler module not available").
-static int op_reu_playmod(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    if (!(getFpgaCapabilities() & CAPAB_SAMPLER)) {
-        snprintf(o.msg, o.msglen, "Sampler module not available");
-        return OPE_FAILED;
-    }
-    if (c64_cart_active()) {
-        snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
-        return OPE_FAILED;
-    }
-    static uint8_t player[0x4000];                                               // FW's _module_bin: the 16 KB module player, core data installed from the .cor (<core folder>/modplayer/module.bin)
-    uint32_t pn = 0;
-    char dir[FS_PATH_MAX], pp[FS_PATH_MAX];
-    if (!corefolder_dir(c->cor_path, dir, sizeof(dir))) {
-        snprintf(o.msg, o.msglen, "the MOD player is in the .cor's folder: this start has no .cor");
-        return OPE_FAILED;
-    }
-    snprintf(pp, sizeof(pp), "%s/modplayer/module.bin", dir);
-    if (CoreFile *pf = c->fs->open(pp, false)) {
-        if (pf->size() == sizeof(player) && pf->read(0, player, sizeof(player))) {
-            pn = sizeof(player);
-        }
-        c->fs->close(pf);
-    }
-    if (!pn) {
-        snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
-        return OPE_FAILED;
-    }
-    for (int i = 0; i < 64; i++) {
-        ioWrite8(SAMPLER_BASE + i, 0);
-    }
-    if (reu_load(c, a.s(0), o.msg, o.msglen)) {
-        return OPE_FAILED;
-    }
-    ioWrite8(AUDIO_SEL_BASE + 0x00, 6);                                          // AUDIO_SELECT_LEFT: the sampler's MOD output
-    ioWrite8(AUDIO_SEL_BASE + 0x01, 7);                                          // AUDIO_SELECT_RIGHT
-    if (c64_cart_run_modplayer(c, player, pn, o.msg, o.msglen)) {
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, "Playing %s", a.s(0));
-    return OPE_OK;
-}
-
-// the module player's cartridge asks for the command interface at $DF1C (c64.cc:2019-2024; the same condition as fx_io)
-void trx64u_uci_df1c(CoreCtx *c)
-{
-    if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
-        CMD_IF_SLOT_ENABLE_REG = 1;
-        CMD_IF_SLOT_BASE_REG = 0x47;
-    }
-}
-
 static int op_reu_preload(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     OpIn in[2] = { in_str("key", "REU Preload Image"), in_str("value", a.s(0)) };
@@ -829,8 +774,6 @@ template <int N> static const char *state_mp3(CoreCtx *c)
     default: return 0;
     }
 }
-// FW filetype_reu.cc:41: "Play MOD" is offered only with the sampler in the gateware
-static const char *state_sampler(CoreCtx *) { return (getFpgaCapabilities() & CAPAB_SAMPLER) ? "yes" : 0; }
 template <int N> static const char *state_nomp3(CoreCtx *c) { return mp3_type(c, N) ? 0 : "none"; }
 
 // "Save MP3 Drv A..D": the drive's bytes into a file named by the person
@@ -1539,7 +1482,6 @@ void trx64u_register(OpRegistry &r)
     r.add_op("c64.sid_info", sid_args, 2, op_sid_info);
     r.add_op("reu.load", path_arg, 1, op_reu_load);
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
-    r.add_op("reu.playmod", path_arg, 1, op_reu_playmod);
     r.add_op("drive.insert_blank", 0, 0, op_insert_blank);
     r.add_op("drive.swap", 0, 0, op_swap);
     r.add_op("machine.after_roms", 0, 0, op_after_roms);
@@ -1553,7 +1495,6 @@ void trx64u_register(OpRegistry &r)
     r.add_state("reu.mp3.b", state_mp3<1>);
     r.add_state("reu.mp3.c", state_mp3<2>);
     r.add_state("reu.mp3.d", state_mp3<3>);
-    r.add_state("reu.sampler", state_sampler);
     r.add_state("reu.nomp3.a", state_nomp3<0>);
     r.add_state("reu.nomp3.b", state_nomp3<1>);
     r.add_state("reu.nomp3.c", state_nomp3<2>);

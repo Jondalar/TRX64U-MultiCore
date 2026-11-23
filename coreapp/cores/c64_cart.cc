@@ -2,7 +2,6 @@
 #include "c64_cart_desc.h"
 #include "c64_regs.h"
 #include "boot.h"
-#include "trx64u_ops.h"
 #include "ops_glue.h"
 #include "engines.h"
 #include "writeback.h"
@@ -495,17 +494,11 @@ static void load_eeprom(CoreIo *io, CoreFile *f, uint64_t fsize, uint32_t pos)
 
 static bool g_for_state;                                       // a loaded state's cartridge: inserted, not booted (no hold, no reset: the state goes in next)
 
-// What a cartridge started by the application itself needs beside its image (FW C64::start_cart, c64.cc:2008-2036, cart_def.require): the REU at its
-// largest size, the sampler, the command interface at $DF1C. Null for a .crt: the cartridge then has the port to itself.
-struct CartNeeds {
-    bool max_reu, sampler, uci;
-};
-
 static int cart_run(CoreCtx *c, const char *path, char *msg, int msglen, bool do_reset);
 
 // do_reset false: the image is placed and nothing boots it - for a loaded state (the state goes in next) and for the cartridge the SID player's end puts
 // back while the caller holds the machine (T228 R21)
-static int run_image(CoreCtx *c, CoreFile *f, const char *path, const char *shown, const CartNeeds *need, bool do_reset, char *msg, int msglen)
+static int run_image(CoreCtx *c, CoreFile *f, const char *path, bool do_reset, char *msg, int msglen)
 {
     CoreIo *io = c->io;
     MediaLoading loading(c);                               // T226 S1
@@ -641,21 +634,9 @@ static int run_image(CoreCtx *c, CoreFile *f, const char *path, const char *show
     printf("[c64] cartridge %s: CRT type %u -> CART_TYPE %02x, %u chips, %u banks, image at %s\n", path, crt, hw, (unsigned)scan.chips,
            (unsigned)banks, shared ? "0x01000000 (ROM_SEL)" : "0x03C00000");
     const char *slash = strrchr(path, '/');
-    fs_short_name(g_cart_name, sizeof(g_cart_name), shown ? shown : (slash ? slash + 1 : path));
-    snprintf(g_cart_path, sizeof(g_cart_path), "%s", shown ? "" : path);
+    fs_short_name(g_cart_name, sizeof(g_cart_name), slash ? slash + 1 : path);
+    snprintf(g_cart_path, sizeof(g_cart_path), "%s", path);
     g_cart_crt = crt;
-    if (need) {
-        if (need->max_reu) {
-            io->cart_wr(0x09, 7);                                     // C64_REU_SIZE 7: 16 MB (c64.cc:2012-2015)
-            io->cart_wr(C64_CARTREG_REU, 1);
-        }
-        if (need->sampler) {
-            io->cart_wr(C64_CARTREG_SAMPLER, 1);                      // C64_SAMPLER_ENABLE (c64.cc:2016-2018)
-        }
-        if (need->uci) {
-            trx64u_uci_df1c(c);                                       // CMD_IF_SLOT_ENABLE, base $DF1C (c64.cc:2019-2024)
-        }
-    }
     mount_notify_name(c, "Cartridge");                                // T180 D2
     return do_reset ? boot_cold_reset(c, msg, msglen) : 0;
 }
@@ -748,56 +729,12 @@ static int cart_run(CoreCtx *c, const char *path, char *msg, int msglen, bool do
         return 1;
     }
     struct Closer { CoreCtx *c; CoreFile *f; ~Closer() { c->fs->close(f); } } closer = { c, f };
-    return run_image(c, f, path, 0, 0, do_reset, msg, msglen);
+    return run_image(c, f, path, do_reset, msg, msglen);
 }
 
 int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     return cart_run(c, path, msg, msglen, !g_for_state);
-}
-
-// The MOD player's cartridge image (FW filetype_reu.cc start_modplayer, the 16 KB ModPlayer_16k/module.bin): a .crt of a 16 KB normal cartridge made in memory
-// - the 64 bytes of header, one CHIP packet, the image behind it - and started like any other, with the REU at 16 MB, the sampler and the UCI.
-class ModCrt : public CoreFile {
-    uint8_t head_[0x50];
-    const uint8_t *rom_;
-    uint32_t n_;
-public:
-    ModCrt(const uint8_t *rom, uint32_t n) : rom_(rom), n_(n)
-    {
-        memset(head_, 0, sizeof(head_));
-        memcpy(head_, "C64 CARTRIDGE   ", 16);
-        head_[0x13] = 0x40;                                  // header size
-        head_[0x14] = 1;                                     // version 1.0; the type (0x16) and EXROM, GAME (0x18, 0x19) stay 0: a 16 KB cartridge
-        memcpy(head_ + 0x20, "MOD Player Cartridge", 20);
-        memcpy(head_ + 0x40, "CHIP", 4);
-        uint32_t len = 0x10 + n_;
-        head_[0x44] = (uint8_t)(len >> 24); head_[0x45] = (uint8_t)(len >> 16); head_[0x46] = (uint8_t)(len >> 8); head_[0x47] = (uint8_t)len;
-        head_[0x4C] = 0x80;                                  // load $8000, type 0 (ROM), bank 0
-        head_[0x4E] = (uint8_t)(n_ >> 8); // 16 KB
-    }
-    uint64_t size() override { return sizeof(head_) + n_; }
-    bool writable() override { return false; }
-    bool read(uint64_t off, void *buf, uint32_t len) override
-    {
-        if (off + len > size()) {
-            return false;
-        }
-        uint8_t *d = (uint8_t *)buf;
-        for (uint32_t i = 0; i < len; i++, off++) {
-            d[i] = off < sizeof(head_) ? head_[off] : rom_[off - sizeof(head_)];
-        }
-        return true;
-    }
-    bool write(uint64_t, const void *, uint32_t) override { return false; }
-    bool sync() override { return true; }
-};
-
-int c64_cart_run_modplayer(CoreCtx *c, const uint8_t *rom, uint32_t n, char *msg, int msglen)
-{
-    ModCrt crt(rom, n);
-    CartNeeds need = { true, true, true };
-    return run_image(c, &crt, "MOD player", "MOD Player Cartridge", &need, true, msg, msglen);
 }
 
 // "Save Cartridge": the image as it is in DDR2 now, written as a .crt with the header and the chip layout of the file it came from.

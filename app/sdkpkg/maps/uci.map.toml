@@ -1,4 +1,4 @@
-# The command interface block (trx64u_ops.cc CMD_IF_SLOT_BASE_REG, CMD_IF_SLOT_ENABLE_REG: CMD_IF_BASE + 0 and + 1). Offsets are bytes from the block's address.
+# The command interface block (the slot registers CMD_IF_BASE + 0 and + 1 that uci_slot.cc drives; uci_slot_read_enable reads slot_enable back for the "uci" export). Offsets are bytes from the block's address.
 map = "uci"
 
 [[property]]
@@ -6,12 +6,15 @@ name = "slot_base"
 offset = 0x00
 width = 8
 dir = "w"
+  [[property.state]]
+  name = "df1c"
+  value = 0x47
 
 [[property]]
 name = "slot_enable"
 offset = 0x01
 width = 8
-dir = "w"
+dir = "rw"
   [[property.state]]
   name = "off"
   value = 0

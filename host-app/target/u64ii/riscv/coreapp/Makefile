@@ -55,7 +55,8 @@ SRCS_C   =	itu.c \
 			multipart.c \
 			url.c \
 			tm_ui.c \
-			gitinfo.c
+			gitinfo.c \
+			drvtab.c
 
 SRCS_CC	 =  u64ii_init.cc \
 			color_timings.cc \
@@ -264,6 +265,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			hostwifi.cc \
 			ringfile.cc \
 			uci.cc \
+			uci_slot.cc \
 			sidfile.cc \
 			resid8.cc \
 			command_intf.cc \
@@ -331,6 +333,18 @@ VPATH +=	$(PATH_SW)/../../coreapp/src/trxmon
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/appsdk/include
 VPATH +=	$(PATH_SW)/httpd/c-version/lib
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/network
+
+# T239.3 P2-3 (D31, D34): the driver table. The app is linked against one TOML A (the shared app: coreapp/gateware/shared.toml, today's addresses); `descrec.py drivers`
+# writes drvtab.h (the blocks, registers, fields and states as macros) and drvtab.c (the table of the blocks) into $(OUTPUT)/drv before any source is compiled, each
+# file only when its content changes, so an unchanged TOML A recompiles nothing. A driver names a register only through drvtab.h; a block the TOML A lacks (the ICAP loader of
+# an app linked for c64_basic) is not there to name.
+DRV_TOMLA = $(PATH_SW)/../../coreapp/gateware/shared.toml
+DRV_DIR   = $(OUTPUT)/drv
+DRV_GEN  := $(shell python3 $(PATH_SW)/../../tools/descrec.py drivers $(DRV_TOMLA) $(DRV_DIR) --maps $(PATH_SW)/../../app/sdkpkg/maps 2>&1 || echo "drvtab: the driver table was not generated")
+ifneq ($(strip $(DRV_GEN)),)
+$(error $(DRV_GEN))
+endif
+VPATH += $(DRV_DIR)
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S

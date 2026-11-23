@@ -13,7 +13,7 @@
 // (an operation handler, a hook, a poll); "any" = any task. Errors: a result of int is 0 for done and non-zero with the reason in msg (cut to msglen - 1); a call
 // with msg null or msglen 0 gives no reason. The machine is not touched when a call refuses.
 //
-// Play MOD (c64_cart_run_modplayer) is not in the table: T239.3 D5.
+// Play MOD is gone from the application (T239.3 D5): no module player cartridge is started, and no table member names one.
 #ifndef COREAPP_C64CART_API_H
 #define COREAPP_C64CART_API_H
 

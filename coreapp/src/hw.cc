@@ -17,12 +17,12 @@
 #include "walltime.h"
 #include "product.h"
 #include "joystick_output.h"
-
+#include "drvtab.h"
 #define C64_DMA_MEMONLY_REG (*(volatile uint8_t *)(C64_IO_BASE + 0x3))
-#define C64_MODE_REG   (*(volatile uint8_t *)(C64_CARTREGS_BASE + 0x0))
-#define C64_STOP_REG   (*(volatile uint8_t *)(C64_CARTREGS_BASE + 0x1))
-#define C64_MODE_RESET   0x04
-#define C64_MODE_UNRESET 0x08
+#define C64_MODE_REG(v)  DRV_cart_regs_mode_WR(v)
+#define C64_STOP_REG(v)  DRV_cart_regs_stop_WR(v)
+#define C64_MODE_RESET   DRV_cart_regs_mode_reset
+#define C64_MODE_UNRESET DRV_cart_regs_mode_unreset
 #define DDR_WINDOW     0x01000000u
 
 extern "C" uint32_t get_fattime(void) __attribute__((weak));
@@ -87,8 +87,8 @@ public:
         }
     }
     void ram_memonly(bool on) { C64_DMA_MEMONLY_REG = on ? 1 : 0; }
-    uint8_t cart_rd(uint32_t reg) { return *(volatile uint8_t *)(C64_CARTREGS_BASE + reg); }
-    void cart_wr(uint32_t reg, uint8_t v) { *(volatile uint8_t *)(C64_CARTREGS_BASE + reg) = v; }
+    uint8_t cart_rd(uint32_t reg) { return *DRV_PTR(uint8_t, DRV_cart_regs_ADDR + reg); }
+    void cart_wr(uint32_t reg, uint8_t v) { *DRV_PTR(uint8_t, DRV_cart_regs_ADDR + reg) = v; }
     void bus_wr(uint32_t off, uint8_t v) { *(volatile uint8_t *)(C64_IO_BASE + off) = v; }
     uint8_t bus_rd(uint32_t off) { return *(volatile uint8_t *)(C64_IO_BASE + off); }
     void eeprom_read(uint32_t off, void *p, uint32_t n)
@@ -103,11 +103,11 @@ public:
             *(volatile uint8_t *)(EEPROM_BASE + off + i) = ((const uint8_t *)p)[i];
         }
     }
-    // The built-in drive A (T104.2 D9.1): DRIVE_A_BASE is the same address on the monolith and on a MultiCore core with drive_l2; the capability
+    // The built-in drive A (T104.2 D9.1): the block drive_a of the driver table (drvtab.h) is the same address on the monolith and on a MultiCore core with drive_l2; the capability
     // word is Gideon's own test for the drive (a read of the window cannot tell a register that is 0 from nothing).
     bool drv_present() { return (getFpgaCapabilities() & CAPAB_DRIVE_1541_1) != 0; }
-    uint8_t drv_rd(uint32_t off) { return *(volatile uint8_t *)(DRIVE_A_BASE + off); }
-    void drv_wr(uint32_t off, uint8_t v) { *(volatile uint8_t *)(DRIVE_A_BASE + off) = v; }
+    uint8_t drv_rd(uint32_t off) { return *DRV_PTR(uint8_t, DRV_drive_a_ADDR + off); }
+    void drv_wr(uint32_t off, uint8_t v) { *DRV_PTR(uint8_t, DRV_drive_a_ADDR + off) = v; }
     // Absolute DDR2, the drive's own areas only (linker.x): 0x00EA8000 .. 0x00F00000. Anything else is ignored (reads give zeros).
     static bool drive_area(uint32_t addr, uint32_t n)
     {
@@ -197,8 +197,8 @@ public:
         e[1] = g;
         e[2] = b;
     }
-    void stop(bool on) { C64_STOP_REG = on ? 1 : 0; }
-    void mode_reset(bool on) { C64_MODE_REG = on ? C64_MODE_RESET : C64_MODE_UNRESET; }
+    void stop(bool on) { C64_STOP_REG(on ? DRV_cart_regs_stop_stopped : DRV_cart_regs_stop_run); }
+    void mode_reset(bool on) { C64_MODE_REG(on ? C64_MODE_RESET : C64_MODE_UNRESET); }
     uint32_t now_ms()
     {
         static uint16_t last;
@@ -258,16 +258,10 @@ CoreIo *hw_io(void)
     return &io;
 }
 
-// The ICAP block's registers (map icap) are linker symbols: the link fragment of the build (tools/descrec.py ldfrag, T239.3 P1-2) gives each its address.
-extern "C" {
-extern char __reg_icap_id[], __reg_icap_data[], __reg_icap_enable[], __reg_icap_decouple[], __reg_icap_release[];
-extern char __reg_icap_count0[], __reg_icap_count1[], __reg_icap_count2[], __reg_icap_count3[];
-}
-#define ICAP_ID_REG      (*(volatile uint8_t *)__reg_icap_id)
-#define ICAP_DATA_REG    (*(volatile uint8_t *)__reg_icap_data)
-#define ICAP_EN_REG      (*(volatile uint8_t *)__reg_icap_enable)
-#define ICAP_DC_REG      (*(volatile uint8_t *)__reg_icap_decouple)
-#define ICAP_RELEASE_REG (*(volatile uint8_t *)__reg_icap_release)
+// The host's ICAP loader is the block icap of the driver table (drvtab.h). An app linked against a TOML A without that block has no ICAP access at all: no partial port
+// (hw_partial is null), no way back to the host, and the board probe's ICAP byte reads 0, which board_detect() takes for a standalone installation (board.cc).
+#ifdef DRV_HAS_icap
+static bool icap_loader(void) { return DRV_icap_id_RD() == DRV_icap_id_loader; }
 
 namespace {
 
@@ -276,36 +270,32 @@ namespace {
 // reverses the bits itself (top.v icap_swap), so the bytes go out as the file has them.
 class HwPartialPort : public PartialPort {
 public:
-    bool present() { return ICAP_ID_REG == 0x7A; }
+    bool present() { return icap_loader(); }
     bool decouple(bool on)
     {
-        ICAP_DC_REG = on ? 1 : 0;
+        DRV_icap_decouple_WR(on ? DRV_icap_decouple_request_MASK : 0);
         if (!on) {
             return true;
         }
         vTaskDelay(pdMS_TO_TICKS(10) + 1);              // the core's DDR2 request is served (T79.1: about 1 ms)
-        if (!(ICAP_DC_REG & 2)) {
-            ICAP_DC_REG = 0;
+        if (!(DRV_icap_decouple_RD() & DRV_icap_decouple_effective_MASK)) {
+            DRV_icap_decouple_WR(0);
             return false;
         }
         return true;
     }
-    void begin() { ICAP_EN_REG = 1; }
+    void begin() { DRV_icap_enable_WR(DRV_icap_enable_on_on); }
     void write(const uint8_t *p, uint32_t n)
     {
-        volatile uint8_t *dp = &ICAP_DATA_REG;
+        volatile uint8_t *dp = DRV_PTR(uint8_t, DRV_icap_data_ADDR);
         const uint32_t *w = (const uint32_t *)p;        // the buffer is word aligned (partial.cc)
         for (uint32_t words = n >> 2; words; words--, w++) {
             uint32_t a = *w;
             *dp = (uint8_t)a; *dp = (uint8_t)(a >> 8); *dp = (uint8_t)(a >> 16); *dp = (uint8_t)(a >> 24);
         }
     }
-    void end() { ICAP_EN_REG = 0; }
-    uint32_t words()
-    {
-        return *(volatile uint8_t *)__reg_icap_count0 | (*(volatile uint8_t *)__reg_icap_count1 << 8) | (*(volatile uint8_t *)__reg_icap_count2 << 16)
-               | ((uint32_t)*(volatile uint8_t *)__reg_icap_count3 << 24);
-    }
+    void end() { DRV_icap_enable_WR(DRV_icap_enable_on_off); }
+    uint32_t words() { return DRV_icap_count0_RD() | (DRV_icap_count1_RD() << 8) | (DRV_icap_count2_RD() << 16) | ((uint32_t)DRV_icap_count3_RD() << 24); }
 };
 
 }
@@ -315,15 +305,25 @@ PartialPort *hw_partial(void)
     static HwPartialPort port;
     return &port;
 }
+#else
+PartialPort *hw_partial(void) { return 0; }                // no ICAP block in the linked TOML A: nothing to reload a partial with (ctx.h)
+#endif
 
 namespace {
 
 // The reads board_detect() is made of (T104.2 D2, D3). Every one is a read; nothing here writes.
 class HwBoardProbe : public BoardProbe {
 public:
-    uint8_t icap_id() { return ICAP_ID_REG; }
+    uint8_t icap_id()
+    {
+#ifdef DRV_HAS_icap
+        return DRV_icap_id_RD();
+#else
+        return 0;                                    // no ICAP block linked: board_detect() takes the profile of a standalone installation
+#endif
+    }
     uint32_t fpga_caps() { return getFpgaCapabilities(); }
-    uint8_t trx_caps() { return ioRead8(TRX_CAPS); }
+    uint8_t trx_caps() { return DRV_ident_caps_RD(); }
     uint8_t iec_version() { return ioRead8(IEC_BASE); }
     bool handover_valid()
     {
@@ -344,7 +344,7 @@ BoardProbe *hw_board_probe(void)
 void hw_read_id(uint8_t id[4])
 {
     for (int i = 0; i < 4; i++) {
-        id[i] = ioRead8(TRX_ID + i);
+        id[i] = *DRV_PTR(uint8_t, DRV_ident_id_ADDR + i);
     }
 }
 
@@ -490,19 +490,20 @@ bool hw_menu_button_pressed(void)
     return hit;
 }
 
+#ifdef DRV_HAS_icap
 void hw_release_expansion_port(void)
 {
-    if (ICAP_ID_REG != 0x7A) {
+    if (!icap_loader()) {
         return;
     }
-    ICAP_RELEASE_REG = 1;
+    DRV_icap_release_WR(DRV_icap_release_port_MASK);
     printf("[core] expansion port released\n");
 }
 
 bool hw_return_to_host(char *msg, int n)
 {
-    if (ICAP_ID_REG != 0x7A) {
-        snprintf(msg, n, "no ICAP loader in this bitstream (ID byte is not 0x7A)");
+    if (!icap_loader()) {
+        snprintf(msg, n, "no ICAP loader in this bitstream (ID byte is not 0x%02X)", DRV_icap_id_loader);
         return false;
     }
     // dummy word, sync word, NOP, write WBSTAR := 0, write CMD := IPROG, NOP, NOP - the bytes in bitstream (file) order
@@ -517,16 +518,25 @@ bool hw_return_to_host(char *msg, int n)
     trx_lv_yield_layer();
     ioWrite8(ITU_IRQ_GLOBAL, 0);
     portDISABLE_INTERRUPTS();
-    ICAP_DC_REG = 0;
-    ICAP_EN_REG = 1;
+    DRV_icap_decouple_WR(0);
+    DRV_icap_enable_WR(DRV_icap_enable_on_on);
     for (unsigned i = 0; i < sizeof(seq); i++) {
-        ICAP_DATA_REG = seq[i];
+        DRV_icap_data_WR(seq[i]);
     }
-    ICAP_EN_REG = 0;
+    DRV_icap_enable_WR(DRV_icap_enable_on_off);
     for (;;) {                                        // the FPGA reconfigures; nothing here runs on
     }
     return true;
 }
+#else
+void hw_release_expansion_port(void) { }               // no ICAP block in the linked TOML A: the app is standalone by its link, nothing to release
+
+bool hw_return_to_host(char *msg, int n)
+{
+    snprintf(msg, n, "this app is linked without an ICAP loader: it is standalone");
+    return false;
+}
+#endif
 
 extern uint8_t keyb_joy_select;
 extern uint8_t wasd_to_joy;

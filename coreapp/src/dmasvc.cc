@@ -6,6 +6,7 @@
 #include "product.h"
 #include "itu.h"
 #include "u64.h"
+#include "drvtab.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "socket.h"
@@ -260,10 +261,10 @@ static bool perform(int fd, uint8_t *buf, uint16_t cmd, uint32_t len, bool &auth
         stream_off(2);
         break;
     case CMD_DEBUG_REG: {
-        uint8_t reg = U64_DEBUG_REGISTER;
+        uint8_t reg = DRV_c64_debug_debug_RD();
         write_socket(fd, &reg, 1);
         if (len > 0) {
-            U64_DEBUG_REGISTER = buf[0];
+            DRV_c64_debug_debug_WR(buf[0]);
         }
         break;
     }
