@@ -67,6 +67,7 @@ void AppHost::install()
     ld_->set_dlg(ui_available() ? &dlg_tab_ : 0);
     dlg_.set_headless(!ui_available());
     ld_->set_job(&job_tab_);
+    ld_->set_job_cancel(job_cancel_one);
 }
 
 void AppHost::set_machine_groups(const SvcTrx *trx, const SvcNet *net, const SvcC64 *c64, int (*flash_read)(uint32_t, void *, int), void (*handover)(void), const C64Api *c64api)
@@ -390,6 +391,9 @@ void AppHost::end_application()
     reply_ready_ = false;
     dlg_.abandon();
     stop_jobs();
+    if (handle_ >= 0) {
+        ld_->close_sockets(handle_);                     // its own: the listener of a resident library stays (S14)
+    }
     if (end_hook_) {
         end_hook_();
     }
@@ -403,29 +407,18 @@ void AppHost::end_application()
     name_[0] = 0;
 }
 
+// The jobs of the application that is open, and only those: the jobs table is shared with the libraries (api->job), whose jobs belong to them (S14).
 void AppHost::stop_jobs()
 {
-    for (int i = 0; i < APPJOB_MAX; i++) {
-        if (jobs_[i].used && !jobs_[i].done) {
-            jobs_[i].cancel = true;
-        }
+    if (handle_ < 0) {
+        return;
     }
+    ld_->cancel_jobs(handle_);
     uint32_t t0 = c_->io->now_ms();
-    for (;;) {
-        bool any = false;
-        for (int i = 0; i < APPJOB_MAX; i++) {
-            any |= jobs_[i].used && !jobs_[i].done;
-        }
-        if (!any || c_->io->now_ms() - t0 > 5000) {
-            break;
-        }
+    while (ld_->jobs_running(handle_) && c_->io->now_ms() - t0 <= 5000) {
         os_->sleep_ms(10);
     }
-    for (int i = 0; i < APPJOB_MAX; i++) {
-        if (jobs_[i].done) {
-            jobs_[i].used = false;
-        }
-    }
+    ld_->reap_jobs(handle_);
 }
 
 bool AppHost::close_session(char *why, int whylen)
@@ -436,17 +429,10 @@ bool AppHost::close_session(char *why, int whylen)
     if (!resident_) {
         stop_ = true;
         dlg_.abandon();                                  // a question the application waits on would keep it from ending
-        for (int i = 0; i < APPJOB_MAX; i++) {
-            if (jobs_[i].used && !jobs_[i].done) {
-                jobs_[i].cancel = true;
-            }
-        }
+        ld_->cancel_jobs(handle_);
         uint32_t t0 = c_->io->now_ms();
         for (;;) {
-            bool any = task_alive_ && !task_done_;
-            for (int i = 0; i < APPJOB_MAX; i++) {
-                any |= jobs_[i].used && !jobs_[i].done;
-            }
+            bool any = (task_alive_ && !task_done_) || ld_->jobs_running(handle_);
             if (!any) {
                 break;
             }
@@ -512,6 +498,7 @@ void AppHost::job_entry(void *p)
     }
 }
 
+void AppHost::job_cancel_one(SvcJobH *j) { if (j) { j->cancel = true; } }
 bool AppHost::job_cancelled(SvcJobH *j) { return (j && j->cancel) || (g_host && g_host->stop_); }
 bool AppHost::job_running(SvcJobH *j) { return j && j->used && !j->done; }
 bool AppHost::job_stop_requested(void) { return g_host && g_host->stop_; }

@@ -142,7 +142,7 @@ Since base 3.0.
 3.2.3 A group the core or the base does not have is a null pointer. Test it before the call.
 3.2.4 The base fills the groups in two steps. When `lib_register` runs for a library loaded at core start, the following holds.
 3.2.5 `api->ops` answers `OPE_UNSUPPORTED` to `call` and null to `state`. `api->fs` fails every call as if the core had no file system.
-3.2.6 `api->dlg`, `api->job`, `api->trx`, `api->net` and `api->c64` are null. `api->sys->flash_read` and `api->sys->machine_handover` are null.
+3.2.6 `api->dlg`, `api->trx` and `api->c64` are null. `api->sys->flash_read` and `api->sys->machine_handover` are null. `api->job` and `api->net` are there from base 3.3, but they have no machine behind them yet: `api->net->listen` returns -7 and `api->job->start` returns null until the base has given its own tables (3.2.7).
 3.2.7 The base fills these members later in the same object. An image that keeps `api` reads the members at the time of the call.
 3.2.8 A library or an application loaded after the start sees every group the core has.
 3.2.9 `api->trx`, the ring table `api->trx->ring` and `api->c64` leave the base API. They come from libraries, through `api->lib->find` (4.10, section 9): the names `trx`, `ring` and `c64`, each at major 1. New code asks `api->lib->find`. The three pointers stay in `LibApi` and keep their meaning until the cut of `LibApi` that comes with the next change of its major; the base fills them as before.
@@ -156,9 +156,9 @@ Since base 3.0.
 | `api->ops` | `SvcOps` | Always. |
 | `api->fs` | `SvcFs` | Always. |
 | `api->dlg` | `SvcDlg` | Null when the base has no screen. |
-| `api->job` | `SvcJob` | Always, after the start. |
+| `api->job` | `SvcJob` | Always, after the start; a library loaded at core start sees the group at base 3.3 and later (3.2.6). |
 | `api->trx` | `SvcTrx` | Null unless the ID block of the core reads `TRX2`. |
-| `api->net` | `SvcNet` | Always, after the start. |
+| `api->net` | `SvcNet` | Always, after the start; a library loaded at core start sees the group at base 3.3 and later (3.2.6). |
 | `api->c64` | `SvcC64` | Null unless the descriptor of the core has the id `TRX2`. |
 | `api->lib` | `SvcLib` | Always. |
 | `api->sync` | `SvcSync` | Always. Since base 3.3. |
@@ -272,6 +272,8 @@ The memory group. It is there for every image.
 
 4.2.1 The memory comes from the heap of the core.
 4.2.2 The base records every block with its owner. The owner is the image whose code takes the block: the image whose `lib_register` is running, the image whose operation or state getter the registry is running (whoever called it), or the application that is open at the time of the call. With none of these, the block has no owner.
+4.2.2.1 Since base 3.3 the code that makes the call comes first: when the return address of the call into `api->mem` lies in the image of a loaded library or application, that image is the owner, whoever called the function of the image. An export table found with `api->lib->find` is called through the function pointers of the library, so what the exported function allocates is the account of the library, not of its caller.
+4.2.2.2 A tail call replaces the return address by the one of the caller. The build of a library (`app/lib/lib.mk`) turns tail calls off. A library that is built otherwise may find its blocks on another account.
 4.2.3 A block that has no owner is never freed by the base.
 4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its load fails or it is unloaded. A resident application keeps its blocks. An image that declared a `heap_peak` figure holds at most that many bytes at once (8.1, 8.4).
 4.2.5 Free a block only with `api->mem->free`. A block from another allocator is not accepted.
@@ -555,11 +557,11 @@ The job group. A job is long work on a task of its own, so that `app_main` can a
 
 4.6.1 The base runs at most 4 jobs at a time, over all applications.
 4.6.2 A job has a stack of at least 12 KiB.
-4.6.3 The memory and the files a job takes belong to its application.
-4.6.4 When the person closes the screens, the base marks every job as cancelled and waits up to 4 seconds. When a job or the application task still runs, it refuses to close the screens.
-4.6.5 When the application ends, the base marks every job as cancelled, waits up to 5 seconds, and goes on. A job that has not ended by then keeps running. Make a job end when it is cancelled.
+4.6.3 The memory and the files a job takes belong to the image that started it, application or library. The function of the job runs with that image as the owner.
+4.6.4 When the person closes the screens, the base marks every job of the application as cancelled and waits up to 4 seconds. When a job or the application task still runs, it refuses to close the screens.
+4.6.5 When the application ends, the base marks every job of that application as cancelled, waits up to 5 seconds, and goes on. The jobs of a library are not touched. When a library is unloaded, the base does the same for its jobs before the image goes. A job that has not ended by then keeps running. Make a job end when it is cancelled.
 4.6.6 A finished job keeps its handle until `join`. `start` may reuse the slot of a finished job that was not joined. Join a job before you start the next one when you need its result.
-4.6.7 The group is null while a library loaded at core start registers (section 3.2).
+4.6.7 A job started while the base has no job table behind the group returns null (3.2.6).
 
 #### 4.6.8 `SvcJobH`
 
@@ -811,10 +813,10 @@ Since base 3.0.
 The network group. It serves TCP over the sockets of the board. A handle is a socket number.
 
 4.8.1 The base tracks every handle it hands out. At most 16 handles are open at a time, over all applications.
-4.8.2 The base closes every handle an application holds when the application ends.
+4.8.2 The base closes the handles that an application holds when the application ends, and the handles of a library when the library is unloaded. A handle belongs to the image whose code opened it (4.2.2.1). The end of one application does not close the sockets of another image.
 4.8.3 A handle is non-blocking. `accept` and `recv` return at once.
 4.8.4 Any task of the application may call the group.
-4.8.5 The group is null while a library loaded at core start registers (section 3.2).
+4.8.5 A call before the base has a socket table behind the group fails: `listen` and `accept` return -7, the others -1 (3.2.6).
 
 #### 4.8.6 `api->net->listen`
 
@@ -1679,18 +1681,19 @@ Since base 3.0. The service of a library that loads after the core has started, 
 
 6.10.1 A poll is served from the moment its library has registered until the library is released or unloaded. The base stops the poll before it removes the operations of the library.
 6.10.2 The operation has no arguments. It has to exist when the poll is added.
-6.10.3 The task calls the operation with the core lock, every `period_ms`. The call waits until the core has started, and while the machine is frozen for the menu.
+6.10.3 The task calls the operation with the core lock, every `period_ms`. The call waits until the core has started, and while the machine is frozen for the menu unless the poll declares `when_frozen` (6.10.9).
 6.10.4 When the handler sets `more`, the task calls it again at once. After 20 ms in a row it sleeps one period.
 6.10.5 A poll is declared in `LibRecord.poll` or in the `[poll]` of the menu record of the file, not in both. A library that declares both is refused at load.
 6.10.6 A poll the base cannot serve is refused: no operation of that name, an operation with arguments, a period of 0, or no free slot. A library loaded after the core has started is then refused at load, and nothing of it stays. A library loaded before the core starts stays loaded; its poll is dropped and the base writes a line to the log.
 6.10.7 The base serves 16 polls at once after the core has started. The polls of the libraries loaded before start come through the menu merge, which takes 12.
 6.10.8 A library that has a poll is never unloaded to make room (4.10.2.7).
+6.10.9 A poll that declares `when_frozen` keeps running with the menu open, beside the executor and the core hooks. It protects the state it shares with them by its own mutex (`api->sync`). The poll of the `[poll]` of a menu record has no such field and waits for the menu to close.
 
 | Member | Contract |
 |---|---|
 | `LibPollDecl.op` | The operation. Null: no poll. |
 | `LibPollDecl.period_ms` | The period in milliseconds. At least 1. |
-| `LibPollDecl.when_frozen` | Not read by this base. A poll never runs while the machine is frozen. |
+| `LibPollDecl.when_frozen` | `true`: the poll also runs while the machine is frozen for the menu. `false`: it waits for the menu to close. Since base 3.3. |
 
 ### 6.11 `LibTabDecl`
 

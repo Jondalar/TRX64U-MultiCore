@@ -204,8 +204,8 @@ int main()
         LibPolls lp(&lo, &ll, &lreg, &lc, 0);
         char why[120];
         memset(g_calls, 0, sizeof(g_calls));
-        CHECK(lp.add("liba", "liba.poll", 10, why, sizeof(why)));
-        CHECK(lp.add("libb", "libb.poll", 25, why, sizeof(why)));
+        CHECK(lp.add("liba", "liba.poll", 10, false, why, sizeof(why)));
+        CHECK(lp.add("libb", "libb.poll", 25, false, why, sizeof(why)));
         CHECK_EQ(lp.count(), 2);
         auto spin = [&](uint32_t ms) {                      // the slots stepped as their own tasks would be, 1 ms apart
             uint32_t wake[LIB_POLLS_MAX] = { 0 };
@@ -234,35 +234,35 @@ int main()
         // the registry moved libb's entry down when liba's went; the poll still calls libb's operation, by name
         lreg.contributor("libc");
         lreg.add_op("libc.poll", 0, 0, h_count<2>);
-        CHECK(lp.add("libc", "libc.poll", 10, why, sizeof(why)));       // takes the slot liba left
+        CHECK(lp.add("libc", "libc.poll", 10, false, why, sizeof(why)));       // takes the slot liba left
         CHECK_EQ(lp.count(), 2);
         int c0 = g_calls[2];
         spin(200);
         CHECK(g_calls[2] >= c0 + 18);
         // the same owner again replaces its poll
-        CHECK(lp.add("libc", "libc.poll", 50, why, sizeof(why)));
+        CHECK(lp.add("libc", "libc.poll", 50, false, why, sizeof(why)));
         CHECK_EQ(lp.count(), 2);
         c0 = g_calls[2];
         spin(500);
         CHECK(g_calls[2] >= c0 + 9 && g_calls[2] <= c0 + 11);
         // a poll the service cannot serve is refused with a sentence, and nothing starts
-        CHECK(!lp.add("libd", "libd.nothing", 10, why, sizeof(why)) && strstr(why, "libd.nothing") && strstr(why, "not registered"));
+        CHECK(!lp.add("libd", "libd.nothing", 10, false, why, sizeof(why)) && strstr(why, "libd.nothing") && strstr(why, "not registered"));
         lreg.contributor("libe");
         lreg.add_op("libe.arg", one_arg, 1, h_arg);
-        CHECK(!lp.add("libe", "libe.arg", 10, why, sizeof(why)) && strstr(why, "takes arguments"));
-        CHECK(!lp.add("libb2", "libb.poll", 0, why, sizeof(why)) && strstr(why, "no period"));
+        CHECK(!lp.add("libe", "libe.arg", 10, false, why, sizeof(why)) && strstr(why, "takes arguments"));
+        CHECK(!lp.add("libb2", "libb.poll", 0, false, why, sizeof(why)) && strstr(why, "no period"));
         CHECK_EQ(lp.count(), 2);
         // no room: the slots are all in use
         for (int i = lp.count(); i < LIB_POLLS_MAX; i++) {
             char o[8];
             snprintf(o, sizeof(o), "x%d", i);
-            CHECK(lp.add(o, "base.noop", 10, why, sizeof(why)));
+            CHECK(lp.add(o, "base.noop", 10, false, why, sizeof(why)));
         }
-        CHECK(!lp.add("one_more", "base.noop", 10, why, sizeof(why)) && strstr(why, "no room"));
+        CHECK(!lp.add("one_more", "base.noop", 10, false, why, sizeof(why)) && strstr(why, "no room"));
         // with every slot used the owner's own slot is reused; a replacement that is refused leaves the old poll running
-        CHECK(lp.add("libc", "libc.poll", 20, why, sizeof(why)));
+        CHECK(lp.add("libc", "libc.poll", 20, false, why, sizeof(why)));
         CHECK_EQ(lp.count(), LIB_POLLS_MAX);
-        CHECK(!lp.add("libb", "libb.nothing", 10, why, sizeof(why)));
+        CHECK(!lp.add("libb", "libb.nothing", 10, false, why, sizeof(why)));
         CHECK_EQ(lp.count(), LIB_POLLS_MAX);
         int k0 = g_calls[1];
         spin(100);

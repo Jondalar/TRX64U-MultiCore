@@ -749,6 +749,7 @@ static void merge_poll(const Contributor &c, const OpRegistry *reg, MenuMerge *m
     mm->polls[mm->npolls].owner = c.name;
     mm->polls[mm->npolls].op = r->poll.op;
     mm->polls[mm->npolls].period_ms = r->poll.period_ms;
+    mm->polls[mm->npolls].when_frozen = r->poll.when_frozen;
     mm->npolls++;
 }
 

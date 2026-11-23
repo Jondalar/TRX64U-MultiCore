@@ -91,6 +91,7 @@ struct ContribPoll {
     const char *owner;
     const char *op;
     uint16_t period_ms;
+    bool when_frozen;                 // the declaration of the record (LibPollDecl); the menu record has no such field, so false there
 };
 
 struct MenuMerge {

@@ -15,10 +15,8 @@ const C64Api *appsvc_c64_api(void);                     // the same table as api
 const SvcTrx *appsvc_trx(void);                         // null unless the ID block reads "TRX2"
 const SvcNet *appsvc_net(void);
 
-// Closes every socket an application left open (it ended); the TCP port an application announced (0: none)
-void appsvc_net_cleanup(void);
-void appsvc_end(void);                                  // an application ended: its sockets are closed, the debug block released
-uint16_t appsvc_rpc_port(void);
+void appsvc_end(void);                                  // an application ended: the debug block is released (its sockets and jobs are closed through the loader's account of it)
+uint16_t appsvc_rpc_port(void);                         // the TCP port an application announced (0: none)
 
 int appsvc_flash_read(uint32_t addr, void *buf, int len);
 void appsvc_handover(void);

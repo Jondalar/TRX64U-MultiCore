@@ -29,7 +29,7 @@ struct LibSvc {
             l->host_->release(m);
             return 0;
         }
-        int owner = l->owner();
+        int owner = l->owner_at(__builtin_return_address(0));
         m->owner = owner;
         l->host_->enter();
         SvcMutex **head = &l->mus_[owner < 0 ? LIB_MAX : owner];
@@ -356,12 +356,174 @@ struct LibSvc {
     }
 
     static bool has_window(const CoreCtx *c) { return c && c->io && !(c->desc && c->desc->menu_first); }
+
+    // ---- net and job (svctab.h, S14): the loader's own tables over the ones the base gives (set_net, set_job). Every socket and every job is on the account of the image whose code asked
+    // (owner_at), so that freeing the image closes its sockets and stops its jobs, and the end of one application touches nothing of another image.
+    static int net_new_rec(LibLoader *l, int owner)
+    {
+        int k = -1;
+        l->host_->enter();
+        for (int i = 0; i < LIB_NET_MAX && k < 0; i++) {
+            if (!l->nets_[i].used) {
+                k = i;
+                l->nets_[i].used = true;
+                l->nets_[i].h = -1;
+                l->nets_[i].owner = owner;
+            }
+        }
+        l->host_->leave();
+        return k;
+    }
+    static int net_adopt(LibLoader *l, int k, int h)
+    {
+        l->host_->enter();
+        if (h < 0) {
+            l->nets_[k].used = false;
+        } else {
+            for (int i = 0; i < LIB_NET_MAX; i++) {
+                if (i != k && l->nets_[i].used && l->nets_[i].h == h) {
+                    l->nets_[i].used = false;           // a handle the base hands out again was closed behind the loader's back: the old record is dead
+                }
+            }
+            l->nets_[k].h = h;
+        }
+        l->host_->leave();
+        return h;
+    }
+    static int net_listen(uint16_t port, int backlog)
+    {
+        LibLoader *l = L();
+        if (!l->base_net_ || !l->base_net_->listen) {
+            return -7;
+        }
+        int k = net_new_rec(l, l->owner_at(__builtin_return_address(0)));
+        if (k < 0) {
+            return -5;
+        }
+        return net_adopt(l, k, l->base_net_->listen(port, backlog));
+    }
+    static int net_accept(int listener)
+    {
+        LibLoader *l = L();
+        if (!l->base_net_ || !l->base_net_->accept) {
+            return -7;
+        }
+        int k = net_new_rec(l, l->owner_at(__builtin_return_address(0)));
+        if (k < 0) {
+            return -5;
+        }
+        return net_adopt(l, k, l->base_net_->accept(listener));
+    }
+    static int net_close(int h)
+    {
+        LibLoader *l = L();
+        if (!l->base_net_ || !l->base_net_->close) {
+            return -1;
+        }
+        int rc = l->base_net_->close(h);
+        l->host_->enter();
+        for (int i = 0; i < LIB_NET_MAX; i++) {
+            if (l->nets_[i].used && l->nets_[i].h == h) {
+                l->nets_[i].used = false;
+            }
+        }
+        l->host_->leave();
+        return rc;
+    }
+    static int net_recv(int h, void *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->recv ? n->recv(h, buf, len) : -1; }
+    static int net_send(int h, const void *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->send ? n->send(h, buf, len) : -1; }
+    static int net_wait(const int *handles, int n, uint32_t timeout_ms) { const SvcNet *t = L()->base_net_; return t && t->wait ? t->wait(handles, n, timeout_ms) : -1; }
+    static int net_peer(int h, char *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->peer ? n->peer(h, buf, len) : -1; }
+
+    // the job function runs on a task of its own, with the image that started it as the owner of what it takes
+    static int job_tramp(SvcJobH *j, void *p)
+    {
+        LibLoader::JobRec *r = (LibLoader::JobRec *)p;
+        LibLoader::Scope scope(L(), r->owner);
+        return r->fn(j, r->user);
+    }
+    static SvcJobH *job_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t stack_bytes)
+    {
+        LibLoader *l = L();
+        if (!fn || !l->base_job_ || !l->base_job_->start) {
+            return 0;
+        }
+        int owner = l->owner_at(__builtin_return_address(0));
+        LibLoader::JobRec *r = 0;
+        l->host_->enter();
+        for (int i = 0; i < LIB_JOB_MAX && !r; i++) {           // a free record, or one whose job has ended and was not joined (the base reuses its slot as well)
+            LibLoader::JobRec &c = l->jobs_[i];
+            if (!c.used || (c.h && l->base_job_->running && !l->base_job_->running(c.h))) {
+                r = &c;
+            }
+        }
+        if (r) {
+            r->used = true;
+            r->h = 0;
+            r->owner = owner;
+            r->fn = fn;
+            r->user = user;
+        }
+        l->host_->leave();
+        if (!r) {
+            return 0;
+        }
+        SvcJobH *j = l->base_job_->start(job_tramp, r, stack_bytes);
+        l->host_->enter();
+        if (!j) {
+            r->used = false;
+        } else {
+            for (int i = 0; i < LIB_JOB_MAX; i++) {
+                if (&l->jobs_[i] != r && l->jobs_[i].used && l->jobs_[i].h == j) {
+                    l->jobs_[i].used = false;                   // the slot of a job that had ended is the base's again
+                }
+            }
+            r->h = j;
+        }
+        l->host_->leave();
+        return j;
+    }
+    static bool job_cancelled(SvcJobH *j) { const SvcJob *t = L()->base_job_; return t && t->cancelled && t->cancelled(j); }
+    static bool job_running(SvcJobH *j) { const SvcJob *t = L()->base_job_; return t && t->running && t->running(j); }
+    static bool job_stop_requested(void) { const SvcJob *t = L()->base_job_; return t && t->stop_requested && t->stop_requested(); }
+    static int job_join(SvcJobH *j)
+    {
+        LibLoader *l = L();
+        if (!l->base_job_ || !l->base_job_->join) {
+            return -1;
+        }
+        int rc = l->base_job_->join(j);
+        l->host_->enter();
+        for (int i = 0; i < LIB_JOB_MAX; i++) {
+            if (l->jobs_[i].used && l->jobs_[i].h == j) {
+                l->jobs_[i].used = false;
+            }
+        }
+        l->host_->leave();
+        return rc;
+    }
 };
 
 void LibLoader::add_services()
 {
     services_ = true;
     extra_state_ = LibSvc::extra_state;
+    net_.size = sizeof(net_);                          // api->net and api->job: the loader's own tables (account per image, S14)
+    net_.listen = LibSvc::net_listen;
+    net_.accept = LibSvc::net_accept;
+    net_.recv = LibSvc::net_recv;
+    net_.send = LibSvc::net_send;
+    net_.close = LibSvc::net_close;
+    net_.wait = LibSvc::net_wait;
+    net_.peer = LibSvc::net_peer;
+    job_.size = sizeof(job_);
+    job_.start = LibSvc::job_start;
+    job_.cancelled = LibSvc::job_cancelled;
+    job_.join = LibSvc::job_join;
+    job_.running = LibSvc::job_running;
+    job_.stop_requested = LibSvc::job_stop_requested;
+    api_.net = &net_;
+    api_.job = &job_;
     api_.sync = &sync_;
     api_.settings = &settings_;
     api_.ctx = &ctxtab_;

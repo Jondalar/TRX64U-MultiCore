@@ -125,12 +125,12 @@ struct LibSettingDecl {
 };
 // One poll for the record: `op` is called every period_ms (at least 1) while the library is loaded and the core runs. `op` is registered by the
 // library or by the base and takes no arguments; the same poll may stand in the menu record instead, not in both (the library is refused). A poll the base cannot serve refuses a
-// library loaded after the core has started; one loaded before loses its poll and the log says why (the menu merge). The poll never runs while the machine is frozen
-// by the menu: when_frozen is not read (the service layer's rule since 2026-10-20), a library has to leave it false.
+// library loaded after the core has started; one loaded before loses its poll and the log says why (the menu merge). The poll does not run while the machine is frozen
+// by the menu unless the library declares when_frozen (base 3.3): then it keeps running with the menu open, beside the executor and the core hooks (core_hooks.h).
 struct LibPollDecl {
     const char *op;                       // null: no poll
     uint16_t period_ms;
-    bool when_frozen;                     // not read: a poll never runs while the machine is frozen
+    bool when_frozen;                     // true: the poll also runs while the machine is frozen for the menu; false: it waits for the menu to close
 };
 
 // A tab a contributor adds to an area of the route (T104.1 D8, Alex 2026-10-26): appended after the tabs the area has, with the next free printed number

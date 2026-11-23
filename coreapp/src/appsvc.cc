@@ -264,7 +264,7 @@ const SvcTrx *appsvc_trx(void)
 }
 
 // ---- net -------------------------------------------------------------------------------------------------------------------------------------------
-// PROVENANCE: app_api_net.cc's api_net_* (same source as above). Every socket an application opened is closed when it ends (appsvc_net_cleanup).
+// PROVENANCE: app_api_net.cc's api_net_* (same source as above). The loader (libload.cc) keeps the owner of every handle and closes the sockets of an image that ends.
 
 #define NET_MAX 16
 static int s_socks[NET_MAX];
@@ -441,17 +441,10 @@ static int net_peer(int h, char *buf, int len)
 static const SvcNet g_net = { sizeof(SvcNet), net_listen, net_accept, net_recv, net_send, net_close, net_wait, net_peer };
 const SvcNet *appsvc_net(void) { return &g_net; }
 
-void appsvc_net_cleanup(void)
-{
-    while (s_nsocks) {
-        lwip_close(s_socks[--s_nsocks]);
-    }
-}
-
-// An application ended: what it opened and what it held of the machine goes back
+// An application ended: the debug block goes back. Its sockets and jobs are not here: the loader closes the ones on its account before this runs (AppHost::end_application),
+// so the listener of a resident library survives it.
 void appsvc_end(void)
 {
-    appsvc_net_cleanup();
     trx_release();
     s_rpc_port = 0;
 }

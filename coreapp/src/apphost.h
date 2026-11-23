@@ -44,7 +44,7 @@ public:
     // Everything the board knows that the base cannot: the groups that are the machine's (trx, net, the flash).
     void set_machine_groups(const SvcTrx *trx, const SvcNet *net, const SvcC64 *c64, int (*flash_read)(uint32_t, void *, int), void (*handover)(void), const C64Api *c64api = 0);
 
-    // What the machine has to undo when an application ends (its sockets, the debug block): called with the image still there.
+    // What the machine has to undo when an application ends (the debug block; its sockets and jobs are closed by the loader's account of the application before): called with the image still there.
     void set_end_hook(void (*fn)(void)) { end_hook_ = fn; }
 
     // ---- the menu task ----
@@ -133,6 +133,7 @@ private:
     static void job_entry(void *j);
     static SvcJobH *job_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t stack_bytes);
     static bool job_cancelled(SvcJobH *j);
+    static void job_cancel_one(SvcJobH *j);
     static int job_join(SvcJobH *j);
     static bool job_running(SvcJobH *j);
     static bool job_stop_requested(void);
