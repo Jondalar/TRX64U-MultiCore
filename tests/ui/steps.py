@@ -238,6 +238,11 @@ def i_press_return_during(c, name):
 
 def _png_bright(path, x0, y0, x1, y1, lum=140):
     """The count of bright pixels in a rectangle of an 8-bit RGB/RGBA PNG (standard library only)."""
+    return _png_rect(path, x0, y0, x1, y1, lambda r, g, b: max(r, g, b) >= lum)[0]
+
+
+def _png_rect(path, x0, y0, x1, y1, pred):
+    """(count of the pixels of the rectangle for which pred(r, g, b) holds, the sum of their brightness, the pixels in all, the width of the picture); the rectangle in picture pixels."""
     d = open(path, "rb").read()
     pos, idat, w, h, ct = 8, b"", 0, 0, 2
     while pos < len(d):
@@ -270,13 +275,23 @@ def _png_bright(path, x0, y0, x1, y1, lum=140):
                 cur[i] = (cur[i] + (a if pa <= pb and pa <= pc else (b if pb <= pc else c))) & 255
         rows.append(cur)
         prev = cur
-    n = 0
+    n = tot = allp = 0
     for y in range(y0, min(y1, h)):
         r = rows[y]
         for x in range(x0, min(x1, w)):
-            if max(r[x * bpp], r[x * bpp + 1], r[x * bpp + 2]) >= lum:
+            allp += 1
+            px = (r[x * bpp], r[x * bpp + 1], r[x * bpp + 2])
+            tot += px[0] + px[1] + px[2]
+            if pred(*px):
                 n += 1
-    return n
+    return n, tot, allp, w
+
+
+def _canvas_rect(path, cx0, cy0, cx1, cy1, pred):
+    """The same for a rectangle of the 960 x 540 canvas: the picture is scaled by its width over 960."""
+    w = struct.unpack(">I", open(path, "rb").read()[16:20])[0]
+    k = w / 960.0
+    return _png_rect(path, int(cx0 * k), int(cy0 * k), int(cx1 * k), int(cy1 * k), pred)
 
 
 @step(r'the picture "([^"]+)" has text in the box')
@@ -764,3 +779,55 @@ def then_exports(c, path):
     if want != got:
         diff = [l for l in difflib.unified_diff(want, got, "golden", "build", lineterm="", n=0) if not l.startswith(("---", "+++", "@@"))]
         raise AssertionFailed("%s is not what the build exports (%d lines against %d); first differences: %s" % (path, len(want), len(got), " | ".join(diff[:6])))
+
+
+# ---- T256: the overlay service: the PAUSED tag, the still behind it, the open menu over the still, an element of a library (tests/ui/features*/overlay*.feature) -------------------
+@step(r'the machine is paused with the menu closed')
+def machine_paused(c):
+    """The pause is set while the menu is open (machine.pause_toggle) and takes hold when the menu closes: the tag and the still come up."""
+    c.open_menu()
+    c.emu.op("machine.pause_toggle")
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the machine runs again')
+def machine_resumes(c):
+    c.open_menu()
+    c.emu.op("machine.pause_toggle")
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the picture "([^"]+)" shows the PAUSED tag at its place')
+def picture_tag(c, name):
+    """The tag is the base UI TOML's element "paused": 126 x 30 canvas pixels from the top right corner, 14 pixels in, 14 down; its text is bright on the dark box."""
+    n = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 820, 14, 946, 44, lambda r, g, b: max(r, g, b) >= 200)[0]
+    if n < 80:
+        raise AssertionFailed("the tag's place shows %d bright pixels: the text PAUSED is not drawn there" % n)
+
+
+@step(r'the picture "([^"]+)" shows the machine\'s last frame behind the tag, not black')
+def picture_still(c, name):
+    """The still is the whole canvas (the base UI TOML's element "still"): below the tag the picture holds colour, not the black of a halted machine."""
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 0, 120, 800, 500, lambda r, g, b: max(r, g, b) > 24)
+    if allp == 0 or n * 10 < allp * 3:
+        raise AssertionFailed("only %d of %d pixels behind the tag are not black: the still is not there" % (n, allp))
+
+
+@step(r'the picture "([^"]+)" shows no tag')
+def picture_no_tag(c, name):
+    n = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 820, 14, 946, 44, lambda r, g, b: max(r, g, b) >= 200)[0]
+    if n >= 80:
+        raise AssertionFailed("the tag's place shows %d bright pixels: a tag is drawn" % n)
+
+
+@step(r'the picture "([^"]+)" is darker than "([^"]+)"')
+def picture_darker(c, a, b):
+    """Overlay Transparency: the more of the picture behind the menu shows, the brighter or darker the frame turns; the two pictures differ by more than 3 percent of their brightness."""
+    ta = _canvas_rect(os.path.join(emu_mod.OUT, a + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
+    tb = _canvas_rect(os.path.join(emu_mod.OUT, b + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
+    if not ta[1] < tb[1] * 0.97:
+        raise AssertionFailed("%s (brightness %d) is not darker than %s (%d)" % (a, ta[1], b, tb[1]))

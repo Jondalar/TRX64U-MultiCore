@@ -160,6 +160,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			contrib.cc \
 			bindcheck.cc \
 			descrec.cc \
+			overlay.cc \
 			libmenu.cc \
 			bundle.cc \
 			instfiles.cc \

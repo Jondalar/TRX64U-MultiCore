@@ -146,6 +146,12 @@ class Emu:
         with urllib.request.urlopen(req, timeout=10) as r:
             self.token = json.loads(r.read().decode("utf-8")).get("token")
 
+    def op(self, name):
+        """T256: an operation of the application over REST (POST /v1/ops/NAME), as the person's tools call it."""
+        url = "http://127.0.0.1:%d/v1/ops/%s" % (REST_PORT, name) + ("?t=" + self.token if self.token else "")
+        with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=10) as r:
+            return r.read().decode("utf-8")
+
     def state(self, tries=40):
         last = None
         for _ in range(tries):
