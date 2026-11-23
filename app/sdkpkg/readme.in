@@ -77,6 +77,13 @@ A library offers call tables under names (`LibRecord.export_list`, `LIB_EXPORTS 
 it in `LIB_NEEDS` (`ring>=1`), whatever the providing library is called; a folder of libraries is loaded with the provider in front. `include/c64_api.h` declares the table `c64` (major 1) that the
 cores of the C64 family provide. `api->trx`, `api->trx->ring` and `api->c64` leave the base API: new code uses `api->lib->find`. `api.md` section 9 has the contract.
 
+## Core hooks and the settings of the base
+
+A library that is the code of a core exports the table `CoreHooks` (`include/core_hooks.h`) as `corehooks`, major 1 (`LIB_EXPORTS = corehooks=1`). Besides the hooks of the core description it has `start`
+(once, before the first poll), `menu_closed` (when the menu closes) and `base_setting_changed` (after a setting of the base changes, and once per such setting after `start`). A member that is null
+is a call the base makes itself. A library that exports `corehooks` is never unloaded to make room. The base owns ten settings (`Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`,
+`Navigation Style`, `Joystick Input` and the five USB mouse settings): a library reads them by key and must not declare them; a descriptor that does is refused. `api.md` sections 4.13.19 and 9.5 have the contract.
+
 ## The version of the base API
 
 This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of
