@@ -2101,13 +2101,13 @@ static std::string st_of(const LibApi *api, const char *name)
 static void need_slots()
 {
     char err[LIB_ERR_MAX];
-    int hl = -1, ha = -1;
+    int hl = -1, ha = -1, hring = -1;
     uint32_t sz = 99;
     World w(U2A_BASE_MINOR);
     use_exports(w, "ringlib", g_ringlib_exports, 2);
     Img p("ringlib", "R");
     p.exp = exp_bytes("ring", 1, "trx", 2);
-    CHECK_EQ(w.load(build(p), &hl, err), LIB_OK);
+    CHECK_EQ(w.load(build(p), &hring, err), LIB_OK);
     w.m.twins["oldlib"] = twin_old_table;
     CHECK_EQ(w.load(build(Img("oldlib", "O")), &hl, err), LIB_OK);
 
@@ -2136,6 +2136,7 @@ static void need_slots()
         CHECK(lib->need(0, &sz) == 0);
     }
     // the provider cannot go while the image that needs it is loaded, and the image's slots go with it
+    CHECK_EQ(w.ld->unload(hring, err, sizeof(err)), LIB_STATE);
     CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
     int hb = -1;
     CHECK_EQ(w.load(build(Img("beta", "B")), &hb, err), LIB_OK);                         // the slot is reused: it must not show alpha's tables

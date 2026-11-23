@@ -1262,11 +1262,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
 
     // D11: what it needs, by name and both versions
     char vw[16], vh[16];
-    int deps[U2A3_NEEDS_MAX], ndeps = 0;
+    int deps[U2A3_NEEDS_MAX], ndeps = 0;                // the loaded images this one needs (T197 D8: counted as used while this one is loaded)
     const void *need_tab[U2A3_NEEDS_MAX];               // SvcLib::need: the table of entry i, in the order of the file
     uint32_t need_size[U2A3_NEEDS_MAX];
     memset(need_tab, 0, sizeof(need_tab));
-    memset(need_size, 0, sizeof(need_size));                // the loaded images this one needs (T197 D8: counted as used while this one is loaded)
+    memset(need_size, 0, sizeof(need_size));
     for (int i = 0; i < h.needs_count; i++) {
         U2a3Need nd;
         if (!src->read(h.needs_offset + i * U2A3_NEED_SIZE, &nd, sizeof(nd)) || !field_ok(nd.name, false)) {

@@ -947,7 +947,7 @@ Since base 3.3.
 
 4.10.3.1 `const void *need(uint32_t n, uint32_t *table_size)` returns the table of the entry number `n` of the `needs` list of the calling image. The entries are numbered from 0 in the order of the file, which is the order of `LIB_NEEDS` when the image is packed, so the number is fixed when the application is linked. No name is looked up.
 4.10.3.2 The loader resolved the entry when it loaded the image: the table is the one the provider exports under that name (9.1) or, for a provider that exports one table of base 3.1, its `exports`. The entries `base`, `standalone` and `cart_port` take a number and have no table.
-4.10.3.3 It returns null and sets `*table_size` to 0 when `n` is past the list, the entry has no table, or the call does not come from a loaded image. `table_size` may be null; otherwise it receives the size of the table as in 4.10.2.4.
+4.10.3.3 It returns null and sets `*table_size` to 0 when `n` is past the list, the entry has no table, or the caller has no list. The caller is found as in 4.2.2.1: the image that holds the return address, otherwise the image the base runs at that moment; a call from other code made while no image runs gets null. `table_size` may be null; otherwise it receives the size of the table as in 4.10.2.4.
 4.10.3.4 The caller is the image whose code makes the call, as for `api->mem` (4.2.2.1): `lib_register`, `app_main`, the operations and the screens of the image all see their own list. The table stays valid while the image is loaded, because the image counts as a user of its providers (4.10.2.6).
 
 ### 4.11 The member `size`
