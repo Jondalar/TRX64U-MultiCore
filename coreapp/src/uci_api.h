@@ -1,10 +1,10 @@
 // The export "uci" (major 1): the Ultimate Command Interface at $DF1C-$DF1F, the shared UCI library of T239.3 D12 (today coreapp/src/uci.cc and uci.h). A library of this
 // repository puts the table into LibRecord::exports (base 3.2); a core's library finds it with SvcLib::find("uci", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
 //
-// Who owns the $DF1C handling: this library. The registers are the UCI's own (CMD_IF_BASE + 0 SLOT_BASE, + 1 SLOT_ENABLE), so the three slot calls are here and nobody else
-// writes them. trx64u_uci_df1c of the old code (called by c64_cart.cc when a cartridge asks for the command interface) is gone: the cartridge library calls
-// set_slot_enable(1) and set_slot_base(0x47) of this table, and the ring library reads and sets the slot for a .c64re with the same calls. No call into the TRX64-Ultimate
-// libraries remains. The test the old function made (`desc_has_capability("uci")` and the board probe BC_UCI) is made here: see the slot calls.
+// Who owns the $DF1C handling: this library. The registers are the block "cmd_if" of the driver table (slot_base, slot_enable; uci_slot.cc), so the three slot calls are here and
+// nobody else writes them. The cartridge library calls the same driver (uci_cart_slot, uci_slot.h) when a cartridge asks for the command interface, and the ring library reads and
+// sets the slot for a .c64re with set_slot_enable(1) and set_slot_base(0x47) of this table. No call into the TRX64-Ultimate libraries remains. The test is made in uci_slot_present:
+// the core lists the capability "uci" and the board probe BC_UCI was not struck.
 //
 // Why no CoreCtx: the functions of uci.h take one; the library behind this table has the api groups and uses them. The callbacks of the host table (UciHooks) follow: they lose it too.
 //

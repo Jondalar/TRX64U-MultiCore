@@ -16,7 +16,7 @@
 #include "endianness.h"
 #include "palette_command.h"
 #include "settings_ops.h"
-#include "iomap.h"
+#include "drvtab.h"
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
@@ -886,8 +886,8 @@ class ControlTarget : CommandTarget
         status_message.length = strlen((char *)status_message.message);
     }
 
-    // control_target.cc:decode_track: the GCR of a track in the REU (offset, 24 bits) decoded into 256-byte sectors in the REU, by the GCR decoder of the bitstream (iomap.h
-    // GCR_CODER_BASE). The firmware passes the uninitialised `secs` as the length of the status area (control_target.cc:76); 2 * maxSector, what it is meant to be, is used here.
+    // control_target.cc:decode_track: the GCR of a track in the REU (offset, 24 bits) decoded into 256-byte sectors in the REU, by the GCR decoder of the bitstream (the block
+    // gcr_coder of the driver table). The firmware passes the uninitialised `secs` as the length of the status area (control_target.cc:76); 2 * maxSector, what it is meant to be, is used here.
     static uint8_t *find_sync(uint8_t *gcr_data, uint8_t *begin, uint8_t *end)
     {
         bool wrap = false;
@@ -915,15 +915,15 @@ class ControlTarget : CommandTarget
     static void conv_5bytes_gcr2bin(uint8_t **gcr, uint8_t *bin)
     {
         uint8_t *b = *gcr;
-        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
-        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
-        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
-        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
-        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
-        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x00);
-        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x01);
-        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x02);
-        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x03);
+        DRV_gcr_coder_in_WR(*(b++));
+        DRV_gcr_coder_in_WR(*(b++));
+        DRV_gcr_coder_in_WR(*(b++));
+        DRV_gcr_coder_in_WR(*(b++));
+        DRV_gcr_coder_in_WR(*(b++));
+        *(bin++) = DRV_gcr_coder_out0_RD();
+        *(bin++) = DRV_gcr_coder_out1_RD();
+        *(bin++) = DRV_gcr_coder_out2_RD();
+        *(bin++) = DRV_gcr_coder_out3_RD();
         *gcr = b;
     }
     static uint8_t *wrap_bits(uint8_t **current, uint8_t *begin, uint8_t *end, int count, uint8_t *buffer, uint8_t shift)

@@ -11,6 +11,7 @@
 #include "cbm1541.h"
 #include "d1541_drive.h"
 #include "uci.h"
+#include "uci_slot.h"
 #include "sidfile.h"
 #include "tempdisk.h"
 #include "cbm_prg.h"                                                 // app/loaders
@@ -23,14 +24,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#ifdef LIBEXPORTS_SLOT_REGS_VAR                                       // the native test: the two registers are an array of the test
-extern uint8_t LIBEXPORTS_SLOT_REGS_VAR[];
-#define LIBEXPORTS_SLOT_REGS ((volatile uint8_t *)LIBEXPORTS_SLOT_REGS_VAR)
-#else
-#include "iomap.h"
-#define LIBEXPORTS_SLOT_REGS ((volatile uint8_t *)CMD_IF_BASE)       // SLOT_BASE at +0, SLOT_ENABLE at +1 (the command interface's registers)
-#endif
 
 static CoreCtx *g_c;
 
@@ -295,19 +288,18 @@ static void uci_api_start(const UciHooks *hooks)
     }
 }
 
-// The rule of the slot calls (uci_api.h): ignored unless the running core has "uci" and the board did not strike it.
-static bool uci_present(void) { return g_c && g_c->desc && desc_has_capability(g_c->desc, "uci") && (!g_c->board || (g_c->board->probes & BC_UCI)); }
-static uint8_t uci_slot_enable(void) { return uci_present() ? LIBEXPORTS_SLOT_REGS[1] : 0; }
+// The rule of the slot calls (uci_api.h): ignored unless the running core has "uci" and the board did not strike it. The registers are the UCI driver's (uci_slot.cc).
+static uint8_t uci_slot_enable(void) { return uci_slot_present(g_c) ? uci_slot_read_enable() : 0; }
 static void uci_set_slot_enable(uint8_t v)
 {
-    if (uci_present()) {
-        LIBEXPORTS_SLOT_REGS[1] = v;
+    if (uci_slot_present(g_c)) {
+        uci_slot_write_enable(v);
     }
 }
 static void uci_set_slot_base(uint8_t v)
 {
-    if (uci_present()) {
-        LIBEXPORTS_SLOT_REGS[0] = v;
+    if (uci_slot_present(g_c)) {
+        uci_slot_write_base(v);
     }
 }
 

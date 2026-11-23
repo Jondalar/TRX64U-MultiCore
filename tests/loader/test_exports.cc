@@ -25,7 +25,9 @@
 #include "d1541_drive.h"
 #undef private
 
-uint8_t g_slot_regs[2];                // the command interface's SLOT_BASE and SLOT_ENABLE (libexports.cc is built with LIBEXPORTS_SLOT_REGS_VAR = g_slot_regs)
+#include "drvtab.h"                   // generated from coreapp/gateware/shared.toml, its registers redirected to g_drv_fake (tests/drv_fake.h)
+uint8_t g_drv_fake[0x200000];
+#define g_slot_regs (g_drv_fake + (DRV_cmd_if_ADDR & 0x1FFFFF))      // the command interface's SLOT_BASE (+0) and SLOT_ENABLE (+1), written by uci_slot.cc
 
 struct Host : LibHost {
     void *alloc(uint32_t n) override { return malloc(n); }
@@ -416,7 +418,7 @@ static void uci_table(CoreCtx *cx, CoreDesc &desc, BoardProfile &board)
     CHECK_EQ(pal0[0][0], 1);
 
     // the slot of the interface: ignored unless the core has "uci" and the board did not strike it
-    memset(g_slot_regs, 0xEE, sizeof(g_slot_regs));
+    memset(g_slot_regs, 0xEE, 2);
     desc.caps = 0;
     desc.ncaps = 0;
     CHECK_EQ(u->slot_enable(), 0);
