@@ -456,6 +456,20 @@ int main(int argc, char **argv)
             CHECK(ra && !idx.load_needs(&fs, &ld, *ra, err, sizeof(err)));
             CHECK(strstr(err, "needs the library \"ring\" 1.0, which is not in the apps folder") != 0);
         }
+        {                                                                   // a folder with a ring of major 2 only: it serves no need of major 1 (the loader matches the major exactly)
+            fs.put("/sd/cores/apps/ring2lib.u2a", slurp(dir + "/ring2lib.u2a"));
+            idx.scan(&fs, folders, nf, &log);
+            ra = idx.find("ringapp");
+            const LibFile *r2 = idx.find_lib("ring2lib");
+            CHECK(ra != 0 && r2 != 0 && r2->nexports == 1 && r2->exports[0].major == 2);
+            HeapHost hh(&testcore::desc, 1u << 24);
+            LibLoader ld(&hh, reg);
+            CHECK(idx.find_lib_for("ring", U2A3_VERSION(1, 0)) == 0);
+            CHECK(idx.find_lib_for("ring", U2A3_VERSION(2, 0)) == r2);
+            CHECK(ra && !idx.available(*ra, &ld) && !idx.fits(*ra, 1u << 24, &ld));
+            CHECK(ra && !idx.load_needs(&fs, &ld, *ra, err, sizeof(err)) && ld.count() == 0);
+            fs.remove("/sd/cores/apps/ring2lib.u2a");
+        }
         fs.put("/sd/cores/apps/ringlib.u2a", slurp(dir + "/ringlib.u2a"));
         fs.put("/sd/cores/apps/otherlib.u2a", slurp(dir + "/otherlib.u2a"));
         idx.scan(&fs, folders, nf, &log);

@@ -1191,7 +1191,7 @@ SETBIND_MAX = 16
 SETBIND_BYTES_MAX = 64
 MOUNT_NAMES_MAX = 6
 CAP_RE = r"[a-z0-9_]{1,15}"
-HOOKS_RE = r"[a-z0-9_]{1,15}"                                               # the name of a library (u2a_pack.py field), coreapp/src/descrec.cc DR_HOOKS_NAME
+HOOKS_RE = r"[a-z0-9_]{1,15}"                                               # the name of a library (u2a_pack.py field), coreapp/src/descrec.cc hooks_name_ok
 CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
 
 

@@ -82,7 +82,7 @@ public:
     // ---- libraries of the apps folders (T197)
     int nlibs() const { return nlibs_; }
     const LibFile *find_lib(const char *name, uint32_t min_version = 0) const;
-    // The file that meets a need: one that exports `name` at the major of min_version or later (the lowest), else the library of that name at that version or later.
+    // The file that meets a need: one that exports `name` at exactly the major of min_version (a caller of major 1 never gets a table of major 2), else the library of that name at that version or later.
     const LibFile *find_lib_for(const char *name, uint32_t min_version) const;
     // Does an application fit the loader window (the heap the board can give, `room`) with the libraries it needs that `loaded` does not have yet, plus
     // APP_WORK_BYTES? Missing or too old a library: no. `ld` (may be null) says which libraries are in memory already.

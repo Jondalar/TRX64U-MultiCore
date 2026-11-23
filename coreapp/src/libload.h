@@ -273,7 +273,7 @@ public:
 
     const LibInfo *info(int handle) const;
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
-    // The slot of the loaded library that provides `name` at the major of `min_version` or later: one that exports the name (LibExportDecl), else the library of that
+    // The slot of the loaded library that provides `name` at exactly the major of `min_version`: one that exports the name (LibExportDecl), else the library of that
     // name at that version or later - what a `needs` entry resolves against (D20). -1: none.
     int handle_providing(const char *name, uint32_t min_version) const;
     int count() const { return count_; }

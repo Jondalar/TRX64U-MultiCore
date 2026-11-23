@@ -366,18 +366,15 @@ const LibFile *AppIndex::find_lib(const char *name, uint32_t min_version) const
 
 const LibFile *AppIndex::find_lib_for(const char *name, uint32_t min_version) const
 {
-    const LibFile *best = 0;
-    uint32_t best_major = 0;
     for (int i = 0; name && i < nlibs_; i++) {
         for (int e = 0; e < libs_[i].nexports; e++) {
             const U2a3ExportName &x = libs_[i].exports[e];
-            if (!strcmp(x.name, name) && x.major >= (min_version >> 16) && (!best || x.major < best_major)) {
-                best = &libs_[i];
-                best_major = x.major;
+            if (!strcmp(x.name, name) && x.major == (min_version >> 16)) {
+                return &libs_[i];
             }
         }
     }
-    return best ? best : find_lib(name, min_version);
+    return find_lib(name, min_version);
 }
 
 bool AppIndex::need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const

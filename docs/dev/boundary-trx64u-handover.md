@@ -192,7 +192,7 @@ These answers are for the cut of trx64u, in which `c64.cc` goes to the base libr
 - Mount slots: `slot_spec`, `slot_mount` and `slot_eject` are appended to CoreHooks (`core_hooks.h`). `slot` is the position in the [mount] list. The meaning is
   that of MountSlots (`desc.h`). `ctx.state` gets `CTX_MEDIA_RESTORING`, and `ctx` gets `mount_notify(slot)` (`svc_ctx.h`).
 - `cbm1541` gets `reset` (`cbm1541_api.h`). It resets drive A when there is one, as `c64.cc` did, and it never makes a drive (-1 when there is none).
-- The CBM program loader stays here as the export "cbmprg" (`cbmprg_api.h`), because five cores use the same code. Your copy goes when the export is built.
+- The CBM program loader stays here as the export "cbmprg" (`cbmprg_api.h`), because five cores use the same code. It is exported in base 3.3 (`libexports.cc`), so your copy can go.
 - `menuvlist.cc` names `c64.run_t64` and `c64.dma_t64` in generic code. That breaks D24. The fix is a container row in the UI TOML (the extension, the lister, and its
   actions as [[filetype]] actions are written), built with the cut (P4). Until then the names stay, and they resolve to your operations of the same name. The
   T64 lister (`t64_list`) stays here.

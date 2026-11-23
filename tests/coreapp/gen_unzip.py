@@ -39,6 +39,8 @@ subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), 
 # T239.3 D20: a library that exports the name "ring" (its file lists it), and an application that needs "ring>=1": the library is found by the export name, not its own
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "ringlib.u2a"),
                        "--kind", "lib", "--name", "ringlib", "--version", "1", "--export", "ring=1"], stdout=subprocess.DEVNULL)
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "ring2lib.u2a"),
+                       "--kind", "lib", "--name", "ring2lib", "--version", "1", "--export", "ring=2"], stdout=subprocess.DEVNULL)   # a ring of major 2 only: never serves a need of major 1
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ringapp.u2a"),
                        "--kind", "app", "--residence", "transient", "--name", "ringapp", "--version", "1", "--needs", "base>=3.2", "--needs", "ring>=1"], stdout=subprocess.DEVNULL)
 
