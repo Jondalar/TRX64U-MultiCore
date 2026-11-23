@@ -83,7 +83,7 @@ set g_files {}
 foreach n $g_names { lappend g_files $gdir/$n }
 lappend g_files $gdir/c64u_pseudo_dpram_8x32_x7.vhd $gdir/c64u_drive_mem.vhd $gdir/uci_unit_c64u.vhd $gdir/c64u_l2.vhd
 set l2_v [list $c128/layer2_c128.v ../cores/c1541/drive_leds_map.v $c64u/c64u_io.v $c64u/c64u_sys.v $c64u/cart_fill_c64u.v \
-  $c64u/dma_win_c64u.v $c64u/iec_bus_c64u.v $c64u/sid_sock_audio_c64u.v $c128/c128_rome.v $c128/c128_ddrx.v $c128/dma_win_c128.v $c128/c128_regs.v $c128/c128_act.v $c128/c128_keys.v $c128/c128_joyswap.v $c128/c128_pixw.v $c128/c128_rgbi.v]
+  $c64u/dma_win_c64u.v $c128/iec_bus_c128.v $c128/c128_iecfs.v $c128/c128_iectrace.v $c64u/sid_sock_audio_c64u.v $c128/c128_rome.v $c128/c128_ddrx.v $c128/dma_win_c128.v $c128/c128_regs.v $c128/c128_act.v $c128/c128_keys.v $c128/c128_joyswap.v $c128/c128_pixw.v $c128/c128_rgbi.v]
 # Flat build (cores/c128/mono/build_mono.tcl): no out-of-context run, the caller reads core_read and the layer-2 sources itself.
 if {[info exists ::env(TRX_MONO)] && $::env(TRX_MONO) eq "1"} { return }
 lassign [trx_ooc c64_core_c128 $part $core_files $core_read $core_synth] core_dcp core_stub

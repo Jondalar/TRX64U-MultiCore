@@ -207,6 +207,7 @@ module c64_bus_arbiter_c128 (
   output reg         ram_vic,                   // T140 D25: this RAM access is the VIC's (the last branch of the address decoding)
   output wire [2:0]  vic_bank_tag,              // T140 D25: the bank the VIC addresses now {VIC RAM block, va15, va14}
   output wire        c128_n,                    // 0: C128 mode, 1: C64 mode
+  output wire        fsdir,                     // T170: $D505 bit 3, the fast serial direction (1 = the machine sends)
   output wire        z80_n,                     // the MMU's CPU bit: 0 = the Z80 is selected
   input  wire        z80io,                     // the Z80 is on the bus and this is an IN/OUT cycle
   input  wire        z80_act,                   // the Z80 has the bus
@@ -493,7 +494,7 @@ c128_map map (
   .io(pla_io), .ram(pla_ram), .basic(pla_basic), .kernal(pla_kernal), .chr(pla_chr),
   .roml(pla_roml), .romh(pla_romh),
   .rom_bank(map_rom_bank), .ram_bank(map_ram_bank), .t_addr(map_t_addr), .vic_bank(map_vic_bank),
-  .c128_n(c128_n), .z80_n(z80_n), .cs_mmu_lo(map_cs_mmu_lo), .cs_mmu_hi(map_cs_mmu_hi), .cs_vdc(map_cs_vdc),
+  .c128_n(c128_n), .fsdir(fsdir), .z80_n(z80_n), .cs_mmu_lo(map_cs_mmu_lo), .cs_mmu_hi(map_cs_mmu_hi), .cs_vdc(map_cs_vdc),
   .mmu_do(map_mmu_do), .mmu_game(map_game), .mmu_exrom(map_exrom), .sense_d4080());
 reg ram_bank_r;
 assign ram_bank = ram_bank_r;

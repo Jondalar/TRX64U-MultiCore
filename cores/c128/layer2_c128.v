@@ -16,6 +16,8 @@ module layer2_c128 #(
     output wire IEC_CLOCK_O,
     input  wire IEC_DATA_I,
     output wire IEC_DATA_O,
+    input  wire IEC_SRQ_I,
+    output wire IEC_SRQ_O,
     output wire SLOT_ADDRDIR,
     output wire SLOT_ADDROEn,
     output wire SLOT_BA,
@@ -346,15 +348,16 @@ module layer2_c128 #(
     wire        io_ack, io_irq, rg_ack, rg_irq;
     wire  [7:0] io_rdata, rg_rdata;
     wire        pg_e = !cw_addr[16] && cw_addr[15:12] == 4'hE;
-    reg         pg_e_q = 1'b0, pg_id_q = 1'b0;
+    wire        pg_f = !cw_addr[16] && cw_addr[15:12] == 4'hF;      // T170: the bus trace (c128_iectrace.v)
+    reg         pg_e_q = 1'b0, pg_f_q = 1'b0, pg_id_q = 1'b0;
     reg   [7:0] id_q = 8'd0;
     wire        pg_id = !cw_addr[16] && cw_addr[15:2] == 14'd0;     // bytes 000-003: the identity word is this core's ("C128"), not the c64u window's
     always @(posedge cpu_clk) if (cw_re | cw_we) begin
-        pg_e_q <= pg_e; pg_id_q <= pg_id;
+        pg_e_q <= pg_e; pg_f_q <= pg_f; pg_id_q <= pg_id;
         id_q <= cw_addr[1:0] == 2'd0 ? "C" : cw_addr[1:0] == 2'd1 ? "1" : cw_addr[1:0] == 2'd2 ? "2" : "8";
     end
-    assign cw_rdata = pg_id_q ? id_q : pg_e_q ? rg_rdata : io_rdata;
-    assign cw_ack   = pg_e ? rg_ack : io_ack;
+    assign cw_rdata = pg_id_q ? id_q : pg_e_q ? rg_rdata : pg_f_q ? it_rdata : io_rdata;
+    assign cw_ack   = pg_e ? rg_ack : pg_f ? it_ack : io_ack;
     assign cw_irq   = io_irq | rg_irq;
     wire [23:0] x_usb, xk_layer;
     wire [63:0] keys_m;
@@ -462,17 +465,27 @@ module layer2_c128 #(
     );
 
     // ---- the serial bus: the C64, the drive, the board port ----------------------------------------------------------------
-    wire c64_atn_i, c64_clk_i, c64_data_i;
+    wire c64_atn_i, c64_clk_i, c64_data_i, c64_srq_o, c64_srq_i, fs_dir_w;
     wire drv_atn_i, drv_clk_i, drv_data_i;
     wire drva_clk_o, drva_data_o;
-    iec_bus_c64u iec (
-        .clk(sys_clk), .c64_atn_o(c64_atn_o), .c64_clk_o(c64_clk_o), .c64_data_o(c64_data_o),
-        .c64_atn_i(c64_atn_i), .c64_clk_i(c64_clk_i), .c64_data_i(c64_data_i),
+    wire [3:0] iec_tap_bus, iec_tap_port;
+    iec_bus_c128 iec (
+        .clk(sys_clk), .c64_atn_o(c64_atn_o), .c64_clk_o(c64_clk_o), .c64_data_o(c64_data_o), .c64_srq_o(c64_srq_o),
+        .c64_atn_i(c64_atn_i), .c64_clk_i(c64_clk_i), .c64_data_i(c64_data_i), .c64_srq_i(c64_srq_i),
         .cpu_clk(cpu_clk), .drv_clk_o(drva_clk_o), .drv_data_o(drva_data_o),
         .drv_atn_i(drv_atn_i), .drv_clk_i(drv_clk_i), .drv_data_i(drv_data_i),
         .port_off(iec_port_off),
-        .port_atn_i(IEC_ATN_I), .port_clk_i(IEC_CLOCK_I), .port_data_i(IEC_DATA_I),
-        .port_atn_o(IEC_ATN_O), .port_clk_o(IEC_CLOCK_O), .port_data_o(IEC_DATA_O)
+        .port_atn_i(IEC_ATN_I), .port_clk_i(IEC_CLOCK_I), .port_data_i(IEC_DATA_I), .port_srq_i(IEC_SRQ_I),
+        .port_atn_o(IEC_ATN_O), .port_clk_o(IEC_CLOCK_O), .port_data_o(IEC_DATA_O), .port_srq_o(IEC_SRQ_O),
+        .tap_bus(iec_tap_bus), .tap_port(iec_tap_port)
+    );
+    // T170 D2: the bus trace, a register page of its own (page F, c128_iectrace.v), read by the application's bug report
+    wire       it_ack;
+    wire [7:0] it_rdata;
+    c128_iectrace iectr (
+        .sys_clk(sys_clk), .bus(iec_tap_bus), .port(iec_tap_port), .fs_dir(fs_dir_w), .c128_mode(!c128_stat[0]),
+        .tick_hz(vmode_sys == 2'd0 ? 32'd31527778 : 32'd32727273),
+        .clk(cpu_clk), .we(cw_we && pg_f), .re(cw_re && pg_f), .addr(cw_addr), .wdata(cw_wdata), .rdata(it_rdata), .ack(it_ack)
     );
 
     // ---- the drive (Gideon's mm_drive: a 1541 or a 1581 as the app selects) at 0x10020000 -----------------------------------
@@ -672,6 +685,7 @@ module layer2_c128 #(
         .keys(keys_m), .joy1(joy_a), .joy2(joy_b), .restore(c64_restore), .freeze_btn(c64_freeze),
         .iec_atn_o(c64_atn_o), .iec_clk_o(c64_clk_o), .iec_data_o(c64_data_o),
         .iec_atn_i(c64_atn_i), .iec_clk_i(c64_clk_i), .iec_data_i(c64_data_i),
+        .iec_srq_o(c64_srq_o), .iec_srq_i(c64_srq_i), .fs_dir(fs_dir_w),
         .cram_addr(cram_addr), .cram_we(cram_we_w), .cram_wdata(cram_wdata_w), .cram_rdata(cram_rdata),
         .bus_addr(bus_addr_w), .io_ev(io_ev), .io_ev_addr(io_ev_addr), .io_ev_data(io_ev_data),
         .io_ev_we(io_ev_we), .io_ev_io(io_ev_io), .io_oe(uci_oe), .io_dout(uci_dout),

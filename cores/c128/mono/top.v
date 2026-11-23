@@ -101,7 +101,8 @@ module top #(
     inout  wire [7:0] ULPI_DATA,
     output wire       HUB_RESETn, HUB_CLOCK,
     // serial bus (IEC) port: _O = 1 pulls the line low, _I = 1 while it is low
-    input  wire       IEC_ATN_I, IEC_CLOCK_I, IEC_DATA_I, IEC_RESET_I,   // IEC_RESET_I: T62 G19, 1 while the bus RESET line is low
+    input  wire       IEC_ATN_I, IEC_CLOCK_I, IEC_DATA_I, IEC_RESET_I, IEC_SRQ_I,   // T170: IEC_SRQ_I, the fast serial line (K14, mono/iec_srq_pins.xdc)
+      // IEC_RESET_I: T62 G19, 1 while the bus RESET line is low
     output wire       IEC_ATN_O, IEC_CLOCK_O, IEC_DATA_O, IEC_RESET_O, IEC_SRQ_O,
     // DDR2 (constrained in pins.xdc: Gideon's HSTL standards, bank 35)
     inout  wire [15:0] ddr2_dq,
@@ -740,7 +741,6 @@ module top #(
 
     // ---- serial bus: the C64, the app's drive A, the board's IEC port -------------
     assign IEC_RESET_O = 1'b0;
-    assign IEC_SRQ_O   = 1'b0;
     // MDIO: open drain, released = pulled high. Debug register 7 can take
     // MDC/MDIO over from the app (tools/trxdbg.py mdio).
     IOBUF b_mdio (.IO(MDIO_DATA), .I(1'b0), .T(mdio_ovr[31] ? mdio_ovr[1] : mdio_out), .O(mdio_in));
@@ -1489,6 +1489,7 @@ module top #(
     wire l2_IEC_ATN_O;
     wire l2_IEC_CLOCK_O;
     wire l2_IEC_DATA_O;
+    wire l2_IEC_SRQ_O;
     wire l2_SLOT_DOTCLK;
     wire l2_SLOT_PHI2;
     wire l2_slot_rst_o;
@@ -1548,6 +1549,7 @@ module top #(
     assign IEC_ATN_O = core_decouple ? 1'b0 : l2_IEC_ATN_O;
     assign IEC_CLOCK_O = core_decouple ? 1'b0 : l2_IEC_CLOCK_O;
     assign IEC_DATA_O = core_decouple ? 1'b0 : l2_IEC_DATA_O;
+    assign IEC_SRQ_O  = core_decouple ? 1'b0 : l2_IEC_SRQ_O;      // T170: the core's CNT on SRQ while the machine sends fast serial
     // T135 D6a: under the lock PHI2 / DOTCLK run at the C64 rate from sys_clk (portlock_clk), RESET low; the decouple forces both low
     portlock_clk plclk (.clk(sys_clk), .lock(port_lock), .decouple(core_decouple), .l2_phi2(l2_SLOT_PHI2), .l2_dotclk(l2_SLOT_DOTCLK),
                         .l2_rst_o(l2_slot_rst_o), .phi2(SLOT_PHI2), .dotclk(SLOT_DOTCLK), .rst_o(slot_rst_o), .gen_phi2(), .gen_dotclk());
@@ -1655,6 +1657,8 @@ module top #(
         .IEC_CLOCK_O(l2_IEC_CLOCK_O),
         .IEC_DATA_I(IEC_DATA_I),
         .IEC_DATA_O(l2_IEC_DATA_O),
+        .IEC_SRQ_I(IEC_SRQ_I),
+        .IEC_SRQ_O(l2_IEC_SRQ_O),
         .SLOT_ADDRDIR(l2_SLOT_ADDRDIR),
         .SLOT_ADDROEn(l2_SLOT_ADDROEn),
         .SLOT_BA(l2_SLOT_BA),

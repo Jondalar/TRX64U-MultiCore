@@ -161,6 +161,10 @@ module c64_core_c128 #(
     // serial bus (clk), '0' = line low: the C64's own pulls out, the bus in
     output wire       iec_atn_o, iec_clk_o, iec_data_o,
     input  wire       iec_atn_i, iec_clk_i, iec_data_i,
+    // T170: the fast serial line (clk), '0' = low, and the fast serial direction ($D505 bit 3, 1 = the machine sends)
+    output wire       iec_srq_o,
+    input  wire       iec_srq_i,
+    output wire       fs_dir,
     // colour RAM second port (clk), low nibble, read data one clock later
     input  wire [9:0] cram_addr,
     input  wire       cram_we,
@@ -518,6 +522,7 @@ module c64_core_c128 #(
 
         .iec_data_out(iec_data_o), .iec_clk_out(iec_clk_o), .iec_atn_out(iec_atn_o),
         .iec_data_in(iec_data_i), .iec_clk_in(iec_clk_i), .iec_atn_in(iec_atn_i),
+        .iec_srq_out(iec_srq_o), .iec_srq_in(iec_srq_i), .fs_dir(fs_dir),
 
         .drive_rom_en(), .drive_rom_addr(), .drive_rom_dout(32'hFFFFFFFF),
         .drive_shmem_en(), .drive_shmem_addr(), .drive_shmem_din(),

@@ -4,7 +4,12 @@
 < //   - vic_scaler takes the VIC's native pixels, scales them 4x (4.5x
 ---
 > //   - (T194: not in the C128; the pixel layer's capture takes them) vic_scaler takes the VIC's native pixels, scales them 4x (4.5x
-115c116,120
+103c104,105
+<     input  wire       IEC_ATN_I, IEC_CLOCK_I, IEC_DATA_I, IEC_RESET_I,   // IEC_RESET_I: T62 G19, 1 while the bus RESET line is low
+---
+>     input  wire       IEC_ATN_I, IEC_CLOCK_I, IEC_DATA_I, IEC_RESET_I, IEC_SRQ_I,   // T170: IEC_SRQ_I, the fast serial line (K14, mono/iec_srq_pins.xdc)
+>       // IEC_RESET_I: T62 G19, 1 while the bus RESET line is low
+115c117,121
 <     output wire        LED_DATA, LED_CLOCK  // case LED strip, WS2812 or APA102
 ---
 >     output wire        LED_DATA, LED_CLOCK, // case LED strip, WS2812 or APA102
@@ -12,6 +17,8 @@
 >     // (balls and channel assignment from the boundary scan of 2026-09-30, bit order inside a channel not yet measured: avid_pins.xdc)
 >     output wire [9:2]  AVID_R, AVID_G, AVID_B,
 >     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
+738d743
+<     assign IEC_SRQ_O   = 1'b0;
 1399c1404
 <     // GTPs. c64_type 0: no DFX core ships on the VIC path (T164 Q4), so the request is not held to the System Mode's family.
 ---
@@ -33,3 +40,10 @@
 >     assign AVID_FB    = 1'b0;
 >     ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
 >         .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));
+1471a1492
+>     wire l2_IEC_SRQ_O;
+1530a1552
+>     assign IEC_SRQ_O  = core_decouple ? 1'b0 : l2_IEC_SRQ_O;      // T170: the core's CNT on SRQ while the machine sends fast serial
+1637a1660,1661
+>         .IEC_SRQ_I(IEC_SRQ_I),
+>         .IEC_SRQ_O(l2_IEC_SRQ_O),

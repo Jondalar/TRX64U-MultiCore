@@ -131,6 +131,10 @@ module c64_top_c128 #(
   input  wire iec_data_in,
   input  wire iec_clk_in,
   input  wire iec_atn_in,
+  // T170: the fast serial line (SRQ) and the direction of the fast serial port ($D505 bit 3, 1 = this machine sends); '0' = line low
+  output wire iec_srq_out,
+  input  wire iec_srq_in,
+  output wire fs_dir,
 
   // 1541 drive ROM
   output reg         drive_rom_en,
@@ -908,6 +912,7 @@ wire [7:0] cia1_pb_out;
 wire [7:0] cia1_ddrb;
 wire       cia1_tod_out;
 wire       cia1_flag_n;
+wire       cia1_sp_in, cia1_cnt_in, cia1_sp_out, cia1_cnt_out;   // T170: CIA 1's serial register faces the bus's DATA and SRQ (c128_iecfs.v)
 wire       cia1_irq;
 wire       cia1_model = flags[0];
 
@@ -931,10 +936,10 @@ c64_redip_cia #(
   .pb_in     (cia1_pb_in),
   .pb_out    (cia1_pb_out),
   .ddrb      (cia1_ddrb),
-  .sp_in     (1'b1),
-  .sp_out    (),
-  .cnt_in    (1'b1),
-  .cnt_out   (),
+  .sp_in     (cia1_sp_in),
+  .sp_out    (cia1_sp_out),
+  .cnt_in    (cia1_cnt_in),
+  .cnt_out   (cia1_cnt_out),
   .flag_n    (cia1_flag_n),
   .pc_n      (),
   .irq       (cia1_irq),
@@ -1077,7 +1082,14 @@ assign sid_pot_y = joy_pot_y || (pot_sel1 && pot_cmp[1]) || (pot_sel2 && pot_cmp
 
 wire tape_cass_sense_n = tape_sense_n;
 wire tape_act = !tape_cass_motor_n;
-assign cia1_flag_n = tape_read;
+// T170: fast serial. SRQ and DATA into CIA 1's CNT / SP / FLAG, its CNT and SP out onto SRQ and DATA, by FSDIR (c128_iecfs.v)
+wire fs_data_gate;
+wire iec_data_out_a;                    // the machine's DATA pull before CIA 1's serial register adds its own
+assign iec_data_out = iec_data_out_a & fs_data_gate;
+c128_iecfs iecfs (
+  .fs_dir(fs_dir), .c128_n(c128_n), .srq_bus(iec_srq_in), .data_bus(iec_data_in), .cnt_out(cia1_cnt_out), .sp_out(cia1_sp_out),
+  .tape_read(tape_read), .cnt_in(cia1_cnt_in), .sp_in(cia1_sp_in), .flag_n(cia1_flag_n), .srq_out(iec_srq_out), .data_gate(fs_data_gate)
+);
 assign tape_write = cpu_pout[3];
 
 // ---------------------------------------------------------------------------
@@ -1563,7 +1575,7 @@ reg   [7:0] z80_vdc_q = 8'h00;
 always @(posedge clk) if (x_bus_en && !vdc_cen) z80_vdc_q <= vdc_dout;
 wire  [7:0] vdc_dout_a = z80_act ? z80_vdc_q : vdc_dout;
 c64_bus_arbiter_c128 c64_bus_arbiter_0 (
-  .mmu_en(vic_phi2_n && !vic_stall), .ram_bank(ram_bank), .ram_vic(mem_cmd_vic), .vic_bank_tag(mem_vic_tag), .c128_n(c128_n), .z80_n(z80_n_mmu),
+  .mmu_en(vic_phi2_n && !vic_stall), .ram_bank(ram_bank), .ram_vic(mem_cmd_vic), .vic_bank_tag(mem_vic_tag), .c128_n(c128_n), .fsdir(fs_dir), .z80_n(z80_n_mmu),
   .z80io(z80_io_a), .z80_act(z80_act), .fast_lcyc(fast_lcyc), .io_class(io_class), .d4080_n(!x_d4080), .boot64(x_boot64),
   .ram_color_a10(ram_color_a10),
   .vdc_cen(vdc_cen), .vdc_we(vdc_we_a), .vdc_rs(vdc_rs), .vdc_din(vdc_din), .vdc_dout(vdc_dout_a),
@@ -1709,7 +1721,7 @@ c64_bus_arbiter_c128 c64_bus_arbiter_0 (
 
   .sdram_pending (sdram_pending),
 
-  .iec_data_out (iec_data_out),
+  .iec_data_out (iec_data_out_a),
   .iec_clk_out  (iec_clk_out),
   .iec_atn_out  (iec_atn_out),
   .cia2_iec_lines (cia2_iec_lines),
