@@ -6,7 +6,7 @@ map = "c64cart"
 name = "fl_enable"
 offset = 0x00
 width = 8
-dir = "rw"
+dir = "w"
   [[property.state]]
   name = "off"
   value = 0

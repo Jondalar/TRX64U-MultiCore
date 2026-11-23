@@ -1,7 +1,9 @@
 # TOML A of c64_basic as rtl_check reads it (fixture, T239.3 P1-3). The blocks are written from what the RTL decodes
 # (designs/c64_basic/ultimate_sys.vhd, trx_io.v) and nothing else: a dir is what the code does at the byte, not what a driver header says.
-# P1-7 writes the real one. Not here: the C64-clock pages of trx_io (page 1, 2, 3, 5, 7 and page 0 from 0x100: forwarded to trx_sys.v),
-# the sampler window (clean room), and the modules that are only reached through a strobe the fixture does not use (uci, drive).
+# P1-7 writes the real one. The blocks c64cart and cart_regs are the shipped maps (--maps app/sdkpkg/maps); the bytes of the dma block
+# are decoded in dma_win.v behind a toggle handshake (stage 2 of the check). Not here, because the check does not follow them yet
+# (T239.3 P1-3, not_done): the C64-clock pages of trx_io (page 1, 2, 3, 5, 7 and page 0 from 0x100: trx_sys.v), uci (io_bus_bridge2),
+# the drive (drive_unit); the sampler window is clean room.
 [io]
 iobase = 0x10000000
 u2p_io_base = 0x10100000
@@ -154,84 +156,7 @@ module = "trx_io"
 owner = "base"
 address = 0x101A4000
 size = 0x40
-
-  [[block.property]]
-  name = "fl_enable"
-  offset = 0x0
-  width = 8
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_magic1"
-  offset = 0x4
-  width = 16
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_magic2"
-  offset = 0x8
-  width = 16
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_mask"
-  offset = 0xC
-  width = 16
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_id_mfr"
-  offset = 0x10
-  width = 8
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_id_dev"
-  offset = 0x11
-  width = 8
-  dir = "w"
-
-  [[block.property]]
-  name = "fl_id_ofs"
-  offset = 0x12
-  width = 8
-  dir = "w"
-
-  [[block.property]]
-  name = "evt"
-  offset = 0x20
-  width = 32
-  dir = "r"
-
-  [[block.property]]
-  name = "evt_hi"
-  offset = 0x24
-  width = 8
-  dir = "r"
-
-  [[block.property]]
-  name = "cmd"
-  offset = 0x28
-  width = 8
-  dir = "w"
-
-  [[block.property]]
-  name = "wr_count"
-  offset = 0x2C
-  width = 16
-  dir = "r"
-
-  [[block.property]]
-  name = "rom_sel"
-  offset = 0x30
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "xport_caps"
-  offset = 0x38
-  width = 8
-  dir = "r"
+map = "c64cart"
 
 [[block]]
 name = "cart_regs"
@@ -239,30 +164,7 @@ module = "cart_regs"
 owner = "base"
 address = 0x10040000
 size = 0x10
-
-  [[block.property]]
-  name = "c64_mode"
-  offset = 0x0
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "c64_stop"
-  offset = 0x1
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "cart_type"
-  offset = 0x5
-  width = 8
-  dir = "rw"
-
-  [[block.property]]
-  name = "cart_active"
-  offset = 0x6
-  width = 8
-  dir = "r"
+map = "c64cart_regs"
 
 [[block]]
 name = "audio_mixer"
@@ -387,3 +289,15 @@ module = "dma"
 owner = "base"
 address = 0x10050000
 size = 0x10000
+
+  [[block.property]]
+  name = "ram_first"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "ram_last"
+  offset = 0xFFFF
+  width = 8
+  dir = "rw"

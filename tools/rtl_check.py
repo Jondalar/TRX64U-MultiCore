@@ -2,7 +2,7 @@
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
   rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl] [--top top] [--bus ultimate_sys.io_req]
-  rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--skip PATH-PART]...
+  rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
   Follows the IO request through the decode of a design and compares every block of TOML A with it: the block lies in decoded
@@ -18,17 +18,23 @@ check
   copper, lp_filter or sampler is never opened (clean room).
   An RTL pattern the check does not know is an error (Unsupported, with file and line), never a pass. Exit 0: every block holds.
   The direction rule: a property's dir must be a subset of what the RTL does at each byte (r needs a read, w needs a write, rw both).
-  What the stimulus model does not see: a register decoded in a module that the request reaches over a handshake across clock
-  domains (the C64-clock pages of trx_io: its rq_* forwarding), because that module's decode is not on the request's path; such a
-  byte is reported as forwarded and the block fails (there is no evidence in the followed sources).
+  A request that leaves a followed module over output ports (held address, write flag, data, toggle) and is read by another module of
+  the top-level file crosses a clock domain over a handshake: that module is run on the held request (stage 2: its ports take the
+  forwarded values, its state is unknown, only the module itself is followed) and decides write and read of the byte (dma_win). A decode
+  there on a register copy of the held address is refused (Unsupported: a pipeline, not modelled). What is not followed yet: the
+  C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks), uci (io_bus_bridge2 and Gideon's synchronizer), the drive
+  (drive_unit: generate blocks); a property there fails with the pattern the parser does not know.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
-  source (a file whose path holds a --skip part is not read: a hash constant such as 0x10325476 lies in the I/O space by chance).
+  source (--allow FILE:LITERAL lets one literal of one file pass, by the file's trailing path components and the literal's text with its
+  suffix: a hash constant such as 0x10325476 lies in the I/O space by chance. The rest of that file is read like any other.)
   Comments and strings are not read. Exit 0: none; exit 1: the list, one line each, file:line: literal.
-  It is switched on for coreapp/src in P2-6 (when the last literal has gone): there ci/lint.sh gets the line
-      check "reverse lint (coreapp/src, libraries)" python3 -I tools/rtl_check.py lint-src coreapp/src <library source dirs>
-  Until then it is not in ci/lint.sh; run by hand it lists what is left.
+  It is switched on for coreapp/src in P2-6 (when the last address literal has gone): there ci/lint.sh gets the line
+      check "reverse lint (coreapp/src, libraries)" python3 -I tools/rtl_check.py lint-src coreapp/src <library source dirs> \\
+          --allow ringfile.cc:0x106aa070u --allow trxmon/tm_ws.c:0x10325476 --allow wsproto.cc:0x10325476u
+  The three --allow literals are no addresses: 0x106aa070 is SHA-256 K[47] (ringfile.cc, also uicore/uic_sha.cc), 0x10325476 is a hash
+  initial word (tm_ws.c, wsproto.cc). Until P2-6 it is not in ci/lint.sh; run by hand it lists what is left.
 """
 import glob
 import os
@@ -511,10 +517,20 @@ class VhdlParser(P):
                 lo = self.expr()
                 self.eat(")")
                 return Ty(name, hi, lo) if d == "downto" else Ty(name, lo, hi)
+            if hi[0] == "attr" and hi[2] == "range" and self.txt() == ")":
+                self.eat(")")
+                return Ty(name, ("attr", hi[1], "high"), ("attr", hi[1], "low"))
             if self.txt() == "range":
                 self.skip_to(")")
                 return Ty(name)
             raise self.err("a subtype constraint")
+        if self.txt() == "range":
+            self.eat()
+            self.expr()
+            if self.txt() not in ("to", "downto"):
+                raise self.err("a range constraint")
+            self.eat()
+            self.expr()
         return Ty(name)
 
     def arch_body(self, m):
@@ -1034,9 +1050,12 @@ class VlogParser(P):
             self.eat()
             if self.txt() == "[":
                 self.rng()
-            n = self.eat()[1]
-            self.eat("=")
-            m.consts[n] = self.expr()
+            while True:
+                n = self.eat()[1]
+                self.eat("=")
+                m.consts[n] = self.expr()
+                if not self.acc(","):
+                    break
             self.eat(";")
         elif w == "assign":
             self.eat()
@@ -1267,7 +1286,7 @@ class VlogParser(P):
         if k == "id":
             self.eat()
             e = ("id", s)
-            if s.startswith("$"):
+            if s.startswith("$") or self.txt() == "(":
                 self.eat("(")
                 args = [self.expr()]
                 while self.acc(","):
@@ -1539,10 +1558,20 @@ def ids_of(e, out):
 class Ev:
     """One stimulus: the request address (low bits maybe unknown), write or read, data unknown."""
 
-    def __init__(self, design, topmod, busmod, busname, addr, write):
+    def __init__(self, design, topmod, busmod, busname, addr, write, link=None):
+        """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
+        {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
         self.top = Ctx(self, topmod, None, None)
         self.busname = busname
+        if link is not None:
+            self.bus = self.top.child(link[0])
+            self.rootv, self.roott = dict(link[1]), dict(link[2])
+            self.resp = [(self.bus, n) for n in link[3]]
+            self.followed = [self.bus]
+            self.phase, self.post = 1, {}
+            self.crossed = True
+            return
         binst = [i for i in topmod.insts if i.modname.lower() == busmod.lower()]
         if len(binst) != 1:
             raise CheckError("the bus module %s is instantiated %d times in %s" % (busmod, len(binst), topmod.name))
@@ -1554,8 +1583,11 @@ class Ev:
             busname + ".read": F1 if write else T1,
             busname + ".data": allx(flds["data"]),
         }
+        self.roott = {n: frozenset("d" if n.endswith(".data") else "a") for n in self.rootv}
+        self.resp = [(self.bus, busname.replace("req", "resp") + ".data")]
         self.followed = [self.bus]
         self.phase, self.post = 1, {}
+        self.crossed = False
 
     def record_widths(self, ctx, sig):
         decl = ctx.mod.decls.get(sig)
@@ -1813,6 +1845,12 @@ class Ev:
             if sc is not None and n in sc.st and (sc.readall or n in sc.names):
                 return sc.st[n].v
             return self.val(ctx, n)
+        if k == "attr":
+            if e[1][0] != "id" or e[2] not in ("length", "high", "low") or self.is_array(ctx, e[1][1]):
+                raise Unsupported("the attribute '%s of this operand" % e[2])
+            w = self.width(ctx, e[1][1])
+            lb = self.lowbound(ctx, e[1])
+            return kn({"length": w, "high": lb + w - 1, "low": lb}[e[2]], 32)
         if k == "un":
             a = self.ev(ctx, e[2], sc)
             op = e[1]
@@ -1962,7 +2000,7 @@ class Ev:
     def _taint_name(self, ctx, name):
         mod = ctx.mod
         if ctx is self.bus and name in self.rootv:
-            return frozenset("d" if name.endswith(".data") else "a")
+            return self.roott[name]
         base = name.partition(".")[0]
         if base not in mod.decls and not (ctx.parent is None and mod.nets):
             return frozenset()
@@ -2100,6 +2138,7 @@ class Ev:
             return self.exec_if(ctx, p, s[1], s[2], st, certain, pt, r, sc)
         if k == "case":
             sel = self.ev(ctx, s[1], sc)
+            self.no_pipeline(ctx, s[1], sel)
             pt2 = pt | self.taint(ctx, s[1], r.vt)
             return self.exec_case(ctx, p, sel, s[2], st, certain, pt2, r, sc)
         if k == "for":
@@ -2112,11 +2151,62 @@ class Ev:
             return
         raise Unsupported("a statement of kind %s" % k)
 
+    def acopies(self, ctx):
+        """The registers of a module behind a handshake that hold a copy of the held request (an address or data port, or a register
+        that copies one): the closure over the clocked assignments."""
+        if getattr(ctx, "acop", None) is not None:
+            return ctx.acop
+        ctx.acop = set()
+        pend = []
+        for p in ctx.mod.procs:
+            if p.clocked:
+                def walk(stmts):
+                    for s in stmts:
+                        if s[0] == "as":
+                            pend.append((base_name(s[1])[0], s[2]))
+                        elif s[0] == "blk":
+                            walk(s[1])
+                        elif s[0] == "if":
+                            for _, b in s[1]:
+                                walk(b)
+                            walk(s[2])
+                        elif s[0] == "case":
+                            for _, b in s[2]:
+                                walk(b)
+                        elif s[0] == "for":
+                            walk(s[5])
+                walk(p.stmts)
+        changed = True
+        while changed:
+            changed = False
+            for k, rhs in pend:
+                if k in ctx.acop:
+                    continue
+                ids = set()
+                ids_of(rhs, ids)
+                if (ids & ctx.acop) or any(self.taint_name(ctx, n) for n in ids):
+                    ctx.acop.add(k)
+                    changed = True
+        return ctx.acop
+
+    def no_pipeline(self, ctx, e, v):
+        """Behind a handshake the request is run with the state unknown. A decode on a register copy of the held address would then
+        see an unknown address and take every arm: the check would pass a byte the RTL does not decode. That is refused."""
+        if self.crossed and ctx.parent is self.top and v.x:
+            ids = set()
+            ids_of(e, ids)
+            bad = sorted(ids & self.acopies(ctx))
+            if bad:
+                raise Unsupported("%s: a decode on %s, a register copy of the held request (a pipeline behind a handshake: not modelled)"
+                                  % (ctx.mod.fname, ", ".join(bad)))
+
     def exec_if(self, ctx, p, arms, els, st, certain, pt, r, sc):
         if not arms:
             return self.exec_list(ctx, p, els, st, certain, pt, r, sc)
         c, body = arms[0]
-        t = truth(self.ev(ctx, c, sc))
+        cv = self.ev(ctx, c, sc)
+        self.no_pipeline(ctx, c, cv)
+        t = truth(cv)
         pt2 = pt | self.taint(ctx, c, r.vt)
         if t == 1:
             return self.exec_list(ctx, p, body, st, certain, pt2, r, sc)
@@ -2311,7 +2401,7 @@ class Ev:
                 for inst in ctx.mod.insts:
                     if inst.label in ctx.kids and ctx.kids[inst.label] in self.followed:
                         continue
-                    if ctx is self.top and inst.modname.lower() == self.bus.mod.name.lower():
+                    if ctx is self.top and inst is self.bus.inst:
                         continue
                     act = self.inst_active(ctx, inst)
                     if act:
@@ -2347,6 +2437,8 @@ class Ev:
                     continue
                 if "a" in self.taint_name(ctx, n):
                     t = truth(self.val(ctx, n))
+                    if self.crossed:
+                        continue
                     if t == 1:
                         return 2
                     if t is None:
@@ -2385,11 +2477,75 @@ class Ev:
             self.phase = 2
             for ctx in self.followed:
                 ctx.cache, ctx.runs = {}, {}
-            og = self.origins(self.bus, self.respname)
+            og = set()
+            for rc, rn in self.resp:
+                og |= self.origins(rc, rn)
             res["read"] = any(t != ("c", 0) for t in og)
             res["origins"] = og
         res["certain"] = res["write"] or res["read"]
+        res["links"] = self.find_links()
         return res
+
+    def find_links(self):
+        """The request leaves a followed module over output ports (address, write flag, data, toggle: the held request of a
+        handshake) and a module of the top-level file reads them: that module decodes it in another clock domain. For every such
+        module: the values and taints its input ports have, and its output ports that answer the forwarder."""
+        outs = {}
+        for ctx in self.followed:
+            if ctx.parent is not self.top:
+                continue
+            for p in ctx.mod.procs:
+                for e in self.run(ctx, p).effects:
+                    pt = ctx.mod.ports.get(e.key)
+                    if pt is None or pt[0] == "in" or not e.taint:
+                        continue
+                    rt = self.taint(ctx, e.rhs)
+                    if "d" in rt:
+                        new = ("d", allx(self.width(ctx, e.key)))
+                    elif "a" in rt and e.certain:
+                        new = ("a", e.v)
+                    else:
+                        new = ("s", allx(self.width(ctx, e.key)))
+                    old = outs.get((id(ctx), e.key))
+                    if old is not None:
+                        if old[0] == "d" or new[0] == "d":
+                            new = ("d", new[1])
+                        elif old[0] == "a" and new[0] == "a":
+                            new = ("a", v_merge(old[1], new[1]))
+                        else:
+                            new = ("s" if "s" in (old[0], new[0]) else "a", allx(new[1].w or 1))
+                    outs[(id(ctx), e.key)] = new
+        links = []
+        for ctx in self.followed:
+            if ctx.parent is not self.top:
+                continue
+            mine = {k: v for (i, k), v in outs.items() if i == id(ctx)}
+            if not any(v[0] != "s" for v in mine.values()):
+                continue
+            nets = {}
+            for f, a in ctx.inst.ports:
+                if f in mine and a is not None and a[0] == "id":
+                    nets[a[1]] = f
+            back = {}
+            for f, a in ctx.inst.ports:
+                if a is not None and a[0] == "id" and self.d.port_dir(ctx.inst.modname, f) == "in":
+                    back[a[1]] = f
+            for inst in self.top.mod.insts:
+                if inst is ctx.inst or inst is self.bus.inst or inst.modname.lower() not in self.d.index:
+                    continue
+                rv, rt, resp = {}, {}, []
+                for f, a in inst.ports:
+                    if a is None or a[0] != "id":
+                        continue
+                    dr = self.d.port_dir(inst.modname, f)
+                    if dr == "in" and a[1] in nets:
+                        kind, v = mine[nets[a[1]]]
+                        rv[f], rt[f] = v, frozenset("d" if kind == "d" else "a")
+                    elif dr == "out" and a[1] in back:
+                        resp.append(f)
+                if rv:
+                    links.append((inst, rv, rt, resp, ctx.name))
+        return links
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -2485,14 +2641,38 @@ class Checker:
         if key in self.cache:
             return self.cache[key]
         ev = Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), write)
-        ev.respname = self.busname.replace("req", "resp") + ".data"
-        res = ev.analyze(write)
+        res = self.cross(ev.analyze(write), write, 0)
         self.cache[key] = res
+        return res
+
+    def cross(self, res, write, depth):
+        """A request that the RTL forwards over a handshake (held address, data, toggle) is decoded by the module that reads those
+        ports, in its own clock domain: that module is run on the held request (stage 2) and decides write and read of the byte.
+        A module that is not read by a top-level file instance leaves the request forwarded, and the check fails on it."""
+        res["forwarded"] = False
+        if not res["forward"] or not res["links"]:
+            return res
+        if depth > 3:
+            raise Unsupported("a request that crosses more than 3 clock domains")
+        wr = rd = False
+        cert = res["cert"]
+        for inst, rv, rt, resp, via in res["links"]:
+            ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp))
+            r2 = self.cross(ev2.analyze(write), write, depth + 1)
+            wr = wr or r2["write"]
+            rd = rd or r2["read"]
+            res["followed"] += ["%s (from %s)" % (n, via) for n in r2["followed"]]
+            res["forward"] = [f for f in res["forward"] if not f.startswith(via + ".")] + r2["forward"] if not r2["forwarded"] else res["forward"]
+        res["forwarded"] = True
+        res["write"], res["read"], res["cert"] = wr, rd, cert
+        res["certain"] = wr or rd
         return res
 
     def covered(self, a, lowx):
         """True if every byte of the aligned span is decoded for sure: by a write, a forwarded request or a module a strobe certainly reaches."""
         w, r = self.stim(a, True, lowx), self.stim(a, False, lowx)
+        if w["forwarded"] or r["forwarded"]:
+            return bool(w["write"] or r["read"])
         return bool(w["cert"] or r["cert"] or (lowx == 0 and (w["write"] or r["read"])))
 
     def undecoded(self, lo, size):
@@ -2618,7 +2798,16 @@ def strip_c(text):
 C_INT = re.compile(r"(?<![\w.])(0[xX][0-9a-fA-F']+|\d[\d']*)(?:[uUlL]*)(?![\w.])")
 
 
-def lint_file(path, ranges):
+def allowed(path, lit, allow):
+    """--allow FILE:LITERAL: this one literal in the file whose path ends with FILE (whole path components). Nothing else of that file."""
+    norm = os.path.normpath(path).replace(os.sep, "/")
+    for f, l in allow:
+        if (norm == f or norm.endswith("/" + f)) and lit.lower() == l.lower():
+            return True
+    return False
+
+
+def lint_file(path, ranges, allow=()):
     out = []
     text = strip_c(open(path, errors="replace").read())
     for ln, line in enumerate(text.split("\n"), 1):
@@ -2630,13 +2819,15 @@ def lint_file(path, ranges):
                 continue
             for lo, hi, what in ranges:
                 if lo <= v < hi:
+                    if allowed(path, m.group(0), allow):
+                        break
                     out.append("%s:%d: %s lies in %s" % (path, ln, m.group(0), what))
                     break
     return out
 
 
 def cmd_lint(args):
-    paths, maps, toml_a, skip = [], [], None, []
+    paths, maps, toml_a, allow = [], [], None, []
     iobase, span = 0x10000000, 0x1000000
     i = 0
     while i < len(args):
@@ -2647,8 +2838,11 @@ def cmd_lint(args):
         elif a == "--toml-a":
             toml_a = args[i + 1]
             i += 2
-        elif a == "--skip":
-            skip.append(args[i + 1])
+        elif a == "--allow":
+            f, sep, lit = args[i + 1].rpartition(":")
+            if not sep or not f or not lit:
+                raise CheckError("--allow takes FILE:LITERAL, such as ringfile.cc:0x106aa070u")
+            allow.append((f, lit))
             i += 2
         elif a == "--iobase":
             iobase = int(args[i + 1], 0)
@@ -2676,8 +2870,7 @@ def cmd_lint(args):
             files.append(pth)
     found = []
     for f in sorted(files):
-        if not any(k in f for k in skip):
-            found += lint_file(f, ranges)
+        found += lint_file(f, ranges, allow)
     for s in found:
         print("rtl_check: " + s)
     if found:
