@@ -1,0 +1,32 @@
+# The cartridge port block (hw.cc cart_wr: C64_CARTREGS_BASE + reg; the registers coreapp/cores/c64_cart.cc writes). Offsets are bytes from the block's address.
+map = "c64cart_regs"
+
+[[property]]
+name = "type"
+offset = 0x05
+width = 8
+dir = "w"
+
+[[property]]
+name = "reu"
+offset = 0x08
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1
+
+[[property]]
+name = "sampler"
+offset = 0x0E
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1

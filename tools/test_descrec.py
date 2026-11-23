@@ -1118,5 +1118,123 @@ size = 0x14
             self.assertLess(int.from_bytes(b[4:6], "little"), 6)
 
 
+class TomlA(unittest.TestCase):
+    """T239.3 P1-1 (D30, D34): TOML A, record version 7. The C++ reader's side is tests/coreapp/test_desctoml.cc (same fixture)."""
+    MAPS = os.path.join(os.path.dirname(GOLD), "..", "..", "app", "sdkpkg", "maps")
+    BASE = ('[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n'
+            '[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n'
+            '[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n'
+            '[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n')
+
+    def fixture(self):
+        return D.compile_checked(src("desc_toml_a.toml"), maps=D.load_maps([self.MAPS]))
+
+    def test_the_fixture_is_version_7_and_reads_back_whole(self):
+        b = self.fixture()
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 7)
+        r = D.parse_desc(b)
+        self.assertEqual(r["io"], {"iobase": 0x04000000, "u2p_io_base": 0xA0000000})
+        self.assertEqual(r["identity"], {"id": "TSTA", "block": "ident", "build": 0x1234ABCD})
+        self.assertEqual([x["name"] for x in r["block"]], ["ident", "cart_flash", "cmd_if", "mixer"])
+        cart = r["block"][1]
+        self.assertEqual(len(cart["property"]), 13)
+        evt = next(p for p in cart["property"] if p["name"] == "evt")
+        self.assertEqual((evt["width"], evt["dir"]), (32, "r"))
+        op = next(f for f in evt["field"] if f["name"] == "op")
+        self.assertEqual([(x["name"], x["value"]) for x in op["state"]], [("program", 1), ("sector_erase", 2), ("chip_erase", 3)])
+        self.assertEqual(r["block"][3]["owner"], "core")
+
+    def test_what_is_decoded_compiles_to_the_same_bytes(self):
+        b = self.fixture()
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_a_module_that_serves_several_drivers_is_one_block_per_range(self):
+        doc = self.BASE + ('[[block]]\nname = "page4"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n'
+                           '[[block]]\nname = "page3"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0003000\nsize = 0x100\n')
+        r = D.parse_desc(D.compile_checked(doc, maps=D.load_maps([self.MAPS])))
+        self.assertEqual([x["module"] for x in r["block"]], ["trx_io"] * 3)
+
+    def test_the_key_table_and_windows_records_stay_below_version_7(self):
+        for f in FIXTURES:
+            self.assertLess(int.from_bytes(D.compile_text(src(f))[4:6], "little"), 7)
+
+    def refuse(self, text, what, maps=None):
+        with self.assertRaisesRegex(D.DescError, what):
+            D.compile_checked(text, maps=maps)
+
+    def test_the_schema_is_closed(self):
+        self.refuse(self.BASE + '[[node]]\nanchor = "F5/x"\nkind = "op"\nlabel = "L"\nop = "o"\n', "and nothing else")
+        self.refuse(self.BASE.replace("[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n", ""), "and nothing else")
+        self.refuse(self.BASE.replace("iobase", "iobasx"), "unknown key")
+        self.refuse(self.BASE.replace('owner = "base"', 'owner = "base"\nfoo = 1'), "unknown key")
+        self.refuse(self.BASE.replace('dir = "r"\n', 'dir = "r"\nshift = 1\n', 1), "unknown key")
+
+    def test_a_block_is_refused_for_each_broken_rule(self):
+        self.refuse(self.BASE.replace('owner = "base"', 'owner = "me"'), "owner is")
+        self.refuse(self.BASE.replace("size = 0x100\n", "size = 0\n"), "size is")
+        self.refuse(self.BASE.replace("size = 0x100\n", "size = 0x100001\n"), "size is")
+        self.refuse(self.BASE.replace("0xA0000800", "0xFFFFFFFF"), "ends below 4 GiB")
+        self.refuse(self.BASE.replace('module = "trx_io"', 'module = "Trx IO"'), "module is")
+        self.refuse(self.BASE + '[[block]]\nname = "ident"\nmodule = "x"\nowner = "base"\naddress = 0xA0009000\nsize = 4\n', "the name twice")
+        self.refuse(self.BASE + '[[block]]\nname = "b"\nmodule = "x"\nowner = "base"\naddress = 0xA0000880\nsize = 4\n', "overlaps the block ident")
+        reg = D.base_registers()[0]
+        self.refuse(self.BASE + '[[block]]\nname = "b"\nmodule = "x"\nowner = "core"\naddress = 0x%X\nsize = 1\n' % reg[1], "covers " + reg[0])
+        self.assertTrue(D.compile_checked(self.BASE + '[[block]]\nname = "b"\nmodule = "x"\nowner = "base"\naddress = 0x%X\nsize = 1\n' % reg[1]))
+
+    def test_a_map_is_refused_for_each_broken_rule(self):
+        def blk(props):
+            return self.BASE + '[[block]]\nname = "b"\nmodule = "x"\nowner = "core"\naddress = 0x30000000\nsize = 8\n' + props
+        p = '[[block.property]]\nname = "r"\noffset = %s\nwidth = %s\ndir = "%s"\n'
+        self.assertTrue(D.compile_checked(blk(p % (7, 8, "rw"))))
+        self.refuse(blk(p % (8, 8, "rw")), "outside the block")
+        self.refuse(blk(p % (7, 16, "rw")), "outside the block")
+        self.refuse(blk(p % (0, 12, "rw")), "width is")
+        self.refuse(blk(p % (0, 8, "x")), "dir is")
+        self.refuse(blk(p % (0, 8, "r") + p % (4, 8, "r")), "the name twice")
+        self.refuse(blk(p % (0, 8, "r") + (p % (0, 8, "rw")).replace('"r"', '"q"')), "")
+        self.refuse(blk(p % (0, 16, "r") + (p % (1, 8, "rw")).replace('"r"', '"s"')), "shares a byte and a direction")
+        self.assertTrue(D.compile_checked(blk(p % (0, 16, "r") + (p % (1, 8, "w")).replace('"r"', '"s"'))))
+
+    def test_fields_and_states_are_refused_for_each_broken_rule(self):
+        head = self.BASE + '[[block]]\nname = "b"\nmodule = "x"\nowner = "core"\naddress = 0x30000000\nsize = 8\n[[block.property]]\nname = "r"\noffset = 0\nwidth = 8\ndir = "rw"\n'
+        f = '[[block.property.field]]\nname = "%s"\nshift = %d\nbits = %d\n'
+        s_ = '[[block.property.field.state]]\nname = "%s"\nvalue = %d\n'
+        self.assertTrue(D.compile_checked(head + f % ("a", 0, 4) + s_ % ("x", 15) + f % ("b", 4, 4)))
+        self.refuse(head + f % ("a", 5, 4), "lie inside")
+        self.refuse(head + f % ("a", 0, 0), "lie inside")
+        self.refuse(head + f % ("a", 0, 4) + f % ("b", 3, 2), "shares a bit")
+        self.refuse(head + f % ("a", 0, 4) + f % ("a", 4, 4), "the name twice")
+        self.refuse(head + f % ("a", 0, 2) + s_ % ("x", 4), "does not fit 2 bits")
+        self.refuse(head + f % ("a", 0, 2) + s_ % ("x", 1) + s_ % ("y", 1), "state of the same owner")
+        self.refuse(head + f % ("a", 0, 2) + s_ % ("x", 1) + s_ % ("x", 2), "state of the same owner")
+        self.refuse(head + '[[block.property.state]]\nname = "s"\nvalue = 256\n', "does not fit 8 bits")
+
+    def test_the_identity_is_the_base_blocks_readable_id_and_build(self):
+        self.refuse(self.BASE.replace("TSTA", "TST"), "four characters")
+        self.refuse(self.BASE.replace('block = "ident"', 'block = "none"'), "no block of this record")
+        self.refuse(self.BASE.replace('owner = "base"', 'owner = "core"', 1).replace("0xA0000800", "0x30000000"), "owned by the core")
+        self.refuse(self.BASE.replace('name = "build"', 'name = "built"'), "no readable property")
+        self.refuse(self.BASE.replace('dir = "r"\n', 'dir = "w"\n', 1), "no readable property")
+
+    def test_a_map_comes_from_a_file_and_names_are_checked(self):
+        maps = D.load_maps([self.MAPS])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "gcr_coder", "uci"])
+        b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
+        self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+        self.refuse(self.BASE + b % "nomap", "in none of the map files", maps)
+        self.refuse(self.BASE + b % "uci", "in none of the map files")
+        self.refuse(self.BASE + (b % "uci") + '[[block.property]]\nname = "x"\noffset = 0\nwidth = 8\ndir = "r"\n', "a map and its own properties", maps)
+
+    def test_a_record_is_refused_in_the_wrong_version_or_with_a_menu_table(self):
+        b = bytearray(self.fixture())
+        v6 = bytearray(b)
+        v6[4:6] = (6).to_bytes(2, "little")
+        with self.assertRaisesRegex(D.DescError, "version 6"):
+            D.parse_desc(bytes(v6))
+        for cut in range(1, len(b), 13):
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b[:cut]))
+
+
 if __name__ == "__main__":
     unittest.main()

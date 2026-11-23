@@ -1,0 +1,32 @@
+# The GCR coder (uci.cc: five bytes written to GCR_CODER_BASE + 0, then four read from + 0 .. + 3). Offsets are bytes from the block's address.
+map = "gcr_coder"
+
+[[property]]
+name = "in"
+offset = 0x00
+width = 8
+dir = "w"
+
+[[property]]
+name = "out0"
+offset = 0x00
+width = 8
+dir = "r"
+
+[[property]]
+name = "out1"
+offset = 0x01
+width = 8
+dir = "r"
+
+[[property]]
+name = "out2"
+offset = 0x02
+width = 8
+dir = "r"
+
+[[property]]
+name = "out3"
+offset = 0x03
+width = 8
+dir = "r"
