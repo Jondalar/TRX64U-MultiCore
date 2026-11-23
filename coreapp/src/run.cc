@@ -418,6 +418,11 @@ static void cs_step(int step, const char *label)
     rest_starting(label);
 }
 
+void coreapp_wait_named(const char *what)
+{
+    cs_step(0, what);
+}
+
 void coreapp_held(const char *why, const BoardProfile *board)
 {
     ui_splash_close();                            // the picture and the REST gate were opened before the description (coreapp_open_early)

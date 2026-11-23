@@ -12,6 +12,7 @@
 // The picture, the splash and the REST gate (port 80 answers 503 with the step, rest.h): the first thing the core app task does, before the description of a core that
 // has none compiled in waits for its bundle's medium (T239.3 P2-2, M1). Once; coreapp_run and coreapp_held rely on it. h: as for coreapp_run.
 void coreapp_open_early(const Handover *h);
+void coreapp_wait_named(const char *what);      // names a wait on the splash (step 0) and on port 80's 503 text; the bundle's medium wait uses it
 
 void coreapp_held(const char *why, const BoardProfile *board) __attribute__((noreturn));
 

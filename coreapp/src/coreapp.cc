@@ -74,6 +74,7 @@ static void app_task(void *)
     };
     static BoardMediumEnv medium_env;
     static BundleDescSource desc_src(fm_fs(), 0, &medium_env);
+    coreapp_wait_named("Waiting for the core's medium");   // the medium wait (bundle.cc) shows no step of its own: the splash and port 80 say why the screen waits
     StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io(), &desc_src);
     STARTLOG("phase core identified: %s", msg);
     if (r != START_OK) {
