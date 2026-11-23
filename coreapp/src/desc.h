@@ -76,6 +76,11 @@ struct RegWrite {
 #define SCALE_KEY   "Scale"                // T107 D8: added with Picture to every frame-buffer core on a host whose gateware scales (T164 G14)
 #define SMOOTH_KEY  "Smoothing"            // T164 Q3: added with Scale
 #define FOLLOW_KEY  "Frame follow"         // T234: added after Smoothing to a frame-buffer core whose gateware has the Frame follow register (the Amiga cores)
+// T239.3 D32: the run-time lists a core's choice row may name with its `pick` (menubuild.cc menu_pick_fill serves them; video.modes is the Picture row of the base alone). tools/descrec.py CORE_PICKS is the same list.
+static inline bool setting_pick_served(const char *name)
+{
+    return name && (!strcmp(name, "hotkeys.keys") || !strcmp(name, "hotkeys.modifiers") || !strcmp(name, "view.schemes"));
+}
 struct Setting {
     const char *key;                      // the item text, also the key in <name>.cfg
     const char *const *values;            // labels, also the values in <name>.cfg
@@ -99,8 +104,10 @@ struct Setting {
     const char *show_state;
     // T104.2 UI: the name the menu shows; null: the key. The key is what the .cfg, REST and the operations name and never changes with a label.
     const char *label;
-    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
+    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none.
     const char *lock_state;
+    // T239.3 D32: a choice among values whose list changes at run time names it (the TOML's `pick`); `values` is what the row shows until the list has filled it. Null: the values are the row's. Last.
+    const char *pick;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------
