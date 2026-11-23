@@ -2085,7 +2085,7 @@ class Ev:
                 ports["address"]: fit(addr, pw["address"]),
                 ports["data"]: allx(pw["data"]),
             }
-            self.roott = {n: frozenset("d" if n == ports["data"] else "a") for n in self.rootv}
+            self.roott = {n: frozenset("d" if n == ports["data"] else {ports["write"]: "aw", ports["read"]: "ar"}.get(n, "aq")) for n in self.rootv}
             self.resp = [(self.bus, ports["response"])]
             self.followed = [self.bus]
             self.phase, self.post = 1, {}
@@ -2098,7 +2098,7 @@ class Ev:
             busname + ".read": F1 if write else T1,
             busname + ".data": allx(flds["data"]),
         }
-        self.roott = {n: frozenset(("d",) if n.endswith(".data") else (("a", "w") if n.endswith(".write") else ("a", "q"))) for n in self.rootv}
+        self.roott = {n: frozenset(("d",) if n.endswith(".data") else (("a", "w") if n.endswith(".write") else (("a", "r") if n.endswith(".read") else ("a", "q")))) for n in self.rootv}
         self.resp = [(self.bus, busname.replace("req", "resp") + ".data")]
         self.followed = [self.bus]
         self.phase, self.post = 1, {}
@@ -2635,15 +2635,157 @@ class Ev:
 
     # ---- taint: which values come from the request's address (a) or data (d) through wires
     def taint(self, ctx, e, vt=None):
-        ids = set()
-        ids_of(e, ids)
+        """The taint of an expression. A part of a vector (a slice, an index) has the taint of those bits: a concatenation keeps the taint of each of its
+        parts (the request vector of a clock-domain bridge: address, data, read and write are four different things)."""
+        if not isinstance(e, tuple):
+            return frozenset()
+        k = e[0]
+        if k == "id":
+            if vt is not None and e[1] in vt:
+                return vt[e[1]]
+            return self.taint_name(ctx, e[1])
+        if k == "n":
+            return frozenset()
+        if not (vt is not None and len(e) > 1 and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in vt):
+            r = self.bit_range(ctx, e)
+            if r is not None:
+                return self.taint_bits(ctx, r[0], r[1], r[2]) | self.taint(ctx, r[3], vt)
         t = frozenset()
-        for n in ids:
-            if vt is not None and n in vt:
-                t |= vt[n]
-            else:
-                t |= self.taint_name(ctx, n)
+        for x in e[1:]:
+            if isinstance(x, tuple):
+                t |= self.taint(ctx, x, vt)
+            elif isinstance(x, list):
+                for y in x:
+                    t |= self.taint(ctx, y, vt)
         return t
+
+    def bit_range(self, ctx, e):
+        """(signal, hi, lo, index expression or None) when e is a constant slice or index of a declared vector signal, else None."""
+        k = e[0]
+        try:
+            if k == "sl" and e[1][0] == "id" and e[1][1] in ctx.mod.decls:
+                lo0 = self.lowbound(ctx, e[1])
+                return (e[1][1], self.const_int(ctx, e[2]) - lo0, self.const_int(ctx, e[3]) - lo0, ("n", kn(0)))
+            ix = None
+            if k == "ix":
+                ix = e[2]
+            elif k == "call" and len(e[2]) == 1 and e[1][0] == "id" and e[1][1] in ctx.mod.decls and e[2][0][0] != "attr":
+                ix = e[2][0]
+            if ix is not None and e[1][0] == "id" and e[1][1] in ctx.mod.decls and not self.is_array(ctx, e[1][1]):
+                v = self.ev(ctx, ix)
+                if not v.x and v.v is not None:
+                    i = v.v - self.lowbound(ctx, e[1])
+                    return (e[1][1], i, i, ("n", kn(0)))
+        except Unsupported:
+            return None
+        return None
+
+    def ewidth(self, ctx, e):
+        k = e[0]
+        if k == "n":
+            if e[1].w is None:
+                raise Unsupported("the width of a literal")
+            return e[1].w
+        if k == "paren":
+            return self.ewidth(ctx, e[1])
+        if k == "id":
+            return self.width(ctx, e[1])
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+            return self.ewidth(ctx, e[2][0])
+        if k == "sl":
+            return self.const_int(ctx, e[2]) - self.const_int(ctx, e[3]) + 1
+        if k == "cat":
+            return sum(self.ewidth(ctx, x) for x in e[1])
+        if k == "bin" and e[1] == "&" and ctx.mod.lang == "vhdl":
+            return self.ewidth(ctx, e[2]) + self.ewidth(ctx, e[3])
+        if self.bit_range(ctx, e) is not None:
+            return 1
+        raise Unsupported("the width of an expression of kind %s" % k)
+
+    def cat_parts(self, ctx, e):
+        if e[0] == "cat":
+            return list(e[1])
+        if e[0] == "bin" and e[1] == "&" and ctx.mod.lang == "vhdl":
+            out = []
+            for x in (e[2], e[3]):
+                out += self.cat_parts(ctx, x) if (x[0] == "bin" and x[1] == "&") else [x]
+            return out
+        return None
+
+    def taint_bits_expr(self, ctx, e, hi, lo):
+        """The taint of bits hi..lo of an expression."""
+        k = e[0]
+        try:
+            if k == "paren":
+                return self.taint_bits_expr(ctx, e[1], hi, lo)
+            if k == "id" and e[1] in ctx.mod.decls:
+                return self.taint_bits(ctx, e[1], hi, lo)
+            if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+                return self.taint_bits_expr(ctx, e[2][0], hi, lo)
+            parts = self.cat_parts(ctx, e)
+            if parts is not None:
+                ws = [self.ewidth(ctx, x) for x in parts]
+                t = frozenset()
+                for i, x in enumerate(parts):
+                    plo = sum(ws[i + 1:])
+                    phi = plo + ws[i] - 1
+                    if phi >= lo and plo <= hi:
+                        t |= self.taint_bits_expr(ctx, x, min(hi, phi) - plo, max(lo, plo) - plo)
+                return t
+            if k == "sl":
+                h2, l2 = self.const_int(ctx, e[2]), self.const_int(ctx, e[3])
+                lo0 = self.lowbound(ctx, e[1])
+                return self.taint_bits_expr(ctx, e[1], l2 - lo0 + hi, l2 - lo0 + lo)
+            r = self.bit_range(ctx, e)
+            if r is not None and r[1] == r[2] and hi == lo == 0:
+                return self.taint_bits(ctx, r[0], r[1], r[1])
+        except Unsupported:
+            pass
+        return self.taint(ctx, e)
+
+    def taint_bits(self, ctx, name, hi, lo):
+        """The taint of bits hi..lo of a declared signal: through the instance port it is, the clock-domain bridge's synchronizer, a continuous assignment
+        and the output of a followed instance the parts of a concatenation stay apart; any other driver gives the taint of the whole signal."""
+        c = ctx.__dict__.setdefault("_tb", {})
+        key = (name, hi, lo)
+        if key in c:
+            return c[key] if c[key] is not None else frozenset()
+        c[key] = None
+        t = self._taint_bits(ctx, name, hi, lo)
+        c[key] = t
+        return t
+
+    def _taint_bits(self, ctx, name, hi, lo):
+        mod = ctx.mod
+        if (ctx is self.bus and name in self.rootv) or "." in name or (ctx.parent is None and mod.nets):
+            return self.taint_name(ctx, name)
+        port = mod.ports.get(name)
+        if port is not None and port[0] == "in":
+            if ctx.inst is None:
+                return frozenset()
+            for f, a in ctx.inst.ports:
+                if f == name and a is not None:
+                    return self.taint_bits_expr(ctx.parent, a, hi, lo)
+            return frozenset()
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        t, found = frozenset(), False
+        for d in ctx.drv.get(name, []):
+            if d[0] == "ca" and d[1][0] == "id":
+                t |= self.taint_bits_expr(ctx, d[2], hi, lo)
+            elif d[0] == "pass":
+                src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                if not (src and src[0] is not None):
+                    return self.taint_name(ctx, name)
+                t |= self.taint_bits_expr(ctx, src[0], hi, lo)
+            elif d[0] == "inst":
+                ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
+                if ch:
+                    t |= self.taint_bits(ch[0], d[2], hi, lo)
+            else:
+                return self.taint_name(ctx, name)
+            found = True
+        return t if found else self.taint_name(ctx, name)
 
     def taint_name(self, ctx, name):
         c = ctx.tcache
@@ -3169,7 +3311,7 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and ("d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)) and not (fw and is_out(e)):
+                    if write and self.is_write(ctx, e) and not (fw and is_out(e)):
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
@@ -3204,6 +3346,20 @@ class Ev:
         res["links"] = self.find_links()
         return res
 
+    def is_response(self, ctx, key):
+        """An assignment to the answer of the bus (the record t_io_resp, an ack or nc): the module says it has taken the access; that is no write."""
+        base = key.partition(".")[0]
+        d = ctx.mod.decls.get(base)
+        return (d is not None and d.ty.name.lower() == "t_io_resp") or key.rpartition(".")[2].lower() in ("ack", "nc")
+
+    def is_write(self, ctx, e):
+        """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
+        names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
+        the bus (an ack under the write flag) is none of these."""
+        if self.is_response(ctx, e.key):
+            return False
+        return "d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)
+
     def core_handover(self, res):
         """The write leaves the base for layer 2: a strobe port of the core groups (CORE_PORTS) that is 1 for this address, or an effect that
         drives such a port under a guard of the request's address, and a data port of the same group that carries the request's data."""
@@ -3221,7 +3377,7 @@ class Ev:
                 continue
             for p in c.mod.procs:
                 for e in self.run(c, p).effects:
-                    if e.key in outs and "q" in e.taint:
+                    if e.key in outs and ("q" in e.taint or "r" in e.taint):
                         strobe.add(e.key)
         if not strobe:
             return False

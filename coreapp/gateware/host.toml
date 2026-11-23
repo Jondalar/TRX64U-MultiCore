@@ -1446,7 +1446,7 @@ size = 0x4
   name = "imask"
   offset = 0x3
   width = 8
-  dir = "rw"
+  dir = "r"
 
 [[block]]
 name = "itu_ms"
