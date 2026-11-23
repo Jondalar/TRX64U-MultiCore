@@ -48,6 +48,7 @@ done < "$t/headers"
 for f in lib.mk app.mk sdkroot.mk lib.ld; do cp "$ROOT/app/lib/$f" "$P/mk/"; done
 cp "$ROOT/app/sdk/libc.c" "$ROOT/app/sdk/u2p_compat.c" "$P/sdk/"
 for f in u2a_pack.py descrec.py cor_pack.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
+cp "$ROOT/coreapp/src/basereg.def" "$P/tools/"         # descrec.py refuses a [[window]] over a register the base drives: it reads this list beside itself
 cp "$bin" "$P/image/coreapp.bin"
 cp "$ROOT/coreapp/version.toml" "$P/image/version.toml"
 cp -r "$ROOT/app/sdkpkg/example" "$P/example"

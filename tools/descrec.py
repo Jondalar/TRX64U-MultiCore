@@ -1499,12 +1499,15 @@ KEY_CODE_MAX = 0x1FF
 KEY_NAMES = {"up": 0x91, "down": 0x12, "left": 0x9D, "right": 0x1D, "return": 0x0D, "esc": 0x1B, "del": 0x08, "runstop": 0x11, "space": 0x20, "home": 0x13, "pgup": 0x92, "pgdn": 0x95,
              "tab": 0x09, "f1": 0x85, "f2": 0x89, "f3": 0x86, "f4": 0x8A, "f5": 0x87, "f6": 0x8B, "f7": 0x88, "f8": 0x8C, "f10": 0x8E, "scrlock": 0xA3, "menu": 0x1FE}
 KEY_CTRL = {"a": 0x01, "b": 0x02, "c": 0x03, "d": 0x04, "e": 0x05, "i": 0x09, "j": 0x0A, "k": 0x0B, "l": 0x0C, "n": 0x0E, "o": 0x0F, "p": 0x10, "r": 0xBA, "v": 0x16, "z": 0x1A}
-BASEREG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "src", "basereg.def")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# the registers the base drives: beside this file in the SDK package (tools/basereg.def, tools/sdk_pack.sh), else the repository's coreapp/src/basereg.def
+BASEREG_FILE = next((p for p in (os.path.join(_HERE, "basereg.def"), os.path.join(_HERE, "..", "coreapp", "src", "basereg.def")) if os.path.exists(p)),
+                    os.path.join(_HERE, "..", "coreapp", "src", "basereg.def"))
 _BASEREG = []
 
 
 def base_registers():
-    """The registers the base drives itself: [(name, address, bytes, code reference)], read from coreapp/src/basereg.def (the table descrec.cc includes)."""
+    """The registers the base drives itself: [(name, address, bytes, code reference)], read from basereg.def (BASEREG_FILE; the table descrec.cc includes)."""
     if not _BASEREG:
         with open(BASEREG_FILE) as f:
             lines = f.read().splitlines()

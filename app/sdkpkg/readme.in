@@ -142,9 +142,11 @@ is not in this package yet (see below). `python3 tools/cor_pack.py check mycore.
 
 ## The application image
 
-`image/coreapp.bin` is the shared core application image: one image for every core, the heap comes from the core's own record. It leaves the
-TRX64U C64 core out of its table. TRX64U has an image of its own (`coreapp_trx64u.bin`), and this package does not carry it. So a `.cor` packed
-with this image does not run TRX64U. A core of any other kind needs only this image.
+`image/coreapp.bin` is the shared core application image: one image for every core. The heap comes from the core's own record. The table of
+the image has no compiled-in TRX64U C64. The built-in TRX64U is only in an image of its own (`coreapp_trx64u.bin`), and this package does not
+carry it. A core needs no compiled-in descriptor when its `.cor` carries its description (record 6) and names its code library: `hooks =
+"<library>"` in the [core] section of its API TOML (base 3.3, T239.3 D17). This image runs such a core. TRX64U built from the TRX64-Ultimate
+libraries is such a core. This path is new in base 3.3. It has not run on the board yet.
 
 ## The example
 

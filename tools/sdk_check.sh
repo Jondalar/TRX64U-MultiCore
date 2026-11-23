@@ -19,7 +19,7 @@ tar -xzf "$tgz" -C "$W"
 P="$(echo "$W"/trx64-sdk-*)"
 [ -d "$P" ] || fail "no trx64-sdk-* folder in $tgz"
 ver="$(sed -n 's/^sdk //p' "$P/VERSION")"
-for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld tools/u2a_pack.py tools/descrec.py tools/cor_pack.py image/coreapp.bin example/Makefile; do
+for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld tools/u2a_pack.py tools/descrec.py tools/basereg.def tools/cor_pack.py image/coreapp.bin example/Makefile; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
 want="$(sed -n 's/^coreapp_sha256 //p' "$P/VERSION")"
@@ -45,6 +45,11 @@ CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
 "${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
 [ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
+# a [[window]] compiles from the package alone (descrec.py reads tools/basereg.def beside itself), and one over a register the base drives is refused
+printf '[[window]]\nname = "mixer"\naddress = 0xA0000500\nsize = 0x14\n' > win.toml
+python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "a record with a window does not compile from the package"
+printf '[[window]]\nname = "volume"\naddress = 0xA0000550\nsize = 2\n' > winbad.toml
+! python3 "$P/tools/descrec.py" compile winbad.toml winbad.bin >/dev/null 2>&1 || fail "a window over the base's master volume compiles from the package"
 # every object of both sources was made (lib.mk compiles every file of LIB_SRCS)
 [ -f example.o ] && [ -f greet.o ] || fail "an object of LIB_SRCS is missing"
 # no path of the repository in the build: its dependency files, the log and the image
