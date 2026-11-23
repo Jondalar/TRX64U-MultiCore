@@ -185,11 +185,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			mediamounts.cc \
 			home.cc \
 			menubuild.cc \
-			amiga_ffs.cc \
-			folderhd.cc \
-			folderhd_fold.cc \
-			newfile.cc \
-			newdisk.cc \
+			textcopy.cc \
 			romset.cc \
 			mousesink.cc \
 			rawkeys.cc \
@@ -249,7 +245,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			bugreport.cc \
 			corereport.cc \
 			netfs.cc \
-			ftp_client.cc \
 			netops.cc \
 			netsvc.cc \
 			hostwifi.cc \
@@ -269,7 +264,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			fm_medium.cc \
 			mediasniff.cc \
 			mediaui.cc \
-			fastseek.cc \
 			dma_uart.cc \
 			hw.cc \
 			ui.cc \

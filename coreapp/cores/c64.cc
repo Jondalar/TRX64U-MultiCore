@@ -22,7 +22,7 @@
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include "t64.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"

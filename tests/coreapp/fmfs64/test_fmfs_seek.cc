@@ -15,6 +15,9 @@
 #include "filemanager.h"
 #include "node_directfs.h"
 #include "fm_fs.h"
+#include "fastseek_api.h"
+// the fast seek library's table goes to the CoreFs as the app's bind entry does (T239.3 P3-1)
+static struct SetFastSeek { SetFastSeek() { fm_fs_set_fastseek(fastseek_table()); } } g_set_fastseek;
 
 #include <fcntl.h>
 #include <string>

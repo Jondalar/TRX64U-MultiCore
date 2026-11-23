@@ -18,6 +18,11 @@
 #include "netops.h"
 #include "trx64u_ops.h"
 #include "uci_slot.h"
+#include "sectors.h"
+#include "folderhd_api.h"
+
+// The folder disk library gives the sector engine its table by its bind entry (libtab.cc, which the native builds leave out with the loader's start): the native builds link the library's sources, so the table goes in at the start.
+static struct SetFolderHd { SetFolderHd() { sec_set_folderhd(folderhd_table()); } } g_set_folderhd;
 
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
 void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }

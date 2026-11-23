@@ -1,12 +1,12 @@
 // The Library's FTP medium. PROVENANCE: the list parser, the path building and the connect/login/binary sequence follow vendor/gideon/software/filesystem/filesystem_ftp.cc
-// (Gideon Zweijtzer's firmware, GPL-3.0); the client is ftp_client.cc. There, an FTP server is a branch of the firmware's file manager tree with a temp file cache; here it is a
-// folder of the application's CoreFs and a file is held in RAM while it is open (a file that does not fit in memory is refused).
+// (Gideon Zweijtzer's firmware, GPL-3.0); the client and the list parser are the library "ftp" (ftp_exports.cc, ftp_client.cc), reached through its table (ftp_api.h). There, an FTP server
+// is a branch of the firmware's file manager tree with a temp file cache; here it is a folder of the application's CoreFs and a file is held in RAM while it is open (a file that does not fit
+// in memory is refused).
 #include "netfs.h"
-#include "ftp_client.h"
+#include "ftp_api.h"
 #include "ctx.h"
 #include "online_api.h"
 #include "libload.h"
-#include "file.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,56 +14,16 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define FTP_MAX_FILE   (6u << 20)             // the biggest file held in RAM
-#define LIST_BUF       16384
 #define DIR_CACHE      256
 
 namespace {
 
-// a growing RAM file the client writes into (retr) and reads from (stor)
-class GrowFile : public File {
-public:
+// a RAM file: what was fetched, what is written into it
+struct RamBuf {
     uint8_t *b;
-    uint32_t len, cap, pos;
-    bool failed;
-    GrowFile() : File((FileSystem *)0x100), b(0), len(0), cap(0), pos(0), failed(false) { }
-    ~GrowFile() { free(b); }
-    FRESULT close(void) { return FR_OK; }                       // the owner deletes it
-    FRESULT sync(void) { return FR_OK; }
-    FRESULT read(void *buffer, uint32_t n, uint32_t *tr)
-    {
-        uint32_t k = n > len - pos ? len - pos : n;
-        memcpy(buffer, b + pos, k);
-        pos += k;
-        *tr = k;
-        return FR_OK;
-    }
-    FRESULT write(const void *buffer, uint32_t n, uint32_t *tr)
-    {
-        if (len + n > FTP_MAX_FILE) {
-            failed = true;
-            return FR_DENIED;
-        }
-        if (len + n > cap) {
-            uint32_t nc = cap ? cap : 65536;
-            while (nc < len + n) {
-                nc *= 2;
-            }
-            uint8_t *nb = (uint8_t *)realloc(b, nc);
-            if (!nb) {
-                failed = true;
-                return FR_NOT_ENOUGH_CORE;
-            }
-            b = nb;
-            cap = nc;
-        }
-        memcpy(b + len, buffer, n);
-        len += n;
-        *tr = n;
-        return FR_OK;
-    }
-    FRESULT seek(uint64_t p) { pos = p > len ? len : (uint32_t)p; return FR_OK; }
-    uint64_t get_size(void) { return len; }
+    uint32_t len, cap;
+    RamBuf() : b(0), len(0), cap(0) { }
+    ~RamBuf() { free(b); }
 };
 
 struct Host {
@@ -72,83 +32,9 @@ struct Host {
     bool at_root;                          // set by split(): the path names the host itself
 };
 
-// "drwxr-xr-x  2 user group  4096 Jan 01 12:00 dirname" or the Windows form; filesystem_ftp.cc parse_ftp_list_line
-static bool parse_line(const char *line, char *name, int namesize, uint64_t *size, bool *is_dir)
-{
-    *is_dir = false;
-    *size = 0;
-    name[0] = 0;
-    if (!line || !line[0]) {
-        return false;
-    }
-    if (line[0] == 'd' || line[0] == '-' || line[0] == 'l') {
-        *is_dir = line[0] == 'd';
-        const char *p = line;
-        int fields = 0;
-        while (*p && fields < 8) {
-            while (*p == ' ' || *p == '\t') {
-                p++;
-            }
-            if (!*p) {
-                break;
-            }
-            if (fields == 4) {
-                *size = (uint64_t)strtoull(p, NULL, 10);
-            }
-            while (*p && *p != ' ' && *p != '\t') {
-                p++;
-            }
-            fields++;
-        }
-        while (*p == ' ' || *p == '\t') {
-            p++;
-        }
-        if (*p) {
-            const char *arrow = strstr(p, " -> ");
-            int len = arrow ? (int)(arrow - p) : (int)strlen(p);
-            while (len > 0 && (p[len - 1] == '\r' || p[len - 1] == '\n')) {
-                len--;
-            }
-            if (len >= namesize) {
-                len = namesize - 1;
-            }
-            memcpy(name, p, len);
-            name[len] = 0;
-            return len > 0;
-        }
-        return false;
-    }
-    if (line[0] >= '0' && line[0] <= '9') {
-        const char *p = line;
-        while (*p && *p != ' ') p++;
-        while (*p == ' ') p++;
-        while (*p && *p != ' ') p++;
-        while (*p == ' ') p++;
-        if (!strncmp(p, "<DIR>", 5)) {
-            *is_dir = true;
-            p += 5;
-        } else {
-            *size = (uint64_t)strtoull(p, NULL, 10);
-        }
-        while (*p && *p != ' ') p++;
-        while (*p == ' ') p++;
-        int len = (int)strlen(p);
-        while (len > 0 && (p[len - 1] == '\r' || p[len - 1] == '\n')) {
-            len--;
-        }
-        if (len >= namesize) {
-            len = namesize - 1;
-        }
-        memcpy(name, p, len);
-        name[len] = 0;
-        return len > 0;
-    }
-    return false;
-}
-
 class MemFile : public CoreFile {
 public:
-    GrowFile g;
+    RamBuf g;
     bool rw, dirty;
     char path[FS_PATH_MAX];
     uint64_t size() { return g.len; }
@@ -215,12 +101,19 @@ static bool is_online(const char *p, const char **rel)
     return true;
 }
 
+// The FTP client: the library "ftp" gives its table (ftp_api.h) with its bind entry; an app linked without it has none, and no FTP host answers.
+static const FtpApi *g_ftp;
+
+void netfs_set_ftp(const FtpApi *api)
+{
+    g_ftp = api;
+}
+
+static_assert(NETFS_HOSTS == FTP_SESSIONS, "a host slot of the settings has a connection slot in the library");
+
 static MemFile *g_open[8];
 
 struct NetFs::Impl {
-    FTPClient *cl[NETFS_HOSTS];
-    bool up[NETFS_HOSTS];
-    uint32_t sig[NETFS_HOSTS];
     // the last listing: [host, remote dir]
     int dir_host;
     char dir_path[FS_PATH_MAX];
@@ -241,12 +134,9 @@ static uint32_t now_ms(void) { return (uint32_t)xTaskGetTickCount() * portTICK_P
 void NetFs::forget()
 {
     for (int i = 0; i < NETFS_HOSTS; i++) {
-        if (impl_->cl[i]) {
-            impl_->cl[i]->disconnect();
-            delete impl_->cl[i];
-            impl_->cl[i] = 0;
+        if (g_ftp) {
+            g_ftp->forget(i);
         }
-        impl_->up[i] = false;
     }
     impl_->dir_host = -1;
 }
@@ -325,46 +215,21 @@ static bool split(CoreCtx *c, const char *path, int *host, char *remote, int rn,
     return true;
 }
 
-static FTPClient *client(NetFs::Impl *im, CoreCtx *c, int n, const Host &h, char *err, int en)
+// The connection of host slot `n` is up (made or kept). false: no connection, the reason in err. The listing kept from another server of the slot is dropped.
+static bool client(NetFs::Impl *im, int n, const Host &h, char *err, int en)
 {
-    FTPClient *cl = im->cl[n];
-    uint32_t sg = 2166136261u;                                   // a host whose settings changed starts over
-    const char *parts[3] = { h.host, h.user, h.pass };
-    for (int pi = 0; pi < 3; pi++) {
-        for (const char *t = parts[pi]; *t; t++) {
-            sg = (sg ^ (uint8_t)*t) * 16777619u;
-        }
-        sg *= 31;
+    if (!g_ftp) {
+        snprintf(err, en, "No FTP in this app");
+        return false;
     }
-    sg ^= h.port;
-    if (cl && im->sig[n] != sg) {
-        cl->disconnect();
-        delete cl;
-        cl = im->cl[n] = 0;
-        im->up[n] = false;
+    int r = g_ftp->connect(n, h.host, h.port, h.user, h.pass, err, en);
+    if (r < 0) {
+        return false;
+    }
+    if (r > 0) {
         im->dir_host = -1;
     }
-    im->sig[n] = sg;
-    if (!cl) {
-        cl = im->cl[n] = new FTPClient();
-    }
-    if (im->up[n] && cl->is_connected()) {
-        return cl;
-    }
-    im->up[n] = false;
-    if (cl->open(h.host, h.port) < 0) {
-        snprintf(err, en, "FTP: no connection to %s:%d", h.host, h.port);
-        return 0;
-    }
-    if (cl->login(h.user, h.pass) < 0) {
-        snprintf(err, en, "FTP: login to %s refused", h.host);
-        cl->disconnect();
-        return 0;
-    }
-    cl->type_binary();
-    im->up[n] = true;
-    (void)c;
-    return cl;
+    return true;
 }
 
 int NetFs::list(const char *dir, FsEntry *out, int max)
@@ -379,7 +244,7 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
         }
         for (int i = 0; i < NETFS_HOSTS; i++) {
             Host hh;
-            if (host_of(c_, i, &hh)) {
+            if (g_ftp && host_of(c_, i, &hh)) {                  // an app linked without the library has no folder "FTP"
                 memset(&out[n], 0, sizeof(out[n]));
                 snprintf(out[n].name, sizeof(out[n].name), "FTP");
                 out[n].dir = true;
@@ -428,45 +293,13 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
         memcpy(out, im->dir_e, n * sizeof(FsEntry));
         return n;
     }
-    FTPClient *cl = client(im, c_, host, h, err_, sizeof(err_));
-    if (!cl) {
+    if (!client(im, host, h, err_, sizeof(err_))) {
         return -1;
     }
-    char *buf = (char *)malloc(LIST_BUF);
-    if (!buf) {
+    int n = g_ftp->list(host, remote, im->dir_e, DIR_CACHE, err_, sizeof(err_));
+    if (n < 0) {
         return -1;
     }
-    int got = 0;
-    if (cl->list(remote, buf, LIST_BUF - 1, &got) < 0) {
-        snprintf(err_, sizeof(err_), "FTP: %s cannot be listed", remote);
-        printf("[netfs] %s (%s)\n", err_, cl->last_response());
-        free(buf);
-        im->up[host] = false;
-        return -1;
-    }
-    buf[got] = 0;
-    int n = 0;
-    for (int pass = 0; pass < 2; pass++) {                      // folders first
-        char *line = buf;
-        while (line && *line && n < DIR_CACHE) {
-            char *next = strchr(line, '\n');
-            if (next) {
-                *next++ = 0;
-            }
-            char name[FS_NAME_MAX + 1];
-            uint64_t sz;
-            bool d;
-            if (parse_line(line, name, sizeof(name), &sz, &d) && strcmp(name, ".") && strcmp(name, "..") && (pass == 0) == d) {
-                memset(&im->dir_e[n], 0, sizeof(FsEntry));
-                snprintf(im->dir_e[n].name, sizeof(im->dir_e[n].name), "%s", name);
-                im->dir_e[n].dir = d;
-                im->dir_e[n].size = sz;
-                n++;
-            }
-            line = next;
-        }
-    }
-    free(buf);
     im->dir_host = host;
     snprintf(im->dir_path, sizeof(im->dir_path), "%s", remote);
     im->dir_n = n;
@@ -524,18 +357,15 @@ bool NetFs::stat(const char *path, uint64_t *size, bool *dir)
     return found;
 }
 
-static bool fetch(NetFs::Impl *im, CoreCtx *c, int host, const Host &h, const char *remote, GrowFile *g, char *err, int en)
+static bool fetch(NetFs::Impl *im, int host, const Host &h, const char *remote, RamBuf *g, char *err, int en)
 {
-    FTPClient *cl = client(im, c, host, h, err, en);
-    if (!cl) {
+    if (!client(im, host, h, err, en)) {
         return false;
     }
-    int got = 0;
-    if (cl->retr(remote, g, &got) < 0 || g->failed) {
-        snprintf(err, en, "FTP: %s cannot be fetched%s", remote, g->failed ? " (too big for RAM)" : "");
-        im->up[host] = false;
+    if (!g_ftp->fetch(host, remote, &g->b, &g->len, FTP_MAX_FILE, err, en)) {
         return false;
     }
+    g->cap = g->len;
     return true;
 }
 
@@ -562,29 +392,20 @@ int NetFs::load(const char *path, void *buf, uint32_t max)
     if (host < 0) {
         return -1;
     }
-    GrowFile g;
-    if (!fetch(impl_, c_, host, h, remote, &g, err_, sizeof(err_)) || g.len > max) {
+    RamBuf g;
+    if (!fetch(impl_, host, h, remote, &g, err_, sizeof(err_)) || g.len > max) {
         return -1;
     }
     memcpy(buf, g.b, g.len);
     return (int)g.len;
 }
 
-static bool upload(NetFs::Impl *im, CoreCtx *c, int host, const Host &h, const char *remote, const uint8_t *data, uint32_t len, char *err, int en)
+static bool upload(NetFs::Impl *im, int host, const Host &h, const char *remote, const uint8_t *data, uint32_t len, char *err, int en)
 {
-    FTPClient *cl = client(im, c, host, h, err, en);
-    if (!cl) {
+    if (!client(im, host, h, err, en)) {
         return false;
     }
-    GrowFile g;
-    uint32_t tr;
-    if (len && g.write(data, len, &tr) != FR_OK) {
-        return false;
-    }
-    g.pos = 0;
-    if (cl->stor(remote, &g) < 0) {
-        snprintf(err, en, "FTP: %s cannot be written", remote);
-        im->up[host] = false;
+    if (!g_ftp->store(host, remote, data, len, err, en)) {
         return false;
     }
     im->dir_host = -1;
@@ -605,7 +426,7 @@ bool NetFs::save(const char *path, const void *buf, uint32_t len)
     if (!split(c_, path, &host, remote, sizeof(remote), &h)) {
         return in_->save(path, buf, len);
     }
-    return host >= 0 && upload(impl_, c_, host, h, remote, (const uint8_t *)buf, len, err_, sizeof(err_));
+    return host >= 0 && upload(impl_, host, h, remote, (const uint8_t *)buf, len, err_, sizeof(err_));
 }
 
 bool NetFs::remove(const char *path)
@@ -625,12 +446,12 @@ bool NetFs::remove(const char *path)
     if (host < 0) {
         return false;
     }
-    FTPClient *cl = client(impl_, c_, host, h, err_, sizeof(err_));
+    bool up = client(impl_, host, h, err_, sizeof(err_));
     uint64_t sz;
     bool d = false;
     stat(path, &sz, &d);
     impl_->dir_host = -1;
-    return cl && (d ? cl->rmd(remote) : cl->dele(remote)) >= 0;
+    return up && g_ftp->remove(host, remote, d);
 }
 
 CoreFile *NetFs::open(const char *path, bool rw)
@@ -676,7 +497,7 @@ CoreFile *NetFs::open(const char *path, bool rw)
     bool known = stat(path, &sz, &d);
     printf("[netfs] open %s rw %d: %s\n", path, rw ? 1 : 0, known ? (d ? "a folder" : "known") : "unknown");
     if (known && !d) {
-        if (!fetch(impl_, c_, host, h, remote, &m->g, err_, sizeof(err_))) {
+        if (!fetch(impl_, host, h, remote, &m->g, err_, sizeof(err_))) {
             delete m;
             return 0;
         }
@@ -769,9 +590,9 @@ bool NetFs::mkdir(const char *path)
     if (host < 0) {
         return false;
     }
-    FTPClient *cl = client(impl_, c_, host, h, err_, sizeof(err_));
+    bool up = client(impl_, host, h, err_, sizeof(err_));
     impl_->dir_host = -1;
-    return cl && cl->mkd(remote) >= 0;
+    return up && g_ftp->mkdir(host, remote);
 }
 
 bool NetFs::rename(const char *from, const char *to)
@@ -786,9 +607,9 @@ bool NetFs::rename(const char *from, const char *to)
     if (!a || !b || hf != ht || hf < 0) {
         return false;                                              // across media: the caller copies and deletes
     }
-    FTPClient *cl = client(impl_, c_, hf, h1, err_, sizeof(err_));
+    bool up = client(impl_, hf, h1, err_, sizeof(err_));
     impl_->dir_host = -1;
-    return cl && cl->rnfr_rnto(rf, rt) >= 0;
+    return up && g_ftp->rename(hf, rf, rt);
 }
 
 static NetFs *g_net;

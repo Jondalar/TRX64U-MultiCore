@@ -30,6 +30,7 @@ headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d15
 bind = "cbm1541_bind"
 register_ops = "cbm1541_register"
 capability = "drive_a"
+needs = ["newfile"]
 
 [[library]]
 name = "uci"
@@ -75,3 +76,39 @@ name = "t64"
 sources = ["t64.cc", "t64_vlist.cc"]
 headers = ["t64.h"]
 bind = "t64_bind"
+
+# Where a new file goes and under what name (T122): used by the 1541's Create and Save and by newdisk. The two string helpers generic code needs (nf_base, nf_copy) are in textcopy.h, not here.
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+# "Create blank ..." for the cores with a floppy that is not the 1541 (T122). A core that is compiled registers it itself (newdisk_register, last in its register_ops); a core described by its record gets it by the capability "floppy".
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = "floppy"
+needs = ["newfile"]
+
+# A folder of a medium as an Amiga hard disk (T128). The sector engine (sectors.cc, generic: the base's media engine, its users are engines.cc, mediamounts.cc and the descriptors) mounts it through the table of folderhd_api.h.
+[[library]]
+name = "folderhd"
+sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
+headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
+bind = "folderhd_bind"
+
+# The cluster link map of an open FatFs file (T104 5.16). The file manager's CoreFs (fm_fs.cc) uses it through the table of fastseek_api.h.
+[[library]]
+name = "fastseek"
+sources = ["fastseek.cc", "fastseek_exports.cc"]
+headers = ["fastseek.h", "fastseek_api.h"]
+bind = "fastseek_bind"
+
+# The FTP medium's client and what the Library's FTP folder needs of it (T104.2). netfs.cc (generic: the file system of the application, with the online results) uses it through the table of ftp_api.h.
+[[library]]
+name = "ftp"
+sources = ["ftp_client.cc", "ftp_exports.cc"]
+headers = ["ftp_client.h", "ftp_api.h"]
+bind = "ftp_bind"

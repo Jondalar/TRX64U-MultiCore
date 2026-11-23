@@ -43,6 +43,9 @@ struct SecState {
     SecUnit unit[SEC_UNITS_MAX];
 };
 
+struct FolderHdApi;
+// The folder disk library gives the engine its table (folderhd_exports.cc, the library's bind entry). Without one, mounting a folder is refused with a reason (T239.3 P3-1).
+void sec_set_folderhd(const FolderHdApi *api);
 int sec_mount(CoreCtx *c, int u, const char *path, char *msg, int msglen);
 // T128: a folder as a hard disk. `spec` is what the menu hands over: "<folder>/<size in GB>" (the size is the last path component, empty: the default).
 int sec_mount_folder(CoreCtx *c, int u, const char *spec, char *msg, int msglen);

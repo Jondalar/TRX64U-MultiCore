@@ -1,5 +1,5 @@
 // The Library's FTP medium (T104.2 UI): a CoreFs in front of the disk file system that adds the folder "/ftp" - one folder per FTP host of the settings (Settings, FTP hosts) -
-// and answers every path below it over FTP (ftp_client.cc, Gideon's client). Host-owned.
+// and answers every path below it over FTP (the library "ftp": ftp_api.h, its client is ftp_client.cc, Gideon's). Host-owned.
 #ifndef COREAPP_NETFS_H
 #define COREAPP_NETFS_H
 
@@ -36,6 +36,9 @@ private:
     Impl *impl_;
 };
 
+struct FtpApi;
+// The FTP library gives the file system its table (ftp_exports.cc, the library's bind entry). Without one there is no folder "FTP" in the listing of `/` and every path below it fails (T239.3 P3-1).
+void netfs_set_ftp(const FtpApi *api);
 NetFs *netfs_of(CoreCtx *c);          // the FTP medium of the running core, null when it has none
 void netfs_set(NetFs *n);
 

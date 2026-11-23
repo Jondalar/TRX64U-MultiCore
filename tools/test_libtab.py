@@ -39,10 +39,21 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         L.check_files(libs, ROOT)
         names = [x["name"] for x in libs]
-        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "online"):
+        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "online",
+                     "newfile", "newdisk", "folderhd", "fastseek", "ftp"):
             self.assertIn(need, names)
         run = [x for x in libs if x["name"] == "cbmrun"][0]
         self.assertIn("c64_go.cc", run["sources"])                   # c64_go is part of cbmrun (P1-8)
+
+    def test_the_new_file_and_folder_libraries_are_whole(self):
+        libs = {x["name"]: x for x in L.load(SHARED)}
+        self.assertEqual(libs["newdisk"]["needs"], ["newfile"])                  # the image builders place their file by newfile
+        self.assertIn("newfile", libs["cbm1541"]["needs"])                       # so does the 1541's Create and Save
+        self.assertEqual(sorted(libs["folderhd"]["sources"]), ["amiga_ffs.cc", "folderhd.cc", "folderhd_exports.cc", "folderhd_fold.cc"])
+        self.assertEqual(libs["ftp"]["sources"], ["ftp_client.cc", "ftp_exports.cc"])
+        srcs = [f for x in libs.values() for f in x["sources"]]
+        for generic in ("textcopy.cc", "sectors.cc", "winslot.cc", "netfs.cc", "fm_fs.cc"):   # the files that generic code needs stay out of every library
+            self.assertNotIn(generic, srcs)
 
     def test_table_has_a_row_per_library_with_its_entries(self):
         libs = L.load(SHARED)
@@ -51,6 +62,11 @@ class SharedApp(unittest.TestCase):
         self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, "drive_a", 0, 0, 0 },', t)
         self.assertIn('{ "uci", uci_bind, 0, 0, 0, 0, uci_take_freeze_request },', t)
         self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0 },', t)
+        self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0 },', t)                      # a library without an entry: its code is called by the libraries that need it
+        self.assertIn('{ "newdisk", 0, newdisk_register, "floppy", 0, 0, 0 },', t)
+        self.assertIn('{ "folderhd", folderhd_bind, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "fastseek", fastseek_bind, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "ftp", ftp_bind, 0, 0, 0, 0, 0 },', t)
         self.assertIn("void tempdisk_lib_init(const BoardProfile &);", t)
         self.assertIn("const unsigned g_libtab_n = %d;" % len(libs), t)
         self.assertEqual(L.mk_text(libs).split()[0:2], ["LIB_SRCS_CC", "="])

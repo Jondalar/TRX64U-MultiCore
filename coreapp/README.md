@@ -28,5 +28,8 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
 - `libs/shared.toml` is the TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with (sources, headers, the entries each hands the generic application). `tools/libtab.py` makes the library table
   (`libtab_table.cc`, walked by `src/libtab.cc`) and the list of library sources the core app Makefile compiles from it; `libtab.py lint` (ci/lint.sh) and `libtab.py symcheck` (ci/trxapps.sh) check that
   no generic source or object names a library. The generic application calls `libtab_*` and no function of a library.
+  A library whose code a generic source needs too gives its table to that source with its `bind` entry, and the generic source calls the table only: the sector engine (`sectors.cc`) mounts a folder through `folderhd_api.h`, the
+  file manager's CoreFs (`fm_fs.cc`) seeks through `fastseek_api.h`, the network file system (`netfs.cc`) reaches FTP through `ftp_api.h`. Without the library the call is refused with a reason (or, for the fast seek, the file seeks the normal way).
+  The two string helpers of `newfile.h` that menus and cores use (`nf_base`, `nf_copy`) are `textcopy.h`, generic; the media engines `sectors.cc` and `winslot.cc` are the base's own (engines, mounts and descriptors use them) and stay generic.
 
 Spec: `docs/specs/T93-core-app-blueprint.md`, what was decided while building is its section 5.
