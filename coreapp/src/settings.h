@@ -41,7 +41,7 @@ public:
     Layer layer(int i) const;
     const char *label(int i) const { return items_[i].values[value(i)]; }
     // The index of the setting named `key` (case folded, as the stored keys of the .cfg are), -1 for none; with two equal keys the first. A name-hash index answers it, built when the
-    // object is made and again at every rebind (the generation changes with it), so a lookup costs about one key comparison instead of one per setting before it.
+    // object is made and never again (a rebind changes the generation, not the items), so a lookup costs about one key comparison instead of one per setting before it.
     int find(const char *key) const;
     // What the lookups cost, process wide, for the menu simulator and the unit: calls of find, the key comparisons they made, and the comparisons the linear scan this index replaced
     // would have made for the same calls (index + 1 for a hit, every setting for a miss).

@@ -307,8 +307,7 @@ bool Settings::export_config(const char *path, const char *const *mk, const char
 
 void Settings::rebind(const char *path)
 {
-    gen_ = ++s_generation;
-    index_build();
+    gen_ = ++s_generation;                             // the items and their keys are the same, so the name index stays as it is: a lookup on another task never meets it cleared
     snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
     safe_ = false;                                     // a config loaded on purpose: its changes are written as always
     save_failed_ = false;
