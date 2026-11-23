@@ -21,7 +21,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
-| T256 | 2 | 🔨 | Overlay service of the base in the SDK: a library puts pixels over the machine's picture, also while it runs (T239.3 D23) | Spec in work: D1 no new gateware, D3 pixel surfaces (Alex 11-23); next: what shows while the menu is open | [T256](docs/specs/T256-overlay-service.md) |
+| T256 | 2 | 🔨 | Overlay service of the base in the SDK: a library puts pixels over the machine's picture, also while it runs (T239.3 D23) | Spec in work: D1 no gateware, D3 pixel surfaces, D4 only with the menu closed (Alex 11-23); next: the PAUSED tag | [T256](docs/specs/T256-overlay-service.md) |
 | T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fixed by T233 (board PASS 11-18); CPC back in pipeline and manual; old board steps closed 11-18 | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | S10/S11/S15/S16 board done 11-18 (Alex: shipped = done); open: board S1 (monolith), S13 flash boot | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
