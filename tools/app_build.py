@@ -363,11 +363,13 @@ def merge_a(a, base_blocks, maps, out):
         what = "%s + %s of %s" % (os.path.basename(a["toml-a"]), ", ".join(base_blocks), os.path.basename(base))
         head, src = descrec.drivers_files(doc, what)
         frag = descrec.ldfrag_doc(doc, what)
+        io = (doc["io"]["iobase"], doc["io"]["u2p_io_base"])
+    except (KeyError, TypeError) as e:
+        raise BuildError("%s: the TOML A of the app has no [io] with %s" % (a["toml-a"], e))
     except (descrec.DescError, OSError) as e:
         raise BuildError("%s: the TOML A of the app: %s" % (a["toml-b"], e))
     os.makedirs(os.path.join(out, "drv"), exist_ok=True)
     rows = [(b["name"], b["address"], b["size"]) for b in doc["block"] if b.get("owner") == "base"]
-    io = (doc["io"]["iobase"], doc["io"]["u2p_io_base"])
     descrec._BASE_BLOCKS["path"], descrec._BASE_BLOCKS["rows"], descrec._BASE_BLOCKS["io"] = what, rows, io    # the base blocks and bases of this one document decide what a window may cover
     write_if_changed(os.path.join(out, "drv", "basetab.h"), descrec.basetab_text(rows, what, io))
     write_if_changed(os.path.join(out, "drv", "drvtab.h"), head)

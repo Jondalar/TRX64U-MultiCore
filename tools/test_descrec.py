@@ -978,17 +978,26 @@ size = 0x14
         self.assertFalse(r["sections"])
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
-    def test_the_windows_granted_to_trx64u_are_accepted_and_the_two_over_base_blocks_are_refused(self):
-        # the addresses are in the firmware space (U2P_IO_BASE 0xA0000000); the readers translate them by the [io] of host.toml (0x10100000) before the check against its base blocks
-        # (T239.3 V-3c). The runs next to the base's own registers that the handover grants are accepted: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D
-        # of the U64 block, speaker_enable.
-        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2),
-                                                                                      ("u64_pwm_duty", 0xA000040D, 1), ("speaker_enable", 0xA000000C, 1)))
-        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 4)
-        # the other two of the handover's list lie over base blocks of host.toml (audio_mixer at 0x10100500, c64_palette at 0x10180800): refused
-        for name, addr, size, block in (("audio_mixer", 0xA0000500, 0x14, "audio_mixer"), ("palette", 0xA0080800, 0x400, "c64_palette")):
-            with self.assertRaisesRegex(D.DescError, "covers the block %s of the base" % block):
-                D.compile_text('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % (name, addr, size))
+    # the nine windows of TRX64-Ultimate's software/trx64u/base/desc.toml (the hand-over's grant list) with its names, addresses (firmware space) and sizes
+    HANDOVER_WINDOWS = (("speaker_enable", 0xA000000C, 0x1), ("u64_userport", 0xA0000405, 0x1), ("u64_hdmi_connectors", 0xA0000408, 0x2), ("u64_pwm_duty", 0xA000040D, 0x1),
+                        ("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 0x6), ("resampler", 0xA0000580, 0xA), ("c64_palette", 0xA0080800, 0x440),
+                        ("hdmi_palette", 0xA0045000, 0x40))
+
+    def test_the_windows_of_the_handover_are_accepted_or_refused_by_the_base_block_they_hit(self):
+        # T239.3 V-3c: the readers translate the firmware's addresses by the [io] of host.toml (0x10100000) before the check against its base blocks. Of the nine windows of the
+        # hand-over, five pass; four lie over a base-owned block of host.toml and are refused (the hand-over grants them, host.toml owns them: Alex decides which stands).
+        refused = {"audio_mixer": "audio_mixer", "speaker_mixer": "speaker_mixer_a", "c64_palette": "c64_palette", "hdmi_palette": "overlay_palette"}
+        accepted = []
+        for name, addr, size in self.HANDOVER_WINDOWS:
+            text = '[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % (name, addr, size)
+            if name in refused:
+                with self.assertRaisesRegex(D.DescError, "covers the block %s of the base" % refused[name]):
+                    D.compile_text(text)
+            else:
+                self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 1)
+                accepted.append(name)
+        self.assertEqual(accepted, ["speaker_enable", "u64_userport", "u64_hdmi_connectors", "u64_pwm_duty", "resampler"])
+        self.assertEqual(len(self.HANDOVER_WINDOWS), len(accepted) + len(refused))
 
     def test_a_window_in_firmware_space_is_translated_and_checked_as_in_the_toml_a(self):
         # T239.3 V-3c: the same byte is refused at 0xA0000401 (firmware space), at 0x10100401 (the host TOML A's) and, through IOBASE 0x04000000, at 0x04100401
@@ -1570,6 +1579,21 @@ class ExampleCore(unittest.TestCase):
         missing = sorted(set(v[0] for k, v in sregs.items() if k not in hregs and not any(lo <= k[0] < hi for lo, hi in hwin)))
         # not in host.toml, not decoded in host/: the UCI window answers 0 (host.toml's header names it); the one block of the shared app that this check cannot tie to the RTL
         self.assertEqual(missing, ["cmd_if"])
+        # block by block: a shared.toml block of the same name has the address and size of host.toml's; the owner differs only where named here
+        hblocks = {b["name"]: b for b in host["block"]}
+        by_name = {b["name"]: b for b in shared["block"]}
+        owner_core_in_host = ["drive_a", "gcr_coder"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
+        absent_in_host = ["cmd_if", "ident", "icap"]                           # cmd_if: no decode; ident: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml
+        self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
+        for n, b in by_name.items():
+            if n in absent_in_host:
+                continue
+            self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
+            self.assertEqual(b["owner"] != hblocks[n]["owner"], n in owner_core_in_host, n)
+        self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core", "core"])
+        icap = by_name["icap"]
+        inside = sorted(b["name"] for b in host["block"] if b["owner"] == "base" and icap["address"] <= b["address"] and b["address"] + b["size"] <= icap["address"] + icap["size"] and b["name"].startswith("icap_"))
+        self.assertEqual(len(inside), 5)
         ex = D.toml_loads(self.read("gateware", "example.toml"))
         raw = D.toml_loads(open(os.path.join(gw, "shared.toml")).read())
         self.assertEqual([b for b in ex["block"] if b["owner"] == "base"], raw["block"])
