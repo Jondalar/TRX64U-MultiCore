@@ -18,6 +18,7 @@
 #include "hotkeys.h"
 #include "desc_check.h"
 #include "desc_tables_cmp.h"
+#include "ops_glue.h"
 
 const CoreDesc *const core_table[] = { 0 };               // no descriptor is compiled in for the start of this test: the bundle's record is all there is
 extern const CoreDesc *const compiled_in_table[];         // the application's real table (compiled_table.cc), the compiled-in side of every comparison
@@ -451,6 +452,24 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         // the bundle another core's name: the manifest says one name, the hand-over another
         handover_fill(&h, cor.c_str(), "Another Core", "0.3.0", 0x820eded2u);
         CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_COR_MISMATCH);
+        // the bundle's medium comes up 2.9 s after the start, a stick enumerating (advisor 2026-11-23): the description waits for it, as the start does for the folder
+        {
+            struct Late : MediumEnv {
+                FakeFs *fs;
+                uint32_t t = 0, up_at;
+                int delays = 0;
+                Late(FakeFs *f, uint32_t up) : fs(f), up_at(up) { fs->gone = true; }
+                uint32_t now_ms() override { return t; }
+                void delay_ms(uint32_t ms) override { t += ms; if (++delays > 500 || t >= up_at) { fs->gone = false; } }
+            } late(&fs, 2900);
+            BundleDescSource waits(&fs, &hooks, &late);
+            handover_fill(&h, cor.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
+            CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &waits), START_OK);
+            CHECK(late.t >= 2900 && late.t < START_MEDIUM_WAIT_MS);
+            fs.gone = true;                                    // the same start without the wait: no medium, the core is held
+            CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
+            fs.gone = false;
+        }
     }
 
     // ---- 4. which description wins: the compiled-in one beside it, the record's own tables on a descriptor made of it, no setting twice
@@ -462,6 +481,33 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         CoreDesc got;
         CHECK_EQ(descrec_core(d1, &hooks, &got, why, sizeof(why)), 0);
         CHECK(!want->from_record && got.from_record);
+        // the base's own groups (ops_glue.h ops_record_groups, advisor 2026-11-23): for a core made of its record that registers no operations (its code is a library),
+        // not for one whose code registers them, not for a compiled-in descriptor
+        {
+            static int calls;
+            static const CoreDesc *seen;
+            calls = 0;
+            seen = 0;
+            ops_record_groups = [](OpRegistry &, const CoreDesc *dd) { calls++; seen = dd; };
+            CoreDesc lib = got, own = got, built = *want;
+            lib.register_ops = 0;
+            own.register_ops = [](OpRegistry &) { };
+            built.register_ops = 0;
+            CoreCtx c1, c2, c3;
+            memset(&c1, 0, sizeof(c1));
+            memset(&c2, 0, sizeof(c2));
+            memset(&c3, 0, sizeof(c3));
+            c1.desc = &lib;
+            c2.desc = &own;
+            c3.desc = &built;
+            ops_of(&c1);
+            CHECK_EQ(calls, 1);
+            CHECK(seen == &lib);
+            ops_of(&c2);
+            ops_of(&c3);
+            CHECK_EQ(calls, 1);
+            ops_record_groups = 0;
+        }
         CHECK(!descrec_applies(*d2, want));                            // compiled in: the record changes nothing (bundle_merge leaves the base as it is)
         CHECK(descrec_applies(*d2, &got));
         CoreDesc out;

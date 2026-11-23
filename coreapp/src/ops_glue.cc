@@ -77,6 +77,8 @@ void ops_register_base(OpRegistry &r)
     libfiles_register(r);                                          // the Library's file operations belong to the F3 browser, which every core has
 }
 
+void (*ops_record_groups)(OpRegistry &r, const CoreDesc *d) = 0;
+
 OpRegistry *ops_of(CoreCtx *c)
 {
     if (!c->ops) {
@@ -84,6 +86,8 @@ OpRegistry *ops_of(CoreCtx *c)
         ops_register_base(*c->ops);
         if (c->desc && c->desc->register_ops) {
             c->desc->register_ops(*c->ops);
+        } else if (c->desc && c->desc->from_record && ops_record_groups) {
+            ops_record_groups(*c->ops, c->desc);
         }
     }
     return c->ops;

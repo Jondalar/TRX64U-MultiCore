@@ -9,6 +9,11 @@
 // The registry of this core application: the base's operations (the shared resets, the Picture item), then the descriptor's contributor.
 // Made on first use. Returns null when a registration was refused; ops_error() says which.
 OpRegistry *ops_of(CoreCtx *c);
+
+// T239.3 (advisor 2026-11-23): the base's own operation groups for a core described by its record (D17, CoreDesc::from_record) that registers no
+// operations itself (no register_ops): its code is a library, which registers its own. ops_of() calls it after the base's operations. The board
+// sets it (run.cc); null (the tests): none.
+extern void (*ops_record_groups)(OpRegistry &r, const CoreDesc *d);
 const char *ops_error(CoreCtx *c);
 
 // An operation by name. The arguments are checked against the registered types first; a refused call never reaches the handler.

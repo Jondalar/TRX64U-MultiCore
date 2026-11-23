@@ -109,6 +109,13 @@ const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *
         snprintf(msg, msglen, "%s, and there is no bundle to read one from. The core stays held.", who);
         return 0;
     }
+    if (env_) {                                                  // the bundle's medium first: a stick enumerates after the application starts (mediumwait.h)
+        MediumWait w;
+        medium_wait(fs_, h->path, env_, START_MEDIUM_WAIT_MS, &w);
+        if (w.waited) {
+            printf("[core] medium of %s: %s after %u ms\n", h->path, w.present ? "up" : "not seen", (unsigned)w.ms);
+        }
+    }
     BundleExtras x;
     read_cor_at(fs_, h->path, start_host_key(h), 0, &x);
     // the record and its bytes are freed with every refusal; only the descriptor that is returned keeps them (its strings live in them)

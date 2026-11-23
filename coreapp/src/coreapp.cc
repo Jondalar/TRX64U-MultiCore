@@ -62,10 +62,17 @@ static void app_task(void *)
         walltime_adopt(hp);                       // T191: the host's time, before any core asks for it (the Amiga RTC loads it at reset)
     }
     const CoreDesc *desc = 0;
-    char msg[200];
-    // T239.3 D17: a core with no descriptor compiled in is described by its bundle's data record. The code a record cannot hold (init, release, the operations) is not
-    // provided yet (no hooks): such a core is held with the sentence that says so.
-    static BundleDescSource desc_src(fm_fs(), 0);
+    static char msg[512];                         // the held page's sentence: the bundle's path and the record's reason (bundle.cc)
+    // T239.3 D17: a core with no descriptor compiled in is described by its bundle's data record. Its code is the library the record names (`hooks`, core_hooks.h,
+    // bound when the core runs); the base's own operation groups it gets by the record's data (ops_glue.h ops_record_groups). The bundle's medium is waited for
+    // first, as the start does for the core's folder (mediumwait.h): a .cor on a stick that has not enumerated yet would hold the core.
+    class BoardMediumEnv : public MediumEnv {
+    public:
+        uint32_t now_ms() { return hw_io()->now_ms(); }
+        void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
+    };
+    static BoardMediumEnv medium_env;
+    static BundleDescSource desc_src(fm_fs(), 0, &medium_env);
     StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io(), &desc_src);
     STARTLOG("phase core identified: %s", msg);
     if (r != START_OK) {

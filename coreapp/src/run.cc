@@ -4,6 +4,8 @@
 #include "FreeRTOS.h"
 #include "run.h"
 #include "diag.h"
+#include "online.h"
+#include "cbm1541.h"
 #include "ui.h"
 #include "monitor.h"
 #include "netfs.h"
@@ -440,8 +442,20 @@ void coreapp_held(const char *why, const BoardProfile *board)
 // What the application's own settings (baseset.h) put into the board: the menu's look, the product, the host keyboard's joystick registers.
 static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
 
+// T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
+// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, online, diag); a record core gets them by its data.
+static void record_groups(OpRegistry &r, const CoreDesc *d)
+{
+    diag_register(r);                                         // the Diagnostics tab (diag.cc): the log, the EDID, the heap, the media and USB states
+    online_register(r);                                       // the Assembly64 / CommoServe search, a central library (D12)
+    if (desc_has_capability(d, "drive_a")) {                  // drive A is the 1541 in every core that names it (cbm1541.cc): drive.put_rom and the drive's rows
+        cbm1541_register(r);
+    }
+}
+
 void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
 {
+    ops_record_groups = record_groups;                        // before anything makes the registry (ops_of)
     static BoardUi board_ui;
     static BoardFreeze board_freeze;
     static BoardMenuHost board_host;
@@ -698,6 +712,16 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
+    // The libraries' groups before the first reset and the start hook (api.md 9.7.10, 9.7.5.1): a library's init and start have api->io, the operations, the
+    // machine's groups, the dialogs and the jobs. The application host fills them when it installs; the executor and the polls start after the start hook.
+    static BoardOs board_os;
+    static CoreLock core_lock(&board_os);
+    // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
+    static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);
+    appsvc_init(&ctx);
+    app_host.install();
+    app_host.set_end_hook(appsvc_end);
+    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover, appsvc_c64_api());
     if (!desc->hooks_lib) {
         hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it; a record that names its library took its table above
     }
@@ -707,14 +731,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     collect_rom_names();
 
     // The service layer (T104.1 D2, D6, Q9): from here on every operation runs on the executor, in order, and the core's poll on a task of
-    // its own above this one's priority; the two share only the core lock. Before this point (the start sequence) an operation ran on
-    // this task, nobody else being there.
-    static BoardOs board_os;
+    // its own above this one's priority; the two share only the core lock. Before this point (the start sequence) an operation runs on
+    // the task that calls it: this one, or a library's job.
     // the guard's control (T97 5.12): a yield with interrupts off must count one hit and come back with them on, or the app stops here
     portDISABLE_INTERRUPTS();
     board_os.sleep_ms(0);
     printf("irq guard: self-test %s\n", irq_guard_hits == 1 ? "ok" : "FAILED");
-    static CoreLock core_lock(&board_os);
     if (ops_of(&ctx)->error()[0]) {
         printf("[core] a registration was refused: %s\n", ops_error(&ctx));
     }
@@ -766,12 +788,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     if (lib_board_loader()) {
         lib_board_loader()->set_poll_sink(&lib_polls);
     }
-    // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
-    static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);
-    appsvc_init(&ctx);
-    app_host.install();
-    app_host.set_end_hook(appsvc_end);
-    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover, appsvc_c64_api());
     // T175: the diag core's runner asks the person through the application host's dialogs, on a task of its own (portdiag.h)
     struct DiagHost : PdHost {
         BoardOs *os;
@@ -1143,6 +1159,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                 close_menu();
             }
         }
-        mon_serve(&ctx);                              // the RPC on TCP 4312, whatever the menu does (monsrv.h)
+        if (!ctx.desc->hooks_lib) {                   // a core whose code is a library brings its own monitor (TRX64-Ultimate's, D12): the port is its
+            mon_serve(&ctx);                          // the RPC on TCP 4312, whatever the menu does (monsrv.h)
+        }
     }
 }
