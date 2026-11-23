@@ -1,0 +1,24 @@
+# The register map of the example core's own module example_ctl (a core's own maps are in its repository; the shared drivers' maps are in the package's maps/). Offsets are bytes from the block.
+map = "example_ctl"
+
+[[property]]
+name = "control"
+offset = 0x00
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "run"
+  shift = 0
+  bits = 1
+    [[property.field.state]]
+    name = "stopped"
+    value = 0
+    [[property.field.state]]
+    name = "running"
+    value = 1
+
+[[property]]
+name = "status"
+offset = 0x04
+width = 32
+dir = "r"

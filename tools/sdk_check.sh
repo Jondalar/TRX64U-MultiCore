@@ -3,9 +3,9 @@
 #
 #   tools/sdk_check.sh <trx64-sdk-x.y.z.tar.gz>      RV_PREFIX (default riscv32-unknown-elf-) names the compiler
 #
-# The package is unpacked into a fresh temporary directory outside the repository; the example library and its menu record are built there, then the example core's app: its TOML A and
-# TOML B are turned into the driver table, the library table, the I/O fragment and the sizes, the sources that depend on the core are compiled with those sizes, the base archives are
-# linked, and the image is packed with the description into a .cor. The build fails when any dependency file or a linked image names a path of the repository this script belongs to,
+# The package is unpacked into a fresh temporary directory outside the repository; the example library and its menu record are built there, then the example core's app: its own TOML A (with a block of the core's) and
+# its own TOML B (a shared library, no compiled-in descriptor) are turned into the driver table, the library table, the I/O fragment and the sizes, the sources that depend on the core are compiled with those sizes, the base archives are
+# linked, and the image is packed with the description and the library that is the core's code (example.u2a) into a .cor. The build fails when any dependency file or a linked image names a path of the repository this script belongs to,
 # or when a maximum of the TOML B is not in the image. One result line at the end.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,7 +23,7 @@ P="$(echo "$W"/trx64-sdk-*)"
 ver="$(sed -n 's/^sdk //p' "$P/VERSION")"
 for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld mk/appflags.mk mk/appbuild.mk tools/u2a_pack.py tools/descrec.py tools/basereg.def tools/cor_pack.py \
          tools/app_build.py tools/libtab.py tools/rtl_check.py lib/libtrxbase.a lib/liblwip.a lib/liblvgl.a lib/crt0.o lib/port_asm.o base/SIZED.txt base/incdirs.txt base/linker.x base/version.toml \
-         libs/shared.toml gateware/shared.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml; do
+         libs/shared.toml gateware/shared.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml example/gateware/example.toml example/gateware/example_ctl.map.toml; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
 want="$(sed -n 's/^base_archive_sha256 //p' "$P/VERSION")"
@@ -67,8 +67,23 @@ mkdir -p appcheck
 python3 "$P/tools/app_build.py" sizes app/toml_b.toml appcheck --inc "$P/base/inc/coreapp/src" || fail "the sizes of the example's TOML B were not generated from the package"
 grep -q -F '#define OPS_MAX 200' appcheck/appsizes.h && grep -q -F '#define CORE_REPORT_MAX 16384' appcheck/appsizes.h || fail "appsizes.h does not carry the example's sizes"
 python3 "$P/tools/descrec.py" compile app/desc.toml appcheck/desc.bin --sizes app/toml_b.toml >/dev/null || fail "the example's description does not compile from the package"
+# the example core's own TOML A (S17): the base's blocks and the block of the core, whose map is beside the file; the driver table has the macros of the core's block
+python3 "$P/tools/descrec.py" compile gateware/example.toml appcheck/toma_example.bin --maps "$P/maps" --maps gateware >/dev/null || fail "the example's TOML A does not compile from the package"
+# the example's base blocks are the shared TOML A's blocks, so the two cannot drift apart
+python3 -I - "$P/tools" gateware/example.toml "$P/gateware/shared.toml" <<'PY' || fail "the base blocks of the example's TOML A differ from the package's gateware/shared.toml"
+import sys
+sys.path.insert(0, sys.argv[1])
+import descrec as D
+ex = D.toml_loads(open(sys.argv[2]).read())
+sh = D.toml_loads(open(sys.argv[3]).read())
+sys.exit(0 if [b for b in ex["block"] if b["owner"] == "base"] == sh["block"] and ex["io"] == sh["io"] else 1)
+PY
+python3 "$P/tools/descrec.py" drivers gateware/example.toml appcheck/exdrv --maps "$P/maps" --maps gateware >/dev/null || fail "the driver table of the example's TOML A is not generated from the package"
+grep -q -F '#define DRV_example_ctl_control_WR(v)' appcheck/exdrv/drvtab.h && grep -q -F '#define DRV_example_ctl_OWNER 1' appcheck/exdrv/drvtab.h || fail "the driver table lacks the register macro or the owner of the example's own block"
 # the example's app: everything but the compiler runs always; with the compiler the app is linked from the package alone
-python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a "$P/gateware/shared.toml" --toml-b app/toml_b.toml --out appcheck/gen --src app --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
+python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a gateware/example.toml --maps gateware --toml-b app/toml_b.toml --out appcheck/gen --src app --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
+[ -z "$(sed -n 's/^CORE_DESC := *//p' appcheck/gen/build.mk)" ] || fail "the example's app names a compiled-in descriptor: its core is described by its record"
+grep -q -F 'cbm_prg.cc' appcheck/gen/build.mk || fail "the library of the example's TOML B is not in its build"
 [ -s appcheck/gen/drv/drvtab.h ] && [ -s appcheck/gen/lib/libtab_table.cc ] && [ -s appcheck/gen/io.ld ] && [ -s appcheck/gen/appsizes.h ] || fail "the generated files of the example's app are missing"
 app_res="app not linked (no compiler)"
 if command -v "${RV}gcc" >/dev/null 2>&1; then
@@ -79,9 +94,9 @@ if command -v "${RV}gcc" >/dev/null 2>&1; then
   # the maxima of the TOML B are in the image: the report buffer of diag.cc is a static array of CORE_REPORT_MAX bytes
   rep_sz="$("${RV}nm" -S -t d appout/obj/diag.o | awk '$4 == "g_rep" { print $2 + 0 }')"
   [ "$rep_sz" = "16384" ] || fail "the report buffer of the example's app is ${rep_sz:-missing} bytes, its TOML B says report_bytes = 16384"
-  # and packs: the image and the description in a .cor (a dummy partial: the packer's own checks are what is shown here, not a bitstream)
+  # and packs: the image, the description and the library that is the core's code (hooks = "example": cor_pack refuses a bundle whose library does not export corehooks=1) in a .cor (a dummy partial: the packer's own checks are what is shown here, not a bitstream)
   head -c 4096 /dev/zero > appcheck/partial.bin
-  python3 "$P/tools/cor_pack.py" pack -o appcheck/example.cor --name Example --version 1 --partial appcheck/partial.bin --app appout/app.bin --host-key 00000000 --desc app/desc.toml --sizes app/toml_b.toml >/dev/null \
+  python3 "$P/tools/cor_pack.py" pack -o appcheck/example.cor --name Example --version 1 --partial appcheck/partial.bin --app appout/app.bin --host-key 00000000 --desc app/desc.toml --lib example.u2a --sizes app/toml_b.toml >/dev/null \
     || fail "the example's app does not pack into a .cor"
   python3 "$P/tools/cor_pack.py" check appcheck/example.cor >/dev/null || fail "the packed .cor of the example does not check"
   app_res="app.bin $(wc -c < appout/app.bin | tr -d " ") bytes, report buffer $rep_sz bytes, packed into a .cor"

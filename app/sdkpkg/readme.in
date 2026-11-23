@@ -21,7 +21,7 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 | `libs/`, `gateware/` | `shared.toml` of each: the TOML B (the catalog of the shared libraries) and the TOML A of the shared app, the references a core's own start from. |
 | `menusim/`, `bin/menusim` | The menu simulator and the tree it builds from. See "The menu simulator". |
 | `licenses/` | The licence texts of the third-party code the base links. `NOTICE` names it. |
-| `example/` | A library of two source files with a menu TOML and a host test, and the example core's TOML B and description (`example/app/`). |
+| `example/` | A library of two source files with a menu TOML and a host test, and the example core's own TOML A (`example/gateware/`), TOML B and description (`example/app/`). |
 
 ## Requirements
 
@@ -149,10 +149,12 @@ app is linked with and how large its maxima are), and the library table and the 
 up (T239.3 D31).
 
 ```
-python3 tools/app_build.py build --sdk . --toml-a mycore/toml_a.toml --toml-b mycore/toml_b.toml --out out --src mycore --record out/desc.bin
+python3 tools/app_build.py build --sdk . --toml-a mycore/toml_a.toml --maps mycore --toml-b mycore/toml_b.toml --out out --src mycore --record out/desc.bin
 ```
 
-The TOML B has `[app]` (`desc`: the symbol of the core's descriptor, `base_sources`: files of the package's `coreapp/cores` that hold it, `sources`: the core's own files, found in the
+`--maps` adds the register maps of the core's own blocks (`<name>.map.toml`) to the package's `maps/`. A core that is described by its record names no `desc` symbol: the core table of its app is empty and the start makes the descriptor from the record of the `.cor`; the code of that core is the library its record names (`hooks = "<library>"`, api.md 9.7). `example/` is such a core: its own TOML A (`example/gateware/`), TOML B and description (`example/app/`) and the library `example.u2a` that is its code.
+
+The TOML B has `[app]` (`desc`: the symbol of the descriptor of a core that is compiled into the app, none for a core described by its record, `base_sources`: files of the package's `coreapp/cores` that hold it, `sources`: the core's own files, found in the
 `--src` directories), the libraries (`[[library]]`, as `libs/shared.toml`: sources found in the package's `base/src` or in `--src`) and `[sizes]`. The record is compiled against the same
 `[sizes]` (`descrec.py compile ... --sizes toml_b.toml`, `cor_pack.py pack ... --sizes toml_b.toml`), so the compiler and the app refuse the same record.
 
