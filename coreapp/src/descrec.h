@@ -10,12 +10,12 @@
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
-//       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 24 |
+//       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 28 |
 //       task 36 | media 44 (24 before version 4) | file type 24 | file type action 36 | core setting 36
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
 //       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
 //       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
-//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
+//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad_api.h PadSpec):
 //       u32 kind (bits 7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id; none = no pad), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the
 //       first of its button names in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a
 //       role 40-47, FF none)
@@ -43,7 +43,7 @@
 //        11 alt video      15 words of section 2's video part (CoreDesc::alt_video)
 //        12 picture window 23 words: reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines x_per_unit x_origin y_origin src_w src_h
 //                          def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms (fbwin.h FbWinSpec; the signed ones as 32 bit two's complement)
-//        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mousesink.h MouseSinkSpec)
+//        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mouse_api.h MouseSinkSpec)
 //        14 rom set        17 words: flags (b0 DescCode::romset_version, b1 DescCode::romset_pick), 3 sizes (0 = none), role ext size_text example max choice_key auto_label want head_bytes
 //                          window_off mirror_size mirror_stride clear_below (romset.h RomSetSpec; role, ext, size_text, example, choice_key, auto_label are strings)
 //        15 window media   15 words: prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop idle_flush_ms max_dirty_ms (winslot.h)
@@ -72,9 +72,9 @@
 //        21 identity       4 words: id (string, 4 printable ASCII characters), build flag (0 or 1), build (0 without the flag), block (string: the base-owned block that has the readable
 //                          properties "id" and "build")
 //        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
-//                          size 1 .. 0x100000, first property, count), the properties (8 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count), the
+//                          size 1 .. 0x100000, first property, count), the properties (9 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count, element count 1 .. DR_PROP_COUNT_MAX), the
 //                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
-//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register lies inside its block, two properties share a byte only when
+//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register (or the run of its elements) lies inside its block, two properties share a byte only when
 //                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
@@ -83,7 +83,7 @@
 //          "key;key=value;..." how it is shown: primary, link, goto, sub, chip, tone, off - libapi.h LibNodeDecl::attr; the anchor's group is its slot in the layout)
 //   action label op first_ext next first_size nsize first_bind nbind flags reserved                    (flags bit 0: closes the menu)
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)
-//   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
+//   ctab   area id name widget groups n layout     (a tab added to an area of the route, T104.1 D8; layout: the string a route's own tab has, 0 none: LibRecord::tab_layouts, T239.3 L-3)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
 //   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first, bit 2 (base 3.3): a job, a stepped
 //                                                                               operation with the progress line and a cancel (Task::job; not with a hotkey or a folder),
@@ -106,12 +106,12 @@
 
 #include <stdint.h>
 #include "contrib.h"
-#include "pad.h"
+#include "pad_api.h"
 #include "hotkeys.h"
 #include "romsetspec.h"
 #include "winslot.h"
 #include "sectors.h"
-#include "mousesink.h"
+#include "mouse_api.h"
 #include "fbwin.h"
 #include "rawkeys.h"
 
@@ -187,6 +187,7 @@
 #define DR_STATES 1024
 #endif
 #define DR_PROPS_PER_BLOCK 64
+#define DR_PROP_COUNT_MAX 0x10000
 #define DR_FIELDS_PER_PROP 32
 #define DR_STATES_PER_OWNER 64
 #define DESCREC_KEY_MAX 0x1FF                     // the largest key code of a key row
@@ -257,6 +258,7 @@ struct DescProp {
     const char *name;
     uint32_t offset, width, dir;                  // bytes from the block; 8, 16 or 32 bits; DR_DIR_R | DR_DIR_W
     uint32_t first_field, nfield, first_state, nstate;
+    uint32_t count;                               // elements: a run of registers of this width at consecutive offsets (1 for a single register); fields and states hold for every element
 };
 struct DescBlock {
     DescWindow win;                               // name, address and size: io.window hands the block out like a window
@@ -294,6 +296,7 @@ struct DescRecord {
     const char *hide[DR_HIDE];
     NodeRename rename[DR_RENAME];
     LibTabDecl ctabs[DR_CTABS];
+    const char *ctab_layouts[DR_CTABS];           // the layout of each contributed tab (LibRecord::tab_layouts), null: none
     Overrides ov;
     // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
     const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null

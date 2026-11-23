@@ -1,9 +1,17 @@
 #include "sectors.h"
 #include "engines.h"
 #include "mediamounts.h"
-#include "folderhd.h"
+#include "folderhd_api.h"
+#include "textcopy.h"
 #include <stdio.h>
 #include <string.h>
+
+static const FolderHdApi *g_folderhd;
+
+void sec_set_folderhd(const FolderHdApi *api)
+{
+    g_folderhd = api;
+}
 
 static const SectorMediaSpec *spec_of(CoreCtx *c)
 {
@@ -26,7 +34,7 @@ const char *sec_name(CoreCtx *c, int u)
 
 static bool unit_pending(const SecUnit &h)
 {
-    return h.mounted && h.file && (h.unsynced || (h.folder && ((FolderDisk *)h.file)->dirty()));
+    return h.mounted && h.file && (h.unsynced || (h.folder && g_folderhd && g_folderhd->dirty(h.file)));
 }
 
 // T180 D4: everything pending for the unit is on its medium (a folder disk: the full fold-back). False with the reason in msg: the unit is left as it is.
@@ -38,7 +46,7 @@ static bool sync_unit(CoreCtx *c, int u, char *msg, int msglen)
     }
     MediaSaving saving(c, true);
     bool ok = h.file->sync();
-    h.unsynced = h.folder ? ((FolderDisk *)h.file)->dirty() : !ok;      // a fold-back that failed is tried again at idle
+    h.unsynced = h.folder ? (g_folderhd && g_folderhd->dirty(h.file)) : !ok;      // a fold-back that failed is tried again at idle
     if (!ok) {
         h.unsynced = true;
         if (msg && msglen) {
@@ -61,7 +69,7 @@ static int eject_unit(CoreCtx *c, int u, char *msg, int msglen)
     h.unsynced = false;
     if (h.file) {
         if (h.folder) {
-            delete (FolderDisk *)h.file;
+            g_folderhd->unmount(h.file);
         } else {
             c->fs->close(h.file);
         }
@@ -157,23 +165,22 @@ static uint32_t folder_max_cylinders(CoreCtx *c)
 {
     const SectorMediaSpec *s = spec_of(c);
     uint64_t max_bytes = (c->io->rd(s->feat_reg) & s->feat_sectors) ? 0xFFFFFFFFull * SEC_BYTES : 0xFFFFFFFFull;
-    uint64_t cyl = max_bytes / ((uint64_t)FFS_CYL_BLOCKS * SEC_BYTES);
-    return cyl > FH_MAX_CYL ? FH_MAX_CYL : (uint32_t)cyl;
+    return g_folderhd->max_cylinders(max_bytes);
 }
 
 const char *sec_folder_offer(CoreCtx *c)
 {
     static char text[16];
     text[0] = 0;
-    if (!spec_of(c)) {
-        return text;
+    if (!spec_of(c) || !g_folderhd) {
+        return text;                                          // no folder disk library in this app: nothing to suggest
     }
     if (!c->media_dir[0]) {
         snprintf(text, sizeof(text), "1");                    // no folder chosen yet: nothing to check it against
         return text;
     }
     uint64_t one = 1ull << 30;
-    uint64_t bytes = folderhd_offer_bytes(c->fs, c->media_dir, folder_max_cylinders(c), one);
+    uint64_t bytes = g_folderhd->offer_bytes(c->fs, c->media_dir, folder_max_cylinders(c), one);
     if (bytes > one) bytes = one;                          // the suggestion is 1 GB; the offer above that is checked when the person types more
     if (bytes >= one) {
         snprintf(text, sizeof(text), "1");
@@ -190,24 +197,28 @@ int sec_mount_folder(CoreCtx *c, int u, const char *spec, char *msg, int msglen)
         snprintf(msg, msglen, "This machine has no such disk.");
         return 1;
     }
+    if (!g_folderhd) {
+        snprintf(msg, msglen, "This app has no folder disk.");
+        return 1;
+    }
     char folder[260];
     const char *slash = strrchr(spec, '/');
     if (!slash || slash == spec) {
         snprintf(msg, msglen, "Choose a folder on a medium.");
         return 2;
     }
-    folderhd_cpy(folder, sizeof(folder), spec, (int)(slash - spec));
+    nf_copy(folder, sizeof(folder), spec, (size_t)(slash - spec));
     const char *gb = slash + 1;
     uint32_t maxcyl = folder_max_cylinders(c);
     uint64_t want;
-    if (!folderhd_parse_gb(gb, 1ull << 30, &want)) {
+    if (!g_folderhd->parse_gb(gb, 1ull << 30, &want)) {
         snprintf(msg, msglen, "\"%s\" is not a size in GB.", gb);
         return 3;
     }
     if (!sync_unit(c, u, msg, msglen)) {                         // T180 D1/D4: what the old medium holds is on its medium before the new tree is looked at (the same folder may be mounted again)
         return 6;
     }
-    uint64_t offer = folderhd_offer_bytes(c->fs, folder, maxcyl, want);
+    uint64_t offer = g_folderhd->offer_bytes(c->fs, folder, maxcyl, want);
     if (!gb[0] && offer < want) {
         want = offer;                                           // nothing typed: the suggestion, which is less than 1 GB where the medium has less
     }
@@ -215,20 +226,19 @@ int sec_mount_folder(CoreCtx *c, int u, const char *spec, char *msg, int msglen)
         snprintf(msg, msglen, "%s GB is more than this medium and machine can back: at most %u MB.", gb, (unsigned)(offer >> 20));
         return 3;
     }
-    FolderDisk::Cfg cfg = { c->fs, c->io, u, folder, want, maxcyl };
-    FolderDisk *disk = FolderDisk::mount(cfg, msg, msglen);
+    CoreFile *disk = g_folderhd->mount(c->fs, c->io, u, folder, want, maxcyl, msg, msglen);
     if (!disk) {
         return 4;
     }
     uint64_t size = disk->size();
     uint64_t v = size_value(c, size);
     if (v > 0xFFFFFFFFull) {                                  // the maximum above keeps this from happening; a defect would show here, not as a wrong size
-        delete disk;
+        g_folderhd->unmount(disk);
         snprintf(msg, msglen, "This disk is too large for the machine's size register.");
         return 5;
     }
     if (eject_unit(c, u, msg, msglen)) {                         // T180 D1: the old medium is let go completely; a refused new folder left it where it was
-        delete disk;
+        g_folderhd->unmount(disk);
         return 6;
     }
     SecUnit &h = engines_of(c)->sec.unit[u];
@@ -238,7 +248,9 @@ int sec_mount_folder(CoreCtx *c, int u, const char *spec, char *msg, int msglen)
     h.size = size;
     h.unsynced = false;
     h.mounted = true;
-    snprintf(h.name, sizeof(h.name), "%s%s", base_of(folder), disk->host_writable() ? " (folder)" : " (read only, changes lost at eject)");
+    FolderHdInfo fi;
+    g_folderhd->info(disk, &fi);
+    snprintf(h.name, sizeof(h.name), "%s%s", base_of(folder), fi.host_writable ? " (folder)" : " (read only, changes lost at eject)");
     // T180 D2: what is stored for it keeps the size as typed ("folder /usb0/Amiga/DH0, 2 GB"); no size typed: the default again at the next start
     h.spec[0] = 0;
     if (strlen(folder) + strlen(gb) + 16 < sizeof(h.spec)) {
@@ -250,9 +262,9 @@ int sec_mount_folder(CoreCtx *c, int u, const char *spec, char *msg, int msglen)
     }
     announce(c, u, (uint32_t)v);
     mounts_changed(c, true, u);
-    printf("[sectors] unit %d: folder %s, %u cylinders, %u entries; %s\n", u, folder, (unsigned)disk->stats().cylinders, (unsigned)disk->stats().nodes,
-           disk->report()[0] ? disk->report() : "nothing left out");
-    snprintf(msg, msglen, "%s: %u MB, %u entries", base_of(folder), (unsigned)(size >> 20), (unsigned)disk->stats().nodes);
+    printf("[sectors] unit %d: folder %s, %u cylinders, %u entries; %s\n", u, folder, (unsigned)fi.cylinders, (unsigned)fi.nodes,
+           fi.report[0] ? fi.report : "nothing left out");
+    snprintf(msg, msglen, "%s: %u MB, %u entries", base_of(folder), (unsigned)(size >> 20), (unsigned)fi.nodes);
     return 0;
 }
 
@@ -372,8 +384,8 @@ void sec_idle(CoreCtx *c)
         SecUnit &h = c->eng->sec.unit[u];
         if (h.mounted && h.unsynced && now - h.last_write_ms >= s->idle_sync_ms) {
             if (h.folder) {
-                if (!((FolderDisk *)h.file)->idle_slice()) {     // the fold-back runs in slices of FH_SLICE_MS between two polls
-                    h.unsynced = ((FolderDisk *)h.file)->dirty();
+                if (!g_folderhd->idle_slice(h.file)) {           // the fold-back runs in slices of FH_SLICE_MS between two polls
+                    h.unsynced = g_folderhd->dirty(h.file);
                 }
             } else {
                 h.file->sync();

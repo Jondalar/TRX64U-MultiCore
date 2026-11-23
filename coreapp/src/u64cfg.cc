@@ -1,9 +1,10 @@
 // The C64U's hardware configuration from the core's settings (u64cfg.h). PROVENANCE: vendor/gideon/software/u64/u64_config.cc (Gideon Zweijtzer, GPL-3.0):
 // U64Config::effectuate_settings, setMixer, setSpeakerMixer, U64SidSockets/U64UltiSids/U64SidAddressing::effectuate_settings, setFilter, setSidEmuParams,
-// setCpuSpeed, setLedSelector, auto_mirror, SetResampleFilter, the palette programming; the register addresses are vendor/gideon/software/system/u64.h.
+// setCpuSpeed, setLedSelector, auto_mirror, the palette programming (the resample filter is the resample library, u64_resample.h); the register addresses are vendor/gideon/software/system/u64.h.
 // What is different: the values come from this application's settings (menu.toml groups video, audio, sid, input, expert) instead of a ConfigStore, and
 // the picture's HDMI mode and the system mode go through the host's video_apply() (app/video/videomode.cc), which keeps the pixel layer's frame.
 #include "u64cfg.h"
+#include "u64_resample.h"
 #include "writeback.h"
 #include "engines.h"
 #include "ops_glue.h"
@@ -24,8 +25,6 @@
 
 extern "C" void SetVideoPll(t_video_mode mode, int ppm);
 extern "C" void ResetHdmiPll(void);
-
-#include "u64_resample.inc"
 
 // ---- the settings this file reads: id, key (the menu.toml `key`), found once per Settings object -------------------------------------------------
 #define KEYS(X)                                                                                                                                      \
@@ -234,22 +233,6 @@ static int load_palette(CoreCtx *c, const char *name, char *msg, int msglen)
     return 0;
 }
 
-// Gideon U64Config::SetResampleFilter
-static void set_resample_filter(t_video_mode m)
-{
-    const t_video_color_timing *ct = color_timings[(int)m];
-    int mode = (ct->audio_div == 77) ? 0 : 1;
-    const uint32_t *pf = (mode == 0) ? (const uint32_t *)c_filter2_coef_pal_alt : (const uint32_t *)c_filter2_coef_ntsc;
-    int size = (mode == 0) ? 675 : 512;
-    U64_RESAMPLE_RESET = 1;
-    U64_RESAMPLE_FLUSH = 1;
-    for (int i = 0; i < size; i++) {
-        U64_RESAMPLE_DATA = *(pf++);
-    }
-    U64_RESAMPLE_LABOR = (mode == 0) ? 45 : 169;
-    U64_RESAMPLE_FLUSH = 0;
-}
-
 static int g_sys = -1, g_ppm = 0;                 // the host brought the picture up with no offset
 
 static int fx_video(CoreCtx *c, const OpArgs &, OpOut &o)
@@ -268,7 +251,7 @@ static int fx_video(CoreCtx *c, const OpArgs &, OpOut &o)
         picture_set_system(c, sys);                   // the picture layer takes the new family: its mode and the Picture row are picked again (FW u64_config.cc:1471-1508)
         g_ppm = 0;
         g_sys = sys;
-        set_resample_filter((t_video_mode)sys);
+        u64_resample_filter((t_video_mode)sys);
     }
     if (ppm != g_ppm) {
         SetVideoPll((t_video_mode)sys, ppm);          // the colour clock's offset goes with the PLL setting (Gideon's setPllOffset is empty)

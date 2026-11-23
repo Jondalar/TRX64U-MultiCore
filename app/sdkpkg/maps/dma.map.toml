@@ -1,0 +1,11 @@
+# The DMA window of the C64 gateware (the service coreapp/src/dmasvc.cc and the C64 operations it calls reach the machine through it; gateware: cores/common/dma_win.v behind the handshake of ultimate_sys.vhd, region r_dma).
+# Offsets are bytes from the block's address: the window is 64 KiB, one byte register per C64 address. A read or a write goes to the C64's RAM, or, with the machine stopped and C64_DMA_MEMONLY off, becomes one
+# bus cycle of the C64 (so $D000-$DFFF reaches the chips). The apertures of the ROMs and the colour RAM, C64_STOP and C64_DMA_MEMONLY are registers of other ranges and not in this map.
+map = "dma"
+
+[[property]]
+name = "mem"
+offset = 0x0
+width = 8
+count = 0x10000
+dir = "rw"

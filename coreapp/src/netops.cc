@@ -15,7 +15,7 @@
 #include "netdb.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

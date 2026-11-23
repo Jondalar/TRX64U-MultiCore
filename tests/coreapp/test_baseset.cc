@@ -312,11 +312,9 @@ int main()
         CHECK_STR(g_log[0].c_str(), "joy 1 0");
         g_log.clear();
         char msg[40] = "x";
-        bool ran = false;
         CHECK(hooks_has_menu_closed());
-        CHECK_EQ(hooks_start(&r.c, msg, sizeof(msg), &ran), 0);
-        CHECK(ran);                                                        // the table's start member ran: the base makes no start call of its own
-        CHECK_EQ(g_log.size(), 11u);
+        CHECK_EQ(hooks_start(&r.c, msg, sizeof(msg)), 0);
+        CHECK_EQ(g_log.size(), 11u);                                       // the table's start member ran (first entry): the base makes no start call of its own
         CHECK_STR(g_log[0].c_str(), "start");
         for (int k = 0; k < 10; k++) CHECK_STR(g_log[1 + k].c_str(), (std::string("changed ") + order[k]).c_str());
         g_log.clear();
@@ -395,9 +393,7 @@ int main()
         CHECK(hooks_present());
         CHECK(!hooks_has_menu_closed());
         g_log.clear();
-        ran = true;
-        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg), &ran), 0);
-        CHECK(!ran);
+        CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         CHECK_EQ(g_log.size(), 4u);                                        // no start, but the four settings of a core without a mouse are told
         CHECK_STR(g_log[0].c_str(), "changed Overlay Transparency");
 

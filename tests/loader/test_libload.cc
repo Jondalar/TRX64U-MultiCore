@@ -2859,6 +2859,8 @@ static void discard_notice()
     CHECK_EQ(g_gone.size(), 1);
 }
 
+#include "test_online.inc"                                         // T239.3 L-3: the online search as a sub-app, and its client
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -2881,5 +2883,7 @@ int main()
     calls_on_the_owners_account();
     AppHostTest::jobs();
     discard_notice();
+    online_client();
+    online_subapp();
     DONE("test_libload");
 }

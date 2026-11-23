@@ -18,11 +18,10 @@
 #include "u64cfg.h"
 #include "ringops.h"
 #include "monitor.h"
-#include "online.h"
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
-#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
+#include "textcopy.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include "t64.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"
@@ -684,9 +683,9 @@ static void c64_register(OpRegistry &r)
     r.add_op("c64.put_kernal", rom_arg, 1, op_put_kernal);
     r.add_op("c64.put_char", rom_arg, 1, op_put_char);
     r.add_op("c64.set_freeze_mode", freeze_arg, 1, op_freeze_mode);
-    r.add_op("c64.run_prg", run_args, 1, op_run);
+    r.add_op("prg.run", run_args, 1, op_run);
     r.add_op(PRG_APP_OP, run_args, 1, op_run_with_app);
-    r.add_op("c64.load_prg", load_args, 2, op_load);
+    r.add_op("prg.load", load_args, 2, op_load);
     r.add_op("c64.run_crt", run_args, 1, op_run_crt);
     r.add_op("c64.dma_prg", run_args, 1, op_dma);
     r.add_op("dma.write", dma_write_args, 2, op_dma_write);
@@ -704,7 +703,6 @@ static void c64_register(OpRegistry &r)
     u64cfg_register(r);
     ringops_register(r);
     monitor_register(r);
-    online_register(r);
     diag_register(r);
     trx64u_register(r);
 }
@@ -750,7 +748,7 @@ const CoreDesc c64_desc = {
     true,
     false, 0, 0, 0, 0, 0, &mouse, 0,
     "c64.type_script",
-    "c64.run_prg",
+    "prg.run",
     0, 0, 0, 0, 0,                             // cold_ram_bytes, cold_start, id_feat_reg, id_feat_mask, id_feat_val
     c64_menu_rec, sizeof(c64_menu_rec),
     "trx64u",                                  // core_id: names /flash/trx64u/ of the standalone installation (board_set_core)

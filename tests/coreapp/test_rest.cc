@@ -69,7 +69,7 @@ static const ArgSpec cload_args[] = { ARG_PATH("path"), ARG_INT("start", 0, 6553
 static const MemRegion t_regions[] = { { 0, 0x10000, MK_RAM, 0, 0, "RAM" } };
 static const MemMap t_mem = { t_regions, 1, false, 0 };
 
-static void extra(OpRegistry *r, bool prg_run, bool mem)
+static void extra(OpRegistry *r, bool mem)
 {
     r->contributor("zz");
     if (mem) {
@@ -79,11 +79,11 @@ static void extra(OpRegistry *r, bool prg_run, bool mem)
     r->add_op("drive.eject", dslot_args, 1, op_deject);
     r->add_op("drive.reset", dslot_args, 1, op_dreset);
     r->add_op("drive.mount_run", drun_args, 2, op_drun);
-    r->add_op("c64.load_prg", cload_args, 2, op_cload);
+    r->add_op("prg.load", cload_args, 2, op_cload);
     r->add_op("zz.fresh", fresh_args, 4, op_fresh);
     r->add_op("zz.refuse", 0, 0, op_refuse);
     r->add_op("zz.blob", blob_args, 1, op_blob);
-    r->add_op(prg_run ? "prg.run" : "c64.run_prg", run_args, 1, op_run);
+    r->add_op("prg.run", run_args, 1, op_run);
     r->add_state("zz.text", st_text);
     r->add_state("zz.none", st_none);
     r->add_event("zz.changed", slot_arg);
@@ -92,12 +92,12 @@ static void extra(OpRegistry *r, bool prg_run, bool mem)
 
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *vid;
-    Rig(bool prg_run = false, bool mem = true)
+    Rig(bool mem = true)
     {
         memset(&c, 0, sizeof(c));
         c.desc = &testcore::desc; c.io = &io; c.fs = &fs;
         snprintf(c.core_version, sizeof(c.core_version), "0.7");
-        extra(ops_of(&c), prg_run, mem);
+        extra(ops_of(&c), mem);
         st = new Settings(testcore::desc.settings, testcore::desc.nsettings, testcore::desc.store, &fs, "/usb0/cores/t.cfg", 0);
         st->load();
         c.settings = st;
@@ -321,13 +321,9 @@ int main()
         CHECK_EQ(http(r, "PUT", "/v1/configs/Test%20Settings/Nothing?value=1").status, 404);
         CHECK_EQ(http(r, "PUT", "/v1/configs:reset_to_default").status, 200);
         CHECK_EQ(r.st->value(1), 1);                                 // the default again
-        // a renamed argument, and the first registered of two names
+        // a renamed argument
         Resp run = http(r, "PUT", "/v1/runners:run_prg?file=%2Fusb0%2Fgame.prg");
         CHECK_EQ(run.status, 200); CHECK_STR(g_run_path.c_str(), "/usb0/game.prg");
-        Rig r2(true);
-        g_run_path.clear();
-        CHECK_EQ(http(r2, "PUT", "/v1/runners:run_prg?file=%2Fusb0%2Fnew.prg").status, 200);
-        CHECK_STR(g_run_path.c_str(), "/usb0/new.prg");
         // the memory aliases reach the core's own operations (every core registers them): the bytes come back with the result
         r.io.ram[0x10] = 0xAB;
         Resp mem = http(r, "GET", "/v1/machine:readmem?address=16&length=2");
@@ -338,7 +334,7 @@ int main()
         CHECK_EQ(wm2.status, 200); CHECK_EQ(r.io.ram[40], 0x7F);
         CHECK_EQ(http(r, "GET", "/v1/machine:readmem?address=65535&length=4").status, 400);
         // an alias whose operation nobody registered says what is missing
-        Rig bare(false, false);
+        Rig bare(false);
         Resp none = http(bare, "GET", "/v1/machine:readmem?address=0&length=16");
         CHECK_EQ(none.status, 501); CHECK(has(none.body, "machine.read_mem")); CHECK(has(none.body, "\"errors\":[\""));
         // another method on a known path: 405, an unknown path: 404
@@ -682,7 +678,7 @@ int main()
         CHECK(has(rpc(s2, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session/read_memory\",\"params\":{\"ranges\":[{\"addr\":0,\"len\":1}]}}"),
                   "needs the operation machine.read_mem, which this core did not register"));
         CHECK(has(rpc(s2, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"media/mount\",\"params\":{\"path\":\"/x\"}}"), "needs the operation drive.mount"));
-        CHECK(has(rpc(s2, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"runtime/run_prg\",\"params\":{\"prg_path\":\"/x\"}}"), "needs the operation prg.run|c64.run_prg"));
+        CHECK(has(rpc(s2, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"runtime/run_prg\",\"params\":{\"prg_path\":\"/x\"}}"), "needs the operation prg.run"));
         rpc_close(s2);
         delete s2;
         delete c2.ops;

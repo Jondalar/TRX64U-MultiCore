@@ -182,6 +182,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			fm_fs.cc \
 			fm_medium.cc \
 			fastseek.cc \
+			fastseek_exports.cc \
 			host_core_nav.cc \
 			host_core_cm.cc \
 			host_core_cfgov.cc \

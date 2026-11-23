@@ -721,7 +721,7 @@ static void merge_tabs(const Contributor &c, MenuMerge *mm)
         d.n = t.n;                                                // 0: numbered by its place among the tabs shown (empty ones are dropped)
         d.widget = t.widget;
         d.groups = text(t.groups) ? t.groups : 0;
-        d.layout = 0;
+        d.layout = LIB_RECORD_COVERS(r->struct_size, tab_layouts) && r->tab_layouts && text(r->tab_layouts[i]) ? r->tab_layouts[i] : 0;
         a->ntabs++;
     }
 }

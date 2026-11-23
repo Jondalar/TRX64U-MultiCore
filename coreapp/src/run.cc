@@ -46,7 +46,6 @@ extern "C" bool rtc_time_valid(void);
 #include "apphost.h"
 #include "appsvc.h"
 #include "engines.h"
-#include "mousesink.h"
 #include "baseset.h"
 #include "hookhost.h"
 #include "hooklib.h"
@@ -56,8 +55,6 @@ extern "C" bool rtc_time_valid(void);
 #include "trx_lv_port.h"
 #include "keyboard_usb.h"
 #include "usb_hid.h"
-#include "usb_xinput.h"
-#include "pad.h"
 #include "joystick_output.h"
 #include "keyboard_c64.h"
 #include "network_interface.h"
@@ -263,26 +260,6 @@ private:
 
 char rom_names[200];
 
-// The mouse sink's accumulators are shared by the input task and the poll task (mousesink.h): a critical section, as the reference's was.
-class BoardMouseCrit : public MouseCrit {
-public:
-    void enter() { portENTER_CRITICAL(); }
-    void leave() { portEXIT_CRITICAL(); }
-};
-
-// The 1351 backend's pots (mousesink.h): the driver's own port-1 output, as it drove it before the library took the reports.
-class BoardMousePots : public MousePots {
-public:
-    void position(int16_t x, int16_t y)
-    {
-        portENTER_CRITICAL();
-        usb_hid_set_mouse1_position(x, y);
-        portEXIT_CRITICAL();
-        JoystickOutput::instance().paceMouse();
-    }
-    void buttons(uint8_t joy) { usb_hid_set_joy1_output(joy); }
-};
-
 // The two addresses the Network line and the REST server look at (T184 D5): the cable's, when it has link and a usable address, and the WiFi's, when the driver
 // says it is usable (not a cached lease). Status > Network reads the same interfaces (netops.cc st_eth_ip, st_wifi_ip).
 static void net_addresses(char *lan, int ln, char *wifi, int wn)
@@ -446,7 +423,7 @@ void coreapp_held(const char *why, const BoardProfile *board)
 static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
 
 // T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
-// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, online, diag); a record core gets them by its data: the Diagnostics tab here, the groups
+// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, diag); a record core gets them by its data: the Diagnostics tab here, the groups
 // of the linked libraries from the library table (libtab.h, P3-1: the TOML B of the app names them, this file names none).
 static void record_groups(OpRegistry &r, const CoreDesc *d)
 {
@@ -578,23 +555,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     // state the host's power-up has (spec 5.15). Found on 2026-10-15: the NES ran, was released, and the screen
     // stayed black because a test hook had opened the menu in the application before.
     ctx.io->stop(false);
-    static BoardMouseCrit mouse_crit;
-    mouse_sink_set_crit(&mouse_crit);
-    // The USB mouse reaches the core through the library and nowhere else (T104.1 5.6): while this is registered the driver's own handling
-    // of a mouse report (port-1 output, cursor keys, menu navigation) does not run, so our menus are keys only. A core without a mouse
-    // record takes the report and drops it.
-    static BoardMousePots mouse_pots;
-    mouse_sink_set_pots(&mouse_pots);
-    usb_hid_set_mouse_sink(mouse_sink_usb_report);
+    // The USB mouse reaches the core through the mouse library and nowhere else, a USB gamepad through the pad service and nowhere else (T104.1 5.6, T156): the libraries register their USB hooks
+    // by their `init` entry (libtab_init, coreapp.cc), and the XInput claim follows the core's description by their `core` entry (libtab_core), so this file names none of them.
+    libtab_core(&ctx, desc, 0);                       // T196 D3, D4: an XInput pad only in a core that names the capability `pad`
     keyboard_usb_matrix_filter = hk_usb_matrix_filter;   // T181: the USB keyboard's hotkey combination does not reach the core (hotkeys.h)
     hk_usb_set_usage_map(usb_usage_matrix_index);
     usb_hid_set_keyboard_sink(rawkeys_usb_report);       // T141: a core with a rawkeys record gets the USB keyboard as its own key events
-    // T156: a USB gamepad reaches the core through the pad service and nowhere else; a core without a pad record drops the reports. The service
-    // shares the mouse sink's critical section (the USB task and the poll task).
-    static const UsbPadSink pad_sink = { pad_attach, pad_report, pad_detach };
-    pad_set_crit(&mouse_crit);
-    usb_hid_set_pad_sink(&pad_sink);
-    usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad"));      // T196 D3, D4: an XInput pad only in a core that names the capability `pad`
     matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
 
     cs_step(0, "Reading the settings");           // step 3: the views are built when the menu opens, none at the first open
@@ -663,7 +629,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
         // gate fix 4 (T228 R10): a pad the core's record declares ([pad]) is a pad as the capability is: the XInput claim follows the descriptor the menu will be built from. This is the
         // first place that knows the record; a pad enumerated before it (the call near the sink registration decided on the C descriptor alone) is not claimed.
-        usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad") || (bundle.desc && bundle.desc->has_pad));
+        libtab_core(&ctx, desc, bundle.desc);
         lib_board_load(&ctx, &lr, &bundle);
         if (lr.screen[0]) {                       // a refusal, or why no library was loaded at all (the Commodore key, a start that did not finish)
             board_ui.message(lr.title ? lr.title : "Library not loaded", lr.screen, true);

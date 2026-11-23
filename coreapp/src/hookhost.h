@@ -37,8 +37,7 @@ const char *hooks_bind(CoreDesc *d);
 // `start` (core_hooks.h): called once, after the core started and before any poll. 0: done, or no hook. A reason from the hook is cut into msg (msglen - 1 characters) and 1 is
 // returned; the caller tells the person. Arms base_setting_changed, which was not called until now, and calls it once for each base-owned setting the core has, in the order of
 // svc_settings.h (baseset.h).
-// *ran (when given) tells whether the table has a `start` member and it was called.
-int hooks_start(CoreCtx *c, char *msg, int msglen, bool *ran = 0);
+int hooks_start(CoreCtx *c, char *msg, int msglen);
 
 // `menu_closed`: whether the table has the member. When it has, hooks_menu_closed() calls it and the base calls nothing else; when it has not, the base calls nothing at the close (the base holds no debugger and no ring).
 bool hooks_has_menu_closed(void);

@@ -1,6 +1,7 @@
 # The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc, d1541_wd.h WDR_*, d1541_wd.cc WD_BASE). Offsets are bytes from the block's address (DRIVE_A_BASE).
-# Only what the library reads or writes is here. DR_DIRTY is a byte per half track after the first (the library reads and clears DR_DIRTY + track), and DR_PARAM repeats two words per half track
-# (128 per side, side 1 at +0x400); a map holds one register per property, so the first of each run stands for the run.
+# Only what the library reads or writes is here. "dirty" is a run of 128 bytes (floppy.vhd decodes 7 address bits; the library uses elements 0 .. 41, DR_DIRTY + track): every element reads b7 = any track written
+# and b0 = its own flag; a write with b7 set clears "any", else the element's flag. "param" is the parameter RAM, 2048 bytes (floppy_param_mem.vhd: 11 address bits), 512 words: per half track two
+# (the DDR2 address of the track; (length - 1) | bit time << 16), 128 half tracks per side, side 1 at +0x400.
 map = "cbm1541"
 
 [[property]]
@@ -97,6 +98,7 @@ dir = "rw"
 name = "dirty"
 offset = 0x800
 width = 8
+count = 128
 dir = "rw"
   [[property.field]]
   name = "any"
@@ -108,15 +110,10 @@ dir = "rw"
   bits = 1
 
 [[property]]
-name = "param_addr"
+name = "param"
 offset = 0x1000
 width = 32
-dir = "w"
-
-[[property]]
-name = "param_len_time"
-offset = 0x1004
-width = 32
+count = 512
 dir = "w"
 
 [[property]]

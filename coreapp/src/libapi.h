@@ -176,6 +176,10 @@ struct LibRecord {
     // LIB_RECORD_COVERS(out->struct_size, export_list) holds; one that `needs base >= 3.2` need not ask.
     const LibExportDecl *export_list;
     int nexport_list;
+    // T239.3 L-3 (base 3.3): how the tabs of `tabs` are drawn: one string for each tab, in the order of `tabs`, as a route's own tab says it ("split;title=...;side=...", tools/descrec.py UI_TAB_KEYS);
+    // a null entry, or a null array, leaves the tab a flat list. Appended after the last member of 3.2, so a library built before it leaves it zero; one that must also run on a base before
+    // 3.3 writes it only when LIB_RECORD_COVERS(out->struct_size, tab_layouts) holds.
+    const char *const *tab_layouts;
 };
 // Does a record of this struct_size have the member? (a record of an older base ends before it)
 #define LIB_RECORD_COVERS(size, member) ((size) >= offsetof(LibRecord, member) + sizeof(((const LibRecord *)0)->member))

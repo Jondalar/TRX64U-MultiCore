@@ -292,7 +292,7 @@ struct CoreDesc {
     const RomSetSpec *romset;                             // a ROM chosen out of a directory's files (romset.h)
     const WindowMediaSpec *window_media;                  // raw images in windows of the DDR2 with a dirty log (winslot.h)
     const SectorMediaSpec *sector_media;                  // images served sector by sector through a mailbox (sectors.h)
-    const MouseSinkSpec *mouse;                           // a USB mouse delivered to the core as deltas (mousesink.h)
+    const MouseSinkSpec *mouse;                           // a USB mouse delivered to the core as deltas (mouse_api.h)
     const FbWinSpec *fbwin;                               // the picture window follows the chipset's display window (fbwin.h, T97 5.10)
     // T104.1 D15: the operation that resets the machine and types a script at READY - `text` is the pieces separated by '|', each at most ten
     // keys (the keyboard buffer), CR is '\r'. The drive library's Mount & Run is "mount, then this" (cbm1541.cc). Null: the core cannot type.
@@ -328,7 +328,7 @@ struct CoreDesc {
     // volume keys do nothing. Last in the record, so the positional initialisers stay as they are.
     bool own_volume;
     // T156: USB gamepads drive the machine's own controllers: the registers of the two players and the core's buttons with their default
-    // map (pad.h). Null: the core has no pad support; reports of a pad are taken and dropped.
+    // map (pad_api.h). Null: the core has no pad support; reports of a pad are taken and dropped.
     const PadSpec *pad;
     // T175: a core with no machine and no picture (the diag core): its application's screens are all there is. `menu_first` opens the menu after the start and
     // RUN/STOP does not close it; `live_ms` redraws the open menu that often, so state rows (the pins of the ports) are live. Last in the record, so the positional

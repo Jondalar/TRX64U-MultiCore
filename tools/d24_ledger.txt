@@ -170,10 +170,8 @@ ids coreapp/src/nettransport.cc null 1
 ids coreapp/src/newdisk.cc apple2 2
 ids coreapp/src/newdisk.cc cpc 2
 ids coreapp/src/newdisk.cc trx64u 1
-ids coreapp/src/rest.cc c64 2
 ids coreapp/src/rest.cc null 2
 ids coreapp/src/rpc.cc null 3
-ids coreapp/src/rpccontract.cc c64 2
 ids coreapp/src/rpccontract.cc null 9
 ids coreapp/src/run.cc c64 1
 ids coreapp/src/run.cc diag 2
