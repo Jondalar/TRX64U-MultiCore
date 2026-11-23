@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
     // the map of the SDK's c64cart, in the block of its register range: a field with states, a 32 bit property, a 16 bit one
     const DescBlock *cf = descrec_block(*d, "cart_flash");
-    CHECK(cf && !cf->core && cf->nprop == 13);
+    CHECK(cf && !cf->core && cf->nprop == 14);
     const DescProp *evt = descrec_prop(*d, *cf, "evt");
     CHECK(evt && evt->width == 32 && evt->dir == DR_DIR_R && evt->offset == 0x20 && evt->nfield == 4);
     const DescField *op = descrec_field(*d, *evt, "op");
@@ -71,6 +71,11 @@ int main(int argc, char **argv)
     const DescProp *mg = descrec_prop(*d, *cf, "fl_magic1");
     CHECK(mg && mg->width == 16 && mg->dir == DR_DIR_W);
     CHECK(descrec_prop(*d, *descrec_block(*d, "cmd_if"), "slot_enable") != 0);
+    // a property with an element count: the 43 byte registers of the cartridge descriptor; a single register has the count 1
+    const DescProp *desc = descrec_prop(*d, *cf, "desc");
+    CHECK(desc && desc->width == 8 && desc->dir == DR_DIR_W && desc->offset == 0x40 && desc->count == 43);
+    CHECK_EQ(evt->count, 1u);
+    CHECK_EQ(mg->count, 1u);
 
     // a core's block with a property of its own states; one property read and one write share a byte
     const DescBlock *mx = descrec_block(*d, "mixer");

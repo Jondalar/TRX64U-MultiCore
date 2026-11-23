@@ -1138,12 +1138,15 @@ class TomlA(unittest.TestCase):
         self.assertEqual(r["identity"], {"id": "TSTA", "block": "ident", "build": 0x1234ABCD})
         self.assertEqual([x["name"] for x in r["block"]], ["ident", "cart_flash", "cmd_if", "mixer"])
         cart = r["block"][1]
-        self.assertEqual(len(cart["property"]), 13)
+        self.assertEqual(len(cart["property"]), 14)
         evt = next(p for p in cart["property"] if p["name"] == "evt")
         self.assertEqual((evt["width"], evt["dir"]), (32, "r"))
         op = next(f for f in evt["field"] if f["name"] == "op")
         self.assertEqual([(x["name"], x["value"]) for x in op["state"]], [("program", 1), ("sector_erase", 2), ("chip_erase", 3)])
         self.assertEqual(r["block"][3]["owner"], "core")
+        desc = next(p for p in cart["property"] if p["name"] == "desc")          # the descriptor: a run of 43 byte registers
+        self.assertEqual((desc["offset"], desc["width"], desc["count"], desc["dir"]), (0x40, 8, 43, "w"))
+        self.assertNotIn("count", evt)                                          # a single register carries no count
 
     def test_what_is_decoded_compiles_to_the_same_bytes(self):
         b = self.fixture()
@@ -1155,13 +1158,33 @@ class TomlA(unittest.TestCase):
         r = D.parse_desc(D.compile_checked(doc, maps=D.load_maps([self.MAPS])))
         self.assertEqual([x["module"] for x in r["block"]], ["trx_io"] * 3)
 
+    def test_a_property_with_a_count_is_a_run_of_registers(self):
+        # the run of the 1541's dirty bytes, the parameter RAM and the DMA window of the SDK's maps, and one of 16 bit registers: each element has the width, the run is one property
+        maps = D.load_maps([self.MAPS])
+        doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
+                           '[[block]]\nname = "win"\nmodule = "dma"\nowner = "base"\naddress = 0xA0050000\nsize = 0x10000\nmap = "dma"\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block.property]]\nname = "gain"\noffset = 0x4\nwidth = 16\ncount = 4\ndir = "rw"\n'
+                           '[[block.property.field]]\nname = "g"\nshift = 0\nbits = 4\n'
+                           '[[block.property]]\nname = "one"\noffset = 0xC\nwidth = 8\ndir = "rw"\n')
+        blob = D.compile_checked(doc, maps=maps)
+        r = D.parse_desc(blob)
+        props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
+        self.assertEqual(props["drv"]["dirty"]["count"], 128)
+        self.assertEqual((props["drv"]["param"]["width"], props["drv"]["param"]["count"]), (32, 512))
+        self.assertEqual(props["win"]["mem"]["count"], 0x10000)
+        self.assertEqual((props["regs"]["gain"]["width"], props["regs"]["gain"]["count"]), (16, 4))
+        self.assertNotIn("count", props["regs"]["one"])
+        self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
+
     def test_the_key_table_and_windows_records_stay_below_version_7(self):
         for f in FIXTURES:
             self.assertLess(int.from_bytes(D.compile_text(src(f))[4:6], "little"), 7)
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "gcr_coder", "icap", "uci"])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "sid", "uci"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
@@ -1298,9 +1321,19 @@ class DriverTable(unittest.TestCase):
         self.assertNotIn("DRV_ident_id_WR", names)
         self.assertIn("DRV_cart_flash_fl_magic1_WR", names)           # w: no read
         self.assertNotIn("DRV_cart_flash_fl_magic1_RD", names)
-        self.assertIn("DRV_cart_flash_fl_enable_RD", names)           # rw: both
-        self.assertIn("DRV_cart_flash_fl_enable_WR", names)
+        self.assertIn("DRV_cart_flash_rom_sel_RD", names)             # rw: both
+        self.assertIn("DRV_cart_flash_rom_sel_WR", names)
         self.assertIn("(*DRV_PTR(uint16_t, DRV_cart_flash_fl_magic1_ADDR) = (uint16_t)(v))", h)   # the access is as wide as the property
+
+    def test_a_run_of_registers_has_its_count_and_takes_the_index_of_the_element(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        lines = h.splitlines()
+        self.assertIn("#define DRV_cart_flash_desc_COUNT 43u", lines)
+        self.assertIn("#define DRV_cart_flash_desc_ADDR (DRV_cart_flash_ADDR + 0x40u)", lines)
+        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * 1u) = (uint8_t)(v))", lines)
+        names = {ln.split()[1].split("(")[0] for ln in lines if ln.startswith("#define ")}
+        self.assertNotIn("DRV_cart_flash_desc_RD", names)                         # w: no read
+        self.assertNotIn("DRV_cart_flash_rom_sel_COUNT", names)                 # a single register has no count
 
     def test_the_driver_table_is_the_same_text_for_the_same_toml(self):
         self.assertEqual(self.generate(src("desc_toml_a.toml")), self.generate(src("desc_toml_a.toml")))
