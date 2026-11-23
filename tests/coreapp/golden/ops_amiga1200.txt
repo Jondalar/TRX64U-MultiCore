@@ -50,7 +50,6 @@ op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
-op	update.run_record	path:path:0:0:519:
 op	writeback.mode	value:int:0:2:0:
 op	writeback.poll
 op	writeback.open

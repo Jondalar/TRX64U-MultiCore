@@ -37,6 +37,10 @@ static int op_fresh(CoreCtx *, const OpArgs &a, OpOut &o)
     return OPE_OK;
 }
 static int op_refuse(CoreCtx *, const OpArgs &, OpOut &o) { snprintf(o.msg, o.msglen, "I will not"); return OPE_FAILED; }
+// P2-1: what a linked library registers under the name of a contract method (rpccontract.cc: "session/state" is a row, "monitor/exec" a -32601 row)
+static int g_lib_calls;
+static int op_lib_state(CoreCtx *, const OpArgs &, OpOut &o) { g_lib_calls++; snprintf(o.msg, o.msglen, "the library's state"); return OPE_OK; }
+static int op_lib_monitor(CoreCtx *, const OpArgs &, OpOut &o) { g_lib_calls++; snprintf(o.msg, o.msglen, "the library's monitor"); return OPE_OK; }
 static int op_blob(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
 static std::string g_run_path;
 static int op_run(CoreCtx *, const OpArgs &a, OpOut &) { g_run_path = a.s(0); return OPE_OK; }
@@ -518,6 +522,33 @@ int main()
         rpc_close(s);
         CHECK_EQ(reg->emit("zz.ping", 0), 0);
         delete s2;
+        delete s;
+    }
+
+    // ---- P2-1: the registry is asked before the contract table - a linked library's method is served, the contract answers what no operation does
+    {
+        Rig r;
+        RpcSession *s = new RpcSession;
+        rpc_open(s, &r.c);
+        // without the library: the table answers (session/state is a row, monitor/exec is -32601 with its reason)
+        std::string t0 = rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session/state\"}");
+        CHECK(has(t0, "\"backend\":\"coreapp\""));
+        CHECK(has(rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"monitor/exec\"}"), "\"code\":-32601"));
+        // the library registers operations named after the two methods
+        OpRegistry *reg = ops_of(&r.c);
+        reg->contributor("lib");
+        reg->add_op("session.state", 0, 0, op_lib_state);
+        reg->add_op("monitor.exec", 0, 0, op_lib_monitor);
+        g_lib_calls = 0;
+        std::string t1 = rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"session/state\"}");
+        CHECK(has(t1, "the library's state") && !has(t1, "\"backend\""));
+        std::string t2 = rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"monitor/exec\"}");
+        CHECK(has(t2, "the library's monitor") && has(t2, "\"result\""));
+        CHECK_EQ(g_lib_calls, 2);
+        // a method that is in the table and that no library registered stays the table's
+        CHECK(has(rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"session/list\"}"), "\"sessions\""));
+        CHECK(has(rpc(s, "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"debug/state\"}"), "\"code\":-32601"));
+        rpc_close(s);
         delete s;
     }
 

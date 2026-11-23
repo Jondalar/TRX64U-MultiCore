@@ -23,44 +23,6 @@
 #include <strings.h>
 #include <stdlib.h>
 
-// ---- a setting by its key, cheaply: the key literal's address is the cache's key (a Settings object lives for the whole run, but is made again after the merge) ----
-int cfg_value(CoreCtx *c, const char *key, int def)
-{
-    static const Settings *seen;
-    static struct { const char *key; int16_t ix; } cache[96];
-    static int n;
-    if (!c->settings) {
-        return def;
-    }
-    if (seen != c->settings) {
-        seen = c->settings;
-        n = 0;
-    }
-    for (int i = 0; i < n; i++) {
-        if (cache[i].key == key) {
-            return cache[i].ix >= 0 ? c->settings->value(cache[i].ix) : def;
-        }
-    }
-    int ix = c->settings->find(key);
-    if (n < 96) {
-        cache[n].key = key;
-        cache[n].ix = (int16_t)ix;
-        n++;
-    }
-    return ix >= 0 ? c->settings->value(ix) : def;
-}
-
-// The text of a text setting ("" when empty or unknown).
-const char *cfg_text(CoreCtx *c, const char *key)
-{
-    int ix = c->settings ? c->settings->find(key) : -1;
-    const char *t = ix >= 0 ? c->settings->text(ix) : "";
-    while (*t == ' ') {
-        t++;
-    }
-    return t;
-}
-
 // ---- the temp RAM disk ------------------------------------------------------------------------------------------------------------------------
 // The look of the menu (Overlay Transparency, Color Scheme, Filename overflow squeeze, Navigation Style) is the application's own setting now (baseset.cc).
 #include "tempdisk.h"
@@ -742,12 +704,6 @@ static int op_clear_reboot(CoreCtx *c, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
-// where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none
-bool trx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n)
-{
-    return ctx_target_path(c, name, ext, out, n);                // the base's (libsvc.cc): api->ctx->target_path of base 3.3
-}
-
 static int write_ddr(CoreCtx *c, const char *path, uint32_t off, uint32_t len, bool ram, char *msg, int msglen)
 {
     static uint8_t buf[0x10000];
@@ -790,7 +746,7 @@ static int write_ddr(CoreCtx *c, const char *path, uint32_t off, uint32_t len, b
 static int op_save_ram(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     char p[260];
-    if (!trx_target_path(c, a.s(0), ".bin", p, sizeof(p))) {
+    if (!ctx_target_path(c, a.s(0), ".bin", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
@@ -804,7 +760,7 @@ static int op_save_reu(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "The REU is not enabled (F5 > 4 I/O)");
         return OPE_FAILED;
     }
-    if (!trx_target_path(c, a.s(0), ".reu", p, sizeof(p))) {
+    if (!ctx_target_path(c, a.s(0), ".reu", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
@@ -886,7 +842,7 @@ static int op_save_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "No GEOS RAM drive %c in the REU", 'A' + n);
         return OPE_FAILED;
     }
-    if (!trx_target_path(c, a.s(1), type == 1541 ? ".d64" : type == 1581 ? ".d81" : ".dnp", p, sizeof(p))) {
+    if (!ctx_target_path(c, a.s(1), type == 1541 ? ".d64" : type == 1581 ? ".d81" : ".dnp", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
@@ -955,7 +911,7 @@ static int op_load_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
 static int op_save_cart(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     char p[260];
-    if (!trx_target_path(c, a.s(0), ".crt", p, sizeof(p))) {
+    if (!ctx_target_path(c, a.s(0), ".crt", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }

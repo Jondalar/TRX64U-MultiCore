@@ -64,34 +64,6 @@ uint8_t trx_io_caps3(void)
     return uint8_t(caps3);
 }
 
-bool trx_io_resid8(void)
-{
-    return (trx_io_caps3() & TRX_CAPS3_RESID8) != 0;
-}
-
-void trx_io_resid8_filter(int u, uint8_t src, uint8_t auto_bits, int base, int offset)
-{
-    if (!trx_io_resid8()) {
-        return;
-    }
-    u &= 1;
-    base &= 0x1FF;
-    offset &= 0x7FF;
-    ioWrite8(TRX_RS8_FCSEL(u), src & 3);
-    ioWrite8(TRX_RS8_AUTO(u), auto_bits & 3);
-    ioWrite8(TRX_RS8_BASE(u), uint8_t(base));
-    ioWrite8(TRX_RS8_BASE(u) + 1, uint8_t(base >> 8));
-    ioWrite8(TRX_RS8_OFFSET(u), uint8_t(offset));
-    ioWrite8(TRX_RS8_OFFSET(u) + 1, uint8_t(offset >> 8));
-}
-
-void trx_io_resid8_bypass(int u, bool bypass)
-{
-    if (trx_io_resid8()) {
-        ioWrite8(TRX_RS8_BYPASS(u & 1), bypass ? 1 : 0);
-    }
-}
-
 bool trx_io_slim(void)
 {
     static int slim = -1; // not looked yet

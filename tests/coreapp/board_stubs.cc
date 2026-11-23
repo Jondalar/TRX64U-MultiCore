@@ -18,7 +18,6 @@
 #include "netops.h"
 #include "trx64u_ops.h"
 
-int cfg_value(CoreCtx *, const char *, int def) { return def; }
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
 void trx64u_uci_df1c(CoreCtx *) { }
 void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
@@ -143,7 +142,6 @@ const char *diag_text(int, int *n)
     return "";
 }
 void diag_help_areas(const char *, const char *) { }
-const char *cfg_text(CoreCtx *, const char *) { return ""; }
 int stub_mon_tick_n, stub_mon_render_n;
 bool stub_mon_tick_answer;
 bool mon_tick(CoreCtx *) { stub_mon_tick_n++; bool a = stub_mon_tick_answer; stub_mon_tick_answer = false; return a; }

@@ -3,7 +3,7 @@
 // folder of the application's CoreFs and a file is held in RAM while it is open (a file that does not fit in memory is refused).
 #include "netfs.h"
 #include "ftp_client.h"
-#include "trx64u_ops.h"
+#include "ctx.h"
 #include "online.h"
 #include "file.h"
 #include <stdio.h>

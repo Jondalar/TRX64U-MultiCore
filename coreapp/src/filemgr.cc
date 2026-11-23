@@ -694,7 +694,7 @@ void FileMgr::seek_key(int k)
     lib_sync();
 }
 
-// the viewer on text the application has in memory (the debug log, the EDID, the trace)
+// the viewer on text the application has in memory (the debug log, the EDID)
 void FileMgr::start_view_mem(const char *title, int kind, bool hex)
 {
     if (!view_data) {

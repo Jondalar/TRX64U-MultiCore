@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "ctx.h"
 #include "cfgfile.h"
 #include "picture.h"
 #include <stdio.h>
@@ -524,4 +525,41 @@ bool Settings::mounts_clear()
     }
     memset(mnt_, 0, sizeof(mnt_));
     return cfg_path_[0] ? write_cfg() : true;
+}
+
+// ---- a setting by its key, cheaply: the key literal's address is the cache's key (a Settings object lives for the whole run, but is made again after the merge) ----
+int cfg_value(CoreCtx *c, const char *key, int def)
+{
+    static const Settings *seen;
+    static struct { const char *key; int16_t ix; } cache[96];
+    static int n;
+    if (!c->settings) {
+        return def;
+    }
+    if (seen != c->settings) {
+        seen = c->settings;
+        n = 0;
+    }
+    for (int i = 0; i < n; i++) {
+        if (cache[i].key == key) {
+            return cache[i].ix >= 0 ? c->settings->value(cache[i].ix) : def;
+        }
+    }
+    int ix = c->settings->find(key);
+    if (n < 96) {
+        cache[n].key = key;
+        cache[n].ix = (int16_t)ix;
+        n++;
+    }
+    return ix >= 0 ? c->settings->value(ix) : def;
+}
+
+const char *cfg_text(CoreCtx *c, const char *key)
+{
+    int ix = c->settings ? c->settings->find(key) : -1;
+    const char *t = ix >= 0 ? c->settings->text(ix) : "";
+    while (*t == ' ') {
+        t++;
+    }
+    return t;
 }

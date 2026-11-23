@@ -49,8 +49,7 @@ typedef struct CoreHooks {
     //     poll or the executor by its own mutex (sync).
     //   - State seen from the hook: ctx.state still has CTX_MENU_OPEN and CTX_FROZEN set (the base clears both after it) and the menu is already hidden; the machine is
     //     still stopped when it was frozen, the base releases it (io.stop off) after the hook returns, so a state loaded here is where the machine runs on.
-    //   - Order: it takes the place of the base's mon_release and trx_ring_pending/trx_ring_unfreeze calls, and runs where the second pair runs today, after the menu is hidden
-    //     (the monitor's release therefore comes a few lines later than it does now).
+    //   - Order: the base has no monitor release and no ring unfreeze of its own; the hook runs after the menu is hidden.
     //   - It does not block for long: the person waits for the machine to run.
     void (*menu_closed)(void);
     // The base applied one of its own settings (svc_settings.h: the generic application's settings), `key` its key. The core's hardware that follows the

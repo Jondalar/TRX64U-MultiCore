@@ -26,7 +26,6 @@ area F3 Library
       filetype .prg: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .p00: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .u2a: Run app
-      filetype .cfw: Run update
       filetype .d64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk | Browse disk | Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
         inside .prg: Mount & run | Real run
       filetype .g64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk
@@ -53,7 +52,6 @@ area F3 Library
       filetype .prg: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .p00: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .u2a: Run app
-      filetype .cfw: Run update
       filetype .d64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk | Browse disk | Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
         inside .prg: Mount & run | Real run
       filetype .g64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk

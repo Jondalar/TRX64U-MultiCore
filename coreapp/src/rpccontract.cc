@@ -173,9 +173,9 @@ const char *contract_reason(uint8_t kind)
 {
     switch (kind) {
     case CK_NO_SANDBOX: return "not on this application: use a local TRX64 sandbox";
-    case CK_NO_RING: return "needs the Timewarp ring (T20), which this application does not drive";
-    case CK_NO_TRACE: return "needs the trace engine, which is not in this application";
-    case CK_NO_DEBUG: return "the debugger and the monitor are an application of their own (trxmon), not this one";
+    case CK_NO_RING: return "needs the Timewarp ring (T20): no library of this core registers an operation for it";
+    case CK_NO_TRACE: return "needs the trace engine: no library of this core registers an operation for it";
+    case CK_NO_DEBUG: return "the debugger and the monitor are a library's or a sub-app's: no library of this core registers an operation for it";
     case CK_NO_PACING: return "the machine runs in real time; it has no pacing, ticks or frame stepping";
     case CK_NO_INPUT: return "no operation of this core presses keys or moves a joystick";
     case CK_NO_MEDIA: return "files and media are the menu's browser (F3) and the drive library's operations (drive.*)";

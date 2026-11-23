@@ -2,7 +2,7 @@
 // the menu says to it: start and stop, scrub a frame or a second, back to live, mark, resume here, write and load a .c64re. menu.toml F2 draws it (screens.cc layout
 // "timeline"), the keys of that layout call these operations (the key table at the top of cores/trx64u/menu.toml).
 #include "ringops.h"
-#include "trx64u_ops.h"
+#include "ctx.h"
 #include "trx_ring.h"
 #include "trx_c64re.h"
 #include "ops_glue.h"
@@ -340,7 +340,7 @@ static int dump_op(CoreCtx *c, const OpArgs &a, OpOut &o, bool ring)
         return OPE_FAILED;
     }
     if (j->state == 0) {
-        if (!trx_target_path(c, a.s(0), ring ? ".c64rering" : ".c64re", j->path, sizeof(j->path))) {
+        if (!ctx_target_path(c, a.s(0), ring ? ".c64rering" : ".c64re", j->path, sizeof(j->path))) {
             snprintf(o.msg, o.msglen, "No medium to save to");
             return OPE_FAILED;
         }
@@ -404,7 +404,7 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o) { return dump_op(c, a,
 static int op_c64re_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     char p[260];
-    if (!trx_target_path(c, a.s(0), ".c64re", p, sizeof(p))) {
+    if (!ctx_target_path(c, a.s(0), ".c64re", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }

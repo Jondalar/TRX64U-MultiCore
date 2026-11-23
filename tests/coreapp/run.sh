@@ -49,7 +49,7 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -fno-exceptions -pthread"
 PASS=0
 # the shared base every core application links, and the one descriptor each blueprint core adds to it
-BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc update.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
+BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc baseset.cc hookhost.cc hotkeys.cc home.cc ops.cc ops_glue.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc menubuild.cc"
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
@@ -343,8 +343,6 @@ run board test_board.cc $ALLC
 control board_migrate_overwrite start.cc 's/if (c->fs->stat(c->cfg_path, \&size, \&dir) || /if (/' test_board.cc $ALLC
 control board_migrate_move start.cc 's/    int got = c->fs->load(old, buf, sizeof(buf));/    int got = c->fs->load(old, buf, sizeof(buf)); c->fs->remove(old);/' test_board.cc $ALLC
 control board_cfg_dir board.h 's|#define BOARD_MONOLITH_CFG_DIR "/flash/trx64u"|#define BOARD_MONOLITH_CFG_DIR "/flash/trx64"|' test_board.cc $ALLC
-# T104.2 D9.3, S13: update.run_record - checks, stage, read back, jump
-run update test_update.cc update.cc ops.cc
 # T115 7 H1: the held page (R1-R5)
 control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->flash_cfg \&\& prof->cfg_dir \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
 control board_cfg_named_by_store start.cc 's/prof->cfg_dir, c->desc->folder);/prof->cfg_dir, c->desc->store);/' test_board.cc $ALLC
