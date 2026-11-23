@@ -45,21 +45,6 @@ public:
         }
     }
     void ddr_read(uint32_t off, void *p, uint32_t n) { memcpy(p, (const void *)(DDR_WINDOW + off), n); }
-    const char *product_family() { return getProductFamily(); }
-    const char *product_name() { return getProductString(); }
-    // The `.cfw` run of a core's library: the staged updater at addr (the library has loaded and checked it). Gideon's jump_run (filetype_u2p.cc) with the layer given back first.
-    void run_at(uint32_t addr)
-    {
-        printf("[core] update: jump to 0x%08x\n", (unsigned)addr);
-        trx_lv_yield_layer();
-        hw_rocker_quiesce();
-        ioWrite8(ITU_IRQ_GLOBAL, 0);
-        portDISABLE_INTERRUPTS();
-        hw_net_rx_stop();
-        ((void (*)(void))addr)();
-        for (;;) {
-        }
-    }
     void rom_write(uint32_t off, const void *p, uint32_t n)
     {
         volatile uint8_t *d = (volatile uint8_t *)(U64_ROMS_BASE + off);

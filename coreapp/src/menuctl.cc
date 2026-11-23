@@ -3171,9 +3171,9 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             return goto_spec(arg) ? R_REDRAW : R_NONE;
         }
         if (n.kind == LN_OP && ui_attr(n.attr, "view", arg, sizeof(arg))) {         // the viewer on something the application keeps in memory
-            static const char *const kinds[] = { "log", "edid", "", "info", "scan", "help" };
+            static const char *const kinds[] = { "log", "edid", 0, "info", "scan", "help" };
             for (int k = 0; k < 6; k++) {
-                if (!strcmp(arg, kinds[k])) {
+                if (kinds[k] && !strcmp(arg, kinds[k])) {
                     fm_.start_view_mem(label, k, k == 1);
                     return R_REDRAW;
                 }

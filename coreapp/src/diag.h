@@ -6,7 +6,7 @@
 #include "ops.h"
 
 void diag_register(OpRegistry &r);
-// The text or bytes the viewer shows: 0 the debug log, 1 the screen's EDID, 2 the instruction trace, 3 system information. *n is their length.
+// The text or bytes the viewer shows: 0 the debug log, 1 the screen's EDID, 3 system information, 5 the keys. *n is their length.
 const char *diag_text(int kind, int *n);
 // T228 D12, R1: the keys text (diag_text kind 5) names the Timewarp bar and the monitor only when the core's menu has those screens; each argument is how
 // the screen is opened ("F1 Home > Timewarp..., CTRL + T", MenuCtl::screen_way), null: the menu has no such screen.

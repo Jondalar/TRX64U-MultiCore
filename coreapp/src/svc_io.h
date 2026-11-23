@@ -13,7 +13,7 @@
 //     the menu calls it again while it answers `more`, each call holds the lock for one step, the menu stays open (the machine frozen) until the last step.
 //   - Errors: none are reported. A core or host without a window ignores a write and reads 0 (the defaults of CoreIo); ddr_abs_* ignores what lies outside its range.
 //   - `io` has 25 members, the 23 of CoreIo named below, bus_rd and window (the core's own register blocks, declared in its API TOML), bus_rd being new in CoreIo (the read side of bus_wr; the default of the interface returns 0). The others of
-//     io.h (palette, drv_present, drv_buffer, case LEDs, mixer, tone, hotkey registers, matrix keys, joystick lines, bling, product, run_at, now_ms, delay_ms, wall_time) are the
+//     io.h (palette, drv_present, drv_buffer, case LEDs, mixer, tone, hotkey registers, matrix keys, joystick lines, bling, now_ms, delay_ms, wall_time) are the
 //     base's own and no library of a core needs them: a library that does names the one it needs and it is appended (append-only).
 #ifndef COREAPP_SVC_IO_H
 #define COREAPP_SVC_IO_H

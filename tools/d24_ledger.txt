@@ -153,8 +153,7 @@ ids coreapp/src/board.h trx64u 1
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/c64_api.h c64 1
 ids coreapp/src/desc_check.cc null 1
-ids coreapp/src/diag.cc diag 15
-ids coreapp/src/diag.cc trx64u 1
+ids coreapp/src/diag.cc diag 14
 ids coreapp/src/filemgr.cc diag 1
 ids coreapp/src/folderhd.cc amiga 2
 ids coreapp/src/folderhd.h amiga 1
@@ -167,11 +166,8 @@ ids coreapp/src/libexports.cc c64 1
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/libload.h c64 1
 ids coreapp/src/menuctl.cc diag 1
-ids coreapp/src/menuflows.cc trx64u 1
 ids coreapp/src/menutree.cc diag 1
 ids coreapp/src/menuvlist.cc c64 2
-ids coreapp/src/netfs.cc trx64u 1
-ids coreapp/src/netops.cc trx64u 1
 ids coreapp/src/nettransport.cc null 1
 ids coreapp/src/newdisk.cc apple2 2
 ids coreapp/src/newdisk.cc cpc 2
@@ -183,7 +179,6 @@ ids coreapp/src/rpccontract.cc c64 2
 ids coreapp/src/rpccontract.cc null 9
 ids coreapp/src/run.cc c64 1
 ids coreapp/src/run.cc diag 2
-ids coreapp/src/run.cc trx64u 1
 ids coreapp/src/svc.cc null 2
 ids coreapp/src/svcjson.cc null 2
 ids coreapp/src/writeback_crt.cc c64 1

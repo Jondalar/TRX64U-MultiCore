@@ -477,7 +477,7 @@ int appsvc_flash_read(uint32_t addr, void *buf, int len)
     return len;
 }
 
-// The steps the update jump takes before it leaves this firmware (hw.cc run_at): the layer is given back, the rocker's link is quiet, the interrupts are off,
+// The steps the update jump takes before it leaves this firmware: the layer is given back, the rocker's link is quiet, the interrupts are off,
 // the receive DMAs stopped.
 void appsvc_handover(void)
 {
