@@ -25,8 +25,9 @@ module vdc_ramiface #(
 	input          ctl_reset, // T140 5.17: warm reset of the copy/fill/read-write engine only (registers and RAM stay)
 	input          enable,
 
+	input          dbg_clk,   // T257: the read-back's clock (ungated: it runs while the machine is stopped, §5 fault 3)
 	input   [15:0] dbg_addr,  // T257: the read-back's VRAM address (a CPU-side address, shuffled like the CPU's R18/R19)
-	output   [7:0] dbg_do,    // T257: the byte at dbg_addr, one clock after dbg_addr is stable
+	output   [7:0] dbg_do,    // T257: the byte at dbg_addr, one dbg_clk after dbg_addr is stable
 
 	input    [5:0] regA,      // selected register
 	input    [7:0] db_in,     // cpu data in
@@ -101,6 +102,7 @@ endfunction
 vdcram #(8, RAM_ADDR_BITS) ram
 (
 	.clk(clk),
+	.clk_b(dbg_clk),
 	.rd(ram_rd),
 	.we(ram_we),
 	.addr(shuffleAddr(ram_addr, ram64k, reg_ram /*|| (ramAction==RA_IDLE || ramAction==RA_RFSH)*/)),

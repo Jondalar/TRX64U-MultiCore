@@ -399,7 +399,8 @@ module c64_top_c128 #(
   input  wire         vd_we,
   input  wire   [7:0] vd_wdata,
   output wire   [7:0] vd_rdata,
-  input  wire  [17:0] vk_req,          // T257: the VDC read-back (c128_x.v)
+  input  wire         vk_clk,          // T257: the VDC read-back (c128_x.v) on the ungated clock: it answers while clk is stopped (§5 fault 3)
+  input  wire  [17:0] vk_req,
   output wire   [8:0] vk_ans
 );
 
@@ -2108,7 +2109,7 @@ c128_x x (
   .k_sel(k_sel), .fast(c128_fast),
   .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il),
   .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata),
-  .vk_req(vk_req), .vk_ans(vk_ans)
+  .vk_clk(vk_clk), .vk_req(vk_req), .vk_ans(vk_ans)
 );
 
 endmodule

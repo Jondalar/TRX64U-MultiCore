@@ -1,16 +1,22 @@
-// T257 S4/S5/S6 "the VDC read-back": the C128's register page (c128_regs.v, cpu_clk 100 MHz) and the VDC (c128_x -DVDC_WHOLE -DVDC64, sys_clk 31.5278 MHz) joined
-// as in layer2_c128.v (vk_req / vk_ans). The CPU side of the VDC is driven like the core does (vdc_bus.svh); the page is read like the application does (a read
-// is held until ack). Checks:
+// T257 S4/S5/S6 "the VDC read-back": the C128's register page (c128_regs.v, cpu_clk 100 MHz) and the VDC (c128_x -DVDC_WHOLE -DVDC64) joined as in
+// layer2_c128.v (vk_req / vk_ans). The clocks are the core's: c128_x's clk is the machine's gated clock (top.v's BUFGCE, CE = the gate of c64_core_c128.v,
+// modelled as the free clock AND a gate taken at the falling edge), vk_clk the free sys_clk 31.5278 MHz. The CPU side of the VDC is driven like the core does
+// (vdc_bus.svh); the page is read like the application does (a read is held until ack). Checks:
 //   - every register R0-R15, R18-R30, R32-R37 read at 100 + n equals what the CPU reads at $D601 (the program of tb_c128_pixw's phase 1)
 //   - 126 (the status byte) agrees with the CPU's status read in the bits that do not move (7, 3-0), 127 is the selected register
 //   - the VRAM bytes written through R31 (R18/R19 = $0100, four bytes) read back through 140-142, in order, the address register 140/141 counts up; a byte above
 //     $8000 too (the 64 KiB shuffle); and the CPU's update address R18/R19 and a following R31 read are exactly what they were: the read-back moves nothing
 //   - every access is acknowledged within 200 cpu clocks (a read with no answer ends in 0xFF and 143 = 1: tb_regs.v covers that against a dead model)
+//   - (§5 fault 3) with the machine stopped (the gate closed, as the menu, the pause and the Timewarp stop do; the machine clock stands still, counted) the
+//     registers read back as the CPU read them before the stop, the VRAM bytes too, 143 stays 0; after the gate opens the CPU's reads go on as before
 `timescale 1ns / 1ps
 module tb_c128_vkpeek;
-    reg clk = 1'b0, cclk = 1'b0;
-    always #15.859 clk = ~clk;                        // sys_clk 31.5278 MHz
+    reg fclk = 1'b0, cclk = 1'b0;
+    always #15.859 fclk = ~fclk;                      // sys_clk 31.5278 MHz (free)
     always #5 cclk = ~cclk;                           // cpu_clk 100 MHz
+    reg gate = 1'b1, gate_l = 1'b1;                   // the machine's gate: BUFGCE takes CE while the clock is low, so the gated clock has no short pulse
+    always @(negedge fclk) gate_l <= gate;
+    wire clk = fclk & gate_l;                         // c64_gclk
     reg rst = 1'b1;
     wire [7:0] dout;
     wire [3:0] rgbi;
@@ -21,7 +27,7 @@ module tb_c128_vkpeek;
     c128_x dut (.clk(clk), .rst(rst), .bus_en(bus_en), .vdc_cs(cs), .vdc_we(we), .vdc_rs(rs), .vdc_din(din), .vdc_dout(dout),
         .vicie_cs(1'b0), .vicie_we(1'b0), .vicie_a0(1'b0), .vicie_din(8'd0), .vicie_dout(), .k_sel(), .fast(),
         .vdc_rgbi(rgbi), .vdc_ce(ce), .vdc_hb(hb), .vdc_vb(vb), .vdc_il(vdc_il),
-        .vd_clk(1'b0), .vd_addr(16'd0), .vd_we(1'b0), .vd_wdata(8'd0), .vd_rdata(), .vk_req(vk_req), .vk_ans(vk_ans));
+        .vd_clk(1'b0), .vd_addr(16'd0), .vd_we(1'b0), .vd_wdata(8'd0), .vd_rdata(), .vk_clk(fclk), .vk_req(vk_req), .vk_ans(vk_ans));
 `include "vdc_bus.svh"
     reg         pwe = 0, pre = 0;
     reg  [16:0] paddr = 0;
@@ -64,8 +70,9 @@ module tb_c128_vkpeek;
             else $display("ok   %0s = %02x", name, got);
         end
     endtask
-    reg [7:0] r [0:63];
+    reg [7:0] r [0:63], cr [0:63];                    // cr: what the CPU read in S4
     integer ci;
+    longint c0;
     reg [7:0] a, b, c;
     initial begin
         for (ci = 0; ci < 64; ci = ci + 1) r[ci] = 8'd0;
@@ -82,13 +89,14 @@ module tb_c128_vkpeek;
         for (ci = 0; ci < 38; ci = ci + 1)
             if (ci != 16 && ci != 17 && ci != 18 && ci != 19 && ci != 30 && ci != 31) begin
                 cpu_rd(ci[7:0], a);
+                cr[ci] = a;
                 prd(12'h100 + ci[11:0], b);
                 if (a !== b) begin $display("FAIL: R%0d: CPU reads %02x, read-back %02x", ci, a, b); nbad = nbad + 1; end
             end
         $display("ok   R0-R37 (but R16-R19, R30, R31): the read-back equals the CPU's read");
         prd(12'h104, a); expect8("R4 through the page", a, 8'd32);
         prd(12'h106, a); expect8("R6 through the page", a, 8'd25);
-        prd(12'h109, a); expect8("R9 through the page", a, 8'd7);
+        prd(12'h109, a); expect8("R9 through the page (bits 7-5 read 1)", a, 8'hE7);
         prd(12'h119, a); expect8("R25 through the page", a, 8'h47);
         wr_sel(8'd36);
         prd(12'h127, a); expect8("127 = the selected register", a, 8'd36);
@@ -115,6 +123,30 @@ module tb_c128_vkpeek;
         cpu_rd(8'd31, a); expect8("CPU R31 read at $0100 after the read-back", a, 8'h11);
         wait_ready;
         cpu_rd(8'd31, a); expect8("CPU R31 read at $0101", a, 8'h12);
+        // §5 fault 3: the machine stopped. The gate closes; c128_x's clk stands still while the page is read through vk_clk.
+        wait_ready;
+        gate = 1'b0;
+        repeat (4) @(posedge fclk);
+        c0 = cyc;
+        for (ci = 0; ci < 38; ci = ci + 1)
+            if (ci != 16 && ci != 17 && ci != 18 && ci != 19 && ci != 30 && ci != 31) begin
+                prd(12'h100 + ci[11:0], b);
+                if (b !== cr[ci]) begin $display("FAIL: stopped, R%0d: read-back %02x, the CPU read %02x before the stop", ci, b, cr[ci]); nbad = nbad + 1; end
+            end
+        $display("ok   stopped: R0-R37 (but R16-R19, R30, R31) read back as the CPU read them before the stop");
+        prd(12'h119, a); expect8("stopped: R25 through the page", a, 8'h47);
+        pwr(12'h140, 8'h00); pwr(12'h141, 8'h01);
+        for (ci = 0; ci < 4; ci = ci + 1) begin prd(12'h142, a); expect8("stopped: VRAM $0100 + n", a, 8'h11 + ci[7:0]); end
+        pwr(12'h140, 8'h01); pwr(12'h141, 8'h80);
+        prd(12'h142, a); expect8("stopped: VRAM $8001", a, 8'hC3);
+        prd(12'h143, a); expect8("stopped: 143 (no read timed out)", a & 8'h01, 8'h00);
+        if (cyc != c0) begin $display("FAIL: the machine clock ran %0d clocks while the gate was closed", cyc - c0); nbad = nbad + 1; end
+        else $display("ok   the machine clock stood still while the page was read (%0d machine clocks)", cyc - c0);
+        gate = 1'b1;
+        repeat (4) @(posedge clk);
+        cpu_rd(8'd25, a); expect8("after the stop: CPU reads R25", a, 8'h47);
+        wait_ready;
+        cpu_rd(8'd31, a); expect8("after stop: CPU R31 at $0102", a, 8'h13);
         $display("     longest wait for an ack: %0d cpu clocks", waits);
         check_gt;
         if (nbad == 0) $display("PASS tb_c128_vkpeek"); else $display("FAIL tb_c128_vkpeek: %0d wrong", nbad);

@@ -37,9 +37,10 @@ module vdc_top #(
 	output   [1:0] ilace,       // T113 D11: {R8[1:0] == 3, field being drawn}
 
 	// T257: read-back without side effects (the MEGA65 core's vdc_top.sv dbg_addr / dbg_ram / dbg_reg, Stefan Eilers and Jeff Flitton, GPL v3)
+	input          dbg_clk,     // the read-back's clock: ungated, of the same MMCM output as clk, so the read-back works while clk is stopped (§5 fault 3)
 	input   [15:0] dbg_addr,    // [5:0] selects the register (0-37 R0-R37, 38 the status byte, 39 the selected register), [15:0] the VRAM address
-	output   [7:0] dbg_ram,     // the VRAM byte at dbg_addr, one clock after dbg_addr is stable
-	output reg [7:0] dbg_reg    // the register selected by dbg_addr[5:0], one clock after dbg_addr is stable
+	output   [7:0] dbg_ram,     // the VRAM byte at dbg_addr, one dbg_clk after dbg_addr is stable
+	output reg [7:0] dbg_reg    // the register selected by dbg_addr[5:0], one dbg_clk after dbg_addr is stable
 );
 
 reg enable;
@@ -204,6 +205,7 @@ vdc_ramiface #(
 	.S_LATCH_WIDTH(S_LATCH_WIDTH),
 	.C_LATCH_WIDTH(C_LATCH_WIDTH)
 ) ram (
+	.dbg_clk(dbg_clk),
 	.dbg_addr(dbg_addr),
 	.dbg_do(dbg_ram),
 	.ram64k(ram64k),
@@ -354,7 +356,7 @@ function [7:0] regval(input [5:0] sel);
 	endcase
 endfunction
 
-always @(posedge clk)
+always @(posedge dbg_clk)
 	case (dbg_addr[5:0])
 		38: dbg_reg <= status;
 		39: dbg_reg <= {2'b00, regSel};

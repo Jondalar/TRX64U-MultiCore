@@ -27,7 +27,8 @@
 //                     0D0 CPU writes to the VIC's registers $D000-$D02E, 0D1 to the colour RAM, 0D2 to the VDC's data register $D601 (8 bit each, saturating at 255),
 //                     0D3 b0 the VIC's DEN ($D011 b4) at the end of that frame, 0D4 the frame number (wraps): read it before and after the others, they belong together when it is the same
 //   100-127 VDC_REG  R   (T257) the VDC's registers as the CPU would read them, without a read's side effects: 100 + n = R n for n = 0-37, 126 the status byte, 127 the
-//                     register selected by $D600; 128-13F read 0xFF. Every read asks the VDC (sys_clk) and is acknowledged when the byte is back (about 10 clocks)
+//                     register selected by $D600; 128-13F read 0xFF. Every read asks the VDC's read-back port (on the ungated sys_clk: it answers with the machine stopped too,
+//                     T257 §5 fault 3) and is acknowledged when the byte is back (20 cpu clocks at the most in tb_c128_vkpeek)
 //   140 VDC_PK_ADDR_LO, 141 VDC_PK_ADDR_HI RW   the VRAM address (as the CPU's R18/R19 would address it) of the next VDC_PK_DATA read
 //   142 VDC_PK_DATA R   (T257) the VRAM byte at VDC_PK_ADDR, without a read's side effects (the program's R18/R19/R31 stay as they are); the address then goes up by 1
 //   143 VDC_PK_STAT R   b0: the last read of 100-13F / 142 got no answer from the VDC within 1023 clocks (it returned 0xFF); cleared by the next answered read

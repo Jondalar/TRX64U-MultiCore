@@ -24,6 +24,9 @@ module c128_x (
     // T257: the read-back of the VDC's registers and VRAM without side effects (VDC_WHOLE only), a toggle handshake from cpu_clk (c128_regs.v):
     //   vk_req = {request toggle, 1 = VRAM / 0 = register, 16 bit address or register number}, stable from the toggle on until the answer;
     //   vk_ans = {answer toggle, the byte}
+    //   vk_clk = the engine's clock: the ungated clock of the same MMCM output as clk (sys_clk; clk is the machine's gated copy, stopped while the
+    //   machine is paused or the menu is open), so a read is answered with the machine stopped too (T257 §5 fault 3)
+    input  wire        vk_clk,
     input  wire [17:0] vk_req,
     output wire  [8:0] vk_ans
 );
@@ -62,13 +65,14 @@ module c128_x (
         .clk(clk), .enableBus(bus_en), .reset(rst), .ctl_reset(warm), .init(1'b0),
         .cs(vdc_cs), .rs(vdc_rs), .we(vdc_we), .db_in(vdc_din), .db_out(vdc_dout),
         .lp_n(1'b1), .vsync(), .hsync(), .pixel_ce(vdc_ce), .active_h(act_h), .active_v(act_v), .rgbi(vdc_rgbi), .ilace(vdc_il),
-        .dbg_addr(vk_a), .dbg_ram(vk_ram_q), .dbg_reg(vk_reg_q));
+        .dbg_clk(vk_clk), .dbg_addr(vk_a), .dbg_ram(vk_ram_q), .dbg_reg(vk_reg_q));
     // The request crosses with the toggle (three flip-flops, the address is stable by then), the engine latches the address, waits for the block RAM and the
-    // register mux (one clock after the address) and answers with the byte and a toggle; nothing here touches the CPU's side of the VDC.
+    // register mux (one clock after the address) and answers with the byte and a toggle; nothing here touches the CPU's side of the VDC. All of it runs on
+    // vk_clk: the VDC's registers it reads are on clk, which is the same clock while the machine runs and stands still while it is stopped.
     reg        vk_isram = 1'b0, vk_tgl = 1'b0;
     reg  [1:0] vk_st = 2'd0;
     reg  [7:0] vk_d = 8'd0;
-    always @(posedge clk) begin
+    always @(posedge vk_clk) begin
         vk_s <= {vk_s[1:0], vk_req[17]};
         case (vk_st)
         2'd0: if (vk_s[2] != vk_s[1]) begin vk_a <= vk_req[15:0]; vk_isram <= vk_req[16]; vk_st <= 2'd1; end

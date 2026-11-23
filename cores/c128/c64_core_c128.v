@@ -594,7 +594,7 @@ module c64_core_c128 #(
         .xkeys(xk[23:0]), .x_capslk(xk[24]), .x_d4080(xk[25]), .x_boot64(xk[26]),
         .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
         .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata),
-        .vk_req(vk_req), .vk_ans(vk_ans)
+        .vk_clk(clk), .vk_req(vk_req), .vk_ans(vk_ans)
     );
 
 `ifdef NO_CART_EMU
