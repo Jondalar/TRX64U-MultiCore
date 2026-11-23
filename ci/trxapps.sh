@@ -59,7 +59,7 @@ fi
 # replace the machine code of the fork branch t90-c16app.
 BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo c264 pet amiga ddt_novic diag}"
 # T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the
-# shared image. The VIC-20 is the first (S11); the shared image still holds its code (CORE_OWN_IMAGE_VC20 only leaves it out of the table), the packages' coreapps/vc20.app is the linked app.
+# shared image. The VIC-20 is the first (S11); the shared image holds none of its code (no core table entry, no source in the Makefile), the packages' coreapps/vc20.app is the linked app.
 SDK_OWN_APPS="${SDK_OWN_APPS:-vc20}"
 # T228 R25 (Alex 2026-11-18): the cores with a core app image of their own, <name>:<descriptor>:<heap>. Linked from the objects of the shared
 # image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).

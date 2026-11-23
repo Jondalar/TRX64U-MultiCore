@@ -224,7 +224,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			tape_deck.cc \
 			cpc.cc \
 			cpc_disk.cc \
-			vc20.cc \
 			c264.cc \
 			pet.cc \
 			c128.cc \
@@ -306,7 +305,6 @@ VPATH +=	$(PATH_SW)/../../app/video
 VPATH +=	$(PATH_SW)/../../app/loaders
 VPATH +=	$(PATH_SW)/../../app/lib/cbm1541
 VPATH +=	$(PATH_SW)/../../coreapp/cores
-VPATH +=	$(PATH_SW)/../../cores/vc20/app/lib
 VPATH +=	$(PATH_SW)/lvgl_port
 VPATH +=	$(PATH_SW)/io/c64
 VPATH +=	$(PATH_SW)/api
@@ -365,7 +363,6 @@ OPTIONS += -I$(PATH_SW)/../../coreapp/ffconf
 OPTIONS += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1 -I$(PATH_SW)/hostapp
 OPTIONS += -I$(PATH_SW)/lvgl -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
 # T239.3 D15: heap_5 with one region defined at the first allocation (coreapp/src/heapcfg.c); its size is the heap word of the image, set per core by the packer
-OPTIONS += -DCORE_OWN_IMAGE_VC20   # T239.3 V-4: the shared image leaves the VIC-20 out (coreapp/src/table.cc); its app is linked from the SDK package (cores/vc20/app/sdk.toml, tools/sdk_core_app.sh)
 OPTIONS += -DCORE_OWN_IMAGE_C64    # T228 R25: the shared image leaves the TRX64U C64 out (coreapp/src/table.cc); it has an image of its own (target own)
 OPTIONS += -include $(SIZES_DIR)/appsizes.h    # T239.3 P3-2: the [sizes] of the TOML B, see above
 OPTIONS += $(COREAPP_EXTRA)     # #93: -DLISTGROW_START=40 -DLISTGROW_HARD=60 for the mock-up image that shows the "more entries not shown" line; never for a board
@@ -403,9 +400,7 @@ $(OUTPUT)/$(PRJ).out: $(IOFRAG)
 SDKBASE       = $(OUTPUT)/sdkbase
 SDK_GENERATED = drvtab.c libtab_table.cc
 SDK_START     = crt0.o port_asm.o
-# the sources of a core's own repository part (cores/<id>/app/lib) are linked by that core's TOML B (--src), never shipped as the base
-SDK_CORE_OWN  = vc20.cc
-SDK_SRCS_ALL  = $(filter-out $(SDK_GENERATED) $(LIB_SRCS_CC) $(SDK_CORE_OWN),$(SRCS_C) $(SRCS_CC))
+SDK_SRCS_ALL  = $(filter-out $(SDK_GENERATED) $(LIB_SRCS_CC),$(SRCS_C) $(SRCS_CC))
 SDK_PATHS     = $(foreach f,$(SDK_SRCS_ALL),$(firstword $(wildcard $(addsuffix /$(f),$(VPATH)))))
 sdkbase: all
 	@rm -rf $(SDKBASE)/lib $(SDKBASE)/incdirs.txt $(SDKBASE)/archive.objs

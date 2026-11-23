@@ -13,9 +13,6 @@ const CoreDesc *const core_table[] = {
     &apple2_desc,
     &zx_desc,
     &cpc_desc,
-#ifndef CORE_OWN_IMAGE_VC20
-    &vc20_desc,                   // T239.3 V-4: the VIC-20 has an app of its own, linked from the SDK package (cores/vc20/app/sdk.toml); the shared RISC-V image leaves it out
-#endif
     &c264_desc,
     &pet_desc,
     &c128_desc,

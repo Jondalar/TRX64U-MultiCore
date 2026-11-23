@@ -17,8 +17,12 @@ TEST_SRCS="$SRC/desc_check.cc $ROOT/tests/coreapp/video_stub.cc $ROOT/tests/core
 CORE_DEFS="-std=gnu++14 -w -DVIDEOMODE_NO_BOARD=1 -DLV_CONF_INCLUDE_SIMPLE"
 CORE_INCS="-I$ROOT/app/view -I$ROOT/app/video -I$SRC -I$ROOT/uicore -I$CORES -I$ROOT/cores/vc20/app/lib -I$ROOT/app/loaders -I$ROOT/app/lib/cbm1541 -I$ROOT/app/edit -I$ROOT/tests/coreapp -I$ROOT/tests -I$ROOT/host-app/software/io/c64 -I$ROOT/host-app/software/lvgl_port -I$ROOT/host-app/software/filesystem -I$HA"
 
+source "$ROOT/tests/coreapp/vc20_drv.sh"
 coreapp_srcs() {
   SRCS=""
+  VC20_DRV="${TMPDIR:-/tmp}/vc20drv.$(id -u)"                  # T239.3 V-4: vc20_regs.h names the registers through the VIC-20's driver table
+  vc20_drv_dir "$VC20_DRV" || return 1
+  CORE_INCS="$CORE_INCS -I$VC20_DRV/drv"
   local f d
   for f in $(sed -n '/^SRCS_CC/,/^$/p' "$MK" | grep -oE '[A-Za-z0-9_]+\.cc'); do
     case " $NOT_HERE " in *" $f "*) continue ;; esac
