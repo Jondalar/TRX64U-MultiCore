@@ -491,10 +491,20 @@ cc_block test_flashwrite t_test_flashwrite
 
 # T148 S6: the "Cores and ROMs" scan and the removal of what belongs to no core, over a RAM disk. Controls only for what protects saves and the flash medium.
 CMT="$ROOT/tests/hostapp/test_coremaint.cc"
-CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$T/sha256.o")
+CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$ROOT/coreapp/src/descrec.cc" "$T/sha256.o")
+# T239.3 P1-6: the records the host reads a core's ROM needs from (record 6): trx64u's four ROMs, and the Amiga's ROM set
+mkdir -p "$T/cmrec"
+python3 -I - "$ROOT" "$T/cmrec" <<'PY'
+import sys
+root, out = sys.argv[1:3]
+sys.path.insert(0, root + "/tools")
+import descrec
+open(out + "/roms4.bin", "wb").write(descrec.compile_text(open(root + "/tests/hostapp/golden/roms_record.toml").read()))
+open(out + "/romset.bin", "wb").write(descrec.compile_text(open(root + "/cores/amiga/app/desc.toml").read()))
+PY
 t_test_coremaint() {
-  c++ -std=gnu++11 -Wall -I"$H" -o "$T/test_coremaint" "$CMT" "$H/coremaint.cc" "${CMX[@]}" 2>&1
-  "$T/test_coremaint"
+  c++ -std=gnu++11 -Wall -I"$H" -I"$ROOT/coreapp/src" -I"$ROOT/uicore" -o "$T/test_coremaint" "$CMT" "$H/coremaint.cc" "${CMX[@]}" 2>&1
+  "$T/test_coremaint" "$T/cmrec/roms4.bin" "$T/cmrec/romset.bin"
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
 cc_block test_coremaint t_test_coremaint
@@ -504,7 +514,7 @@ _cm_control() {   # name, sed expression
   cp "$H/romreq_table.inc" "$H"/*.h "$T/cm_$name/"
   sed -e "$expr" "$H/coremaint.cc" > "$T/cm_$name/coremaint.cc"
   cmp -s "$T/cm_$name/coremaint.cc" "$H/coremaint.cc" && { echo "CONTROL $name: the sed changed nothing" >&2; exit 1; }
-  c++ -std=gnu++11 -w -I"$T/cm_$name" -I"$H" -o "$T/cm_$name/t" "$CMT" "$T/cm_$name/coremaint.cc" "${CMX[@]}" 2>&1
+  c++ -std=gnu++11 -w -I"$T/cm_$name" -I"$H" -I"$ROOT/coreapp/src" -I"$ROOT/uicore" -o "$T/cm_$name/t" "$CMT" "$T/cm_$name/coremaint.cc" "${CMX[@]}" 2>&1
   if "$T/cm_$name/t" > "$T/cm_$name/log" 2>&1; then
     echo "CONTROL $name: the test PASSED against the mutant" >&2; exit 1
   fi
