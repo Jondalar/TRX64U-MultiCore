@@ -28,6 +28,8 @@ int c64_cart_save(CoreCtx *c, const char *path, char *msg, int msglen);
 uint32_t c64_cart_image_bytes(void);
 void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n);
 void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t n);
+// The cartridge drops its cached lines (cmd.inval, T239.3 D50): after a write into its RAM or image that the machine did not make.
+void c64_cart_drop_cache(CoreCtx *c);
 // The command interface's EasyFlash sector erase (CONTROL 0x20): 8 banks from `bank`, the ROMH half when `high`, to $FF. False without a cartridge.
 bool c64_cart_ef_clear(CoreCtx *c, uint8_t bank, bool high);
 // A loaded state's cartridge: the .crt at path inserted, or the port emptied for NULL, with no reset. 0, or a reason in msg.

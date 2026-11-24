@@ -801,6 +801,11 @@ void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n)
 {
     c->io->ddr_read(g_img_base + off, dst, n);
 }
+void c64_cart_drop_cache(CoreCtx *c)
+{
+    c->io->wr(C64_CART_CMD, C64_CART_CMD_INVAL);
+}
+
 void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t n)
 {
     if (c64_cart_active() && off < g_image_max && n <= g_image_max - off) {       // the file's image never goes past the window the cartridge was inserted with

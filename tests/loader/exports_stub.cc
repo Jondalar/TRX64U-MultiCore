@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include "exports_stub.h"
 #include "c64_cart.h"
+#include "c64_regs.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"
 #include "tempdisk.h"
@@ -37,6 +38,7 @@ const char *c64_cart_name(void) { return g_stub.cart_name.c_str(); }
 const char *c64_cart_path(void) { return g_stub.cart_path.c_str(); }
 int c64_cart_crt_type(void) { return g_stub.crt_type; }
 uint32_t c64_cart_image_bytes(void) { return g_stub.image_bytes; }
+void c64_cart_drop_cache(CoreCtx *c) { c->io->wr(C64_CART_CMD, C64_CART_CMD_INVAL); }      // as c64_cart.cc does it (T239.3 D50)
 void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n) { note(c, "image_read(%u,%u)", off, n); memset(dst, 0x5A, n); }
 void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t n) { note(c, "image_write(%u,%u,%02x)", off, n, n ? src[0] : 0); }
 bool c64_cart_ef_clear(CoreCtx *c, uint8_t bank, bool high) { note(c, "ef_clear(%u,%d)", bank, high); return g_stub.ef_ok; }
