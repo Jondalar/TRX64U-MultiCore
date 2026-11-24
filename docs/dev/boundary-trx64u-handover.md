@@ -156,8 +156,9 @@ address = 0xA0000500     # the block in the firmware's address space (U2P_IO_BAS
 size = 0x14              # bytes
 ```
 
-At load the base refuses a window that starts in one of those two spans and ends beyond it, and a window that covers a register the base drives itself, in the board's address space (I2C, MDIO, the USB hub reset, power, RESTORE, the
-HDMI PLL reset, the keyboard scan, the case LED select): split such a block into the runs you write. The case LED select is reached
+At load the base refuses a window that is not wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation (the host's bus converter sends an address with bit 28 set to the I/O bus as addr[23:0] and ignores
+bits 31..29 and 27..24, so any other address is DDR or an alias), and a window that covers a register or block the base drives itself, in the board's address space (I2C, MDIO, the USB hub reset, power, RESTORE, the
+HDMI PLL reset, the keyboard scan, the case LED select, and the I/O blocks of the ITU, SD, flash SPI, ICAP, Ethernet, WiFi UART, ESP32 boot control and USB): split such a block into the runs you write. The case LED select is reached
 through `board.case_led_select` instead. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
 A core delivers its two TOML contracts as two files: `menu.toml` (UI TOML: menu, key table) and `desc.toml` (API TOML: the core's

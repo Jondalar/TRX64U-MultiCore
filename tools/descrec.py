@@ -1594,16 +1594,17 @@ def base_registers():
         except OSError as e:
             raise DescError("the list of the registers the base drives (basereg.def) is neither beside descrec.py nor at %s: %s" % (BASEREG_FILE, e.strerror))
         for line in lines:
-            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
+            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
             if m:
-                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3)), m.group(4)))
+                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3), 0), m.group(4)))
         if not _BASEREG:
             raise DescError("%s: no register of the base is listed" % BASEREG_FILE)
     return list(_BASEREG)
 
 
 # The address spaces of a [[window]] row: the firmware's (Gideon's defaults of iomap.h IOBASE 0x04000000 with 16 MiB, of u2p.h U2P_IO_BASE 0xA0000000 with 1 MiB) and the board's
-# (drvtab.h; host.toml iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends only an address with bit 28 to the I/O bus. coreapp/src/descrec.cc does the same.
+# (drvtab.h; coreapp/gateware/shared.toml iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends an address with bit 28 to the 24 bit I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so the
+# board's I/O span is [0x10000000, 0x11000000) and a window lies wholly inside it. coreapp/src/descrec.cc does the same.
 FW_SPANS = ((0xA0000000, 0x00100000, 0x10100000), (0x04000000, 0x01000000, 0x10000000))
 
 
@@ -1613,6 +1614,17 @@ def fw_to_board(address, size):
         if base <= address < base + span:
             return address - base + to if address + size <= base + span else None
     return address
+
+
+IO_SPAN = (0x10000000, 0x11000000)
+
+
+def window_board(address, size):
+    """The board's address of a [[window]] block, or None when the block (after the translation of fw_to_board) is not wholly inside the board's I/O span."""
+    a = fw_to_board(address, size)
+    if a is None or a < IO_SPAN[0] or a + size > IO_SPAN[1]:
+        return None
+    return a
 
 
 def window_conflict(address, size):
@@ -1720,8 +1732,8 @@ def _window_check(name, address, size, what):
         raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
     if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
         raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
-    if fw_to_board(address, size) is None:
-        raise DescError("%s (%s): starts in a firmware I/O space (U2P 0xA0000000 + 1 MiB, I/O 0x04000000 + 16 MiB) and ends beyond it" % (what, name))
+    if window_board(address, size) is None:
+        raise DescError("%s (%s): is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF (the firmware's U2P 0xA0000000 + 1 MiB or I/O 0x04000000 + 16 MiB translate into it)" % (what, name))
     reg = window_conflict(address, size)
     if reg:
         raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"
@@ -1908,6 +1920,8 @@ def _sec_blocks(blocks, st):
         if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
             raise DescError("%s: size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, WINDOW_SIZE_MAX))
         if owner == "core":
+            if window_board(address, size) is None:
+                raise DescError("%s: a block of the core is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF" % what)
             reg = window_conflict(address, size)
             if reg:
                 raise DescError("%s: a block of the core covers %s (0x%08X, %d byte%s), a register the base drives itself (%s)" % (what, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))

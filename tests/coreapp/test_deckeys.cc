@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     // ---- the registers the base drives itself: the table of the reader, and a window on each of them is refused with its name and its code reference
     int nreg = 0;
     const BaseReg *regs = descrec_base_regs(&nreg);
-    CHECK(nreg >= 22);
+    CHECK(nreg >= 30);
     const uint32_t win = section(good, 19);
     CHECK(win != 0);
     for (int i = 0; i < nreg; i++) {
@@ -168,7 +168,10 @@ int main(int argc, char **argv)
     {
         const uint32_t mv = 0xA0000550u;                                   // master_volume
         const struct { uint32_t a, n; int rc; } cases[] = { { mv - 0xA0000000u + 0x04100000u, 1, -1 }, { mv - 0xA0000000u + 0x10100000u, 1, -1 }, { 0xA00FFFFFu, 2, -1 },
-                                                           { 0x04FFFFFFu, 2, -1 }, { 0x10100900u, 16, 0 } };
+                                                           { 0x04FFFFFFu, 2, -1 }, { 0x10100900u, 16, 0 },
+                                                           { 0x1FFFFF00u, 0x200, -1 }, { 0x9FFFFFF0u, 0x600, -1 }, { 0x11100550u, 1, -1 }, { 0x10FFFFF0u, 0x20, -1 },
+                                                           { 0x04000040u, 1, -1 }, { 0x10000040u, 1, -1 }, { 0x04060000u, 4, -1 }, { 0x04060200u, 4, -1 }, { 0x04080010u, 4, -1 },
+                                                           { 0x04070040u, 0x10, 0 }, { 0x10FFFFF0u, 0x10, 0 }, { 0x04FFFFF0u, 0x10, 0 } };
         for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
             Bytes b = good;
             wr(b, win + 16, cases[i].a);

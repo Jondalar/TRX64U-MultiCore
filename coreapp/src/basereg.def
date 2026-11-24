@@ -1,7 +1,7 @@
 // The registers the base drives itself (T239.3, base 3.3): a window of a core's API TOML ([[window]], descrec.h section 19) that covers any byte of them is refused when the
 // record is read, by both readers (descrec.cc, tools/descrec.py). One table, two readers: this file is included by descrec.cc and parsed line by line by tools/descrec.py;
 // keep each entry on one line, BASE_REG(name, address, bytes, "file:line of the code that drives it"). tools/test_descrec.py checks that every reference names the register.
-// The addresses of this table are 0xA0000000 plus the offsets of host-app/software/system/u2p.h and u64.h (the U64 block at +0x0400); the app's own U2P_IO_BASE is the linker symbol __u2p_io_base, 0x10100000 in the fixed fragment. A register the base only reads is in the table as well: the core may not map it.
+// The addresses of the first part of this table are 0xA0000000 plus the offsets of host-app/software/system/u2p.h and u64.h (the U64 block at +0x0400); the app's own U2P_IO_BASE is the linker symbol __u2p_io_base, 0x10100000 in the fixed fragment. A register the base only reads is in the table as well: the core may not map it.
 BASE_REG(ulpi_reset,      0xA000000F, 1, "host-app/software/io/usb/usb_hwinit.cc:147")
 BASE_REG(i2c_scl,         0xA0000008, 1, "host-app/software/io/i2c/i2c_drv.h:33")
 BASE_REG(i2c_sda,         0xA0000009, 1, "host-app/software/io/i2c/i2c_drv.h:34")
@@ -25,3 +25,14 @@ BASE_REG(master_volume,   0xA0000550, 1, "coreapp/src/hw.cc:147")
 BASE_REG(master_tone,     0xA0000551, 1, "coreapp/src/hw.cc:148")
 BASE_REG(hotkey_mask,     0xA0000560, 11, "coreapp/src/hw.cc:150")
 BASE_REG(bling_rx_flags,  0xA0000802, 1, "coreapp/src/hw.cc:144")
+// The blocks of the I/O span that the base drives, in the firmware's I/O space (0x04000000 + the 24 bit address; the board's is 0x10000000 + the same). Each covers what host/ultimate_sys.vhd decodes
+// for the region, not only the registers the code names: ITU 0x000000-0x00FFFF (r_itu), SD and RTC 0x060000-0x0601FF (r_sd), flash SPI 0x060200-0x0602FF (r_flash), ICAP 0x060600-0x0606FF (r_icap),
+// Ethernet 0x060800-0x06083F (r_eth), WiFi UART 0x060900-0x06090F (r_wifi), ESP32 boot control 0x060910-0x06091F (r_esp), USB 0x080000-0x080FFF (r_usb).
+BASE_REG(itu,             0x04000000, 0x10000, "host-app/software/system/itu.h:11")
+BASE_REG(sd_spi,          0x04060000, 0x200, "host-app/software/io/sd_card/sdio.h:8")
+BASE_REG(flash_spi,       0x04060200, 0x100, "host-app/software/io/flash/at45_flash.h:42")
+BASE_REG(icap,            0x04060600, 0x100, "host-app/software/io/icap/icap.h:6")
+BASE_REG(ethernet,        0x04060800, 0x40, "host-app/software/io/network/rmii_interface.h:14")
+BASE_REG(wifi_uart,       0x04060900, 0x10, "host-app/software/hostapp/coreboot.cc:23")
+BASE_REG(esp_ctl,         0x04060910, 0x10, "host-app/software/hostapp/espflash_board.cc:12")
+BASE_REG(usb,             0x04080000, 0x1000, "host-app/software/io/usb/usb_nano.h:15")

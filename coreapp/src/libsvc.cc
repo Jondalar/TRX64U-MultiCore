@@ -325,15 +325,15 @@ struct LibSvc {
     static void mode_reset(bool on) { CoreIo *io = IO(); if (io) io->mode_reset(on); }
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
     // A window's address in the record is the firmware's: the default bases of vendor u2p.h (U2P_IO_BASE 0xA0000000 + 1 MiB) and iomap.h (IOBASE 0x04000000 + 16 MiB); the board's are DRV_U2P_IO_BASE
-    // and DRV_IOBASE of drvtab.h (its TOML A). The host's bus converter sends only an address with bit 28 set to the I/O bus, so the app hands out the board's address, and a block that is not
-    // on the I/O bus (a firmware span left behind, or any other address with bit 28 clear) is not granted: null and size 0.
+    // and DRV_IOBASE of drvtab.h (its TOML A). The host's bus converter sends an address with bit 28 set to the I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so the app hands out the
+    // board's address, and a block that is not wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation (descrec_window_board) is not granted: null and size 0.
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
         // the windows of the running core's description record (section 19); the record was refused at the read when a window covered a register the base drives itself, in either address space
         const DescRecord *rec = L()->windows_rec_;
         const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
         uint32_t board = 0;
-        if (w && (!descrec_fw_to_board(w->address, w->size, DRV_IOBASE, DRV_U2P_IO_BASE, &board) || !(board & 0x10000000u))) {
+        if (w && !descrec_window_board(w->address, w->size, DRV_IOBASE, DRV_U2P_IO_BASE, &board)) {
             w = 0;
         }
         if (size) {

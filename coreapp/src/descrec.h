@@ -56,7 +56,7 @@
 //                          KF_DIRECT 128; none for a decline or a swallow; KF_ARG and KF_KEYARG not together), when (string, none: a state name, "!" in front: while it has none).
 //                          The rows are CoreKey (menuintent.h), stage KS_CORE, tried in the record's order where an application's screens end and the menu's grammar begins.
 //        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
-//                          the block ends below 4 GiB). A window that covers a byte of a register the base drives itself (basereg.def, compared in the board's address space) is refused with the register's name and code reference, and so is one that starts in the firmware's U2P or I/O space and ends beyond it. The address in the record is the firmware's; io.window hands out the board's.
+//                          the block ends below 4 GiB). A window that covers a byte of a register the base drives itself (basereg.def, compared in the board's address space) is refused with the register's name and code reference, and so is one that is not wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation (descrec_window_board). The address in the record is the firmware's; io.window hands out the board's.
 //                          descrec_window finds one by name (io.window).
 //        23 routes         T239.3 D32, the blocks of rows in a tab (a core's UI TOML [[group_route]]); u32 count (1 .. UI_ROUTES_MAX), then per route 6 words: group (a-z 0-9 _, once), area (F1 .. F8),
 //                          tab (an id, a-z 0-9 _), heading (1 to 31 characters), label (string, none; required for a page), flags (b0 page). They are MenuGroupRoute (menutree.h); a route of the group of a base
@@ -356,6 +356,9 @@ const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size);
 // A [[window]] address of the firmware's space (U2P 0xA0000000 + 1 MiB, I/O 0x04000000 + 16 MiB) as the board's, by the bases iobase and u2p_io_base: *out. Any other address stays. False when the
 // block starts in one of the spans and ends beyond it (*out = address).
 bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out);
+// The board's I/O span: [0x10000000, 0x11000000). The host's bus converter sends an address with bit 28 set to the 24 bit I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so any other
+// block is DDR or an alias of the I/O bus. A window is valid only when its board address (descrec_fw_to_board) lies wholly inside the span; *out is that address.
+bool descrec_window_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out);
 const BaseReg *descrec_base_regs(int *n);
 
 // What a descriptor holds that is code, not data (T239.3 D17): the control hooks, the operations' registration, the media write-back and the three functions of the mount

@@ -977,9 +977,10 @@ size = 0x14
 
     def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
         regs = D.base_registers()
-        self.assertGreaterEqual(len(regs), 22)
+        self.assertGreaterEqual(len(regs), 30)
         wanted = {"i2c_scl", "i2c_sda", "mdio_get", "mdio_mdc", "mdio_data", "usb_hub_reset", "hw_i2c", "power", "restore", "hdmi_pll_reset", "keyb_joy", "keyb_col", "keyb_row", "case_led_select",
-                  "ulpi_reset", "hdmi_reg", "ethstream_ena", "matrix_keyb", "master_volume", "master_tone", "hotkey_mask", "bling_rx_flags"}
+                  "ulpi_reset", "hdmi_reg", "ethstream_ena", "matrix_keyb", "master_volume", "master_tone", "hotkey_mask", "bling_rx_flags",
+                  "itu", "sd_spi", "flash_spi", "icap", "ethernet", "wifi_uart", "esp_ctl", "usb"}
         self.assertEqual({r[0] for r in regs}, wanted)
         for name, address, nbytes, ref in regs:
             for i, (a, size) in enumerate(((address, 1), (address + nbytes - 1, 4), (address - 3, 4))):         # the register, a block that starts on its last byte, a block that runs into it
@@ -1000,17 +1001,23 @@ size = 0x14
                 D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
             self.assertIn("master_volume", str(e.exception))
         D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')      # a free address of the board's space
-        for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2)):
+        for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2), (0x1FFFFF00, 0x200), (0x9FFFFFF0, 0x600), (0x11100550, 1), (0x10FFFFF0, 0x20), (0x00001000, 16), (0xA0100000, 16)):
             with self.assertRaises(D.DescError, msg="%x" % a) as e:
                 D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
-            self.assertIn("ends beyond it", str(e.exception))
+            self.assertIn("not wholly inside", str(e.exception))
+        for a, size in ((0x04070040, 16), (0x10FFFFF0, 16), (0x04FFFFF0, 16), (0xA00FFF00, 0x100)):     # wholly inside the board's I/O span (the last two end on its last byte)
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+        for a, size in ((0x04000040, 1), (0x10000040, 1), (0x04060000, 4), (0x04060200, 4), (0x04080010, 4)):   # the blocks of the I/O span that the base drives: the ITU, SD, flash SPI, USB
+            with self.assertRaises(D.DescError, msg="%x" % a):
+                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
 
     def test_the_references_of_the_table_name_their_register(self):
         token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
                  "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
                  "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT",
                  "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "U64_AUDIO_MIXER + 0x50",
-                 "master_tone": "U64_AUDIO_MIXER + 0x51", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS"}
+                 "master_tone": "U64_AUDIO_MIXER + 0x51", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS",
+                 "itu": "ITU_BASE", "sd_spi": "SDCARD_BASE", "flash_spi": "FLASH_BASE", "icap": "ICAP_BASE", "ethernet": "RMII_BASE", "wifi_uart": "WIFI_UART_BASE", "esp_ctl": "0x10060910", "usb": "USB_BASE"}
         for name, address, nbytes, ref in D.base_registers():
             path, _, line = ref.rpartition(":")
             with open(os.path.join(self.ROOT, path)) as f:
@@ -1042,7 +1049,7 @@ size = 0x14
         bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 4\nflags = 1\n')
         bad('[[window]]\naddress = 0xA0000500\nsize = 4\n')
         bad('[[window]]\nname = "w"\naddress = -1\nsize = 4\n')
-        D.compile_text('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')
+        D.compile_text('[[window]]\nname = "w"\naddress = 0xA00FF000\nsize = 0x1000\n')
         import struct
         b = bytearray(D.compile_text(self.WIN))
         at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4

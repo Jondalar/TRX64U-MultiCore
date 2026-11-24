@@ -2216,7 +2216,7 @@ static void services()
         wsz = 77;
         CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)(DRV_U2P_IO_BASE + 0x600u));
         CHECK_EQ(wsz, 0x100u);
-        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)(DRV_IOBASE + 0x40u));                // IOBASE of the firmware: 0x04000000 + 16 MiB
+        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)(DRV_IOBASE + 0x70040u));              // IOBASE of the firmware: 0x04000000 + 16 MiB; I/O 0x070040 is decoded by no region of host/ultimate_sys.vhd and is in no entry of basereg.def
         CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                      // an address of the board's space stays
         // the readers refuse a window that starts in a firmware span and leaves it (descrec_parse, tools/descrec.py), so the record is changed by hand here: nothing is granted that is not on the I/O bus
         DescWindow &hw = wrec->windows[3];
@@ -2227,7 +2227,26 @@ static void services()
         hw.address = 0x00001000u;
         wsz = 77;
         CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bit 28 clear: the bus converter sends it to memory
+        hw.address = 0x1FFFFF00u;
+        hw.size = 0x200;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bit 28 set at the start, the block runs out of the I/O bus into DDR
+        hw.address = 0x10FFFFF0u;
+        hw.size = 0x20;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // runs over the end of the 16 MiB span: the converter wraps it onto the ITU
+        hw.address = 0x11100550u;
+        hw.size = 1;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bits 27..24 are ignored: an alias of master_volume
+        hw.address = 0x9FFFFFF0u;
+        hw.size = 0x600;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // starts below the firmware span, covers its first registers
         hw.address = keep;
+        hw.size = 0x10;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == (volatile uint8_t *)0x10100900u && wsz == 0x10u);       // the original block is granted again
         CHECK(DRV_U2P_IO_BASE == 0x10100000u && DRV_IOBASE == 0x10000000u);
         wsz = 77;
         CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare
@@ -2536,7 +2555,7 @@ static int fk_wait(const int *, int, uint32_t) { return 0; }
 static int fk_peer(int, char *, int) { return -1; }
 static uint32_t g_connect_ms;
 static int fk_connect(const char *host, uint16_t port, uint32_t ms) { g_connect_ms = ms; if (!strcmp(host, "nowhere") || port == 0) { return -6; } int h = g_next_fd++; g_open[h] = false; return h; }
-static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 8) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
+static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 9) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
 static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer, fk_connect, fk_resolve };
 static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
 {

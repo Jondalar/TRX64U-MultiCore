@@ -123,9 +123,10 @@ const BaseReg *descrec_base_regs(int *n)
 }
 
 // The firmware's address spaces of a [[window]] row (Gideon's defaults of iomap.h: IOBASE 0x04000000 with the 24 bit I/O address space, of u2p.h: U2P_IO_BASE 0xA0000000 with 1 MiB) against
-// the board's bases (drvtab.h; host.toml: iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends only an address with bit 28 to the I/O bus.
+// the board's bases (drvtab.h; coreapp/gateware/shared.toml: iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends only an address with bit 28 to the I/O bus.
 static const uint32_t FW_IOBASE = 0x04000000u, FW_IOBASE_SPAN = 0x01000000u, FW_U2P_IO_BASE = 0xA0000000u, FW_U2P_IO_SPAN = 0x00100000u;
 static const uint32_t BOARD_IOBASE = 0x10000000u, BOARD_U2P_IO_BASE = 0x10100000u;
+static const uint32_t BOARD_IO_SPAN_LO = 0x10000000u, BOARD_IO_SPAN_HI = 0x11000000u;
 
 bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out)
 {
@@ -145,6 +146,16 @@ bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint3
 
 // The registers are listed in the firmware's space (basereg.def); a block is compared with them in the board's, so 0xA0000550, 0x04100550 and 0x10100550 all meet master_volume. A block that
 // starts in a span of the firmware and leaves it is refused by the caller (window rows); here it is compared as it is.
+bool descrec_window_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out)
+{
+    uint32_t b;
+    if (!descrec_fw_to_board(address, size, iobase, u2p_io_base, &b) || b < BOARD_IO_SPAN_LO || (uint64_t)b + size > BOARD_IO_SPAN_HI) {
+        return false;
+    }
+    *out = b;
+    return true;
+}
+
 const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size)
 {
     uint32_t a = address;
@@ -311,6 +322,10 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
             return r.fail("description record, section %s: block %u has no name or module of a-z 0-9 _, or an owner that is not 0 or 1, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
         }
         if (d.core) {
+            uint32_t board;
+            if (!descrec_window_board(d.win.address, d.win.size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &board)) {
+                return r.fail("description record, section %s: block \"%s\" of the core is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF", nm, d.win.name);
+            }
             if (const BaseReg *g = descrec_base_reg_hit(d.win.address, d.win.size)) {
                 return r.fail("description record, section %s: block \"%s\" of the core covers %s (0x%08X, %u byte%s), a register the base drives itself (%s)",
                               nm, d.win.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
@@ -868,8 +883,8 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                     return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
                 }
                 uint32_t board;
-                if (!descrec_fw_to_board(d.address, d.size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &board)) {
-                    return r.fail("description record, section %s: window \"%s\" starts in a firmware I/O space (U2P 0xA0000000 + 1 MiB, I/O 0x04000000 + 16 MiB) and ends beyond it", nm, d.name);
+                if (!descrec_window_board(d.address, d.size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &board)) {
+                    return r.fail("description record, section %s: window \"%s\" is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF (the firmware's U2P 0xA0000000 + 1 MiB or I/O 0x04000000 + 16 MiB translate into it)", nm, d.name);
                 }
                 if (const BaseReg *g = descrec_base_reg_hit(d.address, d.size)) {
                     return r.fail("description record, section %s: window \"%s\" covers %s (0x%08X, %u byte%s), a register the base drives itself (%s); split the block into the runs the core writes",
