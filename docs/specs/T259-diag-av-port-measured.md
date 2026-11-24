@@ -162,6 +162,13 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   PAL chroma (burst, V switch, levels) seen in composite on the Sony (SCART pin 20 carries Y + C). Y/C as two pins on a PAL set:
   Alex plans to bring up his Commodore 1084 (PAL, luma/chroma inputs); that needs a C64 8-pin DIN to cinch cable (luma, chroma,
   composite). Until that runs, PAL Y/C is untested; that is named here, not hidden.
+- **D4 (Alex, 2026-11-24, on the D24 ledger):** the diag app's growth for P4 and P6 is an exception of the ledger
+  (`tools/d24_ledger.txt`: `portdiag.cc` +59, `portdiag_regs.h` +1, `diagtest.cc` +113, `diagtest.h` +6). Alex (translated): "yes of
+  course, I want T259 so that we can measure." Why no generic path fits: a contributed range setting has at most 16 values, the
+  playground (D3) needs free values up to the register's range (0..1023), and a suite could not hold A/V walks.
+- **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
+  Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
+  avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
 
 ### Open questions for Alex
 
