@@ -167,7 +167,13 @@ Draft. It is completed when the open questions of §3 are decided.
   item"): the base gives an application these five as calls of the SDK, and the application draws its own UI (D12). Mirrored to
   Alex the same day. Which of them the SDK has today and which are new is mapped in §5 before any code.
 
-All open decisions are taken (D1-D13).
+- **D14** (Alex, 2026-11-24, relayed by the TRX64-Ultimate session, translated: "That could go too and make room in RAM, since we
+  put no overlay over the menu"): while a library shows a still element and the machine stands, the base frees its own still
+  (`base_still_`, up to 1,036,800 bytes at 960x540). The scene draws the library's surface then and never this buffer
+  (`overlay.cc` 223-230), and the retake when the library's still goes takes a new one anyway (D11, `take_still` frees first).
+  Built in the fix round after T-3 (SDK 0.4.5).
+
+All open decisions are taken (D1-D14).
 
 ## §4 Out
 
