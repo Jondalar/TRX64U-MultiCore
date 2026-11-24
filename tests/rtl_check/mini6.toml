@@ -1,0 +1,52 @@
+# A fixture TOML A for tests/rtl_check/mini6 (T239.3 V-1f): mini3's handshake with three things more. m6pipe has a register that a write clears whatever the data is (clr at 0x50, the
+# strobe write of trx_sys.v's sb_err), and m6dev holds a unit (m6unit) that the strobe and the address reach over the ports of m6dev: the instance of a module behind a handshake is followed.
+# m6unit makes two cells by a generate-for whose address compare selects a bit of the genvar ({6'h2A, gu[0]}), writes a register from the data under an address compare (own, 0xB4), and has
+# a status bit (ev) whose expression names the data behind another address compare (0xB0): that is no write of the other bytes. The test runs the check with --own-core.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "clr"
+module = "m6pipe"
+owner = "core"
+address = 0x10000150
+size = 0x1
+
+  [[block.property]]
+  name = "clr"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "cells"
+module = "m6unit"
+owner = "core"
+address = 0x100001A8
+size = 0x4
+
+  [[block.property]]
+  name = "q0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "q1"
+  offset = 0x2
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "own"
+module = "m6unit"
+owner = "core"
+address = 0x100001B4
+size = 0x1
+
+  [[block.property]]
+  name = "own"
+  offset = 0x0
+  width = 8
+  dir = "w"

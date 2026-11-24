@@ -12,7 +12,7 @@ check
   Guards that depend on the request are evaluated, guards that depend on state are unknown and both ways are explored; a register
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
-  request's data through wires, or whose guard comes from the write flag and the address together and that the same address as a
+  request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
   read does not run (a strobe register that ignores the data byte; the write flag alone is no write); a read is a response whose data does not come from the literal 0 alone. A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
   A block with owner = "core" is a window the base hands to the core: for every byte the request must leave the base over a port of the
@@ -66,7 +66,13 @@ check
   the pipeline's own state writes (ost, res_v) stay no register writes. A Verilog if-generate inside a generate-for body (one item without begin/end too) is decided with the genvar's value.
   A VHDL for-generate with a constant range (numbers, generics with a default) is unrolled: its body is read once per value, the loop constant replaced by the value and a label by label_value. A vector declared with an ascending
   range (0 to 39) has its leftmost element as its most significant bit: the element i is the bit high - i, and a slice (a to b) is the bits high - a down to high - b.
-  What is not followed yet: byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set (c64_basic: no write is found at the committing byte), a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
+  V-1f: a module that a followed module behind a handshake holds is followed too (trx_sys.v hands the debugger's strobe, address and data to c64_core.v, which holds trx_dbg.v): at a level behind a
+  handshake an instance is run when a one-bit port that it reads carries the address and the held write flag (taint a and q), as a strobe from a continuous assignment does. A Verilog expression whose value one
+  operand decides (`x && y` with x false, `x || y` with x true, a conditional with a known condition) is a constant and has no taint: the data behind a compare of
+  another address (trx_dbg.v: ev <= ... || (wcmd && cmd == 8'h01)) is no write of this address. A select of a genvar (`{1'b1, 6'h02, gu[0]}`) is a constant. A register that a write sets whatever the
+  data is (trx_sys.v: `14'h0402: sb_err <= 1'b0` under op_we) is a write when its assignment lies in an arm of a case that the request's address selects (taint m) in a module behind a handshake with a
+  register pipeline, and the same address as a read does not run it; what a read of the address runs is collected in every module the request reaches (the readref of the first level and of each level behind it).
+  What is not followed yet: a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -1927,7 +1933,20 @@ class VlogParser(P):
         if k == "id":
             self.eat()
             if s in self.gv:
-                return ("n", kn(self.gv[s], 32))
+                gval = self.gv[s]
+                if self.txt() != "[":
+                    return ("n", kn(gval, 32))
+                # a select of the genvar's value ({1'b1, 6'h02, gu[0]}): a constant bit or part, the loop having fixed the value
+                self.eat()
+                hi = self.expr()
+                lo = hi
+                if self.acc(":"):
+                    lo = self.expr()
+                self.eat("]")
+                if hi[0] != "n" or lo[0] != "n" or hi[1].x or lo[1].x or hi[1].v < lo[1].v:
+                    raise self.err("a select of a genvar that is not a constant range")
+                n = hi[1].v - lo[1].v + 1
+                return ("n", kn((gval >> lo[1].v) & ((1 << n) - 1), n))
             if s in self.labels and self.txt() == "[" and self.txt(2) == "]" and self.txt(3) == ".":
                 # label[index].name: a name declared in an unrolled generate block
                 self.eat()
@@ -2926,6 +2945,10 @@ class Ev:
             return self.taint_name(ctx, e[1])
         if k == "n":
             return frozenset()
+        if ctx.mod.lang == "vlog":
+            f = self.folded_taint(ctx, e, vt)
+            if f is not None:
+                return f
         if not (vt is not None and len(e) > 1 and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in vt):
             r = self.bit_range(ctx, e)
             if r is not None:
@@ -2938,6 +2961,39 @@ class Ev:
                 for y in x:
                     t |= self.taint(ctx, y, vt)
         return t
+
+    @staticmethod
+    def local_vars(e, vt):
+        """True when e names a variable of the running process (it has a taint of its own in vt): its value is not the design's, the fold is left alone."""
+        if not vt:
+            return False
+        names = set()
+        ids_of(e, names)
+        return bool(names & set(vt))
+
+    def folded_taint(self, ctx, e, vt):
+        """The taint of a Verilog expression whose value one operand decides for sure (the constant folding a synthesis tool does): `x && y` with x known false, `x || y` with x known true,
+        `c ? a : b` with a known c. The value is a constant then and carries no taint: a data bit behind an address compare that is
+        false for this request is not a write of this address, and an address compare that is false hands nothing on. A conditional keeps the taint of its condition and of the branch it takes.
+        None when no operand decides."""
+        k = e[0]
+        try:
+            if k == "bin" and e[1] in ("&&", "||"):
+                for a, b in ((e[2], e[3]), (e[3], e[2])):
+                    if self.local_vars(a, vt):
+                        continue
+                    va = ctx.cache.get(("fold", id(a)))
+                    if va is None:
+                        va = ctx.cache[("fold", id(a))] = self.ev(ctx, a)
+                    if e[1] == "&&" and truth(va) == 0 or e[1] == "||" and truth(va) == 1:
+                        return frozenset()
+            elif k == "cond":
+                t = None if self.local_vars(e[1], vt) else truth(ctx.cache.get(("fold", id(e[1]))) or ctx.cache.setdefault(("fold", id(e[1])), self.ev(ctx, e[1])))
+                if t in (0, 1):
+                    return self.taint(ctx, e[1], vt) | self.taint(ctx, e[2] if t == 1 else e[3], vt)
+        except Unsupported:
+            return None
+        return None
 
     def bit_range(self, ctx, e):
         """(signal, hi, lo, index expression or None) when e is a constant slice or index of a declared vector signal, else None."""
@@ -3346,12 +3402,13 @@ class Ev:
         else:
             ms = [self.choice_match(ctx, sel, c, sc) for c in ch]
             m = 1 if 1 in ms else (0 if all(x == 0 for x in ms) else None)
+        pa = pt | {"m"} if ch is not None and m != 0 and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
         if m == 1:
-            return self.exec_list(ctx, p, body, st, certain, pt, r, sc)
+            return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
         if m == 0:
             return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc)
         s1 = dict(st)
-        self.exec_list(ctx, p, body, s1, False, pt, r, sc)
+        self.exec_list(ctx, p, body, s1, False, pa, r, sc)
         s2 = dict(st)
         self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc)
         st.clear()
@@ -3577,10 +3634,11 @@ class Ev:
                     continue
                 if w != 1:
                     continue
-                if "a" in self.taint_name(ctx, n):
-                    t = truth(self.val(ctx, n))
-                    if self.crossed:
+                tn = self.taint_name(ctx, n)
+                if "a" in tn:
+                    if self.crossed and not {"a", "q"} <= tn:
                         continue
+                    t = truth(self.val(ctx, n))
                     if t == 1:
                         return 2
                     if t is None:
@@ -3668,11 +3726,12 @@ class Ev:
 
     def analyze(self, write):
         self.activate()
-        res = {"followed": [c.name for c in self.followed], "write": False, "read": False, "forward": []}
+        res = {"followed": [c.name for c in self.followed], "write": False, "read": False, "forward": [], "refs": set()}
         held = self.build_pipe() if self.pipe else self.find_held()
         for ctx in self.followed:
             for p in ctx.mod.procs:
                 effs = self.run(ctx, p).effects
+                res["refs"] |= {(ctx.name, e.key, e.where) for e in effs}
 
                 def is_out(e):
                     pt = ctx.mod.ports.get(e.key)
@@ -3713,6 +3772,7 @@ class Ev:
                 for ctx in self.followed:
                     for p in ctx.mod.procs:
                         for e in self.run(ctx, p).effects:
+                            res["refs"].add((ctx.name, e.key, e.where))
                             if self.is_write(ctx, e) and (id(ctx), e.key) not in held:
                                 res["write"] = True
                                 res["cert"] = res.get("cert") or e.certain
@@ -3745,7 +3805,7 @@ class Ev:
         the bus (an ack under the write flag) is none of these."""
         if self.is_response(ctx, e.key):
             return False
-        return "d" in e.taint or ({"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref)
+        return "d" in e.taint or (({"q", "w"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):
         """The write leaves the base for layer 2: a strobe port of the core groups (CORE_PORTS) that is 1 for this address, or an effect that
@@ -4015,6 +4075,7 @@ class Checker:
         io = doc["io"]
         self.iobase = io["iobase"]
         self.cache = {}
+        self.readrefs = set()
 
     def stim(self, rtl_addr, write, lowx=0):
         key = (rtl_addr, write, lowx)
@@ -4026,7 +4087,9 @@ class Checker:
                 return Ev(self.d, self.topmod, self.busmod, None, V((rtl_addr - base) & ~mask(lowx), mask(lowx), 24), w, ports=self.ports)
             return Ev(self.d, self.topmod, self.busmod, self.busname, V(rtl_addr & ~mask(lowx), mask(lowx), 24), w)
         ev = mk(write)
+        self.readrefs = set()
         if write:
+            self.readrefs = self.stim(rtl_addr, False, lowx)["refs"]      # what the same address runs as a read, in every module the request reaches: a write by strobe is none of it
             evr = mk(False)
             evr.activate()
             ev.readref = {(c.name, e.key, e.where) for c in evr.followed for p in c.mod.procs for e in evr.run(c, p).effects}
@@ -4047,12 +4110,16 @@ class Checker:
         cert = res["cert"]
         for inst, rv, rt, resp, via in res["links"]:
             ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp))
+            ev2.readref = self.readrefs
             try:
                 a2 = ev2.analyze(write)
             except Pipeline:
                 ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp), pipe=True)
+                ev2.readref = self.readrefs
                 a2 = ev2.analyze(write)
+            res["refs"] |= a2["refs"]
             r2 = self.cross(a2, write, depth + 1)
+            res["refs"] |= r2["refs"]
             wr = wr or r2["write"]
             rd = rd or r2["read"]
             res["followed"] += ["%s (from %s)" % (n, via) for n in r2["followed"]]
