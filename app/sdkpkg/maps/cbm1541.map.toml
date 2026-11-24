@@ -1,5 +1,8 @@
 # The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc). The WD177x registers at +0x1800 are the block of their own (map wd177x): a drive without them (the VIC-20's) has no such block. Offsets are bytes from the block's address (DRIVE_A_BASE).
-# Only what the library reads or writes is here. "dirty" is a run of 128 bytes (floppy.vhd decodes 7 address bits; the library uses elements 0 .. 41, DR_DIRTY + track): every element reads b7 = any track written
+# The map carries every register of Gideon's drive that one of our gateware decodes in drive_registers.vhd and floppy.vhd; the directions are what the RTL does (a register that also reads back is rw).
+# A gateware does not have all of them, and its TOML A names only its own: c1541_drive (c64_basic, host/, the VIC-20) has no `drivetype` (drive_registers.vhd decodes it only with g_multi_mode, which mm_drive sets)
+# and a `side` that reads the constant 0 (its port is left at the default); mm_drive (the C64U core) has `drivetype` and `side` from the WD controller.
+# "dirty" is a run of 128 bytes (floppy.vhd decodes 7 address bits; the library uses elements 0 .. 41, DR_DIRTY + track): every element reads b7 = any track written
 # and b0 = its own flag; a write with b7 set clears "any", else the element's flag. The parameter RAM is 2048 bytes (floppy_param_mem.vhd: 11 address bits), per half track two words, 128 half tracks per side, side 1 at +0x400: its words interleave, so it is two runs
 # of 256 elements with the stride 8, element = side * 128 + half track: "param_addr" (the DDR2 address of the track) and "param_len" ((length - 1) | bit time << 16).
 map = "cbm1541"
@@ -8,25 +11,25 @@ map = "cbm1541"
 name = "power"
 offset = 0x0
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "reset"
 offset = 0x1
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "hw_addr"
 offset = 0x2
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "sensor"
 offset = 0x3
 width = 8
-dir = "w"
+dir = "rw"
   [[property.state]]
   name = "dark"
   value = 0
@@ -38,7 +41,7 @@ dir = "w"
 name = "inserted"
 offset = 0x4
 width = 8
-dir = "w"
+dir = "rw"
   [[property.state]]
   name = "no"
   value = 0
@@ -49,6 +52,12 @@ dir = "w"
 [[property]]
 name = "rammap"
 offset = 0x5
+width = 8
+dir = "rw"
+
+[[property]]
+name = "man_write"
+offset = 0x7
 width = 8
 dir = "w"
 
@@ -86,7 +95,21 @@ dir = "r"
 name = "diskchange"
 offset = 0xC
 width = 8
+dir = "rw"
+
+[[property]]
+name = "sound"
+offset = 0xE
+width = 8
 dir = "w"
+  [[property.field]]
+  name = "insert"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "remove"
+  shift = 1
+  bits = 1
 
 [[property]]
 name = "drivetype"

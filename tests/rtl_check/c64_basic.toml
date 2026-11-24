@@ -307,3 +307,40 @@ size = 0x1800
   width = 32
   dir = "w"
   count = 512
+
+# V-1e: from TRX64-Ultimate's c64_basic.toml (U18 P1-7): the GCR coder (gcr_codec.vhd: a for-generate over slices of vectors declared ascending), and two blocks with owner core that ultimate_sys decodes itself (--core-in-design)
+[[block]]
+name = "gcr_coder"
+module = "gcr_codec"
+owner = "base"
+address = 0x10060500
+size = 0x10
+map = "gcr_coder"
+
+[[block]]
+name = "speaker_enable"
+module = "u2p_io"
+owner = "core"
+address = 0x1010000C
+size = 0x1
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "on"
+    shift = 0
+    bits = 1
+
+[[block]]
+name = "c64_phase"
+module = "ultimate_sys"
+owner = "core"
+address = 0x10180005
+size = 0x1
+  [[block.property]]
+  name = "incr"
+  offset = 0x0
+  width = 8
+  dir = "rw"

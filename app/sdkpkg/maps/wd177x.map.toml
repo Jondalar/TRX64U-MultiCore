@@ -1,5 +1,6 @@
 # The WD177x of the C64U gateware's drive (app/lib/cbm1541: d1541_wd.h WDR_*, d1541_wd.cc): the floppy controller of the 1581 mode, the registers 0x1800-0x180F of the drive window. A block of its own
 # next to drive_a, because a drive whose RTL has no WD177x (the VIC-20's) does not have it, and the WD part of the library links only where the TOML A has this block (D34, D31). Offsets are bytes from the block's address.
+# The directions are what wd177x.vhd does: a register that also reads back is rw (status at +4 and +5, dma_mode, dma_len, step_time); dma_addr is written as a 32 bit word, wd177x.vhd keeps its low three bytes.
 map = "wd177x"
 
 [[property]]
@@ -30,13 +31,13 @@ dir = "r"
 name = "status_clear"
 offset = 0x4
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "status_set"
 offset = 0x5
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "irq_ack"
@@ -56,7 +57,7 @@ dir = "rw"
 name = "dma_mode"
 offset = 0x7
 width = 8
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "dma_addr"
@@ -68,7 +69,7 @@ dir = "w"
 name = "dma_len"
 offset = 0xC
 width = 16
-dir = "w"
+dir = "rw"
 
 [[property]]
 name = "stepper"
@@ -80,4 +81,4 @@ dir = "rw"
 name = "step_time"
 offset = 0xF
 width = 8
-dir = "w"
+dir = "rw"
