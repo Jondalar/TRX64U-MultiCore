@@ -6,8 +6,8 @@ MultiCore (T191, T198); MultiCore T230, proposed by both sides 2026-11-16, waiti
 table, §2 the version, §7 the start file, §8 what the bitstream offers an application, §10 the target split, and the two copies
 made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's go (MultiCore T239.3 D37: the way back
 from a large core).
-§1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21 and D44, step P1-8:
-TRX64-Ultimate builds, tests and delivers `trx64u.cor`, MultiCore's package takes it by its SHA-256).
+§1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21, D44 and D46, step P1-8:
+TRX64-Ultimate builds, tests and delivers `trx64u.cor` and `trx64g.cor`, MultiCore's package takes them by their SHA-256).
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -16,7 +16,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Area | TRX64-Ultimate | TRX64U-MultiCore |
 |---|---|---|
 | Bitstream (`c64_basic.bit`, the monolith) | builds it; what it offers an application is §8 | reads it from the package, never builds it |
-| Gideon's application (`ultimate.app`, the core `trx64g`) | builds it, its settings (§4), its behaviour | packs it into `trx64g.cor` |
+| Gideon's application (`ultimate.app`, the core `trx64g`) | builds it, its settings (§4), its behaviour; packs it with the bitstream into `trx64g.cor` (T239.3 D46) | takes `trx64g.cor` by its SHA-256 into the package, changes no byte |
 | The firmware's version | `APPL_VERSION_NUMBER` (`software/application/versions.h` of the application), set by hand per release; the releases | shows it in the boot menu (§2) |
 | Package `trx64-ultimate` (§1, §2) | its CI alone publishes it, with `manifest.json` `"version"` | reads `<branch>-<sha8>` |
 | Package `trx64u-multicore` | never writes it | its CI alone publishes it |
@@ -38,7 +38,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   (packages built before that commit have no such field). A package between two releases repeats the last
   release's number: the field names the release line, not this package; the release is the Gitea release
   `trx64-<branch>-<sha8>` of that package version.
-- TRX64U-MultiCore packs the `.cor` files of the other cores and `trx64g.cor`. It does not build the application; it takes the published files. `trx64u.cor` it does not pack at all: TRX64-Ultimate builds, tests and delivers it (T239.3 D21), and MultiCore's package takes that file by its SHA-256.
+- TRX64U-MultiCore packs the `.cor` files of the other cores. `trx64u.cor` and `trx64g.cor` it does not pack: TRX64-Ultimate builds, tests and delivers both (T239.3 D21, D46) as files of one version of its generic package `trx64-ultimate`, and MultiCore's package takes each by its SHA-256.
 - Neither side pushes into the other's CI. ADR-0058 of TRX64-Ultimate stands: MultiCore loads TRX64 Ultimate's
   firmware, it does not build it.
 - **The package namespace is split** (Alex, 2026-10-31). `trx64-ultimate` is written by TRX64-Ultimate's CI
@@ -67,7 +67,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp and its menu,
     built by TRX64-Ultimate. The pin names the finished file: `PACKAGE`, `VERSION`, `COR_FILE`, `COR_SHA256`, `COR_SIZE`.
   - `trx64g` — NAME "TRX64 Ultimate (Gideon app)", file `trx64g.cor`: TRX64-Ultimate's bitstream with its own
-    application. Pins `BIT_FILE`, `APP_FILE=ultimate.app` and both hashes.
+    application, packed by TRX64-Ultimate (T239.3 D46). The pin names the finished file as for `trx64u`.
 
 ## 3. The hand-over block
 
@@ -123,7 +123,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   means read from this board's flash.
 - Its purpose is firmware that exists only as a `.cfw` (Gideon 3.15a, Commodore 1.1.0), so the core list has one
   kind of entry instead of two.
-- It is **not** the path for `trx64g`/`trx64u`. `trx64g` is packed from `c64_basic.bit` + `ultimate.app`, `trx64u.cor` is TRX64-Ultimate's finished file; the first two are
+- It is **not** the path for `trx64g`/`trx64u`. Both are TRX64-Ultimate's finished files; `c64_basic.bit` and `ultimate.app` are
   published beside the `.cfw` and are byte-equal to what it contains — `tools/trx_pkg_check.py` proves that on
   every build.
 
