@@ -104,10 +104,13 @@ public:
         }
     }
     // The built-in drive A (T104.2 D9.1): the block drive_a of the driver table (drvtab.h) is the same address on the monolith and on a MultiCore core with drive_l2; the capability
-    // word is Gideon's own test for the drive (a read of the window cannot tell a register that is 0 from nothing).
+    // word is Gideon's own test for the drive (a read of the window cannot tell a register that is 0 from nothing). A core whose TOML A has no
+    // drive_a (the A1200, T213.3) keeps the defaults of CoreIo (io.h): no drive, reads 0, writes go nowhere.
+#ifdef DRV_HAS_drive_a
     bool drv_present() { return (getFpgaCapabilities() & CAPAB_DRIVE_1541_1) != 0; }
     uint8_t drv_rd(uint32_t off) { return *DRV_PTR(uint8_t, DRV_drive_a_ADDR + off); }
     void drv_wr(uint32_t off, uint8_t v) { *DRV_PTR(uint8_t, DRV_drive_a_ADDR + off) = v; }
+#endif
     // Absolute DDR2, the drive's own areas only (linker.x): 0x00EA8000 .. 0x00F00000. Anything else is ignored (reads give zeros).
     static bool drive_area(uint32_t addr, uint32_t n)
     {
