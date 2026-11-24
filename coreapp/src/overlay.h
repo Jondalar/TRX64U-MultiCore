@@ -179,6 +179,9 @@ public:
     void paused(bool on);
     void live_key(bool on);
     void look(uint8_t alpha);              // 255 minus the person's Overlay Transparency
+    // The menu's close has begun (before the core's menu_closed hook), until the next menu(): a library's still that goes meanwhile asks for no new still of the base's while the menu is
+    // still up; the request waits for menu(false) and is served only if the machine stands then (Pause). A machine that runs again takes no still.
+    void closing();
     // One pass of the main loop: the text calls, the redraws, the menu calls of libraries. UI task.
     void frame();
 
@@ -188,6 +191,8 @@ public:
     int remove(int owner, int el);
     // T256 D11: paints the frame the machine drew last into the library's surface as the element `name` lies on the canvas (the SDK's frame()). Runs in the calling task.
     int paint_frame(int owner, const char *name, const SvcSurface *sf);
+    // T256 fix round: the size of the canvas the elements are placed on now (the SDK's canvas()). OVL_E_NOSERVICE (w and h untouched) while no core's table is set.
+    int canvas(int *w, int *h) const;
     // The library's source of the screen colours (null: the base's again); one per core, the last call counts. After drop_owner(owner) it is never called again.
     int set_palette(int owner, OvPalette f);
     void text(int owner, const SvcSurface *sf, int x, int y, const char *s, uint16_t colour);
@@ -239,10 +244,10 @@ private:
     uint16_t *base_still_;                 // the base's capture of the stopped machine, base_rect_ in size (the still's row, cut to the canvas of the moment it was taken)
     OvRect base_rect_;
     bool base_still_ok_;
-    bool retake_;                          // a library's still went while the machine stands: the base takes its own again at the next settle
+    bool retake_;                          // a library's still went while the machine stands: the base takes its own again at the next settle (not while closing_)
     OvPalette pal_;                        // a library's source of the screen colours, null: the base's
     int pal_owner_;
-    bool menu_up_, frozen_, paused_, live_key_;
+    bool menu_up_, frozen_, paused_, live_key_, closing_;
     bool was_standing_;
     uint8_t alpha_;
     TextCall text_[OVL_TEXT_MAX];

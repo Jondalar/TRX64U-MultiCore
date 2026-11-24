@@ -931,6 +931,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     };
     auto close_menu = [&]() {
         t_req = ctx.io->now_ms();
+        ui_overlay_closing();                     // T256: the core's menu_closed hook may take its still away: the base takes no new one for a machine that runs again
         rawkeys_menu(&ctx, false);                // T141: the keys still held are ignored until they are up
         menu->toast_clear();                      // T160: the volume line does not stay over the running core
         ui_toast_render(*menu);

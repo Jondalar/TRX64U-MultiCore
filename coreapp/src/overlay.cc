@@ -170,7 +170,7 @@ OvPlan ovl_plan(const OvState &s)
 // ---- the service ------------------------------------------------------------------------------------------------------------------------------------------------------
 OverlaySvc::OverlaySvc(OverlayLayer *layer, OverlayHost *host)
     : layer_(layer), host_(host), enabled_(false), own_picture_(false), n_(0), still_slot_(-1), base_still_(0), base_still_ok_(false), retake_(false), pal_(0), pal_owner_(OVL_OWNER_NONE), menu_up_(false), frozen_(false), paused_(false),
-      live_key_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), frames_(0), applied_(false)
+      live_key_(false), closing_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), frames_(0), applied_(false)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(&plan_, 0, sizeof(plan_));
@@ -294,7 +294,7 @@ void OverlaySvc::clear()
     pal_owner_ = OVL_OWNER_NONE;
     ntext_ = 0;
     menu_req_ = 0;
-    menu_up_ = frozen_ = paused_ = live_key_ = false;
+    menu_up_ = frozen_ = paused_ = live_key_ = closing_ = false;
     host_->leave();
     // the layer takes the state of no core at once: the core's picture, the key off, the alpha 255, nothing drawn
     OvPlan off;
@@ -394,8 +394,11 @@ void OverlaySvc::settle()
     const bool standing = own_picture_ ? (frozen_ || paused_) : paused_;
     bool released = false;
     host_->enter();
-    const bool retake = retake_;                        // a library's still went while the machine stands: the base's picture under the menu is the newest frame again
-    retake_ = false;
+    bool retake = false;                                // a library's still went while the machine stands: the base's picture under the menu is the newest frame again
+    if (!closing_) {                                    // not while the menu closes: the machine runs again, or menu(false) settles it
+        retake = retake_;
+        retake_ = false;
+    }
     host_->leave();
     if (standing && (!was_standing_ || retake)) {
         take_still();
@@ -485,9 +488,15 @@ void OverlaySvc::sync_ui()
     }
 }
 
+void OverlaySvc::closing()
+{
+    closing_ = true;
+}
+
 void OverlaySvc::menu(bool up)
 {
     menu_up_ = up;
+    closing_ = false;
     settle();
 }
 
@@ -631,6 +640,18 @@ int OverlaySvc::remove(int owner, int el)
         sync_ui();                                      // the surface is the library's again when this returns
     }
     return rc;
+}
+
+int OverlaySvc::canvas(int *w, int *h) const
+{
+    if (!enabled_ || !w || !h) {
+        return OVL_E_NOSERVICE;
+    }
+    int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
+    host_->canvas(&cw, &ch);
+    *w = cw;
+    *h = ch;
+    return 0;
 }
 
 int OverlaySvc::set_palette(int owner, OvPalette f)

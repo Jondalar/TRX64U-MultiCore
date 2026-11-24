@@ -104,7 +104,7 @@ public:
     // takes the window of w x h pixels of it that starts at ox, oy. A C64-type core (own_picture) has the host's still capture: still_start() points it at two slots of the base's own heap
     // once, at the core's start; grab() reads the last complete frame (4 bit VIC colours, 400 x 270 or 400 x 240 in the 60 Hz modes) and paints it with the palette the person's setting
     // put on the screen (set_still_palette; Colodore when no source is set). Any other core: the newest frame buffer of its own picture (32 bit pixels are cut to RGB565). False: no picture.
-    // The rows of dst are `stride` pixels apart (0: w). `pal` is a library's source of the colours, asked first (T256 D11); null: the base's own, then Colodore. Both grab paths keep static buffers: the
+    // The rows of dst are `stride` pixels apart (0: w). `pal` is a library's source of the colours, asked first (T256 D11); null: the base's own, then Colodore. Both grab paths keep static buffers (and one table of the source column of each output column: w is at most 960, wider is false): the
     // caller makes only one grab at a time (the overlay service's grab_lock).
     typedef bool (*StillPalette)(uint8_t rgb[16][3]);
     void still_start();

@@ -428,9 +428,20 @@ static void still_colours(uint16_t out[16], Video::StillPalette lib)
     memcpy(out, g_colodore, sizeof(g_colodore));
 }
 
+// The column of the source for each output column, made once per grab: the division is not made per pixel. The widest canvas is 960 (trx_canvas_for; OVL_CANVAS_W), a grab is never wider.
+#define GRAB_MAX_W 960
+static uint16_t g_grab_col[GRAB_MAX_W];
+
+static void grab_columns(int w, int ox, int fw, int span)
+{
+    for (int x = 0; x < w; x++) {
+        g_grab_col[x] = (uint16_t)((uint32_t)(ox + x) * (uint32_t)span / (uint32_t)fw);
+    }
+}
+
 bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride, StillPalette pal)
 {
-    if (!dst || w < 1 || h < 1) {
+    if (!dst || w < 1 || h < 1 || w > GRAB_MAX_W) {
         return false;
     }
     if (stride < w) {
@@ -458,6 +469,7 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, in
             if ((px_->r32(STILL_STATUS) >> 8) != (st >> 8)) {
                 continue;                                  // the capture moved on while the slot was read: again
             }
+            grab_columns(w, ox, fw, STILL_W);
             for (int y = 0; y < h; y++) {
                 uint16_t *row = dst + (size_t)y * stride;
                 if (y > 0 && (oy + y) * rows / fh == (oy + y - 1) * rows / fh) {
@@ -466,7 +478,7 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, in
                 }
                 const uint8_t *src = cap + (size_t)((oy + y) * rows / fh) * (STILL_W / 2);
                 for (int x = 0; x < w; x++) {
-                    const int vx = (ox + x) * STILL_W / fw;
+                    const int vx = g_grab_col[x];
                     const uint8_t b = src[vx >> 1];
                     row[x] = col[(vx & 1) ? (b >> 4) : (b & 15)];
                 }
@@ -481,18 +493,24 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, in
     }
     static uint8_t line[8192];
     uint32_t last = 0xFFFFFFFFu;
+    grab_columns(w, ox, fw, (int)vw_);
     for (int y = 0; y < h; y++) {
         const uint32_t sy = (uint32_t)(oy + y) * vh_ / (uint32_t)fh;
-        if (sy != last) {
-            io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
-            last = sy;
-        }
         uint16_t *row = dst + (size_t)y * stride;
-        for (int x = 0; x < w; x++) {
-            const uint32_t sx = (uint32_t)(ox + x) * vw_ / (uint32_t)fw;
-            if (pb == 2) {
+        if (sy == last) {
+            memcpy(row, row - stride, (size_t)w * 2);       // the same source line as the row above (y > 0 here: last starts at an impossible value): the same pixels
+            continue;
+        }
+        io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
+        last = sy;
+        if (pb == 2) {
+            for (int x = 0; x < w; x++) {
+                const uint32_t sx = g_grab_col[x];
                 row[x] = (uint16_t)(line[2 * sx] | (line[2 * sx + 1] << 8));
-            } else {
+            }
+        } else {
+            for (int x = 0; x < w; x++) {
+                const uint32_t sx = g_grab_col[x];
                 const uint32_t v = (uint32_t)line[4 * sx] | ((uint32_t)line[4 * sx + 1] << 8) | ((uint32_t)line[4 * sx + 2] << 16);   // {x, R, G, B} little endian: B, G, R
                 row[x] = (uint16_t)(((v & 0xF80000) >> 8) | ((v & 0x00FC00) >> 5) | ((v & 0x0000F8) >> 3));
             }

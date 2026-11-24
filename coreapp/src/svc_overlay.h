@@ -73,6 +73,9 @@ typedef struct SvcOverlay {
     // time they take a frame, on the task that takes it. The order of the sources: this one, the base's own, Colodore. null gives the source back to the base. One source per core, the last call
     // counts; it goes with the end of the library, and f is never called after that. f runs inside the grab lock: it must not call api->overlay (it would wait for itself). 0 or OVL_E_NOSERVICE.
     int (*still_palette)(bool (*f)(uint8_t rgb[16][3]));
+    // The size of the canvas the elements are placed on now (960 x 540 above 576p; the canvas of the video mode below): the geometry of the places, of show() and of frame(). Writes w and h and
+    // returns 0, or returns OVL_E_NOSERVICE and leaves w and h untouched. A library checks `api->overlay->size` before it calls it.
+    int (*canvas)(int *w, int *h);
 } SvcOverlay;
 
 #ifdef __cplusplus

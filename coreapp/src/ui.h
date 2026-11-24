@@ -22,6 +22,7 @@ void ui_paused_tag(bool on);          // the machine is paused: the PAUSED tag, 
 // the transparency go through it (the holder, key and alpha of the layer are its plan, overlay.h ovl_plan). ui_overlay_frozen: the machine is held for the menu. UI task. ui_overlay() is null before the first start.
 void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_picture);
 void ui_overlay_frozen(bool on);
+void ui_overlay_closing(void);        // the menu's close has begun: a library's still that goes now causes no new still of the base's (OverlaySvc::closing)
 int ui_canvas_w(void);                // the canvas LVGL draws on now (follows the video mode); the overlay service places the elements on it
 int ui_canvas_h(void);
 OverlaySvc *ui_overlay(void);

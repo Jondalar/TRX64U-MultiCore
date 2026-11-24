@@ -74,7 +74,8 @@ typedef struct CoreHooks {
     // menu_video: the base turned the picture behind its menu on (behind = 1) or off (0). On: a screen of the base shows the picture behind the menu, which is the still
     // element: the base's still, or the surface a library shows as "still" (api.md 4.17.8.3). Off: the menu covers it again. A library that changes the machine's frame
     // while the machine stands (a scrub) paints the new frame with api->overlay->frame and calls update: the base does not call menu_video again for it. Called once for
-    // each change, never twice with the same value; the first call is an "on". No result: it cannot refuse.
+    // each change, never twice with the same value; the first call is an "on". No result: it cannot refuse. The base draws no UI on such a page (the layout "timeline" is transparent over the still,
+    // the key colour without one): a library paints its own bar as elements.
     // Task: the application's main loop, which draws the menu; the core lock is not held (see menu_closed). It does not block for long: the screen waits for it.
     void (*menu_video)(int behind);
 } CoreHooks;
