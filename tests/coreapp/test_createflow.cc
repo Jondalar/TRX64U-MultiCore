@@ -269,6 +269,7 @@ static void check_suggestions()
     }
 }
 
+#ifndef TEST_APP_VC20          // check_junk and check_folder (main runs them in the shared app only) stand on the Atari's descriptor: the VIC-20's app has its core only
 // A state that hands over rubbish: what the prompt takes of it
 static char g_junk[80];
 static const char *state_junk(CoreCtx *) { return g_junk; }
@@ -553,6 +554,7 @@ static void check_folder()
         CHECK_STR(res.msg, "Created /usb1/disks/api.atr.");
     }
 }
+#endif
 
 // ---- (c) the progress -------------------------------------------------------------------------------------------------------------------------
 static void check_progress_for(const CoreDesc *desc, const char *label, const char *ext, int fmt, uint32_t bytes)

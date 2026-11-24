@@ -26,7 +26,6 @@ core_tests() {   # core_tests <id> <kind>
   say "the units of cores/$id/app/sdk.toml: $units"
   CA_GROUP="$id" CA_UNITS="$units" TEST_TIER=fast nice -n 15 "$ROOT/tests/coreapp/run.sh"
 }
-plan_has() { [ -f "$HANDOFF/plan.json" ] && python3 "$ROOT/ci/plan.py" has "$HANDOFF/plan.json" "$1"; }
 sdk_tarball() { ls "$HANDOFF"/sdk/trx64-sdk-*.tar.gz 2>/dev/null | head -1; }
 
 case "$lane" in
@@ -67,13 +66,17 @@ core:?*)
   case "$step" in
     # 2: the unit tests of its own libraries (the units its TOML B names as unit)
     unit) core_tests "$id" unit ;;
-    # 3: what this push changed for the core: its gateware (the plan's DFX lanes), its TOML A, its app (cores/<id>/app)
+    # 3: what this push changed for the core, against the plan's base: its gateware (the files of its bitstream key, ci/lib.sh ooc_key: the sources of its
+    # core.toml without app/ and logo/; by git, so a change to comments alone counts here and not in the key), its TOML A, its app (cores/<id>/app). Not the
+    # plan's DFX lane: that one counts the app's files too (an app-only push plans it, and keeps the bitstream key)
     changed)
       [ -f "$HANDOFF/plan.json" ] || die "no plan.json from the dispatcher"
-      gw=no; plan_has "dfx:$id" && gw=yes
-      base="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["base"]["commit"] or "")' "$HANDOFF/plan.json")"
-      ta=unknown ap=unknown
+      base="$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("base") or {}).get("commit") or "")' "$HANDOFF/plan.json")"
+      specs=(); while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$ROOT/host/layers.txt" "core:$id")
+      [ "${#specs[@]}" -gt 0 ] || die "core:$id has no sources in its core.toml"
+      gw=unknown ta=unknown ap=unknown
       if [ -n "$base" ] && git -C "$ROOT" cat-file -e "$base^{commit}" 2>/dev/null; then
+        gw=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "${specs[@]}" ':(exclude,glob)cores/*/app/**' ':(exclude,glob)cores/*/logo/**' || gw=yes
         ta=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "cores/$id/app/gateware.toml" || ta=yes
         ap=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "cores/$id/app" || ap=yes
       fi
@@ -105,9 +108,15 @@ core:?*)
       python3 -I "$ROOT/tools/libtab.py" mapcheck "$tomlb" "$out/app/$id.map" "$ROOT"
       h="$(python3 "$ROOT/tools/core_toml.py" get "$id" heap)"
       python3 -I "$ROOT/tools/cor_pack.py" heap "$out/app/$id.app" --core "$id" --sizes "$tomlb" --heap "${h:-0}"
-      shared="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import libtab
-a = {l["name"] for l in libtab.load(sys.argv[2])}; b = {l["name"] for l in libtab.load(sys.argv[3])}
-print(" ".join(sorted(a & b)))' "$ROOT" "$tomlb" "$ROOT/coreapp/libs/shared.toml")"
+      # the libraries both TOML Bs name: one defined alike (sources, headers) is the shared app's and must be linked from the same sources in both (S12: cbm1541);
+      # one defined otherwise under the same name is said here and is not this check's (the VIC-20's cbmrun without c64_go.cc, T239.5 §5: open with Alex)
+      libs="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import libtab
+a = {l["name"]: l for l in libtab.load(sys.argv[2])}; b = {l["name"]: l for l in libtab.load(sys.argv[3])}
+key = lambda l: (sorted(l.get("sources", [])), sorted(l.get("headers", [])))
+both = sorted(set(a) & set(b))
+print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for n in both if key(a[n]) != key(b[n])))' "$ROOT" "$tomlb" "$ROOT/coreapp/libs/shared.toml")"
+      shared="$(sed -n 1p <<< "$libs")"; other="$(sed -n 2p <<< "$libs")"
+      for lib in $other; do say "the library $lib has the shared app's name and other sources or headers: not compared"; done
       for lib in $shared; do
         [ -s "$HANDOFF/sdk/coreapp.map" ] || die "no coreapp.map in $HANDOFF/sdk (the SDK lane's artifact)"
         python3 -I "$ROOT/tools/libtab.py" samelib "$ROOT/coreapp/libs/shared.toml" "$tomlb" "$lib" "$HANDOFF/sdk/coreapp.map" "$out/app/$id.map"
@@ -145,7 +154,8 @@ bits:?*)
       for e in "$cache"/host-* "$cache"/core-"$id"-*; do
         [ -f "$e/DONE" ] || continue
         say "${e##*/}: from $(cat "$e/from" 2>/dev/null || echo ?)"
-        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do [ -f "$f" ] || continue; grep -E "WNS|Slice LUTs|Timing constraints are" "$f" | head -4 | sed 's/^/    /'; done
+        # awk and not grep | head: a report without such a line is no failure (grep's exit 1 ended the step under pipefail, run 45476822869)
+        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do [ -f "$f" ] || continue; awk '/WNS|Slice LUTs|Timing constraints are/ && n < 4 { print "    " $0; n++ }' "$f"; done
       done ;;
     *) die "a bitstream lane has no step $step" ;;
   esac ;;

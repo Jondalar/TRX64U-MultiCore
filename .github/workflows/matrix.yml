@@ -387,7 +387,7 @@ jobs:
         run: ci/lane.sh "core:$CORE" needs
       - name: 6 Build (the app from the SDK)
         run: ci/lane.sh "core:$CORE" build
-      - name: 7 Complete and fits (the link map, the slot, the heap, the shared libraries)
+      - name: 7 Complete and fits (the link map, the application region and the heap, the shared libraries)
         run: ci/lane.sh "core:$CORE" fits
       - name: 8 Tests mock bitstream -> service
         run: ci/lane.sh "core:$CORE" service
