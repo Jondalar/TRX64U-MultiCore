@@ -65,6 +65,7 @@ int main(int argc, char **argv)
     CHECK(argc == 3);
     char why[240];
 
+#ifdef TEST_APP_A1200                    // the A1200's app (run.sh a12app): its own tables against its record
     // ---- 1. the Amiga 1200's tables, from the record, against amiga1200_desc
     {
         Bytes rec = slurp(argv[1]);
@@ -100,6 +101,8 @@ int main(int argc, char **argv)
         CHECK(d->sec->romset.labels == &d->sec->romset_labels);
     }
 
+#endif
+#ifndef TEST_APP_A1200                   // sections 2 and 3 are the shared reader's: the shared app runs them
     // ---- 2. what no descriptor has together
     {
         Bytes rec = slurp(argv[2]);
@@ -244,5 +247,6 @@ int main(int argc, char **argv)
             CHECK(strstr(why, "section roms") != 0);
         }
     }
+#endif
     DONE("descsec");
 }
