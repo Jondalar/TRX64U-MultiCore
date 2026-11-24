@@ -1,9 +1,9 @@
 # Writing a core application
 
 This guide is for a developer who adds a core to the generic core application, inside this repository or outside it with the TRX64 SDK, or who
-changes what that application offers a core. It is read off the code of branch `t239.3` (the SDK of the coming 0.4.6, base API 3.4) and off the
-first core built outside this repository, TRX64-Ultimate's `trx64u` (SDK 0.4.5, base 3.3), as of 2026-11-24. Where a comment says something else than
-the code does, the code is followed and the difference is named in section 12.
+changes what that application offers a core. It is read off the code of branch `t239.3` at `e61ed6b88` (the SDK of the coming 0.4.6, base API 3.4)
+and off the first core built outside this repository, TRX64-Ultimate's `trx64u`, which is still on SDK 0.4.5 (base 3.3), as of 2026-11-24. Where a
+comment says something else than the code does, the code is followed and the difference is named in section 12.
 
 Paths without a prefix are this repository's. `SDK:` is a path inside the unpacked SDK package. `TRX64-Ultimate:` is a path in that repository, the
 worked example of an outside core owner (sections 13 to 26).
@@ -12,7 +12,8 @@ worked example of an outside core owner (sections 13 to 26).
 
 - **In-tree core** (sections 1 to 11). The descriptor is C++ in `coreapp/cores/<name>.cc` and is compiled into the shared app: one image,
   `coreapp.bin`, linked with `coreapp/libs/shared.toml` and `coreapp/gateware/shared.toml`; `ci/trxapps.sh` copies it to
-  `dist/coreapps/<core>.app` for every name in `BLUEPRINT_CORES`.
+  `dist/coreapps/<core>.app` for every name in `BLUEPRINT_CORES`. The VIC-20 is in-tree with an app of its own (T239.3 V-4, V-5): its code is the
+  library `cores/vc20/app/lib/vc20.cc`, and its app is linked from the SDK package by its TOML B `cores/vc20/app/sdk.toml` (`tools/sdk_core_app.sh`).
 - **SDK core** (sections 13 to 26). Nothing of the core is compiled into a shared image. The core is its description record (record 6 of its `.cor`:
   a UI TOML and an API TOML); its code is a library that exports the core hooks; its app is linked from the SDK's base archive with the core's own
   TOML A (the gateware) and TOML B (the linked libraries); the owner packs, tests and delivers the `.cor`. The SDK ships no app image (SDK:
@@ -46,8 +47,9 @@ flowchart LR
 - The host application (`host-app/software/hostapp/`) always starts first. It is the boot menu, the file browser, the updater and the loader. It has no
   descriptor and nothing in it is written for a particular core (section 11).
 - The core application starts when the host has loaded the core. It runs on the same RISC-V processor, replaces the host application in memory and is
-  the only software that talks to the core while it runs. A partial core lives in layer 2; a large core (`cor_pack.py pack-large`, records 1, 3, 4, 5)
-  is one full bitstream started by IPROG, such as TRX64-Ultimate's `c64_basic`, and has no layer 2.
+  the only software that talks to the core while it runs. A partial core lives in layer 2; a large core (`cor_pack.py pack-large`: records 1, 3, 5,
+  4 with an icon, and 6, 7, 8 when it carries a description, libraries or files) is one full bitstream started by IPROG, such as TRX64-Ultimate's
+  `c64_basic`, and has no layer 2.
 - The base reaches the core through `CoreIo` (`coreapp/src/io.h`; the board implementation is `coreapp/src/hw.cc`; `tests/coreapp/` puts a model of the
   core behind the same interface, so descriptor hooks run natively on a Mac). A library reaches it through `LibApi`: `api->io` (`SvcIo`, SDK: `api.md`
   4.15) and the driver table of the TOML A (section 16).
@@ -59,34 +61,40 @@ flowchart TD
   A["start_identify (start.cc):<br/>ID bytes -> compiled-in CoreDesc,<br/>else the record 6 of the .cor"] -->|no match| H["held page:<br/>reason + Return to host menu"]
   A --> L["libraries: record 7, then trx/lib (libboard.cc);<br/>hooks library attached; record 8 installed;<br/>apps/ scanned; menu merged"]
   L --> I["identity: TOML A record against the ID block<br/>(only when record 6 is a TOML A)"]
+  I -->|no match| M["no boot_start: no init, no release;<br/>the menu opens"]
   I --> B["init hook: hold the core"]
   B --> D["ROM search (romfind.cc),<br/>waits while a required ROM is missing"]
-  D --> E["put_op of each ROM, frame buffer registers,<br/>settings with WHEN_RESET, reset wait"]
+  D --> E["put_op of each ROM, frame buffer registers,<br/>all settings, media mounts"]
+  E -->|needs_program| P["held until the program;<br/>its operation releases (boot_finish)"]
   E --> F["release hook"]
   F --> G["running; service poll task;<br/>library polls; menu on Freeze"]
 ```
 
-`boot_start` (`coreapp/src/boot.h`) does the steps with the core held: descriptor `init`, ROM search and wait (it never leaves the loop with a required ROM
-missing), the ROMs into the core, the frame-buffer registers and the pixel layer, the settings into the registers, then `release`. Before it, `run.cc` reads
-the bundle (`bundle_read`), loads the libraries of record 7 and then those of `<root>/trx/lib/` (`lib_board_load`; the bundle's copy of a name wins), takes the
-core hooks of the library the record names (`hooks_attach_lib`), installs record 8 (`core_files_install`, before the scan of `apps/` since SDK 0.4.2),
-scans the apps, merges the menu, installs the application host and the machine groups (`set_machine_groups`), and checks the identity
-(`bundle_check_identity`). The control hooks of a compiled-in descriptor are plain functions `int hook(CoreCtx *, char *msg, int msglen)` (0 = ok,
-otherwise the reason on screen); the same hooks of a library (`CoreHooks`, `core_hooks.h`) take no context: `int (*init)(char *msg, int msglen)`.
+`boot_start` (`coreapp/src/boot.cc`) does the steps with the core held: the descriptor's `init`, the ROM search and wait (it never leaves the loop with a
+required ROM missing), the ROMs into the core, `video->init` (the frame-buffer registers), every setting (`boot_apply_settings(c, true)`), the media of the
+last run (`mounts_restore`), then `release`, unless the core waits for a program (`needs_program`: `BOOT_WAITING_PROGRAM`). It waits no `reset_ms`
+(`boot_finish`, `boot_cold_reset` and the reload do), and the run loop hands the pixel layer to the core after it. Before it, `run.cc` reads the bundle
+(`bundle_read`), loads the libraries of record 7 and then those of `<root>/trx/lib/` (`lib_board_load`; the bundle's copy of a name wins), takes the core
+hooks of the library the record names (`hooks_attach_lib`), installs record 8 (`core_files_install`, before the scan of `apps/` since SDK 0.4.2), scans the
+apps, merges the menu, installs the application host and the machine groups (`set_machine_groups`), and checks the identity (`bundle_check_identity`).
+When that check fails, `boot_start` is not called at all: no `init`, no `release`, and the menu opens. The control hooks of a compiled-in descriptor are
+plain functions `int hook(CoreCtx *, char *msg, int msglen)` (0 = ok, otherwise the reason on screen); the same hooks of a library (`CoreHooks`,
+`core_hooks.h`) take no context: `int (*init)(char *msg, int msglen)`.
 
 | Hook | Job | Rule |
 |---|---|---|
 | `init` | hold the machine for the application | the host's power-up hold stays until `release` |
 | `release` | let the machine run | the only place the application's own hold is removed |
 | `warm_reset` | a reset that keeps RAM (optional) | without it a warm reset is the cold one |
-| `cold_start` | what a restart needs when the core has no partial bitstream to load again (optional) | large core only |
+| `cold_start` | what a restart needs when the core is not loaded again from a partial bitstream: a large core, a flat build, a start without a `.cor` (optional) | a partial `.cor` on a host with the ICAP loader is loaded again instead (`reload_is_dfx`) |
 
 A cold reset is the shared sequence "hold, reset-time settings, wait `reset_ms`, release" (`boot_cold_reset`). `reset_ms` must cover the core's own RAM
 sweep. `cold_ram_bytes` tells "Restart core" how much RAM to clear through the RAM window.
 
 **Identity (T239.3 P1-4).** When record 6 is a TOML A record (version 7), the base compares its `id` and `build` with the ID block of the running
-bitstream and holds a core that does not match (`bundle_check_identity`, `bundle.cc`; SDK: `api.md` 6.14.13). A description record (version 6) carries no
-map, and the check returns at once: a core described by its record gets no identity check until a TOML A record can ride beside the description (section 26).
+bitstream (`bundle_check_identity`, `bundle.cc`; SDK: `api.md` 6.14.13). A core that does not match is not started (above), and every later release
+refuses too (`release_core`, `CoreCtx::identity_refused`). A description record (version 6) carries no map, and the check returns at once: a core
+described by its record gets no identity check until a TOML A record can ride beside the description (section 26).
 
 ## 3. The descriptor
 
@@ -99,7 +107,7 @@ apply are null or zero. The ones every core fills:
 | `cor_name` | `name` of `cores/<id>/core.toml` (an SDK core: `[core] name`). The `.cor` manifest and the hand-over must agree |
 | `title`, `short_title` | menu title; the name on the navigation rail (148 px, so short) |
 | `folder`, `store` | `roms/<folder>` for developer starts; the `[section]` of `<name>.cfg` |
-| `min_contract` | the layer-2 contract version the core needs (1) |
+| `min_contract` | 1; `desc_check` only checks that it is 1 or more. The contract is checked by the host app: it refuses a partial `.cor` whose manifest `contract` is not its own (`COR_HOST_CONTRACT`, `cor.cc`; `contract/VERSION` = 2); a large `.cor` carries none |
 | `roms`, `settings`, `tasks`, `filetypes`, `media` | the menu content (sections 4 to 6) |
 | `video` | `VideoDesc`: source size, scale, position, DDR2 frame-buffer base and stride, the four registers of the frame writer |
 | `freeze` | `FreezeDesc`: the status register and the PAUSED bit, the timeout (200 ms) |
@@ -114,9 +122,10 @@ Optional records (each is a pointer to a spec struct): `romset`, `window_media`,
 one does. `own_volume` removes the generic Volume item for a core with a mixer of its own; `live_ms` and `menu_first` are for a core with no picture (the
 diag core).
 
-**The id also selects base services.** `appsvc_c64()` gives `api->c64` and the base's `c64` table only when the descriptor's id is `TRX2`; the same test
-decides the cartridge-port service of the `c64cart` library (`cart_port`, `c64cart_exports.cc`) and whether apps that need `cart_port` are offered
-(`app_index.set_cart_port`, `run.cc`). `appsvc_trx()` gives `api->trx` only when the ID block of the running bitstream reads `TRX2` (`appsvc.cc`).
+**The id also selects base services.** `appsvc_c64()` gives `api->c64` and the base's `c64` table only when the descriptor's id is `TRX2`. The
+cartridge-port service of the `c64cart` library needs that and the capability `cartridge` in the caps (`cart_port`, `c64cart_exports.cc`); apps that need
+`cart_port` are offered on the id alone (`app_index.set_cart_port(appsvc_c64() != 0)`, `run.cc`). `appsvc_trx()` gives `api->trx` only when the ID block
+of the running bitstream reads `TRX2` (`appsvc.cc`).
 
 **Everything the descriptor makes the machine do is an operation by name.** A ROM's `put_op`, a setting's `apply`, a task's `op`, a file action's `op`, a
 media slot's `eject_op` are strings. The core's `register_ops` registers them (`OpRegistry::add_op`, `coreapp/src/ops.h`), and `desc_check`
@@ -150,27 +159,31 @@ registers them in its library).
 ## 4. Settings
 
 ```cpp
-struct Setting { key, values, nvalues, def, when, apply, bind, base, group, kind, show_state, label };
+struct Setting { key, values, nvalues, def, when, apply, bind, base, group, kind, show_state, label, lock_state, pick };
 ```
 
 - `key` is the item text and the key in `<name>.cfg`. It never changes with a label (`label` is the text shown if it differs).
 - `values` are the labels, also the values in the file. `def` is the index of the default.
 - **`when`**: `WHEN_LIVE` applies the value at once; `WHEN_RESET` is written while the core is held, at the next reset. `boot_apply_settings(c, all)` writes
-  every `WHEN_RESET` item (core held) or every item (`all`, at a restart).
-- The value gets into the machine in one of three ways, exactly one per setting (`desc_check` enforces it, control `desc_one_form`):
+  every `WHEN_RESET` item (core held) or every item (`all`: at the start, in `boot_finish`, at a restart and when a config is loaded); a `kind` 3 item
+  never.
+- The value gets into the machine in one of three ways, exactly one per setting (`desc_check` enforces it):
   1. `apply` names an operation with one `value` argument (an int or enum). For a range setting (`kind` 0 with `base` != 0) the operation gets `base + index`.
   2. `bind` is a `RegBind { reg, shift, mask, bytes }`: the setting is bits of a register byte (`coreapp/src/regset.h`). Several settings can share a
      register; the byte written is the OR of what all bound settings contribute, computed from the settings and never read back (these registers are
-     write-only commits). `reset_writes` are bytes written with every commit that no setting owns.
+     write-only commits). `reset_writes` are bytes no setting owns, written at the end of every settings pass (`regset_apply`: start, reset, restart),
+     not when a live change commits a register.
   3. neither: the item that chooses the member of the core's `romset` (`choice_key`); the reload applies it.
 
-The VC-20 declares two register-bound settings; the 1541 rows come from a shared macro:
+The VIC-20 (`cores/vc20/app/lib/vc20.cc`, excerpt) binds three settings to register bits and one to an operation; the 1541 rows come from a shared macro:
 
 ```cpp
-static const RegBind b_exp = { VC20_RAM_EXT, 0, 0x1F, exp_bytes };      // value -> byte through a table
-static const Setting settings[2 + CBM1541_NSETTINGS] = {
-    { "Memory Expansion (at next reset)", exp_names, 7, 0, WHEN_RESET, 0, &b_exp, 0, 0, 0, 0, "Memory Expansion" },
+static const RegBind b_exp  = { VC20_RAM_EXT, 0, 0x1F, exp_bytes };     // value -> byte through a table
+static const Setting settings[4 + CBM1541_NSETTINGS] = {
+    { "Memory Expansion (at next reset)", exp_names,  7, 0, WHEN_RESET, 0, &b_exp, 0, 0, 0, 0, "Memory Expansion" },
     { "Block 5 ($A000), when expanded",   blk5_names, 2, 0, WHEN_RESET, 0, &b_blk5 },
+    { KEY_JIFFY, jiffy_names, 2, 0, WHEN_RESET, "vc20.set_jiffy" },
+    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, 0, &b_dset },
     CBM1541_SETTINGS,
 };
 ```
@@ -185,19 +198,28 @@ gateware has the Frame follow register (`PictureEnv::follow`, 0x4F02) and the co
 `Off`/`On`, default `Off`, live, group `video`, operation `follow.apply`). `volume_extend` adds *Volume* (`VOLUME_KEY`, 0 to 200 % in steps of 5, the
 host's master gain) and `tone_extend` adds *Tone* (`TONE_KEY`: Flat / Bass boost / Treble boost, the host's shelf filter) right after it, **only when the
 app is linked against a TOML A with the base block `audio_master`** (T239.3 D36: `volume.cc` and `tone.cc` return at once under `#ifndef
-DRV_HAS_audio_master`; SDK: `api.md` 6.17.5.7). trx64u's TOML A has no such block, because `c64_basic` decodes no master volume or tone, so trx64u has
-neither row (a decided gap). Where the block is linked: a descriptor that declares one of these keys is refused, except a core with its own Volume or
-`own_volume = true`; `own_volume` does not remove *Tone*, `no_tone` does. SHIFT+ and SHIFT- on the menu step the item named `Volume` (`change_volume` in
-`menuctl.cc`).
+DRV_HAS_audio_master`; SDK: `api.md` 6.17.5.7). The VIC-20's app names the block in its `base_blocks` (`cores/vc20/app/sdk.toml`) and has both rows.
+trx64u's TOML A has no such block, because `c64_basic` decodes no master volume or tone, so trx64u has neither row (a decided gap). Where the block is
+linked, nothing is refused: a descriptor that declares `Volume` or sets `own_volume` gets no generic Volume row, one that declares `Tone` or sets
+`no_tone` no Tone row; `own_volume` does not remove *Tone*. SHIFT+ and SHIFT- on the menu run the operation `volume.change` (`volume.cc`; the key rows
+in `menukeytab.cc`): it steps the item `Volume` when that is the base's row or bound to a register, else the key goes on to the next row. The volume
+hotkeys with the menu closed step the item `[hotkeys] vol_key` names, else `Volume` (`hk_step_volume`, `hotkeys.cc`).
+
+`desc_check` refuses a descriptor that declares *Picture*, *Scale*, *Smoothing* or *Frame follow* (`picture_extend` refuses the keys too) or names
+`picture.apply`, `scale.apply`, `smooth.apply` or `follow.apply` as a setting's `apply`.
 
 `baseset_extend` (base 3.3, `baseset.h`) adds up to ten more, last of all, and only where the code can do what the row says (T228 R20): the look of the
 menu (*Overlay Transparency*, *Color Scheme*, *Filename overflow squeeze*, *Navigation Style*), *Joystick Input* (only for a core whose `caps` name
 `kbd_joystick`) and, for a core whose descriptor has a `mouse`, *Mouse Sensitivity* and *Mouse Acceleration* (*Mouse Mode*, *Mouse Wheel Sensitivity* and
 *Mouse Wheel Direction* need the capability `mouse_driver`). A menu TOML's top-level `hide` list holds the keys it does not want (trx64u: *Color Scheme*).
-Their operations are `base.*`. A descriptor or menu TOML never declares one; a library of the core reads them by key and hears a change through the core
+Their operations are `base.*`. A descriptor or menu TOML does not declare one: `desc_check` refuses the keys, except *Mouse Sensitivity* and *Mouse
+Acceleration* with the core's own operations `mouse.sens` and `mouse.accel`. A library of the core reads them by key and hears a change through the core
 hook `base_setting_changed` (`core_hooks.h`).
 
-Settings can also carry `group`, `show_state` (show the row only while a state value holds) and `kind` 1/2 (a text the person types, shown plain or as stars).
+Settings can also carry `group`, `show_state` (show the row only while a state value holds), `kind` 1/2 (a text the person types, shown plain or as stars)
+or 3 (a file the person selects: the row shows its path, `apply` takes one text `path`, and no reset applies it), `lock_state` (a state whose text stands in
+place of the value while it has one; the menu then refuses a change) and `pick` (a value list filled at run time: `hotkeys.keys`, `hotkeys.modifiers`,
+`view.schemes`).
 
 ## 5. ROMs
 
@@ -206,14 +228,16 @@ file of an allowed size whose `check` accepts it wins. `put_op` is called with t
 ROM that is missing keeps the core held and the screen says so after about ten seconds.
 
 Where the file is looked for is the **core folder** (T148, `coreapp/src/corefolder.h`): every core has one folder beside its `.cor`, `<dir>/<name>/`, holding
-`<name>.cfg`, `roms/`, `saves/` and `apps/`. With a `.cor` path, `rom_scan` reads `roms/` of that folder **alone** (`own_dir`); files elsewhere get there by a
-verified copy (`corefolder_copy_verified`, size and SHA-256 read back). Only a developer start without a `.cor` path searches `/flash`, `/usb0..3`, `/sd`
-under `roms/<folder>`. `set` groups ROMs of machine variants (Spectrum 48K/128K, CPC 464/664/6128): the core starts when one set is complete. `shared` is for a
+`<name>.cfg`, `roms/`, `saves/` and `configs/` (`corefolder_ensure` makes the three folders; `apps/` is made by `instfiles` when a file of record 8 lies in
+it). With a `.cor` path, `rom_scan` reads `roms/` of that folder **alone** (`own_dir`); files elsewhere get there by a verified copy
+(`corefolder_copy_verified`, size and SHA-256 read back). Only a developer start without a `.cor` path searches `/flash`, `/usb0..3`, `/sd` under
+`roms/<folder>`. `set` groups ROMs of machine variants (Spectrum 48K/128K, CPC 464/664/6128): the core starts when one set is complete. `shared` is for a
 ROM of a shared device (the 1541) that is searched in the core folder and then in the shared folder.
 
-**The host reads the ROM requirements too.** The boot menu shows what a core misses from a generated table, `host-app/software/hostapp/romreq_table.inc`,
-made by `tests/coreapp/gen_romreq.cc` from the core table. A changed `RomSpec` without a regenerated table is a red test run. A core described by its record
-names its ROMs in record 6, and the host reads them there (T239.3 P1-6; `CmFs::core_roms`, `host-app/software/hostapp/hostfs.cc`).
+**The host reads the ROM requirements too.** The host's page *Cores and ROMs* (F8, `coremaint.cc`, the table's only user) shows what a core misses from a
+generated table, `host-app/software/hostapp/romreq_table.inc`, made by `tests/coreapp/gen_romreq.cc` from the core table. A changed `RomSpec` without a
+regenerated table is a red test run. A core described by its record names its ROMs in record 6, and the host reads them there (T239.3 P1-6;
+`CmFs::core_roms`, `host-app/software/hostapp/hostfs.cc`).
 
 ## 6. The Library: file types, actions, tasks, media, libraries
 
@@ -225,7 +249,13 @@ static const FileAction prg_actions[] = {
     { "Run PRG", "vc20.run_prg", file_bind, 1, true, 0, 0 },                          // closes_menu = true
     { "Load PRG (no reset, no start)", "vc20.load_prg", file_bind, 1, false, 0, 0 },
 };
-static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_actions, 2 }, CBM1541_FILETYPES };
+static const FileType filetypes[2 + CBM1541_NFILETYPES] = {
+    { ".prg", prg_actions, 2 },
+    { ".p00", prg_actions, 2 },
+    { ".d64", c1541_d64_actions, 5, ".prg", c1541_inner_actions, 2 },   // CBM1541_FILETYPES written out, with the VIC-20's
+    { ".g64", c1541_g64_actions, 4, 0, 0, 0 },                           // own .rom action (vc20.set_drive_rom)
+    { ".rom", rom_actions, 1, 0, 0, 0 },
+};
 ```
 
 - `FileAction` may `ask` for a 16-bit address first (`ask_off` = the offset of the file's own load address, so RETURN alone takes it), may be restricted by
@@ -289,6 +319,8 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
   | 15 window media | `[window_media]` | window_media |
   | 16 sector media | `[sector_media]` | sector_media |
   | 17 media replace | `replace` in a `[[media]]` | MediaSlot::replace |
+  | 18 key rows | `[[key]]` | none: the key table (`CoreKey`, `menuintent.h`) |
+  | 19 windows | `[[window]]` | none: the register windows `io.window` hands out |
 
   The menu tables (tasks, media, file types, settings), the pad (`[pad]`), the restart (`[restart]`) and `machine_info` are the older record parts. The keys of
   every table are listed at the top of `tools/descrec.py`. While a descriptor is compiled in for the core, it is the core, and a record with data sections
@@ -319,7 +351,7 @@ core must honour the stop: ddt_novic halts on `c64_halt_req | mc_halt_s[1] | mac
 
 **Overlay.** A library or app draws over the running picture through `api->overlay` (`SvcOverlay`, T256): elements, `frame` (the frame the machine drew last,
 into a surface of the caller, since SDK 0.4.3), `still_palette`, `canvas` (SDK 0.4.5); base 3.4 appends `exit_to_machine` and `goto_screen` (T256 D13; SDK:
-`api.md` 4.17.18, 4.17.19).
+`api.md` 4.17.18, 4.17.19). A `goto_screen` with the menu closed opens the menu, and the place waits until it is open (`MenuCtl::goto_when_open`).
 
 **USB pads (T156).** A `PadSpec { reg[2], nbuttons, names, def_map }` opts the core in. `pad.cc` keeps two pads in plug order, turns a report into the core's
 button word through the map (the default is the SNES layout, resolved per pad by VID:PID) and writes it as a 16-bit pair, low byte first, to the register of the
@@ -328,8 +360,8 @@ documents the keys): `output = "joystick"` writes the host's joystick lines (`Co
 register pair, and the operation `pad.port` picks port 1 or 2; trx64u uses it with `per_pad = true`.
 
 **Volume.** Generic (section 4), only with `audio_master` in the TOML A. **LED Load Indicator.** The setting `{ "LED Load Indicator", ..., WHEN_LIVE,
-"led.load" }` selects case LED 1 = drive A activity once (`ledload.h`); every core with a drive splices it in with the 1541 rows. The core must put its
-floppy/hard-disk activity on `drive_leds_n` (contract README).
+"led.load" }` selects case LED 1 = drive A activity once (`ledload.h`). The 1541 rows carry it (`cbm1541_desc.h`); `atari800`, `apple2`, `cpc` and
+`amiga` declare it themselves. The core must put its floppy/hard-disk activity on `drive_leds_n` (contract README).
 
 **Bug report.** *System, Bug report* writes `<date>.txt` to `/sd/report` (else the first USB medium): software versions, the core's settings, the registers
 named in `report_regs` (`ReportReg { name, reg, bytes }`; only registers whose read changes nothing, never a FIFO or a mailbox) and the application log
@@ -428,7 +460,7 @@ The gateware half is `cores/ddt_novic/layer2_ddt_novic.v`: it passes `.ID(32'h4E
 | `app = "blueprint"` | the core's `core.toml` (a large core: `cores/<id>/mono/core.toml`) |
 | name of the image per core | `BLUEPRINT_CORES` in `tools/build_coreapp.sh` and in `ci/trxapps.sh`: both copy the same `coreapp.bin` to `dist/coreapps/<core>.app`, which `tools/pack_cores_mc.sh` packs into a partial core's `.cor`. A large core's `.cor` is packed from `coreapp.bin` directly (`ci/package.sh`, `tools/pack_large_cor.sh`) |
 | ROM table for the host | regenerate `romreq_table.inc` with `gen_romreq` if the `RomSpec`s changed |
-| tests | `tests/coreapp/run.sh` (a `run` line and controls), the table in `tests/coreapp/test_desc.cc` and its `golden(&<name>_desc, "<name>")`, the golden menu |
+| tests | `tests/coreapp/run.sh` (a `run` line; a control only for a test of flash or persistence, `ci/controls.allow.d/coreapp.allow`), the table in `tests/coreapp/test_desc.cc` and its `golden(&<name>_desc, "<name>")`, the golden menu |
 | icon, release text | `tools/core_logos/build.py`, `tools/release_notes_mc.py` |
 
 Note: `tools/build_coreapp.sh`'s default `BLUEPRINT_CORES` and `ci/trxapps.sh`'s differ (the first lists `c128` and `c64scpu`, the second `ddt_novic`);
@@ -436,21 +468,19 @@ they only decide which file names get a copy of the same image. An SDK core has 
 
 ## 10. Tests
 
-`tests/coreapp/run.sh` compiles the logic of `coreapp/src` natively against stubs, no board. **Every test has a negative control**: the product source is
-copied, one expression is broken with `sed`, the same test is built against the broken copy, and it must fail (a control whose `sed` changes nothing is
-refused as vacuous). Results are cached by the dependency list of each test and control (`tests/ctlcache.sh`).
+`tests/coreapp/run.sh` compiles the logic of `coreapp/src` natively against stubs, no board. **Negative controls exist only for the tests of flash
+operations and of persistence** (settings, saves, mounts, write-back): the product source is copied, one expression is broken with `sed`, the same test is
+built against the broken copy, and it must fail. `tools/check_controls.py` fails a control that `ci/controls.allow.d/coreapp.allow` does not allow, and
+`run.sh` refuses a control whose `sed` changes nothing as vacuous. Results are cached by the dependency list of each test and control (`tests/ctlcache.sh`).
 
 - **Test programs** `tests/coreapp/test_*.cc`, one per concern (`test_desc`, `test_settings`, `test_romfind`, `test_menuctl`, `test_pad`, `test_vc20`, `test_ddt`...),
-  run with `run <name> test_x.cc <sources>`. They use the models in the folder (`fakes.h`, `drive_model.h`...) as the core.
+  run with `run <name> test_x.cc <sources>`. They use the fakes and models in the folder as the core: `fakes.h`; `c64_model.h` (`C64Model : FakeIo`, the
+  C64 core behind `CoreIo`: the RAM window with its bus-cycle rule (MEMONLY, the `C64_STOP` gate), the ROM aperture with its mirrors, reset and READY, the
+  CPU state bus, the debug block's CMD/STATUS; `test_c64_cart.cc`, `test_media_mounts_engines.cc` and `test_writeback.cc` run on it); `amiga_model.h`,
+  `drive_model.h`, `sio_model.h`, `model_grid.h`. `tests/drv_fake.h` takes the registers of a driver table (section 16).
 - **Descriptor test of a core** (`test_ddt.cc` is a good one to copy): reads the numbers from the **gateware source** and compares: the ID against the
   `.ID(32'h...)` of the layer-2 file, every register offset against the case labels in `ddt_regs.v`, the picture size against the `GEOM_LINES`/`PIX_W` parameters,
-  the name against `core.toml`; then runs the start sequence against a register model and checks that the core is held first and released last. The controls in
-  `run.sh` break the ID, the width, the y position, the status register, the hold write and the release write, one each:
-
-  ```
-  control ddt_id      ddt_novic.cc "s/'D', 'D', 'T', 'N'/'D', 'D', 'N', 'T'/"  test_ddt.cc ddt_novic.cc $BASEL
-  control ddt_release ddt_novic.cc 's/    c->io->wr(DDT_CTRL, 0);//'            test_ddt.cc ddt_novic.cc $BASEL
-  ```
+  the name against `core.toml`; then runs the start sequence against a register model and checks that the core is held first and released last.
 - **Table checks** `test_desc.cc` runs `desc_check` over the whole table (every name registered, every binding fits, no two cores share an ID, video record
   complete, at most `REPORT_REGS_MAX` report registers).
 - **Golden menus** `tests/coreapp/golden/menu_<name>.txt` is the menu `menu_build` makes from the descriptor. `UPDATE_GOLDEN=1 tests/coreapp/run.sh` rewrites it
@@ -460,16 +490,18 @@ refused as vacuous). Results are cached by the dependency list of each test and 
   window. The SDK ships it as `bin/menusim --desc <desc.toml>`. A tool, not a test: the core's own code is not in it (a hook does nothing).
 - An application is finished when it builds for RISC-V in the `u64-build-env` image and `ci/apptests.sh` is green.
 
-None of this ships in the SDK: the test rig of `tests/coreapp` (stubs, fakes, models) and the list tool for `--ops` are "not in this package yet" (SDK:
-`README.md`). An SDK core is tested as section 22 says.
+None of this is a test rig of the SDK: the package carries the stubs, fakes and models of `tests/coreapp` and `tests/drv_fake.h` only in the tree the menu
+simulator is built from (`menusim/`, `tools/sdk_pack.sh`), without the test programs, and the list tool for `--ops` not at all; its `README.md` lists both
+under "Not in this package yet". An SDK core is tested as section 22 says.
 
 ## 11. How the host app differs
 
 `host-app/software/hostapp/` is the **host menu**, one program for all cores. It is the application that always starts on the board (the boot ROM runs it
 from flash), shows the boot menu (F1), the file browser (F3), the edit menu (F5), network (F7) and settings (F8), and does what a core application never
 does: reads `.cor` bundles (`cor.cc`), stages and verifies them (`coreboot.cc`: `core_stage`), cuts the old core off with the decoupler, streams the partial
-bitstream through the ICAP, writes the hand-over page and jumps; starts full bitstreams (`cfw.cc`, `legacy*.cc`); updates the host (`txu.cc`, `coremaint.cc`);
-restores a backup; sets the flash lock before a large core gets the machine (`flashlock.cc`); makes the host's HDMI picture (`hostvideo.cc`).
+bitstream through the ICAP, writes the hand-over page and jumps; starts full bitstreams (`cfw.cc`, `legacy*.cc`); updates the host and the host app from a
+`.txu` package (`txu.cc`); restores a backup (`fwrestore.cc`); reports and cleans what the media hold of cores and ROMs (`coremaint.cc`, the page *Cores
+and ROMs*); sets the flash lock before a large core gets the machine (`flashlock.cc`); makes the host's HDMI picture (`hostvideo.cc`).
 
 It has no `CoreDesc`. A core reaches it only as data: the `.cor` manifest (name, version, contract, host key, icon), the `boot.cfg` entry, the generated ROM
 table, and the hand-over page (`handover.h`: magic `TRXH`, the `.cor` path, name, version, host key, core id, the video mode the host put up). The core
@@ -478,10 +510,14 @@ both applications draw with the same LVGL code in `app/view`, which is why a men
 
 ## 12. Where a comment and the code disagree
 
-- `coreapp/README.md` said the library loader is "not wired to the board yet". `run.cc` calls `lib_board_load` at every start and `libboard.cc` is in the
-  Makefile: it is wired.
 - `desc.h` documents `CoreDesc::folder` as `roms/<folder>` "on the three roots". With a `.cor` path the code reads the core folder alone (`own_dir`, T148); the
   roots are the developer-start path only.
+- `desc.h` says `reset_writes` are written "with every settings commit". `regset.cc` writes them only at the end of `regset_apply` (the start, a reset, a
+  restart, a loaded config), not when a live change commits a register (`regset_commit`).
+- `volume.h` says the menu's SHIFT+ / SHIFT- call `change_volume` in `menuctl.cc`. There is no such function: the key rows run the operation
+  `volume.change` (`volume.cc`, section 4).
+- `tools/descrec.py`'s list of the TOML A keys says the identity block is owned by the base and declares `id` and `build`. Since D39 `_sec_ident` asks
+  that only of a block of the base (section 15).
 - `ddt_novic.cc` says the picture is "1056 x 18"; with scale 3 and height 200 the code gives 1056 x 600 and the test checks `y0 = (1080 - 200 * 3) / 2`.
 - The SDK's `README.md` (`app/sdkpkg/readme.in`), table "Contents": "`tools/sdk_api.py headers` lists them". The package (0.4.5) has no
   `tools/sdk_api.py`; only this repository runs it (`tools/sdk_pack.sh`).
@@ -523,8 +559,8 @@ The core owner builds against one pinned SDK tarball and refuses any other.
   first; the tarball must unpack to `trx64-sdk-<sdk_version>/` whatever its own name (dev builds and the release of a version unpack to the same folder);
   then `build.sh --check` compares the unpacked `VERSION` (`sdk`, `base_api`, `abi_major`, `api_headers_sha256`, `commit`, `base_archive_sha256`) with the
   pin, so a release unpacked over a dev build is not taken for it.
-- **Why the owner keeps a copy:** this repository's SDK builds live in `.ci/sdk/` and in pipeline artifacts that expire; T239.3 D26 lets the owner take
-  the SDK from `t239.3` and keep it.
+- **Why the owner keeps a copy:** this repository's SDK builds live in `.ci/dev/<branch>/` of a developer's checkout (`tools/dev.sh` unpacks them there)
+  and in the pipeline artifact `handoff-trxapps`, which expires after a day; T239.3 D26 lets the owner take the SDK from `t239.3` and keep it.
 - **The build folders carry a stamp.** Each folder (`build/<lib>/`, `build/app/`) keeps the sha256 of the tarball it was built with in `.sdk`, and starts
   clean under another (`build.sh`, `pack_cor.sh`). Without it, make keeps objects of the old SDK: their `.d` files name the old SDK's headers, which stay in
   `.sdk/`, so they look up to date (found 2026-11-24: the first builds after a pin change linked 0.4.1's base).
@@ -541,15 +577,21 @@ header or a comment, and name the RTL lines above each block.
   properties inline (`[[block.property]]`: `name`, `offset`, `width`, `dir`, `count`, `stride`, fields, states). A core block carries its properties itself:
   an SDK map belongs to the shared driver and is written against this repository's gateware. Where a map differs from your RTL, write the properties inline
   (trx64u: `cart_regs` and `drive_a`, because the maps `c64cart_regs` and `cbm1541` did not match `c64_basic`).
-- **Split a block at undecoded bytes.** `rtl_check` refuses a block that covers a byte nothing decodes. `c64_basic`'s speaker gains are written at 0x40,
-  0x41, 0x44 and 0x45 of 0x101005xx (`ultimate_sys.vhd`), so the TOML A has `speaker_mixer` (0x10100540, 2 bytes) and `speaker_mixer_b` (0x10100544,
-  2 bytes). Gaps between properties inside one block are allowed from D40 on (coming with `t239.3-v`).
-- **A block of the core** lies wholly inside the board's I/O span 0x10000000 to 0x10FFFFFF and covers no entry of `coreapp/src/basereg.def`.
+- **Undecoded bytes (D40).** A block with properties may have gaps between them: `rtl_check` checks the bytes of its properties. A block without
+  properties (a window) needs every byte decoded. `c64_basic`'s speaker gains are written at 0x40, 0x41, 0x44 and 0x45 of 0x101005xx
+  (`ultimate_sys.vhd`); trx64u's TOML A has them as two blocks, `speaker_mixer` (0x10100540, 2 bytes) and `speaker_mixer_b` (0x10100544, 2 bytes), which
+  on `t239.3` can be one block.
+- **A block of the core** lies inside the I/O span of the TOML A's `[io]` (`iobase` to `iobase` + 16 MiB) and covers no block of the base of that TOML A
+  (the blocks of one TOML A do not overlap). A core block outside the span is refused when it is handed out (`io.window`, `descrec_in_io_span`), not when
+  the record is read. `rtl_check` checks a core block like a base block (D43): one with properties is first checked as a base block, and where that fails
+  and the RTL hands every byte to a core port, only the hand-over is checked. `--own-core` and `--core-in-design` are accepted and do nothing.
+- **`[identity]`** names the four characters `id` and the `block` that holds them. A block of the base needs the readable properties `id` and `build`
+  (trx64u: `ident` at 0x101A0000); a block of the core needs none (D39: the host's `gateware/host.toml` names `core_trx_io`, a block of layer 2).
 - **Check it against the RTL:** `python3 -I <SDK>/tools/rtl_check.py check --design designs/c64_basic --toml-a software/trx64u/gateware/c64_basic.toml
-  --maps <SDK>/maps`. An RTL pattern the tool does not know is an error, never a pass, and the run stops at the first. On 2026-11-24 the whole file stops at
-  `trx_sys.v:267` (genvar); run per block (each with `ident`), 23 of 39 blocks agree, 15 stop at an unknown pattern (`trx_sys.v` genvar for 7 blocks,
-  `pix_layer.v:80`, `vic_scaler.v:52`, `overlay.v:40`, `synchronizer_gzw.vhd:48`, `gcr_codec.vhd:63`, `c1541_drive.vhd:272`, a record `io_resp` used as a
-  value), and `icap` +0x1 is decoded by nothing. So `check` is not in trx64u's lint yet; the patterns come with `t239.3-v` (section 26).
+  --maps <SDK>/maps`. An RTL pattern the tool does not know is an error, never a pass. The tool of SDK 0.4.5 stops at the first (`trx_sys.v`'s genvar);
+  on `t239.3` it stops that block only, lists every such block, and knows the patterns of `c64_basic`: trx64u's whole TOML A passes with no option
+  (`rtl_check: 39 block(s), 168 properties agree with the RTL of designs/c64_basic`, exit 0, about 100 s). trx64u's own lint has `lint-src` only until it
+  pins 0.4.6.
 - **The reverse lint:** `rtl_check.py lint-src` refuses a literal that lies in the I/O space or in a block of the TOML A in C/C++ sources (comments and
   strings are not read; `--allow FILE:LITERAL` for a hash constant). trx64u's lint stage runs, in `software/trx64u`:
 
@@ -577,7 +619,7 @@ changes). `app_build.py build` makes it for the app; a `.u2a` library's Makefile
 | `DRV_<b>_<p>_ADDR`; `_RD()` for `r`/`rw`, `_WR(v)` for `w`/`rw` | each property, as wide as it is; a write to a read-only property has no macro, so it does not compile |
 | `_COUNT`, `_STRIDE`, `_RD(i)`, `_WR(i, v)` | a run (`count` > 1) |
 | `DRV_<b>_<p>_<f>_SHIFT`, `_MASK`; `DRV_<b>_<p>_<state>`, `DRV_<b>_<p>_<f>_<state>` | fields and states |
-| `DRV_PTR(type, addr)` | the access; `-DDRV_PTR_HEADER='"drv_fake.h"'` redirects it for a native test |
+| `DRV_PTR(type, addr)` | the access; `-DDRV_PTR_HEADER='"drv_fake.h"'` redirects it for a native test (`tests/drv_fake.h`) |
 
 **Who writes what (T239.3 D50).** A core's own code reads base blocks through the table and writes only blocks its core owns; a write to a base block
 belongs to the shared driver that owns it, or goes through a call of the base's io group with an offset (`io->cart_wr`, `io->rom_write`). On `t239.3` the
@@ -599,14 +641,15 @@ An SDK core has two kinds of library (section 6), and decides per function which
 
 **Linked by the TOML B** (TRX64-Ultimate: `software/trx64u/app/toml_b.toml`, as SDK: `example/app/toml_b.toml`). `[app]`: `name`; `desc` only for a core
 compiled into the app (an SDK core has none, so the core table is empty and the start makes the descriptor from record 6); `base_sources`, files of the
-package's `coreapp/cores` the base needs (trx64u: `portdiag.cc`, because `run.cc` calls `portdiag_attach`); `sources`, the core's own. `[[library]]`
-entries are copied from the catalog `libs/shared.toml` for the shared libraries the core uses, or name the core's own sources found in `--src`
-directories. `[sizes]` sets the registry and record maxima (`python3 tools/app_build.py table` lists the keys and defaults). An app has none of the code
-of a library its TOML B does not name: `api->lib->find` finds no table for it and its operations are not registered. trx64u links `c64cart`, `cbm1541`
-(`capability = "drive_a"`: keep `drive_a` in the caps or the drive's operations are missing), `newfile`, `uci` (its own sources, `uci/`), `sid`,
-`tempdisk`, `cbmprg`, `dma`, `t64`, `mouse`, `pad`, `padkeys`, `fastseek`, `ftp`. UCI is the example of a core's own linked library: it needs an entry
-LibApi does not offer (`freeze_request`, called only for linked libraries, `libtab_freeze_request`) and the base's C++ objects, so it cannot be a `.u2a`
-(D49).
+package's `coreapp/cores` the base needs (trx64u: `portdiag.cc`, because `run.cc` calls `portdiag_attach`); `sources`, the core's own. A core whose
+TOML A holds only its own blocks also names `toml_a`, and in `base_blocks` the blocks of the package's `gateware/<base_toml_a>` (default `shared.toml`)
+that its link takes in (the VIC-20: `cores/vc20/app/sdk.toml`, with `host.toml`). `[[library]]` entries are copied from the catalog `libs/shared.toml`
+for the shared libraries the core uses, or name the core's own sources found in `--src` directories. `[sizes]` sets the registry and record maxima
+(`python3 tools/app_build.py table` lists the keys and defaults). An app has none of the code of a library its TOML B does not name: `api->lib->find`
+finds no table for it and its operations are not registered. trx64u links `c64cart`, `cbm1541` (`capability = "drive_a"`: keep `drive_a` in the caps or
+the drive's operations are missing), `newfile`, `uci` (its own sources, `uci/`), `sid`, `tempdisk`, `cbmprg`, `dma`, `t64`, `mouse`, `pad`, `padkeys`,
+`fastseek`, `ftp`. UCI is the example of a core's own linked library: it needs an entry LibApi does not offer (`freeze_request`, called only for linked
+libraries, `libtab_freeze_request`) and the base's C++ objects, so it cannot be a `.u2a` (D49).
 
 **`.u2a` in record 7** (`lib.mk`). A library is resident, its entry `lib_register` fills a `LibRecord`; it loads at every start before the core's hooks
 run. trx64u has three: `trx64u` (the core's code: operations, settings, the core hooks; `LIB_EXPORTS = corehooks=1`), `ring` (needs `trx64u>=1`, exports
@@ -635,8 +678,9 @@ old `uci*.o` after UCI became its own library): `pack_cor.sh` deletes every `obj
 - **The groups of `LibApi`** (SDK: `api.md` 3.2): `sys`, `mem`, `ops`, `fs` always; `dlg` with a screen; `job`, `net` after the start; `trx` when the ID
   block reads `TRX2`; `c64` when the descriptor's id is `TRX2`; `lib`; `sync`, `settings`, `ctx`, `board` (base 3.3); `io` once the core is handed over and
   only on a core with a register window; `overlay` after the start; `wb` after the start (base 3.4, D51).
-- **Selection by the description:** the id (`TRX2` gives `c64`, the `c64` table and the cartridge-port service, section 3); the caps (`drive_a` registers
-  `cbm1541`'s operations; `board_caps = true` lets the board strike what its probes deny); `own_volume`, `no_tone`, `hide`; `hooks`.
+- **Selection by the description:** the id (`TRX2` gives `c64` and the `c64` table, and with the capability `cartridge` the cartridge-port service,
+  section 3); the caps (`drive_a` registers `cbm1541`'s operations; `board_caps = true` lets the board strike what its probes deny); `own_volume`,
+  `no_tone`, `hide`; `hooks`.
 - **The core hooks** (`core_hooks.h`, export `corehooks` major 1): `init`, `release`, `warm_reset`, `cold_start`, `media_flush`, `media_pending`, `start`,
   `menu_closed`, `base_setting_changed`, `slot_spec`, `slot_mount`, `slot_eject`, `menu_video`. A null member is a call the base makes itself. trx64u:
   `base/c64core.cc`.
@@ -652,9 +696,11 @@ old `uci*.o` after UCI became its own library): `pack_cor.sh` deletes every `obj
   member (trx64u: `x_table` in `base/lib_trx64u.cc`). `mouse`, `pad`, `padkeys` are not found this way: their `table` entry hands them to the generic part
   (SDK: `api.md` 9.5.12). `api->lib->need(n, &size)` returns the provider of the `n`-th `LIB_NEEDS` entry without a lookup.
 - **Write-back** (`api->wb`, `SvcWb`, base 3.4, D51; `app/sdkpkg/api.md` 4.18): a library registers a writable medium, reports changes (`mark`, `mark_aux`)
-  and asks for the write; the base writes it the safe way as the setting "Save Changed Cartridge" says. `c64cart`'s `ram_write` and `image_write` report
-  nothing: a Timewarp rewind or a state load is no cartridge change (`trx_ring.cc` in TRX64-Ultimate's firmware writes RAM and flash image, then
-  invalidates; only the C64's own programming marks one), and a library that changes a medium on purpose reports it itself.
+  and asks for the write; the base writes it the safe way as the setting "Save Changed Cartridge" says. Only a `.u2a` of kind lib registers a medium:
+  `register_medium` from an app, or from code of no loaded image, gets `SVCWB_E_APP` (`libsvc.cc`); an app asks for the write with the operation
+  `writeback.flush`. `c64cart`'s `ram_write` and `image_write` report nothing: a Timewarp rewind or a state load is no cartridge change (`trx_ring.cc`
+  in TRX64-Ultimate's firmware writes RAM and flash image, then invalidates; only the C64's own programming marks one), and a library that changes a
+  medium on purpose reports it itself.
 
 ## 19. The description record and the operations list
 
@@ -714,9 +760,9 @@ the package alone: the host's routing inputs are not in it (SDK: `README.md`). *
   core's start is ue2emu's own C64 and proves nothing), prints the log lines of the start (core identified, libraries loaded and refused, files written,
   the monitor's server), reads the operations and states and compares them with the golden as sets (exit 0 equal, 1 different, 2 no list). Proof of
   2026-11-24 on SDK 0.4.5: READY after 3.6 s, 4 libraries loaded, 0 refused, missing 0, not in the golden 0.
-- **Host checks** where the board or ue2emu cannot see: native builds of a library's code against `drv_fake.h` (`DRV_PTR_HEADER`) or a model; trx64u checked
-  the register writes of `u64cfg.cc` before and after the owner split that way (every write at the same board address with the same value) and the
-  Timewarp bar against a model of the firmware's drawing. These harnesses are not in its tree yet.
+- **Host checks** where the board or ue2emu cannot see: native builds of a library's code against `tests/drv_fake.h` (`DRV_PTR_HEADER`) or a model;
+  trx64u checked the register writes of `u64cfg.cc` before and after the owner split that way (every write at the same board address with the same value)
+  and the Timewarp bar against a model of the firmware's drawing. These harnesses are not in its tree yet.
 - **Lint:** `lint-src` (section 15); `cor_pack.py --ops` at every pack.
 - **The board** is the owner's (for trx64u, Alex's).
 
@@ -737,9 +783,9 @@ the package alone: the host's routing inputs are not in it (SDK: `README.md`). *
   COR_SHA256=03239331813447d00af5e1e367b586dcf67bfd68478cecec49c0bb539aa66d66
   COR_SIZE=3984896
   ```
-- **The fetch (D45):** the builder gives `ci/imports.py pack` the base URL of the owner's generic packages in `TRX_FW_PKG_URL`; `pack` fetches `<base>/<PACKAGE>/<VERSION>/<COR_FILE>` without a token and keeps it only when
-  size and SHA-256 are the pin's; `finish` checks it again in `ci/package.sh`. The package holds the file byte for byte. The goal is the core registry of
-  T239.4.
+- **The fetch (D45):** the builder gives `ci/imports.py pack` the base URL of the owner's generic packages in `TRX_FW_PKG_URL`; `pack` fetches
+  `<base>/<PACKAGE>/<VERSION>/<COR_FILE>` without a token and keeps it only when size and SHA-256 are the pin's; `finish` checks it again in
+  `ci/package.sh`. The package holds the file byte for byte. The goal is the core registry of T239.4.
 - **The package namespace** (contract §1): each side writes only its own generic package and its own `<branch>-latest`; the other side's state is read
   as `<branch>-<sha8>`.
 
@@ -774,7 +820,7 @@ TRX64-Ultimate: `software/trx64g/` holds this repository's packer as it is (`pac
 | `fetch_sdk.sh` given `.sdk/online.u2a` by a relative path deleted it before the copy | same-file test (`-ef`) | `fetch_sdk.sh` |
 | A changed budget, needs or exports did not reach the `.u2a` | relink every library each build | `build.sh` |
 | An SDK change grew an image over its budget | measure and set `image` again | `u2a_pack.py` refuses |
-| `rtl_check` stops at the first unknown RTL pattern | run per block; keep `check` out of CI until the patterns are known | trx64u lint has `lint-src` only |
+| `rtl_check` of SDK 0.4.5 stopped at the first RTL pattern it did not know | `t239.3` knows the patterns: trx64u's whole TOML A passes (section 15) | `rtl_check`; trx64u's lint has `lint-src` only until it pins 0.4.6 |
 | An SDK map did not match the RTL | inline properties on the block | `rtl_check`, `descrec.py` |
 | Register writes through a window at 0xA0xxxxxx went to the memory path (bit 28 clear) | every address from the driver table | `lint-src` |
 | Byte writes to a 32-bit `trx_sys` register never committed | one 32-bit access | review; no tool |
@@ -788,20 +834,19 @@ TRX64-Ultimate: `software/trx64g/` holds this repository's packer as it is (`pac
 | `api->io` null in `lib_register`; the engine could not start | start in the `start` hook or the first poll; guard every access | `HW_RD`/`HW_WR` |
 | A member of base 3.3 missing on an older dev SDK | `SVC_HAS` before each newer member | review |
 
-## 26. Coming, and open
+## 26. New on t239.3, and open
 
-**On `t239.3`, coming with SDK 0.4.6 (base 3.4):**
+**On `t239.3` at `e61ed6b88` (the SDK of 0.4.6, base 3.4); trx64u, still on 0.4.5, takes them with its 0.4.6 pin:**
 
-- D48, D49: UCI is no code of the base and no library of the SDK; the server core (`command_intf.cc` and its headers) is handed over once in the package's
-  `handover/uci/`, nothing links it. trx64u adds it to its `uci/` and keeps UCI a linked library.
+- D48, D49: UCI is no code of the base and no library of the SDK; the server core (`command_intf.cc`, `network_target.cc` and their headers) is handed
+  over once in the package's `handover/uci/`, nothing links it. trx64u adds it to its `uci/` and keeps UCI a linked library.
 - D50: `DRV_BASE_READ_ONLY` for `--src` and `[app]` sources; `c64cart` drops its cached lines after `ram_write` and `image_write`. trx64u's ring drops
   its three `c64cart.cmd` writes with the 0.4.6 pin.
-- D51: `api->wb` for libraries.
-- T256 D13: `api->overlay->exit_to_machine` and `goto_screen`.
-
-**Coming from `t239.3-v`, not on `t239.3` yet:** `rtl_check` checks core blocks like base blocks by default, `--own-core` and `--core-in-design` are
-accepted and do nothing (D43); gaps between properties of a block (D40); the identity block `core_trx_io` in `host.toml` (D39); the RTL patterns of
-section 15, run on trx64u's TOML A before the SDK is cut (P1-3).
+- D51: `api->wb` for libraries; `register_medium` from a caller that is no library image gets `SVCWB_E_APP` (section 18).
+- T256 D13: `api->overlay->exit_to_machine` and `goto_screen`; a `goto_screen` with the menu closed opens it, and the place waits until it is open.
+- D43: `rtl_check` checks core blocks like base blocks; `--own-core` and `--core-in-design` are accepted and do nothing. D40: a block may have gaps
+  between its properties. D39: the identity block of `host.toml` is `core_trx_io`, a block of the core. The RTL patterns of `c64_basic` are known:
+  trx64u's whole TOML A passes (P1-3, section 15); its own lint has `lint-src` only until it pins 0.4.6.
 
 **Open:**
 
