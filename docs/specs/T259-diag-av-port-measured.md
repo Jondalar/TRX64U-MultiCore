@@ -199,6 +199,8 @@ Built 2026-11-24 on `t259-diag-av` (P1-P4, P6; P5 is not part of this build, §4
 | S7 | `tests/coreapp/test_portdiag.cc` (where the register model lives): every knob takes lo, hi, mid and their neighbours through `pd.av_free` and the register holds exactly it, out of range and unknown refuse; every knob set free, saved, loaded by name into a fresh gateware gives the same registers. `test_portdiag: 711 checks, 0 failed`. Board: Alex tunes PAL RGB (open) |
 | S6 | Vivado (open: the pipeline). Yosys estimate of `diag_avout` against the T201 module: LUT 725 -> 869 (+144), FF 451 -> 524 (+73), DSP48 10 -> 14 (+4: the three RGB scalers and the ramp), SRL16 2 -> 7; `diag_regs` +6 byte registers (about 11 FF, 20 LUT); `top.v` nothing |
 
+The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): `diag_avenc` (`PASS tb_avenc errors=0`), `diag_avregs` (`PASS avregs`, with `PASS tb_avsync errors=0 checks=146`).
+
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
 - "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
