@@ -10,7 +10,7 @@
 #             and the tables of the shared libraries (the *_api.h that tools/sdk_api.py names), from coreapp/src and app/sdk (tools/sdk_api.py), flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout; appflags.mk and appbuild.mk link a core's app
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
-#   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)
+#   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (app_build.py and cor_pack.py import libtab.py, which imports check_d24.py; descrec.py reads basereg.def; the rest import Python's own modules; cor_pack.py needs Pillow for a PNG --icon only)
 #   lib/      libtrxbase.a (the objects of the sources that depend on nothing a core decides), liblwip.a, liblvgl.a, crt0.o, port_asm.o
 #   base/     the sources that depend on the core (compiled for each core, with its [sizes]) and the sources of the shared libraries, at their repository paths under src/, the headers
 #             they reach under inc/, SIZED.txt, incdirs.txt, linker.x (tools/app_build.py pack-base)
@@ -54,6 +54,9 @@ while read -r h; do
   [ ! -e "$P/include/$(basename "$f")" ] || { echo "sdk_pack: two headers named $(basename "$f")" >&2; exit 1; }
   cp "$f" "$P/include/"
 done < "$t/headers"
+# online_api.h: the table of the online sub-app (apps/online includes it); it is no root of the base API (the lock does not hash it), so it is copied by name. The other headers apps/online includes
+# (libapi.h, libfmt.h, svctab.h and, through them, fsif.h and the svc_*.h) are in the closure above; its own files (online_*.h, otext.h) are in apps/online.
+cp "$ROOT/coreapp/src/online_api.h" "$P/include/"
 
 for f in lib.mk app.mk sdkroot.mk lib.ld appflags.mk appbuild.mk; do cp "$ROOT/app/lib/$f" "$P/mk/"; done
 cp "$ROOT/app/sdk/libc.c" "$ROOT/app/sdk/u2p_compat.c" "$P/sdk/"
