@@ -1,6 +1,6 @@
 // T180 D2 and D5 (docs/specs/done/T180-media-housekeeping.md, scenarios S2, S3 and S8): "Persist medium mounts" keeps the mounted media in the core's .cfg and the next start
 // mounts them before the core is released; a medium that is gone leaves its slot empty with a note; a media set is the same keys in <core folder>/media/<name>.mnt, and
-// loading one writes everything back, mounts what the set holds, unmounts the rest and resets the core once. The machine is the A1200's record on the model of its core:
+// loading one writes everything back, mounts what the set holds, unmounts the rest and resets the core once. The machine is the Amiga 500's record on the model of its core:
 // four floppy slots, two hard disk units (an image and a folder disk), with a .cfg and a core folder in the fake file system. A "restart" is a new application run on the
 // same files: new engines, new settings read from the .cfg, boot_start.
 #include <map>
@@ -101,7 +101,7 @@ struct R {
     {
         desc = make_desc();
         r = new AmigaRig(&fs, &desc);
-        r->io.regs[AM_FEAT] = 0x01;
+        r->io.regs[AM_FEAT] = 0x00;            // the A500 (the A1200 left the shared app, T213.3): bytes, no sector mailbox
         delete r->st;
         r->st = new Settings(desc.settings, desc.nsettings, desc.store, &fs, CFG, 0);
         r->st->load();
@@ -559,7 +559,7 @@ int main()
         for (int i = 1; i < n; i++) { a.m->key(KEY_DOWN); CHECK_EQ(a.m->selected(), i); }
         // S6: the machine line from the setting values; an empty drive says how to fill it (R11)
         a.m->machine_line(buf, sizeof(buf));
-        CHECK_STR(buf, "AGA - Chip RAM 2M");
+        CHECK_STR(buf, "OCS - Chip RAM 512K - Slow RAM 512K");
         CHECK_STR(a.right(a.find_row("DF0")).c_str(), "Empty - RETURN to mount");
         // S3: RETURN on an empty drive opens its list: mount from the Library, create blank; S11: the foot names its keys
         CHECK(a.go_to("DF0"));

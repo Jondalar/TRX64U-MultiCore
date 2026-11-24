@@ -1,6 +1,6 @@
 // T198 (docs/specs/done/T198-per-core-configs.md, scenarios S1, S7, S8, S10, S11, S14, S15): a config is a file of the core folder that holds a full copy of the settings and the
 // mounts; the host names one in the hand-over page and the core starts with it (the settings are read from its file, the core's own .cfg is not touched); the running core saves
-// and loads configs. The machine is the A1200's record on the model of its core (as test_media_mounts.cc), with the fake file system's switches for a medium that is read only.
+// and loads configs. The machine is the Amiga 500's record on the model of its core (as test_media_mounts.cc), with the fake file system's switches for a medium that is read only.
 #include <map>
 #include "folderhd_bench.h"
 #include "boot.h"
@@ -100,7 +100,7 @@ struct R {
     {
         desc = make_desc();
         r = new AmigaRig(&fs, &desc);
-        r->io.regs[AM_FEAT] = 0x01;
+        r->io.regs[AM_FEAT] = 0x00;            // the A500 (the A1200 left the shared app, T213.3): bytes, no sector mailbox
         delete r->st;
         if (folder) {
             snprintf(r->c.cfg_path, sizeof(r->c.cfg_path), "%s", CFG);
@@ -402,9 +402,9 @@ int main()
     {
         FakeFs fs;
         world(fs);
-        fs.put_text(MEDIADIR "/Old Set.mnt", "[Amiga 1200 Settings]\nMount DF0=/usb0/a.adf\n");
-        fs.put_text(MEDIADIR "/Both.mnt", "[Amiga 1200 Settings]\nMount DF0=/usb0/b.adf\n");
-        fs.put_text(CFGDIR "/Both.cfg", "[Amiga 1200 Settings]\nMount DF0=/usb0/a.adf\n");
+        fs.put_text(MEDIADIR "/Old Set.mnt", "[Amiga Settings]\nMount DF0=/usb0/a.adf\n");
+        fs.put_text(MEDIADIR "/Both.mnt", "[Amiga Settings]\nMount DF0=/usb0/b.adf\n");
+        fs.put_text(CFGDIR "/Both.cfg", "[Amiga Settings]\nMount DF0=/usb0/a.adf\n");
         {
             R a(fs);
             a.boot();
@@ -456,7 +456,7 @@ int main()
         for (int i = 0; i < 40; i++) {
             char nm[64];
             snprintf(nm, sizeof(nm), CFGDIR "/Config %02d.cfg", i);
-            fs.put_text(nm, "[Amiga 1200 Settings]\n");
+            fs.put_text(nm, "[Amiga Settings]\n");
         }
         R a(fs);
         a.boot();
