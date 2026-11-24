@@ -717,7 +717,7 @@ int MenuCtl::rows()
         if (chooser_) {
             return chooser_n_;
         }
-        return fm_.nlist + (fm_.more && !fm_.vmode ? 1 : 0);        // the line "... more not shown" is the last row, no entry
+        return fm_.nlist + (fm_.has_note() ? 1 : 0);                // the line "... more not shown" (or Loading, or the medium's reason) is the last row, no entry
     }
     return cur().count;
 }
@@ -937,8 +937,8 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             snprintf(left, ln, "%s", chooser_acts_[i].label);
             return;
         }
-        if (i == fm_.nlist && fm_.more && !fm_.vmode) {
-            fm_.more_text(left, ln);
+        if (i == fm_.nlist && fm_.has_note()) {
+            fm_.note_text(left, ln);
             return;
         }
         if (i >= fm_.nlist) {
@@ -2648,7 +2648,7 @@ bool MenuCtl::pump(bool quiet)
         nk++;
         changed = true;
     }
-    if (!nk && now - last_relist_ >= 2000) {                         // media that mounted after the menu opened
+    if (!nk && now - last_relist_ >= (fm_.loading ? 300u : 2000u)) {   // media that mounted after the menu opened; a folder a job still fetches (D41) is read again at once when the job ends
         last_relist_ = now;
         if (relist()) {
             nk++;
@@ -3628,6 +3628,9 @@ bool MenuCtl::goto_spec(const char *spec)
             }
         }
         go(a, t);
+        if (is_browser()) {
+            fm_.apply_pending();                                          // T256 D13: the Library opens where an operation asked (lib.show) when a goto brings the menu to it
+        }
         return true;
     }
     return false;                                                         // an area this core does not have

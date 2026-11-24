@@ -19,6 +19,7 @@
 #include "appdlg.h"
 #include "menuctl.h"
 #include "exec.h"
+#include <strings.h>
 
 #define APPJOB_MAX 4
 
@@ -66,6 +67,11 @@ public:
     // The person closed the screens (RUN/STOP, the left arrow at the first tab). False when the application will not let go yet (a job that cannot stop);
     // `why` then says so.
     bool close_session(char *why, int whylen);
+    // T256 D13 (exit_to_machine, goto_screen): the screens end, and with them the application unless it is resident and `keep_app`. Without `keep_app` a resident application in the background ends too
+    // (its task and jobs are waited for, 4 s, as open_now does for another application). True when nothing is left to end or it ended; false when a task or job cannot stop (`why` says so).
+    bool leave_app(bool keep_app, char *why, int whylen);
+    // Is `app` the application whose screens are up?
+    bool session_is(const char *app) const { return sess_ && handle_ >= 0 && !strcasecmp(name_, app); }
     // Is an application loaded or running (any of it)?
     bool busy() const { return handle_ >= 0 || req_pending_; }
     const char *open_name() const { return handle_ >= 0 ? name_ : ""; }

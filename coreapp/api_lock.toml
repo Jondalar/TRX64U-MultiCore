@@ -25,14 +25,15 @@ released = true
 headers = "da3811e51230c29e52fd338f2e8bbbee8db70746b5d37311a4da7f95de7fa25d"
 #
 # 3.3 (T239.3, SDK 0.4.0): api->sync, settings, ctx, io, board and overlay (svc_sync.h, svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h), the members appended to sys (svc_sys.h) and to fs
-# (list_long, svc_fs.h), the states "set.<key>" and "net.gated". Released with SDK 0.4.0 and carried unchanged by SDK 0.4.1 to 0.4.5: the hash is fixed.
+# (list_long, svc_fs.h), the states "set.<key>" and "net.gated". Released: SDK 0.4.0 to 0.4.5 carried it, the last of them in this state; the hash is fixed.
 [[lock]]
 version = "3.3"
 released = true
 headers = "00b60e800dfb49b8414a945055d04f34e7e64f08232eca53fb8e8bb7cb25483a"
 #
-# 3.4 (T239.3 D51, SDK 0.4.6): api->wb (svc_wb.h), the write-back service for libraries. Not released yet: its hash follows the headers (python3 tools/sdk_api.py update).
+# 3.4 (SDK 0.4.6): api->wb (svc_wb.h, T239.3 D51), the write-back service for libraries; api->overlay gets exit_to_machine and goto_screen
+# (svc_overlay.h, T256 D13). Not released yet: its hash follows the headers (python3 tools/sdk_api.py update).
 [[lock]]
 version = "3.4"
 released = false
-headers = "a3c6c2c0f1059701899400f47d87328979f4bfd07f519094088594731dfd756b"
+headers = "5d4f03076647f1609a2aba763e2c3d4c19bd63dbc757d84b9e37e1c16d2ec09c"

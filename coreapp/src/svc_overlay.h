@@ -1,4 +1,4 @@
-// Base 3.3, group `overlay` (T256, T239.3 D23, D29), the overlay service: a library shows pixels over the machine's picture, and only the base drives the pixel layer. It joins
+// Base 3.3 (the members `exit_to_machine` and `goto_screen`: base 3.4), group `overlay` (T256, T239.3 D23, D29), the overlay service: a library shows pixels over the machine's picture, and only the base drives the pixel layer. It joins
 // LibApi as `const SvcOverlay *overlay`, after `board`; a library built before the group never reads it (its LibApi is smaller), a loader without a core leaves it null.
 //
 // What the group is, in the words of the decisions (T256 D3-D10):
@@ -42,8 +42,16 @@ enum {
     OVL_E_TAKEN = -4,                     // another library shows that element
     OVL_E_HANDLE = -5,                    // not a handle of this library's element
     OVL_E_NOSERVICE = -6,                 // the service is not up (no core runs, or the loader has no core)
-    OVL_E_NOFRAME = -7                    // there is no complete frame of the machine's picture to take
+    OVL_E_NOFRAME = -7,                   // there is no complete frame of the machine's picture to take
+    OVL_E_ARG = -8                        // a flag that exit_to_machine does not know, or a target that goto_screen cannot read (null, empty, or OVL_TARGET_LEN or more characters)
 };
+
+// Flags of exit_to_machine (base 3.4, T256 D13).
+enum {
+    OVL_EXIT_PAUSE = 1,                   // the machine stays stopped: Pause is set; without the flag the machine runs
+    OVL_EXIT_KEEP_APP = 2                 // a resident application stays in the background; without the flag it ends (a transient application ends either way)
+};
+#define OVL_TARGET_LEN 48                 // the longest target of goto_screen, with its end byte
 
 typedef struct SvcOverlay {
     uint32_t size;
@@ -76,6 +84,18 @@ typedef struct SvcOverlay {
     // The size of the canvas the elements are placed on now (960 x 540 above 576p; the canvas of the video mode below): the geometry of the places, of show() and of frame(). Writes w and h and
     // returns 0, or returns OVL_E_NOSERVICE and leaves w and h untouched. A library checks `api->overlay->size` before it calls it.
     int (*canvas)(int *w, int *h);
+    // Members after `canvas` (T256 D13, base 3.4): a library or an application checks `api->overlay->size` before it uses them. Both only file a request; the main loop takes it at its next
+    // pass. One request waits for the pass, shared with menu_hide and menu_show: of the four calls made before the pass the last one counts (exit then goto in one frame goes, goto then exit
+    // exits). A call returns 0 or an OVL_E_* code (OVL_E_ARG, OVL_E_NOSERVICE); what the pass does is not an answer to the call.
+    // Leaves for the machine in one pass: the open application's session ends, the menu closes, and Pause is set to the OVL_EXIT_PAUSE flag. A resident application ends unless OVL_EXIT_KEEP_APP;
+    // a transient one ends in any case. Refused as the person's close is, with the status of the menu (needs_program: the machine cannot run yet), when the core waits for a program. While the menu is
+    // closed there is no session to end and nothing to close: only a resident application is ended (without KEEP_APP), the machine is not touched. The application's own task and jobs are waited for
+    // (4 s): the image is freed after its task has returned, not at the call, so the caller returns from its task entry after the call and touches nothing of the image afterwards.
+    int (*exit_to_machine)(uint32_t flags);
+    // Opens the menu if it is closed, ends another application's session, and goes to `target`: a place of the menu "F3" or "F3/online" (area and tab id, as `menu.screen` names them), or an application
+    // "app:name" or "app:name:action", which the base opens as `app.open` does. A target the menu does not have is not an error of the call; the status of the menu says it. Not while the core has not
+    // started. The caller of an application that is not resident returns from its task entry after the call, as for exit_to_machine.
+    int (*goto_screen)(const char *target);
 } SvcOverlay;
 
 #ifdef __cplusplus

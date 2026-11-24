@@ -28,11 +28,16 @@ public:
     bool rename(const char *from, const char *to);
     // what the last FTP command said, for a status line
     const char *last_error() const { return err_; }
+    // T239.3 D41 (L-3c): the last list() of a folder below /Online failed because the sub-app's job is still fetching it / for this reason (empty for every other folder)
+    bool loading() const { return loading_; }
+    const char *why() const { return why_; }
     struct Impl;
 private:
     CoreFs *in_;
     CoreCtx *c_;
     char err_[96];
+    bool loading_;
+    char why_[96];
     Impl *impl_;
 };
 

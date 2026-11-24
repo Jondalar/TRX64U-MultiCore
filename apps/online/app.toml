@@ -1,7 +1,7 @@
 # The menu record of the online search (T239.3 D12, P3-1, L-3): the tab "Online" of F3 and its rows, as the sub-app contributes them. The operations and state values are the ones
 # online_search.cc registers (online.*); the tab was a tab of the menu of the TRX64U core (TRX64-Ultimate's now) until the search became a sub-app. A core that carries online.u2a in its
 # .cor gets the tab; one that does not has none. Nothing here is code. The two operations that ask the server (online.presets, online.search) are nodes with `job`: the menu steps them while
-# the sub-app's job waits for the server (api.md 1.3.9). A node with `goto` would skip the job (menuctl run_node), so the search has none: the Library opens on the results by lib.show.
+# the sub-app's job waits for the server (api.md 1.3.9). A node with `goto` would skip the job (menuctl run_node), so the search has none: when its job has ended with results the operation calls lib.show (the Library opens on the results) and api->overlay->goto_screen("F3") (T239.3 D41), which brings the menu to the Library.
 
 [[tab]]
 area = "F3"

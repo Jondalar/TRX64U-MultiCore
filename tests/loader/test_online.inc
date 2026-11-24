@@ -22,6 +22,11 @@ struct ONet {
     int opened = 0, closed = 0;
 };
 static ONet g_on;
+// the overlay service of the base: only goto_screen, which the search calls when its job has ended (D41)
+static std::string g_goto;
+static int g_goto_calls = 0;
+static int on_goto(const char *t) { g_goto = t; g_goto_calls++; return 0; }
+static SvcOverlay g_ovl;
 
 static int on_connect(const char *host, uint16_t port, uint32_t)
 {
@@ -211,7 +216,12 @@ static void online_subapp()
     CoreCtx cx;
     memset(&cx, 0, sizeof(cx));
     w.ld->set_ctx(&cx);
-    w.m.twins["online"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) { return online_lib_register(api, rec); };
+    memset(&g_ovl, 0, sizeof(g_ovl));
+    g_ovl.size = sizeof(g_ovl);
+    g_ovl.goto_screen = on_goto;
+    g_goto.clear();
+    g_goto_calls = 0;
+    w.m.twins["online"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) { const_cast<LibApi *>(api)->overlay = &g_ovl; return online_lib_register(api, rec); };
     std::string heap0 = w.m.shape();
     char err[LIB_ERR_MAX] = "";
 
@@ -306,6 +316,8 @@ static void online_subapp()
     CHECK(starts(g_on.reqs[1], "GET /leet/search/aql?query=%28name%3a%22jumpman%22%29%20%26%20%28category%3agames%29 HTTP/1.1\r\nAccept-encoding"));
     CHECK(g_on.reqs[1].find("\r\nClient-Id: Commodore\r\n") != std::string::npos);
     CHECK_STR(w.reg.state(0, "online.results", 0), "3 found");
+    CHECK_EQ(g_goto_calls, 1);                                 // D41: the search went to the Library once its job had ended, not before
+    CHECK_STR(g_goto.c_str(), "F3");
     CHECK(t->has_results());
     g_on.quiet_every = 0;
     g_on.step = 512;
@@ -328,13 +340,16 @@ static void online_subapp()
     g_on.replies.push_back(http(ENTRIES, 0));
     CHECK_EQ(t->list(l1.c_str(), e, 8), -1);
     CHECK(std::string(t->error()).find("Loading the files") == 0);
+    CHECK(t->loading());                                       // D41: the failed list is a wait, the file manager lists the folder again
     CHECK(!t->stat((l1 + "/jumpmanjunior-wcs.d64").c_str(), &size, &dir));
     CHECK_EQ(g_on.reqs.size(), before);
     CHECK_EQ(g_on.hosts.size(), conns);
     online_run_jobs();
     CHECK_EQ(g_on.reqs.size(), before + 1);
+    CHECK(t->loading());                                       // the job has ended, the result is not taken over yet: the folder is read again
     n = t->list(l1.c_str(), e, 8);
     CHECK_EQ(n, 2);
+    CHECK(!t->loading());
     CHECK(n == 2 && std::string("jumpmanjunior-wcs.d64") == e[0].name && e[0].size == 174848 && !e[0].dir);
     CHECK(n == 2 && std::string("info.txt") == e[1].name && e[1].size == 0);
     CHECK_EQ(g_on.reqs.size(), before + 1);
@@ -346,11 +361,14 @@ static void online_subapp()
     uint32_t len = 0;
     uint8_t *b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);     // the download is a prefetch as well
     CHECK(!b && std::string(t->error()).find("Downloading") == 0);
+    CHECK(t->loading());                                       // D41: the download is a wait as well: NetFs::open polls fetch while this holds
     CHECK_EQ(g_on.reqs.size(), before + 1);
     online_run_jobs();
+    CHECK(t->loading());
     b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);
     CHECK(b && len == 300 && binary_body() == std::string((const char *)b, len));
     free(b);
+    CHECK(!t->loading());
     CHECK_EQ(g_on.reqs.size(), before + 2);
     CHECK(starts(g_on.reqs[before + 1], "GET /leet/search/bin/237033/0/0 HTTP/1.1\r\nAccept-enc"));
     b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);        // the same file again: kept, no second download

@@ -179,6 +179,11 @@ public:
     virtual ~CoreFs() { }
     // Entries of a directory ("/" lists the mounted media); -1 when it cannot be read. At most max entries.
     virtual int list(const char *dir, FsEntry *out, int max) = 0;
+    // T239.3 D41 (L-3c): the wait seam of a folder. After a list() that returned -1: true when the medium is still fetching the content in the background (a job) and a later list() will find it - the Library
+    // shows "Loading" and reads the folder again soon, instead of treating the folder as unreadable; why() is then not asked. After a list() that succeeded, or on a medium with no such fetch: false.
+    virtual bool loading() const { return false; }
+    // After a list() that returned -1 and is not loading(): the medium's reason, one sentence, for the Library's status row; empty when it has none (the folder just cannot be read).
+    virtual const char *why() const { return ""; }
     // The same listing in FsEntryShort: 72 bytes an entry instead of 272. The default lists through list() into a buffer of `max` whole entries and
     // shortens (-1 when there is no room for it); a medium that has the entries at hand (the board's FileManager) overrides it and needs no such buffer.
     virtual int list_short(const char *dir, FsEntryShort *out, int max)

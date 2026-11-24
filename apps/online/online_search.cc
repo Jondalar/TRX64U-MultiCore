@@ -643,6 +643,10 @@ int op_search(CoreCtx *, const OpArgs &, OpOut &o)
         OpResult rr;
         g_api->ops->call("lib.show", &in, 1, &rr);
     }
+    // D41 (L-3c): and the menu goes there, after the job: the Library is the first tab of F3 (the request is the main loop's, api.md 4.17.19). A base without the call leaves the menu on this tab.
+    if (g_api && LIB_API_COVERS(g_api, overlay) && g_api->overlay && g_api->overlay->size >= __builtin_offsetof(SvcOverlay, goto_screen) + sizeof(g_api->overlay->goto_screen) && g_api->overlay->goto_screen) {
+        g_api->overlay->goto_screen("F3");
+    }
     o.msg[0] = 0;
     ot_cat_int(o.msg, o.msglen, nres);
     ot_cat(o.msg, o.msglen, " found");
@@ -701,6 +705,11 @@ bool tab_has_results(void)
     return nres > 0;
 }
 const char *tab_error(void) { return err; }
+// D41 (L-3c): the prefetch of a result's files or of a file's bytes is still running (or has ended and is not taken over yet): the file manager waits and lists the folder again instead of failing once.
+bool tab_loading(void)
+{
+    return g_w.state != 0 && (g_w.kind == W_ENTRIES || g_w.kind == W_DOWNLOAD);
+}
 
 int find_res(const char *label)
 {
@@ -903,7 +912,7 @@ const LibStateDecl online_states[] = {
 };
 const int online_nstates = (int)(sizeof(online_states) / sizeof(online_states[0]));
 
-const OnlineApi online_table = { sizeof(OnlineApi), tab_has_results, tab_list, tab_stat, tab_fetch, tab_error };
+const OnlineApi online_table = { sizeof(OnlineApi), tab_has_results, tab_list, tab_stat, tab_fetch, tab_error, tab_loading };
 
 void online_attach(const LibApi *api)
 {

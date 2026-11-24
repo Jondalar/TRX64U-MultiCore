@@ -159,6 +159,33 @@ enum { OVM_NOTHING = 0, OVM_LEFT = 1, OVM_OPENED = 2 };
 // Returns what happened (OVM_*).
 int ovl_menu_request(int req, bool menu_open, bool started, OvMenuPort *port);
 
+// ---- the navigation calls of a library or an application (T256 D13) ---------------------------------------------------------------------------------------------------
+// exit_to_machine and goto_screen file one request; the main loop takes it at its next pass (OverlaySvc::take_nav) together with the hide / show request, and the last of the four calls counts.
+enum { OVN_NONE = 0, OVN_EXIT = 1, OVN_GOTO = 2 };
+struct OvNav {
+    int kind;                              // OVN_*
+    uint32_t flags;                        // OVN_EXIT: OVL_EXIT_*
+    char target[OVL_TARGET_LEN];           // OVN_GOTO: "F3/online" or "app:name[:action]"
+};
+// What the loop does for the request; the board's loop implements the port, a test records it. `why` is what a refusal says on the menu's status line.
+class OvNavPort {
+public:
+    virtual ~OvNavPort() { }
+    virtual bool can_run() = 0;                                    // false: the core waits for a program (the person's close is refused)
+    virtual void refuse() = 0;                                     // the status of the person's close for that case
+    virtual bool app_open() = 0;                                   // an application is loaded (a session of its screens, or a resident one in the background)
+    virtual bool session_of(const char *app) = 0;                  // the open session is the one of the application `app`
+    virtual bool end_app(bool keep_app) = 0;                       // ends the session; the application too unless it is resident and kept. False: it cannot let go (the port says why on the status line)
+    virtual void set_paused(bool p) = 0;
+    virtual void close_menu() = 0;
+    virtual void open_menu() = 0;                                  // the open intent
+    virtual bool go_place(const char *spec) = 0;                   // the menu goes to "F3/online"; false: the menu has no such place (the port says so)
+    virtual bool open_app(const char *app, const char *action) = 0;   // the base's app.open; false: refused (the port says why)
+};
+enum { ONV_NOTHING = 0, ONV_EXITED = 1, ONV_REFUSED = 2, ONV_STUCK = 3, ONV_WENT = 4, ONV_NO_PLACE = 5, ONV_NO_APP = 6 };
+// Returns what happened (ONV_*). The order inside one exit: the refusal first (nothing changes), then the session and the application end, then Pause is set, then the menu closes.
+int ovl_nav_request(const OvNav &nav, bool menu_open, bool started, OvNavPort *port);
+
 #define OVL_OWNER_BASE (-1)                // the base's own elements (the PAUSED tag); a library's owner is its slot, 0 and up
 #define OVL_OWNER_NONE (-100)
 
@@ -198,6 +225,11 @@ public:
     void text(int owner, const SvcSurface *sf, int x, int y, const char *s, uint16_t colour);
     void menu_hide();
     void menu_show();
+    // T256 D13: the two requests of the navigation calls (base 3.4). They share the slot of menu_hide / menu_show: the last call counts. OVL_E_ARG for a flag or a target that cannot be read.
+    int exit_to_machine(uint32_t flags);
+    int goto_screen(const char *target);
+    // The main loop's side: the request that waits, once (false: none). Taken at the same pass as the hide / show request, which it replaces when it came after it.
+    bool take_nav(OvNav *out);
     // A library is released: its elements and waiting text calls go, the layer is told at once.
     void drop_owner(int owner);
     static const char *error(int code);
@@ -253,6 +285,7 @@ private:
     TextCall text_[OVL_TEXT_MAX];
     int ntext_;
     int menu_req_;                         // 0 none, 1 hide, 2 show: the last call of a library
+    OvNav nav_;                            // kind 0: none; set by exit_to_machine / goto_screen, which clear menu_req_ (and the other way round)
     uint32_t serial_;
     volatile uint32_t frames_;             // counts the settles of the UI task: sync_ui waits for it to move
     OvPlan plan_;

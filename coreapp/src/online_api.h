@@ -21,6 +21,9 @@ typedef struct OnlineApi {
     // for), the length in *len; null when it failed (error says why). The sub-app keeps the last download for the next call.
     uint8_t *(*fetch)(const char *rel, uint8_t *(*alloc)(uint32_t n), uint32_t *len);
     const char *(*error)(void);
+    // T239.3 D41 (L-3c), appended: a job of the sub-app is fetching what the last failed `list` asked for. The file manager then shows "Loading" and lists the folder again until the job has
+    // ended, instead of failing once. False when no such job runs (the failure stands, `error` says why).
+    bool (*loading)(void);
 } OnlineApi;
 
 #endif

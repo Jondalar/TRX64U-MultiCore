@@ -79,11 +79,34 @@ public:
         *out = it->second;
         return true;
     }
+    // T239.3 D41: a folder that a background job fetches (the Online results). list() of slow_dir fails the next slow_n times and says loading(); then, when slow_why is set, once more with that
+    // reason and not loading(); then it lists as any folder does.
+    std::string slow_dir, slow_why;
+    int slow_n = 0, slow_asked = 0;
+    bool loading() const override { return slow_loading_; }
+    const char *why() const override { return why_.c_str(); }
+    bool slow_loading_ = false;
+    std::string why_;
     int list(const char *dir, FsEntry *out, int max)
     {
         lists++;
+        slow_loading_ = false;
+        why_.clear();
         if (gone) {
             return -1;
+        }
+        if (!slow_dir.empty() && lower(dir) == lower(slow_dir)) {
+            slow_asked++;
+            if (slow_n > 0) {
+                slow_n--;
+                slow_loading_ = true;
+                return -1;
+            }
+            if (!slow_why.empty()) {
+                why_ = slow_why;
+                slow_why.clear();
+                return -1;
+            }
         }
         std::string d = lower(dir);
         while (d.size() > 1 && d.back() == '/') {
