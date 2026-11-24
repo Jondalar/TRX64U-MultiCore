@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <vector>
+#include <mutex>
 
 struct FakeLayer : OverlayLayer {
     int applies = 0, texts = 0;
@@ -43,11 +44,21 @@ struct FakeHost : OverlayHost {
     bool has_pic = false;
     OvRect pic = {};
     bool picture_rect(int, int, OvRect *r) { *r = pic; return has_pic; }
-    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+    int g_stride = 0, pal_calls = 0, locks = 0, depth = 0, bad_depth = 0;
+    OvPalette g_pal = 0;
+    bool pattern = false;                                                                  // the pixel says where in the fitted picture it came from
+    std::mutex mx;                                                                         // the stand-in of the board's grab mutex
+    void grab_lock() { mx.lock(); locks++; if (++depth != 1) bad_depth++; }
+    void grab_unlock() { depth--; mx.unlock(); }
+    static uint16_t mark(int px, int py) { return (uint16_t)(((py & 0xFF) << 8) | (px & 0xFF)); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0)
     {
         grabs++;
-        g_w = w; g_h = h; g_fw = fw; g_fh = fh; g_ox = ox; g_oy = oy;
-        if (grab_ok) { for (int i = 0; i < w * h; i++) dst[i] = 0x1234; }
+        if (depth != 1) bad_depth++;                                                       // every grab is made inside the lock
+        if (stride < w) stride = w;
+        g_w = w; g_h = h; g_fw = fw; g_fh = fh; g_ox = ox; g_oy = oy; g_stride = stride; g_pal = pal;
+        if (pal) { uint8_t rgb[16][3]; pal_calls += pal(rgb) ? 1 : 0; }
+        if (grab_ok) { for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) dst[y * stride + x] = pattern ? mark(ox + x, oy + y) : 0x1234; }
         return grab_ok;
     }
     void layer_to_ui() { to_ui++; }
@@ -74,6 +85,12 @@ static bool palette_source(uint8_t rgb[16][3])
     memset(rgb, 0, 16 * 3);
     rgb[2][0] = 0xF8; rgb[2][1] = 0x00; rgb[2][2] = 0x00;                   // the person's red
     rgb[5][0] = 0x00; rgb[5][1] = 0xFC; rgb[5][2] = 0x00;                   // and green
+    return true;
+}
+static bool lib_palette(uint8_t rgb[16][3])
+{
+    memset(rgb, 0, 16 * 3);
+    rgb[2][2] = 0xF8;                                                       // the library's blue
     return true;
 }
 struct MenuLog : OvMenuPort {
@@ -403,6 +420,16 @@ int main()
         uint16_t part[1];
         CHECK(v.grab(part, 1, 1, 400, 270, 1, 0));                                         // a window that starts at pixel 1 of the fitted picture
         CHECK_EQ(part[0], 0x07E0);
+        uint16_t two[2 + 3];                                                               // D11: a stride of 5 pixels, and the library's source first
+        for (int i = 0; i < 5; i++) two[i] = 0xAAAA;
+        CHECK(v.grab(two, 1, 1, 400, 270, 0, 0, 5, lib_palette));
+        CHECK_EQ(two[0], 0x001F);                                                          // colour 2 in the library's blue, the person's red is not asked first
+        CHECK_EQ(two[1], 0xAAAA);                                                          // the window is one pixel wide: the rest of the row is not written
+        uint16_t rows[2 * 4];
+        for (int i = 0; i < 8; i++) rows[i] = 0xAAAA;
+        CHECK(v.grab(rows, 2, 2, 800, 540, 0, 0, 4, 0));                                   // the second row is the same VIC line: copied from the line above, at the stride
+        CHECK(rows[0] == 0xF800 && rows[1] == 0xF800 && rows[2] == 0xAAAA && rows[3] == 0xAAAA);
+        CHECK(rows[4] == 0xF800 && rows[5] == 0xF800 && rows[6] == 0xAAAA && rows[7] == 0xAAAA);
         Video::set_still_palette(0);
     }
 
@@ -534,6 +561,107 @@ int main()
         CHECK_EQ(ovl_menu_request(OVR_SHOW, false, false, &m), OVM_NOTHING);                // the core has not started: nothing to open the menu on
         CHECK_EQ(ovl_menu_request(OVR_NONE, true, true, &m), OVM_NOTHING);
         CHECK(m.leaves == 2 && m.closes == 1 && m.opens == 1);
+    }
+    // ---- D11: frame() paints the part of the picture under an element, at the picture's place and scale; the pixels the picture does not cover stay
+    {
+        Rig r(true);
+        r.host.pattern = true;
+        r.host.has_pic = true;
+        r.host.pic = OvRect{ 300, 100, 200, 420 };                                         // the bar (280, 480, 400 x 40) overlaps it in x 300..500, y 480..520
+        static uint16_t surf[400 * 40];
+        for (int i = 0; i < 400 * 40; i++) surf[i] = 0xAAAA;
+        SvcSurface bar = sf(surf, 400, 40);
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar), 0);                                    // no show before
+        CHECK_EQ(r.host.g_w, 200);
+        CHECK_EQ(r.host.g_h, 40);
+        CHECK_EQ(r.host.g_fw, 200);
+        CHECK_EQ(r.host.g_fh, 420);
+        CHECK_EQ(r.host.g_ox, 0);
+        CHECK_EQ(r.host.g_oy, 380);
+        CHECK_EQ(r.host.g_stride, 400);
+        bool ok = true;
+        for (int y = 0; y < 40; y++) {
+            for (int x = 0; x < 400; x++) {
+                const bool in = x >= 20 && x < 220;
+                const uint16_t want = in ? FakeHost::mark(x - 20, 380 + y) : 0xAAAA;
+                ok = ok && surf[y * 400 + x] == want;
+            }
+        }
+        CHECK(ok);
+        CHECK_EQ(r.host.bad_depth, 0);
+        CHECK_EQ(r.host.depth, 0);
+        r.host.has_pic = false;                                                            // no rectangle: the whole picture fitted into the element's rectangle
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar), 0);
+        CHECK_EQ(r.host.g_w, 400);
+        CHECK_EQ(r.host.g_fw, 400);
+        CHECK_EQ(r.host.g_fh, 40);
+        CHECK_EQ(surf[0], FakeHost::mark(0, 0));
+        CHECK_EQ(surf[39 * 400 + 399], FakeHost::mark(399, 39));
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar) , 0);
+        CHECK_EQ(r.host.bad_depth, 0);
+    }
+
+    // ---- D11: the base's still and frame() use the library's palette source; null gives the base's back; drop_owner drops it
+    {
+        Rig r(true);
+        SvcSurface bar = sf(g_bar, 400, 40);
+        CHECK_EQ(r.svc.set_palette(1, lib_palette), 0);
+        r.svc.frozen(true);                                                                // the base's still
+        CHECK(r.host.g_pal == lib_palette);
+        CHECK_EQ(r.host.pal_calls, 1);
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);                                    // frame()
+        CHECK(r.host.g_pal == lib_palette);
+        CHECK_EQ(r.host.pal_calls, 2);
+        CHECK_EQ(r.svc.set_palette(1, 0), 0);                                              // null: the base's source again
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == 0);
+        CHECK_EQ(r.svc.set_palette(2, lib_palette), 0);
+        CHECK_EQ(r.svc.set_palette(3, lib_palette), 0);                                    // the last call counts
+        r.svc.drop_owner(2);                                                               // not the owner: stays
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == lib_palette);
+        const int calls = r.host.pal_calls, locks = r.host.locks;
+        r.svc.drop_owner(3);
+        CHECK(r.host.locks > locks);                                                       // drop_owner waits for a grab in flight
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == 0);
+        CHECK_EQ(r.host.pal_calls, calls);                                                 // the released source was not called again
+        CHECK_EQ(r.host.bad_depth, 0);
+        r.svc.frozen(false);
+    }
+
+    // ---- D11: the library's still goes while the machine stands: the base takes its own still again, from the frame drawn last
+    for (int how = 0; how < 2; how++) {
+        Rig r(true);
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK(r.layer.scene.still.px == g_still);
+        r.host.pattern = true;                                                             // the machine's picture changed meanwhile (a scrub)
+        if (how == 0) {
+            CHECK_EQ(r.svc.remove(1, hs), 0);
+        } else {
+            r.svc.drop_owner(1);
+        }
+        CHECK_EQ(r.host.grabs, 2);                                                         // taken again
+        CHECK(r.layer.scene.has_still);
+        CHECK(r.layer.scene.still.px != g_still);
+        CHECK_EQ(r.layer.scene.still.px[0], FakeHost::mark(0, 0));                         // the new frame, not the one of the stop
+        CHECK_EQ(r.host.live, 1);                                                          // the old capture is freed
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
+        Rig r(true);                                                                       // a library's still removed while the machine runs: nothing taken
+        SvcSurface st = sf(g_still, 960, 540);
+        const int hs = r.svc.show(1, "still", &st);
+        CHECK_EQ(r.svc.remove(1, hs), 0);
+        CHECK_EQ(r.host.grabs, 0);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        r.svc.frozen(false);
     }
     DONE("overlay");
 }

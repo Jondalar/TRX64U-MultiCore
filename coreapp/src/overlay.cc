@@ -169,7 +169,7 @@ OvPlan ovl_plan(const OvState &s)
 
 // ---- the service ------------------------------------------------------------------------------------------------------------------------------------------------------
 OverlaySvc::OverlaySvc(OverlayLayer *layer, OverlayHost *host)
-    : layer_(layer), host_(host), enabled_(false), own_picture_(false), n_(0), still_slot_(-1), base_still_(0), base_still_ok_(false), menu_up_(false), frozen_(false), paused_(false),
+    : layer_(layer), host_(host), enabled_(false), own_picture_(false), n_(0), still_slot_(-1), base_still_(0), base_still_ok_(false), retake_(false), pal_(0), pal_owner_(OVL_OWNER_NONE), menu_up_(false), frozen_(false), paused_(false),
       live_key_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), frames_(0), applied_(false)
 {
     memset(slot_, 0, sizeof(slot_));
@@ -256,6 +256,9 @@ void OverlaySvc::set_table(const UiElements *t, bool own_picture)
     }
     n_ = 0;
     still_slot_ = -1;
+    retake_ = false;
+    pal_ = 0;
+    pal_owner_ = OVL_OWNER_NONE;
     memset(&base_rect_, 0, sizeof(base_rect_));
     for (int i = 0; t && i < t->n && i < OVL_ELEMENTS_MAX; i++) {
         Slot &s = slot_[n_];
@@ -286,6 +289,9 @@ void OverlaySvc::clear()
     }
     n_ = 0;
     still_slot_ = -1;
+    retake_ = false;
+    pal_ = 0;
+    pal_owner_ = OVL_OWNER_NONE;
     ntext_ = 0;
     menu_req_ = 0;
     menu_up_ = frozen_ = paused_ = live_key_ = false;
@@ -352,12 +358,23 @@ void OverlaySvc::take_still()
         host_->log("[overlay] no memory for the still");
         return;
     }
-    base_still_ok_ = host_->grab_still(base_still_, r.w, r.h, fw, fh, ox, oy);
+    host_->grab_lock();
+    const OvPalette pal = palette();                    // read inside the lock: drop_owner takes the lock after it cleared the pointer, so no call of a released source starts later
+    base_still_ok_ = host_->grab_still(base_still_, r.w, r.h, fw, fh, ox, oy, 0, pal);
+    host_->grab_unlock();
     if (!base_still_ok_) {
         host_->log("[overlay] the stopped machine's picture could not be taken: no still");
         host_->release(base_still_);
         base_still_ = 0;
     }
+}
+
+OvPalette OverlaySvc::palette() const
+{
+    host_->enter();
+    const OvPalette f = pal_;
+    host_->leave();
+    return f;
 }
 
 void OverlaySvc::drop_still()
@@ -376,7 +393,11 @@ void OverlaySvc::settle()
     }
     const bool standing = own_picture_ ? (frozen_ || paused_) : paused_;
     bool released = false;
-    if (standing && !was_standing_) {
+    host_->enter();
+    const bool retake = retake_;                        // a library's still went while the machine stands: the base's picture under the menu is the newest frame again
+    retake_ = false;
+    host_->leave();
+    if (standing && (!was_standing_ || retake)) {
         take_still();
     } else if (!standing && was_standing_) {
         released = true;                                // the layer lets go of the still first, then the memory goes
@@ -537,6 +558,7 @@ const char *OverlaySvc::error(int code)
     case OVL_E_TAKEN: return "another library shows that element";
     case OVL_E_HANDLE: return "not a handle of an element of this library";
     case OVL_E_NOSERVICE: return "the overlay service is not up";
+    case OVL_E_NOFRAME: return "there is no complete frame of the machine's picture to take";
     default: return "unknown code";
     }
 }
@@ -599,6 +621,7 @@ int OverlaySvc::remove(int owner, int el)
     int rc = OVL_E_HANDLE;
     if (el >= 1 && el <= n_ && slot_[el - 1].owner == owner && slot_[el - 1].px) {
         drop_text_of(slot_[el - 1].px);
+        retake_ = retake_ || slot_[el - 1].row.still;
         slot_[el - 1].owner = OVL_OWNER_NONE;
         slot_[el - 1].px = 0;
         rc = 0;
@@ -608,6 +631,70 @@ int OverlaySvc::remove(int owner, int el)
         sync_ui();                                      // the surface is the library's again when this returns
     }
     return rc;
+}
+
+int OverlaySvc::set_palette(int owner, OvPalette f)
+{
+    if (!enabled_) {
+        return OVL_E_NOSERVICE;
+    }
+    host_->enter();
+    pal_ = f;
+    pal_owner_ = f ? owner : OVL_OWNER_NONE;
+    host_->leave();
+    return 0;
+}
+
+// The checks are show's. The picture's rectangle is the one take_still uses (the whole picture, it may reach beyond the canvas), else take_still's fallback (the still row cut to the canvas, the picture
+// fitted to it). What is painted is the element's rectangle E, the picture P and the canvas in common; the destination rows are E's stride apart.
+int OverlaySvc::paint_frame(int owner, const char *name, const SvcSurface *sf)
+{
+    (void)owner;
+    if (!enabled_) {
+        return OVL_E_NOSERVICE;
+    }
+    UiElementRow row;
+    memset(&row, 0, sizeof(row));
+    int rc = 0;
+    host_->enter();
+    const int i = find(name);
+    if (i < 0) {
+        rc = OVL_E_NAME;
+    } else if (!sf || !sf->px || sf->bytes != (uint32_t)sf->w * sf->h * 2u) {
+        rc = OVL_E_BYTES;
+    } else if (sf->w != slot_[i].row.w || sf->h != slot_[i].row.h) {
+        rc = OVL_E_SIZE;
+    } else {
+        row = slot_[i].row;
+    }
+    host_->leave();
+    if (rc) {
+        return rc;
+    }
+    int cw = OVL_CANVAS_W, ch = OVL_CANVAS_H;
+    host_->canvas(&cw, &ch);
+    const OvRect e = ovl_place_on(row, cw, ch);
+    OvRect p = { 0, 0, 0, 0 };
+    bool pic = host_->picture_rect(cw, ch, &p) && p.w > 0 && p.h > 0 && p.x < cw && p.y < ch && p.x + p.w > 0 && p.y + p.h > 0;
+    if (!pic) {
+        UiElementRow fit = row;
+        fit.w = (uint16_t)(fit.w < cw ? fit.w : cw);
+        fit.h = (uint16_t)(fit.h < ch ? fit.h : ch);
+        p = ovl_place_on(fit, cw, ch);
+    }
+    const int x0 = e.x > p.x ? e.x : p.x, y0 = e.y > p.y ? e.y : p.y;
+    int x1 = e.x + e.w < p.x + p.w ? e.x + e.w : p.x + p.w, y1 = e.y + e.h < p.y + p.h ? e.y + e.h : p.y + p.h;
+    const int ix = x0 > 0 ? x0 : 0, iy = y0 > 0 ? y0 : 0;
+    x1 = x1 < cw ? x1 : cw;
+    y1 = y1 < ch ? y1 : ch;
+    if (x1 <= ix || y1 <= iy) {
+        return 0;                                       // the picture is not under the element: nothing to paint
+    }
+    host_->grab_lock();
+    const OvPalette pal = palette();
+    const bool ok = host_->grab_still(sf->px + (size_t)(iy - e.y) * e.w + (size_t)(ix - e.x), x1 - ix, y1 - iy, p.w, p.h, ix - p.x, iy - p.y, e.w, pal);
+    host_->grab_unlock();
+    return ok ? 0 : OVL_E_NOFRAME;
 }
 
 void OverlaySvc::text(int owner, const SvcSurface *sf, int x, int y, const char *s, uint16_t colour)
@@ -651,9 +738,14 @@ void OverlaySvc::drop_owner(int owner)
     host_->enter();
     for (int i = 0; i < n_; i++) {
         if (slot_[i].owner == owner) {
+            retake_ = retake_ || (slot_[i].row.still && slot_[i].px);
             slot_[i].owner = OVL_OWNER_NONE;
             slot_[i].px = 0;
         }
+    }
+    if (pal_owner_ == owner) {
+        pal_ = 0;
+        pal_owner_ = OVL_OWNER_NONE;
     }
     int k = 0;
     for (int i = 0; i < ntext_; i++) {
@@ -663,6 +755,8 @@ void OverlaySvc::drop_owner(int owner)
     }
     ntext_ = k;
     host_->leave();
+    host_->grab_lock();                                 // a grab in flight (the base's still on the UI task, a frame() of another library) has read its source inside this lock:
+    host_->grab_unlock();                               // when it is through, the cleared pointer is the only one left
     sync_ui();                                          // the layer lets go of the surfaces before the library's memory goes
 }
 

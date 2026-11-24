@@ -415,11 +415,11 @@ void Video::set_still_palette(StillPalette f)
     g_still_palette = f;
 }
 
-// The colours of the capture's 4 bit values on the screen: the person's palette (the one the scaler shows), else Colodore.
-static void still_colours(uint16_t out[16])
+// The colours of the capture's 4 bit values on the screen: a library's source, else the person's palette (the one the scaler shows), else Colodore.
+static void still_colours(uint16_t out[16], Video::StillPalette lib)
 {
     uint8_t rgb[16][3];
-    if (g_still_palette && g_still_palette(rgb)) {
+    if ((lib && lib(rgb)) || (g_still_palette && g_still_palette(rgb))) {
         for (int i = 0; i < 16; i++) {
             out[i] = (uint16_t)(((rgb[i][0] & 0xF8) << 8) | ((rgb[i][1] & 0xFC) << 3) | (rgb[i][2] >> 3));
         }
@@ -428,10 +428,13 @@ static void still_colours(uint16_t out[16])
     memcpy(out, g_colodore, sizeof(g_colodore));
 }
 
-bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride, StillPalette pal)
 {
     if (!dst || w < 1 || h < 1) {
         return false;
+    }
+    if (stride < w) {
+        stride = w;
     }
     if (fw < 1 || fh < 1) {
         fw = w;
@@ -444,7 +447,7 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
         }
         static uint8_t cap[STILL_W * 270 / 2];
         uint16_t col[16];
-        still_colours(col);
+        still_colours(col, pal);
         for (int tries = 0; tries < 3; tries++) {
             const uint32_t st = px_->r32(STILL_STATUS);
             if (!(st & 1)) {
@@ -456,9 +459,9 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
                 continue;                                  // the capture moved on while the slot was read: again
             }
             for (int y = 0; y < h; y++) {
-                uint16_t *row = dst + (size_t)y * w;
+                uint16_t *row = dst + (size_t)y * stride;
                 if (y > 0 && (oy + y) * rows / fh == (oy + y - 1) * rows / fh) {
-                    memcpy(row, row - w, (size_t)w * 2);   // the same VIC line: a copy of the line above
+                    memcpy(row, row - stride, (size_t)w * 2);   // the same VIC line: a copy of the line above
                     continue;
                 }
                 const uint8_t *src = cap + (size_t)((oy + y) * rows / fh) * (STILL_W / 2);
@@ -484,7 +487,7 @@ bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
             io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
             last = sy;
         }
-        uint16_t *row = dst + (size_t)y * w;
+        uint16_t *row = dst + (size_t)y * stride;
         for (int x = 0; x < w; x++) {
             const uint32_t sx = (uint32_t)(ox + x) * vw_ / (uint32_t)fw;
             if (pb == 2) {

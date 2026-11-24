@@ -189,7 +189,10 @@ class BoardOverlayHost : public OverlayHost {
 public:
     void *alloc(uint32_t n) { return malloc(n); }
     void release(void *p) { free(p); }
-    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy) { return video && video->grab(dst, w, h, fw, fh, ox, oy); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0) { return video && video->grab(dst, w, h, fw, fh, ox, oy, stride, pal); }
+    // Video::grab keeps one capture buffer for the application: the base's still (UI task) and a library's frame() (its own task) take turns on a mutex, which may wait (not the critical section of enter()).
+    void grab_lock() { xSemaphoreTake(grab_mutex(), portMAX_DELAY); }
+    void grab_unlock() { xSemaphoreGive(grab_mutex()); }
     bool picture_rect(int, int, OvRect *r) { return video && video->picture_rect(&r->x, &r->y, &r->w, &r->h); }
     void layer_to_ui() { video->hide(); }
     void layer_to_core() { video->show(); }
@@ -205,8 +208,20 @@ public:
     int take_req() { int r = req_; req_ = 0; return r; }
     void bind_task() { task_ = xTaskGetCurrentTaskHandle(); }
 private:
+    SemaphoreHandle_t grab_mutex()
+    {
+        if (!grab_mx_) {
+            portENTER_CRITICAL();
+            if (!grab_mx_) {
+                grab_mx_ = xSemaphoreCreateMutex();
+            }
+            portEXIT_CRITICAL();
+        }
+        return grab_mx_;
+    }
     volatile int req_ = 0;
     TaskHandle_t task_ = 0;
+    SemaphoreHandle_t grab_mx_ = 0;
 };
 static BoardOverlayHost ov_host;
 

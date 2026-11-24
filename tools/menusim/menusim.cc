@@ -432,8 +432,12 @@ static void shot(const char *path)
 struct SimOverlayHost : OverlayHost {
     void *alloc(uint32_t n) { return malloc(n); }
     void release(void *p) { free(p); }
-    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette lib = 0)
     {
+        (void)lib;
+        if (stride < w) {
+            stride = w;
+        }
         static const uint16_t pal[8] = { 0x2933, 0x5569, 0x7679, 0xEF8E, 0x8A85, 0xC36E, 0x737D, 0x4A49 };
         if (fw < 1 || fh < 1) {
             fw = w;
@@ -443,7 +447,7 @@ struct SimOverlayHost : OverlayHost {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 const int px = (ox + x) * 960 / fw, py = (oy + y) * 540 / fh;             // the same checks whatever the size the picture is fitted to
-                dst[y * w + x] = ((px / 40 + py / 40) & 1) ? pal[(py / 68) & 7] : pal[((py / 68) + 3) & 7];
+                dst[y * stride + x] = ((px / 40 + py / 40) & 1) ? pal[(py / 68) & 7] : pal[((py / 68) + 3) & 7];
             }
         }
         return true;

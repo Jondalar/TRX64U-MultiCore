@@ -1348,7 +1348,7 @@ Since base 3.3.
 | `SvcSurface.bytes` | The size of the buffer in bytes. It has to be `w * h * 2`. |
 | `SvcSurface.w`, `SvcSurface.h` | The size of the surface in pixels. It has to be the element's size in the TOML. |
 
-#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`
+#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`, `OVL_E_NOFRAME`
 
 Since base 3.3.
 
@@ -1361,6 +1361,7 @@ Since base 3.3.
 | `OVL_E_TAKEN` | -4: another library shows the element. |
 | `OVL_E_HANDLE` | -5: not a handle of an element of this library. |
 | `OVL_E_NOSERVICE` | -6: no core runs, or the service is not up. |
+| `OVL_E_NOFRAME` | -7: there is no complete frame of the machine's picture to take (`frame`). The surface is unchanged. |
 
 #### 4.17.8 `api->overlay->show`
 
@@ -1376,6 +1377,7 @@ Since base 3.3.
 
 4.17.10.1 `int remove(int el)` takes the element away. It returns 0 or `OVL_E_HANDLE`.
 4.17.10.2 The surface is the library's again when the call returns: the call waits for the UI task's next frame, 200 ms at most (the log says when that time ran out). A call from the UI task itself does not wait. The same holds for `show` with another surface than the element has now, and for the end of a library.
+4.17.10.3 When the element is the still and the machine stands, the base takes its own still again from the frame the machine drew last, on the UI task. The picture under the menu is then the newest frame (a scrub position), not the frame of the menu stop. The same happens when a library that shows the still is released while the machine stands.
 
 #### 4.17.11 `api->overlay->text`
 
@@ -1390,6 +1392,30 @@ Since base 3.3.
 #### 4.17.13 `api->overlay->error`
 
 4.17.13.1 `const char *error(int code)` returns the words of an `OVL_E_*` code, for the log.
+
+#### 4.17.14 `api->overlay->frame`
+
+Since base 3.3, member after `error` (SDK 0.4.3). A library checks the `size` member of the table before it uses it.
+
+4.17.14.1 `int frame(const char *name, const SvcSurface *surface)` paints the frame the machine drew last into `surface`, laid out as the element `name` lies on the canvas. It returns 0 or an `OVL_E_*` code.
+4.17.14.2 The place of the element comes from the core's UI TOML, as for `show`. Only the part of the machine's picture that lies under the element's rectangle is painted, at the picture's place and Scale, in the colours of the still (4.17.15). The pixels of the surface that the picture does not cover are not written.
+4.17.14.3 When the core has no picture rectangle (a C64-type core on no VIC scaler), the whole picture is scaled into the element's rectangle, cut to the canvas, as the base does for its own still. When the picture does not lie under the element, nothing is painted and the call returns 0.
+4.17.14.4 The source is the one of the base's own still: the newest complete frame of the host's still capture on a C64-type core, else the core's frame buffer.
+4.17.14.5 The checks are those of `show`: `OVL_E_NOSERVICE` under the same condition, `OVL_E_NAME` when the core's table has no element of that name, `OVL_E_BYTES` when the surface or its `px` is null or `bytes` is not `w * h * 2`, and `OVL_E_SIZE` when `w` x `h` is not the element's size. `OVL_E_NOFRAME` is returned when there is no complete frame; every check is made before the first pixel is written, so the surface is then unchanged.
+4.17.14.6 The library need not show the element first. The call does not take the element, so it returns no `OVL_E_TAKEN`.
+4.17.14.7 The call paints in the calling task and never waits for the UI task, also when it is called on the UI task. The grab shares one capture buffer with the base's still: a lock orders the two, and the call may wait for it for the time of one grab. It is not allowed from an interrupt.
+4.17.14.8 A library that changes the machine's frame while the machine stands (a scrub) paints the new frame with `frame` into the surface it shows as the still (4.17.8.3) and calls `update`.
+
+#### 4.17.15 `api->overlay->still_palette`
+
+Since base 3.3, member after `frame` (SDK 0.4.3). A library checks the `size` member of the table before it uses it.
+
+4.17.15.1 `int still_palette(bool (*f)(uint8_t rgb[16][3]))` sets the source of the 16 colours the person sees. `f` writes the colours (RGB, 8 bits each) and returns true, or returns false when it has none.
+4.17.15.2 The order of the sources is: the library's, the base's own (the person's palette on a C64-type core), Colodore. A source that returns false hands over to the next.
+4.17.15.3 The base's own still and `frame` call `f` each time they take a frame, on the task that takes the frame.
+4.17.15.4 `f` null gives the source back to the base. There is one source per core: the last call counts.
+4.17.15.5 The source belongs to the library that set it. When that library is released, the source goes, and `f` is not called again after the release returns: the release waits for a grab in flight.
+4.17.15.6 The call returns 0, or `OVL_E_NOSERVICE` under the same condition as `show`.
 
 ## 5. Operation types
 
@@ -2099,4 +2125,4 @@ Since base 3.3. The header is `core_hooks.h`.
 9.7.10 For such a core the base calls the first six members where it calls the members of the core description, in the same order and with the same meaning: `init` and `release` hold and release the machine at every start, cold reset and reload (a library without one leaves the machine as it is: the core is then not released, and the person is told when the table is missing altogether); `warm_reset` is the warm reset, and a table without it makes a warm reset a cold one; `cold_start` runs before the restart's reload and stops it with its reason; `media_flush` and `media_pending` are the write-back of a core's own media engine (a table without them is a core with none). The first reset at power-on comes after the libraries are loaded and their API groups are filled: `init` has `api->io` and `api->settings` there.
 9.7.11 `slot_spec`, `slot_mount` and `slot_eject` serve the media slots of the core: the names are the `[mount]` list of the core's API TOML, `slot` is the position in it, and the three members come together (a table with one of them missing takes the slots away, with a notice). The base gives `slot_spec` its own buffer of 200 bytes (`Settings::MOUNT_VAL_LEN`): the length 0 is an empty slot, -1 a spec that does not fit (the slot then reads as empty). A spec is the words the file uses for what is in the slot (`ro /usb0/x.d64`), and a path in it starts with `/`. `slot_mount` returns 0, or non-zero with the reason in `msg`, and a slot that cannot take the medium keeps what it held. `ctx.media_source("<slot name>")` answers with the spec, "Persist medium mounts" stores it in the core's settings file and mounts it again at the start, and the named configs hold it. While the base restores mounts, `ctx.state()` has `CTX_MEDIA_RESTORING`: the machine is held and the base releases it later, so `slot_mount` neither resets nor releases it. When a slot changes by the engine's own doing it calls `ctx.mount_notify("<slot name>")`.
 9.7.12 A core that is described by its record and whose code is a library registers no operations of the base's own code. The base registers for it the groups that a built-in core registers in its own code: Diagnostics (`diag.*`, `media.*`, `usb.*`) for every such core, and the group of the 1541 (`drive.*`, `drive.put_rom` among them) when its capabilities name `drive_a` and the board did not strike it (6.12.1, the record's `board_caps`). The base's own monitor does not serve such a core: TCP port 4312 is left to the core's library.
-9.7.13 `void menu_video(int behind)` is called when the base turns the picture of the machine behind its menu layer on (`behind` = 1) or off (0). It is on while a screen of the base shows the machine through the key colour: the Timewarp timeline and the PAUSED tag. The core chooses what that picture is: its live picture, or a still of its own, such as the frame of its ring at the scrub position when its gateware blanks the machine while it is stopped. The base calls it once for each change, never twice with the same value, and the first call is an on. After a scrub the core changes its still by itself: the base does not call again. It cannot refuse. Task: the main loop of the application, which draws the menu. The core lock is not held, as for `menu_closed`. It does not block for long: the screen waits for it.
+9.7.13 `void menu_video(int behind)` is called when the base turns the picture of the machine behind its menu layer on (`behind` = 1) or off (0). It is on while a screen of the base shows the picture behind the menu, which is the still element: the base's still, or the surface a library shows as "still" (4.17.8.3). It is off when the menu covers it again. A library that changes the machine's frame while the machine stands (a scrub) paints the new frame with `api->overlay->frame` and calls `update`: the base does not call `menu_video` again for it. The base calls it once for each change, never twice with the same value, and the first call is an on. It cannot refuse. Task: the main loop of the application, which draws the menu. The core lock is not held, as for `menu_closed`. It does not block for long: the screen waits for it.
