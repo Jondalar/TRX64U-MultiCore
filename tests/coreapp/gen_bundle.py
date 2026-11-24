@@ -90,7 +90,7 @@ def main(out):
     # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them
     app = os.path.join(out, "app")
     os.makedirs(app, exist_ok=True)
-    lines, own_lines = [], []
+    lines = []
     for toml in sorted(glob.glob(os.path.join(here, "..", "..", "cores", "*", "app", "desc.toml"))):
         cid = os.path.basename(os.path.dirname(os.path.dirname(toml)))
         blob = descrec.compile_text(open(toml).read(), toml)
@@ -98,11 +98,13 @@ def main(out):
         open(os.path.join(app, cid + ".bin"), "wb").write(blob)
         open(os.path.join(app, cid + ".cor"), "wb").write(C.pack(name=name, desc=blob, **kw))
         open(os.path.join(app, cid + "_old.cor"), "wb").write(C.pack(name=name, **kw))
-        # a core with an app of its own (cores/<core>/app/sdk.toml, linked with its own table) is compared in that app's unit (index_app.txt), the others in the shared app's (index.txt)
+        # a core with an app of its own (cores/<core>/app/sdk.toml, linked with its own table) is compared in that app's unit (index_app_<core>.txt, one file per app: an app's table holds its own core only), the others in the shared app's (index.txt)
         own = os.path.exists(os.path.join(os.path.dirname(toml), "sdk.toml"))
-        (own_lines if own else lines).append("%s %s\n" % (cid, name))
+        if own:
+            open(os.path.join(app, "index_app_%s.txt" % cid), "w").write("%s %s\n" % (cid, name))
+        else:
+            lines.append("%s %s\n" % (cid, name))
     open(os.path.join(app, "index.txt"), "w").write("".join(lines))
-    open(os.path.join(app, "index_app.txt"), "w").write("".join(own_lines))
     # T239.3 D17 part 2: the tables of sections 7 .. 17 (tests/coreapp/test_descsec.cc): the Amiga 1200's, and what no descriptor has together
     for n in ("desc_sections", "desc_sections_extra"):
         open(os.path.join(out, n + ".bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, n + ".toml")).read()))

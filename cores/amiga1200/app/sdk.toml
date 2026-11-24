@@ -27,6 +27,11 @@ sources = ["amiga1200.cc"]
 headers = ["amiga1200_regs.h", "amiga1200_keys.h"]
 # newdisk: amiga1200.cc calls newdisk_register (the task Create blank ADF); pad: pad2_apply calls pad_ensure and pad_set_target (the gamepad as game port 2)
 needs = ["newdisk", "pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: a12app, the group amiga1200): unit = 2 unit tests (the descriptor
+# against the model of its register block: a12 its register use against the decode of its gateware, a12_fbwin the picture window, a12_rawkeys the key queue, a12_ledload the LED
+# selector), service = 8 mock bitstream -> service (the data description and the host's ROM table), ui = 9 service -> UI, api = 10 service -> API: its operations through the service
+# call the REST and RPC transports make (svc_call; the A1200's cases of the shared tests, TEST_APP_A1200)
+tests = { unit = ["a12", "a12_fbwin", "a12_rawkeys", "a12_ledload"], service = ["a12_descgen", "a12_romreq"], ui = ["a12_desc", "a12_hotkeys", "a12_createflow", "a12_ledcores"], api = ["a12_memops"] }
 
 # "Create blank ADF" (the task of the descriptor, disk.create): the same sources as the shared app's library, S12. The capability "floppy" of the descriptor registers it too.
 [[library]]
@@ -60,6 +65,8 @@ sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
 headers = ["mousesink.h", "mouse_api.h"]
 table = "mouse_table"
 init = "mouse_lib_init"
+# T239.5 D4: the mouse library's report stream into the Amiga's counters (the A1200's record)
+tests = { unit = ["a12_mouselib"] }
 
 # A folder of a medium as an Amiga hard disk (the tasks Mount folder as HD0 and HD1, sectors.mount_folder, T128)
 [[library]]
@@ -67,6 +74,8 @@ name = "folderhd"
 sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
 headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
 bind = "folderhd_bind"
+# T239.5 D4: the folder as an Amiga hard disk (the FFS volume writer and its mailbox) on the A1200's record
+tests = { unit = ["a12_folderhd"] }
 
 # The cluster link map of an open FatFs file: the file manager's CoreFs seeks through it in a large HDF image (T104 5.16)
 [[library]]

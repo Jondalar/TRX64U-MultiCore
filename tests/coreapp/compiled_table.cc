@@ -5,6 +5,11 @@
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];   // a const array at namespace scope is internal unless declared extern: test_descgen.cc links it
 const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_A1200)
+// the Amiga 1200's app is its own build (run.sh a12app): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

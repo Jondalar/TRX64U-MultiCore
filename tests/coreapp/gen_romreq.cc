@@ -8,6 +8,10 @@
 // the VIC-20's app is its own build (run.sh vc20app): its table is its core only, its rows are the part of the host's table the shared table does not have
 #include "cores.h"
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_A1200)
+// the Amiga 1200's app is its own build (run.sh a12app): its table is its core only
+#include "cores.h"
+const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #else
 #include "table.cc"
 #endif

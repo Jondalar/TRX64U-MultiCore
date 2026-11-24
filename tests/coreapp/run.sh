@@ -944,9 +944,27 @@ A12D="desc_check.cc overlay.cc descrec.cc $A12"
 a12app run a12 test_amiga500.cc $A12
 a12app run a12_memops test_memops.cc $SVC $A12D
 RARGS="$T/bundles/desc_own.bin" a12app run a12_desc test_desc.cc $A12D
+RARGS="$BUN/app" a12app run a12_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $A12D
 a12app run a12_ledcores test_ledcores.cc $A12D
 a12app run a12_hotkeys test_hotkeys.cc $A12D
 a12app run a12_createflow test_createflow.cc $A12D
+# the Amiga 1200's row of the host's ROM table: gen_romreq built as the A1200's app, its rows in the host's table
+t_romreq_a12() {
+  local INC=("${INC_A1200[@]}")
+  build "$T/gen_romreq_a12" "$TST/gen_romreq.cc" $A12D
+  "$T/gen_romreq_a12" > "$T/romreq_a12.inc"
+  python3 -I - "$T/romreq_a12.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Amiga 1200's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test a12_romreq: PASS"
+  return 0
+}
+if ca_in amiga1200 && ca_unit a12_romreq; then t_romreq_a12; PASS=$((PASS + 1)); fi
+a12app run a12_folderhd test_folderhd.cc $A12
+a12app run a12_mouselib test_mouselib.cc $A12
 a12app run a12_fbwin test_fbwin.cc $A12
 a12app run a12_rawkeys test_rawkeys.cc $A12
 a12app run a12_ledload test_ledload.cc $A12

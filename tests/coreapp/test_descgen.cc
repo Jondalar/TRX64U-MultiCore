@@ -4,7 +4,7 @@
 // function hooks are not data: the test hands the reader the hooks of the compiled-in descriptor, as the compiled-in code provides them, and reports each. What the record has no
 // field for is asserted empty, so a table the reader does not read cannot hide behind equal zeros. One line per core: fields compared, failed.
 //
-//   test_descgen DIR        DIR/index.txt (index_app.txt in the build of an own app): one line per core, "<id> <name of the core>"; DIR/<id>.bin the record, DIR/<id>.cor the bundle with it, DIR/<id>_old.cor without
+//   test_descgen DIR        DIR/index.txt (index_app_<core>.txt in the build of a core's own app): one line per core, "<id> <name of the core>"; DIR/<id>.bin the record, DIR/<id>.cor the bundle with it, DIR/<id>_old.cor without
 #include <string>
 #include <vector>
 #include <fstream>
@@ -594,8 +594,10 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);
     CHECK(argc == 2);
     const std::string dir = argv[1];
-    #ifdef TEST_APP_VC20
-    std::ifstream idx((dir + "/index_app.txt").c_str());      // the cores that have an app of their own: this unit is built like that app
+#ifdef TEST_APP_VC20
+    std::ifstream idx((dir + "/index_app_vc20.txt").c_str());      // a core that has an app of its own: this unit is built like that app
+#elif defined(TEST_APP_A1200)
+    std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
 #else
     std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
 #endif
