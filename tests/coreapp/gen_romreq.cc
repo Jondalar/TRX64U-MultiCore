@@ -4,7 +4,13 @@
 //   gen_romreq > host-app/software/hostapp/romreq_table.inc
 #include <stdio.h>
 #include <string.h>
+#ifdef TEST_APP_VC20
+// the VIC-20's app is its own build (run.sh vc20app): its table is its core only, its rows are the part of the host's table the shared table does not have
+#include "cores.h"
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#else
 #include "table.cc"
+#endif
 #include "romset.h"
 
 static void emit(const char *core, const char *folder, const char *role, const char *names, const uint32_t *sizes, int flags, int set)

@@ -11,13 +11,21 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
+#ifndef TEST_APP_VC20
 #include "zx_regs.h"
 #include "cpc_regs.h"
 #include "apple2_regs.h"
 #include "zxnext_regs.h"
+#endif
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &vc20_desc, &c264_desc, &zxnext_desc,
+#ifdef TEST_APP_VC20                     // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in its table
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#define HEX_CORE vc20_desc
+#else
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, 0 };
+#define HEX_CORE c264_desc
+#endif
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")
 struct PagedIo : FakeIo {
@@ -79,8 +87,12 @@ int main()
         CHECK_EQ(rd->args[1].hi, OP_DATA_MAX);
     }
     // the address width of each core (the last address the pair takes)
+#ifdef TEST_APP_VC20
+    struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
+#else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
-        { &cpc_desc, 0x1FFFF }, { &vc20_desc, 0xFFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
+        { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
+#endif
     for (auto &w : widths) {
         Rig r(w.d);
         const OpDef *rd = ops_of(&r.c)->find_op("machine.read_mem");
@@ -90,7 +102,11 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-    for (const CoreDesc *d : { &vc20_desc, &c264_desc }) {
+#ifdef TEST_APP_VC20
+    for (const CoreDesc *d : { &vc20_desc }) {
+#else
+    for (const CoreDesc *d : { &c264_desc }) {
+#endif
         Rig r(d);
         CHECK_EQ(r.write(0x0400, "deadbeef", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x400], 0xDE); CHECK_EQ(r.io.big[0x403], 0xEF);
@@ -108,6 +124,7 @@ int main()
         CHECK_EQ(res.ndata, 0);
         CHECK(!r.io.overrun);
     }
+#ifndef TEST_APP_VC20          // the cases that stand on the shared app's cores
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
@@ -169,9 +186,10 @@ int main()
         a.call("machine.read_mem", 0, 1, &y);
         CHECK(strstr(x.msg, "NES") != 0 && strstr(y.msg, "Amiga") != 0);
     }
-    // ---- the hex text of a write
+#endif
+    // ---- the hex text of a write (the 64 KB C64-family core of the app)
     {
-        Rig r(&vc20_desc);
+        Rig r(&HEX_CORE);
         CHECK_EQ(r.write(0, "", &res), OPE_ARG);
         CHECK_EQ(r.write(0, "abc", &res), OPE_ARG);                              // odd
         CHECK_EQ(r.write(0, "zz", &res), OPE_ARG);

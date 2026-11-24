@@ -12,8 +12,7 @@ import app_build, descrec
 app = os.path.join(root, "cores", "vc20", "app")
 sdk = descrec.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]
 blocks = list(sdk["base_blocks"])                       # what the app links: its TOML B's blocks of its base_toml_a, nothing else
-# The native tests build against the variant with drive_wd (run.sh: its drvtab.h comes first on the include path; test_cbm1541's first run takes the plain one), so the shared
-# units (volume.cc, tone.cc: the rows Volume and Tone exist only where the table has audio_master, D36) are tested with the blocks the VIC-20's app names; it names audio_master.
+# The table of the VIC-20's app as run.sh's vc20app builds against it; the shared units never see it (they take $T/drv from shared.toml). It names audio_master (the rows Volume and Tone exist only where the table has it, D36).
 base = os.path.join(root, "coreapp", "gateware", sdk.get("base_toml_a", "shared.toml"))
 if wd:                                                # the host's TOML A has no drive_wd: the block of shared.toml is added to a copy of the base for this table only
     wdb = [b for b in descrec.toml_loads(open(os.path.join(root, "coreapp", "gateware", "shared.toml")).read())["block"] if b["name"] == "drive_wd"][0]

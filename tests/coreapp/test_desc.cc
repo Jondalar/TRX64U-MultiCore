@@ -18,10 +18,16 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
+#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "amiga_regs.h"
+#endif
 #include "record_menu.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+#ifdef TEST_APP_VC20
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+#endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
@@ -149,13 +155,20 @@ int main(int, char **argv)
     // T212 D13: the machine line of Home names settings the core has; the cores that have a model/version or a memory setting get one, the others none
     {
         struct Mi { const char *cor; const char *info; };
+#ifdef TEST_APP_VC20
+        static const Mi want[] = { { "VIC-20", "Memory Expansion" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
+#else
         static const Mi want[] = {
-            { "Commodore PET", "Model,RAM" }, { "VIC-20", "Memory Expansion" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
+            { "Commodore PET", "Model,RAM" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
             { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
             { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
         static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
+        const int n_none = 3;
+#endif
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
             const CoreDesc *d = *p;
@@ -176,10 +189,10 @@ int main(int, char **argv)
                     q = e + 1;
                 }
             }
-            for (const char *nn : none) if (!strcmp(d->cor_name, nn)) { nones++; CHECK(!d->machine_info); }
+            for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
-        CHECK_EQ(nones, 3);
+        CHECK_EQ(nones, n_none);
     }
 
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
@@ -226,7 +239,12 @@ int main(int, char **argv)
             }
         }
         printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
-        CHECK(seen_cbm >= 8 && seen_other >= 8);                    // the walk saw the cores (vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
+#ifdef TEST_APP_VC20
+        CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
+#else
+        CHECK(seen_cbm >= 6 && seen_other >= 8);
+#endif
+                    // the walk saw the cores (vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
     }
 
     // T184 D3: the WiFi is set in the host. A core keeps no WiFi key of its own (no "WiFi ...", no "Wi-Fi SSID" / "Wi-Fi Password": the host's settings are the store's)
@@ -333,13 +351,21 @@ int main(int, char **argv)
             }
             CHECK(ninfo == 0 && info_first && nmedia == d->nmedia);
         }
-        CHECK(n205 >= 18);
+#ifdef TEST_APP_VC20
+        CHECK(n205 == 1);
+#else
+        CHECK(n205 >= 17);
+#endif
     }
 
     // T180 D4: a core that keeps media of its own (an engine the base does not know: the Apple's and the Atari's drives, the CPC's FDC, the drive library of the
     // Commodore cores, the SNES and Neo Geo saves) hands its write-back to the base, which calls it on every exit that lets a medium go (media_writeback)
     {
-        static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "VC20", "SNES", "NEO_" };
+#ifdef TEST_APP_VC20
+        static const char *const own[] = { "VC20" };
+#else
+        static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "SNES", "NEO_" };
+#endif
         for (const char *id : own) {
             const CoreDesc *d = 0;
             for (const CoreDesc *const *p = core_table; *p; p++) {
@@ -362,6 +388,7 @@ int main(int, char **argv)
         }
     }
 
+#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -577,7 +604,9 @@ int main(int, char **argv)
     static const ArgSpec path_only[] = { ARG_PATH("path") };
     struct RunOp { static void reg(OpRegistry &r) { Ask::reg(r); r.add_op("test.run", path_only, 1, Ask::op); } };
     d = testcore::desc; d.filetypes = ft_ok; d.register_ops = RunOp::reg; d.run_op = "test.run"; CHECK(!desc_check(&d));
-    // the real cores: the disk's actions and its prompts
+#endif
+#ifdef TEST_APP_VC20
+    // the real core: the disk's actions and its prompts
     {
         const FileType *d64 = 0;
         for (int i = 0; i < vc20_desc.nfiletypes; i++) if (!strcmp(vc20_desc.filetypes[i].ext, ".d64")) d64 = &vc20_desc.filetypes[i];
@@ -589,6 +618,7 @@ int main(int, char **argv)
         CHECK_EQ(asked, 4);                                                // Create D64 / G64, Save as D64 / G64
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
+#else
 
     // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
@@ -773,7 +803,11 @@ int main(int, char **argv)
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Media\n    info Core\n") != std::string::npos);      // ... and no others
     }
 
+#endif
     // golden menu lists
+#ifdef TEST_APP_VC20
+    golden(&vc20_desc, "vc20");
+#else
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
     golden(&apple2_desc, "apple2");
@@ -782,7 +816,6 @@ int main(int, char **argv)
     golden(&zxnext_desc, "zxnext");
     golden(&snes_desc, "snes");
     golden(&neogeo_desc, "neogeo");
-    golden(&vc20_desc, "vc20");
     golden(&c264_desc, "c264");
     golden(&pet_desc, "pet");
     golden(&c128_desc, "c128");
@@ -792,6 +825,7 @@ int main(int, char **argv)
     golden(&ddt_novic_desc, "ddt_novic");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
+#endif
 
     // the whitelist as a property: every entry is one of the descriptor's own or a fixed one; nothing of the C64 machine anywhere
     static const char *const forbidden[] = { "Drive A", "SID", "REU", "Monitor", "Printer", "Modem", "LED", "Power", "Stream",
@@ -847,6 +881,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
+#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 
@@ -929,5 +964,6 @@ int main(int, char **argv)
         CHECK_STR(task_place(&atari800_desc, "Reset").c_str(), "F1/home#0");
         CHECK_STR(task_place(&atari800_desc, "Reload ROMs, cold start").c_str(), "F1/home#2");
     }
+#endif
     DONE("test_desc");
 }

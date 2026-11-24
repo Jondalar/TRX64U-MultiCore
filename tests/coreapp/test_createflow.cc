@@ -21,12 +21,18 @@
 #include "newdisk.h"
 #include "newfile.h"
 #include "d1541_drive.h"
+#ifndef TEST_APP_VC20          // the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "amiga_regs.h"
+#endif
 #include "sectors.h"
 
 typedef std::vector<uint8_t> Bytes;
 
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, &vc20_desc, 0 };
+#ifdef TEST_APP_VC20
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, 0 };
+#endif
 
 struct Host : MenuHost {
     void info(int, char *out, int n) { snprintf(out, n, "x"); }
@@ -165,13 +171,16 @@ static bool clean_name(const char *s)
 struct Create { const CoreDesc *d; const char *label; const char *ext; };
 
 static const Create creates[] = {
+#ifdef TEST_APP_VC20
+    { &vc20_desc,      "Create blank D64", ".d64" },
+    { &vc20_desc,      "Create blank G64", ".g64" },
+#else
     { &atari800_desc,  "Create blank ATR", ".atr" },
     { &apple2_desc,    "Create blank DSK", ".dsk" },
     { &amiga_desc,     "Create blank ADF", ".adf" },
     { &amiga1200_desc, "Create blank ADF", ".adf" },
     { &cpc_desc,       "Create blank DSK", ".dsk" },
-    { &vc20_desc,      "Create blank D64", ".d64" },
-    { &vc20_desc,      "Create blank G64", ".g64" },
+#endif
 };
 
 static const Task *task_of(const CoreDesc *d, const char *label)
@@ -245,7 +254,11 @@ static void check_suggestions()
         }
     }
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
-    for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, &vc20_desc }) {
+    #ifdef TEST_APP_VC20
+    for (const CoreDesc *d : { &vc20_desc }) {
+#else
+    for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc }) {
+#endif
         for (int i = 0; i < d->ntasks; i++) {
             if (!d->tasks[i].ask_state) continue;
             Rig r(d);
@@ -656,12 +669,14 @@ static void check_progress_for(const CoreDesc *desc, const char *label, const ch
 
 static void check_progress()
 {
+#ifdef TEST_APP_VC20
+    // the 1541 library: its own builder and writer state, same display
+    check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
+#else
     check_progress_for(&atari800_desc, "Create blank ATR", ".atr", ND_ATR, ND_ATR_BYTES);
     check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
     check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
     check_progress_for(&cpc_desc, "Create blank DSK", ".dsk", ND_CPC_DSK, ND_CPC_BYTES);
-    // the 1541 library: its own builder and writer state, same display
-    check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
     // the operation called alone, as a REST client does: all of it in one call, still in chunks
     {
         Rig r(&atari800_desc);
@@ -674,8 +689,10 @@ static void check_progress()
         for (uint32_t s : r.fs.write_sizes) CHECK(s <= NF_CHUNK);
         CHECK(r.fs.write_sizes.size() >= 5);
     }
+#endif
 }
 
+#ifndef TEST_APP_VC20          // the Amiga's
 // ---- T128: "Mount folder as HD0/HD1" - the folder browser, the size in GB with its suggestion, the job, the refusal ----------------------------
 static void check_mount_folder()
 {
@@ -738,8 +755,10 @@ static void check_mount_folder()
     }
 }
 
+#endif
 int main()
 {
+#ifndef TEST_APP_VC20          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));
@@ -748,10 +767,15 @@ int main()
     CHECK(!board_format_ok("%lu"));
     CHECK(!board_format_ok("100%"));
     // what the product prints is checked as it runs: a format with a precision (or %%) in any of the paths below is a failed check
+#endif
     check_suggestions();
+#ifndef TEST_APP_VC20
     check_junk();
     check_folder();
+#endif
     check_progress();
+#ifndef TEST_APP_VC20
     check_mount_folder();
+#endif
     DONE("createflow");
 }

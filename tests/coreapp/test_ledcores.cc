@@ -10,8 +10,12 @@
 
 int main()
 {
+#ifdef TEST_APP_VC20                         // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in it
+    const CoreDesc *const cores[] = { &vc20_desc };
+#else
     const CoreDesc *const cores[] = { &amiga_desc, &amiga1200_desc, &atari800_desc, &apple2_desc, &cpc_desc,
-                                  &vc20_desc, &c264_desc, &c128_desc };
+                                  &c264_desc, &c128_desc };
+#endif
     for (const CoreDesc *dp : cores) {
         const CoreDesc &d = *dp;
         int n = 0;
