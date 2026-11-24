@@ -116,7 +116,7 @@ else
   done
 
   # T239.3 P3-1 (D31, S8): the symbol check on what the app's TOML B names: every source of its libraries is linked, and no generic object uses a symbol a library defines
-  # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app; 
+  # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app.
   NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
 
   if [ -n "$compile_only" ]; then

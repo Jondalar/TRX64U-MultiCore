@@ -48,8 +48,6 @@ struct C64Rig {
         c.fs = &fs;
     }
     void menu_op_begin() { io.stop(true); }
-    bool boot() { return true; }
-    void put_roms() { }
     void cold_reset()                                       // what machine.cold_reset does to the machine: the hold, the release
     {
         char m[80];
@@ -100,8 +98,6 @@ static int run(C64Rig &r, const char *path, OpResult *res)
 static C64Rig *booted()
 {
     C64Rig *r = new C64Rig(true);
-    r->put_roms();
-    if (!r->boot()) { printf("FAIL the rig did not boot\n"); g_fails++; }
     r->io.events.clear();
     r->io.log.clear();
     return r;
