@@ -17,6 +17,7 @@ architecture rtl of m3sys is
     signal resp_r    : t_io_resp;
     signal sr        : std_logic_vector(0 to 15) := X"5555";
     signal dec       : std_logic_vector(0 to 15);
+    signal sh        : std_logic_vector(1 to 8);
     signal bank_we   : std_logic;
     signal bank_out  : std_logic_vector(7 downto 0);
     signal cfg       : std_logic_vector(7 downto 0);
@@ -33,6 +34,7 @@ begin
                 case to_integer(io_req.address(7 downto 0)) is
                 when 0  => sr <= sr(8 to 15) & io_req.data;
                 when 32 => cfg <= io_req.data;
+                when 34 => sh <= io_req.data(3 downto 0) & io_req.data(7 downto 4);
                 when others => null;
                 end case;
             end if;
@@ -43,6 +45,7 @@ begin
                 when 1  => resp_r.data <= dec(8 to 15);
                 when 32 => resp_r.data <= cfg;
                 when 33 => resp_r.data <= opt;
+                when 34 => resp_r.data <= sh(1 to 4) & sh(5 to 8);
                 when others => null;
                 end case;
             end if;

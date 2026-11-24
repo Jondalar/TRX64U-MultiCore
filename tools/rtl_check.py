@@ -953,12 +953,20 @@ class VhdlParser(P):
         if self.txt() != ";":
             self.eat()
         self.eat(";")
-        labels = {body[j][1] for j in range(len(body) - 2) if body[j][0] == "id" and body[j + 1][1] == ":" and body[j + 2][1] != "="}
+        decl = ("signal", "constant", "variable", "type", "subtype", "alias", "shared", "file", "attribute", "=")
+        labels = {body[j][1] for j in range(len(body) - 2) if body[j][0] == "id" and body[j + 1][1] == ":" and body[j + 2][1] not in decl}
         vals = range(a, b + 1) if d == "to" else range(a, b - 1, -1)
         saved = (self.t, self.i)
         for v in vals:
-            toks = [("num", str(v), t[2]) if (t[0] == "id" and t[1] == var) else (("id", "%s_%d" % (t[1], v), t[2]) if (t[0] == "id" and t[1] in labels) else t)
-                    for t in body]
+            toks = []
+            for j, t in enumerate(body):
+                # a port formal (`i => x`) or a record field (`r.i`) named like the variable or a label stays as it is
+                keep = t[0] != "id" or (j + 1 < len(body) and body[j + 1][1] == "=>") or (j and body[j - 1][1] == ".")
+                if not keep and t[1] == var:
+                    t = ("num", str(v), t[2])
+                elif not keep and t[1] in labels:
+                    t = ("id", "%s_%d" % (t[1], v), t[2])
+                toks.append(t)
             self.t, self.i = toks + [("eof", "", body[-1][2] if body else 0)], 0
             while not self.eof():
                 self.concurrent(m)
@@ -1303,12 +1311,12 @@ class VhdlParser(P):
         raise self.err("an expression I do not know")
 
     def asc_high(self, base):
-        """The upper index of a vector declared with an ascending range (0 to 39), or None: its leftmost element is its most significant bit, so the
-        element at index i is the bit high - i."""
+        """hi + lo of a vector declared with an ascending range (1 to 8), or None: its leftmost element is its most significant bit, so the element at
+        index i is the bit hi + lo - i (the bits are lo..hi)."""
         if base[0] != "id" or self.cur is None:
             return None
         d = self.pvars.get(base[1]) or self.cur.decls.get(base[1])
-        return d.ty.hi if d is not None and d.ty is not None and d.ty.asc else None
+        return ("bin", "+", d.ty.hi, d.ty.lo) if d is not None and d.ty is not None and d.ty.asc else None
 
     def suffix(self, base):
         self.eat("(")

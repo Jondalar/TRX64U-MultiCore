@@ -65,3 +65,16 @@ size = 0x1
   offset = 0x0
   width = 8
   dir = "rw"
+
+[[block]]
+name = "sh"
+module = "m3sys"
+owner = "base"
+address = 0x10000022
+size = 0x1
+
+  [[block.property]]
+  name = "sh"
+  offset = 0x0
+  width = 8
+  dir = "rw"

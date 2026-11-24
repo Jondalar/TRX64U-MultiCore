@@ -52,8 +52,8 @@ else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
 
 rc, out = run("check", "--core-in-design", "--design", os.path.join(HERE, "mini3"), "--toml-a", os.path.join(HERE, "mini3.toml"), "--top", "top", "--bus", "m3sys.io_req")
-must(rc == 0 and "4 block(s), 5 properties agree" in out,
-     "mini3 design: vectors declared ascending (a shift by concatenation, slices by `to`), a for-generate of instances over slices of them, an if-generate that opens a process, an attribute, "
+must(rc == 0 and "5 block(s), 6 properties agree" in out,
+     "mini3 design: vectors declared ascending (a shift by concatenation, slices by `to`, one declared (1 to 8)), a for-generate of instances over slices of them, an if-generate that opens a process, an attribute, "
      "a whole record assigned as a value, a run with a stride (bytes four apart in a RAM) and a block with owner core that the design decodes itself (--core-in-design) agree with the RTL", out)
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini2"), "--toml-a", os.path.join(HERE, "mini2.toml"), "--top", "top", "--bus", "m2sys.io_req")
