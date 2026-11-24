@@ -58,7 +58,8 @@ done < "$t/headers"
 
 for f in lib.mk app.mk sdkroot.mk lib.ld appflags.mk appbuild.mk; do cp "$ROOT/app/lib/$f" "$P/mk/"; done
 cp "$ROOT/app/sdk/libc.c" "$ROOT/app/sdk/u2p_compat.c" "$P/sdk/"
-for f in u2a_pack.py descrec.py cor_pack.py rtl_check.py app_build.py libtab.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
+# check_d24.py: libtab.py symcheck imports it (D12_TRX64U)
+for f in u2a_pack.py descrec.py cor_pack.py rtl_check.py app_build.py libtab.py check_d24.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
 mkdir -p "$P/maps" && cp "$ROOT"/app/sdkpkg/maps/*.map.toml "$P/maps/"       # the module maps of the shared drivers (TOML A, api.md 6.14.11)
 cp "$ROOT/coreapp/libs/shared.toml" "$P/libs/shared.toml"
 cp "$ROOT/coreapp/gateware/shared.toml" "$P/gateware/shared.toml"

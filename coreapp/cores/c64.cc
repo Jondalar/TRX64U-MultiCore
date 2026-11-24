@@ -266,7 +266,7 @@ static int place(CoreCtx *c, const uint8_t *data, uint32_t size, const CbmPrgPar
 // c64->cfg CFG_C64_DMA_ID, c64.cc:183: 8 .. 31, default 8), so a program that loads its next file from "the last device" finds it there.
 static void poke_dma_id(CoreCtx *c)
 {
-    uint8_t id = (uint8_t)cfg_value(c, "DMA Load Mimics ID", 8);
+    uint8_t id = (uint8_t)cfg_number(c, "DMA Load Mimics ID", 8);
     c->io->ram_write(0x00BA, &id, 1);
 }
 

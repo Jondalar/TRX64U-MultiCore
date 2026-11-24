@@ -554,6 +554,12 @@ int cfg_value(CoreCtx *c, const char *key, int def)
     return ix >= 0 ? c->settings->value(ix) : def;
 }
 
+int cfg_number(CoreCtx *c, const char *key, int def)
+{
+    int ix = c->settings ? c->settings->find(key) : -1;
+    return ix >= 0 ? c->settings->item(ix).base + c->settings->value(ix) : def;
+}
+
 const char *cfg_text(CoreCtx *c, const char *key)
 {
     int ix = c->settings ? c->settings->find(key) : -1;
