@@ -33,7 +33,7 @@ struct AmigaVariant {
     bool fbwin;                                            // the gateware has the display window and the crop window registers (T97 5.10)
     bool rgb32;                                            // T136: 32-bit pixels, buffers at DDR2 0x4000000, 2 MB apart (the A1200 build's pixel layer)
     bool led_load;                                         // T159: the setting "LED Load Indicator" (case LED 1 = the gateware's drive activity: motor + hard disk)
-    bool usbkeys;                                          // T141: the gateware has RAWKEY (both Amiga builds, the shared amiga_input.v): a USB keyboard types into the machine
+    bool usbkeys;                                          // T141: the gateware has RAWKEY (the A1200 build: its own copy cores/amiga1200/rtl/amiga_input.v): a USB keyboard types into the machine
 };
 
 static const char *const chipset_a1200[] = { "OCS", "ECS", "AGA" };
