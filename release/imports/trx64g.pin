@@ -5,7 +5,7 @@
 # Where the registry is comes from the environment of the builder (ci/imports.py, TRX_FW_PKG_URL; T239.3 D45).
 ID=trx64g
 PACKAGE=trx64-ultimate
-VERSION=u18-975aa59b
-COR_FILE=trx64g_975aa59b.cor
-COR_SHA256=00368bedd55cb885e130c12a454f205e13098d26ae169413c4cbf5dc3db38864
+VERSION=u18-82fe1b90
+COR_FILE=trx64g_82fe1b90.cor
+COR_SHA256=ffcd38c2f40c64f2b534fc8c2a59154b08e7e576dcc671accddf8d59f6204d66
 COR_SIZE=3568073
