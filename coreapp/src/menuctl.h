@@ -259,6 +259,7 @@ private:
     void pend_begin();
     void pend_end(const FileAction &a, const char *file, int32_t ask);
     FileAction pend_act_ = {};                                     // a copy: the action may be one of filt_, which the next action sheet fills anew (review)
+    char pend_label_[48] = "";                                     // pend_act_.label points here: its text, kept
     bool pend_on_ = false;
     char pend_file_[FS_PATH_MAX] = "";
     char pend_dir_[200] = "";

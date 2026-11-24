@@ -242,9 +242,8 @@ int main(int, char **argv)
 #ifdef TEST_APP_VC20
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
 #else
-        CHECK(seen_cbm >= 6 && seen_other >= 8);
+        CHECK(seen_cbm >= 6 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
 #endif
-                    // the walk saw the cores (vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
     }
 
     // T184 D3: the WiFi is set in the host. A core keeps no WiFi key of its own (no "WiFi ...", no "Wi-Fi SSID" / "Wi-Fi Password": the host's settings are the store's)

@@ -2527,6 +2527,10 @@ void MenuCtl::pend_end(const FileAction &a, const char *file, int32_t ask)
 {
     if (c_->fs->file_loading(true) && strlen(file) < sizeof(pend_file_) && strlen(fm_.path) < sizeof(pend_dir_)) {
         pend_act_ = a;
+        if (a.label && a.label != pend_label_) {                         // the label may be a repeated entry's (chooser_lbl_), which the next sheet refills
+            snprintf(pend_label_, sizeof(pend_label_), "%s", a.label);
+        }
+        pend_act_.label = a.label ? pend_label_ : 0;
         pend_on_ = true;
         snprintf(pend_file_, sizeof(pend_file_), "%s", file);
         snprintf(pend_dir_, sizeof(pend_dir_), "%s", fm_.path);

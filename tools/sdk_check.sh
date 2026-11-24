@@ -26,6 +26,7 @@ for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt
          libs/shared.toml gateware/shared.toml gateware/host.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml example/gateware/example.toml example/gateware/example_ctl.map.toml; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
+[ -f "$P/test/drv_fake.h" ] || fail "the package lacks test/drv_fake.h (sdk_pack.sh and the README promise it)"
 want="$(sed -n 's/^base_archive_sha256 //p' "$P/VERSION")"
 have="$( (sha256sum "$P/lib/libtrxbase.a" 2>/dev/null || shasum -a 256 "$P/lib/libtrxbase.a") | cut -d' ' -f1)"
 [ "$want" = "$have" ] || fail "lib/libtrxbase.a does not match VERSION"

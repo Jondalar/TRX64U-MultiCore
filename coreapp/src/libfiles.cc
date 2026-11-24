@@ -209,8 +209,12 @@ static bool start_copy(CoreCtx *c, Job *j, const char *src, const char *dst, boo
         j->waiting = true;
         j->wait_del = delete_after;
         j->wait_t = c->io->now_ms();
-        snprintf(j->wait_src, sizeof(j->wait_src), "%s", src);
-        snprintf(j->wait_dst, sizeof(j->wait_dst), "%s", dst);
+        if (src != j->wait_src) {                                // the retry passes wait_src and wait_dst themselves: snprintf from a buffer into
+            snprintf(j->wait_src, sizeof(j->wait_src), "%s", src); // itself is undefined (glibc emptied it, test_menuctl on Linux, 2026-11-24)
+        }
+        if (dst != j->wait_dst) {
+            snprintf(j->wait_dst, sizeof(j->wait_dst), "%s", dst);
+        }
         snprintf(c->job_path, sizeof(c->job_path), "%s", c->fs->open_note());
         return true;
     }
@@ -322,10 +326,7 @@ static int job_step(CoreCtx *c, Job *j, char *msg, int msglen)
             return 0;
         }
         j->waiting = false;
-        char src[FS_PATH_MAX], dst[FS_PATH_MAX];                     // copies: start_copy writes wait_src and wait_dst again when the fetch still runs,
-        snprintf(src, sizeof(src), "%s", j->wait_src);              // and snprintf from a buffer into itself is undefined (glibc emptied it: the copy
-        snprintf(dst, sizeof(dst), "%s", j->wait_dst);              // then failed as "gone", test_menuctl on Linux, 2026-11-24)
-        start_copy(c, j, src, dst, j->wait_del);
+        start_copy(c, j, j->wait_src, j->wait_dst, j->wait_del);     // still fetching: start_copy keeps the two paths as they are
         return 0;
     }
     if (j->in) {                                            // a chunk of the file being copied
