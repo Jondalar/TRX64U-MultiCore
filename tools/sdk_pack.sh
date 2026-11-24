@@ -122,9 +122,9 @@ licence: GPL-3.0 (LICENSE.txt, Gideon Zweijtzer's licence text as in vendor/gide
 sha256:  $(sha "$H/command_intf.cc")  command_intf.cc
          $(sha "$H/command_intf.h")  command_intf.h
          $(sha "$H/command_target.h")  command_target.h
-         $(sha "$H/network_target.cc")  network_target.cc (target 3, NETWORK: uci.cc creates it, and the core app no longer compiles it)
+         $(sha "$H/network_target.cc")  network_target.cc (target 3, NETWORK: the command interface's owner creates it; the core app no longer compiles it)
          $(sha "$H/network_target.h")  network_target.h
-use:     SDK 0.4.6 hands these over once (D49). command_intf.cc includes integer.h, config.h, iomap.h and subsys.h of the firmware tree and takes its registers from iomap.h (CMD_IF_BASE); TRX64-Ultimate's library "uci" takes them from the driver table of its TOML A (block cmd_if) instead. Nothing in the SDK or the base includes them.
+use:     SDK 0.4.6 hands these over once (D49). The files include headers of the firmware tree that this package does not carry: integer.h, config.h, iomap.h, subsys.h, itu.h, dump_hex.h, small_printf.h (command_intf), network_interface.h, sys/socket.h, netdb.h and lwIP's sockets.h and opt.h (network_target); command_intf takes its registers from iomap.h (CMD_IF_BASE); TRX64-Ultimate's library "uci" takes them from the driver table of its TOML A (block cmd_if) instead. Nothing in the SDK or the base includes them.
 HANDOVER
 sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" -e "s/@API_HASH@/${api_hash:0:12}/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
 cat > "$P/NOTICE" <<NOTICE
