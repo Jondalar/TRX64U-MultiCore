@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
-  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
+  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--core-in-design] [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -18,6 +18,8 @@ check
   A block with owner = "core" is a window the base hands to the core: for every byte the request must leave the base over a port of the
   groups CORE_PORTS (a strobe port that is 1 for the address, or a register driven under the address) and a data port of the same group
   must carry the request's data; its properties are not checked (they are the core's contract).
+  `--core-in-design` is for a design that holds layer 2 as well (the whole bitstream c64_basic, no partition): a block with owner = "core" whose bytes leave over a core port
+  is handed over as before; one the design decodes itself (the U2P, U64 and C64 I/O pages of ultimate_sys) is checked by its properties like a base block.
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
   another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
@@ -48,7 +50,10 @@ check
   --bus MODULE:... with MODULE the top module itself (--top): the ports of the top module are the request; a register stage of the top file (`always @(posedge clk) q <= expr;`) holds it one clock, the reset
   released. --window BASE:SIZE:full puts the whole address on the address port. --bus and --window may be repeated: a block goes to the bus whose window holds it.
   RTL_CHECK_TRACE=1 raises the error with its traceback.
-  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks, hierarchical names) and a VHDL for-generate with ascending ranges (gcr_codec.vhd). The check stops with
+  A VHDL for-generate with a constant range (numbers, generics with a default) is unrolled: its body is read once per value, the loop constant replaced by the value and a label by label_value. A vector declared with an ascending
+  range (0 to 39) has its leftmost element as its most significant bit: the element i is the bit high - i, and a slice (a to b) is the bits high - a down to high - b.
+  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, a Verilog generate-for with named blocks, hierarchical names, functions, a toggle handshake of the byte accesses) and the arrays of records of
+  mm_drive_cpu.vhd (m(1).step). The check stops with
   Unsupported or finds no write/read there.
 
 lint-src
@@ -268,6 +273,7 @@ VLOG_TOK = re.compile(r'''
 ''', re.X | re.S)
 
 
+CORE_IN_DESIGN = False   # --core-in-design: the design holds layer 2 as well (a whole bitstream)
 DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
 
 
@@ -378,10 +384,10 @@ def num_vlog(s):
 
 class Ty:
     """A subtype: name, hi and lo bound (ASTs, vectors), or elem (arrays)."""
-    __slots__ = ("name", "hi", "lo", "elem")
+    __slots__ = ("name", "hi", "lo", "elem", "asc")
 
-    def __init__(self, name, hi=None, lo=None, elem=None):
-        self.name, self.hi, self.lo, self.elem = name, hi, lo, elem
+    def __init__(self, name, hi=None, lo=None, elem=None, asc=False):
+        self.name, self.hi, self.lo, self.elem, self.asc = name, hi, lo, elem, asc
 
 
 class Decl:
@@ -499,6 +505,7 @@ class P:
         self.t, self.i, self.fname = toks, 0, fname
         self.ovr = ovr or {}
         self.procs, self.noreg, self.aliases = {}, 0, {}
+        self.cur, self.pvars = None, {}
 
     def pk(self, n=0):
         return self.t[min(self.i + n, len(self.t) - 1)]
@@ -652,7 +659,7 @@ class VhdlParser(P):
                 d = self.eat()[1]
                 lo = self.expr()
                 self.eat(")")
-                return Ty(name, hi, lo) if d == "downto" else Ty(name, lo, hi)
+                return Ty(name, hi, lo) if d == "downto" else Ty(name, lo, hi, asc=True)
             if hi[0] == "attr" and hi[2] == "range" and self.txt() == ")":
                 self.eat(")")
                 return Ty(name, ("attr", hi[1], "high"), ("attr", hi[1], "low"))
@@ -671,6 +678,7 @@ class VhdlParser(P):
 
     def arch_body(self, m):
         self.aliases = {}
+        self.cur, self.pvars = m, {}
         self.arch_decls(m)
         self.eat("begin")
         while self.txt() != "end":
@@ -820,6 +828,8 @@ class VhdlParser(P):
             if self.txt() != ";":
                 self.eat()
             self.eat(";")
+        elif w == "for" and label:
+            self.for_generate(m)
         elif w in ("for", "if", "block", "case"):
             raise self.err("a %s generate/block statement" % w)
         elif w == "assert":
@@ -917,6 +927,43 @@ class VhdlParser(P):
             self.eat()
         self.eat(";")
 
+    def for_generate(self, m):
+        """label: for I in A to B generate ... end generate; the range is constant (numbers, generics with a default). The body is parsed once per value of
+        I, from its tokens with I replaced by the value and each label inside it by label_value (a label is the name of an instance)."""
+        self.eat("for")
+        var = self.eat()[1]
+        self.eat("in")
+        a = self.gen_cond(m, self.expr())
+        d = self.eat()[1]
+        if d not in ("to", "downto"):
+            raise self.err("a generate range")
+        b = self.gen_cond(m, self.expr())
+        self.eat("generate")
+        start, depth = self.i, 1
+        while depth:
+            t = self.eat()
+            if t[0] == "eof":
+                raise self.err("a for-generate that does not end")
+            if t[1] == "generate":
+                prev = self.t[self.i - 2][1]
+                depth += 0 if prev == "else" else (-1 if prev == "end" else 1)
+            elif t[1] == "elsif":
+                depth -= 1
+        body = self.t[start:self.i - 2]
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+        labels = {body[j][1] for j in range(len(body) - 2) if body[j][0] == "id" and body[j + 1][1] == ":" and body[j + 2][1] != "="}
+        vals = range(a, b + 1) if d == "to" else range(a, b - 1, -1)
+        saved = (self.t, self.i)
+        for v in vals:
+            toks = [("num", str(v), t[2]) if (t[0] == "id" and t[1] == var) else (("id", "%s_%d" % (t[1], v), t[2]) if (t[0] == "id" and t[1] in labels) else t)
+                    for t in body]
+            self.t, self.i = toks + [("eof", "", body[-1][2] if body else 0)], 0
+            while not self.eof():
+                self.concurrent(m)
+        self.t, self.i = saved
+
     def gen_body(self, m, take):
         scratch = Mod(m.name, m.lang, m.fname)
         while self.txt() not in ("end", "elsif", "else"):
@@ -1009,7 +1056,9 @@ class VhdlParser(P):
                 raise self.err("a process declaration I do not know")
         start = self.i
         self.eat("begin")
+        self.pvars = vars_
         stmts = self.seq(m, ("end",))
+        self.pvars = {}
         self.eat("end")
         self.eat("process")
         if self.txt() != ";":
@@ -1253,18 +1302,35 @@ class VhdlParser(P):
             return e
         raise self.err("an expression I do not know")
 
+    def asc_high(self, base):
+        """The upper index of a vector declared with an ascending range (0 to 39), or None: its leftmost element is its most significant bit, so the
+        element at index i is the bit high - i."""
+        if base[0] != "id" or self.cur is None:
+            return None
+        d = self.pvars.get(base[1]) or self.cur.decls.get(base[1])
+        return d.ty.hi if d is not None and d.ty is not None and d.ty.asc else None
+
     def suffix(self, base):
         self.eat("(")
         a = self.expr()
+        H = self.asc_high(base)
         if self.txt() in ("downto", "to"):
             d = self.eat()[1]
             b = self.expr()
             self.eat(")")
+            if H is not None:
+                if d == "downto":
+                    raise self.err("a descending slice of a vector declared ascending")
+                return ("sl", base, ("bin", "-", H, a), ("bin", "-", H, b))
             return ("sl", base, a, b) if d == "downto" else ("sl", base, b, a)
         args = [a]
         while self.acc(","):
             args.append(self.expr())
         self.eat(")")
+        if H is not None:
+            if len(args) != 1:
+                raise self.err("an index list on a vector declared ascending")
+            args = [("bin", "-", H, a)]
         return ("call", base, args)
 
 
@@ -3675,6 +3741,7 @@ class Checker:
     def __init__(self, design, top, bus, doc, window=None, full=False):
         self.d, self.doc, self.full = design, doc, full
         self.ports = self.window = None
+        self.core_decoded = 0
         if ":" in bus:
             # a partial: MODULE:write=P,read=P,address=P,data=P,response=P (the ports of one instance in the top file); its window is the host's decode
             self.busmod, spec = bus.split(":", 1)
@@ -3810,6 +3877,9 @@ class Checker:
                             % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
                 continue
             core = b["owner"] == "core" and self.ports is None
+            if core and CORE_IN_DESIGN and self.undecoded(rt, b["size"], True) is not None:
+                core = False                  # not handed over to a core port: the design decodes it itself, so its properties are checked
+                self.core_decoded += len(b.get("property", []))
             bad = self.undecoded(rt, b["size"], core)
             if bad is not None:
                 errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
@@ -3888,6 +3958,10 @@ def cmd_check(args):
         elif a == "--define":
             DEFINES.add(args[i + 1])
             i += 2
+        elif a == "--core-in-design":
+            global CORE_IN_DESIGN
+            CORE_IN_DESIGN = True
+            i += 1
         elif a in opts:
             opts[a] = args[i + 1]
             i += 2
@@ -3918,7 +3992,7 @@ def cmd_check(args):
     errs, nprop = [], 0
     if len(cks) == 1:
         errs = cks[0].check()
-        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None)
+        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None) + cks[0].core_decoded
     else:
         # several buses (the ports of a partial that has more than one window): a block goes to the bus whose window holds it
         mine = [[] for _ in cks]
