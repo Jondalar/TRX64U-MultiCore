@@ -609,11 +609,8 @@ changes). `app_build.py build` makes it for the app; a `.u2a` library's Makefile
 | `DRV_<b>_<p>_<f>_SHIFT`, `_MASK`; `DRV_<b>_<p>_<state>`, `DRV_<b>_<p>_<f>_<state>` | fields and states |
 | `DRV_PTR(type, addr)` | the access; `-DDRV_PTR_HEADER='"drv_fake.h"'` redirects it for a native test (`tests/drv_fake.h`) |
 
-**Who writes what (T239.3 D50).** A core's own code reads base blocks through the table and writes only blocks its core owns; a write to a base block
-belongs to the shared driver that owns it, or goes through a call of the base's io group with an offset (`io->cart_wr`, `io->rom_write`). On `t239.3` the
-`_WR` macros of every `owner = "base"` block sit under `#ifndef DRV_BASE_READ_ONLY`, and `app_build.py build` compiles every `--src` source and the `[app]`
-sources with `-DDRV_BASE_READ_ONLY`; `_ADDR`, `_RD`, `_SIZE`, `_OWNER`, masks, shifts and state values stay (`app/sdkpkg/api.md` 6.17.9). `lib.mk` does not
-set the define, so a `.u2a` library that makes its own table keeps the base `_WR` macros unless its Makefile adds `-DDRV_BASE_READ_ONLY` (section 26).
+**Who writes what (T239.3 D53).** Every source writes every block of its table: `drvtab.h` gives the `_WR` macros of the base's blocks like
+those of the core's (`app/sdkpkg/api.md` 6.17.9). D53 replaced D50's read-only define `DRV_BASE_READ_ONLY`, which SDK 0.4.6 still has.
 The `c64cart` table now drops the cartridge's cached lines itself after `ram_write` and `image_write` (`c64_cart_drop_cache`, `c64cart_exports.cc`).
 
 trx64u's form (TRX64-Ultimate: `software/trx64u/base/trx64u_lib.h`, `ring/ringsys.h`): `HW_RD(block_prop)`, `HW_WR(block_prop, v)` and `HW_WR_I` touch a
@@ -836,10 +833,14 @@ TRX64-Ultimate: `software/trx64g/` holds this repository's packer as it is (`pac
   between its properties. D39: the identity block of `host.toml` is `core_trx_io`, a block of the core. The RTL patterns of `c64_basic` are known:
   trx64u's whole TOML A passes (P1-3, section 15); its own lint has `lint-src` only until it pins 0.4.6.
 
+**On `t239.3` for 0.4.7:**
+
+- D53: everything is open. `drvtab.h` has no `#ifndef DRV_BASE_READ_ONLY` any more, `app_build.py` and `lib.mk` set no define: every
+  source has the `_WR` macros of every block, the base's (`itu`, `c64cart`, ...) and the core's (`cmd_if`).
+
 **Open:**
 
 - A TOML A record beside the description in the `.cor` (`cor_pack.py --maps`, the reader), so that the identity check runs for a record core.
-- `lib.mk` and D50: a `.u2a` library that runs `descrec.py drivers` itself gets no `DRV_BASE_READ_ONLY`.
 - P2-6: LibApi major 4 takes `trx`, `ring`, `c64` and `lib->find` out of the API. trx64u's libraries call `find` (`x_table`, `ringsys.cc`), resolve
   `needs` on names, and its monitor engine reaches the TRX block through `api->trx->regs`; what replaces `find` for a record-7 library is not written yet.
 - `SvcBoard` gives no board family; trx64u's `.cfw` run uses the constant `U64MK2` (asked for P2-6).

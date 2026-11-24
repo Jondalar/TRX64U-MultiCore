@@ -53,10 +53,6 @@ obj/drvtab.o: drv/drvtab.c | obj
 # is described by its record (D17) has no descriptor in the app: its table is empty and the start makes the descriptor from the bundle's record
 obj/table.o: CPPOPT += $(if $(CORE_DESC),-DCORE_ONLY=$(CORE_DESC),-DCORE_NONE)
 
-# D50: the core's own sources (its libraries' sources found in --src, and [app] sources) read the blocks of the base and never write them: drvtab.h leaves their _WR macros out
-$(addprefix obj/,$(addsuffix .o,$(CORE_OWN_NAMES))): COPTIONS += -DDRV_BASE_READ_ONLY
-$(addprefix obj/,$(addsuffix .o,$(CORE_OWN_NAMES))): CPPOPT += -DDRV_BASE_READ_ONLY
-
 # sha256 is optimised for speed in the tree's build as well (the hash loop of Reload core)
 obj/sha256.o: COPTIONS += -O3
 

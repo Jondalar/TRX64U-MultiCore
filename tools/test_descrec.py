@@ -1469,28 +1469,13 @@ class DriverTable(unittest.TestCase):
         self.assertIn("DRV_cart_flash_rom_sel_WR", names)
         self.assertIn("(*DRV_PTR(uint16_t, DRV_cart_flash_fl_magic1_ADDR) = (uint16_t)(v))", h)   # the access is as wide as the property
 
-    def test_a_core_library_gets_no_write_macro_of_a_base_block_but_keeps_the_rest(self):
-        # T239.3 D50: the _WR macros of a block of the base sit inside #ifndef DRV_BASE_READ_ONLY (a core's own sources are built with the define); a block of the core keeps its writes
+    def test_every_block_has_its_write_macros_for_every_source(self):
+        # T239.3 D53 (D50's read-only define is gone): a block of the base has its _WR macros like a block of the core, with no guard around them
         h, _ = self.generate(src("desc_toml_a.toml"))
-        kept, skip = [], False
-        for ln in h.splitlines():                                   # the preprocessor with DRV_BASE_READ_ONLY defined, for these guards
-            if ln == "#ifndef DRV_BASE_READ_ONLY":
-                skip = True
-            elif ln == "#endif" and skip:
-                skip = False
-            elif not skip:
-                kept.append(ln)
-        names = {ln.split()[1].split("(")[0] for ln in kept if ln.startswith("#define ")}
-        self.assertFalse([n for n in names if n.startswith("DRV_cart_flash_") and n.endswith("_WR")])      # cart_flash is a block of the base
-        self.assertIn("DRV_cart_flash_fl_enable_ADDR", names)                     # the address stays: an offset is DRV_b_p_ADDR - DRV_b_ADDR
-        self.assertIn("DRV_cart_flash_rom_sel_RD", names)
-        self.assertIn("DRV_cart_flash_evt_op_MASK", names)
-        self.assertIn("DRV_cart_flash_evt_op_chip_erase", names)
-        self.assertIn("DRV_mixer_OWNER", names)
-        self.assertTrue([n for n in {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")} if n.startswith("DRV_cart_flash_") and n.endswith("_WR")])   # the full header has them
-        mix = [n for n in names if n.startswith("DRV_mixer_") and n.endswith("_WR")]
-        full_mix = [ln for ln in h.splitlines() if ln.startswith("#define DRV_mixer_") and "_WR(" in ln]
-        self.assertEqual(len(mix), len(full_mix))                                  # the core's own block loses nothing
+        self.assertNotIn("DRV_BASE_READ_ONLY", h)
+        names = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        self.assertIn("DRV_cart_flash_rom_sel_WR", names)                         # cart_flash is a block of the base
+        self.assertTrue([n for n in names if n.startswith("DRV_mixer_") and n.endswith("_WR")])       # mixer is a block of the core
 
     def test_a_run_of_registers_has_its_count_and_takes_the_index_of_the_element(self):
         h, _ = self.generate(src("desc_toml_a.toml"))
