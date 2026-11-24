@@ -1004,8 +1004,9 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         const DescBlock *ib = descrec_block(*out, out->map->ident_block);
         const DescProp *ip = ib ? descrec_prop(*out, *ib, "id") : 0, *bp = ib ? descrec_prop(*out, *ib, "build") : 0;
-        if (!ib || ib->core || !ip || !bp || !(ip->dir & DR_DIR_R) || !(bp->dir & DR_DIR_R)) {
-            return r.fail("description record, section %s: the block \"%s\" is no block of the base with the readable properties \"id\" and \"build\"", secnames[21], out->map->ident_block);
+        // T239.3 D39: the host's TOML A names a block of layer 2 (owner core: core_trx_io) as its identity; its registers are the running core's, not checked here
+        if (!ib || (!ib->core && (!ip || !bp || !(ip->dir & DR_DIR_R) || !(bp->dir & DR_DIR_R)))) {
+            return r.fail("description record, section %s: the block \"%s\" is no block with the readable properties \"id\" and \"build\" (a block of the base) or a block of the core", secnames[21], out->map->ident_block);
         }
         return 0;
     }

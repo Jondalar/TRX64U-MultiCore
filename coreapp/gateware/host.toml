@@ -13,8 +13,12 @@
 # The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries, the byte between them undecoded) is three runs of 16 elements with the stride 4, one per colour byte.
 # A property whose read and write registers differ is two properties
 # (irq_mask / status, tx_len / rx_len).
-# There is no [identity] yet: the standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2, so it is the core's block here
-# (core_trx_io) and `descrec.py compile` (it wants a base-owned identity block) does not take this file until that is decided.
+# The standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2: it is the core's block here (core_trx_io), and the host's TOML A names it as its
+# identity (D39). The readers accept a core block as the identity; its registers are the running core's, read from that core's own record.
+[identity]
+id = "HOST"
+block = "core_trx_io"
+
 [io]
 iobase = 0x10000000
 u2p_io_base = 0x10100000

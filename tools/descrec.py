@@ -2122,11 +2122,11 @@ def _sec_ident(ident, names, blocks, st):
     if bname not in names:
         raise DescError("identity: block %r is no block of this record" % bname)
     blk = blocks[names.index(bname)]
-    if blk["owner"] != "base":
-        raise DescError("identity: the block %s is owned by the core; the standard block belongs to the base" % bname)
-    for pn in IDENT_PROPS:
-        if not any(p["name"] == pn and "r" in p["dir"] for p in blk.get("property", [])):
-            raise DescError("identity: the block %s has no readable property %r" % (bname, pn))
+    if blk["owner"] == "base":
+        for pn in IDENT_PROPS:
+            if not any(p["name"] == pn and "r" in p["dir"] for p in blk.get("property", [])):
+                raise DescError("identity: the block %s has no readable property %r" % (bname, pn))
+    # T239.3 D39: the host's TOML A names core_trx_io, a block of layer 2 (owner core), as its identity: its registers are the running core's contract and are read from that core's record, not here
     build = _u32(ident, "build", "identity") if "build" in ident else 0
     return struct.pack("<4I", st.add(cid), 1 if "build" in ident else 0, build, st.add(bname))
 

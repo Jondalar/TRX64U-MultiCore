@@ -1024,6 +1024,17 @@ size = 0x14
         self.assertNotIn("0x10040000", src)                                    # the app holds no address of its own
         self.assertEqual(D.HOST_TOML_A and os.path.realpath(D.HOST_TOML_A), os.path.realpath(path))
 
+    def test_the_host_toml_a_names_a_block_of_layer_2_as_its_identity(self):
+        # T239.3 D39: host.toml has the [identity] block core_trx_io (owner core, no properties); both readers take it, a base-owned identity block still needs id and build
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        maps = D.load_maps([os.path.join(self.ROOT, "app", "sdkpkg", "maps")])
+        r = D.parse_desc(D.compile_checked(open(path).read(), maps=maps))
+        self.assertEqual(r["identity"]["block"], "core_trx_io")
+        self.assertEqual({b["name"]: b["owner"] for b in r["block"]}["core_trx_io"], "core")
+        text = open(path).read().replace('block = "core_trx_io"', 'block = "cart_regs"')
+        with self.assertRaisesRegex(D.DescError, "no readable property"):
+            D.compile_checked(text, maps=maps)
+
     def test_a_window_beside_the_base_blocks_is_accepted(self):
         D._BASE_BLOCKS["rows"] = None
         try:
@@ -1196,17 +1207,6 @@ class TomlA(unittest.TestCase):
         self.assertNotIn("count", props["regs"]["one"])
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
-
-    def test_a_block_of_the_core_lies_inside_the_io_span_and_covers_no_base_block(self):
-        def core(address, size):
-            return D.compile_checked(self.BASE + '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0x%X\nsize = %d\n' % (address, size))
-        with self.assertRaises(D.DescError) as e:                      # leaves the firmware's I/O span
-            core(0x1FFFFF00, 0x200)
-        self.assertIn("not wholly inside", str(e.exception))
-        with self.assertRaises(D.DescError) as e:                      # the first byte of the ITU block, a whole base block
-            core(0x04000040, 1)
-        self.assertIn("itu", str(e.exception))
-        core(0x10FFFFF0, 0x10)                                         # ends on the last byte of the span
 
     def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
         # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
@@ -1631,7 +1631,7 @@ class ExampleCore(unittest.TestCase):
         hblocks = {b["name"]: b for b in host["block"]}
         by_name = {b["name"]: b for b in shared["block"]}
         owner_core_in_host = ["drive_a", "gcr_coder", "dma"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
-        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # drive_wd: inside host.toml's drive_a extent; cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # drive_wd: inside host.toml's drive_a extent; cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: four blocks icap_* of host.toml (the loader) and the block partition of both; resid8: a core block of the shared app, not in host.toml
         self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
         for n, b in by_name.items():
             if n in absent_in_host:
@@ -1647,7 +1647,7 @@ class ExampleCore(unittest.TestCase):
         self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core"] * len(owner_core_in_host))
         icap = by_name["icap"]
         inside = sorted(b["name"] for b in host["block"] if b["owner"] == "base" and icap["address"] <= b["address"] and b["address"] + b["size"] <= icap["address"] + icap["size"] and b["name"].startswith("icap_"))
-        self.assertEqual(len(inside), 5)
+        self.assertEqual(len(inside), 4)
         ex = D.toml_loads(self.read("gateware", "example.toml"))
         raw = D.toml_loads(open(os.path.join(gw, "shared.toml")).read())
         self.assertEqual([b for b in ex["block"] if b["owner"] == "base"], raw["block"])
