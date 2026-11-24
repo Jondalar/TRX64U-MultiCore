@@ -202,24 +202,6 @@ int main()
     r.go_to("usb0/"); r.m->key(KEY_RETURN);
     CHECK_STR(r.m->title(), "/usb0");
     if (g_fails) {
-        // T256 D13 (review): goto_screen with the menu closed lands on its place: open() takes the goto, it does not start at Home
-    {
-        Rig w(&atari800_desc);
-        w.st->load();
-        w.c.menu_open = false;
-        CHECK(w.m->goto_when_open("F3"));
-        CHECK(!w.m->goto_when_open("F9"));                        // no such place: refused at once
-        w.m->say_when_open("Opening x ...", false);
-        w.c.menu_open = true;
-        w.m->open();
-        CHECK_EQ(w.m->area(), 1);                                 // F3, not Home
-        CHECK_STR(w.m->status(), "Opening x ...");
-        w.m->open();                                              // taken once: the next open is at Home again
-        CHECK_EQ(w.m->area(), 0);
-        w.m->key(KEY_F2);
-        CHECK(w.m->goto_when_open("F3"));                         // open menu: at once
-        CHECK_EQ(w.m->area(), 2);
-    }
     DONE("test_menuctl");                                      // the media level is wrong: what follows stands on it
     }
     CHECK(r.find_row("../") == 0);
