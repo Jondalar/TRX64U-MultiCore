@@ -175,16 +175,24 @@ public:
 };
 
 // ---- T201: the knobs of the A/V test picture (one row of the A/V page each, one key of an A/V test file each) ----
-#define DT_AV_N 18
+#define DT_AV_N 24
 enum { AVK_STD = 0, AVK_GROUPS, AVK_BITS_A, AVK_BITS_B, AVK_BITS_C, AVK_VSIGN, AVK_TRIM, AVK_BSTART, AVK_BEND, AVK_BAMP, AVK_GAIN, AVK_SYNC, AVK_BLANK, AVK_WHITE,
-       AVK_EQ, AVK_VLEN, AVK_VPOS, AVK_LINES };
+       AVK_EQ, AVK_VLEN, AVK_VPOS, AVK_LINES, AVK_MAP, AVK_MODE, AVK_PCH, AVK_RCH, AVK_SYNCN, AVK_FB };      // T259: the last six are registers 060-065 in this order
 struct AvKnob {
     const char *key;                   // the row's name on the page and in the settings file
     const char *const *labels;         // the values in user terms, as the page shows them and a test file names them
     uint8_t n, def;
     const int16_t *val;                // the register value of each label (the trim: the signed byte)
+    int16_t lo, hi;                    // T259: the register's whole range, what the playground accepts
 };
 extern const AvKnob dt_av_knobs[DT_AV_N];
+// T259: a knob by its key ("v_sign" or "V sign"), -1 if none; a preset file's text into one register value per knob (DT_AV_ABSENT: the file does not name it, DT_AV_BADVAL: a label the knob does not
+// have; a value "#n" is a free register value); the label of a knob that has exactly this register value, -1 if none.
+#define DT_AV_ABSENT (-100000)
+#define DT_AV_BADVAL (-100001)
+int dt_av_knob_of(const char *key);
+void dt_av_preset_parse(const char *text, int32_t raw[DT_AV_N]);
+int dt_av_idx_of_raw(int k, int32_t raw);
 
 struct DiagEnv {
     CoreIo *io;

@@ -44,6 +44,10 @@
 #define PD_AV_VLEN      0x05E          // vsync length (each block's with equalizing) in half lines: 6 = 3 lines (reset), 5 = 2.5, 12 = 6
 #define PD_AV_VPOS      0x05F          // signed: the vsync's start in lines against the default (broad pulses from line 244 of the picture at 60 Hz, 280 at 50 Hz)
 
+// T259: the channel map, the channel probe, the RGB mode and the two pins (cores/diag/rtl/diag_regs.v 060-065, one byte each, b1:0, read/write, live, reset 0 = the T201 behaviour)
+#define PD_AV_MAP       0x060          // 060 0 scan groups, 1 names (a word per AVID_R, AVID_G, AVID_B)   061 mode: 0 test picture, 1 channel probe, 2 RGB   062 the probe's channel 0..2
+//                                        063 the RGB picture: 0 palette, 1 / 2 / 3 the R / G / B word as a ramp   064 SYNCn: 0 high, 1 low, 2 csync, 3 inverted csync   065 FB: 0 low, 1 high, 2 window, 3 inverted window
+
 #define PD_STEPS_MAX    256
 #define PD_FIFO_MAX     512
 
