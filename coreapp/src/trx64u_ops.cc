@@ -1,4 +1,4 @@
-// The operations and states of the TRX64U menu (menu.toml) that are not the C64U's hardware registers (u64cfg.cc is those): the look of the menu, the C64's cartridge
+// The operations and states of the TRX64U menu (TRX64-Ultimate's) that are not the C64U's hardware registers (u64cfg.cc is those): the look of the menu, the C64's cartridge
 // port, REU and ROM settings, the machine's own actions. Host-owned code; the register sequences of the cartridge port are Gideon's (vendor/gideon/software/io/c64/c64.cc
 // ConfigureU64SystemBus and set_emulation_flags, GPL-3.0), the fast reset patch is his (c64.cc fastresetPatch).
 #include "trx64u_ops.h"
@@ -43,7 +43,7 @@ static const uint8_t fast_org[47] = { 0xe6, 0xc2, 0xb1, 0xc1, 0xaa, 0xa9, 0x55, 
 static uint8_t kernal_copy[C64_KERNAL_BYTES];
 static bool kernal_known, kernal_patched;
 
-// c64.cc calls this with every KERNAL image it puts into the aperture: the copy is what the patch is made against (the aperture is write only)
+// the TRX64U core calls this with every KERNAL image it puts into the aperture: the copy is what the patch is made against (the aperture is write only)
 void trx64u_kernal_put(CoreCtx *c, const uint8_t *data, uint32_t n)
 {
     if (n != C64_KERNAL_BYTES) {

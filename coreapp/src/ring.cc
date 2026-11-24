@@ -1,6 +1,6 @@
 // PROVENANCE: copied from TRX64-Ultimate software/ultimate-app/software/io/c64/trx_ring.cc (the frame ring's driver: timeline, restore, scrub, land, trace; GPL-3.0, see
 // that file's own header below). Changes here: the InitFunction is gone (the application starts the engine with trx_ring_engine_init(), T104.2 UI), the log's start
-// is the setting "Timewarp Ring" (ring_autostart), nothing else. The menu is declarative (menu.toml, ring.* operations in ringops.cc); no screen code comes along.
+// is the setting "Timewarp Ring" (ring_autostart), nothing else. The menu is declarative (the core's UI TOML, ring.* operations in ringops.cc); no screen code comes along.
 // The frame ring, app side. See trx_ring.h.
 //
 // Hardware (TRX64-Ultimate designs/c64_basic: trx_engine.v page 2, trx_sys.v

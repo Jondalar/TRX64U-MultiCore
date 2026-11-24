@@ -328,7 +328,7 @@ static int c64scpu_cold_start(CoreCtx *c, char *msg, int msglen)
 }
 
 // T206: the machine the typed start waits for is the C64's (the SuperCPU changes the CPU, not the KERNAL): BASIC at $0801, TXTTAB $2B, the keyboard
-// buffer at $0277 with its count at $C6, the numbers of c64.cc. ready_ms is the C64 core's 1000 ms; no board has measured it on this core yet.
+// buffer at $0277 with its count at $C6, the C64's own numbers. ready_ms is the C64's 1000 ms; no board has measured it on this core yet.
 // The typed start does NOT use the buffer: the 65816 reads bank 0 from the SuperCPU's own SRAM (DDR2 0x03000000); the C64 RAM the application's RAM window writes
 // is only ever the mirror of CPU writes to the pages $02-$FF (scpu_mem.v mir_tab, one way), so $C6 and $2B (page 0) never show there. A program and its pointers are
 // written into the SRAM itself (c64scpu_prg.h mem_ddr, T217). m.screen switches the job to

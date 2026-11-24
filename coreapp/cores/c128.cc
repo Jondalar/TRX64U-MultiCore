@@ -104,7 +104,7 @@ static const uint32_t autot_ms[] = { 500, 1000, 2000, 3000 };
 
 static const char *const joy_names[]   = { "Normal", "Swapped" };
 static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
-// T140 D24: the System Mode, the four the C64 Ultimate offers (menu.toml sysmodes): the VIC's line and frame, the machine's clock and the colour standard of the
+// T140 D24: the System Mode, the four the C64 Ultimate offers (the System Mode setting of its menu): the VIC's line and frame, the machine's clock and the colour standard of the
 // analogue output (cores/c128/mono/c128_avout.v) follow it. Values in the order of t_video_mode.
 #define KEY_SYSMODE "System Mode"
 static const char *const sysmode_names[] = { "PAL", "NTSC", "PAL-60", "NTSC-50" };
