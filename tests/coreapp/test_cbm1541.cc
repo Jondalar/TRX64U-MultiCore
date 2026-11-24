@@ -1209,6 +1209,7 @@ int main()
         CHECK(r.fs.has("/usb0/games/aaaaaaaaaaaaaaaaaaaaaaaa.d64"));        // 24 characters
     }
 
+#ifdef DRV_HAS_drive_wd      // the 1581 tests need the block drive_wd in the driver table (run.sh: cbm1541_wd); the table of the VIC-20's app has none
     // ---- the 1581, on a gateware that can be one ----
     {
         Rig r(true);
@@ -1400,6 +1401,22 @@ int main()
         CHECK(strstr(res.msg, "1581") != 0);
         CHECK(q.image() == 0);
     }
+#else
+    // ---- a drive whose TOML A has no drive_wd (the VIC-20's own drive block): a gateware that can be a 1581 still cannot mount a .d81, and says why ----
+    {
+        Rig r(true);
+        r.roms();
+        CHECK(r.boot());
+        Bytes rom81 = pattern(6, 32768);
+        CHECK_EQ(r.op("drive.put_rom1581", { in_blob("data", rom81.data(), (uint32_t)rom81.size()) }), OPE_OK);
+        r.fs.put("/usb0/a.d81", Bytes(819200, 0));
+        CHECK_EQ(r.mount("/usb0/a.d81", "ro", &res), OPE_FAILED);
+        CHECK(strstr(res.msg, "no WD177x") != 0);
+        CHECK(r.image() == 0);
+        r.fs.put("/usb0/p.d64", d64);
+        CHECK_EQ(r.mount("/usb0/p.d64"), OPE_OK);                          // the drive still takes a .d64 after the refusal
+    }
+#endif
 
     // the drive ROM is a shared device ROM (Alex, 2026-10-23: "It already lies elsewhere :-) from the C64"): found in <root>/roms when the
     // core's folder has none, the core's folder wins, and a machine ROM never comes from there
@@ -1478,6 +1495,7 @@ int main()
         CHECK_STR(ev_last(r.io.events), "mode_unreset");
     }
 
+#ifdef DRV_HAS_drive_wd
     // the commands of the 1581 are answered whenever the poll runs, many at once
     {
         Rig r(true);
@@ -1492,6 +1510,7 @@ int main()
         r.poll();
         CHECK(r.io.dm.fifo.empty());
     }
+#endif
 
 
     // ---- T104 5.14: F8 "Reload core" on a DFX core: the partial bitstream loaded again by the application ----
