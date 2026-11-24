@@ -54,6 +54,9 @@ struct LibApi {
 };
 // Does a LibApi of this struct_size have the member? A library built against a header with the group `overlay` that must also run on a base before it tests `LIB_API_COVERS(api, overlay)`.
 #define LIB_API_COVERS(api, member) ((api)->struct_size >= offsetof(LibApi, member) + sizeof(((const LibApi *)0)->member))
+// Does a call table of a group (an Svc* table, `size` first) have the call `field`, set? A library built against a header with a newer call that must also run on an
+// older base tests SVC_HAS(api->overlay, goto_screen) before the call (the form of U2P_HAS in u2p_app.h).
+#define SVC_HAS(t, field) ((t) && ((t)->size >= offsetof(__typeof__(*(t)), field) + sizeof((t)->field)) && (t)->field)
 // The app ABI: SvcFsEntry is frozen at 72 bytes (a 56 byte name); FsEntry carries the whole long name and the bridge (LibLoader::svc_list) converts.
 typedef char svc_fsentry_layout_check[(sizeof(SvcFsEntry) == 72 && sizeof(((SvcFsEntry *)0)->name) == 56) ? 1 : -1];
 // Base 3.3 list_long: SvcFsEntryLong is FsEntry, member for member, so the base hands CoreFs::list the caller's array as it is.

@@ -11,6 +11,7 @@
 #             plus online_api.h (the online sub-app's table), which is outside the closure and so outside the lock hash
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout; appflags.mk and appbuild.mk link a core's app
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
+#   test/     tests/drv_fake.h, the register fake of a native test (-DDRV_PTR_HEADER)
 #   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (app_build.py and cor_pack.py import libtab.py, which imports check_d24.py; descrec.py reads basereg.def; u2a_pack.py, cor_pack.py, app_build.py, libtab.py and rtl_check.py import descrec.py; the rest import only Python's own modules; cor_pack.py needs Pillow for a PNG --icon only)
 #   lib/      libtrxbase.a (the objects of the sources that depend on nothing a core decides), liblwip.a, liblvgl.a, crt0.o, port_asm.o
 #   base/     the sources that depend on the core (compiled for each core, with its [sizes]) and the sources of the shared libraries, at their repository paths under src/, the headers
@@ -41,7 +42,7 @@ commit="${SDK_COMMIT:-$( (cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null
 name="trx64-sdk-$ver"
 P="$out/$name"
 rm -rf "$P" "$out/$name.tar.gz"
-mkdir -p "$P/include" "$P/mk" "$P/sdk" "$P/tools" "$P/licenses" "$P/libs" "$P/gateware"
+mkdir -p "$P/include" "$P/mk" "$P/sdk" "$P/tools" "$P/licenses" "$P/libs" "$P/gateware" "$P/test"
 
 # the options of the package's build are the tree's: every -D and --wrap of the core app Makefile is in mk/appflags.mk
 python3 -I "$ROOT/tools/app_build.py" flags "$ROOT/host-app/target/u64ii/riscv/coreapp/Makefile" "$ROOT/app/lib/appflags.mk" || { echo "sdk_pack: app/lib/appflags.mk and the core app Makefile do not agree" >&2; exit 1; }
@@ -63,6 +64,7 @@ cp "$ROOT/coreapp/src/online_api.h" "$P/include/"
 
 for f in lib.mk app.mk sdkroot.mk lib.ld appflags.mk appbuild.mk; do cp "$ROOT/app/lib/$f" "$P/mk/"; done
 cp "$ROOT/app/sdk/libc.c" "$ROOT/app/sdk/u2p_compat.c" "$P/sdk/"
+cp "$ROOT/tests/drv_fake.h" "$P/test/"            # the register fake of a native test (api.md 6.17.7): a test aid, outside the closure of libapi.h and the lock hash
 # check_d24.py: libtab.py symcheck imports it (D12_TRX64U)
 for f in u2a_pack.py descrec.py cor_pack.py rtl_check.py app_build.py libtab.py check_d24.py; do cp "$ROOT/tools/$f" "$P/tools/"; done
 mkdir -p "$P/maps" && cp "$ROOT"/app/sdkpkg/maps/*.map.toml "$P/maps/"       # the module maps of the shared drivers (TOML A, api.md 6.14.11)

@@ -21,8 +21,8 @@
 # menu record in the image (tools/descrec.py). LIB_INC = -Idir ... adds include paths. LIB_LIBC = 1 links the memcpy/memset/division of sdk/libc.c.
 #
 # The compiler is the RISC-V one of the build image (make RV_PREFIX=riscv32-unknown-elf-, what ci/trxapps.sh does). It needs the newlib headers:
-# the public headers include <stdlib.h> and <string.h> (fsif.h), so a riscv64-elf-* with an rv32 multilib but no libc headers (the default below,
-# a Homebrew Mac) does not compile them. The CPU is the application's: rv32im with no divider and NO compressed instructions
+# the public headers include <stdlib.h> and <string.h> (fsif.h), so a riscv64-elf-* with an rv32 multilib but no libc headers (a Homebrew Mac's)
+# does not compile them; the default below is the build image's. The CPU is the application's: rv32im with no divider and NO compressed instructions
 # (CPU_EXTENSION_RISCV_C is false in the cpu_unit wrapper, the core application builds -march=rv32im -mno-div), so an image built with
 # the C extension would trap on its first instruction. The code is
 # position independent without a dynamic linker: -fPIE -mcmodel=medany -mno-relax makes every jump and data access pc-relative, and
@@ -30,19 +30,20 @@
 # (A bare-metal binutils does not build -static-pie; where one does, the packer reads its R_RISCV_RELATIVE table the same way.)
 LIB_DIR  := $(dir $(lastword $(MAKEFILE_LIST)))
 include $(LIB_DIR)sdkroot.mk
-RV_PREFIX ?= riscv64-elf-
+RV_PREFIX ?= riscv32-unknown-elf-
 CXX_RV   ?= $(RV_PREFIX)g++
 LD_RV    ?= $(RV_PREFIX)ld
 LIB_KIND ?= lib
 LIB_RES  ?= $(if $(filter app,$(LIB_KIND)),transient,resident)
 LIB_OUT  ?= $(LIB_NAME).u2a
 LIB_BASE ?= 0
-# No sibling calls: the base takes the account of an allocation from the return address of the call (libload.cc owner_at), which a tail call would replace by the caller's.
+# -DDRV_BASE_READ_ONLY (T239.3 D50): a library built with the SDK owns no base block, so a driver table it generates (descrec.py drivers) gives it no _WR macro
+# of one; it reads base blocks and writes its core's. No sibling calls: the base takes the account of an allocation from the return address of the call (libload.cc owner_at), which a tail call would replace by the caller's.
 LIB_CXXFLAGS = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 \
                -fno-optimize-sibling-calls -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables -fvisibility=hidden \
-               -std=gnu++11 $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
+               -std=gnu++11 -DDRV_BASE_READ_ONLY $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
 LIB_CFLAGS   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 -fno-builtin -fno-optimize-sibling-calls \
-               -fno-asynchronous-unwind-tables -fvisibility=hidden $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
+               -fno-asynchronous-unwind-tables -fvisibility=hidden -DDRV_BASE_READ_ONLY $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
 CC_RV    ?= $(RV_PREFIX)gcc
 LIB_OBJS = $(addsuffix .o,$(basename $(LIB_SRCS))) $(if $(LIB_LIBC),libc_sdk.o)
 

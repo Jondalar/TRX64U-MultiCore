@@ -13,9 +13,10 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 | Folder | Content |
 |---|---|
 | `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
-| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h`, `svc_fs.h`, `svc_sys.h`; of base 3.4: `svc_wb.h`), `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h` and the export tables a library finds with `api->lib->find` (`c64_api.h`, `c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `sid_api.h`, `tempdisk_api.h`, `mouse_api.h`, `pad_api.h`, `padkeys_api.h`). `tools/sdk_api.py headers` lists them. |
+| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h`, `svc_fs.h`, `svc_sys.h`; of base 3.4: `svc_wb.h`), `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h` and the export tables a library finds with `api->lib->find` (`c64_api.h`, `c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `sid_api.h`, `tempdisk_api.h`, `mouse_api.h`, `pad_api.h`, `padkeys_api.h`). Their hash, comments and white space taken out, is `api_headers_sha256` in `VERSION`. |
 | `mk/` | `lib.mk` (a library), `app.mk` (an application of C files, or a library with `APP_KIND = lib`), `lib.ld` (the linker script), `sdkroot.mk` (finds the package), `appflags.mk` and `appbuild.mk` (the app of a core, run by `tools/app_build.py build`). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
+| `test/` | `drv_fake.h`, the register fake of a native test (`api.md` 6.17.7): built with `-DDRV_PTR_HEADER='"drv_fake.h"'`, every register access of the generated driver table lands in one array the test defines. |
 | `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle), `rtl_check.py` (TOML A against the RTL of your design, and the lint for literal I/O addresses in C/C++), `app_build.py` (the app of a core: its sizes, tables, link) and `libtab.py` (the library table of a TOML B). |
 | `lib/`, `base/` | The base of the core application as archives and sources, and the shared libraries as sources. See "The app of a core". There is no app image. |
 | `libs/`, `gateware/` | `shared.toml` of each: the TOML B (the catalog of the shared libraries) and the TOML A of the shared app, the references a core's own start from. |
@@ -195,8 +196,6 @@ make test
 ## Not in this package yet
 
 - The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
-- A descriptor for a core made of its record alone: the app of a core names the symbol of a descriptor in the base's sources (`[app] desc`).
-- The code of the shared 1541 drive library. Its export table `cbm1541_api.h` is public; the library itself uses the core application's `CoreIo` and file headers, which are not.
 - The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.
 
