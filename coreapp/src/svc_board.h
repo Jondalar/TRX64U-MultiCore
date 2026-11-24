@@ -65,6 +65,8 @@ typedef struct SvcBoard {
 //                               operation, or the ROM files of the core cannot be read.
 //   "media.flush_for_core"      the mounted media written back first (media_writeback; its WbWhy is ignored there): OPE_FAILED with the reason in msg when one cannot be
 //                               written, and the caller then leaves the machine on. The code that powers off or cycles the board calls it first.
+//   "writeback.flush"           new in 3.4 (D51). The registered writable medium alone (the base driver's or a library's, svc_wb.h) written now, as "Save Changed Cartridge" says: Auto writes,
+//                               Ask and Off leave the change pending and say so in msg. OPE_FAILED with the reason in msg when the write fails.
 // They run on the calling task without the executor and without taking the core lock (SvcOps::call).
 
 #ifdef __cplusplus

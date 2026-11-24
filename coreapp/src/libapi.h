@@ -50,6 +50,7 @@ struct LibApi {
     const SvcIo *io;
     const SvcBoard *board;
     const SvcOverlay *overlay;            // base 3.3 (svc_overlay.h): the overlay service; null in a loader without a core, and in a LibApi of a base before the group (api->struct_size)
+    const SvcWb *wb;                      // base 3.4 (svc_wb.h): the write-back service for libraries (D51); null in a loader without a core, and in a LibApi of a base before the group
 };
 // Does a LibApi of this struct_size have the member? A library built against a header with the group `overlay` that must also run on a base before it tests `LIB_API_COVERS(api, overlay)`.
 #define LIB_API_COVERS(api, member) ((api)->struct_size >= offsetof(LibApi, member) + sizeof(((const LibApi *)0)->member))

@@ -2,7 +2,7 @@
 """T239.3 S1: the API document of the SDK (app/sdkpkg/api.md) covers every symbol of the public headers of the core application.
 
 The headers are read from coreapp/src: libapi.h, svctab.h, ops.h and libfmt.h, and the headers of the groups that base 3.3 added (GROUP_HEADERS: svc_sync.h,
-svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h, svc_fs.h; the Add structs of svc_sys.h and svc_fs.h repeat members of SvcSys and SvcFs and are not read). The symbols are
+svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h, svc_fs.h, svc_wb.h (base 3.4); the Add structs of svc_sys.h and svc_fs.h repeat members of SvcSys and SvcFs and are not read). The symbols are
 
   api->NAME            each member of LibApi (struct_size, abi_major, abi_minor, log and the nine call tables)
   api->GROUP->NAME     each member of a call table; a table behind a table member (SvcTrx.ring -> SvcRing) is api->trx->ring->NAME
@@ -36,7 +36,7 @@ FMT_NAMES = ["U2A_ABI_MAJOR", "U2A_BASE_MINOR", "U2A3_VERSION", "U2A3_NAME_MAX",
              "PRG_APP_NEED", "CART_APP_NEED", "U2A3_FLAG_BUDGET", "U2A3_BUDGET_NONE", "U2A3_FLAG_EXPORTS", "U2A3_EXPORTS_MAX"]
 SVC_MACRO_PREFIXES = ("SVC_BUTTON_", "U2P_TRACE_HIT_", "CTX_", "SYNC_")
 # base 3.3: one header for each group that follows `lib` in LibApi (their structs, enums, macros and opaque handles are read like those of svctab.h)
-GROUP_HEADERS = ["svc_sync.h", "svc_settings.h", "svc_ctx.h", "svc_io.h", "svc_board.h", "svc_overlay.h", "svc_fs.h"]
+GROUP_HEADERS = ["svc_sync.h", "svc_settings.h", "svc_ctx.h", "svc_io.h", "svc_board.h", "svc_overlay.h", "svc_fs.h", "svc_wb.h"]
 NOT_SYMBOLS = {"SvcFsAdd", "SvcSysAdd"}
 SINCE_TYPES = ("AppCtx", "LibRecord")        # and every Lib*Decl
 

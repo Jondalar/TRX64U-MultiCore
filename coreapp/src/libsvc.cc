@@ -7,6 +7,7 @@
 #include "corefolder.h"
 #include "descrec.h"
 #include "overlay.h"
+#include "writeback.h"
 #include "drvtab.h"
 #include <stddef.h>
 #include <stdio.h>
@@ -342,6 +343,74 @@ struct LibSvc {
         return w ? (volatile uint8_t *)(uintptr_t)board : 0;
     }
 
+    // ---- wb (svc_wb.h, D51): the medium belongs to the image whose code makes the call (owner_at); the service is the base's (writeback.cc)
+    static int wbs_add(const SvcWbMedium *m)
+    {
+        LibLoader *l = L();
+        if (!l->wb_svc_) {
+            return SVCWB_E_NOSERVICE;
+        }
+        int who = l->owner_at(__builtin_return_address(0));
+        const LibInfo *in = l->info(who);
+        if (in && in->kind == U2A3_KIND_APP) {
+            return SVCWB_E_APP;                        // D51: a library registers the medium, an application asks for the write (write_now)
+        }
+        return l->wb_svc_->add(who, m);
+    }
+    static int wbs_remove()
+    {
+        LibLoader *l = L();
+        return l->wb_svc_ ? l->wb_svc_->remove(l->owner_at(__builtin_return_address(0))) : SVCWB_E_NOSERVICE;
+    }
+    static void wbs_mark(uint32_t off, uint32_t len)
+    {
+        LibLoader *l = L();
+        if (l->wb_svc_) {
+            l->wb_svc_->mark(off, len);                // no lookup of the caller: callable from an interrupt; the service ignores a mark when no library's medium is registered
+        }
+    }
+    static void wbs_mark_aux()
+    {
+        LibLoader *l = L();
+        if (l->wb_svc_) {
+            l->wb_svc_->mark_aux();
+        }
+    }
+    static int wbs_write_now(char *msg, int msglen)
+    {
+        LibLoader *l = L();
+        if (!l->wb_svc_) {
+            if (msg && msglen > 0) {
+                msg[0] = 0;
+            }
+            return SVCWB_E_NOSERVICE;
+        }
+        return l->wb_svc_->write_now(l->owner_at(__builtin_return_address(0)), msg, msglen);
+    }
+    static int wbs_pending()
+    {
+        LibLoader *l = L();
+        return l->wb_svc_ ? l->wb_svc_->pending(l->owner_at(__builtin_return_address(0))) : 0;
+    }
+    static bool wbs_fread(SvcWbFile *f, uint64_t off, void *buf, uint32_t len) { return f && f->f && f->f->read(off, buf, len); }
+    static bool wbs_fwrite(SvcWbFile *f, uint64_t off, const void *buf, uint32_t len) { return f && f->f && f->f->write(off, buf, len); }
+    static uint64_t wbs_fsize(SvcWbFile *f) { return f && f->f ? f->f->size() : 0; }
+    static const char *wbs_error(int code)
+    {
+        switch (code) {
+        case SVCWB_OK: return "done";
+        case SVCWB_ASK: return "a change is pending: the person is asked at the next open of the menu";
+        case SVCWB_OFF: return "a change is pending: Save Changed Cartridge is Off";
+        case SVCWB_E_NOSERVICE: return "no write-back service";
+        case SVCWB_E_ARG: return "bad argument";
+        case SVCWB_E_TAKEN: return "another owner holds the medium";
+        case SVCWB_E_NOTMINE: return "this image has no registered medium";
+        case SVCWB_E_FAILED: return "the write failed";
+        case SVCWB_E_APP: return "an application registers no medium: it asks for the write";
+        }
+        return "unknown code";
+    }
+
     // ---- overlay (svc_overlay.h): the calls are validated by the service at once; their effect is the UI task's next frame. The caller is the image whose code makes the call (owner_at),
     // so the elements of a library are its own and go with it.
     static int ovl_show(const char *name, const SvcSurface *sf)
@@ -653,6 +722,7 @@ void LibLoader::add_services()
     api_.ctx = &ctxtab_;
     api_.board = &board_;
     api_.overlay = &overlay_;
+    api_.wb = &wb_;
     api_.io = LibSvc::has_window(ctx_) ? &io_ : 0;
     memset(&sync_, 0, sizeof(sync_));
     sync_.size = sizeof(sync_);
@@ -743,6 +813,19 @@ void LibLoader::add_services()
     overlay_.frame = LibSvc::ovl_frame;
     overlay_.still_palette = LibSvc::ovl_still_palette;
     overlay_.canvas = LibSvc::ovl_canvas;
+
+    memset(&wb_, 0, sizeof(wb_));
+    wb_.size = sizeof(wb_);
+    wb_.register_medium = LibSvc::wbs_add;
+    wb_.unregister_medium = LibSvc::wbs_remove;
+    wb_.mark = LibSvc::wbs_mark;
+    wb_.mark_aux = LibSvc::wbs_mark_aux;
+    wb_.write_now = LibSvc::wbs_write_now;
+    wb_.pending = LibSvc::wbs_pending;
+    wb_.file_read = LibSvc::wbs_fread;
+    wb_.file_write = LibSvc::wbs_fwrite;
+    wb_.file_size = LibSvc::wbs_fsize;
+    wb_.error = LibSvc::wbs_error;
 }
 
 // where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none

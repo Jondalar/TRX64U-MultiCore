@@ -17,19 +17,19 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 3.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 4.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2, 3.3 or 3.4. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`. Base 3.4 added the group `api->wb`, the write-back service for libraries (4.18).
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.4.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.4.6 is base 3.4. Base 3.3 (SDK 0.4.0, carried unchanged by 0.4.1 to 0.4.5), base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 3. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 4. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
@@ -168,6 +168,7 @@ Since base 3.0.
 | `api->io` | `SvcIo` | Null on a core without a register window. Since base 3.3. |
 | `api->board` | `SvcBoard` | Always. Since base 3.3. |
 | `api->overlay` | `SvcOverlay` | After the start (the loader that has a core), else null. Since base 3.3. |
+| `api->wb` | `SvcWb` | After the start (the loader that has a core), else null. Since base 3.4. |
 
 ## 4. The call tables
 
@@ -1424,6 +1425,110 @@ Since base 3.3, member after `still_palette` (SDK 0.4.5). A library checks the `
 4.17.16.1 `int canvas(int *w, int *h)` writes the size of the canvas the elements are placed on now into `*w` and `*h`, and returns 0.
 4.17.16.2 It is the geometry of the places, of `show` and of `frame`: the canvas of the video mode (640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above, 6.16.4). It follows a change of the mode, so a library asks again when it lays out its surface. The size of an element stays its row's; the canvas is what the anchor and the offset count from.
 4.17.16.3 It returns `OVL_E_NOSERVICE` under the same condition as `show`, or when `w` or `h` is null, and leaves `w` and `h` untouched.
+
+### 4.18 `api->wb` (`SvcWb`)
+
+Since base 3.4.
+
+The write-back service for libraries (T239.3 D51): what a core's game or program writes into a medium of the machine (a cartridge's flash, a battery RAM) goes back to the user's file, the way the base does it for its own drivers. A library registers one writable medium, reports its changes and asks for the write. Applications and the API ask for the write only: they register no medium. A library built before the group never reads it (its `LibApi` is smaller): test `LIB_API_COVERS(api, wb)` and the pointer.
+
+4.18.1 The base has one writable medium per core. While another owner holds it (the base's cartridge driver, another library), `register_medium` refuses and changes nothing.
+4.18.2 The person's setting "Save Changed Cartridge" decides, whoever asks: Off writes nothing, Ask asks at the next open of the menu, Auto writes (at reset, eject, core change, power-off, the menu, 2 s after the last reported change, and when `write_now` asks). A call never writes against the setting.
+4.18.3 The write is the safe one: the new file under `NAME.tmp`, the file as the person first had it kept once as `NAME.bak`, then `NAME.tmp` becomes `NAME`.
+4.18.4 The medium belongs to the image whose code registered it (as for `api->mem`). When the image is released the base writes what is pending (setting Auto), while the writer's code is still there, and drops the medium.
+4.18.5 The operation `writeback.flush` (4.3.1, `SvcOps::call`, JSON-RPC) writes the registered medium of whoever holds it, as the setting says, and nothing else; `media.flush_for_core` writes every medium of the core. An application or the API uses these, not the group.
+4.18.6 No call takes a `CoreCtx`. `register_medium`, `unregister_medium`, `write_now` and `pending` are for a task that may block. `mark` and `mark_aux` may also be called from an interrupt.
+
+#### 4.18.7 `SvcWbFile`
+
+Since base 3.4.
+
+| Symbol | Contract |
+|---|---|
+| `SvcWbFile` | An opaque file of a writer: the old file or the new one (`NAME.tmp`). It is valid only during the writer's call. It is not an `SvcFile` of `api->fs`: do not hand it to `api->fs`, and do not close it. |
+
+#### 4.18.8 `SvcWbDirty`
+
+Since base 3.4.
+
+| Member | Contract |
+|---|---|
+| `SvcWbDirty` | What has changed since the last write. |
+| `SvcWbDirty.block_shift` | A block is `1 << block_shift` bytes of the image (13: 8 KiB). |
+| `SvcWbDirty.nblocks` | The number of bits in `blocks` (1024). |
+| `SvcWbDirty.blocks` | One bit for each block: the bit `b & 31` of `blocks[b >> 5]` says the block `b` changed. |
+| `SvcWbDirty.aux` | Non-zero when the second part of the medium changed (the GMod2's EEPROM). |
+
+#### 4.18.9 `SvcWbWriter`
+
+Since base 3.4.
+
+4.18.9.1 `int (*SvcWbWriter)(void *user, SvcWbFile *old, SvcWbFile *out, const SvcWbDirty *dirty, char *msg, int msglen)` rebuilds the file into `out` (`NAME.tmp`, empty) from `old` (the file now) and the image. It returns 0, or non-zero with the reason in `msg` (`msglen` bytes: the person sees it). The change stays pending on a failure.
+4.18.9.2 `old` is null when the medium was registered with `may_create` and the file is not there. The writer calls nothing but `file_read`, `file_write` and `file_size` on the two files.
+4.18.9.3 The base calls the writer on whatever task writes (the executor, the poll, the menu). The writer's image is the owner of what the writer takes from `api->mem`.
+
+#### 4.18.10 `SvcWbMedium`
+
+Since base 3.4.
+
+| Member | Contract |
+|---|---|
+| `SvcWbMedium` | The medium a library registers. |
+| `SvcWbMedium.size` | `sizeof(SvcWbMedium)`. A smaller size is refused with `SVCWB_E_ARG`. |
+| `SvcWbMedium.path` | The file the user has: a full path of fewer than 520 characters (`FS_PATH_MAX`). Copied. |
+| `SvcWbMedium.name` | What the question and the notes call the medium; at most 55 characters, cut after that. Copied. Null or empty: "the medium". |
+| `SvcWbMedium.write` | The writer (4.18.9). Not null. |
+| `SvcWbMedium.user` | The first argument of the writer and of `hold`. The library keeps what it points to for as long as the medium is registered. |
+| `SvcWbMedium.may_create` | True: the file may not exist yet (a battery save the game has never written). The writer then gets a null `old`. |
+| `SvcWbMedium.hold` | Optional. The machine must not change the medium while the writer reads it: the base calls `hold(user, true)` before the writer and `hold(user, false)` after it. |
+
+#### 4.18.11 `SVCWB_OK`, `SVCWB_ASK`, `SVCWB_OFF`, `SVCWB_E_NOSERVICE`, `SVCWB_E_ARG`, `SVCWB_E_TAKEN`, `SVCWB_E_NOTMINE`, `SVCWB_E_FAILED`, `SVCWB_E_APP`
+
+Since base 3.4.
+
+| Symbol | Contract |
+|---|---|
+| `SVCWB_OK` | 0: done. |
+| `SVCWB_ASK` | 1: `write_now` found a change and the setting is Ask: nothing was written, the person is asked at the next open of the menu. |
+| `SVCWB_OFF` | 2: `write_now` found a change and the setting is Off: nothing was written. |
+| `SVCWB_E_NOSERVICE` | -1: no core runs, or the service is not attached yet (the call came from `lib_register` before the core's start). |
+| `SVCWB_E_ARG` | -2: a null or too long path, no writer, or a `size` that does not cover the members. |
+| `SVCWB_E_TAKEN` | -3: another owner holds the medium. |
+| `SVCWB_E_NOTMINE` | -4: the calling image has no registered medium. |
+| `SVCWB_E_FAILED` | -5: the write failed (`msg` says why) or, for `register_medium` and `unregister_medium`, the pending change could not be written first. |
+| `SVCWB_E_APP` | -6: `register_medium` was called from an application. An application asks for the write (`write_now`); only a library registers a medium (T239.3 D51). |
+
+#### 4.18.12 `api->wb->register_medium`
+
+4.18.12.1 `int register_medium(const SvcWbMedium *m)` registers the calling image's writable medium. It returns 0, `SVCWB_E_NOSERVICE`, `SVCWB_E_ARG`, `SVCWB_E_TAKEN`, `SVCWB_E_APP` or `SVCWB_E_FAILED`. Nothing is changed unless it returns 0.
+4.18.12.2 An image that registers again replaces its medium. What was pending for the old one is written first (setting Auto) and then dropped; when that write fails, the call returns `SVCWB_E_FAILED` and the old medium stays.
+4.18.12.3 The call works from the core's start hook on. A call from `lib_register` of a library loaded at core start returns `SVCWB_E_NOSERVICE`.
+
+#### 4.18.13 `api->wb->unregister_medium`
+
+4.18.13.1 `int unregister_medium(void)` gives the medium back. What is pending is written first when the setting is Auto, else it is dropped. It returns 0, `SVCWB_E_NOTMINE`, or `SVCWB_E_FAILED` when the write failed (the medium is given back and the change is lost; the person sees a note).
+
+#### 4.18.14 `api->wb->mark`, `api->wb->mark_aux`
+
+4.18.14.1 `void mark(uint32_t off, uint32_t len)` reports that the bytes `[off, off + len)` of the image changed. `void mark_aux(void)` reports that the second part of the medium changed. Both are callable from an interrupt.
+4.18.14.2 A call while no library's medium is registered does nothing. A report is never taken for a medium another owner holds.
+
+#### 4.18.15 `api->wb->write_now`
+
+4.18.15.1 `int write_now(char *msg, int msglen)` writes the pending change as the setting says (4.18.2). It returns 0 when the file was written or nothing is pending, `SVCWB_ASK`, `SVCWB_OFF`, `SVCWB_E_NOTMINE`, or `SVCWB_E_FAILED` with the reason in `msg`. `msg` may be null.
+4.18.15.2 A file that cannot be written (write protected, a read-only mount) is `SVCWB_E_FAILED`; the change stays pending.
+
+#### 4.18.16 `api->wb->pending`
+
+4.18.16.1 `int pending(void)` returns 1 when the calling image's medium has a change the file does not have, else 0.
+
+#### 4.18.17 `api->wb->file_read`, `api->wb->file_write`, `api->wb->file_size`
+
+4.18.17.1 `bool file_read(SvcWbFile *f, uint64_t off, void *buf, uint32_t len)` and `bool file_write(SvcWbFile *f, uint64_t off, const void *buf, uint32_t len)` are all or nothing; a write at the end makes the file longer. `uint64_t file_size(SvcWbFile *f)` is the size of the file. They are for the writer, on the two files it is given.
+
+#### 4.18.18 `api->wb->error`
+
+4.18.18.1 `const char *error(int code)` returns the words of an `SVCWB_*` code, for the log.
 
 ## 5. Operation types
 

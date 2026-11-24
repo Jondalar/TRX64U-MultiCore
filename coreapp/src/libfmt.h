@@ -33,7 +33,7 @@
 // The application binary interface the base offers, as major.minor. A file carries the majors it knows (abi_min .. abi_max); the
 // minor is a dependency like any other: `needs base >= 3.1` (D11). Version numbers are major << 16 | minor.
 #define U2A_ABI_MAJOR 3
-#define U2A_BASE_MINOR 3                /* 3.1 (T197): api->lib, the call tables libraries export; 3.2 (T239.3, one minor per SDK release, 0.2.0): the poll of a library that loads after the core has started, the budget record, a library's memory account, named exports; 3.3 (T239.3, SDK 0.3.0): api->sync, settings, ctx, io and board, the members added to sys and fs, the states set.<key> and net.gated */
+#define U2A_BASE_MINOR 4                /* 3.1 (T197): api->lib, the call tables libraries export; 3.2 (T239.3, one minor per SDK release, 0.2.0): the poll of a library that loads after the core has started, the budget record, a library's memory account, named exports; 3.3 (T239.3, SDK 0.3.0): api->sync, settings, ctx, io and board, the members added to sys and fs, the states set.<key> and net.gated; 3.4 (T239.3 D51, SDK 0.4.6): api->wb, the write-back service for libraries (svc_wb.h) */
 #define U2A3_VERSION(major, minor) ((uint32_t)(((major) << 16) | (minor)))
 
 // Limits the loader enforces before it allocates anything.
