@@ -37,7 +37,7 @@ ROOT0 = os.path.abspath(os.path.join(HERE, ".."))
 LEDGER0 = os.path.join(HERE, "d24_ledger.txt")
 TARGETS0 = os.path.join(HERE, "d24_targets.txt")
 TARGETS = ("data", "core-library", "shared-library", "ultimate-repo", "generic-module")
-# T239.3 D12: what goes to TRX64-Ultimate from this repository (trx64u_ops, u64cfg, the monitor, the ring, trxmon; its menu and c64.cc are gone since P1-8, P2-6 deletes the rest; trex_crt is not a ledger file; c64_go.cc stays as part of the cbmrun library)
+# T239.3 D12: what goes to TRX64-Ultimate from this repository (u64cfg, the monitor, the ring, trxmon; its menu and c64.cc are gone since P1-8, P2-6 deletes the rest; trex_crt is not a ledger file; c64_go.cc stays as part of the cbmrun library)
 D12_TRX64U = [r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)",
               r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h", r"coreapp/src/trxmon/.*"]
 

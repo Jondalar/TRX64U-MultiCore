@@ -211,6 +211,23 @@ int main()
         delete r;
     }
 
+    // ---- D50/D51 (review): the real c64_cart.cc drops the cartridge's cached lines (cmd.inval) after an image write and in c64_cart_drop_cache, and an image write is no change to write back
+    {
+        Rig *r = ef_rig(4);
+        uint8_t b[16];
+        memset(b, 0x5A, sizeof(b));
+        r->m.p4[C64_CART_CMD] = 0;
+        c64_cart_image_write(&r->c, 0x100, b, sizeof(b));
+        CHECK_EQ(r->m.p4_get(C64_CART_CMD), C64_CART_CMD_INVAL);
+        CHECK_EQ(r->img(0x100), 0x5A);                              // the bytes went to the image
+        CHECK(!wb_pending());                                       // a restore is not a change
+        r->m.p4[C64_CART_CMD] = 0;
+        c64_cart_drop_cache(&r->c);
+        CHECK_EQ(r->m.p4_get(C64_CART_CMD), C64_CART_CMD_INVAL);
+        CHECK(!wb_pending());
+        delete r;
+    }
+
     // ---- S1: EasyFlash save on Auto
     {
         Rig *r = ef_rig(4);

@@ -2,7 +2,7 @@
 """T192.3 S1 and S6 (D23): the core menu controller (coreapp/src/menuctl.cc, menuctl.h) is navigation, dialogs and rows - and nothing of the domain.
 
 What it refuses in menuctl.cc and menuctl.h (comments and string contents do not count: only the code is looked at):
-  - an #include of pad.h writeback.h t64.h monitor.h volume.h wifinet.h partial.h home.h engines.h trx64u_ops.h video.h
+  - an #include of pad.h writeback.h t64.h monitor.h volume.h wifinet.h partial.h home.h engines.h video.h
   - a name that begins pad_ wb_ t64_ mon_ volume_ or wifi (a call, a member, a type)
   - ops_call / ops_call_direct / ops_state / ops_run_bound with a literal operation or state name (the name of an operation is data: the key table, the flow table, the
     descriptor - never a string in the controller)
@@ -20,7 +20,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FILES = ["coreapp/src/menuctl.cc", "coreapp/src/menuctl.h"]
 RAW_HANDLERS = {"text_key", "pick_key", "entry_key"}
-BAD_INCLUDES = {"pad.h", "writeback.h", "t64.h", "monitor.h", "volume.h", "wifinet.h", "partial.h", "home.h", "engines.h", "trx64u_ops.h", "video.h"}
+BAD_INCLUDES = {"pad.h", "writeback.h", "t64.h", "monitor.h", "volume.h", "wifinet.h", "partial.h", "home.h", "engines.h", "video.h"}
 BAD_PREFIX = re.compile(r"\b(?:pad_|wb_|t64_|mon_|volume_|wifi)\w*")
 OPS_LITERAL = re.compile(r"\b(ops_call|ops_call_direct|ops_state|ops_run_bound)\s*\(\s*[^,()]+,\s*\"")
 KEY_CONST = re.compile(r"\bKEY_[A-Z0-9_]+\b")
