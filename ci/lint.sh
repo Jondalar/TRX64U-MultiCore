@@ -171,8 +171,8 @@ check "treesync: persistent build tree touches only what changed (T174)" ci/test
 # run's commit and runs ci/child.sh; the environments vivado and builds sit only where D1 and D14 want them; every bench has one owner (ci/sims.lane).
 check "children table and workflows (D4, S6)" python3 ci/orchestrate.py check
 check "children table: graph, outputs, check (S6)" python3 -I ci/test_orchestrate.py
-# T239.1 S6: no call of the Gitea API in ci/ or tools/ (releases and statuses are GitHub's now). The one named exception is the Gitea read of the .cor import on the
-# Mac (D22). This file and the scanner's own selftest strings are not calls.
+# T239.1 S6: no call of the Gitea API in ci/ or tools/ (releases and statuses are GitHub's now). The named exceptions are the Gitea read of the .cor import on the
+# Mac (D22) and the builder's fetch of a pinned finished .cor (ci/imports.py fetch, T239.3 D45: its URL comes from the builder's environment, not from a file). This file and the scanner's own selftest strings are not calls.
 check "no Gitea API calls (T239.1 S6)" bash -c '
   hits=$(git ls-files -- ci tools | grep -vE "^(tools/pack_import_cor\.sh|ci/lint\.sh|ci/check_pkg\.py)$" \
     | xargs grep -nE "/api/v1|/api/packages" 2>/dev/null || true)

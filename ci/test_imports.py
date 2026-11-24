@@ -133,8 +133,8 @@ class ImportsTest(unittest.TestCase):
             seen.append(url)
             return Resp(blob)
         store = os.path.join(self.root, "store2")
-        I.fetch(pin, store, "x", base="https://registry.invalid/api/packages/o/generic/", opener=good)
-        self.assertEqual(seen, ["https://registry.invalid/api/packages/o/generic/pkg/v1/d_1.cor"])
+        I.fetch(pin, store, "x", base="https://registry.invalid/p/o/generic/", opener=good)
+        self.assertEqual(seen, ["https://registry.invalid/p/o/generic/pkg/v1/d_1.cor"])
         self.assertEqual(open(os.path.join(store, sha), "rb").read(), blob)
         os.unlink(os.path.join(store, sha))
         with self.assertRaises(I.ImportError_):

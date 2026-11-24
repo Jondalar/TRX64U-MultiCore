@@ -1210,7 +1210,7 @@ static void list_rules(const char *out)
     ui_set_canvas(960, 540);
     printf("S1 list rules: %d cores, %d lists, %d selection states, %d rows with a second line, %d marked rows, %d legends, %d failed\n",
            s1cores, s1lists, s1states, s1two, s1marked, s1legends, s1fails);
-    CHECK(s1cores >= 18 && s1lists >= 18 && s1states > 500);
+    CHECK(s1cores >= 17 && s1lists >= 17 && s1states > 500);   // the core table's 17 (T239.3 P1-8: no C64 any more)
     CHECK(s1two > 0);                                                       // the control needs two-line rows to see: the files' paths
     CHECK(s1legends > 0 && s1marked > 0);
 }
@@ -1443,7 +1443,7 @@ static void ux_rules(void)
     }
     printf("UX rules: %d cores, %d with a hotkey map, %d generic rows compared with their route, %d storage rows in F7, %d F8 focuses, %d value changes, %d failed\n",
            uxcores, uxhot, uxcmp, uxstor, uxf8, uxvals, uxfails);
-    CHECK(uxcores >= 18 && uxhot >= 1 && uxcmp > 60 && uxf8 == uxcores && uxvals > 20);
+    CHECK(uxcores >= 17 && uxhot >= 1 && uxcmp > 60 && uxf8 == uxcores && uxvals > 20);
 }
 
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
@@ -1594,14 +1594,12 @@ static void ux_chrome(void)
     }
     ui_set_canvas(960, 540);
     printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of cores with a PC keyboard, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    // The floors are what the walk gives. Cores: the core table holds 18, each at 3 canvases. Legends: the last run that walked TRX64U as a 19th core (CI run 45343698388, after T239.3 L-3 took
-    // its F3 tab Online, which comes from the sub-app apps/online that this test does not load) counted 477; TRX64U had 15 views per canvas in it (11 tabs and 4 pages: Picture, SID sockets,
-    // Hotkeys, Network settings), one legend per view, so 15 x 3 = 45 of the 477 were its own: 477 - 45 = 432. The other counts of that run (369 tab strips, 2385 rail items, 57 pages, 462 page rows,
-    // 222 key names of cores with a PC keyboard) lose TRX64U's share too and stay above their floors: 11 x 3 = 33 strips (336 left of > 300), 4 x 3 = 12 pages (45 left of >= 9); of the 2385 rail
-    // items (about 8 per view) 15 x 3 x 8 = 360 were its own, about 2000 are left of > 1000; the page rows (462 over 57 pages, one per row of each page) lose the rows of its 12 pages, and the other 45 pages
-    // hold more than the 30 the check wants (the Hotkeys pages alone: one page per canvas for each core with a hotkey map); the key names are counted for the cores with a PC keyboard only,
-    // which TRX64U never was (g_pc_core was false for it): 222 stay.
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 432 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
+    // The floors are what the walk gives. Cores: the core table holds 17 (coreapp/src/table.cc), each at 3 canvases. Before T239.3 P1-8 this walk had 19: the table's 18
+    // with the generic C64 descriptor c64_desc, and the C64 once more as TRX64U's menu record (`all.push_back(0)`); P1-8 removed both. CI run 45343698388 (the last
+    // with both) counted 477 legends, run 45371924902 (the first without) 417: 45 were the record's (15 views per canvas), 15 the generic descriptor's. The other counts
+    // of run 45371924902 against their floors: 321 tab strips (> 300), 2085 rail items (> 1000), 45 pages (>= 9), 306 page rows (> 30), 222 key names of cores with a PC
+    // keyboard (> 30; TRX64U never was one).
+    CHECK(ucn_cores >= 3 * 17 && ucn_leg >= 417 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
