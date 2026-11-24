@@ -1388,6 +1388,29 @@ class DriverTable(unittest.TestCase):
         self.assertIn("DRV_cart_flash_rom_sel_WR", names)
         self.assertIn("(*DRV_PTR(uint16_t, DRV_cart_flash_fl_magic1_ADDR) = (uint16_t)(v))", h)   # the access is as wide as the property
 
+    def test_a_core_library_gets_no_write_macro_of_a_base_block_but_keeps_the_rest(self):
+        # T239.3 D50: the _WR macros of a block of the base sit inside #ifndef DRV_BASE_READ_ONLY (a core's own sources are built with the define); a block of the core keeps its writes
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        kept, skip = [], False
+        for ln in h.splitlines():                                   # the preprocessor with DRV_BASE_READ_ONLY defined, for these guards
+            if ln == "#ifndef DRV_BASE_READ_ONLY":
+                skip = True
+            elif ln == "#endif" and skip:
+                skip = False
+            elif not skip:
+                kept.append(ln)
+        names = {ln.split()[1].split("(")[0] for ln in kept if ln.startswith("#define ")}
+        self.assertFalse([n for n in names if n.startswith("DRV_cart_flash_") and n.endswith("_WR")])      # cart_flash is a block of the base
+        self.assertIn("DRV_cart_flash_fl_enable_ADDR", names)                     # the address stays: an offset is DRV_b_p_ADDR - DRV_b_ADDR
+        self.assertIn("DRV_cart_flash_rom_sel_RD", names)
+        self.assertIn("DRV_cart_flash_evt_op_MASK", names)
+        self.assertIn("DRV_cart_flash_evt_op_chip_erase", names)
+        self.assertIn("DRV_mixer_OWNER", names)
+        self.assertTrue([n for n in {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")} if n.startswith("DRV_cart_flash_") and n.endswith("_WR")])   # the full header has them
+        mix = [n for n in names if n.startswith("DRV_mixer_") and n.endswith("_WR")]
+        full_mix = [ln for ln in h.splitlines() if ln.startswith("#define DRV_mixer_") and "_WR(" in ln]
+        self.assertEqual(len(mix), len(full_mix))                                  # the core's own block loses nothing
+
     def test_a_run_of_registers_has_its_count_and_takes_the_index_of_the_element(self):
         h, _ = self.generate(src("desc_toml_a.toml"))
         lines = h.splitlines()
@@ -1427,13 +1450,13 @@ class DriverTable(unittest.TestCase):
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
         self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug"])
-        self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
+        self.assertEqual([b["name"] for b in r["block"] if b["owner"] != "base"], ["cmd_if", "gcr_coder"])   # the command interface and its GCR coder are core blocks (D48, D49): no base code drives them
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
         import re
         h, _ = self.generate(self.shared())
         defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
-        for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
+        for f in ("hw.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 for n, line in enumerate(fh, 1):
                     for tok in re.findall(r"\bDRV_[A-Za-z0-9_]+", line):
@@ -1508,7 +1531,7 @@ class ExampleCore(unittest.TestCase):
         with open(os.path.join(self.ROOT, "coreapp", "gateware", "shared.toml")) as f:
             sh = D.toml_loads(f.read())
         base = [b for b in ex["block"] if b["owner"] == "base"]
-        self.assertEqual(base, sh["block"])
+        self.assertEqual(base, [b for b in sh["block"] if b["owner"] == "base"])   # cmd_if and gcr_coder are core blocks of the shared TOML A (D48), the example runs no UCI
         self.assertEqual(ex["io"], sh["io"])
 
     def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):

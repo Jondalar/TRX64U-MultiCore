@@ -4,6 +4,7 @@
 #include "libexp_util.h"
 #include "c64cart_api.h"
 #include "c64_cart.h"
+#include "c64_regs.h"
 #include "writeback.h"
 #include "appsvc.h"
 #include "desc.h"
@@ -46,6 +47,7 @@ static void cart_ram_write(uint32_t off, const uint8_t *src, uint32_t n)
 {
     if (off <= cart_ram_size() && n <= cart_ram_size() - off) {
         g_c->io->ddr_abs_write(CART_RAM_ABS + off, src, n);
+        g_c->io->wr(C64_CART_CMD, C64_CART_CMD_INVAL);                // cmd.inval of the cartridge page: the cached lines of the RAM go after every write, no caller does it (D50)
     }
 }
 

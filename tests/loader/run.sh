@@ -98,8 +98,8 @@ control() { cc_no_controls && return 0; pjob_spawn control_job "$@"; }
 exports_args() {   # exports_args SRCDIR: the test of the base's own tables (T239.3 base 3.3, libexports.cc) over the recording model of the code behind them
   loader_args "$1"
   LF=("$TST/test_exports.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
-      "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libexports.cc" "$1/libtab.cc" "$T/lib/libtab_table.cc" "$1/c64cart_exports.cc" "$1/cbm1541_exports.cc" "$1/uci_exports.cc" "$1/sid_exports.cc"
-      "$1/tempdisk_exports.cc" "$1/cbmprg_exports.cc" "$1/uci_slot.cc" "$1/sidfile.cc" "$TST/exports_stub.cc" "$ROOT/app/loaders/cbm_prg.cc")
+      "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libexports.cc" "$1/libtab.cc" "$T/lib/libtab_table.cc" "$1/c64cart_exports.cc" "$1/cbm1541_exports.cc" "$1/sid_exports.cc"
+      "$1/tempdisk_exports.cc" "$1/cbmprg_exports.cc" "$1/sidfile.cc" "$TST/exports_stub.cc" "$ROOT/app/loaders/cbm_prg.cc")
   python3 "$ROOT/tools/libtab.py" table "$TST/libs_exports.toml" "$T/lib"                                          # the library table of the test's TOML B (T239.3 P3-1)
   python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"   # the driver table the shared app is linked with (T239.3 D31)
   LA+=(-DDRV_PTR_HEADER='"drv_fake.h"' -I"$T/drv" -I"$T/lib" -I"$ROOT/tests" -I"$ROOT/coreapp/cores" -I"$ROOT/app/lib/cbm1541" -I"$ROOT/app/loaders")

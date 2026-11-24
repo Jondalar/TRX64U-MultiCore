@@ -1,4 +1,4 @@
-// T239.3 base 3.3: the tables the base answers api->lib->find with for the shared libraries that stay in it (libexports.cc): c64cart, cbm1541, uci, sid, tempdisk, cbmprg. The application's code
+// T239.3 base 3.3: the tables the base answers api->lib->find with for the shared libraries that stay in it (libexports.cc): c64cart, cbm1541, sid, tempdisk, cbmprg (uci left with D49: it is TRX64-Ultimate's library). The application's code
 // behind the members is a recording model (exports_stub.cc); what is proven is the table: found by name, size first, every member there, and each member calling the code the header
 // names with the core's context.
 #include <string>
@@ -9,7 +9,6 @@
 #include "libexports.h"
 #include "c64cart_api.h"
 #include "cbm1541_api.h"
-#include "uci_api.h"
 #include "sid_api.h"
 #include "tempdisk_api.h"
 #include "cbmprg_api.h"
@@ -21,13 +20,13 @@
 #include "fakes.h"
 #include "service.h"
 #include "exports_stub.h"
+#include "c64_regs.h"
 #define private public                 // the test reads what the setters of the drive library wrote
 #include "d1541_drive.h"
 #undef private
 
 #include "drvtab.h"                   // generated from coreapp/gateware/shared.toml, its registers redirected to g_drv_fake (tests/drv_fake.h)
 uint8_t g_drv_fake[0x200000];
-#define g_slot_regs (g_drv_fake + (DRV_cmd_if_ADDR & 0x1FFFFF))      // the command interface's SLOT_BASE (+0) and SLOT_ENABLE (+1), written by uci_slot.cc
 
 struct Host : LibHost {
     void *alloc(uint32_t n) override { return malloc(n); }
@@ -114,9 +113,6 @@ static void tables(CoreCtx *cx)
     const Cbm1541Api *drv = (const Cbm1541Api *)find_major("cbm1541", 1, &sz);
     CHECK(drv && sz == sizeof(Cbm1541Api) && drv->size == sizeof(Cbm1541Api));
     CHECK_EQ(null_members(drv, sz, offsetof(Cbm1541Api, slot_spec)), 0);
-    const UciApi *uci = (const UciApi *)find_major("uci", 1, &sz);
-    CHECK(uci && sz == sizeof(UciApi) && uci->size == sizeof(UciApi));
-    CHECK_EQ(null_members(uci, sz, offsetof(UciApi, start)), 0);
     const SidApi *sid = (const SidApi *)find_major("sid", 1, &sz);
     CHECK(sid && sz == sizeof(SidApi) && sid->size == sizeof(SidApi));
     CHECK_EQ(null_members(sid, sz, offsetof(SidApi, parse)), 0);
@@ -126,7 +122,7 @@ static void tables(CoreCtx *cx)
     const CbmPrgApi *prg = (const CbmPrgApi *)find_major("cbmprg", 1, &sz);
     CHECK(prg && sz == sizeof(CbmPrgApi) && prg->size == sizeof(CbmPrgApi));
     CHECK_EQ(null_members(prg, sz, offsetof(CbmPrgApi, place)), 0);
-    CHECK(find_major("c64cart", 2, &sz) == 0 && find_major("uci", 2, &sz) == 0 && find_major("cbmprg", 2, &sz) == 0);
+    CHECK(find_major("c64cart", 2, &sz) == 0 && find_major("uci", 1, &sz) == 0 && find_major("cbmprg", 2, &sz) == 0);
     CHECK(find_major("textgrid", 1, &sz) == 0);                                  // the monitor's grid is registered where the core has the monitor (libboard.cc)
 }
 
@@ -195,6 +191,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     uint8_t w[3] = { 7, 8, 9 }, r[3] = { 5, 5, 5 };
     c->ram_write(0xFFFD, w, 3);
     CHECK(io.win[0x00F00000u - 0x00EA8000u - 1] == 9 && io.win[0x00EF0000u - 0x00EA8000u + 0xFFFD] == 7);   // the last three bytes of the window
+    CHECK(io.regs[C64_CART_CMD & 0xFFF] == C64_CART_CMD_INVAL);              // ram_write drops the cartridge's cached lines itself (D50)
     c->ram_read(0xFFFD, r, 3);
     CHECK(r[0] == 7 && r[1] == 8 && r[2] == 9);
     uint8_t before = io.win[0x00EF0000u - 0x00EA8000u + 0xFFFE];
@@ -339,219 +336,6 @@ static void drive_table(CoreCtx *cx, WinIo &io)
     CHECK_EQ(d->create("/x.d81", CBM1541_FORMAT_D81, "blank", 0, 0), 0);
     CHECK(g_stub.log.find("create(/x.d81,2,blank)") != std::string::npos);
     cx->drive = 0;
-}
-
-namespace {
-struct Hk {
-    static int reu(uint32_t *s, uint32_t *o, char *img, int, char *busy, int) { *s = 16; *o = 4; strcpy(img, "reu.img"); strcpy(busy, ""); return 0; }
-    static bool drive_info(int idx, uint8_t *t, uint8_t *a, bool *p) { *t = 2; *a = (uint8_t)(8 + idx); *p = true; return idx == 0; }
-    static int drive_do(int idx, int what, const char *path, char *msg, int) { strcpy(msg, path); return idx * 10 + what; }
-    static int sid_map(uint8_t *d) { d[0] = 0x42; return 1; }
-    static bool ef_clear(uint8_t bank, bool high) { return bank == 8 && high; }
-    static void ramdrive(int n, int *type, uint32_t *size, uint32_t *base) { *type = 1; *size = 174848u * (n + 1); *base = 0x1000; }
-    static void palette(int what, uint8_t idx, uint8_t (*rgb)[3]) { rgb[0][0] = (uint8_t)(what * 16 + idx); }
-};
-}
-
-static void uci_table(CoreCtx *cx, CoreDesc &desc, BoardProfile &board)
-{
-    Host h;
-    OpRegistry reg;
-    LibLoader ld(&h, &reg, 3);
-    libexports_register(ld, cx);
-    const UciApi *u = (const UciApi *)find_major("uci", 1, 0);
-    g_stub = ExportsStub();
-    // the callbacks of a library, adapted to the application's UciHost: the context in front, a member past the caller's size is null
-    static UciHooks hooks = { sizeof(UciHooks), Hk::reu, Hk::drive_info, Hk::drive_do, Hk::sid_map, "/temp/mem.bin", Hk::ef_clear, Hk::ramdrive, Hk::palette };
-    u->start(0);
-    CHECK_EQ(g_stub.uci_starts, 0);                                        // no hooks: nothing started
-    u->start(&hooks);
-    CHECK_EQ(g_stub.uci_starts, 1);
-    CHECK(g_stub.ctx == cx);
-    const UciHost &uh = g_stub.host;
-    uint32_t s = 0, o = 0;
-    char img[16], busy[16];
-    CHECK_EQ(uh.reu(cx, &s, &o, img, sizeof(img), busy, sizeof(busy)), 0);
-    CHECK(s == 16 && o == 4 && !strcmp(img, "reu.img"));
-    uint8_t t = 0, a = 0;
-    bool p = false;
-    CHECK(uh.drive_info(cx, 0, &t, &a, &p) && t == 2 && a == 8 && p);
-    CHECK(!uh.drive_info(cx, 1, &t, &a, &p));
-    char m[16];
-    CHECK_EQ(uh.drive_do(cx, 1, 3, "/x.d64", m, sizeof(m)), 13);
-    CHECK_STR(m, "/x.d64");
-    uint8_t map[16];
-    CHECK(uh.sid_map(cx, map) == 1 && map[0] == 0x42);
-    CHECK_STR(uh.memory_file, "/temp/mem.bin");
-    CHECK(uh.ef_clear(cx, 8, true) && !uh.ef_clear(cx, 0, true));
-    int rt = 0;
-    uint32_t rs = 0, rb = 0;
-    uh.ramdrive(cx, 1, &rt, &rs, &rb);
-    CHECK(rt == 1 && rs == 174848u * 2 && rb == 0x1000);
-    uint8_t rgb[16][3] = { { 0 } };
-    uh.palette(cx, 2, 5, rgb);
-    CHECK_EQ(rgb[0][0], 37);
-    // the interface starts once: a second start with other hooks does nothing
-    u->start(&hooks);
-    CHECK_EQ(g_stub.uci_starts, 1);
-    CHECK_EQ(g_stub.host.sid_map(cx, map), 1);
-    // a library built against a shorter table: what it does not have answers "the machine has none"
-    libexports_register(ld, cx);
-    static UciHooks few = { offsetof(UciHooks, sid_map), Hk::reu, Hk::drive_info, Hk::drive_do, 0, 0, 0, 0, 0 };
-    u->start(&few);
-    CHECK_EQ(g_stub.uci_starts, 2);
-    const UciHost &us = g_stub.host;
-    CHECK(us.sid_map(cx, map) == 0 && !us.ef_clear(cx, 8, true));
-    CHECK(us.memory_file == 0);                                            // the library's default: uci.cc names its own
-    rt = 7; rs = 7; rb = 7;
-    us.ramdrive(cx, 0, &rt, &rs, &rb);
-    CHECK(rt == 0 && rs == 0 && rb == 0);
-    CHECK(us.drive_info(cx, 0, &t, &a, &p));                               // the members it has still work
-    libexports_register(ld, cx);
-    static UciHooks none = { sizeof(uint32_t) };
-    u->start(&none);
-    CHECK_EQ(g_stub.host.reu(cx, &s, &o, img, sizeof(img), busy, sizeof(busy)), -2);
-    CHECK(!g_stub.host.drive_info(cx, 0, &t, &a, &p));
-    CHECK_EQ(g_stub.host.drive_do(cx, 0, 0, "x", m, sizeof(m)), 1);
-    uint8_t pal0[16][3] = { { 1 } };
-    g_stub.host.palette(cx, 0, 0, pal0);                                   // nothing to call: nothing happens
-    CHECK_EQ(pal0[0][0], 1);
-
-    // the slot of the interface: ignored unless the core has "uci" and the board did not strike it
-    memset(g_slot_regs, 0xEE, 2);
-    desc.caps = 0;
-    desc.ncaps = 0;
-    CHECK_EQ(u->slot_enable(), 0);
-    u->set_slot_enable(1);
-    u->set_slot_base(0x47);
-    CHECK(g_slot_regs[0] == 0xEE && g_slot_regs[1] == 0xEE);               // the core has no UCI: no register is touched
-    static const char *const caps[] = { "iec", "uci" };
-    desc.caps = caps;
-    desc.ncaps = 2;
-    cx->board = &board;
-    board.probes = 0;
-    u->set_slot_enable(1);
-    CHECK(g_slot_regs[1] == 0xEE && u->slot_enable() == 0);                // the board's probe struck it
-    board.probes = BC_UCI;
-    u->set_slot_enable(1);
-    u->set_slot_base(0x47);
-    CHECK(g_slot_regs[0] == 0x47 && g_slot_regs[1] == 1 && u->slot_enable() == 1);
-    u->set_slot_enable(0);
-    CHECK(g_slot_regs[1] == 0 && u->slot_enable() == 0);
-    cx->board = 0;                                                          // no board profile: the core's own list decides (the old function's case)
-    u->set_slot_enable(1);
-    CHECK(g_slot_regs[1] == 1);
-    desc.caps = 0;
-    desc.ncaps = 0;
-}
-
-// The table of UciHooks lies in the image of the library that gave it: when that image is let go (here: a load that fails after the library called start) the adapters stop calling
-// through it, and a library loaded later may give its own table. uci_start itself runs once.
-namespace {
-struct FileSource : LibSource {
-    std::vector<uint8_t> d;
-    explicit FileSource(const char *name)
-    {
-        std::string p = std::string(FIXDIR) + "/" + name;
-        FILE *f = fopen(p.c_str(), "rb");
-        if (!f) {
-            printf("FAIL cannot open %s\n", p.c_str());
-            g_fails++;
-            return;
-        }
-        uint8_t b[4096];
-        size_t n;
-        while ((n = fread(b, 1, sizeof(b), f)) > 0) {
-            d.insert(d.end(), b, b + n);
-        }
-        fclose(f);
-    }
-    uint32_t size() override { return (uint32_t)d.size(); }
-    bool read(uint32_t off, void *dst, uint32_t n) override
-    {
-        if (off > d.size() || n > d.size() - off) {
-            return false;
-        }
-        memcpy(dst, d.data() + off, n);
-        return true;
-    }
-};
-struct Reg {
-    static const UciApi *u;
-    static LibLoader *ld;
-    static const UciHooks *tab;
-    static bool in_image;               // the table is copied into the image the call came from, and the loader is told no image is running (the hook of a base task)
-    static void call(const LibHost::Entry &e)
-    {
-        const UciHooks *t = tab;
-        if (in_image) {
-            memcpy(e.image, tab, sizeof(UciHooks));
-            t = (const UciHooks *)e.image;
-            ld->set_current(-1);
-        }
-        u->start(t);
-    }
-};
-const UciApi *Reg::u;
-LibLoader *Reg::ld;
-const UciHooks *Reg::tab;
-bool Reg::in_image;
-struct Hk2 {
-    static int sid_map(uint8_t *d) { d[0] = 0x43; return 1; }
-};
-}
-
-static void uci_hooks_lifetime(CoreCtx *cx)
-{
-    Host h;
-    OpRegistry reg;
-    LibLoader ld(&h, &reg, 3);
-    h.on_register = Reg::call;
-    libexports_register(ld, cx);
-    Reg::u = (const UciApi *)find_major("uci", 1, 0);
-    Reg::ld = &ld;
-    static UciHooks a = { sizeof(UciHooks), 0, 0, 0, Hk::sid_map, 0, 0, 0, 0 };
-    static UciHooks b = { sizeof(UciHooks), 0, 0, 0, Hk2::sid_map, 0, 0, 0, 0 };
-    static UciHooks mem = { sizeof(UciHooks), 0, 0, 0, Hk::sid_map, "/temp/gone.bin", 0, 0, 0 };
-    uint8_t map[16] = { 0 };
-    char err[LIB_ERR_MAX];
-    int hd = -1;
-    // a table of the base's own side (no image runs): a library that is let go does not take it away
-    g_stub = ExportsStub();
-    Reg::tab = &a;
-    Reg::in_image = false;
-    Reg::u->start(&a);
-    CHECK_EQ(g_stub.uci_starts, 1);
-    Reg::tab = 0;
-    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
-    Reg::u->start(&b);
-    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x42);
-    // the call came from the library's own code (the loader says which image runs): its table goes with it, and a later one is taken; uci_start does not run again
-    libexports_register(ld, cx);
-    g_stub = ExportsStub();
-    Reg::tab = &mem;
-    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
-    CHECK_EQ(g_stub.uci_starts, 1);
-    CHECK_STR(g_stub.host_live->memory_file, "/temp/gone.bin");          // a copy: the library's own string goes with its image
-    CHECK(g_stub.host_live->memory_file != (const char *)mem.memory_file);
-    Reg::tab = 0;
-    Reg::u->start(&b);
-    CHECK_EQ(g_stub.uci_starts, 1);
-    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
-    CHECK(g_stub.host_live->memory_file == 0);                             // the new table names none
-    Reg::u->start(&a);                                                     // a table in use is not replaced
-    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
-    // the table lies inside the image and no image is running: found by its address
-    libexports_register(ld, cx);
-    g_stub = ExportsStub();
-    Reg::tab = &a;
-    Reg::in_image = true;
-    { FileSource s("testlib.u2a"); CHECK_EQ(ld.load(&s, &hd, err, LIB_ERR_MAX), LIB_REGISTER); }
-    Reg::in_image = false;
-    CHECK_EQ(g_stub.uci_starts, 1);
-    Reg::u->start(&b);
-    CHECK(g_stub.host.sid_map(cx, map) == 1 && map[0] == 0x43);
-    h.on_register = 0;
 }
 
 static void sid_temp_tables(CoreCtx *cx)
@@ -791,8 +575,6 @@ int main()
     tables(&cx);
     cart_table(&cx, io, desc);
     drive_table(&cx, io);
-    uci_table(&cx, desc, board);
-    uci_hooks_lifetime(&cx);
     sid_temp_tables(&cx);
     prg_table(&cx, io);
     notify_by_name();

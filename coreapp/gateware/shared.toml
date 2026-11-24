@@ -58,17 +58,19 @@ size = 0x4000
 map = "cbm1541"
 
 [[block]]
+# The command interface: decoded by the host gateware, driven by no code of the base (D48, D49). A core that runs UCI (TRX64-Ultimate's trx64u) owns it.
 name = "cmd_if"
 module = "uci"
-owner = "base"
+owner = "core"
 address = 0x10044000
 size = 0x10
 map = "uci"
 
 [[block]]
+# The GCR coder: only the UCI server's DECODE_TRACK used it (D48, D49), so a core that runs UCI owns it.
 name = "gcr_coder"
 module = "gcr_coder"
-owner = "base"
+owner = "core"
 address = 0x10060500
 size = 0x10
 map = "gcr_coder"

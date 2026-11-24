@@ -3,7 +3,6 @@
 #include "c64_cart.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"
-#include "uci.h"
 #include "tempdisk.h"
 #include "writeback.h"
 #include "appsvc.h"
@@ -93,7 +92,5 @@ int CbmDrive::create(const char *path, int format, const char *name, char *msg, 
     return g_stub.rc;
 }
 
-// ---- uci.h, tempdisk.h
-void uci_start(CoreCtx *c, const UciHost *host) { note(c, "uci_start"); g_stub.uci_starts++; g_stub.host = *host; g_stub.host_live = host; }
 void tempdisk_init(void) {}
 void tempdisk_set(bool auto_cleanup, bool subfolders) { g_stub.temp_auto = auto_cleanup; g_stub.temp_sub = subfolders; }

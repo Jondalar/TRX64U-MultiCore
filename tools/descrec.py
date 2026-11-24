@@ -3399,7 +3399,7 @@ def drivers_files(doc, source="TOML A"):
     per property its address and an access macro for each direction the map allows (`_RD()` for r and rw, `_WR(v)` for w and rw, of the property's width),
     a property with a count (a run of registers) has `_COUNT` and `_STRIDE` (the bytes from one element to the next, the width unless the map says more) and takes the element's index in its macros (`_RD(i)`, `_WR(i, v)`; element i is at `_ADDR` + i * `_STRIDE`), and `_ADDR` is element 0,
     per field its shift and mask, and every state's value; a driver names a register only by these macros, so a block the bitstream lacks is a compile error
-    and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The source holds the table of the blocks (`drv_blocks`)."""
+    and a block of the base can be asked for with `#ifdef DRV_HAS_<block>`. The `_WR` macros of a block of the base are inside `#ifndef DRV_BASE_READ_ONLY` (D50: only the owner writes; a core's own library is compiled with that define). The source holds the table of the blocks (`drv_blocks`)."""
     import copy
     doc = copy.deepcopy(doc)
     compile_desc(doc)
@@ -3410,6 +3410,14 @@ def drivers_files(doc, source="TOML A"):
             raise DescError("driver table: the macro %s is made twice (a block, property, field or state name that repeats inside the prefix)" % name)
         names.add(name)
         defs.append("#define %s %s" % (name, value))
+
+    def ro_open(b):          # T239.3 D50: only the owner writes; a core's own library is built with -DDRV_BASE_READ_ONLY and gets no write macro of a base block
+        if b["owner"] == "base":
+            defs.append("#ifndef DRV_BASE_READ_ONLY")
+
+    def ro_close(b):
+        if b["owner"] == "base":
+            defs.append("#endif")
 
     io, ident = doc["io"], doc["identity"]
     define("DRV_IOBASE", "0x%08Xu" % io["iobase"])
@@ -3436,12 +3444,16 @@ def drivers_files(doc, source="TOML A"):
                 if "r" in p["dir"]:
                     define(pn + "_RD(i)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE))" % (ct, pn, pn))
                 if "w" in p["dir"]:
+                    ro_open(b)
                     define(pn + "_WR(i, v)", "(*DRV_PTR(%s, %s_ADDR + (uint32_t)(i) * %s_STRIDE) = (%s)(v))" % (ct, pn, pn, ct))
+                    ro_close(b)
             else:
                 if "r" in p["dir"]:
                     define(pn + "_RD()", "(*DRV_PTR(%s, %s_ADDR))" % (ct, pn))
                 if "w" in p["dir"]:
+                    ro_open(b)
                     define(pn + "_WR(v)", "(*DRV_PTR(%s, %s_ADDR) = (%s)(v))" % (ct, pn, ct))
+                    ro_close(b)
             for x in p.get("state", []):
                 define("%s_%s" % (pn, x["name"]), "%du" % x["value"] if x["value"] >= 0 else "(%d)" % x["value"])
             for f in p.get("field", []):

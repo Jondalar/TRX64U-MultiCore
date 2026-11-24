@@ -1,4 +1,4 @@
-# The command interface block (the slot registers CMD_IF_BASE + 0 and + 1 that uci_slot.cc drives; uci_slot_read_enable reads slot_enable back for the "uci" export). Offsets are bytes from the block's address.
+# The command interface block (the slot registers CMD_IF_BASE + 0 and + 1 that a core's UCI library drives, D48/D49). Offsets are bytes from the block's address.
 map = "uci"
 
 [[property]]

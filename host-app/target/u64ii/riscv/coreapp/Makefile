@@ -242,10 +242,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			netsvc.cc \
 			hostwifi.cc \
 			ringfile.cc \
-			command_intf.cc \
-			network_target.cc \
 			libfiles.cc \
-			trx64u_ops.cc \
 			kickstart.cc \
 			amiga.cc \
 			atari_sio.cc \

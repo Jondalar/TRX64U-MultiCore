@@ -21,6 +21,7 @@ It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The 
 | `libs/`, `gateware/` | `shared.toml` of each: the TOML B (the catalog of the shared libraries) and the TOML A of the shared app, the references a core's own start from. |
 | `menusim/`, `bin/menusim` | The menu simulator and the tree it builds from. See "The menu simulator". |
 | `licenses/` | The licence texts of the third-party code the base links. `NOTICE` names it. |
+| `handover/uci/` | Gideon's UCI server core (`command_intf.cc` and its headers), handed to TRX64-Ultimate once with its `PROVENANCE` and licence (SDK 0.4.6). Nothing in the SDK links it; the base has no UCI code. |
 | `example/` | A library of two source files with a menu TOML and a host test, and the example core's own TOML A (`example/gateware/`), TOML B and description (`example/app/`). |
 
 ## Requirements

@@ -57,22 +57,6 @@ size = 0x4000
 map = "cbm1541"
 
 [[block]]
-name = "cmd_if"
-module = "uci"
-owner = "base"
-address = 0x10044000
-size = 0x10
-map = "uci"
-
-[[block]]
-name = "gcr_coder"
-module = "gcr_coder"
-owner = "base"
-address = 0x10060500
-size = 0x10
-map = "gcr_coder"
-
-[[block]]
 name = "icap"
 module = "icap"
 owner = "base"

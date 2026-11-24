@@ -218,7 +218,7 @@ public:
     // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
     void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
-    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, uci, sid, tempdisk, cbmprg, textgrid): a name, the major of the table and the table, whose first
+    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, sid, tempdisk, cbmprg, textgrid): a name, the major of the table and the table, whose first
     // member is its size (uint32_t). A table with the name and major of an earlier one replaces it; a null table takes the entry away. `name` is kept, not copied (a string literal). find answers
     // such a table only for exactly its major, and a loaded library that exports the same major wins. False: the list is full (LIB_BASE_EXPORTS_MAX).
     bool add_export(const char *name, uint32_t major, const void *table);
