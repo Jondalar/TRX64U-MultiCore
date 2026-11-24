@@ -53,8 +53,16 @@ name = "drive_a"
 module = "c1541"
 owner = "base"
 address = 0x10020000
-size = 0x4000
+size = 0x1800
 map = "cbm1541"
+
+[[block]]
+name = "drive_wd"
+module = "c1541"
+owner = "base"
+address = 0x10021800
+size = 0x10
+map = "wd177x"
 
 [[block]]
 name = "cmd_if"

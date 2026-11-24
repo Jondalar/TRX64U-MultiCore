@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(root, "tools"))
 import app_build, descrec
 app = os.path.join(root, "cores", "vc20", "app")
 sdk = descrec.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]
-blocks = sdk["base_blocks"]
+blocks = sdk["base_blocks"] + ["drive_wd"]    # the VIC-20's app has no WD177x; test_cbm1541 (built with this table, its VIC-20 descriptor) also runs the drive library's WD177x tests, which need the block
 app_build.merge_a({"toml-a": os.path.join(app, "gateware.toml"), "toml-b": os.path.join(app, "sdk.toml"),
                    "base-toml-a": os.path.join(root, "coreapp", "gateware", sdk.get("base_toml_a", "shared.toml"))},
                   blocks, [os.path.join(root, "app", "sdkpkg", "maps")], out)

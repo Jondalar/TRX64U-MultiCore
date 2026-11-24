@@ -729,7 +729,7 @@ name = "drive_a"
 module = "drive_l2"
 owner = "core"
 address = 0x10020000
-size = 0x4000
+size = 0x1800
 map = "cbm1541"
 
 [[block]]

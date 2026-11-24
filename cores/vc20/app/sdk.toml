@@ -9,13 +9,13 @@ desc_record = true
 # the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
 desc = "vc20_desc"
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
-# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), its drive window (drive_a, a block of the host that layer 2 serves: the VIC-20's own drive blocks
-# come into gateware.toml with V-1c, until then it keeps this one), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host) and the IEC block,
-# whose version byte the board's IEC probe reads. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
+# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host) and the IEC block,
+# whose version byte the board's IEC probe reads. The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is
+# not taken, so the drive library's WD177x code (d1541_wd.cc) is not linked. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
 # cartridge, ring, REU or command interface probe in this app.
 toml_a = "gateware.toml"
 base_toml_a = "host.toml"
-base_blocks = ["cart_regs", "drive_a", "icap_id", "icap_data", "icap_enable", "icap_count", "icap_decouple", "iec_status"]
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "icap_decouple", "iec_status"]
 # coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
 base_sources = ["portdiag.cc"]
 
@@ -29,7 +29,7 @@ needs = ["cbm1541", "cbmrun"]
 # The 1541 drive A on the IEC bus (the VIC-20's drive_l2): the shared library, the same sources as trx64u's app links (S12)
 [[library]]
 name = "cbm1541"
-sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
+sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "cbm1541_exports.cc"]
 headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
 bind = "cbm1541_bind"
 register_ops = "cbm1541_register"
