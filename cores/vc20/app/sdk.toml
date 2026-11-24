@@ -9,13 +9,13 @@ desc_record = true
 # the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
 desc = "vc20_desc"
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
-# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host) and the IEC block,
-# whose version byte the board's IEC probe reads. The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is
+# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host), the IEC block,
+# whose version byte the board's IEC probe reads, and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36, as the VIC-20 had them before V-4). The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is
 # not taken, so the drive library's WD177x code (d1541_wd.cc) is not linked. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
 # cartridge, ring, REU or command interface probe in this app.
 toml_a = "gateware.toml"
 base_toml_a = "host.toml"
-base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status"]
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status", "audio_master"]
 # coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
 base_sources = ["portdiag.cc"]
 
