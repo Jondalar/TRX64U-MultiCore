@@ -71,14 +71,15 @@ grep -q -F '#define OPS_MAX 200' appcheck/appsizes.h && grep -q -F '#define CORE
 python3 "$P/tools/descrec.py" compile app/desc.toml appcheck/desc.bin --sizes app/toml_b.toml >/dev/null || fail "the example's description does not compile from the package"
 # the example core's own TOML A (S17): the base's blocks and the block of the core, whose map is beside the file; the driver table has the macros of the core's block
 python3 "$P/tools/descrec.py" compile gateware/example.toml appcheck/toma_example.bin --maps "$P/maps" --maps gateware >/dev/null || fail "the example's TOML A does not compile from the package"
-# the example's base blocks are the shared TOML A's blocks, so the two cannot drift apart
+# the example's base blocks are the shared TOML A's base blocks, so the two cannot drift apart (shared.toml also holds blocks of the core since
+# T239.3 D48-D50: cmd_if and gcr_coder are the C64 cores' own, not the example's)
 python3 -I - "$P/tools" gateware/example.toml "$P/gateware/shared.toml" <<'PY' || fail "the base blocks of the example's TOML A differ from the package's gateware/shared.toml"
 import sys
 sys.path.insert(0, sys.argv[1])
 import descrec as D
 ex = D.toml_loads(open(sys.argv[2]).read())
 sh = D.toml_loads(open(sys.argv[3]).read())
-sys.exit(0 if [b for b in ex["block"] if b["owner"] == "base"] == sh["block"] and ex["io"] == sh["io"] else 1)
+sys.exit(0 if [b for b in ex["block"] if b["owner"] == "base"] == [b for b in sh["block"] if b["owner"] == "base"] and ex["io"] == sh["io"] else 1)
 PY
 python3 "$P/tools/descrec.py" drivers gateware/example.toml appcheck/exdrv --maps "$P/maps" --maps gateware >/dev/null || fail "the driver table of the example's TOML A is not generated from the package"
 grep -q -F '#define DRV_example_ctl_control_WR(v)' appcheck/exdrv/drvtab.h && grep -q -F '#define DRV_example_ctl_OWNER 1' appcheck/exdrv/drvtab.h || fail "the driver table lacks the register macro or the owner of the example's own block"
