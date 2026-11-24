@@ -8,6 +8,8 @@ made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's
 from a large core).
 §1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21, D44 and D46, step P1-8:
 TRX64-Ultimate builds, tests and delivers `trx64u.cor` and `trx64g.cor`, MultiCore's package takes them by their SHA-256).
+§10 rewritten 2026-11-24 by both sides on Alex's go ("Yes, you may!", translated): T230's target split (the features of
+`trx64u` as generic modules of MultiCore) is replaced by the split of MultiCore T239.3 D21 and D44.
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -227,24 +229,14 @@ code; the generic coreapp's use of each is MultiCore T104.2.
   file names, the manifest's fields, the start file (including Gideon's application leaving it alone, §7), the
   application's address map or any other item of §8 — is announced before it is pushed.
 
-## 10. Target split (after the next release, MultiCore T230 D3 / D4)
+## 10. The split since T239.3 (MultiCore T239.3 D21, D44)
 
-§1 to §9 are the interim state. Alex, 2026-11-16: separating concerns is not enough while a feature change in
-TRX64-Ultimate breaks the contract because MultiCore owns the application's menu. The target follows MultiCore
-T192 D24 and T213 D1 (option B): the bitstream is described by its API TOML, a service with generic C modules
-does the work, chosen and parametrised by that TOML (which is no programming language), and the UI comes only
-from declarations (the UI TOML). Alex: *"Let's try it that way then. But first close all loose ends and a
-release."*
-
-- **TRX64-Ultimate owns** the bitstream and `trx64u`'s API TOML and UI TOML (the menu; since T239.3 P1-8 its own,
-  MultiCore no longer holds a copy).
-- **MultiCore owns** the host, the service with its generic C modules, the TOML schemas and the generic op list,
-  each versioned. The feature logic of `trx64u` (the Timewarp ring, the monitor, the streams, the U64 registers;
-  today in MultiCore's `coreapp/src`: `trx64u_ops`, `ring*`, `monitor`, `monsrv`, `u64cfg` and the stream code)
-  becomes such modules.
-- A feature change on TRX64-Ultimate's side is a change of its TOML; a feature that needs new logic is a module
-  request to MultiCore.
-- The contract then covers only these interfaces (the schemas, the op list, the modules' parameters) and their
+- **TRX64-Ultimate owns** the bitstream, `trx64u`'s TOML A and TOML B, its menu and the code of its features (the
+  Timewarp ring, the monitor, the U64 registers, UCI). It builds them with MultiCore's SDK as `trx64u`'s app and
+  libraries. MultiCore's package takes `trx64u.cor` and `trx64g.cor` unchanged, by their SHA-256 (T239.3 P1-8, D46).
+- **MultiCore owns** the host, the base (the service, the API, the generic modules) and the SDK, each versioned
+  (base API x.y, SDK x.y.z).
+- A feature change on TRX64-Ultimate's side is TRX64-Ultimate's own change, made against the SDK version it pins.
+  What a feature needs from the base (a service, an API call, a TOML field) is a request to MultiCore.
+- The contract covers these interfaces (the API, the TOML schemas, the operation list, the hand-over block) and their
   versions, not the features behind them.
-- Built after the next release. Until the move, a `trx64u` feature change on either side goes through the other
-  side as today (§9).
