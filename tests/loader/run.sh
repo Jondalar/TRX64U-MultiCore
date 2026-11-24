@@ -51,12 +51,13 @@ t = sys.argv[1]
 base = '[[area]]\nkey = "F5"\n  [[area.tab]]\n  id = "a"\n  name = "A"\n  widget = "nodes"\n'
 open(t + "/menu_route.bin", "wb").write(descrec.compile_text(base))
 open(t + "/menu_hide.bin", "wb").write(descrec.compile_text('hide = ["x"]\n'))
-open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000500\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n'))
+open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000500\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n[[window]]\nname = "iowin"\naddress = 0x04000040\nsize = 0x10\n[[window]]\nname = "boardwin"\naddress = 0x10100800\nsize = 0x10\n[[window]]\nname = "straddle"\naddress = 0xA00FFFF8\nsize = 0x10\n'))
 open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.tick"\nperiod_ms = 10\n'))
 PY
 
 loader_args() {   # loader_args SRCDIR: the compiler flags LA and the files LF of the test, for the product in SRCDIR
-  LA=($FLAGS "-DFIXDIR=\"$T\"" -DONLINE_ENTRY_NAME=online_lib_register -I"$ROOT/apps/online" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
+  python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"   # io.window translates into the bases of the app's TOML A (drvtab.h)
+  LA=($FLAGS "-DFIXDIR=\"$T\"" -DONLINE_ENTRY_NAME=online_lib_register -I"$T/drv" -I"$ROOT/apps/online" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
   LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
       "$1/libsvc.cc" "$ROOT"/apps/online/online_{lib,search,http,json}.cc "$1/apphost.cc" "$TST/apphost_stubs.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder; apphost.cc (the base's job table) over stubs of the screens
 }
