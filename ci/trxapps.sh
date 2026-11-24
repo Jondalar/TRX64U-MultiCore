@@ -207,9 +207,10 @@ else
     [ -s "$out/coreapps/$c.app" ] || { echo "trxapps: $c has no linked app in coreapps/" >&2; exit 1; }
     ! cmp -s "$out/coreapps/$c.app" "$H/u64ii/riscv/coreapp/result/coreapp.bin" || { echo "trxapps: coreapps/$c.app is the shared image (D25)" >&2; exit 1; }
   done
-  # S12: the cbm1541 library of the VIC-20's TOML B is the one of the shared app's (and so of trx64u's own image, which is linked from the same objects), and both link maps have its sources as inputs
+  # S12: the cbm1541 library of the VIC-20's TOML B is the one of the shared app's, and both link maps (coreapp.map, vc20.map) have its sources as inputs.
+  # trx64u's own image is TRX64-Ultimate's since P1-8 (6696d1028): no build here makes coreapp_trx64u.map any more.
   case " $SDK_OWN_APPS " in *" vc20 "*)
-    python3 -I "$B/tools/libtab.py" samelib "$B/coreapp/libs/shared.toml" "$B/cores/vc20/app/sdk.toml" cbm1541 "$H/u64ii/riscv/coreapp/output/coreapp_trx64u.map" "$out/coreapps/vc20.map";;
+    python3 -I "$B/tools/libtab.py" samelib "$B/coreapp/libs/shared.toml" "$B/cores/vc20/app/sdk.toml" cbm1541 "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/coreapps/vc20.map";;
   esac
 
   if [ -n "$cache" ]; then
