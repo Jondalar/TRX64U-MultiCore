@@ -2105,7 +2105,7 @@ static int av_parse(const char *text, uint32_t len, AvTest *t, DtErr *err)
             } else {
                 return fail(err, line, "[ask] takes questions = [1 to %d strings], good = [one answer per question], choices_N = [2 to %d labels] for question N, timeout_s, first_gate, stop_after_ok", AV_QS, AV_CH);
             }
-        } else if (sect == 3 && !strcmp(kv.key, "preset") && kv.type == V_STR && kv.s[0] && strlen(kv.s) < sizeof(t->preset)) {
+        } else if (sect == 3 && !strcmp(kv.key, "preset") && kv.type == V_STR && kv.s[0] && strlen(kv.s) < sizeof(t->preset) && !strpbrk(kv.s, "/\\:")) {
             cpy(t->preset, sizeof(t->preset), kv.s);
         } else {
             int k = av_knob_of(kv.key);

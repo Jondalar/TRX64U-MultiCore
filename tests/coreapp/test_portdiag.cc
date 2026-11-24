@@ -375,7 +375,6 @@ int main()
             OpIn in = in_str("assign", as);
             CHECK_EQ(reg5.call(&c5, "pd.av_free", &in, 1, &r5), OPE_OK);
         }
-        CHECK_EQ(io5.vfmt, io5.vfmt);
         uint8_t want[0x70];
         memcpy(want, io5.regs, sizeof(want));
         OpIn nm = in_str("name", "free1");

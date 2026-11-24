@@ -294,6 +294,7 @@ diag_pins: cores/diag/rtl/diag_pads.v cores/diag/sim/tb_pads.v cores/diag/sim/un
 diag_co: cores/diag/rtl cores/diag/sim/tb_co.v cores/diag/sim/co cores/diag/sd/tests coreapp/src coreapp/cores tests/coreapp/diag_co.cc tests/coreapp/fakes.h app/loaders app/video app/lib/cbm1541 host-app/software/hostapp host-app/software/io/c64
 diag_avenc: cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/av/c128_yc_ref.v cores/diag/sim/tb_avenc.v cores/diag/sim/avenc/run.sh
 diag_avregs: cores/diag/rtl/diag_regs.v cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/tb_avregs.v cores/diag/sim/avregs/run.sh
+diag_avmap: cores/diag/rtl/diag_regs.v cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/tb_avmap.v cores/diag/sim/avmap/run.sh
 c1541leds_c128: cores/c1541 cores/c128/layer2_c128.v cores/c128/mono/top.v
 c1541leds_c264: cores/c1541 cores/c264/layer2_c264.v cores/c264/mono/host/top.v
 c1541leds_vc20: cores/c1541 cores/vc20/layer2_vc20.v host/top.v

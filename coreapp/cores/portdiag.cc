@@ -322,7 +322,7 @@ static int av_load_path(CoreCtx *c, const char *path, OpOut &o)
             done++;
         }
     }
-    snprintf(o.msg, o.msglen, "%d rows loaded, %d unknown", done, bad);
+    snprintf(o.msg, o.msglen, "%d rows loaded, %d unknown (rows not in the file kept)", done, bad);
     return bad ? OPE_FAILED : OPE_OK;
 }
 static int op_av_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return av_load_path(c, a.s(0), o); }

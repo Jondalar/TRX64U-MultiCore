@@ -63,7 +63,7 @@ boundary scan of Gideon's firmware and on what two TV sets showed, and the two s
   reverse bits inside a group). H1 fits every observation so far: the lattice on the Sony's luma pin, Rick's colour only with odd
   settings, his chroma 180 degrees off. **H2: `AVID_SYNCn` is the composite sync on DIN 7 and `AVID_FB` the fast switching on DIN 8.**
   Both are hypotheses until S1 and S3 have run.
-- **SYNCn and FB** are tied off in every core (`cores/diag/mono/top.v:1898-1899`, `cores/c64scpu/mono/top.v:1438-1439`: SYNCn = 1,
+- **SYNCn and FB** are tied off in every core (`cores/diag/mono/top.v:1898-1899` before T259, `cores/c64scpu/mono/top.v:1438-1439`: SYNCn = 1,
   FB = 0; the sync rides in the words). What they do is not measured; H2 below.
 - **RGB.** Gideon's app offers "Analog Video Mode: CVBS + SVideo / RGB" (`u64_config.cc`: `CFG_ANALOG_OUT_SELECT`,
   `VIDEO_FMT_RGB_OUTPUT` in `C64_VIDEOFORMAT`). So the C64U puts out RGB on the same DAC channels in that mode; no core of ours can. C64U

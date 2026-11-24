@@ -951,7 +951,7 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
         v.m->row(0, l, 100, rt, 100, &a);
         CHECK(!strcmp(l, "Standard") && strstr(rt, "PAL 50 Hz"));
         shot("av");
-        for (int k = 0; k < DT_AV_N - 1; k++) { v.m->key(KEY_DOWN); }       // the selection on the last row (Lines 60 Hz): the page scrolls to the sync rows
+        for (int k = 0; k < DT_AV_N - 1; k++) { v.m->key(KEY_DOWN); }       // the selection on the last row (FB): the page scrolls to the sync rows
         ui_menu_render(*v.m);
         lv_timer_handler();
         lv_obj_invalidate(lv_screen_active());
