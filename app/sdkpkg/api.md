@@ -17,19 +17,19 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 3.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 4.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.3 writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2, 3.3 or 3.4. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). Base 3.4 added the members `exit_to_machine` and `goto_screen` of `api->overlay` (4.17.18, 4.17.19). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.4 writes `needs base >= 3.1`, `needs base >= 3.2`, `needs base >= 3.3` or `needs base >= 3.4`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.4.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.4.6 is base 3.4. Base 3.3 (SDK 0.4.5), base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 3. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 4. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
@@ -324,6 +324,18 @@ The operation group. It calls an operation of the registry by name, and it reads
 4.3.2.2 It returns null when the state is unknown, has no value, or the registry is not there yet.
 4.3.2.3 The getter of the state runs on the calling task and returns a pointer it owns. Copy the text before the next call.
 4.3.2.4 `rev` may be null. When it is not, it receives the revision of the state. The revision counts the changes the registry has seen. It changes only when some caller reads the state and finds another text than the last reader did.
+
+#### 4.3.3 The operations `menu.screen` and `app.open`
+
+Since base 3.0 (T256 D13 documents them).
+
+4.3.3.1 `menu.screen` (arguments `screen`, `unless`, both strings) asks the menu to show a screen. `screen` is a place of the menu, `"F1/timewarp"`: the area key, a slash and the id of a tab of the core's UI TOML; `"F3"` alone is the first tab of the area (the Library, when that tab is the browser). It is the operation behind the rows and hotkeys of the core that open a screen.
+4.3.3.2 The operation does not move the menu. It stores the request (`CoreCtx::want_screen`) and returns 0; the menu takes it when the row or the task of the menu that ran the operation returns, or when the menu opens next (a hotkey pressed while the machine runs opens the menu on that screen). A call from another place (a library's task, REST) leaves the request standing until one of these two happens: it does not move an open menu by itself. One request waits: the last call counts. A place the core does not have leaves the menu where it is, without an answer to the call.
+4.3.3.3 `unless` names a state value (empty: none). While that state has a text, the call fails with `OPE_FAILED` and that text as its message, and the request is not made.
+4.3.3.4 A call made while the menu idles, open or closed, moves nothing until one of those two happens. A caller that has to open the menu and go there at once uses `api->overlay->goto_screen` (4.17.19).
+4.3.3.5 `app.open` (arguments `app`, `action`, `file`, all strings; `action` and `file` may be empty) opens an application by name, as a menu row of an application does. The host takes the request at its next pass of the menu loop and loads the image there; the call does not wait for the application and returns 0 with the message `Opening <app> ...`.
+4.3.3.6 Only while the menu is open does the host take the request up (`AppHost::service`): a call made while the menu is closed waits until the menu opens. One request waits; a second call before the first is taken returns `OPE_BUSY`. One application is open at a time: while the screens or the task of another transient application are up the call returns `OPE_BUSY` with `Close <name> first.`; a resident application that is open is asked to end when another one is opened.
+4.3.3.7 `OPE_NOT_FOUND` says that the apps folder has no such application, `OPE_FAILED` that the core does not offer it, `OPE_UNSUPPORTED` that the build has no applications. The target `app:name[:action]` of `api->overlay->goto_screen` (4.17.19) makes the same request and opens the menu first.
 
 ### 4.4 `api->fs` (`SvcFs`)
 
@@ -1348,9 +1360,9 @@ Since base 3.3.
 | `SvcSurface.bytes` | The size of the buffer in bytes. It has to be `w * h * 2`. |
 | `SvcSurface.w`, `SvcSurface.h` | The size of the surface in pixels. It has to be the element's size in the TOML. |
 
-#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`, `OVL_E_NOFRAME`
+#### 4.17.7 `OVL_E_NONE`, `OVL_E_NAME`, `OVL_E_SIZE`, `OVL_E_BYTES`, `OVL_E_TAKEN`, `OVL_E_HANDLE`, `OVL_E_NOSERVICE`, `OVL_E_NOFRAME`, `OVL_E_ARG`
 
-Since base 3.3.
+Since base 3.3; `OVL_E_ARG` since base 3.4.
 
 | Symbol | Contract |
 |---|---|
@@ -1362,6 +1374,7 @@ Since base 3.3.
 | `OVL_E_HANDLE` | -5: not a handle of an element of this library. |
 | `OVL_E_NOSERVICE` | -6: no core runs, or the service is not up. |
 | `OVL_E_NOFRAME` | -7: there is no complete frame of the machine's picture to take (`frame`). The surface is unchanged. |
+| `OVL_E_ARG` | -8: a flag that `exit_to_machine` does not know, or a target that `goto_screen` cannot read (null, empty, or `OVL_TARGET_LEN` (48) characters or more). |
 
 #### 4.17.8 `api->overlay->show`
 
@@ -1387,7 +1400,9 @@ Since base 3.3.
 #### 4.17.12 `api->overlay->menu_hide`, `api->overlay->menu_show`
 
 4.17.12.1 `void menu_hide(void)` acts as the person's close of the menu (the leave intent). `void menu_show(void)` acts as the menu key. The main loop takes the call over at its next pass. `menu_hide` while the menu is closed and `menu_show` while it is open do nothing. One request waits for the pass: when a library calls both in one frame, the last call counts.
-4.17.12.2 While the menu is hidden, it is closed: the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the machine, and the menu key brings the menu back.
+4.17.12.2 `menu_hide` closes the menu only when no application's screens are open. While an application's session is open the leave intent goes to the session: `menu_hide` then closes the session, and the application with it unless it is resident, and the menu stays open (the person's RUN/STOP and the left arrow at the first tab do the same). A caller that has to leave to the machine whatever is open uses `exit_to_machine` (4.17.18).
+4.17.12.3 The four requests `menu_hide`, `menu_show`, `exit_to_machine` and `goto_screen` share one slot: of the calls made before the main loop's next pass the last one counts.
+4.17.12.4 While the menu is hidden, it is closed: the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the machine, and the menu key brings the menu back.
 
 #### 4.17.13 `api->overlay->error`
 
@@ -1424,6 +1439,39 @@ Since base 3.3, member after `still_palette` (SDK 0.4.5). A library checks the `
 4.17.16.1 `int canvas(int *w, int *h)` writes the size of the canvas the elements are placed on now into `*w` and `*h`, and returns 0.
 4.17.16.2 It is the geometry of the places, of `show` and of `frame`: the canvas of the video mode (640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above, 6.16.4). It follows a change of the mode, so a library asks again when it lays out its surface. The size of an element stays its row's; the canvas is what the anchor and the offset count from.
 4.17.16.3 It returns `OVL_E_NOSERVICE` under the same condition as `show`, or when `w` or `h` is null, and leaves `w` and `h` untouched.
+
+#### 4.17.17 Patterns for an application's own screens (T256 D12, D13)
+
+Since base 3.3, nothing new in the API: the base gives the means, and the application draws its own screen. Fullscreen, the picture of the machine and the update are the calls of 4.17.8 to 4.17.16 used in this way.
+
+4.17.17.1 Fullscreen on and off: an element of the size of the canvas, shown and removed. The core's UI TOML declares an `[[element]]` that fills the canvas (6.16); `canvas` (4.17.16) says the canvas's size now, and the element's row is placed on it as the TOML says (an element of 960 x 540 is cut on a smaller canvas, so a core lists one element per canvas it supports or lays its own surface out with `canvas`). `show(name, surface)` turns the screen on, `remove(handle)` turns it off. The element shows while the menu is closed on a C64-type core, and while the machine stands on any other (4.17.3); the application keeps the menu closed with `exit_to_machine` (4.17.18).
+4.17.17.2 The picture of the machine on and off: `frame(name, surface)` (4.17.14) paints the frame the machine drew last into the surface of an element, also while the machine runs. The picture is on while the application shows that surface, and off when it shows an opaque surface (4.17.17.1) or nothing; over a running C64-type machine the colour key `0x0841` lets the machine's own picture through, so an element that is all key colour is "picture on" without a copy.
+4.17.17.3 Updating the picture: the application paints again (`frame` into the same surface, `text`, its own pixels) and calls `update(handle)` (4.17.9); the element is drawn at the next frame. A scrub that moves the machine's frame while the machine stands is the case of 4.17.14.8.
+4.17.17.4 The base draws no bar, no time and no hint for an application (T256 D12): what stands on the element is the application's.
+
+#### 4.17.18 `api->overlay->exit_to_machine`, `OVL_EXIT_PAUSE`, `OVL_EXIT_KEEP_APP`
+
+Since base 3.4, member after `canvas` (SDK 0.4.6). A library or an application checks the `size` member of the table before it uses it.
+
+4.17.18.1 `int exit_to_machine(uint32_t flags)` leaves for the machine. It files one request that the main loop takes at its next pass, and returns 0 or an `OVL_E_*` code (`OVL_E_ARG` for a flag it does not know, `OVL_E_NOSERVICE`). What the pass does is not an answer to the call.
+4.17.18.2 In the one pass, in this order: the open application's session ends; the application ends too, unless it is resident and `OVL_EXIT_KEEP_APP` is set; Pause is set to `OVL_EXIT_PAUSE` (set: the machine stays stopped; not set: it runs, also when the person had paused it); the menu closes as the person's close does.
+4.17.18.3 `OVL_EXIT_PAUSE` = 1: the machine stays stopped. `OVL_EXIT_KEEP_APP` = 2: a resident application stays loaded and runs in the background; without the flag it ends. A transient application ends in any case.
+4.17.18.4 The call is refused as the person's close is when the core cannot run yet (the core's description names `needs_program` and no program is loaded): the menu stays, its status line says what the person's close says, and nothing ends and nothing is paused. A session that cannot let go (its task or a job does not stop within 4 s) is refused likewise, with the application's own sentence on the status line.
+4.17.18.5 While the menu is closed there is no session and nothing to close: a resident application ends unless `OVL_EXIT_KEEP_APP`, and the machine is not touched (`OVL_EXIT_PAUSE` does nothing).
+4.17.18.6 Return path of a transient application. The call only files the request. The base frees an application's image after the application's task and its jobs have returned, never at the call: the main loop waits for them for 4 s. The application therefore returns from its task entry (and ends its own jobs) after the call, and touches nothing of its own memory that it has handed to the base. A task that does not return keeps the image alive and the exit is refused (4.17.18.4). A call from an operation on the executor is safe too: the base takes the core lock before it frees the image, and the operation holds it.
+4.17.18.7 The order against the other requests is 4.17.12.3.
+
+#### 4.17.19 `api->overlay->goto_screen`
+
+Since base 3.4, member after `exit_to_machine` (SDK 0.4.6). A library or an application checks the `size` member of the table before it uses it.
+
+4.17.19.1 `int goto_screen(const char *target)` goes to a place of the menu or to an application. It files one request that the main loop takes at its next pass, and returns 0 or `OVL_E_ARG` (`target` null, empty or `OVL_TARGET_LEN` (48) characters or more) or `OVL_E_NOSERVICE`.
+4.17.19.2 `target` is a place of the menu (`"F3"`, `"F3/online"`: the area key and a tab id, as `menu.screen` names them, 4.3.3.1) or an application (`"app:name"` or `"app:name:action"`, as `app.open` names them, 4.3.3.5).
+4.17.19.3 In the one pass: the menu opens when it is closed; the session of another application ends (a resident application stays loaded, a transient one ends; the session of the application named by the target stays); the menu goes to the place, or the base files the `app.open` request, which the host takes at its next pass. When the Library is the place and an operation asked it to open on a folder (`lib.show`), the Library opens there.
+4.17.19.4 A place the core does not have, or an application the apps folder does not have, is not an error of the call: the menu stays where it is and its status line says so. A session that cannot let go is refused as in 4.17.18.4, and the menu does not move.
+4.17.19.5 Not while the core has not started and the menu is closed: nothing happens (the menu cannot open then).
+4.17.19.6 A transient application that calls it to go to another application returns from its task entry afterwards (4.17.18.6). A resident one need not.
+4.17.19.7 The order against the other requests is 4.17.12.3.
 
 ## 5. Operation types
 

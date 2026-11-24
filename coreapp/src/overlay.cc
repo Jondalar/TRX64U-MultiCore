@@ -1,5 +1,6 @@
 // The overlay service of the base (T256). See overlay.h for the state table and svc_overlay.h for the calls.
 #include "overlay.h"
+#include "libfmt.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -170,7 +171,7 @@ OvPlan ovl_plan(const OvState &s)
 // ---- the service ------------------------------------------------------------------------------------------------------------------------------------------------------
 OverlaySvc::OverlaySvc(OverlayLayer *layer, OverlayHost *host)
     : layer_(layer), host_(host), enabled_(false), own_picture_(false), n_(0), still_slot_(-1), base_still_(0), base_still_ok_(false), retake_(false), pal_(0), pal_owner_(OVL_OWNER_NONE), menu_up_(false), frozen_(false), paused_(false),
-      live_key_(false), closing_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), serial_(0), frames_(0), applied_(false)
+      live_key_(false), closing_(false), was_standing_(false), alpha_(255), ntext_(0), menu_req_(0), nav_(), serial_(0), frames_(0), applied_(false)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(&plan_, 0, sizeof(plan_));
@@ -275,6 +276,7 @@ void OverlaySvc::set_table(const UiElements *t, bool own_picture)
     enabled_ = true;
     ntext_ = 0;
     menu_req_ = 0;
+    nav_.kind = OVN_NONE;
     host_->leave();
     was_standing_ = false;
     settle();
@@ -294,6 +296,7 @@ void OverlaySvc::clear()
     pal_owner_ = OVL_OWNER_NONE;
     ntext_ = 0;
     menu_req_ = 0;
+    nav_.kind = OVN_NONE;
     menu_up_ = frozen_ = paused_ = live_key_ = closing_ = false;
     host_->leave();
     // the layer takes the state of no core at once: the core's picture, the key off, the alpha 255, nothing drawn
@@ -575,6 +578,7 @@ const char *OverlaySvc::error(int code)
     case OVL_E_HANDLE: return "not a handle of an element of this library";
     case OVL_E_NOSERVICE: return "the overlay service is not up";
     case OVL_E_NOFRAME: return "there is no complete frame of the machine's picture to take";
+    case OVL_E_ARG: return "a flag or a target the call cannot read";
     default: return "unknown code";
     }
 }
@@ -750,6 +754,7 @@ void OverlaySvc::menu_hide()
 {
     host_->enter();
     menu_req_ = 1;
+    nav_.kind = OVN_NONE;
     host_->leave();
 }
 
@@ -757,7 +762,54 @@ void OverlaySvc::menu_show()
 {
     host_->enter();
     menu_req_ = 2;
+    nav_.kind = OVN_NONE;
     host_->leave();
+}
+
+int OverlaySvc::exit_to_machine(uint32_t flags)
+{
+    if (!enabled_) {
+        return OVL_E_NOSERVICE;
+    }
+    if (flags & ~(uint32_t)(OVL_EXIT_PAUSE | OVL_EXIT_KEEP_APP)) {
+        return OVL_E_ARG;
+    }
+    host_->enter();
+    menu_req_ = 0;
+    nav_.kind = OVN_EXIT;
+    nav_.flags = flags;
+    nav_.target[0] = 0;
+    host_->leave();
+    return 0;
+}
+
+int OverlaySvc::goto_screen(const char *target)
+{
+    if (!enabled_) {
+        return OVL_E_NOSERVICE;
+    }
+    if (!target || !target[0] || strlen(target) >= OVL_TARGET_LEN) {
+        return OVL_E_ARG;
+    }
+    host_->enter();
+    menu_req_ = 0;
+    nav_.kind = OVN_GOTO;
+    nav_.flags = 0;
+    memcpy(nav_.target, target, strlen(target) + 1);
+    host_->leave();
+    return 0;
+}
+
+bool OverlaySvc::take_nav(OvNav *out)
+{
+    host_->enter();
+    const bool any = nav_.kind != OVN_NONE;
+    if (any) {
+        *out = nav_;
+        nav_.kind = OVN_NONE;
+    }
+    host_->leave();
+    return any;
 }
 
 void OverlaySvc::drop_owner(int owner)
@@ -830,4 +882,59 @@ int ovl_menu_request(int req, bool menu_open, bool started, OvMenuPort *port)
         return OVM_OPENED;
     }
     return OVM_NOTHING;
+}
+
+// The main loop's pass over the navigation request (T256 D13). Exit: refused, with the status of the person's close, while the core cannot run; else the session and the application end (a resident one
+// stays with OVL_EXIT_KEEP_APP), Pause is set to the flag, and the menu closes - in this order, in the one pass. Goto: the menu opens if it is closed, another application's session ends, and the menu goes to
+// the place or opens the application; the application opens at the loop's next pass (the host takes a request while the menu is open).
+int ovl_nav_request(const OvNav &nav, bool menu_open, bool started, OvNavPort *port)
+{
+    if (nav.kind == OVN_EXIT) {
+        const bool keep = (nav.flags & OVL_EXIT_KEEP_APP) != 0;
+        if (!menu_open) {
+            if (port->app_open() && !port->end_app(keep)) {
+                return ONV_STUCK;
+            }
+            return ONV_EXITED;
+        }
+        if (!port->can_run()) {
+            port->refuse();
+            return ONV_REFUSED;
+        }
+        if (port->app_open() && !port->end_app(keep)) {
+            return ONV_STUCK;
+        }
+        port->set_paused((nav.flags & OVL_EXIT_PAUSE) != 0);
+        port->close_menu();
+        return ONV_EXITED;
+    }
+    if (nav.kind != OVN_GOTO || (!menu_open && !started)) {
+        return ONV_NOTHING;
+    }
+    const bool app = !strncmp(nav.target, "app:", 4);
+    char name[U2A3_NAME_MAX], action[32];
+    name[0] = action[0] = 0;
+    if (app) {
+        const char *n = nav.target + 4;
+        const char *colon = strchr(n, ':');
+        const size_t nl = colon ? (size_t)(colon - n) : strlen(n);
+        if (!nl || nl >= sizeof(name) || (colon && strlen(colon + 1) >= sizeof(action))) {
+            return ONV_NO_APP;
+        }
+        memcpy(name, n, nl);
+        name[nl] = 0;
+        if (colon) {
+            memcpy(action, colon + 1, strlen(colon + 1) + 1);
+        }
+    }
+    if (!menu_open) {
+        port->open_menu();
+    }
+    if (port->app_open() && !(app && port->session_of(name)) && !port->end_app(true)) {
+        return ONV_STUCK;
+    }
+    if (app) {
+        return port->open_app(name, action) ? ONV_WENT : ONV_NO_APP;
+    }
+    return port->go_place(nav.target) ? ONV_WENT : ONV_NO_PLACE;
 }

@@ -3628,6 +3628,9 @@ bool MenuCtl::goto_spec(const char *spec)
             }
         }
         go(a, t);
+        if (is_browser()) {
+            fm_.apply_pending();                                          // T256 D13: the Library opens where an operation asked (lib.show) when a goto brings the menu to it
+        }
         return true;
     }
     return false;                                                         // an area this core does not have

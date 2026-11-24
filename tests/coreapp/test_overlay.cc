@@ -150,6 +150,36 @@ struct MenuLog : OvMenuPort {
     void open_intent() { opens++; }
 };
 
+// T256 D13: a recording port of the main loop for exit_to_machine and goto_screen
+struct NavLog : OvNavPort {
+    bool run_ok = true, open = false, stuck = false, place_ok = true, app_ok = true;
+    char session[16] = "";
+    int refused = 0, ended = 0, closes = 0, opens = 0, places = 0, apps = 0, pauses = 0;
+    bool kept = false, paused = false;
+    char place[48] = "", app[16] = "", action[32] = "";
+    int order[8], n = 0;                        // the sequence of the calls that change things: 1 end, 2 pause, 3 close, 4 open, 5 place, 6 app
+    bool can_run() { return run_ok; }
+    void refuse() { refused++; }
+    bool app_open() { return open; }
+    bool session_of(const char *a) { return !strcmp(session, a); }
+    bool end_app(bool keep) { if (stuck) return false; ended++; kept = keep; order[n++] = 1; return true; }
+    void set_paused(bool p) { paused = p; pauses++; order[n++] = 2; }
+    void close_menu() { closes++; order[n++] = 3; }
+    void open_menu() { opens++; order[n++] = 4; }
+    bool go_place(const char *s) { places++; snprintf(place, sizeof(place), "%s", s); order[n++] = 5; return place_ok; }
+    bool open_app(const char *a, const char *ac) { apps++; snprintf(app, sizeof(app), "%s", a); snprintf(action, sizeof(action), "%s", ac); order[n++] = 6; return app_ok; }
+};
+
+static OvNav nav_of(int kind, uint32_t flags, const char *target = "")
+{
+    OvNav v;
+    memset(&v, 0, sizeof(v));
+    v.kind = kind;
+    v.flags = flags;
+    snprintf(v.target, sizeof(v.target), "%s", target);
+    return v;
+}
+
 static UiElements table()
 {
     UiElements t;
@@ -651,6 +681,122 @@ int main()
         CHECK_EQ(ovl_menu_request(OVR_SHOW, false, false, &m), OVM_NOTHING);                // the core has not started: nothing to open the menu on
         CHECK_EQ(ovl_menu_request(OVR_NONE, true, true, &m), OVM_NOTHING);
         CHECK(m.leaves == 2 && m.closes == 1 && m.opens == 1);
+    }
+    // ---- T256 D13: exit_to_machine in the main loop's pass: the session ends, Pause is set, the menu closes, in this order
+    {
+        NavLog m;
+        m.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, 0), true, true, &m), ONV_EXITED);        // no flag: the application ends, the machine runs
+        CHECK(m.ended == 1 && !m.kept && m.pauses == 1 && !m.paused && m.closes == 1);
+        CHECK(m.n == 3 && m.order[0] == 1 && m.order[1] == 2 && m.order[2] == 3);
+        NavLog p;
+        p.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_PAUSE), true, true, &p), ONV_EXITED);   // PAUSE: the machine stays stopped
+        CHECK(p.paused && !p.kept && p.closes == 1);
+        NavLog k;
+        k.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_KEEP_APP), true, true, &k), ONV_EXITED);   // KEEP_APP: told to the port, which keeps a resident application
+        CHECK(k.kept && !k.paused && k.closes == 1);
+        NavLog b;
+        b.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_PAUSE | OVL_EXIT_KEEP_APP), true, true, &b), ONV_EXITED);
+        CHECK(b.kept && b.paused && b.closes == 1);
+        NavLog none;                                                                        // no application: nothing to end
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, 0), true, true, &none), ONV_EXITED);
+        CHECK(none.ended == 0 && none.closes == 1);
+        NavLog w;                                                                           // the core waits for a program: refused as the person's close, nothing changes
+        w.run_ok = false;
+        w.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_PAUSE), true, true, &w), ONV_REFUSED);
+        CHECK(w.refused == 1 && w.ended == 0 && w.pauses == 0 && w.closes == 0);
+        NavLog s;                                                                           // an application that cannot stop: the menu stays, nothing is closed or paused
+        s.open = true;
+        s.stuck = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_PAUSE), true, true, &s), ONV_STUCK);
+        CHECK(s.pauses == 0 && s.closes == 0);
+        NavLog c;                                                                           // the menu is closed: only a resident application ends, the machine is not touched
+        c.open = true;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_EXIT, OVL_EXIT_PAUSE), false, true, &c), ONV_EXITED);
+        CHECK(c.ended == 1 && c.pauses == 0 && c.closes == 0 && c.refused == 0);
+    }
+    // ---- T256 D13: goto_screen in the pass: a place or an application; the menu opens if it is closed, another application's session ends first
+    {
+        NavLog m;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F3/online"), true, true, &m), ONV_WENT);
+        CHECK(m.places == 1 && !strcmp(m.place, "F3/online") && m.opens == 0 && m.ended == 0);
+        NavLog c;                                                                           // closed: it opens, then goes
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F3"), false, true, &c), ONV_WENT);
+        CHECK(c.n == 2 && c.order[0] == 4 && c.order[1] == 5);
+        NavLog f;                                                                           // another application's session is closed (the application stays when it is resident)
+        f.open = true;
+        strcpy(f.session, "other");
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F3/online"), true, true, &f), ONV_WENT);
+        CHECK(f.ended == 1 && f.kept && f.order[0] == 1 && f.order[1] == 5);
+        NavLog a;
+        a.open = true;
+        strcpy(a.session, "online");
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:trxmon:view"), false, true, &a), ONV_WENT);   // to an application: closed menu opens, the foreign session ends, app.open
+        CHECK(a.opens == 1 && a.ended == 1 && a.apps == 1 && !strcmp(a.app, "trxmon") && !strcmp(a.action, "view") && a.places == 0);
+        CHECK(a.order[0] == 4 && a.order[1] == 1 && a.order[2] == 6);
+        NavLog sm;                                                                          // the session of the application itself stays
+        sm.open = true;
+        strcpy(sm.session, "trxmon");
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:trxmon"), true, true, &sm), ONV_WENT);
+        CHECK(sm.ended == 0 && sm.apps == 1 && !strcmp(sm.action, ""));
+        NavLog np;                                                                          // no such place / no such application: the port said it
+        np.place_ok = false;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F9"), true, true, &np), ONV_NO_PLACE);
+        np.app_ok = false;
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:nothere"), true, true, &np), ONV_NO_APP);
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:"), true, true, &np), ONV_NO_APP);
+        NavLog nst;                                                                         // the core has not started and the menu is closed: nothing to open it on
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F3"), false, false, &nst), ONV_NOTHING);
+        CHECK(nst.opens == 0 && nst.places == 0);
+        NavLog stk;
+        stk.open = true;
+        stk.stuck = true;
+        strcpy(stk.session, "other");
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "F3"), true, true, &stk), ONV_STUCK);
+        CHECK_EQ(stk.places, 0);
+    }
+    // ---- T256 D13: the SDK calls file one request; hide, show, exit and goto share it and the last call counts; arguments are checked at the call
+    {
+        Rig r(true);
+        OvNav v;
+        CHECK(!r.svc.take_nav(&v));
+        CHECK_EQ(r.svc.exit_to_machine(0), 0);
+        CHECK(r.svc.take_nav(&v) && v.kind == OVN_EXIT && v.flags == 0);
+        CHECK(!r.svc.take_nav(&v));                                                         // taken once
+        CHECK_EQ(r.svc.exit_to_machine(OVL_EXIT_PAUSE | OVL_EXIT_KEEP_APP), 0);
+        CHECK(r.svc.take_nav(&v) && v.flags == (OVL_EXIT_PAUSE | OVL_EXIT_KEEP_APP));
+        CHECK_EQ(r.svc.exit_to_machine(4), OVL_E_ARG);                                      // an unknown flag
+        CHECK(!r.svc.take_nav(&v));
+        CHECK_EQ(r.svc.goto_screen(0), OVL_E_ARG);
+        CHECK_EQ(r.svc.goto_screen(""), OVL_E_ARG);
+        char longt[OVL_TARGET_LEN + 1];
+        memset(longt, 'x', sizeof(longt));
+        longt[OVL_TARGET_LEN] = 0;
+        CHECK_EQ(r.svc.goto_screen(longt), OVL_E_ARG);
+        longt[OVL_TARGET_LEN - 1] = 0;                                                      // the longest that fits
+        CHECK_EQ(r.svc.goto_screen(longt), 0);
+        CHECK(r.svc.take_nav(&v) && v.kind == OVN_GOTO && strlen(v.target) == OVL_TARGET_LEN - 1);
+        // the order: the last call counts, whichever kind it is
+        r.svc.exit_to_machine(0);
+        r.svc.goto_screen("F3/online");
+        CHECK(r.svc.take_nav(&v) && v.kind == OVN_GOTO && !strcmp(v.target, "F3/online"));   // exit, then goto: the goto
+        r.svc.goto_screen("F3/online");
+        r.svc.exit_to_machine(OVL_EXIT_PAUSE);
+        CHECK(r.svc.take_nav(&v) && v.kind == OVN_EXIT && v.flags == OVL_EXIT_PAUSE);        // goto, then exit: the exit
+        r.svc.exit_to_machine(0);
+        r.svc.menu_hide();
+        CHECK(!r.svc.take_nav(&v));                                                         // exit, then hide: the hide
+        r.svc.frame();
+        CHECK_EQ(r.host.hide, 1);
+        r.svc.menu_show();
+        r.svc.goto_screen("F3");
+        r.svc.frame();
+        CHECK_EQ(r.host.show, 0);                                                           // show, then goto: the goto, the show never reaches the board
+        CHECK(r.svc.take_nav(&v) && v.kind == OVN_GOTO);
     }
     // ---- D11: frame() paints the part of the picture under an element, at the picture's place and scale; the pixels the picture does not cover stay
     {

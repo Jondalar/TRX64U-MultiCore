@@ -378,6 +378,16 @@ struct LibSvc {
             L()->overlay_svc_->menu_show();
         }
     }
+    static int ovl_exit_to_machine(uint32_t flags)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->exit_to_machine(flags) : OVL_E_NOSERVICE;
+    }
+    static int ovl_goto_screen(const char *target)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->goto_screen(target) : OVL_E_NOSERVICE;
+    }
     static const char *ovl_error(int code) { return OverlaySvc::error(code); }
     static int ovl_frame(const char *name, const SvcSurface *sf)
     {
@@ -743,6 +753,8 @@ void LibLoader::add_services()
     overlay_.frame = LibSvc::ovl_frame;
     overlay_.still_palette = LibSvc::ovl_still_palette;
     overlay_.canvas = LibSvc::ovl_canvas;
+    overlay_.exit_to_machine = LibSvc::ovl_exit_to_machine;
+    overlay_.goto_screen = LibSvc::ovl_goto_screen;
 }
 
 // where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none

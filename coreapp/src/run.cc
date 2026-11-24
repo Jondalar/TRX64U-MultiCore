@@ -233,6 +233,49 @@ private:
     Close &close_;
 };
 
+// T256 D13: the main loop's side of exit_to_machine and goto_screen (ovl_nav_request, overlay.cc). The closes and opens are the loop's own, the person's keys' ones.
+template <class Close> class LoopNavPort : public OvNavPort {
+public:
+    LoopNavPort(CoreCtx &ctx, AppHost &apps, MenuCtl *menu, Close &close) : ctx_(ctx), apps_(apps), menu_(menu), close_(close) { }
+    bool can_run() { return menu_->closable(); }
+    void refuse() { menu_->say(ctx_.desc->needs_program, false); }          // the person's close says the same
+    bool app_open() { return apps_.open_name()[0] != 0; }
+    bool session_of(const char *app) { return apps_.session_is(app); }
+    bool end_app(bool keep_app)
+    {
+        char why[160];
+        if (apps_.leave_app(keep_app, why, sizeof(why))) {
+            return true;
+        }
+        menu_->say(why, true);
+        return false;
+    }
+    void set_paused(bool p) { ctx_.paused = p; }
+    void close_menu() { close_(); }
+    void open_menu() { uiapp_local_open(); }
+    bool go_place(const char *spec)
+    {
+        if (menu_->goto_spec(spec)) {
+            return true;
+        }
+        menu_->say("The menu has no such screen.", true);
+        return false;
+    }
+    bool open_app(const char *app, const char *action)
+    {
+        char msg[160];
+        msg[0] = 0;
+        const int rc = apps_.request(app, action, "", msg, sizeof(msg));
+        menu_->say(msg, rc != 0);
+        return rc == 0;
+    }
+private:
+    CoreCtx &ctx_;
+    AppHost &apps_;
+    MenuCtl *menu_;
+    Close &close_;
+};
+
 // T97 5.12: the interrupt guard. Three times (10-21, 10-22, 10-23) the core poll task ran on with mstatus.MIE 0 and no critical section
 // open: the tick stopped, the task spun on taskYIELD() and the core lost its sector service. Nobody may sleep or yield inside a critical
 // section, so MIE 0 here is always that defect: put interrupts back and say which trap returned last (mepc, mcause), so the next
@@ -1133,7 +1176,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
         ov->frame();
         LoopMenuPort<decltype(close_menu)> port(close_req, close_menu);
-        ovl_menu_request(ov_host.take_req(), menu_open, ctx.started, &port);
+        const int req = ov_host.take_req();
+        OvNav nav;
+        if (ov->take_nav(&nav)) {                  // a navigation call came after any hide / show: it counts, the older request is dropped (overlay.h)
+            LoopNavPort<decltype(close_menu)> nport(ctx, app_host, menu, close_menu);
+            ovl_nav_request(nav, menu_open, ctx.started, &nport);
+        } else {
+            ovl_menu_request(req, menu_open, ctx.started, &port);
+        }
         if (!menu_open && ov->holds_layer()) {
             ui_poll();
         }

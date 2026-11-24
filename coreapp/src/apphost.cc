@@ -456,6 +456,39 @@ bool AppHost::close_session(char *why, int whylen)
     return true;
 }
 
+bool AppHost::leave_app(bool keep_app, char *why, int whylen)
+{
+    if (handle_ < 0) {
+        return true;
+    }
+    if (!resident_ || keep_app) {
+        return close_session(why, whylen);               // no screens: nothing to close; a transient application's task ends on its own (service())
+    }
+    drop_session();
+    stop_ = true;
+    dlg_.abandon();
+    ld_->cancel_jobs(handle_);
+    uint32_t t0 = c_->io->now_ms();
+    for (;;) {
+        bool any = (task_alive_ && !task_done_) || ld_->jobs_running(handle_);
+        if (!any) {
+            break;
+        }
+        if (c_->io->now_ms() - t0 > 4000) {
+            stop_ = false;
+            snprintf(why, whylen, "%s is still working and cannot stop yet.", name_);
+            return false;
+        }
+        os_->sleep_ms(10);
+        dlg_.abandon();
+    }
+    task_alive_ = false;
+    task_done_ = false;
+    end_application();
+    stop_ = false;
+    return true;
+}
+
 // ---- the service groups ---------------------------------------------------------------------------------------------------------------------
 
 SvcJobH *AppHost::job_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t stack_bytes)
