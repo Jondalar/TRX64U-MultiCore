@@ -24,12 +24,14 @@ struct FakeProbe : BoardProbe {
     uint8_t caps = BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE | BOARD_TRX_CAPS_CART;
     uint8_t iec = BOARD_IEC_VERSION;
     bool valid = false;
+    bool part = true;
     int calls = 0;
     uint8_t icap_id() { calls++; return icap; }
     uint32_t fpga_caps() { return fpga; }
     uint8_t trx_caps() { return caps; }
     uint8_t iec_version() { return iec; }
     bool handover_valid() { return valid; }
+    bool partition_linked() { return part; }
 };
 
 struct Host : MenuHost {
@@ -96,6 +98,31 @@ int main()
     BoardProfile o = board_detect(&odd);
     CHECK_EQ(o.kind, BOARD_MONOLITH);
     CHECK(strstr(o.why, "0x41") != 0);
+
+    // T239.3 D37: the loader answers, the app is linked without the partition control. A valid page says a host started it: MultiCore, the way back, no flash settings
+    FakeProbe np;
+    np.icap = 0x7A;
+    np.part = false;
+    np.valid = true;
+    BoardProfile npv = board_detect(&np);
+    CHECK_EQ(npv.kind, BOARD_MULTICORE);
+    CHECK(npv.has_handover && npv.can_return_host);
+    CHECK(!npv.flash_cfg);
+    CHECK_STR(npv.boot_cfg, "/Flash/boot.cfg");
+    CHECK(npv.rom_dir == 0);
+    // ... without a page it is a standalone installation: the monolith's profile, no way back, its settings in the flash
+    np.valid = false;
+    BoardProfile npn = board_detect(&np);
+    CHECK_EQ(npn.kind, BOARD_MONOLITH);
+    CHECK(!npn.has_handover && !npn.can_return_host);
+    CHECK(npn.flash_cfg);
+    CHECK_STR(npn.rom_dir, "/flash/roms");
+    CHECK_STR(npn.why, "ICAP 0x7A, no partition, no hand-over: standalone");
+    // the same loader with the partition control and no page stays the MultiCore host (a layer-2 core started over JTAG), as hd above
+    np.part = true;
+    BoardProfile npp = board_detect(&np);
+    CHECK_EQ(npp.kind, BOARD_MULTICORE);
+    CHECK(npp.can_return_host && !npp.flash_cfg);
 
     // the menu: "Return to host menu" exists only where the loader does (negative control: the monolith model with the byte forced to 0x7A)
     for (int k = 0; k < 2; k++) {

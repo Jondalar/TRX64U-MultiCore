@@ -8,9 +8,11 @@ BoardProfile board_detect(BoardProbe *p)
     BoardProfile b;
     memset(&b, 0, sizeof(b));
     uint8_t icap = p->icap_id();
-    bool mc = icap == BOARD_ICAP_ID;
-    b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
     b.has_handover = p->handover_valid();              // T112 Q1: a large .cor start fills the page for the monolith profile too
+    bool loader = icap == BOARD_ICAP_ID;
+    bool partition = p->partition_linked();
+    bool mc = loader && (partition || b.has_handover);  // T239.3 D37: a loader without the partition control is the host's only with a page the host wrote
+    b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
     b.can_return_host = mc;
     b.flash_cfg = !mc;                                 // DC13: the parameter; the standalone installation has no host to keep its settings
     if (mc) {
@@ -43,6 +45,8 @@ BoardProfile board_detect(BoardProbe *p)
 
     if (mc) {
         snprintf(b.why, sizeof(b.why), "ICAP 0x%02X, %s", icap, b.has_handover ? "hand-over valid" : "no valid hand-over");
+    } else if (loader) {
+        snprintf(b.why, sizeof(b.why), "ICAP 0x%02X, no partition, no hand-over: standalone", icap);
     } else if (icap == 0) {
         snprintf(b.why, sizeof(b.why), "ICAP absent, %s", b.has_handover ? "hand-over valid" : "no hand-over");
     } else {

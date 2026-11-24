@@ -1015,8 +1015,8 @@ size = 0x14
         token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
                  "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
                  "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT",
-                 "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "U64_AUDIO_MIXER + 0x50",
-                 "master_tone": "U64_AUDIO_MIXER + 0x51", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS",
+                 "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "DRV_audio_master_volume_WR",
+                 "master_tone": "DRV_audio_master_tone_WR", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS",
                  "itu": "ITU_BASE", "sd_spi": "SDCARD_BASE", "flash_spi": "FLASH_BASE", "icap": "ICAP_BASE", "ethernet": "RMII_BASE", "wifi_uart": "WIFI_UART_BASE", "esp_ctl": "0x10060910", "usb": "USB_BASE"}
         for name, address, nbytes, ref in D.base_registers():
             path, _, line = ref.rpartition(":")
@@ -1234,7 +1234,7 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "sid", "uci"])
+        self.assertEqual(sorted(maps), ["audio_master", "c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "partition", "sid", "uci"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
@@ -1247,8 +1247,11 @@ class TomlA(unittest.TestCase):
         # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
         self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
         self.assertEqual(syms["__blk_icap"], syms["__iobase"] + 0x60600)
-        for n, a in (("id", 0x10060600), ("data", 0x10060610), ("enable", 0x10060614), ("count0", 0x10060618), ("count3", 0x1006061B), ("decouple", 0x10060620), ("release", 0x10060621)):
+        for n, a in (("id", 0x10060600), ("data", 0x10060610), ("enable", 0x10060614), ("count0", 0x10060618), ("count3", 0x1006061B)):
             self.assertEqual(syms["__reg_icap_" + n], a, n)
+        self.assertEqual(syms["__blk_partition"], 0x10060620)
+        for n, a in (("decouple", 0x10060620), ("release", 0x10060621)):
+            self.assertEqual(syms["__reg_partition_" + n], a, n)
 
     def test_every_symbol_a_driver_names_is_in_the_fragment(self):
         import re
@@ -1271,7 +1274,7 @@ class TomlA(unittest.TestCase):
     def test_a_fragment_is_checked_as_a_record_is(self):
         maps = D.load_maps([self.MAPS])
         ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
-        self.assertIn("__reg_i_release = 0x00000121;", D.ldfrag(ok, maps))
+        self.assertIn("__reg_i_count3 = 0x0000011B;", D.ldfrag(ok, maps))
 
 
 
@@ -1471,7 +1474,7 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
@@ -1486,29 +1489,33 @@ class DriverTable(unittest.TestCase):
                             continue
                         self.assertIn(tok, defined, "%s:%d names %s, which the shared TOML A does not define" % (f, n, tok))
 
-    def test_an_app_linked_for_a_toml_a_without_icap_has_no_icap_access_in_its_sources(self):
-        # the ICAP registers are named only under #ifdef DRV_HAS_icap (hw.cc), and no other source of coreapp/src names an ICAP register of the table
+    def test_an_app_linked_for_a_toml_a_without_a_block_has_no_access_to_it_in_its_sources(self):
+        # the registers of icap, partition and audio_master are named only inside an #if / #ifdef that names the block's DRV_HAS_ macro (hw.cc; D37, D36), and no other source of
+        # coreapp/src names one of them (volume.cc and tone.cc ask DRV_HAS_audio_master only)
         import re
+        blocks = ("icap", "partition", "audio_master")
         for f in sorted(os.listdir(os.path.join(self.ROOT, "coreapp", "src"))):
             if not f.endswith((".cc", ".h")) or f == "hw.cc":
                 continue
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
-                self.assertIsNone(re.search(r"DRV_icap_", fh.read()), f)
+                for b in blocks:
+                    self.assertIsNone(re.search(r"DRV_%s_" % b, fh.read()), "%s names %s" % (f, b))
+                    fh.seek(0)
         with open(os.path.join(self.ROOT, "coreapp", "src", "hw.cc")) as fh:
-            depth, bad = 0, []
+            stack, bad = [], []                     # per open #if: [text, in the #else part]
             for n, line in enumerate(fh, 1):
                 t = line.strip()
-                if t.startswith("#ifdef DRV_HAS_icap"):
-                    depth += 1
-                elif t.startswith("#if") and depth:
-                    depth += 1
-                elif t.startswith("#else") and depth == 1:
-                    depth = 0
-                elif t.startswith("#endif") and depth:
-                    depth -= 1
-                elif "DRV_icap_" in line and depth == 0:
-                    bad.append(n)
-            self.assertEqual(bad, [], "hw.cc names the ICAP block outside #ifdef DRV_HAS_icap at lines %s" % bad)
+                if t.startswith(("#ifdef", "#ifndef", "#if ")):
+                    stack.append([t, False])
+                elif t.startswith("#else") and stack:
+                    stack[-1][1] = True
+                elif t.startswith("#endif") and stack:
+                    stack.pop()
+                else:
+                    for b in blocks:
+                        if "DRV_%s_" % b in line and not any(("DRV_HAS_" + b) in c and not e for c, e in stack):
+                            bad.append((n, b))
+            self.assertEqual(bad, [], "hw.cc names a block outside an #if of its DRV_HAS_ macro at %s" % bad)
 
     def test_the_command_line_writes_both_files_and_leaves_an_unchanged_one_alone(self):
         import subprocess, tempfile

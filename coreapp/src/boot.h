@@ -21,7 +21,7 @@ public:
     virtual bool return_to_host(char *msg, int n) { snprintf(msg, n, "no way back here"); return false; }
 };
 
-// The ROM wait offers the way back to the host where the board has an ICAP loader (board.can_return_host); a context without a board is the MultiCore host.
+// The ROM wait offers the way back to the host where the profile is the MultiCore host's: the ICAP loader answers and the app has the partition control or a valid hand-over page (board.can_return_host); a context without a board is the MultiCore host.
 bool boot_offers_return(const CoreCtx *c);
 // The keys that ask for it: the C64 matrix's RUN/STOP and the USB keyboard's ESC.
 bool boot_leave_key(int key);
