@@ -11,6 +11,7 @@
 
 #include "ctx.h"
 #include "ops.h"
+#include "svc_wb.h"
 
 #define WB_BLOCK_SHIFT 13                    // the map of changes has one bit per 8 KiB of image
 #define WB_BLOCKS_MAX  1024                  // 8 MiB of image: EasyFlash 3's window (the others are addressed with 4 MiB)
@@ -67,6 +68,8 @@ void wb_register(const WbMedium &m);
 void wb_unregister(void);
 bool wb_active(void);
 const char *wb_path(void);
+void *wb_user(void);                                           // the registered medium's `user` (null when none): who owns the medium is told by it
+CoreCtx *wb_ctx(void);                                         // the context the service was attached with
 
 // The change source, callable from the interrupt: the bytes [off, off+len) of the image changed / the second part changed.
 void wb_mark(uint32_t off, uint32_t len);
@@ -91,7 +94,7 @@ int wb_answer(CoreCtx *c, bool yes, char *msg, int msglen);
 #define WB_POLL_MS 250
 int wb_poll(CoreCtx *c);
 
-void wb_register_ops(OpRegistry &r);                           // writeback.mode (the apply of the setting) and writeback.poll
+void wb_register_ops(OpRegistry &r);                           // writeback.mode (the apply of the setting), writeback.poll, writeback.flush (write the registered medium now, as the setting says)
 
 // ---- a medium that is a raw image, the file being the bytes as they are (a battery RAM save, T154 P4) ---------------------------------------
 struct WbRaw {
@@ -106,5 +109,25 @@ int wb_raw_write(CoreCtx *c, void *user, CoreFile *old, CoreFile *out, const WbD
 bool wb_save_path(CoreCtx *c, const char *game_path, char *out, int outlen);
 // At the start of a game: the save file's bytes, up to size. The count read, 0 when there is no file (a fresh game) - the core puts them into the machine.
 int wb_raw_load(CoreCtx *c, const char *path, void *buf, uint32_t size);
+
+// A file of a library's writer (svc_wb.h): the base's CoreFile behind a handle; valid during the writer's call.
+struct SvcWbFile {
+    CoreFile *f;
+};
+
+// ---- the service for libraries (T239.3 D51, svc_wb.h): the group api->wb answers through it. The owner is the image whose code makes the call (LibLoader::owner_at);
+// the medium a library registers is the service's one medium, so the base's own drivers and the libraries exclude each other.
+class WbLibSvc {
+public:
+    virtual ~WbLibSvc() { }
+    virtual int add(int owner, const SvcWbMedium *m) = 0;
+    virtual int remove(int owner) = 0;
+    virtual int write_now(int owner, char *msg, int msglen) = 0;
+    virtual int pending(int owner) = 0;
+    virtual void mark(uint32_t off, uint32_t len) = 0;         // of the library's medium only; callable from the interrupt
+    virtual void mark_aux() = 0;
+    virtual void drop_owner(int owner) = 0;                    // the image goes: Auto writes what is pending, then the medium is dropped
+};
+WbLibSvc *wb_lib_svc(void);
 
 #endif

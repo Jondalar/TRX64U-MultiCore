@@ -811,6 +811,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.lock = &core_lock;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
+    if (lib_board_loader()) {
+        lib_board_loader()->set_wb(wb_lib_svc());            // T239.3 D51: api->wb, the service for libraries (a library registers from the core's start hook on; before it: SVCWB_E_NOSERVICE)
+    }
     if (ident_ok && hooks_present()) {                       // a library of the core starts its own engine (not on a bitstream that is not the core's: P1-4) (core_hooks.h start)
         char why[120];
         core_lock.lock();

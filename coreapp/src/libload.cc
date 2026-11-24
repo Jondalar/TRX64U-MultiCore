@@ -3,6 +3,7 @@
 #include "ctx.h"
 #include "contrib.h"
 #include "overlay.h"
+#include "writeback.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,6 +75,8 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     memset(&board_, 0, sizeof(board_));
     memset(&overlay_, 0, sizeof(overlay_));
     overlay_svc_ = 0;
+    memset(&wb_, 0, sizeof(wb_));
+    wb_svc_ = 0;
     api_.struct_size = sizeof(api_);
     api_.abi_major = U2A_ABI_MAJOR;
     api_.abi_minor = base_minor;
@@ -94,6 +97,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     api_.io = 0;                                        // and set_ctx: a context with a register window
     api_.board = 0;
     api_.overlay = 0;
+    api_.wb = 0;                                        // add_services
 }
 
 void LibLoader::set_ctx(CoreCtx *c)
@@ -857,6 +861,9 @@ void LibLoader::discard(int si)
     close_sockets(si);
     if (overlay_svc_) {
         overlay_svc_->drop_owner(si);                   // T256: the image's elements go at once, before its memory does
+    }
+    if (wb_svc_) {
+        wb_svc_->drop_owner(si);                        // D51: the image's medium is written (Auto) and dropped while its writer's code is still there
     }
     delete slot_[si].info.menu;
     delete[] slot_[si].info.menu_bytes;
