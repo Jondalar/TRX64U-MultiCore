@@ -32,9 +32,12 @@
 //
 // T257 (#122): a frame that is not interlaced is taken up to LINES = 240 lines too (the instance says LINES(240), LINES_IL(240)); every source line is
 // still written twice, rows 2y and 2y+1, so rows 0..479 are used. A frame with LINES_BASE + 1 .. LINES - 1 lines (201..239) is completed by the writer: the
-// rows after its last line are written black (a blank job per line, the ui side writes zero words) before the frame is reported, so no row of
+// rows after its last line are written (a blank job per line, in the colour of the frame's right border: T257 fault 7, it was black) before the frame is reported, so no row of
 // the picture comes from an older frame. `latest` b2 ("480 rows are this picture") is now 1 for such a frame and for one of 240 lines (it was
 // only ever 1 for a woven pair); a frame of up to LINES_BASE = 200 lines keeps b2 = 0 and the application cuts the layer to 400 rows as before.
+// T257 fault 7 (rfovdc2, board 2026-11-24): (1) a line with fewer than COLS active dots (R1 < 80 characters) is carried on through the blanking to COLS dots in
+// the colour of the first dot after the active part; before, its last word never came, no line of the frame was handed over and the picture of the older frame
+// stayed; (2) a frame of fewer than LINES_BASE lines is completed to LINES_BASE lines in the same colour (the rows below are no longer the older, taller picture).
 `timescale 1ns / 1ps
 module c128_pixw #(
     parameter integer X0 = 0,
@@ -91,7 +94,7 @@ module c128_pixw #(
     reg         pair_ok = 1'b0;                       // this field 1 goes to the buffer of its field 0
     reg         fr_full = 1'b0, pf_full = 1'b0;      // this frame / the frame before wrote its line 239 (a field of 240 lines)
     reg [9:0]   last_row = 10'd0;                     // the row of the last line this frame handed over
-    reg         fill_on = 1'b0, fill_done = 1'b0;     // the rows after last_row are being written black / have been
+    reg         fill_on = 1'b0, fill_done = 1'b0;     // the rows after last_row are being written (border colour) / have been
     reg [9:0]   fill_row = 10'd0;
     reg         ln_blank = 1'b0;
     reg         frame_open = 1'b0;                    // a line of this frame is on its way and the frame is not yet closed
@@ -101,11 +104,16 @@ module c128_pixw #(
     reg [1:0]   ln_wb = 2'd0;
     reg         ln_half = 1'b0;
     reg         ln_il = 1'b0, ln_fld = 1'b0;
+    reg [15:0]  ln_bc = 16'd0;                        // the colour of a blank job
     reg         waiting_last = 1'b0;
     wire        ack_tgl;
     (* ASYNC_REG = "TRUE" *) reg [1:0] ack_s = 2'b00;
     assign quiet = (ack_s[1] == ln_tgl);
-    wire        fill_need = !il_f && last_row >= LINES_BASE && last_row < LINES - 1;     // not interlaced, more than LINES_BASE lines, fewer than LINES
+    // T257 fault 7: a frame that is not interlaced is completed to LINES_BASE rows' worth of lines (to LINES when it had more than LINES_BASE lines) with
+    // the colour of its right border; a frame of 100 lines (the outline part of rfovdc2) no longer shows the rows of the older, taller picture below it
+    reg [15:0]  padc = 16'd0;                         // the colour of the first dot after the active part of the line (the right border), valid for the rest of the row and the rows below
+    wire [9:0]  fill_end = (last_row >= LINES_BASE) ? LINES : LINES_BASE;
+    wire        fill_need = !il_f && (last_row + 10'd1) < fill_end;
 
     // the next state of one dot, combinational
     reg         ls, fs, fe, in_n, cap_n, last_word, il_c;
@@ -114,6 +122,7 @@ module c128_pixw #(
     reg [2:0]   pk_n;
     reg [6:0]   grp_n;
     reg         pix_cap;
+    reg [15:0]  pxc;
     always @* begin
         ls = hb_d & ~hblank;
         fs = vb_d & ~vblank;
@@ -124,6 +133,7 @@ module c128_pixw #(
         x_n = x; ly_n = ly; cap_n = cap; pk_n = pk; grp_n = grp; row_n = cap_row;
         last_word = 1'b0;
         pix_cap = 1'b0;
+        pxc = (hblank && hb_d) ? padc : rgb565;
         if (fs) begin ly_n = 10'h3FF; cap_n = 1'b0; end
         if (fe) cap_n = 1'b0;
         if (ls) begin
@@ -134,7 +144,10 @@ module c128_pixw #(
                 row_n = ly_n - Y0;
             end else cap_n = 1'b0;
         end
-        if (!hblank) begin
+        // T257 fault 7: a line with fewer than COLS active dots (the plasma part of rfovdc2: R1 = 56 characters = 448 dots) goes on through the blanking until the row
+        // is COLS dots wide, the dots after the active part in the colour of the right border; without it such a line never completed, no frame was handed over and
+        // the picture of the older frame stayed
+        if (!hblank || (cap_n && x_n < X0 + COLS)) begin
             if (cap_n && x_n >= X0 && x_n < X0 + COLS) begin
                 pix_cap = 1'b1;
                 pk_n = pk_n + 3'd1;
@@ -151,6 +164,7 @@ module c128_pixw #(
         ack_s <= {ack_s[0], ack_tgl};
         if (dotst) begin
             hb_d <= hblank; vb_d <= vblank;
+            if (hblank && !hb_d && in_frame && !vblank) padc <= rgb565;
             if (fs) begin
                 il_f <= il; fld_f <= field; pf_full <= fr_full; fr_full <= 1'b0; waiting_last <= 1'b0; frame_open <= 1'b0;
                 pair_open <= il & ~field;
@@ -159,8 +173,8 @@ module c128_pixw #(
             end
             if (fe && frame_open) begin waiting_last <= 1'b1; frame_open <= 1'b0; end
             if (pix_cap) begin
-                acc <= {rgb565, acc[127:16]};
-                if (pk_n == 3'd0) lb[{half, grp[6:0]}] <= {rgb565, acc[127:16]};
+                acc <= {pxc, acc[127:16]};
+                if (pk_n == 3'd0) lb[{half, grp[6:0]}] <= {pxc, acc[127:16]};
             end
             x <= x_n; ly <= ly_n; cap <= cap_n; pk <= pk_n; grp <= grp_n; cap_row <= row_n; in_frame <= in_n;
             if (last_word) begin                            // the line is complete: hand it to the ui side
@@ -174,13 +188,13 @@ module c128_pixw #(
                 if (row_n == lim_c - 10'd1) begin waiting_last <= 1'b1; frame_open <= 1'b0; end
             end
         end
-        // frame done: the last line is written (acknowledged by the ui side). A frame of LINES_BASE + 1 .. LINES - 1 lines first gets its rows up to
-        // line LINES - 1 written black, one blank job per line, then it is reported.
+        // frame done: the last line is written (acknowledged by the ui side). A frame that is not interlaced and has fewer lines than LINES_BASE (or than LINES, when it
+        // had more than LINES_BASE) first gets its rows up to that limit written in the border colour, one blank job per line, then it is reported.
         if (waiting_last && ack_s[1] == ln_tgl) begin
             if (fill_on) begin
-                if (fill_row == LINES) begin fill_on <= 1'b0; fill_done <= 1'b1; end
+                if (fill_row == fill_end) begin fill_on <= 1'b0; fill_done <= 1'b1; end
                 else begin
-                    ln_row <= fill_row; ln_wb <= fwb; ln_il <= 1'b0; ln_fld <= 1'b0; ln_blank <= 1'b1;
+                    ln_row <= fill_row; ln_wb <= fwb; ln_il <= 1'b0; ln_fld <= 1'b0; ln_blank <= 1'b1; ln_bc <= padc;
                     ln_tgl <= ~ln_tgl; fill_row <= fill_row + 10'd1;
                 end
             end else if (fill_need && !fill_done) begin
@@ -209,6 +223,7 @@ module c128_pixw #(
     reg [9:0]   u_row = 10'd0;
     reg         u_dup = 1'b0;                              // the second write of the line (row 2y+1)
     reg         u_il = 1'b0, u_fld = 1'b0, u_blank = 1'b0;
+    reg [15:0]  u_bc = 16'd0;
     reg [1:0]   u_wb = 2'd0;
     reg         u_half = 1'b0;
     // the registers cross from cpu_clk: a value counts when two samples in a row agree
@@ -233,7 +248,7 @@ module c128_pixw #(
             us <= U_IDLE; e_en <= 1'b0;
         end else case (us)
         U_IDLE: if (ln_s[2] != ln_s[1]) begin
-            u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; u_il <= ln_il; u_fld <= ln_fld; u_blank <= ln_blank; ug <= 7'd0; u_dup <= 1'b0;
+            u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; u_il <= ln_il; u_fld <= ln_fld; u_blank <= ln_blank; u_bc <= ln_bc; ug <= 7'd0; u_dup <= 1'b0;
             us <= U_BASE;
         end
         U_BASE: begin                                  // buffer base in 16-bit units
@@ -261,6 +276,6 @@ module c128_pixw #(
         end
         default: us <= U_IDLE;
         endcase
-        if (u_blank) e_wdf_data <= 128'd0;               // a blank job writes zero words: a synchronous reset of the data register, no mux
+        if (u_blank) e_wdf_data <= {8{u_bc}};            // a blank job writes words of its colour (the frame's border colour)
     end
 endmodule

@@ -416,6 +416,58 @@ def prog3():
     return p
 
 
+def prog11():
+    """T257 fault 8: the outline CREST part's frame routine as the demo plays it: bitmap mode, copy on, then 100 times (R32/R33 = the line's source, R30 = 80)
+    with the status-bit-7 wait; every block's busy time is measured (06)."""
+    p = Prog()
+    p.init_regs({25: 0x87, 26: 0xE1})
+    p.fill(0, 0x55, 16000)
+    p.set_ua(0x2000)
+    for j in range(80):
+        p.data((j * 5 + 1) & 0xFF)
+    p.reg(24, 0xA0)
+    p.set_ua(0)
+    for i in range(100):
+        src = 0x2000 + (i % 7) * 3
+        p.reg(32, src >> 8)
+        p.reg(33, src & 0xFF)
+        p.block(80, "t11.copy80.%d" % i)
+    p.reg(24, 0x20)
+    p.end()
+    return p
+
+
+OUTLINE_REGS = {1: 0x50, 2: 0x66, 3: 0x49, 4: 0x1E, 5: 0x02, 6: 0x0A, 7: 0x16, 9: 0x09, 10: 0x20, 11: 0x07, 20: 0x08, 23: 0x09, 24: 0x20,
+                25: 0x87, 26: 0x11, 28: 0x30, 29: 0x07, 34: 0x7D, 35: 0x64, 36: 0x05}
+
+
+def prog12():
+    """T257 fault 8, the part as it runs: the outline part's registers (100 lines displayed of 312, bitmap), the frame sync of its main loop (status bit 5 low,
+    then high), then the frame routine's 100 copies of 80 bytes; marks (0A) at the sync and after the last copy, and a status read right after it:
+    bit 5 must still be 1 (the copies are done inside the vertical blank, as on VICE where they take 9.6 ms of the 13.6 ms blank)."""
+    p = Prog()
+    p.init_regs(OUTLINE_REGS)
+    p.fill(0, 0x55, 16000)
+    p.set_ua(0x2000)
+    for j in range(80):
+        p.data((j * 5 + 1) & 0xFF)
+    for rnd in range(3):
+        p.ops.append(0x0900)
+        p.ops.append(0x0A00 | (rnd * 2))
+        p.reg(24, 0xA0)
+        p.set_ua(0)
+        for i in range(100):
+            src = 0x2000 + (i % 7) * 3
+            p.reg(32, src >> 8)
+            p.reg(33, src & 0xFF)
+            p.block(80, "t12.copy80.%d.%d" % (rnd, i))
+        p.ops.append(0x0A00 | (rnd * 2 + 1))
+        p.rd_status("t12.after100.%d" % rnd, 0x20, 0x20)
+    p.reg(24, 0x20)
+    p.end()
+    return p
+
+
 # ---------------------------------------------------------------------------------------------------------------------------------
 def frame_text(rows):
     return "\n".join("".join("%x" % x for x in row) for row in rows) + "\n"
@@ -428,7 +480,7 @@ def fhash(rows):
 def gen(d):
     os.makedirs(d, exist_ok=True)
     for n, mk in ((1, prog1), (2, prog2), (3, prog3), (4, lambda: prog2(0)), (5, lambda: prog2(3)),
-                  (6, lambda: prog2(1)), (7, lambda: prog2(2)), (8, lambda: prog2(4)), (9, lambda: prog2(5)), (10, lambda: prog2(6))):
+                  (6, lambda: prog2(1)), (7, lambda: prog2(2)), (8, lambda: prog2(4)), (9, lambda: prog2(5)), (10, lambda: prog2(6)), (11, prog11), (12, prog12)):
         p = mk()
         with open(os.path.join(d, "stim_%d.hex" % n), "w") as f:
             f.write("\n".join("%04x" % w for w in p.ops) + "\n")

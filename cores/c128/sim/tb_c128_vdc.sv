@@ -48,7 +48,7 @@ module tb_c128_vdc;
 
     reg [15:0] mem [0:262143];
     string stimf, outp;
-    integer fd_r, fd_b, fd_v, fd_f, pc, i, j, n, maxcyc;
+    integer fd_r, fd_b, fd_m, fd_v, fd_f, pc, i, j, n, maxcyc;
     reg [15:0] w;
     reg [7:0] q;
     longint t0;
@@ -60,6 +60,7 @@ module tb_c128_vdc;
         $readmemh(stimf, mem);
         fd_r = $fopen({outp, ".reads"}, "w");
         fd_b = $fopen({outp, ".busy"}, "w");
+        fd_m = $fopen({outp, ".marks"}, "w");
         repeat (16) @(posedge clk);
         rst <= 1'b0;
         repeat (70000) @(posedge clk);                // the RAM erase after reset (initRam) is over
@@ -97,6 +98,14 @@ module tb_c128_vdc;
                     end
                     $fclose(fd_f);
                 end
+                8'h09: begin   // the demo's frame sync (rfovdc2 $1721-$172D): status bit 5 low (display), then high (the vertical blank starts)
+                    n = 0; q = 8'h20;
+                    while (q[5] && n < 2000000) begin bus(1'b0, 1'b0, 8'd0, q); n = n + 1; end
+                    while (!q[5] && n < 4000000) begin bus(1'b0, 1'b0, 8'd0, q); n = n + 1; end
+                    if (n >= 2000000) $display("tb: frame sync timed out");
+                    $fwrite(fd_m, "sync %0d\n", cyc);
+                end
+                8'h0A: $fwrite(fd_m, "mark%0d %0d\n", w[7:0], cyc);
                 default: $display("tb: bad op %04x at %0d", w, pc);
             endcase
             pc = pc + 1;
@@ -105,7 +114,7 @@ module tb_c128_vdc;
         repeat (200) @(posedge clk);
         fd_v = $fopen({outp, ".vram"}, "w");
         for (i = 0; i < NV; i = i + 1) $fwrite(fd_v, "%02x\n", dut.vdc.ram.ram.m[i]);
-        $fclose(fd_v); $fclose(fd_r); $fclose(fd_b);
+        $fclose(fd_v); $fclose(fd_r); $fclose(fd_b); $fclose(fd_m);
         $display("tb_c128_vdc done: %0d ops, %0d clocks", pc, cyc);
         $finish;
     end

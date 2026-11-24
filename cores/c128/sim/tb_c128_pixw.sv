@@ -88,13 +88,16 @@ module tb_c128_pixw;
     reg       sfld [0:3];                             // the VDC's field flag of that frame
     reg       sil  [0:3];                             // its interlace flag
     integer   scnt [0:3];                             // lines it had
+    integer   swd  [0:3];                             // active dots of its lines (the last one counts)
+    reg [3:0] sbd  [0:3];                             // the colour of the first dot after the active part of a line (the right border; the last line counts)
     always @(posedge clk) if (ce && wr_en) begin
         if (av && !av_prev) begin vf = vf + 1; sln = -1; sfld[vf % 4] = vdc_il[0]; sil[vf % 4] = vdc_il[1]; scnt[vf % 4] = 0; end
         if (!av && av_prev) vdone = vdone + 1;
         if (av) begin
             if (ah && !ah_prev) begin sln = sln + 1; sxx = 0; scnt[vf % 4] = sln + 1; end
             if (ah && sln >= 0 && sln < 240 && sxx < 640) sh[(vf % 4) * FS + sln * 640 + sxx] = rgbi;
-            if (ah) sxx = sxx + 1;
+            if (ah) begin sxx = sxx + 1; swd[vf % 4] = sxx; end
+            if (!ah && ah_prev) sbd[vf % 4] = rgbi;
         end
         av_prev <= av; ah_prev <= ah;
     end
@@ -266,6 +269,16 @@ module tb_c128_pixw;
                 end
             end
         end
+        if (ph == 5) begin
+            nw_n = nw_n + 1;
+            if (nw_n > nw_skip && nw_cmp < 5) begin
+                nw_cmp = nw_cmp + 1;
+                if (latest[2] !== 1'b0) nw_b2_bad = nw_b2_bad + 1;
+                if (latest[1:0] > 2 || latest[1:0] == nw_prev) nw_buf_bad = nw_buf_bad + 1;
+                cmp_narrow(latest[1:0], vf);
+            end
+            nw_prev = latest[1:0];
+        end
         if (ph == 4) begin
             tl_n = tl_n + 1;
             if (tl_n > tl_skip && tl_cmp < 5) begin
@@ -401,7 +414,7 @@ module tb_c128_pixw;
                 for (tc = 0; tc < 640; tc = tc + 1) begin
                     word = ddr[b * BW + tr * 80 + tc / 8];
                     got = word >> ((tc % 8) * 16);
-                    exp = (y < ln2) ? pal(sh[(fr % 4) * FS + y * 640 + tc]) : 16'h0000;
+                    exp = (y < ln2) ? pal(sh[(fr % 4) * FS + y * 640 + tc]) : pal(sbd[fr % 4]);
                     if (got !== exp) begin
                         if (tl_bad == 0) $display("     tall row %0d col %0d: %h, expected %h (frame %0d buffer %0d, %0d lines)", tr, tc, got, exp, fr, b, ln2);
                         tl_bad = tl_bad + 1;
@@ -420,10 +433,50 @@ module tb_c128_pixw;
             repeat (30000) @(posedge clk);
             check(tl_cmp >= 5, "S9 tall: five frames of more than 200 lines were reported");
             check(tl_seen_lines == lines_expected, "S9 tall: the VDC frame has the expected number of lines");
-            check(tl_bad == 0, "S9 tall: every one of the 480 rows is the frame (source line y in rows 2y, 2y+1; rows after the last line black)");
+            check(tl_bad == 0, "S9 tall: every one of the 480 rows is the frame (source line y in rows 2y, 2y+1; rows after the last line in the border colour)");
             check(tl_b2_bad == 0, "S9 tall: latest b2 = 1 (480 rows are this picture)");
             check(tl_buf_bad == 0, "S9 tall: the buffers go round");
             check(overruns == 16'd0, "S9 tall: no late line (overruns == 0)");
+        end
+    endtask
+    // ---- phase 1c (T257 fault 7): a frame narrower than 640 dots and/or shorter than 200 lines, as rfovdc2's plasma (R1 = 56, 192 lines) and outline (100 lines) parts
+    // have them: every row 0..399 of the buffer is the frame (source line y in rows 2y, 2y+1), the dots after the active part and the rows after the last line are the
+    // colour of the first dot after the active part
+    integer nw_n = 0, nw_cmp = 0, nw_bad = 0, nw_lines = 0, nw_width = 0, nw_rows_bad = 0, nw_b2_bad = 0, nw_buf_bad = 0, nw_prev = -1, nw_skip = 3;
+    integer nr_, nc_, ny_;
+    task cmp_narrow(input integer b, input integer fr);
+        integer wd, ln3;
+        begin
+            wd = swd[fr % 4]; ln3 = scnt[fr % 4]; nw_width = wd; nw_lines = ln3;
+            for (nr_ = 0; nr_ < 400; nr_ = nr_ + 1) begin
+                ny_ = nr_ / 2;
+                for (nc_ = 0; nc_ < 640; nc_ = nc_ + 1) begin
+                    word = ddr[b * BW + nr_ * 80 + nc_ / 8];
+                    got = word >> ((nc_ % 8) * 16);
+                    exp = (ny_ < ln3 && nc_ < wd) ? pal(sh[(fr % 4) * FS + ny_ * 640 + nc_]) : pal(sbd[fr % 4]);
+                    if (got !== exp) begin
+                        if (nw_bad == 0) $display("     narrow row %0d col %0d: %h, expected %h (frame %0d buffer %0d, %0d lines of %0d dots)", nr_, nc_, got, exp, fr, b, ln3, wd);
+                        nw_bad = nw_bad + 1;
+                    end
+                end
+            end
+        end
+    endtask
+    task automatic run_narrow(input [7:0] r1, input [7:0] rows, input integer lines_expected, input integer width_expected, input [8*40-1:0] name);
+        integer nn;
+        begin
+            ph = 5; nw_n = 0; nw_cmp = 0; nw_bad = 0; nw_b2_bad = 0; nw_buf_bad = 0; nw_prev = -1; nw_skip = 4;
+            wr_reg(8'd1, r1); wr_reg(8'd6, rows);
+            nn = 0;
+            while (nw_cmp < 5 && nn < 40000000) begin @(posedge clk); nn = nn + 1; end
+            repeat (30000) @(posedge clk);
+            check(nw_cmp >= 5, "S9 narrow: five frames of the narrow / short picture were reported");
+            check(nw_lines == lines_expected && nw_width == width_expected, "S9 narrow: the VDC frame has the expected lines and active dots a line");
+            check(nw_bad == 0, "S9 narrow: rows 0..399 are the frame, the dots and rows beyond it are the border colour (no older picture)");
+            check(nw_b2_bad == 0, "S9 narrow: latest b2 = 0 for a frame of up to 200 lines (400 rows)");
+            check(nw_buf_bad == 0, "S9 narrow: the buffers go round");
+            check(overruns == 16'd0, "S9 narrow: no late line (overruns == 0)");
+            $display("     narrow %0s: %0d lines of %0d dots, %0d reports checked", name, nw_lines, nw_width, nw_cmp);
         end
     endtask
     integer maxcyc, nf, n;
@@ -485,10 +538,12 @@ module tb_c128_pixw;
         for (k = 0; k < NW; k = k + 1) if (wrote[k] && (k % BW) >= 400 * 80) stray = stray + 1;
         check(stray == 0, "S9 a frame that is not interlaced writes rows 0..399 only (nothing in rows 400..479)");
         run_tall(30, 8'd31, 240);                           // 30 rows x 8 lines: the whole 480 rows are written by the frame itself
-        run_tall(28, 8'd30, 224);                           // 28 rows: the rows after line 223 are the writer's blanks
+        run_tall(28, 8'd30, 224);                           // 28 rows: the rows after line 223 are the writer's blanks (border colour)
         nstray = 0;
         for (k = 0; k < NW; k = k + 1) if (wrote[k] && !((k % BW) < BUFWORDS && (k / BW) < 3)) nstray = nstray + 1;
         check(nstray == 0, "S9 tall: nothing written outside the three 640 x 480 buffers");
+        run_narrow(8'd56, 8'd24, 192, 448, "plasma 56 x 24");            // narrow and short
+        run_narrow(8'd80, 8'd12, 96, 640, "outline 80 x 12");            // full width, 96 lines
         run_il(0);
         run_il(1);
         run_il(2);

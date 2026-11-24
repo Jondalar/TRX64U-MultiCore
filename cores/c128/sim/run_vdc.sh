@@ -24,7 +24,7 @@ run() { # run <build> <test> <tag> [plusargs]
     || { tail -5 "$out/r${n}_$t.log"; echo "FAIL tb run $t test $n"; exit 1; }
   grep -E "^(FAIL|tb:)" "$out/r${n}_$t.log"
 }
-for n in 1 2 3 4 5 6 7 8 9 10; do
+for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
   echo "== S8 test $n (64 KiB VDC)"
   run v64 $n main
   python3 "$here/vdc_model.py" check "$out" $n "$out/r${n}_main" > "$out/chk${n}_main.log"
