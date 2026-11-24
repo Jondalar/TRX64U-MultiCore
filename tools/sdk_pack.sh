@@ -112,16 +112,18 @@ cp "$ROOT/app/sdkpkg/api.md" "$P/api.md"
 # copy of Gideon's io/command_interface; PROVENANCE says where they come from.
 sha() { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }
 H="$P/handover/uci"; mkdir -p "$H"; CI="$ROOT/host-app/software/io/command_interface"
-cp "$CI/command_intf.cc" "$CI/command_intf.h" "$CI/command_target.h" "$H/"
+cp "$CI/command_intf.cc" "$CI/command_intf.h" "$CI/command_target.h" "$CI/network_target.cc" "$CI/network_target.h" "$H/"
 cp "$ROOT/vendor/gideon/LICENSE.txt" "$H/LICENSE.txt"
 cat > "$H/PROVENANCE" <<HANDOVER
-origin:  1541ultimate (Gideon Zweijtzer), software/io/command_interface/{command_intf.cc,command_intf.h,command_target.h}, at commit $(sed -n 's/^| 1541ultimate | \([0-9a-f]*\) |$/\1/p' "$ROOT/vendor/gideon/VENDOR.md")
+origin:  1541ultimate (Gideon Zweijtzer), software/io/command_interface/{command_intf.cc,command_intf.h,command_target.h,network_target.cc,network_target.h}, at commit $(sed -n 's/^| 1541ultimate | \([0-9a-f]*\) |$/\1/p' "$ROOT/vendor/gideon/VENDOR.md")
 this repository: host-app/software/io/command_interface/ (the files as the core app compiled them until SDK 0.4.5), last changed by commit $(cd "$ROOT" && git log -1 --format=%h -- host-app/software/io/command_interface/command_intf.cc 2>/dev/null || echo unknown); this package is built from commit $commit
 changes: command_intf.cc holds uci_reset_hook (a machine's own reset action) and start() is called by the owner of the interface, once, instead of at construction (TRX64U); the rest is the firmware's
 licence: GPL-3.0 (LICENSE.txt, Gideon Zweijtzer's licence text as in vendor/gideon of the TRX64U-MultiCore repository); the file headers are untouched
 sha256:  $(sha "$H/command_intf.cc")  command_intf.cc
          $(sha "$H/command_intf.h")  command_intf.h
          $(sha "$H/command_target.h")  command_target.h
+         $(sha "$H/network_target.cc")  network_target.cc (target 3, NETWORK: uci.cc creates it, and the core app no longer compiles it)
+         $(sha "$H/network_target.h")  network_target.h
 use:     SDK 0.4.6 hands these over once (D49). command_intf.cc includes integer.h, config.h, iomap.h and subsys.h of the firmware tree and takes its registers from iomap.h (CMD_IF_BASE); TRX64-Ultimate's library "uci" takes them from the driver table of its TOML A (block cmd_if) instead. Nothing in the SDK or the base includes them.
 HANDOVER
 sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" -e "s/@API_HASH@/${api_hash:0:12}/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
