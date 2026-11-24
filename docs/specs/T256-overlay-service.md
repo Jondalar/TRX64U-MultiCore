@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Decided D1-D11 (Alex 11-23/24); built as T239.3 T-2; D11 frame helper open; TRX64-Ultimate T-3 next
+Open (one line, as in the TODO table): D1-D12 (Alex 11-23/24); T-2, D11 built (SDK 0.4.4); D12: base timeline bar goes; T-3 next
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -152,7 +152,15 @@ Draft. It is completed when the open questions of §3 are decided.
   describe the picture behind the menu from before T-2, are rewritten with it. Lost: the base keeps its bar and its still and a
   call lets a library ask for a new still after a scrub (smaller, but the base-drawn building block D3 gave up).
 
-All open decisions are taken (D1-D11).
+- **D12** (Alex, 2026-11-24, translated, over a picture of the Timewarp view - the C64's frame with the bar under it: "You mean
+  the picture of the C64? It should look like this!!! And the bar etc. comes from trx64. You only make it possible!!! No UI for
+  apps from you"): the Timewarp bar, its time, frame counter, glyph and hints are TRX64-Ultimate's, painted by its library with
+  the frame (D3, D11). The base only gives the means (`frame()`, the surface, `still_palette`, the display) and builds no UI for
+  an application. So the base's own timeline bar (`coreapp/src/screens.cc` `build_timeline`) is UI for an application and goes.
+  - D11 let it stay until T239.3 P2-6, and that answer was also given to TRX64-Ultimate on 11-24; both are withdrawn.
+  - That it goes now, not with P2-6, was mirrored to Alex on 11-24 and waits for his confirmation.
+
+All open decisions are taken (D1-D12); D12's timing waits for Alex's confirmation.
 
 ## §4 Out
 
