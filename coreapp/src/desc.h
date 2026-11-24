@@ -256,7 +256,8 @@ struct CoreDesc {
     const char *cor_name;                 // the manifest's name (core.toml name); the handover must agree (S1)
     const char *title;                    // menu title
     const char *short_title;              // the name on the navigation rail, where 148 px is all there is ("NES", "ATARI")
-    const char *folder;                   // roms/<folder> on the three roots, and the base of <name>.cfg's store name
+    const char *folder;                   // the base of <name>.cfg's store name, and roms/<folder> on the three roots when no .cor names the core folder (a
+                                          // developer start); a core started from its .cor reads its ROMs from its own folder alone (romfind.cc list_roots, T148 D2)
     const char *store;                    // the [section] of <name>.cfg
     uint32_t min_contract;                // 1
     const RomSpec *roms; int nroms;

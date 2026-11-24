@@ -510,21 +510,9 @@ both applications draw with the same LVGL code in `app/view`, which is why a men
 
 ## 12. Where a comment and the code disagree
 
-- `desc.h` documents `CoreDesc::folder` as `roms/<folder>` "on the three roots". With a `.cor` path the code reads the core folder alone (`own_dir`, T148); the
-  roots are the developer-start path only.
-- `desc.h` says `reset_writes` are written "with every settings commit". `regset.cc` writes them only at the end of `regset_apply` (the start, a reset, a
-  restart, a loaded config), not when a live change commits a register (`regset_commit`).
-- `volume.h` says the menu's SHIFT+ / SHIFT- call `change_volume` in `menuctl.cc`. There is no such function: the key rows run the operation
-  `volume.change` (`volume.cc`, section 4).
-- `tools/descrec.py`'s list of the TOML A keys says the identity block is owned by the base and declares `id` and `build`. Since D39 `_sec_ident` asks
-  that only of a block of the base (section 15).
-- `ddt_novic.cc` says the picture is "1056 x 18"; with scale 3 and height 200 the code gives 1056 x 600 and the test checks `y0 = (1080 - 200 * 3) / 2`.
-- The SDK's `README.md` (`app/sdkpkg/readme.in`), table "Contents": "`tools/sdk_api.py headers` lists them". The package (0.4.5) has no
-  `tools/sdk_api.py`; only this repository runs it (`tools/sdk_pack.sh`).
-- The same README, "Not in this package yet": "A descriptor for a core made of its record alone". Its own section "The app of a core" and the code
-  (`start_identify`, `BundleDescSource`) make exactly that core; trx64u runs as one.
-- `app/lib/lib.mk` (SDK: `mk/lib.mk`): `RV_PREFIX ?= riscv64-elf-`, the compiler the README says stops at `stdlib.h`; `app.mk` defaults to
-  `riscv32-unknown-elf-`. Pass `RV_PREFIX=riscv32-unknown-elf-` to `lib.mk`.
+None known at t239.3 (2026-11-24). The ones this guide's fact check found (`desc.h` on `folder` and `reset_writes`, `volume.h`,
+`tools/descrec.py`'s TOML A key list, `ddt_novic.cc`, the SDK's README and `lib.mk`) were corrected in the code for SDK 0.4.6. Where you find
+another, the code is right and the comment is the bug.
 
 ## 13. An SDK core: who owns what, and the checklist
 

@@ -45,7 +45,7 @@ const CoreDesc ddt_novic_desc = {
     tasks, 1,
     0, 0,
     0, 0,
-    // 352 x 200 at scale 3 is 1056 x 18, centred on 1920 x 1080; the buffers are the reset values of FB_BASE / FB_STRIDE
+    // 352 x 200 at scale 3 is 1056 x 600, centred on 1920 x 1080; the buffers are the reset values of FB_BASE / FB_STRIDE
     { 352, 200, 3, 432, 240, DDT_FB_ADDR, DDT_FB_STRIDE_BYTES, 4, DDT_FB_LATEST, DDT_FRAME_SEQ, DDT_FB_BASE, DDT_FB_STRIDE },
     { DDT_STATUS, DDT_ST_HELD, 200 },
     ddt_init, ddt_release, 0, 20,
