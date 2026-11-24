@@ -458,9 +458,9 @@ jobs:
           set -eu
           roms=()
           [ ! -d "$RUNNER_TEMP/gideon-roms" ] || roms=(--roms "$RUNNER_TEMP/gideon-roms")
-          ci/emu_kit.sh "$RUNNER_TEMP/kit" --firmware "$CI_HANDOFF/host/hostapp_emu.elf" --cor "$CI_HANDOFF/deliver/$CORE.cor" ${roms[@]+"${roms[@]}"}
+          ci/emu_kit.sh "$RUNNER_TEMP/kit" --firmware "$CI_HANDOFF/host/hostapp_emu.elf" --cor "$CI_HANDOFF/deliver/$CORE.cor" --core "$CORE" ${roms[@]+"${roms[@]}"}
           [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
-      - name: 12 Emulator tests (tests/hostapp/emu_host.sh with the core's own app)
+      - name: 12 Emulator tests (tests/hostapp/emu_host.sh with the core's own app; a large core's round starts it by IPROG)
         shell: bash
         run: |
           set -eu
