@@ -84,6 +84,33 @@ static SvcWbMedium medium(const char *path, bool create = false)
     return m;
 }
 
+// A minimal image of the given kind (the shape tests/loader/test_libload.cc builds): the loader gives it a slot, so a call inside LibLoader::Scope(&ld, handle) is the call of that image.
+struct MemSource : LibSource {
+    std::vector<uint8_t> d;
+    uint32_t size() override { return (uint32_t)d.size(); }
+    bool read(uint32_t off, void *dst, uint32_t n) override
+    {
+        if (off > d.size() || n > d.size() - off) { return false; }
+        memcpy(dst, d.data() + off, n);
+        return true;
+    }
+};
+static void put32(std::vector<uint8_t> &v, uint32_t x) { for (int i = 0; i < 4; i++) { v.push_back((uint8_t)(x >> (8 * i))); } }
+static void put16(std::vector<uint8_t> &v, uint16_t x) { v.push_back((uint8_t)x); v.push_back((uint8_t)(x >> 8)); }
+static void putname(std::vector<uint8_t> &v, const char *s) { for (int i = 0; i < 16; i++) { v.push_back(i < (int)strlen(s) ? s[i] : 0); } }
+static std::vector<uint8_t> image(uint8_t kind, const char *name)
+{
+    const uint32_t pay_off = U2A3_HEADER_SIZE, pay_len = 64;
+    std::vector<uint8_t> v;
+    put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, 3); put16(v, 3); put16(v, 3);
+    v.push_back(kind); v.push_back(U2A3_RES_RESIDENT); v.push_back(U2A3_ARCH_RISCV32); v.push_back(0);
+    put32(v, 0); putname(v, name); put32(v, U2A3_VERSION(1, 0)); putname(v, "");
+    put32(v, pay_off); put32(v, pay_len); put32(v, 32); put32(v, 16); put32(v, 0); put32(v, kind == U2A3_KIND_APP ? 0 : U2A3_NONE);
+    put32(v, pay_off + pay_len); put32(v, 0); put32(v, pay_off); put32(v, 0); put32(v, 0); put32(v, 0);
+    v.resize(v.size() + pay_len, 0);
+    return v;
+}
+
 struct Rig {
     FakeFs fs;
     Port port;
@@ -91,7 +118,9 @@ struct Rig {
     OpRegistry reg;
     LibLoader ld;
     CoreCtx c;
-    Rig() : ld(&host, &reg, U2A_BASE_MINOR)
+    int h = -1;
+    LibLoader::Scope *as = 0;                                       // every call of the test is the call of the library `h` (the owner) while this lives
+    Rig(uint8_t kind = U2A3_KIND_LIB) : ld(&host, &reg, U2A_BASE_MINOR)
     {
         memset(&c, 0, sizeof(c));
         c.fs = &fs;
@@ -105,8 +134,18 @@ struct Rig {
         wb_register_ops(reg);
         memset(g_img, 0x11, sizeof(g_img));
         g_calls = g_old_seen = g_old_size = g_block0 = g_fail = g_holds_on = g_holds_off = 0;
+        if (kind) {
+            MemSource src;
+            src.d = image(kind, "wbtest");
+            char err[LIB_ERR_MAX] = "";
+            if (ld.load(&src, &h, err, LIB_ERR_MAX) != 0) {
+                printf("FAIL the test image did not load: %s\n", err);
+                g_fails++;
+            }
+            as = new LibLoader::Scope(&ld, h);
+        }
     }
-    ~Rig() { wb_unregister(); }
+    ~Rig() { delete as; wb_unregister(); }
     std::vector<uint8_t> file(const char *p) { auto it = fs.files.find(lower(p)); return it == fs.files.end() ? std::vector<uint8_t>() : it->second; }
 };
 
@@ -267,7 +306,7 @@ int main()
         SvcWbMedium m = medium(P);
         CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_OK);
         lib_change(8, 0x88);
-        wb_lib_svc()->drop_owner(r.ld.owner());                       // the owner the calls above had (no image is loaded: the loader's own account)
+        wb_lib_svc()->drop_owner(r.ld.owner());                       // the owner the calls above had: the test image's slot
         CHECK(r.file(P)[8] == 0x88 && !wb_active());
         CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_OK);          // the medium is free again
         lib_change(10, 0xAA);
@@ -296,6 +335,20 @@ int main()
         CHECK_EQ(g_api->wb->register_medium(&z), SVCWB_E_ARG);
         CHECK(!wb_active());
         CHECK(std::string(g_api->wb->error(SVCWB_E_TAKEN)).size() > 0 && std::string(g_api->wb->error(-99)) == "unknown code");
+    }
+    // S9 (review): only an image of kind library registers a medium. An application and code of no loaded image get SVCWB_E_APP and nothing changes
+    {
+        Rig r(U2A3_KIND_APP);
+        r.fs.put_size(P, 64, 0xEE);
+        SvcWbMedium m = medium(P);
+        CHECK(r.h >= 0);
+        CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_E_APP);      // the call of an application image
+        CHECK(!wb_active());
+        Rig n(0);                                                    // no image: the calls are owner -1
+        CHECK_EQ(n.ld.owner(), -1);
+        CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_E_APP);
+        CHECK(!wb_active());
+        CHECK_EQ(g_api->wb->pending(), 0);
     }
     DONE("wblib");
 }

@@ -352,8 +352,8 @@ struct LibSvc {
         }
         int who = l->owner_at(__builtin_return_address(0));
         const LibInfo *in = l->info(who);
-        if (in && in->kind == U2A3_KIND_APP) {
-            return SVCWB_E_APP;                        // D51: a library registers the medium, an application asks for the write (write_now)
+        if (!in || in->kind != U2A3_KIND_LIB) {
+            return SVCWB_E_APP;                        // D51 (review): only an image of kind library registers the medium; an application asks for the write (write_now), code of no loaded image (owner -1) has no owner to drop it
         }
         return l->wb_svc_->add(who, m);
     }

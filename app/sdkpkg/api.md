@@ -1543,11 +1543,11 @@ Since base 3.4.
 | `SVCWB_E_TAKEN` | -3: another owner holds the medium. |
 | `SVCWB_E_NOTMINE` | -4: the calling image has no registered medium. |
 | `SVCWB_E_FAILED` | -5: the write failed (`msg` says why) or, for `register_medium` and `unregister_medium`, the pending change could not be written first. |
-| `SVCWB_E_APP` | -6: `register_medium` was called from an application. An application asks for the write (`write_now`); only a library registers a medium (T239.3 D51). |
+| `SVCWB_E_APP` | -6: `register_medium` was called by a caller that is no library: an application, or code that belongs to no loaded image. An application asks for the write (`write_now`); only an image of kind library registers a medium (T239.3 D51). |
 
 #### 4.18.12 `api->wb->register_medium`
 
-4.18.12.1 `int register_medium(const SvcWbMedium *m)` registers the calling image's writable medium. It returns 0, `SVCWB_E_NOSERVICE`, `SVCWB_E_ARG`, `SVCWB_E_TAKEN`, `SVCWB_E_APP` or `SVCWB_E_FAILED`. Nothing is changed unless it returns 0.
+4.18.12.1 `int register_medium(const SvcWbMedium *m)` registers the calling image's writable medium. It returns 0, `SVCWB_E_NOSERVICE`, `SVCWB_E_ARG`, `SVCWB_E_TAKEN`, `SVCWB_E_APP` (the caller is no library) or `SVCWB_E_FAILED`. Nothing is changed unless it returns 0.
 4.18.12.2 An image that registers again replaces its medium. What was pending for the old one is written first (setting Auto) and then dropped; when that write fails, the call returns `SVCWB_E_FAILED` and the old medium stays.
 4.18.12.3 The call works from the core's start hook on. A call from `lib_register` of a library loaded at core start returns `SVCWB_E_NOSERVICE`.
 
