@@ -405,7 +405,7 @@ int main()
         CHECK_EQ(reg6.call(&c6, "pd.av_preset", &badn, 1, &r5), OPE_FAILED);
         CHECK_EQ(io6.regs[PD_AV_MAP], 1);
         // the three shipped presets load by name into the registers (labels only)
-        for (const char *pn : { "Sony PAL", "NTSC-50.rix01", "NTSC-60.rix02" }) {
+        for (const char *pn : { "Sony-PAL", "NTSC-50.rix01", "NTSC-60.rix02" }) {
             fs5.put_text(std::string("/SD/cores/diag/presets/") + pn + ".toml", slurp_file(std::string(COREAPP_DIR) + "/../cores/diag/sd/presets/" + pn + ".toml"));
             OpIn pin = in_str("name", pn);
             CHECK_EQ(reg6.call(&c6, "pd.av_preset", &pin, 1, &r5), OPE_OK);

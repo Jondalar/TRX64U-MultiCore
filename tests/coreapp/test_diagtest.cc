@@ -920,7 +920,7 @@ static void test_avpresets()
     struct Want { const char *name; int v[DT_AV_N]; };
     //            std grp bA bB bC vs  trim bs  be  bamp gain sync blank white eq vlen vpos lines map mode pch rch syn fb
     static const Want want[3] = {
-        { "Sony PAL",      { 0, 5, 0, 0, 0, 1, 0, 28, 99, 32, 16, 0, 77, 11, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { "Sony-PAL",      { 0, 5, 0, 0, 0, 1, 0, 28, 99, 32, 16, 0, 77, 11, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { "NTSC-50.rix01", { 3, 0, 0, 0, 1, 0, 2, 16, 90, 32, 8, 8, 88, 9, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { "NTSC-60.rix02", { 1, 0, 0, 0, 1, 0, 4, 16, 90, 32, 8, 8, 88, 16, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0 } },
     };

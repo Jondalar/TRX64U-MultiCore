@@ -1,9 +1,9 @@
 # TRX64U Port Diagnostics A/V preset (T259 P4): The C128's values (PAL, CVBS on A, C on B, Y on C, V sign inverted) on the boundary-scan groups: what Alex's Sony shows a colour picture with through composite (T140, 2026-10-31).
-# Load it with Load A/V preset by name (task) or from the file browser; a walk names it as [base] preset = "Sony PAL".
+# Load it with Load A/V preset by name (task) or from the file browser; a walk names it as [base] preset = "Sony-PAL".
 kind = "avpreset"
 
 [preset]
-name = "Sony PAL"
+name = "Sony-PAL"
 Standard = "PAL 50 Hz"
 Groups = "Y=C, C=B, CVBS=A"
 Bits A = "MSB first"

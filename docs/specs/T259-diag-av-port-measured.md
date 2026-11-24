@@ -114,7 +114,7 @@ Scenario: S3 SYNCn and FB
   Then  the effect is recorded per combination (no change / sync lost / blanked / TV switches to RGB)
 
 Scenario: S4 presets
-  Given the presets "Sony PAL" (the C128's values), "NTSC-50.rix01" and "NTSC-60.rix02" (§1)
+  Given the presets "Sony-PAL" (the C128's values), "NTSC-50.rix01" and "NTSC-60.rix02" (§1)
   When  one is chosen on the A/V page or named in a walk file's [base]
   Then  every knob takes the preset's value, and the result file names the preset
 
@@ -191,7 +191,7 @@ Built 2026-11-24 on `t259-diag-av` (P1-P4, P6; P5 is not part of this build, §4
 - Probe picture (S1): the channel under test carries sync tip, blanking (77), eight bars of 32 dots (bar k = the code 1 << k, so the first six are darker than blanking and look black; the last two are grey and white), then all bits to the window's end; the other two channels sit at blanking. Bars are raw DAC codes, as §2 says.
 - RGB (S2): the palette as R, G, B words (full scale = the white knob / 16, at most 1), black outside the picture window, no sync in the words; the RGB picture knob lights one word as a ramp across the window, the others 0. `perm` picks the channel of each word (word 0 = R, 1 = G, 2 = B; the page's labels still say Y, C, CVBS).
 - Pins (S3): SYNCn: High, Low, Csync (low in the sync pulses), Inverted csync; FB: Low, High, Window (high in the picture window), Inverted window. They are aligned with the words of the active mode (9 clocks behind the sync of the encoder modes, 4 behind it in probe and RGB).
-- Application: six rows on the A/V page (Map, Mode, Probe channel, RGB picture, SYNCn, FB; keys `map`, `mode`, `probe_channel`, `rgb_picture`, `syncn`, `fb` in a walk file). Presets are files `<core folder>/presets/<name>.toml` in the T201 format; a value `"#n"` is a free register value. Shipped and installed with the core: `Sony PAL` (the C128's values on the scan groups), `NTSC-50.rix01` (NTSC 50 Hz), `NTSC-60.rix02` (NTSC 60 Hz), both of Rick's on the scan groups. Tasks: "Load A/V preset by name", "Save A/V preset", "Set an A/V knob (playground)" (`knob=value`: any number of the knob's register range, or one of its labels). A walk names a preset with `[base] preset = "name"` (the preset's knobs, then the file's own [base] knobs win); the result files carry `preset = ` / `Preset <name>`. A preset with a free value cannot be a walk's base (it refuses, naming the knob).
+- Application: six rows on the A/V page (Map, Mode, Probe channel, RGB picture, SYNCn, FB; keys `map`, `mode`, `probe_channel`, `rgb_picture`, `syncn`, `fb` in a walk file). Presets are files `<core folder>/presets/<name>.toml` in the T201 format; a value `"#n"` is a free register value. Shipped and installed with the core: `Sony-PAL` (the C128's values on the scan groups), `NTSC-50.rix01` (NTSC 50 Hz), `NTSC-60.rix02` (NTSC 60 Hz), both of Rick's on the scan groups. Tasks: "Load A/V preset by name", "Save A/V preset", "Set an A/V knob (playground)" (`knob=value`: any number of the knob's register range, or one of its labels). A walk names a preset with `[base] preset = "name"` (the preset's knobs, then the file's own [base] knobs win); the result files carry `preset = ` / `Preset <name>`. A preset with a free value cannot be a walk's base (it refuses, naming the knob).
 - Walks (S5): `avout.toml` v3 is a suite of `avprobe.toml` (6 steps: map Names / Scan groups x channel A or R, B or G, C or B; the .txt ends with "The TV locks on" naming map, channel and whether the bars rose), `avrgb.toml` (24 steps: 6 permutations x R, G, B ramp and the palette picture) and `avsync.toml` (32 steps: Test picture / RGB x SYNCn x FB). The T201 vsync walk is `avvsync.toml` (id avvsync; the old avout.toml v2 is in `superseded/`, so an unedited copy is replaced).
 
 **Proofs** (iverilog and the application tests run once on the Mac, `nice -n 15`)
@@ -211,5 +211,9 @@ The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): 
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
 - "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
-- D24: the application part grew four per-core files (`diagtest.cc` +113 code lines, `diagtest.h` +6, `portdiag.cc` +59, `portdiag_regs.h` +1); no ledger line was added.
+- D24: the application part grew four per-core files (`diagtest.cc` +113 code lines, `diagtest.h` +6, `portdiag.cc` +59, `portdiag_regs.h` +1); the ledger exceptions are D4 (2026-11-24).
 - Board steps (Alex and the tester): flash the diag core; run avprobe on the Sony's luma pin and Rick's 1702 inputs; avrgb with the SCART cable; avsync; tune PAL RGB in the playground and save the preset.
+- First pipeline run of the branch (2026-11-24, run 45408377169) was red twice: `ci/layers_check.sh` splits its table at
+  spaces, so `Sony PAL.toml` was "in no section" (the only tracked file under host/, cores/, vendor/ with a space); the preset
+  is `Sony-PAL` now, like the two NTSC ones. `tests/coreapp/golden/menu_portdiag.txt` lacked the six new rows and the two
+  tasks; it is the dump that run printed (`test_desc.cc:47`), nothing else in it changed.

@@ -500,7 +500,7 @@ static const Task tasks[] = {
     { "Pick a test and run it", "pd.pick", 0, 0, false },
     { "Write the example tests", "pd.install", 0, 0, false },
     { "Save A/V preset", "pd.av_save", save_bind, 1, false, "Preset name", 0 },
-    { "Load A/V preset by name", "pd.av_preset", save_bind, 1, false, "Preset name (Sony PAL, NTSC-50.rix01, NTSC-60.rix02 or your own)", 0 },
+    { "Load A/V preset by name", "pd.av_preset", save_bind, 1, false, "Preset name (Sony-PAL, NTSC-50.rix01, NTSC-60.rix02 or your own)", 0 },
     { "Set an A/V knob (playground)", "pd.av_free", free_bind, 1, false, "knob=value, for example burst_start=33", 0 },
 };
 static const MediaSlot media[] = {
