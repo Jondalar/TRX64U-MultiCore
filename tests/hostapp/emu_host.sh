@@ -5,6 +5,8 @@
 #
 #   tests/hostapp/emu_host.sh <images dir> <out dir>
 #
+# T239.5 (step 12 of the matrix): EMU_OWN_APP=<core> runs the kit's .cor with the app it was packed with (a core lane packed it from the core's own app, linked from the
+# SDK); its symbols are <images dir>/<core>.elf and nothing is swapped in. Unset: the shared app (coreapp.app) is swapped into the kit's vc20.cor (the old pipeline).
 # <images dir>: hostapp_emu.elf (ci/trxapps.sh: the host app built with HOSTAPP_EMU_FLASH) and coreapp.elf. <out dir>: the run's log, flash image and PNGs
 # (host-start.png, core-menu.png, host-back.png; the T187 picture flow: host-home, host-f8-list, host-picture-page, host-picture-applied). The kit (ROMs, flash.bin, profile, vc20.cor) is found as ci/lib.sh ue2emu_kit says (tools/ue2emu_kit.sh);
 # the emulator is ci/ue2emu.sh (local binary or the UE2EMU_IMAGE container). Prints PASS/FAIL lines; 
@@ -16,18 +18,31 @@ source "$ROOT/ci/lib.sh"
 img="${1:?usage: emu_host.sh <images dir> <out dir>}"; out="${2:?usage: emu_host.sh <images dir> <out dir>}"
 UE2EMU="${UE2EMU:-$ROOT/ci/ue2emu.sh}"
 skip() { echo "hostapp_emu SKIPPED out loud: $*" >&2; exit 77; }
-[ -f "$img/hostapp_emu.elf" ] && [ -f "$img/coreapp.elf" ] && [ -f "$img/coreapp.app" ] || skip "no hostapp_emu.elf / coreapp.elf / coreapp.app in $img (ci/trxapps.sh builds them)"
+own="${EMU_OWN_APP:-}"
+if [ -n "$own" ]; then
+    [ -f "$img/hostapp_emu.elf" ] && [ -f "$img/$own.elf" ] || skip "no hostapp_emu.elf / $own.elf in $img (the host menu lane and the $own lane build them)"
+else
+    [ -f "$img/hostapp_emu.elf" ] && [ -f "$img/coreapp.elf" ] && [ -f "$img/coreapp.app" ] || skip "no hostapp_emu.elf / coreapp.elf / coreapp.app in $img (ci/trxapps.sh builds them)"
+fi
 kit="$(ue2emu_kit)" || skip "no emulator kit (UE2EMU_KIT, tools/ue2emu_kit.sh)"
 [ -f "$kit/cors/vc20.cor" ] && [ -f "$kit/profiles/VIC-20.toml" ] || skip "kit $kit has no cors/vc20.cor or profiles/VIC-20.toml"
 "$UE2EMU" run --help >/dev/null 2>&1 || skip "no emulator ($UE2EMU)"
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"; img="$(cd "$img" && pwd -P)"
 # T221: the images of a dev build carry no version (no git in the build container); the package stamps them (ci/package.sh), so the flows run on stamped copies, the pictures show real strings
-mkdir -p "$out/img"; cp "$img/hostapp_emu.elf" "$img/coreapp.elf" "$img/coreapp.app" "$out/img/"
+mkdir -p "$out/img"; cp "$img/hostapp_emu.elf" "$out/img/"
+if [ -n "$own" ]; then cp "$img/$own.elf" "$out/img/"; else cp "$img/coreapp.elf" "$img/coreapp.app" "$out/img/"; fi
 for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
     python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/hostapp_emu.elf" --marker "${fld% *}" --version "$("$ROOT/ci/version.sh" "${fld#* }")" >/dev/null || skip "cannot stamp ${fld% *} into hostapp_emu.elf"
 done
-python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/coreapp.elf" "$out/img/coreapp.app" --version "$("$ROOT/ci/version.sh" coreapp)" >/dev/null || skip "cannot stamp coreapp"
+[ -n "$own" ] || python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/coreapp.elf" "$out/img/coreapp.app" --version "$("$ROOT/ci/version.sh" coreapp)" >/dev/null || skip "cannot stamp coreapp"
 img="$out/img"
+# the core file under test and the ELF the emulator reads its symbols from (EMU_OWN_APP above)
+cor_under_test() {   # cor_under_test OUT.cor
+    if [ -n "$own" ]; then cp "$kit/cors/vc20.cor" "$1"; else python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/cors/vc20.cor" --app "$img/coreapp.app" -o "$1" > /dev/null; fi
+}
+elf_under_test() {   # elf_under_test PROFILE_DIR: the app's ELF under the name the profile reads
+    if [ -n "$own" ]; then cp "$img/$own.elf" "$1/coreapp.elf"; else cp "$img/coreapp.elf" "$1/"; fi
+}
 FAIL=0
 
 # nav: past the countdown, F3, USB0, into cores (the list is .., vc20/, vc20.cor), the .cor, S = start; back: the hotkey, RESTORE, F8 System (first focus Restart core), one down to Return to host menu (T187 D8)
@@ -43,10 +58,10 @@ run_flow() {   # run_flow NAME WITH_COR(1|0): the whole flow; the log is $out/NA
     # the kit's vc20.cor carries the core application it was packed with; the flow must run the image under test, whose ELF gives the symbols
     # (C64U_emu, 2026-11-08: the kit's app ran with this build's ELF, so the fault hook fired on a wrong address - a false vAssertCalled halt)
     if [ "$with" = 1 ]; then
-        python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/cors/vc20.cor" --app "$img/coreapp.app" -o "$w/cors/vc20.cor" > /dev/null || return 1
+        cor_under_test "$w/cors/vc20.cor" || return 1
         cp "$w/cors/vc20.cor" "$w/stick/cores/"
     fi
-    cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; cp "$img/coreapp.elf" "$w/profiles/"
+    cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
     head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/basic.bin"; head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/kernal.bin"
     head -c 4096 /dev/zero > "$w/stick/cores/vc20/roms/char.bin"
     { nav; back; } > "$w/flow.ctl"
@@ -127,9 +142,9 @@ cfg_nav() {
 run_cfg_flow() {
     local w="$out/work-cfg"
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
-    python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/cors/vc20.cor" --app "$img/coreapp.app" -o "$w/cors/vc20.cor" > /dev/null || return 1
+    cor_under_test "$w/cors/vc20.cor" || return 1
     cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$w/cors/vc20.cor" "$w/stick/cores/vc20x.cor"
-    cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; cp "$img/coreapp.elf" "$w/profiles/"
+    cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
     local d n
     for d in vc20 vc20x; do
         mkdir -p "$w/stick/cores/$d/roms" "$w/stick/cores/$d/configs"
@@ -270,8 +285,8 @@ core_page_nav() { nav
 run_core_page() {
     local w="$out/work-cpage" n
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores/vc20/roms" "$w/stick/many"
-    python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/cors/vc20.cor" --app "$img/coreapp.app" -o "$w/cors/vc20.cor" > /dev/null || return 1
-    cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; cp "$img/coreapp.elf" "$w/profiles/"
+    cor_under_test "$w/cors/vc20.cor" || return 1
+    cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
     head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/basic.bin"; head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/kernal.bin"; head -c 4096 /dev/zero > "$w/stick/cores/vc20/roms/char.bin"
     for n in $(seq -w 1 80); do printf 'x\n' > "$w/stick/many/file$n.txt"; done
     core_page_nav > "$w/flow.ctl"
