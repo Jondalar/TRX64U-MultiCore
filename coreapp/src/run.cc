@@ -720,6 +720,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.desc = &merged_desc;
         ctx.merge = &merge;
     };
+    ctx.install_files = core_files_install;
+    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h); before the application scan below, so that a sub-app it writes is listed at this start
     {
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
@@ -745,8 +747,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
-    ctx.install_files = core_files_install;
-    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
     // The libraries' groups before the first reset and the start hook (api.md 9.7.10, 9.7.5.1): a library's init and start have api->io, the operations, the

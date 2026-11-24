@@ -771,6 +771,7 @@ run contrib test_contrib.cc $CONSRC
 BUNSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc handover.cc $PICSRC"   # handover.cc: bundle.cc reads the hand-over (T239.3 D17)
 CARGS="$BUN" RARGS="$BUN"
 run bundle test_bundle.cc $BUNSRC
+run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX64-Ultimate finding: a sub-app that record 8 installs is listed at the first start
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
