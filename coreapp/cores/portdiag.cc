@@ -253,7 +253,7 @@ static void folder_of(CoreCtx *c)
     }
 }
 
-// The presets: <folder>/presets/<name>.toml, the page's values in user terms. Saving writes the 14 rows; loading sets each row through settings.set (register and .cfg).
+// The presets: <folder>/presets/<name>.toml, the page's values in user terms. Saving writes every knob (a label, or "#n" for a free value, T259); loading sets each labelled row through settings.set (register and .cfg) and a free value straight into its register.
 static bool preset_name_ok(const char *n)
 {
     if (!*n || strlen(n) > 40) {
