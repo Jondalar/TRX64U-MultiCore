@@ -30,6 +30,8 @@ typedef std::vector<uint8_t> Bytes;
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
+const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, 0 };
 #endif
@@ -61,7 +63,9 @@ struct Rig {
     {
         delete m;
         delete st;
+#ifndef TEST_APP_A1200                  // the A1200's app links no drive library: its ctx has no drive
         delete (CbmDrive *)c.drive;
+#endif
     }
     // selects the row of that name on the page that is up
     bool pick(const char *name)
@@ -174,6 +178,8 @@ static const Create creates[] = {
 #ifdef TEST_APP_VC20
     { &vc20_desc,      "Create blank D64", ".d64" },
     { &vc20_desc,      "Create blank G64", ".g64" },
+#elif defined(TEST_APP_A1200)
+    { &amiga1200_desc, "Create blank ADF", ".adf" },
 #else
     { &atari800_desc,  "Create blank ATR", ".atr" },
     { &apple2_desc,    "Create blank DSK", ".dsk" },
@@ -256,6 +262,8 @@ static void check_suggestions()
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
     #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
+#elif defined(TEST_APP_A1200)
+    for (const CoreDesc *d : { &amiga1200_desc }) {
 #else
     for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc }) {
 #endif
@@ -269,7 +277,7 @@ static void check_suggestions()
     }
 }
 
-#ifndef TEST_APP_VC20          // check_junk and check_folder (main runs them in the shared app only) stand on the Atari's descriptor: the VIC-20's app has its core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // check_junk and check_folder (main runs them in the shared app only) stand on the Atari's descriptor: the VIC-20's and the A1200's app have their core only
 // A state that hands over rubbish: what the prompt takes of it
 static char g_junk[80];
 static const char *state_junk(CoreCtx *) { return g_junk; }
@@ -674,6 +682,8 @@ static void check_progress()
 #ifdef TEST_APP_VC20
     // the 1541 library: its own builder and writer state, same display
     check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
+#elif defined(TEST_APP_A1200)
+    check_progress_for(&amiga1200_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
 #else
     check_progress_for(&atari800_desc, "Create blank ATR", ".atr", ND_ATR, ND_ATR_BYTES);
     check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
@@ -698,7 +708,11 @@ static void check_progress()
 // ---- T128: "Mount folder as HD0/HD1" - the folder browser, the size in GB with its suggestion, the job, the refusal ----------------------------
 static void check_mount_folder()
 {
+#ifdef TEST_APP_A1200
+    for (const CoreDesc *d : { &amiga1200_desc }) {
+#else
     for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+#endif
         printf("-- mount folder: %s\n", d->title);
         Rig r(d);
         r.io.regs[AM_FEAT] = d == &amiga1200_desc ? 1 : 0;
@@ -760,7 +774,7 @@ static void check_mount_folder()
 #endif
 int main()
 {
-#ifndef TEST_APP_VC20          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));
@@ -771,7 +785,7 @@ int main()
     // what the product prints is checked as it runs: a format with a precision (or %%) in any of the paths below is a failed check
 #endif
     check_suggestions();
-#ifndef TEST_APP_VC20
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
     check_junk();
     check_folder();
 #endif

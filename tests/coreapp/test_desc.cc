@@ -25,6 +25,8 @@
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
+const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
@@ -159,6 +161,10 @@ int main(int, char **argv)
         static const Mi want[] = { { "VIC-20", "Memory Expansion" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_A1200)
+        static const Mi want[] = { { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
             { "Commodore PET", "Model,RAM" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
@@ -241,6 +247,8 @@ int main(int, char **argv)
         printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
 #ifdef TEST_APP_VC20
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
+#elif defined(TEST_APP_A1200)
+        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
 #else
         CHECK(seen_cbm >= 6 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
 #endif
@@ -352,6 +360,8 @@ int main(int, char **argv)
         }
 #ifdef TEST_APP_VC20
         CHECK(n205 == 1);
+#elif defined(TEST_APP_A1200)
+        CHECK(n205 == 1);
 #else
         CHECK(n205 >= 17);
 #endif
@@ -362,10 +372,13 @@ int main(int, char **argv)
     {
 #ifdef TEST_APP_VC20
         static const char *const own[] = { "VC20" };
+#elif defined(TEST_APP_A1200)
+        static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
 #else
         static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "SNES", "NEO_" };
 #endif
         for (const char *id : own) {
+            if (!id) continue;
             const CoreDesc *d = 0;
             for (const CoreDesc *const *p = core_table; *p; p++) {
                 if (!memcmp((*p)->id, id, 4)) d = *p;
@@ -387,7 +400,7 @@ int main(int, char **argv)
         }
     }
 
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -618,6 +631,7 @@ int main(int, char **argv)
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
 #else
+#ifndef TEST_APP_A1200
 
     // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
@@ -635,10 +649,17 @@ int main(int, char **argv)
                 if (!strcasecmp(td->settings[i].key, td->settings[j].key)) { dup++; printf("duplicate setting key %s\n", td->settings[i].key); }
         CHECK_EQ(dup, 0);
     }
+#endif
 
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
     {
+#ifdef TEST_APP_A1200
+        const CoreDesc &amiga_desc = amiga1200_desc;                           // the A1200's app has the one record: the checks of this block run on it (the shared app's amiga_desc is not linked)
+        CoreDesc d;                                                            // (the shared app's d is declared in the block this app does not run)
+        CHECK(!desc_check(&amiga1200_desc));
+#else
         CHECK(!desc_check(&amiga_desc) && !desc_check(&amiga1200_desc));
+#endif
         // D25: the Amiga's own mouse rows pass only with their own operation; a base key with another operation is refused
         {
             int sens = -1, acc = -1;
@@ -752,6 +773,7 @@ int main(int, char **argv)
         CHECK(desc_check(&d) && strstr(desc_check(&d), "four buffers"));
         d = amiga_desc; d.video.reg_latest = 0;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "FB_LATEST"));
+#ifndef TEST_APP_A1200
         // the shared ID word: only the two that say so may share it
         CoreDesc twin = amiga1200_desc;
         twin.id_shared = false;
@@ -770,6 +792,7 @@ int main(int, char **argv)
               amiga_desc.mouse == amiga1200_desc.mouse && amiga_desc.reset_writes == amiga1200_desc.reset_writes);
         CHECK(amiga_desc.romset != amiga1200_desc.romset && amiga_desc.romset->want != amiga1200_desc.romset->want);
         CHECK(memcmp(amiga_desc.id, amiga1200_desc.id, 4) == 0 && strcmp(amiga_desc.store, amiga1200_desc.store) != 0);
+#endif
     }
 
 
@@ -806,6 +829,8 @@ int main(int, char **argv)
     // golden menu lists
 #ifdef TEST_APP_VC20
     golden(&vc20_desc, "vc20");
+#elif defined(TEST_APP_A1200)
+    golden(&amiga1200_desc, "amiga1200");
 #else
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
@@ -880,7 +905,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 

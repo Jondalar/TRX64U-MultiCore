@@ -292,6 +292,7 @@ int main()
         CHECK(same(since(io, n0), { 0x20 }));            // the release of a key the reset forgot is not sent
     }
 
+#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
     // the Amiga 500 shares the queue (gateware: the shared amiga_input.v): the same record, the same events
     {
         FakeFs fs2;
@@ -310,5 +311,6 @@ int main()
         for (uint32_t reg : a.io.rdlog) rd = rd || reg == AM_RAWKEY;
         CHECK(rd);
     }
+#endif
     DONE("rawkeys");
 }

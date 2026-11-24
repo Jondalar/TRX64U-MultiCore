@@ -179,6 +179,27 @@ static void mount_reset_case(const CoreDesc *desc)
     CHECK_EQ(win_eject(&r.c, 0, msg, sizeof(msg)), 0);
 }
 
+#ifdef TEST_APP_A1200
+// T213.3 P3: the Amiga 1200's own app (run.sh a12app, unit a12): its record against the decode of ITS gateware copy (cores/amiga1200/rtl/amiga_regs.v), which has the display and crop window
+int main()
+{
+    mount_reset_case(&amiga1200_desc);
+    rtc_case(&amiga1200_desc);
+    Decode dec = read_decode(COREAPP_DIR "/../cores/amiga1200/rtl/amiga_regs.v");
+    CHECK(dec.wr.count(AM_CTRL) && dec.wr.count(AM_HDF_MOUNT) && dec.wr.count(AM_MOUSE_DY) && dec.rd.count(AM_STATUS) && dec.rd.count(AM_FEAT));
+    CHECK(dec.wr.count(AM_FB_SKIP_X) && dec.rd.count(AM_DIW_H));              // the A1200's decode has the window registers the A500's has not
+
+    // the application touches nothing the gateware does not decode, and it does touch the machine (not vacuous)
+    int nw = 0, nr = 0;
+    std::vector<std::string> bad = outside(&amiga1200_desc, dec, &nw, &nr);
+    for (auto &b : bad) printf("A1200 uses a register its gateware does not have: %s\n", b.c_str());
+    CHECK_EQ(bad.size(), 0);
+    printf("A1200: %d writes, %d reads\n", nw, nr);
+    CHECK(nw > 30 && nr > 50);
+    CHECK(amiga1200_desc.fbwin != 0 && amiga1200_desc.sector_media && amiga1200_desc.window_media && amiga1200_desc.mouse);
+    DONE("test_a1200");
+}
+#else
 int main()
 {
     mount_reset_case(&amiga_desc);
@@ -212,3 +233,4 @@ int main()
     CHECK_EQ(amiga_desc.settings[4].nvalues, 2);                               // OCS, ECS: no AGA on a 68000 machine
     DONE("test_amiga500");
 }
+#endif

@@ -259,6 +259,7 @@ int main()
         run(r, 20, 100);
         CHECK_EQ(r.io.log.size(), 0u);
     }
+#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
     // ---- the Amiga 500 has no record
     {
         FakeFs fs;
@@ -270,5 +271,6 @@ int main()
         run(r, 20, 100);
         CHECK_EQ(r.io.log.size(), 0u);
     }
+#endif
     DONE("fbwin");
 }
