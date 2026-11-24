@@ -764,6 +764,19 @@ def heap_app(heap=0x7A0000, image_end=0x400000, region_end=0xE90000, reserve=0x2
 class HeapTest(unittest.TestCase):
     """T239.3 D15: the packer writes the core's heap into its copy of the app and refuses an image that does not fit."""
 
+    def test_the_heap_command_checks_the_app_alone(self):
+        """T239.5: `cor_pack.py heap` is the check of `pack` on the app alone (step 7 of a core lane): it reports the figures and refuses what pack refuses."""
+        d = tempfile.mkdtemp()
+        ok, big = os.path.join(d, "ok.bin"), os.path.join(d, "big.bin")
+        open(ok, "wb").write(heap_app())
+        open(big, "wb").write(heap_app(image_end=0xE80000))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(C.main(["heap", ok, "--core", "t"]), 0)
+        self.assertIn("heap (t)", out.getvalue())
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(C.main(["heap", big, "--core", "t"]), 1)
+
     def words(self, app):
         o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
         return struct.unpack_from("<4I", app, o)

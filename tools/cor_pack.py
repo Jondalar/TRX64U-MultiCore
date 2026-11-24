@@ -30,6 +30,9 @@ Hashes are SHA-256 over each part (integrity only, no signatures).
                     [--load 0x30000] [--entry 0x30000] [--contract 2] [--fpga xc7a50t] [--icon I.rgb565|I.png] [--heap BYTES]
   cor_pack.py check core.cor [--contract 2] [--host-key K]   exit 0 = intact, prints the manifest
   cor_pack.py hostkey host.bit                   prints the AXSS word of a full bitstream (the host key)
+  cor_pack.py heap APP.bin --core ID [--sizes TOML_B] [--heap BYTES]
+                                                 T239.5 (step 7 of a core lane): the heap check of `pack` on the app alone, before a .cor exists - the layout figures,
+                                                 the heap the TOML B's libraries keep against the heap (default 0: the region left behind the image); exit 1 = refused
 
 OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, both announced by the manifest ("records": 1 and
 `desc_size`/`desc_sha256`, `libs_size`/`libs_sha256`). A bundle without them is byte for byte what this tool wrote before they existed.
@@ -971,6 +974,11 @@ def main(argv=None):
     r.add_argument("-o", "--out", required=True)
     k = sub.add_parser("hostkey")
     k.add_argument("file")
+    h = sub.add_parser("heap")
+    h.add_argument("app")
+    h.add_argument("--core", required=True)
+    h.add_argument("--sizes", help="the TOML B of the core's app: the heap its libraries keep (heap_keep)")
+    h.add_argument("--heap", type=lambda s: int(s, 0), default=0, help="the core's heap in bytes (core.toml `heap`); 0 (default): the region left behind the image")
     c = sub.add_parser("check")
     c.add_argument("file")
     c.add_argument("--contract", type=int, default=None)
@@ -1001,6 +1009,9 @@ def main(argv=None):
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "hostkey":
             print(host_key_from_bit(open(a.file, "rb").read()))
+        elif a.cmd == "heap":
+            app_heap(open(a.app, "rb").read(), a.heap, a.core, heap_needs_of(a), rep)
+            print("\n".join(rep))
         else:
             m, _ = parse(open(a.file, "rb").read(), a.contract, a.host_key)
             print(json.dumps(m, indent=1, sort_keys=True))
