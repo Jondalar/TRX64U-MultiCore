@@ -15,7 +15,10 @@
 #include "libscan.h"
 #include "board.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+
+// the capabilities of a monolith core (TRX64-Ultimate's trx64u asks for these seven): the list the board strikes from in the check below (T239.3 P1-8)
+static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
 
 // ---------------------------------------------------------------------------------------------------------------- files
 
@@ -312,7 +315,7 @@ int main()
         CHECK(n.log.find("needs the capability \"sio\", which the core \"Nintendo Entertainment System\" does not have.") >= 0);
         CHECK(n.log.find("[lib] carts v1.0 at 0x") >= 0);
     }
-    // ---- T104.2 D3 on the C64 descriptor: what the board strikes, a library cannot have. The monolith has the T37 sockets, the MultiCore
+    // ---- T104.2 D3 on a monolith core's capability list: what the board strikes, a library cannot have. The monolith has the T37 sockets, the MultiCore
     // trx64 core has not; neither has a drive B. The core's effective list is what the loader is given (run.cc merges it).
     {
         struct P : BoardProbe {
@@ -327,8 +330,9 @@ int main()
             P p(mc ? 0x7A : 0);
             BoardProfile b = board_detect(&p);
             const char *eff[16];
-            CoreDesc d = c64_desc;
-            d.ncaps = board_effective_caps(b, c64_desc.caps, c64_desc.ncaps, eff, 16, 0, 0);
+            CoreDesc d = nes_desc;
+            d.cor_name = "TRX64U";
+            d.ncaps = board_effective_caps(b, mono_caps, 7, eff, 16, 0, 0);
             d.caps = eff;
             World w(&d);
             w.add(L1 "cbm1541.u2a", Img("cbm1541").capability("drive_a"));

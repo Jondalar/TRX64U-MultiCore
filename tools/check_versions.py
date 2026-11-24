@@ -35,8 +35,11 @@ def main():
         if not PLAIN.match(v):
             errs.append("%s: version %r is not x.y.z (a build string is made at build time)" % (rel, v))
     for pin in sorted(glob.glob(os.path.join(ROOT, "release", "imports", "*.pin"))):
-        m = re.search(r'^SEMVER="?([^"\n]*)"?', open(pin, encoding="utf-8").read(), re.M)
+        text = open(pin, encoding="utf-8").read()
         rel = os.path.relpath(pin, ROOT)
+        if re.search(r"^COR_SHA256=", text, re.M):
+            continue                                                # a finished .cor of TRX64-Ultimate (T239.3 P1-8) carries its own version
+        m = re.search(r'^SEMVER="?([^"\n]*)"?', text, re.M)
         if not m:
             notes.append("%s: no SEMVER yet (D15: TRX64-Ultimate publishes it)" % rel)
             continue

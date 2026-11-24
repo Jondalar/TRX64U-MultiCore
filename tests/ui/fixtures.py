@@ -67,8 +67,8 @@ def _big(stick, ext):
             f.write(HELLO_PRG)
 
 
-def make_stick(stick, roms_dir, core="trx64u", ovtest=False):
-    """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
+def make_stick(stick, roms_dir, core="amiga1200", ovtest=False):
+    """The USB stick of the test machine of a core (the cores of emu.CORES): games/ with the media the core's features use, its core folder."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
     if core in ("amiga1200", "vc20", "c128", "atari800", "pet", "c64scpu", "cpc"):
@@ -138,18 +138,7 @@ def make_stick(stick, roms_dir, core="trx64u", ovtest=False):
         with open(os.path.join(stick, "games", "blank.nes"), "wb") as f:
             f.write(b"NES\x1a\x01\x01" + bytes(10) + bytes(16384 + 8192))
         return
-    os.makedirs(os.path.join(stick, "roms", "c64"))
-    _big(stick, "d64")
-    with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
-        f.write(make_d64("ALPHA", "HELLO", HELLO_PRG))
-    with open(os.path.join(stick, "games", "beta.d64"), "wb") as f:
-        f.write(make_d64("BETA", "WORLD", HELLO_PRG))
-    with open(os.path.join(stick, "games", "hello.prg"), "wb") as f:
-        f.write(HELLO_PRG)
-    for dst, src in (("basic.bin", "basic.901226-01.bin"), ("kernal.bin", "kernal.901227-03.bin"), ("chars.bin", "characters.901225-01.bin")):
-        shutil.copy(os.path.join(roms_dir, src), os.path.join(stick, "roms", "c64", dst))
-    if ovtest:
-        make_ovtest_cor(stick, core)
+    raise ValueError("no test stick for the core \"%s\"" % core)
 
 
 # T256: the core the overlay features run on (S3, S5, S10) is the same core with a .cor that carries the test library and the UI TOML of the test element (tests/ui/ovtest/). The .cor is
@@ -157,7 +146,7 @@ def make_stick(stick, roms_dir, core="trx64u", ovtest=False):
 # from it at the hand-over path of the core's profile. The names are the core names the profiles hand over (tests/coreapp/emu/profiles/*.toml, `core`).
 OVTEST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ovtest")
 OVTEST_U2A = os.environ.get("OVTEST_U2A", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "ovtest.u2a"))
-OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU", "trx64u": "TRX64U"}
+OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU"}
 
 
 def _stand_in_bit():

@@ -357,10 +357,7 @@ def render(a, cors, bit_len, alen, dest):
     trx = {os.path.basename(f) for f, m in cors}
     if "trx64g.cor" in trx:
         w("The exceptions are inside the TRX64 files: `trx64g.cor` carries the C64 BASIC ROM and the MOD player cartridge image that Gideon's")
-        w("Ultimate application links, as his firmware does%s." % ("; `trx64u.cor` carries the MOD player image for Play MOD" if "trx64u.cor" in trx else ""))
-        w("")
-    elif "trx64u.cor" in trx:
-        w("The exception is inside `trx64u.cor`: the MOD player cartridge image for Play MOD.")
+        w("Ultimate application links, as his firmware does.")
         w("")
     w("## 1. What you need")
     w("")

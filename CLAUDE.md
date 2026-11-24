@@ -141,8 +141,8 @@ No code for a change that has no spec section to point at; a one-line fix points
   - The SNES core embeds the 64-byte SPC700 boot ROM as MiSTer does (Alex, 2026-10-29, T142 Q3: "Ja machen wir").
   - Gideon's application links the C64 BASIC ROM (SID player and monitor: `filetype_sid.cc:21`, `u64_memory_backend.cc:9`) and the MOD
     player cartridge `module.bin` (`environment.mk:79`), as his firmware does, so `trx64g.cor` carries both (Alex, 2026-11-19: "That is
-    in Gideon's FW too, we still force the user to install a ROM!", translated). `trx64u.cor` carries `module.bin` for Play MOD until
-    that function goes with the separation (T239.3 D5). The CI pre-release carries both as well (T239.1 D43, Alex, translated: "They may
+    in Gideon's FW too, we still force the user to install a ROM!", translated). `trx64u.cor` is TRX64-Ultimate's file (T239.3 D21, P1-8): this package takes it
+    by the sha256 of its pin and changes no byte. The CI pre-release carries both as well (T239.1 D43, Alex, translated: "They may
     go in! Rule changed. My decision."), and `trx64g.cor` the part of the C64 character ROM that Gideon's application holds (T239.1
     D44, Alex: "Erlauben"); the ROM check of a CI package lets no other ROM through.
 - Name is "TRX64", never "TREX64".

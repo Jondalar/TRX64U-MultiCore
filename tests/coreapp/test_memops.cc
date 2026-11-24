@@ -16,7 +16,7 @@
 #include "apple2_regs.h"
 #include "zxnext_regs.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &vc20_desc, &c264_desc, &zxnext_desc, &c64_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &vc20_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, 0 };
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")
@@ -80,7 +80,7 @@ int main()
     }
     // the address width of each core (the last address the pair takes)
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
-        { &cpc_desc, 0x1FFFF }, { &vc20_desc, 0xFFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &c64_desc, 0xFFFF }, { &amiga_desc, 0xFFFFFF } };
+        { &cpc_desc, 0x1FFFF }, { &vc20_desc, 0xFFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
     for (auto &w : widths) {
         Rig r(w.d);
         const OpDef *rd = ops_of(&r.c)->find_op("machine.read_mem");
@@ -90,7 +90,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-    for (const CoreDesc *d : { &c64_desc, &vc20_desc, &c264_desc }) {
+    for (const CoreDesc *d : { &vc20_desc, &c264_desc }) {
         Rig r(d);
         CHECK_EQ(r.write(0x0400, "deadbeef", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x400], 0xDE); CHECK_EQ(r.io.big[0x403], 0xEF);
@@ -171,7 +171,7 @@ int main()
     }
     // ---- the hex text of a write
     {
-        Rig r(&c64_desc);
+        Rig r(&vc20_desc);
         CHECK_EQ(r.write(0, "", &res), OPE_ARG);
         CHECK_EQ(r.write(0, "abc", &res), OPE_ARG);                              // odd
         CHECK_EQ(r.write(0, "zz", &res), OPE_ARG);

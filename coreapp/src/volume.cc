@@ -3,6 +3,7 @@
 #include "ops.h"
 #include "ops_glue.h"
 #include "settings.h"
+#include "drvtab.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -18,6 +19,9 @@ uint8_t volume_byte(int step)
 const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
     *out = *d;
+#ifndef DRV_HAS_audio_master
+    return 0;                                              // T239.3 D36: the TOML A of this link has no master volume byte; the base offers no Volume row
+#endif
     if (d->own_volume) {
         return 0;
     }

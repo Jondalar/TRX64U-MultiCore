@@ -19,22 +19,19 @@
 #include "engines.h"
 #include "mediamounts.h"
 #include "amiga_regs.h"
-#include "trx64u_menu.h"
+#include "record_menu.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
-// The C64's menu is its record (T104.2 D10): its descriptor is the merged one, its tree is built with the merge.
-static const CoreDesc *menu_desc(const CoreDesc *d) { return d == &c64_desc ? trx64u::desc() : d; }
-static const MenuMerge *menu_merge(const CoreDesc *d) { return d == &c64_desc ? trx64u::merge() : 0; }
 
 static void golden(const CoreDesc *d0, const char *name)
 {
-    const CoreDesc *d = menu_desc(d0);
+    const CoreDesc *d = d0;
     MenuTree t;
-    menu_build(d, &t, true, false, menu_merge(d0));
-    static char buf[262144];                             // the TRX64U's tree is a few hundred entries (368 since T228 R21; 32 KiB no longer held it)
+    menu_build(d, &t, true, false, 0);
+    static char buf[262144];                             // a tree is a few hundred entries (the largest held 368; 32 KiB no longer held it)
     int n = menu_dump(d, &t, buf, sizeof(buf));
     CHECK(n > 0);
     std::string path = std::string(GOLDEN_DIR) + "/menu_" + name + ".txt";
@@ -88,18 +85,16 @@ static const Task *find_task(const CoreDesc *d, const char *label)
 
 static void every_item_once(const CoreDesc *d0)
 {
-    const CoreDesc *d = menu_desc(d0);
+    const CoreDesc *d = d0;
     MenuTree t;
-    menu_build(d, &t, true, false, menu_merge(d0));
+    menu_build(d, &t, true, false, 0);
     int seen_task = 0, seen_media = 0, seen_set = 0, seen_info = 0, seen_browser = 0, seen_fixed = 0, seen_mset = 0;
     int in_tabs = 0;
     for (int a = 0; a < t.nareas; a++) {
         for (int b = 0; b < t.a[a].ntabs; b++) {
             const MenuTab &tb = t.a[a].tabs[b];
             CHECK(tb.count > 0 || tb.drive_page);      // an empty tab is never published (the drive list is filled when a drive row opens it)
-            if (d0 != &c64_desc) {
-                CHECK(tb.page || tb.n == b + 1);                  // the printed number is the tab's place, and stable (a record names its published numbers: Drives is 3)
-            }
+            CHECK(tb.page || tb.n == b + 1);                      // the printed number is the tab's place, and stable
             in_tabs += tb.drive_page ? DRIVE_PAGE_ROWS : tb.count;      // T212 D5: the drive list's reserved rows
             for (int i = tb.first; i < tb.first + tb.count; i++) {
                 switch (t.e[i].kind) {
@@ -140,10 +135,10 @@ static int ms_mount(CoreCtx *, int, const char *, char *, int) { return 0; }
 static int ms_eject(CoreCtx *, int, char *, int) { return 0; }
 static const MountSlots ms_ok = { 2, ms_names, ms_spec, ms_mount, ms_eject };
 
-int main()
+int main(int, char **argv)
 {
     for (const CoreDesc *const *p = core_table; *p; p++) {
-        const char *why = desc_check(*p == &c64_desc ? trx64u::checked() : *p);            // for the C64 its record's names and bindings against the registry (the application's own items are not the core's to declare)
+        const char *why = desc_check(*p);
         if (why) printf("%s: %s\n", (*p)->cor_name, why);
         CHECK(!why);
         CHECK(!desc_check(*p));
@@ -185,20 +180,6 @@ int main()
         }
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
         CHECK_EQ(nones, 3);
-        // the C64's record (not the raw c64_desc): its machine_info names settings the record has, one each (T228)
-        const CoreDesc *td = trx64u::desc();
-        CHECK(td->machine_info && !strcmp(td->machine_info, "System Mode,REU Size"));
-        for (const char *q = td->machine_info; td->machine_info && *q;) {
-            const char *e = strchr(q, ',');
-            int l = e ? (int)(e - q) : (int)strlen(q), hit = 0;
-            for (int i = 0; i < td->nsettings; i++) {
-                const char *nm = td->settings[i].label ? td->settings[i].label : td->settings[i].key;
-                hit += !td->settings[i].kind && (int)strlen(nm) == l && !strncasecmp(nm, q, l);
-            }
-            CHECK_EQ(hit, 1);
-            if (!e) break;
-            q = e + 1;
-        }
     }
 
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
@@ -213,7 +194,7 @@ int main()
         static const Ref refs[] = { { ".d64", ref_d64, 5 }, { ".g64", ref_g64, 4 }, { ".d81", ref_d81, 4 } };
         int seen_cbm = 0, seen_other = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
-            const CoreDesc *d = menu_desc(*p);
+            const CoreDesc *d = *p;
             for (int i = 0; i < d->nfiletypes; i++) {
                 const FileType &ft = d->filetypes[i];
                 bool mounts = false, runs = false, starts = false;
@@ -221,7 +202,7 @@ int main()
                     const FileAction &a = ft.actions[k];
                     mounts = mounts || !strncmp(a.label, "Mount", 5);
                     runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") ||
-                                             (!strcasecmp(a.label, "Run Disk") && (!strcmp(a.op, "pet.mount_run") || !strcmp(a.op, "drive.run_disk")))));   // TRX64U: drive.run_disk (T228 R21 #15, a .cfg beside the disk first)
+                                             (!strcasecmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"))));
                     starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
                 }
                 if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
@@ -230,9 +211,9 @@ int main()
                 for (const Ref &r : refs) if (!pet && !strcmp(ft.ext, r.ext)) ref = &r;
                 if (ref) {                                          // a CBM drive image
                     seen_cbm++;
-                    // the reference names first, in this order; T228 R21: the TRX64U adds TRX64-Ultimate's own after them (Load into MP3 Drv A-D, its REU RAM drives)
+                    // the reference names first, in this order; a core may add its own after them
                     bool same = ft.nactions >= ref->n;
-                    for (int k = 0; same && k < ref->n; k++) same = !strcasecmp(ft.actions[k].label, ref->names[k]);      // the TRX64U's are in sentence case (T228 R21 correction round), the others in Title Case
+                    for (int k = 0; same && k < ref->n; k++) same = !strcasecmp(ft.actions[k].label, ref->names[k]);
                     if (!same || !runs || !d->type_op) printf("T206: %s %s: names/order differ, or no Run Disk, or the core cannot type\n", d->cor_name, ft.ext);
                     CHECK(same);
                     CHECK(runs);
@@ -245,21 +226,21 @@ int main()
             }
         }
         printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
-        CHECK(seen_cbm >= 8 && seen_other >= 8);                    // the walk saw the cores (c64u record, vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
+        CHECK(seen_cbm >= 8 && seen_other >= 8);                    // the walk saw the cores (vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
     }
 
     // T184 D3: the WiFi is set in the host. A core keeps no WiFi key of its own (no "WiFi ...", no "Wi-Fi SSID" / "Wi-Fi Password": the host's settings are the store's)
-    // and shows exactly one row WiFi: the fixed row of the system tab (EK_WIFI) of a classic core, the node of the TRX64U's record; whatever else the record has of
+    // and shows exactly one row WiFi: the fixed row of the system tab (EK_WIFI) of a classic core, the node of a record's menu; whatever else the record has of
     // the WiFi is a state line (no button, no operation but the switch).
     for (const CoreDesc *const *p = core_table; *p; p++) {
-        const CoreDesc *d = menu_desc(*p);
+        const CoreDesc *d = *p;
         for (int i = 0; i < d->nsettings; i++) {
             const char *k = d->settings[i].key;
             if (!strncasecmp(k, "WiFi", 4) || !strncasecmp(k, "Wi-Fi", 5)) printf("%s: setting %s\n", (*p)->cor_name, k);
             CHECK(strncasecmp(k, "WiFi", 4) && strncasecmp(k, "Wi-Fi", 5));
         }
         MenuTree t;
-        menu_build(d, &t, true, false, menu_merge(*p));
+        menu_build(d, &t, true, false, 0);
         int rows = 0;
         for (int i = 0; i < t.n; i++) {
             const MenuEntry &e = t.e[i];
@@ -278,13 +259,12 @@ int main()
     // T205 D1 (S1, S2, S3): every core on the default route has ONE settings area. F5 is named after the core and its tabs are the core's own settings (named after the
     // core), Video, Audio, Input; there is no F6 (nor a key for it); "Menu opens at" sits in the core's tab; F8 holds only actions (Reload/Restart core, Return to host menu,
     // Bug report, WiFi, Reset to host defaults) and no setting; the Summary tab is gone, and the media slots and the configs it showed are on Home. A description with a route
-    // of its own (the TRX64U core's record) keeps its areas; it is not on the default route.
+    // of its own keeps its areas; it is not on the default route.
     {
         int n205 = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
-            const MenuMerge *mm = menu_merge(*p);
-            if (mm && mm->skel) continue;
-            const CoreDesc *d = menu_desc(*p);
+            const MenuMerge *mm = 0;
+            const CoreDesc *d = *p;
             MenuTree t;
             menu_build(d, &t, true, false, mm);
             n205++;
@@ -359,7 +339,7 @@ int main()
     // T180 D4: a core that keeps media of its own (an engine the base does not know: the Apple's and the Atari's drives, the CPC's FDC, the drive library of the
     // Commodore cores, the SNES and Neo Geo saves) hands its write-back to the base, which calls it on every exit that lets a medium go (media_writeback)
     {
-        static const char *const own[] = { "APL2", "A8XL", "CPC_", "TRX2", "C128", "C264", "VC20", "SNES", "NEO_" };
+        static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "VC20", "SNES", "NEO_" };
         for (const char *id : own) {
             const CoreDesc *d = 0;
             for (const CoreDesc *const *p = core_table; *p; p++) {
@@ -515,11 +495,11 @@ int main()
     CHECK(desc_check_table(dup2) != 0);             // the same manifest name
 
     // T104.2 D5: a descriptor with w == 0 draws its own picture; the rest of the video block then has to be empty, not half filled
-    d = testcore::desc; d.video = c64_desc.video; CHECK(!desc_check(&d));
-    d = testcore::desc; d.video = c64_desc.video; d.video.fb_base = 0x01000000u; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64_desc.video; d.video.fb_stride = 100; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64_desc.video; d.video.nbuf = 4; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64_desc.video; d.video.h = 200; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+    d = testcore::desc; d.video = c64scpu_desc.video; CHECK(!desc_check(&d));
+    d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_base = 0x01000000u; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+    d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_stride = 100; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+    d = testcore::desc; d.video = c64scpu_desc.video; d.video.nbuf = 4; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+    d = testcore::desc; d.video = c64scpu_desc.video; d.video.h = 200; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
     d = testcore::desc; d.video.w = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));      // the made-up core's buffers are still there
     d = testcore::desc; d.video.h = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "size"));              // a picture needs both sides
     // T104.2 D6: an action that asks for an address binds it once, to a number that takes 0 .. 65535; one that asks nothing binds no address
@@ -610,23 +590,11 @@ int main()
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
 
-    // the C64: its own capability list, the board strikes from it
-    CHECK(c64_desc.board_caps && desc_has_capability(&c64_desc, "sid_sockets") && desc_has_capability(&c64_desc, "drive_a"));
-    CHECK(!desc_has_capability(&c64_desc, "drive_b") && !desc_has_capability(&c64_desc, "sio"));
-    // ... and its browser offers the two PRG actions, the second of them with the prompt
-    {
-        const FileType *prg = 0;
-        const CoreDesc *cd = trx64u::desc();
-        for (int i = 0; i < cd->nfiletypes; i++) if (!strcmp(cd->filetypes[i].ext, ".prg")) prg = &cd->filetypes[i];
-        CHECK(prg && prg->nactions == 3);
-        CHECK(prg && !strcmp(prg->actions[0].label, "Run PRG") && !prg->actions[0].ask);
-        CHECK(prg && !strcmp(prg->actions[1].label, "Load PRG and start from") && prg->actions[1].ask);
-        CHECK(prg && !strcmp(prg->actions[2].label, "DMA (load, do not run)") && !prg->actions[2].ask);
-    }
-
     // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
-        const CoreDesc *td = trx64u::desc();
+        static CoreDesc rbase = nes_desc;
+        RecordMenu rm(&rbase, argv[1]);                                       // golden/desc_own.toml over the NES
+        const CoreDesc *td = &rm.desc;
         int pi = picture_index(td);
         CHECK(pi >= 0 && !strcasecmp(td->settings[pi].key, PICTURE_KEY));
         int si = scale_index(td), mi = smooth_index(td);
@@ -734,8 +702,14 @@ int main()
         ms = *amiga_desc.mouse;
         ms.reg_btn = 0x1000;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "register block"));
-        // T104.1 5.6: the C64's record names the 1351 and uses no register; a backend nobody knows is refused
-        CHECK(c64_desc.mouse && c64_desc.mouse->kind == MOUSE_POT1351 && !desc_check(&c64_desc));
+        // T104.1 5.6: a core that names the 1351 uses no register; a backend nobody knows is refused
+        {
+            MouseSinkSpec pot = {};
+            pot.kind = MOUSE_POT1351;
+            CoreDesc dp = testcore::desc;
+            dp.mouse = &pot;
+            CHECK(!desc_check(&dp));
+        }
         ms = *amiga_desc.mouse;
         ms.kind = (MouseKind)7;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "backend"));
@@ -800,7 +774,6 @@ int main()
     }
 
     // golden menu lists
-    golden(&c64_desc, "c64");
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
     golden(&apple2_desc, "apple2");
@@ -824,11 +797,10 @@ int main()
     static const char *const forbidden[] = { "Drive A", "SID", "REU", "Monitor", "Printer", "Modem", "LED", "Power", "Stream",
                                              "Assembly", ".u2a", "Flash Config", "Save to Flash", "Interface Type", "Tape", "Turbo", 0 };
     for (const CoreDesc *const *p0 = core_table; *p0; p0++) {
-        if (*p0 == &c64_desc) continue;       // the TRX64U is the C64 machine: SID, REU, Monitor, Power, LED, .u2a are what its record is for (golden menu_c64.txt)
-        const CoreDesc *d1 = menu_desc(*p0);
+        const CoreDesc *d1 = *p0;
         const CoreDesc *const *p = &d1;
         MenuTree t;
-        menu_build(*p, &t, true, false, menu_merge(*p0));
+        menu_build(*p, &t, true, false, 0);
         for (int i = 0; i < t.n; i++) {
             const MenuEntry &e = t.e[i];
             bool own = false;

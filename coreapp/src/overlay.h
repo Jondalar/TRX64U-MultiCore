@@ -41,6 +41,8 @@ struct UiElements {
 struct OvRect {
     int x, y, w, h;
 };
+// The source of the 16 screen colours (RGB, 8 bits each): true when it wrote them (the same type as Video::StillPalette and the SDK's still_palette).
+typedef bool (*OvPalette)(uint8_t rgb[16][3]);
 
 const char *ovl_anchor_name(int anchor);   // "top_left", ...; null for a number outside OVA_*
 int ovl_anchor_of(const char *name);       // the number of the name, -1 when it is none
@@ -113,8 +115,13 @@ public:
     virtual void *alloc(uint32_t n) = 0;
     virtual void release(void *p) = 0;
     // The picture of the machine that stopped, fitted to fw x fh pixels (RGB565); dst takes the window of w x h pixels of it that starts at ox, oy (fw x fh 0: the window is all of it). From the host's
-    // still capture on a C64-type core, painted with the person's palette; from the core's frame buffer on the others. False: none.
-    virtual bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy) = 0;
+    // still capture on a C64-type core, painted with the person's palette; from the core's frame buffer on the others. False: none. The rows of dst are `stride` pixels apart (0: w). `pal` is a
+    // library's source of the colours (null: the base's own); the host calls it while it paints.
+    virtual bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0) = 0;
+    // The grab uses buffers of its own (one capture for the whole application), so every grab_still is made between these two: the base's still (UI task) and a library's frame() (its task).
+    // A lock that may wait; not the critical section of enter().
+    virtual void grab_lock() { }
+    virtual void grab_unlock() { }
     // A core whose picture is a frame buffer on the layer: where that picture stands on the canvas of cw x ch (the whole picture, it may reach beyond the canvas). The still has this
     // geometry, not the still element's. False: no such picture (a C64-type core's capture fills the still element).
     virtual bool picture_rect(int cw, int ch, OvRect *r) { (void)cw; (void)ch; (void)r; return false; }
@@ -172,6 +179,9 @@ public:
     void paused(bool on);
     void live_key(bool on);
     void look(uint8_t alpha);              // 255 minus the person's Overlay Transparency
+    // The menu's close has begun (before the core's menu_closed hook), until the next menu(): a library's still that goes meanwhile asks for no new still of the base's while the menu is
+    // still up; the request waits for menu(false) and is served only if the machine stands then (Pause). A machine that runs again takes no still.
+    void closing();
     // One pass of the main loop: the text calls, the redraws, the menu calls of libraries. UI task.
     void frame();
 
@@ -179,6 +189,12 @@ public:
     int show(int owner, const char *name, const SvcSurface *sf);
     int update(int owner, int el);
     int remove(int owner, int el);
+    // T256 D11: paints the frame the machine drew last into the library's surface as the element `name` lies on the canvas (the SDK's frame()). Runs in the calling task.
+    int paint_frame(int owner, const char *name, const SvcSurface *sf);
+    // T256 fix round: the size of the canvas the elements are placed on now (the SDK's canvas()). OVL_E_NOSERVICE (w and h untouched) while no core's table is set.
+    int canvas(int *w, int *h) const;
+    // The library's source of the screen colours (null: the base's again); one per core, the last call counts. After drop_owner(owner) it is never called again.
+    int set_palette(int owner, OvPalette f);
     void text(int owner, const SvcSurface *sf, int x, int y, const char *s, uint16_t colour);
     void menu_hide();
     void menu_show();
@@ -217,6 +233,7 @@ private:
     void build_scene(OvScene *sc, bool *elems, bool *lib_still) const;
     void take_still();
     void drop_still();
+    OvPalette palette() const;             // the library's source, read under the lock; called outside it
     int find(const char *name) const;
     OverlayLayer *layer_;
     OverlayHost *host_;
@@ -227,7 +244,10 @@ private:
     uint16_t *base_still_;                 // the base's capture of the stopped machine, base_rect_ in size (the still's row, cut to the canvas of the moment it was taken)
     OvRect base_rect_;
     bool base_still_ok_;
-    bool menu_up_, frozen_, paused_, live_key_;
+    bool retake_;                          // a library's still went while the machine stands: the base takes its own again at the next settle (not while closing_)
+    OvPalette pal_;                        // a library's source of the screen colours, null: the base's
+    int pal_owner_;
+    bool menu_up_, frozen_, paused_, live_key_, closing_;
     bool was_standing_;
     uint8_t alpha_;
     TextCall text_[OVL_TEXT_MAX];

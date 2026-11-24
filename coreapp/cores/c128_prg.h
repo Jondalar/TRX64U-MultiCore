@@ -20,7 +20,7 @@ static inline void c128_prg_params(CbmPrgParams *p)
 }
 
 // T217 D4: the same machine in C64 mode (GO64): BASIC at $0801, TXTTAB $2B/$2C, VARTAB $2D, ARYTAB $2F, STREND $31, keyboard buffer $0277 with its count $C6 -
-// the C64's own numbers (coreapp/cores/c64.cc run_params). RAM block 0 is what both modes use and what the RAM window reaches.
+// the C64's own numbers. RAM block 0 is what both modes use and what the RAM window reaches.
 static inline void c128_prg_params_c64(CbmPrgParams *p)
 {
     memset(p, 0, sizeof(*p));

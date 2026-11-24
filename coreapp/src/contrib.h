@@ -142,7 +142,7 @@ struct MenuMerge {
     FileAction actions[CONTRIB_ACTIONS_MAX];
     int nactions;
     // T239.3 base 3.3: the key table of the core's description (descrec.h section 18; the rows live in the record, which outlives this). contrib_merge clears it; the caller that has the
-    // description sets it (bundle_merge, the tests' trx64u menu).
+    // description sets it (bundle_merge, the tests' record menu: tests/coreapp/record_menu.h).
     const CoreKey *keys;
     int nkeys;
     // T239.3 D32: where the application's rows stand: the base's table with the core's routes and places over it (menu_place_merge), in place_store, when has_place (false after contrib_merge: the base's table alone). A struct, not a pointer into itself: a MenuMerge may be copied.

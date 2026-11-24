@@ -12,7 +12,6 @@
 #include "keyboard.h"
 #include "regset.h"
 #include "padkeys.h"
-#include "trx64u_menu.h"
 
 enum { CTRL = 58, CBM = 61, KR = 17, KPLUS = 40, KMINUS = 43, KJ = 34, KP = 41, KA = 10, KSHIFT = 15, K1 = 56 };
 
@@ -225,7 +224,7 @@ int main()
     // ---- S5 and the per-core default maps: every core that has hotkeys, the default is harmless in it
     {
         struct Row { const CoreDesc *d; const char *name; bool has; };
-        const Row rows[] = { { &c64_desc, "c64", true }, { &c64scpu_desc, "c64scpu", true }, { &c128_desc, "c128", true }, { &vc20_desc, "vc20", true },
+        const Row rows[] = { { &c64scpu_desc, "c64scpu", true }, { &c128_desc, "c128", true }, { &vc20_desc, "vc20", true },
                              { &c264_desc, "c264", true }, { &pet_desc, "pet", true }, { &amiga_desc, "amiga", true }, { &amiga1200_desc, "amiga1200", true }, { &apple2_desc, "apple2", true },
                              { &atari800_desc, "atari800", true }, { &zx_desc, "zx", true }, { &zxnext_desc, "zxnext", true }, { &cpc_desc, "cpc", true },
                              { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
@@ -451,9 +450,19 @@ int main()
         m->key(KEY_RETURN); press(64); release(64);
         CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
     }
-    // ---- T228 R1/R16 (gate fixes 3 and 5): trx64u's Timewarp and Monitor tasks hold CTRL+T and CTRL+O by default; a key the stored settings give a fixed action is not doubled
+    // ---- T228 R1/R16 (gate fixes 3 and 5): two tasks of a core's menu (Timewarp... and Monitor..., hotkey T and O) hold CTRL+T and CTRL+O by default; a key the stored settings give a
+    // fixed action is not doubled. The core is the NES descriptor with the two tasks and the items hk_extend and hk_extend_tasks make (T239.3 P1-8: trx64u's menu is TRX64-Ultimate's)
     {
-        const CoreDesc *d = trx64u::desc();
+        static Task tk[2];
+        memset(tk, 0, sizeof(tk));
+        tk[0].label = "Timewarp..."; tk[0].op = "menu.screen"; tk[0].closes_menu = true; tk[0].hotkey = 'T';
+        tk[1].label = "Monitor..."; tk[1].op = "menu.screen"; tk[1].closes_menu = true; tk[1].hotkey = 'O';
+        static CoreDesc hd;
+        static Setting hs[SETTINGS_MAX];
+        CHECK(!hk_extend(&nes_desc, &hd, hs));
+        hd.tasks = tk; hd.ntasks = 2;
+        CHECK(!hk_extend_tasks(&hd, hs, SETTINGS_MAX));
+        const CoreDesc *d = &hd;
         int idx[HK_TASKS_MAX];
         CHECK_EQ(hk_tasks(d, idx), 2);
         auto key_named = [](const char *nm) { for (int k = 0; k < HK_NKEYS; k++) if (!strcmp(hk_key_name(k), nm)) return k; return -1; };

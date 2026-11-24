@@ -86,11 +86,12 @@ public:
     virtual void eeprom_write(uint32_t off, const void *p, uint32_t n) { (void)off; (void)p; (void)n; }
     // T159: U64_CASELED_SELECT, the sources of the two case LEDs (low nibble LED 1, high nibble LED 2; host/case_leds.v). A host without it ignores the write.
     virtual void case_led_select(uint8_t) { }
-    // T160 D1 / T164 WP11: the host's master volume, a byte at U64_AUDIO_MIXER + 0x50 (ultimate_sys.vhd, trx_gain.v in host/top.v): 128 unity, 0 silent,
-    // 255 +6 dB. A host without it ignores the write.
+    // T160 D1 / T164 WP11: the host's master volume, property `volume` of the base block audio_master (U64_AUDIO_MIXER + 0x50; ultimate_sys.vhd, trx_gain.v
+    // in host/top.v: gain v / 128, so 128 unity, 0 silent, 255 about +6 dB, saturated). The board writes it only when the linked TOML A has the block
+    // (T239.3 D36); without the block the write does nothing.
     virtual void master_volume(uint8_t) { }
-    // T189: the host's tone preset, a byte at U64_AUDIO_MIXER + 0x51 (ultimate_sys.vhd, trx_tone.v in host/top.v): 0 Flat, 1 Bass boost, 2 Treble boost. A host
-    // without it ignores the write.
+    // T189: the host's tone preset, property `tone` of audio_master (U64_AUDIO_MIXER + 0x51; trx_tone.v): 1 Bass boost, 2 Treble boost, any other value
+    // Flat. Like master_volume, the write does nothing without the block.
     virtual void master_tone(uint8_t) { }
     // T181: the host's hotkey mask registers (U64_AUDIO_MIXER + 0x60 ...): MOD_A, MOD_B, the 8 mask bytes, the RESTORE bit (hotkeys.h hk_regs). A host without them
     // ignores the writes.

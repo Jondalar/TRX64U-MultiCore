@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The operations and states the real application image exports, as the golden list tests/coreapp/golden/ops_trx64u.txt holds them (the ABI between a
-menu.toml and the C++: tools/descrec.py checks every name and binding against that list).
+"""The operations and states the real application image exports, as the golden list tests/coreapp/golden/ops_amiga1200.txt holds them (the ABI between a
+menu TOML and the C++: tools/descrec.py checks every name and binding against that list).
 
   export.py              print the list from a ue2emu run of the image (GET /v1/ops, GET /v1/state)
-  export.py --update     write tests/coreapp/golden/ops_trx64u.txt
-  export.py --core amiga1200 [--update]    the same for the Amiga 1200 (ops_amiga1200.txt)
+  export.py --update     write tests/coreapp/golden/ops_amiga1200.txt
+  export.py --core NAME [--update]    the same for another core of emu.CORES (the golden is written for the Amiga 1200 only)
 
 Line format (the same as tests/coreapp/ops_export.cc): `op<TAB>name<TAB>arg:type:lo:hi:maxlen:label|label ...` and `state<TAB>name`.
 """
@@ -15,7 +15,6 @@ import urllib.request
 
 import emu
 
-GOLDEN = os.path.join(emu.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")
 GOLDEN_A1200 = os.path.join(emu.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")
 
 
@@ -58,7 +57,7 @@ def export_text(e):
 
 
 if __name__ == "__main__":
-    core = sys.argv[sys.argv.index("--core") + 1] if "--core" in sys.argv else "trx64u"
+    core = sys.argv[sys.argv.index("--core") + 1] if "--core" in sys.argv else "amiga1200"
     e = emu.Emu(core=core)
     e.start()
     try:
@@ -66,7 +65,9 @@ if __name__ == "__main__":
     finally:
         e.stop()
     if "--update" in sys.argv:
-        g = GOLDEN_A1200 if core == "amiga1200" else GOLDEN
+        if core != "amiga1200":
+            raise SystemExit("export.py: --update writes the golden of the Amiga 1200 only")
+        g = GOLDEN_A1200
         open(g, "w").write(text)
         print("wrote %s (%d lines)" % (g, text.count("\n")))
     else:

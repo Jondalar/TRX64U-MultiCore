@@ -916,64 +916,16 @@ static void build_viewer(lv_obj_t *c, MenuCtl &m)
     trx_txt(c, X0, trx_content_h() - 22, line, t.caption, t.muted);
 }
 
-// ---- Timewarp: the pixel layer of TRX64-Ultimate's trx_video.cc tw_draw_bar, the same look: no menu, the C64 picture through the hole, one bar over the lower border ----------
-// Layer coordinates of the bar (trx_video.cc TW_*): 768 x 48 at 16, 476 of the 800 x 540 picture window, which sits in the middle of the 960 wide layer. On a canvas
-// narrower than 960 (T164 D10a) the layer is the mode's frame: the bar is as wide as the frame less 32 (at most 768), centred, 64 above the bottom edge.
-static int tw_w(void) { return trx_canvas_w() - 32 < 768 ? trx_canvas_w() - 32 : 768; }
-#define TW_X0 ((trx_canvas_w() - tw_w()) / 2)
-#define TW_Y0 (trx_canvas_h() - 64)
-static const uint8_t tw_glyphs[5][8] = {                   // pause, back, forward, oldest, newest (8 x 8, bit 7 left)
-    { 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x00 }, { 0x11, 0x33, 0x77, 0xFF, 0x77, 0x33, 0x11, 0x00 },
-    { 0x88, 0xCC, 0xEE, 0xFF, 0xEE, 0xCC, 0x88, 0x00 }, { 0x83, 0x87, 0x8F, 0x9F, 0x8F, 0x87, 0x83, 0x00 },
-    { 0xC1, 0xE1, 0xF1, 0xF9, 0xF1, 0xE1, 0xC1, 0x00 },
-};
-static void build_timeline(lv_obj_t *scr, MenuCtl &m)
+// ---- the pixel layer's own page ("timeline" layout): no menu, no bar. The base draws nothing on it (T256 D12): a library paints its own UI as elements. Over the still the page is transparent
+// (D4), else it is the live key, so the machine's picture shows through the hole.
+static bool g_tl_under;                                   // ui_still_under() when the Timewarp page was built: the page is rebuilt when it changes
+static void build_timeline(lv_obj_t *scr)
 {
-    char spec[80], pos[24], info[64], glyph[8], track[24], hint[48];
-    m.layout_param("pos", spec, sizeof(spec)); m.spec_text(spec, pos, sizeof(pos));
-    m.layout_param("info", spec, sizeof(spec)); m.spec_text(spec, info, sizeof(info));
-    m.layout_param("glyph", spec, sizeof(spec)); m.spec_text(spec, glyph, sizeof(glyph));
-    m.layout_param("track", spec, sizeof(spec)); m.spec_text(spec, track, sizeof(track));
-    m.layout_param("hint", spec, sizeof(spec)); m.spec_text(spec, hint, sizeof(hint));
+    g_tl_under = ui_still_under();
     trx_shell_forget();
     lv_obj_clean(scr);
     lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-    lv_obj_set_style_bg_opa(scr, ui_still_under() ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
-    int tww = tw_w();
-    trx_box(scr, TW_X0, TW_Y0, tww, 48, 0x101018);
-    int g = atoi(glyph);
-    if (g < 0 || g > 4) {
-        g = 0;
-    }
-    for (int j = 0; j < 8; j++) {                                  // the glyph, 2 x 2 per bit, runs of set bits as one box
-        for (int i = 0; i < 8;) {
-            if (!(tw_glyphs[g][j] & (0x80 >> i))) {
-                i++;
-                continue;
-            }
-            int e = i;
-            while (e < 8 && (tw_glyphs[g][j] & (0x80 >> e))) {
-                e++;
-            }
-            trx_box(scr, TW_X0 + 12 + i * 2, TW_Y0 + 8 + j * 2, (e - i) * 2, 2, 0x6C5EB5);
-            i = e;
-        }
-    }
-    trx_txt(scr, TW_X0 + 36, TW_Y0 + 8, pos, &lv_font_unscii_16, 0xFFFFFF);
-    bool warn = strstr(info, "no frame") || strstr(info, "holds no");
-    trx_txt(scr, TW_X0 + 172, TW_Y0 + 12, info, &lv_font_unscii_8, warn ? 0x9A6759 : 0x959595, trx_compact() ? tww - 172 - 12 - (int)strlen(hint) * 8 - 8 : 0);
-    int hw = (int)strlen(hint) * 8;
-    trx_txt(scr, TW_X0 + tww - 12 - hw, TW_Y0 + 12, hint, &lv_font_unscii_8, 0x959595);
-    int tp = 0, tl = 0;
-    sscanf(track, "%d/%d", &tp, &tl);
-    if (tl > 0) {
-        int len = tl > 1 ? tl - 1 : 1;
-        tp = tp < 0 ? 0 : (tp > len ? len : tp);
-        int cx = 12 + (tp * (tww - 24 - 4)) / len;
-        trx_box(scr, TW_X0 + 12, TW_Y0 + 32, cx - 12, 4, 0x6C6C6C);
-        trx_box(scr, TW_X0 + cx, TW_Y0 + 32, 12 + tww - 24 - cx, 4, 0x444444);
-        trx_box(scr, TW_X0 + cx, TW_Y0 + 29, 4, 10, 0xFFFFFF);
-    }
+    lv_obj_set_style_bg_opa(scr, g_tl_under ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
 }
 
 static void build_sheet(lv_obj_t *c, MenuCtl &m, int sel)
@@ -1483,18 +1435,12 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     }
     g_viewer = false;
     if (m.layout_is("timeline")) {                                // the pixel layer's own screen: no frame, no rail, no footer
-        char sp[80], pos[24], info[64], glyph[8], track[24];
-        m.layout_param("pos", sp, sizeof(sp)); m.spec_text(sp, pos, sizeof(pos));
-        m.layout_param("info", sp, sizeof(sp)); m.spec_text(sp, info, sizeof(info));
-        m.layout_param("glyph", sp, sizeof(sp)); m.spec_text(sp, glyph, sizeof(glyph));
-        m.layout_param("track", sp, sizeof(sp)); m.spec_text(sp, track, sizeof(track));
-        uint32_t h = hs(hs(hs(hs(2166136261u, pos), info), glyph), track);
-        if (!(g_valid && g_live && g_full == 1 && h == g_sig)) {
-            g_live = false;                                       // a rebuild (each scrub step) keeps the key on: screens_forget would switch it off, the core would hear off, then on (menu_video)
+        if (!(g_valid && g_live && g_full == 1 && g_tl_under == ui_still_under())) {
+            g_live = false;                                       // a rebuild keeps the key on: screens_forget would switch it off, the core would hear off, then on (menu_video)
             ui_menu_forget_rows();
-            build_timeline(scr, m);
+            build_timeline(scr);
             g_valid = true;
-            g_sig = h;
+            g_sig = 0;
             g_full = 1;
             g_live = true;
             ui_live_key(true);

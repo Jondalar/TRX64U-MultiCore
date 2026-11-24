@@ -9,9 +9,9 @@
 #include "atari800_regs.h"
 #include "amiga_regs.h"
 
-// T228: the menu on trx64u's bitstream. Its pix_layer (TRX64-Ultimate's) has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
+// T228: the menu on a monolith-type bitstream (TRX64-Ultimate's). Its pix_layer has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
 // factor of the menu's output size over its canvas there (trx_canvas_factor); its frame is the gateware's row (U16), from the start and after every mode.
-static void trx64u_menu()
+static void monolith_menu()
 {
     CHECK_EQ(trx_canvas_factor(1920, 1080, 960, 540), 2);         // 1080p: 960 x 540 at x2
     CHECK_EQ(trx_canvas_factor(960, 540, 960, 540), 1);           // 720p (and 1024 x 768, 1280 x 1024): x1
@@ -43,7 +43,7 @@ static void trx64u_menu()
     sys = -1; hdmi = -1;
     video_menu_start(false, -1, &sys, &hdmi);
     CHECK_EQ(hdmi, VID_HDMI_1080P);
-    // a core with its own picture (trx64u, w == 0): with the gateware the menu's canvas and place follow every mode, as a frame-buffer core's do
+    // a core with its own picture (w == 0, as c64scpu's): with the gateware the menu's canvas and place follow every mode, as a frame-buffer core's do
     struct M { int hdmi, sys, cw, ch, x, y, w, h; };
     static const M ms[] = {
         { VID_HDMI_1080P,   VID_SYS_PAL50,  960, 540,   0,  0, 1920, 1080 },
@@ -55,7 +55,7 @@ static void trx64u_menu()
     };
     FakeIo io;
     PxRec px;
-    Video v(c64_desc.video, &px, &io);
+    Video v(c64scpu_desc.video, &px, &io);
     CHECK(v.own_picture());
     v.set_gateware(true);
     for (const M &m : ms) {
@@ -72,14 +72,14 @@ static void trx64u_menu()
     CHECK(px.w.empty());                                            // the layer itself is not touched: it is the menu's (the LVGL port's)
     // without the gateware the frame does not follow the mode: the menu stays where the start put it
     PxRec npx;
-    Video nv(c64_desc.video, &npx, &io);
+    Video nv(c64scpu_desc.video, &npx, &io);
     nv.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
     CHECK(npx.place.empty() && npx.canvas.empty());
 }
 
 int main()
 {
-    trx64u_menu();
+    monolith_menu();
     const VideoDesc &d = atari800_desc.video;
     // the numbers of T88 D5: 384 x 288 at scale 3 = 1152 x 864, centred on 1920 x 1080 and shifted by 14 hires pixels
     CHECK_EQ(d.w * d.scale, 1152);
@@ -168,10 +168,10 @@ int main()
         CHECK_EQ(nes_v.wanted_hdmi(), VID_HDMI_720P);
         CHECK_EQ(a8_v.wanted_hdmi(), VID_HDMI_1080P);
     }
-    // T104.2 D5, S5: w == 0 says the core draws its own picture (the C64's goes through Gideon's video path). The service writes no register
+    // T104.2 D5, S5: w == 0 says the core draws its own picture (the C64 family's goes through Gideon's video path). The service writes no register
     // of the core - they would be the ID bytes - and never puts a picture on the layer.
     {
-        const VideoDesc &c = c64_desc.video;
+        const VideoDesc &c = c64scpu_desc.video;
         CHECK_EQ(c.w, 0);
         FakeIo cio;
         PxRec cpx;

@@ -1,7 +1,6 @@
-# The ICAP loader block of the host (host/ultimate_sys.vhd, region r_icap: 0x060600 .. 0x0606FF). Offsets are bytes from the block's address.
+# The ICAP loader block of the host (host/ultimate_sys.vhd, region r_icap: 0x060600 .. 0x0606FF; the block is the bytes +0x00 .. +0x1B of it). Offsets are bytes from the block's address.
 # id reads 0x7A. data takes the bitstream bytes while enable is 1 (four bytes make one word); count0 .. count3 are the word counter, little endian,
-# cleared when enable rises. decouple: write bit 0 requests the decouple; read bit 0 is the request, bit 1 the effective decouple of the core's partition.
-# release: bit 0 releases the expansion port.
+# cleared when enable rises. The partition's decouple and the expansion port's release are the block "partition" (partition.map.toml), not this one.
 map = "icap"
 
 [[property]]
@@ -58,27 +57,3 @@ name = "count3"
 offset = 0x1B
 width = 8
 dir = "r"
-
-[[property]]
-name = "decouple"
-offset = 0x20
-width = 8
-dir = "rw"
-  [[property.field]]
-  name = "request"
-  shift = 0
-  bits = 1
-  [[property.field]]
-  name = "effective"
-  shift = 1
-  bits = 1
-
-[[property]]
-name = "release"
-offset = 0x21
-width = 8
-dir = "rw"
-  [[property.field]]
-  name = "port"
-  shift = 0
-  bits = 1

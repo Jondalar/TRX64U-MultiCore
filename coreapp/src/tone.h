@@ -14,7 +14,7 @@
 #define TONE_DEFAULT 0                 // Flat
 
 // out = *d with the Tone item after d's own settings; `store` holds the merged array (SETTINGS_MAX items, as volume_extend's) and has to outlive `out`.
-// Returns null, or the reason when there is no room.
+// Returns null, or the reason when there is no room. An app linked against a TOML A without the block audio_master (T239.3 D36: no tone byte) adds no Tone row: out = *d.
 const char *tone_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
 
 // True for the item tone_extend adds (the apply operation is ours), false for a descriptor's own.

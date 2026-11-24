@@ -62,7 +62,7 @@ def plain(label):
 
 
 class Ctx:
-    def __init__(self, with_emulator=True, core="trx64u"):
+    def __init__(self, with_emulator=True, core="amiga1200"):
         self.with_emulator = with_emulator
         self.core = core
         self.noted = None

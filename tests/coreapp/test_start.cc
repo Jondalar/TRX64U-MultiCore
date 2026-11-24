@@ -8,8 +8,8 @@
 
 static const CoreDesc a = { {'A', '8', 'X', 'L'}, "Atari 800 XL", "Atari", "atari800", "Atari 800 XL Settings" };
 static CoreDesc n = { {'N', 'E', 'S', '_'}, "Nintendo Entertainment System", "NES", "nes", "NES Settings" };
-extern const CoreDesc c64_desc, amiga_desc, amiga1200_desc;
-const CoreDesc *const core_table[] = { &a, &n, &c64_desc, &amiga_desc, &amiga1200_desc, 0 };
+extern const CoreDesc amiga_desc, amiga1200_desc;
+const CoreDesc *const core_table[] = { &a, &n, &amiga_desc, &amiga1200_desc, 0 };
 
 int main()
 {
@@ -124,24 +124,14 @@ int main()
     handover_fill(&h, "/SD/dev.bin", "Atari 800 XL", "0.0.7", 1);
     start_paths(&c, &h);
     CHECK_STR(c.cfg_path, "");
-    // T104.2 S3: "TRX2" is the C64 - on the monolith without any hand-over, on the MultiCore host with the manifest of the trx64 core
-    CHECK_EQ(start_identify((const uint8_t *)"TRX2", 0, &d, msg, sizeof(msg)), START_OK);
-    CHECK(d == &c64_desc);
-    CHECK_STR(msg, "[core] TRX2 TRX64U, cor (no hand-over)");
-    handover_fill(&h, "/usb1/cores/trx64u.cor", "TRX64U", "1.0.0", 0x1234u);
-    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_OK);
-    CHECK_STR(msg, "[core] TRX2 TRX64U, cor /usb1/cores/trx64u.cor");
-    // the manifest name of trx64u.cor is "TRX64U" (T104.2 Q5): the Ultimate application's bundle of the same machine, named otherwise, does not start this one
-    handover_fill(&h, "/usb1/cores/trx64g.cor", "TRX64 Ultimate (Gideon app)", "1.0.0", 0x1234u);
-    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
-    handover_fill(&h, "/usb1/cores/atari800.cor", "Atari 800 XL", "1.0.0", 0x1234u);
-    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
-    // a fifth ID that begins like it is not it, and the text names the ID it found; so does the ID block of an older bitstream
-    CHECK_EQ(start_identify((const uint8_t *)"TRX3", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
-    CHECK(d == 0 && strstr(msg, "TRX3") != 0 && strstr(msg, "stays held") != 0);
-    CHECK_EQ(start_identify((const uint8_t *)"TRX\0", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    // the manifest name of the .cor decides: a bundle of the same machine, named otherwise, does not start this core
+    handover_fill(&h, "/usb1/cores/nes.cor", "Nintendo Entertainment System", "1.0.0", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"A8XL", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    // an ID that begins like a core's is not it, and the text names the ID it found; so does the ID block of an older bitstream
+    CHECK_EQ(start_identify((const uint8_t *)"A8XM", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK(d == 0 && strstr(msg, "A8XM") != 0 && strstr(msg, "stays held") != 0);
+    CHECK_EQ(start_identify((const uint8_t *)"A8X\0", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
     CHECK_EQ(start_identify((const uint8_t *)"RTX2", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
-    CHECK(core_find_by_name("trx64u") == &c64_desc);
     CHECK(core_find_by_name("atari 800 xl") == &a);
     CHECK(core_find_by_name("Amiga") == 0);
     DONE("test_start");

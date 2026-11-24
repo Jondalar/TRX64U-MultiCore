@@ -6,15 +6,15 @@ Gherkin `.feature` files run against the real application image (`coreapp.app`) 
 
 ## Run
 
-Two cores: `features/` runs against the TRX64U menu, `features_a1200/` (first line `# core: amiga1200`) against the Amiga 1200 core menu (profile `tests/coreapp/emu/profiles/amiga1200.toml`, T192.3 section 5, D26).
-A feature file is one emulator session of its core; `run.sh` without arguments runs both directories.
+The cores are the profile cores of `tests/coreapp/emu/profiles` (`emu.CORES`; no C64 is in the machine): `features_a1200/` (first line `# core: amiga1200`, the default) against the Amiga 1200 core menu (T192.3 section 5, D26), `features_nes/` (`# core: nes`), `features_cores/` (the first line names the core). The menu of TRX64U is TRX64-Ultimate's (T239.3 D21): its features left this repository.
+A feature file is one emulator session of its core; `run.sh` without arguments runs the three directories.
 
 ```
 tools/dev.sh riscv                     # the image: .ci/dev/<branch>/coreapp.app; then COREAPP=<that path> tests/ui/run.sh
 tests/ui/build.sh                      # older route (a copied tree on the builder keeps deleted files: check that it really built)
 tests/ui/run.sh                        # every feature (about 1 minute)
-tests/ui/run.sh features/library.feature --keep-going
-tests/ui/run.sh features/settings.feature --only "Discard"     # scenarios whose name has this text
+tests/ui/run.sh features_a1200/library.feature --keep-going
+tests/ui/run.sh features_a1200/settings.feature --only "Discard"     # scenarios whose name has this text
 ```
 
 Needs: `~/Development/u64-emulator/target/release/ue2emu` (`UE2EMU=`), the emulator's ROM folder `firmware/1541ultimate/roms` (`UE2EMU_ROMS=`), and the image
@@ -29,12 +29,12 @@ so a setting a scenario changes lives only inside its feature. Inside a feature 
 
 | File | What |
 |---|---|
-| `features/*.feature` | the suite: navigation, settings, letters, library, home, pack (pack runs without the emulator: first line `# no-emulator`) |
+| `features_a1200/`, `features_nes/`, `features_cores/*.feature` | the suite: navigation, settings, letters, library, home and more per core; `features_cores/pack.feature` runs without the emulator (first line `# no-emulator`) |
 | `runner.py` | the Gherkin subset: `Feature`, `Background`, `Scenario`, `Given/When/Then/And/But`, comments; `--keep-going`, `--only` |
 | `steps.py` | the steps (a regular expression and a function each) and `Ctx` (the state, key presses that wait for the menu to take them) |
 | `emu.py` | starts ue2emu, speaks the control port (`key`, `wait`, `png`, `button`), reads the state over REST |
 | `fixtures.py` | the stick of the test machine; `make_ovtest_cor` packs the overlay test library into the `.cor` of a core whose feature says `# core: vc20+ovtest` |
-| `ovtest/` | the test library of the overlay service (T256): `ovtest.cc`, its UI TOML `ovtest.toml` (the element), `build.sh` (RISC-V, tests/ui/build/ovtest.u2a); features `features/overlay_trx64u.feature`, `features_cores/overlay_vc20.feature` |
+| `ovtest/` | the test library of the overlay service (T256): `ovtest.cc`, its UI TOML `ovtest.toml` (the element), `build.sh` (RISC-V, tests/ui/build/ovtest.u2a); feature `features_cores/overlay_vc20.feature` |
 
 ## Writing a step
 

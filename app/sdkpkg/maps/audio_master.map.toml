@@ -1,0 +1,16 @@
+# The host's master audio bytes (host/ultimate_sys.vhd, U64_AUDIO_MIXER + 0x50 and + 0x51; both write only, the RTL answers no read). Offsets are bytes from the block's address.
+# volume: the gain byte of the host's master gain (trx_gain.v in host/top.v); the register's reset value is 0x80, the unity gain of the base's Volume row, 0 is silent.
+# tone: the preset select (trx_tone.v in host/top.v): 0 Flat (reset value), 1 Bass boost, 2 Treble boost; any other value is Flat.
+map = "audio_master"
+
+[[property]]
+name = "volume"
+offset = 0x00
+width = 8
+dir = "w"
+
+[[property]]
+name = "tone"
+offset = 0x01
+width = 8
+dir = "w"

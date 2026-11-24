@@ -52,8 +52,8 @@ if [ -z "$inplace" ]; then
 fi
 
 # The blueprint cores: a descriptor in coreapp/src/table.cc, so the one image serves them (T93 D14).
-# The table also holds the C64 ("TRX2", T104.2), but `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's
-# application for it, and the C64 descriptor is for the TRX64 Ultimate monolith (coreapp.bin from this stage, staged over JTAG).
+# `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's application for it. trx64u is TRX64-Ultimate's (T239.3 D21):
+# its application is built there, and this stage builds none for it.
 # Every core whose core.toml says blueprint is in the list below. The A1200 runs the generic image since 2026-10-20 (T104, Alex: "Yes of
 # course ... A1200 with the new app in a core please", translated), vc20 (since V-4 its own app, SDK_OWN_APPS) and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
 # switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
@@ -68,12 +68,6 @@ SDK_OWN_APPS="${SDK_OWN_APPS:-$(python3 -I "$ROOT/tools/core_toml.py" list-own-a
 for c in $SDK_OWN_APPS; do
   case " $BLUEPRINT_CORES " in *" $c "*) echo "trxapps: $c has a TOML B of its own (SDK_OWN_APPS) and is in BLUEPRINT_CORES: it would be given the shared app (D25)" >&2; exit 1;; esac
 done
-# T228 R25 (Alex 2026-11-18): the cores with a core app image of their own, <name>:<descriptor>:<heap>. Linked from the objects of the shared
-# image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).
-# trx64u: 0x950000 (the shared image keeps 0x7A0000). Its own image ends its static part at 12.4 MB of the 14.4 MB region with 0x7A0000;
-# 0x950000 leaves 312 KB between the end of the static part and the region's end, where the start-up stack grows down (linker.x
-# __crt0_stack_begin).
-OWN_IMAGES="${OWN_IMAGES:-trx64u:c64_desc:0x950000}"
 
 if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then
   echo "=== trxapps $key: from cache $cache"
@@ -129,13 +123,9 @@ else
     make -C "$H/u64ii/riscv/$a" gitinfo
     nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
   done
-  for spec in $OWN_IMAGES; do                       # T228 R25: the images of their own, from the same objects
-    IFS=: read -r on od oh <<<"$spec"
-    nice -n 15 make -C "$H/u64ii/riscv/coreapp" own OWN="$on" OWN_DESC="$od" OWN_HEAP="$oh"
-  done
 
   # T239.3 P3-1 (D31, S8): the symbol check on what the app's TOML B names: every source of its libraries is linked, and no generic object uses a symbol a library defines
-  # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app; trx64u's own image links the same objects.
+  # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app.
   NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
 
   if [ -n "$compile_only" ]; then
@@ -147,11 +137,6 @@ else
   # T104.2 S12: the boot ROM starts an application from the slot at 0x220000 and takes at most 0x1E0000 - 12 bytes of it; an image that
   # does not fit would build, flash and not start. The number goes in the log on every build.
   python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
-  for spec in $OWN_IMAGES; do
-    on="${spec%%:*}"
-    python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app"
-    cp "$H/u64ii/riscv/coreapp/result/coreapp_$on.bin" "$H/u64ii/riscv/coreapp/result/coreapp_$on.elf" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app" "$out/"
-  done
   cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
   cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
   # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
@@ -239,7 +224,6 @@ fi
 printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
 ls -l "$out" "$out/coreapps"
-for spec in $OWN_IMAGES; do sha256sum "$out/coreapp_${spec%%:*}.bin"; done
 sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a" "$out/trex_crt.u2a" "$out/softboot.u2a" "$out/online.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"

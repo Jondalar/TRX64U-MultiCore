@@ -17,16 +17,20 @@
 #include "keyboard.h"
 #include "ops_glue.h"
 #include "volume.h"
-#include "trx64u_menu.h"
+#include "record_menu.h"
 #include "atari_media.h"
 #include "libload.h"
 #include "libexports.h"
 #include "menuflows.h"
 
-extern int stub_mon_key_n, stub_mon_key_last;             // tests/coreapp/board_stubs.cc: what mon_key was given
-extern int stub_mon_open_n, stub_mon_tick_n, stub_mon_render_n;     // what monitor_grid.cc asked of the monitor
-extern bool stub_mon_tick_answer;
-extern uint32_t stub_mon_sig;
+extern const CoreDesc pet_desc;
+extern const CoreDesc nes_desc;
+
+// the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
+static RecordMenu *g_rm;
+// the monitor's key operation of a record core: here it only counts what it was given (the real one is TRX64-Ultimate's)
+static int g_mon_key_n, g_mon_key_last;
+static int mon_key_op(CoreCtx *, const OpArgs &a, OpOut &o) { g_mon_key_n++; g_mon_key_last = (int)a.i(0); o.msg[0] = 0; return OPE_OK; }
 
 // the loader of the application, as libboard.cc makes it, with no images: the table of the monitor's grid goes in through add_export and the menu finds it through LibLoader::find_export
 struct GridHost : LibHost {
@@ -45,7 +49,7 @@ struct Host : MenuHost {
     bool return_to_host(char *msg, int n) { snprintf(msg, n, "no"); return false; }
 };
 
-// the operations of Timewarp, as the image registers them (ringops.cc): here they only write down what they were called with
+// the operations of Timewarp, as a core registers them: here they only write down what they were called with
 static std::vector<std::string> g_calls;
 template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 {
@@ -59,22 +63,27 @@ template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 
 struct Rec {
     SioModel io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
-    explicit Rec(const CoreDesc *d = trx64u::desc())
+    explicit Rec(const CoreDesc *d = 0, const MenuMerge *mm = 0)
     {
+        if (!d) { d = &g_rm->desc; mm = &g_rm->mm; }
         memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs; c.merge = trx64u::merge();
-        st = new Settings(d->settings, d->nsettings, d->store, &fs, "/sd/cores/trx64u.cfg", 0);
+        c.desc = d; c.io = &io; c.fs = &fs; c.merge = mm;
+        st = new Settings(d->settings, d->nsettings, d->store, &fs, "/sd/cores/rec.cfg", 0);
         st->load();
         c.settings = st;
         c.started = true;
         OpRegistry *r = ops_of(&c);
-        // the names are registered already (the image's export, trx64u_ops.cc registers them with no behaviour here): their handlers are replaced by ones that write the call down
-        struct { const char *name; op_fn fn; } rec[] = { { "tw.step", rec_op<0> }, { "tw.seconds", rec_op<1> }, { "tw.oldest", rec_op<2> }, { "tw.resume", rec_op<3> }, { "tw.cancel", rec_op<4> } };
-        for (auto &x : rec) {
-            const OpDef *o = r->find_op(x.name);
-            if (!o) { printf("FAIL no operation %s in the registry\n", x.name); g_fails++; continue; }
-            const_cast<OpDef *>(o)->fn = x.fn;
-        }
+        static const ArgSpec one[] = { ARG_INT("value", -1000, 1000) };
+        static const ArgSpec key[] = { ARG_INT("key", 0, 0x1FFF) };
+        r->contributor("test");
+        r->add_op("tw.step", one, 1, rec_op<0>);
+        r->add_op("tw.seconds", one, 1, rec_op<1>);
+        r->add_op("tw.oldest", 0, 0, rec_op<2>);
+        r->add_op("tw.resume", 0, 0, rec_op<3>);
+        r->add_op("tw.cancel", 0, 0, rec_op<4>);
+        r->add_op("tw.monitor", 0, 0, rec_op<2>);
+        r->add_op("monitor.key", key, 1, mon_key_op);
+        r->add_state("monitor.wants_stop", [](CoreCtx *) -> const char * { return 0; });
         m = new MenuCtl(&c, &host);
         m->open();
     }
@@ -130,26 +139,25 @@ struct Lib {
     void run_job() { int n = 0; while (m->tick() && ++n < 400) { } }
 };
 
-int main()
+int main(int, char **argv)
 {
+    static CoreDesc base = nes_desc;
+    base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
+    g_rm = new RecordMenu(&base, argv[1]);
     setvbuf(stdout, 0, _IONBF, 0);
-    // ---- T228 DC5: the machine line names the REU only while it is on -------------------------------------------------------------------------------------------------
+    // ---- T228 DC5: the machine line names the RAM only while its row is shown (PET: the 2001, 3032 and 4032 have the row, the CRTC models have 32 KiB whatever it says) ------------------
     {
-        Rec r;
-        Settings *st = r.c.settings;                            // the menu may have replaced the object the rig made: the one the context holds is the one the line reads
-        int reu = st->find("RAM Expansion Unit"), sz = st->find("REU Size");
-        CHECK(reu >= 0 && sz >= 0);
-        // the build's registry has an empty stand-in for reu.on (board_stubs.cc); the state the board has: set while the expansion is not Disabled
-        struct S { static const char *reu_on(CoreCtx *c) { return c->settings->value(c->settings->find("RAM Expansion Unit")) ? "yes" : 0; } };
-        const_cast<StateDef *>(ops_of(&r.c)->find_state("reu.on"))->get = S::reu_on;
-        char off[160], on[160];
-        st->set(reu, 0);
-        r.m->machine_line(off, sizeof(off));
-        st->set(reu, 1);
-        r.m->machine_line(on, sizeof(on));
-        const char *size = trx64u::desc()->settings[sz].values[st->value(sz)];
-        CHECK(strstr(on, size) != 0);
-        CHECK(strstr(off, size) == 0);
+        Rec r(&pet_desc, 0);
+        Settings *st = r.c.settings;
+        int model = st->find("Model (at next reset)"), ram = st->find("RAM (at next reset)");
+        CHECK(model >= 0 && ram >= 0);
+        char line[160];
+        st->set(model, 2);                                      // 4032
+        r.m->machine_line(line, sizeof(line));
+        CHECK_STR(line, "4032 - RAM 32 KiB");
+        st->set(model, 3);                                      // 8032
+        r.m->machine_line(line, sizeof(line));
+        CHECK_STR(line, "8032");
     }
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
@@ -173,7 +181,7 @@ int main()
         CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK_EQ(r.m->key(KEY_ESCAPE), MenuCtl::R_CLOSE);  CHECK_STR(r.calls().c_str(), "tw.cancel");
         CHECK(open_by_home_row(*r.m, "Timewarp..."));
-        CHECK_EQ(r.m->key(0x60), MenuCtl::R_CLOSE);        CHECK_STR(r.calls().c_str(), "tw.cancel");      // the C64's left arrow is ESC here
+        CHECK_EQ(r.m->key(0x60), MenuCtl::R_CLOSE);        CHECK_STR(r.calls().c_str(), "tw.cancel");      // the left arrow key of the C64 keyboard is ESC here
         CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK_EQ(r.m->key(KEY_BREAK), MenuCtl::R_CLOSE);   CHECK_STR(r.calls().c_str(), "tw.cancel");
         // the leave intent of the menu hotkey closes at once, whatever the page
@@ -186,20 +194,20 @@ int main()
         Rec r;
         CHECK(open_by_home_row(*r.m, "Monitor..."));
         CHECK(r.m->layout_is("terminal"));
-        int n0 = stub_mon_key_n;
+        int n0 = g_mon_key_n;
         CHECK_EQ(r.m->key('x'), MenuCtl::R_REDRAW);
-        CHECK_EQ(stub_mon_key_n, n0 + 1);
-        CHECK_EQ(stub_mon_key_last, 'x');
+        CHECK_EQ(g_mon_key_n, n0 + 1);
+        CHECK_EQ(g_mon_key_last, 'x');
         CHECK_EQ(r.m->key('2'), MenuCtl::R_REDRAW);              // a digit is the monitor's, not a tab number
-        CHECK_EQ(stub_mon_key_last, '2');
+        CHECK_EQ(g_mon_key_last, '2');
         CHECK(r.m->layout_is("terminal"));
         CHECK_EQ(r.m->key(KEY_UP), MenuCtl::R_REDRAW);
-        CHECK_EQ(stub_mon_key_last, KEY_UP);
-        n0 = stub_mon_key_n;
+        CHECK_EQ(g_mon_key_last, KEY_UP);
+        n0 = g_mon_key_n;
         CHECK_EQ(r.m->key(KEY_F10), MenuCtl::R_CLOSE);           // the menu button and RUN/STOP (while the machine stands) are not the monitor's
         CHECK_EQ(r.m->key(KEY_MENU), MenuCtl::R_CLOSE);
         CHECK_EQ(r.m->key(KEY_BREAK), MenuCtl::R_CLOSE);
-        CHECK_EQ(stub_mon_key_n, n0);
+        CHECK_EQ(g_mon_key_n, n0);
     }
     // ---- the monitor's screen is a text grid of a library (T239.3 base 3.3): the terminal node of the record names the export "textgrid"; the page's entry calls its enter once, every pass of
     // the menu loop its tick (the answer says the grid changed), and nothing names an operation of the monitor
@@ -222,35 +230,32 @@ int main()
         CHECK_EQ(r.m->key(KEY_F10), MenuCtl::R_CLOSE);
         mg_uninstall();
     }
-    // ---- the board's own wiring of that screen (libboard.cc): monitor_grid.cc over mon_*, the table registered with the loader as the base does where the core has the monitor, and the
-    // menu's finder is LibLoader::find_export; the drawing calls reach mon_*, enter is the operation monitor.open, tick is mon_tick
+    // ---- the base's chain to a library's text screen: the table registered with the loader under "textgrid", the menu's finder is LibLoader::find_export, and the calls reach the table
     {
         Rec r;
         GridHost gh;
         LibLoader ld(&gh, ops_of(&r.c), 3);
-        CHECK(ops_of(&r.c)->find_op("monitor.open") != 0);
-        CHECK(ld.add_export("textgrid", 1, monitor_textgrid(&r.c)));
+        g_mg.reset();
+        CHECK(ld.add_export("textgrid", 1, &g_mg_table));
         menu_set_export_finder(LibLoader::find_export);
         const TextGrid *g = menu_grid("textgrid");
         CHECK(g != 0 && g->size == sizeof(TextGrid));
         CHECK(menu_grid("nothing") == 0);
-        stub_mon_open_n = stub_mon_tick_n = stub_mon_render_n = 0;
-        stub_mon_sig = 0xC0FFEE;
         if (g) {
             g->render();
-            CHECK_EQ(stub_mon_render_n, 1);
-            CHECK_EQ(g->sig(), 0xC0FFEE);
+            CHECK_EQ(g_mg.n_render, 1);
+            CHECK_EQ(g->sig(), g_mg.sig);
             CHECK_EQ(g->cols(), 80);
             CHECK_EQ(g->rows(), 0);
             CHECK_STR(g->line(0), "");                                  // no rows: "" for a row outside the grid
             CHECK_EQ(g->attr(3), TG_NORMAL);
         }
         CHECK(menu_grid_enter("textgrid"));
-        CHECK_EQ(stub_mon_open_n, 1);                                   // through the operation monitor.open
-        stub_mon_tick_answer = true;
+        CHECK_EQ(g_mg.n_enter, 1);
+        g_mg.tick_answer = true;
         CHECK(menu_grid_tick("textgrid"));
         CHECK(!menu_grid_tick("textgrid"));
-        CHECK_EQ(stub_mon_tick_n, 2);
+        CHECK_EQ(g_mg.n_tick, 2);
         CHECK(!menu_grid_enter("nothing") && !menu_grid_tick("nothing"));
         menu_set_export_finder(0);
     }
@@ -279,7 +284,7 @@ int main()
             { "timeline", KEY_RETURN, KEY_RETURN, MI_OP, 0, "tw.resume", KF_STATUS_OK | KF_CLOSE, 0 },
             { "timeline", 0x20, 0x7E, MI_SWALLOW, 0, 0, 0, 0 },
         };
-        const DescRecord &rec = trx64u::menu()->rec;
+        const DescRecord &rec = g_rm->rec;
         CHECK_EQ(rec.nkeys, (int)(sizeof(ref) / sizeof(ref[0])));
         for (int i = 0; i < rec.nkeys && i < (int)(sizeof(ref) / sizeof(ref[0])); i++) {
             const CoreKey &k = rec.keys[i];
@@ -315,7 +320,7 @@ int main()
     {
         // rows of another record: a row for one tab by its id (node), the first row that matches takes the key, a state condition, a layout row on a tab of another layout does nothing,
         // and a core with no key table has the keys of its screen go to the menu's grammar
-        static MenuMerge *mm = new MenuMerge(*trx64u::merge());
+        static MenuMerge *mm = new MenuMerge(g_rm->mm);
         static CoreKey rows[5];
         memset(rows, 0, sizeof(rows));
         auto row = [](CoreKey &k, const char *layout, const char *node, int key, int arg, const char *op, unsigned flags, const char *when) {
@@ -340,9 +345,9 @@ int main()
         CHECK(open_by_home_row(*r.m, "Monitor..."));
         r.m->key('x');                                CHECK_STR(r.calls().c_str(), "tw.cancel");  // the rows of the Timewarp page do not count here, the row of the Monitor page does
         mm->nkeys = 0;                                                                         // no key table at all
-        int n0 = stub_mon_key_n;
+        int n0 = g_mon_key_n;
         r.m->key('x');
-        CHECK_EQ(stub_mon_key_n, n0);                                                          // the monitor takes no key: nothing says it should
+        CHECK_EQ(g_mon_key_n, n0);                                                          // the monitor takes no key: nothing says it should
         // a remote intent encoded and decoded (uiapp.cc "@id.arg.key.stage.row") applies the same row
         mm->nkeys = 5;
         CHECK(open_by_home_row(*r.m, "Timewarp..."));
@@ -354,7 +359,7 @@ int main()
     }
     // ---- base 3.3: a task with job = true runs as the stepped operation, with the progress line and a cancel ------------------------------------------------------------------
     {
-        static CoreDesc jd = *trx64u::desc();
+        static CoreDesc jd = g_rm->desc;
         static Task tasks[DR_TASKS + 2];
         memcpy(tasks, jd.tasks, sizeof(Task) * (size_t)jd.ntasks);
         memset(&tasks[jd.ntasks], 0, sizeof(Task));
@@ -387,7 +392,7 @@ int main()
                 return OPE_OK;
             }
         };
-        Rec r(&jd);
+        Rec r(&jd, &g_rm->mm);
         OpRegistry *reg = ops_of(&r.c);
         reg->contributor("test");
         reg->add_op("test.job", 0, 0, J::op);

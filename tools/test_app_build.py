@@ -155,8 +155,8 @@ class CoreAppToml(unittest.TestCase):
         sdk, core, doc, head = self.vic20_head()
         self.assertEqual(sdk["base_toml_a"], "host.toml")        # V-4b: the VIC-20 runs on the host bitstream, its base blocks are the host's
         self.assertEqual(sorted(b["name"] for b in doc["block"]), sorted(sdk["base_blocks"] + [b["name"] for b in core["block"]]))
-        for macro in ("DRV_HAS_cart_regs", "DRV_HAS_drive_a", "DRV_HAS_icap_id", "DRV_HAS_icap_decouple", "DRV_HAS_iec_status", "DRV_ident_caps_RD()", "DRV_cart_regs_mode_WR(v)",
-                      "DRV_machine_ram_ext_ADDR", "DRV_icap_id_id_loader", "DRV_icap_decouple_decouple_request_MASK", "DRV_icap_enable_enable_on_on", "DRV_iec_status_version_RD()"):
+        for macro in ("DRV_HAS_cart_regs", "DRV_HAS_drive_a", "DRV_HAS_icap_id", "DRV_HAS_partition", "DRV_HAS_iec_status", "DRV_ident_caps_RD()", "DRV_cart_regs_mode_WR(v)",
+                      "DRV_machine_ram_ext_ADDR", "DRV_icap_id_id_loader", "DRV_partition_decouple_request_MASK", "DRV_icap_enable_enable_on_on", "DRV_iec_status_version_RD()"):
             self.assertIn(macro, head)
         self.assertEqual(doc["identity"]["id"], "VC20")          # the core's identity, not the shared app's
         D.ldfrag_doc(doc, "t")

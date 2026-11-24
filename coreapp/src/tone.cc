@@ -3,12 +3,16 @@
 #include "ops.h"
 #include "ops_glue.h"
 #include "settings.h"
+#include "drvtab.h"
 #include <string.h>
 #include <strings.h>
 
 const char *tone_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
     *out = *d;
+#ifndef DRV_HAS_audio_master
+    return 0;                                              // T239.3 D36: the TOML A of this link has no master tone byte; the base offers no Tone row
+#endif
     if (d->no_tone) {
         return 0;
     }

@@ -11,7 +11,6 @@
 #include "check.h"
 #include "cores.h"
 #include "ops_glue.h"
-extern void trx64u_register(OpRegistry &);
 #include "fakes.h"
 #include "test_core.h"
 #include "bundle.h"
@@ -393,7 +392,7 @@ int main(int argc, char **argv)
 
     // ---- T104.2 D10: the record the application carries serves a start without a .cor, and the .cor's own record wins over it
     {
-        Bytes own = slurp(dir + "/desc_trx64u.bin");
+        Bytes own = slurp(dir + "/desc_own.bin");
         CoreDesc d = testcore::desc;
         d.menu_rec = own.data();
         d.menu_rec_n = (uint32_t)own.size();
@@ -408,12 +407,9 @@ int main(int argc, char **argv)
         Log log;
         struct Say : LibLog { Log *l; void line(const char *t) override { l->line(t); } } say;
         say.l = &log;
-        // the record names the TRX64U's operations, states and capabilities: the test core gets them (the stubs register the image's export, tests/coreapp/board_stubs.cc)
-        d.caps = c64_desc.caps; d.ncaps = c64_desc.ncaps;
-        trx64u_register(*ops_of(&c));
         CHECK_EQ(bundle_merge(&c, &d, &x, 0, &say, &merged, &mm), 0);
-        CHECK_EQ(merged.ntasks, 19);                                         // the test core's own tables are replaced by the record's (T228: 19 tasks, R1-R3, R10, R21)
-        CHECK_EQ(merged.nfiletypes, 23);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
+        CHECK_EQ(merged.ntasks, 17);                                         // the test core's own tables are replaced by the record's (golden/desc_own.toml: 17 tasks)
+        CHECK_EQ(merged.nfiletypes, 20);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
         CHECK_STR(merged.tasks[0].label, "Reset");
         CHECK_STR(merged.media[1].name, "Cartridge port");
         free_extras(&x);

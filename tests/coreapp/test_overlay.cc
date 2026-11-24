@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <vector>
+#include <mutex>
 
 struct FakeLayer : OverlayLayer {
     int applies = 0, texts = 0;
@@ -43,11 +44,21 @@ struct FakeHost : OverlayHost {
     bool has_pic = false;
     OvRect pic = {};
     bool picture_rect(int, int, OvRect *r) { *r = pic; return has_pic; }
-    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy)
+    int g_stride = 0, pal_calls = 0, locks = 0, depth = 0, bad_depth = 0;
+    OvPalette g_pal = 0;
+    bool pattern = false;                                                                  // the pixel says where in the fitted picture it came from
+    std::mutex mx;                                                                         // the stand-in of the board's grab mutex
+    void grab_lock() { mx.lock(); locks++; if (++depth != 1) bad_depth++; }
+    void grab_unlock() { depth--; mx.unlock(); }
+    static uint16_t mark(int px, int py) { return (uint16_t)(((py & 0xFF) << 8) | (px & 0xFF)); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0)
     {
         grabs++;
-        g_w = w; g_h = h; g_fw = fw; g_fh = fh; g_ox = ox; g_oy = oy;
-        if (grab_ok) { for (int i = 0; i < w * h; i++) dst[i] = 0x1234; }
+        if (depth != 1) bad_depth++;                                                       // every grab is made inside the lock
+        if (stride < w) stride = w;
+        g_w = w; g_h = h; g_fw = fw; g_fh = fh; g_ox = ox; g_oy = oy; g_stride = stride; g_pal = pal;
+        if (pal) { uint8_t rgb[16][3]; pal_calls += pal(rgb) ? 1 : 0; }
+        if (grab_ok) { for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) dst[y * stride + x] = pattern ? mark(ox + x, oy + y) : 0x1234; }
         return grab_ok;
     }
     void layer_to_ui() { to_ui++; }
@@ -76,6 +87,61 @@ static bool palette_source(uint8_t rgb[16][3])
     rgb[5][0] = 0x00; rgb[5][1] = 0xFC; rgb[5][2] = 0x00;                   // and green
     return true;
 }
+static bool lib_palette(uint8_t rgb[16][3])
+{
+    memset(rgb, 0, 16 * 3);
+    rgb[2][2] = 0xF8;                                                       // the library's blue
+    return true;
+}
+// A frame buffer that answers by address: each byte is a function of its address, so a wrong column or row shows in the pixel.
+struct PatternIo : FakeIo {
+    void ddr_abs_read(uint32_t addr, void *p, uint32_t n)
+    {
+        for (uint32_t i = 0; i < n; i++) ((uint8_t *)p)[i] = (uint8_t)((addr + i) * 2654435761u >> 13);
+    }
+};
+// What Video::grab computed before the column table: one division per pixel, the formulas of that code. Colodore (no palette source), the 4 bit capture as the test fills it.
+static uint16_t ref_colodore(int i)
+{
+    static const uint16_t c[16] = { 0x0000, 0xFFFF, 0x8187, 0x7679, 0x89F2, 0x5569, 0x2973, 0xEF8E, 0x8A85, 0x51C0, 0xC36E, 0x4A49, 0x7BCF, 0xAFF3, 0x737D, 0xB596 };
+    return c[i & 15];
+}
+static uint8_t g_cap_ref[400 * 270 / 2];
+static void ref_own(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride, int rows)
+{
+    for (int y = 0; y < h; y++) {
+        const uint8_t *src = g_cap_ref + (size_t)((oy + y) * rows / fh) * (400 / 2);
+        for (int x = 0; x < w; x++) {
+            const int vx = (ox + x) * 400 / fw;
+            const uint8_t b = src[vx >> 1];
+            dst[(size_t)y * stride + x] = ref_colodore((vx & 1) ? (b >> 4) : (b & 15));
+        }
+    }
+}
+static void ref_fb(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride, uint32_t vw, uint32_t vh, uint32_t base, uint32_t dw, uint32_t pb)
+{
+    PatternIo io;
+    uint8_t line[8192];
+    for (int y = 0; y < h; y++) {
+        const uint32_t sy = (uint32_t)(oy + y) * vh / (uint32_t)fh;
+        io.ddr_abs_read(base + sy * dw * pb, line, vw * pb);
+        for (int x = 0; x < w; x++) {
+            const uint32_t sx = (uint32_t)(ox + x) * vw / (uint32_t)fw;
+            if (pb == 2) {
+                dst[(size_t)y * stride + x] = (uint16_t)(line[2 * sx] | (line[2 * sx + 1] << 8));
+            } else {
+                const uint32_t v = (uint32_t)line[4 * sx] | ((uint32_t)line[4 * sx + 1] << 8) | ((uint32_t)line[4 * sx + 2] << 16);
+                dst[(size_t)y * stride + x] = (uint16_t)(((v & 0xF80000) >> 8) | ((v & 0x00FC00) >> 5) | ((v & 0x0000F8) >> 3));
+            }
+        }
+    }
+}
+struct Geo { int w, h, fw, fh, ox, oy, stride; };
+static const Geo g_geo[] = {
+    { 400, 270, 400, 270, 0, 0, 0 },          { 960, 540, 1066, 720, 53, 90, 960 },   { 800, 540, 800, 540, 0, 0, 1000 },  { 333, 201, 1200, 600, 80, 17, 340 },
+    { 640, 480, 640, 480, 0, 0, 0 },          { 1, 1, 400, 270, 399, 269, 0 },        { 500, 130, 777, 131, 11, 0, 501 },  { 960, 100, 960, 100, 0, 0, 0 },
+};
+
 struct MenuLog : OvMenuPort {
     int leaves = 0, closes = 0, opens = 0;
     bool ask_close = false;
@@ -403,7 +469,58 @@ int main()
         uint16_t part[1];
         CHECK(v.grab(part, 1, 1, 400, 270, 1, 0));                                         // a window that starts at pixel 1 of the fitted picture
         CHECK_EQ(part[0], 0x07E0);
+        uint16_t two[2 + 3];                                                               // D11: a stride of 5 pixels, and the library's source first
+        for (int i = 0; i < 5; i++) two[i] = 0xAAAA;
+        CHECK(v.grab(two, 1, 1, 400, 270, 0, 0, 5, lib_palette));
+        CHECK_EQ(two[0], 0x001F);                                                          // colour 2 in the library's blue, the person's red is not asked first
+        CHECK_EQ(two[1], 0xAAAA);                                                          // the window is one pixel wide: the rest of the row is not written
+        uint16_t rows[2 * 4];
+        for (int i = 0; i < 8; i++) rows[i] = 0xAAAA;
+        CHECK(v.grab(rows, 2, 2, 800, 540, 0, 0, 4, 0));                                   // the second row is the same VIC line: copied from the line above, at the stride
+        CHECK(rows[0] == 0xF800 && rows[1] == 0xF800 && rows[2] == 0xAAAA && rows[3] == 0xAAAA);
+        CHECK(rows[4] == 0xF800 && rows[5] == 0xF800 && rows[6] == 0xAAAA && rows[7] == 0xAAAA);
         Video::set_still_palette(0);
+    }
+
+    // ---- T256 fix round: Video::grab makes the column of each output pixel once per grab; the pixels are those of the formula per pixel, on both paths
+    {
+        FakeIo io;
+        StillPx px;
+        VideoDesc d = VideoDesc();
+        Video v(d, &px, &io);
+        v.still_start();
+        Video::set_still_palette(0);
+        static uint16_t out[1000 * 540 + 64], ref[1000 * 540 + 64];
+        for (int rows : { 270, 240 }) {
+            for (size_t i = 0; i < sizeof(g_cap_ref); i++) g_cap_ref[i] = (uint8_t)(i * 2654435761u >> 11);
+            memcpy(v.still_slots_, g_cap_ref, sizeof(g_cap_ref));
+            px.status = 1 | (rows == 240 ? 4u : 0u) | (1u << 8);                           // a frame in slot 0, 50 Hz (270 rows) or 60 Hz (240)
+            for (const Geo &g : g_geo) {
+                const int stride = g.stride < g.w ? g.w : g.stride;
+                for (size_t i = 0; i < sizeof(out) / 2; i++) out[i] = ref[i] = 0xAAAA;
+                CHECK(v.grab(out, g.w, g.h, g.fw, g.fh, g.ox, g.oy, g.stride));
+                ref_own(ref, g.w, g.h, g.fw, g.fh, g.ox, g.oy, stride, rows);
+                CHECK(memcmp(out, ref, sizeof(out)) == 0);                                 // every pixel, and the ones between the rows' ends stay as they were
+            }
+        }
+        CHECK(!v.grab(out, 961, 1, 961, 1));                                               // wider than any canvas: no picture
+        VideoDesc fd = VideoDesc();
+        for (uint32_t bpp : { 2u, 4u }) {
+            fd.w = 320; fd.h = 200; fd.scale = 3; fd.bpp = bpp; fd.nbuf = 1; fd.fb_base = 0x100000; fd.fb_stride = 0x100000;
+            PatternIo pio;
+            StillPx fpx;
+            Video f(fd, &fpx, &pio);
+            f.set_gateware(true);
+            f.init();
+            const Geo fg[] = { { 320, 200, 320, 200, 0, 0, 0 }, { 960, 540, 1066, 720, 53, 90, 960 }, { 333, 201, 640, 400, 100, 40, 340 }, { 1, 1, 320, 200, 319, 199, 0 }, { 500, 130, 777, 131, 11, 0, 501 } };
+            for (const Geo &g : fg) {
+                const int stride = g.stride < g.w ? g.w : g.stride;
+                for (size_t i = 0; i < sizeof(out) / 2; i++) out[i] = ref[i] = 0xAAAA;
+                CHECK(f.grab(out, g.w, g.h, g.fw, g.fh, g.ox, g.oy, g.stride));
+                ref_fb(ref, g.w, g.h, g.fw, g.fh, g.ox, g.oy, stride, f.view_w(), 200, fd.fb_base, fd.w, bpp == 4 ? 4 : 2);
+                CHECK(memcmp(out, ref, sizeof(out)) == 0);
+            }
+        }
     }
 
     // ---- (3) a frame-buffer core: the rectangle of its running picture on the canvas the menu has in that mode
@@ -534,6 +651,195 @@ int main()
         CHECK_EQ(ovl_menu_request(OVR_SHOW, false, false, &m), OVM_NOTHING);                // the core has not started: nothing to open the menu on
         CHECK_EQ(ovl_menu_request(OVR_NONE, true, true, &m), OVM_NOTHING);
         CHECK(m.leaves == 2 && m.closes == 1 && m.opens == 1);
+    }
+    // ---- D11: frame() paints the part of the picture under an element, at the picture's place and scale; the pixels the picture does not cover stay
+    {
+        Rig r(true);
+        r.host.pattern = true;
+        r.host.has_pic = true;
+        r.host.pic = OvRect{ 300, 100, 200, 420 };                                         // the bar (280, 480, 400 x 40) overlaps it in x 300..500, y 480..520
+        static uint16_t surf[400 * 40];
+        for (int i = 0; i < 400 * 40; i++) surf[i] = 0xAAAA;
+        SvcSurface bar = sf(surf, 400, 40);
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar), 0);                                    // no show before
+        CHECK_EQ(r.host.g_w, 200);
+        CHECK_EQ(r.host.g_h, 40);
+        CHECK_EQ(r.host.g_fw, 200);
+        CHECK_EQ(r.host.g_fh, 420);
+        CHECK_EQ(r.host.g_ox, 0);
+        CHECK_EQ(r.host.g_oy, 380);
+        CHECK_EQ(r.host.g_stride, 400);
+        bool ok = true;
+        for (int y = 0; y < 40; y++) {
+            for (int x = 0; x < 400; x++) {
+                const bool in = x >= 20 && x < 220;
+                const uint16_t want = in ? FakeHost::mark(x - 20, 380 + y) : 0xAAAA;
+                ok = ok && surf[y * 400 + x] == want;
+            }
+        }
+        CHECK(ok);
+        CHECK_EQ(r.host.bad_depth, 0);
+        CHECK_EQ(r.host.depth, 0);
+        r.host.has_pic = false;                                                            // no rectangle: the picture is fitted to the still element (960 x 540); the bar shows the part under it
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar), 0);
+        CHECK_EQ(r.host.g_w, 400);
+        CHECK_EQ(r.host.g_fw, 960);
+        CHECK_EQ(r.host.g_fh, 540);
+        CHECK_EQ(r.host.g_ox, 280);
+        CHECK_EQ(r.host.g_oy, 480);
+        CHECK_EQ(surf[0], FakeHost::mark(280, 480));
+        CHECK_EQ(surf[39 * 400 + 399], FakeHost::mark(679, 519));
+        CHECK_EQ(r.svc.paint_frame(0, "bar", &bar) , 0);
+        CHECK_EQ(r.host.bad_depth, 0);
+    }
+
+    // ---- D11: the base's still and frame() use the library's palette source; null gives the base's back; drop_owner drops it
+    {
+        Rig r(true);
+        SvcSurface bar = sf(g_bar, 400, 40);
+        CHECK_EQ(r.svc.set_palette(1, lib_palette), 0);
+        r.svc.frozen(true);                                                                // the base's still
+        CHECK(r.host.g_pal == lib_palette);
+        CHECK_EQ(r.host.pal_calls, 1);
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);                                    // frame()
+        CHECK(r.host.g_pal == lib_palette);
+        CHECK_EQ(r.host.pal_calls, 2);
+        CHECK_EQ(r.svc.set_palette(1, 0), 0);                                              // null: the base's source again
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == 0);
+        CHECK_EQ(r.svc.set_palette(2, lib_palette), 0);
+        CHECK_EQ(r.svc.set_palette(3, lib_palette), 0);                                    // the last call counts
+        r.svc.drop_owner(2);                                                               // not the owner: stays
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == lib_palette);
+        const int calls = r.host.pal_calls, locks = r.host.locks;
+        r.svc.drop_owner(3);
+        CHECK(r.host.locks > locks);                                                       // drop_owner waits for a grab in flight
+        CHECK_EQ(r.svc.paint_frame(1, "bar", &bar), 0);
+        CHECK(r.host.g_pal == 0);
+        CHECK_EQ(r.host.pal_calls, calls);                                                 // the released source was not called again
+        CHECK_EQ(r.host.bad_depth, 0);
+        r.svc.frozen(false);
+    }
+
+    // ---- D11: the library's still goes while the machine stands: the base takes its own still again, from the frame drawn last
+    for (int how = 0; how < 2; how++) {
+        Rig r(true);
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK(r.layer.scene.still.px == g_still);
+        r.host.pattern = true;                                                             // the machine's picture changed meanwhile (a scrub)
+        if (how == 0) {
+            CHECK_EQ(r.svc.remove(1, hs), 0);
+        } else {
+            r.svc.drop_owner(1);
+        }
+        CHECK_EQ(r.host.grabs, 2);                                                         // taken again
+        CHECK(r.layer.scene.has_still);
+        CHECK(r.layer.scene.still.px != g_still);
+        CHECK_EQ(r.layer.scene.still.px[0], FakeHost::mark(0, 0));                         // the new frame, not the one of the stop
+        CHECK_EQ(r.host.live, 1);                                                          // the old capture is freed
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
+        Rig r(true);                                                                       // D14: the library's still is shown while the machine stands: the base's buffer is freed
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        CHECK_EQ(r.host.live, 1);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK(r.layer.scene.still.px == g_still);
+        CHECK_EQ(r.host.live, 0);                                                          // freed
+        CHECK_EQ(r.host.frees, 1);
+        CHECK_EQ(r.svc.remove(1, hs), 0);                                                  // menu open: one grab, a buffer again
+        CHECK_EQ(r.host.grabs, 2);
+        CHECK_EQ(r.host.live, 1);
+        CHECK(r.layer.scene.has_still && r.layer.scene.still.px != g_still);
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
+        Rig r(true);                                                                       // the library's still shown: no capture is taken for it, not at the stop and not at a remove
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frozen(true);                                                                // the machine stops while the library's still shows
+        CHECK_EQ(r.host.grabs, 0);
+        CHECK_EQ(r.host.live, 0);
+        CHECK(r.layer.scene.still.px == g_still);
+        CHECK_EQ(r.svc.remove(1, hs), 0);                                                  // the removal retakes
+        CHECK_EQ(r.host.grabs, 1);
+        const int hs2 = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK_EQ(r.host.live, 0);                                                          // D14 frees it again
+        CHECK_EQ(r.svc.remove(1, hs2), 0);
+        CHECK_EQ(r.host.grabs, 2);
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
+        Rig r(true);                                                                       // a library's still removed while the machine runs: nothing taken
+        SvcSurface st = sf(g_still, 960, 540);
+        const int hs = r.svc.show(1, "still", &st);
+        CHECK_EQ(r.svc.remove(1, hs), 0);
+        CHECK_EQ(r.host.grabs, 0);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        r.svc.frozen(false);
+    }
+    // ---- T256 fix round: the menu closes - a library's still goes while it closes: no still of the base's for a machine that runs again; one when the machine stays paused; one while the menu stays open
+    {
+        Rig r(true);                                                                       // the menu stays open: the retake of D11
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK_EQ(r.svc.remove(1, hs), 0);
+        CHECK_EQ(r.host.grabs, 2);
+        r.svc.frozen(false);
+        r.svc.menu(false);
+    }
+    for (int stays_paused = 0; stays_paused < 2; stays_paused++) {
+        Rig r(true);
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        r.svc.frozen(true);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        const int g0 = r.host.grabs;
+        r.svc.closing();                                                                   // the close key: the core's menu_closed hook takes its still away
+        CHECK_EQ(r.svc.remove(1, hs), 0);
+        CHECK_EQ(r.host.grabs, g0);                                                        // no grab while the menu closes
+        r.svc.paused(stays_paused != 0);
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.grabs, g0);
+        r.svc.menu(false);
+        CHECK_EQ(r.host.grabs, stays_paused ? g0 + 1 : g0);                                // Pause: the still of the paused machine is the newest frame; a running machine: none
+        r.svc.paused(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+
+    // ---- T256 fix round: canvas() is the size the places use now
+    {
+        Rig r(true);
+        int w = 1, h = 2;
+        CHECK_EQ(r.svc.canvas(&w, &h), 0);
+        CHECK(w == 960 && h == 540);
+        r.host.cw = 640; r.host.ch = 480;                                                  // a smaller mode
+        CHECK_EQ(r.svc.canvas(&w, &h), 0);
+        CHECK(w == 640 && h == 480);
+        r.svc.clear();                                                                     // no core: nothing written
+        w = 7; h = 8;
+        CHECK_EQ(r.svc.canvas(&w, &h), OVL_E_NOSERVICE);
+        CHECK(w == 7 && h == 8);
     }
     DONE("overlay");
 }

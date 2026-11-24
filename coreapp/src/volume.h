@@ -16,7 +16,8 @@
 uint8_t volume_byte(int step);
 
 // out = *d with the Volume item after d's own settings (and the Picture item the caller made); `store` holds the merged array (SETTINGS_MAX items) and has
-// to outlive `out`. A descriptor with its own Volume or own_volume is copied as it is (null). Returns null, or the reason when there is no room.
+// to outlive `out`. A descriptor with its own Volume or own_volume is copied as it is (null), and so is every descriptor when the app is linked against a TOML A without the block
+// audio_master (T239.3 D36: no master volume byte, no Volume row). Returns null, or the reason when there is no room.
 const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
 
 // True for the item volume_extend adds (the apply operation is ours), false for a descriptor's own.

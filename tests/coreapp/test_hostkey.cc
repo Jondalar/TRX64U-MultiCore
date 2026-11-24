@@ -13,8 +13,8 @@
 #include "cor.h"
 
 static const CoreDesc vc = { {'V', 'C', '2', '0'}, "VC20", "VIC-20", "vc20", "VIC-20 Settings" };
-extern const CoreDesc c64_desc, amiga_desc, amiga1200_desc;
-const CoreDesc *const core_table[] = { &vc, &c64_desc, &amiga_desc, &amiga1200_desc, 0 };
+extern const CoreDesc amiga_desc, amiga1200_desc;
+const CoreDesc *const core_table[] = { &vc, &amiga_desc, &amiga1200_desc, 0 };
 
 int main()
 {

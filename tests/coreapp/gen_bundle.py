@@ -4,9 +4,9 @@ board are tested against what the tools write (T104.1 D9, D12).
 
     gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
+                              merged.cor (the description with the menu of the library gamma merged in), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
-                              nofiles.cor (the same core without record 8), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
+                              nofiles.cor (the same core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
                               data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
                               desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks), desc_toml_a.bin (P1-1: TOML A, record version 7), desc_places.bin (D32: routes and places)
 """
@@ -50,8 +50,10 @@ def main(out):
     gold = os.path.join(here, "golden")
     desc = descrec.compile_text(open(os.path.join(gold, "desc_test.toml")).read())
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
-    # the menu of TRX64U as menu.toml compiles (T104.2 D10): the record with the core's own tables
-    open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
+    # a core's own menu tables and pad (T104.2 D10; T239.3 P1-8: a record of our own, trx64u's menu is TRX64-Ultimate's)
+    open(os.path.join(out, "desc_own.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_own.toml")).read()))
+    # a core with a Timewarp page and a monitor page, the record the tests of the key table and of the record-built menu read (test_cut.cc, test_keywalk.cc)
+    open(os.path.join(out, "desc_cut.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_cut.toml")).read()))
     # base 3.3: a key table, register windows and job tasks (tests/coreapp/test_deckeys.cc)
     open(os.path.join(out, "desc_keys.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_keys.toml")).read()))
     # P1-1: TOML A (record version 7), its module maps from the SDK's (tests/coreapp/test_desctoml.cc)
@@ -83,6 +85,8 @@ def main(out):
     files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
     open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
     open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
+    # record 8 that installs a sub-app into the core's own apps folder (tests/coreapp/test_firststart.cc)
+    open(os.path.join(out, "subapp.cor"), "wb").write(C.pack_large("subapp", "Sub App Core", "0.1", bit, bytes(0x60 for _ in range(64)), files=[("apps/probe.u2a", u2a("probe", kind=2), [])]))
     # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them
     app = os.path.join(out, "app")
     os.makedirs(app, exist_ok=True)

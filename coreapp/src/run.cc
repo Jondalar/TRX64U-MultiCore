@@ -189,7 +189,10 @@ class BoardOverlayHost : public OverlayHost {
 public:
     void *alloc(uint32_t n) { return malloc(n); }
     void release(void *p) { free(p); }
-    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy) { return video && video->grab(dst, w, h, fw, fh, ox, oy); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0) { return video && video->grab(dst, w, h, fw, fh, ox, oy, stride, pal); }
+    // Video::grab keeps one capture buffer for the application: the base's still (UI task) and a library's frame() (its own task) take turns on a mutex, which may wait (not the critical section of enter()).
+    void grab_lock() { if (grab_mx_) xSemaphoreTake(grab_mx_, portMAX_DELAY); }
+    void grab_unlock() { if (grab_mx_) xSemaphoreGive(grab_mx_); }
     bool picture_rect(int, int, OvRect *r) { return video && video->picture_rect(&r->x, &r->y, &r->w, &r->h); }
     void layer_to_ui() { video->hide(); }
     void layer_to_core() { video->show(); }
@@ -203,10 +206,18 @@ public:
     void log(const char *line) { printf("%s\n", line); }
     void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
     int take_req() { int r = req_; req_ = 0; return r; }
-    void bind_task() { task_ = xTaskGetCurrentTaskHandle(); }
+    // Called once by the UI task before the service starts (start_overlay), so the mutex exists before the first grab; no FreeRTOS call inside a critical section.
+    void bind_task()
+    {
+        task_ = xTaskGetCurrentTaskHandle();
+        if (!grab_mx_) {
+            grab_mx_ = xSemaphoreCreateMutex();
+        }
+    }
 private:
     volatile int req_ = 0;
     TaskHandle_t task_ = 0;
+    SemaphoreHandle_t grab_mx_ = 0;
 };
 static BoardOverlayHost ov_host;
 
@@ -465,7 +476,7 @@ void coreapp_held(const char *why, const BoardProfile *board)
 static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
 
 // T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
-// descriptor registers the groups it uses in its register_ops (c64.cc: cbm1541, diag); a record core gets them by its data: the Diagnostics tab here, the groups
+// descriptor registers the groups it uses in its register_ops (vc20.cc: cbm1541); a record core gets them by its data: the Diagnostics tab here, the groups
 // of the linked libraries from the library table (libtab.h, P3-1: the TOML B of the app names them, this file names none).
 static void record_groups(OpRegistry &r, const CoreDesc *d)
 {
@@ -720,6 +731,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.desc = &merged_desc;
         ctx.merge = &merge;
     };
+    ctx.install_files = core_files_install;
+    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h); before the application scan below, so that a sub-app it writes is listed at this start
     {
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
@@ -745,8 +758,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
-    ctx.install_files = core_files_install;
-    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
     // The libraries' groups before the first reset and the start hook (api.md 9.7.10, 9.7.5.1): a library's init and start have api->io, the operations, the
@@ -920,6 +931,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     };
     auto close_menu = [&]() {
         t_req = ctx.io->now_ms();
+        ui_overlay_closing();                     // T256: the core's menu_closed hook may take its still away: the base takes no new one for a machine that runs again
         rawkeys_menu(&ctx, false);                // T141: the keys still held are ignored until they are up
         menu->toast_clear();                      // T160: the volume line does not stay over the running core
         ui_toast_render(*menu);

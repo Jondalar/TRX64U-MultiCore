@@ -1,0 +1,28 @@
+# The partition control of the host (host/ultimate_sys.vhd, region r_icap: 0x060620 .. 0x060621; a block of its own beside the loader, block "icap"). Offsets are bytes from the block's address.
+# decouple: write bit 0 requests the decouple of the core's partition; read bit 0 is the request, bit 1 the effective decouple.
+# release: bit 0 releases the expansion port.
+map = "partition"
+
+[[property]]
+name = "decouple"
+offset = 0x00
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "request"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "effective"
+  shift = 1
+  bits = 1
+
+[[property]]
+name = "release"
+offset = 0x01
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "port"
+  shift = 0
+  bits = 1

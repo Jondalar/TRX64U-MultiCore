@@ -144,8 +144,23 @@ public:
     uint8_t bling_flags() { return BLING_RX_FLAGS; }
     void bling_lock_off(bool on) { BLING_RX_FLAGS = on ? 0x01 : 0x00; }
     void case_led_select(uint8_t v) { U64_CASELED_SELECT = v; }
-    void master_volume(uint8_t v) { *(volatile uint8_t *)(U64_AUDIO_MIXER + 0x50) = v; }
-    void master_tone(uint8_t v) { *(volatile uint8_t *)(U64_AUDIO_MIXER + 0x51) = v; }
+    // T239.3 D36: the host's master volume and tone are the block audio_master of the driver table; a TOML A without it has no such bytes, and the write goes nowhere
+    void master_volume(uint8_t v)
+    {
+#ifdef DRV_HAS_audio_master
+        DRV_audio_master_volume_WR(v);
+#else
+        (void)v;
+#endif
+    }
+    void master_tone(uint8_t v)
+    {
+#ifdef DRV_HAS_audio_master
+        DRV_audio_master_tone_WR(v);
+#else
+        (void)v;
+#endif
+    }
     void video_format(uint8_t v) { C64_VIDEOFORMAT = v; }
     // T181: the 11 bytes of the hotkey mask (hotkeys.h) at U64_AUDIO_MIXER + 0x60
     void hotkey_regs(const uint8_t r[11])
@@ -259,19 +274,13 @@ CoreIo *hw_io(void)
 }
 
 // The host's ICAP loader is in the driver table (drvtab.h) in one of two forms: the block icap (the shared app's TOML A, coreapp/gateware/shared.toml) or the blocks icap_id,
-// icap_data, icap_enable, icap_count and icap_decouple (the host's TOML A, coreapp/gateware/host.toml, which the VIC-20's app takes its base blocks from, T239.3 V-4b). HW_ICAP_*
-// name the registers in either form. An app linked against a TOML A with neither has no ICAP access at all: no partial port (hw_partial is null), no way back to the host, and the
+// icap_data, icap_enable, icap_count (the host's TOML A, coreapp/gateware/host.toml, which the VIC-20's app takes its base blocks from, T239.3 V-4b); the partition control (decouple, release) is the block partition in both (T239.3 D37). HW_ICAP_*
+// name the registers in either form. Without partition the app cannot decouple a partition: no partial port, no release of the expansion port, no decouple before the IPROG of the way back, and the board probe tells board_detect() so (partition_linked). An app linked against a TOML A with neither form has no ICAP access at all: no partial port (hw_partial is null), no way back to the host, and the
 // board probe's ICAP byte is not read (BB_ICAP absent), which board_detect() takes for a standalone installation (board.cc).
-#if defined(DRV_HAS_icap_id) && defined(DRV_HAS_icap_data) && defined(DRV_HAS_icap_enable) && defined(DRV_HAS_icap_count) && defined(DRV_HAS_icap_decouple)
+#if defined(DRV_HAS_icap_id) && defined(DRV_HAS_icap_data) && defined(DRV_HAS_icap_enable) && defined(DRV_HAS_icap_count)
 #define HW_HAS_ICAP 1
 #define HW_ICAP_ID_RD()              DRV_icap_id_id_RD()
 #define HW_ICAP_ID_LOADER            DRV_icap_id_id_loader
-#define HW_ICAP_DECOUPLE_WR(v)       DRV_icap_decouple_decouple_WR(v)
-#define HW_ICAP_DECOUPLE_RD()        DRV_icap_decouple_decouple_RD()
-#define HW_ICAP_DECOUPLE_REQUEST     DRV_icap_decouple_decouple_request_MASK
-#define HW_ICAP_DECOUPLE_EFFECTIVE   DRV_icap_decouple_decouple_effective_MASK
-#define HW_ICAP_RELEASE_WR(v)        DRV_icap_decouple_release_WR(v)
-#define HW_ICAP_RELEASE_PORT         DRV_icap_decouple_release_port_MASK
 #define HW_ICAP_ENABLE_WR(v)         DRV_icap_enable_enable_WR(v)
 #define HW_ICAP_ENABLE_ON            DRV_icap_enable_enable_on_on
 #define HW_ICAP_ENABLE_OFF           DRV_icap_enable_enable_on_off
@@ -285,12 +294,6 @@ CoreIo *hw_io(void)
 #define HW_HAS_ICAP 1
 #define HW_ICAP_ID_RD()              DRV_icap_id_RD()
 #define HW_ICAP_ID_LOADER            DRV_icap_id_loader
-#define HW_ICAP_DECOUPLE_WR(v)       DRV_icap_decouple_WR(v)
-#define HW_ICAP_DECOUPLE_RD()        DRV_icap_decouple_RD()
-#define HW_ICAP_DECOUPLE_REQUEST     DRV_icap_decouple_request_MASK
-#define HW_ICAP_DECOUPLE_EFFECTIVE   DRV_icap_decouple_effective_MASK
-#define HW_ICAP_RELEASE_WR(v)        DRV_icap_release_WR(v)
-#define HW_ICAP_RELEASE_PORT         DRV_icap_release_port_MASK
 #define HW_ICAP_ENABLE_WR(v)         DRV_icap_enable_WR(v)
 #define HW_ICAP_ENABLE_ON            DRV_icap_enable_on_on
 #define HW_ICAP_ENABLE_OFF           DRV_icap_enable_on_off
@@ -304,24 +307,27 @@ CoreIo *hw_io(void)
 
 #ifdef HW_HAS_ICAP
 static bool icap_loader(void) { return HW_ICAP_ID_RD() == HW_ICAP_ID_LOADER; }
+#endif
+
+#if defined(HW_HAS_ICAP) && defined(DRV_HAS_partition)
 
 namespace {
 
-// The loader of layer 1 (host-app coreboot.cc core_swap, the same registers in the same order): decouple request at +20 (status bit 1 is the
-// effective decouple), enable at +14 (a rising edge clears the word counter at +18), data bytes at +10 - four make one word, the loader
+// The loader of layer 1 (host-app coreboot.cc core_swap, the same registers in the same order): decouple request of the block partition (status bit 1 is the
+// effective decouple), enable at +14 of the block icap (a rising edge clears the word counter at +18), data bytes at +10 - four make one word, the loader
 // reverses the bits itself (top.v icap_swap), so the bytes go out as the file has them.
 class HwPartialPort : public PartialPort {
 public:
     bool present() { return icap_loader(); }
     bool decouple(bool on)
     {
-        HW_ICAP_DECOUPLE_WR(on ? HW_ICAP_DECOUPLE_REQUEST : 0);
+        DRV_partition_decouple_WR(on ? DRV_partition_decouple_request_MASK : 0);
         if (!on) {
             return true;
         }
         vTaskDelay(pdMS_TO_TICKS(10) + 1);              // the core's DDR2 request is served (T79.1: about 1 ms)
-        if (!(HW_ICAP_DECOUPLE_RD() & HW_ICAP_DECOUPLE_EFFECTIVE)) {
-            HW_ICAP_DECOUPLE_WR(0);
+        if (!(DRV_partition_decouple_RD() & DRV_partition_decouple_effective_MASK)) {
+            DRV_partition_decouple_WR(0);
             return false;
         }
         return true;
@@ -348,7 +354,7 @@ PartialPort *hw_partial(void)
     return &port;
 }
 #else
-PartialPort *hw_partial(void) { return 0; }                // no ICAP block in the linked TOML A: nothing to reload a partial with (ctx.h)
+PartialPort *hw_partial(void) { return 0; }                // no icap or no partition block in the linked TOML A: nothing to reload a partial with (ctx.h)
 #endif
 
 namespace {
@@ -391,6 +397,14 @@ public:
         return HW_ICAP_ID_RD();
 #else
         return 0;
+#endif
+    }
+    bool partition_linked()
+    {
+#ifdef DRV_HAS_partition
+        return true;
+#else
+        return false;                                // T239.3 D37: a loader without a partition control is no host to return to unless the page says so (board_detect)
 #endif
     }
     uint32_t fpga_caps() { return getFpgaCapabilities(); }
@@ -568,16 +582,22 @@ bool hw_menu_button_pressed(void)
     return hit;
 }
 
-#ifdef HW_HAS_ICAP
+#ifdef DRV_HAS_partition
 void hw_release_expansion_port(void)
 {
+#ifdef HW_HAS_ICAP
     if (!icap_loader()) {
         return;
     }
-    HW_ICAP_RELEASE_WR(HW_ICAP_RELEASE_PORT);
+#endif
+    DRV_partition_release_WR(DRV_partition_release_port_MASK);
     printf("[core] expansion port released\n");
 }
+#else
+void hw_release_expansion_port(void) { }               // no partition block in the linked TOML A: no release of the expansion port (T239.3 D37)
+#endif
 
+#ifdef HW_HAS_ICAP
 bool hw_return_to_host(char *msg, int n)
 {
     if (!icap_loader()) {
@@ -596,7 +616,9 @@ bool hw_return_to_host(char *msg, int n)
     trx_lv_yield_layer();
     ioWrite8(ITU_IRQ_GLOBAL, 0);
     portDISABLE_INTERRUPTS();
-    HW_ICAP_DECOUPLE_WR(0);
+#ifdef DRV_HAS_partition
+    DRV_partition_decouple_WR(0);
+#endif
     HW_ICAP_ENABLE_WR(HW_ICAP_ENABLE_ON);
     for (unsigned i = 0; i < sizeof(seq); i++) {
         HW_ICAP_DATA_WR(seq[i]);
@@ -607,8 +629,6 @@ bool hw_return_to_host(char *msg, int n)
     return true;
 }
 #else
-void hw_release_expansion_port(void) { }               // no ICAP block in the linked TOML A: the app is standalone by its link, nothing to release
-
 bool hw_return_to_host(char *msg, int n)
 {
     snprintf(msg, n, "this app is linked without an ICAP loader: it is standalone");

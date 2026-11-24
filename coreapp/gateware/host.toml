@@ -433,18 +433,18 @@ size = 0x2
 
 
 [[block]]
-name = "master_gain"
+name = "audio_master"
 module = "ultimate_sys"
 owner = "base"
 address = 0x10100550
 size = 0x2
   [[block.property]]
-  name = "master_volume"
+  name = "volume"
   offset = 0x0
   width = 8
   dir = "w"
   [[block.property]]
-  name = "master_tone"
+  name = "tone"
   offset = 0x1
   width = 8
   dir = "w"
@@ -661,7 +661,7 @@ size = 0x4
   dir = "r"
 
 [[block]]
-name = "icap_decouple"
+name = "partition"
 module = "ultimate_sys"
 owner = "base"
 address = 0x10060620

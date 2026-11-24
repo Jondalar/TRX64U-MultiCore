@@ -2557,7 +2557,7 @@ static int fk_wait(const int *, int, uint32_t) { return 0; }
 static int fk_peer(int, char *, int) { return -1; }
 static uint32_t g_connect_ms;
 static int fk_connect(const char *host, uint16_t port, uint32_t ms) { g_connect_ms = ms; if (!strcmp(host, "nowhere") || port == 0) { return -6; } int h = g_next_fd++; g_open[h] = false; return h; }
-static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 8) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
+static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 9) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
 static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer, fk_connect, fk_resolve };
 static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
 {

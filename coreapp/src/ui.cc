@@ -1502,6 +1502,13 @@ void ui_overlay_frozen(bool on)
     }
 }
 
+void ui_overlay_closing(void)
+{
+    if (ov_on()) {
+        g_svc->closing();
+    }
+}
+
 // the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
 static void apply_alpha(void)
 {

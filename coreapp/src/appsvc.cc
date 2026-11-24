@@ -112,7 +112,7 @@ const C64Api *appsvc_c64_api(void)
 
 const SvcC64 *appsvc_c64(void)
 {
-    return g_ctx && g_ctx->desc && !memcmp(g_ctx->desc->id, "TRX2", 4) ? &g_c64 : 0;       // the C64 descriptor of the TRX64 line (cores/c64.cc)
+    return g_ctx && g_ctx->desc && !memcmp(g_ctx->desc->id, "TRX2", 4) ? &g_c64 : 0;       // the C64 descriptor of the TRX64 line (TRX64-Ultimate's trx64u core)
 }
 
 // ---- the TRX block ---------------------------------------------------------------------------------------------------------------------------------

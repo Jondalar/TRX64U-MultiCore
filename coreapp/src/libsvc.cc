@@ -377,6 +377,22 @@ struct LibSvc {
         }
     }
     static const char *ovl_error(int code) { return OverlaySvc::error(code); }
+    static int ovl_frame(const char *name, const SvcSurface *sf)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->paint_frame(l->owner_at(__builtin_return_address(0)), name, sf) : OVL_E_NOSERVICE;
+    }
+    static int ovl_still_palette(bool (*f)(uint8_t rgb[16][3]))
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ ? l->overlay_svc_->set_palette(l->owner_at(__builtin_return_address(0)), f) : OVL_E_NOSERVICE;
+    }
+
+    static int ovl_canvas(int *w, int *h)
+    {
+        LibLoader *l = L();
+        return l->overlay_svc_ && w && h ? l->overlay_svc_->canvas(w, h) : OVL_E_NOSERVICE;
+    }
 
     // ---- board (svc_board.h)
     static uint32_t fpga_caps() { return L()->host_->fpga_caps(); }
@@ -722,6 +738,9 @@ void LibLoader::add_services()
     overlay_.menu_hide = LibSvc::ovl_menu_hide;
     overlay_.menu_show = LibSvc::ovl_menu_show;
     overlay_.error = LibSvc::ovl_error;
+    overlay_.frame = LibSvc::ovl_frame;
+    overlay_.still_palette = LibSvc::ovl_still_palette;
+    overlay_.canvas = LibSvc::ovl_canvas;
 }
 
 // where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none

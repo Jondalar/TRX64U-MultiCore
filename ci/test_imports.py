@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.1 D43: ci/imports.py - the entry names of the pins (a PIPELINE=false pin has none), a key that follows the pin and not the presence of a private
-file, a pack that refuses an input the store lacks, and the package's finish (version form, this run's application for a pin without APP_FILE, a pin
-with APP_FILE keeping its own). Unit and happy path only; the real packing is proven with the pinned inputs (T239.1 §5)."""
+file, a pack that refuses an input the store lacks, the package's finish (version form, a pin with APP_FILE keeping its own application) and the pin of a finished
+.cor (COR_SHA256: taken byte for byte, fetched and checked when the store lacks it). Unit and happy path only; the real packing is proven with the pinned inputs (T239.1 §5)."""
 import hashlib
 import os
 import shutil
@@ -77,42 +77,69 @@ class ImportsTest(unittest.TestCase):
             I.pack("imp-a-0000000000000000", store, os.path.join(self.root, "out"), root=self.root)
 
     def test_finish(self):
-        cor = os.path.join(self.root, "a.cor")
-        open(cor, "wb").write(C.pack_large(cid="a", name="A", version="1.2.3", bit=full_bit(), app=APP))
-        app = os.path.join(self.root, "coreapp_a.bin")
-        open(app, "wb").write(NEW_APP)
-        out = os.path.join(self.root, "out_a.cor")
-        self.assertEqual(I.finish(cor, out, app=app, app_commit="cafe1234", root=self.root), "1.2.3-dev+deadbeef")
-        m, recs = C.parse(open(out, "rb").read())
-        self.assertEqual((m["version"], m["app_commit"], m["app_sha256"]), ("1.2.3-dev+deadbeef", "cafe1234", hashlib.sha256(NEW_APP).hexdigest()))
-        self.assertEqual(recs[C.T_APP], NEW_APP)
-        with self.assertRaises(I.ImportError_):
-            I.finish(cor, out, root=self.root)                    # a pin without APP_FILE needs the run's application
         cor_b = os.path.join(self.root, "b.cor")
         open(cor_b, "wb").write(C.pack_large(cid="b", name="B", version="1.2.3", bit=full_bit(), app=APP))
-        with self.assertRaises(I.ImportError_):
-            I.finish(cor_b, out, app=app, root=self.root)         # a pin with APP_FILE keeps its own
-        I.finish(cor_b, out, root=self.root)
+        out = os.path.join(self.root, "out_b.cor")
+        self.assertEqual(I.finish(cor_b, out, root=self.root), "1.2.3-dev+deadbeef")        # a pin with APP_FILE keeps its application, gets the version form of the run
         m, recs = C.parse(open(out, "rb").read())
         self.assertEqual((m["version"], recs[C.T_APP]), ("1.2.3-dev+deadbeef", APP))
+        cor_a = os.path.join(self.root, "a.cor")
+        open(cor_a, "wb").write(C.pack_large(cid="a", name="A", version="1.2.3", bit=full_bit(), app=APP))
+        with self.assertRaises(I.ImportError_):
+            I.finish(cor_a, os.path.join(self.root, "out_a.cor"), root=self.root)          # neither COR_SHA256 nor APP_FILE: nothing to finish
 
-    def test_finish_heap(self):
-        def img(heap, end):
-            return APP + C.HEAP_MAGIC + struct.pack("<4I", heap, end, 0xE90000, 0x20000)
-        self.write("release/imports/h.pin", 'ID=h\nNAME="H"\nSEMVER=1.2.3\nBIT_SHA256=%s\nHEAP=0x950000\n' % ("1" * 64))
-        cor = os.path.join(self.root, "h.cor")
-        open(cor, "wb").write(C.pack_large(cid="h", name="H", version="1.2.3", bit=full_bit(), app=APP))
-        out = os.path.join(self.root, "out_h.cor")
-        app = os.path.join(self.root, "coreapp_h.bin")
-        open(app, "wb").write(img(0x7A0000, 0x4F39B4))
-        I.finish(cor, out, app=app, root=self.root)
-        got = C.parse(open(out, "rb").read())[1][C.T_APP]
-        o = got.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
-        self.assertEqual(struct.unpack_from("<I", got, o)[0], 0x950000, "the run's image gets the pin's heap")
-        open(app, "wb").write(img(0x7A0000, 0x67584C))            # 0x67584C + 0x950000 + 0x20000 is beyond 0xE90000
+    def test_cor_pin(self):
+        """T239.3 P1-8: a COR_SHA256 pin is taken as it is: the store's file, byte for byte, in pack and in finish; a file that is not the pinned one is refused."""
+        blob = bytes((i * 7) & 0xFF for i in range(5000))
+        sha = hashlib.sha256(blob).hexdigest()
+        self.write("release/imports/d.pin", "ID=d\nPACKAGE=pkg\nVERSION=v1\nCOR_FILE=d_1.cor\nCOR_SHA256=%s\nCOR_SIZE=%d\n" % (sha, len(blob)))
+        entry = [n for n in I.names(self.root) if n.startswith("imp-d-")][0]
+        store = os.path.join(self.root, "store")
+        os.makedirs(store)
         with self.assertRaises(I.ImportError_) as e:
-            I.finish(cor, out, app=app, root=self.root)
-        self.assertIn("too much", str(e.exception))
+            I.pack(entry, store, os.path.join(self.root, "out_d"), root=self.root)
+        self.assertIn("TRX_FW_PKG_URL", str(e.exception), "a file the store lacks and no URL: refused")
+        open(os.path.join(store, sha), "wb").write(blob)
+        cor = I.pack(entry, store, os.path.join(self.root, "out_d"), root=self.root)
+        self.assertEqual(open(cor, "rb").read(), blob)
+        out = os.path.join(self.root, "pkg_d.cor")
+        self.assertEqual(I.finish(cor, out, root=self.root), "as pinned")
+        self.assertEqual(open(out, "rb").read(), blob)
+        open(cor, "ab").write(b"x")
+        with self.assertRaises(I.ImportError_):
+            I.finish(cor, out, root=self.root)
+        self.write("release/imports/d.pin", "ID=d\nPACKAGE=pkg\nVERSION=v1\nCOR_FILE=d_1.cor\nCOR_SHA256=%s\nCOR_SIZE=%d\n" % (sha, len(blob) + 1))
+        with self.assertRaises(I.ImportError_):
+            I.pack(I.names(self.root)[2], store, os.path.join(self.root, "out_d2"), root=self.root)   # the size is the pin's too
+
+    def test_fetch_checks_what_it_gets(self):
+        blob = b"cor bytes " * 100
+        sha = hashlib.sha256(blob).hexdigest()
+        pin = {"ID": "d", "PACKAGE": "pkg", "VERSION": "v1", "COR_FILE": "d_1.cor", "COR_SHA256": sha, "COR_SIZE": str(len(blob))}
+        seen = []
+
+        class Resp:
+            def __init__(self, data):
+                self.data = data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n):
+                d, self.data = self.data[:n], self.data[n:]
+                return d
+
+        def good(url, timeout):
+            seen.append(url)
+            return Resp(blob)
+        store = os.path.join(self.root, "store2")
+        I.fetch(pin, store, "x", base="https://registry.invalid/p/o/generic/", opener=good)
+        self.assertEqual(seen, ["https://registry.invalid/p/o/generic/pkg/v1/d_1.cor"])
+        self.assertEqual(open(os.path.join(store, sha), "rb").read(), blob)
+        os.unlink(os.path.join(store, sha))
+        with self.assertRaises(I.ImportError_):
+            I.fetch(pin, store, "x", base="https://registry.invalid/g", opener=lambda u, timeout: Resp(blob[:-1] + b"?"))
+        self.assertEqual(os.listdir(store), [], "another file is not kept")
 
 
 if __name__ == "__main__":

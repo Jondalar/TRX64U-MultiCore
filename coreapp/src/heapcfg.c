@@ -17,7 +17,7 @@
 #include "FreeRTOS.h"
 
 #ifndef HEAPCFG_DEFAULT
-#define HEAPCFG_DEFAULT 0x7A0000u      /* `make own OWN_HEAP=...` sets the default of an image of its own (trx64u) */
+#define HEAPCFG_DEFAULT 0x7A0000u      /* the packer writes the heap word per core (T239.3 D15); this is what an unpacked image runs with */
 #endif
 #define HEAPCFG_STACK_RESERVE 0x20000u /* the crt0 stack (before the scheduler starts, the ISR stack is a FreeRTOS array of its own) */
 

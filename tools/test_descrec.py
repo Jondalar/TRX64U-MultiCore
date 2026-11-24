@@ -212,8 +212,8 @@ class Reader(unittest.TestCase):
             self.assertIn(part, str(e.exception))
 
 
-MENU = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "cores", "trx64u", "menu.toml")
-OPS = os.path.join(GOLD, "ops_trx64u.txt")
+MENU = os.path.join(GOLD, "desc_test.toml")          # T239.3 P1-8: trx64u's menu is TRX64-Ultimate's; the fixture of the made-up core stands in for "a core's own menu"
+OPS = os.path.join(GOLD, "ops_amiga1200.txt")        # what the shared application exports as the A1200
 
 
 def menu_text():
@@ -228,18 +228,6 @@ def ops_text():
 
 class OwnMenu(unittest.TestCase):
     """T104.2 D10: the tables of the core's own menu (task, media, filetype, core_setting), the info lines, the groups of tasks and media."""
-
-    def test_the_menu_of_trx64u_compiles_and_reads_back(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertTrue(r["own"] and r["route"])
-        # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
-        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 207 core settings (T239.3: the look and the mouse are the application's) and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 23, 207))
-        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
-        self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
-        d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")
-        self.assertEqual((d64["inner_ext"], [a["label"] for a in d64["inner"]]), (".prg", ["Mount & run", "Real run"]))
-        self.assertEqual(next(c for c in r["cset"] if c["key"] == "Freeze mode")["when"], "reset")
 
     def test_every_key_of_the_new_tables_is_checked(self):
         for table, extra in (("task", 'label = "A"\nop = "x.y"\n'), ("media", 'name = "M"\nstate = "s"\n'), ("core_setting", 'key = "K"\nvalues = ["a","b"]\napply = "x"\n')):
@@ -388,13 +376,6 @@ class Pad(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_declares_its_joystick_pad(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], len(r["pad"]["buttons"])), ("joystick", True, 5))
-        self.assertEqual(r["poll"], {"op": "pad.poll", "period_ms": 16})
-        port = next(c for c in r["cset"] if c["apply"] == "pad.port")
-        self.assertEqual((port["group"], port["values"], port["default"]), ("input", ["Port 1", "Port 2"], 1))
-        self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
 
 
 RESTART = """
@@ -439,48 +420,19 @@ class Restart(unittest.TestCase):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_clears_the_c64_ram_on_a_restart(self):
-        self.assertEqual(D.parse_desc(D.compile_text(menu_text()))["restart"], {"clear_ram": 65536, "ram_only": True})
 
 
 class AgainstTheApplication(unittest.TestCase):
-    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""
+    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_amiga1200.txt)."""
 
     def check(self, text):
         ops, states = D.load_ops(ops_text())
         return D.check_ops(D.parse_desc(D.compile_text(text)), ops, states)
 
-    def test_the_menu_of_trx64u_is_what_the_application_exports(self):
-        self.assertEqual(self.check(menu_text()), [])
-        D.compile_checked(menu_text(), ops_text())
-
-    def test_it_refuses_what_the_application_does_not_have(self):
-        text = menu_text()
-        cases = [
-            ("an operation that is not exported", 'op = "machine.cold_reset"', 'op = "machine.cold_resetx"', "does not export"),
-            ("an argument the operation lacks", '{ arg = "slot", str = "iec:drive_a" }', '{ arg = "slotx", str = "iec:drive_a" }', "has no argument"),
-            ("an argument left unbound", 'bind = [ { arg = "app", str = "" }, { arg = "action", str = "" }, { arg = "file", file = true } ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', 'bind = [ ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', "unbound"),
-            ("a state that is not exported", 'state = "c64.program"', 'state = "c64.programx"', "state"),
-            ("an ask_state that is not exported", 'ask_state = "drive.suggest.d64"', 'ask_state = "drive.suggest.d65"', "state"),
-            ("a text that is no enum label", 'str = "unlinked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', 'str = "linked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', "does not take"),
-            ("a setting applied by a missing operation", 'apply = "drive.set_ram"', 'apply = "drive.set_ramx"', "does not export"),
-            ("an ask without the typed text", 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", str = "x" }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', "binds it 0 times"),
-        ]
-        for what, old, new, word in cases:
-            self.assertGreaterEqual(text.count(old), 1, what)
-            bad = self.check(text.replace(old, new, 1))
-            self.assertTrue(bad and any(word in b for b in bad), "%s: %r" % (what, bad))
-
-    def test_the_packer_stops_at_the_first_such_menu(self):
-        with self.assertRaises(D.DescError) as e:
-            D.compile_checked(menu_text().replace('apply = "drive.set_ram"', 'apply = "nope"'), ops_text(), what="menu.toml")
-        self.assertIn("menu.toml", str(e.exception))
-        self.assertIn("nope", str(e.exception))
-
     def test_a_check_that_sees_nothing_is_no_check(self):
         # the export that names nothing refuses everything: the check is not vacuous
         bad = D.check_ops(D.parse_desc(D.compile_text(menu_text())), {}, set())
-        self.assertGreater(len(bad), 15)
+        self.assertGreater(len(bad), 5)
 
 
 class LibraryMenus(unittest.TestCase):
@@ -496,7 +448,7 @@ class LibraryMenus(unittest.TestCase):
         own = [n["label"] for n in D.parse_desc(base)["node"]]
         self.assertEqual((merged, kept, r["merged"]), (["gamma"], [], ["gamma"]))
         self.assertEqual([n["label"] for n in r["node"]], own + ["Gamma"])          # the menu's own nodes stay, the library's come after them
-        self.assertEqual([a["label"] for a in r["action"]], ["Play"])
+        self.assertEqual([a["label"] for a in r["action"]], [a["label"] for a in D.parse_desc(base)["action"]] + ["Play"])
         self.assertEqual(len(r["task"]), len(D.parse_desc(base)["task"]))                       # the core's own menu is what it was
         self.assertEqual(D.parse_desc(base)["merged"], [])
 
@@ -1245,6 +1197,17 @@ class TomlA(unittest.TestCase):
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
 
+    def test_a_block_of_the_core_lies_inside_the_io_span_and_covers_no_base_block(self):
+        def core(address, size):
+            return D.compile_checked(self.BASE + '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0x%X\nsize = %d\n' % (address, size))
+        with self.assertRaises(D.DescError) as e:                      # leaves the firmware's I/O span
+            core(0x1FFFFF00, 0x200)
+        self.assertIn("not wholly inside", str(e.exception))
+        with self.assertRaises(D.DescError) as e:                      # the first byte of the ITU block, a whole base block
+            core(0x04000040, 1)
+        self.assertIn("itu", str(e.exception))
+        core(0x10FFFFF0, 0x10)                                         # ends on the last byte of the span
+
     def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
         # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
         maps = D.load_maps([self.MAPS])
@@ -1271,7 +1234,7 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "sid", "uci", "wd177x"])
+        self.assertEqual(sorted(maps), ["audio_master", "c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "partition", "sid", "uci", "wd177x"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
@@ -1287,9 +1250,11 @@ class TomlA(unittest.TestCase):
         syms = dict((l.split(" = ")[0], int(l.split(" = ")[1].rstrip(";\n"), 16)) for l in frag.splitlines() if l.startswith("__"))
         # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
         self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
-        for n, a in (("id_id", 0x10060600), ("data_data", 0x10060610), ("enable_enable", 0x10060614), ("count_count0", 0x10060618), ("count_count3", 0x1006061B),
-                     ("decouple_decouple", 0x10060620), ("decouple_release", 0x10060621)):
+        for n, a in (("id_id", 0x10060600), ("data_data", 0x10060610), ("enable_enable", 0x10060614), ("count_count0", 0x10060618), ("count_count3", 0x1006061B)):
             self.assertEqual(syms["__reg_icap_" + n], a, n)
+        self.assertEqual(syms["__blk_partition"], 0x10060620)
+        for n, a in (("decouple", 0x10060620), ("release", 0x10060621)):
+            self.assertEqual(syms["__reg_partition_" + n], a, n)
         # the shared app's own TOML A (its driver table) names the same two bases and the same ICAP registers
         with open(os.path.join(os.path.dirname(self.HOST_TOMLA), "shared.toml")) as f:
             doc = D.toml_loads(f.read())
@@ -1342,7 +1307,7 @@ class TomlA(unittest.TestCase):
     def test_a_fragment_is_checked_as_a_record_is(self):
         maps = D.load_maps([self.MAPS])
         ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
-        self.assertIn("__reg_i_release = 0x00000121;", D.ldfrag(ok, maps))
+        self.assertIn("__reg_i_count3 = 0x0000011B;", D.ldfrag(ok, maps))
 
 
 
@@ -1465,7 +1430,7 @@ class BaseRows(unittest.TestCase):
         self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
 
     def test_the_rows_are_the_ones_the_application_exports(self):
-        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
@@ -1542,7 +1507,7 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "drive_wd", "cmd_if", "gcr_coder", "icap", "c64_debug", "iec_status", "c64cart", "dma"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "drive_wd", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug", "iec_status", "c64cart", "dma"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
@@ -1553,7 +1518,7 @@ class DriverTable(unittest.TestCase):
         host = D.toml_loads(open(os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")).read())
         shared = D.toml_loads(self.shared())
         merged = D.resolve_maps(D.merge_toml_a({"io": shared["io"], "identity": shared["identity"], "block": [shared["block"][0]]}, host,
-                                               ["icap_id", "icap_data", "icap_enable", "icap_count", "icap_decouple"], "t"), D.load_maps([self.MAPS]))
+                                               ["icap_id", "icap_data", "icap_enable", "icap_count", "partition"], "t"), D.load_maps([self.MAPS]))
         defined |= {ln.split()[1].split("(")[0] for ln in D.drivers_files(merged, "t")[0].splitlines() if ln.startswith("#define ")}
         for f in ("hw.cc", "uci.cc", "uci_slot.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
@@ -1563,36 +1528,35 @@ class DriverTable(unittest.TestCase):
                             continue
                         self.assertIn(tok, defined, "%s:%d names %s, which the shared TOML A does not define" % (f, n, tok))
 
-    def test_an_app_linked_for_a_toml_a_without_icap_has_no_icap_access_in_its_sources(self):
-        # the ICAP registers of the table are named only in the alias block of hw.cc (HW_ICAP_*, under #if/#elif on DRV_HAS_icap*), everything else asks for HW_HAS_ICAP, and no other
-        # source of coreapp/src names an ICAP register of the table
+    def test_an_app_linked_for_a_toml_a_without_a_block_has_no_access_to_it_in_its_sources(self):
+        # the registers of icap, partition and audio_master are named only inside an #if / #ifdef that names the block's DRV_HAS_ macro (hw.cc; D37, D36), and no other source of
+        # coreapp/src names one of them (volume.cc and tone.cc ask DRV_HAS_audio_master only)
         import re
+        blocks = ("icap", "partition", "audio_master")
         for f in sorted(os.listdir(os.path.join(self.ROOT, "coreapp", "src"))):
             if not f.endswith((".cc", ".h")) or f == "hw.cc":
                 continue
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
-                self.assertIsNone(re.search(r"DRV_icap_", fh.read()), f)
+                for b in blocks:
+                    self.assertIsNone(re.search(r"DRV_%s_" % b, fh.read()), "%s names %s" % (f, b))
+                    fh.seek(0)
         with open(os.path.join(self.ROOT, "coreapp", "src", "hw.cc")) as fh:
-            depth, bad, alias = 0, [], 0
+            stack, bad = [], []                     # per open #if: [text, in the #else part]
             for n, line in enumerate(fh, 1):
                 t = line.strip()
-                if t.startswith("#if defined(DRV_HAS_icap_id)") or t.startswith("#elif defined(DRV_HAS_icap)"):
-                    alias = 1
-                elif alias and t.startswith("#endif"):
-                    alias = 0
-                elif t.startswith("#ifdef HW_HAS_ICAP"):
-                    depth += 1
-                elif t.startswith("#if") and depth:
-                    depth += 1
-                elif t.startswith("#else") and depth == 1:
-                    depth = 0
-                elif t.startswith("#endif") and depth:
-                    depth -= 1
-                elif "DRV_icap_" in line and not alias:
-                    bad.append(n)
-                elif "HW_ICAP_" in line and not alias and not depth and not t.startswith("//"):
-                    bad.append(n)
-            self.assertEqual(bad, [], "hw.cc names the ICAP registers outside the alias block and #ifdef HW_HAS_ICAP at lines %s" % bad)
+                if t.startswith(("#ifdef", "#ifndef", "#if ")):
+                    stack.append([t, False])
+                elif t.startswith("#else") and stack:
+                    stack[-1][1] = True
+                elif t.startswith("#endif") and stack:
+                    stack.pop()
+                else:
+                    for b in blocks:
+                        used = ("DRV_%s_" % b in line) or (b == "icap" and "HW_ICAP_" in line and not t.startswith("//"))
+                        guard = ("DRV_HAS_" + b, "HW_HAS_ICAP") if b == "icap" else ("DRV_HAS_" + b,)       # the alias block of hw.cc (HW_ICAP_*) is the one place that names the table's ICAP registers
+                        if used and not any(any(g in c for g in guard) and not e for c, e in stack):
+                            bad.append((n, b))
+            self.assertEqual(bad, [], "hw.cc names a block outside an #if of its DRV_HAS_ macro at %s" % bad)
 
     def test_the_command_line_writes_both_files_and_leaves_an_unchanged_one_alone(self):
         import subprocess, tempfile

@@ -369,227 +369,6 @@ SNK Neo Geo F8/expert 10 fixed:13:Status
 SNK Neo Geo F8/expert 11 info:Build
 SNK Neo Geo F8/expert 12 info:ROMs
 SNK Neo Geo F8/expert 13 info:Libraries
-TRX64U F1/home 0 task:Reset
-TRX64U F1/home 1 task:Reload ROMs, reset
-TRX64U F1/home 2 task:Timewarp...
-TRX64U F1/home 3 task:Monitor...
-TRX64U F1/home 4 task:Save .C64RE dump
-TRX64U F1/home 5 media:drive.drive_a.image
-TRX64U F1/home 6 media:c64.cartridge
-TRX64U F1/home 7 media:c64.program
-TRX64U F1/home 8 fixed:10:Save as config...
-TRX64U F1/home 9 fixed:11:Load config...
-TRX64U F1/timewarp 0 node:tw.resume
-TRX64U F1/monitor 0 node:mon.run:?
-TRX64U F5/machine 0 fixed:13:Machine
-TRX64U F5/machine 1 set:Fast Reset
-TRX64U F5/machine 2 set:Kernal ROM
-TRX64U F5/machine 3 set:Basic ROM
-TRX64U F5/machine 4 set:Char ROM
-TRX64U F5/machine 5 fixed:13:Drive A
-TRX64U F5/machine 6 set:Drive
-TRX64U F5/machine 7 set:Drive Bus ID
-TRX64U F5/machine 8 set:Disk swap delay
-TRX64U F5/machine 9 set:Resets when C64 resets
-TRX64U F5/machine 10 set:Freezes in menu
-TRX64U F5/machine 11 fixed:13:Drive extras
-TRX64U F5/machine 12 set:Extra RAM
-TRX64U F5/machine 13 set:GCR Save Align Tracks
-TRX64U F5/machine 14 set:D64 Geos Copy Protection
-TRX64U F5/machine 15 set:Track Twist
-TRX64U F5/machine 16 set:ROM for 1541 mode
-TRX64U F5/machine 17 fixed:13:Hardware
-TRX64U F5/machine 18 set:DMA Load Mimics ID
-TRX64U F5/machine 19 set:Badline Timing
-TRX64U F5/machine 20 set:SuperCPU Detect (D0BC)
-TRX64U F5/trx 0 fixed:13:TRX64
-TRX64U F5/trx 1 set:Freeze mode
-TRX64U F5/trx 2 set:Turbo Control
-TRX64U F5/trx 3 set:CPU Speed
-TRX64U F5/trx 4 fixed:13:Recording
-TRX64U F5/trx 5 set:Timewarp Ring
-TRX64U F5/trx 6 set:Instruction Trace
-TRX64U F5/trx 7 node:tw.dump:
-TRX64U F5/trx 8 node:tw.ringdump:
-TRX64U F5/expansion 0 fixed:13:Cartridge
-TRX64U F5/expansion 1 set:Cartridge Preference
-TRX64U F5/expansion 2 set:Save Changed Cartridge
-TRX64U F5/expansion 3 set:GAME/EXROM
-TRX64U F5/expansion 4 fixed:13:REU
-TRX64U F5/expansion 5 set:RAM Expansion Unit
-TRX64U F5/expansion 6 fixed:13:Ultimate
-TRX64U F5/expansion 7 set:Map Ultimate Audio $DF20-DFFF
-TRX64U F5/expansion 8 set:Command Interface (UCI)
-TRX64U F5/video 0 fixed:13:Picture
-TRX64U F5/video 1 set:System Mode
-TRX64U F5/video 2 set:Picture
-TRX64U F5/video 3 fixed:13:Output
-TRX64U F5/video 4 set:HDMI Scan lines
-TRX64U F5/video 5 set:Palette Definition
-TRX64U F5/audio 0 fixed:13:Volumes
-TRX64U F5/audio 1 set:Vol Master
-TRX64U F5/audio 2 set:Vol UltiSid 1
-TRX64U F5/audio 3 set:Vol UltiSid 2
-TRX64U F5/audio 4 set:Vol Socket 1
-TRX64U F5/audio 5 set:Vol Socket 2
-TRX64U F5/audio 6 set:Vol Sampler L
-TRX64U F5/audio 7 set:Vol Sampler R
-TRX64U F5/audio 8 fixed:13:Pan
-TRX64U F5/audio 9 set:Pan UltiSID 1
-TRX64U F5/audio 10 set:Pan UltiSID 2
-TRX64U F5/audio 11 set:Pan Socket 1
-TRX64U F5/audio 12 set:Pan Socket 2
-TRX64U F5/audio 13 set:Pan Sampler L
-TRX64U F5/audio 14 set:Pan Sampler R
-TRX64U F5/audio 15 fixed:13:Speaker
-TRX64U F5/audio 16 set:Speaker Enable
-TRX64U F5/audio 17 set:Spk Vol UltiSid 1
-TRX64U F5/audio 18 fixed:13:SID player behavior
-TRX64U F5/audio 19 set:SID Player Autoconfig
-TRX64U F5/audio 20 set:Allow Autoconfig uses UltiSid
-TRX64U F5/audio 21 fixed:13:reDIP:SID
-TRX64U F5/audio 22 fixed:16:SID sockets
-TRX64U F5/audio 23 fixed:16:Emulated SIDs
-TRX64U F5/SID sockets 0 set:SID Socket 1
-TRX64U F5/SID sockets 1 set:SID Socket 2
-TRX64U F5/SID sockets 2 set:SID Socket 1 1K Ohm Resistor
-TRX64U F5/SID sockets 3 set:SID Socket 2 1K Ohm Resistor
-TRX64U F5/SID sockets 4 set:SID Socket 1 Capacitors
-TRX64U F5/SID sockets 5 set:SID Socket 2 Capacitors
-TRX64U F5/SID sockets 6 set:SID Socket 1 Address
-TRX64U F5/SID sockets 7 set:SID Socket 2 Address
-TRX64U F5/SID sockets 8 set:Ext DualSID Range Split
-TRX64U F5/SID sockets 9 set:Auto Address Mirroring
-TRX64U F5/SID sockets 10 node:u64.sid1_type
-TRX64U F5/SID sockets 11 node:u64.sid2_type
-TRX64U F5/Emulated SIDs 0 set:UltiSID 1 Address
-TRX64U F5/Emulated SIDs 1 set:UltiSID 2 Address
-TRX64U F5/Emulated SIDs 2 set:UltiSID Range Split
-TRX64U F5/Emulated SIDs 3 set:UltiSID 1 Combined Waveforms
-TRX64U F5/Emulated SIDs 4 set:UltiSID 2 Combined Waveforms
-TRX64U F5/Emulated SIDs 5 set:UltiSID 1 Filter
-TRX64U F5/Emulated SIDs 6 set:UltiSID 2 Filter
-TRX64U F5/Emulated SIDs 7 set:UltiSID 1 Filter Curve
-TRX64U F5/Emulated SIDs 8 set:UltiSID 2 Filter Curve
-TRX64U F5/Emulated SIDs 9 set:UltiSID 1 6581 Base
-TRX64U F5/Emulated SIDs 10 set:UltiSID 2 6581 Base
-TRX64U F5/Emulated SIDs 11 set:UltiSID 1 6581 Offset
-TRX64U F5/Emulated SIDs 12 set:UltiSID 2 6581 Offset
-TRX64U F5/Emulated SIDs 13 set:UltiSID 1 Filter Resonance
-TRX64U F5/Emulated SIDs 14 set:UltiSID 2 Filter Resonance
-TRX64U F5/Emulated SIDs 15 set:UltiSID 1 Digis Level
-TRX64U F5/Emulated SIDs 16 set:UltiSID 2 Digis Level
-TRX64U F5/input 0 set:USB Controller Port
-TRX64U F5/input 1 task:Map USB controller buttons
-TRX64U F7/settings 0 fixed:13:Application
-TRX64U F7/settings 1 set:Temp Auto Cleanup
-TRX64U F7/settings 2 set:Temp Subfolders
-TRX64U F7/settings 3 set:Splash
-TRX64U F7/settings 4 set:Leave Menu on Mount
-TRX64U F7/settings 5 fixed:13:Look
-TRX64U F7/settings 6 set:Overlay Transparency
-TRX64U F7/settings 7 set:Filename overflow squeeze
-TRX64U F7/settings 8 set:Navigation Style
-TRX64U F7/settings 9 fixed:13:Input
-TRX64U F7/settings 10 set:Mouse Sensitivity
-TRX64U F7/settings 11 set:Mouse Acceleration
-TRX64U F7/settings 12 fixed:13:Storage
-TRX64U F7/settings 13 set:Persist medium mounts
-TRX64U F7/settings 14 set:Enter Home on Startup
-TRX64U F7/settings 15 set:Home Directory
-TRX64U F7/settings 16 fixed:13:Menu
-TRX64U F7/settings 17 set:Menu opens at
-TRX64U F7/settings 18 fixed:13:Hotkeys
-TRX64U F7/settings 19 fixed:16:Hotkeys
-TRX64U F7/hotkeys 0 set:Hotkey modifier
-TRX64U F7/hotkeys 1 set:Hotkey menu
-TRX64U F7/hotkeys 2 set:Hotkey volume up
-TRX64U F7/hotkeys 3 set:Hotkey volume down
-TRX64U F7/hotkeys 4 set:Hotkey reset
-TRX64U F7/hotkeys 5 set:Hotkey picture mode
-TRX64U F7/hotkeys 6 set:Hotkey swap disk
-TRX64U F7/hotkeys 7 set:Hotkey Timewarp
-TRX64U F7/hotkeys 8 set:Hotkey Monitor
-TRX64U F8/expert 0 fixed:13:Actions
-TRX64U F8/expert 1 fixed:6:Restart core
-TRX64U F8/expert 2 fixed:7:Return to host menu
-TRX64U F8/expert 3 node:u64.power_cycle
-TRX64U F8/expert 4 node:u64.power_off
-TRX64U F8/expert 5 fixed:13:Network
-TRX64U F8/expert 6 fixed:9:WiFi
-TRX64U F8/expert 7 fixed:16:Network settings
-TRX64U F8/expert 8 fixed:16:Streams
-TRX64U F8/expert 9 fixed:16:FTP hosts
-TRX64U F8/expert 10 fixed:13:Support
-TRX64U F8/expert 11 fixed:8:Bug report
-TRX64U F8/expert 12 fixed:17:Keys and help
-TRX64U F8/expert 13 fixed:13:Reset
-TRX64U F8/expert 14 fixed:5:Reset to host defaults
-TRX64U F8/expert 15 fixed:13:Status
-TRX64U F8/expert 16 info:Build
-TRX64U F8/expert 17 info:ROMs
-TRX64U F8/expert 18 info:Libraries
-TRX64U F8/expert 19 node:diag.uptime
-TRX64U F8/expert 20 node:media.sd
-TRX64U F8/expert 21 node:media.usb0
-TRX64U F8/expert 22 node:media.usb1
-TRX64U F8/expert 23 node:media.flash
-TRX64U F8/expert 24 node:usb.mouse
-TRX64U F8/expert 25 node:usb.keyboard
-TRX64U F8/Network settings 0 fixed:13:Ethernet
-TRX64U F8/Network settings 1 set:Use DHCP
-TRX64U F8/Network settings 2 node:net.eth_status
-TRX64U F8/Network settings 3 node:net.eth_mac
-TRX64U F8/Network settings 4 fixed:13:WiFi
-TRX64U F8/Network settings 5 node:wifi.state
-TRX64U F8/Network settings 6 node:wifi.ssid
-TRX64U F8/Network settings 7 node:wifi.ip
-TRX64U F8/Network settings 8 fixed:13:Services
-TRX64U F8/Network settings 9 set:Host Name
-TRX64U F8/Network settings 10 set:Unique ID
-TRX64U F8/Network settings 11 set:Network Password
-TRX64U F8/Network settings 12 set:Ultimate Ident Service
-TRX64U F8/Network settings 13 set:Ultimate DMA Service
-TRX64U F8/Network settings 14 set:FTP File Service
-TRX64U F8/Network settings 15 set:Web Remote Control Service
-TRX64U F8/Network settings 16 set:Log to Syslog Server
-TRX64U F8/Network settings 17 node:net.pw_scope
-TRX64U F8/Network settings 18 fixed:13:Time synchronization
-TRX64U F8/Network settings 19 set:SNTP Enable
-TRX64U F8/Network settings 20 set:TimeZone
-TRX64U F8/Network settings 21 set:Time Server 1
-TRX64U F8/Network settings 22 set:Time Server 2
-TRX64U F8/Network settings 23 set:Time Server 3
-TRX64U F8/Streams 0 set:Stream VIC to
-TRX64U F8/Streams 1 set:Stream Audio to
-TRX64U F8/Streams 2 node:stream.start:n0
-TRX64U F8/Streams 3 node:stream.stop:n0
-TRX64U F8/Streams 4 node:stream.start:n1
-TRX64U F8/Streams 5 node:stream.stop:n1
-TRX64U F8/FTP hosts 0 set:FTP 1 Alias
-TRX64U F8/FTP hosts 1 set:FTP 1 Host
-TRX64U F8/FTP hosts 2 set:FTP 1 Port
-TRX64U F8/FTP hosts 3 set:FTP 1 User
-TRX64U F8/FTP hosts 4 set:FTP 1 Password
-TRX64U F8/FTP hosts 5 set:FTP 1 Folder
-TRX64U F8/FTP hosts 6 set:FTP 2 Alias
-TRX64U F8/FTP hosts 7 set:FTP 2 Host
-TRX64U F8/FTP hosts 8 set:FTP 2 Port
-TRX64U F8/FTP hosts 9 set:FTP 2 User
-TRX64U F8/FTP hosts 10 set:FTP 2 Password
-TRX64U F8/FTP hosts 11 set:FTP 2 Folder
-TRX64U F8/FTP hosts 12 set:FTP 3 Alias
-TRX64U F8/FTP hosts 13 set:FTP 3 Host
-TRX64U F8/FTP hosts 14 set:FTP 3 Port
-TRX64U F8/FTP hosts 15 set:FTP 3 User
-TRX64U F8/FTP hosts 16 set:FTP 3 Password
-TRX64U F8/FTP hosts 17 set:FTP 3 Folder
-TRX64U F8/FTP hosts 18 set:FTP 4 Alias
-TRX64U F8/FTP hosts 19 set:FTP 4 Host
-TRX64U F8/FTP hosts 20 set:FTP 4 Port
-TRX64U F8/FTP hosts 21 set:FTP 4 User
-TRX64U F8/FTP hosts 22 set:FTP 4 Password
-TRX64U F8/FTP hosts 23 set:FTP 4 Folder
 Amiga (OCS/ECS, 68000) F1/home 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F1/home 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F1/home 2 media:amiga.df0.image
@@ -722,3 +501,56 @@ Port Diagnostics F8/expert 10 fixed:13:Status
 Port Diagnostics F8/expert 11 info:Build
 Port Diagnostics F8/expert 12 info:ROMs
 Port Diagnostics F8/expert 13 info:Libraries
+Record Core F1/home 0 task:Timewarp...
+Record Core F1/home 1 task:Monitor...
+Record Core F1/home 2 fixed:10:Save as config...
+Record Core F1/home 3 fixed:11:Load config...
+Record Core F1/timewarp 0 node:tw.resume
+Record Core F1/monitor 0 node:monitor.key:n63
+Record Core F5/settings 0 fixed:13:Machine
+Record Core F5/settings 1 set:Console type
+Record Core F5/settings 2 set:Joystick ports
+Record Core F5/settings 3 set:Pad map
+Record Core F5/settings 4 fixed:13:Video
+Record Core F5/settings 5 set:Picture
+Record Core F5/settings 6 set:Scale
+Record Core F5/settings 7 set:Smoothing
+Record Core F5/settings 8 fixed:13:Audio
+Record Core F5/settings 9 set:Volume
+Record Core F5/settings 10 set:Tone
+Record Core F7/settings 0 fixed:13:Look
+Record Core F7/settings 1 set:Overlay Transparency
+Record Core F7/settings 2 set:Color Scheme
+Record Core F7/settings 3 set:Filename overflow squeeze
+Record Core F7/settings 4 set:Navigation Style
+Record Core F7/settings 5 fixed:13:Storage
+Record Core F7/settings 6 set:Persist medium mounts
+Record Core F7/settings 7 set:Enter Home on Startup
+Record Core F7/settings 8 set:Home Directory
+Record Core F7/settings 9 fixed:13:Menu
+Record Core F7/settings 10 set:Menu opens at
+Record Core F7/settings 11 fixed:13:Hotkeys
+Record Core F7/settings 12 fixed:16:Hotkeys
+Record Core F7/hotkeys 0 set:Hotkey modifier
+Record Core F7/hotkeys 1 set:Hotkey menu
+Record Core F7/hotkeys 2 set:Hotkey volume up
+Record Core F7/hotkeys 3 set:Hotkey volume down
+Record Core F7/hotkeys 4 set:Hotkey reset
+Record Core F7/hotkeys 5 set:Hotkey swap joystick
+Record Core F7/hotkeys 6 set:Hotkey picture mode
+Record Core F7/hotkeys 7 set:Hotkey Timewarp
+Record Core F7/hotkeys 8 set:Hotkey Monitor
+Record Core F8/expert 0 fixed:13:Actions
+Record Core F8/expert 1 fixed:6:Restart core
+Record Core F8/expert 2 fixed:7:Return to host menu
+Record Core F8/expert 3 fixed:13:Network
+Record Core F8/expert 4 fixed:9:WiFi
+Record Core F8/expert 5 fixed:13:Support
+Record Core F8/expert 6 fixed:8:Bug report
+Record Core F8/expert 7 fixed:17:Keys and help
+Record Core F8/expert 8 fixed:13:Reset
+Record Core F8/expert 9 fixed:5:Reset to host defaults
+Record Core F8/expert 10 fixed:13:Status
+Record Core F8/expert 11 info:Build
+Record Core F8/expert 12 info:ROMs
+Record Core F8/expert 13 info:Libraries

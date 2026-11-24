@@ -17,7 +17,6 @@ extern const CoreDesc c64scpu_desc;
 extern const CoreDesc zxnext_desc;
 extern const CoreDesc snes_desc;
 extern const CoreDesc neogeo_desc;
-extern const CoreDesc c64_desc;
 extern const CoreDesc amiga_desc;
 extern const CoreDesc amiga1200_desc;
 extern const CoreDesc ddt_novic_desc;

@@ -8,7 +8,7 @@
 
 enum BoardKind { BOARD_MULTICORE = 0, BOARD_MONOLITH = 1 };
 
-// The ID byte the ICAP loader of the MultiCore host answers at ICAP_BASE (0x10060600). The monolith decodes nothing there and reads 0.
+// The ID byte the ICAP loader of the MultiCore host answers at the block icap (0x10060600). The monolith decodes nothing there and reads 0.
 #define BOARD_ICAP_ID 0x7A
 // The longest core id a standalone installation's flash directory is named after ("/flash/<id>", board_set_core).
 #define BOARD_CORE_ID_MAX 31
@@ -55,6 +55,10 @@ public:
     virtual ~BoardProbe() { }
     virtual uint32_t blocks() { return BB_ALL; }   // BB_* of the blocks the app is linked with; a fake without an answer has them all
     virtual uint8_t icap_id() = 0;           // the ID register of the ICAP loader (block icap, or icap_id and its siblings; hw.cc), read only when BB_ICAP is set
+    // T239.3 D37: the app is linked against a TOML A that has the block partition (decouple, release; hw.cc: DRV_HAS_partition). It is a link fact, not a read. An app with the loader but
+    // without it cannot decouple a partition, so the ID byte alone does not make the MultiCore profile: the hand-over page must then say a host started the app (board_detect).
+    // The default is true: the fakes of the tests that flip only the other reads need no change; hw.cc and test_board.cc answer for real.
+    virtual bool partition_linked() { return true; }
     virtual uint32_t fpga_caps() = 0;        // the ITU capability word (read when BB_DRIVE_A or BB_CMD_IF is there: it has no block in TOML A, the drive and the command interface bits are what is asked of it)
     virtual uint8_t trx_caps() = 0;          // TRX_CAPS (ident.caps; read when BB_CART or BB_RING is there)
     virtual uint8_t iec_version() = 0;       // iec_status.version (IEC_BASE + 0; read when BB_IEC is there)
@@ -65,14 +69,14 @@ struct BoardProfile {
     BoardKind kind;
     bool has_handover;           // the page at HANDOVER_ADDR is valid (sum and magic). On the monolith only the legacy start of a large .cor writes
                                  // one (T112 Q1); a .cfw start wipes it, so a block that passes is ours and carries a .cor path.
-    bool can_return_host;        // the ICAP loader is there; "Return to host menu" exists only then
+    bool can_return_host;        // the host is there to return to (the profile is MultiCore: the loader answers and the app has the partition control or a valid hand-over page); "Return to host menu" exists only then
     bool flash_cfg;              // T228 DC13: a start without a .cor keeps its settings in a cfg file in the flash. Off under the MultiCore host (D11: the menu writes and
                                  // erases nothing in the flash); on for a standalone installation, where nothing else could persist them
     char cfg_dir[8 + BOARD_CORE_ID_MAX + 1];   // where <folder>.cfg lives when there is no hand-over path: "/flash/<core id>", set by board_set_core when flash_cfg; empty: in memory only
     char boot_cfg[8 + BOARD_CORE_ID_MAX + 10]; // the file that holds the boot-attempt counter (libguard.h): "/flash/<core id>/boot.cfg" (board_set_core) or the host's "/Flash/boot.cfg"; empty until the core is known
     const char *rom_dir;         // searched first for the ROM files, as a directory; null: only <root>/roms/<folder>
     uint32_t probes;             // BC_* the hardware answered for
-    char why[96];                // "ICAP absent, no hand-over", for the log line
+    char why[96];                // "ICAP absent, no hand-over" or "ICAP loader, no partition, no hand-over: standalone", for the log line
 };
 
 BoardProfile board_detect(BoardProbe *p);

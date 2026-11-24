@@ -13,7 +13,7 @@ its minor; only the newest entry can be unreleased, and `update` rewrites its ha
   sdk_api.py headers      the shipped headers, one repository path a line (tools/sdk_pack.sh copies exactly these)
   sdk_api.py version      major.minor of the base API (libfmt.h)
   sdk_api.py hash         the hash of the public headers
-  sdk_api.py hash-dir <d> the hash of the .h files of a folder, as the package's include/ (tools/sdk_check.sh)
+  sdk_api.py hash-dir <d> the hash of the closure headers found in a folder (other files ignored), as the package's include/ (tools/sdk_check.sh)
   sdk_api.py lock         the lock entry for the current headers (released = false), to append to coreapp/api_lock.toml after a version change
   sdk_api.py update       rewrite the hash of the newest entry in coreapp/api_lock.toml to the current headers; refused for a released one
   sdk_api.py check        the lint: version, lock and headers agree; coreapp/version.toml shows the same base_api
@@ -198,7 +198,8 @@ def main(argv):
             print(api_hash())
         elif cmd == "hash-dir":
             d = argv[2]
-            print(hash_files([os.path.join(d, n) for n in sorted(os.listdir(d)) if n.endswith(".h")]))
+            # only the closure, read from the directory by base name: a header that rides along (online_api.h) is outside the lock
+            print(hash_files([os.path.join(d, os.path.basename(rel)) for rel in headers()]))
         elif cmd == "lock":
             sys.stdout.write(lock_entry())
         elif cmd == "update":

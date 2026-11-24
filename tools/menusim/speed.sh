@@ -8,9 +8,8 @@
 #   env MENUSIM_OPT=-O2   the application sources at another optimisation level (default -O0, as run.sh); times are the Mac's, not the board's
 #
 # Per core and mode: the keys, the flushed pixels per key press (mean over all keys, max, and mean over UP/DOWN only), the flush calls and the
-# objects in the flushed areas per key press (UP/DOWN), the UP/DOWN key's time on this machine (us), the state functions the stubs answered per
-# UP/DOWN key, and Settings::find per UP/DOWN key: its calls, the key comparisons they made and the comparisons the linear scan before the name index would have made.
-# menusim names: tools/menusim/run.sh --list (the TRX64U is "c64").
+# objects in the flushed areas per key press (UP/DOWN), the UP/DOWN key's time on this machine (us), and Settings::find per UP/DOWN key: its calls, the key comparisons they made and the comparisons the linear scan before the name index would have made.
+# menusim names: tools/menusim/run.sh --list.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TREE=(); MODES=(); LINES=""; CORES=(); SEQ=speed_keys.txt
@@ -28,7 +27,7 @@ done
 [ ${#MODES[@]} -gt 0 ] || MODES=(1080p)
 KEYS="$(grep -v '^#' "$HERE/$SEQ" | tr -d ' \n')"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-printf '%-10s %-6s %-8s %4s %10s %10s %10s %6s %6s %8s %7s %7s %7s %8s\n' core mode canvas keys px/key_all px_max px/move calls objs us/move st/move find/mv cmp/mv lin/mv
+printf '%-10s %-6s %-8s %4s %10s %10s %10s %6s %6s %8s %7s %7s %8s\n' core mode canvas keys px/key_all px_max px/move calls objs us/move find/mv cmp/mv lin/mv
 for c in "${CORES[@]}"; do
   for m in "${MODES[@]}"; do
     f="$W/$c-$m.txt"
@@ -47,9 +46,8 @@ for l in open(f):
     elif l.startswith('SUMMARY'): s_all = kv
     elif l.startswith('MOVES'): s_mv = kv
 mv = [kv for k, kv in rows if k in ('UP', 'DOWN')]
-st = sum(int(kv['states']) for kv in mv) / max(len(mv), 1)
-print('%-10s %-6s %-8s %4s %10s %10s %10s %6s %6s %8s %7.0f %7s %7s %8s' % (core, mode, canvas, s_all['keys'], s_all['px_mean'], s_all['px_max'], s_mv['px_mean'],
-      s_mv['calls_mean'], s_mv['objs_mean'], s_mv['us_mean'], st, s_mv['finds_mean'], s_mv['cmps_mean'], s_mv['lin_mean']))
+print('%-10s %-6s %-8s %4s %10s %10s %10s %6s %6s %8s %7s %7s %8s' % (core, mode, canvas, s_all['keys'], s_all['px_mean'], s_all['px_max'], s_mv['px_mean'],
+      s_mv['calls_mean'], s_mv['objs_mean'], s_mv['us_mean'], s_mv['finds_mean'], s_mv['cmps_mean'], s_mv['lin_mean']))
 PY
   done
 done

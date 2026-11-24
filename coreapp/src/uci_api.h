@@ -55,8 +55,8 @@ typedef struct UciApi {
     // The slot of the interface: whether it answers at $DF1C (SLOT_ENABLE, 0 or 1) and the base address it answers at (SLOT_BASE; 0x47 is $DF1C, the cartridge library's
     // value). slot_enable reads the register; set_slot_enable and set_slot_base write it. The rule of this export: the writes are ignored and slot_enable reads 0 unless
     // sys.has_capability("uci") is true. That call tests the running core's descriptor after the board struck what its probes deny (run.cc, board_effective_caps), which is the
-    // test of trx64u_ops.cc (desc_has_capability(desc, "uci") and the probe BC_UCI) on every core that lists "uci" in its capabilities and sets board_caps. That is the one C64
-    // descriptor today (c64.cc), and the run loop always has a board profile, so the old test's case of no profile never arises. A descriptor that lists "uci" without board_caps
+    // test of trx64u_ops.cc (desc_has_capability(desc, "uci") and the probe BC_UCI) on every core that lists "uci" in its capabilities and sets board_caps. That is the TRX64U core's
+    // descriptor (TRX64-Ultimate's), and the run loop always has a board profile, so the old test's case of no profile never arises. A descriptor that lists "uci" without board_caps
     // would skip the probe, so such a descriptor sets board_caps. Task: lock.
     uint8_t (*slot_enable)(void);
     void (*set_slot_enable)(uint8_t v);

@@ -48,7 +48,7 @@ static inline uint32_t start_host_key(const Handover *h)
 StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDesc **desc, char *msg, int msglen, CoreIo *io = 0, DescSource *src = 0);
 
 // The way back from the held page (T115 7 H1). The page that start_identify's refusal puts up offers "Return to host menu" exactly where the SYSTEM
-// menu does: the board has an ICAP loader that can take the FPGA back to the host (board.can_return_host), i.e. a layer-2 core under the
+// menu does: the profile is the MultiCore host's, whose ICAP loader can take the FPGA back to it (board.can_return_host; D37: the loader answers and the app has the partition control or a valid hand-over page), i.e. a layer-2 core under the
 // MultiCore host and a large .cor whose flat build keeps the host's top. On the TRX64 Ultimate and Gideon's bitstream there is none.
 bool held_offers_return(const BoardProfile *b);
 // The page's text: the reason, then the hint when the way back is offered, then `err` (why the last try came back) when there is one.

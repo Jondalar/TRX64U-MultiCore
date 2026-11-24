@@ -12,7 +12,7 @@
 #include "menuctl.h"
 #include "keyboard.h"
 #include "ops_glue.h"
-#include "trx64u_menu.h"
+#include "record_menu.h"
 #include "instfiles.h"
 
 struct Host : MenuHost {
@@ -73,20 +73,26 @@ static void settle(MenuCtl &m)
     }
 }
 
-int main()
+int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
     bool verbose = getenv("KEYWALK_VERBOSE") != 0;
     std::string out, ids;
     int probes = 0;
+    // the cores of the table, and a core whose menu is a record (golden/desc_cut.toml over the NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
+    struct Walk { const CoreDesc *d; const MenuMerge *merge; const char *name; };
+    std::vector<Walk> walks;
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
-        const CoreDesc *d = *pd;
-        const char *cname = d->cor_name ? d->cor_name : "?";
-        const MenuMerge *merge = 0;
-        if (d == &c64_desc) {                      // the C64's menu is its record (T104.2 D10): Timewarp, the monitor, the tools are the record's tabs
-            d = trx64u::desc();
-            merge = trx64u::merge();
-        }
+        walks.push_back({ *pd, 0, 0 });
+    }
+    static CoreDesc base = nes_desc;
+    base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
+    RecordMenu *rm = new RecordMenu(&base, argv[1]);
+    walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+    for (const Walk &w : walks) {
+        const CoreDesc *d = w.d;
+        const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
+        const MenuMerge *merge = w.merge;
         FakeIo io; FakeFs fs; CoreCtx c;
         memset(&c, 0, sizeof(c));
         c.desc = d; c.io = &io; c.fs = &fs; c.merge = merge;

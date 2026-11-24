@@ -1,5 +1,5 @@
 # The ROM needs of a core that states them in record 6 of its .cor (T239.3 P1-6): trx64u's four ROMs as TRX64-Ultimate's desc.toml lists them
-# (the rows of coreapp/cores/c64.cc `roms`), and the ROM set of a Kickstart-like core. tests/hostapp/run.sh compiles it; test_coremaint reads it back.
+# and the ROM set of a Kickstart-like core. tests/hostapp/run.sh compiles it; test_coremaint reads it back.
 [core]
 id = "C64 "
 name = "TRX64U"

@@ -236,7 +236,7 @@ int main(int argc, char **argv)
         CHECK(parse(empty, d) != 0);
     }
 
-    // ---- the core's own menu (T104.2 D10): the record of TRX64U, as menu.toml compiles
+    // ---- the core's own menu (T104.2 D10): golden/desc_own.toml, as tools/descrec.py compiles it
     {
         CHECK(!d->has_own);                                        // a description without the own tables leaves the descriptor as it is
         CoreDesc base, out;
@@ -249,41 +249,41 @@ int main(int argc, char **argv)
         DescRecord *o = new DescRecord;
         CHECK_EQ(parse(own, o, why), 0);
         CHECK(o->has_own);
-        CHECK_EQ(o->ntasks, 19);                                   // T228: the resets, R1's Timewarp... and Monitor..., R21's Save .C64RE dump and Save MP3 drv A-D, the drive lists' tasks, R10's pad map last
+        CHECK_EQ(o->ntasks, 17);                                   // golden/desc_own.toml: three named tasks, the filler, Save a copy (an ask with a state), a task that asks for a folder
         CHECK_STR(o->tasks[0].label, "Reset");
         CHECK(o->tasks[0].closes_menu && !o->tasks[0].ask);
         CHECK_STR(o->tasks[0].group, "top");
-        CHECK_STR(o->machine_info, "System Mode,REU Size");        // T228 version 4: the machine line's settings
-        CHECK_STR(o->tasks[2].label, "Timewarp...");               // T228 R1: the row and its hotkey (the modifier + T, R16)
+        CHECK_STR(o->machine_info, "Sound,Speed");                 // T228 version 4: the machine line's settings
+        CHECK_STR(o->tasks[2].label, "Do it");                     // T228 R1: the row and its hotkey
         CHECK_EQ(o->tasks[2].hotkey, 'T');
-        CHECK_STR(o->tasks[14].label, "Save disk as D64");
+        CHECK_STR(o->tasks[14].label, "Save a copy");
         CHECK(o->tasks[14].ask && o->tasks[14].ask_state && !o->tasks[14].pick_dir && !o->tasks[14].closes_menu);
         CHECK_STR(o->tasks[14].group, "c64");
-        CHECK_STR(o->tasks[16].label, "Create blank D64");
+        CHECK_STR(o->tasks[16].label, "Make a blank");
         CHECK(o->tasks[16].pick_dir && o->tasks[16].ask && o->tasks[16].ask_state && !o->tasks[16].closes_menu);
-        CHECK_STR(o->tasks[16].ask_state, "drive.suggest.d64");
-        CHECK_EQ(o->tasks[16].nbind, 3);
+        CHECK_STR(o->tasks[16].ask_state, "test.slot");
+        CHECK_EQ(o->tasks[16].nbind, 1);
         CHECK_EQ(o->tasks[16].bind[0].kind, BIND_TEXT);
         CHECK_EQ(o->nmedia, 3);
-        CHECK_STR(o->media[0].name, "Drive A:");
-        CHECK_STR(o->media[0].eject_op, "drive.eject");
-        CHECK_STR(o->media[0].exts, ".d64,.g64");                  // T212 D5: the drive list's data
-        CHECK_STR(o->media[0].mount, "Mount disk");
-        CHECK_STR(o->media[0].mounted_tasks, "Swap disk,Reset drive,Unlink disk,Save disk as D64,Save disk as G64");
+        CHECK_STR(o->media[0].name, "Slot");
+        CHECK_STR(o->media[0].eject_op, "test.eject");
+        CHECK_STR(o->media[0].exts, ".t00,.t01");                  // T212 D5: the drive list's data
+        CHECK_STR(o->media[0].mount, "Mount");
+        CHECK_STR(o->media[0].mounted_tasks, "Do it,Task 3");
         CHECK(!o->media[0].eject_closes && o->media[1].eject_closes);
         CHECK_STR(o->media[1].name, "Cartridge port");
         CHECK(!o->media[2].eject_op && o->media[2].neject_bind == 0 && !o->media[2].exts);
-        CHECK_EQ(o->nftypes, 23);                                  // T228 R21: TRX64-Ultimate's file types (R24: no .g71, no .d71; T239.3 P2-1: no .cfw)
-        CHECK_STR(o->ftypes[0].ext, ".prg");
+        CHECK_EQ(o->nftypes, 20);
+        CHECK_STR(o->ftypes[0].ext, ".t00");
         CHECK_EQ(o->ftypes[0].nactions, 3);
         CHECK_STR(o->ftypes[0].actions[1].ask, "Start address");
         CHECK_EQ(o->ftypes[1].actions[1].ask_off, 26);               // the .P00 header
-        CHECK_STR(o->ftypes[3].ext, ".d64");
-        CHECK_STR(o->ftypes[3].inner_ext, ".prg");
+        CHECK_STR(o->ftypes[3].ext, ".t03");
+        CHECK_STR(o->ftypes[3].inner_ext, ".t00");
         CHECK_EQ(o->ftypes[3].ninner, 2);
         CHECK_STR(o->ftypes[3].inner[1].label, "Real run");
         CHECK(!o->ftypes[4].inner && o->ftypes[4].ninner == 0);
-        CHECK_EQ(o->ncsettings, 207);                              // the four tables of the record and the settings its nodes declare (R10: USB Controller Port; R21, R26: no WiFi rows; T239.3: the look and the mouse are the application's)
+        CHECK_EQ(o->ncsettings, 4);                                // the four tables of the record
         CHECK_STR(o->csettings[0].key, "Freeze mode");
         CHECK_EQ(o->csettings[0].when, WHEN_RESET);
         CHECK_EQ(o->csettings[1].def, 1);
@@ -291,18 +291,18 @@ int main(int argc, char **argv)
         CHECK_STR(o->csettings[3].key, "Disk swap delay");
         CHECK_STR(o->csettings[3].values[9], "1000 ms");
         CHECK_STR(o->csettings[2].group, "Drive_A");
-        // the settings tabs name their groups, and so does the tasks tab
+        // the settings tabs name their groups, and so does the tasks tab (this record has no route: none)
         int grouped = 0;
         for (int a = 0; a < o->skel.nareas; a++) for (int t = 0; t < o->areas[a].ntabs; t++) {
             const SkelTab &tb = o->areas[a].tabs[t];
             if (tb.groups) { grouped++; }
         }
-        CHECK_EQ(grouped, 8);                                      // T228: C64, TRX, Expansion, Video, Audio, Input (R9), F7 Settings, F8's System pages (R6)
+        CHECK_EQ(grouped, 0);
         descrec_apply(*o, &base, &out);
-        CHECK(o->restart_clear == 65536 && o->restart_ram_only);  // T228 R17: [restart] - "Restart core" clears the C64's 64 KiB, memory-only
+        CHECK(o->restart_clear == 65536 && o->restart_ram_only);  // T228 R17: [restart] - "Restart core" clears the 64 KiB, memory-only
         CHECK(out.cold_ram_bytes == 65536 && out.cold_ram_only);
-        CHECK(out.tasks == o->tasks && out.ntasks == 19 && out.nmedia == 3 && out.nfiletypes == 23 && out.nsettings == 207 && !strcmp(out.machine_info, "System Mode,REU Size"));
-        {   // T228 D10: the base's settings stand behind the record's 207, in the base's order, and a second call gives the same table
+        CHECK(out.tasks == o->tasks && out.ntasks == 17 && out.nmedia == 3 && out.nfiletypes == 20 && out.nsettings == 4 && !strcmp(out.machine_info, "Sound,Speed"));
+        {   // T228 D10: the base's settings stand behind the record's, in the base's order, and a second call gives the same table
             static Setting bs[2];
             memset(bs, 0, sizeof(bs));
             bs[0].key = "Base A";
@@ -311,11 +311,11 @@ int main(int argc, char **argv)
             b2.settings = bs; b2.nsettings = 2;
             descrec_apply(*o, &b2, &r1);
             descrec_apply(*o, &b2, &r2);
-            CHECK_EQ(r1.nsettings, 209);
+            CHECK_EQ(r1.nsettings, 6);
             CHECK_STR(r1.settings[0].key, "Freeze mode");
-            CHECK_STR(r1.settings[207].key, "Base A");
-            CHECK_STR(r1.settings[208].key, "Base B");
-            CHECK(r1.settings == r2.settings && r2.nsettings == 209 && !strcmp(r2.settings[208].key, "Base B"));
+            CHECK_STR(r1.settings[4].key, "Base A");
+            CHECK_STR(r1.settings[5].key, "Base B");
+            CHECK(r1.settings == r2.settings && r2.nsettings == 6 && !strcmp(r2.settings[5].key, "Base B"));
         }
 
         // the refusals of the new tables
