@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
-  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--own-core] [--core-in-design] [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
+  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -15,11 +15,11 @@ check
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
   read does not run (a strobe register that ignores the data byte; the write flag alone is no write); a read is a response whose data does not come from the literal 0 alone. A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
-  A block with owner = "core" is a window the base hands to the core: for every byte the request must leave the base over a port of the
-  groups CORE_PORTS (a strobe port that is 1 for the address, or a register driven under the address) and a data port of the same group
-  must carry the request's data; its properties are not checked (they are the core's contract).
-  `--core-in-design` is for a design that holds layer 2 as well (the whole bitstream c64_basic, no partition): a block with owner = "core" whose bytes leave over a core port
-  is handed over as before; one the design decodes itself (the U2P, U64 and C64 I/O pages of ultimate_sys) is checked by its properties like a base block.
+  A block with owner = "core" is checked like a block of the base (D43): decoded, every property written and read as its dir says. Where the RTL hands its bytes to the core, over a port of the
+  groups CORE_PORTS (the host: a strobe port that is 1 for the address, or a register driven under the address; a data port of the same group must carry the request's data), the block is
+  a window and only the hand-over is checked (a block the design decodes in every byte is checked like a base block, whatever else it forwards); its properties are then the core's contract, checked
+  in the core's own design. A design that holds layer 2 as well (c64_basic) decodes them itself.
+  `--own-core` and `--core-in-design` (the options of 0.4.5 that chose this per run) are still accepted and change nothing.
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
   another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
@@ -59,8 +59,6 @@ check
   loads into the same register (JTAG) is not the request and is left out. A one-bit port of the handshake without a value (the toggle) is a strobe of the transport and no address.
   A block of the TOML that names a pattern the check does not know stops that block only: the output lists every such block (Unsupported, with file and line) next to the blocks that
   do not agree.
-  --own-core: the blocks with owner = "core" are checked like the blocks of the base (decoded, every property read and written as its dir says). Without it a core block is only
-  a window that leaves the base for the core. A design that holds the registers of a core block itself (c64_basic: trx_sys.v, pix_layer.v, c64_text.v) is checked with it.
   A module behind a handshake that drives an output port by a continuous assignment from its held request (trx_sys.v: p2_we = ost == O_RUN && op_we && op_a[15:12] == 4'd2, p2_addr, p2_wdata; dr_*) hands the request on: a module of the top file that reads such a port
   is run on it, with the value of the assignment (the state unknown) and, for a strobe, the address decode and the write flag (a one-bit register that holds the request's known value) as its taint; a module that reads an address or data port alone is not run, and
   the pipeline's own state writes (ost, res_v) stay no register writes. A Verilog if-generate inside a generate-for body (one item without begin/end too) is decided with the genvar's value.
@@ -295,7 +293,6 @@ VLOG_TOK = re.compile(r'''
 ''', re.X | re.S)
 
 
-CORE_IN_DESIGN = False   # --core-in-design: the design holds layer 2 as well (a whole bitstream)
 DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
 
 
@@ -4055,8 +4052,8 @@ def parse_toml_a(path, maps):
 
 
 class Checker:
-    def __init__(self, design, top, bus, doc, window=None, full=False, own=False):
-        self.d, self.doc, self.full, self.own = design, doc, full, own
+    def __init__(self, design, top, bus, doc, window=None, full=False):
+        self.d, self.doc, self.full = design, doc, full
         self.ports = self.window = None
         self.core_decoded = 0
         if ":" in bus:
@@ -4204,7 +4201,18 @@ class Checker:
                 errs.append("block %s: an RTL pattern I do not know: %s" % (b["name"], ex))
         return errs
 
-    def check_block(self, b):
+    def check_block(self, b, mode=None):
+        """mode None: D43's choice for a block with owner core; "base": checked like a block of the base; "core": the hand-over only."""
+        if mode is None and b["owner"] == "core" and self.ports is None and b.get("property"):
+            # a block of the core with properties: like a base block where the design decodes it (c64_basic holds layer 2); where it fails and the RTL hands every byte to the core, the block is a window (the host)
+            as_base = self.check_block(b, "base")
+            if not as_base:
+                self.core_decoded += len(b["property"])
+                return as_base
+            rt = b["address"] - self.iobase
+            if 0 <= rt and rt + b["size"] <= (1 << 24) and self.undecoded(rt, b["size"], True) is None:
+                return self.check_block(b, "core")
+            return as_base
         errs = []
         name = b["name"]
         rt = b["address"] - self.iobase
@@ -4216,11 +4224,11 @@ class Checker:
             errs.append("block %s: 0x%08X..0x%08X lies outside the request's 24-bit address space (iobase 0x%08X)"
                         % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
             return errs
-        core = b["owner"] == "core" and self.ports is None and not self.own
-        if core and CORE_IN_DESIGN and self.undecoded(rt, b["size"], True) is not None:
-            core = False                  # not handed over to a core port: the design decodes it itself, so its properties are checked
-            self.core_decoded += len(b.get("property", []))
-        bad = self.undecoded(rt, b["size"], core)
+        core = b["owner"] == "core" and self.ports is None and mode != "base"
+        if core and mode is None and not b.get("property") and self.undecoded(rt, b["size"], True) is not None:
+            core = False                  # a window without properties that the RTL does not hand over: checked as decoded, which names the byte
+        # D40: a block is a capability; the bytes between its properties may be a gap. A block with properties is checked by the bytes of its properties (below), a block without (a window) by every byte.
+        bad = None if (not core and b.get("property")) else self.undecoded(rt, b["size"], core)
         if bad is not None:
             errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
                         "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
@@ -4280,7 +4288,6 @@ class Checker:
 def cmd_check(args):
     opts = {"--design": None, "--toml-a": None, "--top": "top"}
     maps, lists, buses, windows = [], [], [], []
-    own = False
     i = 0
     while i < len(args):
         a = args[i]
@@ -4299,12 +4306,7 @@ def cmd_check(args):
         elif a == "--define":
             DEFINES.add(args[i + 1])
             i += 2
-        elif a == "--own-core":
-            own = True
-            i += 1
-        elif a == "--core-in-design":
-            global CORE_IN_DESIGN
-            CORE_IN_DESIGN = True
+        elif a in ("--own-core", "--core-in-design"):     # D43: what they chose is the default; accepted, no effect
             i += 1
         elif a in opts:
             opts[a] = args[i + 1]
@@ -4329,14 +4331,14 @@ def cmd_check(args):
                 raise CheckError("--window BASE:SIZE[:full]")
             window, full = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0)), fl == "full"
             wi += 1
-        cks.append(Checker(des, opts["--top"], bus, doc, window, full, own))
+        cks.append(Checker(des, opts["--top"], bus, doc, window, full))
     if des.denied:
         print("rtl_check: clean room: %d file(s) of the source list are on the deny list and never opened: %s"
               % (len(des.denied), ", ".join(os.path.basename(f) for f in des.denied)))
     errs, nprop = [], 0
     if len(cks) == 1:
         errs = cks[0].check()
-        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None or own) + cks[0].core_decoded
+        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None) + cks[0].core_decoded
     else:
         # several buses (the ports of a partial that has more than one window): a block goes to the bus whose window holds it
         mine = [[] for _ in cks]
