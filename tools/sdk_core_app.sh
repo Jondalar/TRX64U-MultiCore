@@ -6,7 +6,7 @@
 # The package is unpacked into a fresh temporary directory outside the repository. The core's menu record (cores/<id>/app/desc.toml) is compiled against the [sizes] of its TOML B
 # (cores/<id>/app/sdk.toml), then tools/app_build.py of the package makes the driver table and the I/O fragment of the core's TOML A (with the base blocks its TOML B names), the library table
 # of the libraries its TOML B names, and links the app: the package's base archives, the sources that depend on the core, those libraries (their sources are the package's, the core's own
-# are cores/<id>/app/lib) and the core's descriptor. Results: <out dir>/<id>.app (the image, the name tools/pack_cores_mc.sh looks for), <id>.map, <id>.desc.bin.
+# are cores/<id>/app/lib) and the core's descriptor. Results: <out dir>/<id>.app (the image, the name tools/pack_cores_mc.sh looks for), <id>.map, <id>.elf (the symbols for the emulator), <id>.desc.bin.
 # Then the proof of V-4: tools/libtab.py mapcheck on the link map - it holds the sources of the libraries the TOML B names, the core's own library and the base, and no source of a
 # library the TOML B does not name and no code of another core. --no-link makes everything but the link (no compiler needed).
 set -euo pipefail
@@ -46,5 +46,8 @@ if grep -l -F -e "$ROOT/coreapp/" -e "$ROOT/app/" -e "$ROOT/uicore/" "$W"/out/ob
 python3 -I "$P/tools/libtab.py" mapcheck "$app/sdk.toml" "$W/out/app.map" "$ROOT" || fail "the link map of $core holds more or less than its TOML B names"
 cp "$W/out/app.bin" "$out/$core.app"
 cp "$W/out/app.map" "$out/$core.map"
+# T239.5 (the emulator step of a core lane): the ELF of the link, whose symbols ue2emu reads for the app (tests/hostapp/emu_host.sh)
+[ -s "$W/out/app.elf" ] || fail "app.elf missing"
+cp "$W/out/app.elf" "$out/$core.elf"
 blocks="$(tr '\n' ' ' < "$W/out/blocks.txt" 2>/dev/null || true)"
 echo "sdk_core_app: ok: $core: $(wc -c < "$out/$core.app" | tr -d ' ') bytes from trx64-sdk-$(sed -n 's/^sdk //p' "$P/VERSION"), blocks: ${blocks:-the TOML A}, link map checked"

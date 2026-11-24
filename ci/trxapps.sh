@@ -31,12 +31,17 @@
 #                                --clean (or CI_BUILD_CLEAN=1) empties the persistent tree first: a build from scratch
 #                                --compile-only: compile and link the two applications and stop (tools/dev.sh build): no images, no stage result
 #   TRX_BUILD_INPLACE=1          build in this very tree (tools/dev.sh: the tree is the synced working tree; no image cache, no slot, no sync)
+#   TRXAPPS_ONLY=sdk|host        T239.5 (D8, the build step of a lane of the matrix): sdk = the shared base, its libraries, the sub-apps (.u2a) and the SDK package with
+#                                its check; host = the host app and its emulator build. Unset: everything below (the old pipeline's stage images). The value is in the key.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 clean="${CI_BUILD_CLEAN:-}" compile_only=""
 for a in "$@"; do case "$a" in --clean) clean=1 ;; --compile-only) compile_only=1 ;; *) echo "ci/trxapps.sh: unknown argument $a" >&2; exit 2 ;; esac; done
 inplace="${TRX_BUILD_INPLACE:-}"
+only="${TRXAPPS_ONLY:-}"
+case "$only" in ""|sdk|host) ;; *) echo "ci/trxapps.sh: TRXAPPS_ONLY is sdk or host, not $only" >&2; exit 2 ;; esac
+part() { [ -z "$only" ] || [ "$only" = "$1" ]; }   # part sdk|host: this run builds that part
 
 out="$(stage_dir trxapps)"
 # T174 D2.2/D4 (Alex, 2026-11-07: the app is built and tested natively first, RISC-V last): the parent starts this child only after `apptests` is green.
@@ -48,6 +53,7 @@ key=""; cache=""
 if [ -z "$inplace" ]; then
   key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/core_toml.py tools/sdk_core_app.sh tools/app_build.py tools/rtl_check.py tools/cor_pack.py tools/menusim tools/gen_base_ui.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/coreapp ':(glob)cores/*/app/**' LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot apps/online cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; printf 'own-app %s\n' "$(python3 -I "$ROOT/tools/core_toml.py" list-own-app | tr '\n' ' ')"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
+  key="$key${only:+-$only}"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
 
@@ -119,14 +125,15 @@ else
   for lib in lwip lvgl; do nice -n 15 make -j"$J" -C "$H/libs/riscv/$lib"; done
   # `gitinfo` first and alone: `all` has it beside the compile targets and in parallel the rule rewrites gitinfo.h while a source that
   # includes it is compiled (T93 5.15)
-  for a in hostapp coreapp; do
+  apps=""; part host && apps="hostapp"; part sdk && apps="$apps coreapp"
+  for a in $apps; do
     make -C "$H/u64ii/riscv/$a" gitinfo
     nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
   done
 
   # T239.3 P3-1 (D31, S8): the symbol check on what the app's TOML B names: every source of its libraries is linked, and no generic object uses a symbol a library defines
   # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app.
-  NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
+  ! part sdk || NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
 
   if [ -n "$compile_only" ]; then
     echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
@@ -136,9 +143,12 @@ else
 
   # T104.2 S12: the boot ROM starts an application from the slot at 0x220000 and takes at most 0x1E0000 - 12 bytes of it; an image that
   # does not fit would build, flash and not start. The number goes in the log on every build.
-  python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
+  if part sdk; then
+    python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
+    cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
+  fi
+  if part host; then
   cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
-  cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
   # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
   # flash chip is accepted). Rebuilt from that one object and the link, then the tree is put back to the board build (touch + make again) so a later
   # incremental build and the images above stay what the board gets. Never packed, never flashed: it lives in this stage's hand-over as hostapp_emu.*.
@@ -149,6 +159,7 @@ else
   touch "$B/host-app/software/hostapp/flashfw.cc"
   nice -n 15 make -j"$J" -C "$hdir"
   cmp -s "$hdir/result/hostapp.app" "$out/hostapp.app" || { echo "trxapps: the board build of the host app changed while the emulator build was made" >&2; exit 1; }
+  fi
   # The library build path (app/lib/lib.mk) with the compiler of this image. app/ is in the key above, so a change to it rebuilds the stage.
   # Built beside its sources (the outputs are gitignored) and cleaned again - which also keeps the tree equal to the checkout for the next sync.
   # T174 D3: the two library applications are keyed by the content of what they read (their folder, the library makefile, the SDK, the core application
@@ -164,6 +175,7 @@ else
     make -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- clean
     mkdir -p "$c.tmp$$" 2>/dev/null && cp "$out/$n" "$c.tmp$$/$n" && rm -rf "$c" && mv "$c.tmp$$" "$c" || true
   }
+  if part sdk; then
   libapp app/lib/testlib testlib.u2a
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
@@ -178,11 +190,14 @@ else
   uz=$(wc -c < "$out/unzip.u2a"); mz=$(wc -c < "$out/miniz.u2a")
   echo "=== trxapps: unzip.u2a $uz bytes, miniz.u2a $mz bytes"
   [ "$uz" -lt "$mz" ] || { echo "trxapps: unzip.u2a ($uz bytes) is not smaller than the zip library ($mz): it carries its own miniz (T197 S2)" >&2; exit 1; }
+  fi
+  if [ -z "$only" ]; then
   mkdir -p "$out/coreapps"
   # The .bin, never the .app: cor_pack puts the image at app_load as it is and jumps to app_entry, so an
   # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
   # Atari and the NES executing their own load address (T93 5.12).
   for c in $BLUEPRINT_CORES; do cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$out/coreapps/$c.app"; done
+  fi
   command -v ccache >/dev/null && ccache --show-stats | head -8 || true
   echo "=== trxapps: images built in $((SECONDS - _t_b))s"
 
@@ -194,9 +209,14 @@ else
   # the libraries, the lists of the rest), after the heavy slot is let go, into the hand-over beside the images (the artifact handoff-trxapps), and its check (tools/sdk_check.sh): the example
   # library, its menu record and the example core's app built from the unpacked package alone. The package carries no app image. The sources of the package are in the stage key above
   # (app/ with app/sdkpkg, the packer tools, the menu simulator and the rig it builds from, the two scripts).
+  if part sdk; then
   nice -n 15 make -C "$H/u64ii/riscv/coreapp" sdkbase
   SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out" "$H/u64ii/riscv/coreapp/output/sdkbase"
   RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
+  # T239.5: the shared app's link map, for the core lanes' S12 check (the library a core's TOML B shares with the shared app is the same, and linked in both)
+  cp "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/"
+  fi
+  if [ -z "$only" ]; then
   # T239.3 V-4 (S11): the app of each core of SDK_OWN_APPS, linked from the unpacked package alone against its TOML A and TOML B; the check of its link map is in the script. coreapps/<core>.app is the
   # linked image (cor_pack takes the .bin, as for the shared image above), <core>.map beside it.
   for c in $SDK_OWN_APPS; do
@@ -212,6 +232,7 @@ else
   case " $SDK_OWN_APPS " in *" vc20 "*)
     python3 -I "$B/tools/libtab.py" samelib "$B/coreapp/libs/shared.toml" "$B/cores/vc20/app/sdk.toml" cbm1541 "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/coreapps/vc20.map";;
   esac
+  fi
 
   if [ -n "$cache" ]; then
     mkdir -p "$cache.tmp.$$"
@@ -224,8 +245,11 @@ fi
 
 printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
-ls -l "$out" "$out/coreapps"
-sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a" "$out/trex_crt.u2a" "$out/softboot.u2a" "$out/online.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
+ls -l "$out"; [ ! -d "$out/coreapps" ] || ls -l "$out/coreapps"
+sums=()
+part host && sums+=("$out/hostapp.app")
+part sdk && sums+=("$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a" "$out/trex_crt.u2a" "$out/softboot.u2a" "$out/online.u2a")
+sha256sum "${sums[@]}"; ! part sdk || [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"
 
