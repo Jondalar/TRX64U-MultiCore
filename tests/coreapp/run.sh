@@ -33,6 +33,8 @@ CA_UNITS="${CA_UNITS:-}"
 ca_unit() { [ -z "$CA_UNITS" ] && return 0; case " $CA_UNITS " in *" $1 "*) echo "$1" >> "$T/ca_units_done"; return 0 ;; esac; return 1; }
 ca_group() {   # ca_group TESTFILE SRC... : prints the group
   local f g="" o
+  # T239.5: a unit built as a core's own app (vc20app sets CA_APP) is in that core's group: its lane runs it (CA_GROUP=<core>), the shared suite does not
+  [ -z "${CA_APP:-}" ] || { echo "$CA_APP"; return; }
   case "$RUNTIME_CROSS" in *" $1 "*) echo cross; return ;; esac
   shift
   for f in "$@"; do
@@ -81,7 +83,7 @@ INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
 INC_VC20=(-DTEST_APP_VC20=1 -I"$VC20LIB" -I"$T/vc20tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_VC20+=("$i"); done
-vc20app() { local INC=("${INC_VC20[@]}"); "$@"; }
+vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
 build() {
   local out="$1" test="$2"; shift 2
   local files=()
@@ -452,7 +454,7 @@ control cpc_disk_flushinit cpc.cc 's/    cpcd_flush_all(c, \&st->disks);   .*$/ 
 VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
 vc20app run vc20 test_vc20.cc $VC20
 # The VIC-20's cases inside the shared tests (test_desc, test_ledcores, test_hotkeys, test_createflow, test_memops, test_media_mounts_engines, test_descgen, gen_romreq) stand under TEST_APP_VC20
-# and are not run for now: where they run is decided with Alex (the VIC-20 has moved to the SDK pipeline). vc20app is the way to build them like the VIC-20's app.
+# and run as the units vc20_* at the end of this file, built as the VIC-20's app: its lane of the matrix runs them (T239.5 D4, D10), the old pipeline does not (D1).
 
 # T90 (the Commodore 264 on the generic application): the descriptor against a model of the register block and the 16 KB aperture
 C264="c264.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
@@ -899,6 +901,33 @@ run unzip test_unzip.cc $UZSRC
 
 # T186 (S1-S3): the FTP client against a scripted server model (test_ftp.cc, lwIP fakes in ftpstub/, virtual clock); fixes adapted from the fork f7f665ab
 run ftp test_ftp.cc ftp_client.cc ftp_exports.cc
+
+# T239.5 D4, D10: the VIC-20's cases of the shared tests (TEST_APP_VC20), built as its app (vc20app: its own table and its core only, the group vc20) - the units its
+# TOML B (cores/vc20/app/sdk.toml) names for the steps 8 to 10 of its lane. The sources are the shared units' generic ones with the VIC-20 in place of the shared cores.
+VC20D="desc_check.cc overlay.cc descrec.cc $VC20"
+CARGS="" RARGS=""   # the run arguments of the units above (the unzip fixtures) are no argument of these
+RARGS="$T/bundles/desc_own.bin" vc20app run vc20_desc test_desc.cc $VC20D
+vc20app run vc20_ledcores test_ledcores.cc $VC20D
+vc20app run vc20_hotkeys test_hotkeys.cc $VC20D
+vc20app run vc20_createflow test_createflow.cc $VC20D
+vc20app run vc20_mounts test_media_mounts_engines.cc $VC20D start.cc handover.cc
+RARGS="$BUN/app" vc20app run vc20_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $VC20D
+vc20app run vc20_memops test_memops.cc $SVC $VC20D
+# the VIC-20's rows of the host's ROM table (t_romreq above checks the shared app's rows only): gen_romreq built as the VIC-20's app, each of its rows in the host's table
+t_romreq_vc20() {
+  local INC=("${INC_VC20[@]}")
+  build "$T/gen_romreq_vc20" "$TST/gen_romreq.cc" $VC20D
+  "$T/gen_romreq_vc20" > "$T/romreq_vc20.inc"
+  python3 -I - "$T/romreq_vc20.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the VIC-20's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test vc20_romreq: PASS"
+  return 0
+}
+if ca_in vc20 && ca_unit vc20_romreq; then t_romreq_vc20; PASS=$((PASS + 1)); fi
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

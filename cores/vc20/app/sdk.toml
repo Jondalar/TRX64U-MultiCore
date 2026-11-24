@@ -26,8 +26,9 @@ sources = ["vc20.cc"]
 headers = ["vc20_regs.h"]
 needs = ["cbm1541", "cbmrun"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: vc20app): unit = 2 unit tests (the descriptor against the
-# model of its register block), service = 8 mock bitstream -> service, ui = 9 service -> UI, api = 10 service -> API (the VIC-20's cases of the shared tests, TEST_APP_VC20)
-tests = { unit = ["vc20"], service = ["vc20_memops", "vc20_descgen", "vc20_romreq"], ui = ["vc20_desc", "vc20_hotkeys", "vc20_createflow", "vc20_ledcores"], api = ["vc20_rest"] }
+# model of its register block), service = 8 mock bitstream -> service, ui = 9 service -> UI, api = 10 service -> API: its operations through the service call the REST and
+# RPC transports make (svc_call; the VIC-20's cases of the shared tests, TEST_APP_VC20)
+tests = { unit = ["vc20"], service = ["vc20_descgen", "vc20_romreq"], ui = ["vc20_desc", "vc20_hotkeys", "vc20_createflow", "vc20_ledcores"], api = ["vc20_memops"] }
 
 # The 1541 drive A on the IEC bus (the VIC-20's drive_l2): the shared library, the same sources as trx64u's app links (S12)
 [[library]]

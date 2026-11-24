@@ -3,6 +3,7 @@
 #ifdef TEST_APP_VC20
 // the VIC-20's app is its own build (run.sh vc20app): its table is its core only
 #include "cores.h"
+extern const CoreDesc *const compiled_in_table[];   // a const array at namespace scope is internal unless declared extern: test_descgen.cc links it
 const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
 #else
 #define core_table compiled_in_table
