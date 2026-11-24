@@ -822,7 +822,7 @@ sprites vic_sprites(
 // (T257 fault 4: the note here said one extra cycle; the code and the bench trace give three).
 // aec2 is aec one tick later (vic_write_ab below).
 // T257 fault 4: in the 2 MHz mode (`fast`) the 8502 owns the CPU half of every cycle: AEC follows PHI as if BA were high, so a badline's c-accesses
-// and the sprite DMA no longer take it (a c-access then takes $FF as the character, bus_access.v; the sprite data the last bus byte, sprites.v; the
+// and the sprite DMA no longer take it (a c-access then takes $FF as the character, bus_access.v; the two phase-2 s-accesses the last bus byte, sprites.v; the
 // picture is the border colour then, c64_top_c128.v vic_pix_color). The 8502 ignores BA in that mode (cpu_rdy); before this the arbiter gave
 // such a CPU half to the VIC and the 8502 took the VIC's byte as its own read.
 reg aec2;

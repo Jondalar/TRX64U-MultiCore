@@ -9,7 +9,7 @@ build=${C128_BUILD:-$here/build}
 [ -x "$build/obj/tb_c128" ] || sh "$here/build_machine.sh" "$build" || exit 1
 run="$build/run_z80vdc"; rm -rf "$run"; mkdir -p "$run"; cp -a "$build/run/." "$run/"
 python3 "$root/tools/gen_c128_test.py" z80vdc "$run" > /dev/null || exit 1
-(cd "$run" && "$build/obj/tb_c128" +MS="${C128_MS:-60}" +VDCPROBE +VRAM ${C128_ARGS:-}) > "$run/log" 2>&1
+(cd "$run" && "$build/obj/tb_c128" +MS="${C128_MS:-100}" +VDCPROBE +VRAM ${C128_ARGS:-}) > "$run/log" 2>&1
 cw=$(grep -c '^vp|.*|cw|' "$run/log"); zw=$(grep -c '^vp|.*|zw|' "$run/log"); dr=$(grep -c 'DROP-PENDING' "$run/log")
 echo "VDC strobes with a write: $cw, Z80 writes to \$D6xx: $zw, pending VDC actions replaced: $dr"
 rc=0

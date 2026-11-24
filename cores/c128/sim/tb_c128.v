@@ -479,9 +479,10 @@ module tb_c128;
             $display("vreg|%0d|%0d|%02x", $time / 1000, dut.c64.x.vdc.regSel, dut.c64.x.vdc.db_in);
     end
     // +VDCFIELDS=<us>: the next four fields of the VDC's picture after that time, one hex digit (rgbi) per dot of the active area, into vdcfield<k>.txt
-    // (first line "field <k> il <vdc_il> lines <n> width <w>"); vdcil_model.py fields renders them. il is taken where the field's visible rows start: the VDC
-    // flips its field at the frame wrap, in the blank after the visible rows (vdc_signals_v.sv cfield, vVisible), so at the blank's start it still names
-    // the field just shown (T257 fault 4: taken there, every field carried the flag of the one before it).
+    // (first line "field <k> il <vdc_il> lines <n> width <w>"); vdcil_model.py fields renders them. il is taken where the field's visible rows start, the
+    // edge at which c128_pixw takes il and field too (c128_pixw.v: fs = vb_d & ~vblank). The VDC flips its field at the frame wrap, in the blank after the
+    // visible rows (vdc_signals_v.sv cfield, vVisible), so at the blank's start it still names the field just shown (T257 fault 4: taken there, every
+    // field carried the flag of the one before it).
     integer vf_us = -1, vf_k = 0, vf_x = 0, vf_y = 0, vf_w = 0, vf_fd = 0, vf_i, vf_j;
     reg [1:0] vf_st = 2'd0;                                            // 0 off, 1 waiting for a field start, 2 capturing
     reg vf_hb_q = 1'b1, vf_vb_q = 1'b1;
