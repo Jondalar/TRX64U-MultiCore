@@ -31,8 +31,8 @@
 #                                --clean (or CI_BUILD_CLEAN=1) empties the persistent tree first: a build from scratch
 #                                --compile-only: compile and link the two applications and stop (tools/dev.sh build): no images, no stage result
 #   TRX_BUILD_INPLACE=1          build in this very tree (tools/dev.sh: the tree is the synced working tree; no image cache, no slot, no sync)
-#   TRXAPPS_ONLY=sdk|host        T239.5 (D8, the build step of a lane of the matrix): sdk = the shared base, its libraries, the sub-apps (.u2a) and the SDK package with
-#                                its check; host = the host app and its emulator build. Unset: everything below (the old pipeline's stage images). The value is in the key.
+#   TRXAPPS_ONLY=sdk|host        T239.5 (D8, the build step of a lane of the matrix): sdk = the shared base, its libraries, the sub-apps (.u2a) and the SDK package (its
+#                                check is the lane's step 7); host = the host app and its emulator build. Unset: everything below (the old pipeline's stage images). The value is in the key.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -212,7 +212,8 @@ else
   if part sdk; then
   nice -n 15 make -C "$H/u64ii/riscv/coreapp" sdkbase
   SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out" "$H/u64ii/riscv/coreapp/output/sdkbase"
-  RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
+  # the package's check; the SDK lane of the matrix runs it as its own step 7 (ci/lane.sh sdk test), not inside the build
+  [ "$only" = sdk ] || RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
   # T239.5: the shared app's link map, for the core lanes' S12 check (the library a core's TOML B shares with the shared app is the same, and linked in both)
   cp "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/"
   fi
