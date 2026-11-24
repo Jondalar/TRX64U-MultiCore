@@ -11,7 +11,6 @@
 #include "monitor.h"
 #include "diag.h"
 #include "netops.h"
-#include "uci_slot.h"
 #include "sectors.h"
 #include "folderhd_api.h"
 

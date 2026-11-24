@@ -38,14 +38,14 @@ LEDGER0 = os.path.join(HERE, "d24_ledger.txt")
 TARGETS0 = os.path.join(HERE, "d24_targets.txt")
 TARGETS = ("data", "core-library", "shared-library", "ultimate-repo", "generic-module")
 # T239.3 D12: what goes to TRX64-Ultimate from this repository (trx64u_ops, u64cfg, the monitor, the ring, trxmon; its menu and c64.cc are gone since P1-8, P2-6 deletes the rest; trex_crt is not a ledger file; c64_go.cc stays as part of the cbmrun library)
-D12_TRX64U = [r"coreapp/src/trx64u_ops\.(cc|h)", r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)",
+D12_TRX64U = [r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)",
               r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h", r"coreapp/src/trxmon/.*"]
 
 # Core-specific files of coreapp/src, decided by name and content on 2026-11-16: the monitor and its server (the TRX64 bus monitor, trace ring), the trace ring
 # files, the TRX64U ops and menu glue, the U64 configuration (U64 register map and resampler), the Port Diagnostics tests (diag core), the Amiga filesystem,
 # the C64 tape container. Everything else in coreapp/src is generic (menu, files, network, update ...) and is scanned for core ids.
 SRC_PER_CORE = [
-    r"coreapp/src/trx64u_ops\.(cc|h)", r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h",
+    r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h",
     r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)", r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/u64_resample\.inc",
     r"coreapp/src/diagtest\.(cc|h)", r"coreapp/src/amiga_ffs\.(cc|h)", r"coreapp/src/t64\.(cc|h)", r"coreapp/src/trxmon/.*",
 ]

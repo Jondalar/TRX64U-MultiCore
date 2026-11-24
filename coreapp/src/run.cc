@@ -1155,7 +1155,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                     continue;
                 }
             }
-            bool want = hw_menu_button_pressed() | libtab_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
+            bool want = hw_menu_button_pressed() | libtab_freeze_request();   // a library's freeze request (the command interface's FREEZE of the core that runs UCI) is the menu button pressed
             int k;
             while ((k = getch_nowait()) >= 0) {
                 if (picture_confirm_pending()) {

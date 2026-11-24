@@ -35,7 +35,7 @@ typedef struct CoreHooks {
     bool (*media_pending)(void);
     // ---- new in 3.3 ------------------------------------------------------------------------------------------------------------------------------------------------
     // start: called once, after the groups of the api are installed (ops, fs, job, net, sync, settings, ctx, io, board) and the shared libraries named in LIB_NEEDS are loaded, and
-    // before the polls start. It is the place a library starts its engine (the ring's buffers and its init, the monitor's engine, uci.start); lib_register is not, because
+    // before the polls start. It is the place a library starts its engine (the ring's buffers and its init, the monitor's engine); lib_register is not, because
     // the groups do not exist when it runs (boundary 2.4). A library with no hook starts it in its first poll. Result: 0, or a reason; a non-zero answer is logged and told to the
     // person as a notice (ctx.notice), the core runs on without what failed. Task: the base's start task, before any poll or menu.
     int (*start)(char *msg, int msglen);

@@ -27,13 +27,6 @@ capability = "drive_a"
 needs = ["newfile"]
 
 [[library]]
-name = "uci"
-sources = ["uci.cc", "uci_slot.cc", "uci_exports.cc"]
-headers = ["uci.h", "uci_slot.h", "uci_api.h"]
-bind = "uci_bind"
-freeze_request = "uci_take_freeze_request"
-
-[[library]]
 name = "sid"
 sources = ["sidfile.cc", "resid8.cc", "sid_exports.cc"]
 headers = ["sidfile.h", "resid8.h", "sid_api.h"]

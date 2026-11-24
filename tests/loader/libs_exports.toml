@@ -14,11 +14,6 @@ sources = ["cbm1541.cc", "cbm1541_exports.cc"]
 bind = "cbm1541_bind"
 
 [[library]]
-name = "uci"
-sources = ["uci.cc", "uci_exports.cc"]
-bind = "uci_bind"
-
-[[library]]
 name = "sid"
 sources = ["sidfile.cc", "sid_exports.cc"]
 bind = "sid_bind"

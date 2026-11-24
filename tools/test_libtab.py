@@ -40,7 +40,7 @@ class SharedApp(unittest.TestCase):
         libs = L.load(SHARED)
         L.check_files(libs, ROOT)
         names = [x["name"] for x in libs]
-        for need in ("c64cart", "cbm1541", "uci", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "mouse", "pad", "padkeys", "resample",
+        for need in ("c64cart", "cbm1541", "sid", "tempdisk", "cbmprg", "cbmrun", "dma", "t64", "mouse", "pad", "padkeys", "resample",
                      "newfile", "newdisk", "folderhd", "fastseek", "ftp"):
             self.assertIn(need, names)
         run = [x for x in libs if x["name"] == "cbmrun"][0]
@@ -62,7 +62,7 @@ class SharedApp(unittest.TestCase):
         self.assertEqual(t.count('\n    { "'), len(libs))
         self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, cap_cbm1541, 0, 0, 0, 0, 0 },', t)
         self.assertIn('static const char *const cap_cbm1541[] = { "drive_a", 0 };', t)
-        self.assertIn('{ "uci", uci_bind, 0, 0, 0, 0, uci_take_freeze_request, 0, 0 },', t)
+        self.assertNotIn('"uci"', t)                                                   # the command interface is TRX64-Ultimate's library (D49)
         self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0, 0, 0 },', t)
         self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0, 0, 0 },', t)                      # a library without an entry: its code is called by the libraries that need it
         self.assertIn('{ "newdisk", 0, newdisk_register, cap_newdisk, 0, 0, 0, 0, 0 },', t)

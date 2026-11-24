@@ -19,7 +19,7 @@ void u64cfg_mute_sids(void);
 void u64cfg_power_on_keys(CoreCtx *c);
 void u64cfg_restore_mixer(CoreCtx *c);
 
-// The command interface's palette and SID map commands (uci.cc through UciHost): what 0 reads the 16 colours, 1 sets all, 2 sets colour idx from rgb[0], 3 resets; the SID map bytes.
+// The palette and SID map commands of the command interface (a core's UCI library): what 0 reads the 16 colours, 1 sets all, 2 sets colour idx from rgb[0], 3 resets; the SID map bytes.
 void u64cfg_palette(CoreCtx *c, int what, uint8_t idx, uint8_t (*rgb)[3]);
 int u64cfg_sid_map(CoreCtx *c, uint8_t *data);
 

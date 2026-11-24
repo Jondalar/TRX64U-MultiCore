@@ -1,5 +1,5 @@
 // The tables of the libraries the app is linked with (T239.3 D12, D31, base 3.3), answered by api->lib->find under their export names: "c64cart" (c64cart_api.h), "cbm1541"
-// (cbm1541_api.h), "uci" (uci_api.h), "sid" (sid_api.h), "tempdisk" (tempdisk_api.h) and "cbmprg" (cbmprg_api.h), each at major 1. Which of them an app has is
+// (cbm1541_api.h), "sid" (sid_api.h), "tempdisk" (tempdisk_api.h) and "cbmprg" (cbmprg_api.h), each at major 1. Which of them an app has is
 // its TOML B; each library's `bind` (libtab.h) gives its table with the core's context that is given there once, so no member of a table takes one.
 #ifndef COREAPP_LIBEXPORTS_H
 #define COREAPP_LIBEXPORTS_H
