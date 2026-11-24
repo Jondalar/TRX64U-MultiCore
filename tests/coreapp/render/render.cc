@@ -51,6 +51,19 @@ extern const CoreDesc ddt_novic_desc;
 #include "cores.h"
 #include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
+#include "own_cores.h"                                        // T213.3 (T239.5 D13): the cores with an app of their own (tests/coreapp/srclist.sh), not in that table
+// every core the release ships: the board's table and the cores with an app of their own, as one list for the walks below
+static const CoreDesc *const *every_core()
+{
+    static const CoreDesc *t[64];
+    if (!t[0]) {
+        int n = 0;
+        for (const CoreDesc *const *pc = core_table; *pc && n < 62; pc++) { t[n++] = *pc; }
+        for (const CoreDesc *const *pc = own_cores; *pc && n < 63; pc++) { t[n++] = *pc; }
+        t[n] = 0;
+    }
+    return t;
+}
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
 // T209 (UX review): no two texts of a page lie on each other (a title that wrapped into the line below, a value over a label). Returns the number of pairs.
@@ -1149,7 +1162,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
 static void list_rules(const char *out)
 {
     static const struct { const char *name; int fw, fh; } cvs[] = { { "480p", 640, 480 }, { "720p", 1280, 720 }, { "1080p", 1920, 1080 } };
-    for (const CoreDesc *const *pc = core_table; *pc; pc++) {
+    for (const CoreDesc *const *pc = every_core(); *pc; pc++) {
         const CoreDesc *src = *pc;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
         CoreDesc *d = board_desc(src, &env);
@@ -1210,7 +1223,7 @@ static void list_rules(const char *out)
     ui_set_canvas(960, 540);
     printf("S1 list rules: %d cores, %d lists, %d selection states, %d rows with a second line, %d marked rows, %d legends, %d failed\n",
            s1cores, s1lists, s1states, s1two, s1marked, s1legends, s1fails);
-    CHECK(s1cores >= 17 && s1lists >= 17 && s1states > 500);   // the core table's 17 (T239.3 P1-8: no C64 any more)
+    CHECK(s1cores >= 17 && s1lists >= 17 && s1states > 500);   // the 17 cores: the board's table (15) and the VIC-20 and the A1200 with an app of their own (T239.3 P1-8: no C64)
     CHECK(s1two > 0);                                                       // the control needs two-line rows to see: the files' paths
     CHECK(s1legends > 0 && s1marked > 0);
 }
@@ -1336,7 +1349,7 @@ static void ux_rules(void)
 {
     ui_set_canvas(960, 540);
     PictureEnv env0 = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-    for (const CoreDesc *const *pc = core_table; *pc; pc++) {
+    for (const CoreDesc *const *pc = every_core(); *pc; pc++) {
         const CoreDesc *src = *pc;
         CoreDesc *d = board_desc(src, &env0);
         char cfg[128];
@@ -1538,7 +1551,7 @@ static void ux_chrome(void)
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
         std::vector<const CoreDesc *> all;
-        for (const CoreDesc *const *pc = core_table; *pc; pc++) { all.push_back(*pc); }
+        for (const CoreDesc *const *pc = every_core(); *pc; pc++) { all.push_back(*pc); }
         {
             for (const CoreDesc *one : all) {
                 const CoreDesc *src = one;
@@ -1679,7 +1692,7 @@ static void hotkey_learn(const char *out)
     PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
-        for (const CoreDesc *const *pc = core_table; *pc; pc++) {
+        for (const CoreDesc *const *pc = every_core(); *pc; pc++) {
             const CoreDesc *src = *pc;
             if (!src->hotkeys) { continue; }
             CoreDesc *d = board_desc(src, &env);
