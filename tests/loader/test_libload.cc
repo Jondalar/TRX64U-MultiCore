@@ -2207,7 +2207,7 @@ static void services()
         DescRecord *wrec = new DescRecord;
         char why[200] = "";
         CHECK_EQ(descrec_parse(wb.data(), (uint32_t)wb.size(), wrec, why, sizeof(why)), 0);
-        CHECK_EQ(wrec->nwindows, 2);
+        CHECK_EQ(wrec->nwindows, 4);
         w.ld->set_windows(wrec);
         wsz = 77;
         CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0x10100A00u);
@@ -2215,6 +2215,32 @@ static void services()
         wsz = 77;
         CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0x10100600u);
         CHECK_EQ(wsz, 0x100u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)0x10000040u);            // IOBASE of the firmware 0x04000000 + 16 MiB, handed out in the TOML A's space
+        CHECK_EQ(wsz, 0x10u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                    // an address of the board's space that no base block of host.toml covers stays
+        CHECK_EQ(wsz, 0x10u);
+        // the readers refuse a window that starts in a firmware span and leaves it, so the record is changed by hand here: nothing is handed out that is not on the I/O bus
+        {
+            DescWindow &hw = wrec->windows[3];
+            const uint32_t keep = hw.address;
+            hw.address = 0xA00FFFF8u;                                                                    // a straddling block, kept untranslated
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x04FFFFFFu;
+            hw.size = 2;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x00001000u;                                                                    // bit 28 clear: the bus converter sends it to memory
+            hw.size = 0x10;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x0FFFFFF8u;                                                                    // starts on the bus' side of bit 28 and runs onto it: not entirely on the bus
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = keep;
+        }
         wsz = 77;
         CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare
         CHECK(api->io->window(0, &wsz) == 0 && wsz == 0);

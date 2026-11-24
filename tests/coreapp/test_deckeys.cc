@@ -153,6 +153,24 @@ int main(int argc, char **argv)
         CHECK_EQ(parse(b, x, why), -1);
         delete x;
     }
+    // the same base block in the firmware's I/O space and in the board's, and a block that starts in a firmware span and leaves it: refused; a free address of the board's space: allowed
+    {
+        const struct { uint32_t a, n; int rc; const char *what; } cases[] = { { 0x04100550u, 1, -1, "covers" }, { 0x10100550u, 1, -1, "covers" }, { 0xA0000550u, 1, -1, "covers" },
+                                                                            { 0xA00FFFF8u, 16, -1, "beyond" }, { 0xA00FFFFFu, 2, -1, "beyond" }, { 0x04FFFFFFu, 2, -1, "beyond" },
+                                                                            { 0x10100900u, 16, 0, 0 } };
+        for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+            Bytes b = good;
+            wr(b, win + 16, cases[i].a);
+            wr(b, win + 20, cases[i].n);
+            DescRecord *x = new DescRecord;
+            CHECK_EQ(parse(b, x, why), cases[i].rc);
+            if (cases[i].what) {
+                CHECK(strstr(why, cases[i].what) != 0);
+            }
+            delete x;
+        }
+    }
+
     const uint32_t ks = section(good, 18);
     CHECK(ks != 0);
     struct Dmg { const char *what; int row; int word; uint32_t value; };

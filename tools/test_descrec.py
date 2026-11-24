@@ -1024,6 +1024,18 @@ size = 0x14
         finally:
             D._BASE_BLOCKS["rows"] = None
 
+    def test_a_window_may_not_start_in_a_firmware_span_and_leave_it(self):
+        # the bug it prevents: a straddling block kept its untranslated address, which on the board is DDR, not I/O
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2)):
+                with self.assertRaisesRegex(D.DescError, "ends beyond", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA00FFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')          # a free address of the board's space
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
     def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
         # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
         self.assertFalse(hasattr(D, "base_registers"))
