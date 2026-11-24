@@ -157,7 +157,9 @@ int main(int argc, char **argv)
     {
         const struct { uint32_t a, n; int rc; const char *what; } cases[] = { { 0x04100550u, 1, -1, "covers" }, { 0x10100550u, 1, -1, "covers" }, { 0xA0000550u, 1, -1, "covers" },
                                                                             { 0xA00FFFF8u, 16, -1, "beyond" }, { 0xA00FFFFFu, 2, -1, "beyond" }, { 0x04FFFFFFu, 2, -1, "beyond" },
-                                                                            { 0x10100900u, 16, 0, 0 } };
+                                                                            { 0x10100900u, 16, 0, 0 },
+                                                                            { 0x1FFFFF00u, 0x200, -1, "I/O span" }, { 0x9FFFFFF0u, 0x600, -1, "I/O span" }, { 0x11100550u, 1, -1, "I/O span" },
+                                                                            { 0x10FFFFF0u, 0x20, -1, "I/O span" }, { 0x10FFFFF0u, 0x10, 0, 0 } };
         for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
             Bytes b = good;
             wr(b, win + 16, cases[i].a);

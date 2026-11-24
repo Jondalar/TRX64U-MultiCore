@@ -1036,6 +1036,22 @@ size = 0x14
         finally:
             D._BASE_BLOCKS["rows"] = None
 
+    def test_a_window_must_lie_wholly_in_the_io_span_of_the_toml_a(self):
+        # T239.3 V-3c: the host's bus converter sends addr[23:0] of any address with bit 28 set to the I/O bus; the span is [iobase, iobase + 16 MiB) = 0x10000000 .. 0x10FFFFFF
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0x1FFFFF00, 0x200), (0x9FFFFFF0, 0x600), (0x11100550, 1), (0x10FFFFF0, 0x20), (0x0FFFFFF0, 0x20), (0x00001000, 0x10)):
+                with self.assertRaisesRegex(D.DescError, "I/O span", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10FFFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000405\nsize = 1\n')          # firmware U2P space, translated into the span
+            self.assertTrue(D.in_io_span(0x10FFFFF0, 16, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x10FFFFF0, 17, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x11000000, 1, (0x10000000, 0x10100000)))
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
     def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
         # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
         self.assertFalse(hasattr(D, "base_registers"))
@@ -1062,7 +1078,7 @@ size = 0x14
             rows = D.base_blocks_of(open(D.HOST_TOML_A).read())
             top = max(a + n for _, a, n in rows)
             lo = min(a for _, a, _ in rows)
-            beside = (("next_to_the_last", top, 0x10), ("below_the_first", lo - 0x10, 0x10), ("between_two_blocks", 0x10100405, 1))
+            beside = (("next_to_the_last", top, 0x10), ("end_of_the_span", 0x10FFFFF0, 0x10), ("between_two_blocks", 0x10100405, 1))
             text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
             self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
             self.assertEqual(D.base_block_hit(0x10100404, 1)[1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
@@ -1082,7 +1098,7 @@ size = 0x14
         bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\nflags = 1\n')
         bad('[[window]]\naddress = 0xA0000600\nsize = 4\n')
         bad('[[window]]\nname = "w"\naddress = -1\nsize = 4\n')
-        D.compile_text('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')        # beyond the firmware's U2P span and outside the I/O span
         import struct
         b = bytearray(D.compile_text(self.WIN))
         at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4

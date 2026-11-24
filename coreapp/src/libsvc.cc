@@ -323,16 +323,15 @@ struct LibSvc {
     static void stop(bool on) { CoreIo *io = IO(); if (io) io->stop(on); }
     static void mode_reset(bool on) { CoreIo *io = IO(); if (io) io->mode_reset(on); }
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
-    // The record's address was translated by the reader into the space of the TOML A the app is linked with (descrec.cc: the [io] bases of basetab.h). The host's bus converter sends only
-    // an address with bit 28 set to the I/O bus, any other to memory: that bit is the converter's rule, a constant of the host, not a field of the TOML (both [io] bases of host.toml carry
-    // it). A block not wholly on the I/O bus (a firmware span left behind untranslated, or any address with bit 28 clear) is not granted: null and size 0.
-    static const uint32_t IO_BUS_BIT = 0x10000000u;
+    // The reader translated the record's address into the space of the TOML A the app is linked with (descrec.cc: the [io] bases of basetab.h) and refused a block not wholly inside that TOML A's
+    // I/O span [iobase, iobase + 16 MiB): the host's bus converter sends an address with bit 28 set to the 24 bit I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so anything outside the
+    // span is DDR or an alias of a register. The grant checks the span again (descrec_in_io_span), so a block that did not come through a reader is null and size 0 as well.
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
         // the windows of the running core's description record (section 19); a block of a version 7 record was refused at the read when it overlapped a block of the base
         const DescRecord *rec = L()->windows_rec_;
         const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
-        if (w && (!(w->address & IO_BUS_BIT) || !((w->address + w->size - 1) & IO_BUS_BIT) || (uint64_t)w->address + w->size > 0x100000000ull)) {
+        if (w && !descrec_in_io_span(w->address, w->size)) {
             w = 0;
         }
         if (size) {

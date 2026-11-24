@@ -149,6 +149,15 @@ static bool window_to_toml_a(uint32_t address, uint32_t size, uint32_t *out)
     return true;
 }
 
+// The span of the I/O bus in the space of the TOML A the app is linked with: [iobase, iobase + 16 MiB) of its [io] (the host's bus converter takes only the 24 bits below bit 28 for the
+// I/O bus, so an address outside the span is DDR or an alias of a register). A block is wholly inside it or it is not a window.
+static const uint32_t IO_SPAN = 0x01000000u;
+
+bool descrec_in_io_span(uint32_t address, uint32_t size)
+{
+    return size >= 1 && address >= g_base_iobase && (uint64_t)address + size <= (uint64_t)g_base_iobase + IO_SPAN;
+}
+
 static const BaseBlock *base_block_hit(uint32_t address, uint32_t size)
 {
     for (unsigned i = 0; i < sizeof(g_base_blocks) / sizeof(g_base_blocks[0]); i++) {
@@ -861,6 +870,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 }
                 if (!window_to_toml_a(d.address, d.size, &d.address)) {
                     return r.fail("description record, section %s: window \"%s\" ends beyond the firmware's I/O space it starts in", nm, d.name);
+                }
+                if (!descrec_in_io_span(d.address, d.size)) {
+                    return r.fail("description record, section %s: window \"%s\" is not wholly inside the I/O span 0x%08X .. 0x%08X of the TOML A the app is linked with",
+                                  nm, d.name, (unsigned)g_base_iobase, (unsigned)(g_base_iobase + IO_SPAN - 1));
                 }
                 if (const BaseBlock *g = base_block_hit(d.address, d.size)) {
                     return r.fail("description record, section %s: window \"%s\" covers the block %s of the base (0x%08X, %u byte%s); the window may not take a byte of it",

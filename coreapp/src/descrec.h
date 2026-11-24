@@ -341,6 +341,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
 // The window `name` of the record (io.window of the base calls it with the core's name of the window): null when the record declares none of that name. The record was checked at
 // load: names and sizes, and against the base blocks of the app's TOML A (a window that covers one is refused). A version 7 record (TOML A) hands out its blocks by their names too; the blocks of one TOML A do not overlap, and a core's block is checked only against the blocks of its own TOML A.
 const DescWindow *descrec_window(const DescRecord &rec, const char *name);
+// Whether [address, address + size) lies wholly in the I/O span [iobase, iobase + 16 MiB) of the TOML A the app is linked with (an address in that TOML A's space).
+bool descrec_in_io_span(uint32_t address, uint32_t size);
 // TOML A: the block `name` of a version 7 record, its property `name`, and the field `name` of a property; null when there is none (also for a record without TOML A). Their pointers stay
 // inside the record's DescMap.
 const DescBlock *descrec_block(const DescRecord &rec, const char *name);

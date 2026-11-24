@@ -2239,6 +2239,15 @@ static void services()
             hw.address = 0x0FFFFFF8u;                                                                    // starts on the bus' side of bit 28 and runs onto it: not entirely on the bus
             wsz = 77;
             CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x11100550u;                                                                    // an alias of the I/O bus above the 16 MiB span (master_volume): not granted
+            hw.size = 1;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x10FFFFF0u;                                                                    // runs off the end of the span (wraps onto I/O 0 on the bus)
+            hw.size = 0x20;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.size = 0x10;
             hw.address = keep;
         }
         wsz = 77;

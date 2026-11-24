@@ -1795,6 +1795,14 @@ def window_to_toml_a(address, size, io, what="window"):
     return address
 
 
+IO_SPAN = 0x01000000
+
+
+def in_io_span(address, size, io):
+    """Whether [address, address + size) lies wholly in the I/O span [iobase, iobase + 16 MiB) of the TOML A (io = its (iobase, u2p_io_base)); the host's bus converter sends only that to the I/O bus."""
+    return size >= 1 and io[0] <= address and address + size <= io[0] + IO_SPAN
+
+
 def use_base_toml_a(path):
     """The TOML A the app is linked with: from now on a window that covers a block of its base is refused."""
     try:
@@ -1839,7 +1847,11 @@ def _window_check(name, address, size, what):
         raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
     if _BASE_BLOCKS["rows"] is None:
         use_base_toml_a(HOST_TOML_A)
-    blk = base_block_hit(window_to_toml_a(address, size, _BASE_BLOCKS["io"], "%s (%s)" % (what, name)), size)
+    address = window_to_toml_a(address, size, _BASE_BLOCKS["io"], "%s (%s)" % (what, name))
+    if not in_io_span(address, size, _BASE_BLOCKS["io"]):
+        raise DescError("%s (%s): is not wholly inside the I/O span 0x%08X .. 0x%08X of %s"
+                        % (what, name, _BASE_BLOCKS["io"][0], _BASE_BLOCKS["io"][0] + IO_SPAN - 1, os.path.basename(_BASE_BLOCKS["path"])))
+    blk = base_block_hit(address, size)
     if blk:
         raise DescError("%s (%s): covers the block %s of the base (0x%08X, %d byte%s) of %s; the window may not take a byte of it"
                         % (what, name, blk[0], blk[1], blk[2], "" if blk[2] == 1 else "s", os.path.basename(_BASE_BLOCKS["path"])))
