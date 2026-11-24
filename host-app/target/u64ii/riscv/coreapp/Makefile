@@ -410,6 +410,8 @@ sdkbase: all
 	@python3 $(PATH_SW)/../../tools/app_build.py split $(SDKBASE)/incdirs.txt $(SDKBASE) $(SDK_PATHS)
 	@# the code of the cores that ship with the shared app (coreapp/cores/) is no part of the archive: an app links it only when its TOML B names it ([app] base_sources, a library)
 	@grep -v '/coreapp/cores/' $(SDKBASE)/unsized.real | sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' > $(SDKBASE)/archive.objs
+	@# the USB controller's program (SRCS_NANO, embedded as an object by rules.mk): usb_base.cc reads its _nano_minimal_b_* symbols
+	@for o in $(OBJS_NANO); do echo $(OUTPUT)/$$o; done >> $(SDKBASE)/archive.objs
 	@$(AR) rcs $(SDKBASE)/lib/libtrxbase.a `cat $(SDKBASE)/archive.objs`
 	@for o in $(SDK_START); do cp $(OUTPUT)/$$o $(SDKBASE)/lib/; done
 	@cp $(LWIP_A) $(LVGL_A) $(SDKBASE)/lib/

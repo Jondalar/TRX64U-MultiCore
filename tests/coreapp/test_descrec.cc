@@ -107,8 +107,8 @@ int main(int argc, char **argv)
     {
         Bytes b = good; b[0] ^= 1;
         CHECK(parse(b, d, why) != 0 && strstr(why, "magic"));
-        b = good; b[4] = 7;                                         // 6 is the current layout (T239.3 D17: the data sections), 5 (T228 R10: the pad), 4 (T228: wider media slot, machine info), 3 and 2 are read
-        CHECK(parse(b, d, why) != 0 && strstr(why, "version 7"));
+        b = good; b[4] = 8;                                         // 7 is the current layout (T239.3 D30, D34: TOML A), 6 (T239.3 D17: the data sections), 5 (T228 R10: the pad), 4 (T228: wider media slot, machine info), 3 and 2 are read
+        CHECK(parse(b, d, why) != 0 && strstr(why, "version 8"));
         b = good; b[4] = 6;                                         // a version 6 record has the sections' place and their flag: a header of 176 is no version 6 header
         CHECK(parse(b, d, why) != 0 && strstr(why, "header or the length"));
         b = good; b[4] = 5;                                         // a version 5 record has the pad's words: a header of 176 is no version 5 header
@@ -271,16 +271,16 @@ int main(int argc, char **argv)
         CHECK(!o->media[0].eject_closes && o->media[1].eject_closes);
         CHECK_STR(o->media[1].name, "Cartridge port");
         CHECK(!o->media[2].eject_op && o->media[2].neject_bind == 0 && !o->media[2].exts);
-        CHECK_EQ(o->nftypes, 24);                                  // T228 R21: TRX64-Ultimate's file types (R24: no .g71, no .d71)
+        CHECK_EQ(o->nftypes, 23);                                  // T228 R21: TRX64-Ultimate's file types (R24: no .g71, no .d71; T239.3 P2-1: no .cfw)
         CHECK_STR(o->ftypes[0].ext, ".prg");
         CHECK_EQ(o->ftypes[0].nactions, 3);
         CHECK_STR(o->ftypes[0].actions[1].ask, "Start address");
         CHECK_EQ(o->ftypes[1].actions[1].ask_off, 26);               // the .P00 header
-        CHECK_STR(o->ftypes[4].ext, ".d64");
-        CHECK_STR(o->ftypes[4].inner_ext, ".prg");
-        CHECK_EQ(o->ftypes[4].ninner, 2);
-        CHECK_STR(o->ftypes[4].inner[1].label, "Real run");
-        CHECK(!o->ftypes[5].inner && o->ftypes[5].ninner == 0);
+        CHECK_STR(o->ftypes[3].ext, ".d64");
+        CHECK_STR(o->ftypes[3].inner_ext, ".prg");
+        CHECK_EQ(o->ftypes[3].ninner, 2);
+        CHECK_STR(o->ftypes[3].inner[1].label, "Real run");
+        CHECK(!o->ftypes[4].inner && o->ftypes[4].ninner == 0);
         CHECK_EQ(o->ncsettings, 207);                              // the four tables of the record and the settings its nodes declare (R10: USB Controller Port; R21, R26: no WiFi rows; T239.3: the look and the mouse are the application's)
         CHECK_STR(o->csettings[0].key, "Freeze mode");
         CHECK_EQ(o->csettings[0].when, WHEN_RESET);
@@ -299,7 +299,7 @@ int main(int argc, char **argv)
         descrec_apply(*o, &base, &out);
         CHECK(o->restart_clear == 65536 && o->restart_ram_only);  // T228 R17: [restart] - "Restart core" clears the C64's 64 KiB, memory-only
         CHECK(out.cold_ram_bytes == 65536 && out.cold_ram_only);
-        CHECK(out.tasks == o->tasks && out.ntasks == 19 && out.nmedia == 3 && out.nfiletypes == 24 && out.nsettings == 207 && !strcmp(out.machine_info, "System Mode,REU Size"));
+        CHECK(out.tasks == o->tasks && out.ntasks == 19 && out.nmedia == 3 && out.nfiletypes == 23 && out.nsettings == 207 && !strcmp(out.machine_info, "System Mode,REU Size"));
         {   // T228 D10: the base's settings stand behind the record's 207, in the base's order, and a second call gives the same table
             static Setting bs[2];
             memset(bs, 0, sizeof(bs));

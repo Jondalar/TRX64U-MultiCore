@@ -353,6 +353,44 @@ int main(int argc, char **argv)
         free_extras(&x);
     }
 
+    // ---- T256 T-2 (D8): the elements of a core's UI TOML: the tool writes section 25, the board's reader parses it, bundle_merge puts it over the base's table
+    {
+        Bytes own = slurp(dir + "/desc_elements.bin");
+        CoreDesc d = testcore::desc;
+        d.menu_rec = own.data();
+        d.menu_rec_n = (uint32_t)own.size();
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "");
+        c.desc = &d;
+        BundleExtras x;
+        bundle_read(&c, &x);
+        CHECK(x.desc != 0 && x.desc->has_elem);
+        CHECK_EQ(x.desc->elem.n, 2);
+        CoreDesc merged;
+        static MenuMerge mm;
+        memset(&mm, 0, sizeof(mm));
+        CHECK_EQ(bundle_merge(&c, &d, &x, 0, 0, &merged, &mm), 0);
+        CHECK(mm.has_elem);
+        const UiElements &base = *menu_elem_base();
+        CHECK_EQ(mm.elem_store.n, base.n + 1);                               // the base's elements (the still, the PAUSED tag) and the core's new one
+        const UiElementRow *bar = 0, *paused = 0, *still = 0;
+        for (int i = 0; i < mm.elem_store.n; i++) {
+            const UiElementRow &e = mm.elem_store.rows[i];
+            if (!strcmp(e.name, "bar")) bar = &e;
+            if (!strcmp(e.name, "paused")) paused = &e;
+            if (e.still) still = &e;
+        }
+        CHECK(bar != 0 && paused != 0 && still != 0);
+        if (bar && paused && still) {
+            CHECK_EQ(bar->anchor, OVA_BOTTOM_MID);
+            CHECK(bar->dx == 0 && bar->dy == -20 && bar->w == 400 && bar->h == 40 && !bar->still);
+            CHECK_EQ(paused->anchor, OVA_TOP_LEFT);                          // the core placed the base's element again
+            CHECK(paused->dx == 10 && paused->dy == 12 && paused->w == 126 && paused->h == 30);
+            CHECK_STR(still->name, "still");                                 // the base's still is kept
+        }
+        free_extras(&x);
+    }
+
     // ---- T104.2 D10: the record the application carries serves a start without a .cor, and the .cor's own record wins over it
     {
         Bytes own = slurp(dir + "/desc_trx64u.bin");
@@ -375,7 +413,7 @@ int main(int argc, char **argv)
         trx64u_register(*ops_of(&c));
         CHECK_EQ(bundle_merge(&c, &d, &x, 0, &say, &merged, &mm), 0);
         CHECK_EQ(merged.ntasks, 19);                                         // the test core's own tables are replaced by the record's (T228: 19 tasks, R1-R3, R10, R21)
-        CHECK_EQ(merged.nfiletypes, 24);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
+        CHECK_EQ(merged.nfiletypes, 23);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
         CHECK_STR(merged.tasks[0].label, "Reset");
         CHECK_STR(merged.media[1].name, "Cartridge port");
         free_extras(&x);
