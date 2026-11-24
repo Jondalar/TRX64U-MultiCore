@@ -19,6 +19,23 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 EMU = os.environ.get("UE2EMU", os.path.expanduser("~/Development/u64-emulator/target/release/ue2emu"))
 ROMS = os.environ.get("UE2EMU_ROMS", os.path.expanduser("~/Development/u64-emulator/firmware/1541ultimate/roms"))
 APP = os.environ.get("COREAPP", os.path.join(HERE, "build", "coreapp.app"))
+
+
+def own_app(core):
+    """T239.5 D13: True when the core has left the shared image for an app of its own (cores/<core>/app/sdk.toml names its descriptor, [app] desc)."""
+    r = subprocess.run(["python3", "-I", os.path.join(ROOT, "tools", "core_toml.py"), "sdk", core, "desc"], capture_output=True, text=True)
+    return r.returncode == 0 and r.stdout.strip() != ""
+
+
+def app_of(core):
+    """The image a core runs: COREAPP_<core> for a core with an app of its own (the shared image has no record of it), else COREAPP."""
+    own = os.environ.get("COREAPP_" + core)
+    if own:
+        return own
+    if own_app(core):
+        raise EmuError('the core "%s" has an app of its own (cores/%s/app/sdk.toml; the shared image has no record of it): give its image as COREAPP_%s'
+                       % (core, core, core))
+    return APP
 CTL_PORT = int(os.environ.get("UI_CTL_PORT", "47411"))
 REST_PORT = int(os.environ.get("UI_REST_PORT", "47480"))
 WORK = os.path.join(HERE, "work")
@@ -46,12 +63,12 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = APP
+        app = app_of(self.core)
         if self.core not in CORES:
             raise EmuError("no profile for the core \"%s\" (tests/coreapp/emu/profiles, emu.CORES)" % self.core)
         if not os.path.exists(app):
             raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
-        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the coreapp image (COREAPP, tests/ui/build.sh)")):
+        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the core app image (COREAPP, or COREAPP_%s for a core with an app of its own)" % self.core)):
             if not os.path.exists(need):
                 raise EmuError("%s not found: %s" % (what, need))
         shutil.rmtree(WORK, ignore_errors=True)
