@@ -79,7 +79,8 @@ core:?*)
       fi
       printf '%s\n' "gateware=$gw" "toml_a=$ta" "app=$ap" > "$out/changed"
       say "the gateware: $gw, its TOML A: $ta, its app: $ap (base ${base:-none})" ;;
-    # 4: has the gateware changed, is the TOML A complete (against the RTL: tools/rtl_check.py, the core's case of tests/rtl_check), does the app change with it
+    # 4: has the gateware changed, is the TOML A complete (against the RTL: tools/rtl_check.py through tests/rtl_check, which holds each moved core's case with its
+    # design parameters - the VIC-20's partial is case 3 - and runs every case, the host's and the fixtures' too), does the app change with it
     compare)
       [ -f "$out/changed" ] || die "no result of the step changed"
       gw="$(sed -n 's/^gateware=//p' "$out/changed")"; ta="$(sed -n 's/^toml_a=//p' "$out/changed")"
@@ -96,12 +97,12 @@ core:?*)
     build)
       t="$(sdk_tarball)"; [ -n "$t" ] || die "no SDK package in $HANDOFF/sdk (the SDK lane's artifact)"
       RV_PREFIX=riscv32-unknown-elf- bash "$ROOT/tools/sdk_core_app.sh" "$t" "$id" "$out/app" ;;
-    # 7: complete and fits: the link map holds what the TOML B names and the base; the image fits the slot; the heap the libraries keep fits the heap;
-    # a library the core shares with the shared app is that same library (S12)
+    # 7: complete and fits: the link map holds what the TOML B names and the base; the image, its heap and the stack reserve fit the application region and
+    # the heap the libraries keep fits the heap (cor_pack heap: the check pack makes, on the app alone; the app is the bare image the .cor takes, so
+    # check_app_size.py - the boot ROM's flash slot, a headered image - is not its check); a library the core shares with the shared app is that same library (S12)
     fits)
       [ -s "$out/app/$id.app" ] || die "no $id.app (step build)"
       python3 -I "$ROOT/tools/libtab.py" mapcheck "$tomlb" "$out/app/$id.map" "$ROOT"
-      python3 -I "$ROOT/tools/check_app_size.py" "$out/app/$id.app"
       h="$(python3 "$ROOT/tools/core_toml.py" get "$id" heap)"
       python3 -I "$ROOT/tools/cor_pack.py" heap "$out/app/$id.app" --core "$id" --sizes "$tomlb" --heap "${h:-0}"
       shared="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import libtab

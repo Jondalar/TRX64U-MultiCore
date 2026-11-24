@@ -62,7 +62,13 @@ jobs:
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
         run: |
           set -eu
-          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$(ci/select.sh sims-tier)" | tee -a "$GITHUB_OUTPUT"
+          tier="$(ci/select.sh sims-tier)"
+          # the plan carries the tier of this run, as the old plan job stamps it: a sims leg (ci/child.sh sim) reads it from the plan artifact
+          python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
+          # into a file first: a failing dispatcher fails this step (a pipe into tee would hide its exit code)
+          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" > "$CI_HANDOFF/dispatch.out"
+          cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
+          cat "$CI_HANDOFF/dispatch.out"
       - name: Work order (the bitstreams the builder builds)
         id: order
         env:
@@ -96,7 +102,7 @@ jobs:
     steps:
       - run: echo "approved; the builder builds the missing keys of this commit"
 
-  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push, sdk, host, core:<id> (ci/lint.sh <group>)
+  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>)
   lint:
     name: "1 Lint (${{ matrix.group }})"
     needs: dispatch

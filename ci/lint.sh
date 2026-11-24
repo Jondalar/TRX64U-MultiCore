@@ -27,8 +27,8 @@ cd "$ROOT"
 LINT_GROUP="${1:-all}"
 case "$LINT_GROUP" in all|tree|sdk|host|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
 fails=()
-check() { # check <name> <command...>   a check of the full lint only
-  [ "$LINT_GROUP" = all ] || return 0
+check() { # check <name> <command...>   a check of the full lint and of the lane tree (T239.5: the tree checks of every push are every check no other lane owns)
+  case "$LINT_GROUP" in all|tree) ;; *) return 0 ;; esac
   run_check "$@"
 }
 gcheck() { # gcheck <group> <name> <command...>   a check of the full lint and of the lane <group> (tree, sdk, host, core)
