@@ -344,7 +344,13 @@ int main()
         CHECK(r.h >= 0);
         CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_E_APP);      // the call of an application image
         CHECK(!wb_active());
+    }
+    {
+        // a rig of its own, not a second one inside the first: the service keeps the port of the rig attached last, and the first rig's end
+        // (wb_unregister) would call the port of a rig already gone (the pure virtual call of the 2026-11-24 run on the builder)
         Rig n(0);                                                    // no image: the calls are owner -1
+        n.fs.put_size(P, 64, 0xEE);
+        SvcWbMedium m = medium(P);
         CHECK_EQ(n.ld.owner(), -1);
         CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_E_APP);
         CHECK(!wb_active());
