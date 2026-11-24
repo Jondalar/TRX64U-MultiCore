@@ -33,7 +33,7 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, 0 };
 #endif
 
 struct Host : MenuHost {
@@ -184,7 +184,6 @@ static const Create creates[] = {
     { &atari800_desc,  "Create blank ATR", ".atr" },
     { &apple2_desc,    "Create blank DSK", ".dsk" },
     { &amiga_desc,     "Create blank ADF", ".adf" },
-    { &amiga1200_desc, "Create blank ADF", ".adf" },
     { &cpc_desc,       "Create blank DSK", ".dsk" },
 #endif
 };
@@ -265,7 +264,7 @@ static void check_suggestions()
 #elif defined(TEST_APP_A1200)
     for (const CoreDesc *d : { &amiga1200_desc }) {
 #else
-    for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc }) {
+    for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc }) {
 #endif
         for (int i = 0; i < d->ntasks; i++) {
             if (!d->tasks[i].ask_state) continue;
@@ -711,11 +710,15 @@ static void check_mount_folder()
 #ifdef TEST_APP_A1200
     for (const CoreDesc *d : { &amiga1200_desc }) {
 #else
-    for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+    for (const CoreDesc *d : { &amiga_desc }) {
 #endif
         printf("-- mount folder: %s\n", d->title);
         Rig r(d);
-        r.io.regs[AM_FEAT] = d == &amiga1200_desc ? 1 : 0;
+#ifdef TEST_APP_A1200
+        r.io.regs[AM_FEAT] = 1;
+#else
+        r.io.regs[AM_FEAT] = 0;
+#endif
         r.fs.put("/usb0/games/hd/a.txt", Bytes(1000, 7));
         r.fs.put("/usb0/games/hd/dir/b.txt", Bytes(100, 8));
         r.fs.put("/usb1/other/c.txt", Bytes(10, 9));

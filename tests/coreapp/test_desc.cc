@@ -28,7 +28,7 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -168,7 +168,7 @@ int main(int, char **argv)
 #else
         static const Mi want[] = {
             { "Commodore PET", "Model,RAM" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
-            { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
+            { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
             { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
@@ -363,7 +363,7 @@ int main(int, char **argv)
 #elif defined(TEST_APP_A1200)
         CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 17);
+        CHECK(n205 >= 16);
 #endif
     }
 
@@ -435,7 +435,7 @@ int main(int, char **argv)
         t = ms_ok; t.names = eq; m.mount_slots = &t; CHECK(desc_check(&m) && strstr(desc_check(&m), "key cannot hold"));
         static const char *const lng[2] = { "TwelveChars!", "C" };
         t = ms_ok; t.names = lng; m.mount_slots = &t; CHECK(desc_check(&m) && strstr(desc_check(&m), "1..9"));
-        CoreDesc a = amiga1200_desc;                           // the Amiga's own slots are DF0.. and HD0..: an engine's name may not look like one
+        CoreDesc a = amiga_desc;                               // the Amiga's own slots are DF0.. and HD0..: an engine's name may not look like one
         static const char *const df[1] = { "DF9" };
         t = ms_ok; t.n = 1; t.names = df; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "like a slot of the base"));
         static const char *const many[7] = { "A", "B", "C", "D", "E", "F", "G" };
@@ -658,7 +658,7 @@ int main(int, char **argv)
         CoreDesc d;                                                            // (the shared app's d is declared in the block this app does not run)
         CHECK(!desc_check(&amiga1200_desc));
 #else
-        CHECK(!desc_check(&amiga_desc) && !desc_check(&amiga1200_desc));
+        CHECK(!desc_check(&amiga_desc));
 #endif
         // D25: the Amiga's own mouse rows pass only with their own operation; a base key with another operation is refused
         {
@@ -773,25 +773,21 @@ int main(int, char **argv)
         CHECK(desc_check(&d) && strstr(desc_check(&d), "four buffers"));
         d = amiga_desc; d.video.reg_latest = 0;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "FB_LATEST"));
-#ifndef TEST_APP_A1200
-        // the shared ID word: only the two that say so may share it
-        CoreDesc twin = amiga1200_desc;
+        // the shared ID word: only the records that say so may share it (a twin of the record stands in for the second Amiga; the A1200 has its own app since T213.3)
+        CoreDesc twin = amiga_desc;
+        twin.cor_name = "Amiga twin";
         twin.id_shared = false;
         const CoreDesc *const unflagged[] = { &amiga_desc, &twin, 0 };
         CHECK(desc_check_table(unflagged) && strstr(desc_check_table(unflagged), "share an ID"));
-        const CoreDesc *const flagged[] = { &amiga_desc, &amiga1200_desc, 0 };
+        twin.id_shared = true;
+        const CoreDesc *const flagged[] = { &amiga_desc, &twin, 0 };
         CHECK(!desc_check_table(flagged));
-        CoreDesc same_name = amiga1200_desc;
+        CoreDesc same_name = twin;
         same_name.cor_name = amiga_desc.cor_name;
         const CoreDesc *const dup[] = { &amiga_desc, &same_name, 0 };
         CHECK(desc_check_table(dup) && strstr(desc_check_table(dup), "manifest name"));
-        // the two records are one source: they differ in the override list and in nothing else (both carry LED Load Indicator (T159 D-all, 1:1 with the A1200); Volume is the application's for both, T164 WP18)
-        CHECK(amiga_desc.nsettings == amiga1200_desc.nsettings && amiga_desc.ntasks == amiga1200_desc.ntasks &&
-              amiga_desc.nfiletypes == amiga1200_desc.nfiletypes && amiga_desc.nmedia == amiga1200_desc.nmedia);
-        CHECK(amiga_desc.window_media == amiga1200_desc.window_media && amiga_desc.sector_media == amiga1200_desc.sector_media &&
-              amiga_desc.mouse == amiga1200_desc.mouse && amiga_desc.reset_writes == amiga1200_desc.reset_writes);
-        CHECK(amiga_desc.romset != amiga1200_desc.romset && amiga_desc.romset->want != amiga1200_desc.romset->want);
-        CHECK(memcmp(amiga_desc.id, amiga1200_desc.id, 4) == 0 && strcmp(amiga_desc.store, amiga1200_desc.store) != 0);
+#ifdef TEST_APP_A1200
+        CHECK(amiga1200_desc.id_shared && !memcmp(amiga1200_desc.id, "AMIG", 4) && !strcmp(amiga1200_desc.store, "Amiga 1200 Settings"));   // the ID word it shares with the A500, and its own .cfg section
 #endif
     }
 
@@ -845,7 +841,6 @@ int main(int, char **argv)
     golden(&c128_desc, "c128");
     golden(&c64scpu_desc, "c64scpu");
     golden(&amiga_desc, "amiga");
-    golden(&amiga1200_desc, "amiga1200");
     golden(&ddt_novic_desc, "ddt_novic");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");

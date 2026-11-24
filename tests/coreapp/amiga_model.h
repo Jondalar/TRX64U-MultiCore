@@ -10,6 +10,13 @@
 #include "cores.h"
 #include "amiga_regs.h"
 
+// the Amiga record a test of "the Amiga" runs on: the A1200's in the A1200's own app (run.sh a12app, TEST_APP_A1200), the A500's in the shared app (which has no A1200 since T213.3)
+#ifdef TEST_APP_A1200
+#define AM_REC amiga1200_desc
+#else
+#define AM_REC amiga_desc
+#endif
+
 struct AmigaIo : FakeIo {
     struct Entry { uint8_t track, drive; };
     std::deque<Entry> dlog;

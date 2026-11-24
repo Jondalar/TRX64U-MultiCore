@@ -11,7 +11,7 @@ int main()
     {
         FakeFs fs;
         fs.put("/usb0/a.hdf", std::vector<uint8_t>(512 * 64, 7));
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         int si = r.st->find("LED Load Indicator");
         CHECK(si >= 0);
         CHECK_EQ(r.st->value(si), 0);                                    // default On
@@ -33,7 +33,7 @@ int main()
     // ---- S2: Off leaves the LED alone
     {
         FakeFs fs;
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         int si = r.st->find("LED Load Indicator");
         r.st->set(si, 1);
         ops_set(&r.c, "led.load", 1);
@@ -44,7 +44,7 @@ int main()
     // ---- switching Off after On takes the selector back to On / On once (a latched selector cannot be unset), then nothing
     {
         FakeFs fs;
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         ops_set(&r.c, "led.load", 0);
         ops_set(&r.c, "led.load", 1);
         CHECK_EQ(r.io.led_log.size(), 2);

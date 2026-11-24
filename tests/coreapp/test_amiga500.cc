@@ -1,8 +1,9 @@
 // T104 5.15 / T85: the Amiga 500 runs the generic core application. Its record (coreapp/cores/amiga.cc, amiga_desc) is read against the
 // register decode of the gateware the A500 core is built from (cores/amiga/rtl/trx/amiga_regs.v, NOT the A1200's own copy in cores/amiga1200):
 // the application is driven through a start (settings, hold, release), the four floppy slots, both hard disks, the mouse and the picture
-// window, and every register it writes or reads must be one the A500 gateware decodes. The A1200 record is run the same way as the
-// control of the checker itself: it uses the display and crop window registers, which only the A1200 copy has, and must be caught.
+// window, and every register it writes or reads must be one the A500 gateware decodes. The A1200 has its own app (T213.3): built as that app
+// (TEST_APP_A1200, unit a12) the same checks run on its record against ITS gateware copy, and the A500's decode is the control of the checker
+// (the A1200's display and crop window registers are outside it and must be caught).
 #include "check.h"
 #include "amiga_model.h"
 #include "boot.h"
@@ -196,6 +197,12 @@ int main()
     CHECK_EQ(bad.size(), 0);
     printf("A1200: %d writes, %d reads\n", nw, nr);
     CHECK(nw > 30 && nr > 50);
+    // the control of the checker: against the decode of the A500's gateware (which has no display and crop window registers) the A1200's record is caught
+    Decode dec500 = read_decode(COREAPP_DIR "/../cores/amiga/rtl/trx/amiga_regs.v");
+    std::vector<std::string> bad12 = outside(&amiga1200_desc, dec500);
+    bool crop = false, diw = false;
+    for (auto &b : bad12) { crop |= b == "write 0D0"; diw |= b == "read 0C0"; }
+    CHECK(crop && diw);
     CHECK(amiga1200_desc.fbwin != 0 && amiga1200_desc.sector_media && amiga1200_desc.window_media && amiga1200_desc.mouse);
     DONE("test_a1200");
 }
@@ -203,9 +210,7 @@ int main()
 int main()
 {
     mount_reset_case(&amiga_desc);
-    mount_reset_case(&amiga1200_desc);
     rtc_case(&amiga_desc);
-    rtc_case(&amiga1200_desc);
     Decode dec = read_decode(COREAPP_DIR "/../cores/amiga/rtl/trx/amiga_regs.v");
     CHECK(dec.wr.count(AM_CTRL) && dec.wr.count(AM_HDF_MOUNT) && dec.wr.count(AM_MOUSE_DY) && dec.rd.count(AM_STATUS) && dec.rd.count(AM_FEAT));
     CHECK(!dec.wr.count(AM_FB_SKIP_X) && !dec.rd.count(AM_DIW_H));            // the decode is the A500's: the A1200 registers are not in it
@@ -218,12 +223,6 @@ int main()
     printf("A500: %d writes, %d reads\n", nw, nr);
     CHECK(nw > 30 && nr > 50);
     CHECK(amiga_desc.fbwin == 0 && amiga_desc.sector_media && amiga_desc.window_media && amiga_desc.mouse);
-
-    // the control of the checker: the A1200 record writes the display/crop window registers and the checker sees them
-    std::vector<std::string> bad12 = outside(&amiga1200_desc, dec);
-    bool crop = false, diw = false;
-    for (auto &b : bad12) { crop |= b == "write 0D0"; diw |= b == "read 0C0"; }
-    CHECK(crop && diw);
 
     // what the old application gave the A500 is in the record: four drives with the dirty log, two hard disks, the mouse, Kickstart 1.3, 512K/OCS
     CHECK_EQ(amiga_desc.window_media->nslots, 4);

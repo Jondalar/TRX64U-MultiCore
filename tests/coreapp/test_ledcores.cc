@@ -15,7 +15,7 @@ int main()
 #elif defined(TEST_APP_A1200)                  // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in it
     const CoreDesc *const cores[] = { &amiga1200_desc };
 #else
-    const CoreDesc *const cores[] = { &amiga_desc, &amiga1200_desc, &atari800_desc, &apple2_desc, &cpc_desc,
+    const CoreDesc *const cores[] = { &amiga_desc, &atari800_desc, &apple2_desc, &cpc_desc,
                                   &c264_desc, &c128_desc };
 #endif
     for (const CoreDesc *dp : cores) {
