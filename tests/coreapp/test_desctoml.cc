@@ -96,6 +96,27 @@ int main(int argc, char **argv)
     const DescWindow *w = descrec_window(*d, "mixer");
     CHECK(w && w->address == 0xA0000500u && w->size == 0x14u);
     CHECK(descrec_window(*d, "ident") == 0 && descrec_window(*d, "no_such") == 0);       // a block of the base is no window: the shared drivers reach it by descrec_block
+    // the rules of a block of the core: it lies wholly inside the board's I/O span and covers no base block; the address word of "mixer" (0xA0000500) is patched in the record
+    const unsigned char at[4] = { 0x00, 0x05, 0x00, 0xA0 };
+    size_t pos = 0;
+    int hits = 0;
+    for (size_t i = 0; i + 4 <= good.size(); i++) {
+        if (!memcmp(&good[i], at, 4)) {
+            pos = i;
+            hits++;
+        }
+    }
+    CHECK_EQ(hits, 1);
+    const uint32_t bad[2] = { 0x11100550u, 0x04060000u };                     // above the span; the SD block of the base (sd_spi)
+    for (int k = 0; k < 2 && hits == 1; k++) {
+        Bytes patched = good;
+        for (int j = 0; j < 4; j++) {
+            patched[pos + j] = (uint8_t)(bad[k] >> (8 * j));
+        }
+        DescRecord *p = new DescRecord;
+        CHECK_EQ(parse(patched, p, why), -1);
+        delete p;
+    }
     delete d;
 
     DONE("test_desctoml");

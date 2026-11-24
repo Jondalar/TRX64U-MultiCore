@@ -972,8 +972,9 @@ size = 0x14
     def test_the_windows_granted_to_trx64u_are_accepted(self):
         # the runs next to the base's own registers that the handover grants: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D of the U64 block, speaker_enable
         text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2), ("u64_pwm_duty", 0xA000040D, 1),
-                                                                                      ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400)))
-        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 6)
+                                                                                      ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400),
+                                                                                      ("speaker_mixer", 0xA0000540, 6), ("c64_palette", 0xA0080800, 0x440), ("hdmi_palette", 0xA0045000, 0x40)))
+        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 9)
 
     def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
         regs = D.base_registers()
@@ -1005,7 +1006,7 @@ size = 0x14
             with self.assertRaises(D.DescError, msg="%x" % a) as e:
                 D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
             self.assertIn("not wholly inside", str(e.exception))
-        for a, size in ((0x04070040, 16), (0x10FFFFF0, 16), (0x04FFFFF0, 16), (0xA00FFF00, 0x100)):     # wholly inside the board's I/O span (the last two end on its last byte)
+        for a, size in ((0x04070040, 16), (0x10FFFFF0, 16), (0x04FFFFF0, 16), (0xA00FFF00, 0x100)):     # wholly inside the board's I/O span (0x10FFFFF0 and 0x04FFFFF0 end on the span's last byte; 0xA00FFF00 ends at 0x101FFFFF, the last byte of the U2P firmware span)
             D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
         for a, size in ((0x04000040, 1), (0x10000040, 1), (0x04060000, 4), (0x04060200, 4), (0x04080010, 4)):   # the blocks of the I/O span that the base drives: the ITU, SD, flash SPI, USB
             with self.assertRaises(D.DescError, msg="%x" % a):
@@ -1196,6 +1197,17 @@ class TomlA(unittest.TestCase):
         self.assertNotIn("count", props["regs"]["one"])
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
+
+    def test_a_block_of_the_core_lies_inside_the_io_span_and_covers_no_base_block(self):
+        def core(address, size):
+            return D.compile_checked(self.BASE + '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0x%X\nsize = %d\n' % (address, size))
+        with self.assertRaises(D.DescError) as e:                      # leaves the firmware's I/O span
+            core(0x1FFFFF00, 0x200)
+        self.assertIn("not wholly inside", str(e.exception))
+        with self.assertRaises(D.DescError) as e:                      # the first byte of the ITU block, a whole base block
+            core(0x04000040, 1)
+        self.assertIn("itu", str(e.exception))
+        core(0x10FFFFF0, 0x10)                                         # ends on the last byte of the span
 
     def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
         # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
