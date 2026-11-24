@@ -11,7 +11,7 @@
 # vivado.log. Exit 1 when there is no bitstream or the setup slack is negative.
 # Pack: tools/pack_cfw_mc.sh makes amiga1200.cfw out of the bit and the generic application (coreapp.bin of tools/build_coreapp.sh);
 # it needs the `container` CLI and the u64-build-env image (or --native inside it), not Vivado.
-# The descriptor is cores/amiga1200/mono/core.toml, not core.toml: TRX_CORE_DESC points the tools at it (no pipeline stage reads it).
+# The descriptor is cores/amiga1200/mono/core.toml, not core.toml: TRX_CORE_DESC points the tools at it (the pipeline reads it through tools/core_toml.py).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"

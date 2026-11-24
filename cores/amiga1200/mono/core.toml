@@ -2,14 +2,13 @@
 # schon und später müssen wir dann die pipeline dafür klären", translated: "you can also send an agent that already rebuilds it as a single
 # core; the pipeline for it we settle later"). One full bitstream of the XC7A50T, host and core flat in ONE design, no partition:
 # cores/amiga1200/mono/build_mono.tcl, started by the host as a .cfw (T115 §7, the C128's flow of T113 Q12).
-# NOT read by the pipeline: tools/core_toml.py lists, sources and the stages read cores/<id>/core.toml only (the partial descriptor of
-# the same core, until the pipeline decision), --check validates this file, and get/env read it when TRX_CORE_DESC names it
-# (cores/amiga1200/mono/build.sh sets that). When the pipeline takes the core as a large one this file becomes cores/amiga1200/core.toml.
+# The pipeline reads this file as the descriptor of a large core (T100 D9; cores/amiga1200 has no core.toml): tools/core_toml.py `list cfw`, `sources`, `get` and `env` (ci/plan.py: the lane
+# large:amiga1200, ci/bitstream_mono.sh, ci/lib.sh mono_key) and --check validates it; `list` and the DFX stages do not see it. TRX_CORE_DESC names it for get/env in cores/amiga1200/mono/build.sh.
 id           = "amiga1200"
 name         = "Amiga 1200 (AGA, 68020)"
 version      = "0.3.0"
 contract     = 2
-app          = "blueprint"     # the generic core application; the A1200 is a record in coreapp/cores/amiga.cc (amiga1200_desc)
+app          = "blueprint"     # the generic core application; the A1200's record is amiga1200_desc: its own app cores/amiga1200/app (T213.3) and, for the shared app, coreapp/cores/amiga.cc
 delivery     = "cfw"
 order        = 5
 experimental = true
