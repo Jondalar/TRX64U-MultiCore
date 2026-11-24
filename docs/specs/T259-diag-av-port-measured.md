@@ -217,3 +217,5 @@ The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): 
   spaces, so `Sony PAL.toml` was "in no section" (the only tracked file under host/, cores/, vendor/ with a space); the preset
   is `Sony-PAL` now, like the two NTSC ones. `tests/coreapp/golden/menu_portdiag.txt` lacked the six new rows and the two
   tasks; it is the dump that run printed (`test_desc.cc:47`), nothing else in it changed.
+- Second run (2026-11-24, run 45412495356): `tests/coreapp/test_bundle.cc:421` still counted the diag core's install as before T259 (8 writes of
+  10 files); the record holds 17 files now (14 tests, 3 presets), so the case writes 15. The count is corrected.
