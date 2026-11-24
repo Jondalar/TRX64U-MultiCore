@@ -60,10 +60,10 @@ fi
 # The blueprint cores: a descriptor in coreapp/src/table.cc, so the one image serves them (T93 D14).
 # `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's application for it. trx64u is TRX64-Ultimate's (T239.3 D21):
 # its application is built there, and this stage builds none for it.
-# Every core whose core.toml says blueprint is in the list below. The A1200 runs the generic image since 2026-10-20 (T104, Alex: "Yes of
-# course ... A1200 with the new app in a core please", translated), vc20 (since V-4 its own app, SDK_OWN_APPS) and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
+# Every core whose core.toml says blueprint is in the list below. The A1200 ran the generic image from 2026-10-20 (T104) until T213.3: it has its
+# own app now, built by its matrix lane (ci/lane.sh core:amiga1200), not by this stage (T239.5 D13). vc20 (since V-4 its own app, SDK_OWN_APPS) and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
 # switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
-# to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. cores/vc20/app/lib/vc20.cc and coreapp/cores/c264.cc
+# to generic!", translated). coreapp/cores/amiga.cc is the A500's source. cores/vc20/app/lib/vc20.cc and coreapp/cores/c264.cc
 # replace the machine code of the fork branch t90-c16app.
 BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo c264 pet amiga ddt_novic diag}"
 # T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the

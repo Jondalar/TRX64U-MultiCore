@@ -2,14 +2,15 @@
 # Build the Amiga 1200 as a LARGE core (T97 5.14): the flat full bitstream, and with --app-bin the .cfw.
 #
 #   cores/amiga1200/mono/build.sh [--build-dir <name under host/>] [--stop synth|place|route]
-#   cores/amiga1200/mono/build.sh --pack --bit host/build_mono_amiga1200/amiga1200_mono.bit --app-bin <coreapp.bin> [--out <dir>]
+#   cores/amiga1200/mono/build.sh --pack --bit host/build_mono_amiga1200/amiga1200_mono.bit --app-bin <amiga1200.app> [--out <dir>]
 #
 # Build: run it inside vivado-env:2024.1 (vivado on the PATH) at the repository root, e.g. on the builder
 #   docker run --rm --name a1200-mono -v $PWD:/src -w /src vivado-env:2024.1 nice -n 15 timeout 3h cores/amiga1200/mono/build.sh
 # Vivado's working directory is host/ (cores/amiga1200/mono/build_mono.tcl keeps only the output there and reads the host's files from its own copy, cores/amiga1200/mono/host/; nothing under host/ is
 # edited). Output in host/<build-dir> (default build_mono_amiga1200): amiga1200_mono.bit, timing.rpt, utilization*.rpt, route_status.rpt,
 # vivado.log. Exit 1 when there is no bitstream or the setup slack is negative.
-# Pack: tools/pack_cfw_mc.sh makes amiga1200.cfw out of the bit and the generic application (coreapp.bin of tools/build_coreapp.sh);
+# Pack: tools/pack_cfw_mc.sh makes amiga1200.cfw out of the bit and an application image: the A1200's own app (cores/amiga1200/app, the
+# step build of ci/lane.sh core:amiga1200), since T213.3 not the shared coreapp.bin, which has no A1200 record any more;
 # it needs the `container` CLI and the u64-build-env image (or --native inside it), not Vivado.
 # The descriptor is cores/amiga1200/mono/core.toml, not core.toml: TRX_CORE_DESC points the tools at it (the pipeline reads it through tools/core_toml.py).
 set -euo pipefail

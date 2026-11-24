@@ -293,8 +293,9 @@ struct CoreDesc {
     // descriptor sets it, whose hardware differs per bitstream; the Atari and the NES list what they have.
     bool board_caps;
     // ---- T104 5.2: the kinds of entry the Amiga needed, each one a data record the base serves (none of them is core code) ----
-    // The ID block is hard-wired in the gateware that two bundles share (amiga and amiga1200): both descriptors set id_shared and the
-    // bundle's name tells them apart (start.cc). Two descriptors with the same ID and no flag are still refused (desc_check_table).
+    // The ID block is hard-wired in the gateware that two bundles share (amiga and amiga1200): records with one ID word in one table set
+    // id_shared, and the bundle's name, the core's id or the feature bits tell them apart (start.cc). Since T213.3 the A1200 has its own app,
+    // so no shipped table has two (test_start keeps the case). Two descriptors with the same ID and no flag are still refused (desc_check_table).
     bool id_shared;
     const RegWrite *reset_writes; int nreset_writes;      // written after the settings by every regset_apply (boot_apply_settings: a start, a reset, a restart, a loaded config; regset.cc), never by a live change
     const RomSetSpec *romset;                             // a ROM chosen out of a directory's files (romset.h)

@@ -293,7 +293,7 @@ static int am_release(CoreCtx *c, char *, int)
 
 static const char *const caps[] = { "floppy", "hdf", "mouse", "pad" };
 
-// ---- the two records, built from the common part and the override list ------------------------------------------------------------------
+// ---- the record (the A500; the A1200 has its own app since T213.3), built from the common part and the override list ------------------------------------------------------------------
 static Setting g_settings[1][15];
 static RomSetLabels g_labels[1];
 static RomSetSpec g_romset[1];

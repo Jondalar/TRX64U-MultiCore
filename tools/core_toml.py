@@ -167,7 +167,7 @@ def descriptors():
 
 def large_descriptors():
     """(name, path, table) of the cores that carry a LARGE-core descriptor cores/<name>/mono/core.toml next to (or instead of) the core.toml.
-    No pipeline stage reads these (the lists and sources above do not); the flat build of the core does, through TRX_CORE_DESC (below)."""
+    The flat build reads them through TRX_CORE_DESC (below); the matrix reads them for a large core with an app of its own (lanes, ci/lib.sh mono_specs)."""
     out = []
     for name in sorted(os.listdir(CORES)):
         p = os.path.join(CORES, name, "mono", "core.toml")
