@@ -219,3 +219,6 @@ The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): 
   tasks; it is the dump that run printed (`test_desc.cc:47`), nothing else in it changed.
 - Second run (2026-11-24, run 45412495356): `tests/coreapp/test_bundle.cc:421` still counted the diag core's install as before T259 (8 writes of
   10 files); the record holds 17 files now (14 tests, 3 presets), so the case writes 15. The count is corrected.
+- The coordinator's test run (`tools/dev.sh test`, 2026-11-24) found the next one behind it: `test_keywalk` (golden `keywalk.txt`, `ids.txt`) lacked
+  the eight new rows. Both are rewritten (only the Port Diagnostics lines change; the hashes of F1/home match the builder's run), and `test_cut`,
+  the last unit that compiles `portdiag.cc` and `diagtest.cc`, passes (638 checks).
