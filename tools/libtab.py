@@ -8,6 +8,8 @@
                                      nm over the objects of a build: no generic object has an undefined symbol that a library object defines (only libtab_table's entries may)
   libtab.py samelib TOML_B_1 TOML_B_2 NAME [MAP ...]
                                      S12: the library NAME is the same (sources, headers, entries) in the two TOML B files, and every source of it is an input of each link map given
+  libtab.py tests TOML_B [KIND]      T239.5 D4: the test units the TOML B's libraries name (`tests`), one per line in the file's order; KIND unit|service|ui|api
+                                     gives the units of that step of the matrix only (2 unit tests, 8 mock bitstream -> service, 9 service -> UI, 10 service -> API)
   libtab.py mapcheck TOML_B MAP ROOT [REF_TOML_B]
                                      the link map of an app (T239.3 V-4, S11, S12): every source of the TOML B's libraries is an input of the link, no source of a library of REF_TOML_B
                                      (default ROOT/coreapp/libs/shared.toml) that this TOML B does not name is, and no source of the cores' code (coreapp/cores, cores/*/app/lib) is except
@@ -15,7 +17,9 @@
 
 A library: name, sources, headers (the headers that name its functions), and the entries it hands the generic application: bind, register_ops (with capability: a name, or a list of names: it runs for a core that names any of them), init, start,
 freeze_request, core, table (the library's call table, found by libtab_table(name) in libtab.h; a table's header, *_api.h, is the seam the generic code reads it through). `needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
-(the figures of a .u2a budget, P4-1): tools/cor_pack.py sums the first against the core's heap and reports both. See coreapp/src/libtab.h for what each entry is."""
+(the figures of a .u2a budget, P4-1): tools/cor_pack.py sums the first against the core's heap and reports both. `tests` (T239.5 D4, optional) is an inline table that
+names the library's tests by the step of the matrix that runs them: unit, service, ui, api, each a list of units of tests/coreapp/run.sh (a unit is named once in the file).
+See coreapp/src/libtab.h for what each entry is."""
 import os
 import re
 import subprocess
@@ -33,7 +37,8 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
     "table": ("const void *", "void"),
     "core": ("void", "CoreCtx *, const CoreDesc *, const DescRecord *"),
 }
-KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak"} | set(ENTRIES)
+KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak", "tests"} | set(ENTRIES)
+TEST_KINDS = ("unit", "service", "ui", "api")   # T239.5 D4, D8: the steps 2, 8, 9 and 10 of a core lane
 SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541")
 GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -92,6 +97,22 @@ def load(path):
             caps = lib["capability"] if isinstance(lib["capability"], list) else [lib["capability"]]
             if not caps or not all(isinstance(c, str) and re.match(r"^[a-z0-9_]+$", c) for c in caps) or len(set(caps)) != len(caps):
                 raise LibTabError("%s: library '%s': capability is a name, or a list of different names" % (path, n))
+    units = {}
+    for lib in libs:
+        t = lib.get("tests")
+        if t is None:
+            continue
+        if not isinstance(t, dict) or not t:
+            raise LibTabError("%s: library '%s': tests is an inline table of %s" % (path, lib["name"], ", ".join(TEST_KINDS)))
+        for kind, kind_units in t.items():
+            if kind not in TEST_KINDS:
+                raise LibTabError("%s: library '%s': tests has no kind '%s' (the kinds: %s)" % (path, lib["name"], kind, ", ".join(TEST_KINDS)))
+            if not isinstance(kind_units, list) or not kind_units or not all(isinstance(x, str) and re.match(r"^[a-z0-9_]+$", x) for x in kind_units):
+                raise LibTabError("%s: library '%s': tests.%s is a list of unit names" % (path, lib["name"], kind))
+            for x in kind_units:
+                if x in units:
+                    raise LibTabError("%s: the test unit %s is named twice (library '%s' and '%s')" % (path, x, units[x], lib["name"]))
+                units[x] = lib["name"]
     for lib in libs:
         for need in lib.get("needs", []):
             if need not in names:
@@ -294,6 +315,15 @@ def main(argv):
             os.makedirs(argv[2], exist_ok=True)
             write_if_changed(os.path.join(argv[2], "libtab_table.cc"), table_text(libs, os.path.basename(argv[1])))
             write_if_changed(os.path.join(argv[2], "libtab.mk"), mk_text(libs))
+            return 0
+        if len(argv) in (2, 3) and argv[0] == "tests":
+            if len(argv) == 3 and argv[2] not in TEST_KINDS:
+                raise LibTabError("tests: the kind is one of %s, not %s" % (", ".join(TEST_KINDS), argv[2]))
+            for lib in load(argv[1]):
+                for kind in TEST_KINDS:
+                    if len(argv) == 2 or kind == argv[2]:
+                        for x in lib.get("tests", {}).get(kind, []):
+                            print(x)
             return 0
         if len(argv) == 2 and argv[0] == "sources":
             for lib in load(argv[1]):

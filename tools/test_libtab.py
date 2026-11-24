@@ -35,6 +35,32 @@ def toml_b(body):
     return p
 
 
+class Tests(unittest.TestCase):
+    """T239.5 D4: a library names its tests by the step of the matrix; `libtab.py tests` lists them per step, and the VIC-20's TOML B names its."""
+
+    def test_the_tests_of_a_library_are_listed_by_step(self):
+        p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\ntests = { unit = ["a1"], ui = ["a2", "a3"] }\n'
+                   '[[library]]\nname = "b"\nsources = ["b.cc"]\ntests = { unit = ["b1"], api = ["b2"] }\n')
+        out = lambda *k: subprocess.run([sys.executable, "-I", os.path.join(HERE, "libtab.py"), "tests", p] + list(k), capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(out(), ["a1", "a2", "a3", "b1", "b2"])
+        self.assertEqual(out("unit"), ["a1", "b1"])
+        self.assertEqual(out("ui"), ["a2", "a3"])
+        self.assertEqual(out("service"), [])
+
+    def test_a_wrong_kind_or_a_unit_named_twice_is_refused(self):
+        for body, why in (('tests = { smoke = ["x"] }', "no kind 'smoke'"), ('tests = { unit = [] }', "list of unit names"),
+                          ('tests = { unit = ["x"], ui = ["x"] }', "named twice")):
+            p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\n' + body + "\n")
+            with self.assertRaises(L.LibTabError) as e:
+                L.load(p)
+            self.assertIn(why, str(e.exception))
+
+    def test_the_vc20_names_a_test_for_each_step(self):
+        libs = L.load(os.path.join(ROOT, "cores", "vc20", "app", "sdk.toml"))
+        kinds = {k for lib in libs for k in lib.get("tests", {})}
+        self.assertEqual(kinds, set(L.TEST_KINDS))
+
+
 class SharedApp(unittest.TestCase):
     def test_loads_and_files_exist(self):
         libs = L.load(SHARED)

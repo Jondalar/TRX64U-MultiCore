@@ -27,6 +27,10 @@ eval "ca_owner() { CA_O=''; case \"\$1\" in $(awk -F'[: ]+' '/^[a-z0-9_]+:/ { pr
 ca_dephook() { ca_check "$CA_CUR_GROUP" "$CA_CUR_NAME" || : > "$T/ca_bad"; }   # tests/ctlcache.sh calls it with the unit's -MM listing on stdin
 CC_DEPS_HOOK=ca_dephook
 ca_in() { [ "$CA_GROUP" = all ] || [ "$CA_GROUP" = "$1" ]; }
+# T239.5 D4: CA_UNITS="<unit> ..." runs only the named units (the tests a core's TOML B names for one step of its lane: tools/libtab.py tests); a control is a unit of its own
+# and runs only when it is named too. Every named unit must be one this harness runs in the group, else the run fails (a TOML B that names a test nobody wrote). Empty: every unit.
+CA_UNITS="${CA_UNITS:-}"
+ca_unit() { [ -z "$CA_UNITS" ] && return 0; case " $CA_UNITS " in *" $1 "*) echo "$1" >> "$T/ca_units_done"; return 0 ;; esac; return 1; }
 ca_group() {   # ca_group TESTFILE SRC... : prints the group
   local f g="" o
   case "$RUNTIME_CROSS" in *" $1 "*) echo cross; return ;; esac
@@ -102,6 +106,7 @@ run() {   # run NAME TEST.cc SRC...
   set -- $(printf '%s\n' "$@" | awk '!seen[$0]++')
   local key srcs=() s t0=$SECONDS grp; for s in "$@"; do srcs+=("$(find_src "$s")"); done
   grp="$(ca_group "$test" "$@")"; ca_in "$grp" || return 0
+  ca_unit "$name" || return 0
   CA_CUR_GROUP="$grp" CA_CUR_NAME="$name"
   key="$(cc_key coreapp "test $name $test $* ${RARGS:-}" --runargs "${RARGS:-}" -- $FLAGS "${INC[@]}" -- "$TST/$test" ${srcs[@]+"${srcs[@]}"})"
   [ -z "${UPDATE_GOLDEN:-}${FH_ONLY:-}" ] || key=""   # a run that writes goldens or runs a part of a test proves nothing for the next one
@@ -148,7 +153,7 @@ control_job() {
   echo "control $name: fails as it must ($red check(s) red)"
   cc_store "$name" "$key" "$JOBDIR/rl"
 }
-control() { cc_no_controls && return 0; ca_in "$(ca_group "$4" "${@:5}")" || return 0; pjob_spawn control_job "$@"; }
+control() { cc_no_controls && return 0; ca_in "$(ca_group "$4" "${@:5}")" || return 0; ca_unit "$1" || return 0; pjob_spawn control_job "$@"; }
 
 if ca_in shared; then   # T174 D3: the table of cores is sound, and the group check can fail
   python3 -I - "$TST/cores.txt" "$CORES" <<'PY'
@@ -897,4 +902,7 @@ run ftp test_ftp.cc ftp_client.cc ftp_exports.cc
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }
+for u in $CA_UNITS; do
+  grep -qx "$u" "$T/ca_units_done" 2>/dev/null || { echo "tests/coreapp: $u (CA_UNITS) is no unit of this harness in the group $CA_GROUP" >&2; exit 1; }
+done
 echo "tests/coreapp: $PASS test programs passed, $PJ_N parallel controls (JOBS=$JOBS), every negative control failed as it must"
