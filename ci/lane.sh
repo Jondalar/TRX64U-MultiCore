@@ -27,6 +27,10 @@ core_tests() {   # core_tests <id> <kind>
   CA_GROUP="$id" CA_UNITS="$units" TEST_TIER=fast nice -n 15 "$ROOT/tests/coreapp/run.sh"
 }
 sdk_tarball() { ls "$HANDOFF"/sdk/trx64-sdk-*.tar.gz 2>/dev/null | head -1; }
+differs() {   # differs <base> <pathspec>... : yes or no; a failing git diff (exit > 1) is red, not "yes"
+  local rc=0; git -C "$ROOT" diff --quiet "$1" HEAD -- "${@:2}" || rc=$?
+  case $rc in 0) echo no ;; 1) echo yes ;; *) die "git diff $1..HEAD failed (exit $rc)" ;; esac
+}
 
 case "$lane" in
 sdk)
@@ -76,9 +80,9 @@ core:?*)
       [ "${#specs[@]}" -gt 0 ] || die "core:$id has no sources in its core.toml"
       gw=unknown ta=unknown ap=unknown
       if [ -n "$base" ] && git -C "$ROOT" cat-file -e "$base^{commit}" 2>/dev/null; then
-        gw=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "${specs[@]}" ':(exclude,glob)cores/*/app/**' ':(exclude,glob)cores/*/logo/**' || gw=yes
-        ta=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "cores/$id/app/gateware.toml" || ta=yes
-        ap=no; git -C "$ROOT" diff --quiet "$base" HEAD -- "cores/$id/app" || ap=yes
+        gw="$(differs "$base" "${specs[@]}" ':(exclude,glob)cores/*/app/**' ':(exclude,glob)cores/*/logo/**')"
+        ta="$(differs "$base" "cores/$id/app/gateware.toml")"
+        ap="$(differs "$base" "cores/$id/app")"
       fi
       printf '%s\n' "gateware=$gw" "toml_a=$ta" "app=$ap" > "$out/changed"
       say "the gateware: $gw, its TOML A: $ta, its app: $ap (base ${base:-none})" ;;
