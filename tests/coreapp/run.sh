@@ -972,6 +972,7 @@ a12app run a12_regset test_regset.cc $A12
 a12app run a12_joyswap test_joyswap.cc $A12
 a12app run a12_mousescale test_mousescale.cc $A12
 a12app run a12_fbwin test_fbwin.cc $A12
+a12app run a12_scale test_scale.cc desc_check.cc $A12   # T213.3: the picture items and their apply on the A1200's record (the shared unit scale runs them on the A500's)
 a12app run a12_rawkeys test_rawkeys.cc $A12
 a12app run a12_ledload test_ledload.cc $A12
 
