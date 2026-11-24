@@ -4,7 +4,8 @@
 instruction; §1 and §2 amended 2026-10-31 (the package namespace, both sides and Alex); §3's page tail added by
 MultiCore (T191, T198); MultiCore T230, proposed by both sides 2026-11-16, waiting for Alex's go: §1 the ownership
 table, §2 the version, §7 the start file, §8 what the bitstream offers an application, §10 the target split, and the two copies
-made the same text again.
+made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's go (MultiCore T239.3 D37: the way back
+from a large core).
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -21,6 +22,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Host, boot menu, core start | - | owns them |
 | Hand-over page (§3) | reads it (Gideon's application, §4) | its layout and the host that writes it |
 | Start file (§7) | Gideon's application ignores it | writes it (host) and reads it (generic coreapp) |
+| The way back (§7) | the ICAP loader in `c64_basic` (§8) | the menu marker and the IPROG (generic coreapp), the host's menu |
 | Generic coreapp on `trx64u` (config at start, persist, autostart, `menu.toml`) | - | owns it |
 | Foreign firmware as a core entry (§5) | - | owns it |
 | DDR2 windows (§6) | `0x03800000..0x03A00000` (debug service) | `STAGE_APP`, `STAGE_PART`, the update window of the coreapp |
@@ -138,7 +140,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   starts**. The updater's claim wins; an update reboots anyway.
 - Agreed between the two sessions on 2026-10-30.
 
-## 7. The start file (MultiCore T223 D4)
+## 7. The start file (MultiCore T223 D4) and the way back (MultiCore T239.3 D37)
 
 - A large core is started as full firmware, and its hand-over page may not survive the bitstream change. So the
   host also writes `<medium of the .cor>/trx64-start.txt` (`startfile_path()`: the first path element of the
@@ -154,6 +156,27 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 - TRX64-Ultimate keeps this: Gideon's application (`trx64g`) does not read it and does not delete it: after a `trx64g` start the file stays
   on the medium, with `cor=` naming `trx64g.cor`, until the next large-core start overwrites it or a generic
   coreapp start drops it. Gideon's application treats it as any file on the medium.
+- **The way back.** A large core whose bitstream has the ICAP loader (§8) returns to the host with an IPROG and
+  WBSTAR 0. The host's bitstream lies at flash `0x0` (ADR-0055).
+  - Just before the IPROG, the generic coreapp writes the menu marker into the hand-over page:
+    `handover_menu_request()` puts "MENU" at `HANDOVER_ADDR + 0xFF8` (MultiCore T135 D3).
+  - DDR2 keeps the page across the IPROG. The host takes the marker (`handover_menu_take()`) and shows its menu instead
+    of starting its default core again.
+  - The sequence (MultiCore `coreapp/src/hw.cc` `hw_return_to_host()`): enable on; then into `data`, in file order,
+    `FF FF FF FF AA 99 55 66 20 00 00 00 30 02 00 01 00 00 00 00 30 00 80 01 00 00 00 0F 20 00 00 00 20 00 00 00`
+    (dummy, sync, NOP, WBSTAR := 0, CMD := IPROG, NOP, NOP); then enable off.
+- **Started by the host** means a valid hand-over page (magic, version and sum, §3).
+  - The host fills the page before every start of a core. The generic coreapp never wipes it. A `.cfw` start leaves
+    a wiped page, and a power-on leaves none.
+  - A large core offers "Return to host menu" only when the ICAP loader answers and the page is valid.
+  - Without a valid page, the core's bitstream runs at flash `0x0` as a standalone installation. The core then offers
+    no way back, keeps its settings in the flash (MultiCore T228 DC13), and runs a `.cfw` itself.
+  - Under the host it does not run a `.cfw`: the host's menu runs updates.
+- A large core's loader has no partition control. Its TOML A names the block `icap` (ID, data, enable, word count)
+  and no block `partition`. So the generic coreapp never tries a partial load there and writes no decouple before
+  the IPROG.
+- MultiCore's host has both blocks. Its layer-2 cores run inside the host's gateware, so the loader alone makes them
+  the host's, with or without a page.
 
 ## 8. What the bitstream offers an application
 
@@ -169,8 +192,17 @@ code; the generic coreapp's use of each is MultiCore T104.2.
   (+0x006) (`trx_io.v`).
 - **IEC stub:** the IEC processor region answers version `0x25` at offset 0 and `0x01` at offsets 1 and 2 (both
   FIFOs empty) (`ultimate_sys.vhd`).
-- **ICAP at `0x10060600` is not decoded and reads 0.** The generic coreapp tells the monolith from MultiCore's
-  host by it (ID `0x7A` on MultiCore's host); decoding anything there is a change of this list.
+- **ICAP loader** (MultiCore T239.3 D37; from the first `c64_basic` bitstream that has it; before it, nothing is
+  decoded there and it reads 0). It is a port of MultiCore's host loader (`host/ultimate_sys.vhd` region `r_icap`):
+  - The region is `0x10060600`-`0x100606FF`.
+  - ID `0x7A` at +0x00.
+  - Data at +0x10: the bytes as the file has them. The loader reverses the bits, as `host/top.v` `icap_swap` does.
+  - Enable at +0x14. A rising edge clears the word counter.
+  - The word counter at +0x18..+0x1B.
+  - ICAPE2 X32.
+  - There is no decouple at +0x20 and no release at +0x21.
+  - The generic coreapp takes the way back of §7 from it. The ID alone no longer tells the monolith from MultiCore's
+    host: §7 says what does.
 - **HDMI mode request** (TRX64-Ultimate U16, its D7): in the overlay window at `0x10140000` + `0x4F00`: write
   `0x4F00` the row (family * 6 + hdmi, the family part replaced by the System Mode's; a row that does not lock is
   refused), write `0x4F01` the scale (0 Integer, 1 Fit, 2 Fill); read `0x4F04` magic `0x48`, `0x4F05` version 1,
