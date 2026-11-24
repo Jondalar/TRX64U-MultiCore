@@ -193,7 +193,7 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     status = true                  # the answer's text is the status line, bad when the operation failed (KF_STATUS)      status_ok: also when it succeeded (KF_STATUS_OK)
     close = true                   # the menu closes after it (KF_CLOSE)      directive: the answer's text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE)
     direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
-    [[window]]                     # a register window io.window hands out by name; refused when it covers a register the base drives itself (coreapp/src/basereg.def)
+    [[window]]                     # a register window io.window hands out by name; refused when it lies outside the board's I/O span [0x10000000, 0x11000000) after the translation or covers an entry of coreapp/src/basereg.def (whole base blocks, not only registers)
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
     address = 0xA0000500           # the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); io.window returns the board's
     size = 0x14                    # bytes, 1 .. 0x100000
@@ -1769,8 +1769,8 @@ def _sec_windows(rows, st):
 #                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source: cor_pack
 #                                   writes the AXSS word of the bitstream into the record (stamp_build, P1-4), and the service compares id and build with the block at start
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
-#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core covers no register the base
-#                                   drives itself). A module whose registers serve several drivers is several blocks, one per register range (D34).
+#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core lies wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation, and covers no
+#                                   entry of basereg.def, which are whole base blocks, not only registers). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
 #                                   or "rw"; two properties share bytes only when no direction is in both), count (optional, 1 .. PROP_COUNT_MAX, default 1: a run of `count` registers
 #                                   of this width, element i at offset + i * stride), stride (optional, only with a count above 1: the bytes from one element to the next, the

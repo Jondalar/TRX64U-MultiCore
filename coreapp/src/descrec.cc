@@ -144,8 +144,6 @@ bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint3
     return true;
 }
 
-// The registers are listed in the firmware's space (basereg.def); a block is compared with them in the board's, so 0xA0000550, 0x04100550 and 0x10100550 all meet master_volume. A block that
-// starts in a span of the firmware and leaves it is refused by the caller (window rows); here it is compared as it is.
 bool descrec_window_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out)
 {
     uint32_t b;
@@ -156,6 +154,8 @@ bool descrec_window_board(uint32_t address, uint32_t size, uint32_t iobase, uint
     return true;
 }
 
+// The guarded entries are listed in the firmware's space (basereg.def); a block is compared with them in the board's, so 0xA0000550, 0x04100550 and 0x10100550 all meet master_volume. A block that
+// starts in a span of the firmware and leaves it, or lies outside the board's I/O span, is refused by both callers before this runs (descrec_window_board); here it is compared as it is.
 const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size)
 {
     uint32_t a = address;

@@ -77,7 +77,7 @@
 //        22 blocks         4 words nblocks (1 .. DR_BLOCKS) nprops (DR_PROPS) nfields (DR_FIELDS) nstates (DR_STATES); then the blocks (7 words: name, module, owner 0 base / 1 core, address,
 //                          size 1 .. 0x100000, first property, count), the properties (10 words: name, offset, width 8 / 16 / 32, dir 1 r / 2 w / 3 rw, first field, count, first state, count, element count 1 .. DR_PROP_COUNT_MAX, stride in bytes: the width .. 0x100000, the width for a single register), the
 //                          fields (5 words: name, shift, bits, first state, count) and the states (2 words: name, value). Names are a-z 0-9 _ (1 .. 31). An owner's entries are the next run of
-//                          their table, in order. Blocks do not overlap, a core's block covers no register of basereg.def, a register (or the run of its elements, element i at offset + i * stride) lies inside its block, two properties share a byte only when
+//                          their table, in order. Blocks do not overlap, a core's block lies wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation of the firmware's spaces and covers no entry of basereg.def (whole base blocks, not only registers), a register (or the run of its elements, element i at offset + i * stride) lies inside its block, two properties share a byte only when
 //                          their directions share no bit, fields lie inside the width and share no bit, state names and values are once per owner and fit the field's bits or the register's width.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
