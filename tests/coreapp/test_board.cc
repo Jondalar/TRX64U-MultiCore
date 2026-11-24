@@ -327,6 +327,7 @@ int main()
         }
         {   // settings are not lost: the flash file is copied into the core's folder once, the original stays, an existing .cfg is never overwritten
             FakeFs sf;
+            CHECK(board_set_core(&mh, c64_desc.core_id, c64_desc.folder));   // T239.3 P1-5: the flash directory the old file lies in is named by the core's record
             c.fs = &sf;
             sf.put("/flash/trx64u/c64.cfg", std::vector<uint8_t>{'a', '=', '1', '\n'});
             CHECK(start_migrate_cfg(&c, &mh));

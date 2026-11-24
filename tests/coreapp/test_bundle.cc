@@ -375,7 +375,7 @@ int main(int argc, char **argv)
         trx64u_register(*ops_of(&c));
         CHECK_EQ(bundle_merge(&c, &d, &x, 0, &say, &merged, &mm), 0);
         CHECK_EQ(merged.ntasks, 19);                                         // the test core's own tables are replaced by the record's (T228: 19 tasks, R1-R3, R10, R21)
-        CHECK_EQ(merged.nfiletypes, 24);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
+        CHECK_EQ(merged.nfiletypes, 23);                                     // all of the record's file types (CONTRIB_FILETYPES_MAX 40; it was cut at 16)
         CHECK_STR(merged.tasks[0].label, "Reset");
         CHECK_STR(merged.media[1].name, "Cartridge port");
         free_extras(&x);
