@@ -14,8 +14,10 @@
       generate-for with a named block, a function, and a module behind continuous assignments of the pipeline (m3dev), checked with --own-core, and without it (the core blocks are then a
       hand-over the miniature has no port for).
   2c2. the miniature design tests/rtl_check/mini4 (V-1d): a pattern the check does not know stops the one block that reaches it; the other block has its verdict.
-  2d. c64_basic of TRX64-Ultimate with the TOML A of its commit b57405a6 (the TOML A is read with git show, the RTL is the checkout's working tree, so the list below follows the checkout;
-      skipped without the checkout or the commit), --own-core: the findings that remain are the five the check lists (trx_dbg_run.owner byte 3, cyc_cmp and cmp_en, trx_statebus.status, trx_debug.ipc_set); gcr_coder agrees.
+  2d. c64_basic of TRX64-Ultimate with the TOML A of its commit b57405a6 (the TOML A is read with git show, the RTL is the checkout's working tree, so the result follows the checkout;
+      skipped without the checkout or the commit), --own-core: all 33 blocks agree with the RTL (V-1f: trx_dbg_run.owner byte 3, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set included).
+  2f. the miniature design tests/rtl_check/mini6 (V-1f): a unit two modules behind the handshake (an instance inside the module that the continuous assignments feed), a genvar select, a write that
+      clears a register whatever the data is, a register written under an address compare while another expression names the data behind a different compare.
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
@@ -82,6 +84,12 @@ rc, out = run("check", "--design", os.path.join(HERE, "mini4"), "--toml-a", os.p
 must(rc == 1 and "block dev: an RTL pattern I do not know" in out and "a generate for whose step is not genvar = genvar + 1" in out and "block ctl" not in out and "1 finding(s)" in out,
      "mini4 design: the generate-for that is no counting loop stops the block dev (listed with file and line), the block ctl has its verdict (it agrees)", out)
 
+rc, out = run("check", "--design", os.path.join(HERE, "mini6"), "--toml-a", os.path.join(HERE, "mini6.toml"), "--top", "top", "--bus", "msys.io_req", "--own-core")
+must(rc == 0 and "3 block(s), 4 properties agree" in out,
+     "mini6 design: a unit that the module behind the handshake's continuous assignments holds (an instance followed behind a handshake), two cells of a generate-for that compare the address with "
+     "a select of the genvar, a register written from the data under an address compare (the data of another compare in another register's expression is no write), and a register that a write clears "
+     "whatever the data is (a case arm of the pipeline's module): the blocks agree with the RTL", out)
+
 ult_commit = "b57405a6"
 tomla = subprocess.run(["git", "-C", ult, "show", ult_commit + ":software/trx64u/gateware/c64_basic.toml"], capture_output=True, text=True) if os.path.isdir(dsg) else None
 if tomla is not None and tomla.returncode == 0:
@@ -90,11 +98,11 @@ if tomla is not None and tomla.returncode == 0:
         fa = os.path.join(td, "c64_basic.toml")
         open(fa, "w").write(tomla.stdout)
         rc, out = run("check", "--design", dsg, "--toml-a", fa, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--own-core")
-    found = sorted({l.split()[2].rstrip(",:") for l in out.splitlines() if l.startswith("rtl_check: block ")})
-    must(rc == 1 and found == ["trx_dbg_run", "trx_debug", "trx_statebus"] and "5 finding(s)" in out,
-         "c64_basic with its TOML A of %s (33 blocks): the blocks of trx_sys.v that it decodes itself (trx_gate, trx_turbo, trx_slot, the generate-for ent[i], the function tfind, the pipeline rq_addr, c_addr, op_a; "
-         "another master loads op_a), the trx_io, pix_layer and c64_text blocks and the VHDL blocks agree; the pages 2 and 3 that trx_sys.v hands on over continuous assignments (trx_engine, trx_debug) agree; what is still stopped is listed: "
-         "byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set (the check finds no write at the committing byte); gcr_coder agrees (a VHDL for-generate over vectors declared ascending)" % ult_commit, out)
+    must(rc == 0 and "33 block(s), 150 properties agree" in out,
+         "c64_basic with its TOML A of %s (33 blocks, 150 properties): the blocks of trx_sys.v that it decodes itself (trx_gate, trx_turbo, trx_slot, the generate-for ent[i], the function tfind, the pipeline rq_addr, c_addr, op_a; "
+         "another master loads op_a), the trx_io, pix_layer and c64_text blocks and the VHDL blocks agree; the pages 2 and 3 that trx_sys.v hands on over continuous assignments (trx_engine, trx_debug, and trx_dbg inside c64_core) agree, "
+         "with byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en and trx_debug.ipc_set (a register written from the data under an address compare, behind a genvar select of the watch units) and trx_statebus.status "
+         "(sb_err cleared by a write, whatever the data is); gcr_coder agrees (a VHDL for-generate over vectors declared ascending)" % ult_commit, out)
 else:
     print("SKIP: no TRX64-Ultimate checkout with commit %s at %s; its TOML A not checked" % (ult_commit, ult))
 
