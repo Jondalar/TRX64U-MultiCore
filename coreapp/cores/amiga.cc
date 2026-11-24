@@ -1,4 +1,4 @@
-// The Amiga (amiga) and Amiga 1200 (amiga1200) descriptors (T104 5.5): two records from ONE source with a named override list. Everything the
+// The Amiga 500 (amiga) descriptor (T104 5.5; the Amiga 1200 has its own app since T213.3: cores/amiga1200/app/lib/amiga1200.cc). Everything the
 // machines do is a record the base serves - the Kickstart as a rom_set (romset.h), DF0-DF3 as window slots with a dirty log (winslot.h),
 // HD0/HD1 as a sector server (sectors.h), the mouse as a sink (mousesink.h), the settings as bits of register bytes (regset.h). What is in
 // this file is the machine's register map and values; the only code is the hold/release sequence and the names of the state values.
@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <string.h>
 
-// ---- the override list: the five fields in which the A1200 differs from the A500 (T104 5.5), plus its identity -----------------------
+// ---- the variant table: the record's identity and the fields that differ between Amiga models (one row since the A1200 left, T213.3) -----------------------
 struct AmigaVariant {
     const char *core_id;                                   // core.toml id (start.cc matches the hand-over's id with it before it looks at the name)
-    const char *cor_name, *title, *short_title, *store;   // identity; the store is the .cfg section, so the A500's saved OCS never becomes the A1200's
+    const char *cor_name, *title, *short_title, *store;   // identity; the store is the .cfg section, so the A500's saved OCS never becomes another model's
     const char *auto_label;                                // ADR-0056: which Kickstart Auto looks for
     uint16_t want;
     int nchipset;                                          // OCS ECS (AGA)
@@ -30,16 +30,12 @@ struct AmigaVariant {
     int nfast;                                             // None 2M 4M (5.5M, 32M Zorro III)
     const char *const *fast_names;
     int chip_def, slow_def;
-    bool fbwin;                                            // the gateware has the display window and the crop window registers (T97 5.10)
-    bool rgb32;                                            // T136: 32-bit pixels, buffers at DDR2 0x4000000, 2 MB apart (the A1200 build's pixel layer)
     bool led_load;                                         // T159: the setting "LED Load Indicator" (case LED 1 = the gateware's drive activity: motor + hard disk)
     bool usbkeys;                                          // T141: the gateware has RAWKEY (both Amiga builds, the shared amiga_input.v): a USB keyboard types into the machine
 };
 
 static const char *const chipset_a500[]  = { "OCS", "ECS" };
-static const char *const chipset_a1200[] = { "OCS", "ECS", "AGA" };
 static const char *const fast_a500[]     = { "None", "2M", "4M" };
-static const char *const fast_a1200[]    = { "None", "2M", "4M", "5.5M", "32M (Zorro III)" };   // T138: the last is FAST_CFG 4, no Zorro II cards
 
 // T162 D3: the state block of the bug report (reads without side effects only; the debug-log POP register is left out on purpose)
 static const ReportReg report_regs[] = {
@@ -51,9 +47,8 @@ static const ReportReg report_regs[] = {
     { "MBOX_STATUS", AM_MBOX_STATUS, 1 }, { "DLOG_STATUS", AM_DLOG_STATUS, 1 },
 };
 
-static const AmigaVariant variants[2] = {
-    { "amiga", "Amiga (OCS/ECS, 68000)", "Amiga 500", "AMIGA", "Amiga Settings", "Auto (1.3 first)", KS_VER_13, 2, chipset_a500, 0, 3, fast_a500, 0, 1, false, false, true, true },
-    { "amiga1200", "Amiga 1200 (AGA, 68020)", "Amiga 1200", "A1200", "Amiga 1200 Settings", "Auto (3.1 first)", KS_VER_31, 3, chipset_a1200, 2, 5, fast_a1200, 3, 0, true, true, true, true },
+static const AmigaVariant variants[1] = {
+    { "amiga", "Amiga (OCS/ECS, 68000)", "Amiga 500", "AMIGA", "Amiga Settings", "Auto (1.3 first)", KS_VER_13, 2, chipset_a500, 0, 3, fast_a500, 0, 1, true, true },
 };
 
 // ---- the common record ---------------------------------------------------------------------------------------------------------------
@@ -94,13 +89,6 @@ static const SectorMediaSpec hard_disks = {
 };
 static const RawKeySpec rawkeys = { AM_RAWKEY, amk_hid, (uint8_t)sizeof(amk_hid), amk_mod, AMK_CAPS_USAGE, AMK_CAPS_CODE };   // T141
 static const MouseSinkSpec mouse = { AM_MOUSE_DX, AM_MOUSE_DY, AM_MOUSE_BTN, 4000, 127, 2, MOUSE_COUNTERS };
-// The picture window (fbwin.h): the full frame (the defaults below) centred on the middle of the display window the chipset has, smaller and still centred where it does not fit. 2 hires pixels per lores unit, origin 182, and 27 lines are what
-// cores/amiga/sim/run_fbwin.sh measured on the stripes picture; the stream holds 753 pixels and 286 lines (PAL) after its blanking; the
-// defaults are the fixed window of amiga_fb (36, 10, 90 words, 270 lines).
-static const FbWinSpec picture_window = {
-    AM_FEAT, AM_FEAT_FBWIN, AM_CTRL, AM_VIDEO_OFF, AM_DIW_H, AM_DIW_V, AM_FB_SKIP_X, AM_FB_SKIP_Y, AM_FB_COLS, AM_FB_LINES,
-    2, 182, 27, 753, 286, 36, 10, 90, 270, 100, 60, 1000, 2000,
-};
 
 static const OpBind df0[] = { B_INT("slot", 0) }, df1[] = { B_INT("slot", 1) }, df2[] = { B_INT("slot", 2) }, df3[] = { B_INT("slot", 3) };
 static const OpBind hd0[] = { B_INT("unit", 0) }, hd1[] = { B_INT("unit", 1) };
@@ -306,9 +294,9 @@ static int am_release(CoreCtx *c, char *, int)
 static const char *const caps[] = { "floppy", "hdf", "mouse", "pad" };
 
 // ---- the two records, built from the common part and the override list ------------------------------------------------------------------
-static Setting g_settings[2][15];
-static RomSetLabels g_labels[2];
-static RomSetSpec g_romset[2];
+static Setting g_settings[1][15];
+static RomSetLabels g_labels[1];
+static RomSetSpec g_romset[1];
 
 static CoreDesc make(int v)
 {
@@ -380,9 +368,6 @@ static CoreDesc make(int v)
     d.machine_info = "Chipset,Chip RAM,Slow RAM,Fast RAM";
     // 720 x 540 at scale 2 on 1920 x 1080; the three buffers are gateware parameters (FB_BUFS, FB_BYTE0): no FB_BASE / FB_STRIDE register
     d.video = { 720, 540, 2, 240, 0, 0x01000000u + AM_W_FB, 0x100000u, 3, AM_FB_LATEST, AM_FRAME_SEQ, 0, 0, 2 };
-    if (a.rgb32) {                               // T136 D3: outside the window (the application cannot clear them: Video::init skips them)
-        d.video.fb_base = AM_FB32_ADDR; d.video.fb_stride = AM_FB32_STRIDE; d.video.bpp = 4;
-    }
     d.freeze = { AM_STATUS, AM_ST_PAUSED, 200, false };
     d.init = am_init;
     d.release = am_release;
@@ -392,7 +377,7 @@ static CoreDesc make(int v)
     d.register_ops = amiga_register;
     d.caps = caps; d.ncaps = 4;
     d.id_shared = true;
-    d.id_feat_reg = AM_FEAT; d.id_feat_mask = AM_FEAT_FBWIN; d.id_feat_val = a.fbwin ? AM_FEAT_FBWIN : 0;   // T115 D9: a .cfw has no bundle name
+    d.id_feat_reg = AM_FEAT; d.id_feat_mask = AM_FEAT_FBWIN; d.id_feat_val = 0;   // T115 D9: a .cfw has no bundle name
     d.core_id = a.core_id;
     d.report_regs = report_regs; d.nreport_regs = (int)(sizeof(report_regs) / sizeof(report_regs[0]));
     d.reset_writes = reset_writes; d.nreset_writes = 2;
@@ -403,11 +388,8 @@ static CoreDesc make(int v)
     d.pad = &pad2_spec;                        // T225
     d.rawkeys = a.usbkeys ? &rawkeys : 0;
     d.hotkeys = &hk_amiga;                     // T181: the default hotkey map (hk_defaults.h)
-    d.fbwin = a.fbwin ? &picture_window : 0;
     return d;
 }
 
 extern const CoreDesc amiga_desc;
-extern const CoreDesc amiga1200_desc;
 const CoreDesc amiga_desc = make(0);
-const CoreDesc amiga1200_desc = make(1);

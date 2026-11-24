@@ -23,7 +23,6 @@ const CoreDesc *const core_table[] = {
     &snes_desc,
     &neogeo_desc,
     &amiga_desc,
-    &amiga1200_desc,
     &ddt_novic_desc,
     &portdiag_desc,
     0
