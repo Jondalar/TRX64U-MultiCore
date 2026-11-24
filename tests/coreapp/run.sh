@@ -63,6 +63,7 @@ VIDEO="$ROOT/app/video"
 LIB1541="$ROOT/app/lib/cbm1541"
 source "$TST/vc20_drv.sh"
 vc20_drv_dir "$T/vc20" || { echo "coreapp: the VIC-20's driver table was not generated" >&2; exit 1; }   # vc20_regs.h names the registers through it
+vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
@@ -699,6 +700,10 @@ run longnames test_longnames.cc $AM
 control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_NAME_MAX - le : lb;/size_t keep = lb;/' test_longnames.cc $AM
 
 run cbm1541 test_cbm1541.cc $VC20
+# the same test against a table that has the block drive_wd (d1541_wd.cc compiled, the 1581 tests run); the line above runs it against the VIC-20's own table (no drive_wd: a .d81 is refused)
+INC_SAVE=("${INC[@]}"); INC=(-I"$T/vc20wd/drv" "${INC[@]}")
+run cbm1541_wd test_cbm1541.cc $VC20
+INC=("${INC_SAVE[@]}")
 # T180 #38: disk images with a FAT long name picked into the drive: the DiskFs finds the image of a long path, the drive keeps the whole name and path. Controls: the container path
 # buffer at 260, the name at 56, the mount path at 260.
 # T104 5.14 Reload core: the label, the check before the cut, the order of the sequence, what the new core is told again

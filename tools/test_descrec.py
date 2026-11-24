@@ -1243,7 +1243,7 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "sid", "uci"])
+        self.assertEqual(sorted(maps), ["c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "sid", "uci", "wd177x"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
@@ -1514,7 +1514,7 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "c64_debug", "iec_status", "c64cart", "dma"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "drive_wd", "cmd_if", "gcr_coder", "icap", "c64_debug", "iec_status", "c64cart", "dma"])
         self.assertTrue(all(b["owner"] == "base" for b in r["block"]))
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
@@ -1639,7 +1639,7 @@ class ExampleCore(unittest.TestCase):
         hblocks = {b["name"]: b for b in host["block"]}
         by_name = {b["name"]: b for b in shared["block"]}
         owner_core_in_host = ["drive_a", "gcr_coder", "dma"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
-        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart"]      # cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
         self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
         for n, b in by_name.items():
             if n in absent_in_host:

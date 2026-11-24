@@ -3,8 +3,11 @@
 # The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register
 # offset of the core's own app is the address minus 0x101A0000. The ident block is where the standard block of the core window sits (descrec
 # demands the base as the owner of the standard block). Page 6 (0x101A6000) is decoded by vc20_regs and forwarded to the host's pixel layer. The
-# 1541 blocks (0x10020000, 0x10060500) belong to the partial's drive_l2 and reach it over drv_io_*/gcr_io_*; rtl_check does not follow that bus
-# yet, so they are not described here (open, see the V-2 question).
+# 1541 block (0x10020000) belongs to the partial's drive_l2 and reaches it over drv_io_* (cores/vc20/layer2_vc20.v holds them one register stage; rtl_check reads the stage, the whole
+# address is on the port: --bus layer2_vc20:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata --window 0x10020000:0x4000:full). It has the registers that
+# drive_l2 decodes: no side (drive_registers.vhd reads the port `side`, which c1541_drive leaves at 0), no drivetype (g_multi_mode is false), and no WD177x: that is the block drive_wd of the
+# bitstreams that have it, so this app does not link it. The GCR coder window (0x10060500, gcr_io_*) is not described yet (gcr_codec.vhd: a VHDL for-generate with ascending ranges, rtl_check
+# does not follow it).
 # desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
 [io]
 iobase = 0x10000000
@@ -247,3 +250,117 @@ size = 0x0C
     [[block.property.state]]
     name = "reset"
     value = 0x00100000
+
+# 0x10020000: the 1541 drive A of the partial (drive_l2.vhd behind drv_io_*): the registers of the shipped map cbm1541 that this RTL has, and the two runs of the parameter RAM (2 KB, 11 address bits:
+# per half track two words, the DDR2 address of the track and its length - 1 | bit time << 16, 128 half tracks per side, side 1 at +0x400, so the words interleave: the stride 8)
+[[block]]
+name = "drive_a"
+module = "drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "dark"
+    value = 0
+    [[block.property.state]]
+    name = "light"
+    value = 1
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "no"
+    value = 0
+    [[block.property.state]]
+    name = "yes"
+    value = 1
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "motor"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "writing"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "writebusy"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  count = 128
+  dir = "rw"
+    [[block.property.field]]
+    name = "any"
+    shift = 7
+    bits = 1
+    [[block.property.field]]
+    name = "this"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "param_addr"
+  offset = 0x1000
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+  [[block.property]]
+  name = "param_len"
+  offset = 0x1004
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "length_m1"
+    shift = 0
+    bits = 16
+    [[block.property.field]]
+    name = "bit_time"
+    shift = 16
+    bits = 16

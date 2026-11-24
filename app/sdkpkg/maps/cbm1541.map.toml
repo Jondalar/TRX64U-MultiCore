@@ -1,4 +1,4 @@
-# The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc, d1541_wd.h WDR_*, d1541_wd.cc WD_BASE). Offsets are bytes from the block's address (DRIVE_A_BASE).
+# The drive block of the C64U gateware (app/lib/cbm1541: d1541_drive.h DR_*, d1541_drive.cc). The WD177x registers at +0x1800 are the block of their own (map wd177x): a drive without them (the VIC-20's) has no such block. Offsets are bytes from the block's address (DRIVE_A_BASE).
 # Only what the library reads or writes is here. "dirty" is a run of 128 bytes (floppy.vhd decodes 7 address bits; the library uses elements 0 .. 41, DR_DIRTY + track): every element reads b7 = any track written
 # and b0 = its own flag; a write with b7 set clears "any", else the element's flag. The parameter RAM is 2048 bytes (floppy_param_mem.vhd: 11 address bits), per half track two words, 128 half tracks per side, side 1 at +0x400: its words interleave, so it is two runs
 # of 256 elements with the stride 8, element = side * 128 + half track: "param_addr" (the DDR2 address of the track) and "param_len" ((length - 1) | bit time << 16).
@@ -132,83 +132,3 @@ dir = "w"
   name = "bit_time"
   shift = 16
   bits = 16
-
-[[property]]
-name = "wd_command"
-offset = 0x1800
-width = 8
-dir = "rw"
-
-[[property]]
-name = "wd_track"
-offset = 0x1801
-width = 8
-dir = "rw"
-
-[[property]]
-name = "wd_sector"
-offset = 0x1802
-width = 8
-dir = "r"
-
-[[property]]
-name = "wd_datareg"
-offset = 0x1803
-width = 8
-dir = "r"
-
-[[property]]
-name = "wd_status_clear"
-offset = 0x1804
-width = 8
-dir = "w"
-
-[[property]]
-name = "wd_status_set"
-offset = 0x1805
-width = 8
-dir = "w"
-
-[[property]]
-name = "wd_irq_ack"
-offset = 0x1806
-width = 8
-dir = "rw"
-  [[property.field]]
-  name = "command_waits"
-  shift = 7
-  bits = 1
-  [[property.field]]
-  name = "dma_done"
-  shift = 0
-  bits = 1
-
-[[property]]
-name = "wd_dma_mode"
-offset = 0x1807
-width = 8
-dir = "w"
-
-[[property]]
-name = "wd_dma_addr"
-offset = 0x1808
-width = 32
-dir = "w"
-
-[[property]]
-name = "wd_dma_len"
-offset = 0x180C
-width = 16
-dir = "w"
-
-[[property]]
-name = "wd_stepper"
-offset = 0x180E
-width = 8
-dir = "rw"
-
-[[property]]
-name = "wd_step_time"
-offset = 0x180F
-width = 8
-dir = "w"
