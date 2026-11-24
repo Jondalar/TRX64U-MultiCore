@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Decided D1-D10 (Alex 11-23); service built as T239.3 T-2 (branch t239.3-t2-overlay); TRX64-Ultimate T-3 next
+Open (one line, as in the TODO table): Decided D1-D11 (Alex 11-23/24); built as T239.3 T-2; D11 frame helper open; TRX64-Ultimate T-3 next
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -142,7 +142,17 @@ Draft. It is completed when the open questions of §3 are decided.
     reason; the maxima are sized from the TOML at link time. The PAUSED tag is an element of the base UI TOML (D5).
   The other answer was to talk the points through one by one first.
 
-All open decisions are taken (D1-D10).
+- **D11** (Alex, 2026-11-24, translated: "Ok - answer A fits"): the ring library owns the Timewarp picture. TRX64-Ultimate's
+  T-3 found two gaps: after a scrub step the still under the open menu stays at the frame of the menu stop (S6), because the
+  still is taken once and the scrub runs through the ring library, which the base does not see; and the bar would be drawn
+  twice, by the base (`coreapp/src/screens.cc` `build_timeline`) and by the ring library (`tw_draw_bar`, D3). Asked which way,
+  he chose A: a helper call of the SDK group paints the frame the machine drew last into a library's surface (palette, place,
+  Scale, like the text helper of D3); the ring library paints frame and bar as the still (D10: "a library's surface"); the
+  base's timeline bar leaves with the trx64u code set (T239.3 P2-6). `core_hooks.h` (menu_video) and api.md 9.7.13, which
+  describe the picture behind the menu from before T-2, are rewritten with it. Lost: the base keeps its bar and its still and a
+  call lets a library ask for a new still after a scrub (smaller, but the base-drawn building block D3 gave up).
+
+All open decisions are taken (D1-D11).
 
 ## §4 Out
 
