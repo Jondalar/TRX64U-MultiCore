@@ -324,28 +324,22 @@ struct LibSvc {
     static void stop(bool on) { CoreIo *io = IO(); if (io) io->stop(on); }
     static void mode_reset(bool on) { CoreIo *io = IO(); if (io) io->mode_reset(on); }
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
-    // A window's address in the record is the firmware's (the hand-over contract: Gideon's defaults of iomap.h and u2p.h, IOBASE 0x04000000 + 16 MiB, U2P_IO_BASE 0xA0000000 + 1 MiB).
-    // The board's bus converter sends only what lies in its own I/O space to the I/O bus, so the app hands out the address in the space it is linked with (DRV_IOBASE, DRV_U2P_IO_BASE
-    // of its TOML A). Any other address is one of that space already (and a translated one stays as it is).
-    static uint32_t window_to_toml_a(uint32_t address, uint32_t size)
-    {
-        const struct { uint32_t base, span, to; } sp[2] = { { 0xA0000000u, 0x00100000u, DRV_U2P_IO_BASE }, { 0x04000000u, 0x01000000u, DRV_IOBASE } };
-        for (int i = 0; i < 2; i++) {
-            if (address >= sp[i].base && address - sp[i].base < sp[i].span && (uint64_t)address + size <= (uint64_t)sp[i].base + sp[i].span) {
-                return address - sp[i].base + sp[i].to;
-            }
-        }
-        return address;
-    }
+    // A window's address in the record is the firmware's: the default bases of vendor u2p.h (U2P_IO_BASE 0xA0000000 + 1 MiB) and iomap.h (IOBASE 0x04000000 + 16 MiB); the board's are DRV_U2P_IO_BASE
+    // and DRV_IOBASE of drvtab.h (its TOML A). The host's bus converter sends only an address with bit 28 set to the I/O bus, so the app hands out the board's address, and a block that is not
+    // on the I/O bus (a firmware span left behind, or any other address with bit 28 clear) is not granted: null and size 0.
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
-        // the windows of the running core's description record (section 19); the record was refused at the read when a window covered a register the base drives itself
+        // the windows of the running core's description record (section 19); the record was refused at the read when a window covered a register the base drives itself, in either address space
         const DescRecord *rec = L()->windows_rec_;
         const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
+        uint32_t board = 0;
+        if (w && (!descrec_fw_to_board(w->address, w->size, DRV_IOBASE, DRV_U2P_IO_BASE, &board) || !(board & 0x10000000u))) {
+            w = 0;
+        }
         if (size) {
             *size = w ? w->size : 0;
         }
-        return w ? (volatile uint8_t *)(uintptr_t)window_to_toml_a(w->address, w->size) : 0;
+        return w ? (volatile uint8_t *)(uintptr_t)board : 0;
     }
 
     // ---- overlay (svc_overlay.h): the calls are validated by the service at once; their effect is the UI task's next frame. The caller is the image whose code makes the call (owner_at),

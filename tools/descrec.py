@@ -195,7 +195,7 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
     [[window]]                     # a register window io.window hands out by name; refused when it covers a register the base drives itself (coreapp/src/basereg.def)
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
-    address = 0xA0000500
+    address = 0xA0000500           # the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); io.window returns the board's
     size = 0x14                    # bytes, 1 .. 0x100000
 
     # T239.3 D32 (sections 23 and 24, version 6; they need no [core]): where the rows the application adds to every core (Picture, Scale, Volume, Tone, the hotkeys, Persist, Home, the
@@ -1602,10 +1602,27 @@ def base_registers():
     return list(_BASEREG)
 
 
+# The address spaces of a [[window]] row: the firmware's (Gideon's defaults of iomap.h IOBASE 0x04000000 with 16 MiB, of u2p.h U2P_IO_BASE 0xA0000000 with 1 MiB) and the board's
+# (drvtab.h; host.toml iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends only an address with bit 28 to the I/O bus. coreapp/src/descrec.cc does the same.
+FW_SPANS = ((0xA0000000, 0x00100000, 0x10100000), (0x04000000, 0x01000000, 0x10000000))
+
+
+def fw_to_board(address, size):
+    """A [[window]] address of the firmware's space as the board's; any other address stays. None when the block starts in a span of the firmware and ends beyond it."""
+    for base, span, to in FW_SPANS:
+        if base <= address < base + span:
+            return address - base + to if address + size <= base + span else None
+    return address
+
+
 def window_conflict(address, size):
-    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none."""
+    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none.
+    The block (the firmware's or the board's address) and the registers (basereg.def, the firmware's) are compared in the board's space."""
+    a = fw_to_board(address, size)
+    a = address if a is None else a
     for reg in base_registers():
-        if address < reg[1] + reg[2] and reg[1] < address + size:
+        r = fw_to_board(reg[1], reg[2])
+        if a < r + reg[2] and r < a + size:
             return reg
     return None
 
@@ -1703,6 +1720,8 @@ def _window_check(name, address, size, what):
         raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
     if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
         raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
+    if fw_to_board(address, size) is None:
+        raise DescError("%s (%s): starts in a firmware I/O space (U2P 0xA0000000 + 1 MiB, I/O 0x04000000 + 16 MiB) and ends beyond it" % (what, name))
     reg = window_conflict(address, size)
     if reg:
         raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"

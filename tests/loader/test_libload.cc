@@ -2208,7 +2208,7 @@ static void services()
         DescRecord *wrec = new DescRecord;
         char why[200] = "";
         CHECK_EQ(descrec_parse(wb.data(), (uint32_t)wb.size(), wrec, why, sizeof(why)), 0);
-        CHECK_EQ(wrec->nwindows, 5);
+        CHECK_EQ(wrec->nwindows, 4);
         w.ld->set_windows(wrec);
         wsz = 77;
         CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)(DRV_U2P_IO_BASE + 0x500u));    // the record holds the firmware's address; the app hands out the board's (bus converter, bit 28)
@@ -2217,8 +2217,17 @@ static void services()
         CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)(DRV_U2P_IO_BASE + 0x600u));
         CHECK_EQ(wsz, 0x100u);
         CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)(DRV_IOBASE + 0x40u));                // IOBASE of the firmware: 0x04000000 + 16 MiB
-        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100800u);                      // an address of the board's space stays
-        CHECK_EQ((uintptr_t)api->io->window("straddle", &wsz), (uintptr_t)0xA00FFFF8u);                      // a block that leaves the 1 MiB span is no U2P window: as it is
+        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                      // an address of the board's space stays
+        // the readers refuse a window that starts in a firmware span and leaves it (descrec_parse, tools/descrec.py), so the record is changed by hand here: nothing is granted that is not on the I/O bus
+        DescWindow &hw = wrec->windows[3];
+        const uint32_t keep = hw.address;
+        hw.address = 0xA00FFFF8u;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // a block that leaves the 1 MiB span: null, no pointer into DDR
+        hw.address = 0x00001000u;
+        wsz = 77;
+        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bit 28 clear: the bus converter sends it to memory
+        hw.address = keep;
         CHECK(DRV_U2P_IO_BASE == 0x10100000u && DRV_IOBASE == 0x10000000u);
         wsz = 77;
         CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare

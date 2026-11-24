@@ -164,6 +164,21 @@ int main(int argc, char **argv)
         delete x;
     }
 
+    // the same register in the other spaces (firmware I/O space, the board's), and a block that starts in a firmware span and leaves it: refused; a free address of the board's space: allowed
+    {
+        const uint32_t mv = 0xA0000550u;                                   // master_volume
+        const struct { uint32_t a, n; int rc; } cases[] = { { mv - 0xA0000000u + 0x04100000u, 1, -1 }, { mv - 0xA0000000u + 0x10100000u, 1, -1 }, { 0xA00FFFFFu, 2, -1 },
+                                                           { 0x04FFFFFFu, 2, -1 }, { 0x10100900u, 16, 0 } };
+        for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+            Bytes b = good;
+            wr(b, win + 16, cases[i].a);
+            wr(b, win + 20, cases[i].n);
+            DescRecord *x = new DescRecord;
+            CHECK_EQ(parse(b, x, why), cases[i].rc);
+            delete x;
+        }
+    }
+
     // ---- damage: every truncation, a duplicate name, and rows that break a rule of the reader
     for (size_t n = 0; n < good.size(); n++) {
         Bytes cut(good.begin(), good.begin() + n);

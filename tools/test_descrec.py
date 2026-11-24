@@ -994,6 +994,17 @@ size = 0x14
         with self.assertRaises(D.DescError):                          # a block that runs over the whole U64 base register run
             D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000400\nsize = 0x100\n')
 
+    def test_a_window_is_checked_in_one_space_and_a_block_may_not_leave_its_span(self):
+        for a in (0xA0000550, 0x04100550, 0x10100550):                # master_volume in the firmware's U2P space, in its I/O space and in the board's
+            with self.assertRaises(D.DescError, msg="%x" % a) as e:
+                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
+            self.assertIn("master_volume", str(e.exception))
+        D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')      # a free address of the board's space
+        for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2)):
+            with self.assertRaises(D.DescError, msg="%x" % a) as e:
+                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            self.assertIn("ends beyond it", str(e.exception))
+
     def test_the_references_of_the_table_name_their_register(self):
         token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
                  "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
