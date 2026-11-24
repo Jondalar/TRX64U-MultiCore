@@ -28,7 +28,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
 | T119 | 3 | ✅ | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | Done 11-18 (Alex: shipped = done) | [T119](docs/todo/T119.md) |
 | T258 | 3 | 🔨 | C128: the ROM import takes VICE's ROM set and composes the system image from its parts (#105) | To c128-integ with T257 and T170, not integration (Alex 11-23); branch t258-jiffy8k, UX review failed | [T258](docs/specs/T258-c128-rom-vice-parts.md) |
-| T259 | 3 | 🔨 | Diag core measures the A/V port: channel map, bit order, RGB, SYNCn and FB; tester values as presets (#73) | Building on t259-diag-av (Alex 11-24); board: Alex's Sony through the SCART RGB cable | [T259](docs/specs/T259-diag-av-port-measured.md) |
+| T259 | 3 | 🔨 | Diag core measures the A/V port: channel map, bit order, RGB, SYNCn and FB; tester values as presets (#73) | On the board 11-24 (0612dccf1, pipeline green); board test when the SCART RGB cable arrives | [T259](docs/specs/T259-diag-av-port-measured.md) |
 
 ## Board test required
 
