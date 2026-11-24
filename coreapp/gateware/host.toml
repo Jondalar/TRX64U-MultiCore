@@ -9,7 +9,7 @@
 # 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
 # Not in this record: the UCI window 0x10044000 (cmd_if: it acks and answers 0; the UCI is the core's), the UDP region 0x10190000 (r_udp names it,
 # nothing decodes it) and the resampler at 0x10100580 (no decode). The ITU, console UART, USB, Ethernet and flash windows are here (V-1c: rtl_check models Gideon's
-# io_bus_splitter and a request that flash_gate holds). The trx_io pages 1, 2, 3, 5 and 7 (trx_sys.v) are not followed yet.
+# io_bus_splitter and a request that flash_gate holds).
 # The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries, the byte between them undecoded) is three runs of 16 elements with the stride 4, one per colour byte.
 # A property whose read and write registers differ is two properties
 # (irq_mask / status, tx_len / rx_len).
@@ -729,7 +729,7 @@ name = "drive_a"
 module = "drive_l2"
 owner = "core"
 address = 0x10020000
-size = 0x1800
+size = 0x4000
 map = "cbm1541"
 
 [[block]]
