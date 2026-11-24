@@ -429,7 +429,7 @@ static void own_picture()
 {
     g_applied.clear();
     video_current = 0;                                                               // nobody has set a mode yet
-    Rig r(&c64_desc);
+    Rig r(&c64scpu_desc);
     CHECK(!r.why);
     CHECK(r.vid->own_picture());
     CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_720P);      // Auto: the host's mode stays
@@ -494,7 +494,7 @@ static void host_auto()
     { Rig r(&nes_desc); r.fs.put_text(HC, "[Other]\nMode=576p / 480p\n[Video]\nMode=1920 x 1080\n");
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P); }
     // a core that draws its own picture has no wish and keeps the screen's mode, whatever the host file says
-    { g_applied.clear(); Rig r(&c64_desc); host(r, "576p / 480p");
+    { g_applied.clear(); Rig r(&c64scpu_desc); host(r, "576p / 480p");
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_720P);
       CHECK_EQ(g_applied.size(), 0u); }
     // T164 D10c amended (Alex 2026-11-04): the first value of the Picture item says which mode Auto is and whose it is

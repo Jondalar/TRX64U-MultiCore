@@ -4,6 +4,8 @@
 // like D-input report and a clone pad with X/Y as the D-pad); the 8BitDo SN30 Pro is NOT among them: its descriptor and button numbering are not known
 // yet, so the default map's Button numbers (pad.h PAD_D3_*) stay an assumption.
 #include <vector>
+#include <fstream>
+#include <iterator>
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
@@ -13,7 +15,6 @@
 #include "pad.h"
 #include "ops_glue.h"
 #include "descrec.h"
-#include "trx64u/menu_rec.inc"                        // T228 R10: the record with a [pad] (generated from menu.toml)
 
 typedef std::vector<uint8_t> V;
 
@@ -65,7 +66,7 @@ static const uint8_t *gen_map(const PadSpec *sp)
 
 static void unplug_all() { pad_detach(&k1); pad_detach(&k2); pad_detach(&k3); }
 
-int main()
+int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
     // ---- plug order, the placement of a third pad, a mouse is no pad
@@ -462,12 +463,16 @@ int main()
         CHECK_STR(pad_src_name(PAD_SRC_NONE, nm, sizeof(nm)), "none");
         unplug_all();
     }
-    // ---- T228 R10: a menu record's pad (the trx64u record, version 5): one port fed by the first pad (by_id), the host's joystick lines (joy_lines, bits
+    // ---- T228 R10: a menu record's pad (golden/desc_own.toml, compiled by gen_bundle.py; argv[1] is its bin): one port fed by the first pad (by_id), the host's joystick lines (joy_lines, bits
     // 0..4 up down left right fire, 1 = pressed), pad.port picks port 1 or 2 and releases the one it leaves; no register of the core is written
     {
         static DescRecord rec;
         char why[160];
-        CHECK_EQ(descrec_parse(c64_menu_rec, sizeof(c64_menu_rec), &rec, why, sizeof(why)), 0);
+        CHECK(argc > 1);
+        std::vector<uint8_t> own;
+        { std::ifstream f(argv[1], std::ios::binary); own.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()); }
+        CHECK(!own.empty());
+        CHECK_EQ(descrec_parse(own.data(), (uint32_t)own.size(), &rec, why, sizeof(why)), 0);
         CHECK(rec.has_pad && rec.pad.out == PAD_OUT_JOY && rec.pad.by_id && rec.pad.nbuttons == 5);
         CHECK(rec.pad.reg[0] == 0 && rec.pad.reg[1] == 1);
         CHECK_STR(rec.pad.names[0], "Up");

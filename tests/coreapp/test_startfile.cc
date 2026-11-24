@@ -1,13 +1,15 @@
 // T230 P-2 (S3, S4, S4b): the start file on the monolith (no hand-over page): looked for on /SD, /USB0, /USB1; taken only when its cor= is
-// a .cor of this core (trx64u); a file for another core (trx64g's leftover) is dropped and deleted, the cfg_path stays.
+// a .cor of this core (the stub below, named like a monolith core); a file for another core (trx64g's leftover) is dropped and deleted, the cfg_path stays.
 #include <string.h>
 #include "check.h"
 #include "start.h"
 #include "handover.h"
 #include "fakes.h"
 
-extern const CoreDesc c64_desc, amiga_desc, amiga1200_desc;
-const CoreDesc *const core_table[] = { &c64_desc, &amiga_desc, &amiga1200_desc, 0 };
+// the core of the file: a stub whose cor_name is the base name of its .cor (what start_identify matches), as test_start.cc does
+static const CoreDesc mono = { {'M', 'O', 'N', 'O'}, "TRX64U", "Monolith", "trx64u", "Monolith Settings" };
+extern const CoreDesc amiga_desc, amiga1200_desc;
+const CoreDesc *const core_table[] = { &mono, &amiga_desc, &amiga1200_desc, 0 };
 
 static void mk(FakeFs *fs, const char *path, const char *cor, const char *config)
 {
@@ -21,7 +23,7 @@ static void ctx(CoreCtx *c, FakeFs *fs)
 {
     memset(c, 0, sizeof(*c));
     c->fs = fs;
-    c->desc = &c64_desc;
+    c->desc = &mono;
     strcpy(c->cfg_path, "/SD/cores/trx64u/trx64u.cfg");        // what the monolith has before the file (the profile's own)
 }
 

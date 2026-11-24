@@ -6,7 +6,9 @@
 #include "engines.h"
 #include "mousesink.h"
 
-extern const CoreDesc c64_desc;
+// a core whose mouse is a 1351 on the POT lines (the C64 family's, TRX64-Ultimate's trx64u): the descriptor of the made-up core of this test (T239.3 P1-8)
+static const MouseSinkSpec pot_mouse = { 0, 0, 0, 0, 0, 0, MOUSE_POT1351 };
+static CoreDesc pot_core = amiga_desc;
 
 struct FakePots : MousePots {
     int16_t x = 0, y = 0;
@@ -68,11 +70,11 @@ int main()
     mouse_sink_pace(&r.c);
     CHECK_EQ(r.io.regs[AM_MOUSE_BTN], 7);
 
-    // ---- the C64: a 1351 on the POT lines ----
-    CHECK(c64_desc.mouse && c64_desc.mouse->kind == MOUSE_POT1351);
+    // ---- a 1351 on the POT lines ----
+    pot_core.mouse = &pot_mouse;
     CoreCtx c64c = r.c;
     c64c.eng = 0;
-    c64c.desc = &c64_desc;
+    c64c.desc = &pot_core;
     engines_of(&c64c);                                  // the sink is now the C64's
     mouse_sink_reset();
     r.io.log.clear();
@@ -133,7 +135,7 @@ int main()
     }
 
     // the 1351 backend with no pots on the board: nothing to write, nothing crashes
-    mouse_sink_configure(c64_desc.mouse);
+    mouse_sink_configure(&pot_mouse);
     mouse_sink_set_pots(0);
     feed(any, 1);
     CHECK_EQ(quiet.pos_calls, 0);

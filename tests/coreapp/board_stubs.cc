@@ -1,9 +1,7 @@
-// The board side of the TRX64U application, as far as the core application's base (menuctl.cc, c64.cc) reaches it. The contributors the C64 descriptor registers
-// (u64cfg, libfiles, ringops, monitor, diag, netops, trx64u_ops) and the monitor session menuctl.cc drives need the board's headers (U64 registers, USB HID,
-// FileManager, the network stack, FreeRTOS), which this native build does not have: each registers nothing and answers nothing here. The image registers them,
-// and its export is tests/coreapp/golden/ops_trx64u.txt (tests/ui/export.py; the suite's export.feature compares it with a running image). t64.cc is linked for real.
-#include <deque>
-#include <fstream>
+// The board side of the TRX64U application, as far as the core application's base (menuctl.cc, c64_cart.cc, menuflows.cc) reaches it. What the base's sources call of
+// trx64u's code (u64cfg, ringops, monitor, diag, netops, trx64u_ops) and the monitor session menuctl.cc drives need the board's headers (U64 registers, USB HID,
+// FileManager, the network stack, FreeRTOS), which this native build does not have: each registers nothing and answers nothing here. t64.cc is linked for real.
+// The stubs of trx64u's own contributor and its export list went with its descriptor (T239.3 P1-8); the sources of that code stay until P2-6.
 #include <string>
 #include <vector>
 #include <stdlib.h>
@@ -47,86 +45,6 @@ void monitor_register(OpRegistry &r)
 }
 void diag_register(OpRegistry &) { }
 void netops_register(OpRegistry &) { }
-
-// The last contributor registers what the image's export has and this build does not: every operation with its typed arguments and every state value of
-// golden/ops_trx64u.txt (tests/ui/export.py makes it from the real image) that is not registered yet. The handlers do nothing and the states are empty but
-// those stub_state_of names below; what they are for is the checks that need the NAMES and the SHAPES: desc_check and tools/descrec.py validate the TRX64U menu record against
-// the registry.
-static int stub_op(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
-int stub_state_calls;                                       // how often a menu asked one of these states (tools/menusim --stats counts it per key)
-static const char *stub_state(CoreCtx *) { stub_state_calls++; return ""; }
-// T228: the states that decide which rows the TRX64U menu shows, answered as the board does under the MultiCore host with the ring in the bitstream:
-// Softboot is not offered (DC1), Save frame and Save the ring can run
-static const char *stub_multicore(CoreCtx *) { stub_state_calls++; return "MultiCore host"; }
-static const char *stub_yes(CoreCtx *) { stub_state_calls++; return "1"; }
-static state_fn stub_state_of(const std::string &n)
-{
-    if (n == "host.multicore") return stub_multicore;
-    if (n == "tw.present") return stub_yes;
-    return stub_state;
-}
-void trx64u_register(OpRegistry &r)
-{
-    std::ifstream f(std::string(GOLDEN_DIR) + "/ops_trx64u.txt");
-    std::string line;
-    static std::deque<std::string> keep;                    // the names and labels outlive the registry
-    static std::deque<std::vector<ArgSpec> > specs;
-    static std::deque<std::vector<const char *> > labs;
-    while (std::getline(f, line)) {
-        std::vector<std::string> p;
-        size_t at = 0;
-        for (;;) {
-            size_t t = line.find('\t', at);
-            p.push_back(line.substr(at, t == std::string::npos ? std::string::npos : t - at));
-            if (t == std::string::npos) break;
-            at = t + 1;
-        }
-        if (p.size() < 2) continue;
-        keep.push_back(p[1]);
-        const char *name = keep.back().c_str();
-        if (p[0] == "state") {
-            if (!r.find_state(name)) r.add_state(name, stub_state_of(p[1]));
-            continue;
-        }
-        if (p[0] != "op" || r.find_op(name)) continue;
-        static const char *const tn[] = { "int", "bool", "enum", "string", "path", "slot", "blob" };
-        specs.push_back(std::vector<ArgSpec>());
-        std::vector<ArgSpec> &sp = specs.back();
-        sp.reserve(OP_ARGS_MAX);
-        for (size_t k = 2; k < p.size() && sp.size() < OP_ARGS_MAX; k++) {
-            std::vector<std::string> q;
-            size_t b = 0;
-            for (;;) {
-                size_t t = p[k].find(':', b);
-                q.push_back(p[k].substr(b, t == std::string::npos ? std::string::npos : t - b));
-                if (t == std::string::npos) break;
-                b = t + 1;
-            }
-            if (q.size() < 6) continue;
-            ArgSpec a = { 0, 0, 0, 0, 0, 0 };
-            keep.push_back(q[0]);
-            a.name = keep.back().c_str();
-            for (int ti = 0; ti < 7; ti++) if (q[1] == tn[ti]) a.type = (uint8_t)ti;
-            a.lo = atoi(q[2].c_str());
-            a.hi = atoi(q[3].c_str());
-            a.maxlen = (uint16_t)atoi(q[4].c_str());
-            if (a.type == AT_ENUM) {
-                labs.push_back(std::vector<const char *>());
-                size_t lb = 0;
-                for (;;) {
-                    size_t t = q[5].find('|', lb);
-                    keep.push_back(q[5].substr(lb, t == std::string::npos ? std::string::npos : t - lb));
-                    labs.back().push_back(keep.back().c_str());
-                    if (t == std::string::npos) break;
-                    lb = t + 1;
-                }
-                a.labels = labs.back().data();
-            }
-            sp.push_back(a);
-        }
-        r.add_op(name, sp.empty() ? 0 : sp.data(), (int)sp.size(), stub_op);
-    }
-}
 
 // the monitor session (monitor.cc) that menuctl.cc opens on the F4 tab: no debug block here
 int stub_mon_open_n;                                        // monitor_grid.cc over the stubs (tests/coreapp/test_cut.cc): what the monitor was asked

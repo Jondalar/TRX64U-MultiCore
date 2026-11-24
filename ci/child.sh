@@ -39,7 +39,7 @@ case "$child" in
   apptests) if [ -d /cache ]; then heavy_lock; fi; cmd=(env "JOBS=${JOBS:-$half}" "$HERE/render.sh") ;;     # a slot and half the machine: the sims take the other half
   images)   cmd=("$HERE/trxapps.sh") ;;
   emu)      need_stage trxapps >/dev/null || exit 1
-            cmd=(env "EMU_IMAGES=$HANDOFF/trxapps" "$HERE/apptests.sh" --tier integration hostapp_emu coreapp_emu) ;;
+            cmd=(env "EMU_IMAGES=$HANDOFF/trxapps" "$HERE/apptests.sh" --tier integration hostapp_emu) ;;
   sim)      [ -n "$target" ] || { echo "sim needs an owner (host, core:<id>, large:<id>) or all" >&2; exit 2; }
             if [ "$target" = all ]; then cmd=(env "CI_SIMS_CORES=${CI_SIMS_CORES:-$half}" "$HERE/sims.sh" -t "${SIMS_TIER:-2}"); else
             tier="$(python3 "$HERE/orchestrate.py" tier "$HANDOFF/plan.json")"

@@ -1,13 +1,62 @@
-// T104.2: "Run Cartridge" for the .crt of the Library, on the C64 model. A CRT is parsed, its CHIP packets land where the bitstream's cartridge
+// T104.2: "Run Cartridge" for the .crt of the Library (the library c64cart), on the C64 model. A CRT is parsed, its CHIP packets land where the bitstream's cartridge
 // emulation reads the image (ROM_SEL = 1, DDR2 window offset 0), CART_TYPE and the mapping descriptor are what Gideon's set_cartridge writes, the
 // REU is off, the cartridge RAM is cleared, and the machine is reset into the cartridge (type set while it is held). A file this application cannot
-// start is refused with the type named, before the machine is touched. The descriptor and its operations are the real ones; the machine is C64Model.
+// start is refused with the type named, before the machine is touched. The library is the real one; the machine is C64Model, and the descriptor is a stub that does
+// what a C64 core's reset does to the cartridge port: hold the machine and end the SID player's cartridge (T239.3 P1-8: the trx64u descriptor is TRX64-Ultimate's).
 #include <string>
 #include "check.h"
-#include "c64_rig.h"
+#include "c64_model.h"
+#include "c64_cart.h"
 #include "c64_cart_desc.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, 0 };
+const CoreDesc *const core_table[] = { 0 };
+
+static const char *ev_last(const std::vector<std::string> &e) { return e.empty() ? "(none)" : e.back().c_str(); }
+
+// the stub machine: init is the reset's hold, release lets it go; the player's cartridge ends with the reset as the C64 core's init does
+static int stub_init(CoreCtx *c, char *, int)
+{
+    c->io->mode_reset(true);
+    c64_cart_player_end(c);
+    return 0;
+}
+static int stub_release(CoreCtx *c, char *, int)
+{
+    c->io->mode_reset(false);
+    return 0;
+}
+static CoreDesc make_desc()
+{
+    CoreDesc d;
+    memset(&d, 0, sizeof(d));
+    d.init = stub_init;
+    d.release = stub_release;
+    d.reset_ms = 1;
+    return d;
+}
+
+struct C64Rig {
+    C64Model io;
+    FakeFs fs;
+    CoreDesc desc = make_desc();
+    CoreCtx c;
+    explicit C64Rig(bool = true)
+    {
+        memset(&c, 0, sizeof(c));
+        c.desc = &desc;
+        c.io = &io;
+        c.fs = &fs;
+    }
+    void menu_op_begin() { io.stop(true); }
+    bool boot() { return true; }
+    void put_roms() { }
+    void cold_reset()                                       // what machine.cold_reset does to the machine: the hold, the release
+    {
+        char m[80];
+        desc.init(&c, m, sizeof(m));
+        desc.release(&c, m, sizeof(m));
+    }
+};
 
 typedef std::vector<uint8_t> Bytes;
 
@@ -44,9 +93,8 @@ static uint8_t img(C64Model &io, size_t off) { return io.FakeIo::ddr.at(off); }
 
 static int run(C64Rig &r, const char *path, OpResult *res)
 {
-    OpIn in = in_str("path", path);
     r.menu_op_begin();
-    return ops_call(&r.c, "c64.run_crt", &in, 1, res);
+    return c64_cart_run(&r.c, path, res->msg, sizeof(res->msg)) ? OPE_FAILED : OPE_OK;
 }
 
 static C64Rig *booted()
@@ -212,11 +260,11 @@ int main()
         r.fs.put("/usb0/eight.crt", f);
         CHECK_EQ(run(r, "/usb0/eight.crt", &res), OPE_OK);
         r.menu_op_begin();
-        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
+        r.cold_reset();
         CHECK_EQ(r.io.cartreg[C64_CARTREG_TYPE], 0x41);
         r.io.events.clear();
         r.menu_op_begin();
-        CHECK_EQ(ops_call(&r.c, "c64.remove_cart", 0, 0, &res), OPE_OK);
+        CHECK_EQ(c64_cart_remove(&r.c, res.msg, sizeof(res.msg)), 0);
         CHECK_EQ(r.io.cartreg[C64_CARTREG_TYPE], 0);
         bool zero = true;
         for (int i = 0; i < C64_CART_DESC_BYTES; i++) zero = zero && r.io.p4_get(C64_CART_DESC + i) == 0;

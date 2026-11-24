@@ -53,7 +53,7 @@ BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc c
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
-C64="c64.cc c64_go.cc c64_cart.cc cbm_prg.cc board.cc $DRV"
+C64="c64_go.cc c64_cart.cc cbm_prg.cc board.cc $DRV"
 
 NESSRC="nes.cc ines.cc $BASEL"
 # build NAME TEST.cc SRC... : the product sources are looked up in $SRC, then $CORES, then $HA
@@ -157,24 +157,13 @@ for ln in open(sys.argv[1]):
 PY
   printf '%s\n' "$CORES/vc20.cc $CORES/vc20_regs.h $CORES/c64.cc" | ca_check vc20 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
-# T104.2 D10: what the TRX64U application exports to its menu description (every operation with its typed arguments, every state value) is the golden
-# list (made from the real image by tests/ui/export.py --update) that tools/descrec.py checks coreapp/cores/trx64u/menu.toml against; the record the application carries is what menu.toml compiles to; the
-# areas and the published tab numbers of its menu are the UX concept's (tools/check_menu_concept.py).
-RARGS="$TST/golden/ops_trx64u.txt" CARGS="$TST/golden/ops_trx64u.txt" run ops_export ops_export.cc $C64 $BASEL
-if ca_in shared; then   # T174 D3: the menu description checks belong to the group `shared`
-python3 "$ROOT/tools/gen_menu_rec.py" --check
-python3 "$ROOT/tools/check_menu_concept.py" "$TST/golden/menu_c64.txt"
-python3 "$ROOT/tools/check_menu_concept.py" --selftest
-fi
-PASS=$((PASS + 1))
-
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
 
-run start test_start.cc start.cc handover.cc amiga.cc $C64 $BASEL
-run startfile test_startfile.cc start.cc handover.cc amiga.cc $C64 $BASEL     # T230 P-2: the start file on the monolith
+run start test_start.cc start.cc handover.cc amiga.cc $BASEL
+run startfile test_startfile.cc start.cc handover.cc amiga.cc $BASEL     # T230 P-2: the start file on the monolith
 # the host key from the host's BUILD register through the hand-over page to the F8 "Reload core" check (board 2026-11-04): a .cor of the running host passes, one of another host is refused with both keys named
-run hostkey test_hostkey.cc start.cc handover.cc amiga.cc $C64 $BASEL
+run hostkey test_hostkey.cc start.cc handover.cc amiga.cc $BASEL
 # T115 7 H2: the pick by id (I1-I5)
 
 ZXN="zxnext.cc $BASEL"
@@ -202,7 +191,7 @@ run romfind test_romfind.cc $ROMF
 
 run boot_atari test_boot_atari.cc $ATARI
 
-run video test_video.cc amiga.cc $ATARI nes.cc ines.cc $C64
+run video test_video.cc amiga.cc $ATARI nes.cc ines.cc c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
 # T136 S3: the A1200's 32-bit pixels: the stride and the format follow the descriptor's bytes per pixel
 
 run settings test_settings.cc $ATARI
@@ -245,7 +234,7 @@ run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc ins
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
-LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $ATARI nes.cc ines.cc $C64"
+LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $ATARI nes.cc ines.cc board.cc"
 run libscan test_libscan.cc $LIBSRC
 GUARDSRC="libguard.cc bootcfg.cc"
 run libguard test_libguard.cc $GUARDSRC
@@ -312,7 +301,7 @@ PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.c
 # T164 S10 (WP15): the EDID into the row mask, the best row (Q6), the list without an EDID (Q9); the row table against host/hdmi_modes.vh
 run edid test_edid.cc edid.cc
 run sid_decide test_sid_decide.cc
-run picture test_picture.cc $PICSRC
+run picture test_picture.cc $PICSRC c64scpu.cc cbm_run.cc freeze.cc
 # T164 WP16 (G2, G14): the gateware is found by its magic and a requested mode is waited for by the status register
 run gwstatus test_gwstatus.cc videomode.cc edid.cc
 # T164 WP16 (S10, S11, S12, Q7): the list, the screen that changes, default and override, confirm or revert
@@ -320,7 +309,7 @@ run pictfollow test_pictfollow.cc $PICSRC
 # T164 D10c amended (Alex 2026-11-04): the Auto value names its mode and whose it is; plain "Auto" has to fail, and so does a first value that a stored label no longer finds
 
 # T107 D7/D8: a core whose gateware owns the picture (the A1200): real frame per mode, Integer without the cap / Fit / Fill, the Scale item for that core only
-SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc $C64"
+SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc"
 run scale test_scale.cc $SCSRC
 # T107 5.9: the menu laid out again with the mode: no relayout, the origin not centred, a fractional factor
 # T164 D10a: the compact canvas below 960 wide: the old fixed 960 x 540 canvas at 800 x 600 / 576p, and a canvas the port is not told of
@@ -343,7 +332,7 @@ run fs64 test_fs64.cc $ROMF atari_atr.cc
 # T104.2 (the generic application on the TRX64 Ultimate monolith). Controls break one expression of the product; the bench has to go red.
 # The C64 model (c64_model.h) is the bench's reading of ultimate_sys.vhd / trx_sys.v / trx_dbg.v, not the gateware: what the board does
 # is the board steps of the spec.
-ALLC="$ATARI nes.cc ines.cc $C64 start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc overlay.cc descrec.cc"
+ALLC="$ATARI nes.cc ines.cc board.cc start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc overlay.cc descrec.cc"
 
 # S2, S4, S11: the profile from the ICAP byte and the hand-over, the capabilities the probes strike, the settings file, the menu without a way back
 run board test_board.cc $ALLC
@@ -354,14 +343,9 @@ control board_cfg_dir board.cc 's|"/flash/%s", core_id);|"/flash/trx64", core_id
 control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->flash_cfg \&\& prof->cfg_dir\[0\] \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
 control board_cfg_named_by_store start.cc 's/prof->cfg_dir, c->desc->folder);/prof->cfg_dir, c->desc->store);/' test_board.cc $ALLC
 
-# S6, S7, S9: the ROMs at the aperture's offsets, the reset, the freeze
-run boot_c64 test_boot_c64.cc $ALLC freeze.cc
-
-# S8, S15, S16: Run PRG, a large PRG through the second port, Load PRG and start from (the CPU's address through the state bus)
-run c64_prg test_c64_prg.cc $ALLC
-# Run Cartridge (.crt of the Library): the image, the type, the descriptor, the reset into the cartridge
-run c64_cart test_c64_cart.cc $ALLC
-control cart_flash_banks c64_cart.cc 's/    if (banks < k->flash_banks) {/    if (false) {/' test_c64_cart.cc $ALLC
+# Run Cartridge (.crt of the Library, the library c64cart): the image, the type, the descriptor, the reset into the cartridge
+run c64_cart test_c64_cart.cc c64_cart.cc $BASEL
+control cart_flash_banks c64_cart.cc 's/    if (banks < k->flash_banks) {/    if (false) {/' test_c64_cart.cc c64_cart.cc $BASEL
 # T154: what a game writes to its cartridge goes back to the .crt (the service, the .crt writer, the C64's flash path). S6 is the event path: without the marks of a program and an erase (the bench's fake gateware still raises them) S1 has to fail.
 WBL="c64_cart.cc $BASEL"
 run writeback test_writeback.cc $WBL
@@ -398,7 +382,7 @@ run writeback_menu test_writeback_menu.cc $WBM
 control wbm_answer_ignored writeback.cc 's/wb_answer(c, a.i(0) != 0, o.msg, o.msglen)/wb_answer(c, true, o.msg, o.msglen)/' test_writeback_menu.cc $WBM
 
 # D6: the address prompt of "Load PRG and start from"
-run prompt test_prompt.cc $ALLC
+run prompt test_prompt.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 
 # D5, S5: w == 0 means the core draws its own picture
 
@@ -637,8 +621,8 @@ run rawkeys test_rawkeys.cc $AM
 run ledload test_ledload.cc $AM
 
 # T190 (#51): Mouse sensitivity / acceleration in the Amiga cores: the rows, a +10 report scaled as each setting says, the restart applying the stored values
-run mousescale test_mousescale.cc amiga.cc $C64 $BASEL
-control scale_store settings.cc 's/^    return write_cfg();$/    return true;/' test_mousescale.cc amiga.cc $C64 $BASEL
+run mousescale test_mousescale.cc amiga.cc $BASEL
+control scale_store settings.cc 's/^    return write_cfg();$/    return true;/' test_mousescale.cc amiga.cc $BASEL
 t_mousescale() {
   python3 -I "$TST/test_mousescale.py" > /dev/null
   return 0
@@ -647,7 +631,7 @@ ca_in shared && cc_block mousescale t_mousescale
 PASS=$((PASS + 1))
 
 # T104.1 5.6: the mouse library, a report stream into the Amiga's counters and the C64's 1351, and the keys-only UI
-run mouselib test_mouselib.cc amiga.cc $C64 $BASEL
+run mouselib test_mouselib.cc amiga.cc $BASEL
 t_mousenav() {
   python3 -I "$TST/test_mousenav.py" > /dev/null
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
@@ -759,7 +743,7 @@ control cf_remove newfile.cc 's|^        fs_->remove(full_); .*|        (void)0;
 # The fixtures are made by the real packer (tools/cor_pack.py, tools/descrec.py): the readers of the board are tested against what the tools write.
 python3 "$TST/gen_bundle.py" "$T/bundles"
 BUN="$T/bundles"
-CARGS="$BUN/desc_test.bin $BUN/desc_trx64u.bin" RARGS="$BUN/desc_test.bin $BUN/desc_trx64u.bin"
+CARGS="$BUN/desc_test.bin $BUN/desc_own.bin" RARGS="$BUN/desc_test.bin $BUN/desc_own.bin"
 run descrec test_descrec.cc overlay.cc descrec.cc
 run overlay test_overlay.cc overlay.cc video.cc videomode.cc edid.cc video_stub.cc                # T256: the overlay service with a fake layer (S1, S7, S9, S10)
 # T104.2 D10: the tables of the core's own menu, the groups of the tabs, the lines of an information tab, the libraries merged at pack time
@@ -827,7 +811,7 @@ run memops test_memops.cc $MEMSRC
 # service on the real NES and SNES descriptors, the mapping wizard in the real menu. Controls: one defect each, the same test built against it must fail.
 PADSRC="snes.cc snes_rom.cc nes.cc ines.cc neogeo.cc neoset.cc $ATARI"
 run hidpad test_hidpad.cc hidpad.cc
-run pad test_pad.cc $PADSRC overlay.cc descrec.cc                   # descrec.cc: T228 R10, the menu record's pad (trx64u's record)
+RARGS="$BUN/desc_own.bin" run pad test_pad.cc $PADSRC overlay.cc descrec.cc                   # descrec.cc: T228 R10, the menu record's pad (golden/desc_own.toml)
 run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
 control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC overlay.cc descrec.cc
 run padmenu test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC

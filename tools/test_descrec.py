@@ -211,8 +211,8 @@ class Reader(unittest.TestCase):
             self.assertIn(part, str(e.exception))
 
 
-MENU = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "cores", "trx64u", "menu.toml")
-OPS = os.path.join(GOLD, "ops_trx64u.txt")
+MENU = os.path.join(GOLD, "desc_test.toml")          # T239.3 P1-8: trx64u's menu is TRX64-Ultimate's; the fixture of the made-up core stands in for "a core's own menu"
+OPS = os.path.join(GOLD, "ops_amiga1200.txt")        # what the shared application exports as the A1200
 
 
 def menu_text():
@@ -227,18 +227,6 @@ def ops_text():
 
 class OwnMenu(unittest.TestCase):
     """T104.2 D10: the tables of the core's own menu (task, media, filetype, core_setting), the info lines, the groups of tasks and media."""
-
-    def test_the_menu_of_trx64u_compiles_and_reads_back(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertTrue(r["own"] and r["route"])
-        # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
-        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 207 core settings (T239.3: the look and the mouse are the application's) and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 23, 207))
-        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
-        self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
-        d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")
-        self.assertEqual((d64["inner_ext"], [a["label"] for a in d64["inner"]]), (".prg", ["Mount & run", "Real run"]))
-        self.assertEqual(next(c for c in r["cset"] if c["key"] == "Freeze mode")["when"], "reset")
 
     def test_every_key_of_the_new_tables_is_checked(self):
         for table, extra in (("task", 'label = "A"\nop = "x.y"\n'), ("media", 'name = "M"\nstate = "s"\n'), ("core_setting", 'key = "K"\nvalues = ["a","b"]\napply = "x"\n')):
@@ -387,13 +375,6 @@ class Pad(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_declares_its_joystick_pad(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], len(r["pad"]["buttons"])), ("joystick", True, 5))
-        self.assertEqual(r["poll"], {"op": "pad.poll", "period_ms": 16})
-        port = next(c for c in r["cset"] if c["apply"] == "pad.port")
-        self.assertEqual((port["group"], port["values"], port["default"]), ("input", ["Port 1", "Port 2"], 1))
-        self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
 
 
 RESTART = """
@@ -438,48 +419,19 @@ class Restart(unittest.TestCase):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_clears_the_c64_ram_on_a_restart(self):
-        self.assertEqual(D.parse_desc(D.compile_text(menu_text()))["restart"], {"clear_ram": 65536, "ram_only": True})
 
 
 class AgainstTheApplication(unittest.TestCase):
-    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""
+    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_amiga1200.txt)."""
 
     def check(self, text):
         ops, states = D.load_ops(ops_text())
         return D.check_ops(D.parse_desc(D.compile_text(text)), ops, states)
 
-    def test_the_menu_of_trx64u_is_what_the_application_exports(self):
-        self.assertEqual(self.check(menu_text()), [])
-        D.compile_checked(menu_text(), ops_text())
-
-    def test_it_refuses_what_the_application_does_not_have(self):
-        text = menu_text()
-        cases = [
-            ("an operation that is not exported", 'op = "machine.cold_reset"', 'op = "machine.cold_resetx"', "does not export"),
-            ("an argument the operation lacks", '{ arg = "slot", str = "iec:drive_a" }', '{ arg = "slotx", str = "iec:drive_a" }', "has no argument"),
-            ("an argument left unbound", 'bind = [ { arg = "app", str = "" }, { arg = "action", str = "" }, { arg = "file", file = true } ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', 'bind = [ ]\n  closes_menu = false\n\n[[filetype]]\next = ".d64"', "unbound"),
-            ("a state that is not exported", 'state = "c64.program"', 'state = "c64.programx"', "state"),
-            ("an ask_state that is not exported", 'ask_state = "drive.suggest.d64"', 'ask_state = "drive.suggest.d65"', "state"),
-            ("a text that is no enum label", 'str = "unlinked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', 'str = "linked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', "does not take"),
-            ("a setting applied by a missing operation", 'apply = "drive.set_ram"', 'apply = "drive.set_ramx"', "does not export"),
-            ("an ask without the typed text", 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", str = "x" }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', "binds it 0 times"),
-        ]
-        for what, old, new, word in cases:
-            self.assertGreaterEqual(text.count(old), 1, what)
-            bad = self.check(text.replace(old, new, 1))
-            self.assertTrue(bad and any(word in b for b in bad), "%s: %r" % (what, bad))
-
-    def test_the_packer_stops_at_the_first_such_menu(self):
-        with self.assertRaises(D.DescError) as e:
-            D.compile_checked(menu_text().replace('apply = "drive.set_ram"', 'apply = "nope"'), ops_text(), what="menu.toml")
-        self.assertIn("menu.toml", str(e.exception))
-        self.assertIn("nope", str(e.exception))
-
     def test_a_check_that_sees_nothing_is_no_check(self):
         # the export that names nothing refuses everything: the check is not vacuous
         bad = D.check_ops(D.parse_desc(D.compile_text(menu_text())), {}, set())
-        self.assertGreater(len(bad), 15)
+        self.assertGreater(len(bad), 5)
 
 
 class LibraryMenus(unittest.TestCase):
@@ -495,7 +447,7 @@ class LibraryMenus(unittest.TestCase):
         own = [n["label"] for n in D.parse_desc(base)["node"]]
         self.assertEqual((merged, kept, r["merged"]), (["gamma"], [], ["gamma"]))
         self.assertEqual([n["label"] for n in r["node"]], own + ["Gamma"])          # the menu's own nodes stay, the library's come after them
-        self.assertEqual([a["label"] for a in r["action"]], ["Play"])
+        self.assertEqual([a["label"] for a in r["action"]], [a["label"] for a in D.parse_desc(base)["action"]] + ["Play"])
         self.assertEqual(len(r["task"]), len(D.parse_desc(base)["task"]))                       # the core's own menu is what it was
         self.assertEqual(D.parse_desc(base)["merged"], [])
 
@@ -970,7 +922,7 @@ size = 0x14
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
     def test_the_windows_granted_to_trx64u_are_accepted(self):
-        # the four windows trx64u's desc.toml has since P1-7; speaker_enable, u64_userport, u64_hdmi_connectors and u64_pwm_duty became TOML A blocks
+        # the four windows TRX64-Ultimate's trx64u desc.toml has since P1-7; speaker_enable, u64_userport, u64_hdmi_connectors and u64_pwm_duty became TOML A blocks
         text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 6), ("c64_palette", 0xA0080800, 0x440),
                                                                                       ("hdmi_palette", 0xA0045000, 0x40)))
         self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 4)
@@ -1397,7 +1349,7 @@ class BaseRows(unittest.TestCase):
         self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
 
     def test_the_rows_are_the_ones_the_application_exports(self):
-        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_trx64u.txt")],
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

@@ -48,9 +48,9 @@ obj/libtab_table.o: lib/libtab_table.cc | obj
 obj/drvtab.o: drv/drvtab.c | obj
 	@$(CC) $(COPTIONS) $(PATH_INC) -MMD -MP -c -o $@ $<
 
-# the core table holds the one core of this app (the core app Makefile's target `own` does the same for trx64u's image); [app] desc names its descriptor symbol. A core that
+# the core table holds the one core of this app; [app] desc names its descriptor symbol. A core that
 # is described by its record (D17) has no descriptor in the app: its table is empty and the start makes the descriptor from the bundle's record
-obj/table.o: CPPOPT += -UCORE_OWN_IMAGE_C64 $(if $(CORE_DESC),-DCORE_ONLY=$(CORE_DESC),-DCORE_NONE)
+obj/table.o: CPPOPT += $(if $(CORE_DESC),-DCORE_ONLY=$(CORE_DESC),-DCORE_NONE)
 
 # sha256 is optimised for speed in the tree's build as well (the hash loop of Reload core)
 obj/sha256.o: COPTIONS += -O3

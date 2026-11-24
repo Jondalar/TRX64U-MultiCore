@@ -1,0 +1,370 @@
+# A core's own menu tables (T239.3 P1-8, in place of the compiled menu of trx64u that these tests read before; that menu is TRX64-Ultimate's now): the record of a
+# made-up core with its own tasks, media, 20 file types (the merge cuts at CONTRIB_FILETYPES_MAX 40, it was cut at 16 once), settings, a restart and a pad.
+# tests/coreapp/gen_bundle.py compiles it to desc_own.bin; test_descrec.cc (the reader and its refusals), test_bundle.cc (the built-in record serves a start
+# without a .cor) and test_pad.cc (a record's pad) read it. Names are the test core's (test_core.h) and the base's; tools/descrec.py checks none of them here.
+
+machine_info = "Sound,Speed"
+
+[restart]
+clear_ram = 65536
+ram_only = true
+
+[[task]]
+group = "top"
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+group = "top"
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+group = "top"
+label = "Do it"
+op = "test.task"
+hotkey = "T"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 3"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 4"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 5"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 6"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 7"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 8"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 9"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 10"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 11"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 12"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "misc"
+label = "Task 13"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "c64"
+label = "Save a copy"
+op = "test.task"
+bind = [ { arg = "name", text = true } ]
+ask = "Name of the copy"
+ask_state = "test.slot"
+
+[[task]]
+group = "c64"
+label = "Task 15"
+op = "test.task"
+closes_menu = true
+
+[[task]]
+group = "c64"
+label = "Make a blank"
+op = "test.task"
+bind = [ { arg = "path", text = true } ]
+ask = "Name of the blank"
+ask_state = "test.slot"
+pick_dir = true
+
+[[media]]
+name = "Slot"
+state = "test.slot"
+eject_op = "test.eject"
+eject_bind = [ { arg = "slot", str = "a" } ]
+exts = ".t00,.t01"
+mount = "Mount"
+mounted_tasks = "Do it,Task 3"
+
+[[media]]
+name = "Cartridge port"
+state = "test.slot"
+eject_op = "test.eject"
+exts = ".t02"
+mount = "Run"
+eject_closes = true
+
+[[media]]
+name = "Program"
+state = "test.slot"
+
+[[filetype]]
+ext = ".t00"
+  [[filetype.action]]
+  label = "Run"
+  key = "R"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load and start from"
+  key = "L"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
+  closes_menu = true
+  ask = "Start address"
+  [[filetype.action]]
+  label = "Load"
+  key = "A"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".t01"
+  [[filetype.action]]
+  label = "Run"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load and start from"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
+  closes_menu = true
+  ask = "Start address"
+  ask_off = 26
+  [[filetype.action]]
+  label = "Load"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".t02"
+  [[filetype.action]]
+  label = "Run"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t03"
+inner_ext = ".t00"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Run"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Real run"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t04"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t05"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t06"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t07"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t08"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t09"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t10"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t11"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t12"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t13"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t14"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t15"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t16"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t17"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t18"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".t19"
+  [[filetype.action]]
+  label = "Mount"
+  op = "test.mount"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[core_setting]]
+group = "Machine"
+key = "Freeze mode"
+values = ["Whole machine", "CPU only"]
+default = 0
+when = "reset"
+apply = "test.set_b"
+
+[[core_setting]]
+group = "Machine"
+key = "Sound"
+values = ["Off", "On"]
+default = 1
+apply = "test.set_a"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Drive"
+label = "Drive enable"
+values = ["Disabled", "Enabled"]
+default = 1
+apply = "test.set_a"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Disk swap delay"
+values = ["0 ms", "100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "1000 ms"]
+default = 0
+apply = "test.set_b"
+
+[pad]
+output = "joystick"
+per_pad = true
+buttons = ["Up", "Down", "Left", "Right", "Fire"]
+default = ["up", "down", "left", "right", "face_bottom"]

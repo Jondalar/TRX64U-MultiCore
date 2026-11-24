@@ -10,7 +10,8 @@
 # leaves its file out; the others are packed (D9.6); the pipeline starts the package only when every job before it is green.
 #
 # trx64u.cor and trx64g.cor (T239.1 D43, replacing D16): the builder packs them from release/imports/*.pin (ci/imports.py) and publishes them as entries
-# imp-<id>-<key>; collect hands them over as bit-imports, and they get the version form of this run here, trx64u.cor this run's coreapp_trx64u.bin.
+# imp-<id>-<key>; collect hands them over as bit-imports. trx64u.cor is TRX64-Ultimate's file (T239.3 D21, P1-8): the package takes it by the sha256 of its pin
+# (release/imports/trx64u.pin) and changes no byte. trx64g.cor gets the version form of this run.
 #
 # The 100T bitstream is not part of this: the builder's target ue2 makes it by hand (T239.1 D16).
 #
@@ -92,7 +93,6 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
 cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
-for f in "$trxapps"/coreapp_*.bin; do [ -e "$f" ] && cp "$f" "${f%.bin}.elf" "$out/"; done   # T228 R25: the images of their own (trx64u)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
@@ -113,11 +113,6 @@ for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
 done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
-for f in "$out"/coreapp_*.bin; do
-  [ -e "$f" ] || continue
-  python3 -I "$ROOT/tools/stamp_version.py" stamp "$f" "${f%.bin}.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
-    || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
-done
 
 # The applications the .cor bundles are packed with: the stage's blueprint image of every core that has a descriptor (stage trxapps, coreapps/). trx64 is a
 # Gideon-base build that lives in another tree and is not built in this repository (T93 5.2); a core without an application is named and skipped by
@@ -189,18 +184,13 @@ else
   echo "no large-core lane handed anything over: no large core in this package"
 fi
 
-# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin without APP_FILE (trx64u) gets this run's stamped image
-# coreapp_<id>.bin (else coreapp.bin) and its commit; every one gets the version form of this run (ci/imports.py finish).
+# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin with COR_SHA256 (trx64u) is checked against its sha256 and taken
+# unchanged; the other (trx64g) gets the version form of this run (ci/imports.py finish).
 if [ -f "$HANDOFF/bit-imports/DONE" ]; then
   for c in "$HANDOFF/bit-imports"/*.cor; do
     [ -e "$c" ] || continue
     id="$(basename "$c" .cor)"
-    if grep -q '^APP_FILE=' "$ROOT/release/imports/$id.pin" 2>/dev/null; then appargs=()
-    else
-      app="$out/coreapp_$id.bin"; [ -f "$app" ] || app="$out/coreapp.bin"
-      appargs=(--app "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")")
-    fi
-    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" ${appargs[@]+"${appargs[@]}"} \
+    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" \
       && python3 "$ROOT/tools/cor_pack.py" check "$out/$id.cor" > /dev/null \
       || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
   done

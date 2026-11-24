@@ -1,6 +1,7 @@
 // T104.2 S2, S4, S11: the board profile is chosen by what the hardware answers (the ICAP byte, the hand-over page), the capabilities of
-// the C64 descriptor are struck by the probes, the settings find their file where the profile says, and the menu has no way back to a
-// host that is not there. The probe is a fake whose answers a test flips; the descriptor is the real one.
+// a monolith core are struck by the probes, the settings find their file where the profile says, and the menu has no way back to a
+// host that is not there. The probe is a fake whose answers a test flips; the descriptor is the stub `monocore` below: the Atari's with the
+// seven capabilities, the core id and the folder of a monolith core (T239.3 P1-8: trx64u's descriptor is TRX64-Ultimate's, board.cc is the base's).
 #include <string>
 #include "check.h"
 #include "fakes.h"
@@ -8,13 +9,32 @@
 #include "start.h"
 #include "menuctl.h"
 #include "cores.h"
-#include "trx64u_menu.h"
 #include "settings.h"
 #include "handover.h"
 #include "romfind.h"
 #include "keyboard.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+
+// the stub of a monolith core: its folder is "c64" and its settings section ("store") differs from it, so a settings path made from the store instead of the folder shows
+static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
+static const char *const mono_freeze[] = { "Whole machine", "CPU only" };
+static const Setting mono_settings[] = { { "Freeze mode", mono_freeze, 2, 0, WHEN_RESET, "mono.freeze" } };
+static CoreDesc make_mono()
+{
+    CoreDesc d = atari800_desc;
+    d.cor_name = "TRX64U";
+    d.folder = "c64";
+    d.store = "C64 Settings";
+    d.core_id = "trx64u";
+    d.caps = mono_caps;
+    d.ncaps = 7;
+    d.board_caps = true;
+    d.settings = mono_settings;
+    d.nsettings = 1;
+    return d;
+}
+static const CoreDesc monocore = make_mono();
 
 #define CHECK_TXT(s, b) do { std::string _s = (s); CHECK_STR(_s.c_str(), b); } while (0)
 
@@ -130,7 +150,7 @@ int main()
         CoreCtx c;
         memset(&c, 0, sizeof(c));
         FakeIo io; FakeFs fs; Host host;
-        c.desc = &c64_desc; c.io = &io; c.fs = &fs; c.board = &p;
+        c.desc = &monocore; c.io = &io; c.fs = &fs; c.board = &p;
         MenuCtl mc_ctl(&c, &host);
         CHECK_EQ(has_entry(mc_ctl.tree(), EK_RETURN_HOST), k == 1);
         CHECK(has_entry(mc_ctl.tree(), EK_RESET_HOST));
@@ -139,7 +159,7 @@ int main()
         CoreCtx c;
         memset(&c, 0, sizeof(c));
         FakeIo io; FakeFs fs; Host host;
-        c.desc = &c64_desc; c.io = &io; c.fs = &fs;
+        c.desc = &monocore; c.io = &io; c.fs = &fs;
         MenuCtl ctl(&c, &host);
         CHECK(has_entry(ctl.tree(), EK_RETURN_HOST));
     }
@@ -169,7 +189,7 @@ int main()
             CoreCtx c;
             memset(&c, 0, sizeof(c));
             FakeIo io; FakeFs fs; Host host;
-            c.desc = &c64_desc; c.io = &io; c.fs = &fs; c.board = p;
+            c.desc = &monocore; c.io = &io; c.fs = &fs; c.board = p;
             MenuCtl ctl(&c, &host);
             CHECK_EQ(has_entry(ctl.tree(), EK_RETURN_HOST), cases[i].offer);
         }
@@ -185,16 +205,16 @@ int main()
     {
         const char *out[16];
         char struck[80];
-        int n = board_effective_caps(m, c64_desc.caps, c64_desc.ncaps, out, 16, struck, sizeof(struck));
+        int n = board_effective_caps(m, monocore.caps, monocore.ncaps, out, 16, struck, sizeof(struck));
         CHECK_EQ(n, 7);                                   // the monolith: all seven
         CHECK_STR(struck, "");
-        for (int i = 0; i < c64_desc.ncaps; i++) CHECK(names(out, n, c64_desc.caps[i]));
+        for (int i = 0; i < monocore.ncaps; i++) CHECK(names(out, n, monocore.caps[i]));
 
         // MultiCore trx64 core: no T37 sockets (the registers are write only, so the profile answers), and a build without the UCI
         mc.valid = true;
         mc.fpga = BOARD_FPGA_DRIVE_1541_1;
         BoardProfile h2 = board_detect(&mc);
-        n = board_effective_caps(h2, c64_desc.caps, c64_desc.ncaps, out, 16, struck, sizeof(struck));
+        n = board_effective_caps(h2, monocore.caps, monocore.ncaps, out, 16, struck, sizeof(struck));
         CHECK_EQ(n, 5);
         CHECK(!names(out, n, "sid_sockets") && !names(out, n, "uci"));
         CHECK(names(out, n, "drive_a") && names(out, n, "iec") && names(out, n, "cartridge") && names(out, n, "reu") && names(out, n, "ring"));
@@ -212,7 +232,7 @@ int main()
             FakeProbe p;
             t.strip(p);
             BoardProfile bp = board_detect(&p);
-            n = board_effective_caps(bp, c64_desc.caps, c64_desc.ncaps, out, 16, struck, sizeof(struck));
+            n = board_effective_caps(bp, monocore.caps, monocore.ncaps, out, 16, struck, sizeof(struck));
             CHECK_EQ(n, 6);
             CHECK(!names(out, n, t.name));
             CHECK_STR(struck, t.name);
@@ -226,18 +246,18 @@ int main()
         CHECK_EQ(n, 2);
         CHECK(names(out, n, "sio") && names(out, n, "drive_b") && !names(out, n, "cartridge"));
         // the table is read by the output limit too
-        n = board_effective_caps(m, c64_desc.caps, c64_desc.ncaps, out, 3, 0, 0);
+        n = board_effective_caps(m, monocore.caps, monocore.ncaps, out, 3, 0, 0);
         CHECK_EQ(n, 3);
     }
     // the Atari and the NES list what they have and ask for no striking
-    CHECK(!atari800_desc.board_caps && !nes_desc.board_caps && c64_desc.board_caps);
+    CHECK(!atari800_desc.board_caps && !nes_desc.board_caps && monocore.board_caps);
 
     // ---- T104.1 5.5: where the boot-attempt counter lives - a path the flash guard lets through, one per profile
     CHECK_STR(h.boot_cfg, "/Flash/boot.cfg");
     CHECK_STR(hd.boot_cfg, "/Flash/boot.cfg");
     CHECK(!fs_write_refused(h.boot_cfg));
     CHECK(fs_write_refused("/flash/trx64u/boot.cfg") && fs_write_refused("/flash/trx64u/c64.cfg"));   // before the core is known nothing of the flash is open
-    CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));        // trx64u's descriptor: today's paths
+    CHECK(board_set_core(&m, monocore.core_id, monocore.folder));        // the monolith core's paths
     CHECK_STR(m.cfg_dir, "/flash/trx64u");
     CHECK_STR(m.boot_cfg, "/flash/trx64u/boot.cfg");
     CHECK(!fs_write_refused(m.boot_cfg) && !fs_write_refused("/flash/trx64u/c64.cfg") && !fs_write_refused("/Flash/boot.cfg"));
@@ -251,7 +271,7 @@ int main()
         CHECK(!fs_write_refused("/flash/vc20/vic20.cfg") && !fs_write_refused("/FLASH/VC20/BOOT.CFG"));
         CHECK(fs_write_refused("/flash/trx64u/c64.cfg") && fs_write_refused("/flash/trx64u/boot.cfg"));
         CHECK(fs_write_refused("/flash/vc20/c64.cfg") && fs_write_refused("/flash/vc20/boot.cfg.bak"));
-        CoreDesc d = c64_desc;                                           // the settings file is "<cfg_dir>/<folder>.cfg": the folder of the descriptor, in the id's directory
+        CoreDesc d = monocore;                                           // the settings file is "<cfg_dir>/<folder>.cfg": the folder of the descriptor, in the id's directory
         d.folder = "vic20";
         CoreCtx cv;
         memset(&cv, 0, sizeof(cv));
@@ -269,7 +289,7 @@ int main()
         CHECK(board_set_core(&bad, "", "c64") && !bad.cfg_dir[0]);
         CoreCtx cn;
         memset(&cn, 0, sizeof(cn));
-        cn.desc = &c64_desc;
+        cn.desc = &monocore;
         start_paths(&cn, 0, &bad);
         CHECK_STR(cn.cfg_path, "");
         // a folder that is no name leaves the counter's file open and the settings file shut
@@ -286,21 +306,21 @@ int main()
             std::string cut = std::string(lg.cfg_dir) + "/" + fo + ".cfg";
             cut.resize(FS_FLASH_EXC_LEN - 1);
             CHECK(fs_write_refused(cut.c_str()));
-            CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));
+            CHECK(board_set_core(&m, monocore.core_id, monocore.folder));
         }
         // the MultiCore profile is not touched: no flash directory, the host's file, nothing registered
         BoardProfile hh = h;
         CHECK(board_set_core(&hh, "vc20", "vic20") && !hh.cfg_dir[0]);
         CHECK_STR(hh.boot_cfg, "/Flash/boot.cfg");
         CHECK(fs_write_refused("/flash/vc20/vic20.cfg"));
-        CHECK(board_set_core(&m, c64_desc.core_id, c64_desc.folder));    // back to trx64u for the rest
+        CHECK(board_set_core(&m, monocore.core_id, monocore.folder));    // back to trx64u for the rest
     }
 
     // ---- S11: where the settings live. The monolith has no .cor, so the profile gives the directory, and the file is named by the folder.
     {
         CoreCtx c;
         memset(&c, 0, sizeof(c));
-        c.desc = &c64_desc;
+        c.desc = &monocore;
         start_paths(&c, 0, &m);
         CHECK_STR(c.cfg_path, "/flash/trx64u/c64.cfg");    // the one file the CoreFs lets through the flash guard (fsif.h)
         CHECK_STR(c.cfg_path, "/flash/trx64u/c64.cfg");
@@ -312,7 +332,7 @@ int main()
             off.flash_cfg = false;
             CoreCtx c2;
             memset(&c2, 0, sizeof(c2));
-            c2.desc = &c64_desc;
+            c2.desc = &monocore;
             start_paths(&c2, 0, &off);
             CHECK(!c2.cfg_path[0]);
             BoardProfile on = h;                           // the MultiCore profile with the parameter on: the flash file again
@@ -354,7 +374,7 @@ int main()
         }
         {   // settings are not lost: the flash file is copied into the core's folder once, the original stays, an existing .cfg is never overwritten
             FakeFs sf;
-            CHECK(board_set_core(&mh, c64_desc.core_id, c64_desc.folder));   // T239.3 P1-5: the flash directory the old file lies in is named by the core's record
+            CHECK(board_set_core(&mh, monocore.core_id, monocore.folder));   // T239.3 P1-5: the flash directory the old file lies in is named by the core's record
             c.fs = &sf;
             sf.put("/flash/trx64u/c64.cfg", std::vector<uint8_t>{'a', '=', '1', '\n'});
             CHECK(start_migrate_cfg(&c, &mh));
@@ -380,7 +400,7 @@ int main()
         CHECK_STR(nod.cfg_path, "");
     }
     {   // the value survives a restart; with the path unwritable it does not, and the screen is told why
-        const CoreDesc *cd = trx64u::desc();                       // the C64's settings are in its menu record (T104.2 D10)
+        const CoreDesc *cd = &monocore;
         const Setting *it = cd->settings;
         FakeFs fs;
         {

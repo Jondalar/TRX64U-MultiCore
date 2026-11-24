@@ -16,7 +16,6 @@ OPTIONS   = -march=$(MARCH) -mabi=$(MABI) -ffunction-sections -fdata-sections -n
 OPTIONS  += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
 OPTIONS  += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1
 OPTIONS  += -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
-OPTIONS  += -DCORE_OWN_IMAGE_C64
 COPTIONS  = $(OPTIONS) -std=gnu99
 CPPOPT    = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
 LFLAGS    = --gc-sections --wrap=pvPortMalloc --wrap=_sbrk --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
