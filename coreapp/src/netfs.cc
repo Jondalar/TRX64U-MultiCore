@@ -92,6 +92,7 @@ static bool ol_stat(const char *rel, uint64_t *size, bool *dir) { const OnlineAp
 static uint8_t *ol_alloc(uint32_t n) { return (uint8_t *)malloc(n); }
 static uint8_t *ol_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, ol_alloc, len) : 0; }
 static const char *ol_error(void) { const OnlineApi *a = online_api(); return a ? a->error() : "No online search in this app"; }
+static bool ol_loading(void) { const OnlineApi *a = online_api(); return a && a->loading && a->loading(); }
 
 static bool is_online(const char *p, const char **rel)
 {
@@ -123,8 +124,9 @@ struct NetFs::Impl {
     uint32_t dir_t;
 };
 
-NetFs::NetFs(CoreFs *inner) : in_(inner), c_(0), impl_(new Impl())
+NetFs::NetFs(CoreFs *inner) : in_(inner), c_(0), loading_(false), impl_(new Impl())
 {
+    why_[0] = 0;
     memset(impl_, 0, sizeof(Impl));
     impl_->dir_host = -1;
     err_[0] = 0;
@@ -238,6 +240,8 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
     int host;
     char remote[FS_PATH_MAX];
     Host h;
+    loading_ = false;
+    why_[0] = 0;
     if (!strcmp(dir, "/") || !dir[0]) {
         int n = in_->list(dir, out, max);
         if (n < 0 || n >= max) {
@@ -266,6 +270,10 @@ int NetFs::list(const char *dir, FsEntry *out, int max)
         int k = ol_list(orel, out, max);
         if (k < 0) {
             snprintf(err_, sizeof(err_), "%s", ol_error());
+            loading_ = ol_loading();                           // D41: a job is fetching the folder: the Library waits and lists it again
+            if (!loading_) {
+                snprintf(why_, sizeof(why_), "%s", err_);
+            }
         }
         return k;
     }

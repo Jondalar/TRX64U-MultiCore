@@ -51,6 +51,7 @@
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
     const char *core = 0, *desc = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
+    const char *loading = 0;                                                         // T239.3 D41: --loading DIR[,N], a folder a job still fetches: its list fails N times (default 1000) and says loading
     bool paused = false, stopped = false, elements = false;                         // T256: the PAUSED tag over the still; the places of the elements of the UI TOML
     bool picture = false;                                                            // T256: --picture X,Y,W,H, the running picture of a frame-buffer core on the canvas (the still has its geometry)
     int pic[4] = { 0, 0, 0, 0 };
@@ -62,7 +63,8 @@ static void usage(void)
 {
     fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
                     "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n"
-                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H]\n");
+                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H] [--loading DIR[,N]]\n"
+                    "        keys also: FIND:text SEL:n GOTO:F3/tab (the main loop's goto_screen to a place) LIBDIR:/path (lib.show: the Library opens there) PUMP:n (n passes of the menu's clock)\n");
     exit(2);
 }
 
@@ -397,6 +399,12 @@ static void start_rig(bool replay)
     g_rig->c.started = true;
     g_rig->c.program_loaded = true;
     fill_stick(g_rig);
+    if (o.loading) {
+        std::string d = o.loading;
+        size_t comma = d.rfind(',');
+        g_rig->fs.slow_n = comma == std::string::npos ? 1000 : atoi(d.c_str() + comma + 1);
+        g_rig->fs.slow_dir = comma == std::string::npos ? d : d.substr(0, comma);
+    }
     video_place_menu(&g_rig->px, mode.hdmi, mode.sys);
     g_open = true;
     ui_menu_visible(true);
@@ -532,6 +540,7 @@ int main(int argc, char **argv)
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
         else if (a == "--say") { o.say = val(); }
+        else if (a == "--loading") { o.loading = val(); }
         else if (a == "--paused") { o.paused = true; }
         else if (a == "--stopped") { o.stopped = true; }
         else if (a == "--elements") { o.elements = true; }
@@ -617,6 +626,24 @@ int main(int argc, char **argv)
                 }
                 ui_menu_render(*g_rig->m);
                 printf("%s -> row %d\n", k.c_str(), g_rig->m->selected());
+                continue;
+            }
+            if (!k.compare(0, 5, "GOTO:")) {                    // T256 D13: what the main loop does for goto_screen("F3/tab"): the menu goes to the place (menuctl goto_spec)
+                bool ok = g_rig->m->goto_spec(k.c_str() + 5);
+                for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
+                ui_menu_render(*g_rig->m);
+                lv_timer_handler();
+                printf("%s -> %s\n", k.c_str(), ok ? "went" : "no such place");
+                continue;
+            }
+            if (!k.compare(0, 5, "PUMP:")) {                    // n passes of the controller's own clock (the run loop's pass: the relist of the Library, a job's chunk); each pass lets the rig's clock run 100 ms first
+                for (int i = 0, n = atoi(k.c_str() + 5); i < n; i++) { g_rig->c.io->delay_ms(100); if (g_rig->m->pump(true)) { ui_menu_render(*g_rig->m); } }
+                ui_menu_render(*g_rig->m);
+                lv_timer_handler();
+                continue;
+            }
+            if (!k.compare(0, 7, "LIBDIR:")) {                  // what the operation lib.show leaves for the Library: the folder it opens on at the next goto
+                snprintf(g_rig->c.lib.want_dir, sizeof(g_rig->c.lib.want_dir), "%s", k.c_str() + 7);
                 continue;
             }
             int code = sim_key_of(k.c_str());

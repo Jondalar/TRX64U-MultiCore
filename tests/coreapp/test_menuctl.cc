@@ -360,6 +360,39 @@ int main()
     u.m->key(KEY_F1);                                             // off the browser: nothing to read again
     u.fs.put("/usb0/later.atr", atr());
     CHECK(!u.m->relist());
+    // --- T239.3 D41: a folder that a job still fetches shows "Loading ..." as its last line, is read again at once while it loads, and fills when the job ends; a failure says its reason there
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.fs.put_size("/usb0/slow/one.atr", 100);
+        w.fs.slow_dir = "/usb0/slow";
+        w.fs.slow_n = 2;
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("slow/"); w.m->key(KEY_RETURN);                       // the folder is entered while its job runs
+        CHECK(w.find_row("one.atr") < 0);
+        CHECK(w.find_row("Loading ...") >= 0);                        // the wait line, no entry
+        CHECK(w.m->rows() == 2);                                      // ".." and the line
+        CHECK(!w.m->relist());                                        // second read: still loading, the line stays and nothing changed: no redraw
+        CHECK(w.find_row("Loading ...") >= 0);
+        CHECK(w.m->relist());                                         // the job has ended: the folder fills, the line is gone
+        CHECK(w.find_row("one.atr") >= 0);
+        CHECK(w.find_row("Loading ...") < 0);
+        CHECK(!w.m->relist());
+        // the other ending: the job failed, its reason is the last line and stands on the status row once
+        w.fs.slow_n = 1;
+        w.fs.slow_why = "The server gave no files";
+        w.m->key(KEY_LEFT);
+        w.go_to("slow/"); w.m->key(KEY_RETURN);
+        CHECK(w.find_row("Loading ...") >= 0);
+        CHECK(w.m->relist());                                         // loading ended with the reason
+        CHECK(w.find_row("The server gave no files") >= 0);
+        CHECK(w.find_row("Loading ...") < 0);
+        CHECK(w.find_row("one.atr") < 0);
+        CHECK(w.m->relist());                                         // asks again: the folder fills
+        CHECK(w.find_row("one.atr") >= 0);
+    }
     // --- the media level is the way between media in every layout: RETURN on ../ and LEFT at the top of a medium lead to it, a medium's row opens it
     {
         Rig w(&atari800_desc);

@@ -48,6 +48,9 @@ struct FileMgr {
     FsEntry *list;                       // the entries, from the heap, `cap` of them (listgrow.h: 512 first, more while the folder needs it)
     int cap, marked_cap;
     bool more;                           // the folder is longer than the list the heap budget allows: the Library says so on a last line
+    bool loading = false;                // T239.3 D41: the medium is still fetching the folder (CoreFs::loading); the Library says "Loading" on a last line and reads the folder again soon
+    char why[96] = "";                   // the medium's reason when the folder cannot be read (CoreFs::why); the last line says it
+    char said_path[200] = "";            // the folder whose reason was put on the status row already (once per folder, relist reads it again)
     int nlist;
     bool dir_ok;
     int sel;                             // the cursor
@@ -103,6 +106,8 @@ struct FileMgr {
     bool media_level() const;                       // the Library stands on "/": the list of the media
     bool medium_at(int i, MediumInfo *mi) const;
     void more_text(char *out, int n) const;         // the last line of a list the heap budget cut
+    bool has_note() const { return !vmode && (more || loading || (!dir_ok && why[0])); }      // the list has a last line that is no entry: Loading, the medium's reason, or "more"
+    void note_text(char *out, int n) const;
     void browse_row(int i, BrowseRow *r, const char *marks_spec) const;
 
     // ---- search and quick seek ----

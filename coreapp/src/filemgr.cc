@@ -166,6 +166,8 @@ bool FileMgr::ext_wanted(const char *name) const
 void FileMgr::load_dir()
 {
     if (vmode) {                                                  // a search result or the entries of a tape: the list stands, the folder is not read
+        loading = false;
+        why[0] = 0;
         lib_sync();
         return;
     }
@@ -185,6 +187,15 @@ void FileMgr::load_dir()
     }
     int n = ListGrow::read(c->fs, path, &list, &cap, up, &more);
     snprintf(list_path, sizeof(list_path), "%s", path);
+    loading = n < 0 && c->fs->loading();                           // D41: a job fetches the folder: "Loading", and relist() reads it again until the job has ended
+    why[0] = 0;
+    if (n < 0 && !loading) {
+        snprintf(why, sizeof(why), "%s", c->fs->why());
+        if (why[0] && strcmp(said_path, path)) {                   // the reason goes to the status row once per folder
+            snprintf(said_path, sizeof(said_path), "%s", path);
+            say(why, true);
+        }
+    }
     if (!ensure_list()) {                                         // no flags for the entries (marked is null): nothing may be listed
         dir_ok = false;
         more = false;
@@ -257,11 +268,15 @@ bool FileMgr::relist()
     char roots_before[sizeof(roots)];
     memcpy(roots_before, roots, sizeof(roots));
     int nroots_before = nroots;
+    const bool loading_before = loading;
+    char why_before[sizeof(why)];
+    memcpy(why_before, why, sizeof(why));
     load_dir();
     refresh_roots();                                               // a stick that mounted late is a new source chip
     bool roots_same = nroots == nroots_before && !memcmp(roots_before, roots, sizeof(roots));
+    const bool note_same = loading == loading_before && !strcmp(why, why_before);   // D41: the last line (Loading, the reason) changed
     if (list_sum(list, nlist) == before) {
-        return !roots_same;
+        return !roots_same || !note_same;
     }
     for (int i = 0; i < nlist; i++) {
         if (!strcmp(list[i].name, was)) {
@@ -394,11 +409,22 @@ void FileMgr::more_text(char *out, int n) const
     snprintf(out, n, "... more not shown");
 }
 
+void FileMgr::note_text(char *out, int n) const
+{
+    if (loading) {
+        snprintf(out, n, "Loading ...");
+    } else if (!dir_ok && why[0]) {
+        snprintf(out, n, "%s", why);
+    } else {
+        more_text(out, n);
+    }
+}
+
 void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
 {
     memset(r, 0, sizeof(*r));
-    if (i == nlist && more && !vmode) {
-        more_text(r->name, sizeof(r->name));
+    if (i == nlist && has_note()) {
+        note_text(r->name, sizeof(r->name));
         r->info = true;
         return;
     }
