@@ -71,7 +71,7 @@ UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compile
 find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
 python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"
-INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$VC20LIB" -I"$T/vc20tab/drv" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$VC20LIB" -I"$T/vc20wd/drv" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 build() {
   local out="$1" test="$2"; shift 2
   local files=()
@@ -686,8 +686,12 @@ run d1541_fs test_d1541_fs.cc $FSL
 run longnames test_longnames.cc $AM
 control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_NAME_MAX - le : lb;/size_t keep = lb;/' test_longnames.cc $AM
 
+# test_cbm1541 against the VIC-20's own table (no drive_wd: a .d81 is refused); every other unit sees the table with drive_wd first on the include path (INC above),
+# so the C64 family's 1581 (test_c64scpu, test_c128: a .d81 in drive A) is compiled in, as in the shared app's table
+INC_SAVE=("${INC[@]}"); INC=(-I"$T/vc20tab/drv" "${INC[@]}")
 run cbm1541 test_cbm1541.cc $VC20
-# the same test against a table that has the block drive_wd (d1541_wd.cc compiled, the 1581 tests run); the line above runs it against the VIC-20's own table (no drive_wd: a .d81 is refused)
+INC=("${INC_SAVE[@]}")
+# the same test against a table that has the block drive_wd (d1541_wd.cc compiled, the 1581 tests run)
 INC_SAVE=("${INC[@]}"); INC=(-I"$T/vc20wd/drv" "${INC[@]}")
 run cbm1541_wd test_cbm1541.cc $VC20
 INC=("${INC_SAVE[@]}")
