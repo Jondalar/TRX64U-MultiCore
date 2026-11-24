@@ -216,11 +216,10 @@ static void fill_stick(Rig *r)
 // One line per key press, taken after the UI has settled: the pixels the display's flush callback received (the sum of the areas, as the board's
 // software renderer has to draw them), the flush calls, the objects of the screen that lie in those areas (LVGL does not count what it draws; this is
 // every visible object whose box meets a flushed area, the objects the renderer has to consider), the path ui.cc took (a selection restyle, a retext in
-// place, or the pane built again), the times, and what the stubs count: state functions asked, file lists and writes. Only the flush callback is
+// place, or the pane built again), the times, and what the rig counts: file lists and writes. Only the flush callback is
 // wrapped; the application is not touched. The settle loop runs at least two and up to 20 more LVGL passes after a key, and each pass reads the rig's clock (which steps
 // 50 ms per read in the headless mode), so the simulated time runs further per key than in a --keys/--shot run: anything timed (a toast's timeout, an
 // animation) can differ between a --stats/--shots run and a run without them. Two trees run with the same press() are compared fairly.
-extern int stub_state_calls;                                  // tests/coreapp/board_stubs.cc: the state functions of the TRX64U's operations that the stubs answer
 static lv_display_flush_cb_t g_flush_orig;
 static long g_fl_px;
 static int g_fl_calls;
@@ -358,7 +357,7 @@ static void press(int code, bool log, const char *name)
         return;
     }
     g_fl_px = 0; g_fl_calls = 0; g_fl_areas.clear(); g_us_ui = g_us_lv = 0;
-    int st0 = stub_state_calls, ls0 = g_rig->fs.lists, wr0 = g_rig->fs.writes;
+    int ls0 = g_rig->fs.lists, wr0 = g_rig->fs.writes;
     const Settings::FindStats fs0 = Settings::find_stats();
     uint32_t ch0 = ui_cheap_moves(), ip0 = ui_inplace_moves();
     long long t0 = now_us();
@@ -379,8 +378,8 @@ static void press(int code, bool log, const char *name)
     const Settings::FindStats fs1 = Settings::find_stats();
     const Settings::FindStats fd = { fs1.calls - fs0.calls, fs1.compares - fs0.compares, fs1.linear - fs0.linear };     // Settings::find in this key: calls, key comparisons, what the linear scan would have compared
     if (s_out) {
-        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld states=%d fs_lists=%d fs_writes=%d finds=%u cmps=%u lin=%u\n", g_press_n, name, path,
-                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, stub_state_calls - st0, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0, fd.calls, fd.compares, fd.linear);
+        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld fs_lists=%d fs_writes=%d finds=%u cmps=%u lin=%u\n", g_press_n, name, path,
+                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0, fd.calls, fd.compares, fd.linear);
     }
     if (o.shots) { shot_now(o.shots, g_press_n, name); }
     if (s_out) {

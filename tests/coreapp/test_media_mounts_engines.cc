@@ -9,7 +9,11 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#include "c64_rig.h"
+#include "c64_model.h"
+#include "boot.h"
+#include "cores.h"
+#include "settings.h"
+#include "ops_glue.h"
 #include "c64_cart.h"
 #include "drive_model.h"
 #include "disk_build.h"
@@ -25,7 +29,7 @@
 #include "c264_regs.h"
 #include "d1541_drive.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc,
                                        &c128_desc, &amiga_desc, &amiga1200_desc, 0 };
 
 typedef std::vector<uint8_t> Bytes;
@@ -58,21 +62,32 @@ struct NeoIo : FakeIo {                                  // the Neo Geo's regist
     }
 };
 
-struct C64DIo : C64Model {                               // the C64 with the drive window
-    DriveModel dm;
-    bool drv_present() { return dm.present; }
-    uint8_t drv_rd(uint32_t off) { return dm.rd(off); }
-    void drv_wr(uint32_t off, uint8_t v) { dm.wr(off, v); }
-    uint8_t *drv_buffer(uint32_t bytes, uint32_t *phys) { return dm.buffer(bytes, phys); }
-    void ddr_abs_write(uint32_t addr, const void *p, uint32_t n)
-    {
-        if (addr >= 0x00EA8000u && addr < 0x00F00000u) dm.abs_write(addr, p, n); else C64Model::ddr_abs_write(addr, p, n);
-    }
-    void ddr_abs_read(uint32_t addr, void *p, uint32_t n)
-    {
-        if (addr >= 0x00EA8000u && addr < 0x00F00000u) dm.abs_read(addr, p, n); else C64Model::ddr_abs_read(addr, p, n);
-    }
-};
+// The cartridge port of a C64 core (T239.3 P1-8: the C64 core is TRX64-Ultimate's; this stub core has the one slot "Cartridge" the library c64_cart.cc serves, on the C64 model): the reset's hold and
+// release, the end of the SID player's cartridge with it, and the slot's three calls into the library.
+static int cart_init(CoreCtx *c, char *, int) { c->io->mode_reset(true); c64_cart_player_end(c); return 0; }
+static int cart_release(CoreCtx *c, char *, int) { c->io->mode_reset(false); return 0; }
+static const char *const cart_slot_names[] = { "Cartridge" };
+static const char *cart_slot_spec(CoreCtx *, int) { return c64_cart_active() && c64_cart_path()[0] ? c64_cart_path() : 0; }
+static int cart_slot_mount(CoreCtx *c, int, const char *spec, char *msg, int msglen) { return c64_cart_run(c, spec, msg, msglen) ? 1 : 0; }
+static int cart_slot_eject(CoreCtx *c, int, char *msg, int msglen) { return c64_cart_remove(c, msg, msglen) ? 1 : 0; }
+static const MountSlots cart_slots = { 1, cart_slot_names, cart_slot_spec, cart_slot_mount, cart_slot_eject };
+static CoreDesc make_cart_core()
+{
+    CoreDesc d;
+    memset(&d, 0, sizeof(d));
+    strcpy(d.id, "CRT_");
+    d.cor_name = "Cartridge Port";
+    d.title = "Cartridge Port";
+    d.short_title = "CRT";
+    d.folder = "cartport";
+    d.store = "cartport";
+    d.init = cart_init;
+    d.release = cart_release;
+    d.reset_ms = 1;
+    d.mount_slots = &cart_slots;
+    return d;
+}
+static CoreDesc g_cart_core = make_cart_core();
 
 // ---- what a core's profile says --------------------------------------------------------------------------------------------------------
 struct Run;
@@ -88,7 +103,7 @@ struct Watch { std::function<uint32_t(CoreIo *)> read; uint32_t want; const char
 struct Prof {
     std::string name, cfg;
     const CoreDesc *base;
-    bool c64 = false;
+    bool cart = false;                                   // the cartridge port of the C64 library: its state lives in the application, so a run that ends removes it
     bool game = false;                                   // the cartridge is the program: without one the start waits for it
     std::function<CoreIo *()> make_io;
     std::function<void(FakeFs &)> world;
@@ -142,22 +157,13 @@ struct Run {
     Setting items[SETTINGS_MAX];
     CoreCtx c;
     Settings *st = 0;
-    RigProbe probe;
-    BoardProfile board;
     Ui ui;
     Run(FakeFs &f, const Prof &prof, bool fake_hooks = false) : fs(f), p(prof)
     {
         io.reset(p.make_io());
         memset(&c, 0, sizeof(c));
-        if (p.c64) {
-            desc = *trx64u::desc();
-            c.merge = trx64u::merge();
-            board = board_detect(&probe);
-            c.board = &board;
-        } else {
-            const char *why = persist_extend(p.base, &desc, items);
-            if (why) { printf("FAIL persist_extend: %s\n", why); g_fails++; }
-        }
+        const char *why = persist_extend(p.base, &desc, items);
+        if (why) { printf("FAIL persist_extend: %s\n", why); g_fails++; }
         desc.nroms = 0;
         desc.romset = 0;
         desc.cold_start = 0;
@@ -185,7 +191,7 @@ struct Run {
     }
     ~Run()
     {
-        if (p.c64) {                                      // the cartridge port of the C64 keeps its state in the application: a start again has none
+        if (p.cart) {                                     // the cartridge port of the C64 keeps its state in the application: a start again has none
             char m[160];
             c.mount_changed = 0;
             c.media_restoring = true;
@@ -483,22 +489,18 @@ static std::vector<Prof> profiles()
         }
         v.push_back(p);
     }
-    {   // ---- C64: the drive library's Drive A and the cartridge port
+    {   // ---- the cartridge port of the C64 library (c64_cart.cc), on the C64 model
         Prof p;
-        p.name = "c64"; p.cfg = "/usb0/cores/trx64u/trx64u.cfg"; p.base = &c64_desc; p.c64 = true;
-        p.make_io = [] { return (CoreIo *)new C64DIo; };
-        p.world = [](FakeFs &fs) {
-            fs.put("/usb0/a.d64", d64("A")); fs.put("/usb0/b.d64", d64("B"));
-            fs.put("/usb0/a.crt", crt8(0x10)); fs.put("/usb0/b.crt", crt8(0x20));
-        };
-        p.cases = { cbm_drive() };
+        p.name = "c64cart"; p.cfg = "/usb0/cores/cartport/cartport.cfg"; p.base = &g_cart_core; p.cart = true;
+        p.make_io = [] { return (CoreIo *)new C64Model; };
+        p.world = [](FakeFs &fs) { fs.put("/usb0/a.crt", crt8(0x10)); fs.put("/usb0/b.crt", crt8(0x20)); };
         Case cart;
         cart.key = "Mount Cartridge";
         cart.drops = true;
         cart.a = "/usb0/a.crt";
         cart.b = "/usb0/b.crt";
-        cart.mount = [](Run &r, const std::string &path, char *m, int n) { ((C64DIo *)r.io.get())->stop(true); int rc = mount_op(r, "c64.run_crt", { in_str("path", path.c_str()) }, m, n); ((C64DIo *)r.io.get())->stop(false); return rc; };
-        cart.eject = [](Run &r, char *m, int n) { ((C64DIo *)r.io.get())->stop(true); int rc = mount_op(r, "c64.remove_cart", {}, m, n); ((C64DIo *)r.io.get())->stop(false); return rc; };
+        cart.mount = [](Run &r, const std::string &path, char *m, int n) { ((C64Model *)r.io.get())->stop(true); int rc = r.c.desc->mount_slots->mount(&r.c, 0, path.c_str(), m, n); ((C64Model *)r.io.get())->stop(false); return rc; };
+        cart.eject = [](Run &r, char *m, int n) { ((C64Model *)r.io.get())->stop(true); int rc = r.c.desc->mount_slots->eject(&r.c, 0, m, n); ((C64Model *)r.io.get())->stop(false); return rc; };
         p.cases.push_back(cart);
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->cart_rd(C64_CARTREG_TYPE); }, 0x41, "the cartridge type set before the release" } };
         v.push_back(p);
@@ -553,8 +555,7 @@ static void menu_rows(const Prof &p)
     bool persist = false;
     for (int i = 0; i < r.desc.nsettings; i++) persist |= persist_is_generic(r.desc.settings[i]);
     CHECK(persist);                                                          // the item is a setting of the core
-    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6) in every core, the C64's record included (T228 D10: the application's own items
-    // follow the record's settings, as the board builds them); its label is its key
+    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6) in every core (the application's own items follow the core's settings, as the board builds them); its label is its key
     CHECK(tree_has(t, "F7", EK_SETTING, PERSIST_KEY));
     CHECK(!tree_has(t, "F6", EK_SETTING, PERSIST_KEY) && !tree_has(t, "F8", EK_SETTING, PERSIST_KEY));
     // T205 D1: the configs are on Home (the Summary tab is gone), in every core
@@ -1023,7 +1024,6 @@ int main()
     drive_modes(prof(profs, "vc20"));
     drive_modes(prof(profs, "c128"));
     drive_modes(prof(profs, "c264"));
-    drive_modes(prof(profs, "c64"));
     cpc_464(prof(profs, "cpc"));
     c264_model(prof(profs, "c264"));
     neo_folder(prof(profs, "neogeo"));

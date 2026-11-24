@@ -22,7 +22,7 @@
 #include "fakes.h"
 #include "trxview.h"
 #include "keyboard.h"
-#include "trx64u_menu.h"
+#include "record_menu.h"
 #include "portdiag.h"
 #include "ops_glue.h"
 #include "diagtest.h"
@@ -38,7 +38,6 @@
 extern const CoreDesc atari800_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc nes_desc;
-extern const CoreDesc c64_desc;
 extern const CoreDesc c128_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc amiga1200_desc;
@@ -220,6 +219,19 @@ static void select_row(Rig &c, int row)
     for (int guard = 0; guard < 200 && c.m->selected() != row; guard++) c.m->key(c.m->selected() > row ? KEY_UP : KEY_DOWN);
     ui_menu_render(*c.m); lv_timer_handler();
 }
+
+// The row of the browser that is the file `name`, -1 when there is none.
+static int find_file_row(Rig &c, const char *name)
+{
+    for (int i = 0; i < c.m->rows(); i++) {
+        char l[120], r[120]; bool a;
+        c.m->row(i, l, sizeof(l), r, sizeof(r), &a);
+        if (!strcmp(l, name)) return i;
+    }
+    return -1;
+}
+
+static RecordMenu *g_cut;                                           // the record core of main()
 
 static void areas_core(void)
 {
@@ -1206,12 +1218,11 @@ static void list_rules(const char *out)
 // ---- T187 D2, S3, S4, P4b: the page, the places, the focus of F8, the value's line -----------------------------------------------------------
 // Per core, with the board's whole chain: (D2) a core with a hotkey map lists ONE row "Hotkeys >" in F5 / Input and none of the seven items; RETURN opens the
 // page with the modifier and the six keys, ESC comes back to the same tab with the same selection and first row. (S3) every generic row (the routing
-// table's) is in the same area and the same group (the heading above it, else the tab's name; a page entry "Input > Hotkeys") as in the C64 (the merged
-// record). (S4) F8 takes its first focus on a row that is neither a heading nor "Reset to host defaults", which is its last row. (P4b) after a value
+// table's) is in the area and the group its route names (the heading above it, else the tab's name; a page entry "Input > Hotkeys"). (S4) F8 takes its first focus on a row that is neither a heading nor "Reset to host defaults", which is its last row. (P4b) after a value
 // changes in place, the value's middle is the label's middle.
 static const int FKEYS[8] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 };   // the key codes are not consecutive (keyboard.h)
 struct UxLoc { std::string label; int area; std::string group; std::string tab; };   // area: the number of its function key (F5 = 5)
-static int uxstor, uxdev, uxfails, uxcores, uxhot, uxcmp, uxskip, uxf8, uxvals;
+static int uxstor, uxfails, uxcores, uxhot, uxcmp, uxf8, uxvals;
 #define UXCHECK(c, ...) do { int f0_ = fails; CHECK(c); if (fails > f0_) { uxfails += fails - f0_; printf("  UX context: " __VA_ARGS__); printf("\n"); } } while (0)
 
 static void ux_rowtext(Rig &r, int i, std::string *l, std::string *v, bool *act)
@@ -1325,17 +1336,6 @@ static void ux_rules(void)
 {
     ui_set_canvas(960, 540);
     PictureEnv env0 = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-    std::vector<UxLoc> ref;
-    {
-        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record, laid over the application's own items as the board builds it (trx64u_menu.h): no chain over it
-        Rig rr(rd, "/flash/trx64u/ux_ref.cfg", trx64u::merge());
-        rr.c.started = true; rr.c.program_loaded = true;
-        ui_open(&c64_desc);
-        int a = 0, b = 0, c = 0, d = 0;
-        ux_collect("trx64u", rr, &ref, &a, &b, &c, &d);
-        printf("UX reference (C64): %zu rows placed\n", ref.size());
-        CHECK(ref.size() > 20);
-    }
     for (const CoreDesc *const *pc = core_table; *pc; pc++) {
         const CoreDesc *src = *pc;
         CoreDesc *d = board_desc(src, &env0);
@@ -1374,35 +1374,28 @@ static void ux_rules(void)
         for (int i = 0; i < d->nsettings; i++) {
             if (!menu_route_of(d->settings[i])) { continue; }
             std::string lab = d->settings[i].label ? d->settings[i].label : d->settings[i].key;
-            const UxLoc *a = 0, *b = 0;
+            const UxLoc *a = 0;
             for (const UxLoc &u : loc) { if (u.label == lab) { a = &u; break; } }
-            for (const UxLoc &u : ref) { if (u.label == lab) { b = &u; break; } }
             if (!a && !has_swap && lab == "Swap joystick ports") {
                 continue;                                      // T228 R20: hidden on purpose where the core has no setting to swap
             }
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
-                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5; the C64's record has them there too (T228 D10).
+                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5.
                 uxstor++;
                 const MenuGroupRoute *sr = menu_route_of(d->settings[i]);
                 const UxLoc *sa = 0;
                 for (const UxLoc &u : loc) { if (u.label == lab && u.area == 7) { sa = &u; break; } }
-                if (b && (b->area != 7 || b->group != sr->heading)) { uxdev++; }
                 UXCHECK(sa != 0 && sa->group == sr->heading, "%s: \"%s\" is in F%d group \"%s\", T212 wants F7 group \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), sr->heading);
                 for (const UxLoc &u : loc) { UXCHECK(!(u.label == lab && u.area == 5), "%s: \"%s\" is still in F5 group \"%s\"", src->cor_name, lab.c_str(), u.group.c_str()); }
                 continue;
             }
-            // the route names the area and the tab of the row; every core lists the route's rows in F5 (the route's area), under the same tab name, the C64's record
-            // included (T228: its Video and Audio tabs are in F5 like the other cores'); the page's rows are in "<tab> > <page>"
+            // the route names the area and the tab of the row; every core lists the route's rows in F5 (the route's area), under the same tab name; the page's rows are in "<tab> > <page>"
             const MenuGroupRoute *rt = menu_route_of(d->settings[i]);
             int fk = atoi(rt->area + 1);
             // T212 D12: a page of the app's area F7 is reached from the section "Settings" (the strip is hidden, the title stays): "Settings > <page>"
             std::string want = rt->page ? std::string("Settings > ") + rt->label : std::string(rt->heading);
-            bool in_ref = false;
-            for (const UxLoc &u : ref) { if (u.area == fk && u.tab == rt->heading) { in_ref = true; break; } }
-            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick (a tab of that title); the app's F7 is the generic app's own area
-            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fk, rt->heading); }
             for (const UxLoc &u : loc) { if (u.label == lab && u.area == fk) { a = &u; break; } }   // a label that also stands on Home (Reset) is looked up in the route's own area
             uxcmp++;
             UXCHECK(a->area == fk && a->group == want, "%s: \"%s\" is in F%d group \"%s\", the place is F%d \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), fk, want.c_str());
@@ -1448,8 +1441,8 @@ static void ux_rules(void)
             }
         }
     }
-    printf("UX rules: %d cores, %d with a hotkey map, %d generic rows compared with the C64 (%d not in the C64), %d storage rows in F5 (%d where the C64 record differs), %d F8 focuses, %d value changes, %d failed\n",
-           uxcores, uxhot, uxcmp, uxskip, uxstor, uxdev, uxf8, uxvals, uxfails);
+    printf("UX rules: %d cores, %d with a hotkey map, %d generic rows compared with their route, %d storage rows in F7, %d F8 focuses, %d value changes, %d failed\n",
+           uxcores, uxhot, uxcmp, uxstor, uxf8, uxvals, uxfails);
     CHECK(uxcores >= 18 && uxhot >= 1 && uxcmp > 60 && uxf8 == uxcores && uxvals > 20);
 }
 
@@ -1546,21 +1539,19 @@ static void ux_chrome(void)
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
         std::vector<const CoreDesc *> all;
         for (const CoreDesc *const *pc = core_table; *pc; pc++) { all.push_back(*pc); }
-        all.push_back(0);                                          // the C64: its menu is the record the firmware loads
         {
             for (const CoreDesc *one : all) {
-                bool c64 = one == 0;
-                const CoreDesc *src = c64 ? trx64u::desc() : one;
-                CoreDesc *d = c64 ? (CoreDesc *)src : board_desc(src, &env);
-                const char *core = c64 ? "c64" : src->cor_name;
+                const CoreDesc *src = one;
+                CoreDesc *d = board_desc(src, &env);
+                const char *core = src->cor_name;
                 ui_set_canvas(want.w, want.h);
                 char cfg[128];
                 snprintf(cfg, sizeof(cfg), "/usb0/cores/uxc_%s.cfg", core);
-                Rig r(d, cfg, c64 ? trx64u::merge() : 0);
+                Rig r(d, cfg);
                 r.c.started = true; r.c.program_loaded = true;
-                ui_open(c64 ? &c64_desc : d);
+                ui_open(d);
                 ucn_cores++;
-                g_pc_core = !c64 && src->hotkeys && src->hotkeys->pc_keys;
+                g_pc_core = src->hotkeys && src->hotkeys->pc_keys;
                 bool seen[8][10] = {};
                 for (int ak = 0; ak < 8; ak++) {
                     for (int tk = 0; tk <= 9; tk++) {
@@ -1602,11 +1593,15 @@ static void ux_chrome(void)
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    // T228 R1, R5b, R6-R9: trx64u's walk has 16 views per canvas instead of 22 (12 tabs instead of 19 - no F2, no F4, F5 6 tabs, F7 and F8 one each -
-    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor was 480 (was 500); T255: ddt_mandel is a large core without an application, 19 cores gave exactly 480 legends;
-    // T239.3 L-3: trx64u's F3 tab Online comes from the sub-app apps/online, which this test does not load, so one legend fewer per canvas: 477, the check is >= 477
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 477 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
+    printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of cores with a PC keyboard, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
+    // The floors are what the walk gives. Cores: the core table holds 18, each at 3 canvases. Legends: the last run that walked TRX64U as a 19th core (CI run 45343698388, after T239.3 L-3 took
+    // its F3 tab Online, which comes from the sub-app apps/online that this test does not load) counted 477; TRX64U had 15 views per canvas in it (11 tabs and 4 pages: Picture, SID sockets,
+    // Hotkeys, Network settings), one legend per view, so 15 x 3 = 45 of the 477 were its own: 477 - 45 = 432. The other counts of that run (369 tab strips, 2385 rail items, 57 pages, 462 page rows,
+    // 222 key names of cores with a PC keyboard) lose TRX64U's share too and stay above their floors: 11 x 3 = 33 strips (336 left of > 300), 4 x 3 = 12 pages (45 left of >= 9); of the 2385 rail
+    // items (about 8 per view) 15 x 3 x 8 = 360 were its own, about 2000 are left of > 1000; the page rows (462 over 57 pages, one per row of each page) lose the rows of its 12 pages, and the other 45 pages
+    // hold more than the 30 the check wants (the Hotkeys pages alone: one page per canvas for each core with a hotkey map); the key names are counted for the cores with a PC keyboard only,
+    // which TRX64U never was (g_pc_core was false for it): 222 stay.
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 432 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
@@ -1811,30 +1806,28 @@ static void ux_shots(const char *out)
         }
         ui_menu_render(*r.m); lv_timer_handler();
     };
-    struct Job { const CoreDesc *src; bool c64; const char *core; St st[8]; int n; };   // T205: F5 is the core's one settings area (tabs: the core, Video, Audio, Input)
+    struct Job { const CoreDesc *src; const char *core; St st[8]; int n; };   // T205: F5 is the core's one settings area (tabs: the core, Video, Audio, Input)
     static const Job jobs[] = {
-        { &amiga1200_desc, false, "a1200", { { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
+        { &amiga1200_desc, "a1200", { { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
                                              { "F5-input", KEY_F5, "Input", 0 }, { "hotkeys", KEY_F5, "Input", 2 }, { "F1-home", KEY_F1, 0, 0 }, { "F8-system", KEY_F8, 0, 0 } }, 8 },
-        { &vc20_desc, false, "vc20", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 },
+        { &vc20_desc, "vc20", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 },
                                        { "F5-audio", KEY_F5, "Audio", 0 }, { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 7 },
-        { &c128_desc, false, "c128", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
+        { &c128_desc, "c128", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
-        { &atari800_desc, false, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
-        { &apple2_desc, false, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
-        { 0, true, "c64", { { "F5-c64", KEY_F5, "C64", 0 } }, 1 },               // T228 R9: the Machine and Drive A settings are sections of the tab C64
+        { &atari800_desc, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
+        { &apple2_desc, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
         for (const Job &j : jobs) {
             ui_set_canvas(want.w, want.h);
             PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-            const CoreDesc *src = j.c64 ? trx64u::desc() : j.src;
-            CoreDesc *d = j.c64 ? (CoreDesc *)src : board_desc(src, &env);
+            CoreDesc *d = board_desc(j.src, &env);
             char cfg[128];
             snprintf(cfg, sizeof(cfg), "/usb0/cores/uxs_%s.cfg", j.core);
-            Rig r(d, cfg, j.c64 ? trx64u::merge() : 0);
+            Rig r(d, cfg);
             r.c.started = true; r.c.program_loaded = true;
-            ui_open(j.c64 ? &c64_desc : d);
+            ui_open(d);
             for (int k = 0; k < j.n; k++) {
                 go(r, j.st[k]);
                 char fn[512];
@@ -1848,8 +1841,7 @@ static void ux_shots(const char *out)
     ui_set_canvas(960, 540);
 }
 
-// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the TRX64U menu (its record, the board's
-// chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
+// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the A1200 (board_desc, the board's chain), at 1080p (the 960 x 540 canvas, 2x) and 480p:
 // the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
 // hosts), R5's SID pages and R6's Network settings and Streams. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
 struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
@@ -1976,15 +1968,9 @@ static void mock_shots(const char *out)
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
     struct File { const char *path; size_t n; };
     struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
-    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
+    struct Job { const char *core; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
     static const Job jobs[] = {
-        { "trx64u", true, 0,                                                                   // T228 R6: F8 is the one System tab (id "expert"), its Network rows open three pages
-          { { "/usb0/games/Katakis.d64", 174848 }, { "/usb0/games/Elite.g64", 333744 }, { "/usb0/games/Turrican.crt", 65616 }, { "/usb0/games/Giana_Sisters.t64", 30000 },
-            { "/usb0/games/demo.prg", 2049 }, { "/usb0/games/session.c64re", 70000 }, { "/usb0/games/collection.zip", 40000 } }, 7,
-          { { "F1", "home", "Drive A", true, "drive-a" }, { "F5", "audio", "SID sockets", false, "sid-sockets" }, { "F5", "audio", "Emulated SIDs", false, "emulated-sids" },
-            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "expert", "Network settings", false, "network-settings" }, { "F8", "expert", "Streams", false, "streams" },
-            { "F8", "expert", "FTP hosts", false, "ftp-hosts" } }, 7, "Katakis" },
-        { "a1200", false, &amiga1200_desc,
+        { "a1200", &amiga1200_desc,
           { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
           { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },
     };
@@ -1993,14 +1979,14 @@ static void mock_shots(const char *out)
         for (const Job &j : jobs) {
             ui_set_canvas(want.w, want.h);
             PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-            CoreDesc *d = j.c64 ? (CoreDesc *)trx64u::desc() : board_desc(j.src, &env);
+            CoreDesc *d = board_desc(j.src, &env);
             char cfg[128];
             snprintf(cfg, sizeof(cfg), "/usb0/cores/mock_%s_%s.cfg", j.core, cv.name);
-            Rig r(d, cfg, j.c64 ? trx64u::merge() : 0);
+            Rig r(d, cfg);
             for (int f = 0; f < j.nfiles; f++) { r.fs.put_size(j.files[f].path, j.files[f].n); }
             r.c.started = true;
             r.c.program_loaded = true;
-            ui_open(j.c64 ? &c64_desc : d);
+            ui_open(d);
             const MenuTree &tr = r.m->tree();
             bool seen[MENU_AREAS_MAX][MENU_TABS_MAX] = {};
             for (int ak = 0; ak < 8; ak++) {
@@ -2308,6 +2294,9 @@ int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
+    static CoreDesc cut_base = nes_desc;                            // a core with a record's pages: golden/desc_cut.toml (argv[2], compiled by run.sh) over the NES
+    cut_base.needs_program = 0;
+    g_cut = new RecordMenu(&cut_base, argc > 2 ? argv[2] : "desc_cut.bin");
     if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
         mock_shots(out);
         printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
@@ -2761,27 +2750,38 @@ int main(int argc, char **argv)
     snprintf(p, sizeof(p), "%s/atari-settings-terminal.png", out);
     png(p, 2);
 
-    // T104.2: the C64 (the application opens again for its own title chip; LVGL starts over). Its browser offers two actions for a .prg, and the second asks for the start address in a row of its own. The
-    // same ui.cc draws it; what is checked is that the prompt reaches the screen as the row the menu model gives.
+    // T104.2 D6: the address prompt of a file action that asks, on the screen. The core is the Atari with a .prg of a test's own whose second action asks for the start address in a row of its
+    // own (the operations are named but not called here; tests/coreapp/test_prompt.cc runs them). The same ui.cc draws it; what is checked is that the prompt reaches the screen as the row the menu model gives.
     {
         trx_skin_set(TRX_SKIN_PANEL);
-        Rig c(trx64u::desc(), "/flash/trx64u/c64.cfg", trx64u::merge());           // the C64's menu is its record (T104.2 D10)
+        static const OpBind run_bind[] = { B_FILE("path") };
+        static const OpBind load_bind[] = { B_FILE("path"), B_ASK("start") };
+        static const FileAction prg_actions[] = { { "Run PRG", "prompt.run", run_bind, 1, true, 0, 0 }, { "Load PRG and start from", "prompt.load", load_bind, 2, true, "Start address", 0 } };
+        static const FileType prompt_types[] = { { ".prg", prg_actions, 2, 0, 0, 0 } };
+        static CoreDesc pd = atari800_desc;
+        pd.filetypes = prompt_types;
+        pd.nfiletypes = 1;
+        CoreDesc *pdd = board_desc(&pd);
+        Rig c(pdd, "/usb0/cores/atari800_prompt.cfg");
         c.fs.put("/usb0/x.prg", std::vector<uint8_t>{ 0x00, 0xC0, 0x60, 0x60 });
         c.c.started = true;
-        ui_open(&c64_desc);
+        ui_open(pdd);
         c.m->open();
-        ui_menu_render(*c.m);
-        lv_timer_handler();
-        snprintf(p, sizeof(p), "%s/c64-home.png", out);
-        png(p, 2);
-        c.m->key(KEY_F3);                                        // the media level: usb0 is the first row
-        c.m->key(KEY_RETURN);                                    // opens the stick: ../ is first, x.prg second
-        c.m->key(KEY_DOWN);
+        c.m->key(KEY_F3);                                        // the media level: the stick is /usb0
+        c.m->relist();
+        int usb = find_dir_row(c, "usb0");
+        CHECK(usb >= 0);
+        select_row(c, usb);
+        c.m->key(KEY_RETURN);                                    // opens the stick: ../ is first, x.prg after it
+        c.m->relist();
+        int xr = find_file_row(c, "x.prg");
+        CHECK(xr >= 0);
+        select_row(c, xr);
         c.m->key(KEY_RETURN);
         CHECK(c.m->chooser());
         ui_menu_render(*c.m);
         lv_timer_handler();
-        snprintf(p, sizeof(p), "%s/c64-chooser.png", out);
+        snprintf(p, sizeof(p), "%s/prompt-chooser.png", out);
         png(p, 2);
         c.m->key(KEY_DOWN);
         c.m->key(KEY_RETURN);
@@ -2789,48 +2789,50 @@ int main(int argc, char **argv)
         c.m->key('1'); c.m->key('0');
         ui_menu_render(*c.m);
         lv_timer_handler();
-        snprintf(p, sizeof(p), "%s/c64-prompt.png", out);
+        snprintf(p, sizeof(p), "%s/prompt-prompt.png", out);
         png(p, 2);
         char l[100], r[100]; bool a;
         c.m->row(0, l, 100, r, 100, &a);
         CHECK(!strcmp(l, "Start address") && !strcmp(r, "$10_"));
         c.m->key(KEY_ESCAPE);
-        c.m->key(KEY_F5);                                        // the machine's own tab: the program slot and the freeze setting
-        c.m->key('2');
-        ui_menu_render(*c.m);
-        lv_timer_handler();
-        snprintf(p, sizeof(p), "%s/c64-settings.png", out);
-        png(p, 2);
+    }
+    // T239.3 base 3.3: a core with a record's pages. The record is tests/coreapp/golden/desc_cut.toml over the NES (the Timewarp and the Monitor page of Home); the Monitor page draws the text grid its node names
+    {
+        trx_skin_set(TRX_SKIN_PANEL);
+        Rig c2(&g_cut->desc, "/usb0/cores/cut.cfg", &g_cut->mm);
+        c2.c.started = true;
+        ui_open(&g_cut->desc);
+        c2.m->open();
         // T239.3 base 3.3: the Monitor page draws the text grid its node names (model_grid.h stands in for the library): the rows and their cursor, redrawn when sig changes and not on a pass that
         // changes nothing; without the grid the screen is empty
         mg_install();
         g_mg.src = { "TRX MONITOR", "> r", "PC=C000 A=00" };
         g_mg.attrs = { TG_STATUS, TG_PROMPT, TG_REGS };
         g_mg.cx = 3; g_mg.cy = 1;
-        CHECK(c.m->goto_spec("F1/monitor"));
-        ui_menu_render(*c.m);
+        CHECK(c2.m->goto_spec("F1/monitor"));
+        ui_menu_render(*c2.m);
         lv_timer_handler();
         CHECK(find_label(lv_screen_active(), "TRX MONITOR") != 0 && find_label(lv_screen_active(), "> r") != 0 && find_label(lv_screen_active(), "PC=C000") != 0);
         CHECK(g_mg.n_render == 1);
         CHECK(g_mg.n_line == 3);                                // every row read once for the first draw
-        snprintf(p, sizeof(p), "%s/c64-monitor-grid.png", out);
+        snprintf(p, sizeof(p), "%s/monitor-grid.png", out);
         png(p, 2);
-        ui_menu_render(*c.m);                                    // a pass that changed nothing: render() asks the grid, sig is the same, no row is read again
+        ui_menu_render(*c2.m);                                    // a pass that changed nothing: render() asks the grid, sig is the same, no row is read again
         lv_timer_handler();
         CHECK(g_mg.n_render == 2);
         CHECK(g_mg.n_line == 3);
         g_mg.src[1] = "> d C000";
-        ui_menu_render(*c.m);                                    // the machine changed what it shows: sig changed, the rows are read and the label is written
+        ui_menu_render(*c2.m);                                    // the machine changed what it shows: sig changed, the rows are read and the label is written
         lv_timer_handler();
         CHECK(g_mg.n_render == 3);
         CHECK(g_mg.n_line == 6);
         CHECK(find_label(lv_screen_active(), "> d C000") != 0 && find_label(lv_screen_active(), "> r") == 0);
         g_mg.src.pop_back();                                     // a shorter grid: the row that is gone is blank
-        ui_menu_render(*c.m);
+        ui_menu_render(*c2.m);
         lv_timer_handler();
         CHECK(find_label(lv_screen_active(), "PC=C000") == 0 && find_label(lv_screen_active(), "> d C000") != 0);
         mg_uninstall();                                          // no grid found: an empty screen, nothing of the old rows
-        ui_menu_render(*c.m);
+        ui_menu_render(*c2.m);
         lv_timer_handler();
         CHECK(find_label(lv_screen_active(), "> d C000") == 0 && find_label(lv_screen_active(), "TRX MONITOR") == 0);
     }

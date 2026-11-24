@@ -4,7 +4,7 @@ board are tested against what the tools write (T104.1 D9, D12).
 
     gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml),
+                              merged.cor (the description with the menu of the library gamma merged in), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
                               nofiles.cor (the same core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
                               data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
@@ -52,6 +52,8 @@ def main(out):
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
     # a core's own menu tables and pad (T104.2 D10; T239.3 P1-8: a record of our own, trx64u's menu is TRX64-Ultimate's)
     open(os.path.join(out, "desc_own.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_own.toml")).read()))
+    # a core with a Timewarp page and a monitor page, the record the tests of the key table and of the record-built menu read (test_cut.cc, test_keywalk.cc)
+    open(os.path.join(out, "desc_cut.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_cut.toml")).read()))
     # base 3.3: a key table, register windows and job tasks (tests/coreapp/test_deckeys.cc)
     open(os.path.join(out, "desc_keys.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_keys.toml")).read()))
     # P1-1: TOML A (record version 7), its module maps from the SDK's (tests/coreapp/test_desctoml.cc)

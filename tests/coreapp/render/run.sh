@@ -11,6 +11,8 @@ B="$(mktemp -d)"; T="$B"; CXX="${CXX:-c++}"
 # the diag core's example tests are record 8 of diag.cor (T175): the real packer makes the record, the application's installer writes it (tests/coreapp/diag_examples.h)
 python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$B/diag_files.rec" > /dev/null
 export DIAG_FILES_REC="$B/diag_files.rec"
+# the record of a core with a Timewarp page and a Monitor page (golden/desc_cut.toml, T239.3 P1-8), compiled by the real tool; render.cc reads it over the NES (argv[2])
+python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import descrec; open(sys.argv[3], "wb").write(descrec.compile_text(open(sys.argv[2]).read()))' "$ROOT" "$ROOT/tests/coreapp/golden/desc_cut.toml" "$B/desc_cut.bin"
 # T100 D14: the render is a unit (tests/ctlcache.sh): what a unit read - every source and header the compile opens, LVGL's headers,
 # the goldens, what the program opens - is recorded when it passes; a unit whose reads are unchanged is not built or run again. Two values
 # of this script enter the key by hand: LVGL's objects live outside the tree (their key), and the source list is derived from the Makefile.
@@ -30,6 +32,6 @@ build() {   # build <output> [extra defines]
   c++ $CORE_DEFS -O1 -DGOLDEN_DIR=\"$ROOT/tests/coreapp/golden\" ${2:-} -I"$B" -I"$B/drv" -iquote "$L" $CORE_INCS \
     -pthread -o "$1" "$R/render.cc" $SRCS "$OBJS"/*.o -lz -lm
 }
-CC_KEYEXTRA="lvgl=$LK srcs=$SRCS cheap=${CHEAP_DEBUG:-}"
-t_render() { build "$B/render" "${CHEAP_DEBUG:-}"; "$B/render" "$OUT"; }
+CC_KEYEXTRA="lvgl=$LK srcs=$SRCS cheap=${CHEAP_DEBUG:-} cut=$(shasum -a 256 "$B/desc_cut.bin" | cut -c1-16)"
+t_render() { build "$B/render" "${CHEAP_DEBUG:-}"; "$B/render" "$OUT" "$B/desc_cut.bin"; }
 cc_block render_coreapp t_render build need_objs
