@@ -9,11 +9,13 @@
 #include "ops_glue.h"
 #include "regset.h"
 #include "amiga_regs.h"
+#ifndef TEST_APP_A1200                   // the A1200's app (run.sh a12app) has its own core only
 #include "c128_regs.h"
 #include "c264_regs.h"
 #include "cpc_regs.h"
 #include "nes_regs.h"
 #include "zxnext_regs.h"
+#endif
 
 struct Row { const CoreDesc *d; uint32_t reg; };
 
@@ -36,8 +38,12 @@ int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
     const Row rows[] = {
-        { &amiga_desc, AM_JOY_CFG }, { &amiga1200_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
+#ifdef TEST_APP_A1200
+        { &amiga1200_desc, AM_JOY_CFG },
+#else
+        { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
         { &cpc_desc, CPC_JOY }, { &zxnext_desc, ZXN_JOY },
+#endif
     };
     for (const Row &r : rows) {
         const CoreDesc &d = *r.d;
@@ -79,10 +85,12 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
+#ifndef TEST_APP_A1200
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 1"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 2"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
+#endif
     DONE("test_joyswap");
 }

@@ -254,29 +254,10 @@ int main()
         bio.regs[A8_FRAME_SEQ] = 1;
         CHECK(bv.poll());
     }
-    // T136 S3: the A1200 shows 32-bit pixels (the layer's format 2, its own pixel layer) from buffers at 0x4000000, 2 MB apart; the A500
-    // keeps format 1 and its buffers in the window
+    // T136 S3: the A500 keeps format 1 and its buffers in the window (the A1200's 32-bit format: its unit a12_base, test_a12base.cc)
     {
         CHECK_EQ(Video::ctrl_value(2, true, 2), 0x25);
         CHECK_EQ(amiga_desc.video.pixel_bytes(), 2u);
-        const VideoDesc &a = amiga1200_desc.video;
-        CHECK_EQ(a.pixel_bytes(), 4u);
-        CHECK_EQ(a.fb_base, 0x04000000u);
-        CHECK_EQ(a.fb_stride, 0x200000u);
-        CHECK(a.fb_stride >= 720u * 540u * 4u);
-        FakeIo aio;
-        PxRec apx;
-        Video av(a, &apx, &aio);
-        av.init();                                            // outside the application's window: nothing to clear, nothing written
-        CHECK(aio.log.empty());
-        av.show();
-        CHECK_EQ(apx.last(PX_CTRL), 0x25);
-        CHECK_EQ(apx.last(PX_STRIDE), 720u * 4u);
-        CHECK_EQ(apx.last(PX_FRONT), 0x04000000u);
-        aio.regs[AM_FB_LATEST] = 0x80 | 2;
-        aio.regs[AM_FRAME_SEQ] = 1;
-        CHECK(av.poll());
-        CHECK_EQ(apx.last(PX_BACK), 0x04000000u + 2 * 0x200000u);
         PxRec opx;
         FakeIo oio;
         Video ov(amiga_desc.video, &opx, &oio);

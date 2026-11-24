@@ -59,10 +59,33 @@ struct Machine {
     RevFs fs;
     AmigaRig *r;
     Video *v;
-    Machine(const CoreDesc *d = &amiga_desc) { r = new AmigaRig(&fs, d); v = new Video(d->video, &r->px, &r->io); r->c.video = v; }
+    Machine(const CoreDesc *d = &AM_REC) { r = new AmigaRig(&fs, d); v = new Video(d->video, &r->px, &r->io); r->c.video = v; }
     bool window_is(uint32_t off, const std::vector<uint8_t> &img) { return !memcmp(&r->io.ddr[off], img.data(), img.size()); }
 };
 
+#ifdef TEST_APP_A1200
+// the A1200's app (a12app): the A1200 reads the same files as the A500 and takes 3.1: its Auto, its start with a 512 KB ROM placed once
+int main()
+{
+    char sum[200];
+    {
+        Machine a12;
+        stock(a12.fs);
+        CHECK_EQ(romset_scan(&a12.r->c, sum, sizeof(sum)), ROM_FOUND);
+        CHECK_EQ(romset_choice(&a12.r->c), 0);
+        CHECK_STR(amiga1200_desc.settings[0].values[0], "Auto (3.1 first)");
+    }
+    {
+        Machine b;
+        stock(b.fs);
+        Ui ub; ub.io = &b.r->io; ub.fs = &b.fs;
+        CHECK_EQ(boot_start(&b.r->c, &ub), BOOT_RUNNING);
+        CHECK(b.window_is(AM_W_ROM, kick(524288, 40, 68, 0x31)));
+        CHECK_STR(b.r->c.eng->rs.loaded, "AmigaVision.rom");
+    }
+    DONE("a12_romset");
+}
+#else
 int main()
 {
     // ---- the format: the version is in the image, not in the name
@@ -119,13 +142,6 @@ int main()
         CHECK_EQ(romset_choice(&m.r->c), 2);
         m.r->st->set(0, 8);                                                         // a place the list does not fill: Auto
         CHECK_EQ(romset_choice(&m.r->c), 1);
-        // the A1200 reads the same files and takes 3.1
-        Machine a12(&amiga1200_desc);
-        stock(a12.fs);
-        CHECK_EQ(romset_scan(&a12.r->c, sum, sizeof(sum)), ROM_FOUND);
-        CHECK_EQ(romset_choice(&a12.r->c), 0);
-        CHECK_STR(amiga1200_desc.settings[0].values[0], "Auto (3.1 first)");
-        CHECK(a12.r->c.eng != m.r->c.eng);
     }
 
     // ---- refusals: no file at all; files, but none of an allowed size (the first directory with a .rom decides, as the reference's does)
@@ -175,13 +191,6 @@ int main()
         CHECK_EQ(m.r->io.regs[AM_IDE_CFG], 0x21);
         CHECK_EQ(m.r->io.regs[AM_CTRL], 0);
         CHECK_STR(m.r->c.eng->rs.loaded, "kick13.rom");
-        // a 512 KB ROM once
-        Machine b(&amiga1200_desc);
-        stock(b.fs);
-        Ui ub; ub.io = &b.r->io; ub.fs = &b.fs;
-        CHECK_EQ(boot_start(&b.r->c, &ub), BOOT_RUNNING);
-        CHECK(b.window_is(AM_W_ROM, kick(524288, 40, 68, 0x31)));
-        CHECK_STR(b.r->c.eng->rs.loaded, "AmigaVision.rom");
     }
 
     // ---- the wait: never released without a Kickstart, told after 10 s; a file of the wrong size is told at once and looked at again after 5 s
@@ -276,3 +285,4 @@ int main()
     }
     DONE("test_romset");
 }
+#endif

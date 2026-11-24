@@ -146,7 +146,7 @@ struct AmigaRig {
     CoreCtx c;
     Settings *st = 0;
     PxRec px;
-    explicit AmigaRig(FakeFs *f, const CoreDesc *d = &amiga_desc) : fs(f)
+    explicit AmigaRig(FakeFs *f, const CoreDesc *d = &AM_REC) : fs(f)
     {
         memset(&c, 0, sizeof(c));
         c.desc = d;

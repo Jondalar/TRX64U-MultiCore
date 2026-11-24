@@ -11,6 +11,8 @@
 #include "tone.h"
 #include "home.h"
 #include "baseset.h"
+#include "video.h"
+#include "amiga_regs.h"
 
 static int count_key(const CoreDesc &d, const char *key)
 {
@@ -45,5 +47,27 @@ int main()
     CHECK_EQ(count_key(amiga1200_desc, "Mouse Sensitivity"), 1);
     CHECK_EQ(count_key(amiga1200_desc, "Mouse Acceleration"), 1);
     CHECK(!baseset_adds(&amiga1200_desc, "Mouse Sensitivity") && !baseset_adds(&amiga1200_desc, "Mouse Acceleration"));
+    // T136 S3: the A1200 shows 32-bit pixels (the layer's format 2, its own pixel layer) from buffers at 0x4000000, 2 MB apart
+    {
+        CHECK_EQ(Video::ctrl_value(2, true, 2), 0x25);
+        const VideoDesc &a = amiga1200_desc.video;
+        CHECK_EQ(a.pixel_bytes(), 4u);
+        CHECK_EQ(a.fb_base, 0x04000000u);
+        CHECK_EQ(a.fb_stride, 0x200000u);
+        CHECK(a.fb_stride >= 720u * 540u * 4u);
+        FakeIo aio;
+        PxRec apx;
+        Video av(a, &apx, &aio);
+        av.init();                                            // outside the application's window: nothing to clear, nothing written
+        CHECK(aio.log.empty());
+        av.show();
+        CHECK_EQ(apx.last(PX_CTRL), 0x25);
+        CHECK_EQ(apx.last(PX_STRIDE), 720u * 4u);
+        CHECK_EQ(apx.last(PX_FRONT), 0x04000000u);
+        aio.regs[AM_FB_LATEST] = 0x80 | 2;
+        aio.regs[AM_FRAME_SEQ] = 1;
+        CHECK(av.poll());
+        CHECK_EQ(apx.last(PX_BACK), 0x04000000u + 2 * 0x200000u);
+    }
     DONE("a12base");
 }

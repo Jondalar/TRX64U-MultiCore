@@ -966,6 +966,10 @@ if ca_in amiga1200 && ca_unit a12_romreq; then t_romreq_a12; PASS=$((PASS + 1));
 a12app run a12_folderhd test_folderhd.cc $A12
 a12app run a12_mouselib test_mouselib.cc $A12
 a12app run a12_base test_a12base.cc $A12
+a12app run a12_romset test_romset.cc $A12
+a12app run a12_regset test_regset.cc $A12
+a12app run a12_joyswap test_joyswap.cc $A12
+a12app run a12_mousescale test_mousescale.cc $A12
 a12app run a12_fbwin test_fbwin.cc $A12
 a12app run a12_rawkeys test_rawkeys.cc $A12
 a12app run a12_ledload test_ledload.cc $A12

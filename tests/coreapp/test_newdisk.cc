@@ -23,7 +23,7 @@
 
 typedef std::vector<uint8_t> Bytes;
 
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, 0 };
 
 // a file's bytes, empty when there is none (operator[] would insert an empty entry that FakeFs::list then trips over)
 static Bytes bytes_of(FakeFs &fs, const std::string &path)
@@ -493,7 +493,6 @@ int main()
     const Case cases[] = {
         { &apple2_desc,    "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_APPLE_DSK },
         { &amiga_desc,     "Create blank ADF", "Name of the new ADF", ".adf", 0, ND_ADF },
-        { &amiga1200_desc, "Create blank ADF", "Name of the new ADF", ".adf", 0, ND_ADF },
         { &atari800_desc,  "Create blank ATR", "Name of the new ATR", ".atr", 0, ND_ATR },
         { &cpc_desc,       "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_CPC_DSK },
     };

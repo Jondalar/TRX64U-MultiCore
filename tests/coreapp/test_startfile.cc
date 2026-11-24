@@ -8,8 +8,8 @@
 
 // the core of the file: a stub whose cor_name is the base name of its .cor (what start_identify matches), as test_start.cc does
 static const CoreDesc mono = { {'M', 'O', 'N', 'O'}, "TRX64U", "Monolith", "trx64u", "Monolith Settings" };
-extern const CoreDesc amiga_desc, amiga1200_desc;
-const CoreDesc *const core_table[] = { &mono, &amiga_desc, &amiga1200_desc, 0 };
+extern const CoreDesc amiga_desc;
+const CoreDesc *const core_table[] = { &mono, &amiga_desc, 0 };
 
 static void mk(FakeFs *fs, const char *path, const char *cor, const char *config)
 {

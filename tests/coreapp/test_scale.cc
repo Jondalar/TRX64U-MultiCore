@@ -32,7 +32,7 @@ bool video_apply_gateware(int sys, int hdmi)
 bool video_gateware_present(void) { return true; }
 int video_gateware_row(void) { return g_gw_row; }
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &amiga1200_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &testcore::desc, 0 };
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
 
@@ -95,7 +95,7 @@ bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return t
 // T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
 static void follow_item()
 {
-    for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+    for (const CoreDesc *d : { &amiga_desc }) {
         Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
         CHECK(!picture_extend(d, &ext, items, &env));
@@ -127,9 +127,9 @@ static void follow_item()
       CHECK_EQ(follow_index(&ext), -1);
     }
     // a descriptor may not declare the key itself
-    { CoreDesc bad = amiga1200_desc; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
+    { CoreDesc bad = amiga_desc; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
       static const char *const v[2] = { "Off", "On" };
-      for (int i = 0; i < bad.nsettings; i++) { s[i] = amiga1200_desc.settings[i]; }
+      for (int i = 0; i < bad.nsettings; i++) { s[i] = amiga_desc.settings[i]; }
       s[bad.nsettings] = Setting(); s[bad.nsettings].key = "Frame follow"; s[bad.nsettings].values = v; s[bad.nsettings].nvalues = 2;
       bad.settings = s; bad.nsettings++;
       Setting items[SETTINGS_MAX + 4];
@@ -139,19 +139,19 @@ static void follow_item()
     // the apply writes the register, the stored value is read back after a restart and applied by picture_start before the mode
     { Setting items[SETTINGS_MAX + 4]; CoreDesc ext; FakeIo io; FakeFs fs; PxRec px;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
-      CHECK(!picture_extend(&amiga1200_desc, &ext, items, &env));
+      CHECK(!picture_extend(&amiga_desc, &ext, items, &env));
       int fi = follow_index(&ext);
-      { Settings st(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);
+      { Settings st(ext.settings, ext.nsettings, amiga_desc.store, &fs, "/usb0/cores/x.cfg", 0);
         st.load();
         CHECK_EQ(st.value(fi), 0);                                               // a start with no stored settings: Off
         CHECK(st.set(fi, 1));
         CHECK(st.save());
       }
-      Settings st2(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);   // after a restart
+      Settings st2(ext.settings, ext.nsettings, amiga_desc.store, &fs, "/usb0/cores/x.cfg", 0);   // after a restart
       st2.load();
       CHECK_EQ(st2.value(fi), 1);
       CoreCtx c; memset(&c, 0, sizeof(c)); c.desc = &ext; c.io = &io; c.fs = &fs; c.settings = &st2;
-      Video vid(amiga1200_desc.video, &px, &io); c.video = &vid;
+      Video vid(amiga_desc.video, &px, &io); c.video = &vid;
       g_gw_row = 2; g_gw_ok = true; g_follow_written = -1;
       picture_start(&c, VID_SYS_PAL50, VID_HDMI_1080P);
       CHECK_EQ(g_follow_written, 1);
@@ -182,12 +182,12 @@ struct Rig {
 static void items_and_apply()
 {
     // T164 G14: Picture, Scale and Smoothing for every frame-buffer core on a gateware host; a host without it (an old firmware) has Picture alone
-    { Rig r(&amiga1200_desc);
+    { Rig r(&amiga_desc);
       CHECK(!r.why);
-      CHECK_EQ(r.ext.nsettings, amiga1200_desc.nsettings + 3);
-      CHECK_EQ(picture_index(&r.ext), amiga1200_desc.nsettings);
-      CHECK_EQ(scale_index(&r.ext), amiga1200_desc.nsettings + 1);
-      CHECK_EQ(smooth_index(&r.ext), amiga1200_desc.nsettings + 2);
+      CHECK_EQ(r.ext.nsettings, amiga_desc.nsettings + 3);
+      CHECK_EQ(picture_index(&r.ext), amiga_desc.nsettings);
+      CHECK_EQ(scale_index(&r.ext), amiga_desc.nsettings + 1);
+      CHECK_EQ(smooth_index(&r.ext), amiga_desc.nsettings + 2);
       { const Setting &m = r.ext.settings[smooth_index(&r.ext)];
         CHECK_STR(m.key, "Smoothing"); CHECK_EQ(m.nvalues, 2); CHECK_STR(m.values[0], "Off"); CHECK_STR(m.values[1], "On"); CHECK_EQ(m.def, 0); }
       CHECK(scale_index(&r.ext) >= 0);
@@ -200,7 +200,7 @@ static void items_and_apply()
           CHECK_EQ(s.def, 0);
           CHECK(s.when == WHEN_LIVE);
       }
-      CHECK(!desc_check(&amiga1200_desc));
+      CHECK(!desc_check(&amiga_desc));
       OpRegistry reg; picture_register(reg);
       CHECK(reg.find_op(SCALE_OP) != 0);
       CHECK(reg.find_op(SMOOTH_OP) != 0);
@@ -259,7 +259,7 @@ static void items_and_apply()
       CHECK_EQ(scale_index(&ext), -1);
     }
     // Smoothing (Q3): the scaler's register follows the item, written with every layer set so that it survives the menu
-    { Rig r(&amiga1200_desc);
+    { Rig r(&amiga_desc);
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       r.vid->init(); r.vid->show();
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
@@ -278,7 +278,7 @@ static void items_and_apply()
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
     // the mode goes to the gateware when it answers, to the firmware otherwise
-    { Rig r(&amiga1200_desc);
+    { Rig r(&amiga_desc);
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       CHECK(g_fw.empty() && g_gw.empty());                       // Auto: the A1200 wants what the screen has (1440 x 1080 at 1080p)
@@ -318,7 +318,7 @@ static void items_and_apply()
         }
         CHECK_EQ(n, 9);
         for (int v = 1; v <= n; v++) {
-            Rig r(&amiga1200_desc);
+            Rig r(&amiga_desc);
             g_fw.clear(); g_gw.clear();
             picture_start(&r.c, sys, VID_HDMI_1080P);                // the gateware starts in 1080p; a 60 Hz host asks for the 60 Hz family at once
             size_t before = g_gw.size();
@@ -343,7 +343,7 @@ static void items_and_apply()
         }
     }
     // the gateware starts in 1080p at 50 Hz: a host that was handed 60 Hz (or anything else) does not make it so
-    { Rig r(&amiga1200_desc);
+    { Rig r(&amiga_desc);
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_NTSC60, VID_HDMI_1080P);
       CHECK(g_fw.empty() && g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1080P));
@@ -373,7 +373,7 @@ static void menu_places()
         { pv(VID_HDMI_480_576),   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
         { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
     };
-    Rig r(&amiga1200_desc);
+    Rig r(&amiga_desc);
     g_gw.clear();
     picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
     CHECK(!r.px.place.empty());                                  // at start-up, before the menu was ever up

@@ -90,12 +90,12 @@ static int one_report(AmigaRig &r, int dx)
 
 int main()
 {
-    const CoreDesc *both[2] = { with_base(&amiga_desc), with_base(&amiga1200_desc) };
+    const CoreDesc *both[1] = { with_base(&AM_REC) };               // the A1200 is the app of its own (a12app): the same checks run on its record there
 
     // ---- S1: the rows, in both Amiga cores, the cores' own rows (group "input", operations mouse.sens / mouse.accel), Gideon's range and defaults; the application adds no second pair
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < 1; k++) {
         const CoreDesc *d = both[k];
-        const CoreDesc *own = k ? &amiga1200_desc : &amiga_desc;
+        const CoreDesc *own = &AM_REC;
         CHECK_EQ(d->nsettings - own->nsettings, 4);        // the application's look rows only (baseset.h): the mouse rows are the core's
         int ns = -1, na = -1, cnt = 0;
         for (int i = 0; i < d->nsettings; i++) {
@@ -172,7 +172,7 @@ int main()
     }
 
     // ---- S2b: both cores answer the driver from their own settings
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < 1; k++) {
         FakeFs fs;
         AmigaRig r(&fs, both[k]);
         baseset_attach(&r.c, 0);
@@ -182,7 +182,7 @@ int main()
     }
 
     // ---- S3: the restart applies the stored values (a new process: the .cfg read, the start applies every setting)
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < 1; k++) {
         const CoreDesc *d = both[k];
         FakeFs fs;
         {

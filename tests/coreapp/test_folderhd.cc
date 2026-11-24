@@ -58,7 +58,7 @@ struct Env {
     FakeFs *fs;
     AmigaRig *r;
     bool own;
-    explicit Env(FakeFs *f, const CoreDesc *d = &amiga1200_desc, bool sectors = true) : fs(f), own(false)
+    explicit Env(FakeFs *f, const CoreDesc *d = &AM_REC, bool sectors = true) : fs(f), own(false)
     {
         r = new AmigaRig(f, d);
         r->io.regs[AM_FEAT] = sectors ? 0x01 : 0x00;

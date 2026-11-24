@@ -55,7 +55,7 @@ static int nop(CoreCtx *, char *, int) { return 0; }
 
 static CoreDesc make_desc()
 {
-    CoreDesc d = amiga1200_desc;
+    CoreDesc d = amiga_desc;
     d.init = hold_nop;
     d.release = release_hook;
     d.warm_reset = nop;

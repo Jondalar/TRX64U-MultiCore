@@ -14,9 +14,9 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-extern const CoreDesc amiga_desc, amiga1200_desc, apple2_desc;
+extern const CoreDesc amiga_desc, apple2_desc;
 
-const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &amiga1200_desc, &apple2_desc, 0 };
+const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &apple2_desc, 0 };
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
 
@@ -231,7 +231,7 @@ int main()
     }
     // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
     {
-        const CoreDesc *real[] = { &amiga_desc, &amiga1200_desc, &apple2_desc };
+        const CoreDesc *real[] = { &amiga_desc, &apple2_desc };
         for (const CoreDesc *d : real) {
             CHECK(d->nreport_regs > 0 && d->report_regs);
             CHECK(!desc_check(d));

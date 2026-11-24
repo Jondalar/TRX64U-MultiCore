@@ -145,7 +145,7 @@ int main()
     setvbuf(stdout, 0, _IONBF, 0);
     FakeIo io; FakeFs fs; CoreCtx c;
     memset(&c, 0, sizeof(c));
-    c.desc = &amiga1200_desc; c.io = &io; c.fs = &fs;
+    c.desc = &amiga_desc; c.io = &io; c.fs = &fs;
     snprintf(c.cor_path, sizeof(c.cor_path), "/sd/cores/amiga1200.cor");
     Settings st(c.desc->settings, c.desc->nsettings, c.desc->store, &fs, "/sd/cores/amiga1200/amiga1200.cfg", 0);
     st.load();
@@ -158,7 +158,7 @@ int main()
     env.dialog_key_intent = env_dlg_intent; env.dialog_apply = env_dlg_apply; env.dialog_view = env_dlg_view; env.picture_left_s = env_pic_left;
     // D31 (Alex, 2026-11-10): every core of the generic application gets the service (token, /v1/ui/state, asking); before D31 only the Amiga 1200 and the TRX64U
     {
-        static CoreDesc other = amiga1200_desc;
+        static CoreDesc other = amiga_desc;
         const char *names[] = { "C64 reference", "C64 SCPU", "VC-20 (PAL)", "NES" };
         for (const char *nm : names) {
             other.cor_name = nm;
@@ -199,7 +199,7 @@ int main()
         }
         // the run loop holds a merged COPY of the Amiga descriptor: it is the same core by name, so it gets the service
         {
-            static CoreDesc merged = amiga1200_desc;
+            static CoreDesc merged = amiga_desc;
             CoreCtx mc = c;
             mc.desc = &merged;
             g_ui = true;
