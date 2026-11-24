@@ -3,7 +3,7 @@
 //   000-003 ID        "DIAG"
 //   004 CAPS 0xC0     b6 page 6 (the host's pixel layer), b7 the pixel layer is RGB565 (the host's meaning; the diag bits are DCAPS)
 //   005 CAPS2 0x02    b1 BUILD is there
-//   006 DCAPS         b0 the joystick pins are open-drain outputs in the top, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder (T201, 050-05F), b3 the channel map, probe, RGB, SYNCn and FB of T259 (060-065)
+//   006 DCAPS         b0 the joystick pins are open-drain outputs in the top, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder (T201, 050-05F)
 //   008-00B BUILD     the bitstream's build stamp (USR_ACCESS)
 //   00C-00F TICKS_US  R  engine clocks per microsecond x 256 (cpu_clk 100 MHz: 0x00006400)
 //   010 IRQ_EN RW, 014 IRQ_CAUSE R/W1C   b7 page flip done, b6 video frame start, b5 the engine stopped or waits for the user
@@ -140,7 +140,7 @@ module diag_regs #(
                 12'h003: q <= 8'h47;                // "G"
                 12'h004: q <= 8'hC0;
                 12'h005: q <= 8'h02;
-                12'h006: q <= 8'h0F;
+                12'h006: q <= 8'h07;
                 12'h008: q <= build[7:0];
                 12'h009: q <= build[15:8];
                 12'h00A: q <= build[23:16];
