@@ -6,11 +6,11 @@
 #   tools/dev.sh test      [--branch B]             the host tests of the applications: `ci/apptests.sh --tier fast` (the unit tests of what changed)
 #   tools/dev.sh riscv     [--branch B] [--clean]   the build stage of the pipeline (ci/trxapps.sh): the RISC-V images, size check, testlib/unzip;
 #                                                   the images come back to .ci/dev/<branch>/
-#   tools/dev.sh emu       [--branch B] [--clean]   the emulator scripts of the app(s) this branch touches (T174 D2.2/D2.8), ON THE BUILDER: the images are built
+#   tools/dev.sh emu       [--branch B] [--clean]   the emulator script of the host app when this branch touches it (T174 D2.2/D2.8), ON THE BUILDER: the images are built
 #                                                   first (ue2emu runs the RISC-V image itself), then ue2emu runs in the Linux image UE2EMU_IMAGE (ci/lib.sh) through
 #                                                   ci/ue2emu.sh, with the kit of the CI cache (ROMs, flash image, profile, a vc20.cor; tools/ue2emu_kit.sh): the
 #                                                   host app's flow tests/hostapp/emu_host.sh (host > vc20.cor > core menu > back; PNGs come back to
-#                                                   .ci/dev/<branch>/emu/) and tests/coreapp/emu/run.sh for the core app. The Mac's own tests/ui runs too when a
+#                                                   .ci/dev/<branch>/emu/). The Mac's own tests/ui (the profile cores) runs for the core app when a
 #                                                   local ue2emu exists (UE2EMU). No kit or no image on the builder: said out loud, not run.
 #   tools/dev.sh cor CORE  [--branch B]             ONE .cor (T174 D2.7): the images of this tree, then ci/pack_one.sh with the bitstream the pipeline's cache
 #                                                   holds for this tree's gateware; kept in ~/scratch/cor/<branch>/ on the builder and copied to
@@ -100,7 +100,7 @@ lap "$mode on $host (rc=$rc)"
 
 case "$mode" in riscv|emu|cor|integrate)
   out=".ci/dev/$slug"; mkdir -p "$out"
-  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf coreapp_trx64u.app coreapp_trx64u.bin coreapp_trx64u.elf testlib.u2a unzip.u2a miniz.u2a; do   # T228 R25: trx64u's own image
+  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf testlib.u2a unzip.u2a miniz.u2a; do
     scp -q "$host:$tree/.dev-out/trxapps/$f" "$out/" 2>/dev/null || echo "(no $f in the result)"
   done
   rm -rf "$out"/trx64-sdk-*   # the SDK package of the build (tools/sdk_pack.sh): the tarball, unpacked beside it
@@ -124,13 +124,12 @@ if [ "$mode" = emu ] || [ "$mode" = integrate ]; then
   printf '%s\n' "$files" | grep -qE '^(host-app/|app/|vendor/gideon/(software|tools|target)/|tests/hostapp/)' && host_touched=1
   [ -n "$mbase" ] || { echo "=== dev.sh $mode: no merge-base with integration found: both apps count as touched" >&2; core_touched=1 host_touched=1; }
   # the emulator scripts run on the builder, outside the build container (the emulator is a container of its own: ci/ue2emu.sh)
-  if [ -z "$host_touched$core_touched" ]; then
-    echo "=== dev.sh $mode: neither app is touched by this branch: no emulator script was run"
+  if [ -z "$host_touched" ]; then
+    echo "=== dev.sh $mode: the host app is not touched by this branch: no emulator script was run"
   else
     {
       printf '#!/bin/bash\ncd "%s" || exit 1\nrc=0\nexport EMU_OUT="%s/.dev-out/emu"\n' "$abs" "$abs"
       [ -z "$host_touched" ] || printf 'tests/hostapp/emu_host.sh "%s/.dev-out/trxapps" "%s/.dev-out/emu/host" || { [ $? = 77 ] || rc=1; }\n' "$abs" "$abs"
-      [ -z "$core_touched" ] || printf 'tests/coreapp/emu/run.sh "%s/.dev-out/trxapps/coreapp_trx64u.app" || { [ $? = 77 ] || rc=1; }\n' "$abs"   # T228 R25: the script runs trx64u
       printf 'exit $rc\n'
     } | ssh "$host" "cat > $tree/.dev-emu.sh"
     echo "=== dev.sh $mode: emulator scripts on $host (ue2emu in the container image $(grep -o 'UE2EMU_IMAGE:-[^}]*' ci/lib.sh | head -1 | cut -d- -f2))"
@@ -143,7 +142,7 @@ if [ "$mode" = emu ] || [ "$mode" = integrate ]; then
   emu="${UE2EMU:-$HOME/Development/u64-emulator/target/release/ue2emu}"
   if [ -n "$core_touched" ] && [ -x "$emu" ] && [ -f "$out/coreapp.app" ]; then
     echo "=== dev.sh $mode: tests/ui on the Mac (local ue2emu) with $out/coreapp.app"
-    COREAPP="$ROOT/$out/coreapp.app" COREAPP_TRX64U="$ROOT/$out/coreapp_trx64u.app" nice -n 15 tests/ui/run.sh   # T228 R25: trx64u runs its own image
+    COREAPP="$ROOT/$out/coreapp.app" nice -n 15 tests/ui/run.sh
     lap "tests/ui"
   fi
 fi

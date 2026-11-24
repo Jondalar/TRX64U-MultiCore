@@ -34,7 +34,6 @@ coreapp/cores/c128_prg.h core-library C128 program start
 coreapp/cores/c128_regs.h data register map (D8)
 coreapp/cores/c264.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/c264_regs.h data register map (D8)
-coreapp/cores/c64.cc ultimate-repo c64.cc (D12)
 coreapp/cores/c64_cart.cc shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart.h shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart_desc.h shared-library cartridge library's types
@@ -80,8 +79,6 @@ coreapp/cores/tape_deck.cc shared-library tape deck of zx, cpc, pet
 coreapp/cores/tape_deck.h shared-library tape deck of zx, cpc, pet
 coreapp/cores/tape_pulses.cc shared-library tape pulses of zx, cpc, pet
 coreapp/cores/tape_pulses.h shared-library tape pulses of zx, cpc, pet
-coreapp/cores/trx64u/menu.toml ultimate-repo the trx64u menu (D12)
-coreapp/cores/trx64u/menu_rec.inc ultimate-repo the trx64u menu (D12)
 coreapp/cores/vc20.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/vc20_regs.h data register map (D8)
 coreapp/cores/zx.cc core-library hooks; its tables are desc.toml (D8, D9)

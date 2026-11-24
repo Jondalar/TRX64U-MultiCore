@@ -25,7 +25,7 @@ class Feature:
         self.background = []
         self.scenarios = []                  # (name, [(keyword, text, lineno)])
         self.needs_emulator = True
-        self.core = "trx64u"                 # `# core: amiga1200` on the first line: the Amiga 1200 profile of the emulator (T192.3 section 5)
+        self.core = "amiga1200"              # `# core: nes` on the first line: the Amiga 1200 profile of the emulator (T192.3 section 5)
 
 
 def parse(path):

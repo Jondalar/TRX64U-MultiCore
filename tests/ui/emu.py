@@ -2,7 +2,7 @@
 
 The control protocol is the emulator's (one command per line, the answer ends in a line `ok` or `error ...`): key, wait, png, button. The state is
 `GET /v1/ui/state` of the application, the snapshot of the UI service (T192.1 contract 2, built by coreapp/src/uiapp.cc): JSON, read-only. The TRX64U run has no core
-folder, so the service asks for no token (uiapp.cc token_path); the Amiga 1200 run has one on the stick and fetches the token with the first login (`_grant`).
+folder, so the service asks for no token (uiapp.cc token_path); a core with a folder on the stick (every core of CORES) fetches the token with the first login (`_grant`).
 """
 import json
 import os
@@ -19,8 +19,6 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 EMU = os.environ.get("UE2EMU", os.path.expanduser("~/Development/u64-emulator/target/release/ue2emu"))
 ROMS = os.environ.get("UE2EMU_ROMS", os.path.expanduser("~/Development/u64-emulator/firmware/1541ultimate/roms"))
 APP = os.environ.get("COREAPP", os.path.join(HERE, "build", "coreapp.app"))
-# T228 R25: trx64u has a core app image of its own (coreapp_trx64u.app, beside the shared one); the other cores run the shared image
-APP_TRX64U = os.environ.get("COREAPP_TRX64U", os.path.join(os.path.dirname(APP), "coreapp_trx64u.app"))
 CTL_PORT = int(os.environ.get("UI_CTL_PORT", "47411"))
 REST_PORT = int(os.environ.get("UI_REST_PORT", "47480"))
 WORK = os.path.join(HERE, "work")
@@ -35,10 +33,10 @@ class EmuError(Exception):
 
 
 class Emu:
-    def __init__(self, log=None, core="trx64u"):
+    def __init__(self, log=None, core="amiga1200"):
         core, _, flags = core.partition("+")  # T256: "vc20+ovtest" is the core with the .cor of the overlay test library (tests/ui/ovtest, fixtures.make_ovtest_cor)
         self.ovtest = "ovtest" in flags.split("+")
-        self.core = core                     # "trx64u" (the C64 record), "amiga1200" or "nes" (the profiles of tests/coreapp/emu/profiles)
+        self.core = core                     # "amiga1200" or "nes" ... (the profiles of tests/coreapp/emu/profiles)
         self.token = None
         self.proc = None
         self.sock = None
@@ -48,7 +46,9 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = APP_TRX64U if self.core == "trx64u" else APP     # T228 R25: the shared image has no TRX64U C64; trx64u runs its own image
+        app = APP
+        if self.core not in CORES:
+            raise EmuError("no profile for the core \"%s\" (tests/coreapp/emu/profiles, emu.CORES)" % self.core)
         if not os.path.exists(app):
             raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
         for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the coreapp image (COREAPP, tests/ui/build.sh)")):
@@ -77,12 +77,9 @@ class Emu:
                "--flash", os.path.join(WORK, "flash.bin"), "--c64-roms", ROMS, "--usb-dir", stick, "--usb-dir-work", os.path.join(WORK, "usbwork"), "--sd", sd_img,
                "--headless", "--speed", "max", "--control", "127.0.0.1:%d" % CTL_PORT, "--net", "user",
                "--hostfwd", "tcp:127.0.0.1:%d:80" % REST_PORT]
-        if self.core in CORES:         # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
-            cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
-            cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
-        if self.ovtest and self.core not in CORES:      # trx64u has no profile: the hand-over page names the .cor the stick holds (the keys of a profile's [handover])
-            for kv in ("core=" + fixtures.OVTEST_NAMES[self.core], "id=" + self.core, "path=/Usb0/cores/%s.cor" % self.core):
-                cmd += ["--handover", kv]
+        # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
+        cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
+        cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
         cmd += os.environ.get("UI_EMU_ARGS", "").split()      # e.g. UI_EMU_ARGS="--log io" (T210: the register writes of the first frames)
         self.log = open(self.logpath, "w")
         self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=subprocess.STDOUT, cwd=WORK)

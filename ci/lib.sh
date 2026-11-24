@@ -410,7 +410,7 @@ build_update_host() {
       --out "$out" "$bit" "$app"
 }
 
-# T174 D2.8: the emulator the app suites run in (tests/coreapp/emu/run.sh, tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
+# T174 D2.8: the emulator the app suites run in (tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
 # tag is the pinned emulator release (u64-emulator v0.7.0 = 4612884e7a63, S44). This is the ONE place that names it (UE2EMU_IMAGE in the environment
 # overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: on GitHub they run in the image ghcr.io/<owner>/trx64u-emu (ci/emu/Dockerfile, built by ci-images.yml), in the Gitea
 # workflows (by hand, T239.1 D45) in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh); both have ue2emu on PATH.

@@ -85,15 +85,12 @@ check "descrec test" python3 tools/test_descrec.py
 check "libtab test" python3 tools/test_libtab.py
 check "app_build test (T239.3 D31: the maxima per core, the split of the base)" python3 tools/test_app_build.py
 check "the SDK links with the options of the core app Makefile (T239.3 D31)" python3 -I tools/app_build.py flags host-app/target/u64ii/riscv/coreapp/Makefile app/lib/appflags.mk
-# T104.2 D10: the menu record the application carries is what menu.toml compiles to (and every name in it is one the application exports); its areas and tabs are the concept's
-check "TRX64U menu record" python3 tools/gen_menu_rec.py --check
-check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_trx64u.txt
+check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_amiga1200.txt
 # T192 D23 (Alex, 2026-11-09: "Until the UI, including the UX, works completely as an API client, it is a botch"): the host's screen changes no state outside host_core, acts on
 # no key itself (the key map is one table), carries no hand-written legend; what is not cut yet is the ledger (tools/host_cut_ledger.txt) and only shrinks.
 check "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'
 # T192.2 P5 (S11, S12): the parity compare of two render outputs reports a pixel, a word of a dump, a missing and an extra file, and passes on two equal copies
 check "render compare (T192.2 parity)" python3 -I tools/render_compare.py --selftest
-check "TRX64U menu against the UX concept" bash -c 'python3 tools/check_menu_concept.py --selftest && python3 tools/check_menu_concept.py tests/coreapp/golden/menu_c64.txt'
 # T192.3 S1, S6 (D23): the core menu controller holds navigation, dialogs and rows and nothing of the domain; no raw key outside its three input handlers. The selftest plants every fault.
 check "menu controller gate (T192.3 S1, S6)" python3 tools/check_menuctl_gate.py
 check "menu controller gate: selftest" python3 tools/check_menuctl_gate.py --selftest
