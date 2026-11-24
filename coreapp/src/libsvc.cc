@@ -323,12 +323,12 @@ struct LibSvc {
     static void stop(bool on) { CoreIo *io = IO(); if (io) io->stop(on); }
     static void mode_reset(bool on) { CoreIo *io = IO(); if (io) io->mode_reset(on); }
     static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
-    // The reader translated the record's address into the space of the TOML A the app is linked with (descrec.cc: the [io] bases of basetab.h) and refused a block not wholly inside that TOML A's
+    // The reader translated the record's address into the space of the TOML A the app is linked with (descrec.cc: the [io] bases of basetab.h) and refused a [[window]] not wholly inside that TOML A's
     // I/O span [iobase, iobase + 16 MiB): the host's bus converter sends an address with bit 28 set to the 24 bit I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so anything outside the
-    // span is DDR or an alias of a register. The grant checks the span again (descrec_in_io_span), so a block that did not come through a reader is null and size 0 as well.
+    // span is DDR or an alias of a register. The grant checks the span (descrec_in_io_span) for a [[window]] and for a block of the core alike (a block of the core outside the span is read, V-3c, 2026-11-24), so a block that did not come through a reader is null and size 0 as well.
     static volatile uint8_t *window(const char *name, uint32_t *size)
     {
-        // the windows of the running core's description record (section 19); a block of a version 7 record was refused at the read when it overlapped a block of the base
+        // the windows of the running core's description record (section 19); a block of a version 7 record is read wherever it lies; the span check above is the only one at the grant
         const DescRecord *rec = L()->windows_rec_;
         const DescWindow *w = rec && name ? descrec_window(*rec, name) : 0;
         if (w && !descrec_in_io_span(w->address, w->size)) {

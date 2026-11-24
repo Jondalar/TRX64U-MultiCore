@@ -11,7 +11,11 @@ sys.path.insert(0, os.path.join(root, "tools"))
 import app_build, descrec
 app = os.path.join(root, "cores", "vc20", "app")
 sdk = descrec.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]
-blocks = list(sdk["base_blocks"])                       # what the app links: its TOML B's blocks of its base_toml_a, nothing else
+blocks = list(sdk["base_blocks"])                       # what the app links: its TOML B's blocks of its base_toml_a
+# Every native test builds against this one table (drvtab.h of the VIC-20 comes first on the include path), and the shared units (volume.cc, tone.cc: the Volume and Tone rows exist only
+# where the table has audio_master, D36) are tested through it. The VIC-20's own app does not name audio_master; the block is added here, for the tests only, as drive_wd is below.
+if "audio_master" not in blocks:
+    blocks.append("audio_master")
 base = os.path.join(root, "coreapp", "gateware", sdk.get("base_toml_a", "shared.toml"))
 if wd:                                                # the host's TOML A has no drive_wd: the block of shared.toml is added to a copy of the base for this table only
     wdb = [b for b in descrec.toml_loads(open(os.path.join(root, "coreapp", "gateware", "shared.toml")).read())["block"] if b["name"] == "drive_wd"][0]
