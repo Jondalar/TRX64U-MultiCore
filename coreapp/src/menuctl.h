@@ -114,6 +114,7 @@ public:
     void set_app_mode(bool on) { app_mode_ = on; }
     bool app_mode() const { return app_mode_; }
     bool goto_spec(const char *spec);                              // "F3", "F5/drives", "APP/flash": an area, an area and a tab
+    bool action_pending() const { return pend_act_ != 0; }         // an action waits for its file to be fetched (run_action)
     bool goto_when_open(const char *spec);                         // goto_spec now when the menu is open, else open() takes it (T256 D13); false: no such place
     void say_when_open(const char *s, bool bad);                   // say() now when the menu is open, else open() shows it after its moves
     bool take_prompt();                                            // T228 R21: an operation asked something (CoreCtx::want_prompt): the text prompt or the pick list is up; true: it is
@@ -251,6 +252,17 @@ private:
     void begin_confirm_job(const Task *t, const char *question);
     Result activate(bool primary = false, bool all = false);                         // primary: a file's first action at once, without the list of its actions
     Result run_action(const FileAction &a, const char *file, int32_t ask = 0);
+    Result run_action_inner(const FileAction &a, const char *file, int32_t ask);
+    // T239.3 D41 (review): an action whose file is still being fetched (CoreFs::file_loading) stays pending: the status row says what the fetch does, pump() runs the action again every 300 ms until it
+    // does not report a fetch any more. A key that leaves the folder, or a new open of the menu, cancels it.
+    bool pend_tick(uint32_t now);
+    void pend_begin();
+    void pend_end(const FileAction &a, const char *file, int32_t ask);
+    const FileAction *pend_act_ = 0;
+    char pend_file_[FS_PATH_MAX] = "";
+    char pend_dir_[200] = "";
+    int32_t pend_ask_ = 0;
+    uint32_t pend_t_ = 0;
     Result ui_action(const char *op, const char *file);            // the actions every file has (view, copy, move, rename, delete, favourite)
     Result run_task(const Task &t, const char *text);
     Result run_node(const MenuNode &n, const char *label);

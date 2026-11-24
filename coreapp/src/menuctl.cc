@@ -519,6 +519,7 @@ void MenuCtl::settle()
 
 void MenuCtl::open()
 {
+    pend_act_ = 0;
     sync_show();                            // T228 R21: what the machine holds may have changed while the menu was closed (a GEOS RAM drive in the REU)
     chooser_ = false;
     entry_ = false;
@@ -2510,6 +2511,52 @@ MenuCtl::Result MenuCtl::start_action(const FileAction &a, const char *file)
 
 MenuCtl::Result MenuCtl::run_action(const FileAction &a, const char *file, int32_t ask)
 {
+    pend_begin();
+    const Result r = run_action_inner(a, file, ask);
+    pend_end(a, file, ask);
+    return r;
+}
+
+void MenuCtl::pend_begin()
+{
+    pend_act_ = 0;
+    c_->fs->file_loading(true);                                           // no answer of an earlier open stands
+}
+
+void MenuCtl::pend_end(const FileAction &a, const char *file, int32_t ask)
+{
+    if (c_->fs->file_loading(true) && strlen(file) < sizeof(pend_file_) && strlen(fm_.path) < sizeof(pend_dir_)) {
+        pend_act_ = &a;
+        snprintf(pend_file_, sizeof(pend_file_), "%s", file);
+        snprintf(pend_dir_, sizeof(pend_dir_), "%s", fm_.path);
+        pend_ask_ = ask;
+        pend_t_ = c_->io->now_ms();
+        set_status(c_->fs->open_note(), false);
+    }
+}
+
+bool MenuCtl::pend_tick(uint32_t now)
+{
+    if (!pend_act_) {
+        return false;
+    }
+    if (!is_browser() || strcmp(fm_.path, pend_dir_)) {                   // the person left the folder: nothing is waited for any more
+        pend_act_ = 0;
+        set_status("", false);
+        return true;
+    }
+    if (now - pend_t_ < 300) {
+        return false;
+    }
+    const FileAction *a = pend_act_;
+    char f[FS_PATH_MAX];
+    snprintf(f, sizeof(f), "%s", pend_file_);
+    run_action(*a, f, pend_ask_);                                // still fetching: pending again (the status row says so); else it has run
+    return true;
+}
+
+MenuCtl::Result MenuCtl::run_action_inner(const FileAction &a, const char *file, int32_t ask)
+{
     if (a.op && !strncmp(a.op, "ui.", 3)) {
         chooser_ = false;
         return ui_action(a.op, file);
@@ -2655,6 +2702,10 @@ bool MenuCtl::pump(bool quiet)
     }
     if (!nk && c_->desc->live_ms && now - last_live_ >= c_->desc->live_ms) {      // T175: state rows that show a register (the pins of the ports)
         last_live_ = now;
+        nk++;
+        changed = true;
+    }
+    if (!nk && pend_tick(now)) {
         nk++;
         changed = true;
     }
@@ -2835,7 +2886,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         } else if (!all && nacts >= 1 && primary) {
             return start_action(acts[0], full);
         } else if (!all && nacts == 0 && primary) {
-            return ui_action("ui.view", full);                     // a file no action knows: RIGHT shows it
+            static const FileAction view_act = { "View", "ui.view", 0, 0, false, 0, 0, 0, 0, 'T' };
+            pend_begin();
+            const Result r = ui_action("ui.view", full);           // a file no action knows: RIGHT shows it
+            pend_end(view_act, full, 0);
+            return r;
         }
         int n = 0;
         for (int k = 0; k < nacts && n < 30; k++) {

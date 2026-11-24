@@ -123,7 +123,14 @@ static int rpc_call_op(RpcSession *s, const JsonRpcReq &r, const char *name, cha
     OpRegistry *reg = ops_of(s->c);
     OpResult res;
     int rp = 0;
+    s->c->fs->file_loading(true);
     svc_call_net(s->c, name, r.has_params ? &r.params : 0, &res);       // D19a: a destructive operation does not run on a socket, it says where to ask
+    // T239.3 D41 (review): this task may wait, the menu's may not: an operation that failed on a file the medium is still fetching (/Online) is asked again until it is there, 120 s at most
+    for (uint32_t t0 = s->c->io->now_ms(); res.code != OPE_OK && s->c->fs->file_loading(false) && s->c->io->now_ms() - t0 < 120000; ) {
+        s->c->io->delay_ms(300);
+        s->c->fs->file_loading(true);
+        svc_call_net(s->c, name, r.has_params ? &r.params : 0, &res);
+    }
     if (res.code == OPE_NOT_FOUND && !reg->find_op(name)) {
         return reply_error(r, -32601, res.msg, out, cap);       // no such method
     }

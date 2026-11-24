@@ -433,5 +433,73 @@ int main()
         CHECK(w.m->goto_when_open("F3"));                         // open menu: at once
         CHECK_EQ(w.m->area(), 1);
     }
+    // T239.3 D41 (review): a file the medium is still fetching: the action stays pending, the status row says so, pump() opens again every 300 ms; leaving the folder cancels
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/notes.txt";
+        w.fs.loading_n = 3;
+        w.go_to("notes.txt");
+        w.m->key(KEY_RIGHT);                                      // View: the file is not there yet
+        CHECK(!w.m->viewer() && w.m->action_pending());
+        CHECK_STR(w.m->status(), "Downloading the file: open it again in a moment");
+        CHECK_EQ(w.fs.loading_opens, 1);
+        w.io.t += 100;
+        w.m->pump(true);
+        CHECK_EQ(w.fs.loading_opens, 1);                          // 300 ms have not passed
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(w.fs.loading_opens == 2 && w.m->action_pending() && !w.m->viewer());
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(w.fs.loading_opens == 3 && w.m->action_pending());
+        w.io.t += 300;
+        w.m->pump(true);                                         // the file is there: the action runs once
+        CHECK(w.m->viewer() && !w.m->action_pending());
+        CHECK_EQ(w.fs.loading_opens, 3);
+        w.m->key(KEY_LEFT);                                       // closes the viewer
+        w.fs.loading_n = 5;
+        w.fs.loading_opens = 0;
+        w.m->key(KEY_RIGHT);
+        CHECK(w.m->action_pending() && w.fs.loading_opens == 1);
+        w.m->key(KEY_LEFT);                                       // leaves the folder: cancelled
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(!w.m->action_pending() && w.fs.loading_opens == 1 && !w.m->viewer());
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK_EQ(w.fs.loading_opens, 1);                          // nothing is asked for any more
+    }
+    // the same for "Copy to...": the job waits for the source with the cancel at hand, then copies it once
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.fs.mkdir("/usb0/games/sub");
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/notes.txt";
+        w.fs.loading_n = 2;
+        w.go_to("notes.txt");
+        w.m->key(KEY_RETURN);
+        w.go_to("Copy to...");
+        w.m->key(KEY_RETURN);
+        CHECK(w.m->picking());
+        w.m->key(KEY_DOWN); w.m->key(KEY_DOWN);
+        w.m->key(KEY_RETURN);                                     // into sub
+        w.m->key(KEY_RETURN);                                     // take it
+        int n = 0;
+        while (w.m->tick() && ++n < 1000) {
+            w.io.t += 100;
+        }
+        uint64_t sz; bool d;
+        CHECK(w.fs.stat("/usb0/games/sub/notes.txt", &sz, &d) && !d && sz == 1);
+        CHECK_EQ(w.fs.loading_opens, 2);                          // asked twice while it was fetched, opened once after
+    }
     DONE("test_menuctl");
 }

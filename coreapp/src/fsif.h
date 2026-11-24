@@ -184,6 +184,10 @@ public:
     virtual bool loading() const { return false; }
     // After a list() that returned -1 and is not loading(): the medium's reason, one sentence, for the Library's status row; empty when it has none (the folder just cannot be read).
     virtual const char *why() const { return ""; }
+    // T239.3 D41 (review): the wait seam of a file. open() never waits. After an open() that returned null: true when the medium is still fetching exactly this file in the background (a job); the caller
+    // keeps its action pending, shows open_note() and opens again soon. `take` clears the answer (ask it so before an action: a stale answer is no answer). Any other failure, and every medium that has no such fetch: false.
+    virtual bool file_loading(bool take) { (void)take; return false; }
+    virtual const char *open_note() const { return ""; }
     // The same listing in FsEntryShort: 72 bytes an entry instead of 272. The default lists through list() into a buffer of `max` whole entries and
     // shortens (-1 when there is no room for it); a medium that has the entries at hand (the board's FileManager) overrides it and needs no such buffer.
     virtual int list_short(const char *dir, FsEntryShort *out, int max)

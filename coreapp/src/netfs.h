@@ -31,12 +31,17 @@ public:
     // T239.3 D41 (L-3c): the last list() of a folder below /Online failed because the sub-app's job is still fetching it / for this reason (empty for every other folder)
     bool loading() const { return loading_; }
     const char *why() const { return why_; }
+    // T239.3 D41 (review): open() of a file below /Online never waits; null with file_loading() true = the job of this very file runs (open_note() says what it does), open again soon.
+    bool file_loading(bool take) { const bool r = file_loading_; if (take) { file_loading_ = false; } return r; }
+    const char *open_note() const { return note_; }
     struct Impl;
 private:
     CoreFs *in_;
     CoreCtx *c_;
     char err_[96];
     bool loading_;
+    bool file_loading_;
+    char note_[96];
     char why_[96];
     Impl *impl_;
 };

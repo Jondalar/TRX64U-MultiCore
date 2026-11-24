@@ -42,6 +42,11 @@ struct Job {
     bool delete_in_after;
     int done_files, skipped, failed;
     char first_err[120];
+    // T239.3 D41 (review): the source is still being fetched (CoreFs::file_loading): the copy is tried again every 300 ms, the cancel stays at hand
+    bool waiting;
+    bool wait_del;
+    uint32_t wait_t;
+    char wait_src[FS_PATH_MAX], wait_dst[FS_PATH_MAX];
 };
 static Job *g_job;
 
@@ -198,7 +203,17 @@ static bool start_copy(CoreCtx *c, Job *j, const char *src, const char *dst, boo
         return false;
     }
     c->fs->stat(src, &sz, &d);
+    c->fs->file_loading(true);
     j->in = c->fs->open(src, false);
+    if (!j->in && c->fs->file_loading(true)) {
+        j->waiting = true;
+        j->wait_del = delete_after;
+        j->wait_t = c->io->now_ms();
+        snprintf(j->wait_src, sizeof(j->wait_src), "%s", src);
+        snprintf(j->wait_dst, sizeof(j->wait_dst), "%s", dst);
+        snprintf(c->job_path, sizeof(c->job_path), "%s", c->fs->open_note());
+        return true;
+    }
     if (!j->in) {
         note_error(j, c->fs->stat(src, &sz, &d) ? "cannot read" : "gone (renamed, moved or deleted since)", src);
         return false;
@@ -300,6 +315,15 @@ static int job_step(CoreCtx *c, Job *j, char *msg, int msglen)
         }
         snprintf(msg, msglen, "Cancelled after %d file(s)", j->done_files);
         return 1;
+    }
+    if (j->waiting) {
+        if (c->io->now_ms() - j->wait_t < 300) {
+            c->io->delay_ms(20);
+            return 0;
+        }
+        j->waiting = false;
+        start_copy(c, j, j->wait_src, j->wait_dst, j->wait_del);
+        return 0;
     }
     if (j->in) {                                            // a chunk of the file being copied
         static uint8_t buf[CHUNK];

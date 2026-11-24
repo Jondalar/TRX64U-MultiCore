@@ -24,6 +24,8 @@ typedef struct OnlineApi {
     // T239.3 D41 (L-3c), appended: a job of the sub-app is fetching what the last failed `list` asked for. The file manager then shows "Loading" and lists the folder again until the job has
     // ended, instead of failing once. False when no such job runs (the failure stands, `error` says why).
     bool (*loading)(void);
+    // T239.3 D41 (review), appended: the job that runs is the one for this file (rel as in `fetch`): its entries or its download. NetFs::open answers "still loading" for that file only; an unrelated job does not make it wait.
+    bool (*loading_for)(const char *rel);
 } OnlineApi;
 
 #endif

@@ -711,6 +711,36 @@ bool tab_loading(void)
     return g_w.state != 0 && (g_w.kind == W_ENTRIES || g_w.kind == W_DOWNLOAD);
 }
 
+int find_res(const char *label);
+// The job that runs is for this file of a result (the result's entries, or the file's download).
+bool tab_loading_for(const char *rel)
+{
+    while (*rel == '/') {
+        rel++;
+    }
+    const char *sl = strchr(rel, '/');
+    if (!sl || g_w.state == 0 || (g_w.kind != W_ENTRIES && g_w.kind != W_DOWNLOAD)) {
+        return false;
+    }
+    char lab[64];
+    size_t ll = (size_t)(sl - rel) < sizeof(lab) - 1 ? (size_t)(sl - rel) : sizeof(lab) - 1;
+    memcpy(lab, rel, ll);
+    lab[ll] = 0;
+    const int ri = find_res(lab);
+    if (ri < 0 || ri != g_w.ri) {
+        return false;
+    }
+    if (g_w.kind == W_ENTRIES) {
+        return true;
+    }
+    for (int i = 0; i < nent; i++) {
+        if (ot_ieq(ent[i].name, sl + 1)) {
+            return ent[i].idx == g_w.ei;
+        }
+    }
+    return false;
+}
+
 int find_res(const char *label)
 {
     for (int i = 0; i < nres; i++) {
@@ -912,7 +942,7 @@ const LibStateDecl online_states[] = {
 };
 const int online_nstates = (int)(sizeof(online_states) / sizeof(online_states[0]));
 
-const OnlineApi online_table = { sizeof(OnlineApi), tab_has_results, tab_list, tab_stat, tab_fetch, tab_error, tab_loading };
+const OnlineApi online_table = { sizeof(OnlineApi), tab_has_results, tab_list, tab_stat, tab_fetch, tab_error, tab_loading, tab_loading_for };
 
 void online_attach(const LibApi *api)
 {

@@ -92,7 +92,8 @@ static bool ol_stat(const char *rel, uint64_t *size, bool *dir) { const OnlineAp
 static uint8_t *ol_alloc(uint32_t n) { return (uint8_t *)malloc(n); }
 static uint8_t *ol_fetch(const char *rel, uint32_t *len) { const OnlineApi *a = online_api(); return a ? a->fetch(rel, ol_alloc, len) : 0; }
 static const char *ol_error(void) { const OnlineApi *a = online_api(); return a ? a->error() : "No online search in this app"; }
-static bool ol_loading(void) { const OnlineApi *a = online_api(); return a && a->loading && a->loading(); }
+static bool ol_loading(void) { const OnlineApi *a = online_api(); return a && a->loading(); }
+static bool ol_loading_for(const char *rel) { const OnlineApi *a = online_api(); return a && a->loading_for(rel); }
 
 static bool is_online(const char *p, const char **rel)
 {
@@ -124,9 +125,10 @@ struct NetFs::Impl {
     uint32_t dir_t;
 };
 
-NetFs::NetFs(CoreFs *inner) : in_(inner), c_(0), loading_(false), impl_(new Impl())
+NetFs::NetFs(CoreFs *inner) : in_(inner), c_(0), loading_(false), file_loading_(false), impl_(new Impl())
 {
     why_[0] = 0;
+    note_[0] = 0;
     memset(impl_, 0, sizeof(Impl));
     impl_->dir_host = -1;
     err_[0] = 0;
@@ -469,12 +471,14 @@ CoreFile *NetFs::open(const char *path, bool rw)
     if (is_online(path, &orel)) {
         uint32_t n = 0;
         uint8_t *b = ol_fetch(orel, &n);
-        for (uint32_t t0 = now_ms(); !b && ol_loading() && now_ms() - t0 < 120000; ) {   // D41: the copy, mount and view paths wait for the sub-app's job instead of failing once
-            vTaskDelay(pdMS_TO_TICKS(50));
-            b = ol_fetch(orel, &n);
-        }
+        file_loading_ = false;
+        note_[0] = 0;
         if (!b) {
             snprintf(err_, sizeof(err_), "%s", ol_error());
+            if (ol_loading_for(orel)) {                         // D41 (review): the job of this file runs: the caller keeps its action pending and opens again; open itself never waits
+                file_loading_ = true;
+                snprintf(note_, sizeof(note_), "%s", err_);
+            }
             return 0;
         }
         MemFile *m = new MemFile();

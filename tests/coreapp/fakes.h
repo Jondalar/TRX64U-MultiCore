@@ -34,6 +34,11 @@ public:
     int read_budget = -1;                                  // file reads that still succeed (-1: unlimited): a stick pulled mid-copy
     int syncs = 0;                                         // CoreFile::sync() calls over all files
     bool sync_fails = false;
+    std::string loading_path;                              // open() of this path answers "still loading" (null, file_loading true) the next loading_n times, then gives the file
+    int loading_n = 0, loading_opens = 0;
+    bool fl_ = false;
+    bool file_loading(bool take) { bool r = fl_; if (take) fl_ = false; return r; }
+    const char *open_note() const { return "Downloading the file: open it again in a moment"; }
     int open_files = 0;                                    // files open() gave and close() has not taken back
     int fail_loads = 0;                                    // the next N loads fail (the stick is pulled between list and read)
     bool extend_writes = true;                             // CoreFile::write at the end of a file makes it longer (FAT does; the chunked writer needs it)
@@ -338,6 +343,12 @@ public:
 inline CoreFile *FakeFs::open(const char *path, bool rw)
 {
     std::string k = lower(path);
+    if (loading_n > 0 && !loading_path.empty() && lower(loading_path.c_str()) == k) {
+        loading_n--;
+        loading_opens++;
+        fl_ = true;
+        return 0;
+    }
     if (gone || !files.count(k)) return 0;
     open_files++;
     return new FakeFile(this, k, rw && !read_only);

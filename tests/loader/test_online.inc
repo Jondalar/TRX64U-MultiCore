@@ -363,12 +363,15 @@ static void online_subapp()
     CHECK(!b && std::string(t->error()).find("Downloading") == 0);
     CHECK(t->loading());                                       // D41: the download is a wait as well: NetFs::open polls fetch while this holds
     CHECK_EQ(g_on.reqs.size(), before + 1);
+    CHECK(t->loading_for((l1 + "/jumpmanjunior-wcs.d64").c_str()));       // the job is for this file ...
+    CHECK(!t->loading_for((l1 + "/info.txt").c_str()));                    // ... not for another file of the result
+    CHECK(!t->loading_for("nothere/info.txt") && !t->loading_for(""));
     online_run_jobs();
     CHECK(t->loading());
     b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);
     CHECK(b && len == 300 && binary_body() == std::string((const char *)b, len));
     free(b);
-    CHECK(!t->loading());
+    CHECK(!t->loading() && !t->loading_for((l1 + "/jumpmanjunior-wcs.d64").c_str()));
     CHECK_EQ(g_on.reqs.size(), before + 2);
     CHECK(starts(g_on.reqs[before + 1], "GET /leet/search/bin/237033/0/0 HTTP/1.1\r\nAccept-enc"));
     b = t->fetch((l1 + "/jumpmanjunior-wcs.d64").c_str(), on_alloc, &len);        // the same file again: kept, no second download
