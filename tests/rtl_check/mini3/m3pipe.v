@@ -9,7 +9,10 @@ module m3pipe (
     output reg        rs_tgl = 1'b0,
     output reg  [7:0] rs_rdata = 8'd0,
     input  wire [7:0] j_addr,
-    input  wire       j_we
+    input  wire       j_we,
+    output wire       d_we,
+    output wire [7:0] d_addr,
+    output wire [7:0] d_wdata
 );
     reg  [2:0] rq_s = 3'b000;
     reg        c_pend = 1'b0;
@@ -25,6 +28,10 @@ module m3pipe (
     function [7:0] swz(input [7:0] a);
         swz = {a[3:0], a[7:4]};
     endfunction
+    // the request goes on to m3dev over continuous assignments (trx_sys.v: p2_we = ost == O_RUN && op_we && page, p2_addr, p2_wdata)
+    assign d_we    = ost == O_RUN && op_we && op_a[7:4] == 4'h4;
+    assign d_addr  = op_a;
+    assign d_wdata = op_wd;
     wire rq_ev = rq_s[2] != rq_s[1];
     genvar gi;
     generate

@@ -59,7 +59,10 @@ check
   do not agree.
   --own-core: the blocks with owner = "core" are checked like the blocks of the base (decoded, every property read and written as its dir says). Without it a core block is only
   a window that leaves the base for the core. A design that holds the registers of a core block itself (c64_basic: trx_sys.v, pix_layer.v, c64_text.v) is checked with it.
-  What is not followed yet: what a pipeline module hands on over continuous assignments (trx_sys.v p2_*, dr_*: trx_engine, trx_debug, trx_dbg_run), a register written by a strobe behind a pipeline (trx_statebus.status: the write flag and the address would reach every register of the module), a VHDL for-generate with ascending ranges (gcr_codec.vhd), a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
+  A module behind a handshake that drives an output port by a continuous assignment from its held request (trx_sys.v: p2_we = ost == O_RUN && op_we && op_a[15:12] == 4'd2, p2_addr, p2_wdata; dr_*) hands the request on: a module of the top file that reads such a port
+  is run on it, with the value of the assignment (the state unknown) and, for a strobe, the address decode and the write flag (a one-bit register that holds the request's known value) as its taint; a module that reads an address or data port alone is not run, and
+  the pipeline's own state writes (ost, res_v) stay no register writes. A Verilog if-generate inside a generate-for body (one item without begin/end too) is decided with the genvar's value.
+  What is not followed yet: byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set (c64_basic: no write is found at the committing byte), a VHDL for-generate with ascending ranges (gcr_codec.vhd), a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -1345,9 +1348,9 @@ class VlogParser(P):
             self.eat()
             kind = "wire"
             while self.txt() in ("wire", "reg", "signed"):
-                kind = self.eat()[1] if self.txt() != "signed" else kind
-                if self.txt(-1) == "signed":
-                    pass
+                t = self.eat()[1]
+                if t != "signed":
+                    kind = t
             r = self.rng()
             ty = Ty("v", *(r if r else (None, None)))
             names = [self.eat()[1]]
@@ -1466,6 +1469,8 @@ class VlogParser(P):
             self.eat()
         elif w == "for":
             self.for_generate(m)
+        elif w == "if":                          # an if-generate inside a generate-for body (c64_core.v g_wcpu): the condition is decided with the genvar's value
+            self.if_generate(m)
         elif w in ("defparam", "specify"):
             raise self.err("a %s construct" % w)
         elif self.pk()[0] == "id" and w not in VERILOG_KW:
@@ -1599,10 +1604,13 @@ class VlogParser(P):
 
     def gen_block(self, m, take):
         """begin [: label] items end, parsed into m when take, else into a scratch module."""
+        tgt = m if take else Mod(m.name, m.lang, m.fname)
+        if self.txt() != "begin":                # one item without begin and end (`if (gi == 0) assign w[gi] = x;`)
+            self.item(tgt)
+            return
         self.eat("begin")
         if self.acc(":"):
             self.eat()
-        tgt = m if take else Mod(m.name, m.lang, m.fname)
         while self.txt() != "end":
             self.item(tgt)
         self.eat("end")
@@ -2218,8 +2226,9 @@ class Ev:
             self.bus = self.top.child(link[0])
             self.check_assumed(self.bus)
             self.rootv, self.roott = dict(link[1]), dict(link[2])
-            if True:        # the handshake's ports carry the address or the data of the request, no more (a strobe behind a pipeline is not proven: the write flag and the address would reach every register of the module)
-                self.roott = {n: (frozenset("d") if "d" in t else frozenset("a")) for n, t in self.roott.items()}
+            # a port of the handshake carries the data of the request ("d"), or its address with what the value was made of (find_links: link_t, the write flag or the address compare of a strobe
+            # that a continuous assignment of the sender decodes); a port whose value is the sender's state alone has the address taint only
+            self.roott = {n: (frozenset("d") if "d" in t else frozenset("a") | (t & {"q", "w", "r"})) for n, t in self.roott.items()}
             if pipe:
                 # a one-bit port of the handshake that carries no value (the toggle) is a strobe of the transport: no address, no decode
                 for n, v in self.rootv.items():
@@ -3216,7 +3225,7 @@ class Ev:
                     continue
                 ids = set()
                 ids_of(rhs, ids)
-                if (ids & ctx.acop) or any(self.taint_name(ctx, n) for n in ids):
+                if (ids & ctx.acop) or any("a" in self.taint_name(ctx, n) for n in ids):      # a copy of the address; the data port's copies (r_wdata -> on) are no pipeline of the address
                     ctx.acop.add(k)
                     changed = True
         return ctx.acop
@@ -3623,9 +3632,9 @@ class Ev:
                         if k in st and k.partition(".")[0] in ctx.mod.decls and self.flag_init(ctx, k, st[k].v.w) is not None:
                             self.post[(id(ctx), k)] = st[k].v
         if held and self.pipe:
-            res["links"] = self.find_links()
+            res["links"] = self.find_links(write)
         elif held:
-            res["links"] = self.find_links()
+            res["links"] = self.find_links(write)
             self.decode_cycle(held)
             if write:
                 for ctx in self.followed:
@@ -3646,7 +3655,9 @@ class Ev:
             res["origins"] = og
         res["certain"] = res["write"] or res["read"]
         if not held:
-            res["links"] = self.find_links()
+            res["links"] = self.find_links(write)
+        res["decodes"] = not res["forward"]                      # no register hands the request on: the module decodes it itself and a continuous assignment hands more on (find_links)
+        res["forward"] += [n for n in getattr(self, "cas_fwd", []) if n not in res["forward"]]
         return res
 
     def is_response(self, ctx, key):
@@ -3687,7 +3698,7 @@ class Ev:
         group = {n for n in outs if any(n.startswith(g) for g in {x for x in CORE_PORTS if any(s.startswith(x) for s in strobe)})}
         return any("d" in self.taint_name(ctx, n) for n in group if n not in strobe) or any("d" in self.taint(ctx, e.rhs) for p in ctx.mod.procs for e in self.run(ctx, p).effects if e.key in group)
 
-    def find_links(self):
+    def find_links(self, write=True):
         """The request leaves a followed module over output ports (address, write flag, data, toggle: the held request of a
         handshake) and a module of the top-level file reads them: that module decodes it in another clock domain. For every such
         module: the values and taints its input ports have, and its output ports that answer the forwarder."""
@@ -3705,7 +3716,6 @@ class Ev:
                         new = ("d", allx(self.width(ctx, e.key)))
                     elif "a" in rt and e.certain:
                         new = ("a", e.v)
-                        self.link_t[(id(ctx), e.key)] = rt & {"a", "q", "w", "r"}
                     else:
                         new = ("s", allx(self.width(ctx, e.key)))
                     old = outs.get((id(ctx), e.key))
@@ -3717,6 +3727,36 @@ class Ev:
                         else:
                             new = ("s" if "s" in (old[0], new[0]) else "a", allx(new[1].w or 1))
                     outs[(id(ctx), e.key)] = new
+        self.cas_fwd = []
+        plain, strobe = set(), set()       # the ports a continuous assignment drives; of those, the ones that carry the write or read flag (a strobe)
+        for ctx in self.followed:
+            if ctx.parent is not self.top or not self.pipe or ctx.mod.lang != "vlog":      # only the module behind a handshake with a register pipeline (its strobes are decoded from the pipeline's registers)
+                continue
+            for lhs, rhs, where in ctx.mod.cas:               # a continuous assignment to an output port hands the request on as well (trx_sys.v: p2_we = ost == O_RUN && op_we && op_a[15:12] == 4'd2, p2_addr, p2_wdata)
+                key = base_name(lhs)[0]
+                pt = ctx.mod.ports.get(key)
+                if pt is None or pt[0] == "in" or lhs[0] != "id":
+                    continue
+                rt = self.taint(ctx, rhs)
+                if not rt & {"a", "d"}:
+                    continue
+                if "d" in rt:
+                    new = ("d", allx(self.width(ctx, key)))
+                else:
+                    new = ("a", self.ev(ctx, rhs))
+                    names = set()
+                    ids_of(rhs, names)
+                    flag = any((id(ctx), n) in self.hold and self.hold[(id(ctx), n)].w == 1 and not self.hold[(id(ctx), n)].x for n in names)
+                    # a strobe: the held write flag (a one-bit register that holds the request's value, known) decoded with the address; the port carries both for the module behind it
+                    # (the narrow taint of the handshake itself stays: the pipeline's own state writes are no register writes)
+                    self.link_t[(id(ctx), key)] = frozenset({"a"}) | ({"q", "w" if write else "r"} if flag else frozenset())
+                if (id(ctx), key) in outs:                                   # another driver (a register of a process): the values merge as they do between processes
+                    continue
+                outs[(id(ctx), key)] = new
+                plain.add((id(ctx), key))
+                self.cas_fwd.append("%s.%s" % (ctx.name, key))
+                if self.link_t.get((id(ctx), key), frozenset()) & {"w", "r"}:
+                    strobe.add((id(ctx), key))
         links = []
         for ctx in self.followed:
             if ctx.parent is not self.top:
@@ -3736,6 +3776,7 @@ class Ev:
                 if inst is ctx.inst or inst is self.bus.inst or inst.modname.lower() not in self.d.index:
                     continue
                 rv, rt, resp = {}, {}, []
+                hit = False
                 for f, a in inst.ports:
                     if a is None or a[0] != "id":
                         continue
@@ -3743,9 +3784,11 @@ class Ev:
                     if dr == "in" and a[1] in nets:
                         kind, v = mine[nets[a[1]]]
                         rv[f], rt[f] = v, (frozenset("d") if kind == "d" else frozenset("a") | self.link_t.get((id(ctx), nets[a[1]]), frozenset()))
+                        k = (id(ctx), nets[a[1]])
+                        hit = hit or k not in plain or k in strobe        # a module that reads only an address or data a continuous assignment passes on (no strobe) does not decode the request
                     elif dr == "out" and a[1] in back:
                         resp.append(f)
-                if rv:
+                if rv and hit:
                     links.append((inst, rv, rt, resp, ctx.name))
         return links
 
@@ -3926,7 +3969,7 @@ class Checker:
             return res
         if depth > 3:
             raise Unsupported("a request that crosses more than 3 clock domains")
-        wr = rd = False
+        wr, rd = (res["write"], res["read"]) if res.get("decodes") else (False, False)       # a module that decodes the request itself and hands it on keeps its own decode
         cert = res["cert"]
         for inst, rv, rt, resp, via in res["links"]:
             ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp))

@@ -10,9 +10,11 @@
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   2c. the miniature design tests/rtl_check/mini3 (V-1d): a handshake into a module with a register pipeline (c_addr, op_a), another master loading the same register, a Verilog
-      generate-for with a named block, a function, checked with --own-core.
-  2d. c64_basic of TRX64-Ultimate with the TOML A of its commit b57405a6 (read with git show; skipped without the checkout or the commit), --own-core: the blocks that are still stopped are
-      the five the check lists (trx_engine, trx_debug, trx_dbg_run, trx_statebus.status, gcr_coder).
+      generate-for with a named block, a function, and a module behind continuous assignments of the pipeline (m3dev), checked with --own-core, and without it (the core blocks are then a
+      hand-over the miniature has no port for).
+  2c2. the miniature design tests/rtl_check/mini4 (V-1d): a pattern the check does not know stops the one block that reaches it; the other block has its verdict.
+  2d. c64_basic of TRX64-Ultimate with the TOML A of its commit b57405a6 (the TOML A is read with git show, the RTL is the checkout's working tree, so the list below follows the checkout;
+      skipped without the checkout or the commit), --own-core: the blocks that are still stopped are the five the check lists (trx_dbg_run, trx_statebus.status, trx_debug.ipc_set, gcr_coder).
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
@@ -61,9 +63,17 @@ must(rc == 0 and "2 block(s), 3 properties agree" in out,
 # the VIC-20's TOML A: the core window (the five cw_* ports of the instance vc) and its own drive block (drive_l2 behind the register stage of layer2_vc20, the ports of the top module as the bus,
 # the whole address on the port; the 2 KB parameter RAM as two runs of 256 words with the stride 8, the dirty RAM as a run of 128); no WD177x, no side, no drivetype
 rc, out = run("check", "--design", os.path.join(HERE, "mini3"), "--toml-a", os.path.join(HERE, "mini3.toml"), "--top", "top", "--bus", "msys.io_req", "--own-core")
-must(rc == 0 and "2 block(s), 4 properties agree" in out,
+must(rc == 0 and "3 block(s), 5 properties agree" in out,
      "mini3 design: a handshake into a module with a register pipeline (c_addr, then op_a; the registers JTAG loads are not the request), a generate-for cell[i].v with a named block, a function (swz) "
-     "and a flag state: the blocks agree with the RTL (with --own-core: the properties of owner core blocks are read against the RTL)", out)
+     "and a flag state, and a register of m3dev that the pipeline's continuous assignments (d_we = ost == O_RUN && op_we && page, d_addr, d_wdata) write: the blocks agree with the RTL "
+     "(with --own-core: the properties of owner core blocks are read against the RTL)", out)
+rc, out = run("check", "--design", os.path.join(HERE, "mini3"), "--toml-a", os.path.join(HERE, "mini3.toml"), "--top", "top", "--bus", "msys.io_req")
+must(rc == 1 and "block r0: byte +0x0 (0x10000120) is not handed over to the core by the RTL" in out and "3 finding(s)" in out,
+     "mini3 design without --own-core: a core block is only a window that leaves the base for the core; the miniature has no core port, so each of the three blocks says so", out)
+
+rc, out = run("check", "--design", os.path.join(HERE, "mini4"), "--toml-a", os.path.join(HERE, "mini4.toml"), "--top", "top", "--bus", "msys.io_req")
+must(rc == 1 and "block dev: an RTL pattern I do not know" in out and "a generate for whose step is not genvar = genvar + 1" in out and "block ctl" not in out and "1 finding(s)" in out,
+     "mini4 design: the generate-for that is no counting loop stops the block dev (listed with file and line), the block ctl has its verdict (it agrees)", out)
 
 ult_commit = "b57405a6"
 tomla = subprocess.run(["git", "-C", ult, "show", ult_commit + ":software/trx64u/gateware/c64_basic.toml"], capture_output=True, text=True) if os.path.isdir(dsg) else None
@@ -74,10 +84,10 @@ if tomla is not None and tomla.returncode == 0:
         open(fa, "w").write(tomla.stdout)
         rc, out = run("check", "--design", dsg, "--toml-a", fa, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--own-core")
     found = sorted({l.split()[2].rstrip(",:") for l in out.splitlines() if l.startswith("rtl_check: block ")})
-    must(rc == 1 and found == ["gcr_coder", "trx_dbg_run", "trx_debug", "trx_engine", "trx_statebus"] and "21 finding(s)" in out,
+    must(rc == 1 and found == ["gcr_coder", "trx_dbg_run", "trx_debug", "trx_statebus"] and "6 finding(s)" in out,
          "c64_basic with its TOML A of %s (33 blocks): the blocks of trx_sys.v that it decodes itself (trx_gate, trx_turbo, trx_slot, the generate-for ent[i], the function tfind, the pipeline rq_addr, c_addr, op_a; "
-         "another master loads op_a), the trx_io, pix_layer and c64_text blocks and the VHDL blocks agree; what is still stopped is listed: pages 2 and 3 that trx_sys.v hands on over continuous assignments "
-         "(trx_engine, trx_debug, trx_dbg_run), trx_statebus.status (a strobe behind the pipeline) and gcr_coder (a VHDL for-generate with ascending ranges)" % ult_commit, out)
+         "another master loads op_a), the trx_io, pix_layer and c64_text blocks and the VHDL blocks agree; the pages 2 and 3 that trx_sys.v hands on over continuous assignments (trx_engine, trx_debug) agree; what is still stopped is listed: "
+         "byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set, and gcr_coder (a VHDL for-generate with ascending ranges)" % ult_commit, out)
 else:
     print("SKIP: no TRX64-Ultimate checkout with commit %s at %s; its TOML A not checked" % (ult_commit, ult))
 
