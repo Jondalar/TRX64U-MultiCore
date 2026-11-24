@@ -12,6 +12,7 @@ import sys
 import time
 import traceback
 
+import emu
 import steps
 from steps import AssertionFailed
 
@@ -123,12 +124,22 @@ def main(argv):
         raise SystemExit(__doc__)
     t0 = time.time()
     total = {"pass": 0, "fail": 0, "error": 0}
+    skipped = []
     for p in files:
-        r = run_feature(parse(p), keep, only)
+        f = parse(p)
+        core = f.core.partition("+")[0]
+        if f.needs_emulator and not os.environ.get("COREAPP_" + core) and emu.own_app(core):
+            # T239.5 D13: the core has left the shared image; its features need its own image (tools/dev.sh builds only the shared one)
+            print("Feature: %s   (%s, %s)\n  SKIPPED out loud: the core has an app of its own - give its image as COREAPP_%s" % (f.name, os.path.basename(f.path), f.core, core))
+            skipped.append(os.path.basename(f.path))
+            continue
+        r = run_feature(f, keep, only)
         for k in total:
             total[k] += r[k]
     secs = time.time() - t0
     print("\n%d passed, %d failed, %d errors (%.0f s)" % (total["pass"], total["fail"], total["error"], secs))
+    if skipped:
+        print("SKIPPED out loud: %d feature(s) of cores with an app of their own, no image given: %s" % (len(skipped), " ".join(skipped)))
     return 1 if total["fail"] or total["error"] else 0
 
 

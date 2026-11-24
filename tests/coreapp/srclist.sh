@@ -56,11 +56,13 @@ coreapp_srcs() {
   # has is not added twice), each of the core's own sources (cores/<id>/app/lib) in a unit of its own that includes the driver table of the core's TOML A first (own_drv_dir;
   # the table's guard DRVTAB_H keeps out the shared table, which the callers put first on the one include path of their command line: without the unit, vc20.cc took the
   # shared app's table and did not compile, T213.3).
-  local own kind lib w descs=""
+  local own kind lib w lanes d descs=""
   OWN_DIR="${TMPDIR:-/tmp}/owncores.$(id -u)"
+  lanes="$(python3 "$ROOT/tools/core_toml.py" lanes)" || { echo "srclist: tools/core_toml.py lanes failed" >&2; return 1; }   # first, so a failure is not swallowed
   while read -r own kind; do
     [ -n "$own" ] || continue
-    descs="$descs $(python3 "$ROOT/tools/core_toml.py" sdk "$own" desc)"
+    d="$(python3 "$ROOT/tools/core_toml.py" sdk "$own" desc)" && [ -n "$d" ] || { echo "srclist: cores/$own/app/sdk.toml names no descriptor" >&2; return 1; }
+    descs="$descs $d"
     own_drv_dir "$own" "$OWN_DIR/$own" || return 1
     lib="$ROOT/cores/$own/app/lib"
     for f in $(python3 "$ROOT/tools/libtab.py" sources "$ROOT/cores/$own/app/sdk.toml"); do
@@ -76,7 +78,7 @@ coreapp_srcs() {
         for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
       fi
     done
-  done < <(python3 "$ROOT/tools/core_toml.py" lanes)
+  done <<< "$lanes"
   # own_cores.h: their descriptors as one list (the render bench walks it with the board's table; tools/menusim makes the same list in its own directory)
   mkdir -p "$OWN_DIR"
   {

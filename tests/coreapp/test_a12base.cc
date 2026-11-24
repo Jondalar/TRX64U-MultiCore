@@ -25,6 +25,7 @@ int main()
 {
     static CoreDesc vd, td, hd, h1, h2;
     static Setting vs[SETTINGS_MAX], ts[SETTINGS_MAX], hs[SETTINGS_MAX], s1[SETTINGS_MAX], s2[SETTINGS_MAX];
+    CHECK(amiga1200_desc.nreport_regs > 0 && amiga1200_desc.report_regs);   // T213.3: the core report's registers (test_corereport's real-descriptor case, D3)
     CHECK_EQ(count_key(amiga1200_desc, VOLUME_KEY), 0);                  // no descriptor declares them: the application adds them
     CHECK_EQ(count_key(amiga1200_desc, TONE_KEY), 0);
     CHECK_EQ(count_key(amiga1200_desc, HOME_DIR_KEY), 0);

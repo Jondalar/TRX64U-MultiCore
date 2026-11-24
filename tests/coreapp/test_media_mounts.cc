@@ -101,7 +101,7 @@ struct R {
     {
         desc = make_desc();
         r = new AmigaRig(&fs, &desc);
-        r->io.regs[AM_FEAT] = 0x00;            // the A500 (the A1200 left the shared app, T213.3): bytes, no sector mailbox
+        r->io.regs[AM_FEAT] = 0x01;            // b0: the HDF sizes in sectors, as both Amiga gateware builds have it (amiga.cc HD row)
         delete r->st;
         r->st = new Settings(desc.settings, desc.nsettings, desc.store, &fs, CFG, 0);
         r->st->load();
