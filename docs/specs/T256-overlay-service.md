@@ -192,3 +192,8 @@ Nothing yet.
     `settle()` grabs the base's still again although the menu closes (`overlay.cc` 397-398, 624).
   - A library learns no canvas size, so their bar, laid out for 960x540, lies partly outside at 480p, 576p and 800x600.
   - And the base's opaque bar (`screens.cc` `build_timeline`) still covers theirs; it goes (D12).
+- **Fix round after T-3 built (2026-11-24, t239.3 e8b767196, SDK 0.4.5, sha256 e87e2039).** The column table in `Video::grab`, no
+  grab while the menu closes, `canvas()`, no base bar (D12), D14 and two review fixes. Measured by TRX64-Ultimate on 0.4.5 in ue2emu,
+  the same scenario (their run 478, u18-a294af0f): `frame()` takes 217-220 ms (was 1,193-1,206 ms), their bar 45 ms; closing from
+  the Timewarp page takes 48-63 ms (was 1,249-1,252 ms); their bar is the only one, laid out with `canvas()` on 640x480, 720x540,
+  800x540 and 960x540. Not measured on the board.
