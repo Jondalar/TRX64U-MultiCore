@@ -2,17 +2,17 @@
 # Pack the .cor of one LARGE core (a full 50T bitstream started by IPROG; T115 section 7 "The large .cor").
 #
 #   tools/pack_large_cor.sh --id <core id> --name "<menu name>" --version <v> --bit <id>_mono.bit --app-bin <coreapp.bin> \
-#       [--icon cores/<id>/logo/icon.rgb565] [--short <tile text>] [--bit-commit <sha>] [--app-commit <sha>] [--heap <bytes>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml [--desc desc.toml] --ops ops.txt]
+#       [--icon cores/<id>/logo/icon.rgb565] [--short <tile text>] [--bit-commit <sha>] [--app-commit <sha>] [--heap <bytes>] [--sizes <TOML B>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml [--desc desc.toml] --ops ops.txt]
 #
-# The same two inputs as tools/pack_cfw_mc.sh (the flat bitstream of ci/bitstream_mono.sh and the generic core application coreapp.bin,
-# the raw image linked to 0x30000), packed with tools/cor_pack.py pack-large instead of into an updater: no container image, no
+# The same two inputs as tools/pack_cfw_mc.sh (the flat bitstream of ci/bitstream_mono.sh and the core application, the raw image linked to
+# 0x30000: the generic coreapp.bin, or the core's own app linked from the SDK, whose TOML B --sizes names; T213.3 P4), packed with tools/cor_pack.py pack-large instead of into an updater: no container image, no
 # make_update.sh, python3 only. Output: <out>/<id>.cor, read back with `cor_pack.py check` (the host's checks: IDCODE, hashes, map).
 # The icon defaults to cores/<id>/logo/icon.rgb565 when that is 2048 bytes. The pipeline calls this after the bit-mono stage
 # (cores/<id>/mono/build.sh --pack-cor forwards here).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESCS=() OPS="" ORIGIN="" FLASHID="" SHORT="" FILESDIR="" HEAP=""
+ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESCS=() OPS="" ORIGIN="" FLASHID="" SHORT="" FILESDIR="" HEAP="" SIZES=""
 usage() { sed -n '2,12p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -29,6 +29,8 @@ while [ $# -gt 0 ]; do
         --flash-id) FLASHID="$2"; shift 2;;
         --out) OUT="$2"; shift 2;;
         --heap) HEAP="$2"; shift 2;;                # T239.3 D15: the core's heap in bytes; default: the core's descriptor `heap`, else the image's own
+        --sizes) SIZES="$2"; shift 2;;              # T213.3 P4: the TOML B of the core's own app (its record maxima and the heap its libraries keep); the
+                                                    # caller that packs the core's own app passes it (ci/lane.sh), the package stage packs the shared app and does not
         --desc) DESCS+=("$2"); shift 2;;      # repeatable: a core's menu.toml and desc.toml are one record 6
         --ops) OPS="$2"; shift 2;;
         --files) FILESDIR="$2"; shift 2;;          # record 8 from a folder of the caller (an imported core has no cores/<id>/core.toml: trx64u, T228 R21 item 7)
@@ -66,6 +68,7 @@ for d in "$ROOT/cores/$ID/mono/core.toml" "$ROOT/cores/$ID/core.toml"; do
     break
 done
 [ -z "$HEAP" ] || args+=(--heap "$HEAP")
+[ -z "$SIZES" ] || args+=(--sizes "$SIZES")
 python3 "$HERE/cor_pack.py" pack-large -o "$OUT/$ID.cor" "${args[@]}"
 python3 "$HERE/cor_pack.py" check "$OUT/$ID.cor" > /dev/null
 ls -l "$OUT/$ID.cor"
