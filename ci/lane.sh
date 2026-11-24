@@ -158,8 +158,17 @@ bits:?*)
       for e in "$cache"/host-* "$cache"/core-"$id"-*; do
         [ -f "$e/DONE" ] || continue
         say "${e##*/}: from $(cat "$e/from" 2>/dev/null || echo ?)"
+        # per report: the verdict on the constraints, the values under the Design Timing Summary's header (not the header: run 45481704917), the first LUT row;
         # awk and not grep | head: a report without such a line is no failure (grep's exit 1 ended the step under pipefail, run 45476822869)
-        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do [ -f "$f" ] || continue; awk '/WNS|Slice LUTs|Timing constraints are/ && n < 4 { print "    " $0; n++ }' "$f"; done
+        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do
+          [ -f "$f" ] || continue
+          awk -v n="${f##*/}" '
+            /All user specified timing constraints are met|Timing constraints are not met/ { print "    " n ": " $0; next }
+            w == 1 { w = 2; next }
+            w == 2 { printf "    %s: WNS %s ns, TNS %s ns, WHS %s ns\n", n, $1, $2, $5; w = 3; next }
+            w == 0 && /^[ \t]*WNS\(ns\)[ \t]+TNS\(ns\)/ { w = 1; next }
+            /^\| Slice LUTs/ && !l { gsub(/[ ]+/, " "); print "    " n ": " $0; l = 1 }' "$f"
+        done
       done ;;
     *) die "a bitstream lane has no step $step" ;;
   esac ;;
