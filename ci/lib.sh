@@ -179,14 +179,19 @@ gateware_key() {
 # T164 3a Q1, Alex 2026-11-01: "If that now needs a new core every time, then no include!" / "Copies instead."), so a change in host/ moves no large core's key
 # (run 1126 had rebuilt all of them for a host-only change). The shared files the host alone reads (host/gideon_vhdl.tcl) are left out of the key with host/.
 # The core's benches (sim/) and its measurement reports (mono/reports/) are in the core's sources for the layer check (ci/layers_check.sh) but are no input of the build.
+# mono_specs <core> [layers file]: the pathspecs of a large core's flat build, one per line (mono_key hashes them; ci/lane.sh step 3 diffs them, T213.3 P5)
+mono_specs() {
+  local lf="${2:-$ROOT/host/layers.txt}" l
+  while IFS= read -r l; do
+    case "$l" in host/*|:\(exclude\)host/*) ;; *) printf '%s\n' "$l";; esac
+  done < <(layer_specs "$lf" shared)
+  layer_specs "$lf" "core:$1"
+  printf '%s\n' ":(exclude)cores/$1/sim" ":(exclude)cores/$1/mono/reports"
+}
 mono_key() {
   local lf="${3:-$ROOT/host/layers.txt}" specs l env
   specs=()
-  while IFS= read -r l; do
-    case "$l" in host/*|:\(exclude\)host/*) ;; *) specs+=("$l");; esac
-  done < <(layer_specs "$lf" shared)
-  while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$lf" "core:$2")
-  specs+=(":(exclude)cores/$2/sim" ":(exclude)cores/$2/mono/reports")
+  while IFS= read -r l; do specs+=("$l"); done < <(mono_specs "$2" "$lf")
   env="$(core_toml_of "$(layer_root "$lf")" env "$2" | tr '\n' ' ')"
   KEY_EXTRA="mono $2 $1 vivado-env:2024.1 env=$env" tree_key "${specs[@]}"
 }

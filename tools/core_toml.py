@@ -13,7 +13,10 @@ what ci/lib.sh hashes into that core's keys.
   (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
-  tools/core_toml.py list-own-app         the cores whose TOML B names a descriptor symbol ([app] desc): their app is linked from the SDK package (T239.3 V-5)
+  tools/core_toml.py list-own-app         the DFX cores whose TOML B names a descriptor symbol ([app] desc): their app is linked from the SDK package (T239.3 V-5);
+                                          the stages of the old pipeline read this list (ci/trxapps.sh, ci/package.sh), so a large core is not in it (T213.3 P6)
+  tools/core_toml.py lanes                every core whose TOML B names a descriptor symbol, "<name> dfx" or "<name> large" (a large core has only
+                                          cores/<name>/mono/core.toml): the core lanes of the matrix (ci/dispatch.py, ci/lane.sh; T239.5, T213.3 P5)
   tools/core_toml.py sdk <name> <key>     one value of the [app] table of cores/<name>/app/sdk.toml (T239.3 D25, V-4)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
@@ -137,6 +140,15 @@ def in_pipeline(table):
 def own_app_cores():
     """T239.3 V-5 (D25): the cores in the pipeline whose TOML B names a descriptor ([app] desc); their app is linked from the SDK package."""
     return [n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+
+
+def own_app_lanes():
+    """T239.5, T213.3 P5: (name, kind) of every core in the pipeline whose TOML B names a descriptor: kind "dfx" for a core.toml, "large" for a core
+    that has only cores/<name>/mono/core.toml (the flat build)."""
+    dfx = [(n, "dfx") for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+    have = set(n for n, _ in dfx)
+    large = [(n, "large") for n, _, t in large_descriptors() if n not in have and in_pipeline(t) and sdk_table(n).get("desc")]
+    return dfx + large
 
 
 def delivery_of(table):
@@ -309,6 +321,8 @@ def main():
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
     elif a[:1] == ["list-own-app"]:
         print("\n".join(own_app_cores()))
+    elif a[:1] == ["lanes"]:
+        print("\n".join("%s %s" % e for e in own_app_lanes()))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:
