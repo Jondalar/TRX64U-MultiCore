@@ -970,11 +970,10 @@ size = 0x14
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
     def test_the_windows_granted_to_trx64u_are_accepted(self):
-        # the runs next to the base's own registers that the handover grants: u64_userport +0x05, u64_hdmi_connectors +0x08 and +0x09, u64_pwm_duty +0x0D of the U64 block, speaker_enable
-        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("u64_userport", 0xA0000405, 1), ("u64_hdmi_connectors", 0xA0000408, 2), ("u64_pwm_duty", 0xA000040D, 1),
-                                                                                      ("speaker_enable", 0xA000000C, 1), ("audio_mixer", 0xA0000500, 0x14), ("palette", 0xA0080800, 0x400),
-                                                                                      ("speaker_mixer", 0xA0000540, 6), ("c64_palette", 0xA0080800, 0x440), ("hdmi_palette", 0xA0045000, 0x40)))
-        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 9)
+        # the four windows trx64u's desc.toml has since P1-7; speaker_enable, u64_userport, u64_hdmi_connectors and u64_pwm_duty became TOML A blocks
+        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 6), ("c64_palette", 0xA0080800, 0x440),
+                                                                                      ("hdmi_palette", 0xA0045000, 0x40)))
+        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 4)
 
     def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
         regs = D.base_registers()
