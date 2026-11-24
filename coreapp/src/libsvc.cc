@@ -347,7 +347,15 @@ struct LibSvc {
     static int wbs_add(const SvcWbMedium *m)
     {
         LibLoader *l = L();
-        return l->wb_svc_ ? l->wb_svc_->add(l->owner_at(__builtin_return_address(0)), m) : SVCWB_E_NOSERVICE;
+        if (!l->wb_svc_) {
+            return SVCWB_E_NOSERVICE;
+        }
+        int who = l->owner_at(__builtin_return_address(0));
+        const LibInfo *in = l->info(who);
+        if (in && in->kind == U2A3_KIND_APP) {
+            return SVCWB_E_APP;                        // D51: a library registers the medium, an application asks for the write (write_now)
+        }
+        return l->wb_svc_->add(who, m);
     }
     static int wbs_remove()
     {
@@ -398,6 +406,7 @@ struct LibSvc {
         case SVCWB_E_TAKEN: return "another owner holds the medium";
         case SVCWB_E_NOTMINE: return "this image has no registered medium";
         case SVCWB_E_FAILED: return "the write failed";
+        case SVCWB_E_APP: return "an application registers no medium: it asks for the write";
         }
         return "unknown code";
     }

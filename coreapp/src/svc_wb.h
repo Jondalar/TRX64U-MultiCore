@@ -60,12 +60,13 @@ enum {
     SVCWB_E_ARG = -2,                     // a null or too long path, no writer, a size that does not cover the members
     SVCWB_E_TAKEN = -3,                   // another owner holds the medium (the base's cartridge driver, another library)
     SVCWB_E_NOTMINE = -4,                 // the calling image has no registered medium
-    SVCWB_E_FAILED = -5                   // the write failed: msg says why, the change stays pending
+    SVCWB_E_FAILED = -5,                  // the write failed: msg says why, the change stays pending
+    SVCWB_E_APP = -6                      // register_medium from an application: an app asks for the write, only a library registers a medium (D51)
 };
 
 typedef struct SvcWb {
     uint32_t size;
-    // Registers the calling image's writable medium: 0, SVCWB_E_NOSERVICE, SVCWB_E_ARG or SVCWB_E_TAKEN (nothing is changed then). An image that registers again replaces its
+    // Registers the calling image's writable medium: 0, SVCWB_E_NOSERVICE, SVCWB_E_ARG, SVCWB_E_TAKEN or SVCWB_E_APP (nothing is changed then). An image that registers again replaces its
     // medium; what was pending for the old one is written first (setting Auto) and then dropped.
     int (*register_medium)(const SvcWbMedium *m);
     // Gives the medium back. What is pending is written first when the setting is Auto, else it is dropped. SVCWB_E_NOTMINE when the image has none.
