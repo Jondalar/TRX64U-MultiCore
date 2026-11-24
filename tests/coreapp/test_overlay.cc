@@ -590,13 +590,15 @@ int main()
         CHECK(ok);
         CHECK_EQ(r.host.bad_depth, 0);
         CHECK_EQ(r.host.depth, 0);
-        r.host.has_pic = false;                                                            // no rectangle: the whole picture fitted into the element's rectangle
+        r.host.has_pic = false;                                                            // no rectangle: the picture is fitted to the still element (960 x 540); the bar shows the part under it
         CHECK_EQ(r.svc.paint_frame(0, "bar", &bar), 0);
         CHECK_EQ(r.host.g_w, 400);
-        CHECK_EQ(r.host.g_fw, 400);
-        CHECK_EQ(r.host.g_fh, 40);
-        CHECK_EQ(surf[0], FakeHost::mark(0, 0));
-        CHECK_EQ(surf[39 * 400 + 399], FakeHost::mark(399, 39));
+        CHECK_EQ(r.host.g_fw, 960);
+        CHECK_EQ(r.host.g_fh, 540);
+        CHECK_EQ(r.host.g_ox, 280);
+        CHECK_EQ(r.host.g_oy, 480);
+        CHECK_EQ(surf[0], FakeHost::mark(280, 480));
+        CHECK_EQ(surf[39 * 400 + 399], FakeHost::mark(679, 519));
         CHECK_EQ(r.svc.paint_frame(0, "bar", &bar) , 0);
         CHECK_EQ(r.host.bad_depth, 0);
     }

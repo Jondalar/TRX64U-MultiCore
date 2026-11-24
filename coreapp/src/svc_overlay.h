@@ -67,11 +67,11 @@ typedef struct SvcOverlay {
     // Members after `error` (T256 D11): a library checks `api->overlay->size` before it uses them.
     // Paints the frame the machine drew last into the surface, laid out as the element `name` lies on the canvas: only the part of the machine's picture under the element's rectangle, at the
     // picture's place and Scale, in the colours of the still; pixels the picture does not cover are not written. The library need not show the element first. The checks are those of show(),
-    // and OVL_E_NOFRAME when there is no complete frame (the surface is then unchanged). It paints in the calling task and never waits for the UI task; not from an interrupt. 0 or an OVL_E_* code.
+    // and OVL_E_NOFRAME when there is no complete frame (the surface is then unchanged). It paints in the calling task and may wait for one grab of the base's still (a lock), never for the UI task's frame; not from an interrupt. 0 or an OVL_E_* code.
     int (*frame)(const char *name, const SvcSurface *surface);
     // The source of the 16 colours the person sees (RGB, 8 bits each) for the base's still and for frame(): f writes them and returns true, or returns false when it has none; both call f each
     // time they take a frame, on the task that takes it. The order of the sources: this one, the base's own, Colodore. null gives the source back to the base. One source per core, the last call
-    // counts; it goes with the end of the library, and f is never called after that. 0 or OVL_E_NOSERVICE.
+    // counts; it goes with the end of the library, and f is never called after that. f runs inside the grab lock: it must not call api->overlay (it would wait for itself). 0 or OVL_E_NOSERVICE.
     int (*still_palette)(bool (*f)(uint8_t rgb[16][3]));
 } SvcOverlay;
 

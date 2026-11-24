@@ -645,16 +645,17 @@ int OverlaySvc::set_palette(int owner, OvPalette f)
     return 0;
 }
 
-// The checks are show's. The picture's rectangle is the one take_still uses (the whole picture, it may reach beyond the canvas), else take_still's fallback (the still row cut to the canvas, the picture
-// fitted to it). What is painted is the element's rectangle E, the picture P and the canvas in common; the destination rows are E's stride apart.
+// The checks are show's. The picture's rectangle is the one take_still uses (the whole picture, it may reach beyond the canvas), else take_still's fallback: the STILL element's row cut to the canvas, the
+// picture fitted to it (without a scaler the picture's place is the still element; a table with no still element uses the requested element's row). What is painted is the element's rectangle E, the picture P and the canvas in common; the destination rows are E's stride apart.
 int OverlaySvc::paint_frame(int owner, const char *name, const SvcSurface *sf)
 {
     (void)owner;
     if (!enabled_) {
         return OVL_E_NOSERVICE;
     }
-    UiElementRow row;
+    UiElementRow row, still_row;
     memset(&row, 0, sizeof(row));
+    memset(&still_row, 0, sizeof(still_row));
     int rc = 0;
     host_->enter();
     const int i = find(name);
@@ -666,6 +667,7 @@ int OverlaySvc::paint_frame(int owner, const char *name, const SvcSurface *sf)
         rc = OVL_E_SIZE;
     } else {
         row = slot_[i].row;
+        still_row = still_slot_ >= 0 ? slot_[still_slot_].row : row;       // the table has no still: the requested element's own row
     }
     host_->leave();
     if (rc) {
@@ -677,7 +679,7 @@ int OverlaySvc::paint_frame(int owner, const char *name, const SvcSurface *sf)
     OvRect p = { 0, 0, 0, 0 };
     bool pic = host_->picture_rect(cw, ch, &p) && p.w > 0 && p.h > 0 && p.x < cw && p.y < ch && p.x + p.w > 0 && p.y + p.h > 0;
     if (!pic) {
-        UiElementRow fit = row;
+        UiElementRow fit = still_row;
         fit.w = (uint16_t)(fit.w < cw ? fit.w : cw);
         fit.h = (uint16_t)(fit.h < ch ? fit.h : ch);
         p = ovl_place_on(fit, cw, ch);

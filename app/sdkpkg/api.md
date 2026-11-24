@@ -1399,7 +1399,7 @@ Since base 3.3, member after `error` (SDK 0.4.3). A library checks the `size` me
 
 4.17.14.1 `int frame(const char *name, const SvcSurface *surface)` paints the frame the machine drew last into `surface`, laid out as the element `name` lies on the canvas. It returns 0 or an `OVL_E_*` code.
 4.17.14.2 The place of the element comes from the core's UI TOML, as for `show`. Only the part of the machine's picture that lies under the element's rectangle is painted, at the picture's place and Scale, in the colours of the still (4.17.15). The pixels of the surface that the picture does not cover are not written.
-4.17.14.3 When the core has no picture rectangle (a C64-type core on no VIC scaler), the whole picture is scaled into the element's rectangle, cut to the canvas, as the base does for its own still. When the picture does not lie under the element, nothing is painted and the call returns 0.
+4.17.14.3 When the core has no picture rectangle (a C64-type core on no VIC scaler), the picture's place is the still element: the whole picture is scaled into the still element's rectangle, cut to the canvas, as the base does for its own still, and the part that lies under the requested element is painted. A table with no still element uses the requested element's own rectangle. When the picture does not lie under the element, nothing is painted and the call returns 0.
 4.17.14.4 The source is the one of the base's own still: the newest complete frame of the host's still capture on a C64-type core, else the core's frame buffer.
 4.17.14.5 The checks are those of `show`: `OVL_E_NOSERVICE` under the same condition, `OVL_E_NAME` when the core's table has no element of that name, `OVL_E_BYTES` when the surface or its `px` is null or `bytes` is not `w * h * 2`, and `OVL_E_SIZE` when `w` x `h` is not the element's size. `OVL_E_NOFRAME` is returned when there is no complete frame; every check is made before the first pixel is written, so the surface is then unchanged.
 4.17.14.6 The library need not show the element first. The call does not take the element, so it returns no `OVL_E_TAKEN`.
@@ -1412,7 +1412,7 @@ Since base 3.3, member after `frame` (SDK 0.4.3). A library checks the `size` me
 
 4.17.15.1 `int still_palette(bool (*f)(uint8_t rgb[16][3]))` sets the source of the 16 colours the person sees. `f` writes the colours (RGB, 8 bits each) and returns true, or returns false when it has none.
 4.17.15.2 The order of the sources is: the library's, the base's own (the person's palette on a C64-type core), Colodore. A source that returns false hands over to the next.
-4.17.15.3 The base's own still and `frame` call `f` each time they take a frame, on the task that takes the frame.
+4.17.15.3 The base's own still and `frame` call `f` each time they take a frame, on the task that takes the frame. `f` runs inside the lock of the grab, so it must not call `api->overlay` (the call would wait for itself).
 4.17.15.4 `f` null gives the source back to the base. There is one source per core: the last call counts.
 4.17.15.5 The source belongs to the library that set it. When that library is released, the source goes, and `f` is not called again after the release returns: the release waits for a grab in flight.
 4.17.15.6 The call returns 0, or `OVL_E_NOSERVICE` under the same condition as `show`.
