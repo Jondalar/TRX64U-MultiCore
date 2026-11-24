@@ -4,7 +4,7 @@
 # The name PACKAGE/VERSION/COR_FILE is all the pin says; where the registry is comes from the environment of the builder (ci/imports.py, TRX_FW_PKG_URL).
 ID=trx64u
 PACKAGE=trx64-ultimate
-VERSION=u18-3e96c8cb
-COR_FILE=trx64u_3e96c8cb.cor
-COR_SHA256=1f45b8bf10e134df2c0a025b6b7274a3e6f1860ec8e94adbfe6371131f234a58
-COR_SIZE=3981511
+VERSION=u18-27883f2c
+COR_FILE=trx64u_27883f2c.cor
+COR_SHA256=2522cc076cdbe64f8f7f489779d2ff1af04ac7c2824fc9c7e39879ddc109977b
+COR_SIZE=3986803
