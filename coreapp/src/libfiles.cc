@@ -322,7 +322,10 @@ static int job_step(CoreCtx *c, Job *j, char *msg, int msglen)
             return 0;
         }
         j->waiting = false;
-        start_copy(c, j, j->wait_src, j->wait_dst, j->wait_del);
+        char src[FS_PATH_MAX], dst[FS_PATH_MAX];                     // copies: start_copy writes wait_src and wait_dst again when the fetch still runs,
+        snprintf(src, sizeof(src), "%s", j->wait_src);              // and snprintf from a buffer into itself is undefined (glibc emptied it: the copy
+        snprintf(dst, sizeof(dst), "%s", j->wait_dst);              // then failed as "gone", test_menuctl on Linux, 2026-11-24)
+        start_copy(c, j, src, dst, j->wait_del);
         return 0;
     }
     if (j->in) {                                            // a chunk of the file being copied
