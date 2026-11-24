@@ -1641,12 +1641,12 @@ class ExampleCore(unittest.TestCase):
         self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
         self.assertIn("#define DRV_example_ctl_OWNER 1", h)
 
-    # the registers of a TOML A as {(absolute address, width, dir): (block, property)} with the maps resolved, and the windows of its core blocks that have no property of their own
+    # the registers of a TOML A as {(absolute address, width, dir): (block, property)} with the maps resolved, and the extents of its core blocks (the host hands every byte of one to layer 2, whatever properties the block names)
     def _registers(self, path):
         doc = D.resolve_maps(D.toml_loads(open(path).read()), D.load_maps(self.MAPS))
         regs, windows = {}, []
         for b in doc["block"]:
-            if b["owner"] == "core" and not b.get("property"):
+            if b["owner"] == "core":
                 windows.append((b["address"], b["address"] + b["size"]))
             for p in b.get("property", []):
                 regs[(b["address"] + p["offset"], p["width"], p["dir"])] = (b["name"], p["name"])
@@ -1667,12 +1667,18 @@ class ExampleCore(unittest.TestCase):
         hblocks = {b["name"]: b for b in host["block"]}
         by_name = {b["name"]: b for b in shared["block"]}
         owner_core_in_host = ["drive_a", "gcr_coder", "dma"]                          # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them)
-        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # drive_wd: inside host.toml's drive_a extent; cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: five blocks icap_* of host.toml; resid8: a core block of the shared app, not in host.toml
         self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
         for n, b in by_name.items():
             if n in absent_in_host:
                 continue
-            self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
+            if n == "drive_a":      # host.toml hands the drive's whole 0x4000 extent to layer 2 (the WD177x block drive_wd is inside it, no block of host.toml: 64 blocks is the limit); the shared app's block is the 1541's own 0x1800
+                self.assertEqual(b["address"], hblocks[n]["address"])
+                self.assertLessEqual(b["size"], hblocks[n]["size"])
+                self.assertEqual(by_name["drive_wd"]["address"], b["address"] + b["size"])
+                self.assertLessEqual(by_name["drive_wd"]["address"] + by_name["drive_wd"]["size"], hblocks[n]["address"] + hblocks[n]["size"])
+            else:
+                self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
             self.assertEqual(b["owner"] != hblocks[n]["owner"], n in owner_core_in_host, n)
         self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core"] * len(owner_core_in_host))
         icap = by_name["icap"]
