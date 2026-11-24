@@ -73,7 +73,7 @@ tree_of() {
 if [ -z "$prof" ]; then prof="$kit/profiles/.download"; curl -fsSL --retry 3 -o "$prof" "$UE2_EXAMPLES/$prof_src"; fi
 [ "$(sha256 "$prof")" = "$prof_sha" ] || { echo "emu_kit: the profile $prof_src does not match its SHA-256 $prof_sha" >&2; exit 1; }
 if [ "$core" = vc20 ]; then cp "$prof" "$kit/profiles/$prof_out"
-else sed 's|^name = "amiga1200"|name = "amiga1200"\nsymbols = "coreapp.elf"|' "$prof" > "$kit/profiles/$prof_out"
+else awk '{ print } /^name = "amiga1200"$/ { print "symbols = \"coreapp.elf\"" }' "$prof" > "$kit/profiles/$prof_out"   # awk: a newline in a sed replacement is GNU only
   grep -q '^symbols = "coreapp.elf"' "$kit/profiles/$prof_out" || { echo "emu_kit: $prof_src has no line name = \"amiga1200\" to put the symbols after" >&2; exit 1; }
 fi
 rm -f "$kit/profiles/.download"

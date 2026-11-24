@@ -16,6 +16,9 @@ case "$target" in
     "$ROOT/ci/pack_one.sh" "${target#core:}" --app-dir "$trxapps/coreapps" --out "$out" ;;
   large:?*)
     core="${target#large:}"
+    if [ -n "$(python3 -I "$ROOT/tools/core_toml.py" sdk "$core" desc 2>/dev/null)" ]; then   # T239.5 D13: not with the shared image
+      echo "ci/cor.sh: $core has an app of its own (cores/$core/app/sdk.toml); its .cor is packed by its matrix lane: ci/lane.sh core:$core package" >&2; exit 2
+    fi
     if [ ! -f "$HANDOFF/large-$core/DONE" ]; then
       # T239.1 D19, D21: no vivado child runs in this parent; ci/fetch_bits.sh restored the core's entry into the cache, and the lane is
       # collected from it as ci/collect.sh does for the package (collect only reads: a cache miss is red). A flat build takes no build

@@ -85,7 +85,8 @@ core:?*)
       [ -f "$HANDOFF/plan.json" ] || die "no plan.json from the dispatcher"
       base="$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("base") or {}).get("commit") or "")' "$HANDOFF/plan.json")"
       specs=()
-      if [ "$(kind_of "$id")" = large ]; then while IFS= read -r l; do specs+=("$l"); done < <(mono_specs "$id")
+      kind="$(kind_of "$id")"   # an assignment: a die in kind_of ends the step (inside a test it would be swallowed)
+      if [ "$kind" = large ]; then while IFS= read -r l; do specs+=("$l"); done < <(mono_specs "$id")
       else while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$ROOT/host/layers.txt" "core:$id"); fi
       [ "${#specs[@]}" -gt 0 ] || die "core:$id has no sources in its core.toml"
       gw=unknown ta=unknown ap=unknown
@@ -145,7 +146,8 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
     # the packer
     package)
       [ -s "$out/app/$id.app" ] || die "no $id.app (step build)"
-      if [ "$(kind_of "$id")" = large ]; then
+      kind="$(kind_of "$id")"   # an assignment: a die in kind_of ends the step (inside a test it would be swallowed)
+      if [ "$kind" = large ]; then
         ent="$("$ROOT/ci/fetch_bits.sh" --names "large:$id")"
         bit="${CI_BIT_CACHE:?CI_BIT_CACHE}/$ent/${id}_mono.bit"
         [ -s "$bit" ] || die "no $ent/${id}_mono.bit among the restored bitstreams (the lane bits:$id)"

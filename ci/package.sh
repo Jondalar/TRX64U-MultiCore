@@ -168,6 +168,12 @@ if [ -n "$mono" ]; then
     [ -e "$bit" ] || continue
     core="$(basename "$bit" _mono.bit)"
     echo "=== large .cor of $core"
+    # T239.5 D13: a large core with an app of its own (its TOML B names its descriptor) is no longer in the shared image this stage packs with; its
+    # matrix lane packs it with its own app (ci/lane.sh core:<id> package). Left out of this package, out loud (the whole package from the lanes: D14).
+    if [ -n "$(python3 -I "$ROOT/tools/core_toml.py" sdk "$core" desc 2>/dev/null)" ]; then
+      echo "LEFT OUT out loud: $core has an app of its own (cores/$core/app/sdk.toml); its .cor comes from its matrix lane, not from the shared image"
+      continue
+    fi
     desc="$ROOT/cores/$core/mono/core.toml"
     # T255 D6: app = "none" (the core's bitstream has no CPU): the application record is a 128 byte placeholder, not the generic core application
     appbin="$out/coreapp.bin"
