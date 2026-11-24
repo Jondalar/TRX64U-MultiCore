@@ -308,7 +308,7 @@ jobs:
       - name: 6 Vivado (the builder) and 11 keep (the entries from the builds repository)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ci/fetch_bits.sh "core:$CORE"
+        run: ci/lane.sh "bits:$CORE" fetch
       - name: 7 Report
         run: ci/lane.sh "bits:$CORE" report
       - name: 13 To the lanes (the artifact bits-<core>)

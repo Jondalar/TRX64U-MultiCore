@@ -6,7 +6,9 @@
 #     sdk        unit | build | test | package
 #     host       unit | build
 #     core:<id>  unit | changed | compare | needs | build | fits | service | ui | api | package | deliver
-#     bits:<id>  key | report        (the host's and the core's bitstreams; the builder builds a missing key, ci/fetch_bits.sh restores it)
+#     bits:<id>  key | fetch | report  (a partial core: the host's and the core's bitstreams; a large core: its flat bitstream, T213.3 P5; the builder
+#                                     builds a missing key, ci/fetch_bits.sh restores it)
+#   A core lane is a partial core (dfx) or a large core (large: cores/<id>/mono/core.toml, its own flat bitstream), tools/core_toml.py lanes.
 #
 # The steps (D8): 1 lint (ci/lint.sh <lane>, its own job), 2 unit, 3 changed, 4 compare, 5 needs, 6 build, 7 fits (the SDK: test), 8 service, 9 ui, 10 api,
 # 11 package, 12 emulator tests (tests/hostapp/emu_host.sh, the emulator job), 13 deliver (the artifact of the job).
@@ -25,6 +27,11 @@ core_tests() {   # core_tests <id> <kind>
   [ -n "${units// /}" ] || die "cores/$id/app/sdk.toml names no test of the kind $kind (T239.5 D4: each library names its tests)"
   say "the units of cores/$id/app/sdk.toml: $units"
   CA_GROUP="$id" CA_UNITS="$units" TEST_TIER=fast nice -n 15 "$ROOT/tests/coreapp/run.sh"
+}
+kind_of() {   # kind_of <id>: dfx or large (tools/core_toml.py lanes, T213.3 P5)
+  local k; k="$(python3 -I "$ROOT/tools/core_toml.py" lanes | awk -v c="$1" '$1 == c { print $2 }')"
+  [ -n "$k" ] || die "$1 is no core lane (tools/core_toml.py lanes: no TOML B of its own that names its descriptor)"
+  echo "$k"
 }
 sdk_tarball() { ls "$HANDOFF"/sdk/trx64-sdk-*.tar.gz 2>/dev/null | head -1; }
 differs() {   # differs <base> <pathspec>... : yes or no; a failing git diff (exit > 1) is red, not "yes"
@@ -70,13 +77,16 @@ core:?*)
   case "$step" in
     # 2: the unit tests of its own libraries (the units its TOML B names as unit)
     unit) core_tests "$id" unit ;;
-    # 3: what this push changed for the core, against the plan's base: its gateware (the files of its bitstream key, ci/lib.sh ooc_key: the sources of its
-    # core.toml without app/ and logo/; by git, so a change to comments alone counts here and not in the key), its TOML A, its app (cores/<id>/app). Not the
-    # plan's DFX lane: that one counts the app's files too (an app-only push plans it, and keeps the bitstream key)
+    # 3: what this push changed for the core, against the plan's base: its gateware (the files of its bitstream key without app/ and logo/: a partial core's
+    # ci/lib.sh ooc_key, the sources of its core.toml; a large core's mono_key, ci/lib.sh mono_specs: the shared files without host/ and the sources of its
+    # mono/core.toml; by git, so a change to comments alone counts here and not in the key), its TOML A, its app (cores/<id>/app). Not the plan's lane:
+    # that one counts the app's files too (an app-only push plans it, and keeps the bitstream key)
     changed)
       [ -f "$HANDOFF/plan.json" ] || die "no plan.json from the dispatcher"
       base="$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("base") or {}).get("commit") or "")' "$HANDOFF/plan.json")"
-      specs=(); while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$ROOT/host/layers.txt" "core:$id")
+      specs=()
+      if [ "$(kind_of "$id")" = large ]; then while IFS= read -r l; do specs+=("$l"); done < <(mono_specs "$id")
+      else while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$ROOT/host/layers.txt" "core:$id"); fi
       [ "${#specs[@]}" -gt 0 ] || die "core:$id has no sources in its core.toml"
       gw=unknown ta=unknown ap=unknown
       if [ -n "$base" ] && git -C "$ROOT" cat-file -e "$base^{commit}" 2>/dev/null; then
@@ -87,7 +97,7 @@ core:?*)
       printf '%s\n' "gateware=$gw" "toml_a=$ta" "app=$ap" > "$out/changed"
       say "the gateware: $gw, its TOML A: $ta, its app: $ap (base ${base:-none})" ;;
     # 4: has the gateware changed, is the TOML A complete (against the RTL: tools/rtl_check.py through tests/rtl_check, which holds each moved core's case with its
-    # design parameters - the VIC-20's partial is case 3 - and runs every case, the host's and the fixtures' too), does the app change with it
+    # design parameters - the VIC-20's partial is case 3, the A1200's flat design its own case - and runs every case, the host's and the fixtures' too), does the app change with it
     compare)
       [ -f "$out/changed" ] || die "no result of the step changed"
       gw="$(sed -n 's/^gateware=//p' "$out/changed")"; ta="$(sed -n 's/^toml_a=//p' "$out/changed")"
@@ -130,10 +140,24 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
     service) core_tests "$id" service ;;
     ui)      core_tests "$id" ui ;;
     api)     core_tests "$id" api ;;
-    # 11: the .cor - the core's partial bound to the host it was routed against and its own app (ci/pack_one.sh; the heap figures again, from the packer)
+    # 11: the .cor - a partial core: its partial bound to the host it was routed against and its own app (ci/pack_one.sh); a large core: its flat bitstream
+    # (the entry mono-<id>-<key> the lane bits:<id> restored) and its own app (tools/pack_large_cor.sh with its TOML B, T213.3 P4); the heap figures again, from
+    # the packer
     package)
       [ -s "$out/app/$id.app" ] || die "no $id.app (step build)"
-      "$ROOT/ci/pack_one.sh" "$id" --app-dir "$out/app" --out "$out/cor" ;;
+      if [ "$(kind_of "$id")" = large ]; then
+        ent="$("$ROOT/ci/fetch_bits.sh" --names "large:$id")"
+        bit="${CI_BIT_CACHE:?CI_BIT_CACHE}/$ent/${id}_mono.bit"
+        [ -s "$bit" ] || die "no $ent/${id}_mono.bit among the restored bitstreams (the lane bits:$id)"
+        mget() { TRX_CORE_DESC="$ROOT/cores/$id/mono/core.toml" python3 "$ROOT/tools/core_toml.py" get "$id" "$1"; }
+        h="$(mget heap)"; ver="$("$ROOT/ci/version.sh" with "$(mget version)")"; name="$(mget name)"; short="$(mget short)"
+        c="$(git -C "$ROOT" rev-parse --short=8 HEAD)"; mkdir -p "$out/cor"
+        say "$ent and cores/$id/app (heap ${h:-0}: 0 = the region behind the image)"
+        "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$name" --version "$ver" --short "$short" --bit "$bit" --app-bin "$out/app/$id.app" \
+          --heap "${h:-0}" --sizes "$tomlb" --bit-commit "$c" --app-commit "$c" --out "$out/cor"
+      else
+        "$ROOT/ci/pack_one.sh" "$id" --app-dir "$out/app" --out "$out/cor"
+      fi ;;
     # 13: the .cor, the app's ELF (the emulator's symbols) and the core's documents: its licence notice and the manual's chapters on cores and ROMs
     deliver)
       [ -s "$out/cor/$id.cor" ] || die "no $id.cor (step package)"
@@ -147,15 +171,20 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
 
 bits:?*)
   id="${lane#bits:}"
+  kind="$(kind_of "$id")"; target="core:$id"; [ "$kind" = dfx ] || target="large:$id"
   case "$step" in
-    # 3: the content keys of the host and of the core (ci/keys.sh: the names of the cache entries and of the bit-<entry> releases)
+    # 3: the content keys of the host and of the core, or of the large core's flat design (ci/keys.sh: the names of the cache entries and of the bit-<entry> releases)
     key)
-      say "the host (with the reference core $(layer_reference "$ROOT/host/layers.txt")) and $id:"
-      "$ROOT/ci/fetch_bits.sh" --names "core:$id" | sed 's/^/    /' ;;
+      if [ "$kind" = large ]; then say "$id, a large core: its flat design with its own copy of the host"
+      else say "the host (with the reference core $(layer_reference "$ROOT/host/layers.txt")) and $id:"; fi
+      "$ROOT/ci/fetch_bits.sh" --names "$target" | sed 's/^/    /' ;;
+    # 6, 11: the entries from the builds repository (the builder built the missing ones on the work order of the dispatcher)
+    fetch) "$ROOT/ci/fetch_bits.sh" "$target" ;;
     # 7, 11: the entries restored from the builds repository (ci/fetch_bits.sh) and what the builder reported for them
     report)
       cache="${CI_BIT_CACHE:?CI_BIT_CACHE}"
-      for e in "$cache"/host-* "$cache"/core-"$id"-*; do
+      if [ "$kind" = large ]; then entries=("$cache"/mono-"$id"-*); else entries=("$cache"/host-* "$cache"/core-"$id"-*); fi
+      for e in "${entries[@]}"; do
         [ -f "$e/DONE" ] || continue
         say "${e##*/}: from $(cat "$e/from" 2>/dev/null || echo ?)"
         # per report: the verdict on the constraints, the values under the Design Timing Summary's header (not the header: run 45481704917), the first LUT row;
