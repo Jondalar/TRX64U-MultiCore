@@ -1604,8 +1604,9 @@ static void ux_chrome(void)
     ui_set_canvas(960, 540);
     printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
     // T228 R1, R5b, R6-R9: trx64u's walk has 16 views per canvas instead of 22 (12 tabs instead of 19 - no F2, no F4, F5 6 tabs, F7 and F8 one each -
-    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor is 480 (was 500); T255: ddt_mandel is a large core without an application, 19 cores give exactly 480 legends, so the check is >= 480
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 480 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
+    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor was 480 (was 500); T255: ddt_mandel is a large core without an application, 19 cores gave exactly 480 legends;
+    // T239.3 L-3: trx64u's F3 tab Online comes from the sub-app apps/online, which this test does not load, so one legend fewer per canvas: 477, the check is >= 477
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg >= 477 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
