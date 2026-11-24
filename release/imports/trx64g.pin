@@ -1,14 +1,11 @@
-# trx64g.cor (T104.2 Q5): the same monolith bitstream with Gideon's Ultimate application, both taken from the TRX64-Ultimate CI package
-# trx64-ultimate/<PKG_VERSION> (read only). APP_FILE is the .app (12-byte record header + image); the packer strips it and refuses a file whose
-# SHA-256 is not APP_SHA256.
+# trx64g.cor is TRX64-Ultimate's file (T239.3 D46): their CI packs it from the monolith bitstream and Gideon's Ultimate application of the same run
+# (with tools/pack_import_cor.sh and tools/pack_large_cor.sh of this tree, copied with provenance), files it beside trx64u.cor in the same version
+# of their generic package, and this package takes it by its sha256 and changes no byte (ci/imports.py pack copies it from the builder's store,
+# finish checks it again). Shell variables. A later build is a new pin (VERSION, COR_FILE, COR_SHA256, COR_SIZE), reviewed.
+# Where the registry is comes from the environment of the builder (ci/imports.py, TRX_FW_PKG_URL; T239.3 D45).
 ID=trx64g
-NAME="TRX64 Ultimate (Gideon app)"
-VERSION=d94aa68e
-# T253 D3: main-d94aa68e is the TRX64-Ultimate release 0.3.1, the patch release with the I2C fix (c392beed: the P7 scan on the 1.8 V bus only); Gitea prerelease trx64-main-d94aa68e, its manifest carries "version": "0.3.1"
-SEMVER=0.3.1
-PKG_VERSION=main-d94aa68e
-BIT_FILE=c64_basic.bit
-BIT_SHA256=c950aa551912decac2c684f95f68fea7b5723584463fefcf756fd315f53884ae
-APP_FILE=ultimate.app
-APP_SHA256=32b177616b8512a8159b7c712baa8d860f8d70f4e4022bc8dad197524bb46f52
-ICON=tools/core_logos/trx64/icon.rgb565
+PACKAGE=trx64-ultimate
+VERSION=u18-975aa59b
+COR_FILE=trx64g_975aa59b.cor
+COR_SHA256=00368bedd55cb885e130c12a454f205e13098d26ae169413c4cbf5dc3db38864
+COR_SIZE=3568073

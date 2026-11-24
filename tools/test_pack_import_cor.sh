@@ -18,9 +18,20 @@ open(w + "/good.app", "wb").write(app); open(w + "/other.app", "wb").write(app[:
 open(w + "/apphash", "w").write(hashlib.sha256(app).hexdigest())
 PY
 head -c 4000 /dev/urandom > "$W/app.bin"
-for id in trx64g; do
-    sed -e "s/^BIT_SHA256=.*/BIT_SHA256=$(cat "$W/hash")/" -e "s/^APP_SHA256=.*/APP_SHA256=$(cat "$W/apphash")/" "$ROOT/release/imports/$id.pin" > "$W/$id.pin"
-done
+# The BIT form of a pin (bitstream + Gideon's application, packed here). release/imports/trx64g.pin names TRX64-Ultimate's finished file since T239.3 D46,
+# and their CI packs with this script, so the test carries the BIT form itself (the values of the last such pin, main-d94aa68e).
+cat > "$W/trx64g.pin" <<PIN
+ID=trx64g
+NAME="TRX64 Ultimate (Gideon app)"
+VERSION=d94aa68e
+SEMVER=0.3.1
+PKG_VERSION=main-d94aa68e
+BIT_FILE=c64_basic.bit
+BIT_SHA256=$(cat "$W/hash")
+APP_FILE=ultimate.app
+APP_SHA256=$(cat "$W/apphash")
+ICON=tools/core_logos/trx64/icon.rgb565
+PIN
 if [ "${1:-}" = --control ]; then
     sed -i.bak "s/^BIT_SHA256=.*/BIT_SHA256=$(shasum -a 256 "$W/other.bit" | cut -c1-64)/" "$W/trx64g.pin"
 fi

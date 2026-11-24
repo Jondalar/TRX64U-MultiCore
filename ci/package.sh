@@ -11,7 +11,7 @@
 #
 # trx64u.cor and trx64g.cor (T239.1 D43, replacing D16): the builder packs them from release/imports/*.pin (ci/imports.py) and publishes them as entries
 # imp-<id>-<key>; collect hands them over as bit-imports. trx64u.cor is TRX64-Ultimate's file (T239.3 D21, P1-8): the package takes it by the sha256 of its pin
-# (release/imports/trx64u.pin) and changes no byte. trx64g.cor gets the version form of this run.
+# (release/imports/trx64u.pin) and changes no byte; trx64g.cor too since T239.3 D46 (release/imports/trx64g.pin).
 #
 # The 100T bitstream is not part of this: the builder's target ue2 makes it by hand (T239.1 D16).
 #

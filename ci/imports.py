@@ -6,9 +6,10 @@ pull/imports.py of trx64mc-builder, with the code and the pins of its trusted re
 repository. ci/fetch_bits.py restores them like the bitstreams, ci/collect.sh hands them to the package (bit-imports).
 
 Two kinds of pin:
-  COR_SHA256 (trx64u, T239.3 D21): the file is TRX64-Ultimate's finished .cor (PACKAGE, VERSION, COR_FILE, COR_SHA256, COR_SIZE). Nothing is packed: `pack` takes it from
+  COR_SHA256 (trx64u and trx64g, T239.3 D21, D46): the file is TRX64-Ultimate's finished .cor (PACKAGE, VERSION, COR_FILE, COR_SHA256, COR_SIZE). Nothing is packed: `pack` takes it from
         the store by its SHA-256 (the store is filled by hand, or fetched when TRX_FW_PKG_URL is set), `finish` checks it again, and the package holds it byte for byte.
-  BIT_SHA256 (trx64g): the monolith bitstream and Gideon's application (APP_FILE) of the TRX64-Ultimate package, packed here (tools/pack_import_cor.sh).
+  BIT_SHA256 (no pin uses it since T239.3 D46): the monolith bitstream and Gideon's application (APP_FILE) of the TRX64-Ultimate package, packed here
+        (tools/pack_import_cor.sh).
 
   ci/imports.py names                              the entry names of the pins, one per line (a pin with PIPELINE=false has none)
   ci/imports.py pack ENTRY --store DIR --out DIR   the builder: <out>/<id>.cor from the store (one file per SHA-256, as ci/roms.py reads it). A COR_SHA256 pin: that file.
