@@ -191,8 +191,8 @@ public:
     void release(void *p) { free(p); }
     bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0) { return video && video->grab(dst, w, h, fw, fh, ox, oy, stride, pal); }
     // Video::grab keeps one capture buffer for the application: the base's still (UI task) and a library's frame() (its own task) take turns on a mutex, which may wait (not the critical section of enter()).
-    void grab_lock() { xSemaphoreTake(grab_mutex(), portMAX_DELAY); }
-    void grab_unlock() { xSemaphoreGive(grab_mutex()); }
+    void grab_lock() { if (grab_mx_) xSemaphoreTake(grab_mx_, portMAX_DELAY); }
+    void grab_unlock() { if (grab_mx_) xSemaphoreGive(grab_mx_); }
     bool picture_rect(int, int, OvRect *r) { return video && video->picture_rect(&r->x, &r->y, &r->w, &r->h); }
     void layer_to_ui() { video->hide(); }
     void layer_to_core() { video->show(); }
@@ -206,19 +206,15 @@ public:
     void log(const char *line) { printf("%s\n", line); }
     void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
     int take_req() { int r = req_; req_ = 0; return r; }
-    void bind_task() { task_ = xTaskGetCurrentTaskHandle(); }
-private:
-    SemaphoreHandle_t grab_mutex()
+    // Called once by the UI task before the service starts (start_overlay), so the mutex exists before the first grab; no FreeRTOS call inside a critical section.
+    void bind_task()
     {
+        task_ = xTaskGetCurrentTaskHandle();
         if (!grab_mx_) {
-            portENTER_CRITICAL();
-            if (!grab_mx_) {
-                grab_mx_ = xSemaphoreCreateMutex();
-            }
-            portEXIT_CRITICAL();
+            grab_mx_ = xSemaphoreCreateMutex();
         }
-        return grab_mx_;
     }
+private:
     volatile int req_ = 0;
     TaskHandle_t task_ = 0;
     SemaphoreHandle_t grab_mx_ = 0;
