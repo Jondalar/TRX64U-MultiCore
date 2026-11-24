@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): D1-D14 (Alex 11-23/24); D11 + fix round after T-3 built (SDK 0.4.5); T-3 by FW; D13 calls to map
+Open (one line, as in the TODO table): D1-D14 (Alex 11-23/24); D11 + fix round after T-3 built (SDK 0.4.5); T-3 by FW; D13 A: 2 new calls (0.4.6)
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -166,6 +166,18 @@ Draft. It is completed when the open questions of §3 are decided.
   on/off, update picture, exit directly into the machine with the app off or in the background, switch to another app or menu
   item"): the base gives an application these five as calls of the SDK, and the application draws its own UI (D12). Mirrored to
   Alex the same day. Which of them the SDK has today and which are new is mapped in §5 before any code.
+  The mapping was put to Alex with three options (A: document 1-3, two new calls; B: five calls of their own; C: only 4 and 5 now);
+  Alex (translated): "Yes please A" and "D13: option A, I answered above".
+  - Calls 1-3 exist: an overlay element of the canvas's size shown and removed (`show`, `remove`, `canvas()`), `frame()` and
+    `update()` (api.md 4.17.8-4.17.16). api.md documents them as the patterns for fullscreen, the machine's picture and the update.
+  - Call 4 is new: `exit_to_machine(flags)`, with OVL_EXIT_PAUSE (the machine stays stopped) and OVL_EXIT_KEEP_APP (a resident app
+    stays in the background; without it the app ends). One request in the main loop ends the session, closes the menu and applies
+    the pause in the same pass; it is refused like the person's close when the core cannot run yet. Today `menu_hide` with an app
+    session open closes the session, not the menu (`run.cc:983-996`), and the exit is bound to keys.
+  - Call 5 is new: `goto_screen(target)`, a menu place ("F3/online") or an app ("app:name[:action]"). One request in the main
+    loop opens the menu if it is closed, closes another session and goes there. It is also the goto after a job of T239.3 D41.
+  - Both are appended to SvcOverlay beside `menu_hide` and `menu_show` (base 3.4, SDK 0.4.6). The operations `menu.screen` and
+    `app.open` are documented in api.md 4.3.
 
 - **D14** (Alex, 2026-11-24, relayed by the TRX64-Ultimate session, translated: "That could go too and make room in RAM, since we
   put no overlay over the menu"): while a library shows a still element and the machine stands, the base frees its own still
