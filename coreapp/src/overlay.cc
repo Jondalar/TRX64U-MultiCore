@@ -451,8 +451,8 @@ void OverlaySvc::settle()
         scene_ = sc;
         applied_ = true;
     }
-    if (released) {
-        drop_still();
+    if (released || (standing && lib_still)) {
+        drop_still();                                   // after the layer took the scene: a library's still is drawn, nothing reads the base's capture (T256 D14); a retake makes a new one
     }
     frames_++;
 }

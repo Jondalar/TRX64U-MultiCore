@@ -746,6 +746,25 @@ int main()
         CHECK_EQ(r.host.live, 0);
     }
     {
+        Rig r(true);                                                                       // D14: the library's still is shown while the machine stands: the base's buffer is freed
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        r.svc.frozen(true);
+        CHECK_EQ(r.host.grabs, 1);
+        CHECK_EQ(r.host.live, 1);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK(r.layer.scene.still.px == g_still);
+        CHECK_EQ(r.host.live, 0);                                                          // freed
+        CHECK_EQ(r.host.frees, 1);
+        CHECK_EQ(r.svc.remove(1, hs), 0);                                                  // menu open: one grab, a buffer again
+        CHECK_EQ(r.host.grabs, 2);
+        CHECK_EQ(r.host.live, 1);
+        CHECK(r.layer.scene.has_still && r.layer.scene.still.px != g_still);
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
         Rig r(true);                                                                       // a library's still removed while the machine runs: nothing taken
         SvcSurface st = sf(g_still, 960, 540);
         const int hs = r.svc.show(1, "still", &st);
