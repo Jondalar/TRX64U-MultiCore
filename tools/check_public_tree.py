@@ -59,7 +59,8 @@ _TEXT_ALLOW = (
         "host-app/software/io/network/network_esp32.cc", "host-app/software/io/network/network_interface.cc",
         "vendor/gideon/software/io/network/network_esp32.cc", "vendor/gideon/software/io/network/network_interface.cc",
         "vendor/gideon/software/api/route_streams.cc", "tests/hostapp/golden/hostwifi.txt",
-        "tests/hostapp/render/golden/hostrows.txt")),
+        "tests/hostapp/render/golden/hostrows.txt", "coreapp/cores/trx64u/menu.toml",
+        "tests/coreapp/golden/menu_c64.txt")),
     ("example addresses typed into the unit tests, the renderers and the specs of the network screens and the FTP client", _ADDR, (
         "host-app/software/hostapp/hostui.cc", "tests/coreapp/render/render.cc", "tests/coreapp/test_ftp.cc", "tests/coreapp/test_hostwifi.cc",
         "tests/coreapp/test_wifistate.cc", "tests/hostapp/render/render.cc", "tests/hostapp/test_hostwifi.cc", "tests/hostapp/test_nettransport.cc",
