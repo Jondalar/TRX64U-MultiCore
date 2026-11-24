@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): D1-D12 (Alex 11-23/24); T-2, D11 built (SDK 0.4.4); D12: base timeline bar goes; T-3 next
+Open (one line, as in the TODO table): D1-D13 (Alex 11-23/24); D11 built (SDK 0.4.4); T-3 built by FW; fix round: grab speed, close, canvas, bar
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -158,9 +158,16 @@ Draft. It is completed when the open questions of §3 are decided.
   the frame (D3, D11). The base only gives the means (`frame()`, the surface, `still_palette`, the display) and builds no UI for
   an application. So the base's own timeline bar (`coreapp/src/screens.cc` `build_timeline`) is UI for an application and goes.
   - D11 let it stay until T239.3 P2-6, and that answer was also given to TRX64-Ultimate on 11-24; both are withdrawn.
-  - That it goes now, not with P2-6, was mirrored to Alex on 11-24 and waits for his confirmation.
+  - It goes now, not with P2-6: Alex the same day, "No UI for apps from you", and T239.3 D21/D44, the FW session builds trx64u.
+    The page of the layout `timeline` stays without a bar while TRX64-Ultimate's menu still names it; its keys come from the core's
+    key table.
 
-All open decisions are taken (D1-D12); D12's timing waits for Alex's confirmation.
+- **D13** (Alex, 2026-11-24, translated: "Claude - for apps it must work per call: fullscreen on/off, picture of the machine
+  on/off, update picture, exit directly into the machine with the app off or in the background, switch to another app or menu
+  item"): the base gives an application these five as calls of the SDK, and the application draws its own UI (D12). Mirrored to
+  Alex the same day. Which of them the SDK has today and which are new is mapped in §5 before any code.
+
+All open decisions are taken (D1-D13).
 
 ## §4 Out
 
@@ -170,3 +177,12 @@ All open decisions are taken (D1-D12); D12's timing waits for Alex's confirmatio
 ## §5 Decisions taken while building
 
 Nothing yet.
+- **T-3's findings for the base (TRX64-Ultimate, 2026-11-24, in ue2emu on SDK 0.4.4, not measured on the board).** T-3 (u18
+  5c9ff24a, 27883f2c) shows the Timewarp still through `frame()` and paints its own bar. Each scrub step's picture is that step's
+  screen in the palette in force. Three findings, fixed on `t239.3-ovfix`:
+  - `frame()` takes 1,193-1,206 ms per call (their bar 45 ms), so each step's picture follows its key by 1.24 s. The time is in
+    `Video::grab`, which divides per pixel to scale (`coreapp/src/video.cc` grab, both paths).
+  - Closing from the Timewarp page takes 1,248 ms instead of 49-64 ms: `remove()` of the library's still sets `retake_`, and
+    `settle()` grabs the base's still again although the menu closes (`overlay.cc` 397-398, 624).
+  - A library learns no canvas size, so their bar, laid out for 960x540, lies partly outside at 480p, 576p and 800x600.
+  - And the base's opaque bar (`screens.cc` `build_timeline`) still covers theirs; it goes (D12).
