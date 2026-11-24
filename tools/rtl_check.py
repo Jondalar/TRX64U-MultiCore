@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
-  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
+  rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--own-core] [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -48,8 +48,18 @@ check
   --bus MODULE:... with MODULE the top module itself (--top): the ports of the top module are the request; a register stage of the top file (`always @(posedge clk) q <= expr;`) holds it one clock, the reset
   released. --window BASE:SIZE:full puts the whole address on the address port. --bus and --window may be repeated: a block goes to the bus whose window holds it.
   RTL_CHECK_TRACE=1 raises the error with its traceback.
-  What is not followed yet: the C64-clock pages of trx_io (trx_sys.v: a pipeline, generate blocks, hierarchical names) and a VHDL for-generate with ascending ranges (gcr_codec.vhd). The check stops with
-  Unsupported or finds no write/read there.
+  A Verilog generate-for (`genvar g; generate for (g = A; g < B; g = g + 1) begin : name ... end endgenerate`) is unrolled when the module is parsed: each pass declares its names as
+  (name, index, declared name) and the rest of the module reads them as name[index].declared; the genvar is its value inside the block. A Verilog function of the form
+  `function [r] f (input [r] a, ...); f = expression; endfunction` is replaced by its expression at every call. Another function is skipped as before.
+  A module behind a handshake that holds the request in registers before it decodes it (trx_sys.v: rq_addr, then c_addr, then op_a, one clock each, under guards of its state) is run
+  with that pipeline: a register that takes the request's bits on unchanged (a name, a slice or a concatenation of values with the request's taint, under a guard that carries no
+  taint of the request: a pass-on, no decode) has the request's value and taint where the module decodes, and the module's flags are in any of their states. What another master
+  loads into the same register (JTAG) is not the request and is left out. A one-bit port of the handshake without a value (the toggle) is a strobe of the transport and no address.
+  A block of the TOML that names a pattern the check does not know stops that block only: the output lists every such block (Unsupported, with file and line) next to the blocks that
+  do not agree.
+  --own-core: the blocks with owner = "core" are checked like the blocks of the base (decoded, every property read and written as its dir says). Without it a core block is only
+  a window that leaves the base for the core. A design that holds the registers of a core block itself (c64_basic: trx_sys.v, pix_layer.v, c64_text.v) is checked with it.
+  What is not followed yet: what a pipeline module hands on over continuous assignments (trx_sys.v p2_*, dr_*: trx_engine, trx_debug, trx_dbg_run), a register written by a strobe behind a pipeline (trx_statebus.status: the write flag and the address would reach every register of the module), a VHDL for-generate with ascending ranges (gcr_codec.vhd), a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -100,6 +110,10 @@ VERILOG_KW = {"module", "endmodule", "always", "assign", "initial", "wire", "reg
 
 class Unsupported(Exception):
     """An RTL pattern the check does not know."""
+
+
+class Pipeline(Unsupported):
+    """A decode on a register copy of the held request: the module is run again with its pipeline modelled (Ev.build_pipe)."""
 
 
 class CheckError(Exception):
@@ -1278,6 +1292,10 @@ VLOG_BIN = [
 
 
 class VlogParser(P):
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.gv, self.scope, self.labels, self.funcs, self.blk = {}, {}, set(), {}, None
+
     def parse_file(self):
         mods = {}
         while not self.eof():
@@ -1303,6 +1321,7 @@ class VlogParser(P):
         self.eat("module")
         name = self.eat()[1]
         m = Mod(name, "vlog", self.fname)
+        self.gv, self.scope, self.labels, self.funcs, self.blk = {}, {}, set(), {}, None
         if self.txt() == "#":
             self.eat()
             self.eat("(")
@@ -1361,7 +1380,7 @@ class VlogParser(P):
             r = self.rng()
             ty = Ty("v", *(r if r else (None, None)))
             while True:
-                n = self.eat()[1]
+                n = self.local_name(self.eat()[1])
                 aty = ty
                 if self.txt() == "[":
                     self.eat()
@@ -1430,24 +1449,124 @@ class VlogParser(P):
         elif w == "initial":
             self.eat()
             self.skip_stmt()
-        elif w in ("function", "task"):
-            end = "end" + w
-            while self.txt() != end:
+        elif w == "function":
+            self.function()
+        elif w == "task":
+            while self.txt() != "endtask":
                 self.eat()
             self.eat()
         elif w == "generate":
             self.eat()
             while self.txt() != "endgenerate":
-                if self.txt() != "if":
-                    raise self.err("a generate construct that is not an if")
-                self.if_generate(m)
+                self.gen_item(m)
             self.eat()
-        elif w in ("genvar", "defparam", "specify"):
+        elif w == "genvar":
+            while self.txt() != ";":
+                self.eat()
+            self.eat()
+        elif w == "for":
+            self.for_generate(m)
+        elif w in ("defparam", "specify"):
             raise self.err("a %s construct" % w)
         elif self.pk()[0] == "id" and w not in VERILOG_KW:
             self.instance(m, where)
         else:
             raise self.err("a module item I do not know")
+
+    def local_name(self, n):
+        """The name of a declaration: inside a generate-for block it is the block's own (label, index, name)."""
+        if getattr(self, "blk", None) is None:
+            return n
+        mn = "%s_%d__%s" % (self.blk[0], self.blk[1], n)
+        self.scope[n] = mn
+        return mn
+
+    def gen_item(self, m):
+        if self.txt() == "if":
+            self.if_generate(m)
+        elif self.txt() == "for":
+            self.for_generate(m)
+        elif self.txt() == "genvar":
+            self.item(m)
+        else:
+            raise self.err("a generate construct that is neither an if nor a for")
+
+    def for_generate(self, m):
+        """generate for (g = A; g < B; g = g + 1) begin : label ... end: the block is parsed once per value of the genvar; what it declares is
+        named (label, index, name) and read from outside as label[index].name; the genvar is its value inside."""
+        self.eat("for")
+        self.eat("(")
+        var = self.eat()[1]
+        self.eat("=")
+        lo = self.gen_val(m, self.expr())
+        self.eat(";")
+        if self.eat()[1] != var:
+            raise self.err("a generate for whose condition is not on its genvar")
+        op = self.eat()[1]
+        hi = self.gen_val(m, self.expr())
+        self.eat(";")
+        if self.eat()[1] != var or self.eat()[1] != "=" or self.eat()[1] != var or self.eat()[1] != "+" or self.eat()[1] not in ("1", "1'b1", "1'd1", "32'd1"):
+            raise self.err("a generate for whose step is not genvar = genvar + 1")
+        self.eat(")")
+        if op not in ("<", "<="):
+            raise self.err("a generate for with the condition " + op)
+        vals = list(range(lo, hi + (1 if op == "<=" else 0)))
+        self.eat("begin")
+        if not self.acc(":"):
+            raise self.err("a generate for block without a name")
+        label = self.eat()[1]
+        self.labels.add(label)
+        start = self.i
+        saved = (getattr(self, "blk", None), dict(self.scope), dict(self.gv))
+        for v in vals or [None]:
+            self.i = start
+            self.blk = (label, v if v is not None else 0)
+            self.scope = dict(saved[1])
+            self.gv = dict(saved[2])
+            self.gv[var] = v if v is not None else 0
+            tgt = m if v is not None else Mod(m.name, m.lang, m.fname)
+            while self.txt() != "end":
+                self.item(tgt)
+        self.eat("end")
+        self.blk, self.scope, self.gv = saved
+
+    def function(self):
+        """function [r] name (input [r] a, ...); name = expr; endfunction: a call is replaced by the expression with the arguments put in. A function of another
+        shape is skipped (a call of it is an unknown function to the evaluator, as before)."""
+        start = self.i
+        try:
+            self.eat("function")
+            while self.txt() in ("signed", "integer") or self.txt() == "[":
+                if self.txt() == "[":
+                    self.rng()
+                else:
+                    self.eat()
+            name = self.eat()[1]
+            self.eat("(")
+            params = []
+            while self.txt() != ")":
+                self.eat("input")
+                while self.txt() in ("wire", "reg", "signed"):
+                    self.eat()
+                self.rng()
+                params.append(self.eat()[1])
+                self.acc(",")
+            self.eat(")")
+            self.eat(";")
+            self.acc("begin")
+            if self.eat()[1] != name:
+                raise Unsupported("a function whose body does not assign its name first")
+            self.eat("=")
+            body = self.expr()
+            self.eat(";")
+            self.acc("end")
+            self.eat("endfunction")
+            self.funcs[name] = (params, body)
+        except Unsupported:
+            self.i = start
+            while self.txt() != "endfunction":
+                self.eat()
+            self.eat()
 
     def gen_val(self, m, e):
         """A generate condition over parameters with a default, as an int; the parameters it names are recorded in m.gen_assumed."""
@@ -1726,13 +1845,29 @@ class VlogParser(P):
             return ("cat", parts)
         if k == "id":
             self.eat()
-            e = ("id", s)
+            if s in self.gv:
+                return ("n", kn(self.gv[s], 32))
+            if s in self.labels and self.txt() == "[" and self.txt(2) == "]" and self.txt(3) == ".":
+                # label[index].name: a name declared in an unrolled generate block
+                self.eat()
+                ix = self.expr()
+                self.eat("]")
+                self.eat(".")
+                if ix[0] != "n" or ix[1].x:
+                    raise self.err("a generate block index that is not a constant")
+                s = "%s_%d__%s" % (s, ix[1].v, self.eat()[1])
+            e = ("id", self.scope.get(s, s))
             if s.startswith("$") or self.txt() == "(":
                 self.eat("(")
                 args = [self.expr()]
                 while self.acc(","):
                     args.append(self.expr())
                 self.eat(")")
+                if s in self.funcs:
+                    params, body = self.funcs[s]
+                    if len(params) != len(args):
+                        raise self.err("a call of %s with the wrong number of arguments" % s)
+                    return ("paren", subst(body, dict(zip(params, args))))
                 return ("call", ("id", s), args)
             while self.txt() == "[":
                 self.eat()
@@ -2065,10 +2200,13 @@ def ids_of(e, out):
 class Ev:
     """One stimulus: the request address (low bits maybe unknown), write or read, data unknown."""
 
-    def __init__(self, design, topmod, busmod, busname, addr, write, link=None, ports=None):
+    def __init__(self, design, topmod, busmod, busname, addr, write, link=None, ports=None, pipe=False):
         """link: the request arrives over a handshake from another module (stage 2): (the receiving instance, {input port: value},
         {input port: taint}, [response output ports]). The receiver takes the place of the bus module."""
         self.d = design
+        self.pipe_ready = False
+        self.link_t, self.fwd_live = {}, False
+        self.pipe = pipe        # stage 2 with the module's register pipeline modelled: its copies of the held request take the request's value (build_pipe)
         self.memcap = None
         self.reset_off = 0
         self.hold, self.holdt = {}, {}      # held requests: (id(ctx), register) -> value / taint in the decode cycle (find_held)
@@ -2080,6 +2218,13 @@ class Ev:
             self.bus = self.top.child(link[0])
             self.check_assumed(self.bus)
             self.rootv, self.roott = dict(link[1]), dict(link[2])
+            if True:        # the handshake's ports carry the address or the data of the request, no more (a strobe behind a pipeline is not proven: the write flag and the address would reach every register of the module)
+                self.roott = {n: (frozenset("d") if "d" in t else frozenset("a")) for n, t in self.roott.items()}
+            if pipe:
+                # a one-bit port of the handshake that carries no value (the toggle) is a strobe of the transport: no address, no decode
+                for n, v in self.rootv.items():
+                    if v.w == 1 and v.x and self.roott[n] == frozenset("a"):
+                        self.roott[n] = frozenset("t")
             self.resp = [(self.bus, n) for n in link[3]]
             self.followed = [self.bus]
             self.phase, self.post = 1, {}
@@ -2200,6 +2345,9 @@ class Ev:
 
     # ---- values
     def val(self, ctx, name):
+        h = self.hold.get((id(ctx), name))
+        if h is not None:
+            return fit(h, self.width(ctx, name))        # a held register has the request's value, wherever the evaluation starts (not through the run of its own process, which would find it in progress)
         c = ctx.cache
         if name in c:
             v = c[name]
@@ -2478,8 +2626,8 @@ class Ev:
         if h is not None:
             return fit(h, w)
         fi = self.flag_init(ctx, name, w)
-        if fi is None:
-            return allx(w)
+        if fi is None or (self.pipe and ctx is self.bus):
+            return allx(w)          # a module with a pipeline is in any of its states when the request reaches the decode
         if self.phase == 2 and (id(ctx), name) in self.post:
             return fit(self.post[(id(ctx), name)], w)
         return fi
@@ -3080,6 +3228,10 @@ class Ev:
             ids = set()
             ids_of(e, ids)
             bad = sorted(ids & self.acopies(ctx))
+            if self.pipe:
+                bad = [n for n in bad if (id(ctx), n) not in self.hold] if self.pipe_ready else []
+            elif bad:
+                raise Pipeline("%s: a decode on %s, a register copy of the held request" % (ctx.mod.fname, ", ".join(bad)))
             if bad:
                 raise Unsupported("%s: a decode on %s, a register copy of the held request (a pipeline behind a handshake: not modelled)"
                                   % (ctx.mod.fname, ", ".join(bad)))
@@ -3372,6 +3524,58 @@ class Ev:
                         held[(id(ctx), key)] = (e.v, e.taint)
         return held
 
+    @staticmethod
+    def pure_copy(e):
+        """An expression that moves bits and changes none: a name, a slice or an index of one, a concatenation of those."""
+        k = e[0]
+        if k == "id":
+            return True
+        if k == "paren":
+            return Ev.pure_copy(e[1])
+        if k in ("sl", "ix", "psl"):
+            return e[1][0] == "id"
+        if k == "cat":
+            return all(Ev.pure_copy(x) or x[0] == "n" for x in e[1])
+        return False
+
+    def build_pipe(self):
+        """The registers of the module behind the handshake that take the held request on (c_addr <= rq_addr; op_a <= c_addr[15:2]; a copy of a copy): each takes the request's
+        value and taint in the clock where the module decodes it. Only the assignments that move request bits count (a pure copy of a value with the request's taint); another
+        master's assignment of the same register (JTAG) is not the request and is left out. Iterated until the chain of copies is complete."""
+        ctx = self.bus
+        held = {}
+        for _ in range(8):
+            self.hold = {k: v[0] for k, v in held.items()}
+            self.holdt = {k: v[1] for k, v in held.items()}
+            for c in self.followed:
+                c.cache, c.runs, c.tcache, c.ptaint, c.ocache = {}, {}, {}, {}, {}
+                c.__dict__.pop("_tb", None)
+            new = {}
+            for p in ctx.mod.procs:
+                if not p.clocked:
+                    continue
+                for e in self.run(ctx, p).effects:
+                    if e.key not in ctx.mod.decls or e.key in p.vars or ctx.mod.ports.get(e.key, ("in",))[0] != "in" and e.key in ctx.mod.ports:
+                        continue
+                    if not self.pure_copy(e.rhs):
+                        continue
+                    t = self.taint(ctx, e.rhs, None) & {"a", "d", "q", "w", "r"}
+                    if not t & {"a", "d"} or e.guard & {"a", "d"}:       # a guard of the request is a decode: the register is written, not passed on
+                        continue
+                    k = (id(ctx), e.key)
+                    old = new.get(k)
+                    new[k] = (e.v, t) if old is None else (v_merge(old[0], e.v), old[1] | t)
+            if {k: (v[0].v, v[0].x, v[0].w, v[1]) for k, v in new.items()} == {k: (v[0].v, v[0].x, v[0].w, v[1]) for k, v in held.items()}:
+                break
+            held = new
+        self.hold = {k: v[0] for k, v in held.items()}
+        self.holdt = {k: v[1] for k, v in held.items()}
+        for c in self.followed:
+            c.cache, c.runs, c.tcache, c.ptaint, c.ocache = {}, {}, {}, {}, {}
+            c.__dict__.pop("_tb", None)
+        self.pipe_ready = True
+        return held
+
     def decode_cycle(self, held):
         """The next clock: the held registers have the request's value and taint, the state is as the request cycle left it (flags) or unknown."""
         self.hold = {k: v[0] for k, v in held.items()}
@@ -3383,7 +3587,7 @@ class Ev:
     def analyze(self, write):
         self.activate()
         res = {"followed": [c.name for c in self.followed], "write": False, "read": False, "forward": []}
-        held = self.find_held()
+        held = self.build_pipe() if self.pipe else self.find_held()
         for ctx in self.followed:
             for p in ctx.mod.procs:
                 effs = self.run(ctx, p).effects
@@ -3418,7 +3622,9 @@ class Ev:
                     for k in keys:
                         if k in st and k.partition(".")[0] in ctx.mod.decls and self.flag_init(ctx, k, st[k].v.w) is not None:
                             self.post[(id(ctx), k)] = st[k].v
-        if held:
+        if held and self.pipe:
+            res["links"] = self.find_links()
+        elif held:
             res["links"] = self.find_links()
             self.decode_cycle(held)
             if write:
@@ -3499,6 +3705,7 @@ class Ev:
                         new = ("d", allx(self.width(ctx, e.key)))
                     elif "a" in rt and e.certain:
                         new = ("a", e.v)
+                        self.link_t[(id(ctx), e.key)] = rt & {"a", "q", "w", "r"}
                     else:
                         new = ("s", allx(self.width(ctx, e.key)))
                     old = outs.get((id(ctx), e.key))
@@ -3535,7 +3742,7 @@ class Ev:
                     dr = self.d.port_dir(inst.modname, f)
                     if dr == "in" and a[1] in nets:
                         kind, v = mine[nets[a[1]]]
-                        rv[f], rt[f] = v, frozenset("d" if kind == "d" else "a")
+                        rv[f], rt[f] = v, (frozenset("d") if kind == "d" else frozenset("a") | self.link_t.get((id(ctx), nets[a[1]]), frozenset()))
                     elif dr == "out" and a[1] in back:
                         resp.append(f)
                 if rv:
@@ -3672,8 +3879,8 @@ def parse_toml_a(path, maps):
 
 
 class Checker:
-    def __init__(self, design, top, bus, doc, window=None, full=False):
-        self.d, self.doc, self.full = design, doc, full
+    def __init__(self, design, top, bus, doc, window=None, full=False, own=False):
+        self.d, self.doc, self.full, self.own = design, doc, full, own
         self.ports = self.window = None
         if ":" in bus:
             # a partial: MODULE:write=P,read=P,address=P,data=P,response=P (the ports of one instance in the top file); its window is the host's decode
@@ -3723,7 +3930,12 @@ class Checker:
         cert = res["cert"]
         for inst, rv, rt, resp, via in res["links"]:
             ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp))
-            r2 = self.cross(ev2.analyze(write), write, depth + 1)
+            try:
+                a2 = ev2.analyze(write)
+            except Pipeline:
+                ev2 = Ev(self.d, self.topmod, None, None, None, write, link=(inst, rv, rt, resp), pipe=True)
+                a2 = ev2.analyze(write)
+            r2 = self.cross(a2, write, depth + 1)
             wr = wr or r2["write"]
             rd = rd or r2["read"]
             res["followed"] += ["%s (from %s)" % (n, via) for n in r2["followed"]]
@@ -3799,77 +4011,89 @@ class Checker:
         for b in self.doc["block"]:
             if only is not None and b["name"] not in only:
                 continue
-            name = b["name"]
-            rt = b["address"] - self.iobase
-            if self.window is not None and not (self.window[0] <= rt and rt + b["size"] <= self.window[0] + self.window[1]):
-                errs.append("block %s: 0x%08X..0x%08X lies outside the window the host hands to the core (0x%08X..0x%08X)" % (
-                    name, b["address"], b["address"] + b["size"] - 1, self.window[0] + self.iobase, self.window[0] + self.window[1] - 1 + self.iobase))
+            try:
+                errs += self.check_block(b)
+            except Unsupported as ex:
+                # an RTL pattern the check does not know stops this block only: every block of TOML A gets its verdict
+                if os.environ.get("RTL_CHECK_TRACE"):
+                    raise
+                errs.append("block %s: an RTL pattern I do not know: %s" % (b["name"], ex))
+        return errs
+
+    def check_block(self, b):
+        errs = []
+        name = b["name"]
+        rt = b["address"] - self.iobase
+        if self.window is not None and not (self.window[0] <= rt and rt + b["size"] <= self.window[0] + self.window[1]):
+            errs.append("block %s: 0x%08X..0x%08X lies outside the window the host hands to the core (0x%08X..0x%08X)" % (
+                name, b["address"], b["address"] + b["size"] - 1, self.window[0] + self.iobase, self.window[0] + self.window[1] - 1 + self.iobase))
+            return errs
+        if not 0 <= rt < (1 << 24) or rt + b["size"] > (1 << 24):
+            errs.append("block %s: 0x%08X..0x%08X lies outside the request's 24-bit address space (iobase 0x%08X)"
+                        % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
+            return errs
+        core = b["owner"] == "core" and self.ports is None and not self.own
+        bad = self.undecoded(rt, b["size"], core)
+        if bad is not None:
+            errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
+                        "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
+            return errs
+        for p in ([] if core else b.get("property", [])):
+            nb = p["width"] // 8
+            count = p.get("count", 1)
+            stride = p.get("stride", nb)
+            if p["offset"] + (count - 1) * stride + nb > b["size"]:
+                errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
                 continue
-            if not 0 <= rt < (1 << 24) or rt + b["size"] > (1 << 24):
-                errs.append("block %s: 0x%08X..0x%08X lies outside the request's 24-bit address space (iobase 0x%08X)"
-                            % (name, b["address"], b["address"] + b["size"] - 1, self.iobase))
+            cap = self.stim(rt + p["offset"], True)["memcap"] if "w" in p["dir"] else None
+            span = (count - 1) * stride + nb
+            if cap is not None and span > cap:
+                errs.append("block %s, property %s: it spans %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, p["name"], span, cap))
                 continue
-            core = b["owner"] == "core" and self.ports is None
-            bad = self.undecoded(rt, b["size"], core)
-            if bad is not None:
-                errs.append("block %s: byte +0x%X (0x%08X) is %s" % (name, bad - rt, bad + self.iobase,
-                            "not handed over to the core by the RTL" if core else "decoded by nothing in the RTL"))
-                continue
-            for p in ([] if core else b.get("property", [])):
-                nb = p["width"] // 8
-                count = p.get("count", 1)
-                stride = p.get("stride", nb)
-                if p["offset"] + (count - 1) * stride + nb > b["size"]:
-                    errs.append("block %s, property %s: it reaches past the block" % (name, p["name"]))
-                    continue
-                cap = self.stim(rt + p["offset"], True)["memcap"] if "w" in p["dir"] else None
-                span = (count - 1) * stride + nb
-                if cap is not None and span > cap:
-                    errs.append("block %s, property %s: it spans %d bytes, the RAM that takes its writes holds %d (the addresses above alias)" % (name, p["name"], span, cap))
-                    continue
-                if count > 1:
-                    for need, wr in (("w", True), ("r", False)):
-                        if need not in p["dir"]:
-                            continue
-                        bad, el = None, 0
-                        if stride == nb:
-                            bad = self.run_gap(rt + p["offset"], nb * count, wr)
-                            el = (bad - rt - p["offset"]) // nb if bad is not None else 0
-                        else:
-                            for el in range(count):                         # each element at offset + i * stride: the bytes between the elements belong to other runs
-                                bad = self.run_gap(rt + p["offset"] + el * stride, nb, wr)
-                                if bad is not None:
-                                    break
-                        if bad is not None:
-                            res = self.stim(bad, wr)
-                            fw = res["forward"]
-                            errs.append("block %s, property %s[%d] (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (
-                                name, p["name"], el, p["dir"], bad - rt, bad + self.iobase, "write" if wr else "read",
-                                ("; the request is forwarded to " + ", ".join(sorted(set(fw))) + ", whose decode is not followed") if fw else ""))
-                            break
-                    continue
-                bad_p = False
-                for i in range(nb):
-                    if bad_p:
+            if count > 1:
+                for need, wr in (("w", True), ("r", False)):
+                    if need not in p["dir"]:
+                        continue
+                    bad, el = None, 0
+                    if stride == nb:
+                        bad = self.run_gap(rt + p["offset"], nb * count, wr)
+                        el = (bad - rt - p["offset"]) // nb if bad is not None else 0
+                    else:
+                        for el in range(count):                         # each element at offset + i * stride: the bytes between the elements belong to other runs
+                            bad = self.run_gap(rt + p["offset"] + el * stride, nb, wr)
+                            if bad is not None:
+                                break
+                    if bad is not None:
+                        res = self.stim(bad, wr)
+                        fw = res["forward"]
+                        errs.append("block %s, property %s[%d] (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (
+                            name, p["name"], el, p["dir"], bad - rt, bad + self.iobase, "write" if wr else "read",
+                            ("; the request is forwarded to " + ", ".join(sorted(set(fw))) + ", whose decode is not followed") if fw else ""))
                         break
-                    a = rt + p["offset"] + i
-                    for need, wr in (("w", True), ("r", False)):
-                        if need not in p["dir"]:
-                            continue
-                        res = self.stim(a, wr)
-                        if not res["write" if wr else "read"]:
-                            fw = res["forward"]
-                            errs.append("block %s, property %s (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (
-                                name, p["name"], p["dir"], p["offset"] + i, a + self.iobase, "write" if wr else "read",
-                                ("; the request is forwarded to " + ", ".join(sorted(set(fw))) + ", whose decode is not followed") if fw else ""))
-                            bad_p = True
-                            break
+                continue
+            bad_p = False
+            for i in range(nb):
+                if bad_p:
+                    break
+                a = rt + p["offset"] + i
+                for need, wr in (("w", True), ("r", False)):
+                    if need not in p["dir"]:
+                        continue
+                    res = self.stim(a, wr)
+                    if not res["write" if wr else "read"]:
+                        fw = res["forward"]
+                        errs.append("block %s, property %s (dir %s): byte +0x%X (0x%08X) has no %s in the RTL%s" % (
+                            name, p["name"], p["dir"], p["offset"] + i, a + self.iobase, "write" if wr else "read",
+                            ("; the request is forwarded to " + ", ".join(sorted(set(fw))) + ", whose decode is not followed") if fw else ""))
+                        bad_p = True
+                        break
         return errs
 
 
 def cmd_check(args):
     opts = {"--design": None, "--toml-a": None, "--top": "top"}
     maps, lists, buses, windows = [], [], [], []
+    own = False
     i = 0
     while i < len(args):
         a = args[i]
@@ -3888,6 +4112,9 @@ def cmd_check(args):
         elif a == "--define":
             DEFINES.add(args[i + 1])
             i += 2
+        elif a == "--own-core":
+            own = True
+            i += 1
         elif a in opts:
             opts[a] = args[i + 1]
             i += 2
@@ -3911,14 +4138,14 @@ def cmd_check(args):
                 raise CheckError("--window BASE:SIZE[:full]")
             window, full = (int(wb, 0) - doc["io"]["iobase"], int(ws, 0)), fl == "full"
             wi += 1
-        cks.append(Checker(des, opts["--top"], bus, doc, window, full))
+        cks.append(Checker(des, opts["--top"], bus, doc, window, full, own))
     if des.denied:
         print("rtl_check: clean room: %d file(s) of the source list are on the deny list and never opened: %s"
               % (len(des.denied), ", ".join(os.path.basename(f) for f in des.denied)))
     errs, nprop = [], 0
     if len(cks) == 1:
         errs = cks[0].check()
-        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None)
+        nprop = sum(len(b.get("property", [])) for b in doc["block"] if b["owner"] != "core" or cks[0].ports is not None or own)
     else:
         # several buses (the ports of a partial that has more than one window): a block goes to the bus whose window holds it
         mine = [[] for _ in cks]

@@ -1,0 +1,45 @@
+# A fixture TOML A for tests/rtl_check/mini3 (T239.3 V-1d): the handshake of trx_io.v and trx_sys.v in miniature. m3io holds the request and hands it over by a toggle; m3pipe takes it
+# through two registers (c_addr, op_a: a pipeline), loads op_a from another master too (j_addr), makes two cells by a generate-for with a named block (cell[0].v, cell[1].v) and answers a read
+# through a function (swz). With the first two blocks owner = "core" they are checked by hand-over only; the test runs the check with --own-core, so the properties are read against the RTL.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "r0"
+module = "m3pipe"
+owner = "core"
+address = 0x10000120
+size = 0x3
+
+  [[block.property]]
+  name = "r0"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "id"
+  offset = 0x1
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "swz"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "cells"
+module = "m3pipe"
+owner = "core"
+address = 0x10000130
+size = 0x2
+
+  [[block.property]]
+  name = "v"
+  offset = 0x0
+  width = 8
+  count = 2
+  dir = "rw"
