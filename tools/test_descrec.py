@@ -1312,6 +1312,20 @@ group = "audio_2"
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+class Elements(unittest.TestCase):
+    """T256 T-2 (D8): the elements of a core's UI TOML (section 25). The C++ reader and the merge over the base's table are tested in tests/coreapp/test_bundle.cc with
+    the fixture tests/coreapp/golden/desc_elements.toml."""
+    def test_the_fixture_is_a_record_that_needs_no_core_and_reads_back(self):
+        text = src("desc_elements.toml")
+        b = D.compile_text(text)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertEqual(r["element"], [{"name": "bar", "anchor": "bottom_mid", "dy": -20, "w": 400, "h": 40},
+                                        {"name": "paused", "anchor": "top_left", "dx": 10, "dy": 12, "w": 126, "h": 30}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(__import__("tomllib").loads(text)), b)
+
+
 class BaseRows(unittest.TestCase):
     """T239.3 D32, P2-4's QC entry: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): label, key, kind, values and default, and for a list that
     changes at run time its pick (the key a core's row names it with). tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""

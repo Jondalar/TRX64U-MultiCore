@@ -1,0 +1,19 @@
+# T256 T-2 (D8): a core's UI TOML with elements. tests/coreapp/test_bundle.cc compiles it with the real tool (gen_bundle.py), reads it with the board's reader (descrec.cc) and merges it
+# over the base's table (coreapp/base_ui.toml) through bundle_merge.
+
+# a library's element: bottom centre, 20 pixels up from the edge
+[[element]]
+name = "bar"
+anchor = "bottom_mid"
+dy = -20
+w = 400
+h = 40
+
+# the base's PAUSED tag stands elsewhere in this core
+[[element]]
+name = "paused"
+anchor = "top_left"
+dx = 10
+dy = 12
+w = 126
+h = 30

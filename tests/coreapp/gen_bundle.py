@@ -58,6 +58,8 @@ def main(out):
     open(os.path.join(out, "desc_toml_a.bin"), "wb").write(descrec.compile_checked(open(os.path.join(gold, "desc_toml_a.toml")).read(), maps=descrec.load_maps([os.path.join(here, "..", "..", "app", "sdkpkg", "maps")])))
     # D32: a core's routes and places over the base's (tests/coreapp/test_uiplace.cc)
     open(os.path.join(out, "desc_places.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_places.toml")).read()))
+    # T256 T-2: a core's elements over the base's (tests/coreapp/test_bundle.cc)
+    open(os.path.join(out, "desc_elements.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_elements.toml")).read()))
     open(os.path.join(out, "desc_pick.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_pick.toml")).read()))   # a core row with a pick and one value (T239.3 D32)
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
