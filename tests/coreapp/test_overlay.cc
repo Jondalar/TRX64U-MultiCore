@@ -765,6 +765,25 @@ int main()
         CHECK_EQ(r.host.live, 0);
     }
     {
+        Rig r(true);                                                                       // the library's still shown: no capture is taken for it, not at the stop and not at a remove
+        SvcSurface st = sf(g_still, 960, 540);
+        r.svc.menu(true);
+        const int hs = r.svc.show(1, "still", &st);
+        r.svc.frozen(true);                                                                // the machine stops while the library's still shows
+        CHECK_EQ(r.host.grabs, 0);
+        CHECK_EQ(r.host.live, 0);
+        CHECK(r.layer.scene.still.px == g_still);
+        CHECK_EQ(r.svc.remove(1, hs), 0);                                                  // the removal retakes
+        CHECK_EQ(r.host.grabs, 1);
+        const int hs2 = r.svc.show(1, "still", &st);
+        r.svc.frame();
+        CHECK_EQ(r.host.live, 0);                                                          // D14 frees it again
+        CHECK_EQ(r.svc.remove(1, hs2), 0);
+        CHECK_EQ(r.host.grabs, 2);
+        r.svc.frozen(false);
+        CHECK_EQ(r.host.live, 0);
+    }
+    {
         Rig r(true);                                                                       // a library's still removed while the machine runs: nothing taken
         SvcSurface st = sf(g_still, 960, 540);
         const int hs = r.svc.show(1, "still", &st);

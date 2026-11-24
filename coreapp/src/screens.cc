@@ -918,12 +918,14 @@ static void build_viewer(lv_obj_t *c, MenuCtl &m)
 
 // ---- the pixel layer's own page ("timeline" layout): no menu, no bar. The base draws nothing on it (T256 D12): a library paints its own UI as elements. Over the still the page is transparent
 // (D4), else it is the live key, so the machine's picture shows through the hole.
+static bool g_tl_under;                                   // ui_still_under() when the Timewarp page was built: the page is rebuilt when it changes
 static void build_timeline(lv_obj_t *scr)
 {
+    g_tl_under = ui_still_under();
     trx_shell_forget();
     lv_obj_clean(scr);
     lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-    lv_obj_set_style_bg_opa(scr, ui_still_under() ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
+    lv_obj_set_style_bg_opa(scr, g_tl_under ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
 }
 
 static void build_sheet(lv_obj_t *c, MenuCtl &m, int sel)
@@ -1433,7 +1435,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     }
     g_viewer = false;
     if (m.layout_is("timeline")) {                                // the pixel layer's own screen: no frame, no rail, no footer
-        if (!(g_valid && g_live && g_full == 1)) {
+        if (!(g_valid && g_live && g_full == 1 && g_tl_under == ui_still_under())) {
             g_live = false;                                       // a rebuild keeps the key on: screens_forget would switch it off, the core would hear off, then on (menu_video)
             ui_menu_forget_rows();
             build_timeline(scr);

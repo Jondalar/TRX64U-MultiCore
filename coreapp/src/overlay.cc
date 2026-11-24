@@ -399,8 +399,15 @@ void OverlaySvc::settle()
         retake = retake_;
         retake_ = false;
     }
+    bool lib_shown = false;                             // a library's still is drawn instead of the base's capture (D14): no capture to take, the next removal retakes
+    for (int i = 0; i < n_; i++) {
+        lib_shown = lib_shown || (slot_[i].row.still && slot_[i].owner != OVL_OWNER_NONE && slot_[i].px);
+    }
+    if (standing && (!was_standing_ || retake) && lib_shown) {
+        retake_ = true;
+    }
     host_->leave();
-    if (standing && (!was_standing_ || retake)) {
+    if (standing && (!was_standing_ || retake) && !lib_shown) {
         take_still();
     } else if (!standing && was_standing_) {
         released = true;                                // the layer lets go of the still first, then the memory goes
