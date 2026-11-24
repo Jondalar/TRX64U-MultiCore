@@ -1,0 +1,997 @@
+# T239.3 — The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it
+
+**Status:** IN PROGRESS (2026-11-22, D16). ACCEPTED (2026-11-19, D1-D5; every open question answered). Asked: PROPOSED (2026-11-19, Alex: "machst Du einen Plan bitte mit Epic, und dann Todos als Specs ?").
+**Repo:** TRX64U-MultiCore (`coreapp/`, `uicore/`, `app/lib/`, `app/sdk/`, `tools/`, `docs/`); TREX/TRX64-Ultimate (trx64u's library, menu and tests).
+**Number:** T239.3 (child B of T239; registry: the table in `TODO.md`).
+**Origin:** T239 D10: "Auf jeden Fall 3 ... eine sauber abgegrenzten App-Kern mit API für 'Sub-Apps' und 'Libraries'. Und wir bauen das für unseren Teil selbst". T239 D9: "Then the heap problems are where they belong". T239 D13: the order of work is A, D, B, C; this is B.
+**Depends on:** T239 D13 step A (GitHub is the home) and step D (the platform checkpoint) come first; T104.1 and T104.3 (built); T192 D24 and T213 D1-D5; T221 (SemVer per deliverable).
+**Milestone:** after release 0.2.0.
+
+Open (one line, as in the TODO table): D28: trx64u MVP in build (13 of 15 steps on t239.3, wave 2 running); VIC-20 in parallel (D35); then 2, then 4 agents
+
+---
+
+## §1 The problem
+
+- **Who:** (1) the maintainer of a core that is built outside this repository (first: TRX64-Ultimate with trx64u); (2) the maintainer of a core in this repository, whose per-core code sits inside the shared app image; (3) a person on the board moving the cursor in the trx64u menu.
+- **What they try to do:** (1) build a core's app part against a published SDK, with no source of ours in the core's repository; (2) add or fix a core without touching the one image every core runs; (3) use the menu without waiting.
+
+**What exists today (read from the code, 2026-11-19):**
+
+- **One app image for the blueprint cores.** `coreapp/` builds one image for the cores whose `core.toml` says `app = "blueprint"`; the core is chosen at run time from the ID block (`coreapp/README.md`, `tools/build_coreapp.sh`). Only cores with a descriptor in `coreapp/src/table.cc` are built into it (`tools/build_coreapp.sh:38`). Per-core code is part of that image: every core's descriptor, hooks and media code are in `coreapp/cores/` and are linked into every image.
+- **The service layer.** `ops.*` (registry of operations, state values, events), `exec.*` (executor, core lock), `service.*` (contributor poll task), `ops_glue.*`, `contrib.*` (menu merge), `bundle.*` (the `.cor` carries a menu record, record 6, and a library record, record 7). The descriptor holds operation names, not functions.
+- **The loader.** `.u2a` format 3 (`coreapp/src/libfmt.h`: 104-byte header, up to `U2A3_NEEDS_MAX` = 4 needs, image at most `U2A3_IMAGE_MAX` = 1 MiB, residence transient or resident, kind lib or app, a `capability` the core has to have). `libapi.h` gives `lib_register(const LibApi *, LibRecord *)` and `app_main(const LibApi *, AppCtx *)`. `libload.*` checks, places, relocates, registers and rolls back; `libboard.cc` loads `<root>/trx/lib` and the libraries of the `.cor` at every start. Build: `app/lib/lib.mk` (rv32im, no compressed instructions, position independent) and `tools/u2a_pack.py`. Test: `tests/loader/run.sh` against a model of the heap.
+- **The API a sub-app sees.** `LibApi` holds `log`, `abi_major/minor` and the call tables `sys`, `mem`, `ops`, `fs`, `dlg`, `job`, `trx`, `net`, `c64`, `lib` (`libapi.h`, `svctab.h`). A group the core does not have is a null pointer. The ABI is major 3, base minor 1 (`U2A_ABI_MAJOR`, `U2A_BASE_MINOR` in `libfmt.h`). An application brings a declarative UI description and no LVGL (T104.3 D0); `app/sdk/u2p_app.h` and `u2p_compat.c` carry the older ABI 2 calls of the four applications over the tables of ABI 3. The registry takes operations, state values and events; menu nodes, file actions and settings are merged by `contrib.h`; the poll a library declares (`LibPollDecl`) runs on a task of its own from the core's start, under the core lock and never while the machine is frozen, and only for the libraries loaded at the start (`run.cc`).
+- **No heap of its own for a library.** A library gets memory from `api->mem` (`SvcMem`: malloc, free, realloc) and its image from the board heap (FreeRTOS heap_4, `coreapp/src/libboard.cc:35`). The loader counts `resident_bytes()` (`libload.h:139`), but the budget of T104.1 Q7 is "deferred until measured" (T104.1 §6: 5,700,064 B free at UI start, Atari, 2026-10-18). The tables are static arrays: `OPS_MAX` 400 and `STATES_MAX` 320 in `coreapp/src/ops.h:151-152`, raised on 2026-11-18 for trx64u and TREX CRT (T228 §5: 200 to 320 and 300 to 400, 4.4 KB static RAM). A library that registers past them is refused with "no room" (`ops.cc:77,99`).
+- **Per-core code in the app.** The D24 ledger (`tools/d24_ledger.txt`, built by T213 D4) holds 145 files and 44,132 code lines of per-core code; the lint only stops it growing. The trx64u exceptions of T228-R20 add `coreapp/src/u64cfg.cc` +1033, `coreapp/cores/trx64u/menu.toml` +1313, `menu_rec.inc` +2530, `coreapp/src/trx64u_ops.cc` +927 (+22), `u64cfg.h` +4, `trx64u_ops.h` +5: about 5,830 lines. The ring and monitor code (`ring*.cc`, `monitor.cc`, `monsrv.cc`, `trxmon/*`) is on the ledger as per-core too. Only trx64u has a TOML menu; the other cores are C descriptors.
+- **The drive library.** `app/lib/cbm1541/` (`d1541_gcr`, `d1541_wd`, `d1541_drive`, `d1541_fs`) is pure and portable. Its contributor is `coreapp/cores/cbm1541.cc`, its descriptor pieces `cbm1541_desc.h`. The VIC-20 uses it as source linked into the image (`coreapp/cores/vc20.cc:14-15,226`); it is built in, not loaded (T104.1 D15).
+- **Menu speed on the board.** Alex, 2026-11-18 (T228 §5, translated): "trx64u is dead slow in the UI", "the A1200 is incredibly fast in comparison", "the app re-renders the whole UI on every key press .. I think the emulator just does not show it". The board reads the compiled record (322 entries), it parses no TOML. Nothing is measured yet. T231 records the same symptom for the diag core: each cursor move redraws the whole screen (board test 2026-11-16).
+- **SDK.** T131 (App API description and SDK for outside developers, planned 2026-10-26) is not written. T153 wrote the UI contract (widgets, layouts, TOML content, BDD suite in ue2emu; DONE 2026-11-14). Tools to test without a board: `tools/menusim/` (`hostsim.cc`, `menusim.cc`, `run.sh`), ue2emu, `tests/ui`, `tests/coreapp`, `tests/loader`.
+- **Versioning.** T221 gives the generic core app its own `version.toml` and SemVer (D6, D18). The `.u2a` carries the ABI major/minor and `needs base >= x.y`; nothing says which API versions an outside core may rely on, or how a break is announced.
+
+**Why it matters.** TRX64-Ultimate cannot own trx64u's menu, code and limits (T239 D9) until the app has a clean boundary they can sit behind. Every per-core line in the shared image is built, flashed and heap-counted for all cores. An outside core maintainer has no written contract.
+
+**Parts (MECE):**
+
+- **P1 The app core boundary:** what the app core owns (ops, states, events, menu merge, media, settings, saves, drive window, jobs, UI rendering) and what a sub-app or library may call, as one written API.
+- **P2 Versioning of that API:** how its version is counted, checked at load, and changed (T221).
+- **P3 Per-core code:** the sort of today's per-core code into data (TOML), generic module, or a core's own library; the order of moving it.
+- **P4 trx64u leaves the image:** its menu, ops and config code (the T228-R20 exceptions) load as `trx64u.u2a` from its `.cor`; the
+  image holds none of it. Whether the ring, monitor and trxmon code goes with it is open (question 5).
+- **P5 Shared libraries with source:** the cbm1541 drive library (and 1581/1571 pieces) as a loadable library with source in the SDK; the VIC-20 builds its app with it.
+- **P6 Limits and memory:** table sizes, per-library budget, the heap a library gets, refusal with a message.
+- **P7 Menu speed:** measure on the board, find what is drawn per key press, fix in the generic drawing path (T231).
+- **P8 The SDK, app side:** headers, ABI description, build template, packer, test tools, a worked example, per release.
+- **P9 Relation to T213:** whether its child specs are replaced or used.
+
+## §2 Scenarios — what proves it is solved
+
+| # | Part | Scenario | Proof |
+|---|---|---|---|
+| S1 | P1 | The API is written down: every group of `LibApi` (`sys mem ops fs dlg job trx net c64 lib`), every `Lib*Decl` and `AppCtx` has a section with its contract; a generated check fails when a header symbol has no section. | A lint stage compares `libapi.h` and `svctab.h` with the SDK document; CI run of the lint stage. |
+| S2 | P1 | A sub-app registers an operation, a state value, a menu node, a file action and a setting from its `.u2a`, the generic app shows them, and freeing the app removes all five. | `tests/loader/run.sh` and `tests/coreapp/run.sh` (registry and merge); `tests/ui` feature in ue2emu with the `ux-review` skill. |
+| S3 | P1 | A library the poll of which is declared (`LibPollDecl`) is polled from its registration to its release, while the machine is frozen only when it declares `when_frozen`; today only the libraries loaded at the core's start are polled (`run.cc`), never while frozen. | `tests/coreapp/run.sh` with a library whose poll counts calls. |
+| S4 | P2 | A `.u2a` that needs `base >= 3.2` is refused on a base that provides 3.1, with a message naming both versions; one that needs 3.1 loads. | `tests/loader/run.sh`. |
+| S5 | P2 | The ABI version of a build equals the version in the SDK release and is shown in the generic app's `version.toml` and in the SDK document; a change of `libapi.h` without a version change turns the lint red. | Lint stage (T221 `tools/check_versions.py` extended); CI run. |
+| S6 | P3 | Every per-core file of the D24 ledger has a recorded target: data, generic module, or core library. | The table in §5 of this spec, checked by `tools/check_d24.py` listing the files without a target (lint). |
+| S7 | P3 | A core whose descriptor moved to a TOML shows the same pages as before (same pictures and tests before and after, T213 D2). | `tests/ui` per-core set (T213 D5) and ue2emu pictures. |
+| S8 | P4 | `trx64u.cor` carries `trx64u.u2a`, its menu record and its tests; the coreapp image built for the other cores contains no trx64u symbol. | Symbol check on the RISC-V build of CI (`ci/trxapps.sh`); `tools/check_d24.py`. |
+| S9 | P4 | The D24 ledger shrinks by the trx64u lines: the exception lines of T228-R20 are removed and the ledger value of each moved file reaches 0. | `tools/check_d24.py` in the lint stage ("ledger can shrink" line gone). |
+| S10 | P4 | trx64u on the board starts, lists its menu, runs a TREX CRT dump and a drive mount, as the 0.2.0 board test did (T228 §5: "everything works"). | Board step by hand, with Alex looking; the same checklist as 2026-11-18. |
+| S11 | P5 | A VIC-20 `.cor` builds its app with the cbm1541 library as a source library from the SDK and mounts a `.d64` on drive A. | ue2emu flow for the VIC-20; board step by hand. |
+| S12 | P5 | The same library source builds as a loadable `.u2a` with `app/lib/lib.mk` and loads on the board. | `app/lib/cbm1541` build in `ci/trxapps.sh`; `tests/loader/run.sh`. |
+| S13 | P6 | A library whose image or whose registrations exceed its declared budget is refused at load with a message naming the library, the figure and the limit, and nothing of it stays. | `tests/loader/run.sh` (model heap) and `tests/coreapp/run.sh` (table limits). |
+| S14 | P6 | A library takes memory from its own account; freeing the library gives all of it back (heap free before equals after). | `tests/loader/run.sh`; the `[lib] ... heap free` line of `libboard.cc` on the board. |
+| S15 | P7 | The time from a key press to the finished screen on trx64u and on the A1200 is measured on the board with a script; the figure and what is drawn per press are recorded in §5. | Board step by script (RPC), timings in §5. |
+| S16 | P7 | After the fix a cursor move on trx64u redraws only the rows that changed, and answers within the figure Alex sets (open question 4). | Board step by script; `tests/ui` feature counting redrawn objects in ue2emu. |
+| S17 | P8 | A core repository outside this one builds its `.u2a` and menu record from the SDK alone (no file of this repository), packs them into a `.cor`, and the generic app loads them. | CI run of the SDK example on GitHub Actions; ue2emu start of the example core. |
+| S18 | P8 | The SDK release holds the headers, the ABI document, `lib.mk`, `u2a_pack.py`, `descrec.py`, the menu simulator and an example library with a test, each carrying the SDK SemVer. | Package check in CI. |
+| S19 | P9 | Each child spec of T213 (T213.1-3, T213.3ff) is marked replaced, used, or kept, with the reason, in T213 §5. | Review of `docs/specs/T213-bitstream-api.md` by Alex. |
+
+## §3 Decision
+
+Only decisions of the epic apply; nothing here is invented.
+
+- **T239 D9:** "TRX64 comes from the registry; our release package stops carrying trx64u/trx64g." Its menu TOML and its code in `coreapp/cores/trx64u/` (the D24 exceptions of T228-R20) and its table and memory limits belong to TRX64-Ultimate, built against the SDK. Applies to P4 and P6.
+- **T239 D10:** data by default, a core's own library where no generic module fits, one app core with an API for sub-apps and libraries; "TRX64U gives it back into the central repo as a library with source. The VIC-20 then uses it to build its app." Applies to P1, P3, P4, P5.
+- **T239 D13:** the order is A, D, B, C; this is B. It starts after the GitHub home and the platform checkpoint.
+- **T192 D24 and T213 D4:** no per-core code in `coreapp/` or `uicore/`; the ledger only shrinks (`tools/check_d24.py`, `tools/d24_ledger.txt`). Every build agent brief for this spec cites it.
+- **T213 D1:** format and machine logic are C modules in the service, chosen and parametrised by the API TOML; the TOML is no programming language. Applies to the "generic module" target of P3.
+- **T213 D2 and D5:** one child per core, same pictures and tests before and after; tests split into one generic set and a set per core. Applies to S7.
+- **T104.1 D10-D12 and D15:** the `.u2a` format 3, the loader, the drive library as source. Applies to P1, P5, P6.
+- **T104.3 D0:** an application brings a UI description and never calls LVGL. Applies to P1 and P8.
+- **T221 D6, D7, D18:** each deliverable has its own `version.toml`; the generic core app counts its own SemVer. Applies to P2.
+- **T228-R20 and T228 §5 (menu speed note):** the trx64u exceptions are removed only when the code has moved; "Measure on the board first (time per key press, what is drawn again), then the concept". Applies to P4 and P7.
+- **Project rules:** the SDK work follows "Generic app, no per-core code" (CLAUDE.md); no `tools/dev.sh` per step; UI is checked in the menu simulator and ue2emu with the `ux-review` skill before it goes to a person.
+
+- **T239.3 D1 (Alex, 2026-11-19): a library declares its budget, sub-apps take the free heap.** A library declares in its header
+  the heap bytes and the table slots (operations, states) it needs; the loader checks them against what is free before it loads
+  the library and refuses with a message when they do not fit. Libraries load with the core app (they are part of it for that
+  core); sub-apps load dynamically, on demand, into the free part of the heap. Alex (translated): "1 yes, but apps go into the
+  free part of the heap. That is also the difference: libs with the core app, sub-apps load dynamically." Asked against a fixed
+  share per library and the shared pool of today (OPS_MAX 400, STATES_MAX 320, `ops.h:206`; no heap of its own,
+  `libboard.cc:35`).
+
+- **T239.3 D2 (Alex, 2026-11-19): monitor, monitor server and ring move with trx64u into its library.** `monitor.cc` with
+  `trxmon/` (the F4 machine code monitor, 6502 assembler and disassembler), `monsrv.cc` (the TRX64 runtime contract on TCP 4312) and
+  `ring*.cc` (the Timewarp ring, T20) leave the app core with trx64u. Asked against "the monitor becomes a shared library for the
+  6502 family, ring and server go with trx64u" and "everything stays in the app core"; Alex: "1, die anderen Cores haben das
+  nicht" (1, the other cores do not have that).
+
+- **T239.3 D3 (Alex, 2026-11-19): T213 D2 stays: one child spec per core, the A1200 first.** T239.3 uses those children for the
+  migration of the per-core data (P3) instead of grouping cores. Alex: "Ja".
+
+- **T239.3 D4 (Alex, 2026-11-19): fast enough means as fast as the A1200 core's menu.** Both menus are measured the same way on
+  the board (time per key press, what is drawn again); trx64u's menu must answer like the A1200's (his comparison of 2026-11-18,
+  translated: "the A1200 is incredibly fast in comparison"). Asked against a fixed figure now and "measure first, then a figure";
+  Alex: "3".
+- **T239.3 D5 (Alex, 2026-11-19): Play MOD does not move into the trx64u library.** Alex (translated): "as soon as we start to
+  separate this, the trx64-ultimate session must know that it no longer needs to pack module.bin. We do not want that function
+  any more." The trx64u library gets no Play MOD (today `coreapp/src/trx64u_ops.cc:253-279`, `coreapp/cores/c64_cart.cc:759-796`,
+  T228 R21), and whoever packs trx64u after the separation leaves `modplayer/module.bin` out of the core's files (record 8). The
+  SID player files stay. Hand-over to TRX64-Ultimate: `.claude/handover-trx64u-ui.md`. `trx64g.cor` is not touched: Gideon's
+  application keeps its MOD player (CLAUDE.md, fourth licence exception).
+
+- **T239.3 D6 (Alex, 2026-11-22): the host is a core.** Alex (translated): "No. The host is a core. It has a bitstream, an app
+  and sub-apps." The host app is built from the same SDK as every other core. Its boot menu, flash and Wi-Fi module code are
+  libraries of the host core (D10).
+- **T239.3 D7 (Alex, 2026-11-22): two TOML contracts around a generic core service.** Alex's picture: core UI, core service and
+  bitstream, one above the other. One TOML describes the UI ("menu, keys"). One TOML is the "API definition between the bitstream
+  and the outside world". The core service between the two is generic and comes from the SDK.
+- **T239.3 D8 (Alex, 2026-11-22): register maps and descriptor tables are TOML, implemented once in the SDK.** Asked by Alex
+  (translated): "This block ... can it not also be described in TOML and then implemented once, generically, in the SDK?" The
+  answer: yes for the register maps (`coreapp/cores/*_regs.h`) and for the tables and the repeating code of the descriptors
+  (names of operations and states, reset sequences, ROM per setting, setting to register bit). The machine logic stays code (D9).
+- **T239.3 D9 (Alex, 2026-11-22): a core's own formats are a library of that core.** Alex (translated): "the file and cartridge
+  format of a NES or SNES is simply core-specific, so C++ as part of the core, a library only for that core." This narrows
+  T213 D1 for a format that only one core reads.
+- **T239.3 D10 (Alex, 2026-11-22): one kind of building block.** Alex (translated): "If we now agree that the SDK builds a
+  service + libraries + app API, then the core-specific building blocks can basically be built as libraries too; they are just
+  used in one repository only." Confirmed ("yes") when restated: shared or core-specific is no technical difference, only the
+  repository and the cores that load it. The placement "a core's own" goes; such code is a library with one core.
+- **T239.3 D11 (Alex, 2026-11-22): TOML does nothing at run time.** Alex (translated): "For the app build, the TOML must do
+  NOTHING at run time, in my view." Every TOML is compiled into binary records at build time; the board parses no TOML. The menu
+  record (record 6, `tools/descrec.py`) already works so. Open: the one exception today, the diag core's test files
+  (`cores/diag/sd/tests/*.toml`), which `coreapp/src/diagtest.cc` (`dt_parse`) reads from the card at run time and answers with
+  TOML reports.
+- **T239.3 D12 (Alex, 2026-11-22): the functions that only trx64u uses today stay here, central, as libraries or sub-apps.**
+  Asked whether C64 cartridges, SID and UCI stay here as shared libraries, or go to TRX64-Ultimate with everything else that only
+  trx64u uses. Alex first (translated): "We have only one core, and it is open source ... whoever wants to help themselves is
+  welcome to." Then at once: "Although ... we also have the C64SCPU", "and the Amiga has the USB mouse too, the C128 should have
+  it, the C128 also needs the cartridge module", "etc. ... so libraries", "Leave them all central as libs", "or apps". So C64
+  cartridges, SID, UCI, the network load socket, the temp RAM disk, resampling, the USB mouse and online search stay in this
+  repository as shared libraries or sub-apps. U18's list (menu, `trx64u_ops`, `u64cfg`, monitor, ring, `trxmon`, `trex_crt`)
+  goes to TRX64-Ultimate (U18 D1-D5, T239.3 D2). The USB mouse is shared already: `coreapp/cores/amiga.cc`, `c64.cc` and
+  `zxnext.cc` use `mousesink`.
+- **T239.3 D13 (Alex, 2026-11-22): every core sets its own heap, and with it the RAM that is left for apps.** Alex
+  (translated): "Important: every core sets its own heap, and with that how much RAM remains for apps." With D1, libraries load
+  with the app core inside that heap, and sub-apps take what is left. Today the shared image has one heap for every core
+  (`configTOTAL_HEAP_SIZE=0x7A0000`, `host-app/target/u64ii/riscv/coreapp/Makefile:343`); only trx64u has an image of its own with
+  its own heap (`OWN_HEAP`, T228 R25, the same Makefile). Open: how the shared app core image gets a core's heap size, from the
+  core's record at start or with one image per core.
+- **T239.3 D14 (Alex, 2026-11-22): the diag core should be able to do everything.** Alex (translated): "Well, the diag core
+  should basically be able to do everything." Its target on the capability map: every library and sub-app.
+- **T239.3 D15 (Alex, 2026-11-22): one app core image; the heap size comes from the core's record at start.** Asked between
+  the heap linked into one app core image per core (`heap_4`, as T228 R25 does for trx64u) and one image for every core that
+  reads the core's heap size from its record and sets the heap up once before the first allocation (`heap_5`,
+  `vPortDefineHeapRegions`, `vendor/gideon/software/FreeRTOS/Source/MemMang/heap_5.c`). Alex (translated): "Then let's try 2."
+  The size is fixed at the core's build (its TOML, D11, D13); the packer checks that image and heap fit the app region
+  (`host-app/target/u64ii/riscv/coreapp/linker.x:7`), the check the linker makes today. **Replaced by D28.**
+- **T239.3 D16 (Alex, 2026-11-22): T239.3 starts now, before T239.2; the first step moves the VIC-20 and trx64u onto the SDK
+  until the build passes; then iterate.** Alex (translated): "Create the 239.3 branch and then build? And then move a simple core
+  (VIC-20? Apple II?) and a complex core (trx64u) onto the SDK and build, until it builds", "and there [trx64u] gladly together
+  with TRX64-Ultimate-FW", and "if I go to sleep soon, you basically have the whole night ... so not only build the app, gladly
+  already 'more' ... but ok. Iterate." This changes the order of T239 D13 (A, D, B, C): B starts before D. The work is on the
+  branch `t239.3`. The first step: the heap of D15; the VIC-20 (P5, the build part of S11 and S12); trx64u (P4) with the
+  TRX64-Ultimate-FW session, which builds its libraries in its own repository against `t239.3` (U18 D1-D5), while this
+  repository provides the SDK side (U18 R1-R4). "Builds" means the RISC-V build of `tools/dev.sh riscv` passes. After that the
+  work goes on with the next scenarios of this spec. Not without Alex: board steps, merges into `integration` and `main`,
+  GitHub posts.
+- **T239.3 D17 (Alex, 2026-11-22): the SDK package comes first; cores build against it.** Alex (translated): "But can everyone
+  build already? Don't you simply have to put the SDK in place first?!" The order of D16 becomes: (1) the heap of D15; (2) the SDK
+  package (P8, S18, with the app core image of U18 R1): a build target and a CI artifact; (3) the VIC-20 builds from that package
+  alone, with no file of this repository (S17); (4) trx64u with the TRX64-Ultimate-FW session, after Alex's go there.
+- **T239.3 D18 (Alex, 2026-11-22): the night's work runs as a multi-agent workflow and keeps to the architecture of D6-D17.**
+  Alex (translated): "Go ahead and start ultracode agents for the 239.3 stuff". The plan named to him: loader and API (U18 R2-R4,
+  S4/S5, S13/S14), the API document and the sort table (S1, S6), the other cores' tables as TOML (each with a field-by-field
+  test), the VIC-20's own code into its library and out of the image; about 11 agents and 2.5 to 3 million tokens. Alex: "Yes,
+  sure, have fun. Pull it through, keep to the architecture!" Told later that it will cost 5 to 6 million tokens, Alex: "It will
+  be even more, but that is OK. If this is implemented cleanly and well, MultiCore has a future."
+- **T239.3 D19 (Alex, 2026-11-22): U18 R3 - the build refuses a library with constructors or destructors.** `lib.mk` refuses a
+  library that has `.init_array`, `.fini_array` or `__cxa_atexit`; the loader runs none. Asked one question at a time in the
+  TRX64-Ultimate session (recorded in their U18 §3 and §5, branch `u18`), against "the loader runs them". Their two cases
+  (`FileSystem_Root` and `mstring` in `ringfile` and `ringops`) go with their move to `SvcFs`.
+- **T239.3 D20 (Alex, 2026-11-22): U18 R4 - `SvcTrx`, `SvcRing` and `SvcC64` leave the base API.** They come only from libraries
+  through `SvcLib` (`lib->find`); for trx64u from the TRX64-Ultimate libraries (their D3). Asked in the same session, against
+  "they stay in the base API and base 3.2 takes their ring layout". The interim ring rule of §5 is the rule now; `trx` and `c64`
+  follow the same way.
+- **T239.3 D21 (Alex, 2026-11-23): TRX64-Ultimate builds, tests and delivers trx64u; MultiCore delivers the SDK.** Alex to the
+  TRX64U-FW session: "all of it; in principle we build and manage .ue2, .cfw and .cor ourselves. Only the SDK comes from
+  MultiCore." Confirmed here: "Yes, like that" (translated). The trx64u parts of this pipeline (the menu record and the menu
+  against the UX concept in lint, the trx64u apptests, the emu suite on `coreapp_trx64u.app`, the packing of `trx64u.cor`)
+  leave it after TRX64-Ultimate's own stages run green, so nothing goes untested in between. Which tests move and which stay
+  (rebased onto another core or a stub library) is sorted file by file in section 5.
+- **T239.3 D22 (Alex, 2026-11-23): R9 - the SDK ships no test rig.** His choice among three (no rig / a fake LibApi in the SDK / the
+  base sources and our rig in the SDK): "No rig" (translated). TRX64-Ultimate's tests of trx64u run in ue2emu against the SDK's
+  image; native tests of their own logic use their own fakes against the SDK headers; the tests that move are rewritten there. The
+  image is in the SDK already (`image/`); `gen_menu_rec.py` has no role for a library core (`descrec.py` compiles its menu into record
+  6); `check_menu_concept.py` checks their menu against their own concept, so it goes with their menu.
+- **T239.3 D23 (Alex, 2026-11-23): an overlay over the machine's picture is a service of the base, in the SDK.** Alex (translated):
+  "Overlay picture over the machine's picture - SDK or library? In any case not the app's job to solve it, all three of us agree on
+  that ... right?"; to TRX64-Ultimate (relayed, translated): "MultiCore must allow an app to put an overlay over the running picture.
+  ... basically this has to go into the base and so into the SDK, or into a library that is then used wherever it is needed." His
+  choice between a base service in the SDK and a shared library: the base service. A library puts a rectangle of pixels over the
+  machine's picture, also while the machine runs; the base owns the pixel layer and arbitrates it against the menu, the splash and its
+  messages. The Timewarp still and the PAUSED tag become its first users; the pull hook `menu_still` (parked, local branch
+  `t239.3-menu-still-wip`) is not built. The design follows as its own spec.
+- **T239.3 D24 (Alex, 2026-11-23): back to the agreed order; the work on the other cores leaves `t239.3`.** Asked what the
+  agreement was, Alex (translated): "According to the architecture. Isolated on a branch. trx64U and VIC-20 are the tests. When
+  they are good, pull core by core, one at a time, and adapt the SDK again and again. When everything works, to integration and
+  main." The night had already touched every other core: the data tables of the 15 other cores as TOML (P3), the base's settings
+  at other cores (base 3.3; the Amiga's mouse rows moved from F5 to F7) and the generic menu speed (P7). Alex: "Your 4. must go
+  back. Otherwise we cannot act. The SDK must go on, but not everything at once." So `t239.3` loses those parts by forward commits;
+  its state before (`e4f99648`) stays in its history. The SDK stays (P1, P2, P6, P8, D15, the record of D17), and so do trx64u
+  (P4) and the VIC-20 (P5). P7 is not part of the SDK and goes too (its own branch later, T231). Each other core comes back one
+  at a time, after trx64u and the VIC-20 have passed Alex's tests.
+- **T239.3 D25 (Alex, 2026-11-23): the other cores' TOML copies rest; only the Amiga goes back.** Told the facts: each of the 15
+  other cores got one file, `cores/<core>/app/desc.toml`, a copy of its C table that `test_descgen` proves equal field by field;
+  their C code is unchanged; with `t239.3` the packers put that file into the `.cor` and the app reads the data from it
+  (`coreapp/src/bundle.cc:201`); real behaviour changed only at the Amiga (its mouse rows moved from F5 to F7); `c64_cart.cc` and
+  `cbm1541.cc` name a mount by its slot; `hk_defaults.h` changed a comment. Asked whether D24's rollback stands, Alex chose "Copies
+  rest, Amiga back": the copies stay in the tree, but a core's copy is packed only once that core is pulled, so until then the 15
+  cores read their C tables as today; the Amiga's mouse rows go back to its F5 Input tab; nothing else goes back (P7 stays). This
+  replaces D24's list of what goes. Lost: the copies out of the tree (D24 as first decided), and the copies active now.
+- **T239.3 D26 (Alex, 2026-11-23): `t239.3` stays the target branch of the SDK work; TRX64-Ultimate takes the SDK from there.**
+  Alex (translated): "239.3 stays the target branch for SDK work, FW must get the SDK from there and cope."
+- **T239.3 D27 (Alex, 2026-11-23): the key code of D10/D11 (`cores/<id>/app/` moves no bitstream key, 05e7ea1a) goes to integration alone,
+  ahead of the SDK.** The builder computes every key with integration's key code (`KEYCODE_REF = integration`; builder `pull/poll.py`
+  181-184), so a branch that carries a file in `cores/<id>/app/` and needs a new bitstream is refused as "key drift" (run 45165030144: the
+  C128 on `t257-regs-toml`). Measured: `ci/keys.sh` gives the same 22 keys over integration's tree with and without the change, so
+  nothing is rebuilt. Alex (translated): "Why does the builder make its gateware key over the app directory?! That is nonsense" -
+  "Ok, go ahead."
+- **T239.3 D28 (Alex, 2026-11-23): the target picture. trx64u carries it through completely as the MVP, then the VIC-20, then 2
+  and 4 agents in parallel.** Alex (translated): "It does not matter how it runs today, please: architecture, the ideal target
+  picture, and then we make a plan for how to get there." His four points (translated):
+  1. "The FPGA has functions. It gives this information to the 'outside' in a description (TOML A). The service 'talks to /
+     controls the FPGA core', based on TOML A."
+  2. "The service (knows its range of functions from TOML A + generic stuff from the SDK) -> API <- UI app / JSON-RPC / REST
+     whatever."
+  3. "'Core app': knows from TOML A what the core can do and therefore knows what it needs from the SDK + libs + sub-apps ->
+     TOML B for the app build."
+  4. "Heap -> derives from 3, only then do I know the size."
+  The picture is the tab "Target picture" of the discussion page; Alex: "Ok, better". On the app that is compiled once today
+  (translated): "That we compile the app once today is clear to me ... I want to get away from that"; "The CI builds each core
+  its app, tailored, that is the goal." The order (translated): "trx64u should build like this, carry the whole thing through
+  completely. WITHOUT 'still lies centrally' or 'we do that later' ... Only then is it proven. As an MVP, so to speak, and then
+  VIC-20, and if that works too, then we scale with 2 agents in parallel and then 4."
+  This replaces D15: each core gets its own app, built from its TOML B, and its heap follows from that build. It also changes
+  U18 R1, under which the SDK ships one prebuilt app image. The plan for trx64u goes into this spec before any code.
+- **T239.3 D29 (Alex, 2026-11-23): T256 is part of the trx64u MVP of D28.** Alex (translated): "And for the million-agent swarm
+  on the SDK and trx64u: don't forget T256!" The overlay service of the base (D23, T256) and its first users (the Timewarp still
+  and bar, the PAUSED tag) are steps of the MVP.
+- **T239.3 D30 (Alex, 2026-11-23, relayed by the TRX64-Ultimate session): a "headless" FPGA system; four conditions for TOML A.**
+  Alex (translated): "I want full separation of concerns. A 'headless' FPGA system, so to speak." "Don't lose the 4 points, MC should
+  consider them for the concept." On checking (translated): "I can test that deterministically and heuristically ... no expensive
+  benches for everything ... the single functions and relations can be evaluated code <-> code, without any runtime." The conditions:
+  1. TOML A is checked against the RTL statically, code to code: the decode chain, the register offsets and their direction. Every
+     window lies inside a decoded IO range, no core window covers a base register, no library source names an address, and an RTL
+     pattern the check does not know fails it.
+  2. Every bitstream carries a standard block (ID plus version or hash). The service compares it with the TOML A record and refuses
+     a mismatch; pairing by packaging is no proof.
+  3. TOML A holds no logic. A sequence belongs to one driver library per gateware module, chosen by the module's name in TOML A; the
+     service stays generic.
+  4. TOML A names the owner of each block (base or core). App-side tables of hardware facts go (`basereg.def`).
+  No negative control for check 1 (the relay had proposed one). Alex (translated): "No, no, we stay with 'negative tests only for
+  persistence' (flash is persistence too)."
+- **T239.3 D31 (Alex, 2026-11-23): static binding; each core's app is linked with everything it uses.** Asked whether the link
+  core -> service and API -> app is static, so that no name is resolved at run time. Told: three places resolve names at run time
+  today (libraries loaded at start and found by name, `lib->find` in `coreapp/src/libload.cc`; operations looked up by name in
+  the registry; drivers bound by module name at start, plan point 2.3), a rule from D15's one image for every core, which D28
+  replaced. Alex (translated): "Yes, if in doubt that makes it faster and more stable. And yes, no base image any more, but that
+  does not matter!" So:
+  - TOML B names the libraries; the linker binds them into the core's app. No library is loaded at run time or found by name.
+  - The driver table (from TOML A) and the operation table (from TOML B) are generated at build time and linked in.
+  - At run time only D30's standard-block check remains: the bitstream is the one whose TOML A the app was linked against.
+  - Names remain only at the outer edge, REST and JSON-RPC, looked up in a table fixed at build time.
+  - Sub-apps stay separate programs loaded at run time; they get the API as a function table, with no name lookup. The loader,
+    and D19's rule with it, stays for sub-apps only.
+  - The SDK ships no prebuilt app image (D17's "app core image of U18 R1" goes).
+  This replaces the run-time loading of libraries in D1, D13 and D20. The scenarios of section 2 that load a library at run time
+  (S3, S8, S12, S13, S14, S17) apply to sub-apps or change to the linked app in the plan.
+- **T239.3 D32 (Alex, 2026-11-23): the menu simulator and ue2emu, both; every row's place comes from the TOML.** Asked whether
+  ue2emu with the core's own app replaces the menu simulator of S18. Alex (translated): "Sorry, but BOTH are needed .. I expect
+  that one plays with the simulator and tweaks the TOML until it fits. So what is where, in which group or tab, must come from
+  the TOML too." So:
+  - The SDK ships the menu simulator; S18 stands. A core developer changes the TOML and sees the menu at once, with no RISC-V
+    build.
+  - ue2emu with the core's own app stays the proof of the real app and the source of the UX pictures.
+  - The tab, the group and the order of every menu row come from the TOML, the base's own rows included. Today the base adds
+    rows by code: seven extend functions (`home_extend`, `baseset_extend`, `hk_extend`, `picture_extend`, `tone_extend`,
+    `volume_extend`, `persist_extend`) in 16 files on `t239.3`.
+- **T239.3 D33 (Alex, 2026-11-23): the MVP runs in parallel packages.** Alex (translated): "Good, and then let's rock it away,
+  please: slice packages and steps so that maximum parallelisation is possible, here with ultracode." The steps of the plan of
+  D28 are cut into packages that run in parallel as far as their dependencies allow, in a multi-agent workflow. Each package
+  gets its own branch from `t239.3`. The coordinator merges the packages into `t239.3`. Then the coordinator runs the RISC-V
+  build and the tests once (CLAUDE.md). TRX64-Ultimate's steps run in that session (D21).
+- **T239.3 D34 (Alex, 2026-11-23): TOML A abstracts the gateware into capabilities.** Asked how TOML A describes c64_basic's
+  `trx_io`, one gateware module whose registers belong to four drivers (the identity: SDK; reSID8: SID library; the cartridge
+  page: c64cart; the state bus and the debugger: cbmrun and trx64u's ring and monitor), Alex asked whether answer A, one block
+  per register range, needs a gateware change. Told: no, only sections in the TOML; `trx_io.v:213` already decodes 4 KB pages
+  (`page = addr[15:12]`) and the registers inside a page by their offset. Alex (translated): "But then A is exactly right. It is
+  the abstraction of the gateware into capabilities, plus the properties of these capabilities and their possible states." So
+  TOML A describes each register range as its own block: a capability with its own driver. The block's map names its properties
+  (registers and fields, with direction and width) and their possible states. The gateware does not change for this. The rule
+  holds for every module that serves several drivers.
+- **T239.3 D35 (Alex, 2026-11-23): step 2, the VIC-20, runs in parallel with the MVP.** Asked whether step 2 starts before
+  trx64u's proof (D28 had it after): its host part (the host's TOML A, rtl_check on `host/`, the base symbols from the host's
+  TOML A, `basereg.def` gone) once P1-1 to P1-3 are merged, and the VIC-20's TOML B and own app once P3-2 is merged. Alex
+  (translated): "Yes, parallel is OK." The board proof of each step stays as D28 has it.
+- **Discussion basis (Alex, 2026-11-22, translated: "From now on this is our basis for discussions"):** the maintainer's discussion
+  page holds the capability map (every function of today's apps, its code size, the cores that use it, and the placement SDK,
+  library or sub-app that Alex chooses) and a per-core view. Alex chose 27 of 52 placements on 2026-11-22. The choices are copied
+  into this spec when the map is complete.
+
+### Open questions for Alex
+
+1. ~~Which limit counts for a library?~~ Answered: T239.3 D1.
+2. ~~Shared static tables or a quota per library?~~ Answered: T239.3 D1.
+3. ~~One child per core or per core group?~~ Answered: T239.3 D3.
+4. ~~What response time is fast enough?~~ Answered: T239.3 D4.
+5. ~~Do ring, monitor and trxmon move with trx64u?~~ Answered: T239.3 D2.
+   exception) move with trx64u into its library, or stay in the app core as generic services?
+
+### TRX64-Ultimate's requests R1-R9 (U18), read against this spec (2026-11-20) - not decided
+
+Source: TRX64-Ultimate `docs/specs/U18-trx64u-app-part-moves-here.md`, §3 "Requests to MultiCore for T239.3" (not sent by
+them yet; read here for Alex, as the night plan of 2026-11-20 asked). Their decisions behind the requests: U18 D1 (they deliver
+the whole `trx64u.cor` and pin this app core), D3 (their libraries implement `SvcTrx`, `SvcRing` and `SvcC64`), D4 (one trxmon
+source, theirs) and D5 (libraries trx64u, ring and monitor; trex_crt stays a sub-app). The code facts below were read in
+`integration` on 2026-11-20. Each proposal is a question for Alex; none is decided.
+
+| R | They ask | This spec today | Proposal |
+|---|---|---|---|
+| R1 | The SDK release ships `coreapp.bin` with its version, so a large core is packed outside | S17 packs a `.cor` from the SDK alone, but S18 lists no app core image; `tools/pack_import_cor.sh` packs an import without `APP_FILE` with `--app-bin coreapp.bin` (:4, :9) | Add `coreapp.bin` and its `version.toml` (T221 D6) to S18 |
+| R2 | The library poll is served before trx64u moves | S3 (P1) serves `LibPollDecl` (`coreapp/src/libapi.h:115`); today `run.cc` serves it only for the libraries loaded at the core's start and never while frozen; nothing orders P1 before P4 | Write the order: S3 before P4 |
+| R3 | The loader runs `.init_array`, or `lib.mk` refuses a library that has one | Not covered: `app/lib/lib.ld` keeps `.text`, `.data.rel.ro`, `.data` and `.bss`, no `.init_array`; the loader runs no constructor | Decided: D19, the build refuses |
+| R4 | P1 records their D3: the TRX tables leave the app core and come from their libraries through `SvcLib` | Conflicts with S1's API groups `trx` and `c64` and with the tables in `coreapp/src/appsvc.cc` (`g_ring` :226, `g_trx` :230) | Decided: D20, the tables come from libraries through `SvcLib` |
+| R5 | The trx64u share of today's image is measured per library (trx64u, ring, monitor) against `U2A3_IMAGE_MAX`, 1 MiB (`coreapp/src/libfmt.h:40`), before P4 is cut | Not covered | A measurement before P4, from the link map of `coreapp_trx64u` |
+| R6 | The golden ops file, `descrec.py` and the menu simulator are in the SDK | S18 has `descrec.py` and the menu simulator; the golden `tests/coreapp/golden/ops_trx64u.txt` becomes theirs, and the tool that writes it is not named | Name the ops-dump tool in S18 |
+| R7 | An ABI major change is announced before a release | S4 and S5 version the ABI; no rule tells the other repository | A line in the hand-over contract (R8) |
+| R8 | Contract §1, §8 and §10 are rewritten with the move; their ADR-0057 point 6 is replaced | Not covered; `docs/contracts/trx64u-firmware-handover.md` changes only with both sides | A scenario in P4: both sides rewrite the contract before the cut |
+| R9 | The test rig of `tests/coreapp`, `gen_menu_rec.py`, `check_menu_concept.py` and the ue2emu job image with TRX I/O ship with the SDK; this pipeline drops the trx64u units once theirs run | S18 lists an example library with a test, not the rig or the two tools; no scenario drops trx64u's units here | Decided: D21 (the units leave after theirs run green), D22 (no rig in the SDK) |
+
+## §4 Out
+
+Nothing decided yet.
+
+## §5 Built
+
+Work on the `t239.3*` branches is recorded here as it is built, with branch and commit; its code reaches `integration` with the
+branch's merge.
+
+- 2026-11-22 night, P7 (menu speed), branch `t239.3-speed`, rebased into `t239.3` (head `e763425c`), not merged. Measured in the
+  menu simulator on the Mac (`tools/menusim/speed.sh`; pixels and calls exact, microseconds are the Mac's). Cause on trx64u: every
+  key evaluated every `show_state` and `hide` of the tree (93-119 registry lookups per cursor key, a linear name compare over about
+  190 states: 8,644 compares per key against 392 on the A1200), and a scroll step whose window gained or lost a section heading
+  rebuilt the whole pane (355,656 px). Fix (generic, `menuctl.cc`, `ops.cc`, `ui.cc`, `trxview.cc`, `run.cc`): a cursor key asks
+  the registry nothing; `show_state` is evaluated after an operation, at open, on a tab or page switch that ran an operation, and
+  every 2 s; a lookup compares a name hash first; a scroll step changes the rows in place; the header's network addresses are read
+  once a second. trx64u cursor move: 93 to 2 state calls, 66 to 29 us; long F5 run (`--long`): 15,152 to 4,415 px per move, 109 to
+  51 us; the A1200, c64scpu, VC-20 and diag unchanged. `same_pictures.sh`: 5 cores x 4 key sequences, 5,490 pictures, 0 differ.
+  Advisor decision: a state that changes outside the menu (not by a key) shows in the tree up to 2 s late. Not measured: the
+  board's milliseconds (`run.cc` prints update and render+flush per key). Left, the same on every core: a tab or area switch builds
+  the pane again (392-403k px), and the console line per key blocks about 10 ms at 115,200 baud.
+- 2026-11-23 night, the loader track (P1, P2, P6), branch `t239.3-loader`, rebased into `t239.3` (`3be66169`), not merged.
+  S3: a library's poll runs from its registration to its release, also for a library loaded after the core started; a poll may
+  stand in `lib_register` or in the menu record, not both; a contributing library is not evicted. S4/S5: `coreapp/api_lock.toml`
+  holds one header hash per base minor, `tools/sdk_api.py` keeps a released hash fixed and lets the newest unreleased one follow
+  the headers; one base minor per SDK release. S13: a library declares `heap_keep` (checked against free heap at load) and
+  `heap_peak` (the ceiling of its allocations) and table budgets; a refusal names the library, the figure and the limit, and
+  nothing of it stays. Advisor decision: nothing is reserved, the peak is a ceiling only. S14: a library's allocations go on its
+  own account per task (a table per FreeRTOS task), its release gives them back. D19: `lib.mk` checks the objects before `ld`;
+  a global constructor, a destructor or `atexit` stops the build with the function named. D20: named exports (`LibExportDecl`,
+  declared at pack time so the load order follows them; `find` searches export names first) and `c64_api.h` (C64Api, export
+  "c64" major 1; the base answers it until a library exports it). Results: `tests/loader` 1,557 checks, 0 failed, every
+  negative control failed as it must; `tools/test_u2a_pack.py` 124 checks, 1 failed (the testlib rebuild needs newlib headers
+  the Mac toolchain lacks; not this change); `test_unzip` 167 checks, 0 failed; `dev.sh riscv` ok. Base 3.2 released with SDK
+  0.2.0 (`trx64-sdk-0.2.0.tar.gz`, sha256 `1bb8532d...`), handed to TRX64-Ultimate. Open, built next as base 3.3: libraries get
+  no `net` and no `job` yet, and calls into a library's exports and hooks are not yet charged to it.
+- 2026-11-23 night, P3 / D17 (descriptor record and data tables), branch `t239.3-desc` with the conversion branches
+  `t239.3-conv-g1` .. `g4`, merged into `t239.3` (`beee9b09`), not merged to integration. The description record (version 6) has
+  17 data sections; `tools/descrec.py` writes them and both readers (Python and `descrec.cc`) mirror each other (a differential
+  fuzz of 19,200 mutated records per seed, three seeds: 0 differences). The data tables of 16 cores are TOML in
+  `cores/<dir>/app/desc.toml` (vc20, c128, c64scpu, pet, c264, nes, atari800, apple2, zx, zxnext, cpc, snes, neogeo, amiga,
+  amiga1200, diag); the packers put each into record 6 of its `.cor`; a core with a compiled-in descriptor keeps its tables
+  (`descrec_applies`), so nothing changes at run time yet. Proof: `test_descgen` "16 cores, 24878 fields compared, 0 failed"
+  (each core's record against its compiled-in descriptor, through the functions the board uses); the records of versions 4 and 5
+  compile byte for byte as before. Record limits: 6 media slots, 6 mount names, 64 bytes per register-bit setting; a setting
+  may be a file the person selects (kind 3) or the rom set's choice. `DescRecord` 95,496 bytes on RV32 (+96), `DescSections`
+  3,848 (+520, allocated only for a record with sections). S6: `tools/d24_targets.txt` gives every file of the D24 ledger its
+  target (144 files: 59 core library, 20 data, 14 shared library, 51 TRX64-Ultimate, 0 generic module) and `check_d24.py`
+  (rule P6) is red for a ledger file without one. Open: the Commodore TOMLs repeat the drive library's settings, tasks and ROM
+  rows because the compiled-in descriptors splice `cbm1541_desc.h` (they move into the cbm1541 library's own record with P5);
+  `t64` is a core library that the generic `menuvlist.cc` still calls; S7 (same pictures) is proven when a core drops its
+  compiled-in tables and runs from the record.
+
+- 2026-11-22, U18 R5 measured by the TRX64-Ultimate session (their `software/trx64u/BOUNDARY.md`, branch `u18` 8dddf382), from the
+  link map of this repository's own trx64u image (`make own`, 3b8e2955, kept sections, no debug); image plus bss against
+  `U2A3_IMAGE_MAX` (1 MiB): trx64u 397 KB (37.8 %), ring 84 KB (8.0 %), monitor 646 KB (61.6 %, counted with this repository's
+  older `tm_` copy). All three fit. Most of it is static buffers a resident library keeps (three of 64 KiB in `trx64u_ops`; in the
+  trxmon RPC `s_reply` 64 KiB, `s_text` 48 KiB, `s_b64` 43 KiB; in the monitor `s_fbuf` and `s_move` 64 KiB each); they count
+  against the core's heap (D13).
+- 2026-11-22, interim until Alex decides U18 R4 (agreed with the TRX64-Ultimate session): their ring library exports its own call
+  table through `SvcLib`, with their header's layout (`u2p_ring_api_t`, including `dump`, `save`, `load`, `trace_writes`,
+  `load_entry` and `save_native`, which this repository's `SvcRing` lacks); trxmon finds it with `lib->find`; `trx` stays
+  `api->trx`. If R4 keeps the tables in the base API, base 3.2 takes their layout.
+- 2026-11-22, the trxmon sources (U18 D4: one source, theirs) build unchanged as part of an SDK library on their side
+  (branch `u18` 8dddf382); what is left undefined is their platform layer (`plat_*`, `srv_*`), which their monitor library
+  provides.
+- 2026-11-22, the three tables of D20, agreed with the TRX64-Ultimate session: the export "trx" (major 1, `u2p_trx_api_t`) and
+  "ring" (major 1, `u2p_ring_api_t`) have the layouts of their firmware's `app_api.h`; "c64" (major 1, `C64Api`: today's `SvcC64`
+  members in their order, then `dma_read_frozen`, `cart_preference` and `reset`, which replaces `SvcTrx.reset_c64`) is an SDK
+  header, because other C64-family cores may provide it and the shared libraries of D12 use it. Rule: `size` first; within a
+  major, members are only appended; removing or reordering one makes the next major. Base 3.2 adds named exports: `LibRecord` gets
+  a list of {name, major, table, size}, `SvcLib::find` searches export names before library names (old libraries keep working),
+  and `LIB_NEEDS` resolves against export names too. Today `find` matches only a library's name and its one table, which cannot
+  serve one library that exports "trx" and "c64". The cartridge code (`coreapp/cores/c64_cart.cc`) drives the bitstream's
+  cartridge module through `c64_regs.h`; that register map belongs in the API TOML of each core with the module (D8), and the
+  shared cartridge library takes its base from there.
+- 2026-11-22 night, the boundary of the trx64u libraries (TRX64-Ultimate's `BOUNDARY.md`, mapped in `docs/dev/boundary-trx64u.md`
+  on `t239.3-boundary`, a critic pass after it). Alex delegated the U18 design questions to this session for the night (relayed by
+  the TRX64-Ultimate session: "The MC session is your advisor, it may take decisions, so ask it from now on"; confirmed by Alex in
+  this session: "I am going to bed now. I will write to the FW session that you answer as advisor for me"). Taken under that
+  delegation and within D6-D20:
+  - `c64.cc` (the TRX2 descriptor and its hooks) is the trx64u core's own code: its data become TOML (D8) and its hooks come from
+    TRX64-Ultimate's base library (D10). `c64_go.cc` follows it if `c64_desc` is its only user. `c64_cart.cc` becomes the shared
+    cartridge library here (D12); `cbm_run.cc` the shared program-loading library here (the VIC-20 uses it too).
+  - The base API takes a call only when more than one core or library uses it, or when it belongs to the generic application by
+    nature. The UI look, the name squeeze and the keyboard joystick become settings of the generic application, which any core's
+    menu can show. No raw I2C access for libraries.
+  - `sync.enter` and `sync.leave` (a short critical section) come in, because D20 puts the 32-bit TRX register accesses into the
+    TRX64-Ultimate library; `net.gated` comes in as a state readable with `ops->state`, not as a new `SvcNet` member.
+  - `sys.yield` and a 1 ms `sys.ms_timer` come in; `sys.sleep_ms(0)` sleeps one tick today, so it is no yield.
+  - S14 covers everything a library holds: memory allocated in its handlers, files, sockets and jobs; the end of one application
+    closes only what that application holds, so a resident library's listener survives it.
+  - `ops->state` gets the `set.<key>` branch with the key folding and the enum labels of the generic `setting_state`.
+  - The SID sockets: `board.sid_socket(socket, state, shunt, filter_caps)` in the base, `state` one of `SID_SOCKET_OFF`, `SID_SOCKET_ON`
+    and `SID_SOCKET_ON_TYPE1` (regulator bits 00, 10, 11; the base inverts the filter bit); the base keeps the control byte of the
+    socket expander and writes it under the "SID Configuration" lock of the 1.8 V I2C bus (the keyboard scan shares the bus since
+    T253). The encoding is board knowledge and stays in the base; c64scpu and c128 can drive the same sockets.
+  - The ring and monitor libraries of TRX64-Ultimate (ported against base 3.1 on their branch `u18`): the C64 machine registers
+    of their bitstream (stop, mode, DMA, cartridge type, REU, sampler, video format) are theirs, in their core's API TOML (D8),
+    reached through the base's generic `io` group; the UCI slot calls are an export "uci" of the shared UCI library; the
+    cartridge RAM and the drive A image are reached through the exports "c64cart" (with the GMod2 EEPROM calls) and "cbm1541"
+    (`drive_info(slot, Cbm1541Info *)`, a struct with `size` first); `ctx.target_path`, `ctx.job_*`, `settings.override_value`
+    and `settings.apply`, `board.fpga_caps`, `sys.wall_time`, `sys.app_version`, `sys.app_git` and
+    `ctx.media_source(slot, buf, len)` (by the descriptor's media-slot name) are base calls of 3.3. The core hook `menu_closed`
+    replaces the ring and monitor calls of `run.cc`; a library starts its engine in the core's start hook or its first poll, not
+    in `lib_register`. The monitor screen is an export "textgrid" (SDK header) that a node with layout "terminal" names. The
+    base honours a poll's declared `when_frozen`, force-includes `hidden.h` for C++ in `lib.mk`, and gives S13 a permanent and a
+    peak heap figure (the ring keeps about 1.42 MiB and borrows up to about 4.2 MB during a dump). A `KF_DIRECT` key runs on the
+    menu task without the core lock by design; the `KS_MONITOR` and `KS_TIMELINE` key rows move into their UI TOML (D7).
+  - Where the ring library's source lives: the library's copy (TRX64-Ultimate, branch `u18`) is the master. It catches up once
+    with the firmware's ring files (64 sections, `load_entry`, `save_native`); from then on the firmware's copy takes bug fixes
+    only, each mirrored into the library in the same change, until the firmware itself runs on the app core (their U3, D2). One
+    source shared by both (as trxmon) was not taken: it refactors firmware code with an end date and needs a board check.
+  - The base 3.3 contract (headers on `t239.3-boundary`, written before the code so that TRX64-Ultimate builds to the final
+    names): the `io` group hands libraries the base's own hardware abstraction (`CoreIo`, `io.h`) and names no register of any
+    core; offsets are relative to each window, a core's API TOML names its registers (D8); `bus_rd` joins `CoreIo` as the read
+    side of `bus_wr`. The cartridge RAM and the drive images are read through the exports "c64cart" (`ram_*`, plus `require`,
+    `prohibit`, `writable` and the calls `c64.cc` makes today) and "cbm1541" (`image_*`, slots, options, service, media
+    flush), not through raw DDR addresses. "sid" and "tempdisk" are exports of the shared libraries (D12). The UCI library owns
+    the $DF1C slot (export "uci", the core's callbacks as `UciHooks`). The five USB mouse settings become base-owned like the UI
+    look (two cores have them), so the base image answers `u64_get_usb_hid_config_value` from its own keys. A base call with one
+    user today stays only with a reason written at it: `board.video_set_pll` (no library touches a PLL), `board.is_commodore`,
+    `sys.app_git` (identity, like `fpga_caps` and `app_version`). `sys.ms_timer` is 16 bits as the hardware timer (use
+    differences). The ring library builds a state's machine information itself from these calls, so its exported table and its
+    menu operations share one path.
+  - Menu close: the core app puts back no machine state (`Freeze` stops the machine with C64_STOP, the menu draws on its own
+    layer and never into the machine; `close_menu` in `run.cc` only gives the layer back and releases the machine). So a state
+    loaded while the menu is open is what runs after the close, a load stays immediate, and the core hook `menu_closed` returns
+    nothing. It runs on the menu task while the machine is still stopped, without the core lock; only polls declared
+    `when_frozen` can run at the same time.
+  - Further contract points with TRX64-Ultimate (`t239.3-boundary`, up to `0aff1a3b`): work that needs the machine held for long
+    (the ring's dump) is a stepped operation (the UI node attribute `job`, as "Save frame"): the menu calls it while it answers
+    `more`, each call holds the core lock for one step, the menu stays open so the machine stays frozen; a job task (`api->job`)
+    makes only the io calls that depend on no mode. A core's own register blocks outside `rd`/`wr` (video, mixer, palette,
+    resampler) are reached through `io.window(name, &size)`, declared in its API TOML and checked against the address map, not by
+    absolute addresses. The core hook `base_setting_changed(key)` lets a core follow a base-owned setting (the C64's paddle swap
+    follows "Joystick Input"). The text screen export `textgrid` gets `enter` and `tick`, so no generic code names
+    `monitor.open` or `monitor.tick`; all its calls run on the menu task. The UI TOML gets a key table (`[[key]]`: layout or node,
+    key, op, pass_key, directive, direct) in place of the `KS_MONITOR` and `KS_TIMELINE` rows of `menukeytab.cc`. A core's own menu
+    is its description (record 6 of the `.cor`, `cor_pack.py --desc`), never a library's menu record.
+  - Completed with TRX64-Ultimate (`t239.3-boundary` `e3bfcf2d`): a `[[key]]` row carries every part of today's `KeyRow` (`do` =
+    op, decline or swallow; `value`, `pass_key`, `status`, `status_ok`, `close`, `directive`, `direct`; `when` with "!" for a
+    state condition; `codes` for a range), so the monitor's and Timewarp's rows all leave `menukeytab.cc`. A core's API TOML
+    declares `[[window]]` (name, address, size); the base refuses a window that covers a register it drives itself, so a block
+    shared with the base is split into the runs the core writes; the case LED select is the base's (`board.case_led_select`, two
+    users: the base's load light and a core's LED settings). `base_setting_changed` runs after the start once per base-owned
+    setting with its own key.
+  - A `[[task]]` takes `job = true` with 3.3 (a stepped operation with the progress line, as the node attribute `job`). A command
+    that arrives without the lock (the monitor's terminal, a `direct` key row) is queued and run step by step by the library's
+    own poll, which holds the lock; the base does not hand the core lock to libraries. Short register reads from the menu task get no
+    exception either: the monitor's verbs and its info row go through the same queue and a snapshot its poll refreshes. A second
+    table of a library is a named export of its own ("ringsteps"), never a table hidden behind another export's size.
+  - Who pays (advisor, 2026-11-23, TRX64-Ultimate's question about ring dumps started by the monitor): what a library's code
+    allocates goes on that library's account, also when another library calls it through an export. Under 3.2 the block goes to
+    the image whose operation runs on the task, and the release of an image frees every block on its account
+    (`libload.cc` `discard`, `free_account`): a block the ring keeps from a call by the monitor would be freed under the ring when
+    the monitor goes. The provider outlives its users (they need it), so under the 3.3 rule a release never frees what another
+    image holds. Base code that allocates for a caller (a listing, an opened file) charges the caller, as today. Built with 3.3.
+  - `find` matches an export's major exactly (advisor, 2026-11-23): today it gives the lowest major at least the one asked for,
+    so a caller of major 1 can get a major-2 table whose layout it does not know. A find of an export name at major 0 logs the
+    call: TRX64-Ultimate found that `find(name, 1, &size)` asks for major 0 (`min_version` is `U2A3_VERSION(major, minor)`).
+    Built with 3.3.
+  - A released SDK package is kept as built; a later build of a branch wrote a package with the same version number and other
+    tools (`descrec.py`, `cor_pack.py`) to the same path, and TRX64-Ultimate pinned that one at first. The branch after a release
+    bumps `SDK_VERSION` at once.
+  - A core whose code is a library (advisor, 2026-11-23, for the cut of trx64u; contract `t239.3-boundary` `df3f2d69`): the core's
+    API TOML names the library, `hooks = "<library name>"` in [core]. `cor_pack` refuses the core when that library is not in the bundle
+    or does not list `corehooks=1`. CoreHooks gets the mount slots (`slot_spec`, `slot_mount`, `slot_eject`, the meaning of MountSlots),
+    and `ctx` gets `CTX_MEDIA_RESTORING` and `mount_notify`. `cbm1541` gets `reset`, which never makes a drive. The CBM program loader
+    (`app/loaders/cbm_prg.cc`, used by five cores) stays here as the export "cbmprg"; TRX64-Ultimate's copy goes when it is built.
+    The T64 operations named in `menuvlist.cc` (a D24 breach) give way to a container row of the UI TOML with the cut (P4); the T64
+    lister stays here (S6 target: shared library). The first reset at power-on already comes after the libraries are loaded and
+    the groups are filled (`run.cc`, `lib_board_load` before `boot_start`), so `init` has io and settings there.
+  - Who notifies a slot change (advisor, 2026-11-23): the engine that makes it. `ctx.mount_notify` takes the slot's name from
+    [mount] (as `ctx.media_source` does), runs on any task and only marks the slot; the base reads it under the lock and stores it
+    once. The shared libraries notify every change they make to their own slot ("Drive A" for `cbm1541`, "Cartridge" for `c64cart`,
+    `for_state` included), so a core's code that calls them does not. The base's own engines hard-code the C64's slot order today
+    (`c64_cart.cc` notifies 1); they notify by name with 3.3.
+- 2026-11-23 night, base 3.3, the API side, branches `t239.3-api33` (the groups), `-fix`, `-hooks`, `-exports`, each reviewed and
+  repaired, being merged into `t239.3-33` with the record side; not merged to integration. Built: the five groups sync, settings,
+  ctx, io and board in LibApi and the SvcSys and SvcFs additions (`libsvc.cc`); `net` and `job` for libraries, each socket and job
+  on the account of the image that opens it, closed and stopped with its release; an unload is refused while a library job
+  still runs (it no longer waits 5 s under the core lock); the account of an allocation is the image whose code asks for it
+  (return address; `lib.mk` and `app.mk` build without sibling calls so a tail call does not hide the caller); `when_frozen`
+  polls; the core hooks `start`, `menu_closed` and `base_setting_changed` (`hookhost.cc`; a library that exports corehooks is
+  never evicted); the ten base-owned settings with their F7 blocks Look and Input (`baseset.cc`), trx64u's copies of them gone;
+  the exports `c64cart`, `cbm1541`, `uci`, `sid` and `tempdisk` and the built-in `textgrid` over the monitor, drawn by the
+  generic terminal path; `mount_notify` by name and `CTX_MEDIA_RESTORING`. The host app's zip reader offers base 3.2, not 3.3,
+  because it fills none of the groups. Results: `tests/loader` 1,804 checks; `test_exports` 135; `test_baseset` 243;
+  `test_mousescale` 143; `tests/coreapp` 119 programs (each branch); 0 failed; `dev.sh riscv` ok on each branch.
+  Choices recorded here: trx64u keeps the paddle swap at 0 (its bitstream has no keyboard joystick; a library sets it in
+  `base_setting_changed`); the base-owned settings are shown only where the code can do them (T228 R20, R7: Joystick Input and
+  its hotkey not on trx64u, Color scheme not on trx64u, the mouse mode and wheel rows not on sink cores), built in `t239.3-33-base`;
+  `libexports.cc` names the shared C64 cartridge library, so it gets one ids ledger line under D12 (Alex: "Leave them all central
+  as libs") instead of an include written to slip past the lint. Open: how the end of an application reaches the library that
+  holds the debug block (boundary 13.4).
+- 2026-11-23 morning, base 3.3 complete on branch `t239.3-33` (the API side, the record side and the points decided in the night,
+  merged, reviewed for code and UX, repaired; not pushed yet, not on the board). A core whose code is a library: `hooks` is the
+  19th word of record section 1, `cor_pack` refuses a core whose named library is not in the bundle or does not list
+  `corehooks=1`, and the base binds the descriptor hooks and the [mount] slots to that library's CoreHooks once at the start
+  (`hookhost.cc`, `hooklib.cc`); `test_corelib` (130 checks) runs a model library through the real loader, with the first reset
+  after the libraries are loaded. Exports: `find`, the needs and the apps folder's index match a major exactly, and a find at major
+  0 is logged; `cbmprg` and `cbm1541` `reset` are built; the shared cartridge and drive engines notify their slot by name; c64cart
+  `require` and `prohibit` answer 0, "not known by the base" (TRX64-Ultimate confirmed that a .c64re only stores them). What the
+  code can do, read from the gateware: no core of this tree consumes the keyboard-joystick registers (`host/ultimate_sys.vhd`
+  decodes the matrix page up to offset 10, so the WASD store at 0x0B reaches nothing; `U64II_KEYB_JOY` only selects the port the
+  application's own menu scan reads), and the mouse sink takes every USB report on every core; so Joystick Input with its hotkey,
+  "Mouse as" and the wheel rows show on no core (T228 R20), the mouse sensitivity and acceleration show on cores with a mouse,
+  and trx64u hides Color scheme through a list in its menu.toml (R7). `io.window` serves the windows of the core's record;
+  `machine.put_builtin_rom` is registered; `Settings::find` uses a name index (1.21 key comparisons per call instead of 170.5 in a
+  unit with 340 settings); `ctx.media_source` covers the window drives and sector units and takes the core lock when the caller
+  does not hold it. The S6 target label is `ultimate-repo`, because the T171 guard forbids the firmware package's name in code.
+  Results: `tests/coreapp` 124 programs and 215 controls passed (JOBS=2); `tests/loader` `test_libload` 1,879 and `test_exports`
+  213 checks; `test_descrec.py` 82 and `test_cor_pack.py` 66 tests; 0 failed; `dev.sh riscv` ok; SDK 0.3.0 with 25 headers.
+  UX review in ue2emu (21 pictures): PASS, with points for Alex: F7 has two one-row sections (MENU, HOTKEYS); trx64u's F7 has an
+  APPLICATION section no other core has; the Timewarp hint names two of its keys. Open for Alex: whether `io.window` refuses only
+  the registers the base drives (built) or also every range outside a grant list, which the code does not have.
+  The builder's `tools/dev.sh test` first failed in `tests/loader` (a segmentation fault the Mac build did not show): the job test
+  of `AppHost` left its `CoreCtx` unset and the test's stub `AppDlg` left `pk_list_` unset, which `~AppDlg` frees; valgrind on
+  the builder found both, and with the fix (`a57b2219`) it reports 0 errors and `dev.sh test` is ok (396 s). `t239.3` is
+  fast-forwarded to it locally. The first run of TRX64-Ultimate's libraries (advisor, 2026-11-23): ue2emu with the shared
+  `coreapp.app` of base 3.3 and their `trx64u.cor` on the emulated stick; menusim (native) shows their UI TOML with stubbed
+  operations only, and `tests/coreapp` cannot run RISC-V libraries.
+  TRX64-Ultimate's three libraries link and pack against the 3.3 development SDK (their U18 `07d560f5`); their record 6 is
+  66,704 bytes with 19 key rows and 9 windows. Three answers (advisor, 2026-11-23):
+  - trx64u names no `kbd_joystick`. The capability stands for gateware that turns the keyboard into joystick lines. c64_basic
+    has none: its KEYB_JOY bit 0 (`ultimate_sys.vhd:1193-1195`) only selects the port that the base's own menu read uses
+    (`keyboard_c64.cc:300-318`), and its gateware decodes no paddle swap (`0x1018001A`, row 263 of the T228 row audit). So
+    trx64u's `swap_key` and the paddle swap in `base_setting_changed` go, as R20 removed row 46 with the J hotkey; nothing is
+    left for Alex to decide. TRX64-Ultimate did this in `fc608038`.
+  - The SDK package lacked `basereg.def`, so a `[[window]]` did not compile from the package alone. The package ships it as
+    `tools/basereg.def`, and `descrec.py` reads it beside itself first. `sdk_check.sh` compiles a window from the package and
+    refuses one over the master volume (`d6f50a0d`, development SDK `trx64-sdk-0.3.0-dev+d6f50a0d`).
+  - The SDK README said that the shared image does not run TRX64U. Since base 3.3 the shared image runs a core whose `.cor`
+    carries record 6 and names its code library (`start_identify`, D17); trx64u from the TRX64-Ultimate libraries is such a
+    core. The README says so since `d6f50a0d`.
+  TRX64-Ultimate's first run of its libraries (ue2emu 0.7.4, their U18 `29516930`, the shared `coreapp.app` of `d6f50a0d`):
+  the base identified the core from their record 6 and loaded the three libraries. It found five gaps in base 3.3. Each is
+  confirmed in the code and repaired in `7ca3c1b6` (advisor, 2026-11-23):
+  - M1: the description of a record core (D17) opened the `.cor` before its medium was up. `BundleDescSource` now waits for
+    the medium of the hand-over path, as the start does for the core's folder (`medium_wait`, at most 10 s).
+  - M2: a record core got none of the base's own operation groups: the built-in descriptor's code registered them
+    (`c64.cc`). A record core that registers no operations now gets them by its data (`ops_record_groups`, api.md 9.7.12):
+    Diagnostics and the online search always, the 1541's group when its capabilities name `drive_a` and the board did not
+    strike it.
+  - M3: the first reset and the start hook ran before the application host gave the libraries their context, groups and
+    jobs (against api.md 9.7.10 and 9.7.5.1). The host is now installed before the first reset.
+  - M4: the base's monitor bound TCP 4312 for every core. It now serves only a core whose record names no hooks library.
+  - The held page cut the sentence at 200 bytes.
+  The second run (`coreapp-7ca3c1b6`) confirms the repairs: the `.cor` from the stick (up after 1.8 s), no menu entry
+  refused, the 1541 ROM put, init and start clean, their monitor on 4312, freeze, Timewarp, BASIC READY.
+  A review of `7ca3c1b6` (a workflow of six agents, 1.37 million tokens) found three more, repaired in `578d1f39`:
+  - The trx table's `ring` member stayed null on the built-in trx64u: the table is now made before the base starts its
+    ring. The base sets the member again after that start (api.md 4.7.2).
+  - A start hook holds the core lock while the executor runs, so an operation it called waited for itself. A caller that
+    holds the lock now runs the operation on its own task (`exec.cc`).
+  - init and start get no dialog: only the main loop serves dialogs (api.md 4.5.5).
+  **Open (Alex, 2026-11-23, his choice "open point" over "rebuild now"):** the wait of M1 runs before the splash and before
+  port 80 opens. The screen stays black and REST refuses until the stick is up (1.8 s in ue2emu, at most 10 s). The repair
+  puts the splash and the REST gate in front of the wait.
+  The pipeline run of `57f0648f` (#96) was red in `coreapp_render` (`render.cc:446`): base 3.3 lists the A1200's mouse rows
+  on the APP page (F7), and the test still looked on the core's Settings page. Repaired in `b13d3d76`.
+  M5, the heap (advisor): the shared image does not grow for trx64u. TRX64-Ultimate streams its `.c64rering` dump entry by
+  entry (peak 107,152 bytes instead of 4,349,536, their `f1bbd254`). It streams the format-1 load next and then lowers its
+  `heap_peak`. api.md 4.4.12.4 now says that a write past the end of a file grows the file.
+  Timewarp's picture (advisor): with the freeze working, the bitstream blanks the machine's picture behind the timeline
+  while paused. The core shows its own still through a new core hook, `menu_video(int behind)`. The base calls it whenever
+  it turns the picture behind the menu on or off; the library chooses the live picture or the ring's still (D20). Drawing
+  the still in the base was refused: this board renders in software. The base side follows on `t239.3`.
+  Built in `01595fea` and `e4f99648` (api.md 9.7.13). TRX64-Ultimate's ue2emu run (their `aef43936`, dev SDK `e4f99648`) logged the
+  calls: one 1 when Timewarp opens, none per scrub step, one 0 when the menu closes (before `menu_closed`), 1 then 0 for the PAUSED
+  tag. Correction the same day (theirs, confirmed in their code): the firmware does not switch a still in by hardware; it copies the
+  captured still and draws it into the pixel layer in software after each scrub step (`trx_video.cc` draw_still). The bitstream has
+  no surface under the menu layer, and the machine's picture is blank while the whole machine is halted. So `menu_video` alone shows
+  nothing behind the bar; who draws the still is open (advisor question of 2026-11-23).
+  The tests that name trx64u, sorted file by file for D21 (`docs/todo/T239.3-trx64u-tests.md`): 3 move to TRX64-Ultimate
+  (`c64_rig.h`, `emu/run.sh`, `ops_export.cc`), 11 split, 8 stay and are rebased onto another core or a stub before the cut, 7 stay
+  as they are. Cost: a workflow of 4 agents, 1.11 million tokens, started without the announcement the rules ask for.
+  Timewarp's index after a scrub (found by TRX64-Ultimate in their copy, 2026-11-23): a scrub drops the oldest ring entries once the
+  ring is full, so every index moves while Timewarp keeps the shown frame by index (`coreapp/src/ringops.cc` go_to: `g_sel = k`,
+  `trx_ring_set_pending(k)` after `trx_ring_scrub_show`); LEFT stays, RIGHT jumps two, "Resume here" resumes one frame late. Their
+  version finds the frame again by its seq. Alex, asked whether our copy gets the fix before trx64u moves (D21): "No, leave it".
+- 2026-11-23 night, base 3.3, the record side, branch `t239.3-api33-rec` (from `t239.3`), not merged. The key table is record
+  section 18 and the windows section 19 (`tools/descrec.py` and `descrec.cc`, mirror readers with the same limits). The menu's
+  stage `KS_CORE` takes the rows of the core's record where the generic monitor and timeline rows of `menukeytab.cc` stood; those
+  rows left the generic table, and trx64u's `menu.toml` carries the same 19 rows (`test_cut`: field by field equal, and their
+  intents apply; `test_keywalk` golden unchanged). Only trx64u shows a terminal or timeline layout. A window over a register the
+  base drives is refused at load: `coreapp/src/basereg.def` lists 22 such registers with the code that writes each (I2C, MDIO,
+  the hub and ULPI resets, power, RESTORE, the HDMI PLL reset and register, the keyboard scan and matrix, the case LED select,
+  the master volume and tone, the hotkey mask, the Ethernet stream enable, the bling flags); the granted mixer window
+  (0xA0000500, 0x14 bytes) does not touch them. `[[task]] job = true` runs the task as a stepped operation. `cor_pack` takes
+  `--desc` more than once and refuses a table or key that two files hold; `pack_large_cor.sh` and `pack_import_cor.sh` pass
+  every file. Every record of the tree compiles byte for byte as before. Results: `test_descrec.py` 81 OK, `test_cor_pack.py`
+  65 OK, `test_deckeys` 1,360 checks, `test_cut` 909 checks, 0 failed; `dev.sh riscv` ok. Advisor decision (Alex may overrule):
+  trx64u's `menu.toml` (+21 code lines) and its generated `menu_rec.inc` (+50) grow within their ledger limits, because the
+  rows are core data that left generic code (D24's own direction) and both files leave with the cut (P4); no ledger line.
+- **Scenario status, 2026-11-23** (checked against the code, the tests and the CI of `t239.3` 4c4d244f; Alex, translated: "I want the
+  open points clear, and then work them off, please"). The order is the agreed one (D24, D25): trx64u first, then the VIC-20,
+  then one core at a time.
+  - Proven: S1 (lint, `tools/check_api_doc.py`), S3, S4, S13, S14 (`tests/loader`), S5 (lint, `tools/test_sdk_api.py`), S6 (lint,
+    `tools/check_d24.py` P6 with `tools/d24_targets.txt`). Built since the entry above: the core hook `menu_video` (`01595fea`).
+  - Tests exist, not yet recorded here: S2 (`tests/loader/test_libload.cc`, `tests/loader/menu_lib.toml`).
+  - Open, step 1 (trx64u):
+    - M1 (Alex's open point above): the splash and the REST gate before the wait for the medium.
+    - S8: the whole app still links trx64u's code (`ring`, `ringfile`, `ringops`, 14 `tm_*` objects, `trx64u_ops`, `trxview`;
+      `output/coreapp.map`), and the SDK hands that whole app to TRX64-Ultimate (`image/coreapp.bin`: image end 0x6b8788, the
+      largest heap 0x7b7878). trx64u's own app (T228 R25) for TRX64-Ultimate holds the SDK part only, because its code comes as
+      their libraries (U18 D3-D5); then the heap of their TOML fits (D13, D15). This replaces M5's "the shared image does not
+      grow for trx64u" (advisor): Alex, translated, "the heap is defined per core by its needs" and "the CI builds every core its
+      app, tailor-made, that is the goal", "1. trx64U 2. VIC-20 3. ... step by step".
+    - S9 follows S8 and U18 D1/D4: this repository's package takes their `trx64u.cor`, and this repository drops its copy.
+    - S18: the SDK has no menu simulator (`tools/` of 0.3.0: `basereg.def`, `cor_pack.py`, `descrec.py`, `u2a_pack.py`).
+    - S10: the board step with TRX64-Ultimate's trx64u (TREX CRT dump, drive mount), by them and Alex.
+    - S15, S16: the menu timings on the board by script.
+    - T256: the overlay service of the base (its own spec).
+  - Open, step 2 (the VIC-20): S11 (its app is a copy of the whole app, `ci/trxapps.sh:60`, `:184`), S12 (no `cbm1541` `.u2a` in
+    the CI), S7 (no picture comparison recorded for its TOML descriptor).
+  - Open, the rest: S17 (the example is built and tested from the unpacked package in the CI, `tools/sdk_check.sh`; not started in
+    ue2emu), S19 (T213 §5 not marked).
+
+- **D25 built, part 1 (the Amiga, 2026-11-23):** the Amiga cores' own Mouse Sensitivity and Mouse Acceleration (F5 Input tab, operations `mouse.sens` / `mouse.accel`) are back as on `origin/integration`: `coreapp/cores/amiga.cc`, `coreapp/src/engines.cc` (the two operations) and the sink's scaling in `coreapp/src/mousesink.cc` / `.h`. `u64_get_usb_hid_config_value` (mousesink.cc) asks the sink's scaling first, then `baseset_usb_config`, so trx64u (which never sets the scaling) answers from the base's settings as before. `baseset_extend` adds no mouse pair to the Amiga: `declared()` skips a key the descriptor declares, and Mouse Mode and the two wheel rows need the capability `mouse_driver`, which no core names (`baseset.cc` `wanted`); no core name in generic code. `desc_check.cc` lets a descriptor declare the two keys with those two operations and refuses every other base key. `render.cc` is back to the F5 tab (b13d3d76 reverted). Goldens: `menu_amiga.txt` and `menu_amiga1200.txt` equal integration's; `ops_amiga1200.txt` has the two operations again and differs from integration only by the SDK operations every core now registers (`machine.put_builtin_rom`, `base.*`); the Amiga lines of `keywalk.txt` and `ids.txt` equal integration's. `test_mousescale` and `test_baseset` (which now uses the Amiga without its own rows as its mouse core) adapted.
+- **D25 built, part 2 (the switch, 2026-11-23; moved out of `core.toml` the same day):** the switch is `desc_record` in `cores/<id>/app/sdk.toml`, not in `core.toml`: `cores/<id>` feeds the core's bitstream key (`ci/lib.sh tree_key`; only `cores/*/app/**` and `cores/*/logo/**` are excluded), so a line in `core.toml` would have moved the VIC-20's key without a gateware change. `tools/core_toml.py`: `SDK_SCHEMA`, `sdk_table`, `check_sdk` (`--check` refuses an unknown key, a non-bool, and `desc_record = true` without `app/desc.toml`) and the command `core_toml.py sdk <id> <key>`. `tools/pack_cores_mc.sh` (the line that sets `desc`) and `tools/pack_large_cor.sh` (before the `--desc` loop) pack `app/desc.toml` only when it says true; no other packer reads the file (`tools/pack_import_cor.sh` takes the pin's `DESC`, trx64u's pin names only its `menu.toml`, so trx64u needs no switch). On: `cores/vc20/app/sdk.toml`. Off (no file): the other 15 cores, whose copies stay in the tree and stay equal to their C tables (`test_descgen`: the Amiga copies took their two mouse rows back, 679973c9 reverted for them). A core with no record runs on its compiled-in descriptor as on integration: `bundle.cc:51` reads record 6 only when `ci.size[COR_PART_DESC]` is not 0, so `bundle.desc` stays null (`bundle_read` falls back only to `CoreDesc::menu_rec`, which only trx64u sets), and every use of the record is guarded by it (`bundle.cc:169`, `:200`, `:210`; `run.cc:638`), so `bundle_merge` merges from the compiled-in `merge_base`. `tools/test_cor_pack.py`: the VIC-20 carries record 6 with the switch on; the Amiga (`pack_cores_mc.sh`) and the Amiga 1200 (`pack_large_cor.sh`) carry none with the file present and no switch.
+
+- **Plan of D28 (2026-11-23).** The plan carries trx64u through D28's four points, then T256 (D29), then one final run and the board.
+  It applies D30, D31 and D32 and Alex's placements of the capability map. Its steps run as parallel packages as far as their dependencies allow (D33); each point ends with its
+  proof. P1-8, P2-6, F-1 and F-2 wait for TRX64-Ultimate's steps; the other MultiCore steps start at once.
+  No negative test is written except for persistence (D30). The coordinator runs `tools/dev.sh riscv` and `tools/dev.sh test` once, in F-1.
+  D34 answers how TOML A describes a module whose registers belong to several drivers (P1-7, P2-3).
+
+  **Point 1: TOML A, and the service talks to the FPGA from it**
+  - P1-1 (MultiCore SDK). TOML A is record version 7 with a closed schema: `[io]`, `[identity]` and `[[block]]` with module, owner (base
+    or core), address and size. Each block is a capability; its map names its properties (registers and fields, with
+    direction and width) and their possible states (D34). A module map lives with its driver library: the shared drivers' maps are in the SDK, a core's own maps are in
+    its repository (regmaps = core). `basereg.def` stays for records without TOML A, the shared app, until step 2.
+    Files: `tools/descrec.py`, `coreapp/src/descrec.cc`, `coreapp/src/libload.cc`, `coreapp/src/freeze.cc`, the SDK's maps of c64cart, uci,
+    dma, cbm1541 and sid, the fixtures. Proof: `test_descrec.py`, `test_deckeys` and `sdk_check.sh` green in the pipeline.
+  - P1-2 (MultiCore SDK). `iomap.h` and `u2p.h` define the two base macros (`IOBASE`, `U2P_IO_BASE`) from linker symbols, and their defaults (`iomap.h:6-8`,
+    `u2p.h:13-15`) go. The literal ICAP addresses of `hw.cc:267-271` and `:495` become registers of an icap block. trx64u's app links the
+    symbols of c64_basic's TOML A (P3-3); the shared app and the host app link a fixed fragment with today's values until step 2.
+    Files: `iomap.h`, `u2p.h`, `hw.cc`, the two Makefiles (`coreapp:345`, `hostapp:231`), `tools/descrec.py`. Proof: the pipeline's maps hold
+    today's addresses, and the other cores' apptests stay green.
+  - P1-3 (MultiCore SDK). `tools/rtl_check.py` follows the IO request through every decode of c64_basic and checks each block, register
+    offset and direction of TOML A against it. Its reverse lint refuses an address in a library source and a literal IO address in the code
+    of `coreapp/src` (there from P2-6 on, when the last literal has gone). It reads only the design's source list (clean room); rtl_check on `host/` is step 2.
+    Files: `tools/rtl_check.py`, `tools/sdk_pack.sh`, `app/sdkpkg/api.md`. Proof: green on c64_basic in TRX64-Ultimate's lint (P1-7).
+  - P1-4 (MultiCore SDK). `cor_pack` writes the bitstream's build word into the identity record, and the service compares ID and build
+    with the identity block at start. This is the one check that stays at run time (D31). ue2emu gets the path it lacks, asked of the session that owns ue2emu: `read_cor`
+    (`multicore.rs:44-61`) reads the bitstream's AXSS word with `txu.rs:335`, and the TRX device answers it at BUILD (`trx.rs:1183`, `:1390`).
+    Files: `tools/cor_pack.py`, `coreapp/src/run.cc`, `ci/lib.sh`; u64-emulator `multicore.rs` and `trx.rs` by the ue2emu session. Proof: their emu stage's start log
+    names the pair.
+  - P1-5 (MultiCore SDK). The standalone paths come from the record: `/flash/<.cor id>/<folder>.cfg` and `/flash/<.cor id>/boot.cfg`. For
+    trx64u these are today's paths.
+    Files: `board.h`, `board.cc`, `fsif.h`, `api.md` 4.4.3. Proof: a unit test with a control, because the paths are persistence.
+  - P1-6 (MultiCore SDK). The host reads a record core's ROM needs from record 6 of its `.cor`.
+    Files: `coremaint.cc`, `romreq_table.inc`. Proof: a host unit test lists trx64u's four ROMs, and ux-review passes the ROM screen.
+  - P1-7 (TRX64-Ultimate). They write c64_basic's TOML A from what the RTL decodes. It has no resampler block, `audio_mixer` covers
+    0x00-0x0B, `speaker_mixer` holds only +0x00, +0x01, +0x04 and +0x05 (`ultimate_sys.vhd:1245-1268`), and c64cart, uci, dma and cbm1541
+    are base blocks. A module that serves several drivers, such as `trx_io`, gets one block per register range (D34).
+    Their libraries take every address from TOML A, and their stages run green on the SDK of P1-1 to P1-5.
+    Files: their `desc.toml` (split), TOML A and maps, `c64u_regs.h` (both, deleted), `sdk.pin`. Proof: their CI green, with rtl_check on
+    c64_basic in lint.
+  - P1-8 (both). MultiCore's package takes their `trx64u.cor` by sha256, and `trx64u.cor` leaves `COR_ALLOWED` in the commit that changes
+    CLAUDE.md's fourth licence exception. The hand-over contract changes in both repositories as D21 decides. MultiCore deletes its own
+    trx64u image, `c64_desc`, `cores/trx64u/`, `c64.cc`, `hk_c64`, the two trx64u lint checks with their tools and goldens, and the trx64u
+    tests by the D21 sort; `c64_go` stays as the shared cbmrun library.
+    Files: `release/imports/trx64u.pin`, `tools/check_public_tree.py`, `CLAUDE.md`, the contract, `ci/lint.sh`, `ci/trxapps.sh`,
+    `tools/dev.sh`, `tools/gen_roms_txt.py`, `tools/menusim/menusim.cc`, `tools/cor_pack.py`, `tools/d24_targets.txt`. Proof: the package's
+    `trx64u.cor` equals theirs byte for byte, and lint and the other cores' apptests are green.
+
+  **Point 2: the service, the API, and the UI, REST and JSON-RPC on it**
+  - P2-1 (MultiCore SDK). The service names and calls no trx64u code: `cfg_value`, `cfg_text` and `diag.cc:185` move, the ring fallback,
+    the monitor server and the trace viewer go, and the registry is asked before the contract table. The `.cfw` run goes to TRX64-Ultimate
+    (cfwrun = core; `update.cc:60-63` serves only the monolith). The reSID8 helpers move into the shared SID library.
+    Files: `trx64u_ops.*`, `diag.cc`, `rpc.cc`, `rpccontract.cc`, `run.cc`, `update.cc`, `trx_io.cc`, the SID library. Proof: one unit
+    test in which a linked library's method is served before the contract table.
+  - P2-2 (MultiCore SDK). M1: the splash and the REST gate come before the wait for the medium.
+    Files: `run.cc`, `bundle.cc`, `libboard.cc`. Proof: the ue2emu start log shows the splash and port 80 before the medium.
+  - P2-3 (MultiCore SDK). The driver table is generated from TOML A at build time, binds base blocks too, and is linked. The shared drivers
+    take their blocks from it, and an app linked for c64_basic has no ICAP access and is standalone by its link. The MOD player (`c64_cart.cc:759-800`, `c64_cart.h:19`, `op_reu_playmod`) is deleted (D5).
+    Files: `tools/descrec.py`, `c64_cart.*`, `uci.cc`, `uci_api.h`, `dmasvc.cc`, `cbm1541.cc`, `hw.cc`, `board.cc`. Proof: the reverse lint is
+    green on the shared driver sources, and rtl_check is green on c64_basic.
+  - P2-4 (MultiCore SDK). The rows of the seven extend functions (`menubuild.cc:14-45`) become rows of the SDK's base UI TOML. Every row's
+    tab, group and order come from the records, and a core's UI TOML can place a base row. The menu simulator builds from the same records.
+    Files: `menubuild.cc`, `picture.cc`, `volume.cc`, `tone.cc`, `mediamounts.cc`, `home.cc`, `hotkeys.cc`, `baseset.cc`, the base UI TOML.
+    Proof: `tools/menusim/same_pictures.sh` gives the same pictures before and after, and a moved base row shows moved in the simulator.
+  - P2-5 (TRX64-Ultimate). Their libraries register prg.run, prg.load, the T64 operations, the `.cfw` run, softboot and the TRX64 runtime
+    methods. TREX CRT and softboot become their sub-apps. Their menu TOML places the base rows.
+    Files: `lib_trx64u.cc`, `menu.toml`, `ring/`, `monitor/`, `pack_cor.sh`. Proof: their emu suite and their `--ops` pack check are green.
+  - P2-6 (MultiCore SDK). LibApi major 4: `trx`, `ring`, `c64` and `lib->find` leave the API. A sub-app gets the API as a function table
+    with its libraries' exports at slots fixed when the app is linked, and SvcNet gets connect and name lookup. MultiCore deletes trx64u's
+    code set, and `ci/trxapps.sh` gets the symbol check that S8 names.
+    Files: `libapi.h`, `svctab.h`, `u2p_compat.c`, `libload.cc`, `ci/trxapps.sh`, the deleted files. Proof: check_d24, the symbol check and
+    the reverse lint on `coreapp/src` are green.
+
+  **Point 3: each core's app is linked from TOML A and TOML B**
+  - P3-1 (MultiCore SDK). The functions placed as lib become libraries that a core's TOML B links, `c64_go` in cbmrun included. Generic
+    code calls none of them directly. Online search becomes a sub-app without its global object.
+    Files: `ops_glue.cc`, `run.cc`, `libexports.cc`, `netsvc.cc`, `menuvlist.cc`, the libraries' sources, `apps/online`. Proof: the symbol
+    check of `ci/trxapps.sh` on what TOML B names.
+  - P3-2 (MultiCore SDK). SDK 0.4.0 ships the base as archives, the shared libraries as sources, the generators and the menu simulator, and
+    no app image. The record and registry maxima are sized per core from TOML B at link time.
+    Files: `tools/sdk_pack.sh`, `tools/sdk_check.sh`, `tools/app_build.py`, `descrec.h`, `ops.h`, `corereport.h`, `contrib.h`, `tools/menusim/`.
+    Proof: `sdk_check.sh` links and packs the example from the unpacked package in the pipeline.
+  - P3-3 (TRX64-Ultimate). trx64u's TOML B names its libraries and sub-apps, and their CI links the app from the SDK with c64_basic's TOML A.
+    Files: their TOML B, `pack_cor.sh`, `ci/cor.sh`, `sdk.pin`. Proof: their stage cor passes the symbol check, and ue2emu reaches BASIC READY.
+
+  **Point 4: the heap follows from the link**
+  - P4-1 (both). Heap word 0 means the region left after the linked image and the stack reserve. `cor_pack` reports the figures and the
+    linked libraries' heap needs, and the start log has one heap line.
+    Files: `heapcfg.c`, `tools/cor_pack.py`, `run.cc`, their `pack_cor.sh`. Proof: their stage cor prints heap = 0xE70000 - align16(E).
+
+  **T256**
+  - T-1 (both). T256's open decisions are asked one at a time. Files: T256 and the matching U18 section. Proof: T256 sections 2 and 3
+    committed with Alex's answers.
+  - T-2 (MultiCore SDK). The base gets the overlay service of T256 D1-D7, with the PAUSED tag as its first user. Files: `ui.cc`,
+    `screens.cc`, `trx_lv_port.cc`, `api.md`. Proof: T256 S1-S5 and S7, and ux-review passes the tag and the transparency.
+  - T-3 (TRX64-Ultimate). Their ring library shows the Timewarp still and bar through the service. Files: their `ring/`. Proof: T256 S6 in
+    their ue2emu.
+
+  **Final**
+  - F-1 (MultiCore SDK). The coordinator runs `tools/dev.sh riscv` and `tools/dev.sh test` once after all merges, then the emulator check
+    with Alex. Proof: the PASS lines of every unit.
+  - F-2 (both). The board steps S10, S15 and S16 run by script, and Alex looks at three points at most. Files: a board script, the tests/ui
+    redraw count. Proof: the board log, the timings and the redraw count are recorded here.
+
+  **Section 2 changes (D31, D32)**
+  - S3: A sub-app whose poll is declared (`LibPollDecl`) is polled from its registration to its release, while the machine is frozen only
+    when it declares `when_frozen`. A library linked into a core's app is polled from the app's start by the same rule. Proof:
+    `tests/loader/run.sh` with a sub-app whose poll counts calls.
+  - S8: trx64u's app is linked from the SDK with the libraries its TOML B names, and `trx64u.cor` carries that app, its menu record and its
+    sub-apps. The app built for the other cores contains no trx64u symbol. Proof: the symbol check of `ci/trxapps.sh` against each app's
+    TOML B; `tools/check_d24.py`.
+  - S12: The cbm1541 library source that the VIC-20's app links (S11) links unchanged into trx64u's app. No core loads it at run time.
+    Proof: the symbol check of `ci/trxapps.sh` on both apps.
+  - S13: A sub-app whose image does not fit the free heap, or whose registrations exceed the free table slots, is refused at load with a
+    message naming the sub-app, the figure and the limit, and nothing of it stays. A linked library whose declared heap need the core's
+    heap cannot hold fails the core's build with the same figures. Proof: `tests/loader/run.sh` (model heap); the build report of `cor_pack`.
+  - S14: A sub-app takes memory from its own account; freeing the sub-app gives all of it back (heap free before equals after). Proof:
+    `tests/loader/run.sh`; the start log's heap line on the board.
+  - S17: A core repository outside this one links its core's app from the SDK alone (TOML A, TOML B, its libraries), compiles its menu
+    record, packs them into a `.cor`, and the app starts. Proof: `sdk_check.sh` on the unpacked package in CI; TRX64-Ultimate's cor and emu
+    stages for trx64u; ue2emu start of the example core.
+  - S18: The SDK release holds the headers, the ABI document, the base as link archives with its linker script, the shared libraries as
+    sources, the generators of the base symbols and of the driver and operation tables, `descrec.py`, `cor_pack.py`, `rtl_check.py`,
+    `u2a_pack.py` and `lib.mk` for sub-apps, the menu simulator and an example core with a library and a test, each carrying the SDK SemVer.
+    It holds no prebuilt app image (D31). The simulator builds from the package and shows a core's menu from its UI TOML, the base's rows
+    included, with no RISC-V build (D32). Proof: package check in CI; one simulator run from the unpacked package.
+
+  **Out of the MVP**
+  - The host's TOML A, rtl_check on `host/`, the shared app's and the host app's base symbols from TOML A, and the deletion of
+    `basereg.def`: step 2, because the VIC-20 runs on the host bitstream (D6, D28's order).
+  - The VIC-20's TOML A, TOML B, library and link (S7, S11, S12): step 2 (D28's order).
+  - The 15 other cores' own apps: each is pulled one at a time after trx64u and the VIC-20 (D24, D25). Until then the shared app links
+    every library and keeps `board.cc`'s probes.
+  - A module table and `lib->find`: D31 links libraries; there is no second mechanism.
+  - A prebuilt app image in the SDK: D31.
+  - The heap's Diagnostics rows and a minute of Timewarp for the heap figures: the build report and one start-log line prove D28 point 4.
+  - A resample library on trx64u: c64_basic decodes no resampler, so its TOML A has no block for one.
+  - Base-owned stream rows: the base reads a stream key only when a record declares it (P2-1).
+  - A manifest lint and a map-check tool: the one symbol check of `ci/trxapps.sh` is S8's proof (CLAUDE.md: no new CI infrastructure).
+  - A base golden of operation names: `ops_amiga1200.txt` already pins the base groups.
+  - A contract-v2 step: the contract changes with P1-8 and P2-6, on both sides.
+  - A name lint and the deletion of the 136 legacy TRX64-line board scripts: no script names trx64u; S8 and S9 use check_d24 and the
+    symbol check.
+  - PX scale and `mode_req` in TOML A: `trx_lv_port.cc:86-113` writes both variants with no core branch.
+  - A per-core version display, a `[host]` profile, `[[ddr]]` areas and settings, tasks or media in TOML A: no decision asks for them;
+    D30 condition 3 keeps app data out of TOML A.
+  - S17's ue2emu start of the example core and S19 for the other T213 children: section 5's scenario status puts them under "the rest".
+- **T-2 built (2026-11-23, `t239.3-mvp-t-2`):** The paused tag in `ui.cc` now says only "PAUSED" with a narrowed box (D5). The LVGL port keeps the overlay alpha like the key, writes it with the first picture and resets it to 255 when the layer is given up (close, yield, suspend); T256 section 2 is aligned with D1-D7 (S2-S6 reworded, S9 and S10 new) and its section 5 records the change. Not built: the overlay service itself (calls, state table, still capture, geometry, task rules, clean-up, size checks, `api.md` group), because D1-D7 leave those points open; they are questions for Alex. Tests: not run yet (F-1).
+- **P2-2 built (2026-11-23, `t239.3-mvp-p2-2`):** The picture, splash and REST gate now open before the wait for the .cor's medium: `coreapp_open_early` in `run.cc` is called first by `app_task`, `coreapp_wait_named` shows "Waiting for the core's medium" at step 0, and `coreapp_run` sets the descriptor and reopens the splash with its name. `coreapp_held` closes the splash and sets the gate text to "The core is held", so port 80 answers 503 with that text. Not built: nothing (the reopen of the splash only when the name differs was judged unnecessary by the review). Tests: not run yet (F-1); the changed `run.cc` and `coreapp.cc` are not compile-checked.
+- **P1-6 built (2026-11-23, `t239.3-mvp-p1-6`):** The host now reads a core's ROM needs from record 6 of its .cor: the new virtual `CmFs::core_roms` (implemented by `HostCm` in `hostfs.cc`) probes the .cor and `cm_rows_from_record` in `coremaint.cc` turns sections 3 (ROMs) and 14 (ROM set) of the record, parsed by the existing `descrec_parse`, into rows. A core without a record, or with a refused one, is still judged by the compiled-in `romreq_table.inc`, which stays until every core has a record. Not built: the ux-review of the ROM screen (text unchanged, ue2emu belongs to another session), the RISC-V compile of `hostfs.cc`, and trx64u's `[[rom]]` in its record (P1-7, P1-8; until then its rows come from the table). Tests: not run yet (F-1).
+- **P2-6a built (2026-11-23, `t239.3-mvp-p2-6a`):** SvcNet gets two appended members, `connect(host, port, timeout_ms)` and `resolve(name, buf, len)` (lwIP resolver, non-blocking connect with a select timeout; the handle is on the calling image's account and closed when the image ends). SvcLib gets `need(n, &size)`: the loader resolves each needs entry when it loads an image and stores the table per slot, slot n being the position in the file's needs list. Both stay under the unreleased base 3.3; `api_lock.toml`, `api.md` and the SDK readme are updated. Not built: the removals of P2-6 (trx, ring, c64, `lib->find`, trx64u code set, symbol check) wait for TRX64-Ultimate's step P2-5. Tests: not run yet (F-1).
+- **P2-1 built (2026-11-23, `t239.3-mvp-p2-1`):** rpc.cc asks the operation registry before the contract table (a method as itself, then with slashes turned into dots); only a method no operation answers reaches rpccontract.cc. The diag trace viewer, the .cfw run (update.cc, its op, test, goldens, menu row), run.cc's own ring start, TCP 4312 monitor and menu-close release are removed from the base (only the hook table does that now), cfg_value/cfg_text and the target path moved to settings.cc and ctx.h, and the reSID8 register helpers moved from trx_io.cc into coreapp/src/resid8.cc. Not built: the generic names prg.run/prg.load are not registered by c64.cc and the |c64.run_prg / |c64.load_prg fallbacks stay until P2-5 (c64.cc is shared with c64scpu; needs Alex's decision); the hooks_start `ran` parameter stays because test_baseset.cc uses it. Open review findings: none. Tests: not run yet (F-1).
+- **P1-1 built (2026-11-23, `t239.3-mvp-p1-1`):** TOML A is record version 7 in both readers (`tools/descrec.py`, `coreapp/src/descrec.cc`) with a closed schema: `[io]`, `[identity]` and `[[block]]`, where a block is a capability with its map of properties, fields and states. Sections 20 to 22 are new, `descrec_window` serves core-owned blocks by name, `descrec_block/prop/field` are new lookups, and the SDK ships maps for c64cart, c64cart_regs, cbm1541, uci and gcr_coder (`compile --maps DIR`); api.md 6.14 and 4.15.19.3 document it. Not built: arrays in a map (the 43-byte c64cart descriptor at +0x40, the per-track DR_DIRTY run and the repeated DR_PARAM entries - waits for Alex's decision, array property or own block), and the dma and sid maps (deferred to P1-7/P2-3, needs Alex's OK). Open review findings: finding 6 (the array question above). Tests: not run yet (F-1).
+
+- **P2-4 built (2026-11-23, `t239.3-mvp-p2-4`):** Where each base row stands (route, setting group, order) now comes from records: `coreapp/base_ui.toml` holds the 7 routes and one `[[place]]` per row, `tools/gen_base_ui.py` compiles it with `descrec.py` into `src/base_ui.inc`, and `menutree.cc` builds the menu from it instead of the old route table. A core's UI TOML can carry `[[group_route]]` and `[[place]]` (descrec sections 23 and 24, version 6, no `[core]` needed; renumbered from 20 and 21 at the merge because P1-1 holds 20 to 22 for TOML A), `bundle_merge` merges them over the base, and a place that names an absent route is refused with a log line; api.md 6.15 documents it. Not built: the question whether the labels, values and defaults of the seven extend functions also become rows of the base UI TOML is open (Alex's answer is still to be recorded), and `menu_place_merge` logs no keyless core place on a keyed-only operation (documented in api.md 6.15.6 instead). Tests: not run yet (F-1); after the merge only `test_descrec.py` ran, with 3 failures in code this merge did not touch (an unbound argument check, the hw.cc register references, the trx64u menu's file type count 23 against 24), and `descrec.cc` passes `g++ -fsyntax-only`.
+- **P1-4 built (2026-11-23, `t239.3-mvp-p1-4`):** cor_pack stamps TOML A (record version 7) with the bitstream's AXSS word as the identity build (`descrec.stamp_build`, large cores) and `cor_pack check` refuses a .cor whose record carries a different or missing build. The service reads the id and build properties through the new `CoreIo::read32`, `bundle_check_identity` compares them with the record before `boot_start`, and on a mismatch the core stays held, the reason is the start notice and the menu still opens (`release_core()` in boot.cc). api.md 6.14.4 is updated and 6.14.13 added; `tests/coreapp/test_identity.cc` is registered in run.sh and `BuildWordTest` covers the packer. Not built: ue2emu part (multicore.rs, trx.rs; request handed over); partial (DFX) cores carry no build stamp, so a partial core with TOML A and no source build word is refused at run time until Alex decides which word its identity carries (step 2); comparison against the app-linked identity when no TOML A record reaches the service (waits for P1-2/P3-3); no test drives `release_core` with a CoreCtx. Tests: not run yet (F-1).
+- **P1-5 built (2026-11-23, `t239.3-mvp-p1-5`):** The standalone flash paths no longer hold "trx64u" as a literal: `board_set_core(profile, core_id, folder)` builds `/flash/<id>` and `/flash/<id>/boot.cfg` from the chosen descriptor, and `fs_flash_set_exceptions` registers the settings file and boot.cfg as the flash exception (only `/flash/<dir>/<file>` is accepted; a malformed id leaves the settings in memory). `coreapp.cc` calls it once after `start_identify`; LibGuard treats an empty boot path as no file, and trx64u keeps `/flash/trx64u/c64.cfg` and `boot.cfg` through `core_id` "trx64u". Not built: nothing. Tests: not run yet (F-1).
+- **P1-2 built (2026-11-23, `t239.3-mvp-p1-2`):** On RISC-V, `IOBASE`, `U2P_IO_BASE` and the ICAP register literals of `hw.cc` (including the expansion-port release) are linker symbols (`__iobase`, `__u2p_io_base`, `__reg_icap_*`); the -D options are gone from the Makefiles and both app Makefiles link a fragment through `IOFRAG`. `tools/descrec.py ldfrag toml_a.toml out.ld [--maps DIR]` writes the fragment from TOML A, the fixed fragment `host-app/target/u64ii/riscv/trx_io.toml` / `trx_io.ld` holds today's values and the `icap` block (new map `app/sdkpkg/maps/icap.map.toml`), and api.md has 6.14.14 and 6.14.15. Not built: the host-machine defaults (0x04000000 / 0xA0000000) in `iomap.h`, `u2p.h` and their patches stay until Alex decides (the host test builds would have to pass -DIOBASE/-DU2P_IO_BASE, about 12 test scripts). Open review findings: finding 2 (the host-build defaults), as above. Tests: not run yet (F-1).
+- **P2-3 built (2026-11-23, `t239.3-mvp-p2-3`):** `tools/descrec.py drivers desc.toml OUT` generates `drvtab.h` and `drvtab.c` from a TOML A (address, size, owner per block; `_RD()`/`_WR(v)` macros per property by direction; SHIFT/MASK and value macros for fields and states; no `DRV_HAS_<block>` for a block the TOML A lacks), the coreapp Makefile generates them from the new `coreapp/gateware/shared.toml`, and the shared drivers (`uci_slot.cc`, `uci.cc`, `hw.cc`, `dmasvc.cc`) name their registers only through the table. `hw.cc` puts every ICAP access behind `DRV_HAS_icap`, so an app linked without that block has no partial port, refuses a return to the host and probes as standalone; the MOD player is deleted (D5), and the SDK maps and api.md 6.17 follow. In the merge the `icap` map keeps P1-2's names (count0..3, release) plus the state `loader` of the id, and the `basereg.def` anchors into `hw.cc` are set to the real lines. Not built: the package proof (reverse lint on `hw.cc`, `uci.cc`, `uci_slot.cc`, `dmasvc.cc` and rtl_check on c64_basic), which needs P1-3 and P1-7; P2-3 stays open until it runs; the spec's "c64_cart.cc:656 calls the uci driver" is moot under D5 and needs settling with Alex. Open review findings: none. Tests: not run yet (F-1).
+- **P3-1 built (2026-11-23, `t239.3-mvp-p3-1`):** TOML B of the shared app (`coreapp/libs/shared.toml`) now names the libraries (c64cart, cbm1541, uci, sid, tempdisk, cbmprg, cbmrun with c64_go, dma, t64, online); `tools/libtab.py` makes from it the library table walked by `libtab.cc` and the source list of the core app Makefile, with a source lint and an nm symbol check, and generic code calls only `libtab_*`. `libexports.cc` is split into one export file per library, the T64 list registers itself into a menuvlist registry, netfs reads online results through the table "online", and the D64 geometry is header-only in `app/lib/cbm1541/d64_geom.h`. Not built: online as a sub-app without its global object (needs an HTTP/JSON client over SvcNet and P2-6; Alex to decide: later step or here); the USB mouse as a library (glue stays in `run.cc`; Alex to decide whether it belongs to P3-1, D12 names it as a shared library). Open review findings: 2 (online sub-app) and 3 (USB mouse), both awaiting Alex. Tests: not run yet (F-1).
+- **P1-3 built (2026-11-23, `t239.3-mvp-p1-3`):** `tools/rtl_check.py` has `check` (runs a TOML A's blocks and properties through the design's VHDL/Verilog from build.tcl as a symbolic request; every byte of a block must be decoded, every property byte written for dir w and read for dir r) and `lint-src` (refuses an integer literal in the I/O space in C/C++ sources; green on app/lib and app/sdkpkg/example, wired into `ci/lint.sh`). `check` is green on c64_basic of TRX64-Ultimate (10 blocks, 54 properties) and on the miniature design in `tests/rtl_check/mini`; `--allow FILE:LITERAL` replaces `--skip`; api.md 6.14.16-6.14.18 describe it. Not built: the C64-clock pages of trx_io (trx_sys pipeline, generate blocks), uci (io_bus_bridge2, synchronizer_gzw, command_interface) and cbm1541 (drive_unit, c1541_drive) are not followed and fail the check on the pattern the parser does not know; a byte of a forwarded block that no property names is not proven decoded; decodes behind the receiving module of a forwarded request are not followed; the 4 literals in `coreapp/src/trxmon/tm_hw_trx.c` (lines 14-17) stay for P2-6, which switches the reverse lint on with its three `--allow` lines. The c64_basic proof needs a TRX64-Ultimate checkout (SKIP without it). Open review findings: none. Tests: not run yet (F-1).
+- **V-2 built (2026-11-23, step 2, `t239.3-vic-v-2`):** The VIC-20 has a TOML A, `cores/vc20/app/gateware.toml` (6 blocks, 20 properties: ident, irq, ddr_cal owned by the base; machine, tape, video by the core), written from `vc20_regs.vhd`; `rtl_check` passes on it with 0 findings. `rtl_check` gained a bus form for a partial's window (five plain ports plus `--window`, selected signal assignments, the top module's own port widths), and the VIC-20's `desc.toml` names registers and reset values through a new top-level key `toml_a` (resolved in `descrec.py`; the compiled record is byte-identical, api.md 6.14.19 and 6.14.20). The partial answers the standard block: "VC20" at +0, BUILD at +8 (the host's USR_ACCESS). Not built: the .cor's build word for a partial (`cor_pack` cannot stamp it from the partial's own bitstream); the VIC-20's drive blocks (`drive_l2` over `drv_io_*`/`gcr_io_*`, which `rtl_check` cannot yet follow). Questions for Alex: should the build word of a partial core's identity be the host key word the .cor names (`--host-key`, so `cor_pack` stamps it), or should the partial get its own build register in the gateware? Tests: not run yet (F-1).
+- **V-1 built (2026-11-23, step 2, `t239.3-vic-v-1`):** The host's TOML A is `coreapp/gateware/host.toml` (45 blocks, 91 properties; base blocks checked per property and direction, core blocks `core_eeprom`, `core_sampler`, `core_trx_io`, `dma`, `rom_window`, `drive_a`, `gcr_coder`, `sid_curves` checked for hand-over to layer 2), and `rtl_check` on `host/` passes. `rtl_check` gained the strobe-write rule, the core hand-over rule, generics decided at elaboration (an instance that gives such a generic another value fails) and `#(.P(v))` parameter lists in the top Verilog file, plus repeatable `--list`, `--define`, `**`, record fields across ports and Verilog parser fixes (api.md 6.14.21). In the merge with V-2 the hand-over rule applies only to the plain `check` form; with `--bus ... --window` (the partial) core blocks are checked by property as before. Not built: one block per driver (5 ICAP blocks and many small c64 blocks stay, as `rtl_check` demands every byte of a block be decoded); the `[identity]` block, so `descrec.py compile` refuses `host.toml`; the windows overlay 0x10140000, palette 0x10180800, `cmd_if`, resampler and Gideon's windows (ITU, UART, SD, flash, USB, Ethernet, WiFi, IEC, UDP), which need `rtl_check` support for concatenation targets and for-generate. Questions for Alex: (1) one block per driver instead of one per register run, which means `rtl_check` coverage per property byte instead of per block byte; (2) the host's standard block (ID, build) is `trx_io` at 0x101A0000, which lives in layer 2, so it is a core block and the record has no `[identity]`; `descrec.py` requires a base-owned one: accept a core-owned identity for the host, or give the host a base-owned identity register (gateware change)? (3) which of the missing windows go into `host.toml`, and in what order. Open review findings: none. Tests: not run yet (F-1).
+- **P3-2 built (2026-11-23, `t239.3-mvp-p3-2`):** SDK 0.4.0 ships no app image: `make sdkbase` splits the core app into `libtrxbase.a` (core-independent objects, with liblwip.a, liblvgl.a, crt0.o, port_asm.o) and sources under `base/src` that depend on the core and are compiled per core; `tools/app_build.py build` generates the sizes (`appsizes.h` from the new `[sizes]` table of TOML B, 27 keys), driver table, library table and I/O fragment, checks the record, then links with `mk/appbuild.mk` (whole-archive for the constructor objects). `sdk_pack.sh`, `sdk_check.sh` (links the example core's app when the compiler is present), `descrec.py`/`cor_pack.py` (`--sizes`) and `menusim --desc FILE` follow. Not built: nothing compiled or linked (no riscv32 compiler used); no check that no repository `__FILE__` path sits in the shipped archives' .rodata; S17 (example core with its own record instead of portdiag_desc) is undecided and goes to Alex as a question. Open review findings: none. Tests: not run yet (F-1).
+
+- **QC of the merged packages (2026-11-23, coordinator).** Read against the decisions; the packages' questions that a decision
+  already answers are answered here, and what is missing is built in wave 2 (branch `t239.3-w2`).
+  - A register run (the c64cart descriptor's 43 bytes at +0x40, the 1541's DR_DIRTY and DR_PARAM runs) is one property with an
+    element count, in its driver's block: D34 gives each block its own driver, and the runs belong to the c64cart and cbm1541
+    drivers (P1-1). The dma and sid maps are built now; their deferral had no OK.
+  - Online search is a sub-app in the MVP and the USB mouse is a library (Alex's placements: online sub, mouse lib). P3-1 also left
+    out, without listing them, the other functions Alex placed as lib: gamepad, padkeys, resample, newfile, newdisk, folderhd and
+    ftp. They are built now.
+  - The rows of the seven extend functions become whole rows of the base UI TOML (label, key, kind, values, default; a list that
+    changes at run time names its provider as a core's row does), as P2-4's text says, not only their tab, group and order.
+  - `c64.cc` serves only trx64u (`table.cc:25`, T228 R25), not c64scpu. It registers prg.run and prg.load, and the `|c64.*`
+    fallbacks of `rest.cc:25-26` and `rpccontract.cc:458` go (P2-1).
+  - The identity block's rpc field publishes the port that an application announced, as the monolith does
+    (`vendor/gideon/software/app_loader/app_api_net.cc:318`); the core app answers 0 (`coreapp.cc:33`) (P2-1).
+  - The cartridge needs path of `c64_cart.cc` goes: after D5 no caller passes needs, and TRX64-Ultimate's only `run_image` call
+    passes a name and an image (`trx64u_ops.cc:1575`). The plan's sentence on `c64_cart.cc:656` is removed (P2-3).
+  - P1-5's paths take the `.cor` id of `core.toml`, as the plan says. P1-2's base macros are two (`iomap.h:6-8`, `u2p.h:13-15`);
+    the plan said six.
+  - The host-test defaults of `iomap.h` and `u2p.h` go, and the tests take the values from the generated fragment, as the board
+    does. This runs on step 2's branch after V-3, which changes the same headers (P1-2).
+  - rtl_check learns the patterns it does not follow yet (trx_sys's held requests, the clock-domain bridges of uci and cbm1541,
+    decodes behind a forwarded request): D30 makes an unknown pattern fail, and leaving properties off those blocks would weaken
+    TOML A. V-1 meets them first, on `host/` (P1-3).
+  - Open for Alex: T256's decisions (T-1), and which build word a partial core's identity carries (P1-4, step 2).
+- **R-1 built (2026-11-23, wave 2, `t239.3-w2-r-1`):** `c64.cc` registers `prg.run` and `prg.load`; menu, ops, golden and tests use the new names and the `|c64.*` fallbacks in `rest.cc` and `rpccontract.cc` are gone. `app_trx_rpc_port` returns `appsvc_rpc_port()`, the unused `ran` parameter is removed from hookhost, and `test_boot_atari.cc` proves `release_core` through accepted and refused identities. Not built: a unit test for `app_trx_rpc_port` (board-only code; proof is the identity block's rpc field on the board); removal of the dead `|` alternatives mechanism in `rest.cc` and `rpccontract.cc`. Questions for Alex: whether the one-line delegation of `app_trx_rpc_port` is accepted without a unit test. Open review findings: none. Tests: not run yet (F-1).
+- **A-1 built (2026-11-23, wave 2, `t239.3-w2-a-1`):** A TOML A property takes an optional count (1 to 0x10000, default 1): a run of registers of one width at consecutive offsets, held as a 9th word per property in section 22 (record version stays 7); `tools/descrec.py` and `coreapp/src/descrec.cc` apply the same rules, the driver table gives `_COUNT`, `_RD(i)` and `_WR(i, v)`, and `rtl_check` checks each element. SDK maps: c64cart `desc`, cbm1541 `dirty` and `param`, new `dma.map.toml` (run `mem`) and `sid.map.toml` (reSID8 filter control); c64_basic with sid, c64cart, c64cart_regs and dma agrees with the RTL. Section 22 changed layout: rebuild all fixtures and records; a c64cart block in a TOML A needs size of at least 0x6B (the P1-7 file of TRX64-Ultimate is refused until raised). The P1-1 and P1-3 "built" entries above that say arrays, dma and sid were not built are superseded by this entry.
+  Not built: cbm1541 is not checked by `rtl_check` (drive_unit is not followed yet, waits for V-1; dirty and param are proved by reading `vendor/gideon` floppy.vhd and floppy_param_mem.vhd only); the ROM and colour RAM apertures, C64_STOP and C64_DMA_MEMONLY are not in the dma map (they belong to the maps of the drivers that use them); the sid map holds only the registers of `resid8.cc` (the UltiSID layout is not described, clean room).
+  Questions for Alex: the words of the 1541 parameter RAM and the reSID8 curve registers interleave (address word, length/time word; base, offset, base, offset). A run holds consecutive registers of one width, so cbm1541 has one run `param` of 512 words and the sid map keeps base0, off0, base1, off1 as four properties. Should a run get a stride, so each pair becomes two named runs?
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **L-2 built (2026-11-23, wave 2, `t239.3-w2-l-2`):** newfile, newdisk, folderhd (with folderhd_fold and amiga_ffs), fastseek and ftp (ftp_client plus the FTP part of netfs.cc) are libraries in `coreapp/libs/shared.toml`, each with an export file; cbm1541 and newdisk list `needs = ["newfile"]`. Generic code reaches them through plain setter tables (`sec_set_folderhd`, `fm_fs_set_fastseek`, `netfs_set_ftp`) set in the bind entry; without the library a folder mount is refused with a reason, the fast seek is skipped and the FTP folder is not listed. nf_base and nf_copy moved to generic `textcopy.h/.cc`.
+  Not built: sectors and winslot are not libraries (their users are generic engines, mounts and descriptors, which would need new libtab entries); a record-described atari800 gets no disk.create (capability `sio`, not `floppy`); the native menusim/render builds do not run folderhd_bind (test stubs set the table).
+  Questions for Alex: should sectors and winslot become libraries too, or is "stay generic" the answer? Should a record-described atari800 also get disk.create, and by which capability name or rule?
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **L-1 built (2026-11-23, wave 2, `t239.3-w2-l-1`):** The USB mouse, the gamepads, pad as keys and the C64U resampling are the libraries "mouse", "pad", "padkeys" and "resample" of `coreapp/libs/shared.toml`; libtab got the entries `table` (the call table, found by `libtab_table(name)` without a loader) and `core` (called when the core's description is known). Generic code (engines, ops_glue, baseset, hotkeys, menuctl, descrec, desc_check, run.cc) includes only `mouse_api.h`, `pad_api.h` and `padkeys_api.h`; the USB hooks, critical sections and 1351 pots moved to `mouse_board.cc` and `pad_board.cc`.
+  Not built: u64cfg.cc was not syntax-checked to the end (clang stops at FreeRTOS.h); the tables "mouse", "pad" and "padkeys" are base-internal, not exported to .u2a libraries or TRX-Ultimate's base libraries (no SDK header-list entry, no add_export).
+  Questions for Alex: should the call tables "mouse", "pad" and "padkeys" also be exported through api->lib->find (raises the base API, adds the three `*_api.h` to the SDK header list, moves the 3.3 lock hash)? The deviation of the `table`/`core` entries from the mechanism of the spec is his to confirm.
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **P4-1 built (2026-11-23, `t239.3-mvp-p4-1`):** Heap word 0 now means the region left: `heapcfg.c` defines the heap_5 region from align16(_end) to `__heap_limit` minus the stack reserve, the packer computes the same figure (0xE70000 - align16(E)), `cor_pack` leaves word 0 in the packed copy and refuses a region below HEAP_MIN, and `core.toml` accepts heap = 0. `app_heap()` reports the layout figures and one line per linked library (heap_keep, heap_peak from the `[[library]]` tables of TOML B, passed as `--sizes`; `libtab.py` checks both keys) and fails the pack, naming core and figures, when the libraries keep more than the heap; `run.cc` logs one STARTLOG heap line through `heapcfg_report()`, and the core-app guide documents it. Not built: `pack_cores_mc.sh` does not pass `--sizes coreapp/libs/shared.toml`, so MultiCore cores print no library heap lines and the keep check does not run for them (outside the package's file list; needs a check that it does not change the record maxima the desc is compiled against; decision with Alex); no per-sub-app keep/peak line (S13 checks sub-apps at load). Tests: not run yet (F-1).
+- **V-3 built (2026-11-23, step 2, `t239.3-vic-v-3`):** The coreapp and hostapp Makefiles no longer link `trx_io.ld`; they write `$(OUTPUT)/io/iofrag.ld` from `coreapp/gateware/host.toml` (`descrec.py ldfrag`, `IOFRAG=<file>` overrides it for a core's own app), with today's values. `trx_io.toml`, `trx_io.ld`, `coreapp/src/basereg.def`, BaseReg and its hit functions, `base_registers`/`window_conflict` and their tests are removed; api.md, descrec.h, svc_io.h and the boundary handover now say a core's block is checked only against the blocks of its own TOML A. Superseded by this: the section 5 lines that keep `basereg.def` until step 2 (the lines for P1-2 and the earlier basereg entries), and section 3 around the window check depends on Alex's answer below.
+  Not built: the window check of a `[[window]]` section against the base blocks (neither built nor dropped; Alex decides, recorded in section 3/5 and the boundary handover with TRX64-Ultimate's acknowledgment).
+  Questions for Alex: A `[[window]]` section can no longer be checked against base registers, because the table is gone and TOML A cannot share a record with `[[window]]`. Is it right to drop that refusal and rely on core-owned TOML A blocks with the overlap rule (D30 point 1), or should `[[window]]` become core-owned blocks of TOML A now? This blocks the merge of V-3.
+  Open review findings: finding 1 (window check, see question above).
+  Tests: not run yet (F-1).
+- **H-1 built (2026-11-23, wave 3, `t239.3-w3-h-1`):** `tools/pack_cores_mc.sh` now passes `--sizes coreapp/libs/shared.toml` (proven from `cor_pack.py`: `shared.toml` has no `[sizes]` table, so no record maxima change) and prints the packer's `heap (` report lines instead of discarding them; the pack output is captured first so a refused pack stops the script. `test_pack_cores_mc_links_the_shared_toml_b` in `tools/test_cor_pack.py` covers the happy path. Not built: no negative test for the refusal path; no per-sub-app keep/peak line (S13 checks sub-apps at load). Tests: not run yet (F-1).
+- **L-3 built (2026-11-23, wave 2, `t239.3-w2-l-3`):** Online search is the sub-app `apps/online` (`online.u2a`, resident, needs base 3.3, exports "online" major 1) with its own HTTP and JSON client over `api->net`, the six `online.*` operations and the F3 tab "Online" from its `app.toml`; a contributed tab can now carry a layout (`LibRecord::tab_layouts`, 7th word of the 28-byte contributed-tab entry). The online library, `online.cc` and `a64_*` left the shared TOML B and the tree; `ci/trxapps.sh` builds and `ci/package.sh` ships `online.u2a`, and trx64u's menu lost the F3 tab.
+  Not built: the sub-app's network calls are not moved off the menu task and the executor task (jobs, prefetch), api.md 9.5.11 says so; no record version gate for the contributed-tab stride (api.md 6.11.6 states that older records with `[[tab]]` must be compiled again); no `.cor` carries `online.u2a` until TRX64-Ultimate packs it (fw_request), so trx64u has no F3 Online tab and no /Online until then; heap_peak 16 MiB is computed, not measured.
+  Questions for Alex: the sub-app blocks the executor task (online.presets, online.search) and the menu task (folder listing and download via netfs) on the network, against api.md 1.3.9 and 4.8.13.2. Accept that for the MVP, or make the form operations stepped job operations (job = true) and the folder a different seam? Also: the interim gap of trx64u without the Online tab until TRX64-Ultimate carries the sub-app.
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **E-1 built (2026-11-23, wave 3, `t239.3-w3-e-1`):** The SDK example core no longer borrows `portdiag_desc`: it has its own TOML A (`app/sdkpkg/example/gateware/example.toml`, the base blocks plus one block of its own, `example_ctl`, with its map) and a TOML B that links the shared library `cbmprg`; its code library is named by `hooks = "example"` and `example.cc` exports `corehooks=1` with init and release. The core has no compiled-in descriptor (`app_build.py` and `appbuild.mk` accept an empty `[app]` desc, `table.cc` has a `CORE_NONE` case with an empty table, `app_build.py build` takes a repeatable `--maps`), and a test plus `sdk_check.sh` compare the example's base blocks with `coreapp/gateware/shared.toml`. Not built: the optional check that the record names hooks; the two `test_descrec.py` failures that already fail on the base branch are untouched. Questions for Alex: is an app image with an empty core table (`CORE_NONE`) acceptable for record cores in general, or should it stay an SDK-example mechanism only? Tests: not run yet (F-1).
+- **M-1 built (2026-11-23, wave 2, `t239.3-w2-m-1`):** The 27 rows of the seven extend functions (home, tone, volume, persist, picture, baseset, hotkeys) are now whole `[[core_setting]]` rows in `coreapp/base_ui.toml`, compiled by `tools/gen_base_ui.py` into `coreapp/src/base_rows.inc`; the extend functions read them through `menu_base_row` and `menu_base_setting`. Lists that change at run time name a `provider` in the row (`video.modes`, `hotkeys.modifiers`, `hotkeys.keys`, `view.schemes`), a key only the base UI TOML may use.
+  Not built: the decision whether a core's own row may name a provider too (the base-only `provider` stays as built); `tools/menusim/same_pictures.sh` (72 runs) was not run.
+  Questions for Alex: (1) may a core's UI TOML row name a provider too, or stay base-only? (2) Should a core's own hotkey function (HkSpec core_key and core_label) and its hotkey task rows become rows of the core's UI TOML, or stay generated by code as now?
+  Open review findings: none.
+  Tests: not run yet (F-1).
+
+- **QC of wave 2 (2026-11-23, coordinator).** The packages' questions that a decision or the plan already answers:
+  - Online search keeps the rule of api.md 1.3.9 and 4.8.13.2: its requests move off the menu and executor tasks (a job for the
+    form, a prefetch for the folder); a sub-app gets no exemption from the SDK's contract (L-3).
+  - A run-time list (video modes, hotkey keys and modifiers, view schemes) is named by the same mechanism for a base row and a
+    core's row, as the QC entry says; a key only the base UI TOML may use is not kept (M-1).
+  - The libraries of L-1 (mouse, pad, padkeys, resample) ship in the SDK with their tables, as S18 says of the shared libraries;
+    their `table` and `core` entries stay, since they are linked statically (D31). A library entry may name several capabilities,
+    so that a record-described atari800 (`sio`) keeps "New disk image" as it has it today (L-1, L-2).
+  - A run whose words interleave (the 1541's parameter RAM, reSID8's curve registers) gets a stride, so each half is a named run:
+    D34's map names its properties (A-1).
+  - The dead `|` alternatives of `rest.cc`, `rpccontract.cc` and `rest.h` go, now that no fallback uses them (R-1).
+  - `sectors` and `winslot` stay in the base: generic engines, mounts and descriptors use them (L-2). The identity block's rpc
+    port has its proof on the board, in F-2 (R-1).
+  - Until TRX64-Ultimate packs `online.u2a` into `trx64u.cor` (their request is sent), trx64u has no Online tab; t239.3 goes into
+    integration only after that.
+  These are built in wave 4.
+- **R-1b built (2026-11-24, wave 4, `t239.3-w4-r-1b`):** The `|` alternative mechanism is removed: `serve_alias` in `rest.cc` checks the alias's single operation name with `find_op` and answers 501 naming it if unregistered; `pick()` is deleted in `rpccontract.cc` and the CK_LOAD/CK_RUN case checks its single op (`prg.load` or `prg.run`) directly; the `rest.h` comment on `RestAlias::ops` is updated. Not built: nothing. Open review findings: none. Tests: not run yet (F-1).
+- **V-1b built (2026-11-23, step 2, `t239.3-vic-v-1b`):** `rtl_check` now follows concatenation targets, Verilog for loops, entity attribute declarations, `true`/`false` and instance generics that decide an if-generate; all RTL reads go through one function that refuses a path naming ultisid, copper, lp_filter or sampler (by the base name of a .vhd/.vhdl file). `host.toml` grew to 56 blocks (overlay, pointer, control, screen, colour, mode, the C64 palette, IEC read only, SD SPI and WiFi UART windows, the 16 overlay palette entries as one block), and the check stops at `io_bus_splitter` instead of passing on the bridge's transport registers (api.md 6.14.22).
+  Not built: the record-array and bridge model (`io_bus_splitter`, `io_bus_bridge2`, `synchronizer_gzw`), so no blocks for ITU, USB, Ethernet, flash, uci or the 1541 drive, and no VIC-20 drive blocks (`--bus` cannot name ports of the top module); the stop covers only the splitter, so a bridge without a splitter behind it can still pass; the followers for the held-request pipeline of `trx_sys` and the `trx_io` pages 1/2/3/5/7; windows with no register in the host RTL (cmd_if, the UDP region, the resampler).
+  Questions for Alex: The overlay palette is 16 entries of three bytes at 0x10145000 + 4*n with an undecoded byte between them; a TOML A takes 64 blocks at most and every byte of a block must be decoded. Should TOML A get a stride form (one block, `stride` and `count`), a higher block limit, or one block per entry (72 blocks)? Does the negative control `c64_basic_uci.toml` (D30 allows those only for flash and persistence) stay?
+  Open review findings: none. The package is not complete (the must finding is only partly addressed).
+  Tests: not run yet (F-1).
+- **L-1b built (2026-11-24, wave 4, `t239.3-w4-l-1b`):** The api headers mouse_api.h, pad_api.h and padkeys_api.h ship in the SDK include/ (closure now 28 headers; mouse_api.h and pad_api.h forward-declare CoreCtx, the generic padkeys accessors moved to hotkeys.h). A library entry now names one capability or a list (libtab.py emits a null-terminated array, `LibEntry.capability` is `const char *const *`; newdisk names `floppy` and `sio`); base API 3.3 lock updated, api.md 9.5.12 and 9.5.13 added. Not built: nothing. Open review findings: none (api.md claim that the resample header ships under base/inc was taken from the review, not checked against cmd_pack_base). Tests: not run yet (F-1).
+- **V-4 built (2026-11-23, step 2, `t239.3-vic-v-4`):** The VIC-20's app code (`vc20.cc`, `vc20_regs.h`) moved to `cores/vc20/app/lib`, and `cores/vc20/app/sdk.toml` is its TOML B (libraries vc20, cbm1541, cbmrun, cbmprg; its own TOML A plus the base blocks cart_regs, drive_a and icap; `portdiag.cc` as a base source because `run.cc` calls `portdiag_attach` in every app). `tools/sdk_core_app.sh` links the app from the unpacked SDK package and runs `libtab.py mapcheck`; `ci/trxapps.sh` builds `vc20.app` that way and checks S12 with `libtab.py samelib`; `descrec.merge_toml_a` and `app_build.py` `base_blocks` build the driver table and linker fragment from the two TOML A files. The package no longer ships trx64u's code set (removal stays with P2-6) or other cores' code in its base archive; `pack_cores_mc.sh` packs a core with its own app against its TOML B with heap word 0. The VIC-20's link map holds only what its TOML names plus `portdiag.cc`; the shared image no longer compiles `vc20.cc`.
+  Not built: board.cc's IEC version, cartridge, ring and REU probes still run in the VIC-20's app (review finding 3); a `coreapp:vc20` test group keyed over `cores/vc20/app/lib` (test_vc20 stays in the shared group, wider key accepted; nothing covers VIC-20 isolation beyond c264's check).
+  Questions for Alex: (1) Do you accept that the VIC-20's app TOML A is its own `gateware.toml` plus the named blocks of the base's `shared.toml` (cart_regs, drive_a, icap), or should its own drive blocks go into its TOML A first (`rtl_check` cannot follow drive_l2; the host window check refuses blocks outside 0x101A0000)? (2) Should the shared image stop compiling `vc20.cc` altogether now (done in code, because the register offsets come from the VIC-20's driver table), or stay as it was until trx64u's own image replaces the shared build? (3) Finding 3: should the board.cc probes leave the VIC-20's app?
+  Open review findings: finding 3 (board.cc probes), needs Alex's decision.
+  Tests: not run yet (F-1).
+- **M-1b built (2026-11-24, wave 4, `t239.3-w4-m-1b`):** The base-only `provider` key is gone; a run-time list is named by `pick = "<name>"` on the row (flag 16, record encoding unchanged, base_rows.inc/base_ui.inc byte-identical), accepted by the compiler and both readers in any UI TOML and handed to `Setting::pick`. A core's choice row with a pick is served by `menu_pick_fill` in menubuild.cc (trx_scheme_names, or the base list for hotkeys.keys and hotkeys.modifiers); the QC of wave 2 supersedes M-1's provider line and question (1). Not built: video.modes for a core's row (refused by both readers; Picture is base-owned); lists are not registered as menu states (static fill instead); a declared value of a pick row is only a placeholder and its default is an index into the served list. Questions for Alex: does a core's pick row get its values by a generic run-time mechanism, or only by the base's code for now; is video.modes for a core's row wanted; is the static fill OK instead of menu states. Open review findings: none. Tests: not run yet (F-1).
+- **V-3b built (2026-11-23, step 2, `t239.3-vic-v-3b`):** A `[[window]]` is refused again, in both readers, when it covers a byte of a block with owner base in the TOML A the app is linked with (`descrec.py basetab` writes basetab.h from it; `app_build.py build` generates it, for a merged TOML A from the merged base blocks; default `host.toml`, shipped in the SDK package). This closes the open finding 1 of V-3 and supersedes the V-3 line that a block is checked only against its own TOML A. The host-test defaults of iomap.h and u2p.h are gone: a host build includes hostio.h written from the `[io]` table of host.toml (`tests/hostgen.sh`), and the patched host-app system headers win over vendor's on the include path.
+  Not built: one address space for `[[window]]` (see the question), and a patch of vendor's iomap.h and u2p.h (no build reads them). 2 older failures of tools/test_descrec.py remain (`test_it_refuses_what_the_application_does_not_have`, `test_a_register_has_an_access_macro_for_each_direction_its_map_allows`) and belong to their own entry.
+  Questions for Alex: The windows of trx64u's record 6 are at 0xA0000xxx and host.toml's base blocks at 0x1010xxxx, so the new refusal never fires for them. Are trx64u's windows rewritten to the board's real 0x1010xxxx addresses (the TRX64-Ultimate side of the contract), or does the base map 0xA0000000 onto U2P_IO_BASE for windows?
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **V-5 built (2026-11-23, step 2, `t239.3-vic-v-5`):** SDK_OWN_APPS in ci/trxapps.sh now comes from `tools/core_toml.py list-own-app` (cores whose TOML B has [app] desc and not `pipeline = false`) in place of the hard-coded `vc20`; the stage key hashes `cores/*/app/**` and that list, trxapps.sh refuses a core in both SDK_OWN_APPS and BLUEPRINT_CORES, and trxapps.sh and ci/package.sh check that each such core has coreapps/<id>.app differing from the shared coreapp.bin (package.sh: `mark_red`). The S12 samelib proof runs only when vc20 is in the list.
+  Not built: nothing.
+  Tests: not run yet (F-1).
+- **L-3b built (2026-11-24, wave 4, `t239.3-w4-l-3b`):** Every request of apps/online to the server now runs on a job started with api->job->start; the menu and executor tasks no longer call api->net (api.md 1.3.9, 4.8.13.2). online.presets and online.search are `job` nodes the menu calls again while they answer `more`; list, stat and fetch of /Online answer from what is kept or start a prefetch job and fail at once with a reason. api.md 9.5.11, README, online_api.h and http.h comments rewritten; test_online.inc uses the fake job table. Not built: progress bar of the Search job stays at 0% (needs menusim/ux-review and a decision on the values); a connect in progress cannot be interrupted (up to 10 s, job only). Questions for Alex: after a search the menu cannot jump to the Library tab (a node with `job` and `goto` skips the job) - acceptable, or a seam for a goto after a job; the prefetch makes the first open and first download of a result fail once with a reason - wanted, or a wait/retry seam in the file manager. Open review findings: none. Tests: not run yet (F-1).
+- **A-1b built (2026-11-24, wave 4, `t239.3-w4-a-1b`):** A property with a count takes an optional `stride` (section 22 grew to 10 words per property, record version stays 7); both readers check the span as (count-1)*stride+width, the driver table has `_STRIDE`, and the 1541 drive library and `resid8.cc` now take their registers from the named runs (`param_addr`/`param_len`, `curve_base`/`curve_offset`; `resid8` block in shared.toml and example.toml). Not built: test_cbm1541, full tests/coreapp/run.sh and tests/loader not run; the 16-bit stores of curve_base/curve_offset on the byte-wide trx_io bus (0x044-0x047) are not verified in the IO bridge or on hardware; test_descrec.py 109 of 111 pass, the remaining failure (AgainstTheApplication, "an argument left unbound") is believed to predate this change. Questions for Alex: whether the drive library IO interface and the test model move onto the drvtab macros now or with the step that moves the drivers onto the driver table (D31/D34). Open review findings: none. Tests: not run yet (F-1).
+- **V-3c built (2026-11-23, step 2, `t239.3-vic-v-3c`):** `io.window` now hands out the address the host's bus_converter routes to the I/O bus (bit 28 set): both readers (descrec.cc, tools/descrec.py) translate a `[[window]]` from the firmware space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB) into the TOML A's space by its `[io]` bases before the base-block refusal, basetab.h gets a `BASE_IO` line, and one test ties shared.toml and example.toml to host.toml register by register. Of the 9 windows of the hand-over's granted list, 4 are now refused (audio_mixer, speaker_mixer, c64_palette, hdmi_palette: they lie over base blocks of host.toml) and 5 pass (speaker_enable, u64_userport, u64_hdmi_connectors, u64_pwm_duty, resampler); the hand-over text names both groups.
+  Not built: shared.toml is not generated from host.toml (module label, owner and splitting differ); the cmd_if block of shared.toml is not tied to host.toml (not decoded in host/).
+  Questions for Alex: audio_mixer (0xA0000500, 0x14) and palette (0xA0080800, 0x400) of trx64u's granted windows lie over base blocks of host.toml and are refused, as are speaker_mixer and hdmi_palette. Should those blocks become core-owned in host.toml, should the windows be narrowed to the bytes beyond the base blocks, or does the hand-over drop them? Packing trx64u's desc.toml fails until you decide.
+  Open review findings: none.
+  Tests: not run yet (F-1).
+- **V-4b built (2026-11-23, step 2, `t239.3-vic-v-4b`):** The VIC-20's app takes its base blocks from coreapp/gateware/host.toml (`[app] base_toml_a = "host.toml"` in cores/vc20/app/sdk.toml: cart_regs, drive_a, the five ICAP blocks, iec_status); BoardProbe::blocks() (BB_* in board.h) is built in hw.cc from DRV_HAS_<block> and board_detect() reads a probe only if its block is there (guards: ICAP loader, drive_a, cmd_if, iec_status, and c64cart, c64_debug, dma for cartridge, ring, REU). shared.toml and the SDK example's TOML A gained iec_status, c64cart and dma so the C64 app keeps every probe; hw.cc names ICAP registers through HW_ICAP_* for both forms; tests/coreapp/srclist.sh and vc20_drv.sh compile against the driver tables, and tools/menusim/run.sh vc20 renders the VIC-20 menu from cores/vc20/app/desc.toml.
+  Not built: the VIC-20's own drive blocks (V-1c, drive_a stays from host.toml, owner core); a per-core driver table in srclist.sh (correct only while vc20 is the one own-app core); whole-hw.cc RISC-V compile and render bench link.
+  Questions for Alex: Which block should guard the ring, cartridge and REU probes? shared.toml and host.toml have no block named for them, only TRX_CAPS in ident, which the VIC-20 has too. c64cart (added to shared.toml at 0x101A4000) guards the cartridge, c64_debug (a weak match) the ring, dma (added at 0x10050000) the REU. Also: cbm1541 needs newfile mismatch between shared.toml and the VIC-20's sdk.toml (older than V-4) breaks two libtab tests and needs an owner.
+  Open review findings: none. Merge fixes in tools/test_descrec.py: absent_in_host gained resid8 and c64cart, owner_core_in_host gained dma; test_it_refuses_what_the_application_does_not_have fails on coreapp/cores/trx64u/menu.toml ("an argument left unbound" no longer matches), not touched by this package.
+  Tests: not run yet (F-1).
+- **T-2 built (2026-11-24, `t239.3-t2-overlay`):** The overlay service of T256 D1-D10 is in the base: the state table, the
+  elements and the still (`coreapp/src/overlay.cc`); the SDK group `api->overlay` (show, update, remove, text, menu_hide,
+  menu_show; api.md 4.17 and 6.16; the lock of base API 3.3 updated); the `[[element]]` section of the UI TOML (record
+  section 25; a place outside 960x540 is refused); the still from the host's capture with the person's palette and the
+  picture's Scale, or from a frame-buffer core with its picture's geometry; the PAUSED tag as an element of the base UI TOML.
+  The element maximum comes from `[sizes]` (P3-2). Not built: nothing of D1-D10. S2 and S8 need the board; the ue2emu
+  features of S2, S3, S4, S5, S9 and S10 (with the test library `tests/ui/ovtest`) are written, not run. Tests: test_overlay
+  run once by hand (294 checks); the rest not run yet (F-1).
+- **V-1c built (2026-11-23, step 2, `t239.3-vic-v-1c`):** rtl_check follows Gideon's io_bus_splitter, io_bus_bridge2 (synchronizers as pass-through), command_protocol and c1541_drive, reads process procedures, aliases, VHDL blocks, clocked concurrent assignments and RAM entities as write sinks, with taint per bit range so a window's direction is proven. host.toml grew to 64 blocks (itu, itu_uart, itu_ms, usb_code, usb_ctrl, ethernet, the flash window with its held request, the overlay palette as three strided runs); the c64_basic fixture names uci and the 1541 drive and c64_basic_uci.toml is deleted (the stop pattern is gone); the VIC-20 drive window is proven in tests/rtl_check/vc20_drive.toml.
+  Not built: the trx_sys held requests and the trx_io pages 1/2/3/5/7 (need Verilog generate-for with named blocks, functions and a copy-value model); the VIC-20 drive blocks in cores/vc20/app/gateware.toml (collide with base drive_a from sdk.toml base_blocks); the GCR coder window 0x10060500 (VHDL for-generate, ascending ranges).
+  Questions for Alex: whether the VIC-20 drive blocks go into gateware.toml against the base drive_a (V-4 question 1: d1541_wd.cc names WD177x registers the VIC-20's RTL lacks).
+  Open review findings: none.
+  Tests: not run yet (F-1); test_rtl_check.py passes in full (62 s); host.toml changes (flash block, palette runs, itu_uart imask dir r) need the descrec and coreapp tests.
+- **Review before the push of t239.3 (2026-11-24, coordinator; one review agent over integration...9bde957f).** Its two musts are
+  answered by the plan, so no code changes for them:
+  - P2-1 took the ring start, the monitor's TCP 4312 server, its release at menu close and the `.cfw` run out of the base; Play
+    MOD went out of `c64_cart.cc` too. MultiCore's own trx64u image (`c64_desc`) therefore lacks them. The plan brings them back
+    in TRX64-Ultimate's libraries (P2-5: ring, monitor, the `.cfw` run, their hook table) and deletes MultiCore's own trx64u image
+    in P1-8, where MultiCore takes their `trx64u.cor` by sha256 and `modplayer/module.bin` leaves `COR_ALLOWED` with CLAUDE.md's
+    licence exception (D5). A hook table in `c64.cc` would grow a per-core file (T192 D24) for code P1-8 deletes.
+  - So t239.3 goes into integration only together with P1-8; no package is built from it before (a feature-branch run packs none).
+  The other findings: the element path of T-2 gets a unit through the record and the merge; `ci/apptests.sh` keys over
+  `tools/libtab.py`; the SDK readme lists the three new headers; the two TOML A sources of the I/O fragment are gone on t239.3-v
+  (V-3 makes it from host.toml); the stride case of rtl_check goes with V-1d on t239.3-v; the manual's 11.2.1 rows after M-1b are
+  a proposal for Alex (style rule); `cores/amiga1200` still reads `cores/amiga` RTL in place (older than this branch; morning).
+  Also from V-3c (t239.3-v): io.window handed out a window's firmware address (0xA0000xxx), which never reaches the I/O bus on the
+  board; t239.3 gets the translation as well.
+- **Tests and the RISC-V build of t239.3 (2026-11-24, coordinator).** `tools/dev.sh test` ran three times; runs 2 and 3
+  kept going past a failing unit (a temporary, uncommitted change of `run()` in tests/coreapp/run.sh), so one run showed every
+  failure. Run 1 (9bde957f): the test links lacked the new sources (fc377ab0: overlay.cc, menutree.cc, the T111 bench's include
+  path; also the host app image's Makefile and the render bench's drvtab.h) and three Python tests were stale (1ab69e78). Run 2
+  (74b588d2): six units red. Five followed their decisions (e5a066ad: record version 7 of P1-1, the `.cfw` row P2-1 removed, the
+  flash check of P1-5 on the host's own boot.cfg, cfg_dir of P1-5; 1cdbcfd2: the keywalk golden of Port Diagnostics back to
+  integration's, which dc9a0f39 had made outside run.sh). One was a code fault: the DMA load wrote device 0 into $BA on the board
+  (8689eeb5, `cfg_number`). Run 3 (5f4adae0): 18 groups PASS (1151 s). The one RISC-V build then failed in sdk_check, which had
+  never linked the example's app: `app` was also the directory of its TOMLs, so make found the target up to date (b585dfb3,
+  .PHONY); libtrxbase.a lacked the USB controller's program (dcf91b9b, nano_minimal.o); the check looked for g_rep by its
+  unmangled name (27e92caa) and gave the packer a partial without a sync word (c5ca4556). At c5ca4556 `tools/dev.sh riscv` passes:
+  the images, the SDK package trx64-sdk-0.4.0 (base 3.3, sha256 b43857a6...) and sdk_check (the example's app.bin links from
+  the package and packs into a .cor). TRX64-Ultimate has the package and online.u2a for their steps.
+<<<<<<< HEAD
+- **Delta review and SDK 0.4.1 (2026-11-24, coordinator).** A second review read the 13 commits after 9bde957f. Its must:
+  io.window handed out a window that starts in a firmware span and leaves it unchanged, so it pointed into DDR; its should: a
+  window in another form of a base register's address passed the base-register guard. Both readers now refuse a window that
+  leaves its span and compare after the translation, and window() gives null off the I/O bus (1f719dff; api.md 4.15.19 and the
+  hand-over boundary doc, 96d9c80e; the $BA test at index 3 and the version-7 header case, 70762648). The readers use the
+  board's bases as constants until t239.3-v's V-3c (the TOML A's [io]) replaces them. TRX64-Ultimate found two packaging
+  defects in SDK 0.4.0 (b43857a6): ffconf.h reached chan_fat through a link the package does not carry, so tempdisk and
+  fastseek did not compile from it, and tools/ lacked check_d24.py (563f708e). sdk_check missed the first: the example links no
+  FatFs library (a check that compiles every library of the package is open). Test run 4 (keep-going, 707626484): 18 groups
+  PASS. SDK 0.4.1 (8ff28ba9, sha256 8b5f2b29...): RISC-V build and sdk_check pass; TRX64-Ultimate has it.
+  Open from their diagnostic link: a record-described core's .cor carries no TOML A, so the start-up check of D30 condition 2
+  never runs for trx64u (a package: the TOML A record in the .cor beside the description, cor_pack with --maps, descrec.py
+  compile with several TOMLs); trx64u's code set in the package's base goes with V-4 (t239.3-v).
+- **V-1d built (2026-11-23, step 2, `t239.3-vic-v-1d`):** The VIC-20 has its own drive block `drive_a` in `cores/vc20/app/gateware.toml` (0x1800, no WD177x, side or drivetype), `sdk.toml` takes it, and the WD177x is the new map/block `wd177x`/`drive_wd` (`shared.toml`), so `d1541_wd` links only where a TOML A has `drive_wd`; the VIC-20 app and its test build the table without it and `.d81` is refused there. rtl_check got Verilog followers (generate-for with named blocks, one-assignment functions, a register pipeline model, if-generate inside generate-for, what `trx_sys.v` hands on over continuous assigns) and the mode `--own-core`, which checks `owner = "core"` blocks against the RTL like base blocks; a pattern it does not know stops one block, not the run. On c64_basic (TOML A b57405a6, `--own-core`) 28 of 33 blocks agree.
+  Not built: byte 3 of `trx_dbg_run.owner`, `cyc_cmp`, `cmp_en`, `trx_statebus.status` and `trx_debug.ipc_set` still stop (no write found at the committing byte); `gcr_coder` (VHDL for-generate with ascending ranges); `drive_wd` as a block of `host.toml` (64-block limit). Merge note: the t239.3 merge took t239.3-v's window code (V-3c: translation by the TOML A's `[io]`, base blocks) in the places where t239.3's `fw_to_board`/`basereg.def` version of the same fix conflicted; t239.3's loader test cases for it (iowin, boardwin, a window leaving its span) and its bit-28 guard in `io.window` are not carried. TRX64-Ultimate's c64_basic TOML A has no `drive_wd` block, so after they take this SDK `.d81` / 1581 mode refuses to mount until they add one.
+  Questions for Alex: whether `--own-core` is the right rule for making c64_basic's proof real (owner `core` in TOML A means handed over, and rtl_check checked only that); whether `drive_wd` becomes a 65th block of `host.toml` (limit 64); what happens with the t239.3 loader test cases and the bit-28 guard of `io.window` (carried over or left to V-3c).
+  Open review findings: none.
+  Tests: not run yet (F-1).
+=======
+>>>>>>> t239.3-vic-v-1e

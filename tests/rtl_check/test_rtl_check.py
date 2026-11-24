@@ -7,6 +7,7 @@
      when the directory is there
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
   2b. the miniature design tests/rtl_check/mini2 (V-1c): a request splitter, a process alias and procedure, a VHDL block, a RAM write sink.
+  2e. the miniature design tests/rtl_check/mini5 (V-1e): ascending vectors, a for-generate, an if-generate, a stride, --core-in-design.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   2c. the miniature design tests/rtl_check/mini3 (V-1d): a handshake into a module with a register pipeline (c_addr, op_a), another master loading the same register, a Verilog
@@ -14,7 +15,7 @@
       hand-over the miniature has no port for).
   2c2. the miniature design tests/rtl_check/mini4 (V-1d): a pattern the check does not know stops the one block that reaches it; the other block has its verdict.
   2d. c64_basic of TRX64-Ultimate with the TOML A of its commit b57405a6 (the TOML A is read with git show, the RTL is the checkout's working tree, so the list below follows the checkout;
-      skipped without the checkout or the commit), --own-core: the blocks that are still stopped are the five the check lists (trx_dbg_run, trx_statebus.status, trx_debug.ipc_set, gcr_coder).
+      skipped without the checkout or the commit), --own-core: the findings that remain are the five the check lists (trx_dbg_run.owner byte 3, cyc_cmp and cmp_en, trx_statebus.status, trx_debug.ipc_set); gcr_coder agrees.
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
@@ -47,13 +48,19 @@ must("ultisid_stub.vhd" in out and "never opened" in out,
 ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-Ultimate"))
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
-    rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "12 block(s), 64 properties agree" in out,
-         "c64_basic: 12 blocks, 64 properties agree with the RTL (the maps sid, c64cart, c64cart_regs, dma and uci of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake; "
+    rc, out = run("check", "--core-in-design", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+    must(rc == 0 and "15 block(s), 73 properties agree" in out,
+         "c64_basic: 15 blocks, 73 properties agree with the RTL (the maps sid, c64cart, c64cart_regs (with stop_mode and clock_detect), dma, uci and gcr_coder of app/sdkpkg/maps; the GCR coder "
+         "behind a VHDL for-generate over slices of vectors declared ascending; two blocks with owner core that ultimate_sys decodes itself, checked by --core-in-design;  dma a run of 65536 bytes behind its handshake; "
          "uci behind io_bus_bridge2 with its synchronizers and command_protocol (a process procedure, an alias); the 1541 drive behind c1541_drive's io_bus_splitter, with a VHDL block "
          "statement, a clocked concurrent assignment and Gideon's RAM entities)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
+
+rc, out = run("check", "--core-in-design", "--design", os.path.join(HERE, "mini5"), "--toml-a", os.path.join(HERE, "mini5.toml"), "--top", "top", "--bus", "m3sys.io_req")
+must(rc == 0 and "5 block(s), 6 properties agree" in out,
+     "mini5 design: vectors declared ascending (a shift by concatenation, slices by `to`, one declared (1 to 8)), a for-generate of instances over slices of them, an if-generate that opens a process, an attribute, "
+     "a whole record assigned as a value, a run with a stride (bytes four apart in a RAM) and a block with owner core that the design decodes itself (--core-in-design) agree with the RTL", out)
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini2"), "--toml-a", os.path.join(HERE, "mini2.toml"), "--top", "top", "--bus", "m2sys.io_req")
 must(rc == 0 and "2 block(s), 3 properties agree" in out,
@@ -84,10 +91,10 @@ if tomla is not None and tomla.returncode == 0:
         open(fa, "w").write(tomla.stdout)
         rc, out = run("check", "--design", dsg, "--toml-a", fa, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--own-core")
     found = sorted({l.split()[2].rstrip(",:") for l in out.splitlines() if l.startswith("rtl_check: block ")})
-    must(rc == 1 and found == ["gcr_coder", "trx_dbg_run", "trx_debug", "trx_statebus"] and "6 finding(s)" in out,
+    must(rc == 1 and found == ["trx_dbg_run", "trx_debug", "trx_statebus"] and "5 finding(s)" in out,
          "c64_basic with its TOML A of %s (33 blocks): the blocks of trx_sys.v that it decodes itself (trx_gate, trx_turbo, trx_slot, the generate-for ent[i], the function tfind, the pipeline rq_addr, c_addr, op_a; "
          "another master loads op_a), the trx_io, pix_layer and c64_text blocks and the VHDL blocks agree; the pages 2 and 3 that trx_sys.v hands on over continuous assignments (trx_engine, trx_debug) agree; what is still stopped is listed: "
-         "byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set, and gcr_coder (a VHDL for-generate with ascending ranges)" % ult_commit, out)
+         "byte 3 of trx_dbg_run.owner, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set (the check finds no write at the committing byte); gcr_coder agrees (a VHDL for-generate over vectors declared ascending)" % ult_commit, out)
 else:
     print("SKIP: no TRX64-Ultimate checkout with commit %s at %s; its TOML A not checked" % (ult_commit, ult))
 
@@ -99,7 +106,7 @@ must(rc == 0 and "7 block(s), 32 properties agree" in out, "vc20: 7 blocks, 32 p
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "64 block(s), 188 properties agree" in out and "clean room" not in out,
+must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
      "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
      "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 

@@ -1,0 +1,80 @@
+# A fixture TOML A for tests/rtl_check/mini5 (T239.3 V-1e): vectors declared ascending (0 to 15) with a shift by concatenation, a for-generate of instances over slices of them
+# (gcr_codec.vhd's shape), a bank in a RAM of which the run takes every fourth byte (a run with a stride), an if-generate that opens a process, and a block with owner = "core" that the design decodes itself
+# (checked with --core-in-design).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "codec"
+module = "m3sys"
+owner = "base"
+address = 0x10000000
+size = 0x2
+
+  [[block.property]]
+  name = "in"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "out"
+  offset = 0x0
+  width = 8
+  count = 2
+  dir = "r"
+
+[[block]]
+name = "bank"
+module = "m3sys"
+owner = "base"
+address = 0x10000010
+size = 0x10
+
+  [[block.property]]
+  name = "r"
+  offset = 0x0
+  width = 8
+  count = 4
+  stride = 4
+  dir = "w"
+
+[[block]]
+name = "cfg"
+module = "m3sys"
+owner = "core"
+address = 0x10000020
+size = 0x1
+
+  [[block.property]]
+  name = "cfg"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "opt"
+module = "m3sys"
+owner = "base"
+address = 0x10000021
+size = 0x1
+
+  [[block.property]]
+  name = "opt"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "sh"
+module = "m3sys"
+owner = "base"
+address = 0x10000022
+size = 0x1
+
+  [[block.property]]
+  name = "sh"
+  offset = 0x0
+  width = 8
+  dir = "rw"
