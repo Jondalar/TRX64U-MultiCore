@@ -42,7 +42,7 @@ static void set_tone(Rig &r, const char *value)
 int main()
 {
     CHECK_EQ(count_key(nes_desc, TONE_KEY), 0);                      // no descriptor declares it: the application adds it
-    CHECK_EQ(count_key(amiga1200_desc, TONE_KEY), 0);
+    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);
     static CoreDesc gd, vd, od, nd, dd, dx;
     static Setting gs[SETTINGS_MAX], vs[SETTINGS_MAX], os[SETTINGS_MAX], ns[SETTINGS_MAX], xs[SETTINGS_MAX];
     CHECK(!tone_extend(&nes_desc, &gd, gs));

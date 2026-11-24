@@ -115,11 +115,11 @@ static int count_key(const CoreDesc &d, const char *key)
 int main()
 {
     // ---- the rows: a core without a mouse gets five, a core with one gets ten, in the order of svc_settings.h; no descriptor declares one
-    const CoreDesc &mouse_core = mouse_core_of(amiga1200_desc);
+    const CoreDesc &mouse_core = mouse_core_of(amiga_desc);
     CHECK(mouse_core.mouse != 0 && atari800_desc.mouse == 0);
     // D25: the Amiga declares Mouse Sensitivity / Acceleration itself (operations mouse.sens / mouse.accel); the application adds neither
-    CHECK_EQ(count_key(amiga1200_desc, "Mouse Sensitivity"), 1);
-    CHECK(!baseset_adds(&amiga1200_desc, "Mouse Sensitivity") && !baseset_adds(&amiga1200_desc, "Mouse Acceleration"));
+    CHECK_EQ(count_key(amiga_desc, "Mouse Sensitivity"), 1);
+    CHECK(!baseset_adds(&amiga_desc, "Mouse Sensitivity") && !baseset_adds(&amiga_desc, "Mouse Acceleration"));
     const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
     {
         // a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core

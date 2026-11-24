@@ -46,17 +46,17 @@ int main()
 {
     static CoreDesc gd;
     static Setting gs[SETTINGS_MAX];
-    CHECK_EQ(count_key(amiga1200_desc, HOME_DIR_KEY), 0);
-    CHECK_EQ(count_key(amiga1200_desc, HOME_ENTER_KEY), 0);
-    CHECK(!home_extend(&amiga1200_desc, &gd, gs));
-    CHECK_EQ(gd.nsettings, amiga1200_desc.nsettings + 3);
+    CHECK_EQ(count_key(amiga_desc, HOME_DIR_KEY), 0);
+    CHECK_EQ(count_key(amiga_desc, HOME_ENTER_KEY), 0);
+    CHECK(!home_extend(&amiga_desc, &gd, gs));
+    CHECK_EQ(gd.nsettings, amiga_desc.nsettings + 3);
     CHECK_EQ(count_key(gd, HOME_DIR_KEY), 1);
     CHECK_EQ(count_key(gd, HOME_ENTER_KEY), 1);
 
     {   // a description that declares the items itself keeps them: no second pair (the C64 / TRX64U menu)
         static CoreDesc d1, d2;
         static Setting s1[SETTINGS_MAX], s2[SETTINGS_MAX];
-        CHECK(!home_extend(&amiga1200_desc, &d1, s1));
+        CHECK(!home_extend(&amiga_desc, &d1, s1));
         CHECK(!home_extend(&d1, &d2, s2));
         CHECK_EQ(d2.nsettings, d1.nsettings);
         CHECK_EQ(count_key(d2, HOME_DIR_KEY), 1);

@@ -47,7 +47,6 @@ int main()
 {
     Host host;
     // no descriptor declares the item, no core has a register for it: the application adds it
-    CHECK_EQ(count_key(amiga1200_desc, VOLUME_KEY), 0);
     CHECK_EQ(count_key(amiga_desc, VOLUME_KEY), 0);
     CHECK_EQ(count_key(nes_desc, VOLUME_KEY), 0);
 
@@ -63,8 +62,8 @@ int main()
     CHECK(!volume_extend(&nes_desc, &gd, gs));
     CHECK_EQ(gd.nsettings, nes_desc.nsettings + 1);
     CHECK_EQ(count_key(gd, VOLUME_KEY), 1);
-    CHECK(!volume_extend(&amiga1200_desc, &ad, as));                  // the A1200 gets the same item as every core
-    CHECK_EQ(ad.nsettings, amiga1200_desc.nsettings + 1);
+    CHECK(!volume_extend(&amiga_desc, &ad, as));                  // the Amiga gets the same item as every core (the A1200: a12_base)
+    CHECK_EQ(ad.nsettings, amiga_desc.nsettings + 1);
     CHECK_EQ(count_key(ad, VOLUME_KEY), 1);
     {   const Setting &av = ad.settings[ad.nsettings - 1];
         CHECK(volume_is_generic(av) && !av.bind);
