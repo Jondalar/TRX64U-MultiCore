@@ -184,8 +184,8 @@ else
   echo "no large-core lane handed anything over: no large core in this package"
 fi
 
-# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin with COR_SHA256 (trx64u) is checked against its sha256 and taken
-# unchanged; the other (trx64g) gets the version form of this run (ci/imports.py finish).
+# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). Both pins have COR_SHA256 (T239.3 D21, D46): each file is checked
+# against its sha256 and taken unchanged (ci/imports.py finish).
 if [ -f "$HANDOFF/bit-imports/DONE" ]; then
   for c in "$HANDOFF/bit-imports"/*.cor; do
     [ -e "$c" ] || continue
