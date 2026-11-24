@@ -93,10 +93,12 @@ if command -v "${RV}gcc" >/dev/null 2>&1; then
   if grep -l -F "$ROOT" appout/obj/*.d "$W/app.log" 2>/dev/null; then fail "the app's build read a path of the repository $ROOT"; fi
   if grep -a -q -F "$ROOT" appout/app.elf; then fail "the app's image names a path of the repository"; fi
   # the maxima of the TOML B are in the image: the report buffer of diag.cc is a static array of CORE_REPORT_MAX bytes
-  rep_sz="$("${RV}nm" -S -t d appout/obj/diag.o | awk '$4 == "g_rep" { print $2 + 0 }')"
+  # (a file-static C++ object: the compiler names it _ZL5g_rep, so nm demangles with -C)
+  rep_sz="$("${RV}nm" -C -S -t d appout/obj/diag.o | awk '$4 == "g_rep" { print $2 + 0 }')"
   [ "$rep_sz" = "16384" ] || fail "the report buffer of the example's app is ${rep_sz:-missing} bytes, its TOML B says report_bytes = 16384"
   # and packs: the image, the description and the library that is the core's code (hooks = "example": cor_pack refuses a bundle whose library does not export corehooks=1) in a .cor (a dummy partial: the packer's own checks are what is shown here, not a bitstream)
-  head -c 4096 /dev/zero > appcheck/partial.bin
+  # the packer looks for the word-aligned sync word in the first 4 KiB of a partial (cor_pack.py check_partial): 16 bytes, the sync word, zeros
+  { head -c 16 /dev/zero; printf '\252\231\125\146'; head -c 4076 /dev/zero; } > appcheck/partial.bin
   python3 "$P/tools/cor_pack.py" pack -o appcheck/example.cor --name Example --version 1 --partial appcheck/partial.bin --app appout/app.bin --host-key 00000000 --desc app/desc.toml --lib example.u2a --sizes app/toml_b.toml >/dev/null \
     || fail "the example's app does not pack into a .cor"
   python3 "$P/tools/cor_pack.py" check appcheck/example.cor >/dev/null || fail "the packed .cor of the example does not check"

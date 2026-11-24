@@ -126,6 +126,8 @@ bool ctx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, i
 // A setting's value index by key (cheap after the first call: the key literal's address is the cache's key), `def` when the core has no such setting; and a text setting's
 // text with the leading blanks cut ("" when empty or unknown). settings.cc. The shorthand of svc_settings.h cfg_value and cfg_text for the application's own code.
 int cfg_value(CoreCtx *c, const char *key, int def);
+// A range setting's number (desc.h Setting::base + the chosen index: what its `apply` operation receives); `def` when the core has no such setting.
+int cfg_number(CoreCtx *c, const char *key, int def);
 const char *cfg_text(CoreCtx *c, const char *key);
 
 static inline void mount_notify(CoreCtx *c, int slot)

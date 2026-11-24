@@ -27,6 +27,8 @@ test: test_example
 # (cbmprg). Its TOML A is gateware/example.toml (the map of its own block is beside it). The core has no descriptor in the app: the record app/desc.toml, checked against the same [sizes], is
 # what describes it, and its code is example.u2a (hooks = "example").
 SDK_ROOT = $(SDK_MK)..
+# app, menu and test name no file; app is also the directory of the core's TOMLs, so without .PHONY make finds it up to date
+.PHONY: app menu test clean-all
 app: app/desc.toml app/toml_b.toml
 	mkdir -p appout
 	python3 $(SDK_TOOLS)/descrec.py compile app/desc.toml appout/desc.bin --sizes app/toml_b.toml
