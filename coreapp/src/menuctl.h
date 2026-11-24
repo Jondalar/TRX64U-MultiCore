@@ -114,6 +114,8 @@ public:
     void set_app_mode(bool on) { app_mode_ = on; }
     bool app_mode() const { return app_mode_; }
     bool goto_spec(const char *spec);                              // "F3", "F5/drives", "APP/flash": an area, an area and a tab
+    bool goto_when_open(const char *spec);                         // goto_spec now when the menu is open, else open() takes it (T256 D13); false: no such place
+    void say_when_open(const char *s, bool bad);                   // say() now when the menu is open, else open() shows it after its moves
     bool take_prompt();                                            // T228 R21: an operation asked something (CoreCtx::want_prompt): the text prompt or the pick list is up; true: it is
     bool take_screen();                                            // T228 R1: the screen an operation asked for (CoreCtx::want_screen, menu.screen) is shown; true: moved
     bool screen_way(const char *layout, char *out, int n) const;   // T228 R1: how the screen of that layout is opened (the keys help); false: none here
@@ -322,6 +324,10 @@ private:
     void footer_legend_keys(char *out, int n);
     uint32_t toast_until_ = 0, toast_rev_ = 0;
     bool status_bad_;
+    bool resolve_spec(const char *spec, int *ra, int *rt) const;
+    char pend_goto_[48] = "";                                      // goto_when_open: the place open() goes to
+    char pend_say_[OP_MSG_MAX] = "";
+    bool pend_say_bad_ = false;
     // the file manager: the Library's model and its file operations (filemgr.h)
     FileMgr fm_;
     bool chooser_;

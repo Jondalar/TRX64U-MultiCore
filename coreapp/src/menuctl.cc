@@ -542,6 +542,16 @@ void MenuCtl::open()
     if (!app_mode_) {
         take_screen();                                                  // T228 R1: a hotkey of the core asked for a screen (Timewarp, Monitor): the menu opens there
     }
+    if (pend_goto_[0]) {                                                // T256 D13: goto_screen of a library while the menu was closed
+        char spec[sizeof(pend_goto_)];
+        strcpy(spec, pend_goto_);
+        pend_goto_[0] = 0;
+        goto_spec(spec);
+    }
+    if (pend_say_[0]) {
+        set_status(pend_say_, pend_say_bad_);
+        pend_say_[0] = 0;
+    }
     if (!closable() && c_->desc->needs_program) {                  // after the moves above: go() clears the status of the place it leaves
         set_status(c_->desc->needs_program, false);
     }
@@ -3607,7 +3617,7 @@ bool MenuCtl::layout_param(const char *key, char *out, int n) const
     return w && ui_attr(w + 1, key, out, n);
 }
 
-bool MenuCtl::goto_spec(const char *spec)
+bool MenuCtl::resolve_spec(const char *spec, int *ra, int *rt) const
 {
     char area[8];
     const char *slash = strchr(spec, '/');
@@ -3627,13 +3637,49 @@ bool MenuCtl::goto_spec(const char *spec)
                 t = b;
             }
         }
-        go(a, t);
-        if (is_browser()) {
-            fm_.apply_pending();                                          // T256 D13: the Library opens where an operation asked (lib.show) when a goto brings the menu to it
-        }
+        *ra = a;
+        *rt = t;
         return true;
     }
     return false;                                                         // an area this core does not have
+}
+
+bool MenuCtl::goto_spec(const char *spec)
+{
+    int a, t;
+    if (!resolve_spec(spec, &a, &t)) {
+        return false;
+    }
+    go(a, t);
+    if (is_browser()) {
+        fm_.apply_pending();                                              // T256 D13: the Library opens where an operation asked (lib.show) when a goto brings the menu to it
+    }
+    return true;
+}
+
+// T256 D13 (review): a goto from a library with the menu closed only files the open intent; open() runs later and starts at Home. So the place waits here and
+// open() takes it, as it takes the screen of take_screen(). False: the menu has no such place.
+bool MenuCtl::goto_when_open(const char *spec)
+{
+    if (c_->menu_open) {
+        return goto_spec(spec);
+    }
+    int a, t;
+    if (!resolve_spec(spec, &a, &t) || strlen(spec) >= sizeof(pend_goto_)) {
+        return false;
+    }
+    strcpy(pend_goto_, spec);
+    return true;
+}
+
+void MenuCtl::say_when_open(const char *s, bool bad)
+{
+    if (c_->menu_open) {
+        set_status(s, bad);
+        return;
+    }
+    snprintf(pend_say_, sizeof(pend_say_), "%s", s);
+    pend_say_bad_ = bad;
 }
 
 // T228 R1 (the keys help, D12): how the screen of `layout` is opened - "F1 Home > Timewarp..., CTRL + T": the area, the row whose task shows it (menu.screen)

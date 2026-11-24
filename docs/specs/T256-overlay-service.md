@@ -233,3 +233,4 @@ T-2 (T239.3 plan step), 2026-11-23, branch `t239.3-t2-overlay`. Each point is re
     board loop is not exercised by a unit (the port is the test's `NavLog`). An application that calls the two functions on the board has no test
     yet.
 
+- **Review fix F1 (2026-11-24, `t239.3-rv`):** `goto_screen` with the menu closed. `LoopNavPort::go_place` / `open_app` called `goto_spec` / `say` before the filed open intent ran, and `MenuCtl::open()` (area 0, tab 0, status cleared) overwrote them. Now `MenuCtl::goto_when_open` / `say_when_open` keep the place and the status pending while `CoreCtx::menu_open` is false and `open()` takes them (as it takes `take_screen()`). Test: `test_menuctl` with a real `MenuCtl` (goto from a closed menu lands on F3, taken once, status shown).

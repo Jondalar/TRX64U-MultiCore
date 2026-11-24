@@ -255,10 +255,10 @@ public:
     void open_menu() { uiapp_local_open(); }
     bool go_place(const char *spec)
     {
-        if (menu_->goto_spec(spec)) {
+        if (menu_->goto_when_open(spec)) {
             return true;
         }
-        menu_->say("The menu has no such screen.", true);
+        menu_->say_when_open("The menu has no such screen.", true);
         return false;
     }
     bool open_app(const char *app, const char *action)
@@ -266,7 +266,7 @@ public:
         char msg[160];
         msg[0] = 0;
         const int rc = apps_.request(app, action, "", msg, sizeof(msg));
-        menu_->say(msg, rc != 0);
+        menu_->say_when_open(msg, rc != 0);
         return rc == 0;
     }
 private:
