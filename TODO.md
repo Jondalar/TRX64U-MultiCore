@@ -21,7 +21,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
-| T256 | 2 | 🔨 | Overlay service of the base in the SDK: a library puts pixels over the machine's picture, also while it runs (T239.3 D23) | D1-D13 (Alex 11-23/24); D11 built (SDK 0.4.4); T-3 built by FW; fix round: grab speed, close, canvas, bar | [T256](docs/specs/T256-overlay-service.md) |
+| T256 | 2 | 🔨 | Overlay service of the base in the SDK: a library puts pixels over the machine's picture, also while it runs (T239.3 D23) | D1-D14 (Alex 11-23/24); D11 + fix round after T-3 built (SDK 0.4.5); T-3 by FW; D13 calls to map | [T256](docs/specs/T256-overlay-service.md) |
 | T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fixed by T233 (board PASS 11-18); CPC back in pipeline and manual; old board steps closed 11-18 | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | S10/S11/S15/S16 board done 11-18 (Alex: shipped = done); open: board S1 (monolith), S13 flash boot | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
@@ -120,7 +120,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T239.1 | 2 | ✅ | GitHub is the development home (A): PRs and CI there, private material in a Gitea side repo | Done 11-22 (D50): release 0.2.1 from GitHub; S2 S3 S7 S11 S16, scratch layout wait for external code | [T239.1](docs/specs/done/T239.1-github-home.md) |
 | T239.2 | 2 | 📅 | Platform checkpoint (D): each host gateware release publishes static checkpoint + core template | Decided 11-19 (D1-D5, every question answered); build after T239.1 as step D | [T239.2](docs/specs/T239.2-platform-checkpoint.md) |
 | T53 | 2 | 📅 | 100T (XC7A100T machines at users): universal packages 50T+100T | Lifted 11-20 (Alex); emu builds 100T (S46/S47); structures once a 100T bitstream can be tested | [T53](docs/specs/T53-ue2-build.md) |
-| T239.3 | 2 | 🔨 | App core with an API for sub-apps and libraries (B); trx64u as library; the app SDK | D28: MVP, D37/D36 base on t239.3 (SDK 0.4.4); P1-8, P2-6, F-1, F-2 wait for TRX64-Ultimate; VIC-20 on t239.3-v | [T239.3](docs/specs/T239.3-app-core-sdk.md) |
+| T239.3 | 2 | 🔨 | App core with an API for sub-apps and libraries (B); trx64u as library; the app SDK | D28: MVP on t239.3 (SDK 0.4.5); P1-8 in work (D44); P2-6, F-1, F-2 wait for TRX64-Ultimate; VIC-20 on t239.3-v | [T239.3](docs/specs/T239.3-app-core-sdk.md) |
 | T239.4 | 2 | 📅 | Registry (C): the host menu installs cores and host updates over HTTPS; TRNG in the null core | Decided 11-19 (D1-D6, every question answered); build after T239.3 as step C | [T239.4](docs/specs/T239.4-registry-tls.md) |
 | T240 | 1 | ✅ | Installer: every core found into the boot menu (up to 32, #107) and each core's folder with roms/ | Done 11-20: S1-S4 in ue2emu (S4 without board, Alex); ships in 0.2.1 | [T240](docs/specs/done/T240-installer-all-cores-and-folders.md) |
 | T241 | 2 | ⏸ | SCPU: SuperCPU releases show wrong graphics (Boom intro, #108): find where SRAM and C64 RAM part | 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: #135 (scpu5 d, bigr) | [T241](docs/specs/T241-scpu-repack-graphics.md) |
