@@ -93,7 +93,7 @@ def main(out):
     lines = []
     for toml in sorted(glob.glob(os.path.join(here, "..", "..", "cores", "*", "app", "desc.toml"))):
         cid = os.path.basename(os.path.dirname(os.path.dirname(toml)))
-        blob = descrec.compile_text(open(toml).read())
+        blob = descrec.compile_text(open(toml).read(), toml)
         name = descrec.parse_desc(blob)["core"]["name"]
         open(os.path.join(app, cid + ".bin"), "wb").write(blob)
         open(os.path.join(app, cid + ".cor"), "wb").write(C.pack(name=name, desc=blob, **kw))

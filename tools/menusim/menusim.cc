@@ -46,6 +46,7 @@
 #include <unistd.h>
 #include <zlib.h>
 #include "table.cc"                                           // the board's own core table, as the render bench takes it
+#include "own_cores.h"                                       // the cores with an app of their own (tools/menusim/run.sh): their descriptor is the library's, T239.3 V-4b
 #include "menu_rig.h"
 
 // ---- options ---------------------------------------------------------------------------------------
@@ -82,6 +83,12 @@ static const CoreDesc *find_core(const char *name)
 {
     for (int i = 0; core_table[i]; i++) {
         const CoreDesc *d = core_table[i];
+        if (same(d->core_id, name) || same(d->cor_name, name) || same(d->folder, name)) {
+            return d;
+        }
+    }
+    for (int i = 0; own_cores[i]; i++) {
+        const CoreDesc *d = own_cores[i];
         if (same(d->core_id, name) || same(d->cor_name, name) || same(d->folder, name)) {
             return d;
         }
@@ -552,6 +559,7 @@ int main(int argc, char **argv)
         else if (a == "--scale") { o.scale = atoi(val()); }
         else if (a == "--list") {
             for (int k = 0; core_table[k]; k++) { printf("%-12s %s\n", core_table[k]->core_id ? core_table[k]->core_id : core_table[k]->folder, core_table[k]->title); }
+            for (int k = 0; own_cores[k]; k++) { printf("%-12s %s\n", own_cores[k]->core_id ? own_cores[k]->core_id : own_cores[k]->folder, own_cores[k]->title); }
             return 0;
         }
         else if (a[0] == '-') { usage(); }
@@ -568,6 +576,7 @@ int main(int argc, char **argv)
     if (!g_src) {
         fprintf(stderr, "menusim: no core \"%s\"; the core table has:", o.core);
         for (int i = 0; core_table[i]; i++) { fprintf(stderr, " %s", core_table[i]->core_id ? core_table[i]->core_id : core_table[i]->folder); }
+        for (int i = 0; own_cores[i]; i++) { fprintf(stderr, " %s", own_cores[i]->core_id ? own_cores[i]->core_id : own_cores[i]->folder); }
         fprintf(stderr, "\n");
         return 2;
     }

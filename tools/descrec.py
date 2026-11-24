@@ -193,9 +193,9 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     status = true                  # the answer's text is the status line, bad when the operation failed (KF_STATUS)      status_ok: also when it succeeded (KF_STATUS_OK)
     close = true                   # the menu closes after it (KF_CLOSE)      directive: the answer's text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE)
     direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
-    [[window]]                     # a register window io.window hands out by name; refused when it lies outside the board's I/O span [0x10000000, 0x11000000) after the translation or covers an entry of coreapp/src/basereg.def (whole base blocks, not only registers)
+    [[window]]                     # a register window io.window hands out by name; refused when it covers a block of the base in the TOML A the app is linked with (--toml-a, default coreapp/gateware/host.toml)
     name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
-    address = 0xA0000500           # the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); io.window returns the board's
+    address = 0xA0000600           # in the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); the readers translate it by the [io] of the TOML A first
     size = 0x14                    # bytes, 1 .. 0x100000
 
     # T239.3 D32 (sections 23 and 24, version 6; they need no [core]): where the rows the application adds to every core (Picture, Scale, Volume, Tone, the hotkeys, Persist, Home, the
@@ -1169,8 +1169,89 @@ def compile_desc(doc, merged=(), app_base=False):
     return bytes(out)
 
 
-def compile_text(text):
-    return compile_desc(toml_loads(text))
+def compile_text(text, path=None):
+    """path: the file the text is from; the TOML A it names (`toml_a`) is looked up beside it."""
+    return compile_desc(resolve_toml_a_refs(toml_loads(text), path))
+
+
+# ---- a register of the description named from the core's TOML A (T239.3 D30 condition 3 and 4, plan step V-2) ----------------------------------------------
+# A core's gateware facts stand once, in its TOML A; its description (TOML B, desc.toml) keeps the application's data. A number that is a register of the gateware is
+# written as the name of the property, "block.property" (a register number: the address of the register minus the address of the identity block, which is
+# offset 0 of the core's window), or as a state of it, "block.property.state" (its value). The file is named by the top-level key `toml_a = "<file>"`, a path from the
+# description's own directory; the key is read here and is not part of the record. Only these keys take a name: reg, reg_* , fb_base and fb_stride. The record is
+# the same bytes as with the numbers written out.
+TOML_A_REF_KEYS = ("reg", "fb_base", "fb_stride")
+_REF_RE = re.compile(r"[a-z0-9_]{1,31}(\.[a-z0-9_]{1,31}){1,2}")
+
+
+def _is_ref_key(k):
+    return k in TOML_A_REF_KEYS or (isinstance(k, str) and k.startswith("reg_"))
+
+
+def toml_a_names(tomla):
+    """{ "block.property": register number, "block.property.state": value } of a TOML A document (checked by compile_desc first); the register number counts from the
+    address of the identity block."""
+    import copy
+    compile_desc(copy.deepcopy(tomla))
+    base = next(b["address"] for b in tomla["block"] if b["name"] == tomla["identity"]["block"])
+    out = {}
+    for b in tomla["block"]:
+        for p in b.get("property", []):
+            nm = "%s.%s" % (b["name"], p["name"])
+            out[nm] = b["address"] + p["offset"] - base
+            for stt in p.get("state", []):
+                out["%s.%s" % (nm, stt["name"])] = stt["value"]
+    return out
+
+
+def _resolve_walk(node, names, what, where):
+    if isinstance(node, dict):
+        for k in list(node):
+            v = node[k]
+            if _is_ref_key(k) and isinstance(v, str):
+                if v not in names:
+                    raise DescError("%s: %s = %r is no property or state of the TOML A" % (what, k, v))
+                if v.count(".") == 1 and names[v] < 0:
+                    raise DescError("%s: %s = %r lies below the core's window" % (what, k, v))
+                node[k] = names[v]
+            else:
+                _resolve_walk(v, names, what, "%s.%s" % (where, k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            _resolve_walk(v, names, what, "%s[%d]" % (where, i))
+
+
+def _has_ref(node):
+    if isinstance(node, dict):
+        return any((_is_ref_key(k) and isinstance(v, str)) or _has_ref(v) for k, v in node.items())
+    if isinstance(node, list):
+        return any(_has_ref(v) for v in node)
+    return False
+
+
+def resolve_toml_a_refs(doc, path=None):
+    """doc is changed: the names of its register keys become numbers (see above). Without `toml_a` a name is refused; without a path `toml_a` is refused."""
+    ref = doc.pop("toml_a", None)
+    if ref is None:
+        if _has_ref(doc):
+            raise DescError("a register is named as block.property, and the description has no toml_a (the file of the TOML A)")
+        return doc
+    if not isinstance(ref, str) or not ref:
+        raise DescError("toml_a is the path of the TOML A, from the description's directory")
+    if path is None:
+        raise DescError("toml_a: the description is read without a file name, so the TOML A cannot be found")
+    fn = os.path.join(os.path.dirname(os.path.abspath(path)), ref)
+    try:
+        with open(fn) as fh:
+            tomla = toml_loads(fh.read())
+        names = toml_a_names(tomla)
+    except OSError as e:
+        raise DescError("toml_a %s: %s" % (ref, e.strerror))
+    except DescError as e:
+        raise DescError("toml_a %s: %s" % (ref, e))
+    _resolve_walk(doc, names, os.path.basename(path), "")
+    return doc
+
 
 
 def _pad_code(tok):
@@ -1578,66 +1659,6 @@ KEY_CODE_MAX = 0x1FF
 KEY_NAMES = {"up": 0x91, "down": 0x12, "left": 0x9D, "right": 0x1D, "return": 0x0D, "esc": 0x1B, "del": 0x08, "runstop": 0x11, "space": 0x20, "home": 0x13, "pgup": 0x92, "pgdn": 0x95,
              "tab": 0x09, "f1": 0x85, "f2": 0x89, "f3": 0x86, "f4": 0x8A, "f5": 0x87, "f6": 0x8B, "f7": 0x88, "f8": 0x8C, "f10": 0x8E, "scrlock": 0xA3, "menu": 0x1FE}
 KEY_CTRL = {"a": 0x01, "b": 0x02, "c": 0x03, "d": 0x04, "e": 0x05, "i": 0x09, "j": 0x0A, "k": 0x0B, "l": 0x0C, "n": 0x0E, "o": 0x0F, "p": 0x10, "r": 0xBA, "v": 0x16, "z": 0x1A}
-_HERE = os.path.dirname(os.path.abspath(__file__))
-# the registers the base drives: beside this file in the SDK package (tools/basereg.def, tools/sdk_pack.sh), else the repository's coreapp/src/basereg.def
-BASEREG_FILE = next((p for p in (os.path.join(_HERE, "basereg.def"), os.path.join(_HERE, "..", "coreapp", "src", "basereg.def")) if os.path.exists(p)),
-                    os.path.join(_HERE, "..", "coreapp", "src", "basereg.def"))
-_BASEREG = []
-
-
-def base_registers():
-    """The registers the base drives itself: [(name, address, bytes, code reference)], read from basereg.def (BASEREG_FILE; the table descrec.cc includes)."""
-    if not _BASEREG:
-        try:
-            with open(BASEREG_FILE) as f:
-                lines = f.read().splitlines()
-        except OSError as e:
-            raise DescError("the list of the registers the base drives (basereg.def) is neither beside descrec.py nor at %s: %s" % (BASEREG_FILE, e.strerror))
-        for line in lines:
-            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
-            if m:
-                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3), 0), m.group(4)))
-        if not _BASEREG:
-            raise DescError("%s: no register of the base is listed" % BASEREG_FILE)
-    return list(_BASEREG)
-
-
-# The address spaces of a [[window]] row: the firmware's (Gideon's defaults of iomap.h IOBASE 0x04000000 with 16 MiB, of u2p.h U2P_IO_BASE 0xA0000000 with 1 MiB) and the board's
-# (drvtab.h; coreapp/gateware/shared.toml iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends an address with bit 28 to the 24 bit I/O bus as addr[23:0] and ignores bits 31..29 and 27..24, so the
-# board's I/O span is [0x10000000, 0x11000000) and a window lies wholly inside it. coreapp/src/descrec.cc does the same.
-FW_SPANS = ((0xA0000000, 0x00100000, 0x10100000), (0x04000000, 0x01000000, 0x10000000))
-
-
-def fw_to_board(address, size):
-    """A [[window]] address of the firmware's space as the board's; any other address stays. None when the block starts in a span of the firmware and ends beyond it."""
-    for base, span, to in FW_SPANS:
-        if base <= address < base + span:
-            return address - base + to if address + size <= base + span else None
-    return address
-
-
-IO_SPAN = (0x10000000, 0x11000000)
-
-
-def window_board(address, size):
-    """The board's address of a [[window]] block, or None when the block (after the translation of fw_to_board) is not wholly inside the board's I/O span."""
-    a = fw_to_board(address, size)
-    if a is None or a < IO_SPAN[0] or a + size > IO_SPAN[1]:
-        return None
-    return a
-
-
-def window_conflict(address, size):
-    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none.
-    The block (the firmware's or the board's address) and the registers (basereg.def, the firmware's) are compared in the board's space."""
-    a = fw_to_board(address, size)
-    a = address if a is None else a
-    for reg in base_registers():
-        r = fw_to_board(reg[1], reg[2])
-        if a < r + reg[2] and r < a + size:
-            return reg
-    return None
-
 
 def _key_code(name, what):
     if not isinstance(name, str) or not name:
@@ -1727,17 +1748,113 @@ def _sec_keys(rows, st):
     return b"".join(out)
 
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# The TOML A the app is linked with decides which blocks a window may not cover (T239.3 D30 point 1, V-3b): its blocks with owner "base". The shared app and the host app are
+# linked with coreapp/gateware/host.toml (beside this file in the repository, in gateware/ of the SDK package); an app linked for another design names its TOML A with
+# `use_base_toml_a` (the option --toml-a of descrec.py, cor_pack.py and app_build.py). The app has the same list as a table generated at build time (`basetab`).
+HOST_TOML_A = next((q for q in (os.path.join(_HERE, "..", "coreapp", "gateware", "host.toml"), os.path.join(_HERE, "..", "gateware", "host.toml")) if os.path.exists(q)),
+                   os.path.join(_HERE, "..", "coreapp", "gateware", "host.toml"))
+_BASE_BLOCKS = {"path": None, "rows": None, "io": None}
+# The address space a [[window]] row is written in (T239.3 V-3c): the firmware's of the hand-over contract, in Gideon's defaults of iomap.h (IOBASE 0x04000000, the I/O bus's 24 bit
+# address space) and u2p.h (U2P_IO_BASE 0xA0000000, 1 MiB of U2P registers). The readers translate such a row into the address space of the TOML A the app is linked with by that
+# TOML A's [io] bases before the check against its base blocks; an address outside both spans is already an address of the TOML A and stays.
+FW_IOBASE, FW_IOBASE_SPAN = 0x04000000, 0x01000000
+FW_U2P_IO_BASE, FW_U2P_IO_SPAN = 0xA0000000, 0x00100000
+
+
+def base_blocks_of(text, what="TOML A"):
+    """The blocks of a TOML A source whose owner is the base, as [(name, address, size)] in the file's order; the source is read as written (no map is needed for it)."""
+    rows = toml_loads(text).get("block")
+    if not isinstance(rows, list):
+        raise DescError("%s: no [[block]] table" % what)
+    out = []
+    for i, b in enumerate(rows):
+        if not isinstance(b, dict) or not isinstance(b.get("name"), str) or isinstance(b.get("address"), bool) or not isinstance(b.get("address"), int) \
+                or isinstance(b.get("size"), bool) or not isinstance(b.get("size"), int) or b.get("owner") not in ("base", "core"):
+            raise DescError("%s: block %d has no name, address, size or owner" % (what, i + 1))
+        if b["owner"] == "base":
+            out.append((b["name"], b["address"], b["size"]))
+    return out
+
+
+def io_bases_of(text, what="TOML A"):
+    """(iobase, u2p_io_base) of a TOML A source's [io]."""
+    io = toml_loads(text).get("io")
+    if not isinstance(io, dict) or any(isinstance(io.get(k), bool) or not isinstance(io.get(k), int) for k in IO_KEYS):
+        raise DescError("%s: [io] has no iobase and u2p_io_base" % what)
+    return io["iobase"], io["u2p_io_base"]
+
+
+def window_to_toml_a(address, size, io, what="window"):
+    """A [[window]] address of the firmware's space as an address of the TOML A with the bases io = (iobase, u2p_io_base); any other address is returned as it is."""
+    for base, span, new in ((FW_U2P_IO_BASE, FW_U2P_IO_SPAN, io[1]), (FW_IOBASE, FW_IOBASE_SPAN, io[0])):
+        if base <= address < base + span:
+            if address + size > base + span:
+                raise DescError("%s: the block ends beyond the 0x%X bytes of the firmware's I/O space at 0x%08X" % (what, span, base))
+            return address - base + new
+    return address
+
+
+IO_SPAN = 0x01000000
+
+
+def in_io_span(address, size, io):
+    """Whether [address, address + size) lies wholly in the I/O span [iobase, iobase + 16 MiB) of the TOML A (io = its (iobase, u2p_io_base)); the host's bus converter sends only that to the I/O bus."""
+    return size >= 1 and io[0] <= address and address + size <= io[0] + IO_SPAN
+
+
+def use_base_toml_a(path):
+    """The TOML A the app is linked with: from now on a window that covers a block of its base is refused."""
+    try:
+        with open(path) as f:
+            text = f.read()
+        rows, io = base_blocks_of(text, path), io_bases_of(text, path)
+    except OSError as e:
+        raise DescError("the TOML A %s cannot be read: %s" % (path, e.strerror))
+    _BASE_BLOCKS["path"], _BASE_BLOCKS["rows"], _BASE_BLOCKS["io"] = path, rows, io
+
+
+def base_block_hit(address, size):
+    """The first base block that [address, address + size) covers a byte of, as (name, address, size); None when it covers none."""
+    if _BASE_BLOCKS["rows"] is None:
+        use_base_toml_a(HOST_TOML_A)
+    for blk in _BASE_BLOCKS["rows"]:
+        if address < blk[1] + blk[2] and blk[1] < address + size:
+            return blk
+    return None
+
+
+def write_if_changed(fn, txt):
+    """Writes the file only when its content differs (make rebuilds nothing for an unchanged table), through a rename, so a reader never sees half a file."""
+    if os.path.exists(fn) and open(fn).read() == txt:
+        return
+    tmp = "%s.%d.tmp" % (fn, os.getpid())
+    with open(tmp, "w") as f:
+        f.write(txt)
+    os.replace(tmp, fn)
+
+
+def basetab_text(rows, source, io):
+    """The table of the base blocks as the app takes it (coreapp/src/descrec.cc includes it): BASE_IO(iobase, u2p_io_base) of the TOML A's [io], then one BASE_BLOCK(name, address, size) per line."""
+    return "".join(["/* generated by tools/descrec.py basetab from %s; do not edit */\n" % source, "BASE_IO(0x%08Xu, 0x%08Xu)\n" % io] +
+                   ["BASE_BLOCK(%s, 0x%08Xu, 0x%Xu)\n" % r for r in rows])
+
+
 def _window_check(name, address, size, what):
     if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,31}", name):
         raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
     if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
         raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
-    if window_board(address, size) is None:
-        raise DescError("%s (%s): is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF (the firmware's U2P 0xA0000000 + 1 MiB or I/O 0x04000000 + 16 MiB translate into it)" % (what, name))
-    reg = window_conflict(address, size)
-    if reg:
-        raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"
-                        % (what, name, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
+    if _BASE_BLOCKS["rows"] is None:
+        use_base_toml_a(HOST_TOML_A)
+    address = window_to_toml_a(address, size, _BASE_BLOCKS["io"], "%s (%s)" % (what, name))
+    if not in_io_span(address, size, _BASE_BLOCKS["io"]):
+        raise DescError("%s (%s): is not wholly inside the I/O span 0x%08X .. 0x%08X of %s"
+                        % (what, name, _BASE_BLOCKS["io"][0], _BASE_BLOCKS["io"][0] + IO_SPAN - 1, os.path.basename(_BASE_BLOCKS["path"])))
+    blk = base_block_hit(address, size)
+    if blk:
+        raise DescError("%s (%s): covers the block %s of the base (0x%08X, %d byte%s) of %s; the window may not take a byte of it"
+                        % (what, name, blk[0], blk[1], blk[2], "" if blk[2] == 1 else "s", os.path.basename(_BASE_BLOCKS["path"])))
 
 
 def _sec_windows(rows, st):
@@ -1769,8 +1886,7 @@ def _sec_windows(rows, st):
 #                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source: cor_pack
 #                                   writes the AXSS word of the bitstream into the record (stamp_build, P1-4), and the service compares id and build with the block at start
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
-#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap; a block of the core lies wholly inside the board's I/O span [0x10000000, 0x11000000) after the translation, and covers no
-#                                   entry of basereg.def, which are whole base blocks, not only registers). A module whose registers serve several drivers is several blocks, one per register range (D34).
+#                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap, so a block of the core covers no byte of a block of the base). A module whose registers serve several drivers is several blocks, one per register range (D34).
 #     [[block.property]]            the map: name (once per block), offset (bytes from the block, the register lies inside it), width (8, 16 or 32 bits), dir ("r", "w"
 #                                   or "rw"; two properties share bytes only when no direction is in both), count (optional, 1 .. PROP_COUNT_MAX, default 1: a run of `count` registers
 #                                   of this width, element i at offset + i * stride), stride (optional, only with a count above 1: the bytes from one element to the next, the
@@ -1919,12 +2035,6 @@ def _sec_blocks(blocks, st):
         address, size = _u32(b, "address", what), _need(b, "size", int, what)
         if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
             raise DescError("%s: size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, WINDOW_SIZE_MAX))
-        if owner == "core":
-            if window_board(address, size) is None:
-                raise DescError("%s: a block of the core is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF" % what)
-            reg = window_conflict(address, size)
-            if reg:
-                raise DescError("%s: a block of the core covers %s (0x%08X, %d byte%s), a register the base drives itself (%s)" % (what, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
         for n2, a2, s2 in spans:
             if address < a2 + s2 and a2 < address + size:
                 raise DescError("%s: overlaps the block %s" % (what, n2))
@@ -2012,11 +2122,11 @@ def _sec_ident(ident, names, blocks, st):
     if bname not in names:
         raise DescError("identity: block %r is no block of this record" % bname)
     blk = blocks[names.index(bname)]
-    if blk["owner"] != "base":
-        raise DescError("identity: the block %s is owned by the core; the standard block belongs to the base" % bname)
-    for pn in IDENT_PROPS:
-        if not any(p["name"] == pn and "r" in p["dir"] for p in blk.get("property", [])):
-            raise DescError("identity: the block %s has no readable property %r" % (bname, pn))
+    if blk["owner"] == "base":
+        for pn in IDENT_PROPS:
+            if not any(p["name"] == pn and "r" in p["dir"] for p in blk.get("property", [])):
+                raise DescError("identity: the block %s has no readable property %r" % (bname, pn))
+    # T239.3 D39: the host's TOML A names core_trx_io, a block of layer 2 (owner core), as its identity: its registers are the running core's contract and are read from that core's record, not here
     build = _u32(ident, "build", "identity") if "build" in ident else 0
     return struct.pack("<4I", st.add(cid), 1 if "build" in ident else 0, build, st.add(bname))
 
@@ -3320,8 +3430,40 @@ def ldfrag(text, maps=None, what="TOML A"):
     """The linker-script fragment of a TOML A source (T239.3 P1-2): `__iobase` and `__u2p_io_base` from [io], `__blk_<block>` (the address) and
     `__reg_<block>_<property>` (the address plus the offset) for every block and property. The headers take the two bases from these symbols and a driver takes
     its registers from them, so no address is a literal in the code. [io] and [[block]] are checked as in a record; [identity] is checked when there is one
-    (the fixed fragment of the shared app has none)."""
-    doc = resolve_maps(toml_loads(text), maps)
+    (a fragment of two bases and a few blocks needs none)."""
+    return ldfrag_doc(resolve_maps(toml_loads(text), maps), what)
+
+
+def merge_toml_a(core, base, names, what="TOML A"):
+    """The TOML A an app is linked against when the core's own TOML A (`core`, a parsed document) names the blocks of its own gateware only (T239.3 V-4, D30): the base's blocks
+    that the app's TOML B asks for by name (`names`, [app] base_blocks) come from `base` (the base's TOML A: [app] base_toml_a, gateware/shared.toml by default), the core's own blocks and its identity are the core's.
+    Refused: a name `base` does not have, a name the core's file has too, two different [io] tables. Nothing else of `base` is in the result, so the driver table, the linker
+    fragment and the link hold the blocks the two files name and no others. The overlap rule of a record (compile_desc) applies to the result."""
+    for doc, n in ((core, "the core's TOML A"), (base, "the base's TOML A")):
+        extra = set(doc) - set(TOMLA_KEYS)
+        if extra:
+            raise DescError("%s: %s: %s is not a table of TOML A" % (what, n, ", ".join(sorted(extra))))
+    if core.get("io") != base.get("io"):
+        raise DescError("%s: the [io] of the core's TOML A (%s) is not the base's (%s)" % (what, core.get("io"), base.get("io")))
+    have = {b["name"]: b for b in base.get("block", [])}
+    own = {b["name"] for b in core.get("block", [])}
+    blocks = []
+    for n in names:
+        if n not in have:
+            raise DescError("%s: base_blocks names %s, which the base's TOML A does not have (it has: %s)" % (what, n, ", ".join(sorted(have))))
+        if n in own:
+            raise DescError("%s: base_blocks names %s, which the core's TOML A has too" % (what, n))
+        if any(b["name"] == n for b in blocks):
+            raise DescError("%s: base_blocks names %s twice" % (what, n))
+        blocks.append(have[n])
+    out = {"io": core["io"], "block": blocks + list(core.get("block", []))}
+    if "identity" in core:
+        out["identity"] = core["identity"]
+    return out
+
+
+def ldfrag_doc(doc, what="TOML A"):
+    """ldfrag of a document that has been read and had its maps resolved."""
     extra = set(doc) - set(TOMLA_KEYS)
     if extra:
         raise DescError("%s: %s is not a table of TOML A" % (what, ", ".join(sorted(extra))))
@@ -3366,7 +3508,7 @@ def compile_files(files, ops_text=None, maps=None):
     docs = []
     for name, text in files:
         try:
-            docs.append((name, toml_loads(text)))
+            docs.append((name, resolve_toml_a_refs(toml_loads(text), name)))
         except DescError as e:
             raise DescError("%s: %s" % (name, e))
     doc = merge_docs(docs) if len(docs) > 1 else docs[0][1]
@@ -3379,9 +3521,9 @@ def compile_files(files, ops_text=None, maps=None):
     return blob
 
 
-def compile_checked(text, ops_text=None, *, what="description", maps=None, app_base=False):
+def compile_checked(text, ops_text=None, *, what="description", maps=None, path=None, app_base=False):
     """compile_text, and - given the application's export - check every name and binding of the result against it. `app_base`: the SDK's base UI TOML (compile_desc)."""
-    blob = compile_desc(resolve_maps(toml_loads(text), maps), app_base=app_base)
+    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path), maps), app_base=app_base)
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
@@ -3495,11 +3637,20 @@ if __name__ == "__main__":
         except (DescError, OSError) as e:
             sys.exit("descrec: %s: %s" % (argv[i + 1], e))
         del argv[i:i + 2]
+    if "--toml-a" in argv:                                  # the TOML A the app is linked with: a window may not cover a block of its base (default coreapp/gateware/host.toml)
+        i = argv.index("--toml-a")
+        if i + 1 >= len(argv):
+            sys.exit("descrec.py: --toml-a needs the TOML A file")
+        try:
+            use_base_toml_a(argv[i + 1])
+        except DescError as e:
+            sys.exit("descrec: %s" % e)
+        del argv[i:i + 2]
     map_paths = []
     while "--maps" in argv:
         i = argv.index("--maps")
         if i + 1 >= len(argv):
-            sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] [--sizes TOML_B] | descrec.py dump record.bin [--sizes TOML_B] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
+            sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] [--sizes TOML_B] | descrec.py dump record.bin [--sizes TOML_B] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...] | descrec.py basetab toml_a.toml OUT_DIR | descrec.py hostio toml_a.toml OUT_DIR   (compile and dump: [--toml-a FILE])")
         map_paths.append(argv[i + 1])
         del argv[i:i + 2]
     if len(argv) == 3 and argv[0] == "drivers":
@@ -3514,11 +3665,35 @@ if __name__ == "__main__":
             if not os.path.exists(fn) or open(fn).read() != txt:
                 open(fn, "w").write(txt)
         sys.exit(0)
+    if len(argv) == 3 and argv[0] == "basetab":              # the base blocks of a TOML A as the table the app is built with (descrec.cc includes basetab.h)
+        try:
+            src = open(argv[1]).read()
+            txt = basetab_text(base_blocks_of(src, argv[1]), os.path.basename(argv[1]), io_bases_of(src, argv[1]))
+        except (DescError, OSError) as e:
+            sys.exit("descrec: %s: %s" % (argv[1], e))
+        os.makedirs(argv[2], exist_ok=True)
+        fn = os.path.join(argv[2], "basetab.h")              # written only when changed, so make does not rebuild what depends on it
+        write_if_changed(fn, txt)
+        sys.exit(0)
+    if len(argv) == 3 and argv[0] == "hostio":               # a build on a host machine: the two bases ldfrag writes for the board's build, as the header iomap.h and u2p.h include
+        try:
+            io = toml_loads(open(argv[1]).read()).get("io")
+            if not isinstance(io, dict):
+                raise DescError("no [io] table")
+            _sec_io(io)                                       # the checks of ldfrag and of the record
+        except (DescError, OSError) as e:
+            sys.exit("descrec: %s: %s" % (argv[1], e))
+        txt = ("/* generated by tools/descrec.py hostio from %s; do not edit */\n#ifndef IOBASE\n#define IOBASE 0x%08Xu\n#endif\n#ifndef U2P_IO_BASE\n#define U2P_IO_BASE 0x%08Xu\n#endif\n"
+               % (os.path.basename(argv[1]), io["iobase"], io["u2p_io_base"]))
+        os.makedirs(argv[2], exist_ok=True)
+        fn = os.path.join(argv[2], "hostio.h")
+        write_if_changed(fn, txt)
+        sys.exit(0)
     if len(argv) not in (2, 3) or argv[0] not in ("compile", "dump", "ldfrag") or (argv[0] == "compile" and ops_file is None and "--ops" in sys.argv):
         sys.exit("descrec.py compile desc.toml out.bin [--ops ops.txt] [--maps DIR_OR_FILE ...] [--sizes TOML_B] | descrec.py dump record.bin [--sizes TOML_B] | descrec.py ldfrag toml_a.toml out.ld [--maps DIR_OR_FILE ...] | descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]")
     try:
         if argv[0] == "compile":
-            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths))
+            blob = compile_checked(open(argv[1]).read(), open(ops_file).read() if ops_file else None, what=argv[1], maps=load_maps(map_paths), path=argv[1])
             open(argv[2] if len(argv) > 2 else argv[1] + ".bin", "wb").write(blob)
         elif argv[0] == "ldfrag":
             if len(argv) != 3:

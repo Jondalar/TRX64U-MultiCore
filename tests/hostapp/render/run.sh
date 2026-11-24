@@ -4,6 +4,7 @@
 set -euo pipefail
 R="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$R/../../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 ULT="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}"   # ULTIMATE_SW points at another copy
 L="$ULT/lvgl"

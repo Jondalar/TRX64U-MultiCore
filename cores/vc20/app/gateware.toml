@@ -1,0 +1,366 @@
+# TOML A of the VIC-20 core (T239.3 D30, D34, D35, plan step V-2): the gateware's registers as capabilities, written from what vc20_regs.vhd decodes
+# (tools/rtl_check.py proves it against the RTL, code to code; tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19).
+# The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register
+# offset of the core's own app is the address minus 0x101A0000. The ident block is where the standard block of the core window sits (descrec
+# demands the base as the owner of the standard block). Page 6 (0x101A6000) is decoded by vc20_regs and forwarded to the host's pixel layer. The
+# 1541 block (0x10020000) belongs to the partial's drive_l2 and reaches it over drv_io_* (cores/vc20/layer2_vc20.v holds them one register stage; rtl_check reads the stage, the whole
+# address is on the port: --bus layer2_vc20:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata --window 0x10020000:0x4000:full). It has the registers that
+# drive_l2 decodes: no side (drive_registers.vhd reads the port `side`, which c1541_drive leaves at 0), no drivetype (g_multi_mode is false), and no WD177x: that is the block drive_wd of the
+# bitstreams that have it, so this app does not link it. The GCR coder window (0x10060500, gcr_io_*) is not described yet (gcr_codec.vhd: a VHDL for-generate with ascending ranges, rtl_check
+# does not follow it).
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "VC20"
+block = "ident"
+
+# 000-00B: the ID "VC20" (byte 0 first), the caps bytes and the build word, which the partial answers from the host's USR_ACCESS (layer2_vc20.v .build(usr_access))
+[[block]]
+name = "ident"
+module = "vc20_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x10
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x05
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears)
+[[block]]
+name = "irq"
+module = "vc20_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x08
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "ddr_cal"
+module = "vc20_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x08
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x04
+  width = 32
+  dir = "r"
+
+# 0A0-0AF: the machine. ram_ext and ram_ro have the bits 0 3K at $0400, 1 8K at $2000, 2 8K at $4000, 3 8K at $6000, 4 8K at $A000 (vic20.vhd ramex0 .. ramex4)
+[[block]]
+name = "machine"
+module = "vc20_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x10
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "ram_ext"
+  offset = 0x01
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "ram_0400"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "ram_2000"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "ram_4000"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "ram_6000"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "ram_a000"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "ram_ro"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "ro_0400"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "ro_2000"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "ro_4000"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "ro_6000"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "ro_a000"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "status"
+  offset = 0x04
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x08
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpu_addr"
+  offset = 0x0C
+  width = 16
+  dir = "r"
+
+# 0B0 TAPE_PIN: bit 0 MOTOR and bit 1 WRITE are driven, bit 4 makes READ and SENSE the machine's inputs (reset 0: every pin released; layer2_vc20.v, vc20_core.vhd)
+[[block]]
+name = "tape"
+module = "vc20_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x01
+  [[block.property]]
+  name = "tape_pin"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "motor"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "write"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "read_sense"
+    shift = 4
+    bits = 1
+
+# 0C0-0CB: the picture's frame buffers. fb_base and fb_stride have the reset values of base_r and stride_r in vc20_regs.vhd
+[[block]]
+name = "video"
+module = "vc20_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0x0C
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x02
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x04
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x08
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0x10020000: the 1541 drive A of the partial (drive_l2.vhd behind drv_io_*): the registers of the shipped map cbm1541 that this RTL has, and the two runs of the parameter RAM (2 KB, 11 address bits:
+# per half track two words, the DDR2 address of the track and its length - 1 | bit time << 16, 128 half tracks per side, side 1 at +0x400, so the words interleave: the stride 8)
+[[block]]
+name = "drive_a"
+module = "drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "dark"
+    value = 0
+    [[block.property.state]]
+    name = "light"
+    value = 1
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "no"
+    value = 0
+    [[block.property.state]]
+    name = "yes"
+    value = 1
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "motor"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "writing"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "writebusy"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  count = 128
+  dir = "rw"
+    [[block.property.field]]
+    name = "any"
+    shift = 7
+    bits = 1
+    [[block.property.field]]
+    name = "this"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "param_addr"
+  offset = 0x1000
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+  [[block.property]]
+  name = "param_len"
+  offset = 0x1004
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "length_m1"
+    shift = 0
+    bits = 16
+    [[block.property.field]]
+    name = "bit_time"
+    shift = 16
+    bits = 16

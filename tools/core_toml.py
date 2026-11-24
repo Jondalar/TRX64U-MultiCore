@@ -13,7 +13,8 @@ what ci/lib.sh hashes into that core's keys.
   (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
-  tools/core_toml.py sdk <name> <key>     one value of cores/<name>/app/sdk.toml (T239.3 D25)
+  tools/core_toml.py list-own-app         the cores whose TOML B names a descriptor symbol ([app] desc): their app is linked from the SDK package (T239.3 V-5)
+  tools/core_toml.py sdk <name> <key>     one value of the [app] table of cores/<name>/app/sdk.toml (T239.3 D25, V-4)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
 
@@ -83,11 +84,13 @@ SCHEMA = {
     # least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image fits with it is the packer's check.
     "heap":         ("int",  False),
 }
-# T239.3 D25: cores/<id>/app/sdk.toml, the switches of a core on its way onto the SDK. It lies in the core's app part (cores/*/app/** is no part of a bitstream key), not in
-# core.toml (cores/<id> is). desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
+# T239.3 D25, V-4: cores/<id>/app/sdk.toml, the TOML B of a core's app (tools/libtab.py, tools/app_build.py read the tables [[library]] and [sizes]) and, in its [app] table, the switches of
+# a core on its way onto the SDK. It lies in the core's app part (cores/*/app/** is no part of a bitstream key), not in
+# core.toml (cores/<id> is). In [app]: desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
 # (coreapp/src/bundle.cc). Absent file, absent key or false: the file rests in the tree (test_descgen keeps it equal to the C tables), the .cor carries no record and the core runs on
 # its compiled-in descriptor. True needs the file.
-SDK_SCHEMA = {"desc_record": "bool"}
+SDK_SCHEMA = {"desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
+SDK_TABLES = ("app", "library", "sizes")
 HEAP_DEFAULT = 0x7A0000
 HEAP_MIN = 0x10000
 HEAP_MAX = 0xE60000                           # the application region's length (host-app/target/u64ii/riscv/coreapp/linker.x)
@@ -131,6 +134,11 @@ def in_pipeline(table):
     return table.get("pipeline", True) is not False
 
 
+def own_app_cores():
+    """T239.3 V-5 (D25): the cores in the pipeline whose TOML B names a descriptor ([app] desc); their app is linked from the SDK package."""
+    return [n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+
+
 def delivery_of(table):
     return table.get("delivery", "cor")
 
@@ -171,10 +179,19 @@ def table_of(name):
     return dict((n, t) for n, _, t in large_descriptors())[name]
 
 
+def _sdk_doc(p):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import descrec
+    try:
+        return descrec.toml_loads(open(p, encoding="utf-8").read())
+    except descrec.DescError as e:
+        raise SystemExit("%s: %s" % (p, e))
+
+
 def sdk_table(name):
-    """The flat table of cores/<name>/app/sdk.toml ({} when there is none)."""
+    """The [app] table of cores/<name>/app/sdk.toml ({} when there is no file or no table)."""
     p = os.path.join(CORES, name, "app", "sdk.toml")
-    return parse(p) if os.path.isfile(p) else {}
+    return dict(_sdk_doc(p).get("app", {})) if os.path.isfile(p) else {}
 
 
 def check_sdk():
@@ -184,14 +201,20 @@ def check_sdk():
         if not os.path.isfile(p):
             continue
         rel = p.replace(ROOT + "/", "")
-        for key, v in parse(p).items():
-            if key not in SDK_SCHEMA:
-                print("%s: %s is not a field of the format" % (rel, key))
+        doc = _sdk_doc(p)
+        for key in doc:
+            if key not in SDK_TABLES:
+                print("%s: %s is not a table of the format (the tables are %s)" % (rel, key, ", ".join(SDK_TABLES)))
                 bad += 1
-            elif not isinstance(v, bool):
-                print("%s: %s is not a bool" % (rel, key))
+        for key, v in doc.get("app", {}).items():
+            kind = SDK_SCHEMA.get(key)
+            if kind is None:
+                print("%s: %s is not a field of [app]" % (rel, key))
                 bad += 1
-        if parse(p).get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
+            elif {"bool": bool, "str": str, "list": list}[kind] is not type(v):
+                print("%s: %s is not a %s" % (rel, key, kind))
+                bad += 1
+        if doc.get("app", {}).get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
             print("%s: desc_record = true, but cores/%s/app/desc.toml does not exist" % (rel, name))
             bad += 1
     return bad
@@ -284,6 +307,8 @@ def main():
         print("\n".join(names))
     elif a[:1] == ["list-cor"]:
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
+    elif a[:1] == ["list-own-app"]:
+        print("\n".join(own_app_cores()))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:
@@ -291,7 +316,7 @@ def main():
         print("\n".join(t.get("mono_env", [])))
     elif a[:1] == ["sdk"] and len(a) == 3:          # one value of cores/<name>/app/sdk.toml ("" when there is none)
         v = sdk_table(a[1]).get(a[2], "")
-        print("true" if v is True else "false" if v is False else v)
+        print("true" if v is True else "false" if v is False else " ".join(v) if isinstance(v, list) else v)
     elif a[:1] == ["get"] and len(a) == 3:
         t = table_of(a[1])
         v = t.get(a[2], "")

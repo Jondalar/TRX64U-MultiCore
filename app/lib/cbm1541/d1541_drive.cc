@@ -55,7 +55,9 @@ CbmDrive::~CbmDrive()
     create_drop();
     delete gcr_;
     delete bin_;
+#ifdef DRV_HAS_drive_wd
     delete wd_;
+#endif
 }
 
 void CbmDrive::tell(const char *s)
@@ -103,10 +105,12 @@ bool CbmDrive::attach(char *msg, int msglen)
     wd_off_ = wd_off;
     memset(mem_, 0, total);
     gcr_ = new GcrImage(mem_, phys_);
+#ifdef DRV_HAS_drive_wd
     if (multi_) {
         wd_ = new WdController(io_, mem_ + wd_off_, phys_ + wd_off_);
         wd_->init();
     }
+#endif
     clear_params();
     w(DR_SENSOR, SENSOR_LIGHT);
     w(DR_INSERTED, 0);
@@ -294,9 +298,11 @@ void CbmDrive::resync_hw()
     clear_params();
     w(DR_SENSOR, SENSOR_LIGHT);
     w(DR_INSERTED, 0);
+#ifdef DRV_HAS_drive_wd
     if (wd_) {
         wd_->init();
     }
+#endif
     if (state_ == DS_D81) {
         w(DR_SENSOR, protect_ ? SENSOR_DARK : SENSOR_LIGHT);
         w(DR_INSERTED, 1);
@@ -377,9 +383,11 @@ int CbmDrive::set_rom_file(const char *path, char *msg, int msglen)
 // ---- disks ----------------------------------------------------------------------------------------------------------------------
 void CbmDrive::close_file()
 {
+#ifdef DRV_HAS_drive_wd
     if (wd_) {
         wd_->unmount();
     }
+#endif
     if (file_) {
         fs_->close(file_);
         file_ = 0;
@@ -480,7 +488,12 @@ int CbmDrive::mount_d81(CoreFile *f, bool protect, char *msg, int msglen)
         snprintf(msg, msglen, "not a .d81 (%u bytes)", (unsigned)fs_size32(size));
         return 1;
     }
+#ifdef DRV_HAS_drive_wd
     wd_->mount(f, size == D81_BYTES_ERR ? D81_BYTES : size);
+#else
+    snprintf(msg, msglen, "this drive has no WD177x (a .d81 needs the block drive_wd in the TOML A)");
+    return 1;
+#endif
     w(DR_SENSOR, protect ? SENSOR_DARK : SENSOR_LIGHT);
     w(DR_INSERTED, 1);
     w(DR_DISKCHANGE, 1);
@@ -671,6 +684,7 @@ bool CbmDrive::poll()
         return false;
     }
     bool did = false;
+#ifdef DRV_HAS_drive_wd
     if (wd_ && state_ == DS_D81) {
         did = wd_->poll();
         if (wd_->take_write_errors()) {
@@ -681,6 +695,7 @@ bool CbmDrive::poll()
             }
         }
     }
+#endif
     if ((r(DR_DIRTY) & 0x80) || write_skip_) {
         if (state_ == DS_NONE) {
             w(DR_DIRTY, 0x80);

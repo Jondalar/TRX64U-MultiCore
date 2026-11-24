@@ -13,11 +13,12 @@ key = [
   { node = "scope", key = "menu", do = "swallow", when = "tw.on" },
 ]
 
+# audio_mixer and palette stand at addresses that the host's TOML A leaves free: the hand-over's own 0xA0000500 and 0xA0080800 lie over the base blocks audio_mixer and c64_palette of coreapp/gateware/host.toml and the readers refuse them (T239.3 V-3c).
 # the U64 block (0xA0000400) is the base's in part: +0x01 power, +0x02 RESTORE, +0x04 the HDMI PLL reset, +0x06, +0x0A, +0x0B the keyboard scan, +0x0E the case LED select. The runs below are the
 # ones a core may write: +0x05 and +0x08/+0x09 and +0x0D, and the speaker enable of the U2P block (0xA000000C, next to the I2C pins 0xA0000008/9 and the hub reset 0xA000000D).
 [[window]]
 name = "audio_mixer"
-address = 0xA0000500
+address = 0xA0000600
 size = 0x14
 
 [[window]]
@@ -37,7 +38,7 @@ size = 1
 
 [[window]]
 name = "palette"
-address = 0xA0080800
+address = 0xA0080C00
 size = 0x400
 
 [[task]]

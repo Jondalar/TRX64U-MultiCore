@@ -47,7 +47,7 @@ CORES = [
          sources="coreapp/cores/ddt_novic.cc (no ROM list in the descriptor)"),
     dict(id="vc20", match=("vic-20", "vc20"), title="VIC-20", folder="vc20",
          files="`kernal.bin` 8,192, `basic.bin` 8,192, `char.bin` 4,096 bytes", needed="all three",
-         sources="coreapp/cores/vc20.cc (roms[], names and sizes); coreapp/cores/vc20_regs.h"),
+         sources="cores/vc20/app/lib/vc20.cc (roms[], names and sizes); cores/vc20/app/lib/vc20_regs.h"),
     dict(id="c264", match=("commodore 264", "c264", "c16"), title="Commodore 264 (C16, Plus/4)", folder="c16",
          files="`kernal.bin` and `basic.bin` 16,384 each; Plus/4: `3plus1lo.bin`, `3plus1hi.bin` 16,384 each",
          needed="Kernal and Basic; the two function ROMs for the Plus/4",

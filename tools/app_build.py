@@ -6,18 +6,21 @@
   app_build.py table                                       the [sizes] keys: macro, header, default, range (the defaults are read from the headers)
   app_build.py record TOML_B RECORD.bin                    the core's menu record against the [sizes] table of its TOML B (the numbers the compiled app refuses at start)
   app_build.py sized INCDIRS SOURCE...                     the sources among SOURCE that depend on the core: their include closure holds a header whose layout the TOML A
-                                                           or the TOML B decides (ops.h, descrec.h, contrib.h, corereport.h, drvtab.h). INCDIRS: a file of
+                                                           or the TOML B decides (ops.h, descrec.h, contrib.h, corereport.h, drvtab.h, basetab.h). INCDIRS: a file of
                                                            directories, one per line (the include path of the build). tools/sdk_pack.sh ships these as sources, the rest as an archive
   app_build.py split INCDIRS OUT_DIR SOURCE...             the same, written to OUT_DIR/sized.real and OUT_DIR/unsized.real (real paths); the Makefile's target sdkbase calls it. The headers of a
                                                            source are the ones its compile listed (the .d file in the directory above OUT_DIR, which the conditions of the preprocessor decided);
                                                            a source with none is read as text
   app_build.py pack-base BASE_DIR PKG_DIR SHARED_TOML_B   what tools/sdk_pack.sh takes from the build's `make sdkbase` directory into the package (base/, lib/)
   app_build.py flags MAKEFILE APPFLAGS                     every -D of the core app Makefile's OPTIONS is in app/lib/appflags.mk (the package compiles with that file)
-  app_build.py build --sdk DIR --toml-a A.toml --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--maps DIR_OR_FILE ...] [--dry-run]
-                                                           generates appsizes.h, the driver table (drvtab.h/.c), the library table (libtab_table.cc), the I/O linker fragment and
-                                                           checks the record; then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
+  app_build.py build --sdk DIR --toml-a A.toml [--base-toml-a BASE.toml] --toml-b B.toml --out DIR [--record REC.bin] [--src DIR ...] [--maps DIR_OR_FILE ...] [--dry-run]
+                                                           generates appsizes.h, the driver table (drvtab.h/.c), the table of the base blocks (basetab.h), the library table (libtab_table.cc), the I/O linker fragment and
+                                                           checks the record (a window may not cover a block of the base of the TOML A); then (not --dry-run) links the app with mk/appbuild.mk of the package: the base archives, the sources
                                                            that depend on the core, the libraries of the TOML B. --maps adds the register maps of the core's own blocks to the package's maps/.
                                                            [app] desc names the descriptor symbol of a core compiled into the app; a core described by its record (D17) has none
+                                                           A TOML B whose [app] has `base_blocks = [names]` links the core's TOML A with those blocks of the base's TOML A
+                                                           (--base-toml-a, default the package's gateware/<[app] base_toml_a>, which is shared.toml when the key is absent;
+                                                           the VIC-20's is host.toml: it runs on the host bitstream); out/blocks.txt lists the blocks
 
 The [sizes] table of a TOML B (every key is optional; a key that is not there keeps the default of the header). The registry, the contributions and the report are sized per core;
 a core that needs more registry than the shared app has says so here and pays for it in its own image only. A number outside its range, or a number its neighbours cannot hold, is refused."""
@@ -30,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import descrec  # noqa: E402
 
+IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 COUNT = (1, 65535)
 BYTES = (256, 1 << 22)
 # key -> (macro, header, (lowest, highest), what it is)
@@ -65,7 +69,7 @@ SIZES = {
     "overlay_text": ("OVL_TEXT_MAX", "overlay.h", (1, 256), "text calls of the overlay service that wait for the next frame (T256 D10)"),
 }
 # the headers whose contents decide an object's layout or code: an object that includes one of them, directly or not, is compiled for the core
-SIZING_HEADERS = ("ops.h", "descrec.h", "contrib.h", "corereport.h", "drvtab.h", "overlay.h")        # appsizes.h is -include of every object, so it says nothing
+SIZING_HEADERS = ("ops.h", "descrec.h", "contrib.h", "corereport.h", "drvtab.h", "basetab.h", "overlay.h")        # appsizes.h is -include of every object, so it says nothing
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]+(["<])([^">]+)[">]', re.M)
 
 
@@ -300,11 +304,24 @@ def cmd_build(a):
     mapargs = [x for m in maps for x in ("--maps", m)]
     os.makedirs(out, exist_ok=True)
     named = cmd_sizes(a["toml-b"], out, incs)
+    py = [sys.executable, "-I"]
+    app = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {})
+    base_blocks = app.get("base_blocks", [])
+    if not isinstance(base_blocks, list) or not all(isinstance(x, str) and IDENT.match(x) for x in base_blocks):
+        raise BuildError("%s: [app] base_blocks is a list of block names of the base's TOML A" % a["toml-b"])
+    if base_blocks:
+        merge_a(a, base_blocks, maps, out)
+    else:
+        run(py + [os.path.join(tools, "descrec.py"), "basetab", a["toml-a"], os.path.join(out, "drv")])
+        run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv")] + mapargs)
+        run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld")] + mapargs)
+    if not base_blocks:
+        try:
+            descrec.use_base_toml_a(a["toml-a"])                   # a window of the record may not cover a block of the base of this TOML A (D30 point 1)
+        except descrec.DescError as e:
+            raise BuildError(str(e))
     if a.get("record"):
         cmd_record(a["toml-b"], a["record"], incs)
-    py = [sys.executable, "-I"]
-    run(py + [os.path.join(tools, "descrec.py"), "drivers", a["toml-a"], os.path.join(out, "drv")] + mapargs)
-    run(py + [os.path.join(tools, "descrec.py"), "ldfrag", a["toml-a"], os.path.join(out, "io.ld")] + mapargs)
     run(py + [os.path.join(tools, "libtab.py"), "table", a["toml-b"], os.path.join(out, "lib")])
     libsrcs = run(py + [os.path.join(tools, "libtab.py"), "sources", a["toml-b"]]).split()
     srcdirs = [os.path.abspath(d) for d in a.get("src", [])]
@@ -312,7 +329,6 @@ def cmd_build(a):
         if not find_source(sdk, srcdirs, f):
             raise BuildError("the source %s of a library of %s is in the package's base/ and in none of %s" % (f, a["toml-b"], ", ".join(srcdirs) or "(no --src)"))
     sized_list = open(os.path.join(sdk, "base", "SIZED.txt")).read().split()
-    app = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {})
     desc = app.get("desc", "")
     if desc and not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", str(desc)):
         raise BuildError("%s: [app] desc is the name of the core's descriptor symbol" % a["toml-b"])
@@ -340,6 +356,35 @@ def cmd_build(a):
     r = subprocess.run(cmd)
     if r.returncode != 0:
         raise BuildError("the link of the app failed")
+
+
+def merge_a(a, base_blocks, maps, out):
+    """The app's TOML A is the core's own (--toml-a) with the blocks of the base's TOML A that [app] base_blocks names (descrec.merge_toml_a); the base's is --base-toml-a, the
+    package's gateware/<[app] base_toml_a> (shared.toml by default) when none is given. The driver table and the I/O fragment are made of that one document, as `descrec.py drivers` and `ldfrag` do for a file."""
+    named = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {}).get("base_toml_a", "shared.toml")
+    if not isinstance(named, str) or not re.match(r"^[A-Za-z0-9_]+\.toml$", named):
+        raise BuildError("%s: [app] base_toml_a is the file name of a TOML A in the package's gateware/" % a["toml-b"])
+    base = a.get("base-toml-a") or os.path.join(a["sdk"], "gateware", named)
+    try:
+        doc = descrec.merge_toml_a(descrec.toml_loads(open(a["toml-a"]).read()), descrec.toml_loads(open(base).read()), base_blocks, a["toml-b"])
+        doc = descrec.resolve_maps(doc, descrec.load_maps(maps))
+        what = "%s + %s of %s" % (os.path.basename(a["toml-a"]), ", ".join(base_blocks), os.path.basename(base))
+        head, src = descrec.drivers_files(doc, what)
+        frag = descrec.ldfrag_doc(doc, what)
+        io = (doc["io"]["iobase"], doc["io"]["u2p_io_base"])
+    except (KeyError, TypeError) as e:
+        raise BuildError("%s: the TOML A of the app has no [io] with %s" % (a["toml-a"], e))
+    except (descrec.DescError, OSError) as e:
+        raise BuildError("%s: the TOML A of the app: %s" % (a["toml-b"], e))
+    os.makedirs(os.path.join(out, "drv"), exist_ok=True)
+    rows = [(b["name"], b["address"], b["size"]) for b in doc["block"] if b.get("owner") == "base"]
+    descrec._BASE_BLOCKS["path"], descrec._BASE_BLOCKS["rows"], descrec._BASE_BLOCKS["io"] = what, rows, io    # the base blocks and bases of this one document decide what a window may cover
+    write_if_changed(os.path.join(out, "drv", "basetab.h"), descrec.basetab_text(rows, what, io))
+    write_if_changed(os.path.join(out, "drv", "drvtab.h"), head)
+    write_if_changed(os.path.join(out, "drv", "drvtab.c"), src)
+    write_if_changed(os.path.join(out, "io.ld"), frag)
+    with open(os.path.join(out, "blocks.txt"), "w") as f:            # what the TOML A names, for the check of the link (libtab.py mapcheck)
+        f.write("".join("%s\n" % b["name"] for b in doc["block"]))
 
 
 def find_source(sdk, srcdirs, name):
@@ -390,7 +435,7 @@ def main(argv):
                 if k == "--dry-run":
                     a["dry-run"] = True
                     i += 1
-                elif k in ("--sdk", "--toml-a", "--toml-b", "--out", "--record", "--src", "--maps") and i + 1 < len(argv):
+                elif k in ("--sdk", "--toml-a", "--base-toml-a", "--toml-b", "--out", "--record", "--src", "--maps") and i + 1 < len(argv):
                     if k in ("--src", "--maps"):
                         a[k[2:]].append(argv[i + 1])
                     else:
@@ -399,6 +444,10 @@ def main(argv):
                 else:
                     break
             else:
+                if "toml-a" not in a and "toml-b" in a and os.path.isfile(a["toml-b"]):         # [app] toml_a of the TOML B, a file beside it
+                    ta = descrec.toml_loads(open(a["toml-b"]).read()).get("app", {}).get("toml_a")
+                    if isinstance(ta, str):
+                        a["toml-a"] = os.path.join(os.path.dirname(os.path.abspath(a["toml-b"])), ta)
                 if all(x in a for x in ("sdk", "toml-a", "toml-b", "out")):
                     cmd_build(a)
                     return 0

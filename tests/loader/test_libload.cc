@@ -5,7 +5,6 @@
 // placement in the arena, the relocation of real bytes (the testlib.u2a that tools/u2a_pack.py made from a real riscv64 link is
 // compared with the same objects linked at the address it lands on), the registration and its rollback. What is not: that the
 // RISC-V code in an image runs, which needs the board or a RISC-V simulator.
-#include "drvtab.h"
 #include <string>
 #include <utility>
 #include <vector>
@@ -2211,43 +2210,46 @@ static void services()
         CHECK_EQ(wrec->nwindows, 4);
         w.ld->set_windows(wrec);
         wsz = 77;
-        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)(DRV_U2P_IO_BASE + 0x500u));    // the record holds the firmware's address; the app hands out the board's (bus converter, bit 28)
+        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0x10100A00u);
         CHECK_EQ(wsz, 0x14u);
         wsz = 77;
-        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)(DRV_U2P_IO_BASE + 0x600u));
+        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0x10100600u);
         CHECK_EQ(wsz, 0x100u);
-        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)(DRV_IOBASE + 0x70040u));              // IOBASE of the firmware: 0x04000000 + 16 MiB; I/O 0x070040 is decoded by no region of host/ultimate_sys.vhd and is in no entry of basereg.def
-        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                      // an address of the board's space stays
-        // the readers refuse a window that starts in a firmware span and leaves it (descrec_parse, tools/descrec.py), so the record is changed by hand here: nothing is granted that is not on the I/O bus
-        DescWindow &hw = wrec->windows[3];
-        const uint32_t keep = hw.address;
-        hw.address = 0xA00FFFF8u;
         wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // a block that leaves the 1 MiB span: null, no pointer into DDR
-        hw.address = 0x00001000u;
+        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)0x10000040u);            // IOBASE of the firmware 0x04000000 + 16 MiB, handed out in the TOML A's space
+        CHECK_EQ(wsz, 0x10u);
         wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bit 28 clear: the bus converter sends it to memory
-        hw.address = 0x1FFFFF00u;
-        hw.size = 0x200;
-        wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bit 28 set at the start, the block runs out of the I/O bus into DDR
-        hw.address = 0x10FFFFF0u;
-        hw.size = 0x20;
-        wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // runs over the end of the 16 MiB span: the converter wraps it onto the ITU
-        hw.address = 0x11100550u;
-        hw.size = 1;
-        wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // bits 27..24 are ignored: an alias of master_volume
-        hw.address = 0x9FFFFFF0u;
-        hw.size = 0x600;
-        wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);                                         // starts below the firmware span, covers its first registers
-        hw.address = keep;
-        hw.size = 0x10;
-        wsz = 77;
-        CHECK(api->io->window("boardwin", &wsz) == (volatile uint8_t *)0x10100900u && wsz == 0x10u);       // the original block is granted again
-        CHECK(DRV_U2P_IO_BASE == 0x10100000u && DRV_IOBASE == 0x10000000u);
+        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                    // an address of the board's space that no base block of host.toml covers stays
+        CHECK_EQ(wsz, 0x10u);
+        // the readers refuse a window that starts in a firmware span and leaves it, so the record is changed by hand here: nothing is handed out that is not on the I/O bus
+        {
+            DescWindow &hw = wrec->windows[3];
+            const uint32_t keep = hw.address;
+            hw.address = 0xA00FFFF8u;                                                                    // a straddling block, kept untranslated
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x04FFFFFFu;
+            hw.size = 2;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x00001000u;                                                                    // bit 28 clear: the bus converter sends it to memory
+            hw.size = 0x10;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x0FFFFFF8u;                                                                    // starts on the bus' side of bit 28 and runs onto it: not entirely on the bus
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x11100550u;                                                                    // an alias of the I/O bus above the 16 MiB span (master_volume): not granted
+            hw.size = 1;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x10FFFFF0u;                                                                    // runs off the end of the span (wraps onto I/O 0 on the bus)
+            hw.size = 0x20;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.size = 0x10;
+            hw.address = keep;
+        }
         wsz = 77;
         CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare
         CHECK(api->io->window(0, &wsz) == 0 && wsz == 0);

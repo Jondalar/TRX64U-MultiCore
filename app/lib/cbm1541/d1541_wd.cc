@@ -1,5 +1,8 @@
 #include "d1541_wd.h"
+#include "drvtab.h"
 #include <string.h>
+
+#ifdef DRV_HAS_drive_wd        // the WD177x is a block of the TOML A; a drive without it does not link this file
 
 #define WD_CMD_RESTORE      0
 #define WD_CMD_SEEK         1
@@ -20,7 +23,7 @@
 #define DRV_SIDE       6
 #define DRV_TRACK      8
 #define DRV_DISKCHANGE 12
-#define WD_BASE        0x1800
+#define WD_BASE        (DRV_drive_wd_ADDR - DRV_drive_a_ADDR)      // the drive window's offset of the block
 
 // ---- the disk's layout --------------------------------------------------------------------------------------------------------
 MfmDisk::MfmDisk()
@@ -432,3 +435,5 @@ int WdController::decode_write_track(const uint8_t *in, uint8_t *out, MfmTrack &
     }
     return 0;
 }
+
+#endif

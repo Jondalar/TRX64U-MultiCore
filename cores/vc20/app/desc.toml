@@ -1,7 +1,10 @@
-# The VIC-20's data description (T239.3 D17): what coreapp/cores/vc20.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The VIC-20's data description (T239.3 D17): what cores/vc20/app/lib/vc20.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the
 # record cannot hold is code, and stays in the core's C++ (T239.3 D17 step 3): init, release, the operations of register_ops, the media write-back
-# and the three functions of the mount slot. Register numbers are cores/vc20/rtl/trx/vc20_regs.vhd (coreapp/cores/vc20_regs.h).
+# and the three functions of the mount slot.
+# The gateware's facts are in the core's TOML A, gateware.toml (T239.3 V-2): a register is written as the name of its property, "block.property", a
+# reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20), and the record is the one the numbers made.
+toml_a = "gateware.toml"
 machine_info = "Memory Expansion"
 
 [restart]
@@ -29,16 +32,16 @@ h = 283
 scale = 3
 x0 = 396
 y0 = 115
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -85,20 +88,20 @@ names = ["jiffydos-1541.bin", "jiffydos1541.bin", "jiffydos_1541.bin", "jiffydos
 sizes = [16384, 32768]
 put_op = "vc20.put_jiffy_rom"
 
-# ---- settings. RAM_EXT bits: 3K at $0400 (b0), 8K blocks at $2000 (b1), $4000 (b2), $6000 (b3), $A000 (b4)
+# ---- settings. The bits of RAM_EXT are the fields of machine.ram_ext in gateware.toml; the values are the combinations the menu offers
 [[core_setting]]
 key = "Memory Expansion (at next reset)"
 label = "Memory Expansion"
 values = ["Unexpanded", "+3K", "+8K", "+16K", "+24K", "+3K +24K", "+3K +24K +8K at $A000"]
 when = "reset"
-reg_bind = { reg = 0x0A1, mask = 0x1F, bytes = [0x00, 0x01, 0x02, 0x06, 0x0E, 0x0F, 0x1F] }
+reg_bind = { reg = "machine.ram_ext", mask = 0x1F, bytes = [0x00, 0x01, 0x02, 0x06, 0x0E, 0x0F, 0x1F] }
 
-# RAM_RO b4: the block at $A000 refuses writes (it only exists with b4 of RAM_EXT)
+# machine.ram_ro, field ro_a000: the block at $A000 refuses writes (it only exists with the field ram_a000 of machine.ram_ext)
 [[core_setting]]
 key = "Block 5 ($A000), when expanded"
 values = ["RAM", "ROM (read only)"]
 when = "reset"
-reg_bind = { reg = 0x0A2, mask = 0x10, bytes = [0x00, 0x10] }
+reg_bind = { reg = "machine.ram_ro", mask = 0x10, bytes = [0x00, 0x10] }
 
 [[core_setting]]
 key = "JiffyDOS"
@@ -106,11 +109,11 @@ values = ["Off", "On"]
 when = "reset"
 apply = "vc20.set_jiffy"
 
-# T214: an external datasette on the C2N port (GitHub #26): TAPE_PIN b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are the machine's inputs. Off releases every pin.
+# T214: an external datasette on the C2N port (GitHub #26): tape.tape_pin, the fields motor and write driven, read_sense the machine's inputs. Off releases every pin.
 [[core_setting]]
 key = "Datasette port"
 values = ["Off (file only)", "External datasette"]
-reg_bind = { reg = 0x0B0, mask = 0x13, bytes = [0x00, 0x13] }
+reg_bind = { reg = "tape.tape_pin", mask = 0x13, bytes = [0x00, 0x13] }
 
 # drive A (cbm1541_desc.h CBM1541_SETTINGS): the names and the defaults are Gideon's (c1541.cc:46-62): drive on, bus ID 8, no extra RAM, 100 ms swap delay
 [[core_setting]]

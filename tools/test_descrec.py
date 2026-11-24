@@ -5,6 +5,7 @@ writes a record that its own reader (and the board's, tests/coreapp/test_descrec
   python3 tools/test_descrec.py        (also collected by python3 -m pytest tools/test_descrec.py)
 """
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -474,13 +475,21 @@ class LibraryMenus(unittest.TestCase):
 VC20 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "vc20", "app", "desc.toml")
 
 
+def vc20_numbers():
+    """cores/vc20/app/desc.toml with every name of its TOML A written out as the number it stands for (T239.3 V-2): the text the other tests of this file change."""
+    import re
+    names = D.toml_a_names(D.toml_loads(open(os.path.join(os.path.dirname(VC20), "gateware.toml")).read()))
+    text = open(VC20).read().replace('toml_a = "gateware.toml"\n', "")
+    text = re.sub(r'\b(reg\w*|fb_base|fb_stride) = "([a-z0-9_.]+)"', lambda m: "%s = %d" % (m.group(1), names[m.group(2)]), text)
+    return re.sub(r'\{ reg = "([a-z0-9_.]+)"', lambda m: "{ reg = %d" % names[m.group(1)], text)
+
+
 class CoreSections(unittest.TestCase):
     """T239.3 D17: the data sections of version 6, from the VIC-20's own description."""
 
     @classmethod
     def setUpClass(cls):
-        with open(VC20) as f:
-            cls.text = f.read()
+        cls.text = vc20_numbers()
         cls.blob = D.compile_text(cls.text)
 
     def test_the_vic20_description_is_a_version_6_record_that_reads_back(self):
@@ -813,7 +822,7 @@ key = [
     WIN = """
 [[window]]
 name = "audio_mixer"
-address = 0xA0000500
+address = 0xA0000600
 size = 0x14
 """
 
@@ -917,98 +926,148 @@ size = 0x14
     def test_a_window_is_written_and_read_back_by_name(self):
         b = D.compile_text(self.WIN + '[[window]]\nname = "u64_userport"\naddress = 0xA0000405\nsize = 1\n')
         r = D.parse_desc(b)
-        self.assertEqual(r["window"], [{"name": "audio_mixer", "address": 0xA0000500, "size": 0x14}, {"name": "u64_userport", "address": 0xA0000405, "size": 1}])
+        self.assertEqual(r["window"], [{"name": "audio_mixer", "address": 0xA0000600, "size": 0x14}, {"name": "u64_userport", "address": 0xA0000405, "size": 1}])
         self.assertFalse(r["sections"])
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
 
-    def test_the_windows_granted_to_trx64u_are_accepted(self):
-        # the four windows TRX64-Ultimate's trx64u desc.toml has since P1-7; speaker_enable, u64_userport, u64_hdmi_connectors and u64_pwm_duty became TOML A blocks
-        text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in (("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 6), ("c64_palette", 0xA0080800, 0x440),
-                                                                                      ("hdmi_palette", 0xA0045000, 0x40)))
-        self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 4)
+    # the nine windows of TRX64-Ultimate's software/trx64u/base/desc.toml (the hand-over's grant list) with its names, addresses (firmware space) and sizes
+    HANDOVER_WINDOWS = (("speaker_enable", 0xA000000C, 0x1), ("u64_userport", 0xA0000405, 0x1), ("u64_hdmi_connectors", 0xA0000408, 0x2), ("u64_pwm_duty", 0xA000040D, 0x1),
+                        ("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 0x6), ("resampler", 0xA0000580, 0xA), ("c64_palette", 0xA0080800, 0x440),
+                        ("hdmi_palette", 0xA0045000, 0x40))
 
-    def test_a_window_over_a_register_the_base_drives_is_refused_by_name_and_reference(self):
-        regs = D.base_registers()
-        self.assertGreaterEqual(len(regs), 30)
-        wanted = {"i2c_scl", "i2c_sda", "mdio_get", "mdio_mdc", "mdio_data", "usb_hub_reset", "hw_i2c", "power", "restore", "hdmi_pll_reset", "keyb_joy", "keyb_col", "keyb_row", "case_led_select",
-                  "ulpi_reset", "hdmi_reg", "ethstream_ena", "matrix_keyb", "master_volume", "master_tone", "hotkey_mask", "bling_rx_flags",
-                  "itu", "sd_spi", "flash_spi", "icap", "ethernet", "wifi_uart", "esp_ctl", "usb"}
-        self.assertEqual({r[0] for r in regs}, wanted)
-        for name, address, nbytes, ref in regs:
-            for i, (a, size) in enumerate(((address, 1), (address + nbytes - 1, 4), (address - 3, 4))):         # the register, a block that starts on its last byte, a block that runs into it
-                with self.assertRaises(D.DescError, msg="%s %x" % (name, a)) as e:
-                    D.compile_text('[[window]]\nname = "w"\naddress = %d\nsize = %d\n' % (a, size))
-                if i == 0:                                      # the sentence names the first register of the table the block covers: the register itself, for one byte
-                    self.assertIn(name, str(e.exception))
-                    self.assertIn(ref, str(e.exception))
-            other = D.window_conflict(address + nbytes, 1)
-            if other is None:                                         # the byte behind it belongs to nobody: a run that starts there is allowed
-                D.compile_text('[[window]]\nname = "w"\naddress = %d\nsize = 1\n' % (address + nbytes))
-        with self.assertRaises(D.DescError):                          # a block that runs over the whole U64 base register run
-            D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000400\nsize = 0x100\n')
+    def test_the_windows_of_the_handover_are_accepted_or_refused_by_the_base_block_they_hit(self):
+        # T239.3 V-3c: the readers translate the firmware's addresses by the [io] of host.toml (0x10100000) before the check against its base blocks. Of the nine windows of the
+        # hand-over, five pass; four lie over a base-owned block of host.toml and are refused (the hand-over grants them, host.toml owns them: Alex decides which stands).
+        refused = {"audio_mixer": "audio_mixer", "speaker_mixer": "speaker_mixer_a", "c64_palette": "c64_palette", "hdmi_palette": "overlay_palette"}
+        accepted = []
+        for name, addr, size in self.HANDOVER_WINDOWS:
+            text = '[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % (name, addr, size)
+            if name in refused:
+                with self.assertRaisesRegex(D.DescError, "covers the block %s of the base" % refused[name]):
+                    D.compile_text(text)
+            else:
+                self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 1)
+                accepted.append(name)
+        self.assertEqual(accepted, ["speaker_enable", "u64_userport", "u64_hdmi_connectors", "u64_pwm_duty", "resampler"])
+        self.assertEqual(len(self.HANDOVER_WINDOWS), len(accepted) + len(refused))
 
-    def test_a_window_is_checked_in_one_space_and_a_block_may_not_leave_its_span(self):
-        for a in (0xA0000550, 0x04100550, 0x10100550):                # master_volume in the firmware's U2P space, in its I/O space and in the board's
-            with self.assertRaises(D.DescError, msg="%x" % a) as e:
-                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
-            self.assertIn("master_volume", str(e.exception))
-        D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')      # a free address of the board's space
-        for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2), (0x1FFFFF00, 0x200), (0x9FFFFFF0, 0x600), (0x11100550, 1), (0x10FFFFF0, 0x20), (0x00001000, 16), (0xA0100000, 16)):
-            with self.assertRaises(D.DescError, msg="%x" % a) as e:
-                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
-            self.assertIn("not wholly inside", str(e.exception))
-        for a, size in ((0x04070040, 16), (0x10FFFFF0, 16), (0x04FFFFF0, 16), (0xA00FFF00, 0x100)):     # wholly inside the board's I/O span (0x10FFFFF0 and 0x04FFFFF0 end on the span's last byte; 0xA00FFF00 ends at 0x101FFFFF, the last byte of the U2P firmware span)
-            D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
-        for a, size in ((0x04000040, 1), (0x10000040, 1), (0x04060000, 4), (0x04060200, 4), (0x04080010, 4)):   # the blocks of the I/O span that the base drives: the ITU, SD, flash SPI, USB
-            with self.assertRaises(D.DescError, msg="%x" % a):
-                D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+    def test_a_window_in_firmware_space_is_translated_and_checked_as_in_the_toml_a(self):
+        # T239.3 V-3c: the same byte is refused at 0xA0000401 (firmware space), at 0x10100401 (the host TOML A's) and, through IOBASE 0x04000000, at 0x04100401
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            io = D._BASE_BLOCKS["io"] or (D.use_base_toml_a(D.HOST_TOML_A) or D._BASE_BLOCKS["io"])
+            self.assertEqual(io, (0x10000000, 0x10100000))
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x04100401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x10100401, 1, io), 0x10100401)       # an address of the TOML A stays
+            self.assertEqual(D.window_to_toml_a(0xA0100000, 1, io), 0xA0100000)       # beyond the 1 MiB of the firmware's U2P space: not translated
+            with self.assertRaises(D.DescError):
+                D.window_to_toml_a(0xA00FFFFF, 2, io)                                  # a block that leaves the space it starts in
+            msgs = []
+            for a in (0xA0000401, 0x10100401, 0x04100401):
+                with self.assertRaises(D.DescError) as c:
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
+                msgs.append(re.search(r"covers the block (\w+) of the base \(0x([0-9A-F]+)", str(c.exception)).groups())
+            self.assertEqual(msgs[0], msgs[1])
+            self.assertEqual(msgs[1], msgs[2])
+            self.assertEqual(msgs[0][0], "u64_sys")
+            # the board's reader of the record is the same: a version 7 TOML A with other bases moves the window by them
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, (0x20000000, 0x20100000)), 0x20100401)
+        finally:
+            D._BASE_BLOCKS["rows"] = None
 
-    def test_the_references_of_the_table_name_their_register(self):
-        token = {"i2c_scl": "U2PIO_SCL", "i2c_sda": "U2PIO_SDA", "mdio_get": "GET_MDIO", "mdio_mdc": "SET_MDC", "mdio_data": "SET_MDIO", "usb_hub_reset": "U2PIO_HUB_RESET",
-                 "hw_i2c": "U64II_HW_I2C_BASE", "power": "U64_POWER_REG", "restore": "U64_RESTORE_REG", "hdmi_pll_reset": "U64_HDMI_PLL_RESET", "keyb_joy": "U64II_KEYB_JOY",
-                 "keyb_col": "U64II_KEYB_COL", "keyb_row": "U64II_KEYB_ROW", "case_led_select": "U64_CASELED_SELECT",
-                 "ulpi_reset": "U2PIO_ULPI_RESET", "hdmi_reg": "U64_HDMI_REG", "ethstream_ena": "U64_ETHSTREAM_ENA", "matrix_keyb": "0x0300", "master_volume": "DRV_audio_master_volume_WR",
-                 "master_tone": "DRV_audio_master_tone_WR", "hotkey_mask": "U64_AUDIO_MIXER + 0x60", "bling_rx_flags": "BLING_RX_FLAGS",
-                 "itu": "ITU_BASE", "sd_spi": "SDCARD_BASE", "flash_spi": "FLASH_BASE", "icap": "ICAP_BASE", "ethernet": "RMII_BASE", "wifi_uart": "WIFI_UART_BASE", "esp_ctl": "0x10060910", "usb": "USB_BASE"}
-        for name, address, nbytes, ref in D.base_registers():
-            path, _, line = ref.rpartition(":")
-            with open(os.path.join(self.ROOT, path)) as f:
-                lines = f.read().splitlines()
-            self.assertIn(token[name], lines[int(line) - 1], "%s: %s" % (name, ref))
-        # the addresses are those of the headers
-        defs = {}
-        import re
-        for h in ("u2p.h", "u64.h"):
-            with open(os.path.join(self.ROOT, "host-app", "software", "system", h)) as f:
-                for m in re.finditer(r"#define\s+(\w+)\s+\(U2P_IO_BASE\s*\+\s*(0x[0-9A-Fa-f]+)\)", f.read()):
-                    defs[m.group(1)] = 0xA0000000 + int(m.group(2), 16)
-        u64 = defs["U64_IO_BASE"]
-        for name, off in (("power", 1), ("restore", 2), ("hdmi_pll_reset", 4), ("keyb_joy", 6), ("keyb_col", 0xA), ("keyb_row", 0xB), ("case_led_select", 0xE), ("hdmi_reg", 0), ("ethstream_ena", 0xF)):
-            self.assertEqual({r[0]: r[1] for r in D.base_registers()}[name], u64 + off, name)
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["hw_i2c"], defs["U64II_HW_I2C_BASE"])
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["matrix_keyb"], defs["MATRIX_KEYB"])
-        self.assertEqual({r[0]: r[1] for r in D.base_registers()}["ulpi_reset"], 0xA0000000 + 0xF)
+    def test_a_window_may_not_start_in_a_firmware_span_and_leave_it(self):
+        # the bug it prevents: a straddling block kept its untranslated address, which on the board is DDR, not I/O
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2)):
+                with self.assertRaisesRegex(D.DescError, "ends beyond", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA00FFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')          # a free address of the board's space
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_a_window_must_lie_wholly_in_the_io_span_of_the_toml_a(self):
+        # T239.3 V-3c: the host's bus converter sends addr[23:0] of any address with bit 28 set to the I/O bus; the span is [iobase, iobase + 16 MiB) = 0x10000000 .. 0x10FFFFFF
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0x1FFFFF00, 0x200), (0x9FFFFFF0, 0x600), (0x11100550, 1), (0x10FFFFF0, 0x20), (0x0FFFFFF0, 0x20), (0x00001000, 0x10)):
+                with self.assertRaisesRegex(D.DescError, "I/O span", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10FFFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000405\nsize = 1\n')          # firmware U2P space, translated into the span
+            self.assertTrue(D.in_io_span(0x10FFFFF0, 16, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x10FFFFF0, 17, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x11000000, 1, (0x10000000, 0x10100000)))
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
+        # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
+        self.assertFalse(hasattr(D, "base_registers"))
+        self.assertFalse(os.path.exists(os.path.join(self.ROOT, "coreapp", "src", "basereg.def")))
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        text = open(path).read()
+        rows = D.base_blocks_of(text, path)
+        doc = D.toml_loads(text)
+        self.assertEqual(rows, [(b["name"], b["address"], b["size"]) for b in doc["block"] if b["owner"] == "base"])
+        self.assertIn(("cart_regs", 0x10040000, 0x100), rows)
+        self.assertNotIn("core_trx_io", [r[0] for r in rows])                  # a block of the core is not in the table
+        tab = D.basetab_text(rows, "host.toml", D.io_bases_of(text, path)).splitlines()
+        self.assertEqual(len(tab) - 2, len(rows))
+        self.assertIn("BASE_IO(0x10000000u, 0x10100000u)", tab)
+        self.assertIn("BASE_BLOCK(cart_regs, 0x10040000u, 0x100u)", tab)
+        src = open(os.path.join(self.ROOT, "coreapp", "src", "descrec.cc")).read()
+        self.assertIn('#include "basetab.h"', src)
+        self.assertNotIn("0x10040000", src)                                    # the app holds no address of its own
+        self.assertEqual(D.HOST_TOML_A and os.path.realpath(D.HOST_TOML_A), os.path.realpath(path))
+
+    def test_the_host_toml_a_names_a_block_of_layer_2_as_its_identity(self):
+        # T239.3 D39: host.toml has the [identity] block core_trx_io (owner core, no properties); both readers take it, a base-owned identity block still needs id and build
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        maps = D.load_maps([os.path.join(self.ROOT, "app", "sdkpkg", "maps")])
+        r = D.parse_desc(D.compile_checked(open(path).read(), maps=maps))
+        self.assertEqual(r["identity"]["block"], "core_trx_io")
+        self.assertEqual({b["name"]: b["owner"] for b in r["block"]}["core_trx_io"], "core")
+        text = open(path).read().replace('block = "core_trx_io"', 'block = "cart_regs"')
+        with self.assertRaisesRegex(D.DescError, "no readable property"):
+            D.compile_checked(text, maps=maps)
+
+    def test_a_window_beside_the_base_blocks_is_accepted(self):
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            rows = D.base_blocks_of(open(D.HOST_TOML_A).read())
+            top = max(a + n for _, a, n in rows)
+            lo = min(a for _, a, _ in rows)
+            beside = (("next_to_the_last", top, 0x10), ("end_of_the_span", 0x10FFFFF0, 0x10), ("between_two_blocks", 0x10100405, 1))
+            text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
+            self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
+            self.assertEqual(D.base_block_hit(0x10100404, 1)[1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
+            self.assertEqual(D.base_block_hit(top, 0x10), None)                  # the table is what the check reads: the first byte past the last block is free
+        finally:
+            D._BASE_BLOCKS["rows"] = None
 
     def test_what_a_window_must_be(self):
         def bad(text):
             with self.assertRaises(D.DescError):
                 D.compile_text(text)
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 0\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 0x100001\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0x100001\n')
         bad('[[window]]\nname = "w"\naddress = 0xFFFFFFF0\nsize = 0x20\n')
-        bad('[[window]]\nname = "W"\naddress = 0xA0000500\nsize = 4\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 4\n[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n')
-        bad('[[window]]\nname = "w"\naddress = 0xA0000500\nsize = 4\nflags = 1\n')
-        bad('[[window]]\naddress = 0xA0000500\nsize = 4\n')
+        bad('[[window]]\nname = "W"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\nflags = 1\n')
+        bad('[[window]]\naddress = 0xA0000600\nsize = 4\n')
         bad('[[window]]\nname = "w"\naddress = -1\nsize = 4\n')
-        D.compile_text('[[window]]\nname = "w"\naddress = 0xA00FF000\nsize = 0x1000\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')        # beyond the firmware's U2P span and outside the I/O span
         import struct
         b = bytearray(D.compile_text(self.WIN))
         at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4
-        struct.pack_into("<I", b, at + 4, 0xA0000008)                       # the reader holds the same rule: the window moved onto the I2C clock
+        struct.pack_into("<I", b, at + 4, 0xA0000408)                       # the reader takes a window beside the base blocks as the compiler does
         struct.pack_into("<I", b, at + 8, 1)
-        with self.assertRaisesRegex(D.DescError, "i2c_scl"):
-            D.parse_desc(bytes(b))
+        self.assertEqual(D.parse_desc(bytes(b))["window"][0]["address"], 0xA0000408)
         for n in range(len(b)):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b[:n]))
@@ -1133,7 +1192,7 @@ class TomlA(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
                            '[[block]]\nname = "win"\nmodule = "dma"\nowner = "base"\naddress = 0xA0050000\nsize = 0x10000\nmap = "dma"\n'
-                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000600\nsize = 0x20\n'
                            '[[block.property]]\nname = "gain"\noffset = 0x4\nwidth = 16\ncount = 4\ndir = "rw"\n'
                            '[[block.property.field]]\nname = "g"\nshift = 0\nbits = 4\n'
                            '[[block.property]]\nname = "one"\noffset = 0xC\nwidth = 8\ndir = "rw"\n')
@@ -1148,17 +1207,6 @@ class TomlA(unittest.TestCase):
         self.assertNotIn("count", props["regs"]["one"])
         self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
         self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
-
-    def test_a_block_of_the_core_lies_inside_the_io_span_and_covers_no_base_block(self):
-        def core(address, size):
-            return D.compile_checked(self.BASE + '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0x%X\nsize = %d\n' % (address, size))
-        with self.assertRaises(D.DescError) as e:                      # leaves the firmware's I/O span
-            core(0x1FFFFF00, 0x200)
-        self.assertIn("not wholly inside", str(e.exception))
-        with self.assertRaises(D.DescError) as e:                      # the first byte of the ITU block, a whole base block
-            core(0x04000040, 1)
-        self.assertIn("itu", str(e.exception))
-        core(0x10FFFFF0, 0x10)                                         # ends on the last byte of the span
 
     def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
         # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
@@ -1186,30 +1234,61 @@ class TomlA(unittest.TestCase):
 
     def test_a_map_comes_from_a_file(self):
         maps = D.load_maps([self.MAPS])
-        self.assertEqual(sorted(maps), ["audio_master", "c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "partition", "sid", "uci"])
+        self.assertEqual(sorted(maps), ["audio_master", "c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "partition", "sid", "uci", "wd177x"])
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
-    def test_the_fixed_link_fragment_is_what_the_generator_writes(self):
-        base = os.path.join(os.path.dirname(GOLD), "..", "..", "host-app", "target", "u64ii", "riscv")
-        with open(os.path.join(base, "trx_io.toml")) as f, open(os.path.join(base, "trx_io.ld")) as g:
-            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
-            self.assertEqual(g.read(), frag)
+    HOST_TOMLA = os.path.join(os.path.dirname(GOLD), "..", "..", "coreapp", "gateware", "host.toml")
+
+    def _host_fragment(self):
+        with open(self.HOST_TOMLA) as f:
+            return D.ldfrag(f.read(), D.load_maps([self.MAPS]), "host.toml")
+
+    def test_the_link_fragment_of_the_apps_comes_from_the_hosts_toml_a(self):
+        # T239.3 V-3: the shared app and the host app link the ldfrag of coreapp/gateware/host.toml (their Makefiles write it); the maps hold today's addresses
+        frag = self._host_fragment()
         syms = dict((l.split(" = ")[0], int(l.split(" = ")[1].rstrip(";\n"), 16)) for l in frag.splitlines() if l.startswith("__"))
         # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
         self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
-        self.assertEqual(syms["__blk_icap"], syms["__iobase"] + 0x60600)
-        for n, a in (("id", 0x10060600), ("data", 0x10060610), ("enable", 0x10060614), ("count0", 0x10060618), ("count3", 0x1006061B)):
+        for n, a in (("id_id", 0x10060600), ("data_data", 0x10060610), ("enable_enable", 0x10060614), ("count_count0", 0x10060618), ("count_count3", 0x1006061B)):
             self.assertEqual(syms["__reg_icap_" + n], a, n)
         self.assertEqual(syms["__blk_partition"], 0x10060620)
         for n, a in (("decouple", 0x10060620), ("release", 0x10060621)):
             self.assertEqual(syms["__reg_partition_" + n], a, n)
+        # the shared app's own TOML A (its driver table) names the same two bases and the same ICAP registers
+        with open(os.path.join(os.path.dirname(self.HOST_TOMLA), "shared.toml")) as f:
+            doc = D.toml_loads(f.read())
+        self.assertEqual((doc["io"]["iobase"], doc["io"]["u2p_io_base"]), (syms["__iobase"], syms["__u2p_io_base"]))
+        icap = [b for b in D.resolve_maps(doc, D.load_maps([self.MAPS]))["block"] if b["name"] == "icap"][0]
+        for p in icap["property"]:
+            hit = [a for n, a in syms.items() if n.startswith("__reg_icap_") and a == icap["address"] + p["offset"]]
+            self.assertEqual(len(hit), 1, p["name"])
+
+    def test_the_fixed_fragment_and_the_base_register_table_are_gone(self):
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        for rel in ("host-app/target/u64ii/riscv/trx_io.toml", "host-app/target/u64ii/riscv/trx_io.ld", "coreapp/src/basereg.def"):
+            self.assertFalse(os.path.exists(os.path.join(root, rel)), rel)
+
+    def test_the_host_build_takes_its_bases_from_the_fragment(self):
+        import tempfile
+        frag = self._host_fragment()
+        want = {k: int(re.search(r"^__%s = (0x[0-9A-F]+);" % k, frag, re.M).group(1), 16) for k in ("iobase", "u2p_io_base")}
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "descrec.py"), "hostio", os.path.join(root, "coreapp", "gateware", "host.toml"), d], check=True)
+            text = open(os.path.join(d, "hostio.h")).read()
+        self.assertEqual({k: int(v, 16) for k, v in re.findall(r"#define (IOBASE|U2P_IO_BASE) (0x[0-9A-F]+)u", text)},
+                         {"IOBASE": want["iobase"], "U2P_IO_BASE": want["u2p_io_base"]})
+        for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):          # the headers hold no default of their own
+            with open(os.path.join(root, rel), newline="") as f:
+                src = f.read()
+            self.assertIn('#include "hostio.h"', src)
+            self.assertFalse(re.search(r"#define (IOBASE|U2P_IO_BASE) 0x", src), rel)
 
     def test_every_symbol_a_driver_names_is_in_the_fragment(self):
         import re
         root = os.path.join(os.path.dirname(GOLD), "..", "..")
-        with open(os.path.join(root, "host-app", "target", "u64ii", "riscv", "trx_io.toml")) as f:
-            frag = D.ldfrag(f.read(), D.load_maps([self.MAPS]), "trx_io.toml")
+        frag = self._host_fragment()
         have = set(re.findall(r"^(__\w+) =", frag, re.M))
         for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):
             with open(os.path.join(root, rel)) as f:
@@ -1222,6 +1301,8 @@ class TomlA(unittest.TestCase):
             self.assertNotIn("-DIOBASE", text)
             self.assertNotIn("-DU2P_IO_BASE", text)
             self.assertIn("LIBS    += $(IOFRAG)", text)
+            self.assertIn("coreapp/gateware/host.toml", text)
+            self.assertNotIn("trx_io.ld", text)
 
     def test_a_fragment_is_checked_as_a_record_is(self):
         maps = D.load_maps([self.MAPS])
@@ -1449,13 +1530,19 @@ class DriverTable(unittest.TestCase):
         maps = D.load_maps([self.MAPS])
         blob = D.compile_checked(self.shared(), maps=maps)
         r = D.parse_desc(blob)
-        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug"])
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "drive_wd", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug", "iec_status", "c64cart", "dma"])
         self.assertEqual([b["name"] for b in r["block"] if b["owner"] != "base"], ["cmd_if", "gcr_coder"])   # the command interface and its GCR coder are core blocks (D48, D49): no base code drives them
 
     def test_every_register_a_shared_driver_names_is_in_the_table(self):
         import re
         h, _ = self.generate(self.shared())
         defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        # hw.cc names the ICAP registers in two forms (HW_ICAP_*): the shared app's block icap, and the five blocks of the host's TOML A that the VIC-20's app takes (V-4b)
+        host = D.toml_loads(open(os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")).read())
+        shared = D.toml_loads(self.shared())
+        merged = D.resolve_maps(D.merge_toml_a({"io": shared["io"], "identity": shared["identity"], "block": [shared["block"][0]]}, host,
+                                               ["icap_id", "icap_data", "icap_enable", "icap_count", "partition"], "t"), D.load_maps([self.MAPS]))
+        defined |= {ln.split()[1].split("(")[0] for ln in D.drivers_files(merged, "t")[0].splitlines() if ln.startswith("#define ")}
         for f in ("hw.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
             with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
                 for n, line in enumerate(fh, 1):
@@ -1488,7 +1575,9 @@ class DriverTable(unittest.TestCase):
                     stack.pop()
                 else:
                     for b in blocks:
-                        if "DRV_%s_" % b in line and not any(("DRV_HAS_" + b) in c and not e for c, e in stack):
+                        used = ("DRV_%s_" % b in line) or (b == "icap" and "HW_ICAP_" in line and not t.startswith("//"))
+                        guard = ("DRV_HAS_" + b, "HW_HAS_ICAP") if b == "icap" else ("DRV_HAS_" + b,)       # the alias block of hw.cc (HW_ICAP_*) is the one place that names the table's ICAP registers
+                        if used and not any(any(g in c for g in guard) and not e for c, e in stack):
                             bad.append((n, b))
             self.assertEqual(bad, [], "hw.cc names a block outside an #if of its DRV_HAS_ macro at %s" % bad)
 
@@ -1501,6 +1590,19 @@ class DriverTable(unittest.TestCase):
             m = os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns
             subprocess.check_call(cmd)
             self.assertEqual(os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns, m)
+
+
+class TomlANames(unittest.TestCase):
+    """T239.3 V-2: a register of the description named from the core's TOML A (api.md 6.14.20), on the VIC-20's own files."""
+
+    def test_the_names_of_the_vic20_make_the_record_its_numbers_made(self):
+        written_out = vc20_numbers()
+        self.assertNotIn("toml_a", written_out)
+        self.assertNotIn('"machine.status"', written_out)
+        self.assertEqual(D.compile_text(open(VC20).read(), VC20), D.compile_text(written_out))
+        r = D.parse_desc(D.compile_text(open(VC20).read(), VC20))
+        self.assertEqual((r["freeze"]["reg_status"], r["video"]["reg_fb_base"], r["video"]["fb_base"]), (0xA4, 0xC4, 0x01D00000))
+        self.assertEqual([c["reg_bind"]["reg"] for c in r["cset"] if c.get("reg_bind")], [0xA1, 0xA2, 0xB0])
 
 
 class ExampleCore(unittest.TestCase):
@@ -1526,13 +1628,53 @@ class ExampleCore(unittest.TestCase):
         self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
         self.assertIn("#define DRV_example_ctl_OWNER 1", h)
 
-    def test_the_base_blocks_of_the_example_are_the_blocks_of_the_shared_toml_a(self):
+    # the registers of a TOML A as {(absolute address, width, dir): (block, property)} with the maps resolved, and the extents of its core blocks (the host hands every byte of one to layer 2, whatever properties the block names)
+    def _registers(self, path):
+        doc = D.resolve_maps(D.toml_loads(open(path).read()), D.load_maps(self.MAPS))
+        regs, windows = {}, []
+        for b in doc["block"]:
+            if b["owner"] == "core":
+                windows.append((b["address"], b["address"] + b["size"]))
+            for p in b.get("property", []):
+                regs[(b["address"] + p["offset"], p["width"], p["dir"])] = (b["name"], p["name"])
+        return doc, regs, windows
+
+    def test_the_base_blocks_come_from_one_source_the_toml_a_of_the_host(self):
+        # T239.3 V-3c (D30 point 4): coreapp/gateware/host.toml (checked against the RTL of host/ by tools/rtl_check.py) is the one source of the base blocks. The copies are
+        # shared.toml (the TOML A of the shared app) and, through it, example.toml: every register a copy names is a register of host.toml at the same address, width and direction,
+        # or lies in a window of host.toml that the host hands to layer 2 (the identity block at 0x101A0000 is in the window of core_trx_io); the bases agree.
+        gw = os.path.join(self.ROOT, "coreapp", "gateware")
+        host, hregs, hwin = self._registers(os.path.join(gw, "host.toml"))
+        shared, sregs, _ = self._registers(os.path.join(gw, "shared.toml"))
+        self.assertEqual(shared["io"], host["io"])
+        missing = sorted(set(v[0] for k, v in sregs.items() if k not in hregs and not any(lo <= k[0] < hi for lo, hi in hwin)))
+        # not in host.toml, not decoded in host/: the UCI window answers 0 (host.toml's header names it); the one block of the shared app that this check cannot tie to the RTL
+        self.assertEqual(missing, ["cmd_if"])
+        # block by block: a shared.toml block of the same name has the address and size of host.toml's; the owner differs only where named here
+        hblocks = {b["name"]: b for b in host["block"]}
+        by_name = {b["name"]: b for b in shared["block"]}
+        owner_core_in_host = ["drive_a", "dma"]                                       # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them); gcr_coder is core in both (D48, D49)
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # drive_wd: inside host.toml's drive_a extent; cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: four blocks icap_* of host.toml (the loader) and the block partition of both; resid8: a core block of the shared app, not in host.toml
+        self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
+        for n, b in by_name.items():
+            if n in absent_in_host:
+                continue
+            if n == "drive_a":      # host.toml hands the drive's whole 0x4000 extent to layer 2 (the WD177x block drive_wd is inside it, no block of host.toml: 64 blocks is the limit); the shared app's block is the 1541's own 0x1800
+                self.assertEqual(b["address"], hblocks[n]["address"])
+                self.assertLessEqual(b["size"], hblocks[n]["size"])
+                self.assertEqual(by_name["drive_wd"]["address"], b["address"] + b["size"])
+                self.assertLessEqual(by_name["drive_wd"]["address"] + by_name["drive_wd"]["size"], hblocks[n]["address"] + hblocks[n]["size"])
+            else:
+                self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
+            self.assertEqual(b["owner"] != hblocks[n]["owner"], n in owner_core_in_host, n)
+        self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core"] * len(owner_core_in_host))
+        icap = by_name["icap"]
+        inside = sorted(b["name"] for b in host["block"] if b["owner"] == "base" and icap["address"] <= b["address"] and b["address"] + b["size"] <= icap["address"] + icap["size"] and b["name"].startswith("icap_"))
+        self.assertEqual(len(inside), 4)
         ex = D.toml_loads(self.read("gateware", "example.toml"))
-        with open(os.path.join(self.ROOT, "coreapp", "gateware", "shared.toml")) as f:
-            sh = D.toml_loads(f.read())
-        base = [b for b in ex["block"] if b["owner"] == "base"]
-        self.assertEqual(base, [b for b in sh["block"] if b["owner"] == "base"])   # cmd_if and gcr_coder are core blocks of the shared TOML A (D48), the example runs no UCI
-        self.assertEqual(ex["io"], sh["io"])
+        raw = D.toml_loads(open(os.path.join(gw, "shared.toml")).read())
+        self.assertEqual([b for b in ex["block"] if b["owner"] == "base"], [b for b in raw["block"] if b["owner"] == "base"])   # cmd_if and gcr_coder are core blocks of the shared TOML A (D48), the example runs no UCI
+        self.assertEqual(ex["io"], raw["io"])
 
     def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):
         desc = D.compile_text(self.read("app", "desc.toml"))

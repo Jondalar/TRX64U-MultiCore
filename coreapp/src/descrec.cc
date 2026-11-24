@@ -109,28 +109,33 @@ bool id_ok(const char *s)
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
                                                          "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows", "io", "identity", "blocks", "routes", "places", "elements" };
 
-// T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
-static const BaseReg g_base_regs[] = {
-#define BASE_REG(n, a, s, r) { #n, a, s, r },
-#include "basereg.def"
-#undef BASE_REG
+// T239.3 D30 point 1: the blocks of the base in the TOML A the app is linked with. basetab.h is generated at build time (tools/descrec.py basetab), as the driver table is;
+// nothing is read at run time.
+struct BaseBlock {
+    const char *name;
+    uint32_t address, size;
+};
+#define BASE_BLOCK(n, a, s)
+#define BASE_IO(i, u) static const uint32_t g_base_iobase = i, g_base_u2p_io_base = u;
+#include "basetab.h"
+#undef BASE_BLOCK
+#undef BASE_IO
+static const BaseBlock g_base_blocks[] = {
+#define BASE_BLOCK(n, a, s) { #n, a, s },
+#define BASE_IO(i, u)
+#include "basetab.h"
+#undef BASE_BLOCK
+#undef BASE_IO
 };
 
-const BaseReg *descrec_base_regs(int *n)
-{
-    *n = (int)(sizeof(g_base_regs) / sizeof(g_base_regs[0]));
-    return g_base_regs;
-}
-
-// The firmware's address spaces of a [[window]] row (Gideon's defaults of iomap.h: IOBASE 0x04000000 with the 24 bit I/O address space, of u2p.h: U2P_IO_BASE 0xA0000000 with 1 MiB) against
-// the board's bases (drvtab.h; coreapp/gateware/shared.toml: iobase 0x10000000, u2p_io_base 0x10100000). The host's bus converter sends only an address with bit 28 to the I/O bus.
+// T239.3 V-3c: a [[window]] row is written in the firmware's address space of the hand-over contract (Gideon's defaults of iomap.h and u2p.h: IOBASE 0x04000000 with the 24 bit I/O
+// address space, U2P_IO_BASE 0xA0000000 with 1 MiB); the reader hands out, and checks against the base blocks, the address in the space of the TOML A the app is linked with
+// (its [io] bases above). An address outside both spans is one of that space already. tools/descrec.py window_to_toml_a does the same.
 static const uint32_t FW_IOBASE = 0x04000000u, FW_IOBASE_SPAN = 0x01000000u, FW_U2P_IO_BASE = 0xA0000000u, FW_U2P_IO_SPAN = 0x00100000u;
-static const uint32_t BOARD_IOBASE = 0x10000000u, BOARD_U2P_IO_BASE = 0x10100000u;
-static const uint32_t BOARD_IO_SPAN_LO = 0x10000000u, BOARD_IO_SPAN_HI = 0x11000000u;
 
-bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out)
+static bool window_to_toml_a(uint32_t address, uint32_t size, uint32_t *out)
 {
-    const struct { uint32_t base, span, to; } sp[2] = { { FW_U2P_IO_BASE, FW_U2P_IO_SPAN, u2p_io_base }, { FW_IOBASE, FW_IOBASE_SPAN, iobase } };
+    const struct { uint32_t base, span, to; } sp[2] = { { FW_U2P_IO_BASE, FW_U2P_IO_SPAN, g_base_u2p_io_base }, { FW_IOBASE, FW_IOBASE_SPAN, g_base_iobase } };
     *out = address;
     for (int i = 0; i < 2; i++) {
         if (address >= sp[i].base && address - sp[i].base < sp[i].span) {
@@ -144,29 +149,20 @@ bool descrec_fw_to_board(uint32_t address, uint32_t size, uint32_t iobase, uint3
     return true;
 }
 
-bool descrec_window_board(uint32_t address, uint32_t size, uint32_t iobase, uint32_t u2p_io_base, uint32_t *out)
+// The span of the I/O bus in the space of the TOML A the app is linked with: [iobase, iobase + 16 MiB) of its [io] (the host's bus converter takes only the 24 bits below bit 28 for the
+// I/O bus, so an address outside the span is DDR or an alias of a register). A block is wholly inside it or it is not a window.
+static const uint32_t IO_SPAN = 0x01000000u;
+
+bool descrec_in_io_span(uint32_t address, uint32_t size)
 {
-    uint32_t b;
-    if (!descrec_fw_to_board(address, size, iobase, u2p_io_base, &b) || b < BOARD_IO_SPAN_LO || (uint64_t)b + size > BOARD_IO_SPAN_HI) {
-        return false;
-    }
-    *out = b;
-    return true;
+    return size >= 1 && address >= g_base_iobase && (uint64_t)address + size <= (uint64_t)g_base_iobase + IO_SPAN;
 }
 
-// The guarded entries are listed in the firmware's space (basereg.def); a block is compared with them in the board's, so 0xA0000550, 0x04100550 and 0x10100550 all meet master_volume. A block that
-// starts in a span of the firmware and leaves it, or lies outside the board's I/O span, is refused by both callers before this runs (descrec_window_board); here it is compared as it is.
-const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size)
+static const BaseBlock *base_block_hit(uint32_t address, uint32_t size)
 {
-    uint32_t a = address;
-    if (!descrec_fw_to_board(address, size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &a)) {
-        a = address;
-    }
-    for (unsigned i = 0; i < sizeof(g_base_regs) / sizeof(g_base_regs[0]); i++) {
-        const BaseReg &g = g_base_regs[i];
-        uint32_t ra = g.address;
-        descrec_fw_to_board(g.address, g.bytes, BOARD_IOBASE, BOARD_U2P_IO_BASE, &ra);
-        if ((uint64_t)a < (uint64_t)ra + g.bytes && (uint64_t)ra < (uint64_t)a + size) {
+    for (unsigned i = 0; i < sizeof(g_base_blocks) / sizeof(g_base_blocks[0]); i++) {
+        const BaseBlock &g = g_base_blocks[i];
+        if ((uint64_t)address < (uint64_t)g.address + g.size && (uint64_t)g.address < (uint64_t)address + size) {
             return &g;
         }
     }
@@ -320,16 +316,6 @@ static int parse_tomla(Rd &r, uint32_t id, uint32_t b, uint32_t len, DescRecord 
         d.core = ow == 1;
         if (bad || !id_ok(d.win.name) || !id_ok(d.module) || ow > 1 || d.win.size < 1 || d.win.size > DR_WINDOW_MAX || (uint64_t)d.win.address + d.win.size > 0x100000000ull) {
             return r.fail("description record, section %s: block %u has no name or module of a-z 0-9 _, or an owner that is not 0 or 1, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
-        }
-        if (d.core) {
-            uint32_t board;
-            if (!descrec_window_board(d.win.address, d.win.size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &board)) {
-                return r.fail("description record, section %s: block \"%s\" of the core is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF", nm, d.win.name);
-            }
-            if (const BaseReg *g = descrec_base_reg_hit(d.win.address, d.win.size)) {
-                return r.fail("description record, section %s: block \"%s\" of the core covers %s (0x%08X, %u byte%s), a register the base drives itself (%s)",
-                              nm, d.win.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
-            }
         }
         for (uint32_t j = 0; j < i; j++) {
             const DescBlock &o = m->blocks[j];
@@ -882,13 +868,16 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 if (bad || !id_ok(d.name) || d.size < 1 || d.size > DR_WINDOW_MAX || (uint64_t)d.address + d.size > 0x100000000ull) {
                     return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
                 }
-                uint32_t board;
-                if (!descrec_window_board(d.address, d.size, BOARD_IOBASE, BOARD_U2P_IO_BASE, &board)) {
-                    return r.fail("description record, section %s: window \"%s\" is not wholly inside the board's I/O span 0x10000000 .. 0x10FFFFFF (the firmware's U2P 0xA0000000 + 1 MiB or I/O 0x04000000 + 16 MiB translate into it)", nm, d.name);
+                if (!window_to_toml_a(d.address, d.size, &d.address)) {
+                    return r.fail("description record, section %s: window \"%s\" ends beyond the firmware's I/O space it starts in", nm, d.name);
                 }
-                if (const BaseReg *g = descrec_base_reg_hit(d.address, d.size)) {
-                    return r.fail("description record, section %s: window \"%s\" covers %s (0x%08X, %u byte%s), a register the base drives itself (%s); split the block into the runs the core writes",
-                                  nm, d.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
+                if (!descrec_in_io_span(d.address, d.size)) {
+                    return r.fail("description record, section %s: window \"%s\" is not wholly inside the I/O span 0x%08X .. 0x%08X of the TOML A the app is linked with",
+                                  nm, d.name, (unsigned)g_base_iobase, (unsigned)(g_base_iobase + IO_SPAN - 1));
+                }
+                if (const BaseBlock *g = base_block_hit(d.address, d.size)) {
+                    return r.fail("description record, section %s: window \"%s\" covers the block %s of the base (0x%08X, %u byte%s); the window may not take a byte of it",
+                                  nm, d.name, g->name, (unsigned)g->address, (unsigned)g->size, g->size == 1 ? "" : "s");
                 }
                 for (uint32_t j = 0; j < i; j++) {
                     if (!strcmp(out->windows[j].name, d.name)) {
@@ -1015,8 +1004,9 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         const DescBlock *ib = descrec_block(*out, out->map->ident_block);
         const DescProp *ip = ib ? descrec_prop(*out, *ib, "id") : 0, *bp = ib ? descrec_prop(*out, *ib, "build") : 0;
-        if (!ib || ib->core || !ip || !bp || !(ip->dir & DR_DIR_R) || !(bp->dir & DR_DIR_R)) {
-            return r.fail("description record, section %s: the block \"%s\" is no block of the base with the readable properties \"id\" and \"build\"", secnames[21], out->map->ident_block);
+        // T239.3 D39: the host's TOML A names a block of layer 2 (owner core: core_trx_io) as its identity; its registers are the running core's, not checked here
+        if (!ib || (!ib->core && (!ip || !bp || !(ip->dir & DR_DIR_R) || !(bp->dir & DR_DIR_R)))) {
+            return r.fail("description record, section %s: the block \"%s\" is no block with the readable properties \"id\" and \"build\" (a block of the base) or a block of the core", secnames[21], out->map->ident_block);
         }
         return 0;
     }

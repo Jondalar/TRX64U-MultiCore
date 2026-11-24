@@ -1,4 +1,4 @@
-// T83 on the generic application: the VIC-20 descriptor (coreapp/cores/vc20.cc) against a model of the register block and the ROM aperture of
+// T83 on the generic application: the VIC-20 descriptor (cores/vc20/app/lib/vc20.cc) against a model of the register block and the ROM aperture of
 // cores/vc20/rtl/trx/vc20_regs.vhd / vc20_glue.vhd. The three ROMs at the C64's aperture offsets, the memory expansion as two register settings
 // written only while the machine is held, Reset and Reload ROMs, a .prg run (reset, READY, relink to the start of BASIC the machine states,
 // RUN or SYS typed) and loaded without a reset, Freeze's PAUSED bit. The descriptor and its operations are the real ones.

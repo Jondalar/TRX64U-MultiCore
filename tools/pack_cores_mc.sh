@@ -90,8 +90,16 @@ for c in "${CORES[@]}"; do
     desc_rec="$(python3 "$HERE/core_toml.py" sdk "$c" desc_record)"      # assigned first: a failing core_toml.py stops the packer
     [ "$desc_rec" != true ] || [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
     heap=(); h="$(python3 "$HERE/core_toml.py" get "$c" heap)"; [ -z "$h" ] || heap=(--heap "$h")   # T239.3 D15: the core's heap, set in its copy of the app
-    # T239.3 P4-1: --sizes is the TOML B of the shared app the cores run (coreapp/libs/shared.toml): cor_pack reports the figures and the linked libraries' heap needs and refuses a core whose libraries keep more than its heap. It adds no record maxima: the table has no [sizes], so the description is compiled against the headers' defaults as before.
-    rep="$(python3 "$HERE/cor_pack.py" pack --sizes "$ROOT/coreapp/libs/shared.toml" ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
+    # T239.3 V-4: a core with an app of its own (its TOML B, cores/<id>/app/sdk.toml, names the descriptor symbol in [app] desc) is packed against that TOML B, and its heap is the region left behind
+    # the image (word 0, P4-1) unless its core.toml sets one: the heap follows from its link
+    sizes="$ROOT/coreapp/libs/shared.toml"
+    own_desc="$(python3 "$HERE/core_toml.py" sdk "$c" desc)"
+    if [ -n "$own_desc" ]; then
+        sizes="$ROOT/cores/$c/app/sdk.toml"
+        [ ${#heap[@]} -gt 0 ] || heap=(--heap 0)
+    fi
+    # T239.3 P4-1: --sizes is the TOML B of the app the core runs (coreapp/libs/shared.toml for the shared app): cor_pack reports the figures and the linked libraries' heap needs and refuses a core whose libraries keep more than its heap. It adds no record maxima: the table has no [sizes], so the description is compiled against the headers' defaults as before.
+    rep="$(python3 "$HERE/cor_pack.py" pack --sizes "$sizes" ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
         --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)")"      # captured first: a refused pack (keep check, desc error) stops the packer under set -e
     grep '^heap (' <<<"$rep" | sed 's/^/    /' || true

@@ -228,6 +228,17 @@ SRCS_BIN =
 SRCS_IEC =
 SRCS_NANO = nano_minimal.nan
 
+# T239.3 V-3b (D30 point 1): the blocks of the base in the TOML A the app is linked with (the shared app and the host app: coreapp/gateware/host.toml; an app of one core: make
+# BASETAB_TOMLA=<its TOML A>). `descrec.py basetab` writes basetab.h, the table descrec.cc refuses a [[window]] against, into $(OUTPUT)/io before any source is compiled, the file only
+# when its content changes. Nothing is read at run time.
+BASETAB_TOMLA ?= $(PATH_SW)/../../coreapp/gateware/host.toml
+BASETAB_DIR    = $(OUTPUT)/io
+BASETAB_GEN   := $(shell python3 $(PATH_SW)/../../tools/descrec.py basetab $(BASETAB_TOMLA) $(BASETAB_DIR) 2>&1 || echo "basetab: the table of the base blocks was not generated")
+ifneq ($(strip $(BASETAB_GEN)),)
+$(error $(BASETAB_GEN))
+endif
+VPATH += $(BASETAB_DIR)
+
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -march=$(MARCH) -mabi=$(MABI) $(EFFORT) -ffunction-sections -fdata-sections -nostartfiles -mno-div
 OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
@@ -240,9 +251,17 @@ CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-sta
 LINK 	 = linker.x
 LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
 LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
-# T239.3 P1-2: IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. The fragment is the fixed
-# one of this tree (trx_io.toml through tools/descrec.py ldfrag); a core's app links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
-IOFRAG  ?= ../trx_io.ld
+# T239.3 V-3 (D30, D31): IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. They come from the TOML A of the host
+# bitstream (coreapp/gateware/host.toml) through `descrec.py ldfrag`, which writes $(OUTPUT)/io/iofrag.ld before any source is compiled, the file only when its content changes. An app of
+# one core links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
+ifndef IOFRAG
+HOST_TOMLA = $(PATH_SW)/../../coreapp/gateware/host.toml
+IOFRAG     = $(OUTPUT)/io/iofrag.ld
+IOFRAG_GEN := $(shell mkdir -p $(OUTPUT)/io && python3 $(PATH_SW)/../../tools/descrec.py ldfrag $(HOST_TOMLA) $(IOFRAG).new --maps $(PATH_SW)/../../app/sdkpkg/maps 2>&1 && { cmp -s $(IOFRAG).new $(IOFRAG) || cp $(IOFRAG).new $(IOFRAG); } || echo "iofrag: the link fragment was not generated")
+ifneq ($(strip $(IOFRAG_GEN)),)
+$(error $(IOFRAG_GEN))
+endif
+endif
 LIBS    += $(IOFRAG)
 LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld

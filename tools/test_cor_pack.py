@@ -440,8 +440,9 @@ class RecordsTest(unittest.TestCase):
     def test_a_description_with_the_cores_data_sections(self):
         # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
         import descrec
-        with open(os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")) as f:
-            desc = descrec.compile_text(f.read())
+        vc20 = os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")
+        with open(vc20) as f:
+            desc = descrec.compile_text(f.read(), vc20)
         blob, _ = make(desc=desc)
         m, r = C.parse(blob, C.CONTRACT)
         self.assertEqual(r[C.T_DESC], desc)
@@ -629,7 +630,7 @@ class RecordsTest(unittest.TestCase):
         """T239.3 base 3.3: a core's menu.toml (menu, key table) and desc.toml (core data, windows) are one record 6; a table or key in both files is refused naming both."""
         menu = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true } ]\n[[task]]\nlabel = "Dump"\nop = "ring.dump"\njob = true\n'
         desc = ('[core]\nid = "VC20"\nname = "T"\ntitle = "T"\nshort_title = "T"\nfolder = "t"\nstore = "t"\n'
-                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000500\nsize = 0x14\n')
+                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000600\nsize = 0x14\n')
         bit, _ = bit_file()
         with tempfile.TemporaryDirectory() as d:
             p, a, o, m_, d_ = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "menu.toml", "desc.toml"))
@@ -879,8 +880,9 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
 
     def desc(self):
         import descrec
-        with open(os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")) as f:
-            return descrec.compile_text(f.read())
+        fn = os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")
+        with open(fn) as f:
+            return descrec.compile_text(f.read(), fn)
 
     def test_pack_cores_mc_carries_it(self):
         with tempfile.TemporaryDirectory() as d:
@@ -889,30 +891,45 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
                 os.mkdir(x)
             open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
             open(os.path.join(bits, "vc20_partial.bit"), "wb").write(bit_file()[0])
-            open(os.path.join(apps, "vc20.app"), "wb").write(APP)
+            open(os.path.join(apps, "vc20.app"), "wb").write(heap_app())          # V-4: the VIC-20's own app carries the heap record; its heap is word 0
             r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             m, rec = C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())
             self.assertEqual(rec[C.T_DESC], self.desc())
             self.assertEqual(m["name"], "VIC-20")
 
-    def test_pack_cores_mc_links_the_shared_toml_b(self):
-        # P4-1: the packer passes the shared app's TOML B; it has no [sizes], so the record 6 is the one compiled against the defaults, and the heap needs are reported
-        import libtab
-        self.assertNotIn("sizes", descrec.toml_loads(open(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")).read()))
-        self.assertTrue(libtab.load(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")))
+    def pack_one(self, core, app):
         with tempfile.TemporaryDirectory() as d:
             bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
             for x in (bits, apps, out):
                 os.mkdir(x)
             open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
-            open(os.path.join(bits, "vc20_partial.bit"), "wb").write(bit_file()[0])
-            open(os.path.join(apps, "vc20.app"), "wb").write(heap_app())
-            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
+            open(os.path.join(bits, core + "_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, core + ".app"), "wb").write(app)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", core], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertIn("heap (", r.stdout)
-            self.assertRegex(r.stdout, r"library c64cart keeps")
-            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
+            return r.stdout, C.parse(open(os.path.join(out, core + ".cor"), "rb").read())
+
+    def test_pack_cores_mc_links_the_shared_toml_b(self):
+        # P4-1: a core without an app of its own is packed against the shared app's TOML B; it has no [sizes], so a record 6 is compiled against the defaults, and the heap needs are reported
+        import libtab
+        self.assertNotIn("sizes", descrec.toml_loads(open(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")).read()))
+        self.assertTrue(libtab.load(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")))
+        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
+        import core_toml
+        self.assertEqual(core_toml.sdk_table("amiga").get("desc", ""), "")
+        stdout, _ = self.pack_one("amiga", heap_app())
+        self.assertIn("heap (", stdout)
+        self.assertRegex(stdout, r"library c64cart keeps")
+
+    def test_pack_cores_mc_links_the_cores_own_toml_b(self):
+        # V-4 (P4-1): the VIC-20 has an app of its own: it is packed against cores/vc20/app/sdk.toml, so the libraries reported are the ones that file names (not the shared app's), and
+        # its heap is word 0, the region left behind its image (core.toml sets none)
+        stdout, (m, rec) = self.pack_one("vc20", heap_app())
+        self.assertRegex(stdout, r"library cbm1541 keeps")
+        self.assertNotRegex(stdout, r"library (c64cart|uci|sid|online|dma) keeps")
+        self.assertIn("(word 0: the region left)", stdout)
+        self.assertEqual(rec[C.T_DESC], self.desc())
 
     def test_pack_cores_mc_switch_off_carries_no_record(self):
         # D25: the Amiga has cores/amiga/app/desc.toml and no app/sdk.toml with desc_record: no record 6, the app runs on its compiled-in descriptor

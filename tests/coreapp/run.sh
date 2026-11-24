@@ -14,6 +14,7 @@ HA="$ROOT/host-app/software/hostapp"
 TST="$ROOT/tests/coreapp"
 T="$(mktemp -d)"
 source "$ROOT/tests/parallel.sh"
+source "$ROOT/tests/hostgen.sh"     # T239.3 V-3b: the I/O bases and the table of the base blocks from the TOML A of the host, on CPATH (no default in iomap.h, u2p.h, descrec.cc)
 source "$ROOT/tests/ctlcache.sh"   # T100 D13, D14: every test program and control is a unit, served from the cache when what it reads is unchanged
 CC_SUITE=coreapp
 # T174 D3: groups. CA_GROUP=all (default) runs every unit; CA_GROUP=<core>|cross|shared runs only the units of that group (ci/apptests.sh suites
@@ -60,13 +61,17 @@ NESSRC="nes.cc ines.cc $BASEL"
 LOADERS="$ROOT/app/loaders"
 VIDEO="$ROOT/app/video"
 LIB1541="$ROOT/app/lib/cbm1541"
+source "$TST/vc20_drv.sh"
+vc20_drv_dir "$T/vc20" || { echo "coreapp: the VIC-20's driver table was not generated" >&2; exit 1; }   # vc20_regs.h names the registers through it
+vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
+VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
 python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"
-INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$T/drv" -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$VC20LIB" -I"$T/vc20/drv" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 build() {
   local out="$1" test="$2"; shift 2
   local files=()
@@ -155,7 +160,7 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/vc20.cc $CORES/vc20_regs.h $CORES/c64_go.cc" | ca_check vc20 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
+  printf '%s\n' "$CORES/c264.cc $CORES/c264_regs.h $CORES/c64_go.cc" | ca_check c264 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
@@ -682,6 +687,10 @@ run longnames test_longnames.cc $AM
 control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_NAME_MAX - le : lb;/size_t keep = lb;/' test_longnames.cc $AM
 
 run cbm1541 test_cbm1541.cc $VC20
+# the same test against a table that has the block drive_wd (d1541_wd.cc compiled, the 1581 tests run); the line above runs it against the VIC-20's own table (no drive_wd: a .d81 is refused)
+INC_SAVE=("${INC[@]}"); INC=(-I"$T/vc20wd/drv" "${INC[@]}")
+run cbm1541_wd test_cbm1541.cc $VC20
+INC=("${INC_SAVE[@]}")
 # T180 #38: disk images with a FAT long name picked into the drive: the DiskFs finds the image of a long path, the drive keeps the whole name and path. Controls: the container path
 # buffer at 260, the name at 56, the mount path at 260.
 # T104 5.14 Reload core: the label, the check before the cut, the order of the sequence, what the new core is told again

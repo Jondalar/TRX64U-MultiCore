@@ -6,6 +6,12 @@
   libtab.py lint TOML_B ROOT         no generic source (coreapp/src, uicore) includes a header of a library or names an entry symbol of one
   libtab.py symcheck TOML_B OBJDIR ROOT
                                      nm over the objects of a build: no generic object has an undefined symbol that a library object defines (only libtab_table's entries may)
+  libtab.py samelib TOML_B_1 TOML_B_2 NAME [MAP ...]
+                                     S12: the library NAME is the same (sources, headers, entries) in the two TOML B files, and every source of it is an input of each link map given
+  libtab.py mapcheck TOML_B MAP ROOT [REF_TOML_B]
+                                     the link map of an app (T239.3 V-4, S11, S12): every source of the TOML B's libraries is an input of the link, no source of a library of REF_TOML_B
+                                     (default ROOT/coreapp/libs/shared.toml) that this TOML B does not name is, and no source of the cores' code (coreapp/cores, cores/*/app/lib) is except
+                                     the libraries' and the [app] base_sources of this TOML B. The link holds what the TOML B names and the base
 
 A library: name, sources, headers (the headers that name its functions), and the entries it hands the generic application: bind, register_ops (with capability: a name, or a list of names: it runs for a core that names any of them), init, start,
 freeze_request, core, table (the library's call table, found by libtab_table(name) in libtab.h; a table's header, *_api.h, is the seam the generic code reads it through). `needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
@@ -223,6 +229,64 @@ def symcheck(libs, objdir, root):
     return missing, found
 
 
+def map_stems(text):
+    """The stems of the object files that are inputs of a link: every `name.o` the map names (a plain object, or a member of an archive, `lib.a(name.o)`)."""
+    return set(re.findall(r"(?:^|[\s(/])([A-Za-z0-9_+\-]+)\.o\b", text))
+
+
+def core_code_stems(root):
+    """The stems of the sources that are a core's code: the files of coreapp/cores and of every cores/<id>/app/lib."""
+    out = {}
+    dirs = [os.path.join(root, "coreapp", "cores")]
+    cores = os.path.join(root, "cores")
+    if os.path.isdir(cores):
+        dirs += [os.path.join(cores, c, "app", "lib") for c in sorted(os.listdir(cores))]
+    for d in dirs:
+        for fn in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if fn.endswith((".cc", ".c")):
+                out.setdefault(os.path.splitext(fn)[0], os.path.relpath(os.path.join(d, fn), root))
+    return out
+
+
+def mapcheck(libs, ref_libs, map_text, root, base_sources=()):
+    """Returns the findings: sources of the TOML B's libraries that are no input of the link, inputs that are the sources of a library the TOML B does not name, and inputs
+    that are a core's code no library and no base_sources entry of the TOML B names."""
+    have = map_stems(map_text)
+    own = {os.path.splitext(f)[0]: lib["name"] for lib in libs for f in lib["sources"]}
+    allowed = set(own) | {os.path.splitext(f)[0] for f in base_sources}
+    found = []
+    for stem, name in sorted(own.items()):
+        if stem not in have:
+            found.append("the source %s of library %s is no input of the link" % (stem, name))
+    ref = {os.path.splitext(f)[0]: lib["name"] for lib in ref_libs for f in lib["sources"]}
+    for stem in sorted(set(ref) - allowed):
+        if stem in have:
+            found.append("%s.o (library %s) is in the link, the TOML B does not name it" % (stem, ref[stem]))
+    for stem, where in sorted(core_code_stems(root).items()):
+        if stem in have and stem not in allowed and stem not in ref:
+            found.append("%s.o (%s) is in the link, the TOML B names no library or base source for it" % (stem, where))
+    return found
+
+
+def samelib(libs_a, libs_b, name, maps=(), text=lambda p: open(p, errors="replace").read()):
+    """S12: the library `name` is the same in two TOML B files (the same source and header files, the same entries) and, for each link map given, every one of its sources is an input
+    of that link. Returns the findings."""
+    pick = lambda libs: next((l for l in libs if l["name"] == name), None)
+    a, b = pick(libs_a), pick(libs_b)
+    if a is None or b is None:
+        return ["the library %s is not in both TOML B files" % name]
+    found = []
+    for key in ("sources", "headers") + tuple(ENTRIES) + ("capability", "needs"):
+        if a.get(key) != b.get(key):
+            found.append("library %s: %s is %s in one TOML B and %s in the other" % (name, key, a.get(key), b.get(key)))
+    for m in maps:
+        have = map_stems(text(m))
+        for f in a["sources"]:
+            if os.path.splitext(f)[0] not in have:
+                found.append("the source %s of library %s is no input of the link %s" % (f, name, m))
+    return found
+
+
 def main(argv):
     try:
         if len(argv) == 3 and argv[0] == "table":
@@ -251,6 +315,20 @@ def main(argv):
             for f in found:
                 print("libtab symcheck: %s" % f)
             return 1 if (missing or found) else 0
+        if len(argv) >= 4 and argv[0] == "samelib":
+            found = samelib(load(argv[1]), load(argv[2]), argv[3], argv[4:])
+            for f in found:
+                print("libtab samelib: %s" % f)
+            return 1 if found else 0
+        if len(argv) in (4, 5) and argv[0] == "mapcheck":
+            libs = load(argv[1])
+            ref = load(argv[4] if len(argv) == 5 else os.path.join(argv[3], "coreapp", "libs", "shared.toml"))
+            app = descrec.toml_loads(open(argv[1]).read()).get("app", {})
+            with open(argv[2], errors="replace") as fh:
+                found = mapcheck(libs, ref, fh.read(), argv[3], app.get("base_sources", []))
+            for f in found:
+                print("libtab mapcheck: %s" % f)
+            return 1 if found else 0
     except LibTabError as e:
         print("libtab: %s" % e, file=sys.stderr)
         return 1

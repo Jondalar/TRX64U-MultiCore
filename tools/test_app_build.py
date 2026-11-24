@@ -140,6 +140,47 @@ class Split(unittest.TestCase):
         self.assertEqual(got, {"ops.cc", "descrec.cc", "diag.cc"})
 
 
+class CoreAppToml(unittest.TestCase):
+    """V-4: the VIC-20's app is linked against its own TOML A and the blocks of the base's TOML A that its TOML B names (descrec.merge_toml_a)."""
+
+    def vic20_head(self):
+        app = os.path.join(ROOT, "cores", "vc20", "app")
+        core = D.toml_loads(open(os.path.join(app, "gateware.toml")).read())
+        sdk = D.toml_loads(open(os.path.join(app, "sdk.toml")).read())["app"]
+        base = D.toml_loads(open(os.path.join(ROOT, "coreapp", "gateware", sdk["base_toml_a"])).read())
+        doc = D.resolve_maps(D.merge_toml_a(core, base, sdk["base_blocks"], "t"), D.load_maps([os.path.join(ROOT, "app", "sdkpkg", "maps")]))
+        return sdk, core, doc, D.drivers_files(doc, "t")[0]
+
+    def test_the_vic20_driver_table_holds_the_blocks_its_two_files_name(self):
+        sdk, core, doc, head = self.vic20_head()
+        self.assertEqual(sdk["base_toml_a"], "host.toml")        # V-4b: the VIC-20 runs on the host bitstream, its base blocks are the host's
+        self.assertEqual(sorted(b["name"] for b in doc["block"]), sorted(sdk["base_blocks"] + [b["name"] for b in core["block"]]))
+        for macro in ("DRV_HAS_cart_regs", "DRV_HAS_drive_a", "DRV_HAS_icap_id", "DRV_HAS_partition", "DRV_HAS_iec_status", "DRV_ident_caps_RD()", "DRV_cart_regs_mode_WR(v)",
+                      "DRV_machine_ram_ext_ADDR", "DRV_icap_id_id_loader", "DRV_partition_decouple_request_MASK", "DRV_icap_enable_enable_on_on", "DRV_iec_status_version_RD()"):
+            self.assertIn(macro, head)
+        self.assertEqual(doc["identity"]["id"], "VC20")          # the core's identity, not the shared app's
+        D.ldfrag_doc(doc, "t")
+
+    def test_the_vic20_driver_table_has_the_block_of_no_probe_the_app_does_not_run(self):
+        # hw.cc HwBoardProbe::blocks() sets a bit of board.h BB_* from DRV_HAS_<block>: the VIC-20's table has the blocks of the ICAP loader, drive_a and iec_status, and none of the others
+        import re
+        _, _, doc, head = self.vic20_head()
+        with open(os.path.join(ROOT, "coreapp", "src", "hw.cc")) as f:
+            text = f.read()
+        body = text[text.index("uint32_t blocks()"):text.index("uint8_t icap_id()")]
+        asked = re.findall(r"#ifdef (DRV_HAS_\w+|HW_HAS_ICAP)\s+b \|= (BB_\w+);", body)
+        self.assertEqual(sorted(bb for _, bb in asked), ["BB_CART", "BB_CMD_IF", "BB_DRIVE_A", "BB_ICAP", "BB_IEC", "BB_REU", "BB_RING"])
+        have = {bb for macro, bb in asked if macro == "HW_HAS_ICAP" or ("#define %s 1" % macro) in head.splitlines()}
+        self.assertEqual(have, {"BB_ICAP", "BB_DRIVE_A", "BB_IEC"})
+        # the shared app's table (shared.toml) has every one of them: no probe of the C64 app is lost
+        sh = D.resolve_maps(D.toml_loads(open(os.path.join(ROOT, "coreapp", "gateware", "shared.toml")).read()), D.load_maps([os.path.join(ROOT, "app", "sdkpkg", "maps")]))
+        shared = D.drivers_files(sh, "s")[0].splitlines()
+        for macro, bb in asked:
+            if macro != "HW_HAS_ICAP":
+                self.assertIn("#define %s 1" % macro, shared, bb)
+        self.assertIn("#define DRV_HAS_icap 1", shared)
+
+
 class Flags(unittest.TestCase):
     def test_the_sdk_flags_are_the_makefiles(self):
         A.cmd_flags(MAKEFILE, APPFLAGS)

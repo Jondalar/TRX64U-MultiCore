@@ -7,7 +7,7 @@
 # missing here only). NOT_HERE are the board-only files the native build replaces with the program's main and the stubs.
 SRC="$ROOT/coreapp/src"; CORES="$ROOT/coreapp/cores"; HA="$ROOT/host-app/software/hostapp"
 MK="$ROOT/host-app/target/u64ii/riscv/coreapp/Makefile"
-APPDIRS="$SRC $CORES $ROOT/app/loaders $ROOT/app/lib/cbm1541 $ROOT/app/edit $ROOT/app/view $ROOT/app/video $HA $ROOT/uicore"   # $HA: handover, bootcfg
+APPDIRS="$SRC $CORES $ROOT/cores/vc20/app/lib $ROOT/app/loaders $ROOT/app/lib/cbm1541 $ROOT/app/edit $ROOT/app/view $ROOT/app/video $HA $ROOT/uicore"   # $HA: handover, bootcfg
 NOT_HERE="libexports.cc libtab.cc c64cart_exports.cc cbm1541_exports.cc sid_exports.cc tempdisk_exports.cc cbmprg_exports.cc table.cc hw.cc run.cc fm_fs.cc fm_medium.cc tempdisk.cc fastseek.cc fastseek_exports.cc ftp_exports.cc libboard.cc nettransport.cc restsrv.cc uiapp_board.cc"
 # the TRX64U's board-side contributors and what they stand on (the U64 registers, USB HID, the network stack, FreeRTOS tasks, lwIP sockets): tests/coreapp/board_stubs.cc stands in
 NOT_HERE="$NOT_HERE u64cfg.cc libfiles.cc ringops.cc ring.cc ringfile.cc monitor.cc monsrv.cc diag.cc netops.cc netsvc.cc dmasvc.cc hostwifi.cc netfs.cc ftp_client.cc resid8.cc dma_uart.cc appsvc.cc network_esp32.cc wifi.cc wifi_cmd.cc esp32.cc wifinet.cc usb_xinput.cc mouse_board.cc pad_board.cc u64_resample.cc"   # usb_xinput.cc: the XInput USB driver (T196), on the USB stack
@@ -15,10 +15,14 @@ NOT_HERE="$NOT_HERE u64cfg.cc libfiles.cc ringops.cc ring.cc ringfile.cc monitor
 TEST_SRCS="$ROOT/tests/coreapp/libtab_native.cc $SRC/desc_check.cc $ROOT/tests/coreapp/video_stub.cc $ROOT/tests/coreapp/sha256_cc.cc $ROOT/tests/coreapp/board_stubs.cc"
 # the defines and the include path (LV_CONF_INCLUDE_SIMPLE: lv_conf.h comes from the directory the caller puts first)
 CORE_DEFS="-std=gnu++14 -w -DVIDEOMODE_NO_BOARD=1 -DLV_CONF_INCLUDE_SIMPLE"
-CORE_INCS="-I$ROOT/app/view -I$ROOT/app/video -I$SRC -I$ROOT/uicore -I$CORES -I$ROOT/app/loaders -I$ROOT/app/lib/cbm1541 -I$ROOT/app/edit -I$ROOT/tests/coreapp -I$ROOT/tests -I$ROOT/host-app/software/io/c64 -I$ROOT/host-app/software/lvgl_port -I$ROOT/host-app/software/filesystem -I$HA"
+CORE_INCS="-I$ROOT/app/view -I$ROOT/app/video -I$SRC -I$ROOT/uicore -I$CORES -I$ROOT/cores/vc20/app/lib -I$ROOT/app/loaders -I$ROOT/app/lib/cbm1541 -I$ROOT/app/edit -I$ROOT/tests/coreapp -I$ROOT/tests -I$ROOT/host-app/software/io/c64 -I$ROOT/host-app/software/lvgl_port -I$ROOT/host-app/software/filesystem -I$HA"
 
+source "$ROOT/tests/coreapp/vc20_drv.sh"
 coreapp_srcs() {
   SRCS=""
+  VC20_DRV="${TMPDIR:-/tmp}/vc20drv.$(id -u)"                  # T239.3 V-4: vc20_regs.h names the registers through the VIC-20's driver table
+  vc20_drv_dir "$VC20_DRV" || return 1
+  CORE_INCS="$CORE_INCS -I$VC20_DRV/drv"
   local f d
   for f in $(sed -n '/^SRCS_CC/,/^$/p' "$MK" | grep -oE '[A-Za-z0-9_]+\.cc'); do
     case " $NOT_HERE " in *" $f "*) continue ;; esac
@@ -31,6 +35,16 @@ coreapp_srcs() {
   for f in $(python3 "$ROOT/tools/libtab.py" sources "$ROOT/coreapp/libs/shared.toml"); do
     case " $NOT_HERE " in *" $f "*) continue ;; esac
     for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
+  done
+  # T239.3 V-4b: a core with an app of its own is not in the shared image's list: the libraries of its TOML B (cores/<id>/app/sdk.toml, [app] desc) are compiled here as its own build
+  # compiles them, against the driver table of its own TOML A (vc20_drv_dir above), so the render benches and the menu simulator have its descriptor. A source the shared list has is not added twice.
+  local own
+  for own in $(python3 "$ROOT/tools/core_toml.py" list-own-app 2>/dev/null); do
+    for f in $(python3 "$ROOT/tools/libtab.py" sources "$ROOT/cores/$own/app/sdk.toml"); do
+      case " $NOT_HERE " in *" $f "*) continue ;; esac
+      case " $SRCS " in *"/$f "*) continue ;; esac
+      for d in $APPDIRS; do [ -f "$d/$f" ] && { SRCS="$SRCS $d/$f"; break; }; done
+    done
   done
   SRCS="$SRCS $TEST_SRCS"
 }
