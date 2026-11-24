@@ -6,6 +6,8 @@ MultiCore (T191, T198); MultiCore T230, proposed by both sides 2026-11-16, waiti
 table, §2 the version, §7 the start file, §8 what the bitstream offers an application, §10 the target split, and the two copies
 made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's go (MultiCore T239.3 D37: the way back
 from a large core).
+§1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21 and D44, step P1-8:
+TRX64-Ultimate builds, tests and delivers `trx64u.cor`, MultiCore's package takes it by its SHA-256).
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -23,7 +25,8 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Hand-over page (§3) | reads it (Gideon's application, §4) | its layout and the host that writes it |
 | Start file (§7) | Gideon's application ignores it | writes it (host) and reads it (generic coreapp) |
 | The way back (§7) | the ICAP loader in `c64_basic` (§8) | the menu marker and the IPROG (generic coreapp), the host's menu |
-| Generic coreapp on `trx64u` (config at start, persist, autostart, `menu.toml`) | - | owns it |
+| `trx64u.cor` (T239.3 D21) | builds it, tests it, delivers it as the file `trx64u_<sha8>.cor` of its package | takes it by its SHA-256 into the package, changes no byte |
+| The generic coreapp and the SDK (config at start, persist, autostart, the TOML schemas, the op list) | - | owns and delivers them |
 | Foreign firmware as a core entry (§5) | - | owns it |
 | DDR2 windows (§6) | `0x03800000..0x03A00000` (debug service) | `STAGE_APP`, `STAGE_PART`, the update window of the coreapp |
 | This text | both sides, with Alex | both sides, with Alex |
@@ -35,7 +38,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   (packages built before that commit have no such field). A package between two releases repeats the last
   release's number: the field names the release line, not this package; the release is the Gitea release
   `trx64-<branch>-<sha8>` of that package version.
-- TRX64U-MultiCore packs the `.cor` files. It does not build the application; it takes the published files.
+- TRX64U-MultiCore packs the `.cor` files of the other cores and `trx64g.cor`. It does not build the application; it takes the published files. `trx64u.cor` it does not pack at all: TRX64-Ultimate builds, tests and delivers it (T239.3 D21), and MultiCore's package takes that file by its SHA-256.
 - Neither side pushes into the other's CI. ADR-0058 of TRX64-Ultimate stands: MultiCore loads TRX64 Ultimate's
   firmware, it does not build it.
 - **The package namespace is split** (Alex, 2026-10-31). `trx64-ultimate` is written by TRX64-Ultimate's CI
@@ -61,8 +64,8 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   fails when the `x.y.z` part differs from the manifest. A package without `"version"` is pinned with the version
   taken by hand from the release.
 - The two cores:
-  - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp.
-    Pins `BIT_FILE=c64_basic.bit` and `BIT_SHA256`.
+  - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp and its menu,
+    built by TRX64-Ultimate. The pin names the finished file: `PACKAGE`, `VERSION`, `COR_FILE`, `COR_SHA256`, `COR_SIZE`.
   - `trx64g` — NAME "TRX64 Ultimate (Gideon app)", file `trx64g.cor`: TRX64-Ultimate's bitstream with its own
     application. Pins `BIT_FILE`, `APP_FILE=ultimate.app` and both hashes.
 
@@ -120,7 +123,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   means read from this board's flash.
 - Its purpose is firmware that exists only as a `.cfw` (Gideon 3.15a, Commodore 1.1.0), so the core list has one
   kind of entry instead of two.
-- It is **not** the path for `trx64g`/`trx64u`. Those are packed from `c64_basic.bit` + `ultimate.app`, which are
+- It is **not** the path for `trx64g`/`trx64u`. `trx64g` is packed from `c64_basic.bit` + `ultimate.app`, `trx64u.cor` is TRX64-Ultimate's finished file; the first two are
   published beside the `.cfw` and are byte-equal to what it contains — `tools/trx_pkg_check.py` proves that on
   every build.
 
@@ -233,8 +236,8 @@ does the work, chosen and parametrised by that TOML (which is no programming lan
 from declarations (the UI TOML). Alex: *"Let's try it that way then. But first close all loose ends and a
 release."*
 
-- **TRX64-Ultimate owns** the bitstream and `trx64u`'s API TOML and UI TOML (the menu; today MultiCore's
-  `coreapp/cores/trx64u/menu.toml`).
+- **TRX64-Ultimate owns** the bitstream and `trx64u`'s API TOML and UI TOML (the menu; since T239.3 P1-8 its own,
+  MultiCore no longer holds a copy).
 - **MultiCore owns** the host, the service with its generic C modules, the TOML schemas and the generic op list,
   each versioned. The feature logic of `trx64u` (the Timewarp ring, the monitor, the streams, the U64 registers;
   today in MultiCore's `coreapp/src`: `trx64u_ops`, `ring*`, `monitor`, `monsrv`, `u64cfg` and the stream code)
