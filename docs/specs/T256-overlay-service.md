@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Decided D1-D10 (Alex 11-23); service built as T239.3 T-2 (branch t239.3-t2-overlay); TRX64-Ultimate T-3 next
+Open (one line, as in the TODO table): Decided D1-D10 (Alex 11-23); T-2 built; TRX64-Ultimate T-3 next; D13 built on t239.3-nav (SDK 0.4.6)
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -203,3 +203,33 @@ T-2 (T239.3 plan step), 2026-11-23, branch `t239.3-t2-overlay`. Each point is re
   VIC picture of trx64u and the frame buffer of vc20; that the emulator's DDR2 window takes `ddr_write` at offset 0x00D00000 (the vc20 profile's frame buffer is black, so the library's `ovtest.paint` writes eight colour bars into the four buffers, and S5 compares the standing picture with the one saved before the pause outside the element and the tag, by blocks of 40 x 30 canvas pixels, and the log has neither `no still` nor `no memory for the still`). S3 compares three pictures 400 ms apart (the cursor's blink toggles about every 333 ms): one pair that differs is enough.
 - **Not proven:** S2 has no ue2emu picture and no board photo; S8 (render time, the capture, the memory) is not measured; `run.cc`, `hw`-side and the LVGL calls of `ui.cc` on the RISC-V build are
   not compiled here (the menu simulator runs `ui.cc` natively: the still, the tag with the base's text and the blend are seen there).
+- **D13 built (2026-11-24, `t239.3-nav`, SDK 0.4.6, base 3.4).** Calls 1-3 are documented as patterns (api.md 4.17.17); calls 4 and 5 are
+  `exit_to_machine(flags)` and `goto_screen(target)` at the end of SvcOverlay (`svc_overlay.h`, `libsvc.cc`, `overlay.cc`). The operations
+  `menu.screen` and `app.open` are in api.md 4.3.3, `menu_hide` with a session open in 4.17.12.2. `U2A_BASE_MINOR` is 4; the lock of 3.3 is released
+  (released = true, its hash unchanged) and 3.4 is a new, unreleased entry; `version.toml` and `SDK_VERSION` follow.
+  - **One slot, last call wins.** `menu_hide`, `menu_show`, `exit_to_machine` and `goto_screen` share the one request that waits for the main
+    loop's pass (`OverlaySvc::menu_req_` and `nav_`, each call clears the other). EXIT then GOTO in one frame goes (the GOTO); GOTO then EXIT
+    exits. A hide or show that the service already handed to the board's request cell before a later EXIT/GOTO is dropped by the loop: the pass
+    takes the navigation request first (`run.cc` `overlay_pass`).
+  - **The pass** (`ovl_nav_request`, `overlay.cc`; the board's side is `LoopNavPort` in `run.cc`). Exit: refused with the status of the person's
+    close when the core waits for a program (`needs_program`); else the session ends, the application ends unless it is resident and KEEP_APP is
+    set (`AppHost::leave_app`: a resident application without KEEP_APP is asked to end, task and jobs waited for 4 s as `open_now` does), Pause is
+    set to the flag, the menu closes. A session that cannot let go (4 s) refuses the exit and says so on the status row. While the menu is closed
+    only a resident application ends (without KEEP_APP); the machine is not touched. Goto: the menu opens if closed, a foreign application's
+    session ends (a resident one stays loaded), the menu goes to the place (`MenuCtl::goto_spec`, which now also applies a pending `lib.show` when
+    it lands on the Library) or the base files the `app.open` request (`AppHost::request`, taken at the next pass). Not while the core has not
+    started and the menu is closed.
+  - **Return path of a transient application.** The calls only file the request. The image is freed after the application's task and jobs have
+    returned (`close_session` waits for them, 4 s), never at the call, and an operation on the executor holds the core lock that the release takes.
+    So the app returns from its task entry after the call and touches nothing it handed over; a task that does not return keeps the image and the
+    exit is refused. Documented in api.md 4.17.18.6.
+  - **Evidence.** `tests/coreapp/test_overlay.cc` (run by hand once, `cc` of the test with `overlay.cc` and the video stubs): 504 checks, 0 failed
+    (294 before): exit with no flag, PAUSE, KEEP_APP, both; no application; refused for `needs_program` (nothing ends, pauses or closes); a session
+    that cannot stop; exit with the menu closed; goto to a place and to an application (with and without options), from a closed menu, with a
+    foreign session, with the application's own session, to a missing place and application, before the core has started; the argument checks
+    (flag, null, empty, 47 and 48 characters); the order of the four requests. api.md: `tools/check_api_doc.py` ok (503 symbols), `tools/sdk_api.py
+    check` ok.
+  - **Not run:** the RISC-V build and the ue2emu proof (`run.cc`'s `LoopNavPort`, `AppHost::leave_app` are compiled only for the board); the
+    board loop is not exercised by a unit (the port is the test's `NavLog`). An application that calls the two functions on the board has no test
+    yet.
+
