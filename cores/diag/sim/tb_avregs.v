@@ -4,7 +4,7 @@
 // trim while it runs: line and frame length of all four standards, the subcarrier constants, the six group orders against the encoder words, the eight bit orders, the trim in 31 Hz steps.
 `timescale 1ns / 1ps
 module unit (input clk, input we, input re, input [11:0] a, input [7:0] d, output [7:0] q, output [7:0] ga, gb, gc);
-    wire [81:0] cfg;
+    wire [92:0] cfg;
     wire ack, irq;
     diag_regs r (.clk(clk), .we(we), .re(re), .addr({5'd0, a}), .wdata(d), .rdata(q), .ack(ack), .irq(irq), .build(32'd0), .px_we(), .px_re(), .px_rdata(8'd0),
         .ev_vsync(1'b0), .ev_flip(1'b0), .ev_eng(1'b0), .run(), .abort(), .go(), .fifo_clr(), .st_we(), .st_addr(), .st_wdata(), .status(5'd0), .pc(8'd0),

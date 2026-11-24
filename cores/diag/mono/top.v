@@ -946,6 +946,7 @@ module top #(
     wire [4:0] kbj1_i, kbj2_i;
     wire [9:0] l2_kbjoy_low;
     wire [7:0] av_ga, av_gb, av_gc;          // T201: layer 2's A/V group words
+    wire       av_syn_n, av_fb;              // T259: layer 2's AVID_SYNCn and AVID_FB
     diag_pads kbjoy_pads (.KBJOY_1_JOY(KBJOY_1_JOY), .KBJOY_2_JOY(KBJOY_2_JOY), .low(l2_kbjoy_low), .decouple(core_decouple), .j1_i(kbj1_i), .j2_i(kbj2_i));
     (* ASYNC_REG = "TRUE" *) reg [10:0] pins_s1, pins_s2;
     always @(posedge sys_clk) begin
@@ -1698,7 +1699,7 @@ module top #(
         .paddle_cmp_i(PADDLE_CMP),
         .kbjoy_i({kbj2_i, kbj1_i}),
         .kbjoy_low(l2_kbjoy_low),
-        .av_ga(av_ga), .av_gb(av_gb), .av_gc(av_gc),
+        .av_ga(av_ga), .av_gb(av_gb), .av_gc(av_gc), .av_syn_n(av_syn_n), .av_fb(av_fb),
         .paddle_dis_o(l2_paddle_dis_o),
         .paddle_dis_en(l2_paddle_dis_en),
         .paddle_adj_o(l2_paddle_adj_o),
@@ -1895,8 +1896,8 @@ module top #(
     assign {AVID_G[9], AVID_R[9], AVID_G[7], AVID_G[6], AVID_G[4], AVID_G[3], AVID_B[9], AVID_B[6]} = av_ga;
     assign {AVID_R[4], AVID_R[3], AVID_B[8], AVID_B[7], AVID_B[5], AVID_B[4], AVID_B[3], AVID_B[2]} = av_gb;
     assign {AVID_R[8], AVID_R[7], AVID_R[6], AVID_R[5], AVID_R[2], AVID_G[8], AVID_G[5], AVID_G[2]} = av_gc;
-    assign AVID_SYNCn = 1'b1;           // the sync is in the Y and CV words
-    assign AVID_FB    = 1'b0;
+    assign AVID_SYNCn = av_syn_n;       // T259: a knob of diag_avout.v (reset: high, the sync is in the Y and CV words)
+    assign AVID_FB    = av_fb;          // T259: a knob (reset: low)
     ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
         .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));
 
