@@ -32,7 +32,7 @@
 //
 // T257 (#122): a frame that is not interlaced is taken up to LINES = 240 lines too (the instance says LINES(240), LINES_IL(240)); every source line is
 // still written twice, rows 2y and 2y+1, so rows 0..479 are used. A frame with LINES_BASE + 1 .. LINES - 1 lines (201..239) is completed by the writer: the
-// rows after its last line are written (a blank job per line, in the colour of the frame's right border: T257 fault 7, it was black) before the frame is reported, so no row of
+// rows after its last line are written (a blank job per line, in the colour of the first blanked dot, padc: T257 fault 7, it was black) before the frame is reported, so no row of
 // the picture comes from an older frame. `latest` b2 ("480 rows are this picture") is now 1 for such a frame and for one of 240 lines (it was
 // only ever 1 for a woven pair); a frame of up to LINES_BASE = 200 lines keeps b2 = 0 and the application cuts the layer to 400 rows as before.
 // T257 fault 7 (rfovdc2, board 2026-11-24): (1) a line with fewer than COLS active dots (R1 < 80 characters) is carried on through the blanking to COLS dots in
@@ -110,8 +110,8 @@ module c128_pixw #(
     (* ASYNC_REG = "TRUE" *) reg [1:0] ack_s = 2'b00;
     assign quiet = (ack_s[1] == ln_tgl);
     // T257 fault 7: a frame that is not interlaced is completed to LINES_BASE rows' worth of lines (to LINES when it had more than LINES_BASE lines) with
-    // the colour of its right border; a frame of 100 lines (the outline part of rfovdc2) no longer shows the rows of the older, taller picture below it
-    reg [15:0]  padc = 16'd0;                         // the colour of the first dot after the active part of the line (the right border), valid for the rest of the row and the rows below
+    // padc; a frame of 100 lines (the outline part of rfovdc2) no longer shows the rows of the older, taller picture below it
+    reg [15:0]  padc = 16'd0;                         // the colour of the first dot after the active part of the line: the VDC's background (R26) while its display enable (R34) is on, else black; valid for the rest of the row and the rows below
     wire [9:0]  fill_end = (last_row >= LINES_BASE) ? LINES : LINES_BASE;
     wire        fill_need = !il_f && (last_row + 10'd1) < fill_end;
 
@@ -145,7 +145,7 @@ module c128_pixw #(
             end else cap_n = 1'b0;
         end
         // T257 fault 7: a line with fewer than COLS active dots (the plasma part of rfovdc2: R1 = 56 characters = 448 dots) goes on through the blanking until the row
-        // is COLS dots wide, the dots after the active part in the colour of the right border; without it such a line never completed, no frame was handed over and
+        // is COLS dots wide, the dots after the active part in padc; without it such a line never completed, no frame was handed over and
         // the picture of the older frame stayed
         if (!hblank || (cap_n && x_n < X0 + COLS)) begin
             if (cap_n && x_n >= X0 && x_n < X0 + COLS) begin

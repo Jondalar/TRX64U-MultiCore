@@ -6,7 +6,7 @@
 //   - frame_tgl comes once per VDC frame, seq counts them, the buffers go round 0, 1, 2, no line was late (overruns == 0)
 //   - after the run the last three frames are still in their buffers, and nothing was written outside the three buffers
 // Phase 1b (T257): the VDC is not interlaced and shows 240 lines (R6 = 30 rows of 8 lines) and then 224 lines (R6 = 28): the frame must go through whole, source line y in
-// rows 2y and 2y+1 up to y = 239, reported with b2 = 1 (all 480 rows are this picture); of the 224-line frame the rows after line 223 are black (written by the
+// rows 2y and 2y+1 up to y = 239, reported with b2 = 1 (all 480 rows are this picture); of the 224-line frame the rows after line 223 are in the colour of the first blanked dot (written by the
 // writer's blank jobs), not what an older frame left there.
 // Phase 2 (T113 D11): the VDC is put into interlace sync and video (R8 = 3, Busted Boulders' registers: 10-line glyphs, 48 rows, 240 lines a
 // field) with a synthetic 10-line font, text first, then a bitmap; every picture the writer reports as woven (latest b2) is compared with a
@@ -89,7 +89,7 @@ module tb_c128_pixw;
     reg       sil  [0:3];                             // its interlace flag
     integer   scnt [0:3];                             // lines it had
     integer   swd  [0:3];                             // active dots of its lines (the last one counts)
-    reg [3:0] sbd  [0:3];                             // the colour of the first dot after the active part of a line (the right border; the last line counts)
+    reg [3:0] sbd  [0:3];                             // the colour of the first dot after the active part of a line (the VDC's background while its display enable is on, else black; the last line counts)
     always @(posedge clk) if (ce && wr_en) begin
         if (av && !av_prev) begin vf = vf + 1; sln = -1; sfld[vf % 4] = vdc_il[0]; sil[vf % 4] = vdc_il[1]; scnt[vf % 4] = 0; end
         if (!av && av_prev) vdone = vdone + 1;
