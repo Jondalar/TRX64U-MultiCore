@@ -705,10 +705,10 @@ bool tab_has_results(void)
     return nres > 0;
 }
 const char *tab_error(void) { return err; }
-// D41 (L-3c): the prefetch of a result's files is still running (or has ended and is not taken over yet): the file manager waits and lists the folder again instead of failing once.
+// D41 (L-3c): the prefetch of a result's files or of a file's bytes is still running (or has ended and is not taken over yet): the file manager waits and lists the folder again instead of failing once.
 bool tab_loading(void)
 {
-    return g_w.state != 0 && g_w.kind == W_ENTRIES;
+    return g_w.state != 0 && (g_w.kind == W_ENTRIES || g_w.kind == W_DOWNLOAD);
 }
 
 int find_res(const char *label)

@@ -171,6 +171,10 @@ void FileMgr::load_dir()
         lib_sync();
         return;
     }
+    if (relisting && !dir_ok && !loading && why[0] && !strcmp(failed_path, path)) {   // D41: a folder that failed with a reason is asked once; the reason stays until the person enters it again
+        lib_sync();
+        return;
+    }
     if (nroots == 0 || !strcmp(path, "/")) {
         refresh_roots();
     }
@@ -189,8 +193,12 @@ void FileMgr::load_dir()
     snprintf(list_path, sizeof(list_path), "%s", path);
     loading = n < 0 && c->fs->loading();                           // D41: a job fetches the folder: "Loading", and relist() reads it again until the job has ended
     why[0] = 0;
+    failed_path[0] = 0;
     if (n < 0 && !loading) {
         snprintf(why, sizeof(why), "%s", c->fs->why());
+        if (why[0]) {
+            snprintf(failed_path, sizeof(failed_path), "%s", path);
+        }
         if (why[0] && strcmp(said_path, path)) {                   // the reason goes to the status row once per folder
             snprintf(said_path, sizeof(said_path), "%s", path);
             say(why, true);
@@ -271,7 +279,9 @@ bool FileMgr::relist()
     const bool loading_before = loading;
     char why_before[sizeof(why)];
     memcpy(why_before, why, sizeof(why));
+    relisting = true;
     load_dir();
+    relisting = false;
     refresh_roots();                                               // a stick that mounted late is a new source chip
     bool roots_same = nroots == nroots_before && !memcmp(roots_before, roots, sizeof(roots));
     const bool note_same = loading == loading_before && !strcmp(why, why_before);   // D41: the last line (Loading, the reason) changed

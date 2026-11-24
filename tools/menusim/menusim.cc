@@ -63,7 +63,7 @@ static void usage(void)
 {
     fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
                     "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n"
-                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H] [--loading DIR[,N]]\n"
+                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H] [--loading DIR[,N[,REASON]]]\n"
                     "        keys also: FIND:text SEL:n GOTO:F3/tab (the main loop's goto_screen to a place) LIBDIR:/path (lib.show: the Library opens there) PUMP:n (n passes of the menu's clock)\n");
     exit(2);
 }
@@ -400,10 +400,12 @@ static void start_rig(bool replay)
     g_rig->c.program_loaded = true;
     fill_stick(g_rig);
     if (o.loading) {
-        std::string d = o.loading;
-        size_t comma = d.rfind(',');
-        g_rig->fs.slow_n = comma == std::string::npos ? 1000 : atoi(d.c_str() + comma + 1);
-        g_rig->fs.slow_dir = comma == std::string::npos ? d : d.substr(0, comma);
+        std::string d = o.loading, why;                           // DIR[,N[,REASON]]
+        size_t c1 = d.find(','), c2 = c1 == std::string::npos ? c1 : d.find(',', c1 + 1);
+        if (c2 != std::string::npos) { why = d.substr(c2 + 1); }
+        g_rig->fs.slow_n = c1 == std::string::npos ? 1000 : atoi(d.c_str() + c1 + 1);
+        g_rig->fs.slow_why = why;
+        g_rig->fs.slow_dir = d.substr(0, c1);
     }
     video_place_menu(&g_rig->px, mode.hdmi, mode.sys);
     g_open = true;

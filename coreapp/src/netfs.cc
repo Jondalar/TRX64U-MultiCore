@@ -469,6 +469,10 @@ CoreFile *NetFs::open(const char *path, bool rw)
     if (is_online(path, &orel)) {
         uint32_t n = 0;
         uint8_t *b = ol_fetch(orel, &n);
+        for (uint32_t t0 = now_ms(); !b && ol_loading() && now_ms() - t0 < 120000; ) {   // D41: the copy, mount and view paths wait for the sub-app's job instead of failing once
+            vTaskDelay(pdMS_TO_TICKS(50));
+            b = ol_fetch(orel, &n);
+        }
         if (!b) {
             snprintf(err_, sizeof(err_), "%s", ol_error());
             return 0;

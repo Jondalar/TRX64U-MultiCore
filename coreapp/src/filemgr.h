@@ -50,6 +50,8 @@ struct FileMgr {
     bool more;                           // the folder is longer than the list the heap budget allows: the Library says so on a last line
     bool loading = false;                // T239.3 D41: the medium is still fetching the folder (CoreFs::loading); the Library says "Loading" on a last line and reads the folder again soon
     char why[96] = "";                   // the medium's reason when the folder cannot be read (CoreFs::why); the last line says it
+    char failed_path[200] = "";        // the folder whose read failed with a reason: relist() does not ask again, only entering the folder again does (the Online results)
+    bool relisting = false;
     char said_path[200] = "";            // the folder whose reason was put on the status row already (once per folder, relist reads it again)
     int nlist;
     bool dir_ok;

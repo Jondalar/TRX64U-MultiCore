@@ -390,7 +390,13 @@ int main()
         CHECK(w.find_row("The server gave no files") >= 0);
         CHECK(w.find_row("Loading ...") < 0);
         CHECK(w.find_row("one.atr") < 0);
-        CHECK(w.m->relist());                                         // asks again: the folder fills
+        int lists = w.fs.slow_asked;
+        CHECK(!w.m->relist());                                        // a failed folder is asked once: no new read, the reason stays
+        CHECK(!w.m->relist());
+        CHECK_EQ(w.fs.slow_asked, lists);
+        CHECK(w.find_row("The server gave no files") >= 0);
+        w.m->key(KEY_LEFT);                                           // out and in again: asked again, the folder fills
+        w.go_to("slow/"); w.m->key(KEY_RETURN);
         CHECK(w.find_row("one.atr") >= 0);
     }
     // --- the media level is the way between media in every layout: RETURN on ../ and LEFT at the top of a medium lead to it, a medium's row opens it
