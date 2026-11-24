@@ -186,6 +186,9 @@ public:
     virtual const char *why() const { return ""; }
     // T239.3 D41 (review): the wait seam of a file. open() never waits. After an open() that returned null: true when the medium is still fetching exactly this file in the background (a job); the caller
     // keeps its action pending, shows open_note() and opens again soon. `take` clears the answer (ask it so before an action: a stale answer is no answer). Any other failure, and every medium that has no such fetch: false.
+    // The answer is one slot for every task: the menu and a copy run on the app's task one after the other, an RPC session on its own; an open of another task between an
+    // open and its question replaces the answer, so the RPC loop (rpc.cc) may stop waiting early (the client gets the fetch's error and asks again) or wait for the
+    // other task's file (120 s at most). A known limit (review of 2026-11-24).
     virtual bool file_loading(bool take) { (void)take; return false; }
     virtual const char *open_note() const { return ""; }
     // The same listing in FsEntryShort: 72 bytes an entry instead of 272. The default lists through list() into a buffer of `max` whole entries and

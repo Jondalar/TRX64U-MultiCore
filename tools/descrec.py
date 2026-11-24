@@ -1883,7 +1883,7 @@ def _sec_windows(rows, st):
 #
 #   [io]                            the base addresses of the I/O space, each a 32 bit number (IO_KEYS)
 #   [identity]                      the standard block (D30 condition 2): id = the four characters of the ID, block = the name of the block that holds the identity
-#                                   registers (owner base; it declares the readable properties "id" and "build"); build = the bitstream's build word, optional in the source: cor_pack
+#                                   registers (a block of the base declares the readable properties "id" and "build"; a block of the core is not checked: T239.3 D39, the host's TOML A names core_trx_io); build = the bitstream's build word, optional in the source: cor_pack
 #                                   writes the AXSS word of the bitstream into the record (stamp_build, P1-4), and the service compares id and build with the block at start
 #   [[block]]                       a capability: map (optional: the name of a module map, see below), name (a-z 0-9 _, 1 .. 31, once), module (the gateware module and so the driver library, the same characters), owner
 #                                   ("base" or "core"), address, size (bytes, 1 .. 0x100000; the blocks do not overlap, so a block of the core covers no byte of a block of the base). A module whose registers serve several drivers is several blocks, one per register range (D34).

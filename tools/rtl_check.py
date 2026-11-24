@@ -4388,6 +4388,7 @@ def strip_c(text):
     return "".join(out)
 
 
+C_EXT = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc")
 C_INT = re.compile(r"(?<![\w.])(0[xX][0-9a-fA-F']+|\d[\d']*)(?:[uUlL]*)(?![\w.])")
 
 

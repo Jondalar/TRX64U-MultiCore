@@ -12,7 +12,7 @@
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout; appflags.mk and appbuild.mk link a core's app
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
 #   test/     tests/drv_fake.h, the register fake of a native test (-DDRV_PTR_HEADER)
-#   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (app_build.py and cor_pack.py import libtab.py, which imports check_d24.py; descrec.py reads basereg.def; u2a_pack.py, cor_pack.py, app_build.py, libtab.py and rtl_check.py import descrec.py; the rest import only Python's own modules; cor_pack.py needs Pillow for a PNG --icon only)
+#   tools/    u2a_pack.py, descrec.py, cor_pack.py, rtl_check.py, app_build.py, libtab.py (app_build.py and cor_pack.py import libtab.py, which imports check_d24.py; u2a_pack.py, cor_pack.py, app_build.py, libtab.py and rtl_check.py import descrec.py; the rest import only Python's own modules; cor_pack.py needs Pillow for a PNG --icon only)
 #   lib/      libtrxbase.a (the objects of the sources that depend on nothing a core decides), liblwip.a, liblvgl.a, crt0.o, port_asm.o
 #   base/     the sources that depend on the core (compiled for each core, with its [sizes]) and the sources of the shared libraries, at their repository paths under src/, the headers
 #             they reach under inc/, SIZED.txt, incdirs.txt, linker.x (tools/app_build.py pack-base)

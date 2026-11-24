@@ -1,5 +1,8 @@
 # Handover to TRX64-Ultimate: the pending calls and their final names (T239.3, base 3.3)
 
+> Historical (T239.3 P1, kept as the record of the boundary): the code it calls moving (`trx64u_ops`, `u64cfg`, `ring*`, `monitor`, `uci_api.h` and the
+> others) left this repository with T239.3 D44 and D48-D50; TRX64-Ultimate builds trx64u from it. The base calls it names are in `app/sdkpkg/api.md`.
+
 Source: `software/trx64u/{base,ring,monitor}/pending_api.h` of the TRX64-Ultimate branch `u18` (2d4c2dcc). Contracts: the headers in `coreapp/src/` named in each table. Map and reasons: `docs/dev/boundary-trx64u.md` (section 14 lists the same rows with the reading of the code).
 
 Rules for all rows:

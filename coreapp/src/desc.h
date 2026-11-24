@@ -295,7 +295,7 @@ struct CoreDesc {
     // The ID block is hard-wired in the gateware that two bundles share (amiga and amiga1200): both descriptors set id_shared and the
     // bundle's name tells them apart (start.cc). Two descriptors with the same ID and no flag are still refused (desc_check_table).
     bool id_shared;
-    const RegWrite *reset_writes; int nreset_writes;      // written with every settings commit (regset.h)
+    const RegWrite *reset_writes; int nreset_writes;      // written after the settings by every regset_apply (boot_apply_settings: a start, a reset, a restart, a loaded config; regset.cc), never by a live change
     const RomSetSpec *romset;                             // a ROM chosen out of a directory's files (romset.h)
     const WindowMediaSpec *window_media;                  // raw images in windows of the DDR2 with a dirty log (winslot.h)
     const SectorMediaSpec *sector_media;                  // images served sector by sector through a mailbox (sectors.h)

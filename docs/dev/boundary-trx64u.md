@@ -1,5 +1,8 @@
 # The boundary of the trx64u libraries (T239.3 P1)
 
+> Historical (T239.3 P1, kept as the record of the boundary): the code it calls moving (`trx64u_ops`, `u64cfg`, `ring*`, `monitor`, `uci_api.h` and the
+> others) left this repository with T239.3 D44 and D48-D50; TRX64-Ultimate builds trx64u from it. The base calls it names are in `app/sdkpkg/api.md`.
+
 ## Summary
 
 What the base must add, in the order it can be built:

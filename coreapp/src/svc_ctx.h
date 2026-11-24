@@ -1,6 +1,6 @@
 // Base 3.3, group `ctx` (T239.3 section 5; boundary rows 4.5, 8.1, 11.3): the state and the fields of the running core that a handler, a hook or a job reads
 // or writes. It replaces the members of CoreCtx that the moving code reached (started, paused, frozen, menu_open, notice, media_dir, cor_path, job_*) and the
-// definitions that move from trx64u_ops.cc into the core application (trx_target_path). It joins LibApi as `const SvcCtx *ctx`.
+// definitions that moved from the former trx64u_ops.cc (TRX64-Ultimate's since T239.3 D44) into the core application (trx_target_path). It joins LibApi as `const SvcCtx *ctx`.
 //
 // Contracts of the whole group:
 //   - No call takes a CoreCtx; each acts on the running core.
@@ -32,7 +32,7 @@ typedef struct SvcCtx {
     // menu's close. The caller tests CTX_STARTED first (op_pause_toggle answers "not running yet" when it is clear). Task: lock.
     void (*set_paused)(bool on);
     // A line the screen shows when the menu next opens, told once (CoreCtx::notice, notice_pending). `only_if_free` true: written only when no notice waits
-    // (u64cfg's rule); false: it replaces a waiting one (trx64u_ops' rule). The text is cut to 199 characters. Result: true when it was stored. Replaces
+    // (u64cfg's rule); false: it replaces a waiting one (the former trx64u_ops' rule). The text is cut to 199 characters. Result: true when it was stored. Replaces
     // ui_notice and ui_notice_pending. Task: any.
     bool (*notice)(const char *text, bool only_if_free);
     // The folder the menu was on when a task asks for a name (CoreCtx::media_dir): where a new file goes. "" when none. Never null. Task: any.

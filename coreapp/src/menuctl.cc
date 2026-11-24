@@ -519,7 +519,7 @@ void MenuCtl::settle()
 
 void MenuCtl::open()
 {
-    pend_act_ = 0;
+    pend_on_ = false;
     sync_show();                            // T228 R21: what the machine holds may have changed while the menu was closed (a GEOS RAM drive in the REU)
     chooser_ = false;
     entry_ = false;
@@ -2519,14 +2519,15 @@ MenuCtl::Result MenuCtl::run_action(const FileAction &a, const char *file, int32
 
 void MenuCtl::pend_begin()
 {
-    pend_act_ = 0;
+    pend_on_ = false;
     c_->fs->file_loading(true);                                           // no answer of an earlier open stands
 }
 
 void MenuCtl::pend_end(const FileAction &a, const char *file, int32_t ask)
 {
     if (c_->fs->file_loading(true) && strlen(file) < sizeof(pend_file_) && strlen(fm_.path) < sizeof(pend_dir_)) {
-        pend_act_ = &a;
+        pend_act_ = a;
+        pend_on_ = true;
         snprintf(pend_file_, sizeof(pend_file_), "%s", file);
         snprintf(pend_dir_, sizeof(pend_dir_), "%s", fm_.path);
         pend_ask_ = ask;
@@ -2537,21 +2538,21 @@ void MenuCtl::pend_end(const FileAction &a, const char *file, int32_t ask)
 
 bool MenuCtl::pend_tick(uint32_t now)
 {
-    if (!pend_act_) {
+    if (!pend_on_) {
         return false;
     }
     if (!is_browser() || strcmp(fm_.path, pend_dir_)) {                   // the person left the folder: nothing is waited for any more
-        pend_act_ = 0;
+        pend_on_ = false;
         set_status("", false);
         return true;
     }
     if (now - pend_t_ < 300) {
         return false;
     }
-    const FileAction *a = pend_act_;
+    const FileAction a = pend_act_;
     char f[FS_PATH_MAX];
     snprintf(f, sizeof(f), "%s", pend_file_);
-    run_action(*a, f, pend_ask_);                                // still fetching: pending again (the status row says so); else it has run
+    run_action(a, f, pend_ask_);                                // still fetching: pending again (the status row says so); else it has run
     return true;
 }
 

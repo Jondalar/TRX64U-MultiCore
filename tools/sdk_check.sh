@@ -51,8 +51,9 @@ CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
 "${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
 [ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
-# a [[window]] compiles from the package alone (descrec.py reads gateware/host.toml beside itself)
-printf '[[window]]\nname = "mixer"\naddress = 0xA0000500\nsize = 0x14\n' > win.toml
+# a [[window]] compiles from the package alone (descrec.py reads gateware/host.toml beside itself); 0xA0000600 is an address host.toml leaves free
+# (0xA0000500 is the base block audio_mixer since V-1, which a window may not cover: T239.3 V-3c)
+printf '[[window]]\nname = "mixer"\naddress = 0xA0000600\nsize = 0x14\n' > win.toml
 python3 "$P/tools/descrec.py" compile win.toml win.bin >/dev/null 2>&1 || fail "a record with a window does not compile from the package"
 # TOML A compiles from the package alone, with the package's maps (api.md 6.14)
 [ -f "$P/maps/c64cart.map.toml" ] || fail "the package lacks maps/c64cart.map.toml"
