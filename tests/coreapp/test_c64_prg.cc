@@ -274,6 +274,16 @@ int main()
         CHECK(prog && !strcmp(prog, "zp.prg"));
         delete &r;
     }
+    // $BA follows the setting: "DMA Load Mimics ID" at index 3 (range 8 .. 31) is 11
+    {
+        C64Rig &r = *booted();
+        r.fs.put("/usb0/zp.prg", prg(0x0000, body));
+        CHECK(r.st->set(r.st->find("DMA Load Mimics ID"), 3));
+        CHECK_EQ(load(r, "/usb0/zp.prg", 0x1000, &res), OPE_OK);
+        r.menu_closed();
+        CHECK_EQ(r.io.ram[0xBA], 11);
+        delete &r;
+    }
     // the control: the same file started the other way, a typed SYS. It does not run: the file is over the zero page - BASIC's pointers
     // and the KERNAL's vectors the SYS goes through - and over the keyboard buffer the SYS line is typed into. The application refuses it.
     {
