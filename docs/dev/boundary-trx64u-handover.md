@@ -152,11 +152,11 @@ them into the core's description record (D11):
 ```toml
 [[window]]
 name = "audio_mixer"     # the name io.window takes
-address = 0xA0000500     # the CPU address of the block
+address = 0xA0000500     # the block in the firmware's address space (U2P_IO_BASE 0xA0000000 + 1 MiB, IOBASE 0x04000000 + 16 MiB); io.window returns the board's address
 size = 0x14              # bytes
 ```
 
-At load the base refuses a window that covers a register the base drives itself (I2C, MDIO, the USB hub reset, power, RESTORE, the
+At load the base refuses a window that starts in one of those two spans and ends beyond it, and a window that covers a register the base drives itself, in the board's address space (I2C, MDIO, the USB hub reset, power, RESTORE, the
 HDMI PLL reset, the keyboard scan, the case LED select): split such a block into the runs you write. The case LED select is reached
 through `board.case_led_select` instead. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
