@@ -982,10 +982,15 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             # a table in both files is refused
             r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
-            # D25: a core with cores/<id>/app/desc.toml and the switch off (the Amiga 1200, a large core) carries no record
-            r = subprocess.run(cmd[:2] + ["amiga1200"] + cmd[3:], capture_output=True, text=True)
+            # D25: a core with cores/<id>/app/desc.toml and the switch off (the C128, a large core) carries no record
+            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "amiga1200.cor"), "rb").read())[1])
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1])
+            # T213.3: the Amiga 1200, a large core with an app of its own, has the switch on: its desc.toml is record 6 (under its own name)
+            a12 = os.path.join(self.ROOT, "cores", "amiga1200", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["amiga1200", "--name", "Amiga 1200 (AGA, 68020)"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "amiga1200.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(a12, open(a12).read())]))
             # a core without cores/<id>/app/desc.toml carries no record
             r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
