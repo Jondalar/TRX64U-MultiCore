@@ -7,6 +7,7 @@
      when the directory is there
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
   2b. the miniature design tests/rtl_check/mini2 (V-1c): a request splitter, a process alias and procedure, a VHDL block, a RAM write sink.
+  2c. the miniature design tests/rtl_check/mini3 (V-1e): ascending vectors, a for-generate, an if-generate, a stride, --core-in-design.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
@@ -41,13 +42,19 @@ must("ultisid_stub.vhd" in out and "never opened" in out,
 ult = os.environ.get("TRX64_ULTIMATE", os.path.expanduser("~/Development/TRX64-Ultimate"))
 dsg = os.path.join(ult, "designs", "c64_basic")
 if os.path.isdir(dsg):
-    rc, out = run("check", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-    must(rc == 0 and "12 block(s), 64 properties agree" in out,
-         "c64_basic: 12 blocks, 64 properties agree with the RTL (the maps sid, c64cart, c64cart_regs, dma and uci of app/sdkpkg/maps, dma a run of 65536 bytes behind its handshake; "
+    rc, out = run("check", "--core-in-design", "--design", dsg, "--toml-a", os.path.join(HERE, "c64_basic.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+    must(rc == 0 and "15 block(s), 73 properties agree" in out,
+         "c64_basic: 15 blocks, 73 properties agree with the RTL (the maps sid, c64cart, c64cart_regs (with stop_mode and clock_detect), dma, uci and gcr_coder of app/sdkpkg/maps; the GCR coder "
+         "behind a VHDL for-generate over slices of vectors declared ascending; two blocks with owner core that ultimate_sys decodes itself, checked by --core-in-design;  dma a run of 65536 bytes behind its handshake; "
          "uci behind io_bus_bridge2 with its synchronizers and command_protocol (a process procedure, an alias); the 1541 drive behind c1541_drive's io_bus_splitter, with a VHDL block "
          "statement, a clocked concurrent assignment and Gideon's RAM entities)", out)
 else:
     print("SKIP: no TRX64-Ultimate checkout at %s (set TRX64_ULTIMATE); c64_basic not checked" % ult)
+
+rc, out = run("check", "--core-in-design", "--design", os.path.join(HERE, "mini3"), "--toml-a", os.path.join(HERE, "mini3.toml"), "--top", "top", "--bus", "m3sys.io_req")
+must(rc == 0 and "4 block(s), 5 properties agree" in out,
+     "mini3 design: vectors declared ascending (a shift by concatenation, slices by `to`), a for-generate of instances over slices of them, an if-generate that opens a process, an attribute, "
+     "a whole record assigned as a value, a run with a stride (bytes four apart in a RAM) and a block with owner core that the design decodes itself (--core-in-design) agree with the RTL", out)
 
 rc, out = run("check", "--design", os.path.join(HERE, "mini2"), "--toml-a", os.path.join(HERE, "mini2.toml"), "--top", "top", "--bus", "m2sys.io_req")
 must(rc == 0 and "2 block(s), 3 properties agree" in out,
@@ -68,7 +75,7 @@ must(rc == 0 and "1 block(s), 11 properties agree" in out,
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "64 block(s), 188 properties agree" in out and "clean room" not in out,
+must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
      "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
      "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
