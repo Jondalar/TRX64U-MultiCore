@@ -391,6 +391,8 @@ sdkbase: all
 	@(cd $(PATH_SW)/../.. && pwd -P) > $(SDKBASE)/root.txt
 	@python3 $(PATH_SW)/../../tools/app_build.py split $(SDKBASE)/incdirs.txt $(SDKBASE) $(SDK_PATHS)
 	@sed 's|.*/\([^/]*\)\.[a-z]*$$|$(OUTPUT)/\1.o|' $(SDKBASE)/unsized.real > $(SDKBASE)/archive.objs
+	@# the USB controller's program (SRCS_NANO, embedded as an object by rules.mk): usb_base.cc reads its _nano_minimal_b_* symbols
+	@for o in $(OBJS_NANO); do echo $(OUTPUT)/$$o; done >> $(SDKBASE)/archive.objs
 	@$(AR) rcs $(SDKBASE)/lib/libtrxbase.a `cat $(SDKBASE)/archive.objs`
 	@for o in $(SDK_START); do cp $(OUTPUT)/$$o $(SDKBASE)/lib/; done
 	@cp $(LWIP_A) $(LVGL_A) $(SDKBASE)/lib/
