@@ -126,7 +126,6 @@ module top #(
     wire  [7:0]  slot_d_i;
     wire         slot_rw_i;
     wire         paddle_dis_lv, paddle_adj_lv;   // what the FPGA drives on PADDLE_DIS / PADDLE_ADJ (0 while released: the pads are output only)
-    `include "diag_dgin.vh"
     // T79 effective decouple (sys_clk): the JTAG bit (dc_jtag, declared below) or the app's request
     // (ultimate_sys 0x10060620 bit 0, cpu_clk, 2-FF synchronised). Every user below uses this one.
     wire         app_decouple, app_dc_sys, core_decouple;
@@ -1654,6 +1653,8 @@ module top #(
     assign SLOT_SID2n    = core_decouple ? 1'b1 : dg_en[IX_SLOT_SID2n] ? dg_o[IX_SLOT_SID2n] : l2_sid_sock2_n;
     assign SLOT_SID_ADDR = core_decouple ? 1'b0 : dg_en[IX_SLOT_SID_ADDR] ? dg_o[IX_SLOT_SID_ADDR] : l2_sid_sock_addr;
 
+    // T260: dg_in, the snapshot input of the bank: every pin's net (generated; after the pad instances above, which declare the levels it reads)
+    `include "diag_dgin.vh"
     // T79 trial B: layer 2 (layer2.v), the reconfigurable partition
     layer2 l2 (   // parameters: layer2.v carries top.v's values (an out-of-context partition takes none)
         .IEC_ATN_I(IEC_ATN_I),
