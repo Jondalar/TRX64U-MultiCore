@@ -28,7 +28,8 @@ int ops_run_bound(CoreCtx *c, const char *op, const OpBind *bind, int nbind, con
 // T228 R21: an operation asks the person something and is called again with the answer. ops_ask_text: a text prompt (secret: shown as stars); ops_ask_list: a list of choices
 // whose rows are the text of the state `src` (picklist.h). The menu calls `op` with the arguments "phase" (the value given here) and "answer" (the typed text, or the chosen
 // row's value); the operation may ask again. An operation that asks has the arguments ARG_INT("phase"), ARG_STRING("answer"). Nothing happens when the person cancels.
-void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret);
+// `any` (T262 D4): the text takes every printable character; without it the answer is a name and refuses / \ : * ? " < > | as before.
+void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret, bool any = false);
 void ops_ask_list(CoreCtx *c, const char *op, int phase, const char *prompt, const char *src);
 
 // A setting's apply: the operation with one argument "value".

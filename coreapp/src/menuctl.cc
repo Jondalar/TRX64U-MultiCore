@@ -1994,8 +1994,9 @@ MenuCtl::Result MenuCtl::pick_list_take()
     return R_REDRAW;
 }
 
-void MenuCtl::begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret)
+void MenuCtl::begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret, bool any)
 {
+    prompt_any_ = any;
     entry_ = true;
     entry_text_mode_ = true;
     entry_task_ = 0;
@@ -2040,7 +2041,7 @@ bool MenuCtl::take_prompt()
     if (w.kind == 3) {
         begin_pick_list(w.prompt, w.src, w.op, w.phase, -1);
     } else {
-        begin_prompt(w.op, w.phase, w.prompt, w.maxlen, w.kind == 2);
+        begin_prompt(w.op, w.phase, w.prompt, w.maxlen, w.kind == 2, w.any);
     }
     return true;
 }
@@ -2871,8 +2872,8 @@ bool MenuCtl::text_key(int k, Result *out)
     default: {
         // T180 D8: the one line editor (app/edit) takes every other key of a text: characters go in at the cursor, DEL (INST/DEL) takes the one before
         // it, CRSR left / right, HOME and END (CLR = SHIFT+HOME) move it. RETURN and <- / ESC were taken above: no editing key takes or cancels.
-        // The search, a setting's text, an operation's own question (ask_text) and a node's `ask_any` take any printable character, the others (a file or folder name, a task's name, a node's `ask`) not the ones FAT or a path cannot hold.
-        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_) || prompt_ || (ask_node_ && ask_any_);
+        // The search, a setting's text, an operation's own question that asked for it (ops_ask_text `any`) and a node's `ask_any` take any printable character, the others (a file or folder name, a task's name, a node's `ask`, an operation's question without `any`) not the ones FAT or a path cannot hold.
+        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_) || (prompt_ && prompt_any_) || (ask_node_ && ask_any_);
         entry_le_.reject = any ? 0 : "/\\:*?\"<>|";
         const int cur0 = entry_le_.cur, len0 = entry_le_.len;
         le_key(&entry_le_, k);

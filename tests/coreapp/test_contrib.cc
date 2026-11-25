@@ -1172,6 +1172,21 @@ int main(int argc, char **argv)
         CHECK_STR(g_chosen.c_str(), "v499");
     }
 
+    // ---- T262 D4 (13, review): an operation's text prompt keeps the name rule (no / \ : * ? " < > |) unless it asks with `any`
+    {
+        Rig r(0, 0);
+        r.m->open();
+        const char *typed = "a:b/c?d";
+        for (int any = 0; any < 2; any++) {
+            g_chosen.clear();
+            ops_ask_text(&r.c, "zl.phase", 3, "Name", 40, false, any != 0);
+            CHECK(r.m->take_prompt());
+            for (const char *p = typed; *p; p++) r.m->key(*p);
+            r.m->key(KEY_RETURN);
+            CHECK_STR(g_chosen.c_str(), any ? typed : "abcd");
+        }
+    }
+
     // ---- T262 review 2: a question left over from an earlier call is never raised by a later, unrelated menu call
     {
         static const OpBind b_val[] = { B_TEXT("value") };

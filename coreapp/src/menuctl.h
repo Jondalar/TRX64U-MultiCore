@@ -453,10 +453,10 @@ private:
     bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }
     int pick_dyn_rows() const { return pick_manual() ? pl_.n + 1 : (pl_.n ? pl_.n : 1); }
     // T228 R21: the text prompt of an operation (ops_ask_text): RETURN calls the operation again with the text
-    bool prompt_ = false, prompt_secret_ = false;
+    bool prompt_ = false, prompt_secret_ = false, prompt_any_ = false;
     char prompt_op_[40] = "", prompt_q_[80] = "";
     int prompt_phase_ = 0;
-    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret);
+    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret, bool any = false);
     Result prompt_done(const char *answer);
     bool pick_modes_ = false;                                       // T187 D5: pick_ is the page of the screen's modes (pm_ holds the rows; pick_sel_ is the cursor)
     PictureModes pm_;

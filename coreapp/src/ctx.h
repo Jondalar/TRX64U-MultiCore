@@ -67,6 +67,7 @@ struct CoreCtx {
         uint8_t kind;
         int phase;
         int maxlen;
+        bool any;                       // kind 1, 2: the text is free (every printable character); false: a name, without / \ : * ? " < > | (T262 D4: the opt-in of ops_ask_text)
         char op[40];
         char prompt[80];
         char src[40];
