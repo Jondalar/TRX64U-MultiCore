@@ -177,6 +177,21 @@ with five test files as the fixture of `test_bundle`'s record 8 case, which is g
 (`test_cor_pack.py` checks the descriptors name no install folder; `python3 tools/test_cor_pack.py`: OK; `test bundle: PASS`, 102 checks). `ci/lane.sh` step 13 copies
 `cores/diag/sd` to `SD/cores/diag/` inside the delivery (`deliver-diag/SD/cores/diag/{tests,presets}`), listed in its `SHA256SUMS`: copy that folder to `/SD/cores/diag/`.
 
-*Open (not built in this session).* Step 4 (TOML panel runner and the A/V page as a panel file, S7 proof against the golden) and step 5 (runner v2: pins by name, S4 reader, S5, S6)
-are not built: the gateware half had not published its register map v2 on `t260-gw` (HEAD there is the merge of t259-diag-av), and the panel needs a decision that is Alex's (below).
-`render.cc` still names `portdiag_desc` and `portdiag.h` (the render bench was not built here; `srclist.sh` needs `-I cores/diag/app/lib` and the diag table for it).
+*Step 4, P5/S7: the panel (second app session).* **Decision of the coordinator, 2026-11-25, under D5 (the default, not Alex's word):** a panel is a TOML file on the SD card (`/SD/cores/diag/panels/`), opened from the diag
+app like a test (file picker over `/SD/cores/diag/`, or the task "Open a panel"; the `kind = "panel"` line tells it from a test), and shown through a new generic CoreDialogs method.
+- `CoreDialogs::edit_list` (+ `text`), `AppDlg::edit_list` (`DK_EDIT`: rows of label and value, UP/DOWN/PAGE/HOME/END, LEFT/RIGHT/RETURN call back on the menu task, an action row answers its index, ESC -1), drawn by ui.cc
+  with the value right-aligned, in the remote snapshot as kind `edit`; documented in api.md 9.8. One deviation from the brief: RETURN on an *action* row does not call back, it closes the list and answers the row, because the
+  action (a file picker, a name to type) must run on the diag task - a dialog cannot be opened from the menu task's callback. `test appdlg: PASS` (new case, real keys).
+- Panel format and code: `cores/diag/app/lib/panel.h/.cc` (parser, rows bound to registers by "block.property[.field]" of the TOML A or by offset, bits/mask/signed/min/max/step, value names, default, `system`/`video_format` for the
+  Standard row, presets as text, Defaults, the list); names resolved by `pdnames.cc` from the driver table macros. The A/V page is `cores/diag/sd/panels/avout.toml` (24 knob rows in the T259 order, Load preset, Save preset, Defaults);
+  gone: all A/V C of `portdiag.cc` (`av_put_raw`, 24 ops, `g_av_settings`, presets, playground), the `[[core_setting]]`/`[lists]` rows and the two tasks and the "Load A/V preset" action of `desc.toml` (the core has no settings page now);
+  `pd.run` opens a panel when the file's kind is panel. The A/V *walks* (kind avtest) took their knob table from the panel file: `dt_av_knobs` (C) is deleted, `av_bind` in diagtest.cc checks that the first 24 rows have the keys the
+  walks need; a walk with no panel file on the card is refused with that reason.
+- Proof S7: `test_diag_avtrace.cc` loads the three shipped presets through the panel's own "Load preset" action and presses RIGHT / LEFT on each of the 24 rows through the ScriptDlg model of CoreDialogs; its register writes equal
+  `golden/diag_av_trace.txt` (written by the old C page, unchanged): `test_diag_avtrace: 83 checks, 0 failed`, `test diag_avtrace: PASS`. Other units: `test_panel: 51 checks, 0 failed` (new: parser refusals, bits/signed/two-byte rows,
+  steps, presets round trip, Defaults, the `system` hook, the list with Save preset), `test_portdiag: 60 checks`, `test_diagtest: 612 checks`, `test_diag_desc: 7 checks`, all PASS.
+- Found on the way: the control `diagtest_halffile` was vacuous since the move (its mutated source, `cores/diag/app/lib/diagtest.cc`, was not copied into the mutation directory); `run.sh` copies `$DIAGLIB` now: `control diagtest_halffile: fails as it must (1 check(s) red)`.
+- Leftovers of step 1: `cores.h` (declaration and D24 ledger line), `svc_board.h` comment, `coreapp.allow` line, the render bench (`render.cc`: descriptor and the two text functions by prototype, own_cores.h carries the diag app; the A/V settings pages are gone, the
+  runner walk against the engine model is out of that bench - it is a unit - and a "panel" dialog picture is in; `-fsyntax-only` clean, **not run**: LVGL objects). `menu_portdiag.txt`: the A1200's app has no such golden case either
+  (`test_desc` skips it under `TEST_APP_A1200`), so there is none to restore. `tests/ui/fixtures.py` copies `cores/diag/sd` to the diag card. No ue2emu picture of the panel: it needs the RISC-V image (`tools/dev.sh riscv`, not allowed here).
+

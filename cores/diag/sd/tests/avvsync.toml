@@ -6,7 +6,7 @@
 # the three blocks is that long) and its position (-4, 0, +4 lines): 2 x 2 x 3 x 3 = 36 combinations. It asks two questions every time: does the picture stand still
 # (no rolling, no jumping; YES is good) and the colour of the bar right of the white one (yellow / blue / other; yellow is good). The marker stands still while a question
 # is open; ESC stops the walk. No answer within 30 s counts as MISSED and the walk goes on.
-# Afterwards save a good combination (Save A/V preset in the task list; Settings of this core show the values) and upload results/avvsync_<date>.txt and .toml.
+# Afterwards save a good combination (Save preset in the A/V panel) and upload results/avvsync_<date>.txt and .toml.
 # The .txt lists every combination whose first answer was YES, with all its answers (GOOD marks the good ones); the .toml has every step.
 kind = "avtest"
 

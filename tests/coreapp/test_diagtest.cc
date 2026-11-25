@@ -11,6 +11,8 @@
 #include "diagtest.h"
 #include "diag_examples.h"
 #include "portdiag_regs.h"
+#include "portdiag.h"
+#include "panel.h"
 
 #include "diag_engine.h"
 
@@ -695,7 +697,22 @@ static void test_examples()
 static int g_avset[DT_AV_N], g_avcalls, g_avdone;
 static std::vector<std::pair<int, int>> g_avlog;
 static std::vector<int> g_avfrz;
-static int av_get_t(void *, int k) { return dt_av_knobs[k].def; }
+static Panel g_avpanel;                              // cores/diag/sd/panels/avout.toml: the walk's knobs (the app loads the same file from the card)
+static const Panel *av_panel_t(void *, char *why, int n)
+{
+    static bool loaded;
+    if (!loaded) {
+        std::string t = slurp("cores/diag/sd/panels/avout.toml");
+        char e[160];
+        if (panel_parse(t.data(), (uint32_t)t.size(), &g_avpanel, portdiag_reg_by_name, e, sizeof(e))) {
+            snprintf(why, n, "%s", e);
+            return 0;
+        }
+        loaded = true;
+    }
+    return &g_avpanel;
+}
+static int av_get_t(void *, int k) { int i = panel_name_idx(g_avpanel.row[k], g_avpanel.row[k].def); return i < 0 ? 0 : i; }
 static void av_set_t(void *, int k, int idx) { g_avset[k] = idx; g_avlog.push_back({ k, idx }); g_avcalls++; }
 static void av_done_t(void *) { g_avdone++; }
 static void av_freeze_t(void *, bool on) { g_avfrz.push_back(on ? 1 : 0); }
@@ -710,6 +727,7 @@ static size_t count_of(const std::string &s, const char *needle)
 }
 static void av_hooks(Rig &r)
 {
+    r.env.av_panel = av_panel_t;
     r.env.av_get = av_get_t;
     r.env.av_set = av_set_t;
     r.env.av_done = av_done_t;
@@ -748,29 +766,29 @@ static void test_avout()
     int first[DT_AV_N];
     for (int k = 0; k < DT_AV_N; k++) first[k] = -1;
     for (auto &e : g_avlog) if (first[e.first] < 0) first[e.first] = e.second;
-    CHECK_EQ(dt_av_knobs[AVK_STD].val[first[AVK_STD]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_GROUPS].val[first[AVK_GROUPS]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_A].val[first[AVK_BITS_A]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_B].val[first[AVK_BITS_B]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_C].val[first[AVK_BITS_C]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_VSIGN].val[first[AVK_VSIGN]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_TRIM].val[first[AVK_TRIM]], 2);
-    CHECK_EQ(dt_av_knobs[AVK_BSTART].val[first[AVK_BSTART]], 16);
-    CHECK_EQ(dt_av_knobs[AVK_BEND].val[first[AVK_BEND]], 90);
-    CHECK_EQ(dt_av_knobs[AVK_BAMP].val[first[AVK_BAMP]], 32);
-    CHECK_EQ(dt_av_knobs[AVK_GAIN].val[first[AVK_GAIN]], 8);
-    CHECK_EQ(dt_av_knobs[AVK_SYNC].val[first[AVK_SYNC]], 8);
-    CHECK_EQ(dt_av_knobs[AVK_BLANK].val[first[AVK_BLANK]], 88);
-    CHECK_EQ(dt_av_knobs[AVK_WHITE].val[first[AVK_WHITE]], 9);
+    CHECK_EQ(g_avpanel.row[AVK_STD].vals[first[AVK_STD]], 1);
+    CHECK_EQ(g_avpanel.row[AVK_GROUPS].vals[first[AVK_GROUPS]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_BITS_A].vals[first[AVK_BITS_A]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_BITS_B].vals[first[AVK_BITS_B]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_BITS_C].vals[first[AVK_BITS_C]], 1);
+    CHECK_EQ(g_avpanel.row[AVK_VSIGN].vals[first[AVK_VSIGN]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_TRIM].vals[first[AVK_TRIM]], 2);
+    CHECK_EQ(g_avpanel.row[AVK_BSTART].vals[first[AVK_BSTART]], 16);
+    CHECK_EQ(g_avpanel.row[AVK_BEND].vals[first[AVK_BEND]], 90);
+    CHECK_EQ(g_avpanel.row[AVK_BAMP].vals[first[AVK_BAMP]], 32);
+    CHECK_EQ(g_avpanel.row[AVK_GAIN].vals[first[AVK_GAIN]], 8);
+    CHECK_EQ(g_avpanel.row[AVK_SYNC].vals[first[AVK_SYNC]], 8);
+    CHECK_EQ(g_avpanel.row[AVK_BLANK].vals[first[AVK_BLANK]], 88);
+    CHECK_EQ(g_avpanel.row[AVK_WHITE].vals[first[AVK_WHITE]], 9);
     // the sweep knobs: the first step is 263 lines, equalizing off, 3 lines, position 0; the last is 262 lines, on, 6 lines, +4
-    CHECK_EQ(dt_av_knobs[AVK_LINES].val[first[AVK_LINES]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_EQ].val[first[AVK_EQ]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_VLEN].val[first[AVK_VLEN]], 6);
-    CHECK_EQ(dt_av_knobs[AVK_VPOS].val[first[AVK_VPOS]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_LINES].val[g_avset[AVK_LINES]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_EQ].val[g_avset[AVK_EQ]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_VLEN].val[g_avset[AVK_VLEN]], 12);
-    CHECK_EQ(dt_av_knobs[AVK_VPOS].val[g_avset[AVK_VPOS]], 4);
+    CHECK_EQ(g_avpanel.row[AVK_LINES].vals[first[AVK_LINES]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_EQ].vals[first[AVK_EQ]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_VLEN].vals[first[AVK_VLEN]], 6);
+    CHECK_EQ(g_avpanel.row[AVK_VPOS].vals[first[AVK_VPOS]], 0);
+    CHECK_EQ(g_avpanel.row[AVK_LINES].vals[g_avset[AVK_LINES]], 1);
+    CHECK_EQ(g_avpanel.row[AVK_EQ].vals[g_avset[AVK_EQ]], 1);
+    CHECK_EQ(g_avpanel.row[AVK_VLEN].vals[g_avset[AVK_VLEN]], 12);
+    CHECK_EQ(g_avpanel.row[AVK_VPOS].vals[g_avset[AVK_VPOS]], 4);
     CHECK_EQ(r.out.npass, 1);
     std::string t = r.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.toml");
     std::string x = r.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.txt");
@@ -833,11 +851,20 @@ static void test_avout()
     CHECK_EQ(g_avfrz.back(), 0);
     CHECK(e.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);
     CHECK_EQ(e.out.nerror, 1);
-    // an application without the A/V page refuses
+    // an application without the A/V panel refuses
     Rig n;
     n.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
     CHECK_EQ(n.run("avvsync.toml"), -1);
-    CHECK(std::string(n.out.msg).find("no A/V page") != std::string::npos);
+    CHECK(std::string(n.out.msg).find("no A/V panel") != std::string::npos);
+    // a panel file that lacks a knob of the walks (or has another key in its place) refuses the walk, naming the key it expected
+    {
+        Rig m;
+        av_hooks(m);
+        m.env.av_panel = [](void *, char *, int) -> const Panel * { static Panel bad; std::string t = slurp("cores/diag/sd/panels/avout.toml"); size_t a = t.find("key = \"Groups\""); t.replace(a, 14, "key = \"Gruppen\""); char e[160]; panel_parse(t.data(), (uint32_t)t.size(), &bad, portdiag_reg_by_name, e, sizeof(e)); return &bad; };
+        m.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
+        CHECK_EQ(m.run("avvsync.toml"), -1);
+        CHECK(std::string(m.out.msg).find("the walks need the knob \"Groups\"") != std::string::npos);
+    }
     // a card that refuses the result writes nothing, and no question is asked
     Rig w;
     av_hooks(w);
@@ -919,7 +946,7 @@ static void test_avpresets()
         for (auto &e : g_avlog) got[e.first] = e.second;
         for (int k = 0; k < DT_AV_N; k++) {
             CHECK(got[k] >= 0);
-            if (got[k] >= 0) CHECK_EQ(dt_av_knobs[k].val[got[k]], want[w].v[k]);
+            if (got[k] >= 0) CHECK_EQ(g_avpanel.row[k].vals[got[k]], want[w].v[k]);
         }
         std::string t = r.fs.text("/SD/cores/diag/results/pre_20261102-143015.toml");
         std::string x = r.fs.text("/SD/cores/diag/results/pre_20261102-143015.txt");
@@ -934,7 +961,7 @@ static void test_avpresets()
     g_avlog.clear();
     CHECK_EQ(r.run("pre.toml"), 0);
     int std_v = -1, map_v = -1, trim_v = -99;
-    for (auto &e : g_avlog) { if (e.first == AVK_STD) std_v = dt_av_knobs[AVK_STD].val[e.second]; if (e.first == AVK_MAP) map_v = e.second; if (e.first == AVK_TRIM) trim_v = dt_av_knobs[AVK_TRIM].val[e.second]; }
+    for (auto &e : g_avlog) { if (e.first == AVK_STD) std_v = g_avpanel.row[AVK_STD].vals[e.second]; if (e.first == AVK_MAP) map_v = e.second; if (e.first == AVK_TRIM) trim_v = g_avpanel.row[AVK_TRIM].vals[e.second]; }
     CHECK_EQ(std_v, 0);
     CHECK_EQ(map_v, 1);
     CHECK_EQ(trim_v, 2);                               // the preset's +60 Hz stays

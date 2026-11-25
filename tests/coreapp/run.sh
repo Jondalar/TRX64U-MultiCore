@@ -1,3 +1,4 @@
+  cp "$DIAGLIB"/* "$d"/ 2>/dev/null || true   # T260: the diag app's library (cores/diag/app/lib) is where its control's mutated source lives
 #!/usr/bin/env bash
 # Native tests of the core-application blueprint (T93), after the pattern of tests/hostapp/run.sh (T101): the logic of
 # coreapp/src is compiled on the Mac against stubs, no board. Negative controls (T174 D5.4, Alex 2026-11-08) exist only for the tests of flash
@@ -147,6 +148,7 @@ control_job() {
   local d="$JOBDIR/mut"; mkdir -p "$d"
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
+  cp "$DIAGLIB"/* "$d"/ 2>/dev/null || true   # T260: the diag app's library (cores/diag/app/lib) is where its control's mutated source lives
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -254,11 +256,12 @@ run ddt test_ddt.cc ddt_novic.cc $BASEL
 
 # T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
 # copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
-diagapp run diagtest test_diagtest.cc diagtest.cc instfiles.cc
-diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc instfiles.cc
-diagapp run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
-diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
-diagapp run diag_desc test_diag_desc.cc desc_check.cc portdiag.cc xinput.cc diagtest.cc $BASEL
+diagapp run diagtest test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.cc
+diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.cc
+diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+diagapp run diag_desc test_diag_desc.cc desc_check.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists

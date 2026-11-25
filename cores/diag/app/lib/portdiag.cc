@@ -7,9 +7,9 @@
 #include "portdiag_regs.h"
 #include "portdiag.h"
 #include "diagtest.h"
+#include "panel.h"
 #include "corefolder.h"
 #include "picture.h"
-#include "settings_ops.h"
 #include "ops_glue.h"
 #include "xinput.h"
 #include <stdio.h>
@@ -43,112 +43,88 @@ static char g_last[120] = "No test run yet";
 static bool g_busy;
 static const char *st_last(CoreCtx *) { return g_last; }
 
-// ---- the A/V page (T201): one row per knob of the test picture's encoder (gateware cores/diag/rtl/diag_avout.v), live ----------------------------------------------
-// The rows are the descriptor's settings (the "Port Diagnostics Settings" tab), built from the knob table of the test runner (diagtest.cc) so a test file and the page name the same values.
-// A row writes its register at once; its value stays in the core's .cfg like any setting. The standard also sets the System Mode (the clock the subcarrier constant is for), as the C128's does.
-static const uint8_t av_sysfmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };            // C64_VIDEOFORMAT per mode, as cores/c128.cc sysmode_fmt
-
-// T259 P6: a knob takes any value of its register range (the playground), not only a label's; g_av_raw is what each knob holds now, what Save writes.
-static int16_t g_av_raw[DT_AV_N];
-static void av_put_raw(CoreCtx *c, int k, int v)
+// ---- the registers by name, the panels, the A/V walk's hooks --------------------------------------------------------------------------------------------------
+static char g_folder[200];
+static void folder_of(CoreCtx *c)
 {
-    const AvKnob &kn = dt_av_knobs[k];
-    v = v < kn.lo ? kn.lo : v > kn.hi ? kn.hi : v;
-    g_av_raw[k] = (int16_t)v;
-    CoreIo *io = c->io;
-    switch (k) {
-    case AVK_STD:
-        io->wr(PD_AV_STD, (uint8_t)v);
-        picture_set_system(c, v);
-        io->video_format(av_sysfmt[v & 3]);
-        break;
-    case AVK_GROUPS: io->wr(PD_AV_PERM, (uint8_t)v); break;
-    case AVK_BITS_A: case AVK_BITS_B: case AVK_BITS_C: {
-        int bit = k - AVK_BITS_A;
-        uint8_t r = (uint8_t)((io->rd(PD_AV_REV) & ~(1 << bit)) | (v << bit));
-        io->wr(PD_AV_REV, r);
-        break;
-    }
-    case AVK_VSIGN: io->wr(PD_AV_VINV, (uint8_t)((io->rd(PD_AV_VINV) & ~1) | (v & 1))); break;      // 053 is two bits: V sign, freeze - a write keeps the other one
-    case AVK_TRIM: io->wr(PD_AV_TRIM, (uint8_t)(int8_t)v); break;
-    case AVK_BSTART: io->wr(PD_AV_BSTART, (uint8_t)v); break;
-    case AVK_BEND: io->wr(PD_AV_BEND, (uint8_t)(v & 0xFF)); io->wr(PD_AV_BEND + 1, (uint8_t)(v >> 8)); break;
-    case AVK_BAMP: io->wr(PD_AV_BAMP, (uint8_t)v); break;
-    case AVK_GAIN: io->wr(PD_AV_GAIN, (uint8_t)v); break;
-    case AVK_SYNC: io->wr(PD_AV_SYNC, (uint8_t)v); break;
-    case AVK_BLANK: io->wr(PD_AV_BLANK, (uint8_t)v); break;
-    case AVK_WHITE: io->wr(PD_AV_WHITE, (uint8_t)v); break;
-    case AVK_EQ: io->wr(PD_AV_SYNCB, (uint8_t)((io->rd(PD_AV_SYNCB) & ~1) | (v & 1))); break;          // 05D is two bits: equalizing, 262 lines - a write keeps the other one
-    case AVK_VLEN: io->wr(PD_AV_VLEN, (uint8_t)v); break;
-    case AVK_VPOS: io->wr(PD_AV_VPOS, (uint8_t)(int8_t)v); break;
-    case AVK_LINES: io->wr(PD_AV_SYNCB, (uint8_t)((io->rd(PD_AV_SYNCB) & ~2) | ((v & 1) << 1))); break;
-    default: io->wr(PD_AV_MAP + (k - AVK_MAP), (uint8_t)v); break;                  // Map, Mode, Probe channel, RGB picture, SYNCn, FB: 060-065
-    }
-}
-static void av_put(CoreCtx *c, int k, int idx)
-{
-    if (idx >= 0 && idx < dt_av_knobs[k].n) {
-        av_put_raw(c, k, dt_av_knobs[k].val[idx]);
+    if (!corefolder_dir(c->cor_path, g_folder, sizeof(g_folder))) {
+        snprintf(g_folder, sizeof(g_folder), "/SD/cores/diag");
     }
 }
 
-template <int K> static int op_av(CoreCtx *c, const OpArgs &a, OpOut &)
+// The A/V panel file's rows are the knobs of the A/V walks (diagtest.cc). It is read from <folder>/panels/avout.toml when a walk starts.
+static Panel g_avp;
+static char g_avp_text[8192];
+static const Panel *av_panel_cb(void *ud, char *why, int n)
 {
-    av_put(c, K, a.i(0));
-    return OPE_OK;
+    CoreCtx *c = (CoreCtx *)ud;
+    char path[260];
+    folder_of(c);
+    snprintf(path, sizeof(path), "%s/panels/avout.toml", g_folder);
+    int len = c->fs->load(path, g_avp_text, sizeof(g_avp_text) - 1);
+    if (len < 0) {
+        snprintf(why, n, "the A/V panel %s is not on the card", path);
+        return 0;
+    }
+    g_avp_text[len] = 0;
+    char e[120];
+    if (panel_parse(g_avp_text, (uint32_t)len, &g_avp, portdiag_reg_by_name, e, sizeof(e))) {
+        snprintf(why, n, "%s: %s", path, e);
+        return 0;
+    }
+    return &g_avp;
 }
-static int (*const av_ops[DT_AV_N])(CoreCtx *, const OpArgs &, OpOut &) = {
-    op_av<0>, op_av<1>, op_av<2>, op_av<3>, op_av<4>, op_av<5>, op_av<6>, op_av<7>, op_av<8>, op_av<9>, op_av<10>, op_av<11>, op_av<12>, op_av<13>, op_av<14>, op_av<15>, op_av<16>, op_av<17>, op_av<18>, op_av<19>, op_av<20>, op_av<21>, op_av<22>, op_av<23>
-};
-static const char *const av_op_names[DT_AV_N] = {
-    "pd.av0", "pd.av1", "pd.av2", "pd.av3", "pd.av4", "pd.av5", "pd.av6", "pd.av7", "pd.av8", "pd.av9", "pd.av10", "pd.av11", "pd.av12", "pd.av13", "pd.av14", "pd.av15", "pd.av16", "pd.av17", "pd.av18", "pd.av19", "pd.av20", "pd.av21", "pd.av22", "pd.av23"
-};
-
-static Setting g_av_settings[DT_AV_N];
-static ArgSpec g_av_args[DT_AV_N][1];
-static struct AvInit {
-    AvInit()
-    {
-        for (int k = 0; k < DT_AV_N; k++) {
-            Setting &s = g_av_settings[k];
-            memset(&s, 0, sizeof(s));
-            s.key = dt_av_knobs[k].key;
-            s.values = dt_av_knobs[k].labels;
-            s.nvalues = dt_av_knobs[k].n;
-            s.def = dt_av_knobs[k].def;
-            g_av_raw[k] = dt_av_knobs[k].val[s.def];
-            s.when = WHEN_LIVE;
-            s.apply = av_op_names[k];
-            ArgSpec a = ARG_INT("value", 0, dt_av_knobs[k].n - 1);
-            g_av_args[k][0] = a;
+// What the walk reads and writes: the knob's label index (the register's value, its default when the register holds a value without a name), a knob into the register, and the panel's values back
+// after the walk (the rows as they were when the walk first asked).
+static int32_t g_av_keep[PNL_ROWS];
+static bool g_av_kept;
+static void av_keep(CoreCtx *c)
+{
+    if (!g_av_kept) {
+        for (int k = 0; k < g_avp.nrows; k++) {
+            g_av_keep[k] = g_avp.row[k].action[0] ? 0 : panel_get(c, g_avp.row[k]);
         }
+        g_av_kept = true;
     }
-} g_av_init;
-
-// What the test runner reads and writes (diagtest.h DiagEnv): the page's stored index of a knob, a knob straight into the gateware, and the page's own values back.
-static int av_page_idx(CoreCtx *c, int k)
-{
-    if (c->settings) {
-        int i = c->settings->find(dt_av_knobs[k].key);
-        if (i >= 0) {
-            return c->settings->value(i);
-        }
-    }
-    return dt_av_knobs[k].def;
 }
-static int av_get_cb(void *ud, int k) { return av_page_idx((CoreCtx *)ud, k); }
-static void av_set_cb(void *ud, int k, int idx) { av_put((CoreCtx *)ud, k, idx); }
+static int av_get_cb(void *ud, int k)
+{
+    CoreCtx *c = (CoreCtx *)ud;
+    av_keep(c);
+    int i = panel_name_idx(g_avp.row[k], panel_get(c, g_avp.row[k]));
+    if (i < 0) {
+        i = panel_name_idx(g_avp.row[k], g_avp.row[k].def);
+    }
+    return i < 0 ? 0 : i;
+}
+static void av_set_cb(void *ud, int k, int idx)
+{
+    CoreCtx *c = (CoreCtx *)ud;
+    av_keep(c);
+    if (idx >= 0 && idx < g_avp.row[k].n) {
+        panel_put(c, g_avp.row[k], g_avp.row[k].vals[idx]);
+    }
+}
 static void av_freeze_cb(void *ud, bool on)
 {
-    CoreIo *io = ((CoreCtx *)ud)->io;
-    io->wr(PD_AV_VINV, (uint8_t)((io->rd(PD_AV_VINV) & ~2) | (on ? 2 : 0)));
+    PanelReg g;
+    CoreCtx *c = (CoreCtx *)ud;
+    if (portdiag_reg_by_name("av.vinv.freeze", &g)) {                  // the marker stands still while a question is open: bit 1 of 053, a write keeps the other bit
+        uint8_t v = c->io->rd(g.ofs);
+        c->io->wr(g.ofs, (uint8_t)((v & ~(1 << g.shift)) | (on ? 1 << g.shift : 0)));
+    }
 }
 static void av_done_cb(void *ud)
 {
     CoreCtx *c = (CoreCtx *)ud;
     av_freeze_cb(ud, false);
-    for (int k = 0; k < DT_AV_N; k++) {
-        av_put(c, k, av_page_idx(c, k));
+    if (g_av_kept) {
+        for (int k = 0; k < g_avp.nrows; k++) {
+            if (!g_avp.row[k].action[0]) {
+                panel_put(c, g_avp.row[k], g_av_keep[k]);
+            }
+        }
+        g_av_kept = false;
     }
 }
 
@@ -241,142 +217,65 @@ public:
     void show(const char *title, const char *text) override { host()->notice(title, text); }
 };
 
-static char g_folder[200];
 static char g_path[260];
 
-static void folder_of(CoreCtx *c)
+// A file picked or named is a test (kinds test, suite, avtest, xpad: diagtest.cc) or a panel (kind = "panel"): the first line `kind = ` says which.
+static bool is_panel_text(const char *t, int n)
 {
-    if (!corefolder_dir(c->cor_path, g_folder, sizeof(g_folder))) {
-        snprintf(g_folder, sizeof(g_folder), "/SD/cores/diag");
-    }
-}
-
-// The presets: <folder>/presets/<name>.toml, the page's values in user terms. Saving writes every knob (a label, or "#n" for a free value, T259); loading sets each labelled row through settings.set (register and .cfg) and a free value straight into its register.
-static bool preset_name_ok(const char *n)
-{
-    if (!*n || strlen(n) > 40) {
-        return false;
-    }
-    for (; *n; n++) {
-        if (*n == '/' || *n == '\\' || *n == '"' || *n == ':' || (unsigned char)*n < 0x20) {
+    const char *p = t, *e = t + n;
+    while (p < e) {
+        while (p < e && (*p == ' ' || *p == '\t')) {
+            p++;
+        }
+        if (!strncmp(p, "kind", 4) && (p[4] == ' ' || p[4] == '=')) {
+            const char *q = (const char *)memchr(p, '"', (size_t)(e - p));
+            return q && (size_t)(e - q) >= 7 && !strncmp(q, "\"panel\"", 7);
+        }
+        if (*p == '[') {
             return false;
         }
+        const char *nl = (const char *)memchr(p, '\n', (size_t)(e - p));
+        p = nl ? nl + 1 : e;
     }
-    return true;
+    return false;
 }
-static int op_av_save(CoreCtx *c, const OpArgs &a, OpOut &o)
+
+static Panel g_panel;
+static char g_panel_text[8192];
+static bool panel_path(CoreCtx *c, const char *path)
 {
-    const char *name = a.s(0);
-    if (!preset_name_ok(name)) {
-        snprintf(o.msg, o.msglen, "The name is empty, longer than 40 or has / \\ : or a quote");
-        return OPE_ARG;
-    }
-    folder_of(c);
-    static char buf[1600];
-    int n = snprintf(buf, sizeof(buf), "# TRX64U Port Diagnostics A/V preset (T201, T259): the rows of the A/V page in user terms, \"#n\" a free register value. Load it from the file browser (Load A/V preset) or by name.\nkind = \"avpreset\"\n\n[preset]\nname = \"%s\"\n", name);
-    for (int k = 0; k < DT_AV_N && n < (int)sizeof(buf) - 80; k++) {
-        int i = dt_av_idx_of_raw(k, g_av_raw[k]);
-        n += i >= 0 ? snprintf(buf + n, sizeof(buf) - n, "%s = \"%s\"\n", dt_av_knobs[k].key, dt_av_knobs[k].labels[i]) : snprintf(buf + n, sizeof(buf) - n, "%s = \"#%d\"\n", dt_av_knobs[k].key, (int)g_av_raw[k]);
-    }
-    char dir[240], path[300];
-    snprintf(dir, sizeof(dir), "%s/presets", g_folder);
-    c->fs->mkdir(g_folder);
-    if (!c->fs->mkdir(dir)) {
-        snprintf(o.msg, o.msglen, "Cannot make %s (read only card?)", dir);
-        return OPE_FAILED;
-    }
-    snprintf(path, sizeof(path), "%s/%s.toml", dir, name);
-    if (!c->fs->save(path, buf, (uint32_t)n)) {
-        snprintf(o.msg, o.msglen, "Cannot write %s (read only card?)", path);
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, "Preset written to %s", path);
-    return OPE_OK;
-}
-static int av_load_path(CoreCtx *c, const char *path, OpOut &o)
-{
-    static char buf[2048];
-    int n = c->fs->load(path, buf, sizeof(buf) - 1);
+    int n = c->fs->load(path, g_panel_text, sizeof(g_panel_text) - 1);
     if (n < 0) {
-        snprintf(o.msg, o.msglen, "Cannot read %s", path);
-        return OPE_FAILED;
+        snprintf(g_last, sizeof(g_last), "not opened: cannot read %s", path);
+        host()->notice("Port Diagnostics", g_last);
+        return true;
     }
-    buf[n] = 0;
-    if (!strstr(buf, "kind = \"avpreset\"")) {
-        snprintf(o.msg, o.msglen, "Not an A/V preset (a test file runs with Run test)");
-        return OPE_ARG;
+    g_panel_text[n] = 0;
+    if (!is_panel_text(g_panel_text, n)) {
+        return false;
     }
-    int32_t raw[DT_AV_N];
-    dt_av_preset_parse(buf, raw);
-    int done = 0, bad = 0;
-    for (int k = 0; k < DT_AV_N; k++) {                      // standard first (it is the first row): the others do not depend on it; a row the file lacks keeps its value
-        int i = raw[k] == DT_AV_ABSENT || raw[k] == DT_AV_BADVAL ? -1 : dt_av_idx_of_raw(k, raw[k]);
-        OpResult r;
-        bad += raw[k] == DT_AV_BADVAL;
-        if (i >= 0) {
-            done += settings_set(c, dt_av_knobs[k].key, dt_av_knobs[k].labels[i], &r) == OPE_OK;
-        } else if (raw[k] != DT_AV_ABSENT && raw[k] != DT_AV_BADVAL) {
-            av_put_raw(c, k, raw[k]);                        // a free value: into the register, the page's row keeps its label
-            done++;
-        }
+    char e[160];
+    if (panel_parse(g_panel_text, (uint32_t)n, &g_panel, portdiag_reg_by_name, e, sizeof(e))) {
+        const char *fn = strrchr(path, '/');
+        snprintf(g_last, sizeof(g_last), "not opened: %s", e);
+        char m[260];
+        snprintf(m, sizeof(m), "%s: %s", fn ? fn + 1 : path, e);
+        host()->notice("Port Diagnostics", m);
+        return true;
     }
-    snprintf(o.msg, o.msglen, "%d rows loaded, %d unknown (rows not in the file kept)", done, bad);
-    return bad ? OPE_FAILED : OPE_OK;
-}
-static int op_av_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return av_load_path(c, a.s(0), o); }
-static int op_av_preset(CoreCtx *c, const OpArgs &a, OpOut &o)       // T259 P4: a preset by its name, from <folder>/presets
-{
-    char path[300];
-    if (!preset_name_ok(a.s(0))) {
-        snprintf(o.msg, o.msglen, "The name is empty, longer than 40 or has / \\ : or a quote");
-        return OPE_ARG;
-    }
-    folder_of(c);
-    snprintf(path, sizeof(path), "%s/presets/%s.toml", g_folder, a.s(0));
-    return av_load_path(c, path, o);
-}
-// T259 P6, the playground: "knob=value" sets a knob to any value of its register range (a number), or to one of its labels; the page's row keeps the label it had
-static int op_av_free(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    char t[64];
-    snprintf(t, sizeof(t), "%s", a.s(0));
-    char *eq = strchr(t, '=');
-    if (!eq) {
-        snprintf(o.msg, o.msglen, "Type knob=value, for example burst_start=33");
-        return OPE_ARG;
-    }
-    *eq = 0;
-    char *v = eq + 1;
-    while (*v == ' ') {
-        v++;
-    }
-    for (char *e = eq; e > t && e[-1] == ' '; e--) {
-        e[-1] = 0;
-    }
-    int k = dt_av_knob_of(t);
-    if (k < 0) {
-        snprintf(o.msg, o.msglen, "No knob \"%s\" (the rows of the A/V page, '_' for blanks)", t);
-        return OPE_NOT_FOUND;
-    }
-    const AvKnob &kn = dt_av_knobs[k];
-    if (*v != '-' && *v != '+' && (*v < '0' || *v > '9')) {
-        OpResult r;
-        return settings_set(c, kn.key, v, &r) == OPE_OK ? OPE_OK : (snprintf(o.msg, o.msglen, "%s has no value \"%s\"", kn.key, v), OPE_ARG);
-    }
-    int n = atoi(v);
-    if (n < kn.lo || n > kn.hi) {
-        snprintf(o.msg, o.msglen, "%s takes %d to %d", kn.key, (int)kn.lo, (int)kn.hi);
-        return OPE_ARG;
-    }
-    av_put_raw(c, k, n);
-    snprintf(o.msg, o.msglen, "%s = %d", kn.key, n);
-    return OPE_OK;
+    const char *fn = strrchr(path, '/');
+    snprintf(g_last, sizeof(g_last), "panel %s", fn ? fn + 1 : path);
+    panel_run(c, host(), g_panel, g_folder);
+    return true;
 }
 
 static void run_path(CoreCtx *c, const char *path)
 {
     static PdUi ui;
     static DiagOutcome out;
+    if (panel_path(c, path)) {
+        return;
+    }
     DiagEnv env;
     memset(&env, 0, sizeof(env));
     env.io = c->io;
@@ -387,6 +286,7 @@ static void run_path(CoreCtx *c, const char *path)
     env.stamp = env_stamp;
     env.core_version = c->core_version;
     env.folder = g_folder;
+    env.av_panel = av_panel_cb;
     env.av_get = av_get_cb;
     env.av_set = av_set_cb;
     env.av_done = av_done_cb;
@@ -408,15 +308,16 @@ static void run_path(CoreCtx *c, const char *path)
     }
 }
 
+static const char *g_pick_sub = "";                    // the folder under the core's folder the task's picker starts in ("" = the core's folder, which holds tests, panels, presets, results)
 static void worker(void *arg)
 {
     CoreCtx *c = (CoreCtx *)arg;
     g_ctx = c;
     if (!g_path[0]) {                                  // the task's own picker
         char start[220];
-        snprintf(start, sizeof(start), "%s/tests", g_folder);
+        snprintf(start, sizeof(start), "%s%s%s", g_folder, g_pick_sub[0] ? "/" : "", g_pick_sub);
         if (!host()->pick(start, g_path, sizeof(g_path))) {
-            snprintf(g_last, sizeof(g_last), "no test picked");
+            snprintf(g_last, sizeof(g_last), "nothing picked");
             g_busy = false;
             return;
         }
@@ -426,7 +327,7 @@ static void worker(void *arg)
     g_busy = false;
 }
 
-static int start(CoreCtx *c, const char *path, OpOut &o)
+static int start(CoreCtx *c, const char *path, const char *sub, OpOut &o)
 {
     g_ctx = c;
     if (!host()) {
@@ -434,11 +335,12 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
         return OPE_UNSUPPORTED;
     }
     if (g_busy) {
-        snprintf(o.msg, o.msglen, "A test is running");
+        snprintf(o.msg, o.msglen, "A test or a panel is open");
         return OPE_BUSY;
     }
     folder_of(c);
     g_ctx = c;
+    g_pick_sub = sub;
     snprintf(g_path, sizeof(g_path), "%s", path);
     g_busy = true;
     if (!host()->spawn(worker, c)) {
@@ -446,12 +348,13 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
         snprintf(o.msg, o.msglen, "The runner's task did not start");
         return OPE_FAILED;
     }
-    snprintf(o.msg, o.msglen, "Test started");
+    snprintf(o.msg, o.msglen, "Started");
     return OPE_OK;
 }
 
-static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return start(c, a.s(0), o); }
-static int op_pick(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", o); }
+static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return start(c, a.s(0), "", o); }
+static int op_pick(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", "tests", o); }
+static int op_panel(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", "panels", o); }
 // ---- the start -------------------------------------------------------------------------------------------------------------------------------
 static int pd_init(CoreCtx *c, char *, int)
 {
@@ -459,9 +362,7 @@ static int pd_init(CoreCtx *c, char *, int)
     c->io->wr(PD_CTRL, PD_CTRL_CLEAR);
     folder_of(c);
     g_ctx = c;
-    for (int k = 0; k < DT_AV_N; k++) {
-        g_av_raw[k] = dt_av_knobs[k].val[av_page_idx(c, k)];       // what the page has put into the registers
-    }
+    panel_set_system_hook(picture_set_system);          // a panel row with `system` (the Standard of the A/V panel) sets the System Mode as the C128's page does
     return 0;
 }
 
@@ -472,22 +373,16 @@ static int pd_release(CoreCtx *c, char *, int)
 }
 
 static const OpBind run_bind[] = { B_FILE("path") };
-static const OpBind load_bind[] = { B_FILE("path") };
-static const OpBind save_bind[] = { B_TEXT("name") };
-static const OpBind free_bind[] = { B_TEXT("assign") };
 static const FileAction toml_actions[] = {
-    { "Run test", "pd.run", run_bind, 1, false, 0, 0, 0, 0, 'R' },
-    { "Load A/V preset", "pd.av_load", load_bind, 1, false, 0, 0, 0, 0, 'L' },
+    { "Run test or open panel", "pd.run", run_bind, 1, false, 0, 0, 0, 0, 'R' },
 };
 static const char *const pd_caps[] = { "pad" };
 static const FileType filetypes[] = {
-    { ".toml", toml_actions, 2, 0, 0, 0 },
+    { ".toml", toml_actions, 1, 0, 0, 0 },
 };
 static const Task tasks[] = {
     { "Pick a test and run it", "pd.pick", 0, 0, false },
-    { "Save A/V preset", "pd.av_save", save_bind, 1, false, "Preset name", 0 },
-    { "Load A/V preset by name", "pd.av_preset", save_bind, 1, false, "Preset name (Sony-PAL, NTSC-50.rix01, NTSC-60.rix02 or your own)", 0 },
-    { "Set an A/V knob (playground)", "pd.av_free", free_bind, 1, false, "knob=value, for example burst_start=33", 0 },
+    { "Open a panel", "pd.panel", 0, 0, false },
 };
 static const MediaSlot media[] = {
     { "Port 1", "pd.port1", 0, 0, 0, 0 },
@@ -504,16 +399,7 @@ static void pd_register(OpRegistry &r)
     static const ArgSpec run_args[] = { ARG_PATH("path") };
     r.add_op("pd.run", run_args, 1, op_run);
     r.add_op("pd.pick", 0, 0, op_pick);
-    static const ArgSpec load_args[] = { ARG_PATH("path") };
-    static const ArgSpec save_args[] = { ARG_STRING("name", 41) };
-    r.add_op("pd.av_load", load_args, 1, op_av_load);
-    r.add_op("pd.av_save", save_args, 1, op_av_save);
-    static const ArgSpec free_args[] = { ARG_STRING("assign", 63) };
-    r.add_op("pd.av_preset", save_args, 1, op_av_preset);
-    r.add_op("pd.av_free", free_args, 1, op_av_free);
-    for (int k = 0; k < DT_AV_N; k++) {
-        r.add_op(av_op_names[k], g_av_args[k], 1, av_ops[k]);
-    }
+    r.add_op("pd.panel", 0, 0, op_panel);
     r.add_state("pd.port1", st_p1);
     r.add_state("pd.port2", st_p2);
     r.add_state("pd.cmp", st_cmp);
@@ -535,8 +421,8 @@ const CoreDesc portdiag_desc = {
     "Port Diagnostics Settings",
     1,
     0, 0,
-    g_av_settings, DT_AV_N,
-    tasks, 4,
+    0, 0,                                                  // no settings: the A/V rows are a panel (panels/avout.toml)
+    tasks, 2,
     filetypes, 1,
     media, 4,
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },              // no picture of its own: the application's screens are all there is
