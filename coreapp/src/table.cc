@@ -13,7 +13,6 @@ const CoreDesc *const core_table[] = {
     &atari800_desc,
     &nes_desc,
     &apple2_desc,
-    &zx_desc,
     &cpc_desc,
     &c264_desc,
     &pet_desc,

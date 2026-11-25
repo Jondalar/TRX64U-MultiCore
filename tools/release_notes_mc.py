@@ -99,7 +99,7 @@ CORES = [
          sources="coreapp/cores/neogeo.cc (roms); coreapp/cores/neoset.cc"),
     dict(id="zx", match=("spectrum",), title="ZX Spectrum 48K / 128K", folder="zx",
          files="`48.rom` 16,384 bytes (48K); `128.rom` 32,768 bytes (128K)", needed="one of the two (each gives its model)",
-         sources="coreapp/cores/zx.cc:131-135; coreapp/cores/zx_regs.h:42-43; coreapp/src/romfind.cc (sets)"),
+         sources="cores/zx/app/lib/zx.cc (roms[]); cores/zx/app/lib/zx_regs.h (the sizes); coreapp/src/romfind.cc (sets)"),
     dict(id="cpc", match=("amstrad",), title="Amstrad CPC 464 / 664 / 6128", folder="cpc",
          files="464: `os464.rom`, `basic464.rom`; 664: `os664.rom`, `basic664.rom`, `amsdos.rom`; 6128: `os6128.rom`, `basic6128.rom`, `amsdos.rom` (16,384 bytes each)",
          needed="the files of one model (a disk drive needs `amsdos.rom`)",

@@ -49,7 +49,7 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 20
+file coreapp/cores/cores.h 19
 file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27
@@ -78,10 +78,6 @@ file coreapp/cores/tape_deck.cc 138
 file coreapp/cores/tape_deck.h 31
 file coreapp/cores/tape_pulses.cc 485
 file coreapp/cores/tape_pulses.h 24
-file coreapp/cores/zx.cc 311
-file coreapp/cores/zx_regs.h 42
-file coreapp/cores/zx_snap.cc 311
-file coreapp/cores/zx_snap.h 17
 file coreapp/cores/zxnext.cc 283
 file coreapp/cores/zxnext_fw.h 170
 file coreapp/cores/zxnext_regs.h 36

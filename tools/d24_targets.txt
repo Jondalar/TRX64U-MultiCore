@@ -77,10 +77,6 @@ coreapp/cores/tape_deck.cc shared-library tape deck of zx, cpc, pet
 coreapp/cores/tape_deck.h shared-library tape deck of zx, cpc, pet
 coreapp/cores/tape_pulses.cc shared-library tape pulses of zx, cpc, pet
 coreapp/cores/tape_pulses.h shared-library tape pulses of zx, cpc, pet
-coreapp/cores/zx.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/zx_regs.h data register map (D8)
-coreapp/cores/zx_snap.cc core-library the core's own file format or engine (D9)
-coreapp/cores/zx_snap.h core-library the core's own file format or engine (D9)
 coreapp/cores/zxnext.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/zxnext_fw.h core-library Next firmware board ids
 coreapp/cores/zxnext_regs.h data register map (D8)

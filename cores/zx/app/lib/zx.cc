@@ -238,7 +238,7 @@ static const ArgSpec path_arg[] = { ARG_PATH("path") };
 
 static int op_tape_insert(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
-    bool m128 = (c->io->rd(ZX_STATUS) & 0x08) != 0;       // the machine that runs now decides what "stop the tape if in 48K mode" means
+    bool m128 = (c->io->rd(ZX_STATUS) & ZX_ST_M128) != 0;       // the machine that runs now decides what "stop the tape if in 48K mode" means
     return deck_insert(c, &zx_state(c)->deck, tape_regs, a.s(0), a.i(1) != 0, !m128, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
 }
 static int op_tape_play(CoreCtx *c, const OpArgs &, OpOut &o) { return deck_play(c, &zx_state(c)->deck, tape_regs, o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
@@ -260,7 +260,7 @@ static const char *slot_spec(CoreCtx *c, int)
 }
 static int slot_mount(CoreCtx *c, int, const char *spec, char *msg, int msglen)
 {
-    bool m128 = (c->io->rd(ZX_STATUS) & 0x08) != 0;
+    bool m128 = (c->io->rd(ZX_STATUS) & ZX_ST_M128) != 0;
     return deck_insert(c, &zx_state(c)->deck, tape_regs, spec, false, !m128, msg, msglen);
 }
 static int slot_eject(CoreCtx *c, int, char *, int)

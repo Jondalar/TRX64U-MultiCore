@@ -1,6 +1,6 @@
 // The Amstrad CPC core's register block as the application uses it (T93 D15). Source: cores/cpc/trx/cpc_regs.v and cpc_win.v - the code, not
 // its header comment - read on 2026-10-22. The ROM area is written through the host's 16 KB ROM aperture one bank at a time (WIN_PAGE
-// b2:1, see zx_regs.h for why).
+// b2:1, see cores/zx/app/lib/zx_regs.h for why).
 #ifndef COREAPP_CPC_REGS_H
 #define COREAPP_CPC_REGS_H
 

@@ -1,0 +1,361 @@
+# TOML A of the zx core (T239.3 D55, T239.5 D16): the gateware's registers as capabilities. The emitter (tools/rtl_check.py emit) wrote the first form from the RTL; the names, the blocks and the
+# fields are from cores/zx/trx/zx_regs.v (the register block of the ZX Spectrum core). tools/rtl_check.py check proves every property against the RTL (the core window: the five cw_* ports of the
+# instance in layer2_zx.v; the host decodes 0x101A0000-0x101AFFFF to them, so the app's register offset is the address minus 0x101A0000).
+# Not described: page 6 (0x101A6000-0x101A6FFF) is forwarded by zx_regs to the host's pixel layer (px_we, px_re, px_rdata); the core's own code does not use it and the host's TOML A owns that layer.
+# Everything else in the window reads 0.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "ZXSP"
+block = "ident"
+
+# 000-00B: the ID "ZXSP" (byte 0 first), the caps bytes, the layer-2 contract the core was written for, and the build word (the host's USR_ACCESS)
+[[block]]
+name = "ident"
+module = "zx_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b7 page flip done (px_ev_flip), b6 video frame start (px_ev_vsync), b5 a Spectrum frame is complete
+[[block]]
+name = "irq"
+module = "zx_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "ddr_cal"
+module = "zx_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 030-038: the picture's geometry. frame_clks is the sys_clk count per picture frame (628,992 = 0x99900; the RTL reads bytes 031 and 032, bytes 030 and 033 are the constant 0); lines is the
+# frame buffer's line count (280), pix_w its pixels per line (344), both 16 bit
+[[block]]
+name = "geom"
+module = "zx_regs"
+owner = "base"
+address = 0x101A0031
+size = 0x8
+  [[block.property]]
+  name = "frame_clks"
+  offset = 0x0
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "lines"
+  offset = 0x4
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "pix_w"
+  offset = 0x6
+  width = 16
+  dir = "r"
+
+# 0A0-0AD: the machine. ctrl b0 holds the core in reset, b1 halts it (Freeze), b2 puts the tape's ear signal on the speaker; model b0 is 0 = 48K, 1 = 128K (taken in reset); joy1 and joy2 are what the
+# host's ports act as (0 none, 1 Kempston, 2 Sinclair 1, 3 Sinclair 2, 4 Cursor); status b0 in reset, b1 held, b2 snapshot load busy, b3 the 128K model runs; snap_go: any write starts the snapshot load;
+# frames is the Spectrum's frame counter, cpuaddr a sample of the CPU's address bus
+[[block]]
+name = "machine"
+module = "zx_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xE
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "ear"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "model"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy1"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy2"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "snap_busy"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "m128"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "snap_go"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0xC
+  width = 16
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_base and fb_stride have the reset values of fbb_r and fbs_r in zx_regs.v: the host's REU block, four buffers one megabyte apart; fb_latest b7 valid, b1:0 the
+# newest complete buffer; fb_overruns counts the lines that could not be handed to the DDR2 side in time
+[[block]]
+name = "video"
+module = "zx_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D4: the window page. b0 the 64 KB half of the RAM window (zx_win), b2:1 the 16 KB bank the ROM aperture shows (ROM_SEL)
+[[block]]
+name = "win"
+module = "zx_regs"
+owner = "core"
+address = 0x101A00D4
+size = 0x1
+  [[block.property]]
+  name = "win_page"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# 100-130: the snapshot's register image. dir is the Z80's register image (27 bytes, byte 0 = DIR[7:0]: A, F, A', F', I, R, SP, PC, BC, DE, HL, IX, BC', DE', HL', IY, IM/IFF), p7ffd the 128K's
+# port 7FFD, border b2:0, ay the AY's 16 registers, ay_sel the selected one
+[[block]]
+name = "snap"
+module = "zx_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x31
+  [[block.property]]
+  name = "dir"
+  offset = 0x0
+  width = 8
+  count = 27
+  stride = 1
+  dir = "rw"
+  [[block.property]]
+  name = "p7ffd"
+  offset = 0x1B
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "border"
+  offset = 0x1C
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ay"
+  offset = 0x20
+  width = 8
+  count = 16
+  stride = 1
+  dir = "rw"
+  [[block.property]]
+  name = "ay_sel"
+  offset = 0x30
+  width = 8
+  dir = "rw"
+
+# 140-151: the tape engine. ctrl b0 play (a rising edge starts the tape, a falling edge stops it); base is the DDR2 byte address of the pulse stream; pos: write = the word position a seek loads,
+# read = the position now; seek: any write loads pos; status b0 playing, b1 end of tape, b2 stop marker, b3 DDR2 read stuck; underrun counts the missed words
+[[block]]
+name = "tape"
+module = "zx_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x12
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "play"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "pos"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "seek"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "playing"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "end"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "stop"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "stuck"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "underrun"
+  offset = 0x11
+  width = 8
+  dir = "r"
+
+# 160-164: the app's keys, a 40 bit Spectrum matrix OR-ed into the keyboard (index = half-row * 5 + bit)
+[[block]]
+name = "inject"
+module = "zx_regs"
+owner = "core"
+address = 0x101A0160
+size = 0x5
+  [[block.property]]
+  name = "keys"
+  offset = 0x0
+  width = 8
+  count = 5
+  stride = 1
+  dir = "rw"

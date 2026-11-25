@@ -208,8 +208,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_nib.cc \
 			apple2_woz.cc \
 			apple2_hdd.cc \
-			zx.cc \
-			zx_snap.cc \
 			tape_pulses.cc \
 			tape_deck.cc \
 			cpc.cc \
