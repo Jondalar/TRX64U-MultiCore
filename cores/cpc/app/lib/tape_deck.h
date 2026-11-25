@@ -1,6 +1,6 @@
 // Copy of coreapp/cores/tape_deck.h at commit 650507adb (T239.5 D16: the original stays for the cores that have not moved; this copy is the CPC's own).
 // The tape deck of the Spectrum and CPC cores (T91 D9, T92 D9): a tape file converted to the pulse stream (tape_pulses.h) in the core's DDR2
-// window, and the engine's registers - base, position, play, status - that both cores have at their own offsets (zx_regs.h of the ZX Spectrum's app, cpc_regs.h).
+// window, and the engine's registers - base, position, play, status - that both cores have at their own offsets (cores/zx/app/lib/zx_regs.h, cpc_regs.h).
 // The operations of the menu (insert, play, stop, rewind, block by block, eject) and the service that takes the play bit back when the
 // engine stops itself are the same for both; each descriptor registers them under its own names. Pure: CoreIo and CoreFs only.
 #ifndef COREAPP_TAPE_DECK_H
