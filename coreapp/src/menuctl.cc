@@ -1581,21 +1581,25 @@ void MenuCtl::begin_ask(const MenuNode *n, const char *prompt)
     entry_set_ = -1;
     ask_node_ = n;
     snprintf(ask_q_, sizeof(ask_q_), "%s", prompt);
+    char mx[16];                                                     // T262 D4: the limit and the characters are the node's: `ask_max` (default 24), `ask_any` (a free text takes every printable character)
+    int lim = ui_attr(n->attr, "ask_max", mx, sizeof(mx)) ? atoi(mx) : 24;
+    lim = lim < 1 ? 24 : lim > LE_MAX ? LE_MAX : lim;
+    ask_any_ = ui_attr(n->attr, "ask_any");
     char sug[LE_MAX + 1];
     sug[0] = 0;
     char st[64];
     if (ui_attr(n->attr, "ask_state", st, sizeof(st))) {
         if (const char *p = ops_state(c_, st)) {
             int k = 0;
-            while (k < 24 && p[k] && name_char_ok((unsigned char)p[k])) {
+            while (k < lim && p[k] && (ask_any_ ? (unsigned char)p[k] >= 0x20 && (unsigned char)p[k] <= 0x7E : name_char_ok((unsigned char)p[k]))) {
                 sug[k] = p[k];
                 k++;
             }
             sug[k] = 0;
         }
     }
-    entry_load(sug, 24);
-    set_status("Type the name; RETURN takes it, <- cancels", false);
+    entry_load(sug, lim);
+    set_status(ask_any_ ? "Type the text; RETURN takes it, <- cancels" : "Type the name; RETURN takes it, <- cancels", false);
 }
 
 void MenuCtl::begin_text_setting(int idx)
@@ -2818,8 +2822,8 @@ bool MenuCtl::text_key(int k, Result *out)
     default: {
         // T180 D8: the one line editor (app/edit) takes every other key of a text: characters go in at the cursor, DEL (INST/DEL) takes the one before
         // it, CRSR left / right, HOME and END (CLR = SHIFT+HOME) move it. RETURN and <- / ESC were taken above: no editing key takes or cancels.
-        // The search and a setting's text take any printable character, the others (a file or folder name, a task's name) not the ones FAT or a path cannot hold.
-        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_);
+        // The search, a setting's text, an operation's own question (ask_text) and a node's `ask_any` take any printable character, the others (a file or folder name, a task's name, a node's `ask`) not the ones FAT or a path cannot hold.
+        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_) || prompt_ || (ask_node_ && ask_any_);
         entry_le_.reject = any ? 0 : "/\\:*?\"<>|";
         const int cur0 = entry_le_.cur, len0 = entry_le_.len;
         le_key(&entry_le_, k);

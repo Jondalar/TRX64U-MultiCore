@@ -1222,6 +1222,38 @@ int main(int argc, char **argv)
         g_rows.clear();
     }
 
+    // ---- T262 D4 (13): `ask` holds 24 characters and refuses file-name characters, as before; `ask_max` and `ask_any` make it a free text of its own limit
+    {
+        static const OpBind b_text[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = {
+            { "F5/settings", LN_OP, "Name it", "zl.chosen", 0, 1, 0, 0, 0, b_text, 1, false, "ask=Name" },
+            { "F5/settings", LN_OP, "Say it", "zl.chosen", 0, 2, 0, 0, 0, b_text, 1, false, "ask=Text;ask_max=100;ask_any" },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 2;
+        Contributor cs[] = { { "asker", CR_LIB, &rec } };
+        Rig r(cs, 1);
+        CHECK(!r.has_err("Say it"));
+        r.m->open();
+        r.m->key(KEY_F5);
+        const char *typed = "a:b/c?d*e<f>g|h 123456789012345678901234567890";                          // 47 characters, the first 7 of them are not file name characters
+        r.go_to("Name it");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->entering());
+        for (const char *p = typed; *p; p++) r.m->key(*p);
+        r.m->key(KEY_RETURN);
+        CHECK_EQ((int)g_chosen.size(), 24);                                                  // the file name: 24 characters, none of the refused ones
+        CHECK(g_chosen.find_first_of("/\\:*?\"<>|") == std::string::npos);
+        r.go_to("Say it");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->entering());
+        for (const char *p = typed; *p; p++) r.m->key(*p);
+        r.m->key(KEY_RETURN);
+        CHECK_STR(g_chosen.c_str(), typed);                                                  // the free text: every character, all 47 (the limit is 100)
+    }
+
     static const SkelTab f3tabs[] = { { "browse", "Browse", 1, TW_BROWSER, 0, 0 }, { "search", "Search", 2, TW_BROWSER, 0, 0 } };
     static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
     static const Skeleton f3sk = { f3areas, 1 };

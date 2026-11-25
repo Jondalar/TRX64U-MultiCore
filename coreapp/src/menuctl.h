@@ -417,6 +417,7 @@ private:
     char confirm_q_[120];
     const MenuNode *ask_node_;                                     // a node that asks for a name before it runs (ui `ask`); null: none
     char ask_q_[80];
+    bool ask_any_ = false;                                         // the node's `ask_any`: the text is free (a search, a message), not a file name
     void entry_load(const char *text, int max);                    // the text field holds `text` (cut to max), the cursor behind it
     int entry_set_;                                                // >= 0: the text being typed is this setting's (a text setting)
     void entry_row(char *right, int rn, char mask = 0);                     // the entry's text and cursor as the row's value, scrolled

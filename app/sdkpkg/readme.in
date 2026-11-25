@@ -221,6 +221,8 @@ unchanged: everything below is a new member at the end of a table, a new value o
 One round of fixes for the defects TRX64-Ultimate found in 0.5.0. A library built against 3.4 or 3.5 loads as before; where a fix changes what a screen shows, the line says so.
 
 - **hw.cc without `cart_regs`.** An app whose TOML A has no block `cart_regs` compiles: no cartridge-port registers, `stop` and `mode_reset` do nothing (`api.md` 6.17.5.9).
+- **A list node's count and a greyed row.** The count of a `list` node leaves out the `+` row and the `!` notes; the tone `disabled` greys a whole list row (`api.md` 6.19).
+- **`ask` per use.** `ask_max` (1 to 255, default 24) and `ask_any` (every printable character) make `ask` a free text; without them it is the name of a file as before. A text that an operation asks for (`ask_text`) always took no file-name rule in intent and now takes every printable character, as the 3.5 search does (a change for libraries built against 3.4 that asked for text).
 
 ## Licence
 
