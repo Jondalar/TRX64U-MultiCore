@@ -89,5 +89,13 @@ Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; pu
   search form's handler (menu controller gate, T192.3): moved into `pick_key` (199705ec7).
 - Tests: 27 coreapp units PASS, render bench 291,182 checks 0 failed (`t262_list` at 480p, 720p, 1080p), `tools/test_descrec.py`
   119 OK, RISC-V build ok.
+- UX findings of TRX64-Ultimate on 0.5.0 (ue2emu, real network, 2026-11-25; their U21 D9, Alex: the online search does not use
+  P5, it stays their own form and results tab at F3 "3 Online"): (1) RETURN on a list page row blanks the pane (~100 ms) and the page
+  is rebuilt again ~1.5 s later: P9's in-place writing does not cover the list page; (2) slow first draw: half a page with the last
+  row cut and no panel, the F3 Search tab still blank 1.2 s after the key; (3) `<-` from P5 results discards them ("Cancelled"); (4)
+  with a source registered the search tab row reads "Name contains: press RETURN to type" although the form holds text, RETURN on the
+  local search opens the form instead of asking for a name, and the empty search tab's side panel says "No media found."; (5) the busy
+  text appears as title and row. To be fixed in one round (0.5.1) once their list from the U21 form (list, pick, show, busy, legend)
+  is complete.
 - Open: Alex's half hour with the reworked online sub-app on the board (D3, replaces S9); the list page and the search form in
   ue2emu with that real library (their UX review).
