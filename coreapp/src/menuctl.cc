@@ -265,7 +265,10 @@ bool MenuCtl::sync_show()
         }
     }
     if (tab_off(area_, tab_)) {                                         // T262 P3: the tab on screen went away with its state: the first tab that is shown
-        go(area_, first_shown_tab(area_));
+        const int f = first_shown_tab(area_);                           // (every tab of the area off: that is the first tab, and the cursor is there already - go() would only reset the screen again)
+        if (f != tab_) {
+            go(area_, f);
+        }
     }
     refocus();
     return true;
@@ -611,6 +614,9 @@ void MenuCtl::open()
         find_browser(tree_, &a, &b);
         area_ = a;
         tab_ = b;
+    }
+    if (tab_off(area_, tab_)) {             // T262 P3: sync_show() above did not look when nothing changed; a tab that is off is not a place to open on
+        tab_ = first_shown_tab(area_);
     }
     status_[0] = 0;
     status_bad_ = false;

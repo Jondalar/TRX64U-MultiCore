@@ -1208,6 +1208,45 @@ int main(int argc, char **argv)
     static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
     static const Skeleton f3sk = { f3areas, 1 };
 
+    // ---- T262 review 6: open() lands on the first tab that is shown; an area whose every tab is off keeps its screen when a state changes
+    {
+        static const SkelTab offtabs[] = { { "a", "A", 1, TW_NODES, 0, "split;show=@zl.drive_b.image" }, { "b", "B", 2, TW_NODES, 0, "split;show=@zl.drive_b.image" } };
+        static const SkelTab mixtabs[] = { { "a", "A", 1, TW_NODES, 0, "split;show=@zl.drive_b.image" }, { "b", "B", 2, TW_NODES, 0, 0 } };
+        static const SkelArea offareas[] = { { "F5", "Lab", false, offtabs, 2 } };
+        static const SkelArea mixareas[] = { { "F5", "Lab", false, mixtabs, 2 } };
+        static const Skeleton offsk = { offareas, 1 };
+        static const Skeleton mixsk = { mixareas, 1 };
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/a", LN_OP, "Many", "zl.chosen", 0, 1, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" },
+                                             { "F5/a", LN_OP, "Hider", "zl.beep", 0, 2, 0, 0, 0, 0, 0, false, "hide=@zl.gate" },
+                                             { "F5/b", LN_OP, "In b", "zl.beep", 0, 1 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 3;
+        Contributor cs[] = { { "lab", CR_LIB, &rec } };
+        g_gate.clear();
+        g_choices = "a\nb\n";
+        {
+            Rig r(cs, 1, &mixsk);
+            r.m->open();
+            CHECK_EQ(r.m->tab(), 1);                                                 // not the tab that is off
+        }
+        {
+            Rig r(cs, 1, &offsk);
+            r.m->open();
+            CHECK_EQ(r.m->tab(), 0);
+            r.go_to("Many");
+            r.m->key(KEY_RETURN);
+            CHECK(r.m->picking());
+            g_gate = "on";                                                           // a state of the tree changes: the signature is not the same
+            r.io.delay_ms(2100); r.m->pump(true);
+            CHECK(r.m->picking());                                                   // the screen was not reset: nothing moved
+            g_gate.clear();
+        }
+        printf("PASS open() skips a tab that is off; an area with every tab off is not reset again\n");
+    }
+
     // ---- T262 review 4: a rebuild of the tree (the list of libraries changed) closes an open node pick and takes the search form back to This device
     {
         static const OpBind b_val[] = { B_TEXT("value") };
