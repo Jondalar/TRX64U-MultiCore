@@ -9,9 +9,13 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
+#ifdef TEST_APP_NEOGEO                   // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_pad) has its own core only
+#include "neogeo_regs.h"
+extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+#else
 #include "snes_regs.h"
 #include "nes_regs.h"
-#include "neogeo_regs.h"
+#endif
 #include "pad.h"
 #include "ops_glue.h"
 #include "descrec.h"
@@ -69,6 +73,7 @@ static void unplug_all() { pad_detach(&k1); pad_detach(&k2); pad_detach(&k3); }
 int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
+#ifndef TEST_APP_NEOGEO          // the cases on the shared app's cores (the Neo Geo's app runs its own case only: the unit neogeo_pad)
     // ---- plug order, the placement of a third pad, a mouse is no pad
     {
         Rig r(&snes_desc);
@@ -184,6 +189,7 @@ int main(int argc, char **argv)
         CHECK_EQ(r.word(NES_PAD1), 0);
         unplug_all();
     }
+#else
     // ---- Neo Geo: the register is the machine's joystick word (right, left, down, up, A, B, C, D, Start, Select, Coin); the default map is the MiSTer core's
     // positional one (A = the pad's bottom button, B = right, C = left, D = top, Coin = L); the word is written through the core's own service
     {
@@ -227,7 +233,12 @@ int main(int argc, char **argv)
         pad_pace(&r.c);
         CHECK_EQ(r.word(NEO_PAD1), 0);
         unplug_all();
+        // T196 D4: the capability `pad` is exactly the cores that have a PadSpec (the shared app's cores: test_xinput)
+        CHECK_EQ(desc_has_capability(&neogeo_desc, "pad"), neogeo_desc.pad != NULL);
+        CHECK(desc_has_capability(&neogeo_desc, "pad"));
     }
+#endif
+#ifndef TEST_APP_NEOGEO
     // ---- a core without a pad record: reports are taken, nothing is written
     {
         Rig r(&atari800_desc);
@@ -518,5 +529,6 @@ int main(int argc, char **argv)
         CHECK(r.io.log.empty());
         unplug_all();
     }
+#endif
     DONE("pad");
 }

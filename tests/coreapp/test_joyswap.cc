@@ -29,6 +29,7 @@ extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores
 #endif
 #ifdef TEST_APP_NEOGEO
 #include "neogeo_regs.h"
+extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 #endif
 
 struct Row { const CoreDesc *d; uint32_t reg; };
