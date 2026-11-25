@@ -63,7 +63,7 @@ int main()
     CHECK_EQ(wrong, 0);
     {   // bytes left behind by an earlier start (a block with another id, then an old host that fills only the old size)
         Handover old;
-        handover_fill(&old, "/SD/amiga.cor", "Amiga", "0.2.0", 0, 0, "amiga");
+        handover_fill(&old, "/SD/dummyam.cor", "Dummy", "0.2.0", 0, 0, "dummyam");
         Handover mixed = g;
         memcpy(&mixed, &old, offsetof(Handover, id_sum));          // the old host wrote its version-1 bytes over this block
         CHECK(handover_valid(&mixed));

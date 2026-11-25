@@ -262,7 +262,7 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/pet.cc $CORES/pet_regs.h $CORES/c64_go.cc" | ca_check pet probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
+  printf '%s\n' "$CORES/apple2.cc $CORES/apple2_regs.h $CORES/c64_go.cc" | ca_check apple2 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc

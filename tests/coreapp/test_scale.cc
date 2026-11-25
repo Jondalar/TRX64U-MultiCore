@@ -209,7 +209,6 @@ struct Rig {
 
 static void items_and_apply()
 {
-#ifndef TEST_APP_ATARI800                // the record of the frame-buffer core of the cases (SC_REC)
     // T164 G14: Picture, Scale and Smoothing for every frame-buffer core on a gateware host; a host without it (an old firmware) has Picture alone
 #ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);

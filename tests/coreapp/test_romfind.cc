@@ -227,13 +227,13 @@ int main()
     static const RomSpec drv[1] = { { "Drive", { "d1541.rom", 0 }, { 4, 0 }, true, 0, 0, 0, 1 } };
     FakeFs ff;
     ff.put_size("/usb0/roms/d1541.rom", 4, 1);
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, 0), ROM_FOUND);      // the old search (no .cor path) still reads it
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, 0), ROM_FOUND);      // the old search (no .cor path) still reads it
     CHECK_STR(res[0].hit.dir, "/usb0/roms");
-    CHECK(rom_own_dir("/USB1/cores/c264/c264.cor", own, sizeof(own)));
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_MISSING);
-    ff.put_size("/USB1/cores/c264/c264/roms/d1541.rom", 4, 2);
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_FOUND);
-    CHECK_STR(res[0].hit.dir, "/USB1/cores/c264/c264/roms");
+    CHECK(rom_own_dir("/USB1/cores/dummy264/dummy264.cor", own, sizeof(own)));
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_MISSING);
+    ff.put_size("/USB1/cores/dummy264/dummy264/roms/d1541.rom", 4, 2);
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_FOUND);
+    CHECK_STR(res[0].hit.dir, "/USB1/cores/dummy264/dummy264/roms");
     // the path: no .cor, relative, no medium, too long for the buffer
     CHECK(!rom_own_dir("/x.cor", own, sizeof(own)));
     CHECK_STR(own, "");

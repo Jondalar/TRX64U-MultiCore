@@ -9,7 +9,7 @@
 #endif
 
 static const CoreDesc a = { {'D', '8', 'X', 'L'}, "Dummy 800 XL", "Dummy", "dummy800", "Dummy 800 XL Settings" };
-static CoreDesc n = { {'N', 'E', 'S', '_'}, "Nintendo Entertainment System", "NES", "nes", "NES Settings" };
+static CoreDesc n = { {'D', 'C', 'O', 'N'}, "Dummy Console System", "Console", "dummycon", "Dummy Console Settings" };
 #ifdef TEST_APP_AMIGA
 // T239.5 D13: the Amiga 500's cases run as its app (run.sh amigaapp, unit amiga_start); the shared unit start keeps the cases of the two stubs.
 extern const CoreDesc amiga_desc;
@@ -41,8 +41,8 @@ int main()
     CHECK(d == &a);
     CHECK_STR(msg, "[core] D8XL Dummy 800 XL, cor /USB1/cores/dummy800.cor");
 
-    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
-    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    handover_fill(&h, "/SD/dummycon.cor", "Dummy Console System", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"DCON", &h, &d, msg, sizeof(msg)), START_OK);
     CHECK(d == &n);
 
     // an ID block that matches no descriptor, in every byte position
@@ -68,10 +68,10 @@ int main()
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
     CHECK(d == &amiga_desc);
     // a bundle of another machine on this gateware: refused, the message names the bundle and both candidates
-    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
+    handover_fill(&h, "/SD/dummycon.cor", "Dummy Console System", "0.0.1", 0x1234u);
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(d == 0);
-    CHECK(strstr(msg, "Nintendo") && strstr(msg, "Amiga 1200") && strstr(msg, "Amiga (OCS"));
+    CHECK(strstr(msg, "Dummy Console") && strstr(msg, "Amiga 1200") && strstr(msg, "Amiga (OCS"));
     // T115 7 H2, I1-I5: the core's id picks, the display name is only the fallback
     handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "amiga1200");        // the board's case: a name that is not the descriptor's
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
@@ -82,27 +82,27 @@ int main()
     handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA, 68020)", "0.3.0", 0, 0, "AMIGA");          // id and name disagree: the id wins (case does not matter)
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
     CHECK(d == &amiga_desc);
-    handover_fill(&h, "/SD/x.cor", "Amiga 1200 (AGA, 68020)", "0.3.0", 0, 0, "nes");                  // an id that fits no candidate: refused, whatever the name says
+    handover_fill(&h, "/SD/x.cor", "Amiga 1200 (AGA, 68020)", "0.3.0", 0, 0, "dummycon");                  // an id that fits no candidate: refused, whatever the name says
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(d == 0 && strstr(msg, "stays held"));
     handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "amiga1200");                                   // an id alone is enough
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
     CHECK(d == &a12twin);
-    handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "nes");                                           // an id alone that fits nothing is a mismatch, not "no bundle"
+    handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "dummycon");                                           // an id alone that fits nothing is a mismatch, not "no bundle"
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
-    CHECK(strstr(msg, "\"nes\"") != 0);
+    CHECK(strstr(msg, "\"dummycon\"") != 0);
 #endif
 #ifndef TEST_APP_AMIGA
     // a descriptor with a core_id that is not shared: the id decides there too
-    n.core_id = "nes";
-    handover_fill(&h, "/SD/nes.cor", "NES (renamed)", "1", 0, 0, "nes");
-    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    n.core_id = "dummycon";
+    handover_fill(&h, "/SD/dummycon.cor", "Console (renamed)", "1", 0, 0, "dummycon");
+    CHECK_EQ(start_identify((const uint8_t *)"DCON", &h, &d, msg, sizeof(msg)), START_OK);
     CHECK(d == &n);
-    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "1", 0, 0, "dummy800");           // the name fits, the id says another core
-    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    handover_fill(&h, "/SD/dummycon.cor", "Dummy Console System", "1", 0, 0, "dummy800");           // the name fits, the id says another core
+    CHECK_EQ(start_identify((const uint8_t *)"DCON", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(d == 0 && strstr(msg, "stays held"));
-    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "1", 0, 0);                         // no id (older host): the name, as before
-    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    handover_fill(&h, "/SD/dummycon.cor", "Dummy Console System", "1", 0, 0);                         // no id (older host): the name, as before
+    CHECK_EQ(start_identify((const uint8_t *)"DCON", &h, &d, msg, sizeof(msg)), START_OK);
     n.core_id = 0;
 #else
     // no bundle to choose by: nothing is guessed (the policy for a real mismatch of the ID block is not decided here)
@@ -120,7 +120,7 @@ int main()
         io.regs[AM_FEAT] = 0x00;
         CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg), &io), START_OK);   // the empty name: the bits decide
         CHECK(d == &amiga_desc);
-        handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
+        handover_fill(&h, "/SD/dummycon.cor", "Dummy Console System", "0.0.1", 0x1234u);
         io.regs[AM_FEAT] = AM_FEAT_FBWIN;
         CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg), &io), START_COR_MISMATCH);   // a name that is wrong stays wrong
         handover_fill(&h, "/SD/x.cor", "", "0.0.1", 0x1234u);
@@ -149,7 +149,7 @@ int main()
     start_paths(&c, &h);
     CHECK_STR(c.cfg_path, "");
     // the manifest name of the .cor decides: a bundle of the same machine, named otherwise, does not start this core
-    handover_fill(&h, "/usb1/cores/nes.cor", "Nintendo Entertainment System", "1.0.0", 0x1234u);
+    handover_fill(&h, "/usb1/cores/dummycon.cor", "Dummy Console System", "1.0.0", 0x1234u);
     CHECK_EQ(start_identify((const uint8_t *)"D8XL", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     // an ID that begins like a core's is not it, and the text names the ID it found; so does the ID block of an older bitstream
     CHECK_EQ(start_identify((const uint8_t *)"A8XM", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);

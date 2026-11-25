@@ -6,12 +6,10 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
-#ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_xinput) has its own core only
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
-#include "nes_regs.h"
-#else
+#ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app, the unit a8_xinput) has its own core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-#endif
+#elif defined(TEST_APP_NES)              // the NES's app (run.sh nesapp) has its own core only
+#include "nes_regs.h"
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #else
 #include "snes_regs.h"

@@ -318,14 +318,19 @@ int main(int, char **argv)
                 for (int k = 0; k < ft.nactions; k++) {
                     const FileAction &a = ft.actions[k];
                     mounts = mounts || !strncmp(a.label, "Mount", 5);
-                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") ||
-                                             (!strcasecmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"))));
+                    runs = runs || (a.op && !strcmp(a.op, "drive.mount_run"));
+#ifdef TEST_APP_PET                                                 // the PET's Run Disk is its own operation (its app, run.sh petapp)
+                    runs = runs || (a.op && !strcasecmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"));
+#endif
                     starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
                 }
                 if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
                 const Ref *ref = 0;
-                bool pet = !strcmp(d->cor_name, "Commodore PET");           // T206: two drives of one unit (Mount in Drive 8 / 8.1, Run Disk = pet.mount_run), no reference table
-                for (const Ref &r : refs) if (!pet && !strcmp(ft.ext, r.ext)) ref = &r;
+                bool cbm_ref = true;                                    // the CBM drive images have a reference table
+#ifdef TEST_APP_PET
+                cbm_ref = strcmp(d->cor_name, "Commodore PET") != 0;    // T206: two drives of one unit (Mount in Drive 8 / 8.1, Run Disk = pet.mount_run), no reference table
+#endif
+                for (const Ref &r : refs) if (cbm_ref && !strcmp(ft.ext, r.ext)) ref = &r;
                 if (ref) {                                          // a CBM drive image
                     seen_cbm++;
                     // the reference names first, in this order; a core may add its own after them
@@ -505,8 +510,9 @@ int main(int, char **argv)
 #elif defined(TEST_APP_NEOGEO)
         CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 10);                                         // T239.5 D13: the Amiga 500's row is its unit amiga_desc (measured 10 without it, 2026-11-25)
+        CHECK(n205 == 5);                                          // T239.5 D13: the shared table (apple2, snes, c64scpu, portdiag, the made-up core); each moved core's row is its app's unit
 #endif
+        printf("T205: %d cores walked\n", n205);
     }
 
     // T180 D4: a core that keeps media of its own (an engine the base does not know: the Apple's and the Atari's drives, the CPC's FDC, the drive library of the

@@ -220,23 +220,23 @@ int main()
         };
         FakeFs fs;
         fs.put_size("/usb0/roms/d1541.rom", 4, 1);
-        fs.put_size("/usb0/roms/kernal.rom", 4, 2);                             // the C64's KERNAL in the shared folder is not the C16's
+        fs.put_size("/usb0/roms/kernal.rom", 4, 2);                             // the C64's KERNAL in the shared folder is not this core's
         char own[96];
-        CHECK(rom_own_dir("/SD/cores/c264.cor", own, sizeof(own)));
-        CHECK_EQ(rom_import(&fs, "c264", drv, 2, own, 0, 0), 1);
-        CHECK(fs.has("/SD/cores/c264/roms/d1541.rom") && !fs.has("/SD/cores/c264/roms/kernal.rom"));
+        CHECK(rom_own_dir("/SD/cores/dummy264.cor", own, sizeof(own)));
+        CHECK_EQ(rom_import(&fs, "dummy264", drv, 2, own, 0, 0), 1);
+        CHECK(fs.has("/SD/cores/dummy264/roms/d1541.rom") && !fs.has("/SD/cores/dummy264/roms/kernal.rom"));
         RomResult r2[2];
-        CHECK_EQ(rom_scan(&fs, "c264", drv, 2, r2, sum, sizeof(sum), 0, own), ROM_MISSING);
+        CHECK_EQ(rom_scan(&fs, "dummy264", drv, 2, r2, sum, sizeof(sum), 0, own), ROM_MISSING);
         CHECK_STR(r2[0].hit.dir, own);
         FakeFs f3;                                                              // the scan never reads the shared folder, only the import does
         f3.put_size("/usb0/roms/d1541.rom", 4, 1);
-        CHECK_EQ(rom_scan(&f3, "c264", drv, 1, r2, sum, sizeof(sum), 0, own), ROM_MISSING);
+        CHECK_EQ(rom_scan(&f3, "dummy264", drv, 1, r2, sum, sizeof(sum), 0, own), ROM_MISSING);
         // a second core gets its own copy
-        CHECK(rom_own_dir("/SD/cores/c128.cor", own, sizeof(own)));
-        CHECK_EQ(rom_import(&fs, "c128", drv, 1, own, 0, 0), 1);
-        CHECK(fs.has("/SD/cores/c128/roms/d1541.rom"));
-        CHECK_EQ(rom_scan(&fs, "c264", drv, 1, r2, sum, sizeof(sum), 0, own), ROM_FOUND);
-        CHECK_STR(r2[0].hit.dir, "/SD/cores/c128/roms");
+        CHECK(rom_own_dir("/SD/cores/dummy128.cor", own, sizeof(own)));
+        CHECK_EQ(rom_import(&fs, "dummy128", drv, 1, own, 0, 0), 1);
+        CHECK(fs.has("/SD/cores/dummy128/roms/d1541.rom"));
+        CHECK_EQ(rom_scan(&fs, "dummy264", drv, 1, r2, sum, sizeof(sum), 0, own), ROM_FOUND);
+        CHECK_STR(r2[0].hit.dir, "/SD/cores/dummy128/roms");
     }
 
     // ---- S4: a missing ROM names one place, and only that
