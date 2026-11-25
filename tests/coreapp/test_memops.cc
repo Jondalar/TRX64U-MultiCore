@@ -31,12 +31,12 @@ extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app'
 #ifdef TEST_APP_C264
 extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
-#include "zxnext_regs.h"
 #endif
 #ifdef TEST_APP_ZXNEXT
 #include "zxnext_regs.h"
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 #endif
 
 #ifdef TEST_APP_VC20                     // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in its table
@@ -70,7 +70,7 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &apple2_desc,
                                        &portdiag_desc, 0 };
 #endif
 
@@ -157,8 +157,7 @@ int main()
 #elif defined(TEST_APP_CPC)
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
-    struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF },
-        { &zxnext_desc, 0x1FFFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops, the NES's its unit nes_memops
+    struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
 #endif
     for (auto &w : widths) {
         Rig r(w.d);
@@ -215,15 +214,7 @@ int main()
         CHECK(res.data[0] == 0xAA && res.data[1] == 0xBB);
         CHECK_EQ(r.call("machine.read_mem", 0xFFF0, 0x20, &res), OPE_ARG);       // main RAM ends at $FFFF, the aux region is another one
     }
-    // ---- the ZX Spectrum Next: 2 MB in the DDR2 window
-    {
-        Rig r(&zxnext_desc);
-        CHECK_EQ(r.write(0x1FFFFE, "7788", &res), OPE_OK);
-        CHECK_EQ(r.io.ddr[ZXN_W_RAM + 0x1FFFFE], 0x77);
-        CHECK_EQ(r.call("machine.read_mem", 0x1FFFFE, 2, &res), OPE_OK);
-        CHECK(res.data[0] == 0x77 && res.data[1] == 0x88);
-        CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
-    }
+    // ---- the ZX Spectrum Next: the unit zxnext_memops (its app)
     // ---- cores whose memory the application cannot reach say so, and why (the NES's is its unit nes_memops)
     for (const CoreDesc *d : { &portdiag_desc }) {               // T239.5 D13: the Amiga 500's case is its unit amiga_memops
         Rig r(d);

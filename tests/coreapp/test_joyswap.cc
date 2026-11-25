@@ -1,6 +1,6 @@
 // T157: the "Joystick ports" setting (Normal / Swapped) of every generic-app core that has one. For each core: the setting is there exactly once, a change
 // is applied (the core's own register gets the swap bit, at once, through the setting's operation or its register bits), the .cfg keeps it
-// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800, zxnext; the CPC's is the unit cpc_joyswap) are in the
+// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800; the CPC's and the Next's are the units cpc_joyswap and zxnext_joyswap) are in the
 // same table, so their registers are checked as well (S4). zx (a choice per port) and c264 (its register is taken in reset) are named
 // differently on purpose (T157 D1) and checked for their own key.
 #include "check.h"
@@ -30,10 +30,10 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
 #if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
-#include "zxnext_regs.h"
 #endif
-#ifdef TEST_APP_ZXNEXT
+#ifdef TEST_APP_ZXNEXT                   // the Next's app (run.sh zxnextapp) has its own core only
 #include "zxnext_regs.h"
+extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 #endif
 #ifdef TEST_APP_NEOGEO
 #include "neogeo_regs.h"
@@ -79,7 +79,6 @@ int main()
 #elif defined(TEST_APP_NES)
         { &nes_desc, NES_JOY },
 #else
-        { &zxnext_desc, ZXN_JOY },
 #endif
     };
     for (const Row &r : rows) {

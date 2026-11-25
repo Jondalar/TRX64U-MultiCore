@@ -27,6 +27,10 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_ZXNEXT                          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#else
 extern const CoreDesc *const core_table[];
 #ifdef TEST_APP_ATARI800                 // the Atari's app is its own build (run.sh a8app, the unit a8_uicover): its table is its core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
@@ -35,6 +39,7 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
 extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#endif
 #endif
 
 static bool g_ui = false;

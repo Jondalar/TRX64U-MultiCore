@@ -70,7 +70,7 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc,
+const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &neogeo_desc,
                                        0 };
 #endif
 

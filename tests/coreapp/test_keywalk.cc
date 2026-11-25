@@ -23,21 +23,20 @@ struct Host : MenuHost {
 #ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the record core over the NES's descriptor, its goldens keywalk_nes.txt and ids_nes.txt
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #define KW_GOLDEN "_nes"
-#else                                    // the shared app: the cores of its table
-extern const CoreDesc *const core_table[];
-#ifdef TEST_APP_ATARI800                 // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
+#elif defined(TEST_APP_ATARI800)         // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define KW_GOLDEN "_atari800"
-#else
-#define KW_GOLDEN ""
-#endif
-#endif
-#ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only, its walk has goldens of its own
+#elif defined(TEST_APP_C264)             // the Commodore 264's app is its own build (run.sh c264app): its table is its core only, its walk has goldens of its own
 extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #define KW_GOLDEN "_c264"
-#else
+#elif defined(TEST_APP_ZXNEXT)           // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only, its rows are golden/keywalk_zxnext.txt and ids_zxnext.txt
+extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#define KW_GOLDEN "_zxnext"
+#else                                    // the shared app: the cores of its table
+extern const CoreDesc *const core_table[];
 #define KW_GOLDEN ""
 #endif
 
@@ -107,18 +106,12 @@ int main(int argc, char **argv)
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
-#ifndef TEST_APP_ATARI800               // the record's menu stands on the NES: the shared unit walks it (the Atari's app has no NES)
 #else
     (void)argc;
-#ifndef TEST_APP_C264                    // the record's menu stands on the NES: the shared unit walks it (the 264's app has no NES)
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
-#else
-    (void)argv;
-#endif
-#endif
 #endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;

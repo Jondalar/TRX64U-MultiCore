@@ -34,6 +34,9 @@ extern const CoreDesc nes_desc;                 // cores.h lists the shared app'
 #ifdef TEST_APP_C264
 extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
+#ifdef TEST_APP_ZXNEXT
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -72,8 +75,10 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_C264)            // the Commodore 264's app is its own build (run.sh c264app) with its core only
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_ZXNEXT)          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp) with its core only
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &neogeo_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -246,13 +251,17 @@ int main(int, char **argv)
         static const Mi want[] = { { "Commodore 264 (C16, Plus/4)", "Model,RAM" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_ZXNEXT)
+        static const Mi want[1] = { { "", "" } };                          // the Next has no model or memory setting, so no machine line: nothing to find (the count below is skipped)
+        static const char *const none[] = { "ZX Spectrum Next" };
+        const int n_none = 1;
 #else
         static const Mi want[] = {
             { "C64 with SuperCPU", "SuperCPU speed" },
             { "SNK Neo Geo", "System type,BIOS" },
         };
-        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
-        const int n_none = 3;
+        static const char *const none[] = { "Apple IIe", "Super Nintendo" };
+        const int n_none = 2;
 #endif
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
@@ -276,7 +285,7 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
-#ifndef TEST_APP_DDT
+#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT)
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
 #endif
         CHECK_EQ(nones, n_none);
@@ -348,8 +357,10 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the NES has no disk image type: a cartridge (.nes) is no image the walk counts
 #elif defined(TEST_APP_C264)
         CHECK(seen_cbm == 2 && seen_other == 0);                     // the walk saw the 264's two drive image types (.d64, .g64); its .prg, .p00, .bin and .rom mount nothing
+#elif defined(TEST_APP_ZXNEXT)
+        CHECK(seen_cbm == 0 && seen_other == 1);                     // the walk saw the Next's SD card image (.img: Mount SD image and reset), no CBM image
 #else
-        CHECK(seen_cbm >= 3 && seen_other >= 8);                    // the walk saw the shared cores (c64scpu; apple, zxnext ...)
+        CHECK(seen_cbm >= 3 && seen_other >= 8);                    // the walk saw the shared cores (c64scpu; apple ...)
 #endif
     }
 
@@ -479,6 +490,8 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_C264)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_ZXNEXT)
+        CHECK(n205 == 1);
 #else
         CHECK(n205 >= 10);                                         // T239.5 D13: the Amiga 500's row is its unit amiga_desc (measured 10 without it, 2026-11-25)
 #endif
@@ -509,6 +522,8 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the cartridge is read, never written back: no flush of its own to hand over
 #elif defined(TEST_APP_C264)
         static const char *const own[] = { "C264" };                         // the drive library's write-back (the drive window is the core's own block drive_a)
+#elif defined(TEST_APP_ZXNEXT)
+        static const char *const own[] = { 0 };                              // the Next's SD image is written through the sector mailbox as the card asks: no flush of its own to hand over
 #else
         static const char *const own[] = { "APL2", "SNES", "NEO_" };
 #endif
@@ -535,7 +550,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -776,6 +791,12 @@ int main(int, char **argv)
     }
 #elif defined(TEST_APP_C128)
     // the C128 has no tape deck of its own (an external datasette sits on the C2N port, op c128.set_dset): no tape keys to walk
+#elif defined(TEST_APP_ZXNEXT)
+    // T212 D8: tasks that fit no drive. 50 / 60 Hz and CPU speed stand in F5's machine tab, the NMI on top of Home with the reset
+    CHECK(task_place(&zxnext_desc, "F3: 50 / 60 Hz").rfind("F5/settings#", 0) == 0);
+    CHECK(task_place(&zxnext_desc, "F8: CPU speed").rfind("F5/settings#", 0) == 0);
+    CHECK_STR(task_place(&zxnext_desc, "Reset").c_str(), "F1/home#0");
+    CHECK_STR(task_place(&zxnext_desc, "NMI: Multiface (M1 button)").c_str(), "F1/home#1");
 #elif defined(TEST_APP_C264)
     // the 264 has no tape deck of its own (an external datasette sits on the C2N port, the setting Datasette port): no tape keys to walk
 #elif defined(TEST_APP_ATARI800)
@@ -1031,6 +1052,8 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
+#elif defined(TEST_APP_ZXNEXT)
+    golden(&zxnext_desc, "zxnext");
 #elif defined(TEST_APP_C264)
     golden(&c264_desc, "c264");
 #elif defined(TEST_APP_NES)
@@ -1041,7 +1064,6 @@ int main(int, char **argv)
     golden(&atari800_desc, "atari800");
 #else
     golden(&apple2_desc, "apple2");
-    golden(&zxnext_desc, "zxnext");
     golden(&snes_desc, "snes");
     golden(&neogeo_desc, "neogeo");
     golden(&c64scpu_desc, "c64scpu");
@@ -1103,7 +1125,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
@@ -1134,18 +1156,14 @@ int main(int, char **argv)
     CHECK_EQ(ops_run_bound(&mc, "test.nothing", 0, 0, 0, &res), OPE_NOT_FOUND);
     CHECK_EQ(testcore::g_mounted, 1);
     CHECK(ops_state(&mc, "test.slot") == 0);
-    // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, 50 / 60 Hz and CPU speed in F5's machine tab, Sound check and the NMI on top of Home with the resets
+    // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, Sound check on top of Home with the reset (the Next's 50 / 60 Hz, CPU speed and NMI: the unit zxnext_desc)
     {
         for (const CoreDesc *d : { &snes_desc, &neogeo_desc }) {
             CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
             CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
         }
-        CHECK(task_place(&zxnext_desc, "F3: 50 / 60 Hz").rfind("F5/settings#", 0) == 0);
-        CHECK(task_place(&zxnext_desc, "F8: CPU speed").rfind("F5/settings#", 0) == 0);
         CHECK_STR(task_place(&snes_desc, "Reset").c_str(), "F1/home#0");
         CHECK_STR(task_place(&snes_desc, "Sound check").c_str(), "F1/home#1");           // beside Reset, before the drive rows
-        CHECK_STR(task_place(&zxnext_desc, "Reset").c_str(), "F1/home#0");
-        CHECK_STR(task_place(&zxnext_desc, "NMI: Multiface (M1 button)").c_str(), "F1/home#1");
         for (const char *tk : { "Map buttons, pad 1", "Sound check" }) CHECK(task_place(&snes_desc, tk).find("#") != std::string::npos);
         CHECK_STR(task_place(&snes_desc, "Save the battery RAM now").c_str(), "");     // no task is under the drive rows any more: D9 puts it in the list
     }

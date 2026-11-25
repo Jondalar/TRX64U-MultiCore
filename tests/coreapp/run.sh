@@ -111,11 +111,11 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$ZXNLIB" "$NEOLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$NEOLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the ZX Spectrum Next and the Neo Geo as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Neo Geo as their sample core (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$ZXNLIB" -I"$NEOLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$NEOLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -137,7 +137,7 @@ INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_C264+=("$i"); done
 # The ZX Spectrum Next is its own app as well (T239.5 D15: cores/zxnext/app). zxnextapp CMD... builds like c264app, with the Next's library, its table and TEST_APP_ZXNEXT: its units are in the group zxnext.
 INC_ZXNEXT=(-DTEST_APP_ZXNEXT=1 -I"$ZXNLIB" -I"$T/zxnexttab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_ZXNEXT+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_ZXNEXT+=("$i"); done
 # The Neo Geo is its own app as well (T239.5 D15: cores/neogeo/app). neogeoapp CMD... builds like zxnextapp, with the Neo Geo's library, its table and TEST_APP_NEOGEO: its units are in the group neogeo.
 INC_NEOGEO=(-DTEST_APP_NEOGEO=1 -I"$NEOLIB" -I"$T/neogeotab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_NEOGEO+=("$i"); done
@@ -146,7 +146,7 @@ INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_AMIGA+=("$i"); done
 amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
 neogeoapp() { local INC=("${INC_NEOGEO[@]}") CA_APP=neogeo; "$@"; }
-zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext; "$@"; }
+zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext APPLIB="$ZXNLIB"; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264 APPLIB="$C264LIB"; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
@@ -218,9 +218,8 @@ control_job() {
   local d="$JOBDIR/mut"; mkdir -p "$d"
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
-  cp -R "$ZXNLIB"/* "$d"/ 2>/dev/null || true
   cp -R "$NEOLIB"/* "$d"/ 2>/dev/null || true
-  # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the ZX Spectrum Next's, the Neo Geo's (the Amiga 500's is its app's APPLIB, below)
+  # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Neo Geo's (the Amiga 500's is its app's APPLIB, below)
   [ -z "${APPLIB:-}" ] || cp -R "$APPLIB"/* "$d"/   # a core of its own app: its library over the shared sources of the same name (-R: the Atari's holds the folder 6502)
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
@@ -351,14 +350,14 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run joyswap test_joyswap.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run ledcores test_ledcores.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -510,7 +509,7 @@ run c64scpu test_c64scpu.cc $C64SCPU
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -594,7 +593,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -716,7 +715,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="$BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+ALLCORES="$BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -741,11 +740,11 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
-run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
@@ -1036,7 +1035,14 @@ if ca_in c264 && ca_unit c264_romreq; then t_romreq_c264; PASS=$((PASS + 1)); fi
 
 # T239.5 D15: the ZX Spectrum Next's units built as its app (zxnextapp: its library cores/zxnext/app/lib and its own table, the group zxnext) that are not above (zxnext) - the units its TOML B
 # (cores/zxnext/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zxnext.cc and the base's (no other core). The Next has no ROM: no romreq unit.
+# T239.5 D13: the Next's cases of the shared tests run here (TEST_APP_ZXNEXT): zxnext_desc (the descriptor checks, its golden menu, the places of its tasks), zxnext_hotkeys (S5, its default map),
+# zxnext_keywalk (every key of its menu: golden/keywalk_zxnext.txt, ids_zxnext.txt), zxnext_uicover (its declaration over the API), zxnext_joyswap and zxnext_memops; the shared units no longer link it.
 ZXND="desc_check.cc overlay.cc descrec.cc zxnext.cc $BASEL"
+ZXNM="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc"
+RARGS="$T/bundles/desc_own.bin" zxnextapp run zxnext_desc test_desc.cc $ZXND
+zxnextapp run zxnext_hotkeys test_hotkeys.cc $ZXND
+zxnextapp run zxnext_keywalk test_keywalk.cc $ZXNM instfiles.cc instcore.cc $ZXND
+zxnextapp run zxnext_uicover test_uicover.cc uiapp.cc $ZXNM $SVC $ZXND
 zxnextapp run zxnext_joyswap test_joyswap.cc $ZXND
 zxnextapp run zxnext_menuctl test_zxnext_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ZXND
 zxnextapp run zxnext_memops test_memops.cc $SVC $ZXND

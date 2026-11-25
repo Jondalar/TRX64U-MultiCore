@@ -10,6 +10,8 @@
 #include "ops_glue.h"
 #include "engines.h"
 
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+
 struct ZxnIo : FakeIo {
     bool have_time = false;
     uint8_t tm[6] = { 26, 10, 22, 14, 5, 9 };          // 2026-10-22 14:05:09 (a Thursday)

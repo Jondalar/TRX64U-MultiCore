@@ -11,6 +11,8 @@
 #include "ops_glue.h"
 #include "zxnext_regs.h"
 
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+
 struct Host : MenuHost {
     void info(int w, char *out, int n) { snprintf(out, n, "value %d", w); }
     bool return_to_host(char *msg, int n) { snprintf(msg, n, "no ICAP loader"); return false; }
