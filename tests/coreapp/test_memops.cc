@@ -40,6 +40,7 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
 #elif defined(TEST_APP_ATARI800)          // the Atari 800 XL's app is its own build (run.sh a8app): its core is the only one in its table
+extern const CoreDesc atari800_desc;      // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define HEX_CORE atari800_desc
 #elif defined(TEST_APP_NES)               // the NES's app is its own build (run.sh nesapp): its core is the only one in its table
@@ -63,7 +64,7 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
                                        &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
@@ -151,7 +152,7 @@ int main()
 #elif defined(TEST_APP_CPC)
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
-    struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
+    struct W { const CoreDesc *d; int last; } widths[] = { { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
         { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops
 #endif
     for (auto &w : widths) {
@@ -188,12 +189,14 @@ int main()
     }
 #endif
 #if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#ifdef TEST_APP_ATARI800                  // the Atari's app (run.sh a8app, the unit a8_memops)
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
         CHECK_EQ(r.write(0x600, "a9", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x600], 0xA9); CHECK_EQ(r.io.memonly_on, 0);
     }
+#endif
 #ifndef TEST_APP_ATARI800                 // the other cores of the shared app
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {

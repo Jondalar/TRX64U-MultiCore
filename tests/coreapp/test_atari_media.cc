@@ -8,6 +8,7 @@
 #include "atari_media.h"
 #include "engines.h"
 #include "ops_glue.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 static std::vector<uint8_t> car(uint32_t type, uint32_t kb, bool good_sum = true)
 {

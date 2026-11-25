@@ -8,7 +8,9 @@
 #include <vector>
 #include "check.h"
 #include "model_grid.h"
+#ifdef TEST_APP_ATARI800                // the Atari's file manager cases: its app (run.sh a8app, the unit a8_cut)
 #include "sio_model.h"
+#endif
 #include "fakes.h"
 #include "cores.h"
 #include "menuctl.h"
@@ -18,7 +20,11 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "record_menu.h"
+#ifdef TEST_APP_ATARI800
 #include "atari_media.h"
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };   // the table of its app (the shared units link the shared table.cc)
+#endif
 #include "libload.h"
 #include "libexports.h"
 #include "menuflows.h"
@@ -61,7 +67,7 @@ template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 }
 
 struct Rec {
-    SioModel io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
+    FakeIo io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;      // the record core's (the NES's) registers: no SIO bridge
     explicit Rec(const CoreDesc *d = 0, const MenuMerge *mm = 0)
     {
         if (!d) { d = &g_rm->desc; mm = &g_rm->mm; }
@@ -109,6 +115,7 @@ static bool open_by_home_row(MenuCtl &m, const char *label)
     return false;
 }
 
+#ifdef TEST_APP_ATARI800
 struct Lib {
     SioModel io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
     Lib()
@@ -137,9 +144,11 @@ struct Lib {
     void to_games() { m->key(KEY_F3); for (int i = 0; i < 12 && strcmp(m->title(), "/"); i++) m->key(KEY_LEFT); enter("usb0/"); enter("games/"); }
     void run_job() { int n = 0; while (m->tick() && ++n < 400) { } }
 };
+#endif
 
 int main(int, char **argv)
 {
+#ifndef TEST_APP_ATARI800                // the record core's cases (the NES with golden/desc_cut.toml): the shared unit cut
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     g_rm = new RecordMenu(&base, argv[1]);
@@ -437,6 +446,10 @@ int main(int, char **argv)
         CHECK_STR(r.m->status(), "The ring is gone");
         CHECK(r.m->status_bad());
     }
+#else
+    (void)argv;
+#endif
+#ifdef TEST_APP_ATARI800                // the file manager on the Atari's menu (Lib): its app (run.sh a8app, the unit a8_cut)
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {
         Lib l;
@@ -546,6 +559,7 @@ int main(int, char **argv)
         l.m->relist();
         CHECK(l.left(l.m->selected()) == "b.atr");
     }
+#endif
     // ---- the table: every row names an intent the executor knows (S6, S15) -------------------------------------------------------------------------------------------
     {
         int n;

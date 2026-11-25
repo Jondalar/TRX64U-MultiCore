@@ -21,6 +21,13 @@ struct Host : MenuHost {
 };
 
 extern const CoreDesc *const core_table[];
+#ifdef TEST_APP_ATARI800                 // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#define KW_GOLDEN "_atari800"
+#else
+#define KW_GOLDEN ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -85,10 +92,14 @@ int main(int argc, char **argv)
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
+#ifndef TEST_APP_ATARI800               // the record's menu stands on the NES: the shared unit walks it (the Atari's app has no NES)
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+#else
+    (void)argv;
+#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
@@ -185,7 +196,7 @@ int main(int argc, char **argv)
         }
     }
     printf("keywalk: %d probes\n", probes);
-    std::string path = std::string(GOLDEN_DIR) + "/keywalk.txt";
+    std::string path = std::string(GOLDEN_DIR) + "/keywalk" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(path) << out;
     }
@@ -207,7 +218,7 @@ int main(int argc, char **argv)
         }
     }
     CHECK(want == out);
-    std::string ipath = std::string(GOLDEN_DIR) + "/ids.txt";
+    std::string ipath = std::string(GOLDEN_DIR) + "/ids" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(ipath) << ids;
     }

@@ -34,16 +34,20 @@ int video_gateware_row(void) { return g_gw_row; }
 
 #ifdef TEST_APP_A1200
 // T213.3 (T239.5 D13): built as the A1200's app (a12_scale): the A1200's record is the frame-buffer core of the cases (T107 D7/D8, T136); the NES
-// and the Atari, which only the shared app links, drop out
+// and the Atari (its own app, a8_scale) drop out
 #define SC_REC amiga1200_desc
 const CoreDesc *const core_table[] = { &amiga1200_desc, &testcore::desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+// T239.5 D13: built as the Atari's app (a8_scale): its frame buffer gets the picture items too; the cases on the Amiga's record are the shared unit's
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, &testcore::desc, 0 };
 #elif defined(TEST_APP_AMIGA)
 // T239.5 D13: built as the Amiga 500's app (amiga_scale): its record is the frame-buffer core of the same cases; the shared unit scale keeps the NES and the Atari
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #define SC_REC amiga_desc
 const CoreDesc *const core_table[] = { &amiga_desc, &testcore::desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &nes_desc, &testcore::desc, 0 };
 #endif
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
@@ -104,6 +108,7 @@ bool video_set_follow_gateware(int on) { g_follow_written = on; return true; }  
 int g_vic_scale_written = -1;
 bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return true; }   // T222: the board's write to 0x4F01
 
+#ifndef TEST_APP_ATARI800
 // T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
 static void follow_item()
 {
@@ -177,6 +182,7 @@ static void follow_item()
     }
 #endif
 }
+#endif
 
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreDesc ext; Setting items[SETTINGS_MAX + 4]; CoreCtx c; Settings *st; Video *vid;
@@ -199,6 +205,7 @@ struct Rig {
 
 static void items_and_apply()
 {
+#ifndef TEST_APP_ATARI800                // the record of the frame-buffer core of the cases (SC_REC)
     // T164 G14: Picture, Scale and Smoothing for every frame-buffer core on a gateware host; a host without it (an old firmware) has Picture alone
 #ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
@@ -228,8 +235,10 @@ static void items_and_apply()
     // every frame-buffer core has them, not only the A1200 (the A500, the Atari and the NES too) ...
 #ifdef SC_REC
     const CoreDesc *others[] = { &SC_REC, 0 };
+#elif defined(TEST_APP_ATARI800)
+    const CoreDesc *others[] = { &atari800_desc, 0 };
 #else
-    const CoreDesc *others[] = { &atari800_desc, &nes_desc, 0 };
+    const CoreDesc *others[] = { &nes_desc, 0 };
 #endif
     for (const CoreDesc *const *p = others; *p; p++) {
         Rig r(*p);
@@ -242,6 +251,7 @@ static void items_and_apply()
         CHECK_EQ(scale_index(&o.ext), -1);
         CHECK_EQ(smooth_index(&o.ext), -1);
     }
+#ifndef TEST_APP_ATARI800
     // a core that draws its own picture has no frame buffer to scale
 #ifndef SC_REC              // the NES's record: the shared app only
     { CoreDesc own = nes_desc; own.video.w = 0;
@@ -395,8 +405,10 @@ static void items_and_apply()
       CHECK_EQ(r.vid->scale(), 3);
     }
 #endif
+#endif
 }
 
+#ifndef TEST_APP_ATARI800
 // T107 5.9 (Alex, 2026-10-30): the menu canvas (960 x 540, laid out for 540 lines) at a whole-number factor max(1, active height / 540), centred in the
 // mode's active area, laid out again with every mode change (also while the menu is up and the video service shows nothing), independent of Scale.
 static void menu_places()
@@ -453,12 +465,17 @@ static void menu_places()
     }
 #endif
 }
+#endif
 
 int main()
 {
     layouts();
+#ifndef TEST_APP_ATARI800
     menu_places();
+#endif
     items_and_apply();
+#ifndef TEST_APP_ATARI800
     follow_item();
+#endif
     DONE("scale");
 }

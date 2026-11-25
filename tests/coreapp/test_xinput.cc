@@ -6,8 +6,12 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
+#ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_xinput) has its own core only
 #include "snes_regs.h"
 #include "nes_regs.h"
+#else
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
 #include "pad.h"
 #include "hidpad.h"
 #include "xinput.h"
@@ -54,6 +58,12 @@ static uint8_t dp(int p) { uint32_t b = 0; uint8_t d = 0; pad_state(p, &b, &d); 
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
+#ifdef TEST_APP_ATARI800
+    // D4 on the Atari 800 XL (its app, run.sh a8app): the capability `pad` is exactly the cores that have a PadSpec - the Atari has neither
+    CHECK_EQ(desc_has_capability(&atari800_desc, "pad"), atari800_desc.pad != NULL);
+    CHECK(!desc_has_capability(&atari800_desc, "pad"));
+    DONE("xinput");
+#else
     int dl = 0;
     const uint8_t *desc = xinput_descriptor(&dl);
 
@@ -75,10 +85,9 @@ int main()
     CHECK_EQ(xinput_claim(0x03, 0x00, 0x00, true, true), XI_NONE);
     // D4: the capability `pad` is exactly the cores that have a PadSpec
     {
-        const CoreDesc *all[] = { &nes_desc, &snes_desc, &neogeo_desc, &atari800_desc };
+        const CoreDesc *all[] = { &nes_desc, &snes_desc, &neogeo_desc };
         for (const CoreDesc *d : all) CHECK_EQ(desc_has_capability(d, "pad"), d->pad != NULL);
         CHECK(desc_has_capability(&nes_desc, "pad") && desc_has_capability(&snes_desc, "pad") && desc_has_capability(&neogeo_desc, "pad"));
-        CHECK(!desc_has_capability(&atari800_desc, "pad"));
         CHECK(!desc_has_capability(&nes_desc, "pa") && !desc_has_capability(&nes_desc, "pads"));
     }
     // the synthetic descriptor is a gamepad for hidpad_parse, with 16 buttons, a hat and X/Y
@@ -307,4 +316,5 @@ int main()
         CHECK(!idle.data(r.data(), (int)r.size(), rep));
     }
     DONE("xinput");
+#endif
 }

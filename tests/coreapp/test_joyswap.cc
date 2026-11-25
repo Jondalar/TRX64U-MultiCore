@@ -22,7 +22,7 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)   // the A1200's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
 #include "c264_regs.h"
 #include "nes_regs.h"
 #include "zxnext_regs.h"
@@ -32,6 +32,9 @@ extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores
 #endif
 #ifdef TEST_APP_NEOGEO
 #include "neogeo_regs.h"
+#endif
+#ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app) has its own core only; its swap is a flag of its own (its own tests), so it has no row below, only its key
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
 
 struct Row { const CoreDesc *d; uint32_t reg; };
@@ -54,6 +57,7 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
+#ifndef TEST_APP_ATARI800
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
@@ -111,11 +115,14 @@ int main()
         regset_apply(&c2, true);                                           // what the start sequence does with every setting
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
+#endif
     // the cores that keep another form: their own key is there once (T157 D1)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#ifdef TEST_APP_ATARI800
+    CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
+#endif
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
-    CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
 #endif
     DONE("test_joyswap");
 }

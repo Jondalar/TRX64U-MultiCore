@@ -14,7 +14,18 @@
 #include "romfind.h"
 #include "keyboard.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+#ifndef TEST_APP_ATARI800
+// T239.5 D13: the cases below stand on the Atari's descriptor (monocore) and run as the unit a8_board, built as its app; the shared unit keeps the NES's own line
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+
+int main()
+{
+    CHECK(!nes_desc.board_caps);                                         // the NES lists what it has and asks for no striking
+    DONE("test_board");
+}
+#else
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 
 // the stub of a monolith core: its folder is "c64" and its settings section ("store") differs from it, so a settings path made from the store instead of the folder shows
 static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
@@ -298,8 +309,8 @@ int main()
         n = board_effective_caps(m, monocore.caps, monocore.ncaps, out, 3, 0, 0);
         CHECK_EQ(n, 3);
     }
-    // the Atari and the NES list what they have and ask for no striking
-    CHECK(!atari800_desc.board_caps && !nes_desc.board_caps && monocore.board_caps);
+    // the Atari lists what it has and asks for no striking (the NES's line is the shared unit board's)
+    CHECK(!atari800_desc.board_caps && monocore.board_caps);
 
     // ---- T104.1 5.5: where the boot-attempt counter lives - a path the flash guard lets through, one per profile
     CHECK_STR(h.boot_cfg, "/Flash/boot.cfg");
@@ -488,3 +499,4 @@ int main()
     }
     DONE("test_board");
 }
+#endif

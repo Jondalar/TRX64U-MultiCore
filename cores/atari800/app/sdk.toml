@@ -26,9 +26,11 @@ headers = ["atari800_regs.h", "atari_atr.h", "atari_cart.h", "atari_disk.h", "at
 # newdisk: atari800.cc calls newdisk_register (the task Create blank ATR)
 needs = ["newfile", "newdisk"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: a8app, the group atari800): unit = 2 unit tests (a8_xex the XEX loader, a8_sio the SIO
-# bus against its handler model), service = 8 mock bitstream -> service (a8_media the media engine and the SIO write-back, a8_boot the core's start), ui = 9 service -> UI (a8_menuctl the menu on the
-# core's record), api = 10 service -> API: its operations through the service call the REST and RPC transports make (svc_call; the Atari's cases of the shared test_memops, TEST_APP_ATARI800)
-tests = { unit = ["a8_xex", "a8_sio"], service = ["a8_media", "a8_boot", "a8_descgen", "a8_romreq"], ui = ["a8_menuctl"], api = ["a8_memops"] }
+# bus against its handler model, a8_fs64 the ATR reader on a file of 4 GiB and more), service = 8 mock bitstream -> service (a8_media the media engine and the SIO write-back, a8_boot the core's start,
+# the settings file, the video service, the library loader, the board profile, the media mounts, Create blank ATR, the pad service), ui = 9 service -> UI (a8_menuctl the menu on the core's record and the
+# menu's cases that stood on its descriptor, a8_keywalk every key of its menu against its own goldens), api = 10 service -> API: its operations through the service call the REST and RPC transports make (svc_call; the Atari's cases of the shared test_memops; a8_uicover every row, value and operation of its declaration over the API).
+# T239.5 D13: the Atari's cases of the shared tests run as these units, TEST_APP_ATARI800; the shared units no longer name it.
+tests = { unit = ["a8_xex", "a8_sio", "a8_fs64"], service = ["a8_media", "a8_boot", "a8_descgen", "a8_romreq", "a8_settings", "a8_video", "a8_libscan", "a8_board", "a8_mounts", "a8_newdisk", "a8_pad", "a8_xinput"], ui = ["a8_menuctl", "a8_desc", "a8_joyswap", "a8_ledcores", "a8_hotkeys", "a8_baseset", "a8_f3", "a8_library_n", "a8_picture", "a8_pictfollow", "a8_scale", "a8_writeback_menu", "a8_prompt", "a8_createflow", "a8_cut", "a8_keywalk"], api = ["a8_memops", "a8_uicover"] }
 
 # The shared rule of a new file's folder and name (T122 D2): newdisk makes the blank ATR's path with it. The same sources as the shared app's library, S12
 [[library]]
