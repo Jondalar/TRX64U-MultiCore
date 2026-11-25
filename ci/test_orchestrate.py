@@ -61,15 +61,21 @@ with tempfile.TemporaryDirectory() as td:
     j = json.loads(out)
     want("graph --json: children, targets, ids", j["children"][0] == "lint" and "prerelease" in j["children"] and "ids" in j and j["tier"] == 0, out)
 
-    # a feature branch: one cor leg per touched core, no package
+    # a feature branch: one cor leg per touched core, no package; T239.5 D13: a core with an app of its own (universe.own) has no cor leg (its .cor comes from
+    # its matrix lane), and the work order's targets (order_targets) still name it
     def feat(p):
-        p.update(docs_only=False, scope="branch", sims=[], large=[], host=False, aux=False, dfx=["vc20"])
+        p.update(docs_only=False, scope="branch", sims=[], large=["amiga1200"], host=False, aux=False, dfx=["vc20", "apple2"])
         p["apps"] = {"host": False, "core": True}
-        p.setdefault("universe", {})["cor"] = ["vc20"]
+        p.setdefault("universe", {})["cor"] = ["vc20", "apple2"]
+        p["universe"]["own"] = ["vc20", "amiga1200"]
     bp = mk("branch.json", feat)
     rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no")
     kv = dict(l.split("=", 1) for l in out.strip().splitlines())
-    want("branch: cor leg core:vc20, no package", json.loads(kv["cor_targets"]) == ["core:vc20"] and "package" not in json.loads(kv["children"]), out)
+    want("branch: cor leg core:apple2 only, no package", json.loads(kv["cor_targets"]) == ["core:apple2"] and "package" not in json.loads(kv["children"]), out)
+    want("branch: order_targets name every touched core", json.loads(kv["order_targets"]) == ["core:vc20", "core:apple2", "large:amiga1200"], out)
+    rc, out, _ = run("outputs", fp, "--tier", "0", "--update", "yes")
+    kv = dict(l.split("=", 1) for l in out.strip().splitlines())
+    want("full: no order_targets (the package names every entry)", json.loads(kv["order_targets"]) == [], out)
 
     # the sims tier travels in the plan
     run("stamp", fp, "--tier", "2")

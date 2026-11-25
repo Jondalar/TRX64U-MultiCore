@@ -27,7 +27,8 @@ plan.json (version 1):
   host, aux (bool), dfx[], large[] (named cores), apps{host, core, ultimate},
   lanes{host, dfx[], large[]} (T100 D10: the lanes whose triggers fired, see lanes_of),
   package{cor[], cfw[] (everything the package carries; it is published whole), fresh[] (those whose content moves)},
-  sims[] (bench names), universe{dfx[], large[], cor[]}, limits{host, core, large}, notes[]
+  sims[] (bench names), universe{dfx[], large[], cor[], reference, own[]}, limits{host, core, large}, notes[]
+  universe.own (T239.5 D13): the cores with an app of their own (tools/core_toml.py lanes); their .cor comes from their matrix lane, not from the child cor
 """
 import json, os, re, subprocess, sys
 
@@ -448,7 +449,8 @@ def make(base, head, source, files_out=None, branch=None):
         "lanes": lanes_of(everything, host, "aux" in targets, {"host": "app:host" in targets, "core": "app:core" in targets,
                                                                "ultimate": "app:ultimate" in targets}, named_dfx, sorted(set(named_large) | packed), dfx_all, large_all, scoped),
         "sims": sorted(sims),
-        "universe": {"dfx": dfx_all, "large": large_all, "cor": cor_all, "reference": ref},
+        "universe": {"dfx": dfx_all, "large": large_all, "cor": cor_all, "reference": ref,
+                     "own": [row.split()[0] for row in core_toml("lanes").splitlines() if row.strip()]},
         "limits": limits, "notes": notes,
     }
     if files_out:
