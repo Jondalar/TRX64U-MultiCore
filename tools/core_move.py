@@ -36,6 +36,8 @@ CORES_SRC = os.path.join(ROOT, "coreapp", "cores")
 SRC = os.path.join(ROOT, "coreapp", "src")
 WINDOW = "0x101A0000:0x10000"
 BUS = "layer2_%s:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata"
+BUS_DRV = "layer2_%s:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata"      # the drive window (0x10020000, the whole address on the port) of a core that has its own block drive_a
+WINDOW_DRV = "0x10020000:0x4000:full"
 BASE_BLOCKS = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]    # the A1200's and the VIC-20's common set (sdk.toml)
 MIN_A = """[io]
 iobase = 0x10000000
@@ -459,7 +461,8 @@ def gates(core, appdir=None, work=None):
     print("gates: rtl_check")
     l = ["--list", os.path.relpath(os.path.join(appdir, "rtl_check_sources.tcl"), os.path.join(ROOT, "host"))] if os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")) else \
         sum([["--list", x] for x in info(core)["lists"]], [])
-    p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW,
+    drv = ["--bus", BUS_DRV % core, "--window", WINDOW_DRV] if re.search(r'^name = "drive_a"', rd(os.path.join(appdir, "gateware.toml")), flags=re.M) else []     # the core's own drive block: the drive window is a second bus of the same module
+    p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW, *drv,
             "--toml-a", os.path.join(appdir, "gateware.toml"), "--maps", "app/sdkpkg/maps", *sum([["--define", d] for d in defines(core)], [])], cwd=ROOT)
     print("  " + (p.stdout + p.stderr).strip().replace("\n", "\n  "))
     ok &= p.returncode == 0
