@@ -1205,57 +1205,6 @@ Amiga (OCS/ECS, 68000) F8/expert s13 59 8fdf83fa
 Amiga (OCS/ECS, 68000) F8/expert s14 59 8fdf83fa
 Amiga (OCS/ECS, 68000) F8/expert s15 59 7d4ea4fc
 Amiga (OCS/ECS, 68000) F8/expert s16 59 b643ba86
-DDT Look Ma, No VIC F1/home s0 59 93d1d982
-DDT Look Ma, No VIC F1/home s1 59 24c37604
-DDT Look Ma, No VIC F1/home s2 59 24c37604
-DDT Look Ma, No VIC F1/home s3 59 93d1d982
-DDT Look Ma, No VIC F1/home s4 59 24c37604
-DDT Look Ma, No VIC F1/home s5 59 24c37604
-DDT Look Ma, No VIC F1/home s6 59 24c37604
-DDT Look Ma, No VIC F1/home s7 59 24c37604
-DDT Look Ma, No VIC F1/home s8 59 24c37604
-DDT Look Ma, No VIC F1/home s9 59 24c37604
-DDT Look Ma, No VIC F1/home s10 59 93d1d982
-DDT Look Ma, No VIC F1/home s11 59 24c37604
-DDT Look Ma, No VIC F1/home s12 59 24c37604
-DDT Look Ma, No VIC F1/home s13 59 24c37604
-DDT Look Ma, No VIC F1/home s14 59 24c37604
-DDT Look Ma, No VIC F1/home s15 59 24c37604
-DDT Look Ma, No VIC F1/home s16 59 24c37604
-DDT Look Ma, No VIC F3/browse s0 59 4a43ca64
-DDT Look Ma, No VIC F3/browse s1 59 4d58c8f6
-DDT Look Ma, No VIC F3/browse s2 59 7711581a
-DDT Look Ma, No VIC F3/browse s3 59 4d58c8f6
-DDT Look Ma, No VIC F3/browse s4 59 1f5ce9db
-DDT Look Ma, No VIC F3/browse s5 59 1f5ce9db
-DDT Look Ma, No VIC F3/browse s6 59 4d58c8f6
-DDT Look Ma, No VIC F3/browse s7 59 5c17c76f
-DDT Look Ma, No VIC F3/browse s8 59 4fa7d046
-DDT Look Ma, No VIC F3/browse s9 59 3b0c1816
-DDT Look Ma, No VIC F3/browse s10 59 07d1b314
-DDT Look Ma, No VIC F3/browse s11 59 f064d9c9
-DDT Look Ma, No VIC F3/browse s12 59 caed7a09
-DDT Look Ma, No VIC F3/browse s13 59 43850c87
-DDT Look Ma, No VIC F3/browse s14 59 27654b8c
-DDT Look Ma, No VIC F3/browse s15 59 7d00905c
-DDT Look Ma, No VIC F3/browse s16 59 161a2f83
-DDT Look Ma, No VIC F8/expert s0 59 f12b6aa8
-DDT Look Ma, No VIC F8/expert s1 59 b4e98b1e
-DDT Look Ma, No VIC F8/expert s2 59 5e0eed40
-DDT Look Ma, No VIC F8/expert s3 59 f12b6aa8
-DDT Look Ma, No VIC F8/expert s4 59 b4e98b1e
-DDT Look Ma, No VIC F8/expert s5 59 4f5a1aa4
-DDT Look Ma, No VIC F8/expert s6 59 b4e98b1e
-DDT Look Ma, No VIC F8/expert s7 59 5e0eed40
-DDT Look Ma, No VIC F8/expert s8 59 b8cff4e2
-DDT Look Ma, No VIC F8/expert s9 59 b8cff4e2
-DDT Look Ma, No VIC F8/expert s10 59 f12b6aa8
-DDT Look Ma, No VIC F8/expert s11 59 7600f63d
-DDT Look Ma, No VIC F8/expert s12 59 7600f63d
-DDT Look Ma, No VIC F8/expert s13 59 7600f63d
-DDT Look Ma, No VIC F8/expert s14 59 7600f63d
-DDT Look Ma, No VIC F8/expert s15 59 b4e98b1e
-DDT Look Ma, No VIC F8/expert s16 59 5e0eed40
 Port Diagnostics F1/home s0 59 dfa07659
 Port Diagnostics F1/home s1 59 308125ff
 Port Diagnostics F1/home s2 59 78dd0a17

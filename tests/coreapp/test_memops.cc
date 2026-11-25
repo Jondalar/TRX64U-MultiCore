@@ -11,7 +11,10 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
+#ifdef TEST_APP_DDT
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)
 #include "zx_regs.h"
 #include "cpc_regs.h"
 #include "apple2_regs.h"
@@ -24,9 +27,12 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
+#elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
+#define HEX_CORE ddt_novic_desc
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
-                                       &amiga_desc, &ddt_novic_desc, &portdiag_desc, 0 };
+                                       &amiga_desc, &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
 
@@ -94,6 +100,8 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
 #elif defined(TEST_APP_A1200)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
+#elif defined(TEST_APP_DDT)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
         { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
@@ -107,7 +115,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#ifndef TEST_APP_A1200                 // the A1200's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)                 // the A1200's and DDT's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
 #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
 #else
@@ -131,7 +139,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)          // the cases that stand on the shared app's cores
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
@@ -180,7 +188,7 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
     }
     // ---- cores whose memory the application cannot reach say so, and why
-    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &ddt_novic_desc, &portdiag_desc }) {
+    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &portdiag_desc }) {
         Rig r(d);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0);
@@ -200,6 +208,14 @@ int main()
         Rig r(&amiga1200_desc);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
+        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
+    }
+#elif defined(TEST_APP_DDT)
+    // ---- DDT's picture is computed, not kept in a window: the memory is not reachable by the application, it says so, and why
+    {
+        Rig r(&ddt_novic_desc);
+        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
+        CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "DDT") != 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #else

@@ -18,17 +18,22 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT)          // stands on the shared app's cores; the VIC-20's and DDT's app are their own builds (run.sh vc20app, ddtapp) with their core only
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
+#ifdef TEST_APP_DDT
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+#endif
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_DDT)             // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp) with its core only
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -165,6 +170,10 @@ int main(int, char **argv)
         static const Mi want[] = { { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_DDT)
+        static const Mi want[1] = { { "", "" } };                          // DDT Look Ma, No VIC has no setting, so no machine line: nothing to find (the count below is skipped)
+        static const char *const none[] = { "DDT Look Ma, No VIC" };
+        const int n_none = 1;
 #else
         static const Mi want[] = {
             { "Commodore PET", "Model,RAM" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
@@ -197,7 +206,9 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
+#ifndef TEST_APP_DDT
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
+#endif
         CHECK_EQ(nones, n_none);
     }
 
@@ -249,6 +260,8 @@ int main(int, char **argv)
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
 #elif defined(TEST_APP_A1200)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
+#elif defined(TEST_APP_DDT)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
 #else
         CHECK(seen_cbm >= 6 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
 #endif
@@ -362,8 +375,10 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_A1200)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_DDT)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 16);
+        CHECK(n205 >= 15);
 #endif
     }
 
@@ -374,6 +389,8 @@ int main(int, char **argv)
         static const char *const own[] = { "VC20" };
 #elif defined(TEST_APP_A1200)
         static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
+#elif defined(TEST_APP_DDT)
+        static const char *const own[] = { 0 };                              // DDT has no medium
 #else
         static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "SNES", "NEO_" };
 #endif
@@ -400,7 +417,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -630,6 +647,9 @@ int main(int, char **argv)
         CHECK_EQ(asked, 4);                                                // Create D64 / G64, Save as D64 / G64
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
+#elif defined(TEST_APP_DDT)
+    // the real core: one task, Reset, and nothing to ask (the records that the shared app's cores have are tested in the shared unit)
+    CHECK(ddt_novic_desc.ntasks == 1 && !ddt_novic_desc.tasks[0].ask && ddt_novic_desc.nsettings == 0);
 #else
 #ifndef TEST_APP_A1200
 
@@ -827,6 +847,8 @@ int main(int, char **argv)
     golden(&vc20_desc, "vc20");
 #elif defined(TEST_APP_A1200)
     golden(&amiga1200_desc, "amiga1200");
+#elif defined(TEST_APP_DDT)
+    golden(&ddt_novic_desc, "ddt_novic");
 #else
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
@@ -841,7 +863,6 @@ int main(int, char **argv)
     golden(&c128_desc, "c128");
     golden(&c64scpu_desc, "c64scpu");
     golden(&amiga_desc, "amiga");
-    golden(&ddt_novic_desc, "ddt_novic");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
 #endif
@@ -900,7 +921,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 

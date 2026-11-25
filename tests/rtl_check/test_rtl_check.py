@@ -122,6 +122,11 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "amiga1200", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "17 block(s), 54 properties agree" in out, "amiga1200: 17 blocks, 54 properties of gateware.toml agree with the RTL of the core window (the A1200's own amiga_regs.v: with the display window and the crop window, which the Amiga 500's copy lacks; page 6 is the hand-over to the host's pixel layer)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/ddt_novic/core_sources.tcl", "--top", "layer2_ddt_novic",
+              "--bus", "layer2_ddt_novic:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "ddt_novic", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "6 block(s), 19 properties agree" in out, "ddt_novic: 6 blocks, 19 properties of gateware.toml agree with the RTL of the core window (ddt_regs.v's ident, irq, ddr_cal, geometry, machine and video registers; page 6, the host's pixel layer, is not described)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
