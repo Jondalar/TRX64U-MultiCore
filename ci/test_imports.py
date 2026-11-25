@@ -184,6 +184,78 @@ class ImportsTest(unittest.TestCase):
         out = I.pack([n for n in I.names(self.root) if n.startswith("imp-f-")][0], store, os.path.join(self.root, "out_f"), root=self.root)
         self.assertEqual(open(out, "rb").read(), blob)
 
+    def test_u2a_of_the_release(self):
+        """T261 D7: a release-form pin with U2A fetches each file from the same release, checks size and SHA-256, and the entry holds the .cor and both .u2a; a pin without U2A is unchanged."""
+        cor, crt, onl = b"cor bytes " * 100, b"crt app" * 50, b"online app" * 40
+        h = lambda b: hashlib.sha256(b).hexdigest()
+        files = {"trx64u.cor": cor, "trex_crt.u2a": crt, "online.u2a": onl}
+        seen = []
+
+        class Resp:
+            def __init__(self, data):
+                self.data = data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n):
+                d, self.data = self.data[:n], self.data[n:]
+                return d
+
+        def opener(url, timeout):
+            seen.append(url)
+            return Resp(files[url.rsplit("/", 1)[1]])
+        u2a = "trex_crt.u2a:%s:%d online.u2a:%s:%d" % (h(crt), len(crt), h(onl), len(onl))
+        head = "ID=g\nRELEASE=fw-main-0123abcd\nCOR_FILE=trx64u.cor\nCOR_SHA256=%s\nCOR_SIZE=%d\n" % (h(cor), len(cor))
+        self.write("release/imports/g.pin", head + 'U2A="%s"\n' % u2a)
+        pin = [p for i, _, p in I.pins(self.root) if i == "g"][0]
+        self.assertEqual(I.u2a_list(pin), [("trex_crt.u2a", h(crt), len(crt)), ("online.u2a", h(onl), len(onl))])
+        store = os.path.join(self.root, "store_g")
+        I.fetch(pin, store, "x", base="https://r.invalid/dl", opener=opener)
+        for it in I.u2a_list(pin):
+            I.fetch_u2a(pin, it, store, base="https://r.invalid/dl", opener=opener)
+        self.assertEqual(seen, ["https://r.invalid/dl/fw-main-0123abcd/" + n for n in ("trx64u.cor", "trex_crt.u2a", "online.u2a")], "the same release")
+        out = os.path.join(self.root, "out_g")
+        I.pack([n for n in I.names(self.root) if n.startswith("imp-g-")][0], store, out, root=self.root)
+        self.assertEqual(sorted(os.listdir(out)), ["g.cor", "online.u2a", "trex_crt.u2a"])
+        self.assertEqual(open(os.path.join(out, "trex_crt.u2a"), "rb").read(), crt)
+        self.assertEqual(open(os.path.join(out, "online.u2a"), "rb").read(), onl)
+        # a wrong SHA-256 (or size) is refused and not kept
+        bad = dict(pin, U2A="online.u2a:%s:%d" % ("0" * 64, len(onl)))
+        store2 = os.path.join(self.root, "store_g2")
+        with self.assertRaises(I.ImportError_):
+            I.fetch_u2a(bad, I.u2a_list(bad)[0], store2, base="https://r.invalid/dl", opener=opener)
+        self.assertEqual(os.listdir(store2), [])
+        # the key follows the list
+        k1 = I.names(self.root)
+        self.write("release/imports/g.pin", head + 'U2A="online.u2a:%s:%d"\n' % (h(onl), len(onl)))
+        self.assertNotEqual(k1, I.names(self.root), "a changed U2A list is a new entry")
+        # malformed lists are refused
+        for badlist in ("x.u2a:%s" % ("1" * 64), "../x.u2a:%s:5" % ("1" * 64), "X.u2a:%s:5" % ("1" * 64), "a.bin:%s:5" % ("1" * 64), "a.u2a:short:5",
+                        "a.u2a:%s:0" % ("1" * 64), "a.u2a:%s:5 a.u2a:%s:5" % ("1" * 64, "1" * 64)):
+            self.write("release/imports/g.pin", head + 'U2A="%s"\n' % badlist)
+            with self.assertRaises(I.ImportError_, msg=badlist):
+                I.names(self.root)
+        # reserved names, a size that is no ASCII digits, the same name in two pins
+        for badlist in ("unzip.u2a:%s:5" % ("1" * 64), "miniz.u2a:%s:5" % ("1" * 64), "testlib.u2a:%s:5" % ("1" * 64), "a.u2a:%s:\u0665" % ("1" * 64), "a.u2a:%s:+5" % ("1" * 64)):
+            self.write("release/imports/g.pin", head + 'U2A="%s"\n' % badlist)
+            with self.assertRaises(I.ImportError_, msg=badlist):
+                I.names(self.root)
+        self.write("release/imports/g.pin", head + 'U2A="a.u2a:%s:5"\n' % ("1" * 64))
+        self.write("release/imports/h.pin", head.replace("ID=g", "ID=h") + 'U2A="a.u2a:%s:5"\n' % ("1" * 64))
+        with self.assertRaises(I.ImportError_):
+            I.names(self.root)
+        os.unlink(os.path.join(self.root, "release/imports/h.pin"))
+        # U2A needs the release form
+        self.write("release/imports/g.pin", "ID=g\nPACKAGE=p\nVERSION=v\nCOR_FILE=g.cor\nCOR_SHA256=%s\nCOR_SIZE=5\nU2A=\"a.u2a:%s:5\"\n" % ("1" * 64, "1" * 64))
+        with self.assertRaises(I.ImportError_):
+            I.names(self.root)
+        # without U2A: no extra file
+        self.write("release/imports/g.pin", head)
+        out = os.path.join(self.root, "out_g0")
+        I.pack([n for n in I.names(self.root) if n.startswith("imp-g-")][0], store, out, root=self.root)
+        self.assertEqual(os.listdir(out), ["g.cor"])
+
 
 if __name__ == "__main__":
     unittest.main()

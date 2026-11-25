@@ -28,6 +28,7 @@ if [ -e "$cache/.fetched" ]; then
     id="${e#imp-}"; id="${id%-*}"
     [ -f "$cache/$e/DONE" ] && [ -s "$cache/$e/$id.cor" ] || { echo "collect: $e is not in $cache (ci/fetch_bits.sh restores it)" >&2; exit 1; }
     cp "$cache/$e/$id.cor" "$imp/"
+    for u in "$cache/$e"/*.u2a; do [ -e "$u" ] && cp "$u" "$imp/" && echo "=== collect $(basename "$u"): from $e"; done   # T261 D7: the applications of the pin's release, beside the .cor
     echo "=== collect $id.cor: from $e"
   done
   touch "$imp/DONE"

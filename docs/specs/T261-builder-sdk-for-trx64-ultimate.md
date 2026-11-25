@@ -189,3 +189,18 @@ Scenario: S6 trx64u.cor from their pre-release
   `key`, `wns.txt`, `reports.tar.gz`, `SHA256SUMS`. S2: the same poll and every poll since the deploy (4014-4023) green for MultiCore.
 - **P5 (outside):** done by Alex with the TRX64-Ultimate session: the App installed on their repository and the protection rule of `bitstreams`,
   `SRC_API_TOKEN` extended, environments `vivado`, `bitstreams`, `builds`; environment `builds` here allows `t239.3` (2026-11-25).
+
+### MultiCore half, D7 (2026-11-25, branch `t261-u2a`)
+
+- **Pin:** the release form gets `U2A="trex_crt.u2a:<sha256>:<size> online.u2a:<sha256>:<size>"` (blank-separated; name `^[a-z0-9_]+\.u2a$`, 64-hex SHA-256, size 1..64 MiB; no duplicates;
+  release form only, else the pin is refused by `pins()`, so `names` and the lint go red at once). No `U2A`: nothing changes.
+- **`ci/imports.py`:** `u2a_list()` parses and validates; `fetch_u2a()` fetches each file from the release of the `.cor` (`source_url(asset=)`) through the shared `_download()` (size and SHA-256 checked
+  before it is kept, as for the `.cor`); `pack` copies each as `<out>/<name>` beside `<id>.cor`; new command `ci/imports.py u2a` prints the names. The key needs no change: the pin is hashed (and
+  `ci/imports.py` itself, so `imp-trx64u-<key>` moves with this commit like with D5, review 3.3). The builder's publisher takes every regular file of the entry as an asset, `ci/fetch_bits.py`
+  restores the listed assets, so neither needed a change.
+- **`ci/collect.sh`:** also copies the entry's `*.u2a` into bit-imports. **`ci/package.sh`:** the `trex_crt softboot online` loop (trxapps stage) is gone; after the `.cor` loop each name from
+  `ci/imports.py u2a` is copied from bit-imports to the package, a missing one is `mark_red`; no pin lists any (today's pin): a log line, no red. `softboot.u2a` goes nowhere.
+- **`release/imports/trx64u.pin`:** byte-for-byte unchanged; it moves to the release form with `U2A` once TRX64-Ultimate's first `fw-*` pre-release carries all three.
+- **Not run:** `ci/package.sh` and `ci/collect.sh` themselves (`bash -n` only; no pipeline run yet).
+- **Tests:** `ci/test_imports.py` `test_u2a_of_the_release` (fake release: fetch, wrong SHA-256 refused and not kept, entry = `.cor` + both `.u2a`, list change re-keys, malformed lists and Gitea form refused, no `U2A` = `.cor` only). `python3 -W ignore ci/test_imports.py`: `Ran 7 tests ... OK`.
+- **Review fixes:** `U2A` refuses `unzip.u2a`, `miniz.u2a`, `testlib.u2a`, a name listed by two pins (in `pins()`), and a size that is not ASCII digits (all `ImportError_`); `ci/package.sh` is red when an imported `.u2a` would replace a file already in the package, and prints the "no pin lists" line only when `ci/imports.py u2a` succeeded.
