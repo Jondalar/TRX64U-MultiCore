@@ -2034,6 +2034,10 @@ Since base 3.0.
 6.11.5 The string is the layout name, then `;` and the parameters, as the description record writes a route's own tab. An empty name with parameters keeps the tab a flat list with those parameters.
 6.11.6 Base 3.3 widened an entry of the table of contributed tabs from 24 to 28 bytes (the layout string), for every record version. The record version did not change, because base 3.3 is not released: a record with a `[[tab]]` that an older `descrec.py` compiled has to be compiled again with the tool of the SDK that carries this base.
 
+6.11.7 A tab of a menu record may carry `show = "@state"` (since base 3.3, T262). The tab is on the strip only while the state `state` has a value; while the state is empty the tab is off the strip, its digit does nothing, a goto to it lands on the first tab of the area that is shown, and the area key returns to that tab. The base looks at the state with every key that ran an operation and every two seconds, as for `hide` (6.7), so a tab appears after the operation that sets the state and goes after the one that clears it. When the tab on screen goes, the screen moves to the first tab of the area that is shown.
+6.11.8 A tab keeps its number while it is off: the digits of the other tabs do not change, so a strip may read `1 2 4` while tab 3 is off. `show` is written beside `layout` and `ui` in the `[[tab]]`; the record holds it as the parameter `show=@state` of the layout string (6.11.5), alone on a tab with no layout name (a flat list). A library built before this key sees an unknown parameter and shows the tab always.
+6.11.9 A tab that is off is not counted for the legend "1-n TAB" of an application's screens either (the count is of the tabs that are shown).
+
 ### 6.12 The slot expansion
 
 Since base 3.0.
@@ -2109,6 +2113,15 @@ Since base 3.3.
 6.16.4 The canvas of the TOML is 960 x 540. The compiler (`tools/descrec.py`) and the reader of the record (`descrec.cc`) refuse an element whose rectangle is not inside it, with the element and its place in the sentence. On the board the place is made again at every frame on the canvas of the video mode (640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above): the anchor and the offset count from that canvas's edges, the size stays the TOML's, and what lies beyond a smaller canvas is cut off. The base's capture of a stopped C64-type core is fitted to the still's size cut to the canvas and painted with the palette the person set; that of a core that draws its picture on the pixel layer has the place and the scale of the running picture on the canvas (the part that lies on it). A library's surface for the still is its row's size, cut off at the right and below on a smaller canvas.
 6.16.5 An element of the core with the name of a base element replaces it (the core places the PAUSED tag elsewhere); another is added, at most 16 in all (`OVL_ELEMENTS_MAX`; a core's TOML B sizes the maximum at link time through its `[sizes]` table). One that does not fit is told in the log (`[menu] refused: element "<name>": <why>`) and is not applied.
 6.16.6 The elements are drawn in the order of the table: the base's first, then the core's in the order of its file. The menu simulator draws the places of the elements from the same records.
+
+### 6.18 The key table: `[[key]]`
+
+Since base 3.3.
+
+6.18.1 A menu record may carry a key table (section 18 of the record, descrec.h): rows that give a key an operation or take it back, tried in the order of the record on a core's tabs, where an application's screens end and the menu's own keys begin.
+6.18.2 A row is a table `{ layout = ..., key = ..., op = ... }`. Exactly one of `layout` (the layout name of the tab that is shown) and `node` (the id of the tab that is shown) says where the row is for. Exactly one of `key` (a name, `ctrl+<letter>`, one printable character or `any`) and `codes = [lo, hi]` says which keys it takes. `do` is `op` (the default when `op` is given), `decline` (the key goes on to the next row) or `swallow`. `value`, `pass_key`, `status`, `status_ok`, `close`, `directive`, `direct` and `when` (a state; `!state`: while it is empty) are for an op row.
+6.18.3 `legend = "Label"` (since base 3.3, T262) puts the row into the key legend at the foot of the tab it is for: the key's name and the label in capitals (`CTRL+O CLEAR`, `X GO ON`). The label is 1 to 16 printable characters. Only an op row of one key can have it (not a range, not `any`, not a decline or a swallow). The row is in the legend only while its `when` holds. The record writes the labels in a table behind the rows; a record that has no `legend` is byte for byte the record it was. A base from before this key refuses a record with the table (the length of the section does not fit), so a record that must also load there leaves `legend` out.
+6.18.4 The legend is that of a list tab or a screen of the core's menu. The file browser's own legend, and the legend of an application's screens, do not list the rows of this table.
 
 ### 6.17 The driver table: TOML A at build time
 

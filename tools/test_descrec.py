@@ -281,6 +281,33 @@ class OwnMenu(unittest.TestCase):
             with self.assertRaises(D.DescError, msg=what):
                 D.compile_text(text)
 
+    def test_a_key_row_may_name_itself_for_the_foot_legend(self):   # T262 P6: `legend = "Label"` on an op row of one key
+        base = 'key = [\n  { node = "t", key = "x", op = "a.b" },\n  { node = "t", key = "ctrl+o", op = "a.c"%s },\n  { node = "t", key = "y", op = "a.d"%s },\n]\n'
+        plain = D.compile_text(base % ("", "") + MIN)
+        both = D.compile_text(base % (', legend = "Clear"', ', legend = "Go on"') + MIN)
+        self.assertEqual(len(both) - len(plain), 4 + 2 * 8 + len(b"Clear\0Go on\0"))     # the count, two pairs and the two strings; the rows are the bytes they were
+        r = D.parse_desc(both)
+        self.assertEqual([k.get("legend") for k in r["key"]], [None, "Clear", "Go on"])
+        self.assertEqual(D.parse_desc(plain)["key"][1].get("legend"), None)
+        for bad in (', legend = ""', ', legend = "' + "x" * 17 + '"', ', legend = 3', ', do = "swallow", legend = "L"'):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(base % (bad, "") + MIN)
+        with self.assertRaises(D.DescError):                       # a range or any key has no name to print
+            D.compile_text('key = [{ node = "t", key = "any", op = "a.b", legend = "L" }]\n' + MIN)
+        with self.assertRaises(D.DescError):
+            D.compile_text('key = [{ node = "t", codes = [65, 66], op = "a.b", legend = "L" }]\n' + MIN)
+
+    def test_a_tab_may_be_shown_by_a_state(self):             # T262 P3: `show = "@state"`, alone or beside a layout and its ui
+        b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = "@zl.gate"'))
+        self.assertIn(b";show=@zl.gate", b)
+        b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  layout = "split"\n  ui = { title = "X" }\n  show = "@zl.gate"'))
+        self.assertIn(b"split;title=X;show=@zl.gate", b)
+        r = D.parse_desc(D.compile_text(MIN + '\n[[tab]]\narea = "F7"\nid = "more"\nname = "More"\nwidget = "nodes"\nshow = "@a.b"\n'))
+        self.assertEqual(r["ctab"][0]["layout"], ";show=@a.b")
+        for bad in ('"zl.gate"', '"@"', '1', '"@a b"'):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = ' + bad))
+
     def test_a_tab_may_name_pages(self):                      # T228 D18: a group of the tab that opens as a page
         b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b" }'))
         self.assertIn(b"pages=b", b)

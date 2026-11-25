@@ -5,7 +5,7 @@ key = [
   { layout = "terminal", key = "runstop", do = "decline", when = "!mon.wants_stop" },
   { layout = "terminal", key = "any", op = "mon.key", pass_key = true, directive = true, direct = true },
   { layout = "timeline", key = "left", op = "tw.step", value = -1, status = true },
-  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true },
+  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true, legend = "Monitor" },
   { layout = "timeline", key = "esc", op = "tw.cancel", close = true },
   { layout = "timeline", key = "return", op = "tw.resume", status_ok = true, close = true },
   { layout = "timeline", codes = [32, 126], do = "swallow" },

@@ -823,7 +823,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             q.idle_sync_ms = (uint16_t)v[7]; q.done_tag_mask = (uint8_t)v[8];
             out->sec->has_secmedia = true;
         } else if (id == 18) {
-            if (len < 4 || SW(0) < 1 || SW(0) > DR_KEYS || len != 4 + 36 * SW(0)) {
+            // the rows, then (T262 P6) optionally the legend table: u32 count k (1 .. rows), then k pairs (row index ascending, label string)
+            const uint32_t nrows = len >= 4 ? SW(0) : 0;
+            const uint32_t rows_end = 4 + 36 * nrows;
+            if (len < 4 || nrows < 1 || nrows > DR_KEYS || len < rows_end || (len != rows_end && (len < rows_end + 12 || SW(1 + 9 * nrows) < 1 || SW(1 + 9 * nrows) > nrows || len != rows_end + 4 + 8 * SW(1 + 9 * nrows)))) {
                 return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, DR_KEYS);
             }
             for (uint32_t i = 0; i < SW(0); i++) {
@@ -854,6 +857,19 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 k.row.op = op;
                 k.row.flags = (uint16_t)fl;
                 k.row.when = when;
+            }
+            if (len != rows_end) {
+                const uint32_t nl = SW(1 + 9 * nrows);
+                int64_t last = -1;
+                for (uint32_t j = 0; j < nl; j++) {
+                    const uint32_t idx = SW(2 + 9 * nrows + 2 * j);
+                    const char *lab = r.str(SW(3 + 9 * nrows + 2 * j), &bad);
+                    if (bad || idx >= nrows || (int64_t)idx <= last || !lab || !lab[0] || strlen(lab) > 16 || out->keys[idx].row.intent != MI_OP) {
+                        return r.fail("description record, section %s: legend %u names no op row (in order) or has a bad label", nm, (unsigned)(j + 1));
+                    }
+                    last = idx;
+                    out->keys[idx].legend = lab;
+                }
             }
             out->nkeys = (int)SW(0);
         } else if (id == 19) {

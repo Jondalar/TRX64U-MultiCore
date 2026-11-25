@@ -104,6 +104,7 @@ void MenuCtl::held_open()
 }
 
 static const char *node_state_text(void *user, const char *name);
+static bool when_holds(void *user, const char *name);
 
 // gate fix 7 (T228 DC5): a setting with show_state is listed only while its state holds - in a flat list and in a sections list alike (a screen reads it per draw, item())
 static bool setting_off(const CoreCtx *c, int idx)
@@ -178,6 +179,11 @@ uint32_t MenuCtl::show_sig() const
             h = (h ^ (v[0] ? 1u : 2u)) * 16777619u;
         }
     }
+    for (int a = 0; a < tree_.nareas; a++) {                          // T262 P3: a tab that comes or goes with its `show` state
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            h = (h ^ (tab_off(a, b) ? 5u : 6u)) * 16777619u;
+        }
+    }
     return h;
 }
 
@@ -230,7 +236,39 @@ bool MenuCtl::sync_show()
             break;
         }
     }
+    if (tab_off(area_, tab_)) {                                         // T262 P3: the tab on screen went away with its state: the first tab that is shown
+        go(area_, first_shown_tab(area_));
+    }
+    refocus();
     return true;
+}
+
+// T262 P8: on a screen the focused row may hide (its `hide` state got a value): the focus goes to the next row that takes it, else to the one before. A hidden row stays an entry of the tab
+// (item() reads `hide` per draw), so the cursor would stay on a row nobody sees.
+void MenuCtl::refocus()
+{
+    if (!screen() || is_browser() || rows() == 0) {
+        return;
+    }
+    int &s = sel_[area_][tab_];
+    const int n = rows();
+    Item it;
+    if (s < 0 || s >= n) {
+        return;
+    }
+    item(s, &it);
+    if (!it.hidden) {
+        return;
+    }
+    for (int dir = 1; dir >= -1; dir -= 2) {
+        for (int k = s + dir; k >= 0 && k < n; k += dir) {
+            item(k, &it);
+            if (it.kind != IK_VALUE && it.kind != IK_HEADING && it.kind != IK_INFO && !it.hidden) {
+                s = k;
+                return;
+            }
+        }
+    }
 }
 
 // The tree from the descriptor and what is contributed to it (contrib.h). The run loop calls it again once the libraries are loaded.
@@ -367,6 +405,9 @@ void MenuCtl::go(int area, int tab)
     }
     area_ = area;
     tab_ = (tab >= 0 && tab < tree_.a[area].ntabs) ? tab : 0;
+    if (tab_off(area, tab_)) {                                       // T262 P3: a tab whose `show` state is empty is not a place to be
+        tab_ = first_shown_tab(area);
+    }
     last_tab_[area] = cur().page && cur().parent >= 0 ? cur().parent : tab_;      // the key of the area comes back to the tab, not to the page it opened
     if (moved) {                                                     // a message of the tab before is not about this one; a switch that has a message of its own sets it after go()
         status_[0] = 0;
@@ -3359,6 +3400,28 @@ void MenuCtl::footer_legend(char *out, int n)
     }
 }
 
+// T262 P6: how the foot legend writes the key of a key-table row (the codes of tools/descrec.py KEY_NAMES and KEY_CTRL); false for a code with no name.
+static bool legend_key_name(int code, char *out, int n)
+{
+    static const struct { int code; const char *name; } names[] = {
+        { 0x85, "F1" }, { 0x89, "F2" }, { 0x86, "F3" }, { 0x8A, "F4" }, { 0x87, "F5" }, { 0x8B, "F6" }, { 0x88, "F7" }, { 0x8C, "F8" }, { 0x8E, "F10" },
+        { 0x0D, "RETURN" }, { 0x1B, "ESC" }, { 0x08, "DEL" }, { 0x20, "SPACE" }, { 0x13, "HOME" }, { 0x09, "TAB" }, { 0x11, "R/S" },
+        { 0x01, "CTRL+A" }, { 0x02, "CTRL+B" }, { 0x03, "CTRL+C" }, { 0x04, "CTRL+D" }, { 0x05, "CTRL+E" }, { 0x0A, "CTRL+J" }, { 0x0B, "CTRL+K" }, { 0x0C, "CTRL+L" },
+        { 0x0E, "CTRL+N" }, { 0x0F, "CTRL+O" }, { 0x10, "CTRL+P" }, { 0xBA, "CTRL+R" }, { 0x16, "CTRL+V" }, { 0x1A, "CTRL+Z" },
+    };
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        if (names[i].code == code) {
+            snprintf(out, n, "%s", names[i].name);
+            return true;
+        }
+    }
+    if (code > 0x20 && code <= 0x7E) {
+        snprintf(out, n, "%c", (code >= 'a' && code <= 'z') ? code - 32 : code);
+        return true;
+    }
+    return false;
+}
+
 // The line at the foot: in the Library the keys of the row under the cursor, elsewhere the keys of the screen and the letters of the core.
 void MenuCtl::footer_legend_keys(char *out, int n)
 {
@@ -3536,6 +3599,21 @@ void MenuCtl::footer_legend_keys(char *out, int n)
             p += snprintf(out + p, n - p, "  %c %s", kb[0], lab);
         }
     }
+    for (int i = 0; c_->merge && i < c_->merge->nkeys && p < n - 12; i++) {      // T262 P6: a row of the core's key table that names itself ("legend"), for the tab that is shown
+        const CoreKey &r = c_->merge->keys[i];
+        char kn[12];
+        if (!r.legend || r.row.lo < 0 || r.row.lo != r.row.hi || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node)) || (r.row.when && !when_holds(c_, r.row.when)) ||
+            !legend_key_name(r.row.lo, kn, sizeof(kn))) {
+            continue;
+        }
+        char lab[24];
+        int j = 0;
+        for (const char *q = r.legend; *q && j < (int)sizeof(lab) - 1; q++) {
+            lab[j++] = (*q >= 'a' && *q <= 'z') ? (char)(*q - 32) : *q;
+        }
+        lab[j] = 0;
+        p += snprintf(out + p, n - p, "  %s %s", kn, lab);
+    }
 }
 
 // ---- the screens of an application (T104.3 D0, apphost.cc) ---------------------------------------------------------------------------------
@@ -3569,7 +3647,35 @@ bool MenuCtl::tab_is_hidden(int area, int tab) const
     }
     const char *l = tree_.a[area].tabs[tab].layout;
     const char *w = l ? strchr(l, ';') : 0;
-    return w && ui_attr(w + 1, "hidden");
+    return (w && ui_attr(w + 1, "hidden")) || tab_off(area, tab);
+}
+
+// T262 P3: a tab with the layout parameter `show = @state` is on the strip only while that state has a value. Its number stays its own (a digit never means another tab); while it is off the
+// digit does nothing and the strip leaves it out.
+bool MenuCtl::tab_off(int area, int tab) const
+{
+    if (area < 0 || area >= tree_.nareas || tab < 0 || tab >= tree_.a[area].ntabs) {
+        return false;
+    }
+    const char *l = tree_.a[area].tabs[tab].layout;
+    const char *w = l ? strchr(l, ';') : 0;
+    char spec[64], v[8];
+    if (!w || !ui_attr(w + 1, "show", spec, sizeof(spec))) {
+        return false;
+    }
+    spec_text(spec, v, sizeof(v));
+    return !v[0];
+}
+
+// The first tab of the area that is not hidden (T262 P3); 0 when there is none.
+int MenuCtl::first_shown_tab(int area) const
+{
+    for (int b = 0; area >= 0 && area < tree_.nareas && b < tree_.a[area].ntabs; b++) {
+        if (!tab_is_hidden(area, b)) {
+            return b;
+        }
+    }
+    return 0;
 }
 
 bool MenuCtl::goto_tab_id(const char *id)
@@ -4448,7 +4554,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         // No view here takes typed text, so a number is always the tab strip's. The one place the prototype reserves digits for input - a search or path field - does not exist yet,
         // and when it does it has to swallow them before this (NAVIGATION.md, "Universal keys").
         int t = menu_tab_of_number(&tree_, area_, k - '0');
-        if (t < 0) {
+        if (t < 0 || tab_off(area_, t)) {
             return R_NONE;
         }
         go(area_, t);

@@ -215,13 +215,15 @@ static bool layout_has(const char *layout, const char *key, char *out = 0, int n
     return w && ui_attr(w + 1, key, out, n);
 }
 
-static void build_route(const MenuTree &tr, bool app_mode)
+static void build_route(MenuCtl &m)
 {
+    const MenuTree &tr = m.tree();
+    const bool app_mode = m.app_mode();
     for (int a = 0; a < tr.nareas && a < TRX_AREAS_MAX; a++) {
         int nv = 0;
         for (int b = 0; b < tr.a[a].ntabs && b < MENU_TABS_MAX; b++) {
             vis_map[a][b] = -1;
-            if (tr.a[a].tabs[b].page || layout_has(tr.a[a].tabs[b].layout, "hidden")) {      // T187 D2: a page a row opens has no place on the strip
+            if (m.tab_is_hidden(a, b)) {      // T187 D2: a page a row opens, a screen that is no tab, a tab whose `show` state is empty (T262 P3): no place on the strip
                 continue;
             }
             if (nv >= TRX_TABS_MAX) {
@@ -614,7 +616,7 @@ void ui_menu_render(MenuCtl &m)
         apply_alpha();
     }
     const TrxTheme &t = trx_theme();
-    build_route(m.tree(), m.app_mode());
+    build_route(m);
 
     if (!screens_wanted(m) && !m.is_home()) {                       // T209 D4: the foot names the paging keys of a list longer than its window; the window is known before the shell is made
         int room0;

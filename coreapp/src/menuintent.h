@@ -99,6 +99,7 @@ struct CoreKey {
     const char *layout;
     const char *node;
     KeyRow row;
+    const char *legend;   // T262 P6: the label the foot legend names this key by (descrec.h section 18, the legend table behind the rows); null: the row is not in the legend
 };
 
 // The row number `*cursor` onwards of the stage whose range holds `k`, or null. `when_ok(user, name)` asks a state.

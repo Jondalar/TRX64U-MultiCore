@@ -557,6 +557,17 @@ def _ui_string(d, keys, what):
     return ";".join(words) or None
 
 
+def _tab_params(tb, tid):
+    """The layout parameters of a tab: its `ui` table, then `show` (T262 P3: `show = "@state"`, the tab is on the strip only while that state has a value)."""
+    params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
+    if "show" in tb:
+        show = tb["show"]
+        if not isinstance(show, str) or not re.fullmatch(r"@[A-Za-z0-9_.]+", show):
+            raise DescError("tab %s: show is @state, the name of a state (the tab is shown while it has a value)" % tid)
+        params = (params + ";" if params else "") + "show=" + show
+    return params
+
+
 def _ui_table(s, keys):
     """The inverse of _ui_string."""
     d = {}
@@ -705,7 +716,7 @@ def compile_desc(doc, merged=(), app_base=False):
         first = len(t["tab"])
         seen_id, seen_n = set(), set()
         for tb in tabs:
-            _only(tb, {"id", "name", "widget", "groups", "lines", "n", "layout", "ui"}, "tab")
+            _only(tb, {"id", "name", "widget", "groups", "lines", "n", "layout", "ui", "show"}, "tab")
             tid = _need(tb, "id", str, "tab")
             if not re.fullmatch(r"[a-z0-9_]{1,31}", tid):
                 raise DescError("tab id %r: lower case, digits and _, at most 31" % tid)
@@ -730,8 +741,8 @@ def compile_desc(doc, merged=(), app_base=False):
             if parent is not None and (parent == tid or parent not in seen_id or n):    # T228 R1: a page of an earlier tab of this area, with no number
                 raise DescError("tab %s: ui page names %r, which is no earlier tab of area %s, or the page has a number (n)" % (tid, parent, key))
             lay = None
-            if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
-                params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
+            if layout is not None or "ui" in tb or "show" in tb:         # no layout: the name is empty, the tab stays a list (T228 `sections`)
+                params = _tab_params(tb, tid)
                 lay = (layout or "") + (";" + params if params else "")
             t["tab"].append((st.add(tid), st.add(_opt(tb, "name", str, "tab " + tid, "")), n, WIDGETS.index(widget),
                              st.add(",".join(groups)) if groups else NONE, st.add(lay) if lay else 0))
@@ -836,7 +847,7 @@ def compile_desc(doc, merged=(), app_base=False):
         t["rename"].append((st.add(_need(r, "id", str, "rename")), st.add(_need(r, "label", str, "rename"))))
 
     for tb in _opt(doc, "tab", list, "description", []):
-        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n", "layout", "ui"}, "tab")
+        _only(tb, {"area", "id", "name", "widget", "groups", "lines", "n", "layout", "ui", "show"}, "tab")
         area = _need(tb, "area", str, "tab")
         if not re.fullmatch(r"F[1-8]", area):
             raise DescError("tab area %r: F1 .. F8" % area)
@@ -857,8 +868,8 @@ def compile_desc(doc, merged=(), app_base=False):
         if layout is not None and layout not in LAYOUTS:
             raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
         lay = None
-        if layout is not None or "ui" in tb:
-            params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
+        if layout is not None or "ui" in tb or "show" in tb:
+            params = _tab_params(tb, tid)
             lay = (layout or "") + (";" + params if params else "")
         t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n,
                           st.add(lay) if lay else 0))
@@ -1644,6 +1655,7 @@ def _sec_replace(items, st):
 #            flags (menuintent.h KF_ARG 1, KF_KEYARG 2, KF_STATUS 4, KF_STATUS_OK 8, KF_CLOSE 32, KF_DIRECTIVE 64, KF_DIRECT 128; none for a decline or a swallow), when (string, none)
 # windows    u32 count (1 .. WINDOWS_MAX), then per window 3 words: name (string), address, size (bytes)
 #
+# T262 P6: behind the rows an optional legend table: u32 count k (1 .. rows), then k pairs (row index ascending, label string of 1 .. 16 characters); 8 + 36 * rows + 8 * k bytes, else 4 + 36 * rows.
 # The rows are tried in the order of the record, where the generic rows of the monitor and Timewarp stood (menukeytab.cc, stage KS_CORE); layout names the layout of the shown
 # tab (menuctl.cc layout_is), node the id of the shown tab.
 KEYS_MAX = 64
@@ -1651,7 +1663,8 @@ WINDOWS_MAX = 32
 WINDOW_SIZE_MAX = 0x100000             # a block of the I/O space is at most 1 MiB
 KEY_FLAGS = {"pass_key": 2, "status": 4, "status_ok": 8, "close": 32, "directive": 64, "direct": 128}      # menuintent.h KF_*; `value` is KF_ARG (1)
 KF_ARG = 1
-KEY_KEYS = {"layout", "node", "key", "codes", "do", "op", "value", "when"} | set(KEY_FLAGS)
+KEY_KEYS = {"layout", "node", "key", "codes", "do", "op", "value", "when", "legend"} | set(KEY_FLAGS)
+KEY_LEGEND_MAX = 16                # T262 P6: the longest label a key row puts into the foot legend
 KEY_DO = ("op", "decline", "swallow")
 KEY_ANY = 0xFFFFFFFF
 KEY_CODE_MAX = 0x1FF
@@ -1711,6 +1724,7 @@ def _sec_keys(rows, st):
     if not isinstance(rows, list) or not 1 <= len(rows) <= KEYS_MAX or not all(isinstance(r, dict) for r in rows):
         raise DescError("key: 1 to %d rows, each a table" % KEYS_MAX)
     out = [struct.pack("<I", len(rows))]
+    legends = []
     for i, r in enumerate(rows):
         what = "key row %d" % (i + 1)
         _only(r, KEY_KEYS, what)
@@ -1744,7 +1758,17 @@ def _sec_keys(rows, st):
                 flags |= bit
         when = _opt(r, "when", str, what, None)
         _row_checks(layout, node, lo, hi, KEY_DO.index(do), op, value & 0xFFFFFFFF, flags, when, what)
+        if "legend" in r:                                           # T262 P6: the row names its key in the foot legend of the tab it is for
+            lg = r["legend"]
+            if not isinstance(lg, str) or not 1 <= len(lg) <= KEY_LEGEND_MAX or not all(0x20 <= ord(c) <= 0x7E for c in lg):
+                raise DescError("%s: legend is a text of 1 to %d printable characters" % (what, KEY_LEGEND_MAX))
+            if do != "op" or "key" not in r or r["key"] == "any":
+                raise DescError("%s: legend belongs to an op row of one key (not a range, not any)" % what)
+            legends.append((i, st.add(lg)))
         out.append(struct.pack("<9I", st.add(layout), st.add(node), lo, hi, KEY_DO.index(do), st.add(op), value & 0xFFFFFFFF, flags, st.add(when)))
+    if legends:                                                     # behind the rows: count, then (row, label) pairs; a record with no legend is byte for byte what it was
+        out.append(struct.pack("<I", len(legends)))
+        out.extend(struct.pack("<2I", i, w) for i, w in legends)
     return b"".join(out)
 
 
@@ -2546,7 +2570,10 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                 out["media"][idx]["replace"] = S(o)
         elif sid == SEC_KEYROWS:
             n, = words(1)
-            if not 1 <= n <= KEYS_MAX or len(p) != 4 + 36 * n:
+            nleg = 0
+            if 1 <= n <= KEYS_MAX and len(p) > 4 + 36 * n:
+                nleg, = words(1, 4 + 36 * n)
+            if not 1 <= n <= KEYS_MAX or not (len(p) == 4 + 36 * n or (1 <= nleg <= n and len(p) == 8 + 36 * n + 8 * nleg)):
                 raise DescError("%s: %d rows, or the length does not fit them" % (what, n))
             rows = []
             for i in range(n):
@@ -2586,6 +2613,14 @@ def _parse_sections(blob, off, size, s, ncset, out, ver=6):
                 if wh != NONE:
                     row["when"] = S(wh)
                 rows.append(row)
+            if nleg:                                                # T262 P6: the legend table behind the rows
+                last = -1
+                for j in range(nleg):
+                    idx, lw = words(2, 8 + 36 * n + 8 * j)
+                    if idx <= last or idx >= n or rows[idx]["do"] != "op" or not S(lw) or len(S(lw)) > KEY_LEGEND_MAX:
+                        raise DescError("%s: legend %d names no op row (in order) or has a bad label" % (what, j + 1))
+                    last = idx
+                    rows[idx]["legend"] = S(lw)
             out["key"] = rows
         elif sid == SEC_IO:
             if len(p) != 4 * len(IO_KEYS):
@@ -3001,7 +3036,11 @@ def decoded_to_doc(rec):
                     if name:
                         d["layout"] = name
                     if params:
-                        d["ui"] = _ui_table(params, UI_TAB_KEYS)
+                        d["ui"] = _ui_table(params, dict(UI_TAB_KEYS, show=str))
+                        if "show" in d["ui"]:                   # T262 P3: `show` is a key of the tab, not of its ui table
+                            d["show"] = d["ui"].pop("show")
+                        if not d["ui"]:
+                            del d["ui"]
                 tabs.append(d)
             used += len(a["tabs"])
             d = {"key": a["key"], "shifted": a["shifted"], "tab": tabs}
@@ -3056,7 +3095,11 @@ def decoded_to_doc(rec):
                 if name:
                     d["layout"] = name
                 if params:
-                    d["ui"] = _ui_table(params, UI_TAB_KEYS)
+                    d["ui"] = _ui_table(params, dict(UI_TAB_KEYS, show=str))
+                    if "show" in d["ui"]:                       # T262 P3: `show` is a key of the tab, not of its ui table
+                        d["show"] = d["ui"].pop("show")
+                    if not d["ui"]:
+                        del d["ui"]
             doc["tab"].append(d)
     if rec["poll"]:
         doc["poll"] = dict(rec["poll"])

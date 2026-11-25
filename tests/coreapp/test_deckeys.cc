@@ -92,6 +92,9 @@ int main(int argc, char **argv)
         CHECK_EQ(k.row.flags, w.flags);
         CHECK_STR(k.row.when, w.when);
     }
+    for (int i = 0; i < 10; i++) {                                         // T262 P6: the legend table behind the rows names one of them
+        CHECK_STR(d->keys[i].legend, i == 4 ? "Monitor" : 0);
+    }
     CHECK_EQ(d->keys[2].row.lo, -1);                                       // "any"
     CHECK_EQ(d->keys[2].row.hi, -1);
 

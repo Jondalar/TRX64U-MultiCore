@@ -126,6 +126,9 @@ public:
     bool take_close_request() { bool r = close_req_; close_req_ = false; return r; }   // the application asked for its screens to close (follow = "close")
     bool follow_tick();                                            // the application asked for another tab through the first tab's `follow` state; true: moved
     bool locked(char *why, int n) const;                           // the open tab's `lock` state holds a reason: RUN/STOP does not close the screens now
+    void refocus();                                                // the focused row of a screen hid: the focus goes to the next row that takes it, else the one before (T262 P8)
+    bool tab_off(int area, int tab) const;                         // the tab's `show` state is empty (T262 P3)
+    int first_shown_tab(int area) const;
     bool tab_is_hidden(int area, int tab) const;                   // the tab's layout says `hidden`: it is on no strip and has no number
     bool tab_spec(const char *key, char *out, int n) const;        // the open tab's layout parameter `key` is a state value; its text, false when empty
     void say(const char *s, bool bad) { set_status(s, bad); }      // a line for the status row, from outside (an application that ended)

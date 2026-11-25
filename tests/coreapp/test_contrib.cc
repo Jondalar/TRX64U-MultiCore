@@ -826,5 +826,132 @@ int main(int argc, char **argv)
         CHECK(cond_holds("a!=empty", S::get, 0));
     }
 
+    // ---- T262 P3: a tab with `show=@state` is on the strip only while the state has a value; its number stays its own; the tab on screen that goes away leaves for the first shown tab
+    {
+        static const LibTabDecl tabs[] = {
+            { "F5", "looked", "Looked", TW_NODES, 0, 0 },
+            { "F5", "flat", "Flat", TW_NODES, 0, 0 },
+        };
+        static const char *const looks[] = { "split;title=Look;side=Side;show=@zl.gate", 0 };
+        static const LibNodeDecl lnodes[] = {
+            { "F5/looked", LN_OP, "In looked", "zl.beep", 0, 1 },
+            { "F5/flat", LN_OP, "In flat", "zl.beep", 0, 1 },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 2;
+        rec.nodes = lnodes; rec.nnodes = 2;
+        rec.tab_layouts = looks;
+        Contributor cs[] = { { "shower", CR_LIB, &rec } };
+        g_gate.clear();
+        Rig r(cs, 1);
+        const MenuTree &t = r.m->tree();
+        int a5 = -1, tl = -1, tf = -1;
+        for (int a = 0; a < t.nareas; a++) if (!strcmp(t.a[a].key, "F5")) a5 = a;
+        for (int b = 0; a5 >= 0 && b < t.a[a5].ntabs; b++) {
+            if (!strcmp(t.a[a5].tabs[b].id, "looked")) tl = b;
+            if (!strcmp(t.a[a5].tabs[b].id, "flat")) tf = b;
+        }
+        CHECK(tl >= 0 && tf >= 0);
+        const int nl = t.a[a5].tabs[tl].n, nf = t.a[a5].tabs[tf].n;
+        r.m->open();
+        r.m->key(KEY_F5);
+        CHECK(r.m->tab_is_hidden(a5, tl) && !r.m->tab_is_hidden(a5, tf));        // the state has no value: off the strip
+        r.m->key('0' + nl);
+        CHECK(r.m->tab() != tl);                                                  // its digit does nothing
+        CHECK(r.m->goto_spec("F5/looked") && r.m->tab() != tl);                   // a goto does not land on it
+        g_gate = "on";
+        r.io.delay_ms(2100); r.m->pump(true);                                     // what the machine holds changed outside the menu: seen at the next look
+        CHECK(!r.m->tab_is_hidden(a5, tl));                                       // on the strip
+        CHECK_EQ(t.a[a5].tabs[tl].n, nl);                                         // its number is the same
+        CHECK(nf != nl);
+        r.m->key('0' + nl);
+        CHECK_EQ(r.m->tab(), tl);
+        g_gate.clear();                                                           // the state empties while its tab is on screen
+        r.io.delay_ms(2100); r.m->pump(true);
+        CHECK(r.m->tab_is_hidden(a5, tl) && r.m->tab() != tl && r.m->area() == a5);
+        CHECK(!r.m->tab_is_hidden(a5, r.m->tab()));                              // on a tab that is shown
+        g_gate.clear();
+    }
+
+    // ---- T262 P8: the focused row of a screen hides (its `hide` state got a value): the focus goes to the next row that takes it, else to the one before
+    {
+        static const LibTabDecl tabs[] = { { "F5", "scr", "Scr", TW_NODES, 0, 0 } };
+        static const char *const looks[] = { "split;title=Scr;side=Side", 0 };
+        static const LibNodeDecl nodes[] = {
+            { "F5/scr", LN_OP, "Row A", "zl.beep", 0, 1 },
+            { "F5/scr", LN_OP, "Row B", "zl.beep", 0, 2, 0, 0, 0, 0, 0, false, "hide=@zl.gate" },
+            { "F5/scr", LN_OP, "Row C", "zl.beep", 0, 3 },
+            { "F5/scr", LN_OP, "Row D", "zl.beep", 0, 4, 0, 0, 0, 0, 0, false, "hide=@zl.gate" },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 4;
+        rec.tab_layouts = looks;
+        Contributor cs[] = { { "hider", CR_LIB, &rec } };
+        for (int variant = 0; variant < 2; variant++) {
+            g_gate.clear();
+            Rig r(cs, 1);
+            r.m->open();
+            CHECK(r.m->goto_spec("F5/scr"));
+            CHECK(r.m->screen());
+            const int want = variant == 0 ? r.find_row("Row B") : r.find_row("Row D");
+            CHECK(want >= 0);
+            while (r.m->selected() < want) r.m->key(KEY_DOWN);
+            CHECK_EQ(r.m->selected(), want);
+            g_gate = "on";                                                         // B and D hide
+            r.io.delay_ms(2100); r.m->pump(true);
+            const int now = r.m->selected();
+            if (variant == 0) {
+                CHECK_EQ(now, r.find_row("Row C"));                                // B hid: the next visible row
+            } else {
+                CHECK_EQ(now, r.find_row("Row C"));                                // D hid, nothing after it: the one before
+            }
+            g_gate.clear();
+        }
+    }
+
+    // ---- T262 P6: a row of the core's key table that names itself ("legend") is in the foot legend of the tab it is for, while its state holds
+    {
+        static const LibTabDecl tabs[] = { { "F5", "keyed", "Keyed", TW_NODES, 0, 0 }, { "F5", "other", "Other", TW_NODES, 0, 0 } };
+        static const LibNodeDecl nodes[] = { { "F5/keyed", LN_OP, "Row", "zl.beep", 0, 1 }, { "F5/other", LN_OP, "Row", "zl.beep", 0, 1 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 2;
+        rec.nodes = nodes; rec.nnodes = 2;
+        Contributor cs[] = { { "keyer", CR_LIB, &rec } };
+        static CoreKey keys[3];
+        memset(keys, 0, sizeof(keys));
+        for (int i = 0; i < 3; i++) {
+            keys[i].node = i == 2 ? "other" : "keyed";
+            keys[i].row.stage = KS_CORE;
+            keys[i].row.intent = MI_OP;
+            keys[i].row.op = "zl.beep";
+        }
+        keys[0].row.lo = keys[0].row.hi = 0x0F; keys[0].legend = "Clear";               // CTRL+O
+        keys[1].row.lo = keys[1].row.hi = 'x'; keys[1].legend = "Go on"; keys[1].row.when = "zl.gate";
+        keys[2].row.lo = keys[2].row.hi = 'q'; keys[2].legend = "Elsewhere";
+        g_gate.clear();
+        Rig r(cs, 1);
+        r.mm->keys = keys; r.mm->nkeys = 3;
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/keyed"));
+        char leg[200];
+        r.m->footer_legend(leg, sizeof(leg));
+        CHECK(strstr(leg, "CTRL+O CLEAR") != 0);                                         // the row names its key
+        CHECK(strstr(leg, "X GO ON") == 0 && strstr(leg, "ELSEWHERE") == 0);             // its state holds not / it is for another tab
+        g_gate = "on";
+        r.m->footer_legend(leg, sizeof(leg));
+        CHECK(strstr(leg, "CTRL+O CLEAR") != 0 && strstr(leg, "X GO ON") != 0);
+        CHECK(r.m->goto_spec("F5/other"));
+        r.m->footer_legend(leg, sizeof(leg));
+        CHECK(strstr(leg, "Q ELSEWHERE") != 0 && strstr(leg, "CLEAR") == 0);
+        g_gate.clear();
+    }
+
     DONE("test_contrib");
 }
