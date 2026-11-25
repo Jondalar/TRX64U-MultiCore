@@ -32,6 +32,10 @@ extern const CoreDesc *const core_table[];
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #endif
+#ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#endif
 
 static bool g_ui = false;
 static MenuCtl *M;

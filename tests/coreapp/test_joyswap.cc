@@ -18,6 +18,9 @@ extern const CoreDesc amiga_desc;        // the Amiga 500 is its own app (cores/
 #include "nes_regs.h"
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #endif
+#ifdef TEST_APP_C264                     // the Commodore 264's app (run.sh c264app) has its own core only
+extern const CoreDesc c264_desc;         // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
+#endif
 #ifdef TEST_APP_C128                     // the C128's app (run.sh c128app) has its own core only
 #include "c128_regs.h"
 extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
@@ -26,8 +29,7 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
-#include "c264_regs.h"
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
 #include "zxnext_regs.h"
 #endif
 #ifdef TEST_APP_ZXNEXT
@@ -60,7 +62,7 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
-#ifndef TEST_APP_ATARI800
+#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264)   // the Atari's and the 264's swap have another form (their own key is checked below): no row
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
@@ -124,8 +126,10 @@ int main()
 #ifdef TEST_APP_ATARI800
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES)
+#ifdef TEST_APP_C264
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
+#endif
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
 #endif
     DONE("test_joyswap");

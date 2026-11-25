@@ -25,6 +25,7 @@ const CoreDesc *const compiled_in_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_C264)
 // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
 #include "cores.h"
+extern const CoreDesc c264_desc;   // no shared header declares it (cores/c264/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_ZXNEXT)

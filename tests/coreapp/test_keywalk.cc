@@ -33,6 +33,13 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define KW_GOLDEN ""
 #endif
 #endif
+#ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only, its walk has goldens of its own
+extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#define KW_GOLDEN "_c264"
+#else
+#define KW_GOLDEN ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -103,12 +110,14 @@ int main(int argc, char **argv)
 #ifndef TEST_APP_ATARI800               // the record's menu stands on the NES: the shared unit walks it (the Atari's app has no NES)
 #else
     (void)argc;
+#ifndef TEST_APP_C264                    // the record's menu stands on the NES: the shared unit walks it (the 264's app has no NES)
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
 #else
     (void)argv;
+#endif
 #endif
 #endif
     for (const Walk &w : walks) {

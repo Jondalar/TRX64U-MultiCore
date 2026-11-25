@@ -27,9 +27,10 @@ headers = ["c264_regs.h", "hk_defaults.h"]
 needs = ["cbm1541", "cbmrun"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: c264app, the group c264): unit = 2 unit tests (c264 the descriptor against the model of its
 # register block and the 16 KB aperture), service = 8 mock bitstream -> service (c264_descgen the record compiled from desc.toml against the descriptor, c264_romreq the ROM rows in the host's table,
-# c264_mounts the media engine's mounts of the drive and the cartridge image), ui = 9 service -> UI (c264_ledcores the LED setting of the core's record), api = 10
-# service -> API: its operations through the service call the REST and RPC transports make (svc_call; c264_memops, the 264's case of the shared test_memops, TEST_APP_C264)
-tests = { unit = ["c264"], service = ["c264_descgen", "c264_romreq", "c264_mounts"], ui = ["c264_ledcores"], api = ["c264_memops"] }
+# c264_mounts the media engine's mounts of the drive and the cartridge image, c264_joyswap its own joystick key), ui = 9 service -> UI (c264_ledcores the LED setting of the core's record,
+# c264_desc the walk of its descriptor and its menu golden, c264_hotkeys its default hotkey map, c264_keywalk every key of its menu), api = 10 service -> API: its operations through the service call
+# the REST and RPC transports make (svc_call; c264_memops) and the reach of its declaration over the UI service (c264_uicover). T239.5 D13: these are the 264's cases of the shared tests (TEST_APP_C264).
+tests = { unit = ["c264"], service = ["c264_descgen", "c264_romreq", "c264_mounts", "c264_joyswap"], ui = ["c264_ledcores", "c264_desc", "c264_hotkeys", "c264_keywalk"], api = ["c264_memops", "c264_uicover"] }
 
 # The 1541 drive A on the IEC bus (the C264's drive_l2): the shared library, the same sources as trx64u's app links (S12)
 [[library]]

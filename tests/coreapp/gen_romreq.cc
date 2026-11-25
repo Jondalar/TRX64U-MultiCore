@@ -20,6 +20,7 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #elif defined(TEST_APP_C264)
 // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
 #include "cores.h"
+extern const CoreDesc c264_desc;                // no shared header declares it (cores/c264/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)
 // the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
