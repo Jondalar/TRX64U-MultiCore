@@ -91,6 +91,11 @@ Scenario: S6 trx64u.cor from their pre-release
 - **D5 Import:** the pin says `RELEASE=fw-<branch>-<sha8>`, `COR_FILE=trx64u.cor`, `COR_SHA256`, `COR_SIZE`; the builder's
   `imports.py` fetches the asset from that release of the builds repository; the contract
   `docs/contracts/trx64u-firmware-handover.md` changes on both sides in the same step. `trx64g` keeps its pin.
+- **D6 (Alex, 2026-11-25, translated: "ok, out, and TRX64-Ultimate must build that itself please"):** `trex_crt.u2a`, `softboot.u2a`
+  and `online.u2a` are trx64u's features (T239.3 D21, D44). MultiCore's SDK lane no longer builds or publishes them: `ci/trxapps.sh` part
+  `sdk` builds `testlib.u2a`, `unzip.u2a`, `miniz.u2a`, so an SDK release carries those three beside the tarball. TRX64-Ultimate builds the
+  three in its own pipeline from its own copy of `apps/trex_crt`, `apps/softboot`, `apps/online`; the copies here are deleted once theirs
+  build. `sdk-0.4.7-760763ec` (immutable) still holds them; the next SDK release does not.
 
 ## §4 Out
 
