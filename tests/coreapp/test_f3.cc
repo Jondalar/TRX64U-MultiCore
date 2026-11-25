@@ -94,10 +94,6 @@ int main()
         r.m->key(KEY_ESCAPE);
     }
 
-    // ---- D6: the file operations in a core that carries none of its own
-    OpResult tmp;
-    CHECK(ops_call(&r.c, "files.rename", 0, 0, &tmp) != OPE_NOT_FOUND);       // the operation exists in this core (the registry knows the name)
-
     {   // T262 D4 finding 12: browse_at puts Browse on a folder with the cursor on a file (not on ".."); browse_sheet opens that file's action sheet as RETURN does
         r.c.lib.want_dir[0] = 0;
         snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
@@ -122,6 +118,10 @@ int main()
         CHECK(!r.m->chooser());
         CHECK(!r.c.lib.want_sheet && !r.c.lib.want_name[0]);
     }
+
+    // ---- D6: the file operations in a core that carries none of its own
+    OpResult tmp;
+    CHECK(ops_call(&r.c, "files.rename", 0, 0, &tmp) != OPE_NOT_FOUND);       // the operation exists in this core (the registry knows the name)
     CHECK(ops_call(&r.c, "files.mkdir", 0, 0, &tmp) != OPE_NOT_FOUND);
     CHECK(ops_call(&r.c, "files.copy_job", 0, 0, &tmp) != OPE_NOT_FOUND);
 
