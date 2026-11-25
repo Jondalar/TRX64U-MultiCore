@@ -12,12 +12,12 @@ int main()
     CHECK(HANDOVER_ADDR >= 0x03C00000u && HANDOVER_ADDR + 4096 <= 0x03F00000u);
 
     Handover h;
-    handover_fill(&h, "/USB1/cores/atari800.cor", "Atari 800 XL", "0.0.1", 0x9bf12877u);
+    handover_fill(&h, "/USB1/cores/dummy800.cor", "Dummy 800 XL", "0.0.1", 0x9bf12877u);
     CHECK(handover_valid(&h));
     const uint8_t *raw = (const uint8_t *)&h;
     CHECK(raw[0] == 'T' && raw[1] == 'R' && raw[2] == 'X' && raw[3] == 'H');     // the bytes DDR2 holds
-    CHECK_STR(h.path, "/USB1/cores/atari800.cor");
-    CHECK_STR(h.core_name, "Atari 800 XL");
+    CHECK_STR(h.path, "/USB1/cores/dummy800.cor");
+    CHECK_STR(h.core_name, "Dummy 800 XL");
     CHECK_STR(h.core_version, "0.0.1");
     CHECK_STR(h.host_build, "9bf12877");
 
