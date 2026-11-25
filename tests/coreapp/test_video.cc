@@ -6,8 +6,14 @@
 #include "videomode.h"
 #include "trxcanvas.h"
 #include "cores.h"
+#ifndef TEST_APP_AMIGA
 #include "atari800_regs.h"
+#endif
+#ifdef TEST_APP_AMIGA                    // T239.5 D13: the Amiga 500's cases run as its app (run.sh amigaapp, unit amiga_video); the shared unit video keeps the others
 #include "amiga_regs.h"
+extern const CoreDesc amiga_desc;
+#endif
+#ifndef TEST_APP_AMIGA                    // the monolith's menu: a case of the shared unit video
 
 // T228: the menu on a monolith-type bitstream (TRX64-Ultimate's). Its pix_layer has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
 // factor of the menu's output size over its canvas there (trx_canvas_factor); its frame is the gateware's row (U16), from the start and after every mode.
@@ -76,9 +82,11 @@ static void monolith_menu()
     nv.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
     CHECK(npx.place.empty() && npx.canvas.empty());
 }
+#endif
 
 int main()
 {
+#ifndef TEST_APP_AMIGA
     monolith_menu();
     const VideoDesc &d = atari800_desc.video;
     // the numbers of T88 D5: 384 x 288 at scale 3 = 1152 x 864, centred on 1920 x 1080 and shifted by 14 hires pixels
@@ -216,6 +224,7 @@ int main()
         CHECK(ev.wanted_hdmi() >= 0);
     }
 
+#else
     // T104 5.3: the Amiga's three buffers are gateware parameters. No FB_BASE / FB_STRIDE register exists (register 0 is the ID block), so
     // nothing is written there, and a buffer the descriptor does not have is never shown (a reported 3 would address the byte past the window).
     {
@@ -244,15 +253,6 @@ int main()
         CHECK(!av.poll());
         CHECK_EQ(apx.w.size(), n);
         CHECK_EQ(av.front(), 0x01D00000u + 2 * 0x100000u);    // the picture stays where it was
-        // the four buffers of the Atari still reach buffer 3
-        FakeIo bio;
-        PxRec bpx;
-        Video bv(atari800_desc.video, &bpx, &bio);
-        bv.init();
-        bv.show();
-        bio.regs[A8_FB_LATEST] = 0x80 | 3;
-        bio.regs[A8_FRAME_SEQ] = 1;
-        CHECK(bv.poll());
     }
     // T136 S3: the A500 keeps format 1 and its buffers in the window (the A1200's 32-bit format: its unit a12_base, test_a12base.cc)
     {
@@ -266,5 +266,19 @@ int main()
         CHECK_EQ(opx.last(PX_CTRL), 0x23);
         CHECK_EQ(opx.last(PX_STRIDE), 720u * 2u);
     }
+#endif
+#ifndef TEST_APP_AMIGA
+    {
+        // the four buffers of the Atari still reach buffer 3 (beside the Amiga's three, whose case is the unit amiga_video)
+        FakeIo bio;
+        PxRec bpx;
+        Video bv(atari800_desc.video, &bpx, &bio);
+        bv.init();
+        bv.show();
+        bio.regs[A8_FB_LATEST] = 0x80 | 3;
+        bio.regs[A8_FRAME_SEQ] = 1;
+        CHECK(bv.poll());
+    }
+#endif
     DONE("test_video");
 }

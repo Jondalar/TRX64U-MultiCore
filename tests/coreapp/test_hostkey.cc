@@ -13,8 +13,7 @@
 #include "cor.h"
 
 static const CoreDesc vc = { {'V', 'C', '2', '0'}, "VC20", "VIC-20", "vc20", "VIC-20 Settings" };
-extern const CoreDesc amiga_desc;
-const CoreDesc *const core_table[] = { &vc, &amiga_desc, 0 };
+const CoreDesc *const core_table[] = { &vc, 0 };             // T239.5 D13: no moved core in the shared unit (the A500 was a second row no case read)
 
 int main()
 {

@@ -111,18 +111,18 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$AMLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264, the ZX Spectrum Next, the Neo Geo and the Amiga 500 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264, the ZX Spectrum Next and the Neo Geo as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -I"$AMLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
 INC_VC20=(-DTEST_APP_VC20=1 -I"$VC20LIB" -I"$T/vc20tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_VC20+=("$i"); done
 # The Amiga 1200 is its own app as well (T213.3: cores/amiga1200/app). a12app CMD... builds like vc20app, with the A1200's library, its table and TEST_APP_A1200, and with a shim amiga_regs.h
-# (tests/coreapp/a1200shim) in front of the shared header, so the files that serve both apps get the A1200's registers; amiga.cc, the A500's library, is not in these builds (amiga1200.cc is).
+# (tests/coreapp/a1200shim), so the files that serve both Amiga apps get the A1200's registers (the A500's header is on amigaapp's path only); amiga.cc, the A500's library, is not in these builds (amiga1200.cc is).
 INC_A1200=(-DTEST_APP_A1200=1 -I"$TST/a1200shim" -I"$A1200LIB" -I"$T/a12tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Atari 800 XL is its own app as well (T239.5 D15: cores/atari800/app). a8app CMD... builds like vc20app, with the Atari's library, its table and TEST_APP_ATARI800: its units are in the group atari800.
@@ -143,7 +143,7 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i
 # The Amiga 500 is its own app as well (T239.5 D15: cores/amiga/app). amigaapp CMD... builds like neogeoapp, with the Amiga's library, its table and TEST_APP_AMIGA: its units are in the group amiga.
 INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_AMIGA+=("$i"); done
-amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga; "$@"; }
+amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
 neogeoapp() { local INC=("${INC_NEOGEO[@]}") CA_APP=neogeo; "$@"; }
 zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264; "$@"; }
@@ -222,7 +222,7 @@ control_job() {
   cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true
   cp -R "$ZXNLIB"/* "$d"/ 2>/dev/null || true
   cp -R "$NEOLIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$AMLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's, the Amiga 500's
+  # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's (the Amiga 500's is its app's APPLIB, below)
   [ -z "${APPLIB:-}" ] || cp "$APPLIB"/* "$d"/   # a core of its own app: its library over the shared sources of the same name
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
@@ -270,10 +270,10 @@ fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
 
-run start test_start.cc start.cc handover.cc amiga.cc $BASEL
-run startfile test_startfile.cc start.cc handover.cc amiga.cc $BASEL     # T230 P-2: the start file on the monolith
+run start test_start.cc start.cc handover.cc $BASEL
+run startfile test_startfile.cc start.cc handover.cc $BASEL     # T230 P-2: the start file on the monolith
 # the host key from the host's BUILD register through the hand-over page to the F8 "Reload core" check (board 2026-11-04): a .cor of the running host passes, one of another host is refused with both keys named
-run hostkey test_hostkey.cc start.cc handover.cc amiga.cc $BASEL
+run hostkey test_hostkey.cc start.cc handover.cc $BASEL
 # T115 7 H2: the pick by id (I1-I5)
 
 ZXN="zxnext.cc $BASEL"
@@ -301,7 +301,7 @@ run romfind test_romfind.cc $ROMF
 
 a8app run a8_boot test_boot_atari.cc $ATARI
 
-run video test_video.cc amiga.cc $ATARI nes.cc ines.cc c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
+run video test_video.cc $ATARI nes.cc ines.cc c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
 # T136 S3: the A1200's 32-bit pixels: the stride and the format follow the descriptor's bytes per pixel
 
 run settings test_settings.cc $ATARI
@@ -357,30 +357,25 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run joyswap test_joyswap.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run ledcores test_ledcores.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
-# T180 D10 (#40): the home folder of every core (the A1200 here): Set as home folder lands in its .cfg, Enter Home on Startup decides where F3 opens
-run home test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
-control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
-# T192.3 D30: the menu opens where it was left ("Menu opens at" = Last screen): area, tab, row, Library folder and file, scroll; Home (F1) as before; what is gone falls back
-run reopen test_reopen.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
 # T160: the A1200's Volume setting and the menu's SHIFT+ / SHIFT- (C64 '{' '}', USB '+' '_' '-')
-run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI
 # T189 S7: the generic Tone setting (the register write 0x51, the .cfg, a new session, own Tone / no_tone / own_volume)
-run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI
 # T239.3 base 3.3: the application's own settings (look, keyboard joystick, USB mouse) and the core hooks of a library's table "corehooks"
-run baseset test_baseset.cc amiga.cc nes.cc ines.cc $ATARI
+run baseset test_baseset.cc nes.cc ines.cc $ATARI
 # T239.3 D32, P2-4 QC: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): whole, placed, and the code's own tables agree with them
-run baserows test_baserows.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run baserows test_baserows.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI
 # T239.3 base 3.3, a core whose code is a library (core_hooks.h): the record names it (hooks), the base takes its table of that library through the real loader, calls the descriptor's hooks
 # (init, release, warm_reset, cold_start, media_flush, media_pending) and serves the [mount] slots through it; the records and library files are made by the real tools
 CL="$T/corelib_fx"
@@ -418,7 +413,7 @@ run pictfollow test_pictfollow.cc $PICSRC
 # T164 D10c amended (Alex 2026-11-04): the Auto value names its mode and whose it is; plain "Auto" has to fail, and so does a first value that a stored label no longer finds
 
 # T107 D7/D8: a core whose gateware owns the picture (the A1200): real frame per mode, Integer without the cap / Fit / Fill, the Scale item for that core only
-SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc"
+SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI nes.cc ines.cc"
 run scale test_scale.cc $SCSRC
 # T107 5.9: the menu laid out again with the mode: no relayout, the origin not centred, a fractional factor
 # T164 D10a: the compact canvas below 960 wide: the old fixed 960 x 540 canvas at 800 x 600 / 576p, and a canvas the port is not told of
@@ -537,56 +532,7 @@ run c64scpu test_c64scpu.cc $C64SCPU
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-run winslot test_winslot.cc $AM
-control win_overflow winslot.cc 's/if (c->io->rd(w->dlog_status) \& 2) {/if (false) {/' test_winslot.cc $AM
-control win_idle winslot.cc 's/now - f.last_ms >= w->idle_flush_ms || //' test_winslot.cc $AM
-control win_maxdirty winslot.cc 's/ || now - f.first_ms >= w->max_dirty_ms//' test_winslot.cc $AM
-control win_eject_flush winslot.cc 's/^    if (f.mounted \&\& !flush_drive(c, n)) {/    if (false) {/' test_winslot.cc $AM
-
-run sectors test_sectors.cc $AM
-control sec_stage_write sectors.cc 's/c->io->ddr_read(s->stage_off, sec, SEC_BYTES);/memset(sec, 0, SEC_BYTES);/' test_sectors.cc $AM
-control sec_idle sectors.cc 's/now - h.last_write_ms >= s->idle_sync_ms/false/' test_sectors.cc $AM
-control sec_eject_sync sectors.cc 's/^    bool ok = h.file->sync();/    bool ok = true;/' test_sectors.cc $AM
-
-# T180 D4/D1 (S1, S7): every path that lets go of a writable medium writes back first, completely; a failed write-back keeps the medium, stops the action and says why;
-# a mount on an occupied slot lets the old medium go the same way. The A1200 record on its model: a floppy, a hard disk image and a folder disk with writes no sync has taken yet.
-MWB="test_media_writeback.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
-run media_writeback $MWB
-control mwb_return_host engines.cc 's/if (media_writeback(c, WB_WHY_CORE, o.msg, o.msglen)) {/if (wb_flush(c, WB_WHY_CORE, o.msg, o.msglen)) {/' $MWB
-control mwb_reset_writes_nothing boot.cc 's/    if (media_writeback(c, why, msg, msglen)) {/    if (false) {/' $MWB
-control mwb_reset_goes_on boot.cc 's/printf("\[core\] write-back failed, the action stops: %s\\n", msg);/printf("write-back failed: %s\\n", msg); return 0;/' $MWB
-control mwb_all_win engines.cc 's/if (!win_flush_all(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
-control mwb_all_sec engines.cc 's/if (!sec_sync_all(c, m, sizeof(m)) \&\& !bad++) {/if (false \&\& sec_sync_all(c, m, sizeof(m))) {/' $MWB
-control mwb_win_eject winslot.cc 's/if (f.mounted \&\& !flush_drive(c, n)) {/if (f.mounted \&\& (flush_drive(c, n), false)) {/' $MWB
-control mwb_win_unsynced winslot.cc 's/(f.ndirty == 0 \&\& !f.unsynced)/f.ndirty == 0/' $MWB
-control mwb_win_replace winslot.cc 's/    if (eject_slot(c, n, msg, msglen)) {           \/\/ the old disk/    if (false) {                                   \/\/ the old disk/' $MWB
-control mwb_sec_eject sectors.cc 's/^    if (!sync_unit(c, u, msg, msglen)) {$/    if (!sync_unit(c, u, msg, msglen) \&\& false) {/' $MWB
-control mwb_sec_replace sectors.cc 's/    if (eject_unit(c, u, msg, msglen)) {              \/\/ T180 D1/    if (false) {                                      \/\/ T180 D1/' $MWB
-control mwb_saving engines.h 's/if (c_ \&\& c_->saving_depth++ == 0) {/if (false) {/' $MWB
-
-# T180 D2/D5 (S2, S3, S8): "Persist medium mounts" keeps the mounts in the .cfg and the next start mounts them before the release; a missing medium leaves its slot empty with a
-# note; a media set is the same keys in <core folder>/media/<name>.mnt, loaded with a write-back first and one reset. The A1200 record again, a .cfg and a core folder in the fake file system.
-MNT="test_media_mounts.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
-run media_mounts $MNT
-# T198 S1, S7, S8, S10, S11, S14, S15: the configs (save, start with one, load, legacy media sets, no folder, many files)
-run configs test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM
-CFG="test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
-control cfg_save_inplace mediamounts.cc 's/export_config(tmp, pk, pv, count, &ns)/export_config(path, pk, pv, count, \&ns)/' test_configs.cc ${CFG#test_configs.cc }
-control cfg_save_no_swap mediamounts.cc 's/        ok = c->fs->rename(tmp, path);/        ok = true;/' test_configs.cc ${CFG#test_configs.cc }
-control cfg_no_recovery mediamounts.cc 's/        configlist_fix_plan(&fix, n, G::get, raw);/        fix.n = 0;/' test_configs.cc ${CFG#test_configs.cc }
-control cfg_load_rebind mediamounts.cc 's/    c->settings->rebind(path);/    (void)path;/' test_configs.cc ${CFG#test_configs.cc }
-control mnt_not_stored mediamounts.cc 's/    if (!c->mounts_ready || !persist_on(c)) {/    if (true) {/' $MNT
-control mnt_off_acts mediamounts.cc 's/    if (c->settings \&\& persist_on(c)) {/    if (c->settings) {/' $MNT
-control mnt_off_keys_stay mediamounts.cc 's/    if (!persist_on(c)) {/    if (false) {/' $MNT
-control mnt_eject_not_stored winslot.cc 's/^        mounts_changed(c, false, n);                \/\/ T180 D2.*$/        (void)0;/' $MNT
-# T180 #38: a floppy image with a FAT long name picked in the Library into DF0: the whole path reaches the mount; the status line shows the cut form. Controls: the entry at 55 characters,
-# the window's name cut without the "..".
-control mnt_set_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RESET, msg, msglen)) {/    if (false) {/' $MNT
-# T180 D4 for the engines with their own flush (CoreDesc::media_flush / media_pending): the common path asks them on every exit, each descriptor hands its engine over, and each
-# engine writes back before it lets the medium go (eject, replacement, reset, reload, restart), completely, and keeps the medium when it cannot
-control mwb_hook_flush engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
-control mwb_hook_pending engines.cc 's/ || (d \&\& d->media_pending \&\& d->media_pending(c))//' $MWB
-DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -652,42 +598,9 @@ control mme_not_ready mediamounts.cc 's/^    c->mounts_ready = true;$/    (void)
 
 # T180: desc_check refuses a table of slots that cannot be keys of the .cfg
 
-# T128: a folder as an Amiga hard disk (docs/specs/T128-folder-hdd.md). One program for S1-S8 and S10 with an independent reader and writer of FFS volumes
-# (folderhd_bench.h); S9 is tests/coreapp/fmfs64/.
-FHD="test_folderhd.cc $AM"
-run folderhd $FHD
-# S1: the disk the gateware accepts
-# S2: a valid FFS volume
-# S3: offsets beyond 4 GiB
-# S4: names, dates, protection
-# S5: data written in place waits for the metadata that owns the block (D5 changed, spec 5.5 no. 2)
-control fh_nopatch folderhd_fold.cc 's/cc == 1 \&\& consistent/false/' $FHD
-control fh_consistent folderhd_fold.cc 's/consistent = ffs_rd(rb, FL_BM_FLAG) == 0xFFFFFFFFu;/consistent = true;/' $FHD
-# S6: the folder follows
-control fh_swap_sync winslot.cc 's/^    if (f.mounted \&\& !flush_drive(c, n)) {/    sec_sync_all(c); if (f.mounted \&\& !flush_drive(c, n)) {/' $FHD
-control fh_nofold folderhd_fold.cc 's/if (gen == folded_gen) {/if (true) {/' $FHD
-control fh_rename folderhd_fold.cc 's/p.ops |= OP_REN;/(void)0;/' $FHD
-control fh_delete folderhd_fold.cc 's/p.ops = OP_DEL;/p.ops = 0;/' $FHD
-control fh_content folderhd_fold.cc 's/int cc = content_changed(me, h);/int cc = 0;/' $FHD
-control fh_mkdir folderhd_fold.cc 's/if (!fs->mkdir(path)) {/if (false) {/' $FHD
-control fh_sidecar folderhd_fold.cc 's/if (p.protect == 0 \&\& cl == 0) {/if (true) {/' $FHD
-control fh_scratch folderhd_fold.cc 's/if (!keep \&\& xr_ok) sr_remove_range(run_b, run_n);/(void)0;/' $FHD
-control fh_link folderhd_fold.cc 's/if (!isdir \&\& h.sectype != FFS_ST_FILE) {/if (false) {/' $FHD
-control fh_abort folderhd_fold.cc 's/if (phase >= PH_WALK \&\& phase <= PH_MATERIAL \&\& gen != job_gen) {/if (false) {/' $FHD
-control fh_bmflag folderhd_fold.cc 's/if (ffs_rd(rb, FL_BM_FLAG) != 0xFFFFFFFFu) {/if (false) {/' $FHD
-control fh_limbo folderhd_fold.cc 's/if (!(p.ops \& OP_HOP)) continue;/continue;/' $FHD
-# S7: loss
-control fh_inplace folderhd_fold.cc 's/tmp_path(p.tmp_seq, out, n);/path_of(p.node, out, n);/' $FHD
-control fh_repair folderhd_fold.cc 's/nodes\[r.node\].hsize = r.size;/(void)0;/' $FHD
-control fh_absent folderhd_fold.cc 's/bool gone = fs->remove(path) || host_absent(path);/bool gone = fs->remove(path) || true;/' $FHD
-# S8: limits and the memory
-# S10: the poll is not held longer than the slice
-control fh_slice folderhd_fold.cc 's/if (now - t0 + longest >= FH_SLICE_MS) {/if (false) {/' $FHD
-
 amigaapp run amiga_regset test_regset.cc $AM
 # T138 S3: the A1200 offers the Zorro III board (FAST_CFG 4), the A500 does not
 
-run mousesink test_mousesink.cc $AM
 # T141: the USB keyboard as raw Amiga key events (S3 the keys, S4 each key once / the menu / the register's room)
 amigaapp run amiga_rawkeys test_rawkeys.cc $AM
 # rk_menukey is gone (T141 D5): SCROLL LOCK, the one menu key left, has no Amiga code, so dropping it from the menu keys sends nothing either
@@ -716,7 +629,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -749,8 +662,8 @@ FSL="d1541_fs.cc d1541_gcr.cc"
 run d1541_fs test_d1541_fs.cc $FSL
 
 # T180 #38: fs_short_name, CoreFs::list_short and the write-back of a medium with a 255 character file name
-run longnames test_longnames.cc $AM
-control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_NAME_MAX - le : lb;/size_t keep = lb;/' test_longnames.cc $AM
+run longnames test_longnames.cc $BASEL
+control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_NAME_MAX - le : lb;/size_t keep = lb;/' test_longnames.cc $BASEL
 
 vc20app run cbm1541 test_cbm1541.cc $VC20
 # The drive library's 1581 tests (d1541_wd.cc, the block drive_wd) run on the VIC-20's descriptor against a table that is the VIC-20's plus drive_wd (vc20_drv.sh, merge_a as the app's link does it).
@@ -771,7 +684,7 @@ vc20app control drv_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&i
 
 # T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC. The images are read back by
 # checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu.
-NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
+NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
 run newdisk test_newdisk.cc $NDSRC
 control nd_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isdir)) {/        if (false) {/' test_newdisk.cc $NDSRC
 control nd_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_newdisk.cc $NDSRC
@@ -838,12 +751,12 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+ALLCORES="$ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
 CARGS="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin" RARGS="$CARGS"
-run descsec test_descsec.cc amiga.cc $C64 $BASEL overlay.cc descrec.cc
+run descsec test_descsec.cc $C64 $BASEL overlay.cc descrec.cc
 # T239.3 base 3.3: the key table, the register windows (and the registers the base drives itself) and the job flag of a task, from golden/desc_keys.toml as the real tool compiles it
 CARGS="$BUN/desc_keys.bin" RARGS="$CARGS"
 run deckeys test_deckeys.cc overlay.cc descrec.cc
@@ -867,15 +780,14 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-RARGS="$BUN/desc_cut.bin" run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$BUN/desc_cut.bin" run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: Timewarp's and the monitor's keys of the record menu are operations, the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole
-RARGS="$BUN/desc_cut.bin" run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
-run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
+RARGS="$BUN/desc_cut.bin" run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
-CRSRC="$RESTSRC corereport.cc bugreport.cc amiga.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
+CRSRC="$RESTSRC corereport.cc bugreport.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
 run corereport test_corereport.cc $CRSRC
 control cr_overwrite corereport.cc 's|if (c->fs->stat(path, \&sz, \&dir)) {|if (false) {|' test_corereport.cc $CRSRC
 control cr_no_folder corereport.cc 's|if (c->fs->mkdir(dirs\[i\])) {|if (true) {|' test_corereport.cc $CRSRC
@@ -911,7 +823,7 @@ bad="$(printf_lint "$SRC"/*.cc "$SRC"/*.h "$CORES"/*.cc "$CORES"/*.h)"
 if [ -n "$bad" ]; then echo "printf lint: a string precision the board's printf does not know:" >&2; echo "$bad" >&2; exit 1; fi
 fi
 # T148: the core folder (S1-S4, S7): made at the first start, settings moved in, ROMs from the folder alone, copied verified from the old places
-CF="start.cc handover.cc amiga.cc $C64 $BASEL"
+CF="start.cc handover.cc $C64 $BASEL"
 run corefolder test_corefolder.cc $CF
 # T148 D13: the start waits for the medium of the hand-over path before the core folder (and so before the .cor reopen and the libraries)
 MW="mediumwait.cc corefolder.cc sha256_cc.cc"
@@ -1015,7 +927,7 @@ a12app run a12_regset test_regset.cc $A12
 a12app run a12_joyswap test_joyswap.cc $A12
 a12app run a12_mousescale test_mousescale.cc $A12
 a12app run a12_fbwin test_fbwin.cc $A12
-a12app run a12_scale test_scale.cc desc_check.cc $A12   # T213.3: the picture items and their apply on the A1200's record (the shared unit scale runs them on the A500's)
+a12app run a12_scale test_scale.cc desc_check.cc $A12   # T213.3: the picture items and their apply on the A1200's record (the A500's app runs them on its record: amiga_scale)
 a12app run a12_rawkeys test_rawkeys.cc $A12
 a12app run a12_ledload test_ledload.cc $A12
 
@@ -1101,7 +1013,7 @@ PY
 if ca_in neogeo && ca_unit neogeo_romreq; then t_romreq_neogeo; PASS=$((PASS + 1)); fi
 
 # T239.5 D15: the Amiga 500's units built as its app (amigaapp: its library cores/amiga/app/lib and its own table, the group amiga): amiga500 (its record against the decode of its gateware), amiga_regset, amiga_rawkeys, amiga_ledload,
-# amiga_mousescale (with its control), amiga_mouselib, amiga_romset and amiga_fbwin, run above where they were the shared units on the A500's record (the shared units keep it as a sample core on a fixture table), and the units below, which the
+# amiga_mousescale (with its control), amiga_mouselib, amiga_romset and amiga_fbwin, run above where they were the shared units on the A500's record, and the units below, which the
 # TOML B (cores/amiga/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: amiga.cc and the base's (no other core).
 AMD="desc_check.cc overlay.cc descrec.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
 amigaapp run amiga_joyswap test_joyswap.cc $AMD
@@ -1110,7 +1022,7 @@ RARGS="$BUN/app" amigaapp run amiga_descgen test_descgen.cc compiled_table.cc li
 amigaapp run amiga_ledcores test_ledcores.cc $AMD
 # the Amiga 500's rows of the host's ROM table: gen_romreq built as the Amiga 500's app, its rows in the host's table
 t_romreq_amiga() {
-  local INC=("${INC_AMIGA[@]}")
+  local INC=("${INC_AMIGA[@]}") APPLIB="$AMLIB"
   build "$T/gen_romreq_amiga" "$TST/gen_romreq.cc" $AMD
   "$T/gen_romreq_amiga" > "$T/romreq_amiga.inc"
   python3 -I - "$T/romreq_amiga.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Amiga 500's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
@@ -1123,6 +1035,111 @@ PY
   return 0
 }
 if ca_in amiga && ca_unit amiga_romreq; then t_romreq_amiga; PASS=$((PASS + 1)); fi
+# T239.5 D13: the Amiga 500's cases of the shared tests, built as its app (amigaapp, the group amiga; the shared units name no Amiga any more). The units whose every case stands on the
+# A500's record (the engines of its media, the folder disk, the mouse sink, the home folder, the reopen, the UI service), with their controls, and the A500's cases of the files that
+# serve several cores (TEST_APP_AMIGA there). AMA: the app's sources with the menu; AMD with the descriptor check and the record reader (above).
+AMA="amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
+CARGS="" RARGS=""
+amigaapp run amiga_start test_start.cc start.cc handover.cc amiga.cc $BASEL
+amigaapp run amiga_video test_video.cc amiga.cc $BASEL
+RARGS="$T/bundles/desc_own.bin" amigaapp run amiga_desc test_desc.cc $AMD
+amigaapp run amiga_hotkeys test_hotkeys.cc $AMD
+amigaapp run amiga_volume test_volume.cc $AMA
+amigaapp run amiga_tone test_tone.cc $AMA
+amigaapp run amiga_baseset test_baseset.cc amiga.cc $BASEL
+amigaapp run amiga_scale test_scale.cc desc_check.cc $AMA
+amigaapp run amiga_newdisk test_newdisk.cc $AMD
+amigaapp run amiga_createflow test_createflow.cc $AMD
+amigaapp run amiga_corereport test_corereport.cc $SVC corereport.cc bugreport.cc board.cc $AMD   # board.cc: board_name, which the report calls
+amigaapp run amiga_corefolder test_corefolder.cc start.cc handover.cc amiga.cc $BASEL
+# T180 D10 (#40): the home folder of every core (the Amiga 500 here): Set as home folder lands in its .cfg, Enter Home on Startup decides where F3 opens
+amigaapp run amiga_home test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $BASEL
+amigaapp control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $BASEL
+# T192.3 D30: the menu opens where it was left ("Menu opens at" = Last screen): area, tab, row, Library folder and file, scroll; Home (F1) as before; what is gone falls back
+amigaapp run amiga_reopen test_reopen.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $BASEL
+amigaapp run amiga_uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $SVC $BASEL
+amigaapp run amiga_winslot test_winslot.cc $AM
+amigaapp control win_overflow winslot.cc 's/if (c->io->rd(w->dlog_status) \& 2) {/if (false) {/' test_winslot.cc $AM
+amigaapp control win_idle winslot.cc 's/now - f.last_ms >= w->idle_flush_ms || //' test_winslot.cc $AM
+amigaapp control win_maxdirty winslot.cc 's/ || now - f.first_ms >= w->max_dirty_ms//' test_winslot.cc $AM
+amigaapp control win_eject_flush winslot.cc 's/^    if (f.mounted \&\& !flush_drive(c, n)) {/    if (false) {/' test_winslot.cc $AM
+
+amigaapp run amiga_sectors test_sectors.cc $AM
+amigaapp control sec_stage_write sectors.cc 's/c->io->ddr_read(s->stage_off, sec, SEC_BYTES);/memset(sec, 0, SEC_BYTES);/' test_sectors.cc $AM
+amigaapp control sec_idle sectors.cc 's/now - h.last_write_ms >= s->idle_sync_ms/false/' test_sectors.cc $AM
+amigaapp control sec_eject_sync sectors.cc 's/^    bool ok = h.file->sync();/    bool ok = true;/' test_sectors.cc $AM
+
+# T180 D4/D1 (S1, S7): every path that lets go of a writable medium writes back first, completely; a failed write-back keeps the medium, stops the action and says why;
+# a mount on an occupied slot lets the old medium go the same way. The Amiga 500's record on its model: a floppy, a hard disk image and a folder disk with writes no sync has taken yet.
+MWB="test_media_writeback.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+amigaapp run amiga_media_writeback $MWB
+amigaapp control mwb_return_host engines.cc 's/if (media_writeback(c, WB_WHY_CORE, o.msg, o.msglen)) {/if (wb_flush(c, WB_WHY_CORE, o.msg, o.msglen)) {/' $MWB
+amigaapp control mwb_reset_writes_nothing boot.cc 's/    if (media_writeback(c, why, msg, msglen)) {/    if (false) {/' $MWB
+amigaapp control mwb_reset_goes_on boot.cc 's/printf("\[core\] write-back failed, the action stops: %s\\n", msg);/printf("write-back failed: %s\\n", msg); return 0;/' $MWB
+amigaapp control mwb_all_win engines.cc 's/if (!win_flush_all(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
+amigaapp control mwb_all_sec engines.cc 's/if (!sec_sync_all(c, m, sizeof(m)) \&\& !bad++) {/if (false \&\& sec_sync_all(c, m, sizeof(m))) {/' $MWB
+amigaapp control mwb_win_eject winslot.cc 's/if (f.mounted \&\& !flush_drive(c, n)) {/if (f.mounted \&\& (flush_drive(c, n), false)) {/' $MWB
+amigaapp control mwb_win_unsynced winslot.cc 's/(f.ndirty == 0 \&\& !f.unsynced)/f.ndirty == 0/' $MWB
+amigaapp control mwb_win_replace winslot.cc 's/    if (eject_slot(c, n, msg, msglen)) {           \/\/ the old disk/    if (false) {                                   \/\/ the old disk/' $MWB
+amigaapp control mwb_sec_eject sectors.cc 's/^    if (!sync_unit(c, u, msg, msglen)) {$/    if (!sync_unit(c, u, msg, msglen) \&\& false) {/' $MWB
+amigaapp control mwb_sec_replace sectors.cc 's/    if (eject_unit(c, u, msg, msglen)) {              \/\/ T180 D1/    if (false) {                                      \/\/ T180 D1/' $MWB
+amigaapp control mwb_saving engines.h 's/if (c_ \&\& c_->saving_depth++ == 0) {/if (false) {/' $MWB
+
+# T180 D2/D5 (S2, S3, S8): "Persist medium mounts" keeps the mounts in the .cfg and the next start mounts them before the release; a missing medium leaves its slot empty with a
+# note; a media set is the same keys in <core folder>/media/<name>.mnt, loaded with a write-back first and one reset. The Amiga 500's record again, a .cfg and a core folder in the fake file system.
+MNT="test_media_mounts.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+amigaapp run amiga_media_mounts $MNT
+# T198 S1, S7, S8, S10, S11, S14, S15: the configs (save, start with one, load, legacy media sets, no folder, many files)
+amigaapp run amiga_configs test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM
+CFG="test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+amigaapp control cfg_save_inplace mediamounts.cc 's/export_config(tmp, pk, pv, count, &ns)/export_config(path, pk, pv, count, \&ns)/' test_configs.cc ${CFG#test_configs.cc }
+amigaapp control cfg_save_no_swap mediamounts.cc 's/        ok = c->fs->rename(tmp, path);/        ok = true;/' test_configs.cc ${CFG#test_configs.cc }
+amigaapp control cfg_no_recovery mediamounts.cc 's/        configlist_fix_plan(&fix, n, G::get, raw);/        fix.n = 0;/' test_configs.cc ${CFG#test_configs.cc }
+amigaapp control cfg_load_rebind mediamounts.cc 's/    c->settings->rebind(path);/    (void)path;/' test_configs.cc ${CFG#test_configs.cc }
+amigaapp control mnt_not_stored mediamounts.cc 's/    if (!c->mounts_ready || !persist_on(c)) {/    if (true) {/' $MNT
+amigaapp control mnt_off_acts mediamounts.cc 's/    if (c->settings \&\& persist_on(c)) {/    if (c->settings) {/' $MNT
+amigaapp control mnt_off_keys_stay mediamounts.cc 's/    if (!persist_on(c)) {/    if (false) {/' $MNT
+amigaapp control mnt_eject_not_stored winslot.cc 's/^        mounts_changed(c, false, n);                \/\/ T180 D2.*$/        (void)0;/' $MNT
+# T180 #38: a floppy image with a FAT long name picked in the Library into DF0: the whole path reaches the mount; the status line shows the cut form. Controls: the entry at 55 characters,
+# the window's name cut without the "..".
+amigaapp control mnt_set_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RESET, msg, msglen)) {/    if (false) {/' $MNT
+# T180 D4 for the engines with their own flush (CoreDesc::media_flush / media_pending): the common path asks them on every exit, each descriptor hands its engine over, and each
+# engine writes back before it lets the medium go (eject, replacement, reset, reload, restart), completely, and keeps the medium when it cannot
+amigaapp control mwb_hook_flush engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
+amigaapp control mwb_hook_pending engines.cc 's/ || (d \&\& d->media_pending \&\& d->media_pending(c))//' $MWB
+# T128: a folder as an Amiga hard disk (docs/specs/T128-folder-hdd.md). One program for S1-S8 and S10 with an independent reader and writer of FFS volumes
+# (folderhd_bench.h); S9 is tests/coreapp/fmfs64/.
+FHD="test_folderhd.cc $AM"
+amigaapp run amiga_folderhd $FHD
+# S1: the disk the gateware accepts
+# S2: a valid FFS volume
+# S3: offsets beyond 4 GiB
+# S4: names, dates, protection
+# S5: data written in place waits for the metadata that owns the block (D5 changed, spec 5.5 no. 2)
+amigaapp control fh_nopatch folderhd_fold.cc 's/cc == 1 \&\& consistent/false/' $FHD
+amigaapp control fh_consistent folderhd_fold.cc 's/consistent = ffs_rd(rb, FL_BM_FLAG) == 0xFFFFFFFFu;/consistent = true;/' $FHD
+# S6: the folder follows
+amigaapp control fh_swap_sync winslot.cc 's/^    if (f.mounted \&\& !flush_drive(c, n)) {/    sec_sync_all(c); if (f.mounted \&\& !flush_drive(c, n)) {/' $FHD
+amigaapp control fh_nofold folderhd_fold.cc 's/if (gen == folded_gen) {/if (true) {/' $FHD
+amigaapp control fh_rename folderhd_fold.cc 's/p.ops |= OP_REN;/(void)0;/' $FHD
+amigaapp control fh_delete folderhd_fold.cc 's/p.ops = OP_DEL;/p.ops = 0;/' $FHD
+amigaapp control fh_content folderhd_fold.cc 's/int cc = content_changed(me, h);/int cc = 0;/' $FHD
+amigaapp control fh_mkdir folderhd_fold.cc 's/if (!fs->mkdir(path)) {/if (false) {/' $FHD
+amigaapp control fh_sidecar folderhd_fold.cc 's/if (p.protect == 0 \&\& cl == 0) {/if (true) {/' $FHD
+amigaapp control fh_scratch folderhd_fold.cc 's/if (!keep \&\& xr_ok) sr_remove_range(run_b, run_n);/(void)0;/' $FHD
+amigaapp control fh_link folderhd_fold.cc 's/if (!isdir \&\& h.sectype != FFS_ST_FILE) {/if (false) {/' $FHD
+amigaapp control fh_abort folderhd_fold.cc 's/if (phase >= PH_WALK \&\& phase <= PH_MATERIAL \&\& gen != job_gen) {/if (false) {/' $FHD
+amigaapp control fh_bmflag folderhd_fold.cc 's/if (ffs_rd(rb, FL_BM_FLAG) != 0xFFFFFFFFu) {/if (false) {/' $FHD
+amigaapp control fh_limbo folderhd_fold.cc 's/if (!(p.ops \& OP_HOP)) continue;/continue;/' $FHD
+# S7: loss
+amigaapp control fh_inplace folderhd_fold.cc 's/tmp_path(p.tmp_seq, out, n);/path_of(p.node, out, n);/' $FHD
+amigaapp control fh_repair folderhd_fold.cc 's/nodes\[r.node\].hsize = r.size;/(void)0;/' $FHD
+amigaapp control fh_absent folderhd_fold.cc 's/bool gone = fs->remove(path) || host_absent(path);/bool gone = fs->remove(path) || true;/' $FHD
+# S8: limits and the memory
+# S10: the poll is not held longer than the slice
+amigaapp control fh_slice folderhd_fold.cc 's/if (now - t0 + longest >= FH_SLICE_MS) {/if (false) {/' $FHD
+
+amigaapp run amiga_mousesink test_mousesink.cc $AM
 # T239.5 D4, D16: DDT Look Ma, No VIC's units, built as its app (ddtapp: its library cores/ddt_novic/app/lib and its own table, the group ddt_novic) - the units its TOML B
 # (cores/ddt_novic/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: ddt_novic.cc and the base's (no other core).
 DDT="ddt_novic.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"

@@ -19,10 +19,11 @@
 #define AM_FB_LINES     0x0D6
 #endif
 
-// the Amiga record a test of "the Amiga" runs on: the A1200's in the A1200's own app (run.sh a12app, TEST_APP_A1200), the A500's in its own app (run.sh amigaapp, TEST_APP_AMIGA) and in the shared units, which keep it as a sample core
+// the Amiga record a test of "the Amiga" runs on: the A1200's in the A1200's own app (run.sh a12app, TEST_APP_A1200), the A500's in its own app (run.sh amigaapp, TEST_APP_AMIGA); no shared unit has an Amiga (T239.5 D13)
 #ifdef TEST_APP_A1200
 #define AM_REC amiga1200_desc
 #else
+extern const CoreDesc amiga_desc;      // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 #define AM_REC amiga_desc
 #endif
 

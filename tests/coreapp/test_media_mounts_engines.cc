@@ -61,7 +61,7 @@ extern const CoreDesc c128_desc;                // cores.h lists the shared app'
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
-                                       &amiga_desc, 0 };
+                                       0 };
 #endif
 
 typedef std::vector<uint8_t> Bytes;

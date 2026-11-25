@@ -4,27 +4,37 @@
 #include "start.h"
 #include "handover.h"
 #include "fakes.h"
+#ifdef TEST_APP_AMIGA
 #include "amiga_regs.h"
+#endif
 
 static const CoreDesc a = { {'A', '8', 'X', 'L'}, "Atari 800 XL", "Atari", "atari800", "Atari 800 XL Settings" };
 static CoreDesc n = { {'N', 'E', 'S', '_'}, "Nintendo Entertainment System", "NES", "nes", "NES Settings" };
+#ifdef TEST_APP_AMIGA
+// T239.5 D13: the Amiga 500's cases run as its app (run.sh amigaapp, unit amiga_start); the shared unit start keeps the cases of the two stubs.
 extern const CoreDesc amiga_desc;
 // T213.3 (T239.5 D13): the A1200 has left the shared app, so no app has two records with one ID word any more. start_identify still chooses
 // among such records (by the bundle's name, the core's id, the gateware's feature bits); a twin of the A500's record with the A1200's identity
 // keeps those cases (filled at the start of main).
 static CoreDesc a12twin;
 const CoreDesc *const core_table[] = { &a, &n, &amiga_desc, &a12twin, 0 };
+#else
+const CoreDesc *const core_table[] = { &a, &n, 0 };
+#endif
 
 int main()
 {
     char msg[300];
+#ifdef TEST_APP_AMIGA
     a12twin = amiga_desc;
     a12twin.cor_name = "Amiga 1200 (AGA, 68020)";
     a12twin.title = "Amiga 1200";
     a12twin.core_id = "amiga1200";
     a12twin.id_feat_val = AM_FEAT_FBWIN;                                      // the A1200's gateware has the display window (T115 D9)
+#endif
     const CoreDesc *d = 0;
     Handover h;
+#ifndef TEST_APP_AMIGA
     handover_fill(&h, "/USB1/cores/atari800.cor", "Atari 800 XL", "0.0.1", 0x1234u);
 
     CHECK_EQ(start_identify((const uint8_t *)"A8XL", &h, &d, msg, sizeof(msg)), START_OK);
@@ -48,7 +58,7 @@ int main()
     CHECK_EQ(start_identify((const uint8_t *)"A8XL", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(d == 0);
     CHECK(strstr(msg, "Amiga") != 0 && strstr(msg, "Atari 800 XL") != 0);
-
+#else
     // T104 5.5: the Amiga and the A1200 are one gateware with one ID word - the bundle's name tells the descriptors apart
     handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA, 68020)", "0.0.1", 0x1234u);
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
@@ -81,6 +91,8 @@ int main()
     handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "nes");                                           // an id alone that fits nothing is a mismatch, not "no bundle"
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(strstr(msg, "\"nes\"") != 0);
+#endif
+#ifndef TEST_APP_AMIGA
     // a descriptor with a core_id that is not shared: the id decides there too
     n.core_id = "nes";
     handover_fill(&h, "/SD/nes.cor", "NES (renamed)", "1", 0, 0, "nes");
@@ -92,6 +104,7 @@ int main()
     handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "1", 0, 0);                         // no id (older host): the name, as before
     CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
     n.core_id = 0;
+#else
     // no bundle to choose by: nothing is guessed (the policy for a real mismatch of the ID block is not decided here)
     CHECK_EQ(start_identify((const uint8_t *)"AMIG", 0, &d, msg, sizeof(msg)), START_AMBIGUOUS);
     CHECK(d == 0);
@@ -112,7 +125,9 @@ int main()
         CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg), &io), START_COR_MISMATCH);   // a name that is wrong stays wrong
         handover_fill(&h, "/SD/x.cor", "", "0.0.1", 0x1234u);
     }
+#endif
 
+#ifndef TEST_APP_AMIGA
     // no hand-over (JTAG or developer start): runs, without a path and so without a .cfg
     Handover bad;
     memset(&bad, 0xAA, sizeof(bad));
@@ -142,6 +157,8 @@ int main()
     CHECK_EQ(start_identify((const uint8_t *)"A8X\0", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
     CHECK_EQ(start_identify((const uint8_t *)"RTX2", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
     CHECK(core_find_by_name("atari 800 xl") == &a);
-    CHECK(core_find_by_name("Amiga") == 0);
+#else
+    CHECK(core_find_by_name("Amiga") == 0);                   // a part of the Amiga 500's name is not its name
+#endif
     DONE("test_start");
 }
