@@ -162,6 +162,11 @@ Scenario: S6 trx64u.cor from their pre-release
   `a6dc4f1`: a row's bad configuration no longer stops the poll; the fw scratch build sets `TRX_CACHE=/scratch/trx`; `FW_BUILDS_REPO` defaults to
   `BUILDS_REPO`; `pull.yml` passes every `FW_` variable the README names.
 - **Deployed 2026-11-25:** `a6dc4f1` on the builder repository's `main`. Gitea variables: `FW_KEYCODE_REF=u20`, `FW_TRUSTED_BRANCHES=main,u20`
-  (TRX64-Ultimate's switch branch, ruleset `protected`; back to `main` when their switch is merged). `SOURCES` stays unset until `u20` is on GitHub.
+  (TRX64-Ultimate's switch branch, ruleset `protected`; back to `main` when their switch is merged). `SOURCES=multicore,fw` set once `u20`
+  (26be21a, `ci/keys.sh` + `ci/lib.sh`) was on GitHub.
+- **S3 passed 2026-11-25:** builder poll 4023 (`a6dc4f1`): `== source multicore`, `== source fw: Jondalar/TRX64-Ultimate`, `published
+  fw-bit-c64u-0dce5fff4ef99009 (8 assets, immutable=True)`, `approved environment bitstreams of run 45576354413` (their first run, `u20`
+  eaf121b); the entry came from `/cache/bit`, no Vivado. The release: pre-release, `c64_basic.bit`, `ddr2_test.bit`, `hdmi_test.bit`, `from`,
+  `key`, `wns.txt`, `reports.tar.gz`, `SHA256SUMS`. S2: the same poll and every poll since the deploy (4014-4023) green for MultiCore.
 - **P5 (outside):** done by Alex with the TRX64-Ultimate session: the App installed on their repository and the protection rule of `bitstreams`,
   `SRC_API_TOKEN` extended, environments `vivado`, `bitstreams`, `builds`; environment `builds` here allows `t239.3` (2026-11-25).
