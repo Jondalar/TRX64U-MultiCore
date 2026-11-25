@@ -106,7 +106,8 @@ Scenario: S6 trx64u.cor from their pre-release
   Narrowed the same day (Alex in the TRX64-Ultimate session, relayed by it, translated: "Softboot is a pure function of the
   Gideon-based app; it need not come with a .cor release for MultiCore, because MultiCore makes it obsolete."): `softboot.u2a` is in
   neither their pre-release nor our package. Their `fw-*` pre-release carries `trx64u.cor`, `trex_crt.u2a`, `online.u2a`, `manifest.json`,
-  `SHA256SUMS`; how `trx64g.cor` comes is open with Alex (their GitHub pipeline builds no Gideon app; it is built on demand on Gitea).
+  `SHA256SUMS`. `trx64g.cor` (Alex there: "A", relayed): stays a Gitea build of the gideon-app line, on demand, not in `fw-*`; our
+  `trx64g.pin` keeps the Gitea package form, and a new build comes as a new Gitea package with its version and SHA-256.
 
 ## §4 Out
 
