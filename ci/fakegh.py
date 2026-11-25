@@ -60,7 +60,7 @@ class FakeGH:
                     return self._send(404, {"message": "Not Found"})
                 if path == base + "/releases" and method == "GET":
                     page = int(q.get("page", ["1"])[0])
-                    items = [gh.json_of(r) for r in gh.releases.values()] if page == 1 else []
+                    items = [gh.json_of(r) for r in reversed(list(gh.releases.values()))] if page == 1 else []      # newest first, as GitHub lists
                     return self._send(200, items)
                 if path == base + "/releases" and method == "POST":
                     d = json.loads(data)

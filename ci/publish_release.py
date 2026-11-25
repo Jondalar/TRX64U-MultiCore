@@ -9,6 +9,8 @@ must never be public; any failure after the draft exists deletes the draft.
          PUBLISH_API      default https://api.github.com (tests)
          CI_BRANCH, CI_REF_TYPE (else GITHUB_REF_NAME, GITHUB_REF_TYPE): the ref of the run
 
+ci/publish_sdk.py (T261) publishes the SDK package through publish() and guard() of this file, on its own branches (SDK_BRANCHES), with its own body text.
+
 DIR must hold SHA256SUMS naming every other file with its SHA-256 and nothing else (ci/prerelease.sh makes it). On main, t239.1 and a v* tag a missing token is an error; on
 any other ref nothing is published and the script ends green. Inside GitHub Actions it publishes only for a push of MC_SRC_REPO itself, to one of those refs, for the commit
 the run is for (D1: a pre-release is made only by the job that runs on the repository's own main, never for a fork or a dispatch).
@@ -127,11 +129,16 @@ def check_dir(d):
     return files, sums
 
 
-def guard(args, env):
-    """Whether this run may publish: True, or False for a ref that publishes nothing; raises for a run that must not. Reads only the arguments and the environment."""
+PRERELEASE_BRANCHES = ("main", "t239.1")
+SDK_BRANCHES = ("integration", "main", "t239.3")        # T261 D4: ci/publish_sdk.py, no tag may publish an SDK
+
+
+def guard(args, env, branches=PRERELEASE_BRANCHES, tags=True):
+    """Whether this run may publish: True, or False for a ref that publishes nothing; raises for a run that must not. Reads only the arguments and the environment.
+    branches: the branches that publish; tags: whether a v* tag does."""
     ref = env.get("CI_BRANCH") or env.get("GITHUB_REF_NAME") or ""
     kind = env.get("CI_REF_TYPE") or env.get("GITHUB_REF_TYPE") or "branch"
-    protected = kind == "tag" and ref.startswith("v") or kind != "tag" and ref in ("main", "t239.1")
+    protected = tags and kind == "tag" and ref.startswith("v") or kind != "tag" and ref in branches
     if env.get("GITHUB_ACTIONS") == "true":
         if env.get("GITHUB_EVENT_NAME") != "push":
             raise PublishError("a pre-release is made for a push only, not for %r" % env.get("GITHUB_EVENT_NAME"))
@@ -143,14 +150,14 @@ def guard(args, env):
         if env.get("GITHUB_SHA") != args.sha:
             raise PublishError("the commit of the run is %s, the package is of %s" % (env.get("GITHUB_SHA"), args.sha))
     if not protected:
-        print("publish_release: %s %r is neither main, t239.1 nor a v* tag: nothing is published" % (kind, ref))
+        print("publish_release: %s %r is none of %s%s: nothing is published" % (kind, ref, ", ".join(branches), " or a v* tag" if tags else ""))
         return False
     if not env.get("BUILDS_TOKEN"):
         raise PublishError("BUILDS_TOKEN is not set: the pre-release of %s cannot be published" % ref)
     return True
 
 
-def publish(api, repo, tag, sha, d, log=print):
+def publish(api, repo, tag, sha, d, log=print, body=None):
     files, sums = check_dir(d)
     cur = api.call("GET", "repos/%s/releases/tags/%s" % (repo, tag))
     if cur and not cur.get("draft"):
@@ -167,8 +174,9 @@ def publish(api, repo, tag, sha, d, log=print):
         if len(items) < 100:
             break
     branch = (api.call("GET", "repos/%s" % repo) or {}).get("default_branch", "main")
-    body = ("Release bundle of commit `%s` of the source repository, made by its pipeline (T239.1 D42): the .cor files, the update files, INSTALL.md, "
-            "ROMS.txt and the zip of all of them.\n\nSHA256SUMS lists every file; GitHub shows the same digests." % sha)
+    if body is None:
+        body = ("Release bundle of commit `%s` of the source repository, made by its pipeline (T239.1 D42): the .cor files, the update files, INSTALL.md, "
+                "ROMS.txt and the zip of all of them.\n\nSHA256SUMS lists every file; GitHub shows the same digests." % sha)
     rel = api.call("POST", "repos/%s/releases" % repo, {"tag_name": tag, "target_commitish": branch, "name": tag, "body": body,
                                                          "draft": True, "prerelease": True, "make_latest": "false"})
     try:
