@@ -33,7 +33,7 @@
 #include "exec.h"
 #include "service.h"
 #include "writeback.h"
-#include "portdiag.h"
+#include "coredlg.h"
 extern "C" uint32_t get_fattime(void);
 extern "C" void heapcfg_report(uint32_t *start, uint32_t *size, uint32_t *word, uint32_t *reserve, uint32_t *region_end);   // heapcfg.c
 extern "C" bool rtc_time_valid(void);
@@ -896,13 +896,13 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     if (ident_ok && lib_board_loader()) {
         lib_board_loader()->set_poll_sink(&lib_polls);
     }
-    // T175: the diag core's runner asks the person through the application host's dialogs, on a task of its own (portdiag.h)
-    struct DiagHost : PdHost {
+    // T260 P7: a core's code that asks the person (a test runner) does it through the application host's dialogs, on a task of its own (coredlg.h, CoreCtx::dialogs)
+    struct HostDialogs : CoreDialogs {
         BoardOs *os;
         AppDlg *dlg;
         bool spawn(void (*f)(void *), void *a) override
         {
-            return os->task_new("Port diag", f, a, 0, 16 * configMINIMAL_STACK_SIZE);
+            return os->task_new("Core dialogs", f, a, 0, 16 * configMINIMAL_STACK_SIZE);
         }
         int ask(const char *title, const char *text, int timeout_s) override
         {
@@ -938,10 +938,10 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             return true;
         }
     };
-    static DiagHost diag_host;
-    diag_host.os = &board_os;
-    diag_host.dlg = &app_host.dialog();
-    portdiag_attach(&diag_host);
+    static HostDialogs host_dialogs;
+    host_dialogs.os = &board_os;
+    host_dialogs.dlg = &app_host.dialog();
+    ctx.dialogs = &host_dialogs;
     uint32_t t_req = 0;
 
     auto open_menu = [&]() {

@@ -69,9 +69,6 @@ file coreapp/cores/nes_regs.h 23
 file coreapp/cores/pet.cc 745
 file coreapp/cores/pet_models.h 111
 file coreapp/cores/pet_regs.h 52
-file coreapp/cores/portdiag.cc 473
-file coreapp/cores/portdiag.h 20
-file coreapp/cores/portdiag_regs.h 50
 file coreapp/cores/snes.cc 558
 file coreapp/cores/snes_regs.h 44
 file coreapp/cores/snes_rom.cc 222
@@ -89,8 +86,6 @@ file coreapp/cores/zxnext_fw.h 170
 file coreapp/cores/zxnext_regs.h 36
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
-file coreapp/src/diagtest.cc 2551
-file coreapp/src/diagtest.h 178
 file coreapp/src/monitor.cc 473
 file coreapp/src/monitor.h 24
 file coreapp/src/monsrv.cc 547
@@ -165,7 +160,7 @@ ids coreapp/src/rest.cc null 2
 ids coreapp/src/rpc.cc null 3
 ids coreapp/src/rpccontract.cc null 9
 ids coreapp/src/run.cc c64 1
-ids coreapp/src/run.cc diag 2
+ids coreapp/src/run.cc diag 1
 ids coreapp/src/svc.cc null 2
 ids coreapp/src/svcjson.cc null 2
 ids coreapp/src/writeback_crt.cc c64 1
@@ -174,7 +169,7 @@ ids uicore/uic_svc.cc null 1
 # In-flight release fixes, measured on their worktrees 2026-11-16 (code-line delta against the branch's own base). Alex's decision: pre-registered by the coordinator on his
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
-# board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
+# board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests are a folder of the lane delivery (T260 D6). t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
 exception coreapp/src/ring.cc +240 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/ringfile.cc +1489 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/ringops.cc +223 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
@@ -186,8 +181,4 @@ exception coreapp/src/u64cfg.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to 
 exception coreapp/cores/hk_defaults.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64scpu.cc +18 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 exception coreapp/cores/c64scpu_regs.h +1 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
-exception coreapp/cores/portdiag.cc +59 T259-D4 (Alex 2026-11-24: "yes of course, I want T259 so that we can measure", translated)
-exception coreapp/cores/portdiag_regs.h +1 T259-D4 (Alex 2026-11-24: "yes of course, I want T259 so that we can measure", translated)
-exception coreapp/src/diagtest.cc +113 T259-D4 (Alex 2026-11-24: "yes of course, I want T259 so that we can measure", translated)
-exception coreapp/src/diagtest.h +6 T259-D4 (Alex 2026-11-24: "yes of course, I want T259 so that we can measure", translated)
 # t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.

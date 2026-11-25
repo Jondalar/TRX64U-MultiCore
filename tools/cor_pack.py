@@ -42,7 +42,7 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
   7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
-  8 files  files the core installs on the SD (T175 D-files, Alex 2026-11-16: the diag core's example tests ride in diag.cor, no other core carries them):
+  8 files  files the core installs on the SD (T175 D-files; the diag core carried its example tests here until T260 D6, they are a folder of its lane's delivery now; a sub-app core uses the record):
            "TRXF", u32 version 1, u32 count, then per file
              u32 entry_len   bytes of the entry after this field, a multiple of 4
              u16 path_len, u16 n_old, u32 size

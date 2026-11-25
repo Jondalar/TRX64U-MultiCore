@@ -9,7 +9,8 @@ kind = "test"
 [test]
 name = "CD32 pad read, port 2 (v2)"
 id = "cd32"
-version = 2
+version = 3
+menu_input = "keyboard"
 needs = ["CD32 pad"]
 requires = ["pins.drivable"]
 

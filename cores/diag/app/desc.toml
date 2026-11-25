@@ -167,10 +167,6 @@ label = "Pick a test and run it"
 op = "pd.pick"
 
 [[task]]
-label = "Write the example tests"
-op = "pd.install"
-
-[[task]]
 label = "Save A/V preset"
 op = "pd.av_save"
 bind = [ { arg = "name", text = true } ]

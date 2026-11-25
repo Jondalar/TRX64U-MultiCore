@@ -7,7 +7,6 @@
 #include "portdiag_regs.h"
 #include "portdiag.h"
 #include "diagtest.h"
-#include "instfiles.h"
 #include "corefolder.h"
 #include "picture.h"
 #include "settings_ops.h"
@@ -15,8 +14,8 @@
 #include "xinput.h"
 #include <stdio.h>
 
-static PdHost *g_host;
-void portdiag_attach(PdHost *h) { g_host = h; }
+static CoreCtx *g_ctx;
+static CoreDialogs *host() { return g_ctx ? g_ctx->dialogs : 0; }
 
 // ---- the live page ---------------------------------------------------------------------------------------------------------------------------
 static char g_p1[40], g_p2[40], g_cmp[24];
@@ -154,11 +153,10 @@ static void av_done_cb(void *ud)
 }
 
 // ---- the run ---------------------------------------------------------------------------------------------------------------------------------
-static CoreCtx *g_ctx;
 static uint32_t env_now(void) { return g_ctx->io->now_ms(); }
 static void env_delay(uint32_t ms) { g_ctx->io->delay_ms(ms); }
-static bool env_stamp(char out[16]) { return g_host && g_host->stamp(out); }
-static void env_joy_menu(void *, bool on) { if (g_host) { g_host->joystick_menu(on); } }
+static bool env_stamp(char out[16]) { return host() && host()->stamp(out); }
+static void env_joy_menu(void *, bool on) { if (host()) { host()->joystick_menu(on); } }
 
 // T196 S7: the XInput pad test (diagtest.cc run_xpadtest) sets the driver's poll interval and ack switch and reads its counters (xinput.h XiStats)
 static uint32_t g_xp_cb, g_xp_ms;
@@ -211,20 +209,20 @@ public:
     {
         char t[96], x[400];
         portdiag_prompt_text(title, text, idx, total, t, sizeof(t), x, sizeof(x));
-        int a = g_host->ask(t, x, timeout_s);
+        int a = host()->ask(t, x, timeout_s);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
     }
     int question(const char *title, const char *text, int idx, int total, int timeout_s) override
     {
         char t[128], x[1700];                         // an xpad test's counters are about 700 characters
         portdiag_question_text(title, text, idx, total, t, sizeof(t), x, sizeof(x));
-        int a = g_host->ask(t, x, timeout_s);
+        int a = host()->ask(t, x, timeout_s);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
     }
     int question_live(const char *title, const char *text, void (*live)(void *), void *ud) override
     {
         const char *t = title;                         // the live test is one screen: no "1 of 1"; its own text carries the keys
-        int a = g_host->ask_live(t, text, live, ud);
+        int a = host()->ask_live(t, text, live, ud);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : DUI_ABORT;
     }
     int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick) override
@@ -232,7 +230,7 @@ public:
         char t[96], x[400];
         snprintf(t, sizeof(t), "%s  (%d of %d)", title, idx, total);
         snprintf(x, sizeof(x), "%s", text);
-        int a = g_host->choose(t, x, items, n, timeout_s);
+        int a = host()->choose(t, x, items, n, timeout_s);
         if (a >= 0 && a < n) {
             *pick = a;
             return DUI_CONTINUE;
@@ -240,7 +238,7 @@ public:
         return a == -2 ? DUI_TIMEOUT : DUI_ABORT;
     }
     void progress(const char *) override { }
-    void show(const char *title, const char *text) override { g_host->notice(title, text); }
+    void show(const char *title, const char *text) override { host()->notice(title, text); }
 };
 
 static char g_folder[200];
@@ -404,7 +402,7 @@ static void run_path(CoreCtx *c, const char *path)
     int rc = diag_run_file(&env, path, &out);
     if (rc) {
         snprintf(g_last, sizeof(g_last), "not run: %s", out.msg);
-        g_host->notice("Port Diagnostics", out.msg);
+        host()->notice("Port Diagnostics", out.msg);
     } else {
         snprintf(g_last, sizeof(g_last), "%s: %d pass, %d fail, %d refused, %d error", fn ? fn + 1 : path, out.npass, out.nfail, out.nrefused, out.nerror);
     }
@@ -417,7 +415,7 @@ static void worker(void *arg)
     if (!g_path[0]) {                                  // the task's own picker
         char start[220];
         snprintf(start, sizeof(start), "%s/tests", g_folder);
-        if (!g_host->pick(start, g_path, sizeof(g_path))) {
+        if (!host()->pick(start, g_path, sizeof(g_path))) {
             snprintf(g_last, sizeof(g_last), "no test picked");
             g_busy = false;
             return;
@@ -430,7 +428,8 @@ static void worker(void *arg)
 
 static int start(CoreCtx *c, const char *path, OpOut &o)
 {
-    if (!g_host) {
+    g_ctx = c;
+    if (!host()) {
         snprintf(o.msg, o.msglen, "This build has no dialogs for the runner");
         return OPE_UNSUPPORTED;
     }
@@ -442,7 +441,7 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
     g_ctx = c;
     snprintf(g_path, sizeof(g_path), "%s", path);
     g_busy = true;
-    if (!g_host->spawn(worker, c)) {
+    if (!host()->spawn(worker, c)) {
         g_busy = false;
         snprintf(o.msg, o.msglen, "The runner's task did not start");
         return OPE_FAILED;
@@ -453,18 +452,6 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
 
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return start(c, a.s(0), o); }
 static int op_pick(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", o); }
-static int op_install(CoreCtx *c, const OpArgs &, OpOut &o)
-{
-    folder_of(c);
-    int n = c->install_files ? c->install_files(c) : -1;          // record 8 of diag.cor (instfiles.h)
-    if (n < 0) {
-        snprintf(o.msg, o.msglen, "Cannot write %s/tests (read only card?)", g_folder);
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, n ? "%d example test(s) written to %s/tests" : "All example tests are there already", n, g_folder);
-    return OPE_OK;
-}
-
 // ---- the start -------------------------------------------------------------------------------------------------------------------------------
 static int pd_init(CoreCtx *c, char *, int)
 {
@@ -498,7 +485,6 @@ static const FileType filetypes[] = {
 };
 static const Task tasks[] = {
     { "Pick a test and run it", "pd.pick", 0, 0, false },
-    { "Write the example tests", "pd.install", 0, 0, false },
     { "Save A/V preset", "pd.av_save", save_bind, 1, false, "Preset name", 0 },
     { "Load A/V preset by name", "pd.av_preset", save_bind, 1, false, "Preset name (Sony-PAL, NTSC-50.rix01, NTSC-60.rix02 or your own)", 0 },
     { "Set an A/V knob (playground)", "pd.av_free", free_bind, 1, false, "knob=value, for example burst_start=33", 0 },
@@ -518,7 +504,6 @@ static void pd_register(OpRegistry &r)
     static const ArgSpec run_args[] = { ARG_PATH("path") };
     r.add_op("pd.run", run_args, 1, op_run);
     r.add_op("pd.pick", 0, 0, op_pick);
-    r.add_op("pd.install", 0, 0, op_install);
     static const ArgSpec load_args[] = { ARG_PATH("path") };
     static const ArgSpec save_args[] = { ARG_STRING("name", 41) };
     r.add_op("pd.av_load", load_args, 1, op_av_load);
@@ -551,7 +536,7 @@ const CoreDesc portdiag_desc = {
     1,
     0, 0,
     g_av_settings, DT_AV_N,
-    tasks, 5,
+    tasks, 4,
     filetypes, 1,
     media, 4,
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },              // no picture of its own: the application's screens are all there is
