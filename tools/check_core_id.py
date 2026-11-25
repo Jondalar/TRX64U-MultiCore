@@ -13,7 +13,7 @@ import sys
 PAIRS = (("cores/zx/trx/zx_regs.v", "coreapp/cores/zx.cc"),
          ("cores/cpc/trx/cpc_regs.v", "coreapp/cores/cpc.cc"),
          ("cores/vc20/rtl/trx/vc20_regs.vhd", "cores/vc20/app/lib/vc20.cc"),
-         ("cores/c264/rtl/trx/c264_regs.v", "coreapp/cores/c264.cc"),
+         ("cores/c264/rtl/trx/c264_regs.v", "cores/c264/app/lib/c264.cc"),
          ("cores/pet/rtl/trx/pet_regs.v", "coreapp/cores/pet.cc"),
          ("cores/zxnext/trx/zxn_regs.v", "coreapp/cores/zxnext.cc"),
          ("cores/snes/trx/snes_regs.v", "coreapp/cores/snes.cc"),

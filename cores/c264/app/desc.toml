@@ -1,7 +1,10 @@
-# The Commodore 264's data description (T239.3 D17): what coreapp/cores/c264.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Commodore 264's data description (T239.3 D17): what cores/c264/app/lib/c264.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
 # cannot hold is code, and stays in the core's C++: init, release, the operations of register_ops, the media write-back and the three functions of the
-# mount slots. Register numbers are cores/c264/rtl/trx/c264_regs.v (coreapp/cores/c264_regs.h).
+# mount slots.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/c264/rtl/trx/c264_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property", a reset
+# value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
 machine_info = "Model,RAM"
 
 [restart]
@@ -29,16 +32,16 @@ h = 288
 scale = 3
 x0 = 384
 y0 = 108
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "c264_video.fb_base.reset"
+fb_stride = "c264_video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "c264_video.fb_latest"
+reg_seq = "c264_video.frame_seq"
+reg_fb_base = "c264_video.fb_base"
+reg_fb_stride = "c264_video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "c264_machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -84,7 +87,7 @@ label = "Model"
 values = ["C16 / C116", "Plus/4"]
 default = 1
 when = "reset"
-reg_bind = { reg = 0x0A1, mask = 0x01 }
+reg_bind = { reg = "c264_machine.model", mask = 0x01 }
 
 [[core_setting]]
 key = "RAM (at next reset)"
@@ -92,21 +95,21 @@ label = "RAM"
 values = ["16 KB (C16, C116)", "64 KB"]
 default = 1
 when = "reset"
-reg_bind = { reg = 0x0A2, mask = 0x01 }
+reg_bind = { reg = "c264_machine.ram_size", mask = 0x01 }
 
 [[core_setting]]
 key = "Joystick ports (at next reset)"
 label = "Joystick ports"
 values = ["Joystick 1 = port 1", "Swapped"]
 when = "reset"
-reg_bind = { reg = 0x0A3, mask = 0x01 }
+reg_bind = { reg = "c264_machine.joy_swap", mask = 0x01 }
 
 # T214: an external datasette on the C2N port (GitHub #26): TAPE_PIN b0 MOTOR driven, b4 READ / SENSE are the machine's inputs. b1 WRITE stays 0: on the TED
 # machines the cassette WRITE shares the 7501's P1 with the serial CLK out, so IEC traffic would reach the pin. Off releases every pin.
 [[core_setting]]
 key = "Datasette port"
 values = ["Off (file only)", "External datasette"]
-reg_bind = { reg = 0x0B2, mask = 0x11, bytes = [0x00, 0x11] }
+reg_bind = { reg = "c264_media.tape_pin", mask = 0x11, bytes = [0x00, 0x11] }
 
 # drive A (cbm1541_desc.h CBM1541_SETTINGS): the names and the defaults are Gideon's (c1541.cc:46-62): drive on, bus ID 8, no extra RAM, 100 ms swap delay
 [[core_setting]]
@@ -312,7 +315,7 @@ ext = ".rom"
   op = "drive.set_rom"
   bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
 
-# ---- hotkeys (hk_defaults.h hk_c264): CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+# ---- hotkeys (hk_defaults.h hk_c264, the copy in cores/c264/app/lib): CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
 [hotkeys]
 mod = [58, 255]
 actions = [64, 40, 43, 17, 34, 41, 255]

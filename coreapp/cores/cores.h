@@ -8,7 +8,6 @@ extern const CoreDesc apple2_desc;
 extern const CoreDesc zx_desc;
 extern const CoreDesc cpc_desc;
 extern const CoreDesc vc20_desc;
-extern const CoreDesc c264_desc;
 extern const CoreDesc pet_desc;
 extern const CoreDesc c128_desc;
 extern const CoreDesc c64scpu_desc;

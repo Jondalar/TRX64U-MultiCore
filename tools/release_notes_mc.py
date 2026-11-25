@@ -51,7 +51,7 @@ CORES = [
     dict(id="c264", match=("commodore 264", "c264", "c16"), title="Commodore 264 (C16, Plus/4)", folder="c16",
          files="`kernal.bin` and `basic.bin` 16,384 each; Plus/4: `3plus1lo.bin`, `3plus1hi.bin` 16,384 each",
          needed="Kernal and Basic; the two function ROMs for the Plus/4",
-         sources="coreapp/cores/c264.cc (roms[], names and sizes); coreapp/cores/c264_regs.h"),
+         sources="cores/c264/app/lib/c264.cc (roms[], names and sizes); cores/c264/app/lib/c264_regs.h"),
     dict(id="amiga1200", match=("amiga 1200",), title="Amiga 1200 (AGA, 68020)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 3.1", needed="one Kickstart (3.x for the hard disk)",
          sources="coreapp/cores/amiga.cc:34,223 (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
