@@ -1,6 +1,6 @@
 // T93 M2: the Atari start sequence against a model of the core's register block - ROMs through the aperture, settings into the
 // registers while held, the picture's buffers, release last - and the resets. The descriptor under test is the real one
-// (coreapp/cores/atari800.cc).
+// (cores/atari800/app/lib/atari800.cc).
 #include <string>
 #include <setjmp.h>
 #include "check.h"

@@ -10,6 +10,11 @@ const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+// the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &atari800_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

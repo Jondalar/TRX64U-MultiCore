@@ -11,7 +11,7 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800)
 #include "zx_regs.h"
 #include "cpc_regs.h"
 #include "apple2_regs.h"
@@ -24,6 +24,9 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
+#elif defined(TEST_APP_ATARI800)          // the Atari 800 XL's app is its own build (run.sh a8app): its core is the only one in its table
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#define HEX_CORE atari800_desc
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &ddt_novic_desc, &portdiag_desc, 0 };
@@ -94,6 +97,8 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
 #elif defined(TEST_APP_A1200)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
+#elif defined(TEST_APP_ATARI800)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
         { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
@@ -107,7 +112,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#ifndef TEST_APP_A1200                 // the A1200's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800)   // the A1200's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
 #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
 #else
@@ -138,6 +143,7 @@ int main()
         CHECK_EQ(r.write(0x600, "a9", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x600], 0xA9); CHECK_EQ(r.io.memonly_on, 0);
     }
+#ifndef TEST_APP_ATARI800                 // the other cores of the shared app
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -193,6 +199,7 @@ int main()
         a.call("machine.read_mem", 0, 1, &y);
         CHECK(strstr(x.msg, "NES") != 0 && strstr(y.msg, "Amiga") != 0);
     }
+#endif
 #endif
 #ifdef TEST_APP_A1200
     // ---- the A1200's memory is not reachable by the application: it says so, and why

@@ -1,32 +1,3 @@
-Atari 800 XL F1/home 0 task:Reset
-Atari 800 XL F1/home 1 task:Cold start
-Atari 800 XL F1/home 2 task:Reload ROMs, cold start
-Atari 800 XL F1/home 3 media:atari800.d1.image
-Atari 800 XL F1/home 4 media:atari800.d2.image
-Atari 800 XL F1/home 5 media:atari800.d3.image
-Atari 800 XL F1/home 6 media:atari800.d4.image
-Atari 800 XL F1/home 7 media:atari800.cartridge.image
-Atari 800 XL F1/home 8 fixed:10:Save as config...
-Atari 800 XL F1/home 9 fixed:11:Load config...
-Atari 800 XL F5/settings 0 set:RAM size
-Atari 800 XL F5/settings 1 set:Video standard
-Atari 800 XL F5/settings 2 set:Joystick ports
-Atari 800 XL F5/settings 3 set:CPU speed
-Atari 800 XL F5/settings 4 set:LED Load Indicator
-Atari 800 XL F8/expert 0 fixed:13:Actions
-Atari 800 XL F8/expert 1 fixed:6:Restart core
-Atari 800 XL F8/expert 2 fixed:7:Return to host menu
-Atari 800 XL F8/expert 3 fixed:13:Network
-Atari 800 XL F8/expert 4 fixed:9:WiFi
-Atari 800 XL F8/expert 5 fixed:13:Support
-Atari 800 XL F8/expert 6 fixed:8:Bug report
-Atari 800 XL F8/expert 7 fixed:17:Keys and help
-Atari 800 XL F8/expert 8 fixed:13:Reset
-Atari 800 XL F8/expert 9 fixed:5:Reset to host defaults
-Atari 800 XL F8/expert 10 fixed:13:Status
-Atari 800 XL F8/expert 11 info:Build
-Atari 800 XL F8/expert 12 info:ROMs
-Atari 800 XL F8/expert 13 info:Libraries
 Nintendo Entertainment System F1/home 0 task:Reset
 Nintendo Entertainment System F1/home 1 media:nes.cartridge.image
 Nintendo Entertainment System F1/home 2 fixed:10:Save as config...

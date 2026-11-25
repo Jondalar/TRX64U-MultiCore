@@ -5,7 +5,6 @@
 # Format: <core>: <file name or glob>... (names inside coreapp/cores/). A file under two cores, or one that is listed and missing, fails the suite.
 amiga: amiga.cc amiga_keys.h amiga_regs.h
 apple2: apple2*.cc apple2*.h
-atari800: atari800*.cc atari800*.h atari_*.cc atari_*.h
 c128: c128.cc c128_keys.h c128_regs.h
 c264: c264.cc c264_regs.h
 pet: pet.cc pet_regs.h

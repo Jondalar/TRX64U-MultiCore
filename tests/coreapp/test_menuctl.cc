@@ -312,6 +312,7 @@ int main()
         CHECK(has("/usb0/p.xex") && !has("/usb0/games/p.xex") && !has("/p.xex"));
     }
 
+#ifndef TEST_APP_ATARI800                 // the Atari 800 XL's app has its own core only (run.sh a8app); the NES case stands in the shared unit
     // --- a core that waits for a program cannot close its menu, and opens on the browser
     Rig n(&nes_desc, "/sd/cores/nes.cfg");
     n.st->load();
@@ -339,6 +340,7 @@ int main()
     CHECK(n.m->closable());
     CHECK(n.c.program_loaded && n.c.started);
     CHECK_EQ(n.io.reset_releases, 1);
+#endif
     // --- spec 5.14: media that mounts after the menu opened. The browser's directory is read again, the
     // selection follows its entry by name, and an unchanged directory reports nothing (the negative control).
     Rig u(&atari800_desc);

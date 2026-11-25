@@ -598,6 +598,8 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_vc20.txt").c_str());      // a core that has an app of its own: this unit is built like that app
 #elif defined(TEST_APP_A1200)
     std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
+#elif defined(TEST_APP_ATARI800)
+    std::ifstream idx((dir + "/index_app_atari800.txt").c_str());
 #else
     std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
 #endif
