@@ -20,7 +20,7 @@ PAIRS = (("cores/zx/trx/zx_regs.v", "coreapp/cores/zx.cc"),
          ("cores/c128/c128_regs.v", "coreapp/cores/c128.cc"),
          ("cores/c64scpu/c64scpu_regs.v", "coreapp/cores/c64scpu.cc"),
          ("cores/neogeo/trx/neo_regs.v", "coreapp/cores/neogeo.cc"),
-         ("cores/ddt_novic/layer2_ddt_novic.v", "coreapp/cores/ddt_novic.cc"),
+         ("cores/ddt_novic/layer2_ddt_novic.v", "cores/ddt_novic/app/lib/ddt_novic.cc"),
          ("cores/diag/rtl/diag_regs.v", "coreapp/cores/portdiag.cc"))
 
 

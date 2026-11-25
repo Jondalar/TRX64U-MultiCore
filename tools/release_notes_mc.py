@@ -44,7 +44,7 @@ CORES = [
          sources="cores/ddt_mandel/mono/core.toml (a large core without an application: no ROM list)"),
     dict(id="ddt_novic", match=("no vic",), title="DDT Look Ma, No VIC", folder="ddt_novic",
          files="none", needed="nothing",
-         sources="coreapp/cores/ddt_novic.cc (no ROM list in the descriptor)"),
+         sources="cores/ddt_novic/app/lib/ddt_novic.cc (no ROM list in the descriptor)"),
     dict(id="vc20", match=("vic-20", "vc20"), title="VIC-20", folder="vc20",
          files="`kernal.bin` 8,192, `basic.bin` 8,192, `char.bin` 4,096 bytes", needed="all three",
          sources="cores/vc20/app/lib/vc20.cc (roms[], names and sizes); cores/vc20/app/lib/vc20_regs.h"),

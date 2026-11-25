@@ -1,0 +1,28 @@
+# TOML B of DDT Look Ma, No VIC's app (T239.3 D55, T239.5 D16): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh);
+# nothing else is in its link: the base's archives, the sources the base compiles for the core, the library named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it
+# on the link map). The base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and
+# tools/core_toml.py (the switch desc_record).
+[app]
+name = "ddt_novic"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library ddt_novic below defines it); the core table of this app holds this core only
+desc = "ddt_novic_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the core is a partial one on the host bitstream)
+# that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (a partial core can return to the host) and audio_master (the host's master
+# volume and tone rows). The core has no drive and no IEC block: no block iec_status, drive_a, c64cart, c64_debug, dma or cmd_if is named, so board.cc runs no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
+base_sources = ["portdiag.cc"]
+
+# The core's own code: its descriptor and hooks (init, release, the register map of the memory operations). Its files are in cores/ddt_novic/app/lib.
+[[library]]
+name = "ddt_novic"
+sources = ["ddt_novic.cc"]
+headers = ["ddt_regs.h"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: ddtapp): unit = 2 unit tests (the descriptor against the RTL's register block
+# and the start sequence), service = 8 mock bitstream -> service (the record and the compiled-in descriptor compared), ui = 9 service -> UI, api = 10 service -> API (the memory operations
+# through the service call the REST and RPC transports make)
+tests = { unit = ["ddt"], service = ["ddt_descgen"], ui = ["ddt_desc", "ddt_hotkeys"], api = ["ddt_memops"] }

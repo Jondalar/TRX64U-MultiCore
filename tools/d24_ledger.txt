@@ -49,13 +49,11 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 21
+file coreapp/cores/cores.h 20
 file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27
 file coreapp/cores/cpc_regs.h 41
-file coreapp/cores/ddt_novic.cc 48
-file coreapp/cores/ddt_regs.h 13
 file coreapp/cores/drive_rom_pick.h 98
 file coreapp/cores/hk_defaults.h 23
 file coreapp/cores/ines.cc 100
