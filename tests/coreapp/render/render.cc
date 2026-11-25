@@ -2539,6 +2539,56 @@ static void t262_list(const char *out)
     ui_set_canvas(960, 540);
 }
 
+// T262 D4 (4): the idle Search tab with a library as a source: the row shows the text the form holds, and the empty tab's side panel does not say there are no media.
+static void t262_search_tab(const char *out)
+{
+    g_t262_list.clear();
+    static const LibNodeDecl nodes[] = { { "F3/search", LN_LIST, "Online results", "t262.take", "t262.rows", 1, 0, 0, 0, 0, 0, false, "search=Online;find=t262.take;fields=Group" } };
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    rec.nodes = nodes; rec.nnodes = 1;
+    Contributor cs[] = { { "t262s", CR_LIB, &rec } };
+    static const SkelTab f3tabs[] = { { "browse", "Browse", 1, TW_BROWSER, 0, "library" }, { "search", "Search", 2, TW_BROWSER, 0, "library" } };
+    static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
+    static const Skeleton f3sk = { f3areas, 1 };
+    CoreDesc *base = board_desc(&atari800_desc);
+    Rig c(base, "/usb0/cores/t262s.cfg");
+    c.c.started = true;
+    OpRegistry *reg = ops_of(&c.c);
+    reg->contributor("t262s");
+    reg->add_op("t262.take", t262_take_args, 2, t262_list_take);
+    reg->add_state("t262.rows", t262_list_state);
+    static CoreDesc merged;
+    static MenuMerge mm;
+    CHECK(contrib_merge(base, &f3sk, 0, cs, 1, reg, &merged, &mm) == 0);
+    c.c.desc = &merged; c.c.merge = &mm;
+    ui_open(&merged);
+    c.m->rebuild();
+    c.m->open();
+    CHECK(c.m->goto_spec("F3/search"));
+    CHECK(c.m->search_tab() && c.m->search_source_count() == 1);
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "No media found.") == 0);
+    CHECK(find_label(lv_screen_active(), "This device  -  Name contains:  press RETURN to type") != 0);
+    c.m->key('/');                                                          // the form: type a name in its second row
+    c.m->key(KEY_DOWN);
+    c.m->key(KEY_RETURN);
+    c.m->key('a'); c.m->key('b');
+    c.m->key(KEY_RETURN);
+    c.m->key(KEY_ESCAPE);                                                   // leave the form
+    CHECK(!c.m->picking());
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "This device  -  Name contains:  ab") != 0);
+    CHECK(find_label(lv_screen_active(), "No media found.") == 0);
+    char p[512];
+    snprintf(p, sizeof(p), "%s/t262-search-tab.png", out);
+    png(p, 2);
+    printf("PASS t262 search tab: the form's text stands in the row, the panel does not claim there are no media\n");
+}
+
 int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
@@ -2556,6 +2606,7 @@ int main(int argc, char **argv)
         t262_rows(out);
         t262_form_scroll(out);
         t262_list(out);
+        t262_search_tab(out);
         printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
     }
@@ -3115,6 +3166,7 @@ int main(int argc, char **argv)
     t262_rows(out);
     t262_form_scroll(out);
     t262_list(out);
+    t262_search_tab(out);
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;

@@ -208,6 +208,7 @@ public:
     bool search_active() const { return fm_.vmode == 1; }
     bool manage_tab() const;
     const char *search_query() const { return fm_.search_q; }
+    const char *search_form_text() const { return sf_query_; }     // T262 D4: what the form's Name contains holds (the idle Search tab shows it)
     bool search_editing() const { return search_edit_; }
     enum { SF_FIELDS = 4 };                                         // fields of one source (contrib.h CONTRIB_SEARCH_FIELDS)
     bool search_form() const { return pick_form_; }                 // T262 P5: the search form of the Library is up (the media and the sources of libraries)
@@ -273,7 +274,7 @@ private:
     void sf_label(int row, char *out, int n) const;                // the label of a form row
     const char *sf_value(int row) const;                           // the typed text of a form row (the name, a field)
     int sf_rows() const;
-    void begin_search();                                           // RETURN or '/' in the Search tab: the form when a library is a source, else the one text prompt
+    void begin_search();                                           // '/' in the Search tab: the form when a library is a source, else the one text prompt (RETURN always asks for a name)
     void begin_search_form();
     Result sf_run();
     void sf_open_results(int src);

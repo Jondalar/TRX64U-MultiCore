@@ -2729,6 +2729,7 @@ bool MenuCtl::text_key(int k, Result *out)
         search_edit_ = false;
         entry_ = false;
         snprintf(fm_.search_q, sizeof(fm_.search_q), "%s", entry_le_.buf);
+        snprintf(sf_query_, sizeof(sf_query_), "%s", entry_le_.buf);     // the form's Name contains is this text
         fm_.run_search();
         *out = R_REDRAW;
         return true;
@@ -3157,8 +3158,8 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         if (chooser_) {
             return start_action(chooser_acts_[chooser_sel_], chooser_file_);
         }
-        if (search_tab() && !fm_.vmode) {                              // nothing found yet: RETURN asks for the query (the form, when a library is a source)
-            begin_search();
+        if (search_tab() && !fm_.vmode) {                              // nothing found yet: RETURN asks for the query (T262 D4: the form is '/', also when a library is a source)
+            begin_search_edit();
             return R_REDRAW;
         }
         if (fm_.sel >= fm_.nlist) {
@@ -3879,7 +3880,7 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         if (chooser_) {
             snprintf(out, n, "LETTER  RUN THE ITEM   RETURN  RUN   <-  CLOSE THE SHEET");
         } else if (search_tab() && !fm_.vmode) {
-            snprintf(out, n, search_source_count() ? "RETURN  SEARCH FORM   1-3  TAB   <- UP" : "RETURN  TYPE A NAME   1-3  TAB   <- UP");
+            snprintf(out, n, search_source_count() ? "RETURN  TYPE A NAME   /  SOURCES   1-3  TAB   <- UP" : "RETURN  TYPE A NAME   1-3  TAB   <- UP");
         } else if (fm_.seek_on) {
             snprintf(out, n, "TYPE THE NAME   ? ANY CHARACTER   RETURN OR <-  END");
         } else if (media_level()) {                                    // as the host's File Browser at "/": the keys that do something
@@ -5103,7 +5104,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         return R_NONE;
     }
     case MI_SEARCH_OPEN:
-        begin_search();                                              // the idle Search tab: RETURN opens the field (the form, when a library is a source)
+        begin_search_edit();                                         // the idle Search tab: RETURN asks for a name, with a source or without (T262 D4; the form is '/')
         return R_REDRAW;
     case MI_PAGE_BROWSER:
         page(in.arg);
@@ -5254,7 +5255,7 @@ void MenuCtl::begin_search_edit()
     confirm_task_ = 0;
     entry_rename_ = false;
     search_edit_ = true;
-    entry_load(fm_.search_q, 38);
+    entry_load(fm_.search_q[0] ? fm_.search_q : sf_query_, 38);          // the name the form holds is the name of this search too
     set_status("Type a part of the name; RETURN searches", false);
 }
 

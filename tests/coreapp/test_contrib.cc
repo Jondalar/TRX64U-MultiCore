@@ -1326,7 +1326,7 @@ int main(int argc, char **argv)
         Rig r(sc, 1, &f3sk);
         r.m->open();
         CHECK(r.m->goto_spec("F3/search"));
-        r.m->key(KEY_RETURN);
+        r.m->key('/');
         CHECK(r.m->search_form());
         r.m->key(KEY_RETURN);
         CHECK_STR(r.right(0).c_str(), "Online");
@@ -1358,7 +1358,11 @@ int main(int argc, char **argv)
         CHECK(r.m->goto_spec("F3/search") && r.m->search_tab());
         CHECK_EQ(r.m->search_source_count(), 1);
         CHECK(r.m->tab_id() != 0 && r.tab("F3", "search").size() <= 1);                // the source takes no row of the tab
-        r.m->key(KEY_RETURN);
+        r.m->key(KEY_RETURN);                                                          // T262 D4: with a source, RETURN still asks for a name, as without one
+        CHECK(r.m->entering() && !r.m->search_form() && !r.m->picking());
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->entering());
+        r.m->key('/');                                                                 // the form is offered separately
         CHECK(r.m->search_form() && r.m->picking() && !r.m->entering());
         CHECK_EQ(r.m->rows(), 3);                                                      // Source, Name contains, Search
         CHECK_STR(r.left(0).c_str(), "Source"); CHECK_STR(r.right(0).c_str(), "This device");
@@ -1375,6 +1379,7 @@ int main(int argc, char **argv)
         CHECK(!r.m->entering() && r.m->search_form());
         CHECK_STR(r.right(1).c_str(), "ab");
         CHECK_STR(r.right(2).c_str(), "Any");
+        CHECK_STR(r.m->search_form_text(), "ab");                                      // the idle Search tab shows what the form holds
         r.m->key(KEY_DOWN); r.m->key(KEY_DOWN);
         r.m->key(KEY_RETURN);                                                          // the field Handle
         r.m->key('x');
@@ -1423,7 +1428,7 @@ int main(int argc, char **argv)
             Rig r(cs, 1, &f3sk);
             r.m->open();
             r.m->goto_spec("F3/search");
-            r.m->key(KEY_RETURN);
+            r.m->key('/');
             r.m->key(KEY_RETURN);                                                      // Slow
             r.m->key(KEY_END);
             g_jobcalls = 0;

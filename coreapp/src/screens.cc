@@ -495,6 +495,14 @@ static uint32_t signature(MenuCtl &m)
             h = hs(h, m.root(i));
             h = hi(h, m.chip_flags(i));
         }
+        if (m.in_search_tab()) {                                          // T262 D4: the field's words: the form's text, the query of the list, the source the form searches
+            char nm[40];
+            m.search_source_name(nm, sizeof(nm));
+            h = hs(h, nm);
+            h = hs(h, m.search_form_text());
+            h = hs(h, m.search_query());
+            h = hi(h, m.search_active() | m.search_source_count() << 1);
+        }
         h = hi(h, g_lib_first);
         for (int i = g_lib_first; i < m.rows() && i < g_lib_first + 2 * lib_rows(false) + 2; i++) {      // the rows the window can show (a list longer than 512 rows must redraw for a mark on row 600 too)
             MenuCtl::BrowseRow br;
@@ -789,13 +797,13 @@ static void draw_selpan(MenuCtl &m, int sel)
     const TrxTheme &t = trx_theme();
     lv_obj_clean(g_selpan);
     int w = g_selpan_w, h = g_selpan_h;
-    if (m.media_level()) {
+    if (m.media_level() && !m.in_search_tab()) {                   // T262 D4: the Search tab's list is no list of media, whatever folder the Browse tab stands on
         draw_medium_panel(m, sel);
         return;
     }
     trx_kicker(g_selpan, t.space_md, t.space_sm, "SELECTED");
     if (m.rows() == 0) {
-        trx_txt(g_selpan, t.space_md, 30, "Nothing here", t.display, t.muted, w - 2 * t.space_md);
+        trx_txt(g_selpan, t.space_md, 30, m.in_search_tab() ? (m.search_active() ? "Nothing found" : "No search yet") : "Nothing here", t.display, t.muted, w - 2 * t.space_md);
         return;
     }
     MenuCtl::BrowseRow r;
@@ -857,7 +865,8 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
         // one line in the field, beside the counter (a label with a width wraps): what does not fit is cut, the end of a typed text stays in sight; the idle
         // hint gives way first, the status line under the list says how to type
         const int room = lw - 2 * t.space_md - t.space_sm - (items[0] ? trx_text_w(items, t.caption) + t.space_md : 0);
-        const char *q = m.search_active() ? m.search_query() : "press RETURN to type";
+        const char *q = m.search_active() ? m.search_query() : m.search_form_text()[0] ? m.search_form_text() : "press RETURN to type";      // T262 D4: the form's text stands here too
+        const bool typed = m.search_active() || m.search_form_text()[0];
         char src[48] = "";                                         // T262 P5: a library is a source of this search: the field says which one the form searches
         if (m.search_source_count() > 0) {
             char nm[40];
@@ -865,13 +874,13 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
             snprintf(src, sizeof(src), "%s  -  ", nm);
         }
         snprintf(p, sizeof(p), "%sName contains:  %s", src, q);
-        if (trx_text_w(p, t.caption) > room && !m.search_active()) {
+        if (trx_text_w(p, t.caption) > room && !typed) {
             snprintf(p, sizeof(p), "%sName contains:", src);
         }
-        while (m.search_active() && trx_text_w(p, t.caption) > room && *q) {
+        while (typed && trx_text_w(p, t.caption) > room && *q) {
             snprintf(p, sizeof(p), "%sName contains:  ...%s", src, ++q);
         }
-        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted);
+        trx_txt(card, t.space_md, 5, p, t.caption, typed ? t.ink : t.muted);
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
