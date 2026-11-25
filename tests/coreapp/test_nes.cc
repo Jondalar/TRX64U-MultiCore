@@ -7,6 +7,8 @@
 #include "nes_regs.h"
 #include "ops_glue.h"
 
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+
 // the ".nes" file action, called the way the browser calls it
 static int run_file(CoreCtx *c, const char *path, char *msg, int n)
 {
@@ -32,6 +34,7 @@ static std::vector<uint8_t> nes_file(int prg_pages, int chr_pages, int f6, int f
 
 int main()
 {
+    CHECK(!nes_desc.board_caps);                    // T104.2: the NES lists what it has and asks for no striking (the monolith's probes are test_board's)
     NesIo io; FakeFs fs; PxRec px;
     CoreCtx c; memset(&c, 0, sizeof(c));
     c.desc = &nes_desc; c.io = &io; c.fs = &fs;

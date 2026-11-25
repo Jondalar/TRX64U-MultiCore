@@ -21,6 +21,10 @@
 
 static const BaseRow *row(const char *op, const char *key) { return menu_base_row(op, key); }
 
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the extend functions on its record; the shared unit keeps the table's own checks
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
+
 static bool pick_is(const BaseRow *r, const char *name)
 {
     return r && r->pick && !strcmp(r->pick, name);
@@ -28,6 +32,7 @@ static bool pick_is(const BaseRow *r, const char *name)
 
 int main()
 {
+#ifndef TEST_APP_NES
     int n = 0;
     const BaseRow *all = menu_base_rows(&n);
     CHECK(n > 0);
@@ -104,6 +109,10 @@ int main()
     CHECK_EQ(nkeyrows, HKA_CORE);                                              // the six fixed actions; the core's own function and the tasks are the core's rows
     const BaseRow *mm = row("base.mouse_sens", 0);
     CHECK(mm->show_state && !strcmp(mm->show_state, "set.Mouse_Mode==Cursor keys") && mm->base == 1 && mm->nvalues == 16);
+#else
+    const BaseRow *vol = row(VOLUME_OP, VOLUME_KEY), *tone = row(TONE_OP, TONE_KEY);   // the rows whose checks are the shared unit's
+    CHECK(vol && tone);
+    if (!vol || !tone) DONE("test_baserows");
 
     // the extend functions hand out the row as it is
     static CoreDesc d1, d2, d3, d4;
@@ -131,5 +140,6 @@ int main()
         CHECK(r && d4.settings[i].def == r->def);
         CHECK(r && (r->pick ? d4.settings[i].nvalues >= r->nvalues : d4.settings[i].values == r->values));
     }
+#endif
     DONE("test_baserows");
 }

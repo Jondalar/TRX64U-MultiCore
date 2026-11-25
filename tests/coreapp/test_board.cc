@@ -14,16 +14,7 @@
 #include "romfind.h"
 #include "keyboard.h"
 
-#ifndef TEST_APP_ATARI800
-// T239.5 D13: the cases below stand on the Atari's descriptor (monocore) and run as the unit a8_board, built as its app; the shared unit keeps the NES's own line
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
-
-int main()
-{
-    CHECK(!nes_desc.board_caps);                                         // the NES lists what it has and asks for no striking
-    DONE("test_board");
-}
-#else
+// T239.5 D13: the cases stand on the Atari's descriptor (monocore) and run as the unit a8_board, built as its app (run.sh a8app); the NES's line is its app's unit nes_core
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 
@@ -309,7 +300,7 @@ int main()
         n = board_effective_caps(m, monocore.caps, monocore.ncaps, out, 3, 0, 0);
         CHECK_EQ(n, 3);
     }
-    // the Atari lists what it has and asks for no striking (the NES's line is the shared unit board's)
+    // the Atari lists what it has and asks for no striking (the NES's is its app's unit nes_core)
     CHECK(!atari800_desc.board_caps && monocore.board_caps);
 
     // ---- T104.1 5.5: where the boot-attempt counter lives - a path the flash guard lets through, one per profile
@@ -499,4 +490,3 @@ int main()
     }
     DONE("test_board");
 }
-#endif

@@ -19,6 +19,9 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the joystick's way to the port on its record; the shared unit keeps the rest
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 #ifdef TEST_APP_ATARI800
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
@@ -372,19 +375,8 @@ int main()
         hooks_menu_video(true);
         CHECK(g_log.empty());
     }
-#else
-    // ---- the base's own names: a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
+#elif defined(TEST_APP_NES)
     const CoreDesc &rich_nes = rich_of(nes_desc, 2);
-    {
-        const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
-        for (int k = 0; k < 2; k++) {
-            size_t l = strlen(names[k]);
-            CHECK(l >= 1 && l <= 15);
-            for (size_t i = 0; i < l; i++) CHECK((names[k][i] >= 'a' && names[k][i] <= 'z') || (names[k][i] >= '0' && names[k][i] <= '9') || names[k][i] == '_');
-        }
-    }
-    CHECK_STR(baseset_key(0), "Joystick Input");
-    CHECK_EQ(baseset_count(), 6);
 
     // ---- the settings reach the port: the keyboard's joystick; each also tells the hook, which is not armed yet
     {
@@ -406,7 +398,18 @@ int main()
         for (size_t i = 0; i < g_log.size(); i++) { saw_joy |= g_log[i] == "joy 1 3"; }
         CHECK(saw_joy);
     }
-
+#else
+    // ---- the base's own names: a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
+    {
+        const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
+        for (int k = 0; k < 2; k++) {
+            size_t l = strlen(names[k]);
+            CHECK(l >= 1 && l <= 15);
+            for (size_t i = 0; i < l; i++) CHECK((names[k][i] >= 'a' && names[k][i] <= 'z') || (names[k][i] >= '0' && names[k][i] <= '9') || names[k][i] == '_');
+        }
+    }
+    CHECK_STR(baseset_key(0), "Joystick Input");
+    CHECK_EQ(baseset_count(), 6);
 #endif
     baseset_attach(0, 0);
     DONE("baseset");

@@ -1,7 +1,7 @@
 // T104.1 D12, Q10: the libraries of a folder are loaded at the start of a core application - in dependency order, a cycle refused, a
 // missing folder no error, one log line per file, a library whose capability the core lacks refused with a sentence that names the library,
 // the capability and the core. The file system is a map of byte vectors, the heap a model, the core descriptors are the real ones (the
-// capability list goes through desc_has_capability on the Atari's descriptor in its app, a8_libscan, and the NES's, the table through desc_check). What is not here: that
+// capability list goes through desc_has_capability on the descriptor of the table, the table through desc_check). What is not here: that
 // RISC-V code runs; the host's twin of lib_register is a function of this file (the same split tests/loader/ makes).
 #include <string>
 #include <vector>
@@ -18,8 +18,11 @@
 #ifdef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_libscan): its core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
+#elif defined(TEST_APP_NES)              // the NES's app (nes_libscan): the cases on its record
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core; its cases are the order on made-up metadata
 #endif
 
 // the capabilities of a monolith core (TRX64-Ultimate's trx64u asks for these seven): the list the board strikes from in the check below (T239.3 P1-8)
@@ -318,7 +321,7 @@ int main()
         CHECK(w.r.nkept == 2 && strstr(w.r.kept[0], "cbm1541") && strstr(w.r.kept[0], "drive_a") && strstr(w.r.kept[0], "Atari 800 XL"));
         CHECK_EQ(w.host.allocs, 1);                                   // nothing was allocated for the refused one
         CHECK_STR(w.r.summary, "1 loaded, 2 refused: cbm1541");
-#else
+#elif defined(TEST_APP_NES)
         // the same files on the NES: it has neither
         World n(&nes_desc);
         n.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
@@ -329,7 +332,7 @@ int main()
         CHECK(n.log.find("[lib] carts v1.0 at 0x") >= 0);
 #endif
     }
-#ifndef TEST_APP_ATARI800
+#ifdef TEST_APP_NES
     // ---- T104.2 D3 on a monolith core's capability list: what the board strikes, a library cannot have. The monolith has the T37 sockets, the MultiCore
     // trx64 core has not; neither has a drive B. The core's effective list is what the loader is given (run.cc merges it).
     {
@@ -435,6 +438,7 @@ int main()
         if (!g_lib_logs.empty()) { CHECK_STR(g_lib_logs[0].c_str(), "hello from alpha"); }
     }
 #endif
+#ifndef TEST_APP_NES                     // the order on made-up metadata: the shared unit's and the Atari's app's (not the NES's unit)
     // ---- the order itself, on made-up metadata (no files)
     {
         LibMeta m[4];
@@ -476,5 +480,6 @@ int main()
         CHECK_EQ(lib_dep_order(m, 3, order, cyc), 2);
         CHECK_EQ(cyc[2], 2);
     }
+#endif
     DONE("test_libscan");
 }

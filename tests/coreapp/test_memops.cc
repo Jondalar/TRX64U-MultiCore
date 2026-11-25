@@ -22,6 +22,9 @@ extern const CoreDesc zx_desc;                  // cores.h lists the shared app'
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
+#ifdef TEST_APP_NES
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -64,7 +67,7 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &apple2_desc, &c264_desc, &zxnext_desc,
                                        &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
@@ -152,8 +155,8 @@ int main()
 #elif defined(TEST_APP_CPC)
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
-    struct W { const CoreDesc *d; int last; } widths[] = { { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
-        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops
+    struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF },
+        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops, the NES's its unit nes_memops
 #endif
     for (auto &w : widths) {
         Rig r(w.d);
@@ -219,18 +222,12 @@ int main()
         CHECK(res.data[0] == 0x77 && res.data[1] == 0x88);
         CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
     }
-    // ---- cores whose memory the application cannot reach say so, and why
-    for (const CoreDesc *d : { &nes_desc, &portdiag_desc }) {               // T239.5 D13: the Amiga 500's case is its unit amiga_memops
+    // ---- cores whose memory the application cannot reach say so, and why (the NES's is its unit nes_memops)
+    for (const CoreDesc *d : { &portdiag_desc }) {               // T239.5 D13: the Amiga 500's case is its unit amiga_memops
         Rig r(d);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-    {
-        Rig r(&nes_desc);
-        OpResult x;
-        r.call("machine.read_mem", 0, 1, &x);
-        CHECK(strstr(x.msg, "NES") != 0);                                       // the Amiga 500's message names it in its unit amiga_memops
     }
 #endif
 #ifdef TEST_APP_ZX

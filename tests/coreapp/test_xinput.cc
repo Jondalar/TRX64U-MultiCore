@@ -7,10 +7,14 @@
 #include "fakes.h"
 #include "cores.h"
 #ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_xinput) has its own core only
-#include "snes_regs.h"
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
 #include "nes_regs.h"
 #else
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#else
+#include "snes_regs.h"
 #endif
 #include "pad.h"
 #include "hidpad.h"
@@ -66,6 +70,7 @@ int main()
 #else
     int dl = 0;
     const uint8_t *desc = xinput_descriptor(&dl);
+#ifndef TEST_APP_NES                     // the cases of the shared app's cores; the NES's are its unit nes_xinput (below)
 
     // ---- S1: which interfaces are claimed
     CHECK_EQ(xinput_claim(0xFF, 0x5D, 0x01, true, true), XI_360);
@@ -85,10 +90,9 @@ int main()
     CHECK_EQ(xinput_claim(0x03, 0x00, 0x00, true, true), XI_NONE);
     // D4: the capability `pad` is exactly the cores that have a PadSpec
     {
-        const CoreDesc *all[] = { &nes_desc, &snes_desc, &neogeo_desc };
+        const CoreDesc *all[] = { &snes_desc, &neogeo_desc };
         for (const CoreDesc *d : all) CHECK_EQ(desc_has_capability(d, "pad"), d->pad != NULL);
-        CHECK(desc_has_capability(&nes_desc, "pad") && desc_has_capability(&snes_desc, "pad") && desc_has_capability(&neogeo_desc, "pad"));
-        CHECK(!desc_has_capability(&nes_desc, "pa") && !desc_has_capability(&nes_desc, "pads"));
+        CHECK(desc_has_capability(&snes_desc, "pad") && desc_has_capability(&neogeo_desc, "pad"));
     }
     // the synthetic descriptor is a gamepad for hidpad_parse, with 16 buttons, a hat and X/Y
     {
@@ -152,14 +156,7 @@ int main()
         CHECK(feed(s, &k1, r360(0, 0x10, 0, 0, -20000, 0)));
         CHECK(pad_pace(&c));
         CHECK_EQ((uint16_t)(io.regs[SNES_PAD1] | io.regs[SNES_PAD1 + 1] << 8), (1u << 0) | (1u << 6));
-        // the NES: the same report, the NES's own register (bit 0 A = Button 2 (Xbox B), bit 1 B = Button 1 (Xbox A))
-        {
-            FakeIo io2; FakeFs fs2; CoreCtx c2; memset(&c2, 0, sizeof(c2)); c2.desc = &nes_desc; c2.io = &io2; c2.fs = &fs2;
-            pad_configure(nes_desc.pad);
-            CHECK(feed(s, &k1, r360(0, 0x20)));
-            CHECK(pad_pace(&c2));
-            CHECK_EQ((uint16_t)(io2.regs[NES_PAD1] | io2.regs[NES_PAD1 + 1] << 8), 1u << 0);
-        }
+        // the NES: the same report on its own register is its unit nes_xinput
         pad_detach(&k1);
     }
 
@@ -315,6 +312,27 @@ int main()
         V r = r360(0, 0x10);
         CHECK(!idle.data(r.data(), (int)r.size(), rep));
     }
+#else                                    // the NES's app (run.sh nesapp): the cases on its core
+    // D4: the capability `pad` is exactly the cores that have a PadSpec
+    {
+        CHECK_EQ(desc_has_capability(&nes_desc, "pad"), nes_desc.pad != NULL);
+        CHECK(desc_has_capability(&nes_desc, "pad"));
+        CHECK(!desc_has_capability(&nes_desc, "pa") && !desc_has_capability(&nes_desc, "pads"));
+    }
+    // ---- S2: a 360 report through the pad service onto the NES's own register (bit 0 A = Button 2 (Xbox B), bit 1 B = Button 1 (Xbox A))
+    {
+        FakeIo io2; FakeFs fs2; CoreCtx c2; memset(&c2, 0, sizeof(c2)); c2.desc = &nes_desc; c2.io = &io2; c2.fs = &fs2;
+        pad_configure(nes_desc.pad);
+        CHECK(pad_attach(&k1, "Xbox 360 pad", 0x045E, 0x028E, desc, dl));
+        ModelOut o;
+        XiSession s;
+        s.start(XI_360, &o, pad_player_of(&k1));
+        CHECK(feed(s, &k1, r360(0, 0x20)));
+        CHECK(pad_pace(&c2));
+        CHECK_EQ((uint16_t)(io2.regs[NES_PAD1] | io2.regs[NES_PAD1 + 1] << 8), 1u << 0);
+        pad_detach(&k1);
+    }
+#endif
     DONE("xinput");
 #endif
 }

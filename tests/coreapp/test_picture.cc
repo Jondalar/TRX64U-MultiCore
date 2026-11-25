@@ -20,11 +20,14 @@
 static std::vector<std::pair<int, int>> g_applied;
 void video_apply(int sys, int hdmi) { g_applied.push_back({ sys, hdmi }); }
 
-#ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_ATARI800)         // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
+const CoreDesc *const core_table[] = { &c64scpu_desc, 0 };   // the shared unit: the C64SCPU's own picture and the made-up core (T239.5 D13)
 #endif
 
 struct Lay { int w, h, hdmi, sys, bx, by, scale, x0, y0; };
@@ -91,10 +94,12 @@ struct Rig {
 
 static void extension()
 {
-#ifdef TEST_APP_ATARI800
+#ifdef TEST_APP_NES
+    const CoreDesc *all[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
     const CoreDesc *all[] = { &atari800_desc, 0 };
 #else
-    const CoreDesc *all[] = { &nes_desc, &testcore::desc, 0 };
+    const CoreDesc *all[] = { &testcore::desc, 0 };
 #endif
     for (const CoreDesc *const *p = all; *p; p++) {
         const CoreDesc *d = *p;
@@ -120,6 +125,7 @@ static void extension()
         CHECK(strstr(buf, "setting Picture = Auto | 576p / 480p | 1280 x 720 | 1920 x 1080") != 0);
         CHECK(strstr(buf, "(default Auto, live)") != 0);
     }
+#ifndef TEST_APP_NES
 
     // room: a core with SETTINGS_MAX - 1 settings of its own gets the last place; a core with SETTINGS_MAX is refused with a reason, never overflowed
     static Setting own[SETTINGS_MAX + 1];
@@ -141,6 +147,7 @@ static void extension()
     why = desc_check(&d);
     CHECK(why && strstr(why, "Picture"));
     CHECK(picture_extend(&d, &ext, items) != 0);
+#endif
 }
 
 static bool pos_is(Rig &r, int scale, int x0, int y0)
@@ -150,7 +157,7 @@ static bool pos_is(Rig &r, int scale, int x0, int y0)
 
 static int pic(Rig &r, int hdmi) { (void)r; return 1 + hdmi; }
 
-#ifndef TEST_APP_ATARI800                // the NES's and the C64SCPU's cases: the shared unit picture
+#ifdef TEST_APP_NES
 static void nes_startup()
 {
     // the hand-over says 1080p PAL; nothing stored: Auto, which for the NES is 720p, and the position moves with it
@@ -200,7 +207,7 @@ static void nes_startup()
 
 static void runtime_change()
 {
-#ifndef TEST_APP_ATARI800
+#ifdef TEST_APP_NES
     // the layer is shown; the person picks another mode: the layer goes off, the geometry changes, it comes back
     g_applied.clear();
     Rig r(&nes_desc);
@@ -234,8 +241,8 @@ static void runtime_change()
     CHECK_EQ(h.px.w.size(), 0u);
     h.vid->show();
     CHECK_EQ(h.px.last(PX_POS), (204u << 16) | 576u);
+#elif defined(TEST_APP_ATARI800)
 
-#else
     // the Atari: its 14-pixel offset is the same in every mode, and Auto stays 1080p after a smaller mode was chosen
     Rig a(&atari800_desc);
     CHECK_EQ(picture_start(&a.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
@@ -254,7 +261,7 @@ static void runtime_change()
 #endif
 }
 
-#ifndef TEST_APP_ATARI800
+#ifdef TEST_APP_NES
 static void through_the_menu()
 {
     // the person's way: F5, Video, the Picture row, a key (T187 D1, T205 D1: Video is a tab of F5) - applied live and written to the .cfg beside the .cor
@@ -440,10 +447,11 @@ static void picmodes_shared()
     CHECK(picpage_key(&pg, PMK_BACK) == PMA_CLOSE);
 }
 
-#ifndef TEST_APP_ATARI800
 // T104.2 D5: a core that draws its own picture has no wish. Auto leaves the screen in the mode it is in; a chosen mode is still applied.
+#ifndef TEST_APP_ATARI800                // the C64SCPU's and the NES's cases (the shared unit, the NES's app)
 static void own_picture()
 {
+#ifndef TEST_APP_NES
     g_applied.clear();
     video_current = 0;                                                               // nobody has set a mode yet
     Rig r(&c64scpu_desc);
@@ -462,9 +470,11 @@ static void own_picture()
     CHECK_EQ(g_applied.size(), 1u);
     CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
     for (auto &w : r.px.w) CHECK_EQ(w.v & 1, 0);                                      // the pixel layer was never switched on for it
+#else
     // the normal cores are as before: Auto asks for what the picture fits in
     Rig n(&nes_desc);
     CHECK_EQ(picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P);
+#endif
 }
 
 // T164 D10c: the picture value "Auto" is the mode the HOST is set to (host.cfg [Video] Mode), not the mode that shows this core's picture largest. Without
@@ -473,6 +483,7 @@ static void host_auto()
 {
     const char *HC = "/Flash/trx/host.cfg";
     auto host = [](Rig &r, const char *mode) { r.fs.put_text("/Flash/trx/host.cfg", std::string("[Video]\nMode=") + mode + "\nSystem=PAL 50 Hz\n"); };
+#ifdef TEST_APP_NES
     // host 1080p, core Auto: 1080p, where the NES alone takes 720p
     { Rig r(&nes_desc); host(r, "1920 x 1080"); g_applied.clear();
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
@@ -510,10 +521,14 @@ static void host_auto()
     // the Video section is found after another one
     { Rig r(&nes_desc); r.fs.put_text(HC, "[Other]\nMode=576p / 480p\n[Video]\nMode=1920 x 1080\n");
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P); }
+#else
+    (void)HC;
     // a core that draws its own picture has no wish and keeps the screen's mode, whatever the host file says
     { g_applied.clear(); Rig r(&c64scpu_desc); host(r, "576p / 480p");
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_720P);
       CHECK_EQ(g_applied.size(), 0u); }
+#endif
+#ifdef TEST_APP_NES
     // T164 D10c amended (Alex 2026-11-04): the first value of the Picture item says which mode Auto is and whose it is
     auto auto_of = [](Rig &r) { return std::string(r.ext.settings[picture_index(&r.ext)].values[0]); };
     { Rig r(&nes_desc);
@@ -546,6 +561,7 @@ static void host_auto()
           CHECK_EQ(st.value(pi), 0);
           CHECK_EQ((int)st.layer(pi), (int)Settings::L_CORE);                              // the label was found: the stored Auto is the core's own choice, not the default's
       } }
+#endif
 }
 #endif
 
@@ -556,6 +572,7 @@ static void fixed_frame()
 {
     static const struct { int w, h, bx, by; } pics[] = { { 256, 224, 0, 0 }, { 384, 288, 14, 0 }, { 280, 192, 0, 0 } };
     static const int modes[] = { VID_HDMI_480_576, VID_HDMI_720P, VID_HDMI_800x600, VID_HDMI_1024x768, VID_HDMI_1280x1024 };
+#ifndef TEST_APP_NES
     for (const auto &p : pics) {
         int rs, rx, ry;
         video_layout(p.w, p.h, VID_HDMI_1080P, VID_SYS_PAL50, p.bx, p.by, &rs, &rx, &ry);
@@ -575,11 +592,15 @@ static void fixed_frame()
         video_frame_size(VID_HDMI_480_576, VID_SYS_NTSC60, &fw, &fh);
         CHECK(fw == 1920 && fh == 1080);
     }
-    // through the application: a Picture choice of 576p / 720p moves nothing on the layer
-#ifdef TEST_APP_ATARI800
-    static const CoreDesc *const cores[] = { &atari800_desc };
 #else
+    (void)pics;
+#endif
+    // through the application: a Picture choice of 576p / 720p moves nothing on the layer
+#if defined(TEST_APP_NES) || defined(TEST_APP_ATARI800)                // on the core of the app (the shared unit has none)
+#ifdef TEST_APP_NES
     static const CoreDesc *const cores[] = { &nes_desc };
+#else
+    static const CoreDesc *const cores[] = { &atari800_desc };
 #endif
     for (const CoreDesc *d : cores) {
         for (int m : modes) {
@@ -591,7 +612,9 @@ static void fixed_frame()
             CHECK(pos_is(r, ref.vid->scale(), ref.vid->x0(), ref.vid->y0()));
         }
     }
-#ifndef TEST_APP_ATARI800
+    FakeIo io; PxRec px;
+#endif
+#ifdef TEST_APP_NES
     CHECK(nes_desc.video.x0 == 576);
     // set_mode puts the layout's numbers into the working geometry, not the descriptor's: a descriptor that says scale 2 gets
     // the scale the frame allows, and the offset it implies (its own x0/y0 are only the bias, init_bias)
@@ -599,7 +622,6 @@ static void fixed_frame()
     odd.video.scale = 2;
     odd.video.x0 = 512;
     odd.video.y0 = 160;
-    FakeIo io; PxRec px;
     Video v(odd.video, &px, &io);
     v.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
     int es, ex, ey;
@@ -608,8 +630,11 @@ static void fixed_frame()
     CHECK_EQ(v.x0(), ex);
     CHECK_EQ(v.y0(), ey);
     CHECK(es == 3 && (ex != 512 || ey != 160));
-#else
-    FakeIo io; PxRec px;
+    // the start-up path goes through the same layout
+    Rig o(&odd);
+    picture_start(&o.c, VID_SYS_PAL50, VID_HDMI_1080P);
+    CHECK(pos_is(o, es, ex, ey));
+#elif defined(TEST_APP_ATARI800)
     // wanted_hdmi() answers from the descriptor's own scale, not from the one set_mode() worked out
     CoreDesc small = atari800_desc;
     small.video.scale = 1;
@@ -620,27 +645,29 @@ static void fixed_frame()
     CHECK_EQ(sv.wanted_hdmi(), before);
     CHECK_EQ(before, VID_HDMI_480_576);
 #endif
-#ifndef TEST_APP_ATARI800
-    // the start-up path goes through the same layout
-    Rig o(&odd);
-    picture_start(&o.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    CHECK(pos_is(o, es, ex, ey));
-#endif
 }
 
 int main()
 {
-    layout_table();
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the cases on its core
     fixed_frame();
     extension();
-#ifndef TEST_APP_ATARI800
     nes_startup();
-#endif
     runtime_change();
-#ifndef TEST_APP_ATARI800
     own_picture();
     host_auto();
     through_the_menu();
+#elif defined(TEST_APP_ATARI800)         // the Atari's app (run.sh a8app, the unit a8_picture)
+    layout_table();
+    fixed_frame();
+    extension();
+    runtime_change();
+#else                                    // the shared unit picture: the frame, the made-up core, the C64SCPU's own picture
+    layout_table();
+    fixed_frame();
+    extension();
+    own_picture();
+    host_auto();
     picmodes_shared();
 #endif
     DONE("test_picture");

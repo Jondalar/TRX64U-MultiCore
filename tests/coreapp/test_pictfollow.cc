@@ -62,7 +62,8 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
 #ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_pictfollow) has its own core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
+#elif defined(TEST_APP_NES)              // the NES's app (run.sh nesapp, the unit nes_pictfollow) has its own core only
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #endif
 
@@ -228,7 +229,7 @@ static void s10_atari()
       CHECK_STR(named_rows(r.ext).c_str(), "0,1");
     }
 }
-#else
+#elif defined(TEST_APP_NES)
 static void s10_lists()
 {
     tv50();
@@ -355,7 +356,7 @@ static void s12_precedence()
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_1080P);
       CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
     }
-#else
+#elif defined(TEST_APP_NES)
     // the host's default is a mode the screen does not name: the best fitting one (1080p50), and not the core's wish for 720p
     { Rig r(&nes_desc);                                                                  // the NES alone would ask for 720p (ADR-0057)
       g_gw_row = 0;
@@ -761,7 +762,7 @@ int main()
     d10c_host_auto();
     d5_page_rebuild();
     t235_unnamed_pick();
-#else
+#elif defined(TEST_APP_NES)
     s10_lists();
     s12_precedence();
 #endif

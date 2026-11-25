@@ -14,6 +14,9 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the cases on its core
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }
@@ -70,17 +73,9 @@ int main()
         CHECK(std::string(m1.toast_text()).find("105%") != std::string::npos);
         for (auto &w : a1.io.log) CHECK(w.reg != 0x0A9);              // the old VOL_CFG address is never written
     }
-#else
+#elif defined(TEST_APP_NES)                 // the NES's app (run.sh nesapp, the unit nes_volume): the cases on its core
     // no descriptor declares the item, no core has a register for it: the application adds it
     CHECK_EQ(count_key(nes_desc, VOLUME_KEY), 0);
-
-    // ---- T164 WP11: the host's master volume for every core. The application adds "Volume" (apply = VOLUME_OP) to a core that has none; the step reaches
-    // CoreIo::master_volume with the byte of the table; a core with own_volume gets none.
-    CHECK_EQ(volume_byte(0), 0);
-    CHECK_EQ(volume_byte(VOLUME_DEFAULT), 128);                       // 100 % is unity
-    CHECK_EQ(volume_byte(VOLUME_STEPS - 1), 255);                     // 200 % is the top, saturating
-    CHECK_EQ(volume_byte(1), 6);
-    CHECK_EQ(volume_byte(22), 141);                                   // 110 %
     static CoreDesc gd, od;
     static Setting gs[SETTINGS_MAX], os[SETTINGS_MAX];
     CHECK(!volume_extend(&nes_desc, &gd, gs));
@@ -174,6 +169,14 @@ int main()
         CHECK(o.io.vol_log.empty());
         CHECK_STR(om.toast_text(), "");
     }
+    (void)gd; (void)od; (void)gs; (void)os;
+#else
+    // ---- T164 WP11: the host's master volume for every core: the byte of the table (the cases on a core run in the apps of the Amiga 500 and the NES)
+    CHECK_EQ(volume_byte(0), 0);
+    CHECK_EQ(volume_byte(VOLUME_DEFAULT), 128);                       // 100 % is unity
+    CHECK_EQ(volume_byte(VOLUME_STEPS - 1), 255);                     // 200 % is the top, saturating
+    CHECK_EQ(volume_byte(1), 6);
+    CHECK_EQ(volume_byte(22), 141);                                   // 110 %
 #endif
     DONE("test_volume");
 }

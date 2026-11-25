@@ -46,8 +46,12 @@ const CoreDesc *const core_table[] = { &atari800_desc, &testcore::desc, 0 };
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #define SC_REC amiga_desc
 const CoreDesc *const core_table[] = { &amiga_desc, &testcore::desc, 0 };
+#elif defined(TEST_APP_NES)
+// T239.5 D13: built as the NES's app (nes_scale): the cases on its record
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &nes_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &testcore::desc, 0 };   // T239.5 D13: the shared unit scale stands on no core (the layout table)
 #endif
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
@@ -139,7 +143,7 @@ static void follow_item()
     }
 #endif
     // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
@@ -237,8 +241,10 @@ static void items_and_apply()
     const CoreDesc *others[] = { &SC_REC, 0 };
 #elif defined(TEST_APP_ATARI800)
     const CoreDesc *others[] = { &atari800_desc, 0 };
-#else
+#elif defined(TEST_APP_NES)
     const CoreDesc *others[] = { &nes_desc, 0 };
+#else
+    const CoreDesc *others[] = { 0 };                         // the shared unit has no frame-buffer core
 #endif
     for (const CoreDesc *const *p = others; *p; p++) {
         Rig r(*p);
@@ -253,7 +259,7 @@ static void items_and_apply()
     }
 #ifndef TEST_APP_ATARI800
     // a core that draws its own picture has no frame buffer to scale
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Rig r(&own);
       CHECK_EQ(r.ext.nsettings, own.nsettings + 1);
@@ -261,7 +267,7 @@ static void items_and_apply()
     }
 #endif
     // T222: a core whose picture is the VIC through a gateware with the scale register: Picture and Scale (default Fit), no Smoothing; Scale writes 0x4F01
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, true };
@@ -311,7 +317,7 @@ static void items_and_apply()
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
 #endif
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig r(&nes_desc, false);                                   // an old host has no such register: never written
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       r.vid->init(); r.vid->show();
@@ -395,7 +401,7 @@ static void items_and_apply()
       CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
     }
 #endif
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig r(&nes_desc, false);
       g_fw.clear(); g_gw.clear(); video_current = 0;
       picture_apply(&r.c, 2);
@@ -458,7 +464,7 @@ static void menu_places()
     }
 #endif
     // a core on a host without the gateware keeps the layer the way it was: no place at all
-#ifndef SC_REC              // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig n(&nes_desc, false);
       picture_apply(&n.c, 2);
       CHECK(n.px.place.empty());
@@ -469,7 +475,9 @@ static void menu_places()
 
 int main()
 {
+#ifndef TEST_APP_NES                     // the layout table stands on no core: the shared unit's (and the Atari's and the Amiga apps')
     layouts();
+#endif
 #ifndef TEST_APP_ATARI800
     menu_places();
 #endif

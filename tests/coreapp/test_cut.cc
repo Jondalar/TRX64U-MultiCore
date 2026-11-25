@@ -29,7 +29,9 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };   // the table of it
 #include "libexports.h"
 #include "menuflows.h"
 
-extern const CoreDesc nes_desc;
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_cut): the record's cases; the shared unit keeps the key table
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
 static RecordMenu *g_rm;
@@ -148,7 +150,7 @@ struct Lib {
 
 int main(int, char **argv)
 {
-#ifndef TEST_APP_ATARI800                // the record core's cases (the NES with golden/desc_cut.toml): the shared unit cut
+#ifdef TEST_APP_NES                      // the record core's cases (the NES with golden/desc_cut.toml): its app (run.sh nesapp, nes_cut)
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     g_rm = new RecordMenu(&base, argv[1]);
@@ -560,6 +562,7 @@ int main(int, char **argv)
         CHECK(l.left(l.m->selected()) == "b.atr");
     }
 #endif
+#ifndef TEST_APP_NES                     // the key table: the shared unit's and the Atari's app's
     // ---- the table: every row names an intent the executor knows (S6, S15) -------------------------------------------------------------------------------------------
     {
         int n;
@@ -577,5 +580,6 @@ int main(int, char **argv)
         }
         CHECK_EQ(menu_intent_by_name("no such intent"), -1);
     }
+#endif
     DONE("test_cut");
 }

@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
@@ -33,7 +33,6 @@
 #ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "apple2_disk.h"
 #include "apple2_regs.h"
-#include "nes_regs.h"
 #include "neogeo_regs.h"
 #include "c64_regs.h"
 #include "c264_regs.h"
@@ -43,6 +42,9 @@
 #endif
 #ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
 #include "atari800_regs.h"
+#endif
+#ifdef TEST_APP_NES
+#include "nes_regs.h"
 #endif
 #ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
@@ -64,8 +66,11 @@ const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #elif defined(TEST_APP_ATARI800)
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
                                        0 };
 #endif
 
@@ -73,7 +78,7 @@ typedef std::vector<uint8_t> Bytes;
 
 // ---- the machines ------------------------------------------------------------------------------------------------------------------------
 #ifdef MME_NO_DRIVE
-struct GIo : FakeIo { };                              // the Spectrum and the CPC have no drive behind a window
+struct GIo : FakeIo { };                              // the Spectrum, the CPC and the NES have no drive behind a window
 #else
 struct GIo : FakeIo {                                    // a register file, the arrays and a drive behind the drive window
     DriveModel dm;
@@ -311,7 +316,7 @@ static Bytes d64(const char *name)
     return d.img;
 }
 #endif
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_NES          // the NES's game file
 static Bytes nes_file(uint32_t seed)
 {
     Bytes v(16, 0);
@@ -321,6 +326,8 @@ static Bytes nes_file(uint32_t seed)
     v.insert(v.end(), d.begin(), d.end());
     return v;
 }
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes snes_file(uint32_t seed)
 {
     Bytes v(0x80000);
@@ -457,7 +464,7 @@ static Case cbm_drive()
     return k;
 }
 #endif
-#ifndef MME_OWN_APP
+#if !defined(MME_OWN_APP) || defined(TEST_APP_NES)          // the game cores: the shared app's SNES and Neo Geo, the NES's app
 static Case game_case(const char *run_op, const char *a, const char *b)
 {
     Case k;
@@ -527,6 +534,17 @@ static std::vector<Prof> profiles()
         };
         p.prep = [](Run &r) { Bytes rom(16384, 0x5A); OpIn in = in_blob("data", rom.data(), (uint32_t)rom.size()); OpResult res; ops_call(&r.c, "cpc.put_amsdos", &in, 1, &res); };
         p.cases = { cpc_drive(0), cpc_drive(1), tape_case("cpc", "cdt") };
+        v.push_back(p);
+    }
+#endif
+#ifdef TEST_APP_NES
+    {   // ---- NES: the game is the cartridge
+        Prof p;
+        p.name = "nes"; p.cfg = "/usb0/cores/nes/nes.cfg"; p.base = &nes_desc; p.game = true;
+        p.make_io = [] { return (CoreIo *)new GIo; };
+        p.world = [](FakeFs &fs) { fs.put("/usb0/a.nes", nes_file(1)); fs.put("/usb0/b.nes", nes_file(2)); };
+        p.cases = { game_case("nes.run", "/usb0/a.nes", "/usb0/b.nes") };
+        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(NES_INES + 4); }, 1, "the iNES header in the core before the release" } };
         v.push_back(p);
     }
 #endif
@@ -605,14 +623,7 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->cart_rd(C64_CARTREG_TYPE); }, 0x41, "the cartridge type set before the release" } };
         v.push_back(p);
     }
-    {   // ---- NES, SNES, Neo Geo: the game is the cartridge
-        Prof p;
-        p.name = "nes"; p.cfg = "/usb0/cores/nes/nes.cfg"; p.base = &nes_desc; p.game = true;
-        p.make_io = [] { return (CoreIo *)new GIo; };
-        p.world = [](FakeFs &fs) { fs.put("/usb0/a.nes", nes_file(1)); fs.put("/usb0/b.nes", nes_file(2)); };
-        p.cases = { game_case("nes.run", "/usb0/a.nes", "/usb0/b.nes") };
-        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(NES_INES + 4); }, 1, "the iNES header in the core before the release" } };
-        v.push_back(p);
+    {   // ---- SNES, Neo Geo: the game is the cartridge (the NES's is the unit nes_mounts)
         Prof s;
         s.name = "snes"; s.cfg = "/usb0/cores/snes/snes.cfg"; s.base = &snes_desc; s.game = true;
         s.make_io = [] { return (CoreIo *)new GIo; };
@@ -1093,6 +1104,8 @@ static void neo_folder(const Prof &p)
     printf("neogeo: a ROM set folder is stored as \"folder <folder>/<set>\" and restored\n");
 }
 
+#endif
+#if !defined(MME_OWN_APP) || defined(TEST_APP_NES)
 // a game core's set that leaves the cartridge empty: nothing to run, no reset, the message says so
 static void game_empty_set(const Prof &p)
 {
@@ -1130,7 +1143,7 @@ int main()
         s3_missing(p);
         s8_sets(p);
         s8_writeback(p);
-#ifndef MME_OWN_APP
+#if !defined(MME_OWN_APP) || defined(TEST_APP_NES)
         if (p.game) game_empty_set(p);
 #endif
     }
@@ -1145,6 +1158,8 @@ int main()
     cpc_464(prof(profs, "cpc"));
 #elif defined(TEST_APP_C128)
     drive_modes(prof(profs, "c128"));
+#elif defined(TEST_APP_NES)
+                                                       // the NES's profile has the cartridge only: the sets of S2 to S8 above and the empty set are its checks
 #elif defined(TEST_APP_ATARI800)
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
