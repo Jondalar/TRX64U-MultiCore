@@ -1188,10 +1188,15 @@ def _is_ref_key(k):
     return k in TOML_A_REF_KEYS or (isinstance(k, str) and k.startswith("reg_"))
 
 
-def toml_a_names(tomla):
+def toml_a_names(tomla, maps=None):
     """{ "block.property": register number, "block.property.state": value } of a TOML A document (checked by compile_desc first); the register number counts from the
     address of the identity block."""
     import copy
+    if not maps:                                                # no maps given (cor_pack --desc, compile_text): the SDK's own, where the package has them beside the tools
+        mdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "sdkpkg", "maps")
+        maps = load_maps([mdir]) if os.path.isdir(mdir) else {}
+    if maps:
+        tomla = resolve_maps(tomla, maps)                       # a block of the TOML A that names a module map (the C128's drive_a, drive_wd) is read with its properties
     compile_desc(copy.deepcopy(tomla))
     base = next(b["address"] for b in tomla["block"] if b["name"] == tomla["identity"]["block"])
     out = {}
@@ -1237,7 +1242,7 @@ def _has_ref(node):
     return False
 
 
-def resolve_toml_a_refs(doc, path=None):
+def resolve_toml_a_refs(doc, path=None, maps=None):
     """doc is changed: the names of its register keys become numbers (see above). Without `toml_a` a name is refused; without a path `toml_a` is refused."""
     ref = doc.pop("toml_a", None)
     if ref is None:
@@ -1252,7 +1257,7 @@ def resolve_toml_a_refs(doc, path=None):
     try:
         with open(fn) as fh:
             tomla = toml_loads(fh.read())
-        names = toml_a_names(tomla)
+        names = toml_a_names(tomla, maps)
     except OSError as e:
         raise DescError("toml_a %s: %s" % (ref, e.strerror))
     except DescError as e:
@@ -3516,7 +3521,7 @@ def compile_files(files, ops_text=None, maps=None):
     docs = []
     for name, text in files:
         try:
-            docs.append((name, resolve_toml_a_refs(toml_loads(text), name)))
+            docs.append((name, resolve_toml_a_refs(toml_loads(text), name, maps)))
         except DescError as e:
             raise DescError("%s: %s" % (name, e))
     doc = merge_docs(docs) if len(docs) > 1 else docs[0][1]
@@ -3531,7 +3536,7 @@ def compile_files(files, ops_text=None, maps=None):
 
 def compile_checked(text, ops_text=None, *, what="description", maps=None, path=None, app_base=False):
     """compile_text, and - given the application's export - check every name and binding of the result against it. `app_base`: the SDK's base UI TOML (compile_desc)."""
-    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path), maps), app_base=app_base)
+    blob = compile_desc(resolve_maps(resolve_toml_a_refs(toml_loads(text), path, maps), maps), app_base=app_base)
     if ops_text is not None:
         ops, states = load_ops(ops_text)
         bad = check_ops(parse_desc(blob), ops, states)
