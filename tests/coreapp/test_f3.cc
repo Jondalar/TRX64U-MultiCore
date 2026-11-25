@@ -117,6 +117,18 @@ int main()
         CHECK(r.m->take_screen());
         CHECK(!r.m->chooser());
         CHECK(!r.c.lib.want_sheet && !r.c.lib.want_name[0]);
+        // finding 8: a browse_at that went nowhere (no such screen) or that a later goto_screen replaced leaves nothing for the next Browse entry
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F9/nowhere");
+        CHECK(!r.m->take_screen());
+        CHECK(!r.c.lib.want_dir[0] && !r.c.lib.want_name[0] && !r.c.lib.want_sheet);
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());                                                  // browse_at, taken by the browser
+        CHECK(!r.c.lib.want_dir[0] && !r.c.lib.want_name[0]);
     }
 
     // ---- D6: the file operations in a core that carries none of its own

@@ -1456,10 +1456,14 @@ int main(int argc, char **argv)
         Rig r(cs, 1, &f3sk);
         CHECK(!r.has_err("search"));
         r.m->open();
+        FsEntry rootbuf[8];
+        const int lb = r.fs.lists;
+        r.fs.list("/", rootbuf, 8);
+        const int one_root = r.fs.lists - lb;                                          // what the media chips' read of "/" costs: the only list the idle tab may make
         const int lists0 = r.fs.lists;
         CHECK(r.m->goto_spec("F3/search") && r.m->search_tab());
         const int lists1 = r.fs.lists;
-        CHECK(lists1 - lists0 <= 1);                                                   // T262 D4 (2): the idle Search tab reads no folder (the one list is the media chips' "/"), ...
+        CHECK_EQ(lists1 - lists0, one_root);                                           // T262 D4 (2): the idle Search tab reads no folder (a folder read would add its own list to the chips' "/"), ...
         CHECK(!r.m->relist());
         CHECK_EQ(r.fs.lists, lists1);                                                  // ... and not when the menu looks again
         CHECK_EQ(r.m->search_source_count(), 1);
@@ -1515,6 +1519,16 @@ int main(int argc, char **argv)
         CHECK_EQ(r.m->selected(), 1);
         r.m->key(KEY_ESCAPE);
         CHECK(r.m->search_form());
+        CHECK_EQ(r.m->rows(), 6);                                                      // T262 D4 finding 7: the source changes -> the old source's kept results go with it
+        r.m->key(KEY_HOME);
+        r.m->key(KEY_RETURN);                                                          // the next source after Online is This device
+        CHECK_STR(r.right(0).c_str(), "This device");
+        CHECK_EQ(r.m->rows(), 3);                                                      // Source, Name contains, Search: no Results row
+        CHECK(r.find_row("Results") < 0);
+        r.m->key(KEY_RETURN);                                                          // back to Online: the old results are not offered again
+        CHECK_STR(r.right(0).c_str(), "Online");
+        CHECK_EQ(r.m->rows(), 5);                                                      // Source, Name contains, Group, Handle, Search
+        CHECK(r.find_row("Results") < 0);
         r.m->key(KEY_ESCAPE);                                                          // <- from the form leaves it, the results go
         CHECK(!r.m->picking() && !r.m->search_form());
         r.m->key('/');                                                                 // the form again: it kept the source and the texts

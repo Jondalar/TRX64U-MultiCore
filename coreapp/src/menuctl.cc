@@ -2202,7 +2202,11 @@ bool MenuCtl::pick_key(int k, Result *out)
                 }
             }
             pos = (pos + 1) % (n + 1);
+            const int was = sf_src_;
             sf_src_ = pos ? idx[pos - 1] : -1;
+            if (sf_src_ != was) {
+                sf_drop_kept();                                         // the kept results are the old source's: its Results row must not open them under the new one
+            }
         };
         switch (k) {
         case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
@@ -4315,11 +4319,16 @@ bool MenuCtl::take_screen()
     snprintf(spec, sizeof(spec), "%s", c_->want_screen);
     c_->want_screen[0] = 0;
     const bool went = goto_spec(spec);
+    const bool browsing = went && is_browser() && !search_tab();      // only the browser's folder read takes want_dir and want_name
     if (c_->lib.want_sheet) {                                        // T262 D4 finding 12: browse_sheet: RETURN on the file the cursor was put on opens its action sheet
         c_->lib.want_sheet = false;
-        if (went && is_browser() && fm_.placed && fm_.sel < fm_.nlist && !fm_.list[fm_.sel].dir) {
+        if (browsing && fm_.placed && fm_.sel < fm_.nlist && !fm_.list[fm_.sel].dir) {
             activate(false, false);
         }
+    }
+    if (!browsing) {                                                 // browse_at that went nowhere (no such screen, or a later goto_screen replaced it): the next Browse entry must not apply it
+        c_->lib.want_dir[0] = 0;
+        c_->lib.want_name[0] = 0;
     }
     return went;
 }
