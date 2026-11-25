@@ -236,6 +236,16 @@ class ImportsTest(unittest.TestCase):
             self.write("release/imports/g.pin", head + 'U2A="%s"\n' % badlist)
             with self.assertRaises(I.ImportError_, msg=badlist):
                 I.names(self.root)
+        # reserved names, a size that is no ASCII digits, the same name in two pins
+        for badlist in ("unzip.u2a:%s:5" % ("1" * 64), "miniz.u2a:%s:5" % ("1" * 64), "testlib.u2a:%s:5" % ("1" * 64), "a.u2a:%s:\u0665" % ("1" * 64), "a.u2a:%s:+5" % ("1" * 64)):
+            self.write("release/imports/g.pin", head + 'U2A="%s"\n' % badlist)
+            with self.assertRaises(I.ImportError_, msg=badlist):
+                I.names(self.root)
+        self.write("release/imports/g.pin", head + 'U2A="a.u2a:%s:5"\n' % ("1" * 64))
+        self.write("release/imports/h.pin", head.replace("ID=g", "ID=h") + 'U2A="a.u2a:%s:5"\n' % ("1" * 64))
+        with self.assertRaises(I.ImportError_):
+            I.names(self.root)
+        os.unlink(os.path.join(self.root, "release/imports/h.pin"))
         # U2A needs the release form
         self.write("release/imports/g.pin", "ID=g\nPACKAGE=p\nVERSION=v\nCOR_FILE=g.cor\nCOR_SHA256=%s\nCOR_SIZE=5\nU2A=\"a.u2a:%s:5\"\n" % ("1" * 64, "1" * 64))
         with self.assertRaises(I.ImportError_):

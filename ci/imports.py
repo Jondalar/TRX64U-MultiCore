@@ -50,6 +50,7 @@ CODE = ("ci/imports.py", "ci/pkg.env", "ci/version.sh", "tools/pack_import_cor.s
 ENTRY = re.compile(r"^imp-([A-Za-z0-9_]+)-([0-9a-f]{16})$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
 U2A_NAME = re.compile(r"^[a-z0-9_]+\.u2a$")
+U2A_RESERVED = ("unzip.u2a", "miniz.u2a", "testlib.u2a")     # made by this repository's own build: a pin may not list them
 NAME_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$")
 MAX_FETCH = 64 * 1024 * 1024
 
@@ -86,7 +87,7 @@ def read_pin(path):
 def pins(root=ROOT):
     """[(id, path, pin)] of the pins that are packed, sorted by file name."""
     d = os.path.join(root, IMPORTS)
-    out = []
+    out, u2a_seen = [], {}
     for n in sorted(os.listdir(d)) if os.path.isdir(d) else []:
         if not n.endswith(".pin"):
             continue
@@ -94,7 +95,10 @@ def pins(root=ROOT):
         pin = read_pin(p)
         if pin.get("PIPELINE", "").lower() == "false":
             continue
-        u2a_list(pin)
+        for name, _, _ in u2a_list(pin):
+            if name in u2a_seen:
+                raise ImportError_("%s: U2A %s is also listed by release/imports/%s.pin" % (n, name, u2a_seen[name]))
+            u2a_seen[name] = n
         cid = pin.get("ID", "")
         if cid != n[:-4] or not re.match(r"^[A-Za-z0-9_]+$", cid):
             raise ImportError_("%s: ID=%s does not name the file" % (n, cid))
@@ -107,8 +111,10 @@ def u2a_list(pin):
     out, seen = [], set()
     for item in (pin.get("U2A") or "").split():
         f = item.split(":")
-        if len(f) != 3 or not U2A_NAME.match(f[0]) or not SHA.match(f[1]) or not f[2].isdigit() or not 0 < int(f[2]) <= MAX_FETCH:
+        if len(f) != 3 or not U2A_NAME.match(f[0]) or not SHA.match(f[1]) or not re.match(r"^[0-9]+$", f[2]) or not 0 < int(f[2]) <= MAX_FETCH:
             raise ImportError_("release/imports/%s.pin: U2A item %r is not <name>.u2a:<sha256>:<size>" % (pin.get("ID"), item[:80]))
+        if f[0] in U2A_RESERVED:
+            raise ImportError_("release/imports/%s.pin: U2A may not list %s (this build makes it)" % (pin.get("ID"), f[0]))
         if f[0] in seen:
             raise ImportError_("release/imports/%s.pin: U2A names %s twice" % (pin.get("ID"), f[0]))
         seen.add(f[0])

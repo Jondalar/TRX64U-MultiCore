@@ -205,11 +205,16 @@ if [ -f "$HANDOFF/bit-imports/DONE" ]; then
       || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
   done
   # T261 D7: the .u2a files the pins list (U2A), unchanged from the release of their .cor; a pin without U2A lists none (today's pin: the package carries no trex_crt.u2a, no online.u2a)
-  u2a_names="$(python3 -I "$ROOT/ci/imports.py" u2a)" || mark_red package u2a "ci/imports.py u2a failed"
-  [ -n "$u2a_names" ] || echo "no pin lists a U2A file: the package carries no trex_crt.u2a and no online.u2a"
-  for a in $u2a_names; do
-    [ -s "$HANDOFF/bit-imports/$a" ] && cp "$HANDOFF/bit-imports/$a" "$out/" || mark_red package "$a" "bit-imports hold no $a that the pin lists"
-  done
+  if u2a_names="$(python3 -I "$ROOT/ci/imports.py" u2a)"; then
+    [ -n "$u2a_names" ] || echo "no pin lists a U2A file: the package carries no trex_crt.u2a and no online.u2a"
+    for a in $u2a_names; do
+      if [ -e "$out/$a" ]; then mark_red package "$a" "the package already holds $a: an imported .u2a does not replace it"
+      elif [ -s "$HANDOFF/bit-imports/$a" ]; then cp "$HANDOFF/bit-imports/$a" "$out/"
+      else mark_red package "$a" "bit-imports hold no $a that the pin lists"; fi
+    done
+  else
+    mark_red package u2a "ci/imports.py u2a failed"
+  fi
 else
   echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor, no .u2a of their pins"
 fi

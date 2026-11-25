@@ -203,3 +203,4 @@ Scenario: S6 trx64u.cor from their pre-release
 - **`release/imports/trx64u.pin`:** byte-for-byte unchanged; it moves to the release form with `U2A` once TRX64-Ultimate's first `fw-*` pre-release carries all three.
 - **Not run:** `ci/package.sh` and `ci/collect.sh` themselves (`bash -n` only; no pipeline run yet).
 - **Tests:** `ci/test_imports.py` `test_u2a_of_the_release` (fake release: fetch, wrong SHA-256 refused and not kept, entry = `.cor` + both `.u2a`, list change re-keys, malformed lists and Gitea form refused, no `U2A` = `.cor` only). `python3 -W ignore ci/test_imports.py`: `Ran 7 tests ... OK`.
+- **Review fixes:** `U2A` refuses `unzip.u2a`, `miniz.u2a`, `testlib.u2a`, a name listed by two pins (in `pins()`), and a size that is not ASCII digits (all `ImportError_`); `ci/package.sh` is red when an imported `.u2a` would replace a file already in the package, and prints the "no pin lists" line only when `ci/imports.py u2a` succeeded.
