@@ -480,6 +480,8 @@ int main()
         w.m->key(KEY_F2);
         CHECK(w.m->goto_when_open("F3"));                         // open menu: at once
         CHECK_EQ(w.m->area(), 1);
+        CHECK(w.m->pump(true));                                   // T262 D4: and the screen is drawn at once: the loop's pump says it changed, once
+        CHECK(!w.m->pump(true));
     }
     // T239.3 D41 (review): a file the medium is still fetching: the action stays pending, the status row says so, pump() opens again every 300 ms; leaving the folder cancels
     {

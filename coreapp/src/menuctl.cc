@@ -3055,6 +3055,10 @@ bool MenuCtl::pump(bool quiet)
 {
     int nk = quiet ? 0 : 1;
     bool changed = false;
+    if (goto_redraw_) {                                              // T262 D4: a goto_screen of a library moved the open menu (the loop took the request at its pass): the screen is drawn now, not with the next key
+        goto_redraw_ = false;
+        changed = true;
+    }
     if (nk == 0 && wizard() && map_tick()) {                         // a wizard's next press (the pad mapping)
         nk++;
         changed = true;
@@ -4195,7 +4199,9 @@ bool MenuCtl::goto_spec(const char *spec)
 bool MenuCtl::goto_when_open(const char *spec)
 {
     if (c_->menu_open) {
-        return goto_spec(spec);
+        const bool went = goto_spec(spec);
+        goto_redraw_ = goto_redraw_ || went;
+        return went;
     }
     int a, t;
     if (!resolve_spec(spec, &a, &t) || strlen(spec) >= sizeof(pend_goto_)) {

@@ -369,6 +369,7 @@ private:
     uint32_t toast_until_ = 0, toast_rev_ = 0;
     bool status_bad_;
     bool resolve_spec(const char *spec, int *ra, int *rt) const;
+    bool goto_redraw_ = false;                                     // a goto_screen moved the open menu: pump() says the screen changed, once
     char pend_goto_[48] = "";                                      // goto_when_open: the place open() goes to
     char pend_say_[OP_MSG_MAX] = "";
     bool pend_say_bad_ = false;
