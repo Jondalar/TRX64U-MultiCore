@@ -310,8 +310,8 @@
 1|diag_probe|900|sh cores/diag/sim/probe/run.sh
 # T175 D2: the open-drain joystick pads (released = the old pure input, 1024 combinations; drive low only; decouple) and their wiring in mono/top.v, layer2_diag.v, pins.xdc
 1|diag_pins|300|sh cores/diag/sim/pins/run.sh
-# T175 co-check: the step words the core application compiles from the four example tests run on the real probe engine (iverilog), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
-1|diag_co|1500|sh cores/diag/sim/co/run.sh
+# T175 / T260 co-check: the step words the diag application compiles from the four example tests run on the real probe engine v2 (iverilog, the four side by side, cd32 about 15 minutes), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
+1|diag_co|2400|sh cores/diag/sim/co/run.sh
 # T201 S1: the diag core's A/V test picture encoder (diag_avout.v + diag_yc.v) word for word against the unedited copy of the C128 encoder, four standards
 1|diag_avenc|600|sh cores/diag/sim/avenc/run.sh
 # T201 S2, S10: every A/V knob register (0x50-0x5F of diag_regs.v) changes the encoder words as specified, live; the sync knobs (D4) give the specified csync (tb_avsync, a second top of tb_avregs.v, run beside it)
