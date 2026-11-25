@@ -2516,6 +2516,28 @@ static void t262_list(const char *out)
         lv_obj_invalidate(lv_screen_active());
         lv_timer_handler();
         if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+        // T262 D4 (1): a key on the page writes it in place: a move redraws two rows and the panel, a RETURN the status line, not the page (~365,000 px a build)
+        {
+            const uint32_t b0 = ui_listv_builds(), ip0 = ui_inplace_moves();
+            c.m->key(KEY_DOWN);
+            ui_menu_render(*c.m);
+            const uint32_t px = inv_pixels();
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0 && ui_inplace_moves() == ip0 + 1);
+            CHECK(find_label(lv_screen_active(), "side one of 1") != 0 && find_label(lv_screen_active(), "side one of 0") == 0);
+            CHECK(px > 0 && px < 150000);                                      // two rows and the panel, a third of the ~365,000 of a build
+            c.m->key(KEY_RETURN);                                              // the library works on the row: the status line says so, the page stands
+            ui_menu_render(*c.m);
+            const uint32_t px2 = inv_pixels();
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0 && ui_inplace_moves() == ip0 + 2);
+            CHECK(px2 < 100000);
+            printf("AREA t262 list %s: DOWN %u px, RETURN %u px\n", cv.name, (unsigned)px, (unsigned)px2);
+            c.m->key(KEY_UP);
+            ui_menu_render(*c.m);
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0);
+        }
         // the last row selected: the window moved, the row stands inside the card and the panel shows its lines
         c.m->key(KEY_END);
         ui_menu_render(*c.m);

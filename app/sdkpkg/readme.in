@@ -228,6 +228,7 @@ One round of fixes for the defects TRX64-Ultimate found in 0.5.0. A library buil
 - **The search tab with a source.** RETURN on the idle Search tab asks for a name as it does without a source; the form is `/`. The idle tab shows the text the form holds, and its side panel no longer says "No media found." (`api.md` 6.20.2).
 - **`<-` from search results.** It goes back to the search form with the results kept; a row `Results` of the form opens them again (`api.md` 6.20.2).
 - **A job keeps its form.** A node's job that started on a screen leaves the screen standing: the job's row carries the words (`busy`) and the percentage, the other rows stay. On a page of one row the words are the row's, the title is the tab's when it would repeat them (`api.md` 6.7.3).
+- **The list page keeps its rows.** A key on the page of a `list` node (a move, a RETURN, a status line, rows that changed) writes the rows, the foot and the side panel in place; the page is built again only when its shape changes (about 365,000 pixels became 7,000 to 110,000 per key). The idle Search tab of the F3 Library no longer reads the folder it does not show (it held the tab blank for as long as the folder took).
 
 ## Licence
 
