@@ -11,6 +11,7 @@
 #include "keyboard.h"
 #include "lib_skel.h"
 #include "ops_glue.h"
+#include "home.h"
 
 struct Host : MenuHost {
     int returns = 0; bool can = false;
@@ -201,7 +202,6 @@ int main()
     CHECK_STR(r.m->title(), "/");
     r.go_to("usb0/"); r.m->key(KEY_RETURN);
     CHECK_STR(r.m->title(), "/usb0");
-    if (g_fails) {
     // T262 P7: a Run that waited for its file closes the menu when it has run (pump raises it; the loop closes as for a key's R_CLOSE)
     {
         Rig w(&atari800_desc);
@@ -223,7 +223,34 @@ int main()
         CHECK(w.m->take_pump_close());                            // ... and the menu is to close
         CHECK(!w.m->take_pump_close());                           // once
     }
-    DONE("test_menuctl");                                      // the media level is wrong: what follows stands on it
+    // T262 review 1: the pump's close saves the reopen place as a key's close does (Menu opens at = Last screen: the folder comes back)
+    {
+        static CoreDesc gd;
+        static Setting gs[SETTINGS_MAX];
+        CHECK(!home_extend(&atari800_desc, &gd, gs));
+        Rig w(&gd);
+        w.st->load();
+        { OpResult o; OpIn in[2] = { in_str("key", REOPEN_KEY), in_str("value", "Last screen") }; CHECK_EQ(ops_call(&w.c, "settings.set", in, 2, &o), OPE_OK); }
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/p.xex";
+        w.fs.loading_n = 1;
+        w.go_to("p.xex");
+        w.m->key(KEY_RETURN);
+        CHECK_EQ(w.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        w.io.t += 300; w.m->pump(true);
+        CHECK(w.m->take_pump_close());
+        const int area = w.m->area();
+        CHECK(area != 0);
+        w.m->open();
+        CHECK_EQ(w.m->area(), area);
+        CHECK_STR(w.m->title(), "/usb0/games");
+        printf("PASS pump close saves the reopen place\n");
+    }
+    if (g_fails) {
+        DONE("test_menuctl");                                  // the media level is wrong: what follows stands on it
     }
     CHECK(r.find_row("../") == 0);
     CHECK(r.find_row("top.car") >= 0);

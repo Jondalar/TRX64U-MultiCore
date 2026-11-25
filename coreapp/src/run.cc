@@ -1287,7 +1287,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             redraw_next = true;                           // a remote intent changed the menu: the next pass draws it
         }
         ui_changed = false;
-        if (menu->take_pump_close() && !ctx.desc->menu_first && menu_open) {   // the menu's own clock ran an action that closes it (a Run after a fetch): the close of a key's R_CLOSE
+        if (menu->take_pump_close() && !ctx.desc->menu_first && menu_open) {   // the menu's own clock ran an action that closes it (a Run after a fetch; the controller has saved the reopen place as a key's R_CLOSE does): the close of a key's R_CLOSE
             close_req = true;
         }
         if (close_req) {                                  // ... or closed it (a remote `back`/RUN/STOP): the same close as the local key's

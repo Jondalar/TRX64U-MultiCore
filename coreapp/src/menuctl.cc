@@ -2836,6 +2836,7 @@ bool MenuCtl::pend_tick(uint32_t now)
     char f[FS_PATH_MAX];
     snprintf(f, sizeof(f), "%s", pend_file_);
     if (run_action(a, f, pend_ask_) == R_CLOSE) {               // still fetching: pending again (the status row says so); else it has run, and a Run closes the menu as a key's would
+        leave();                                                // apply() does the same for a key's R_CLOSE: the place the menu reopens at is saved (leave() does nothing in an application's session)
         (app_mode_ ? close_req_ : pump_close_) = true;
     }
     return true;
