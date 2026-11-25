@@ -112,7 +112,9 @@ Scenario: S6 trx64u.cor from their pre-release
   emulator image (`ci/emu/Dockerfile`) builds `ue2emu` with the `net` feature, so `--net user` works: TRX64-Ultimate's emulator check
   reads the firmware's REST server through it (their run 45576354413 was red only there). libslirp >= 4.7 (`slirp_handle_timer`) is
   built from source at a pinned tag and commit, since Ubuntu 22.04 has 4.6; the image stays on 22.04. `ci-images.yml` pushes from
-  `t239.3` too. TRX64-Ultimate pins the new digest; ours follows once it is proven.
+  `t239.3` too. TRX64-Ultimate pins the new digest; ours follows once it is proven. **Proven 2026-11-25:** CI images run 45584246906
+  published `trx64u-emu@sha256:ba18a018...7984` (`libslirp.so.0 => /usr/local/lib/libslirp.so.0`); TRX64-Ultimate's run 45585489392
+  (`u20` cfad980) green in every job, "12 Emulator tests: trx64u with its own app" included.
 
 ## §4 Out
 
