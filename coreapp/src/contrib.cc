@@ -805,6 +805,20 @@ static void merge_poll(const Contributor &c, const OpRegistry *reg, MenuMerge *m
     mm->npolls++;
 }
 
+int contrib_add_keys(MenuMerge *mm, const char *owner, const CoreKey *rows, int n)
+{
+    int added = 0;
+    for (int i = 0; i < n; i++) {
+        if (mm->nlibkeys >= CONTRIB_KEYS_MAX) {
+            refuse(mm, "%s: key row %d has no room (%d library key rows at most)", owner, i + 1, CONTRIB_KEYS_MAX);
+            break;
+        }
+        mm->libkeys[mm->nlibkeys++] = &rows[i];
+        added++;
+    }
+    return added;
+}
+
 // ---- the merge ----------------------------------------------------------------------------------------------------------------
 #define CONTRIBUTORS_MAX 32
 

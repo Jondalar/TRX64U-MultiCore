@@ -997,6 +997,46 @@ int main(int argc, char **argv)
         g_gate.clear();
     }
 
+    // ---- T262 D4 finding 11: the key rows of a library's menu record follow the core's, name themselves in the legend, and run the library's operation
+    {
+        static const LibTabDecl tabs[] = { { "F5", "keyed", "Keyed", TW_NODES, 0, 0 } };
+        static const LibNodeDecl nodes[] = { { "F5/keyed", LN_OP, "Row", "zl.beep", 0, 1 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "keyer", CR_LIB, &rec } };
+        static CoreKey own[1], lib[2];
+        memset(own, 0, sizeof(own)); memset(lib, 0, sizeof(lib));
+        own[0].node = "keyed"; own[0].row.stage = KS_CORE; own[0].row.intent = MI_SWALLOW; own[0].row.lo = own[0].row.hi = 'z';
+        for (int i = 0; i < 2; i++) {
+            lib[i].node = "keyed"; lib[i].row.stage = KS_CORE; lib[i].row.intent = MI_OP; lib[i].row.op = "zl.beep";
+        }
+        lib[0].row.lo = lib[0].row.hi = 'k'; lib[0].legend = "Beep it";
+        lib[1].row.lo = lib[1].row.hi = 'z';                                           // the core took 'z' first
+        Rig r(cs, 1);
+        r.mm->keys = own; r.mm->nkeys = 1;
+        CHECK_EQ(contrib_add_keys(r.mm, "keyer", lib, 2), 2);
+        CHECK_EQ(r.mm->nkeys_all(), 3);
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/keyed"));
+        char leg[200];
+        r.m->footer_legend(leg, sizeof(leg));
+        CHECK(strstr(leg, "K BEEP IT") != 0);
+        g_beeps = 0;
+        r.m->key('k');
+        CHECK_EQ(g_beeps, 1);                                                          // the library's row runs its operation
+        r.m->key('z');
+        CHECK_EQ(g_beeps, 1);                                                          // the core's row stands before the library's
+        CoreKey many[1];
+        memset(many, 0, sizeof(many));
+        MenuMerge *mm = r.mm;
+        mm->nlibkeys = CONTRIB_KEYS_MAX;
+        CHECK_EQ(contrib_add_keys(mm, "keyer", many, 1), 0);                           // no room: refused and told
+        CHECK(mm->nerr > 0 && strstr(mm->err[mm->nerr - 1], "no room") != 0);
+    }
+
     // ---- T262 P4: a node's job shows the node's own words while it runs and a percentage only once the operation reports one (not "Building the image 0%")
     {
         static const LibTabDecl tabs[] = { { "F5", "jobs", "Jobs", TW_NODES, 0, 0 } };

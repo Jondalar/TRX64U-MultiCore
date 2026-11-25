@@ -355,6 +355,15 @@ def menu_record():
             check(rc == 1 and not os.path.exists(out), "a menu record with a route or a hide list is refused")
         open(t, "w").write(toml)
         check(P.main([os.path.join(FIX, "testlib.at0.elf"), "-o", out, "--name", "testlib", "--menu", t]) == 0 and os.path.exists(out), "--menu packs")
+        # T262 D4 finding 11: a library's record carries [[key]] rows; windows and an application's key table stay a core's
+        keyrow = '[[key]]\nnode = "lib"\nkey = "x"\nop = "test.echo"\nlegend = "Echo"\n'
+        open(t, "w").write(toml + keyrow)
+        os.path.exists(out) and os.remove(out)
+        check(P.main([os.path.join(FIX, "testlib.at0.elf"), "-o", out, "--name", "testlib", "--menu", t]) == 0 and os.path.exists(out), "a library's menu record with a [[key]] row packs")
+        os.remove(out)
+        check(P.main([os.path.join(FIX, "testlib.at0.elf"), "-o", out, "--name", "testlib", "--kind", "app", "--menu", t]) == 1 and not os.path.exists(out), "an application's menu record with a key table is refused")
+        open(t, "w").write('[[window]]\nname = "video"\naddress = 0xA0000A00\nsize = 0x14\n')
+        check(P.main([os.path.join(FIX, "testlib.at0.elf"), "-o", out, "--name", "testlib", "--menu", t]) == 1 and not os.path.exists(out), "a menu record with windows is refused")
 
 
 def budget_record():

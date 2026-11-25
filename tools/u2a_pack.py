@@ -457,8 +457,8 @@ def main(argv=None):
         menu = b""
         if a.menu:
             doc = descrec.toml_loads(open(a.menu).read())
-            if "key" in doc or "window" in doc:
-                raise PackError("a menu record has no key table and no windows; those are a core's description (base 3.3: the core's menu.toml and desc.toml)")
+            if "window" in doc or ("key" in doc and a.kind == "app"):
+                raise PackError("a menu record has no windows, and an application's has no key table; those are a core's description (base 3.3: the core's menu.toml and desc.toml). A library's record may carry [[key]] rows (base 3.6)")
             if "hide" in doc or "rename" in doc or ("area" in doc and (a.kind != "app" or any(ar.get("key") != "APP" for ar in doc["area"]))):
                 raise PackError("a menu record gives no route of the core's and hides or renames nothing; that is a core's description (an application's own screens are the area APP)")
             menu = descrec.compile_desc(doc)

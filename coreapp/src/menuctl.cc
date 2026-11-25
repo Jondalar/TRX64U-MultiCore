@@ -4012,8 +4012,8 @@ void MenuCtl::footer_legend_keys(char *out, int n)
             p += snprintf(out + p, n - p, "  %c %s", kb[0], lab);
         }
     }
-    for (int i = 0; c_->merge && i < c_->merge->nkeys && p < n - 12; i++) {      // T262 P6: a row of the core's key table that names itself ("legend"), for the tab that is shown
-        const CoreKey &r = c_->merge->keys[i];
+    for (int i = 0; c_->merge && i < c_->merge->nkeys_all() && p < n - 12; i++) {      // T262 P6: a row of the core's key table (and of the libraries') that names itself ("legend"), for the tab that is shown
+        const CoreKey &r = c_->merge->key_at(i);
         char kn[12];
         if (!r.legend || r.row.lo < 0 || r.row.lo != r.row.hi || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node)) || (r.row.when && !when_holds(c_, r.row.when)) ||
             !legend_key_name(r.row.lo, kn, sizeof(kn))) {
@@ -4747,7 +4747,7 @@ bool MenuCtl::stage_on(int stage) const
     case KS_SHEET: return chooser_ && !entry_ && !pick_ && !busy_;
     case KS_APP: return app_mode_ && !busy_ && !entry_ && !pick_ && !chooser_;
     case KS_APP_TERM: return layout_is("terminal") && app_mode_ && !busy_ && !entry_ && !pick_;
-    case KS_CORE: return c_->merge && c_->merge->nkeys > 0 && !app_mode_ && !busy_ && !entry_ && !pick_;      // the rows of the core's record say which tab they are for (core_row_next)
+    case KS_CORE: return c_->merge && c_->merge->nkeys_all() > 0 && !app_mode_ && !busy_ && !entry_ && !pick_;      // the rows of the core's record say which tab they are for (core_row_next)
     case KS_BUSY: return busy_;
     case KS_PICK: return pick_ && !(pick_form_ && sf_edit_ >= 0);          // the form's own text being typed is the entry's
     case KS_ENTRY: return entry_;
@@ -4762,8 +4762,8 @@ bool MenuCtl::stage_on(int stage) const
 int MenuCtl::core_row_next(int k, int from) const
 {
     const MenuMerge *mm = c_->merge;
-    for (int i = mm ? from : 0; mm && i < mm->nkeys; i++) {
-        const CoreKey &r = mm->keys[i];
+    for (int i = mm ? from : 0; mm && i < mm->nkeys_all(); i++) {
+        const CoreKey &r = mm->key_at(i);
         if (!(r.row.lo < 0 || (k >= r.row.lo && k <= r.row.hi)) || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node))) {
             continue;
         }
@@ -4783,7 +4783,7 @@ const KeyRow *MenuCtl::row_at(int idx) const
     if (idx >= 0 && idx < n) {
         return &rows[idx];
     }
-    return idx >= n && c_->merge && idx - n < c_->merge->nkeys ? &c_->merge->keys[idx - n].row : 0;
+    return idx >= n && c_->merge && idx - n < c_->merge->nkeys_all() ? &c_->merge->key_at(idx - n).row : 0;
 }
 
 // The first row, in the first live stage from `stage`, that holds this key (row `from` onwards in that stage). A live stage that swallows and holds no row for the key is an
@@ -4801,7 +4801,7 @@ bool MenuCtl::resolve_from(int k, int stage, int from, MenuIntent *out) const
         int idx;
         if (s == KS_CORE) {
             int ci = core_row_next(k, cur > n ? cur - n : 0);
-            r = ci >= 0 ? &c_->merge->keys[ci].row : 0;
+            r = ci >= 0 ? &c_->merge->key_at(ci).row : 0;
             idx = n + ci;
         } else {
             r = menu_keymap_next(s, k, &cur, when_holds, c_);

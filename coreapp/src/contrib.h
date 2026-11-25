@@ -97,6 +97,9 @@ const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 a
 #ifndef CONTRIB_SEARCH_MAX
 #define CONTRIB_SEARCH_MAX 6              // library sources of the F3 search
 #endif
+#ifndef CONTRIB_KEYS_MAX
+#define CONTRIB_KEYS_MAX 32               // key rows of all libraries together (T262 D4)
+#endif
 #define CONTRIB_SEARCH_FIELDS 4           // fields (beside the name) of one source
 
 struct MergedNode {
@@ -152,6 +155,12 @@ struct MenuMerge {
     // description sets it (bundle_merge, the tests' record menu: tests/coreapp/record_menu.h).
     const CoreKey *keys;
     int nkeys;
+    // T262 D4 finding 11: the key rows of the menu records of the loaded libraries (descrec.h section 18 in a library's record), pointers into those records, which live while the
+    // library is loaded. They are tried after the core's own, in the order the libraries loaded (contrib_add_keys; bundle_merge calls it).
+    const CoreKey *libkeys[CONTRIB_KEYS_MAX];
+    int nlibkeys;
+    int nkeys_all() const { return nkeys + nlibkeys; }
+    const CoreKey &key_at(int i) const { return i < nkeys ? keys[i] : *libkeys[i - nkeys]; }
     // T239.3 D32: where the application's rows stand: the base's table with the core's routes and places over it (menu_place_merge), in place_store, when has_place (false after contrib_merge: the base's table alone). A struct, not a pointer into itself: a MenuMerge may be copied.
     bool has_place;
     UiPlace place_store;
@@ -166,6 +175,9 @@ struct MenuMerge {
 // Returns the number of contributions refused (also in mm->err).
 int contrib_merge(const CoreDesc *d, const Skeleton *skel, const Overrides *ov, const Contributor *c, int nc, const OpRegistry *reg, CoreDesc *out,
                   MenuMerge *mm);
+
+// Adds the key rows of one library's menu record to the table of `mm` (after the core's). Rows beyond CONTRIB_KEYS_MAX are refused and told in mm->err. Returns the rows added.
+int contrib_add_keys(MenuMerge *mm, const char *owner, const CoreKey *rows, int n);
 
 // The slots a core has (Alex 2026-10-26, D15): its capabilities named drive_<x>. A declaration that has `$slot` in a label, anchor, key, group, operation,
 // state, condition, id or text binding is made once for each of them, with `$slot` replaced by the slot's name ("drive_a"); a core with none gets none.

@@ -249,6 +249,12 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         mm->keys = x->desc->keys;
         mm->nkeys = x->desc->nkeys;
     }
+    for (int h = 0; loader && h < LIB_MAX; h++) {                // T262 D4 finding 11: the key rows of a library's menu record follow the core's, in load order, while the library is loaded
+        const LibInfo *li = loader->info(h);
+        if (li && li->menu && li->menu->nkeys && !(x && x->desc && descrec_merged(*x->desc, li->name))) {
+            contrib_add_keys(mm, li->name, li->menu->keys, li->menu->nkeys);
+        }
+    }
     if (x && x->desc && x->desc->has_place) {                     // D32: the core's routes and places over the base's; a place that names an absent route is told and not applied
         char why[160];
         if (menu_place_merge(&x->desc->place, &mm->place_store, why, sizeof(why)) > 0 && log) {
