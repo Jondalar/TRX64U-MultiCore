@@ -12,10 +12,15 @@ Two kinds of pin:
         Gitea form    PACKAGE, VERSION: <TRX_FW_PKG_URL>/<PACKAGE>/<VERSION>/<COR_FILE> (T239.3 D45)
         release form  RELEASE=fw-<branch>-<sha8>: the asset COR_FILE of that release of the builds repository (MC_BUILDS_REPO of ci/pkg.env), https://github.com/<repo>/releases/download/<RELEASE>/<COR_FILE>;
                       the base can be replaced by the environment TRX_FW_RELEASE_URL (up to and including the repository's /releases/download), the tests do. RELEASE wins over PACKAGE/VERSION.
+        U2A (T261 D7, release form only): applications of the same release that the package carries beside the .cor, unchanged: U2A="trex_crt.u2a:<sha256>:<size> online.u2a:<sha256>:<size>"
+                      (blank-separated, each name matching ^[a-z0-9_]+\\.u2a$, a SHA-256 of 64 hex digits, a size). Each is fetched from the same release as COR_FILE (the store is filled the same way: by its
+                      SHA-256, size and SHA-256 checked before it is kept), `pack` puts it into the entry as <out>/<name> beside <id>.cor, and ci/collect.sh hands it to the package. The pin is part of the key, so a
+                      changed list is a new entry. A pin without U2A has no such files.
   BIT_SHA256 (no pin uses it since T239.3 D46): the monolith bitstream and Gideon's application (APP_FILE) of the TRX64-Ultimate package, packed here
         (tools/pack_import_cor.sh).
 
   ci/imports.py names                              the entry names of the pins, one per line (a pin with PIPELINE=false has none)
+  ci/imports.py u2a                                the U2A file names of the pins, one per line (T261 D7; ci/package.sh checks each one reached the package)
   ci/imports.py pack ENTRY --store DIR --out DIR   the builder: <out>/<id>.cor from the store (one file per SHA-256, as ci/roms.py reads it). A COR_SHA256 pin: that file.
                                                    A BIT_SHA256 pin: BIT_SHA256 and APP_SHA256 and every private file under FILES by the store, packed. Env TRX_FW_PKG_URL: the base of the generic packages of
                                                    TRX64-Ultimate's registry, up to and including `generic` (no token: a read needs none); a COR_SHA256 file that the store lacks
@@ -44,6 +49,7 @@ CODE = ("ci/imports.py", "ci/pkg.env", "ci/version.sh", "tools/pack_import_cor.s
         "tools/core_toml.py")
 ENTRY = re.compile(r"^imp-([A-Za-z0-9_]+)-([0-9a-f]{16})$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
+U2A_NAME = re.compile(r"^[a-z0-9_]+\.u2a$")
 NAME_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$")
 MAX_FETCH = 64 * 1024 * 1024
 
@@ -88,10 +94,27 @@ def pins(root=ROOT):
         pin = read_pin(p)
         if pin.get("PIPELINE", "").lower() == "false":
             continue
+        u2a_list(pin)
         cid = pin.get("ID", "")
         if cid != n[:-4] or not re.match(r"^[A-Za-z0-9_]+$", cid):
             raise ImportError_("%s: ID=%s does not name the file" % (n, cid))
         out.append((cid, p, pin))
+    return out
+
+
+def u2a_list(pin):
+    """T261 D7: [(name, sha256, size)] of the U2A field of a release-form pin, validated; [] without the field."""
+    out, seen = [], set()
+    for item in (pin.get("U2A") or "").split():
+        f = item.split(":")
+        if len(f) != 3 or not U2A_NAME.match(f[0]) or not SHA.match(f[1]) or not f[2].isdigit() or not 0 < int(f[2]) <= MAX_FETCH:
+            raise ImportError_("release/imports/%s.pin: U2A item %r is not <name>.u2a:<sha256>:<size>" % (pin.get("ID"), item[:80]))
+        if f[0] in seen:
+            raise ImportError_("release/imports/%s.pin: U2A names %s twice" % (pin.get("ID"), f[0]))
+        seen.add(f[0])
+        out.append((f[0], f[1], int(f[2])))
+    if out and not (pin.get("RELEASE") and pin.get("COR_SHA256")):
+        raise ImportError_("release/imports/%s.pin: U2A needs the release form (RELEASE, COR_SHA256)" % pin.get("ID"))
     return out
 
 
@@ -171,9 +194,14 @@ def from_store(store, sha, what):
     return p
 
 
-def source_url(pin, store, what, base=None, root=ROOT):
-    """Where the COR_SHA256 file of a pin is fetched from, and the name for messages: the release form (RELEASE) or the Gitea form (PACKAGE, VERSION)."""
+def source_url(pin, store, what, base=None, root=ROOT, asset=None):
+    """Where the COR_SHA256 file of a pin is fetched from, and the name for messages: the release form (RELEASE) or the Gitea form (PACKAGE, VERSION).
+    asset (T261 D7): another file of the same release (a U2A name) instead of COR_FILE."""
     pid = pin.get("ID")
+    if asset:
+        if not pin.get("RELEASE"):
+            raise ImportError_("release/imports/%s.pin: %s comes from a release only" % (pid, asset))
+        pin = dict(pin, COR_FILE=asset)
     if pin.get("RELEASE"):
         for k in ("COR_FILE", "COR_SIZE"):
             if not pin.get(k):
@@ -207,12 +235,10 @@ def _env_file(path):
     return d
 
 
-def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
-    """The COR_SHA256 file of a pin into the store, from where source_url says; the SHA-256 and the size of the pin decide, a file that differs is not kept."""
-    url, named = source_url(pin, store, what, base)
-    size = int(pin.get("COR_SIZE") or 0)
+def _download(url, named, want, size, sha, store, opener):
+    """One file into the store under its SHA-256; the size and the SHA-256 of the pin decide, a file that differs is not kept."""
     if not 0 < size <= MAX_FETCH:
-        raise ImportError_("COR_SIZE %s is out of range" % pin.get("COR_SIZE"))
+        raise ImportError_("size %s of %s is out of range" % (size, want))
     os.makedirs(store, exist_ok=True)
     tmp = os.path.join(store, ".fetch-%d" % os.getpid())
     try:
@@ -221,16 +247,35 @@ def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
             for b in iter(lambda: r.read(1 << 20), b""):
                 got += len(b)
                 if got > size:
-                    raise ImportError_("%s is larger than COR_SIZE %d" % (pin["COR_FILE"], size))
+                    raise ImportError_("%s is larger than its pinned size %d" % (want, size))
                 f.write(b)
-        if got != size or sha256_file(tmp) != pin["COR_SHA256"]:
+        if got != size or sha256_file(tmp) != sha:
             raise ImportError_("what %s serves is not the pinned file (size or SHA-256)" % named)
-        os.replace(tmp, os.path.join(store, pin["COR_SHA256"]))
+        os.replace(tmp, os.path.join(store, sha))
     except (urllib.error.URLError, OSError) as e:
         raise ImportError_("%s could not be fetched: %s" % (named, type(e).__name__))
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
+
+
+def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
+    """The COR_SHA256 file of a pin into the store, from where source_url says; the SHA-256 and the size of the pin decide, a file that differs is not kept."""
+    url, named = source_url(pin, store, what, base)
+    try:
+        size = int(pin.get("COR_SIZE") or 0)
+    except ValueError:
+        size = 0
+    if not 0 < size <= MAX_FETCH:
+        raise ImportError_("COR_SIZE %s is out of range" % pin.get("COR_SIZE"))
+    _download(url, named, pin["COR_FILE"], size, pin["COR_SHA256"], store, opener)
+
+
+def fetch_u2a(pin, item, store, base=None, opener=urllib.request.urlopen):
+    """T261 D7: one U2A file (name, sha256, size) of a release-form pin into the store, from the release of the .cor."""
+    name, sha, size = item
+    url, named = source_url(pin, store, name, base, asset=name)
+    _download(url, named, name, size, sha, store, opener)
 
 
 def checked_cor(pin, path):
@@ -251,6 +296,14 @@ def pack(entry, store, out, root=ROOT, run=subprocess.run):
         src = from_store(store, pin["COR_SHA256"], "COR_FILE " + pin.get("COR_FILE", "?"))
         checked_cor(pin, src)
         shutil.copyfile(src, cor)
+        for item in u2a_list(pin):                                  # T261 D7: the applications of the same release, beside the .cor
+            name, sha, size = item
+            if not os.path.isfile(os.path.join(store, sha)):
+                fetch_u2a(pin, item, store)
+            f = from_store(store, sha, name)
+            if os.path.getsize(f) != size:
+                raise ImportError_("%s is not the size release/imports/%s.pin names" % (name, cid))
+            shutil.copyfile(f, os.path.join(out, name))
         return cor
     priv = private_files(root)
     files = pin.get("FILES")
@@ -318,6 +371,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("names")
+    sub.add_parser("u2a")
     p = sub.add_parser("pack")
     p.add_argument("entry")
     p.add_argument("--store", required=True)
@@ -330,6 +384,10 @@ def main(argv=None):
         if a.cmd == "names":
             for n in names():
                 print(n)
+        elif a.cmd == "u2a":
+            for _, _, pin in pins():
+                for name, _, _ in u2a_list(pin):
+                    print(name)
         elif a.cmd == "pack":
             print(pack(a.entry, a.store, a.out))
         else:

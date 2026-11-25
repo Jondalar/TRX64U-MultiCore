@@ -97,10 +97,7 @@ cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapp
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
 [ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
-# T228 R21: the cartridge tools and Softboot, shipped the same way (the updater copies every .u2a beside the update file into <cores>/apps)
-for a in trex_crt softboot online; do
-  [ -s "$trxapps/$a.u2a" ] && cp "$trxapps/$a.u2a" "$out/" || mark_red package "$a" "stage trxapps made no $a.u2a"
-done
+# T261 D6/D7: trex_crt.u2a and online.u2a are TRX64-Ultimate's: they come with the bit-imports below (the pin's U2A field), not from this stage; softboot.u2a is not shipped.
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"
 # T172: the host app is cached by the content of its tree, so the version string it was built with is that of the run that filled the cache. The
 # copy that ships is stamped with this run's version (the field TRXVSTAMP: in the image, host-app/target/common/rules.mk), before the .txu and the
@@ -207,8 +204,14 @@ if [ -f "$HANDOFF/bit-imports/DONE" ]; then
       && python3 "$ROOT/tools/cor_pack.py" check "$out/$id.cor" > /dev/null \
       || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
   done
+  # T261 D7: the .u2a files the pins list (U2A), unchanged from the release of their .cor; a pin without U2A lists none (today's pin: the package carries no trex_crt.u2a, no online.u2a)
+  u2a_names="$(python3 -I "$ROOT/ci/imports.py" u2a)" || mark_red package u2a "ci/imports.py u2a failed"
+  [ -n "$u2a_names" ] || echo "no pin lists a U2A file: the package carries no trex_crt.u2a and no online.u2a"
+  for a in $u2a_names; do
+    [ -s "$HANDOFF/bit-imports/$a" ] && cp "$HANDOFF/bit-imports/$a" "$out/" || mark_red package "$a" "bit-imports hold no $a that the pin lists"
+  done
 else
-  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor"
+  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor, no .u2a of their pins"
 fi
 
 # T148 D8: ROMS.txt (what each core needs in its own folder, the legal sources; made from the descriptors' ROM table and the manual) is part of the

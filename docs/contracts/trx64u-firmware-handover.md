@@ -72,6 +72,9 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
     (agreed with TRX64-Ultimate session 2026-11-25, T261 D5): the release form `RELEASE=fw-<branch>-<sha8>` with `COR_FILE=trx64u.cor` (the asset of that
     pre-release of the builds repository), or the Gitea form `PACKAGE`, `VERSION` with `COR_FILE=trx64u_<sha8>.cor`, accepted until their first `fw-*`
     pre-release exists. `RELEASE` wins when both are set.
+    (T261 D7) The release form takes one more field, `U2A="trex_crt.u2a:<sha256>:<size> online.u2a:<sha256>:<size>"`: applications that are assets of the same
+    pre-release (names `^[a-z0-9_]+\.u2a$`). MultiCore fetches each, checks size and SHA-256, and puts it into its package unchanged beside `trx64u.cor`.
+    `softboot.u2a` is not taken.
   - `trx64g` — NAME "TRX64 Ultimate (Gideon app)", file `trx64g.cor`: TRX64-Ultimate's bitstream with its own
     application, packed by TRX64-Ultimate (T239.3 D46). The pin names the finished file as for `trx64u`.
 
