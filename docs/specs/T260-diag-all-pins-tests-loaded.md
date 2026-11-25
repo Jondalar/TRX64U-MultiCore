@@ -149,4 +149,34 @@ Scenario: S11 timing and area
 
 ## §5 Build notes
 
-(filled while building)
+**App half, branch `t260-app` (the gateware half is `t260-gw`).**
+
+*Step 1, S7 golden (3b765e9f4).* `tests/coreapp/test_diag_avtrace.cc` records the old A/V page's register writes: each of the three shipped presets loaded by name
+(`pd.av_preset`), then RIGHT (next value, the last wraps) on each of the 24 rows from that preset's state. `tests/coreapp/golden/diag_av_trace.txt`, 301 lines;
+`test diag_avtrace: PASS` (77 checks). The same unit still passes after the move below with registers named by the driver table (offsets unchanged).
+
+*Step 2, P7/S8 (a79d6cc76 and the commit after it).*
+- Own app `cores/diag/app`: `sdk.toml` (TOML B, `desc = "portdiag_desc"`, libraries diag + pad, base blocks as the A1200's), `gateware.toml` (TOML A: blocks ident, engine, live, av = 4
+  blocks, 37 properties), `rtl_check_sources.tcl`, `lib/` = `portdiag.cc/.h`, `portdiag_regs.h` (registers by the driver table), `diagtest.cc/.h` (git mv from `coreapp/`).
+  `rtl_check`: `4 block(s), 37 properties agree with the RTL of host` (case added to `tests/rtl_check/test_rtl_check.py`, not run to the end here: the file takes minutes).
+  Two findings that shaped the TOML A: `TICKS_US` (00C) is a module parameter, rtl_check cannot read it, the app names it as a number (`PD_TICKS`); PC (016) is 8 bit, not 16.
+- Out of the shared app: `coreapp/src/diagtest.cc/.h`, `coreapp/cores/portdiag.cc/.h/_regs.h` (about 3400 lines), the table row, the Makefile's two sources, `diag` in
+  `BLUEPRINT_CORES`, the D24 ledger lines of diag (`file` x5, `exception` x4, `ids run.cc diag 2 -> 1`) and the targets, `SRC_PER_CORE` of `check_d24.py`; `base_sources = ["portdiag.cc"]`
+  of vc20 and amiga1200 and of the SDK example (it was there only because `run.cc` called `portdiag_attach`). `check_d24.py` is green.
+- The hook is generic now: `coreapp/src/coredlg.h` `CoreDialogs` (the old `PdHost`, same methods), `CoreCtx::dialogs`, `run.cc` fills it (`HostDialogs`). The diag lib asks through `c->dialogs`.
+- Units, built as the diag app (`run.sh` `diagapp`, `tests/coreapp/diag_drv.sh`): `diagtest` (610 checks), `portdiag` (705), `diag_avtrace` (77), `diag_desc` (7, new: the descriptor cases
+  the shared test_desc/test_hotkeys/test_memops held for diag, now without diag); `diagtest_halffile` stays a control. The TOML B names them (`libtab.py tests`). The shared units no longer list diag.
+  Gone: the controls `diagtest_overwrite` and `diagtest_superseded` (they broke `instfiles.cc` through the diag unit; the installer is now exercised by `test_bundle` on a fixture core
+  `instfiles`, no control there), the golden `menu_portdiag.txt` (needs a diag-app build of `test_desc`'s golden(), open).
+- Lane: `tools/core_toml.py lanes` lists `diag large`; `ci/package.sh` and `ci/cor.sh` leave it out loudly by the TOML B switch (generic, as for the A1200); `ci/emu_kit.sh --core diag`
+  and `tests/hostapp/emu_host.sh` (EMU_OWN_APP=diag) added - the profile is this tree's `tests/coreapp/emu/profiles/diag.toml` (the emulator release has none), hotkey and start time copied
+  from the A1200's round, **not run** (step 12 runs only in the matrix).
+
+*Step 3, P6/S9.* `cores/diag/mono/core.toml` has no `install_dir`/`install_old`; `cores/diag/superseded` is deleted (its two sample files moved to `tests/coreapp/instfiles/old`
+with five test files as the fixture of `test_bundle`'s record 8 case, which is generic: the A500's sub-app test uses record 8 too). `gen_bundle.py`: `diag.cor` has no record 8
+(`test_cor_pack.py` checks the descriptors name no install folder; `python3 tools/test_cor_pack.py`: OK; `test bundle: PASS`, 102 checks). `ci/lane.sh` step 13 copies
+`cores/diag/sd` to `SD/cores/diag/` inside the delivery (`deliver-diag/SD/cores/diag/{tests,presets}`), listed in its `SHA256SUMS`: copy that folder to `/SD/cores/diag/`.
+
+*Open (not built in this session).* Step 4 (TOML panel runner and the A/V page as a panel file, S7 proof against the golden) and step 5 (runner v2: pins by name, S4 reader, S5, S6)
+are not built: the gateware half had not published its register map v2 on `t260-gw` (HEAD there is the merge of t259-diag-av), and the panel needs a decision that is Alex's (below).
+`render.cc` still names `portdiag_desc` and `portdiag.h` (the render bench was not built here; `srclist.sh` needs `-I cores/diag/app/lib` and the diag table for it).

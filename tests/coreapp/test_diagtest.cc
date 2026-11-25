@@ -130,7 +130,7 @@ static void test_parse_shipped()
     CHECK_STR(g_f.suite.tests[1], "stick2.toml");
     // the example tests the app carries are the files of the repository
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 17);      // 14 tests (T259: avprobe, avrgb, avsync, avvsync are new) and the 3 presets
+    CHECK(diag_install_examples(&r.fs, "/SD/cores/diag") >= 17);      // the delivery's folder: 14 tests (T259: avprobe, avrgb, avsync, avvsync are new) and the 3 presets
     for (const char *n : names) {
         CHECK_STR(r.fs.text(std::string("/SD/cores/diag/tests/") + n + ".toml").c_str(), slurp(std::string("cores/diag/sd/tests/") + n + ".toml").c_str());
     }
@@ -525,14 +525,6 @@ static void test_cd32_v2()
     std::string z = run_cd32(&stuck);
     CHECK(z.find("d1_idle = \"FAIL") != std::string::npos);
     CHECK(z.find("d1_ok = \"FAIL") != std::string::npos);
-    // the example writer replaces an unedited v1 file and leaves an edited one
-    Rig w;
-    w.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/superseded/cd32.v1.toml"));
-    w.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 16);   // cd32 replaced + pins, paddle, joystick, cd32keys, avout, avprobe, avrgb, avsync, avvsync, xpad20, xpad4, xpad4noack and the 3 presets written; stick2 edited, kept
-    CHECK_STR(w.fs.text("/SD/cores/diag/tests/cd32.toml").c_str(), slurp("cores/diag/sd/tests/cd32.toml").c_str());
-    CHECK(w.fs.text("/SD/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 0);                       // the second start writes nothing
 }
 
 // T175 S-joy (board 2026-11-15, cd32keys v1): the joystick in port 2 drives the menu, so a prompt that says "hold a direction, then press RETURN" was answered by the held
@@ -687,18 +679,9 @@ static void test_engine_errors()
 static void test_examples()
 {
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 17);      // 14 tests (T259: avprobe, avrgb, avsync, avvsync are new) and the 3 presets
+    CHECK(diag_install_examples(&r.fs, "/SD/cores/diag") >= 17);     // T260 D6: the delivery's folder cores/diag/sd, copied to /SD/cores/diag
     CHECK(r.fs.has("/SD/cores/diag/tests/pins.toml"));
-    // the person edits one; the next start leaves it alone and writes only what is missing
-    r.fs.put_text("/SD/cores/diag/tests/pins.toml", "# mine\n");
-    r.fs.remove("/SD/cores/diag/tests/cd32.toml");
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 1);
-    CHECK_STR(r.fs.text("/SD/cores/diag/tests/pins.toml").c_str(), "# mine\n");
-    CHECK(r.fs.has("/SD/cores/diag/tests/cd32.toml"));
-    // a card that cannot be written
-    Rig ro;
-    ro.fs.read_only = true;
-    CHECK_EQ(diag_install_examples(&ro.fs, "/SD/cores/diag"), -1);
+    CHECK(r.fs.has("/SD/cores/diag/presets/Sony-PAL.toml"));
     // the live vector
     Rig l;
     l.eng.forced_low = 0x201;

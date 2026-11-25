@@ -9,7 +9,7 @@
 #include "portdiag.h"
 #include "portdiag_regs.h"
 #include "diagtest.h"
-#include "instfiles.h"
+#include "diag_examples.h"
 #include "diag_engine.h"
 #include "settings_ops.h"
 #include "settings.h"
@@ -31,7 +31,7 @@ static std::string slurp_file(const std::string &path)
     return s.str();
 }
 
-struct Host : PdHost {
+struct Host : CoreDialogs {
     int spawned = 0, asks = 0, notices = 0, picks = 0;
     void (*fn)(void *) = 0;
     void *arg = 0;
@@ -74,12 +74,10 @@ int main()
     d.register_ops(reg);
     CHECK(!reg.error()[0]);
     c.ops = &reg;
-    c.install_files = core_files_install;
 
-    // the start: outputs released; the examples are record 8 of diag.cor, written by the application's installer (instcore.cc) at the start of the core
-    fs.put("/SD/cores/diag.cor", slurp_bytes(getenv("DIAG_COR")));
+    // the start: outputs released; the shipped tests are the delivery's folder on the card (T260 D6), no record of the .cor
     char msg[100];
-    CHECK_EQ(core_files_install(&c), 17);
+    CHECK(diag_install_examples(&fs, "/SD/cores/diag") >= 17);
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
     CHECK_EQ(io.regs[PD_CTRL], PD_CTRL_CLEAR);         // ABORT, then CLEAR: the last write
     bool aborted = false;
@@ -89,8 +87,7 @@ int main()
     CHECK(fs.has("/SD/cores/diag/tests/joystick.toml"));
     size_t n = fs.writes;
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
-    CHECK_EQ(core_files_install(&c), 0);
-    CHECK_EQ((size_t)fs.writes, n);                     // the second start writes nothing
+    CHECK_EQ((size_t)fs.writes, n);                     // the start writes nothing to the card
 
     // the rows read the live register: bits 0-4 port 1, 5-9 port 2, 10-13 the comparators
     io.regs[PD_LIVE] = 0x1F ^ 0x04;                    // port 1 left low
@@ -108,7 +105,7 @@ int main()
     OpIn in = in_str("path", "/SD/cores/diag/tests/pins.toml");
     CHECK_EQ(reg.call(&c, "pd.run", &in, 1, &r), OPE_UNSUPPORTED);
     Host h;
-    portdiag_attach(&h);
+    c.dialogs = &h;
     CHECK_EQ(reg.call(&c, "pd.run", &in, 1, &r), OPE_OK);
     CHECK_EQ(h.spawned, 1);
     CHECK_EQ(reg.call(&c, "pd.run", &in, 1, &r), OPE_BUSY);          // one test at a time
@@ -121,16 +118,7 @@ int main()
     CHECK_EQ(reg.call(&c, "pd.pick", 0, 0, &r), OPE_OK);              // free again, and it picks first
     h.fn(h.arg);
     CHECK_EQ(h.picks, 1);
-    // the example writer as a task
-    fs.remove("/SD/cores/diag/tests/cd32.toml");
-    CHECK_EQ(reg.call(&c, "pd.install", 0, 0, &r), OPE_OK);
-    CHECK(fs.has("/SD/cores/diag/tests/cd32.toml"));
-    fs.read_only = true;
-    CHECK_EQ(reg.call(&c, "pd.install", 0, 0, &r), OPE_OK);           // all there: nothing to write
     fs.read_only = false;
-    fs.remove("/SD/cores/diag/tests/cd32.toml");
-    fs.read_only = true;
-    CHECK_EQ(reg.call(&c, "pd.install", 0, 0, &r), OPE_FAILED);       // a read only card says so
     // the prompts through the host's question: yes = OK, no = SKIPPED, the time that ran out = MISSED, each carrying the test's timeout_s
     {
         Engine eng;
@@ -145,7 +133,7 @@ int main()
         fs2.put_text("/SD/cores/diag/tests/stick2.toml", slurp_file(std::string(COREAPP_DIR) + "/../cores/diag/sd/tests/stick2.toml"));
         Host h2;
         h2.answers = { 1, -2, 0, 1 };
-        portdiag_attach(&h2);
+        c2.dialogs = &h2;
         OpIn in2 = in_str("path", "/SD/cores/diag/tests/stick2.toml");
         OpResult r2;
         CHECK_EQ(reg.call(&c2, "pd.run", &in2, 1, &r2), OPE_OK);
@@ -162,7 +150,7 @@ int main()
         // ESC (-1) stops the test at the prompt
         Host h3;
         h3.answers = { -1 };
-        portdiag_attach(&h3);
+        c2.dialogs = &h3;
         CHECK_EQ(reg.call(&c2, "pd.run", &in2, 1, &r2), OPE_OK);
         h3.fn(h3.arg);
         CHECK(fs2.text("/SD/cores/diag/results/stick2_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);

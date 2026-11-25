@@ -26,7 +26,7 @@ const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
-                                       &amiga_desc, &ddt_novic_desc, &portdiag_desc, 0 };
+                                       &amiga_desc, &ddt_novic_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
 
@@ -180,7 +180,7 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
     }
     // ---- cores whose memory the application cannot reach say so, and why
-    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &ddt_novic_desc, &portdiag_desc }) {
+    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &ddt_novic_desc }) {
         Rig r(d);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0);
