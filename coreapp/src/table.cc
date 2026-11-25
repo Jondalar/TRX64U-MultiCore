@@ -16,7 +16,6 @@ const CoreDesc *const core_table[] = {
     &pet_desc,
     &c128_desc,
     &c64scpu_desc,
-    &zxnext_desc,
     &snes_desc,
     &neogeo_desc,
     &amiga_desc,

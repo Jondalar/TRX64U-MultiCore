@@ -92,7 +92,7 @@ CORES = [
     dict(id="zxnext", match=("spectrum next",), title="ZX Spectrum Next", folder="zxnext",
          files="`next.img`: a whole SD card image (FAT, MBR) with the Next's system files on it (any size the machine reads; it is written back)",
          needed="the image; without it the machine's boot ROM shows its own error",
-         sources="coreapp/cores/zxnext.cc (mount_default, sd_card); coreapp/cores/zxnext_regs.h"),
+         sources="cores/zxnext/app/lib/zxnext.cc (mount_default, sd_card); cores/zxnext/app/lib/zxnext_regs.h"),
     dict(id="neogeo", match=("neo geo",), title="SNK Neo Geo (MVS / AES)", folder="neogeo",
          files="`sp-s2.sp1` (MVS) or `neo-epo.sp1` (AES) or `uni-bios.rom`, 131,072 bytes each; `000-lo.lo` 65,536 bytes (zoom table); `sfix.sfix` 131,072 bytes; `romsets.xml`",
          needed="one BIOS, the zoom table and the fix ROM; a game set for anything to run",

@@ -1,7 +1,10 @@
-# The ZX Spectrum Next's data description (T239.3 D17): what coreapp/cores/zxnext.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into
+# The ZX Spectrum Next's data description (T239.3 D17): what cores/zxnext/app/lib/zxnext.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into
 # the description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
 # operations of register_ops (including the service: the card, the clock, the default image). The core has no ROM: the Next's boot ROM is in its
-# source and the operating system is on the SD image. Register numbers are cores/zxnext/trx/zxn_regs.v (coreapp/cores/zxnext_regs.h).
+# source and the operating system is on the SD image.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/zxnext/trx/zxn_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property", a reset
+# value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20). The sector media's registers (mount_reg, feat_reg, mbox_*) are numbers: descrec resolves names in reg, reg_* and fb_* keys only.
+toml_a = "gateware.toml"
 
 [core]
 id = "ZXN_"
@@ -24,16 +27,16 @@ h = 512
 scale = 2
 x0 = 320
 y0 = 28
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "zxn_video.fb_base.reset"
+fb_stride = "zxn_video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "zxn_video.fb_latest"
+reg_seq = "zxn_video.frame_seq"
+reg_fb_base = "zxn_video.fb_base"
+reg_fb_stride = "zxn_video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "zxn_machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -124,9 +127,9 @@ done_tag_mask = 0xF0
 
 [mouse]
 kind = "counters"
-reg_dx = 0x1C0
-reg_dy = 0x1C1
-reg_btn = 0x1C2
+reg_dx = "zxn_mouse.mouse_dx"
+reg_dy = "zxn_mouse.mouse_dy"
+reg_btn = "zxn_mouse.mouse_btn"
 clamp = 4000
 step = 127
 interval_ms = 2

@@ -218,7 +218,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			ddt_novic.cc \
 			portdiag.cc \
 			d1541_fs.cc \
-			zxnext.cc \
 			snes.cc \
 			snes_rom.cc \
 			neogeo.cc \
