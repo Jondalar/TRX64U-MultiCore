@@ -11,7 +11,7 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
 #include "zx_regs.h"
 #include "cpc_regs.h"
 #include "apple2_regs.h"
@@ -37,6 +37,8 @@ const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #define HEX_CORE c264_desc
 #elif defined(TEST_APP_ZXNEXT)           // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp): its core is the only one in its table
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &ddt_novic_desc, &portdiag_desc, 0 };
@@ -115,6 +117,8 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &c264_desc, 0xFFFF } };
 #elif defined(TEST_APP_ZXNEXT)
     struct W { const CoreDesc *d; int last; } widths[] = { { &zxnext_desc, 0x1FFFFF } };
+#elif defined(TEST_APP_NEOGEO)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &neogeo_desc, 0xFFFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
         { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
@@ -128,7 +132,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_ZXNEXT)   // the A1200's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)   // the A1200's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
 #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
 #else
@@ -152,7 +156,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // the cases that stand on the shared app's cores
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
@@ -237,6 +241,14 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0, 257, &res), OPE_ARG);             // more than OP_DATA_MAX: the registry refuses
         CHECK_EQ(r.call("machine.read_mem", 0, 256, &res), OPE_OK);
         CHECK_EQ(res.ndata, 256);
+    }
+#elif defined(TEST_APP_NEOGEO)
+    // ---- the Neo Geo's memory is not reachable by the application (the machine's RAM is inside the core, the ROM space is the application's own staging): it says so, and why
+    {
+        Rig r(&neogeo_desc);
+        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
+        CHECK(strlen(res.msg) > 40 && res.ndata == 0);
+        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(TEST_APP_NES)
     // ---- the NES's memory is not reachable by the application: it says so, and why

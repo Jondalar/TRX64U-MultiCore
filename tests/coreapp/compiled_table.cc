@@ -30,6 +30,11 @@ const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &zxnext_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)
+// the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &neogeo_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"
