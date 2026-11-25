@@ -16,6 +16,12 @@ const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
 extern const CoreDesc ddt_novic_desc;   // cores.h lists the shared app's cores (cores/ddt_novic/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &ddt_novic_desc, 0 };
+#elif defined(TEST_APP_ZX)
+// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc zx_desc;   // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &zx_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

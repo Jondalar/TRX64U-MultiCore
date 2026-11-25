@@ -1,6 +1,6 @@
 // T91 D5-D12: the ZX Spectrum descriptor against a model of the register block and the windows of cores/zx/trx/zx_regs.v / zx_win.v: the ROM
 // sets and the model, the palette, the snapshot sequence (compared with the reference reader's registers and banks), the tape. The descriptor
-// under test is the real one (coreapp/cores/zx.cc). The snapshot corpus is made by run.sh (tools/zx_snap.py corpus).
+// under test is the real one (cores/zx/app/lib/zx.cc). The snapshot corpus is made by run.sh (tools/zx_snap.py corpus).
 #include <stdlib.h>
 #include <fstream>
 #include <string>
@@ -8,6 +8,7 @@
 #include "fakes.h"
 #include "boot.h"
 #include "cores.h"
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib, run.sh zxapp)
 #include "zx_regs.h"
 #include "ops_glue.h"
 

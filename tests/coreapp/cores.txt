@@ -13,5 +13,4 @@ cpc: cpc.cc cpc_disk.cc cpc_disk.h cpc_regs.h
 neogeo: neogeo.cc neogeo_regs.h neoset.cc neoset.h
 nes: nes.cc nes_regs.h ines.cc ines.h
 snes: snes.cc snes_regs.h snes_rom.cc snes_rom.h
-zx: zx.cc zx_regs.h zx_snap.cc zx_snap.h
 zxnext: zxnext.cc zxnext_fw.h zxnext_regs.h

@@ -87,8 +87,6 @@ int main()
     // the cores that keep another form: their own key is there once (T157 D1)
 #ifndef TEST_APP_A1200
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
-    CHECK_EQ(count_key(zx_desc, "Joystick port 1"), 1);
-    CHECK_EQ(count_key(zx_desc, "Joystick port 2"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
 #endif

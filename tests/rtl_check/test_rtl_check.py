@@ -127,6 +127,11 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "ddt_novic", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "6 block(s), 19 properties agree" in out, "ddt_novic: 6 blocks, 19 properties of gateware.toml agree with the RTL of the core window (ddt_regs.v's ident, irq, ddr_cal, geometry, machine and video registers; page 6, the host's pixel layer, is not described)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/zx/app/rtl_check_sources.tcl", "--top", "layer2_zx",
+              "--bus", "layer2_zx:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "zx", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "10 block(s), 38 properties agree" in out, "zx: 10 blocks, 38 properties of gateware.toml agree with the RTL of the core window (zx_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, snapshot, tape and key-injection registers; page 6, the host's pixel layer, is not described)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,

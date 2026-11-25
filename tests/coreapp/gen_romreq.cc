@@ -12,6 +12,11 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 // the Amiga 1200's app is its own build (run.sh a12app): its table is its core only
 #include "cores.h"
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_ZX)
+// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #else
 #include "table.cc"
 #endif

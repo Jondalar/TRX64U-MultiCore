@@ -9,20 +9,25 @@
 #include <string>
 #include <vector>
 #include "check.h"
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, zxapp) with its core only
+#endif
 #include "c64_model.h"
 #include "boot.h"
 #include "cores.h"
 #include "settings.h"
 #include "ops_glue.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "c64_cart.h"
 #endif
+#ifndef TEST_APP_ZX
 #include "drive_model.h"
 #include "disk_build.h"
+#endif
 #include "menutree.h"
 #include "mediamounts.h"
 #include "engines.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "apple2_disk.h"
 #include "apple2_regs.h"
 #include "atari800_regs.h"
@@ -31,24 +36,33 @@
 #include "c64_regs.h"
 #include "c264_regs.h"
 #endif
+#ifndef TEST_APP_ZX
 #include "d1541_drive.h"
+#endif
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_ZX)
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
                                        &c128_desc, &amiga_desc, 0 };
 #endif
 
 typedef std::vector<uint8_t> Bytes;
 
 // ---- the machines ------------------------------------------------------------------------------------------------------------------------
+#ifdef TEST_APP_ZX
+struct GIo : FakeIo { };                              // the Spectrum has no drive behind a window
+#else
 struct GIo : FakeIo {                                    // a register file, the arrays and a drive behind the drive window
     DriveModel dm;
     DRIVE_IO_FORWARD(dm)
 };
+#endif
 
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 struct NeoIo : FakeIo {                                  // the Neo Geo's register block with its copy engine (tests/coreapp/test_neogeo.cc)
     NeoIo() { ddr.assign(0x07000000, 0); }
     void ddr_write(uint32_t off, const void *p, uint32_t n) override { if ((uint64_t)off + n <= 0x03000000ull) memcpy(&ddr[off], p, n); }
@@ -201,7 +215,7 @@ struct Run {
     }
     ~Run()
     {
-#ifndef TEST_APP_VC20
+#ifndef MME_OWN_APP
         if (p.cart) {                                     // the cartridge port of the C64 keeps its state in the application: a start again has none
             char m[160];
             c.mount_changed = 0;
@@ -245,7 +259,7 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes atr(int sectors, uint32_t seed)
 {
     Bytes v(16, 0);
@@ -255,7 +269,11 @@ static Bytes atr(int sectors, uint32_t seed)
     v.insert(v.end(), d.begin(), d.end());
     return v;
 }
+#endif
+#ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
+#endif
+#ifndef MME_OWN_APP
 static Bytes dsk(uint32_t seed)
 {
     const char *magic = "MV - CPCEMU Disk-File\r\nDisk-Info\r\n";
@@ -266,13 +284,15 @@ static Bytes dsk(uint32_t seed)
     return v;
 }
 #endif
+#ifndef TEST_APP_ZX          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Bytes d64(const char *name)
 {
     Disk d(false);
     (void)name;
     return d.img;
 }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes nes_file(uint32_t seed)
 {
     Bytes v(16, 0);
@@ -342,7 +362,7 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
 #endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 
 static Case apple_drive(int d)
 {
@@ -386,6 +406,8 @@ static Case cpc_drive(int d)
     k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "cpc.eject", { in_int("drive", d) }, m, n); };
     return k;
 }
+#endif
+#ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's app's
 static Case tape_case(const char *pfx, const char *ext)
 {
     Case k;
@@ -399,6 +421,7 @@ static Case tape_case(const char *pfx, const char *ext)
     return k;
 }
 #endif
+#ifndef TEST_APP_ZX          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Case cbm_drive()
 {
     Case k;
@@ -410,7 +433,8 @@ static Case cbm_drive()
     k.eject = [](Run &r, char *m, int n) { return mount_op(r, "drive.eject", { in_str("slot", "iec:drive_a") }, m, n); };
     return k;
 }
-#ifndef TEST_APP_VC20
+#endif
+#ifndef MME_OWN_APP
 static Case game_case(const char *run_op, const char *a, const char *b)
 {
     Case k;
@@ -427,7 +451,7 @@ static Case game_case(const char *run_op, const char *a, const char *b)
 static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     {   // ---- Apple IIe: two floppies and two slot 7 volumes
         Prof p;
         p.name = "apple2"; p.cfg = "/usb0/cores/apple2/apple2.cfg"; p.base = &apple2_desc;
@@ -478,6 +502,8 @@ static std::vector<Prof> profiles()
         p.cases = { cpc_drive(0), cpc_drive(1), tape_case("cpc", "cdt") };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_ZX
     {   // ---- ZX Spectrum: the tape
         Prof p;
         p.name = "zx"; p.cfg = "/usb0/cores/zx/zx.cfg"; p.base = &zx_desc;
@@ -487,6 +513,7 @@ static std::vector<Prof> profiles()
         v.push_back(p);
     }
 #endif
+#ifndef TEST_APP_ZX
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
 #else
@@ -510,7 +537,7 @@ static std::vector<Prof> profiles()
         };
         p.cases = { cbm_drive() };
         if (k == 2) {
-#ifndef TEST_APP_VC20
+#ifndef MME_OWN_APP
             Case cart;
             cart.key = "Mount Cartridge";
             cart.a = "/usb0/a.bin";
@@ -523,7 +550,8 @@ static std::vector<Prof> profiles()
         }
         v.push_back(p);
     }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     {   // ---- the cartridge port of the C64 library (c64_cart.cc), on the C64 model
         Prof p;
         p.name = "c64cart"; p.cfg = "/usb0/cores/cartport/cartport.cfg"; p.base = &g_cart_core; p.cart = true;
@@ -855,7 +883,7 @@ static const Prof &prof(const std::vector<Prof> &v, const char *name)
 }
 
 // the Atari's .xex boot disk lives in D1 under its own word; an ATR mounted over it takes it away again
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void atari_xex(const Prof &p)
 {
     char msg[240];
@@ -908,6 +936,7 @@ static void notify_pass(const Prof &p)
 
 // the drive library's disk is read/write, read only or unlinked: the word in front of the path
 #endif
+#ifndef TEST_APP_ZX          // the Spectrum's app has no drive
 static void drive_modes(const Prof &p)
 {
     char msg[240];
@@ -936,9 +965,10 @@ static void drive_modes(const Prof &p)
     }
     printf("%s: read only and unlinked disks come back in their mode\n", p.name.c_str());
 }
+#endif
 
 // the CPC 464 has no drive: stored disks stay unmounted with a note, the tape comes back
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void cpc_464(const Prof &p)
 {
     char msg[240];
@@ -1057,12 +1087,14 @@ int main()
         s3_missing(p);
         s8_sets(p);
         s8_writeback(p);
-#ifndef TEST_APP_VC20
+#ifndef MME_OWN_APP
         if (p.game) game_empty_set(p);
 #endif
     }
 #ifdef TEST_APP_VC20
     drive_modes(prof(profs, "vc20"));
+#elif defined(TEST_APP_ZX)
+                                                       // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
 #else
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
