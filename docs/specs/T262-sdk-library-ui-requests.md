@@ -64,6 +64,9 @@ Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2
 - **D3 (Alex, 2026-11-25, translated: "Forget this test ... When the online.u2a is reworked I play with it for half an hour and then
   it is fine"):** S9 is not run as a counted board test. The proof of T262 on the board is Alex's half hour with TRX64-Ultimate's
   reworked online sub-app on SDK 0.5.0.
+- **D4 (coordinator, 2026-11-25, under D1 "in one go"):** TRX64-Ultimate's findings 1-14 on 0.5.0 and the `hw.cc:90` gap are fixed
+  in one release, SDK 0.5.1; 11, 12 and 14 are generic additions (record `[[key]]` rows of a library, a call that opens a path's action
+  sheet or places Browse's cursor, a file system's "size unknown").
 
 ## §4 Out
 
@@ -95,7 +98,15 @@ Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; pu
   row cut and no panel, the F3 Search tab still blank 1.2 s after the key; (3) `<-` from P5 results discards them ("Cancelled"); (4)
   with a source registered the search tab row reads "Name contains: press RETURN to type" although the form holds text, RETURN on the
   local search opens the form instead of asking for a name, and the empty search tab's side panel says "No media found."; (5) the busy
-  text appears as title and row. To be fixed in one round (0.5.1) once their list from the U21 form (list, pick, show, busy, legend)
-  is complete.
+  text appears as title and row.
+  Their list from the U21 form (2026-11-25, u21-online dea01de): (6) goto_screen from an op the menu runs does not redraw, the
+  next key acts on the new screen; (7) the busy view replaces the whole form with a one-row page: the caption belongs on the job row,
+  the form stays; (8) a list node's count includes the '+' (more) row; (9) a list row cannot be greyed as a whole, only its right
+  column takes the tone; (10) a form keeps its scroll position when rows hide (first row out of view, empty space below); (11) a
+  library's menu record cannot hold `[[key]]` rows (u2a_pack: "a menu record has no key table and no windows"); (12) no call opens a
+  path's action sheet or puts Browse's cursor on a file; (13) `ask` holds 24 characters and refuses file-name characters for every
+  text, search text too; (14) request (Alex, their U21 D11): a file system (netfs) can say "size unknown" and the base's file list
+  shows "-" instead of "0 KB". Plus the gap every core move reported: `hw.cc:90` names `DRV_cart_regs_ADDR` without
+  `DRV_HAS_cart_regs`. All of it in one round, SDK 0.5.1 (D4), on `t239.3-sdk051`.
 - Open: Alex's half hour with the reworked online sub-app on the board (D3, replaces S9); the list page and the search form in
   ue2emu with that real library (their UX review).
