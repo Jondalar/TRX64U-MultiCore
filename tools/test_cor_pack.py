@@ -12,6 +12,7 @@ import json
 import struct
 import sys
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -982,10 +983,19 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             # a table in both files is refused
             r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
-            # D25: a core with cores/<id>/app/desc.toml and the switch off (the C128, a large core) carries no record
-            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True)
+            # D25: a core with cores/<id>/app/desc.toml and the switch off carries no record. Every core with a desc.toml has moved or will move, so the case is built on a tree of its own
+            # (CI_DATA_ROOT, which core_toml.py reads the cores from): the C128's desc.toml and no sdk.toml beside it
+            sw = os.path.join(d, "switch_off")
+            os.makedirs(os.path.join(sw, "cores", "c128", "app"))
+            shutil.copy(os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml"), os.path.join(sw, "cores", "c128", "app", "desc.toml"))
+            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True, env=dict(os.environ, CI_DATA_ROOT=sw))
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1])
+            # the C128's own app has the switch on: its desc.toml is record 6 (under its own name, a manifest that names it)
+            c128 = os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["c128", "--name", "Commodore 128"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(c128, open(c128).read())]))
             # T213.3: the Amiga 1200, a large core with an app of its own, has the switch on: its desc.toml is record 6 (under its own name)
             a12 = os.path.join(self.ROOT, "cores", "amiga1200", "app", "desc.toml")
             r = subprocess.run(cmd[:2] + ["amiga1200", "--name", "Amiga 1200 (AGA, 68020)"] + cmd[5:], capture_output=True, text=True)
