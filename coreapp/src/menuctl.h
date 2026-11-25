@@ -473,6 +473,10 @@ private:
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
     bool busy_, job_started_, job_bare_;
+    bool job_screen_ = false;                                      // T262 D4: the node's job started on a screen: the screen stays, the job's row carries the caption (busy_page() is false)
+    int job_entry_ = -1;                                           // its row: the entry index in the tree
+    mutable char title_buf_[64];
+    bool busy_page() const { return busy_ && !job_screen_; }       // the one-row page of a running job (a file written, a job from a list)
     bool job_node_, job_seen_pct_;                                 // T262 P4: the job is a node's (its caption is the node's, not a file write's); the operation has reported a percentage above 0
     char node_busy_[64];                                           // the node's `busy` spec (ui attribute), "": the node's label
     bool app_mode_;

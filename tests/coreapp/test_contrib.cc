@@ -1035,7 +1035,53 @@ int main(int argc, char **argv)
         CHECK(r.m->busy());
         CHECK_STR(r.left(0).c_str(), "Fetch");
         CHECK_STR(r.right(0).c_str(), "");
+        CHECK(strcmp(r.m->title(), "Fetch") != 0);                                // T262 D4: the words stand in the row, not also as the title
         while (r.m->tick()) {}
+    }
+
+    // ---- T262 D4 (7): a node's job on a screen keeps the screen: the other rows stay, the job's row says what it does
+    {
+        static const LibTabDecl tabs[] = { { "F5", "form", "Form", TW_NODES, 0, 0 } };
+        static const char *const looks[] = { "split;title=Form;side=Side", 0 };
+        static const LibNodeDecl nodes[] = {
+            { "F5/form", LN_OP, "Alpha", "zl.beep", 0, 1 },
+            { "F5/form", LN_OP, "Search", "zl.jobstep", 0, 2, 0, 0, 0, 0, 0, false, "job;busy=Asking the server" },
+            { "F5/form", LN_OP, "Omega", "zl.beep", 0, 3 },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 3;
+        rec.tab_layouts = looks;
+        Contributor cs[] = { { "formjob", CR_LIB, &rec } };
+        Rig r(cs, 1);
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/form"));
+        CHECK(r.m->screen());
+        r.go_to("Search");
+        const int jrow = r.m->selected();
+        g_jobcalls = 0; g_jobpct = 0;
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->busy());
+        CHECK(r.m->screen());                                                     // the form stays
+        CHECK_EQ(r.m->rows(), 3);
+        CHECK_EQ(r.m->selected(), jrow);
+        MenuCtl::Item it;
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Asking the server");                                 // the job row carries the caption, no percentage before the operation reports one
+        r.m->item(jrow - 1, &it);
+        CHECK_STR(it.title, "Alpha");
+        r.m->item(jrow + 1, &it);
+        CHECK_STR(it.title, "Omega");
+        g_jobpct = 40;
+        CHECK(r.m->tick() && r.m->tick());
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Asking the server  40%");
+        while (r.m->tick()) {}
+        CHECK(!r.m->busy());
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Search");
     }
 
     // ---- T262 P2: a node with `pick = "@state"` lists the state's rows (47 of them: the old list stopped at 40); RETURN on a row runs the node's operation with the value as its text

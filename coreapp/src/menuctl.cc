@@ -511,7 +511,7 @@ void MenuCtl::go(int area, int tab)
 
 bool MenuCtl::heading(int i)
 {
-    if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
+    if (busy_page() || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
         return false;
     }
     const MenuEntry &e = tree_.e[cur().first + i];
@@ -535,7 +535,7 @@ int MenuCtl::first_hint() const
 
 void MenuCtl::note_first(int first)
 {
-    if (!is_browser() && !pick_ && !busy_ && !wizard() && !entry_) {
+    if (!is_browser() && !pick_ && !busy_page() && !wizard() && !entry_) {
         first_[area_][tab_] = first;
     }
 }
@@ -762,6 +762,14 @@ const char *MenuCtl::title() const
         return pick_form_ ? "Search" : pick_modes_ ? "Picture" : pick_sets_ ? "Load config" : pick_dyn_ ? pl_title_ : pick_path_;
     }
     if (busy_) {
+        if (job_node_) {                                             // T262 D4: the words of the job stand in its row; the title says it once only when it is another text
+            char bz[64];
+            job_busy(bz, sizeof(bz));
+            if (!strcmp(bz, job_task_->label)) {
+                snprintf(title_buf_, sizeof(title_buf_), "%s", cur().name ? cur().name : "");
+                return title_buf_;
+            }
+        }
         return job_task_->label;
     }
     if (const MenuWizard *w = wizard()) {
@@ -804,7 +812,7 @@ int MenuCtl::entries()
 
 int MenuCtl::rows()
 {
-    if (busy_ || wizard()) {
+    if (busy_page() || wizard()) {
         return 1;
     }
     if (pick_) {
@@ -830,7 +838,7 @@ int MenuCtl::rows()
 
 int MenuCtl::selected() const
 {
-    if (busy_ || wizard()) {
+    if (busy_page() || wizard()) {
         return 0;
     }
     if (pick_) {
@@ -865,7 +873,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         sub[0] = 0;
     }
     *active = true;
-    if (busy_) {
+    if (busy_page()) {
         job_text(left, ln, right, rn, sub, sub ? sn : 0);
         return;
     }
@@ -1209,7 +1217,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
 // T187 D9: the row i of the open list is a setting whose value takes effect at the next reset (a text or a file selector has no such mark: its second line is the value).
 bool MenuCtl::row_reset(int i) const
 {
-    if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
+    if (busy_page() || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
         return false;
     }
     const MenuEntry &e = tree_.e[cur().first + i];
@@ -2452,6 +2460,8 @@ MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name, bool bare)
     job_bare_ = bare;
     job_node_ = &t == &node_task_;                                   // T262 P4: a node's job says what the node says, and a percentage only once the operation reports one
     job_seen_pct_ = false;
+    job_screen_ = job_node_ && cur().layout && cur().layout[0] && !is_browser() && !pick_ && !wizard() && cur().count > 0 && sel_[area_][tab_] < cur().count;
+    job_entry_ = job_screen_ ? cur().first + sel_[area_][tab_] : -1;
     char sj[80];
     if (job_node_) {
         char bz[64];
@@ -4166,7 +4176,7 @@ bool MenuCtl::screen() const
     if (fm_.view) {
         return true;
     }
-    return cur().layout && cur().layout[0] && !busy_ && !pick_ && !entry_;
+    return cur().layout && cur().layout[0] && !busy_page() && !pick_ && !entry_;
 }
 
 const char *MenuCtl::core_title() const
@@ -4600,6 +4610,14 @@ void MenuCtl::item(int i, Item *it)
     default:
         it->kind = IK_FIXED;
         break;
+    }
+    if (busy_ && job_screen_ && cur().first + i == job_entry_) {      // T262 D4: the screen stays while the node's job runs; its row says what the job is doing (and the percentage once it reports one)
+        char l2[120], r2[40];
+        l2[0] = r2[0] = 0;
+        job_text(l2, sizeof(l2), r2, sizeof(r2), 0, 0);
+        snprintf(it->title, sizeof(it->title), "%s%s%s", l2, r2[0] ? "  " : "", r2);
+        it->enabled = true;
+        it->dim = false;
     }
     item_ident(e, it);
 }
