@@ -206,6 +206,10 @@ public:
     bool manage_tab() const;
     const char *search_query() const { return fm_.search_q; }
     bool search_editing() const { return search_edit_; }
+    enum { SF_FIELDS = 4 };                                         // fields of one source (contrib.h CONTRIB_SEARCH_FIELDS)
+    bool search_form() const { return pick_form_; }                 // T262 P5: the search form of the Library is up (the media and the sources of libraries)
+    int search_source_count() const;
+    void search_source_name(char *out, int n) const;                // the source the form searches now ("This device", or a library's name)                                // T262 P5: how many sources of libraries the F3 search offers now
     bool in_image() const { return fm_.image_ft >= 0; }
     const char *chooser_file() const { return chooser_file_; }     // the file whose actions the list shows
     int chooser_count() const { return chooser_n_; }
@@ -255,6 +259,22 @@ private:
     Result run_intent(const MenuIntent &in, bool *took);
     Result run_row_op(const KeyRow &row, int k, bool *took);
     void begin_search_edit();
+    // T262 P5: the one search form of F3 when a library is a source (contrib.h MenuMerge::srcs). pick_ is up too; rows: Source, Name contains, the source's fields, Search.
+    bool pick_form_ = false;
+    int sf_src_ = -1;                                              // -1 This device, else the index into MenuMerge::srcs
+    int sf_edit_ = -1;                                             // the row of the form being typed (1 the name, 2.. a field)
+    char sf_query_[40] = "", sf_field_[SF_FIELDS][40] = {};
+    int sf_after_ = -1;                                            // the search job of this source is running: its rows open as a list when it has ended
+    int search_sources(int *idx, int max) const;                   // the indexes of the sources whose condition holds
+    int sf_nfields() const;
+    void sf_label(int row, char *out, int n) const;                // the label of a form row
+    const char *sf_value(int row) const;                           // the typed text of a form row (the name, a field)
+    int sf_rows() const;
+    void begin_search();                                           // RETURN or '/' in the Search tab: the form when a library is a source, else the one text prompt
+    void begin_search_form();
+    Result sf_run();
+    bool sf_key(int k, Result *out);
+    void sf_open_results(int src);
     void begin_rename(const char *path);
     void begin_confirm_job(const Task *t, const char *question);
     Result activate(bool primary = false, bool all = false);                         // primary: a file's first action at once, without the list of its actions

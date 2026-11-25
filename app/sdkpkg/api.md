@@ -1889,7 +1889,7 @@ Since base 3.0.
 
 `LibNodeDecl` declares a node of the menu.
 
-6.6.1 The merge refuses a node that has no label, that has a kind other than button, state line, group or list, or whose anchor does not name a tab of the route that takes nodes.
+6.6.1 The merge refuses a node that has no label, that has a kind other than button, state line, group or list, or whose anchor does not name a tab of the route that takes nodes (a source of the F3 search, 6.20, stands at the tab `search`, which takes no other node).
 6.6.2 A button needs an `op`, unless its `attr` has `goto` or `off`. A state line needs a `state`, unless its `attr` has `sub` or `chip`.
 6.6.3 The operation of a button has to exist, and its bindings have to fit (section 5.5). A node cannot bind a file. `B_TEXT` is accepted when `attr` has `ask`.
 6.6.4 The state of a state line has to exist.
@@ -1948,6 +1948,7 @@ Since base 3.0.
 | `busy` | A spec (6.7.2). The words the row shows while the node's job runs, in place of the label; resolved at every draw, so a state can change it. Empty: the label. Without `job` it has no effect. |
 | `pick` | A label: the person picks a folder before the job starts. Or `@state` (since base 3.5, T262): RETURN opens the rows of the state as a list (6.19.3) and runs the node's operation with the chosen value bound by `B_TEXT`. A value that starts with `@` is the list; any other text is the label of the folder pick. |
 | `more` | A node of kind `list` (6.19). The operation that asks the library for more rows. |
+| `search`, `find`, `fields` | A node of kind `list` at the tab `search` of F3 (6.20). The name of the source, the operation that searches, the labels of its fields. |
 | `view` | One of `log`, `edid`, `trace`, `info`, `scan`, `help`. RETURN opens the viewer on text the application keeps in memory. |
 | `rename` | RETURN renames the file the Library browser has under the cursor. |
 | `open` | An operation name. The base calls it, without arguments, when the person opens the page the node is on. |
@@ -2177,6 +2178,15 @@ A line that starts with `!` is a note: shown, never taken (a search that is stil
 6.19.4 The rows cost the text only: the base copies the text of the state (at most a quarter of the free heap; a longer text is cut at the end of a line and the status row says so) and reads a row from its line when it is drawn. A list of 200 or of 5000 rows needs no node, no state for a row and no number fixed in the base. The older limit of 40 rows of a choice list is gone.
 6.19.5 A tab may hold several list nodes; each opens its own state. A library built before base 3.5 declares none and loads and runs as it did: the kind, the keys and `ask_list` are additions.
 
+### 6.20 A source of the F3 search: `search`
+
+Since base 3.5 (T262).
+
+6.20.1 A library offers itself as a source of the Library's search with a node of kind `list` anchored at `F3/search` (the tab with the id `search`) with `ui = { search = "Name", find = "domain.verb", fields = "A,B" }`. The node does not stand in the tab: the base reads it. `search` is the name the source has in the Source row, `find` the operation that searches, `fields` up to four labels of extra text fields (1 to 24 characters each, separated by commas). `state`, `op` and `more` are those of the list (6.19): the rows of the results, what a row does, what asks for more. The merge refuses a source without a name or without `find`, with more than four fields, or with an operation or a state nobody registered; at most 6 sources are kept (`CONTRIB_SEARCH_MAX`). A source is offered only while its `when_state` holds.
+6.20.2 With no source the search tab is what it was: RETURN or `/` asks for a part of the name, and the search runs over the media. With at least one source, RETURN or `/` opens one form instead. Its rows: `Source` (`This device`, then every source; RETURN or RIGHT takes the next one), `Name contains` (RETURN types it), one row for each field of the source (RETURN types it) and `Search`. `<-` closes the form. For `This device` the search runs as before and its hits stand in the tab.
+6.20.3 For a source the base calls `find` with one string argument named `query` (`AT_STRING`, up to 200 characters): the text of `Name contains`, then for each field of the source a TAB and the text of that field, in the order of `fields` (an empty field is an empty text). The operation answers with the rows in the state of the node. With `job` in the node's `ui` the base runs `find` as a job (the call repeats while it answers `more`, the busy words are the node's `busy` or `Searching <name>`, `<-` cancels); without it the call runs at once. When the call has returned, the rows open as the page of 6.19 under the title of the node, `op` takes the row that the person chooses. A failed call is a line in the status row and no page.
+6.20.4 A source that is registered by a library built before base 3.5 does not exist: the base before 3.5 refuses a node of kind `list` ("a kind this base does not know").
+
 ## 7. Limits
 
 | Limit | Value |
@@ -2188,6 +2198,7 @@ A line that starts with `!` is a note: shown, never taken (a search that is stil
 | Sockets at once | 16 |
 | Menu nodes | 320 |
 | Rows of a list or a choice | the memory budget (a quarter of the free heap), no fixed number |
+| Library sources of the F3 search, fields of one | 6, 4 |
 | Contributed settings | 16 |
 | Values of one setting | 16 |
 | File types, file actions | 40, 96 |

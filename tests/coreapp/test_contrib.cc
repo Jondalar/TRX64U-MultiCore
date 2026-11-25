@@ -18,6 +18,7 @@
 #include "contrib.h"
 #include "descrec.h"
 #include "menuctl.h"
+#include "listgrow.h"
 #include "ops_glue.h"
 #include "desc_check.h"
 #include "keyboard.h"
@@ -78,6 +79,14 @@ static int op_more(CoreCtx *, const OpArgs &, OpOut &)
     g_rows = g_rows.substr(0, g_rows.rfind("+")) + add + (g_more_calls < 2 ? "+More results" : "");
     return OPE_OK;
 }
+static int op_jobfind(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    g_jobcalls++;
+    o.more = g_jobcalls < g_jobsteps && !c->job_cancel;
+    if (!o.more) g_rows = "\tSlow one\n";
+    g_found = a.s(0);
+    return OPE_OK;
+}
 static int op_find(CoreCtx *, const OpArgs &a, OpOut &) { g_find_calls++; g_found = a.s(0); g_rows = "\tOne\tx\n\tTwo\n"; return OPE_OK; }
 static const char *st_rows(CoreCtx *) { return g_rows.empty() ? 0 : g_rows.c_str(); }
 static const char *st_choices(CoreCtx *) { return g_choices.empty() ? 0 : g_choices.c_str(); }
@@ -107,6 +116,7 @@ static void add_lib_ops(OpRegistry *r)
     r->add_op("zl.phase", phase_args, 2, op_phase);
     r->add_op("zl.more", 0, 0, op_more);
     r->add_op("zl.find", find_args, 1, op_find);
+    r->add_op("zl.jobfind", find_args, 1, op_jobfind);
     r->add_state("zl.rows", st_rows);
     r->add_state("zl.choices", st_choices);
 }
@@ -1076,6 +1086,36 @@ int main(int argc, char **argv)
         CHECK_STR(g_chosen.c_str(), "v499");
     }
 
+    // ---- T262 P2: the rows are bounded by the memory budget, not by a number: with a heap that is nearly full the list is cut at the end of a line and says so; with room it is whole
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_OP, "Many", "zl.chosen", 0, 1, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "budget", CR_LIB, &rec } };
+        g_choices.clear();
+        for (int y = 0; y < 1000; y++) g_choices += "value " + std::to_string(y) + "\n";           // about 10 KB
+        Rig r(cs, 1);
+        r.m->open();
+        r.m->key(KEY_F5);
+        r.go_to("Many");
+        r.m->key(KEY_RETURN);
+        CHECK_EQ(r.m->rows(), 1000);                                                 // no heap figure: only the hard limits
+        CHECK(strstr(r.m->status(), "not shown") == 0);
+        r.m->key(KEY_ESCAPE);
+        ListGrow::free_heap() = []() -> uint32_t { return 4000; };                   // a quarter of it: 1000 bytes of text
+        r.go_to("Many");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->rows() > 50 && r.m->rows() < 200);
+        CHECK(r.left(r.m->rows() - 1).substr(0, 6) == "value ");                      // whole lines only
+        CHECK(strstr(r.m->status(), "not shown") != 0);
+        ListGrow::free_heap() = 0;
+        r.m->key(KEY_ESCAPE);
+        g_choices.clear();
+    }
+
     // ---- T262 P1: a node of kind `list`: the rows come from the library at run time (200 of them, none declared), RETURN on a row calls the operation with its index, the last row asks for more
     {
         static const LibNodeDecl nodes[] = { { "F5/settings", LN_LIST, "Results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "more=zl.more" } };
@@ -1129,6 +1169,121 @@ int main(int argc, char **argv)
         Contributor cb[] = { { "bad", CR_LIB, &br } };
         Rig rb(cb, 1);
         CHECK(rb.has_err("without an operation for a row"));
+        g_rows.clear();
+    }
+
+    static const SkelTab f3tabs[] = { { "browse", "Browse", 1, TW_BROWSER, 0, 0 }, { "search", "Search", 2, TW_BROWSER, 0, 0 } };
+    static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
+    static const Skeleton f3sk = { f3areas, 1 };
+
+    // ---- T262 P5: a library is a source of the F3 search: one form (Source, Name contains, the source's fields, Search); a source's results open as the list of P1; no source: the search is what it was
+    {
+        static const LibNodeDecl nodes[] = { { "F3/search", LN_LIST, "Online results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "search=Online;find=zl.find;fields=Group,Handle;more=zl.more" } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "online", CR_LIB, &rec } };
+        g_rows.clear(); g_found.clear(); g_find_calls = 0; g_taken = -1;
+        {
+            Rig plain(0, 0, &f3sk);                                                           // no library: RETURN asks for a name at once, as before
+            plain.m->open();
+            CHECK(plain.m->goto_spec("F3/search") && plain.m->search_tab());
+            CHECK_EQ(plain.m->search_source_count(), 0);
+            plain.m->key(KEY_RETURN);
+            CHECK(plain.m->entering() && !plain.m->search_form() && !plain.m->picking());
+        }
+        Rig r(cs, 1, &f3sk);
+        CHECK(!r.has_err("search"));
+        r.m->open();
+        CHECK(r.m->goto_spec("F3/search") && r.m->search_tab());
+        CHECK_EQ(r.m->search_source_count(), 1);
+        CHECK(r.m->tab_id() != 0 && r.tab("F3", "search").size() <= 1);                // the source takes no row of the tab
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->search_form() && r.m->picking() && !r.m->entering());
+        CHECK_EQ(r.m->rows(), 3);                                                      // Source, Name contains, Search
+        CHECK_STR(r.left(0).c_str(), "Source"); CHECK_STR(r.right(0).c_str(), "This device");
+        CHECK_STR(r.left(1).c_str(), "Name contains"); CHECK_STR(r.left(2).c_str(), "Search");
+        r.m->key(KEY_RETURN);                                                          // the next source
+        CHECK_STR(r.right(0).c_str(), "Online");
+        CHECK_EQ(r.m->rows(), 5);                                                      // + the two fields of the source
+        CHECK_STR(r.left(2).c_str(), "Group"); CHECK_STR(r.left(3).c_str(), "Handle"); CHECK_STR(r.left(4).c_str(), "Search");
+        r.m->key(KEY_DOWN);
+        r.m->key(KEY_RETURN);                                                          // type the name
+        CHECK(r.m->entering());
+        r.m->key('a'); r.m->key('b');
+        r.m->key(KEY_RETURN);
+        CHECK(!r.m->entering() && r.m->search_form());
+        CHECK_STR(r.right(1).c_str(), "ab");
+        CHECK_STR(r.right(2).c_str(), "Any");
+        r.m->key(KEY_DOWN); r.m->key(KEY_DOWN);
+        r.m->key(KEY_RETURN);                                                          // the field Handle
+        r.m->key('x');
+        r.m->key(KEY_RETURN);
+        CHECK_STR(r.right(3).c_str(), "x");
+        r.m->key(KEY_END);
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);                              // Search: the operation got the name, a TAB and each field
+        CHECK_EQ(g_find_calls, 1);
+        CHECK_STR(g_found.c_str(), "ab\t\tx");
+        CHECK(!r.m->search_form() && r.m->picking());                                  // the rows of the source: the list of P1
+        CHECK_STR(r.m->title(), "Online results");
+        CHECK_EQ(r.m->rows(), 2);
+        CHECK_STR(r.left(0).c_str(), "One"); CHECK_STR(r.right(0).c_str(), "x");
+        r.m->key(KEY_DOWN);
+        r.m->key(KEY_RETURN);
+        CHECK_EQ(g_taken, 1);
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->picking());
+        r.m->key('/');                                                                 // the form again: it kept the source and the texts
+        CHECK(r.m->search_form());
+        CHECK_STR(r.right(0).c_str(), "Online"); CHECK_STR(r.right(1).c_str(), "ab");
+        r.m->key(KEY_UP);
+        r.m->key(KEY_RETURN);                                                          // the next source after the last: This device
+        CHECK_STR(r.right(0).c_str(), "This device");
+        CHECK_EQ(r.m->rows(), 3);
+        r.m->key(KEY_END);
+        r.m->key(KEY_RETURN);                                                          // the search of the media: no call of the library, the query is the Library's
+        CHECK_EQ(g_find_calls, 1);
+        CHECK(!r.m->search_form() && !r.m->picking());
+        CHECK_STR(r.m->search_query(), "ab");
+        r.m->key('/');
+        r.m->key(KEY_ESCAPE);                                                          // <- leaves the form
+        CHECK(!r.m->search_form());
+    }
+
+    // ---- T262 P5: a source with `job` searches as a job with its own words; the rows open when it has ended, not when it was cancelled
+    {
+        static const LibNodeDecl nodes[] = { { "F3/search", LN_LIST, "Slow results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "search=Slow;find=zl.jobfind;job;busy=Asking the server" } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "slow", CR_LIB, &rec } };
+        g_rows.clear(); g_jobcalls = 0; g_jobsteps = 3; g_jobpct = 0;
+        for (int variant = 0; variant < 2; variant++) {
+            Rig r(cs, 1, &f3sk);
+            r.m->open();
+            r.m->goto_spec("F3/search");
+            r.m->key(KEY_RETURN);
+            r.m->key(KEY_RETURN);                                                      // Slow
+            r.m->key(KEY_END);
+            g_jobcalls = 0;
+            r.m->key(KEY_RETURN);
+            CHECK(r.m->busy());
+            char l[100], rt[100]; bool a;
+            r.m->row(0, l, 100, rt, 100, &a);
+            CHECK_STR(l, "Asking the server");                                         // the node's words, no percentage before the operation reports one
+            CHECK_STR(rt, "");
+            r.m->tick();
+            if (variant == 1) {
+                r.m->key(KEY_ESCAPE);                                                  // cancelled: no list
+            }
+            while (r.m->tick()) {}
+            CHECK(!r.m->busy());
+            CHECK(r.m->picking() == (variant == 0));
+            CHECK(g_jobcalls >= 2);
+            r.m->key(KEY_ESCAPE);
+        }
         g_rows.clear();
     }
 

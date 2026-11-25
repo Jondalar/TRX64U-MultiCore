@@ -849,12 +849,18 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
         // hint gives way first, the status line under the list says how to type
         const int room = lw - 2 * t.space_md - t.space_sm - (items[0] ? trx_text_w(items, t.caption) + t.space_md : 0);
         const char *q = m.search_active() ? m.search_query() : "press RETURN to type";
-        snprintf(p, sizeof(p), "Name contains:  %s", q);
+        char src[48] = "";                                         // T262 P5: a library is a source of this search: the field says which one the form searches
+        if (m.search_source_count() > 0) {
+            char nm[40];
+            m.search_source_name(nm, sizeof(nm));
+            snprintf(src, sizeof(src), "%s  -  ", nm);
+        }
+        snprintf(p, sizeof(p), "%sName contains:  %s", src, q);
         if (trx_text_w(p, t.caption) > room && !m.search_active()) {
-            snprintf(p, sizeof(p), "Name contains:");
+            snprintf(p, sizeof(p), "%sName contains:", src);
         }
         while (m.search_active() && trx_text_w(p, t.caption) > room && *q) {
-            snprintf(p, sizeof(p), "Name contains:  ...%s", ++q);
+            snprintf(p, sizeof(p), "%sName contains:  ...%s", src, ++q);
         }
         trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted);
     } else {
