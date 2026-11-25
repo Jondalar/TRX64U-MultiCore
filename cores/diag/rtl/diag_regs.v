@@ -20,6 +20,8 @@
 //     050 STD b1:0 (0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50)   051 PERM b2:0 (0..5, 5)   052 REV b2:0 (bit n: group n bit order reversed, 0)   053 VINV b0 (1), FRZ b1 (0: the marker stands still)
 //     054 TRIM s8 (0)   055 BSTART b6:0 (28)   056-057 BEND b9:0 (99)   058 BAMP b5:0 (32)   059 GAIN b4:0 (16)   05A SYNC (0)   05B BLANK (77)   05C WHITE b4:0 (11)
 //     05D b0 EQ (0: broad vsync pulses only; 1: equalizing + serrated vsync), b1 L262 (0: 263 lines per frame at the 60 Hz standards; 1: 262)   05E VLEN b4:0 (6: the vsync / each block's length in half lines; 5 = 2.5 lines, 12 = 6)   05F VPOS s8 (0: the vsync's start in lines against the default)
+//   060-065 T259 (diag_avout.v, RW, live, reset 0 = the T201 behaviour): 060 MAP b0 (0 scan groups, 1 names)   061 MODE b1:0 (0 test picture, 1 channel probe, 2 RGB; 3 reads back 2)   062 PCH b1:0 (probe channel 0..2)
+//     063 RCH b1:0 (RGB: 0 palette picture, 1..3 one word as a ramp)   064 SYNCN b1:0 (0 high, 1 low, 2 csync, 3 inverted csync)   065 FB b1:0 (0 low, 1 high, 2 picture window, 3 inverted window)
 //   page 6 (0x6000-0x6FFF)  forwarded to the host's pixel layer (px_we, px_re, px_rdata)
 `timescale 1ns / 1ps
 module diag_regs #(
@@ -52,7 +54,7 @@ module diag_regs #(
     output wire        fifo_rd,
     input  wire [13:0] live,
     input  wire [9:0]  drv_low,
-    output wire [81:0] av_cfg                       // T201: the A/V encoder's knobs (diag_avout.v lists the fields)
+    output wire [92:0] av_cfg                       // T201: the A/V encoder's knobs (diag_avout.v lists the fields)
 );
     reg [7:0]  irq_en = 8'd0, cause = 8'd0;
     reg [7:0]  q = 8'd0;
@@ -65,7 +67,9 @@ module diag_regs #(
     reg [9:0]  av_be = 10'd99;
     reg [5:0]  av_bamp = 6'd32;
     reg [4:0]  av_gain = 5'd16, av_white = 5'd11, av_vlen = 5'd6;
-    assign av_cfg = {av_vpos, av_vlen, av_l262, av_eq, av_frz, av_white, av_blank, av_sync, av_gain, av_bamp, av_be, av_bs, av_trim, av_vinv, av_rev, av_perm, av_std};
+    reg        av_map = 1'b0;
+    reg [1:0]  av_mode = 2'd0, av_pch = 2'd0, av_rch = 2'd0, av_synm = 2'd0, av_fbm = 2'd0;
+    assign av_cfg = {av_fbm, av_synm, av_rch, av_pch, av_mode, av_map, av_vpos, av_vlen, av_l262, av_eq, av_frz, av_white, av_blank, av_sync, av_gain, av_bamp, av_be, av_bs, av_trim, av_vinv, av_rev, av_perm, av_std};
     reg [7:0]  saddr = 8'd0;
     reg [31:0] sdata = 32'd0;
     wire        win  = addr[16];
@@ -117,6 +121,12 @@ module diag_regs #(
                 12'h05D: begin av_eq <= wdata[0]; av_l262 <= wdata[1]; end
                 12'h05E: av_vlen <= wdata[4:0];
                 12'h05F: av_vpos <= wdata;
+                12'h060: av_map <= wdata[0];
+                12'h061: av_mode <= (wdata[1:0] == 2'd3) ? 2'd2 : wdata[1:0];
+                12'h062: av_pch <= (wdata[1:0] == 2'd3) ? 2'd2 : wdata[1:0];
+                12'h063: av_rch <= wdata[1:0];
+                12'h064: av_synm <= wdata[1:0];
+                12'h065: av_fbm <= wdata[1:0];
                 default: ;
             endcase
         end
@@ -170,6 +180,12 @@ module diag_regs #(
                 12'h05D: q <= {6'd0, av_l262, av_eq};
                 12'h05E: q <= {3'd0, av_vlen};
                 12'h05F: q <= av_vpos;
+                12'h060: q <= {7'd0, av_map};
+                12'h061: q <= {6'd0, av_mode};
+                12'h062: q <= {6'd0, av_pch};
+                12'h063: q <= {6'd0, av_rch};
+                12'h064: q <= {6'd0, av_synm};
+                12'h065: q <= {6'd0, av_fbm};
                 default: ;
             endcase
         end

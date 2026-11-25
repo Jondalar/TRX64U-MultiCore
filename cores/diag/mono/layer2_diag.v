@@ -253,7 +253,8 @@ module layer2_diag (
     output wire win_port_we,
     input  wire [9:0] kbjoy_i,
     output wire [9:0] kbjoy_low,
-    output wire [7:0] av_ga, av_gb, av_gc            // T201: the A/V test picture's three group words (diag_avout.v); mono/top.v puts them on the balls
+    output wire [7:0] av_ga, av_gb, av_gc,           // T201: the A/V test picture's three group words (diag_avout.v); mono/top.v puts them on the balls
+    output wire av_syn_n, av_fb                      // T259: AVID_SYNCn and AVID_FB
 );
 
     // ---------------------------------------------------------------- the window the application reads
@@ -264,7 +265,7 @@ module layer2_diag (
     wire [13:0] e_live;
     wire        e_running, e_waiting, e_done, e_ovf, e_err;
     wire [9:0]  e_low;
-    wire [81:0] av_cfg;
+    wire [92:0] av_cfg;
     diag_regs regs (
         .clk(cpu_clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .ack(cw_ack), .irq(cw_irq),
         .build(usr_access), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata),
@@ -273,7 +274,7 @@ module layer2_diag (
         .status({e_err, e_ovf, e_done, e_waiting, e_running}), .pc(e_pc), .fifo_q(e_fq), .fifo_level(e_lvl), .fifo_rd(e_rd),
         .live(e_live), .drv_low(e_low), .av_cfg(av_cfg)
     );
-    diag_avout avout (.clk(sys_clk), .av_cfg(av_cfg), .ga(av_ga), .gb(av_gb), .gc(av_gc));
+    diag_avout avout (.clk(sys_clk), .av_cfg(av_cfg), .ga(av_ga), .gb(av_gb), .gc(av_gc), .syn_n(av_syn_n), .fb(av_fb));
     probe eng (
         .clk(cpu_clk), .rst(cpu_rst), .run(e_run), .abort(e_abort), .go(e_go), .fifo_clr(e_clr),
         .st_we(e_stwe), .st_addr(e_staddr), .st_wdata(e_stdata),

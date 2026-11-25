@@ -452,7 +452,7 @@ int main(int argc, char **argv)
         fs.put_text("/usb0/cores/diag/tests/stick2.toml", slurp_text("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
         fs.put_text("/usb0/cores/diag/tests/pins.toml", "# mine\n");
         fs.put_text("/usb0/cores/diag/tests/mytest.toml", "# mine too\n");
-        CHECK_EQ(core_files_install(&c), 8);                      // 10 files: cd32 replaced + 7 missing written; stick2 and pins edited, kept
+        CHECK_EQ(core_files_install(&c), 15);                     // 17 files (14 tests, 3 A/V presets since T259): cd32 replaced + 14 missing written; stick2 and pins edited, kept
         CHECK_STR(fs.text("/usb0/cores/diag/tests/cd32.toml").c_str(), slurp_text("cores/diag/sd/tests/cd32.toml").c_str());
         CHECK_STR(fs.text("/usb0/cores/diag/tests/pins.toml").c_str(), "# mine\n");
         CHECK(fs.text("/usb0/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);

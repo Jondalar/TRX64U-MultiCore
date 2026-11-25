@@ -316,6 +316,8 @@
 1|diag_avenc|600|sh cores/diag/sim/avenc/run.sh
 # T201 S2, S10: every A/V knob register (0x50-0x5F of diag_regs.v) changes the encoder words as specified, live; the sync knobs (D4) give the specified csync (tb_avsync, a second top of tb_avregs.v, run beside it)
 1|diag_avregs|1500|sh cores/diag/sim/avregs/run.sh
+# T259 S1, S2, S3: the diag core's channel map (names / scan groups), channel probe, RGB mode and SYNCn / FB knobs through the register bus, on the ball vectors (tb_avmap, 40 units)
+1|diag_avmap|1500|sh cores/diag/sim/avmap/run.sh
 # T159 (iverilog + wiring check, seconds): the 1541 drive LEDs reach drive_leds_n through cores/c1541/drive_leds_map.v (motor alone: floppy lit, hard disk dark), per core
 1|c1541leds_c128|120|sh cores/c1541/sim/run_leds.sh c128
 1|c1541leds_c264|120|sh cores/c1541/sim/run_leds.sh c264

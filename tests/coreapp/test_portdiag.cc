@@ -79,7 +79,7 @@ int main()
     // the start: outputs released; the examples are record 8 of diag.cor, written by the application's installer (instcore.cc) at the start of the core
     fs.put("/SD/cores/diag.cor", slurp_bytes(getenv("DIAG_COR")));
     char msg[100];
-    CHECK_EQ(core_files_install(&c), 10);
+    CHECK_EQ(core_files_install(&c), 17);
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
     CHECK_EQ(io.regs[PD_CTRL], PD_CTRL_CLEAR);         // ABORT, then CLEAR: the last write
     bool aborted = false;
@@ -211,7 +211,8 @@ int main()
                 case AVK_EQ: CHECK_EQ(io3.regs[PD_AV_SYNCB] & 1, v); break;
                 case AVK_VLEN: CHECK_EQ(io3.regs[PD_AV_VLEN], v); break;
                 case AVK_VPOS: CHECK_EQ((int8_t)io3.regs[PD_AV_VPOS], v); break;
-                default: CHECK_EQ((io3.regs[PD_AV_SYNCB] >> 1) & 1, v); break;
+                case AVK_LINES: CHECK_EQ((io3.regs[PD_AV_SYNCB] >> 1) & 1, v); break;
+                default: CHECK_EQ(io3.regs[PD_AV_MAP + (k - AVK_MAP)], v); break;         // T259: Map, Mode, Probe channel, RGB picture, SYNCn, FB are 060-065
                 }
                 rows++;
             }
@@ -298,6 +299,120 @@ int main()
         fs3.read_only = true;
         CHECK_EQ(reg4.call(&c4, "pd.av_save", &nm, 1, &r3), OPE_FAILED);       // a read only card says so
         fs3.read_only = false;
+    }
+    // ---- T259 S7 the playground: every knob takes every value of its register range through pd.av_free (knob=value), and the registers get exactly it
+    {
+        FakeIo io5;
+        FakeFs fs5;
+        CoreCtx c5;
+        memset(&c5, 0, sizeof(c5));
+        c5.desc = &d;
+        c5.io = &io5;
+        c5.fs = &fs5;
+        snprintf(c5.cor_path, sizeof(c5.cor_path), "/SD/cores/diag.cor");
+        OpRegistry reg5;
+        d.register_ops(reg5);
+        settings_register(reg5);
+        c5.ops = &reg5;
+        Settings st5(d.settings, d.nsettings, d.store, &fs5, "/SD/cores/diag.cfg", 0);
+        st5.load();
+        c5.settings = &st5;
+        OpResult r5;
+        auto reg_of = [&](int k) -> int {                  // what the register holds for knob k, in the knob's own terms
+            switch (k) {
+            case AVK_STD: return io5.regs[PD_AV_STD];
+            case AVK_GROUPS: return io5.regs[PD_AV_PERM];
+            case AVK_BITS_A: case AVK_BITS_B: case AVK_BITS_C: return (io5.regs[PD_AV_REV] >> (k - AVK_BITS_A)) & 1;
+            case AVK_VSIGN: return io5.regs[PD_AV_VINV] & 1;
+            case AVK_TRIM: return (int8_t)io5.regs[PD_AV_TRIM];
+            case AVK_BSTART: return io5.regs[PD_AV_BSTART];
+            case AVK_BEND: return io5.regs[PD_AV_BEND] | (io5.regs[PD_AV_BEND + 1] << 8);
+            case AVK_BAMP: return io5.regs[PD_AV_BAMP];
+            case AVK_GAIN: return io5.regs[PD_AV_GAIN];
+            case AVK_SYNC: return io5.regs[PD_AV_SYNC];
+            case AVK_BLANK: return io5.regs[PD_AV_BLANK];
+            case AVK_WHITE: return io5.regs[PD_AV_WHITE];
+            case AVK_EQ: return io5.regs[PD_AV_SYNCB] & 1;
+            case AVK_VLEN: return io5.regs[PD_AV_VLEN];
+            case AVK_VPOS: return (int8_t)io5.regs[PD_AV_VPOS];
+            case AVK_LINES: return (io5.regs[PD_AV_SYNCB] >> 1) & 1;
+            default: return io5.regs[PD_AV_MAP + (k - AVK_MAP)];
+            }
+        };
+        int tried = 0;
+        for (int k = 0; k < DT_AV_N; k++) {
+            const AvKnob &kn = dt_av_knobs[k];
+            int mid = (kn.lo + kn.hi) / 2;
+            int vals[5] = { kn.lo, kn.hi, mid, kn.lo + 1 <= kn.hi ? kn.lo + 1 : kn.lo, kn.hi - 1 >= kn.lo ? kn.hi - 1 : kn.hi };
+            for (int v : vals) {
+                char as[64];
+                snprintf(as, sizeof(as), "%s=%d", kn.key, v);
+                OpIn in = in_str("assign", as);
+                CHECK_EQ(reg5.call(&c5, "pd.av_free", &in, 1, &r5), OPE_OK);
+                CHECK_EQ(reg_of(k), v);
+                tried++;
+            }
+            // outside the range, an unknown knob and a text that is no assignment refuse and change nothing
+            char out[64];
+            snprintf(out, sizeof(out), "%s=%d", kn.key, kn.hi + 1);
+            OpIn o1 = in_str("assign", out);
+            CHECK_EQ(reg5.call(&c5, "pd.av_free", &o1, 1, &r5), OPE_ARG);
+            CHECK_EQ(reg_of(k), kn.hi - 1 >= kn.lo ? kn.hi - 1 : kn.hi);
+        }
+        CHECK(tried >= 5 * DT_AV_N);
+        OpIn unk = in_str("assign", "no_such_knob=1");
+        CHECK_EQ(reg5.call(&c5, "pd.av_free", &unk, 1, &r5), OPE_NOT_FOUND);
+        OpIn nea = in_str("assign", "burst_start");
+        CHECK_EQ(reg5.call(&c5, "pd.av_free", &nea, 1, &r5), OPE_ARG);
+        OpIn lab = in_str("assign", "v sign = Normal");           // a key with a blank, spaces round the '=', a label
+        CHECK_EQ(reg5.call(&c5, "pd.av_free", &lab, 1, &r5), OPE_OK);
+        CHECK_EQ(io5.regs[PD_AV_VINV] & 1, 0);
+        // a free value of every knob, saved and loaded into a fresh gateware, gives the same registers; a label value round-trips as its label
+        for (int k = 0; k < DT_AV_N; k++) {
+            const AvKnob &kn = dt_av_knobs[k];
+            char as[64];
+            snprintf(as, sizeof(as), "%s=%d", kn.key, (kn.lo + kn.hi * 2 + 1) / 3);
+            OpIn in = in_str("assign", as);
+            CHECK_EQ(reg5.call(&c5, "pd.av_free", &in, 1, &r5), OPE_OK);
+        }
+        uint8_t want[0x70];
+        memcpy(want, io5.regs, sizeof(want));
+        OpIn nm = in_str("name", "free1");
+        CHECK_EQ(reg5.call(&c5, "pd.av_save", &nm, 1, &r5), OPE_OK);
+        std::string pt = fs5.text("/SD/cores/diag/presets/free1.toml");
+        CHECK(pt.find("#") != std::string::npos);                      // at least one value is not a label
+        FakeIo io6;
+        CoreCtx c6;
+        memset(&c6, 0, sizeof(c6));
+        c6.desc = &d;
+        c6.io = &io6;
+        c6.fs = &fs5;
+        OpRegistry reg6;
+        d.register_ops(reg6);
+        settings_register(reg6);
+        c6.ops = &reg6;
+        Settings st6(d.settings, d.nsettings, d.store, &fs5, "/SD/cores/diag.cfg", 0);
+        st6.load();
+        c6.settings = &st6;
+        OpIn byname = in_str("name", "free1");
+        CHECK_EQ(reg6.call(&c6, "pd.av_preset", &byname, 1, &r5), OPE_OK);
+        CHECK(!memcmp(io6.regs + PD_AV_STD, want + PD_AV_STD, 0x70 - PD_AV_STD));
+        OpIn nof = in_str("name", "gone");
+        CHECK_EQ(reg6.call(&c6, "pd.av_preset", &nof, 1, &r5), OPE_FAILED);
+        // an unknown label is refused as a whole (the other rows are still loaded)
+        fs5.put_text("/SD/cores/diag/presets/bad.toml", "kind = \"avpreset\"\n[preset]\nname = \"bad\"\nStandard = \"PAL 99 Hz\"\nMap = \"Names\"\n");
+        OpIn badn = in_str("name", "bad");
+        CHECK_EQ(reg6.call(&c6, "pd.av_preset", &badn, 1, &r5), OPE_FAILED);
+        CHECK_EQ(io6.regs[PD_AV_MAP], 1);
+        // the three shipped presets load by name into the registers (labels only)
+        for (const char *pn : { "Sony-PAL", "NTSC-50.rix01", "NTSC-60.rix02" }) {
+            fs5.put_text(std::string("/SD/cores/diag/presets/") + pn + ".toml", slurp_file(std::string(COREAPP_DIR) + "/../cores/diag/sd/presets/" + pn + ".toml"));
+            OpIn pin = in_str("name", pn);
+            CHECK_EQ(reg6.call(&c6, "pd.av_preset", &pin, 1, &r5), OPE_OK);
+        }
+        CHECK_EQ(io6.regs[PD_AV_STD], 1);                              // NTSC-60.rix02 was the last
+        CHECK_EQ(io6.regs[PD_AV_WHITE], 16);
+        CHECK_EQ(io6.regs[PD_AV_VLEN], 12);
     }
     DONE("test_portdiag");
 }

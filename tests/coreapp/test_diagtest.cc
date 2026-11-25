@@ -130,7 +130,7 @@ static void test_parse_shipped()
     CHECK_STR(g_f.suite.tests[1], "stick2.toml");
     // the example tests the app carries are the files of the repository
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 17);      // 14 tests (T259: avprobe, avrgb, avsync, avvsync are new) and the 3 presets
     for (const char *n : names) {
         CHECK_STR(r.fs.text(std::string("/SD/cores/diag/tests/") + n + ".toml").c_str(), slurp(std::string("cores/diag/sd/tests/") + n + ".toml").c_str());
     }
@@ -529,7 +529,7 @@ static void test_cd32_v2()
     Rig w;
     w.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/superseded/cd32.v1.toml"));
     w.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 9);   // cd32 replaced + pins, paddle, joystick, cd32keys, avout, xpad20, xpad4, xpad4noack written; stick2 edited, kept
+    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 16);   // cd32 replaced + pins, paddle, joystick, cd32keys, avout, avprobe, avrgb, avsync, avvsync, xpad20, xpad4, xpad4noack and the 3 presets written; stick2 edited, kept
     CHECK_STR(w.fs.text("/SD/cores/diag/tests/cd32.toml").c_str(), slurp("cores/diag/sd/tests/cd32.toml").c_str());
     CHECK(w.fs.text("/SD/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
     CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 0);                       // the second start writes nothing
@@ -687,7 +687,7 @@ static void test_engine_errors()
 static void test_examples()
 {
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 17);      // 14 tests (T259: avprobe, avrgb, avsync, avvsync are new) and the 3 presets
     CHECK(r.fs.has("/SD/cores/diag/tests/pins.toml"));
     // the person edits one; the next start leaves it alone and writes only what is missing
     r.fs.put_text("/SD/cores/diag/tests/pins.toml", "# mine\n");
@@ -708,7 +708,7 @@ static void test_examples()
     CHECK_STR(pt, "P1 U0 D1 L1 R1 F1  P2 U1 D1 L1 R1 F0  CMP 1 0 1 0");
 }
 
-// T201 S4, S9, S11: the shipped A/V walk (v2). Each step sets its combination, asks its questions, records YES / NO / MISSED / SKIPPED or the choice's label, the result files carry the combination; the page's values come back at the end.
+// T201 S4, S9, S11: the shipped vsync walk (v2, since T259 avvsync.toml). Each step sets its combination, asks its questions, records YES / NO / MISSED / SKIPPED or the choice's label, the result files carry the combination; the page's values come back at the end.
 static int g_avset[DT_AV_N], g_avcalls, g_avdone;
 static std::vector<std::pair<int, int>> g_avlog;
 static std::vector<int> g_avfrz;
@@ -734,11 +734,11 @@ static void av_hooks(Rig &r)
 }
 static void test_avout()
 {
-    // S11: the shipped v2 file, 36 steps, both questions every time (no gate). Calls come in pairs: step 1: Q1 NO, Q2 other | step 2: Q1 YES, Q2 yellow (good) | step 3: Q1 timeout, Q2 blue
+    // S11: the shipped vsync walk (avvsync.toml, the T201 v2 walk), 36 steps, both questions every time (no gate). Calls come in pairs: step 1: Q1 NO, Q2 other | step 2: Q1 YES, Q2 yellow (good) | step 3: Q1 timeout, Q2 blue
     // | step 4: Q1 YES, Q2 blue (still, wrong colour: listed, not good) | the rest NO, other
     Rig r;
     av_hooks(r);
-    r.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
+    r.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
     int asks = 0;
     r.ui.answer = [&](int) {
         asks++;
@@ -754,7 +754,7 @@ static void test_avout()
     g_avlog.clear();
     g_avfrz.clear();
     g_avdone = 0;
-    CHECK_EQ(r.run("avout.toml"), 0);
+    CHECK_EQ(r.run("avvsync.toml"), 0);
     CHECK_EQ(asks, 72);                                // 36 steps x 2 questions: nothing is skipped
     CHECK_EQ(g_avdone, 1);
     CHECK_EQ(g_avfrz.size(), (size_t)37);              // frozen before each of the 36 steps' questions, released once at the end
@@ -789,10 +789,10 @@ static void test_avout()
     CHECK_EQ(dt_av_knobs[AVK_VLEN].val[g_avset[AVK_VLEN]], 12);
     CHECK_EQ(dt_av_knobs[AVK_VPOS].val[g_avset[AVK_VPOS]], 4);
     CHECK_EQ(r.out.npass, 1);
-    std::string t = r.fs.text("/SD/cores/diag/results/avout_20261102-143015.toml");
-    std::string x = r.fs.text("/SD/cores/diag/results/avout_20261102-143015.txt");
+    std::string t = r.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.toml");
+    std::string x = r.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.txt");
     CHECK(!t.empty() && !x.empty());
-    CHECK(t.find("version = 2") != std::string::npos);
+    CHECK(t.find("version = 1") != std::string::npos);
     CHECK(t.find("steps_planned = 36") != std::string::npos);
     CHECK(t.find("Does the picture stand still (no rolling, no jumping)?") != std::string::npos);
     CHECK(t.find("Which colour is the bar right of the white one?") != std::string::npos);
@@ -838,39 +838,39 @@ static void test_avout()
     // ESC at a question ends the walk, status aborted, the freeze released, the page's values back
     Rig e;
     av_hooks(e);
-    e.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
+    e.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
     static int asked;
     asked = 0;
     e.ui.answer = [](int) { asked++; return DUI_ABORT; };
     g_avdone = 0;
     g_avfrz.clear();
-    CHECK_EQ(e.run("avout.toml"), 0);
+    CHECK_EQ(e.run("avvsync.toml"), 0);
     CHECK_EQ(asked, 1);                                 // ESC at question 1: question 2 is not asked
     CHECK_EQ(g_avdone, 1);
     CHECK_EQ(g_avfrz.back(), 0);
-    CHECK(e.fs.text("/SD/cores/diag/results/avout_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);
+    CHECK(e.fs.text("/SD/cores/diag/results/avvsync_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);
     CHECK_EQ(e.out.nerror, 1);
     // an application without the A/V page refuses
     Rig n;
-    n.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    CHECK_EQ(n.run("avout.toml"), -1);
+    n.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
+    CHECK_EQ(n.run("avvsync.toml"), -1);
     CHECK(std::string(n.out.msg).find("no A/V page") != std::string::npos);
     // a card that refuses the result writes nothing, and no question is asked
     Rig w;
     av_hooks(w);
-    w.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
+    w.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
     w.fs.read_only = true;
-    CHECK_EQ(w.run("avout.toml"), -1);
+    CHECK_EQ(w.run("avvsync.toml"), -1);
     CHECK_EQ(w.ui.prompts.size(), (size_t)0);
     // a card that gives up in the middle of the walk: the walk stops, the files hold what was written, an error says so
     Rig m;
     av_hooks(m);
-    m.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
+    m.fs.put_text("/SD/cores/diag/tests/avvsync.toml", slurp("cores/diag/sd/tests/avvsync.toml"));
     m.ui.answer = [](int) { return DUI_CONTINUE; };
     m.ui.cans = [](int, int *pick) { *pick = 0; return DUI_CONTINUE; };
     m.fs.write_fail_at = 4;                            // the header pair and two pieces, then the card is gone
     g_avdone = 0;
-    CHECK_EQ(m.run("avout.toml"), -1);
+    CHECK_EQ(m.run("avvsync.toml"), -1);
     CHECK_EQ(g_avdone, 1);
     CHECK(std::string(m.out.msg).find("cannot go on writing") != std::string::npos);
 
@@ -913,6 +913,116 @@ static void test_avout()
     CHECK_EQ(b.out.npass, 1);
 }
 
+
+// T259 S4: each preset sets every knob (the values of the spec's section 1), a walk names it in [base] and the result files say so; a [base] knob wins over the preset
+static void test_avpresets()
+{
+    struct Want { const char *name; int v[DT_AV_N]; };
+    //            std grp bA bB bC vs  trim bs  be  bamp gain sync blank white eq vlen vpos lines map mode pch rch syn fb
+    static const Want want[3] = {
+        { "Sony-PAL",      { 0, 5, 0, 0, 0, 1, 0, 28, 99, 32, 16, 0, 77, 11, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { "NTSC-50.rix01", { 3, 0, 0, 0, 1, 0, 2, 16, 90, 32, 8, 8, 88, 9, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { "NTSC-60.rix02", { 1, 0, 0, 0, 1, 0, 4, 16, 90, 32, 8, 8, 88, 16, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0 } },
+    };
+    for (int w = 0; w < 3; w++) {
+        Rig r;
+        av_hooks(r);
+        r.fs.put_text(std::string("/SD/cores/diag/presets/") + want[w].name + ".toml", slurp(std::string("cores/diag/sd/presets/") + want[w].name + ".toml"));
+        r.fs.put_text("/SD/cores/diag/tests/pre.toml", std::string("kind = \"avtest\"\n[test]\nname = \"pre\"\nid = \"pre\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n[base]\npreset = \"") + want[w].name + "\"\n");
+        g_avlog.clear();
+        CHECK_EQ(r.run("pre.toml"), 0);
+        int got[DT_AV_N];
+        for (int k = 0; k < DT_AV_N; k++) got[k] = -1;
+        for (auto &e : g_avlog) got[e.first] = e.second;
+        for (int k = 0; k < DT_AV_N; k++) {
+            CHECK(got[k] >= 0);
+            if (got[k] >= 0) CHECK_EQ(dt_av_knobs[k].val[got[k]], want[w].v[k]);
+        }
+        std::string t = r.fs.text("/SD/cores/diag/results/pre_20261102-143015.toml");
+        std::string x = r.fs.text("/SD/cores/diag/results/pre_20261102-143015.txt");
+        CHECK(t.find(std::string("preset = \"") + want[w].name + "\"") != std::string::npos);
+        CHECK(x.find(std::string("Preset ") + want[w].name + "\n") != std::string::npos);
+    }
+    // a [base] knob wins over the preset, a missing preset and a free value refuse
+    Rig r;
+    av_hooks(r);
+    r.fs.put_text("/SD/cores/diag/presets/NTSC-50.rix01.toml", slurp("cores/diag/sd/presets/NTSC-50.rix01.toml"));
+    r.fs.put_text("/SD/cores/diag/tests/pre.toml", "kind = \"avtest\"\n[test]\nname = \"pre\"\nid = \"pre\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n[base]\npreset = \"NTSC-50.rix01\"\nstandard = \"PAL 50 Hz\"\nmap = \"Names\"\n");
+    g_avlog.clear();
+    CHECK_EQ(r.run("pre.toml"), 0);
+    int std_v = -1, map_v = -1, trim_v = -99;
+    for (auto &e : g_avlog) { if (e.first == AVK_STD) std_v = dt_av_knobs[AVK_STD].val[e.second]; if (e.first == AVK_MAP) map_v = e.second; if (e.first == AVK_TRIM) trim_v = dt_av_knobs[AVK_TRIM].val[e.second]; }
+    CHECK_EQ(std_v, 0);
+    CHECK_EQ(map_v, 1);
+    CHECK_EQ(trim_v, 2);                               // the preset's +60 Hz stays
+    CHECK_EQ(r.run("pre.toml"), 0);
+    Rig m;
+    av_hooks(m);
+    m.fs.put_text("/SD/cores/diag/tests/pre.toml", "kind = \"avtest\"\n[test]\nname = \"pre\"\nid = \"pre\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n[base]\npreset = \"nothere\"\n");
+    CHECK_EQ(m.run("pre.toml"), -1);
+    CHECK(std::string(m.out.msg).find("not on the card") != std::string::npos);
+    Rig f;
+    av_hooks(f);
+    f.fs.put_text("/SD/cores/diag/presets/mine.toml", "kind = \"avpreset\"\n[preset]\nname = \"mine\"\nBurst start = \"#33\"\n");
+    f.fs.put_text("/SD/cores/diag/tests/pre.toml", "kind = \"avtest\"\n[test]\nname = \"pre\"\nid = \"pre\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n[base]\npreset = \"mine\"\n");
+    CHECK_EQ(f.run("pre.toml"), -1);
+    CHECK(std::string(f.out.msg).find("free value") != std::string::npos);
+}
+
+// T259 S5: avout.toml v3 is a suite of avprobe, avrgb and avsync in this order; each writes its pair, the probe's .txt names the channel and bit order the TV locked on
+static void test_avwalk()
+{
+    Rig r;
+    av_hooks(r);
+    for (const char *f : { "avout", "avprobe", "avrgb", "avsync" }) r.fs.put_text(std::string("/SD/cores/diag/tests/") + f + ".toml", slurp(std::string("cores/diag/sd/tests/") + f + ".toml"));
+    int q = 0;
+    // probe: 6 steps (Names A, B, C, Scan A, B, C). The TV locks on Names B (step 2, bars rise) and Scan C (step 6, bars do not); question 2 is only asked after a YES
+    int lock_step = 0;
+    r.ui.answer = [&](int idx) {
+        q++;
+        bool q1 = (idx != lock_step);
+        lock_step = idx;
+        if (q1) return (idx == 2 || idx == 6) ? DUI_CONTINUE : DUI_SKIP;       // question 1 of a step
+        return idx == 2 ? DUI_CONTINUE : DUI_SKIP;                               // question 2 (only asked after a YES): step 2 bars rise, step 6 not
+    };
+    r.ui.cans = [&](int, int *pick) { *pick = 0; return DUI_CONTINUE; };
+    g_avlog.clear();
+    g_avdone = 0;
+    CHECK_EQ(r.run("avout.toml"), 0);
+    CHECK_EQ(g_avdone, 3);                              // three walks, each puts the page's values back
+    CHECK_EQ(r.out.ntests, 3);
+    std::string pt = r.fs.text("/SD/cores/diag/results/avprobe_20261102-143015.toml");
+    std::string px = r.fs.text("/SD/cores/diag/results/avprobe_20261102-143015.txt");
+    std::string rt = r.fs.text("/SD/cores/diag/results/avrgb_20261102-143015.toml");
+    std::string st = r.fs.text("/SD/cores/diag/results/avsync_20261102-143015.toml");
+    std::string su = r.fs.text("/SD/cores/diag/results/avout_20261102-143015.txt");
+    CHECK(!pt.empty() && !px.empty() && !rt.empty() && !st.empty() && !su.empty());
+    CHECK_EQ(count_of(pt, "\n[step."), (size_t)6);
+    CHECK_EQ(count_of(rt, "\n[step."), (size_t)24);
+    CHECK_EQ(count_of(st, "\n[step."), (size_t)32);
+    // the order of the walks: the probe's steps come first in the log of set knobs, then the RGB walk's, then the pins'
+    size_t first_rgb = 0, first_sync = 0;
+    for (size_t i = 0; i < g_avlog.size(); i++) {
+        if (!first_rgb && g_avlog[i].first == AVK_MODE && g_avlog[i].second == 2) first_rgb = i + 1;
+        if (!first_sync && g_avlog[i].first == AVK_SYNCN && g_avlog[i].second != 0) first_sync = i + 1;
+    }
+    CHECK(first_rgb > 0 && first_sync > first_rgb);
+    // every step of the probe: map, channel, answers; the summary names the inputs the TV locked on
+    CHECK(pt.find("Map = \"Names\"") != std::string::npos);
+    CHECK(pt.find("Map = \"Scan groups\"") != std::string::npos);
+    CHECK(pt.find("Probe channel = \"C or B\"") != std::string::npos);
+    CHECK(px.find("The TV locks on (channel probe):") != std::string::npos);
+    CHECK(px.find("map Names, channel B or G: the bars get brighter from left to right: YES (the listed bit order)") != std::string::npos);
+    CHECK(px.find("map Scan groups, channel C or B: the bars get brighter from left to right: NO (another bit order") != std::string::npos);
+    CHECK_EQ(count_of(px, "\n  map "), (size_t)2);
+    CHECK(rt.find("RGB picture = \"G ramp\"") != std::string::npos);
+    CHECK(rt.find("Groups = \"Y=C, C=B, CVBS=A\"") != std::string::npos);
+    CHECK(st.find("SYNCn = \"Inverted csync\"") != std::string::npos);
+    CHECK(st.find("FB = \"Inverted window\"") != std::string::npos);
+    CHECK(su.find("pass") != std::string::npos || su.find("FAIL") != std::string::npos);
+    CHECK(su.find("avprobe") != std::string::npos && su.find("avrgb") != std::string::npos && su.find("avsync") != std::string::npos);
+}
+
 int main()
 {
     test_parse_shipped();
@@ -930,5 +1040,7 @@ int main()
     test_engine_errors();
     test_examples();
     test_avout();
+    test_avpresets();
+    test_avwalk();
     DONE("test_diagtest");
 }

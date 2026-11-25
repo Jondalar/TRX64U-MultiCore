@@ -8,6 +8,8 @@ area F1 Home
     task Pick a test and run it
     task Write the example tests
     task Save A/V preset (asks a name)
+    task Load A/V preset by name (asks a name)
+    task Set an A/V knob (playground) (asks a name)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -32,6 +34,12 @@ area F5 DIAG
     setting Vsync length = 3 lines | 2.5 lines | 6 lines (default 3 lines, live)
     setting Vsync position = -8 | -4 | 0 | +4 | +8 (default 0, live)
     setting Lines 60 Hz = 263 | 262 (default 263, live)
+    setting Map = Scan groups | Names (default Scan groups, live)
+    setting Mode = Test picture | Channel probe | RGB (default Test picture, live)
+    setting Probe channel = A or R | B or G | C or B (default A or R, live)
+    setting RGB picture = Palette picture | R ramp | G ramp | B ramp (default Palette picture, live)
+    setting SYNCn = High | Low | Csync | Inverted csync (default High, live)
+    setting FB = Low | High | Window | Inverted window (default Low, live)
 area F8 System (shifted)
   tab 1 System
     heading Actions
