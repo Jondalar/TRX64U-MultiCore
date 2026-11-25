@@ -75,20 +75,23 @@ a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was 
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/a8_drv.sh"
 source "$TST/nes_drv.sh"
+source "$TST/c264_drv.sh"
 source "$TST/shared_drv.sh"
 a8_drv_dir "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
+c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
+C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL and the NES as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Atari 800 XL, the NES and the Commodore 264 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -103,7 +106,11 @@ INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
 # The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library, its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || INC_NES+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || INC_NES+=("$i"); done
+# The Commodore 264 is its own app as well (T239.5 D15: cores/c264/app). c264app CMD... builds like nesapp, with the 264's library, its table and TEST_APP_C264: its units are in the group c264.
+INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || INC_C264+=("$i"); done
+c264app() { local INC=("${INC_C264[@]}") CA_APP=c264; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
@@ -157,7 +164,8 @@ control_job() {
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
   cp -R "$A8LIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the NES's library (the controls mutate its files)   # T239.5 D15: the Atari 800 XL's library (the controls mutate its files)
+  cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true
+  cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -199,7 +207,7 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/c264.cc $CORES/c264_regs.h $CORES/c64_go.cc" | ca_check c264 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
+  printf '%s\n' "$CORES/pet.cc $CORES/pet_regs.h $CORES/c64_go.cc" | ca_check pet probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
@@ -486,7 +494,7 @@ vc20app run vc20 test_vc20.cc $VC20
 
 # T90 (the Commodore 264 on the generic application): the descriptor against a model of the register block and the 16 KB aperture
 C264="c264.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
-run c264 test_c264.cc $C264
+c264app run c264 test_c264.cc $C264
 
 # T113 5.5 (the Commodore 128 on the generic application): the descriptor against a model of register page E and the DDR2 window; the extra keys are pure
 C128="c128.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
@@ -1022,6 +1030,29 @@ if ca_in atari800 && ca_unit a8_romreq; then t_romreq_a8; PASS=$((PASS + 1)); fi
 NESD="desc_check.cc overlay.cc descrec.cc nes.cc ines.cc $BASEL"
 nesapp run nes_memops test_memops.cc $SVC $NESD
 RARGS="$BUN/app" nesapp run nes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NESD
+
+# T239.5 D15: the Commodore 264's units built as its app (c264app: its library cores/c264/app/lib and its own table, the group c264) that are not above (c264) - the units its TOML B
+# (cores/c264/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: c264.cc with the PRG job, the drive library and the base's (no other core).
+C264D="desc_check.cc overlay.cc descrec.cc $C264 menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc"
+c264app run c264_memops test_memops.cc $SVC $C264D
+c264app run c264_ledcores test_ledcores.cc $C264D
+c264app run c264_mounts test_media_mounts_engines.cc $C264D start.cc handover.cc
+RARGS="$BUN/app" c264app run c264_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $C264D
+# the Commodore 264's rows of the host's ROM table: gen_romreq built as the 264's app, its rows in the host's table
+t_romreq_c264() {
+  local INC=("${INC_C264[@]}")
+  build "$T/gen_romreq_c264" "$TST/gen_romreq.cc" $C264D
+  "$T/gen_romreq_c264" > "$T/romreq_c264.inc"
+  python3 -I - "$T/romreq_c264.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Commodore 264's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test c264_romreq: PASS"
+  return 0
+}
+if ca_in c264 && ca_unit c264_romreq; then t_romreq_c264; PASS=$((PASS + 1)); fi
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

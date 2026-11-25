@@ -20,6 +20,11 @@ const CoreDesc *const compiled_in_table[] = { &atari800_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_C264)
+// the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

@@ -6,7 +6,6 @@
 amiga: amiga.cc amiga_keys.h amiga_regs.h
 apple2: apple2*.cc apple2*.h
 c128: c128.cc c128_keys.h c128_regs.h
-c264: c264.cc c264_regs.h
 pet: pet.cc pet_regs.h
 cpc: cpc.cc cpc_disk.cc cpc_disk.h cpc_regs.h
 ddt: ddt_novic.cc ddt_regs.h

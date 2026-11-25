@@ -11,7 +11,7 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)
 #include "zx_regs.h"
 #include "cpc_regs.h"
 #include "apple2_regs.h"
@@ -29,6 +29,9 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define HEX_CORE atari800_desc
 #elif defined(TEST_APP_NES)               // the NES's app is its own build (run.sh nesapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_C264)              // the Commodore 264's app is its own build (run.sh c264app): its core is the only one in its table
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#define HEX_CORE c264_desc
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &ddt_novic_desc, &portdiag_desc, 0 };
@@ -103,6 +106,8 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF } };
 #elif defined(TEST_APP_NES)
     struct W { const CoreDesc *d; int last; } widths[] = { { &nes_desc, 0xFFFF } };
+#elif defined(TEST_APP_C264)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &c264_desc, 0xFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF }, { &zx_desc, 0x1FFFF },
         { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
@@ -140,7 +145,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_NES)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)          // the cases that stand on the shared app's cores
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
