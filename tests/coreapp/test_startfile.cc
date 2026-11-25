@@ -8,8 +8,7 @@
 
 // the core of the file: a stub whose cor_name is the base name of its .cor (what start_identify matches), as test_start.cc does
 static const CoreDesc mono = { {'M', 'O', 'N', 'O'}, "TRX64U", "Monolith", "trx64u", "Monolith Settings" };
-extern const CoreDesc amiga_desc;
-const CoreDesc *const core_table[] = { &mono, &amiga_desc, 0 };
+const CoreDesc *const core_table[] = { &mono, 0 };           // T239.5 D13: no moved core in the shared unit (the A500 was a second row no case read)
 
 static void mk(FakeFs *fs, const char *path, const char *cor, const char *config)
 {

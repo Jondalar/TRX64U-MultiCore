@@ -18,10 +18,13 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -52,8 +55,10 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 const CoreDesc *const core_table[] = { &pet_desc, 0 };
 #elif defined(TEST_APP_C128)            // the C128's app is its own build (run.sh c128app) with its core only
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -210,10 +215,14 @@ int main(int, char **argv)
         static const Mi want[] = { { "Commodore 128", "40/80 DISPLAY" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_AMIGA)
+        static const Mi want[] = { { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
             { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
-            { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
+            { "C64 with SuperCPU", "SuperCPU speed" },
             { "Atari 800 XL", "RAM size,Video standard" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
@@ -306,6 +315,8 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the PET's drive images (.d64, .d80, .d82: Mount in Drive 8 / 8.1, Run Disk = pet.mount_run) are no reference table's image
 #elif defined(TEST_APP_C128)
         CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
+#elif defined(TEST_APP_AMIGA)
+        CHECK(seen_cbm == 0 && seen_other == 1);                    // the walk saw the A500's ADF (Mount DF0 and reset), no CBM image (the HDF has nothing to run)
 #else
         CHECK(seen_cbm >= 5 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu; atari, apple, zxnext ...)
 #endif
@@ -429,8 +440,10 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_C128)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_AMIGA)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 11);
+        CHECK(n205 >= 10);                                         // T239.5 D13: the Amiga 500's row is its unit amiga_desc (measured 10 without it, 2026-11-25)
 #endif
     }
 
@@ -451,6 +464,8 @@ int main(int, char **argv)
         static const char *const own[] = { "PET1" };                         // the dual drive unit's dirty images are the core's own write-back
 #elif defined(TEST_APP_C128)
         static const char *const own[] = { "C128" };                         // the drive library's write-back (the drive window is the core's own)
+#elif defined(TEST_APP_AMIGA)
+        static const char *const own[] = { 0 };                              // the A500's media are the base engines' (window and sector media): no flush of its own to hand over
 #else
         static const char *const own[] = { "APL2", "A8XL", "C264", "SNES", "NEO_" };
 #endif
@@ -477,7 +492,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -512,11 +527,6 @@ int main(int, char **argv)
         t = ms_ok; t.names = eq; m.mount_slots = &t; CHECK(desc_check(&m) && strstr(desc_check(&m), "key cannot hold"));
         static const char *const lng[2] = { "TwelveChars!", "C" };
         t = ms_ok; t.names = lng; m.mount_slots = &t; CHECK(desc_check(&m) && strstr(desc_check(&m), "1..9"));
-        CoreDesc a = amiga_desc;                               // the Amiga's own slots are DF0.. and HD0..: an engine's name may not look like one
-        static const char *const df[1] = { "DF9" };
-        t = ms_ok; t.n = 1; t.names = df; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "like a slot of the base"));
-        static const char *const many[7] = { "A", "B", "C", "D", "E", "F", "G" };
-        t = ms_ok; t.n = 7; t.names = many; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "more media than the .cfg"));
     }
     // T104.1 D14: every name the descriptor holds has to be registered, and what it binds has to fit; each refusal names the entry and
     // the operation. A setting still needs two values.
@@ -746,7 +756,7 @@ int main(int, char **argv)
         CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
     }
 #else
-#ifndef TEST_APP_A1200
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_AMIGA)
 
     // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
@@ -766,14 +776,24 @@ int main(int, char **argv)
     }
 #endif
 
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
     {
 #ifdef TEST_APP_A1200
-        const CoreDesc &amiga_desc = amiga1200_desc;                           // the A1200's app has the one record: the checks of this block run on it (the shared app's amiga_desc is not linked)
+        const CoreDesc &amiga_desc = amiga1200_desc;                           // the A1200's app has the one record: the checks of this block run on it (the Amiga 500's amiga_desc is not linked: it is its own app, T239.5 D13)
         CoreDesc d;                                                            // (the shared app's d is declared in the block this app does not run)
         CHECK(!desc_check(&amiga1200_desc));
 #else
+        CoreDesc d;                                                            // (the shared region that declares d is not in this app)
         CHECK(!desc_check(&amiga_desc));
+        {   // T180: the Amiga's own slots are DF0.. and HD0..: an engine's name may not look like one (the slot table ms_ok of the shared case above)
+            MountSlots t;
+            CoreDesc a = amiga_desc;
+            static const char *const df[1] = { "DF9" };
+            t = ms_ok; t.n = 1; t.names = df; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "like a slot of the base"));
+            static const char *const many[7] = { "A", "B", "C", "D", "E", "F", "G" };
+            t = ms_ok; t.n = 7; t.names = many; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "more media than the .cfg"));
+        }
 #endif
         // D25: the Amiga's own mouse rows pass only with their own operation; a base key with another operation is refused
         {
@@ -905,6 +925,8 @@ int main(int, char **argv)
         CHECK(amiga1200_desc.id_shared && !memcmp(amiga1200_desc.id, "AMIG", 4) && !strcmp(amiga1200_desc.store, "Amiga 1200 Settings"));   // the ID word it shares with the A500, and its own .cfg section
 #endif
     }
+#endif
+#ifndef TEST_APP_AMIGA
 
 
     // T104.2 D10: tasks, media and settings name a group, a tab lists groups, an information tab names its lines - two tabs of one widget keep their entries apart
@@ -935,6 +957,7 @@ int main(int, char **argv)
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Core\n    info Media\n") == std::string::npos);      // the lines come in the order the tab names them ...
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Media\n    info Core\n") != std::string::npos);      // ... and no others
     }
+#endif
 
 #endif
     // golden menu lists
@@ -952,6 +975,8 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
+#elif defined(TEST_APP_AMIGA)
+    golden(&amiga_desc, "amiga");
 #else
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
@@ -961,7 +986,6 @@ int main(int, char **argv)
     golden(&neogeo_desc, "neogeo");
     golden(&c264_desc, "c264");
     golden(&c64scpu_desc, "c64scpu");
-    golden(&amiga_desc, "amiga");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
 #endif
@@ -1020,7 +1044,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 

@@ -19,6 +19,9 @@ extern const CoreDesc cpc_desc;                 // cores.h lists the shared app'
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #include "zx_regs.h"
 #endif
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -61,7 +64,7 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
-                                       &amiga_desc, &portdiag_desc, 0 };
+                                       &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
 
@@ -149,7 +152,7 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
-        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
+        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops
 #endif
     for (auto &w : widths) {
         Rig r(w.d);
@@ -214,18 +217,17 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
     }
     // ---- cores whose memory the application cannot reach say so, and why
-    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &portdiag_desc }) {
+    for (const CoreDesc *d : { &nes_desc, &portdiag_desc }) {               // T239.5 D13: the Amiga 500's case is its unit amiga_memops
         Rig r(d);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
     {
-        Rig r(&nes_desc), a(&amiga_desc);
-        OpResult x, y;
+        Rig r(&nes_desc);
+        OpResult x;
         r.call("machine.read_mem", 0, 1, &x);
-        a.call("machine.read_mem", 0, 1, &y);
-        CHECK(strstr(x.msg, "NES") != 0 && strstr(y.msg, "Amiga") != 0);
+        CHECK(strstr(x.msg, "NES") != 0);                                       // the Amiga 500's message names it in its unit amiga_memops
     }
 #endif
 #ifdef TEST_APP_ZX

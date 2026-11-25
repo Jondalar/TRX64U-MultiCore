@@ -15,6 +15,7 @@
 #include "uiapp.h"
 #include "uic.h"
 #include "monsrv.h"
+extern const CoreDesc amiga_desc;               // T239.5 D13: this file's cases are the Amiga 500's, built as its app (run.sh amigaapp, cores/amiga/app/lib)
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }

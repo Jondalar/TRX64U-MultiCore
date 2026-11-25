@@ -3,7 +3,13 @@
 #include <string>
 #include "check.h"
 #include "fakes.h"
+#ifdef TEST_APP_AMIGA                    // T239.5 D13: the Amiga 500's case (the Kickstart set) runs as its app (run.sh amigaapp, unit amiga_corefolder); the shared unit corefolder keeps S1-S4
 #include "amiga_model.h"
+#else
+#include "ctx.h"
+#include "cores.h"
+#include "video.h"
+#endif
 #include "corefolder.h"
 #include "romfind.h"
 #include "romset.h"
@@ -49,6 +55,7 @@ static RomStatus start_scan(CoreFs *fs, const char *cor, RomResult *res, char *s
 
 int main()
 {
+#ifndef TEST_APP_AMIGA
     char b[260];
     RomResult res[2];
     char sum[300];
@@ -247,6 +254,7 @@ int main()
         CHECK(strstr(sum, "roms/atari800") != 0);
     }
 
+#else
     // ---- the ROM set (Kickstart): the core folder alone, copied from the old places by extension and size, never from the shared folder
     {
         AmigaRig *r;
@@ -277,5 +285,6 @@ int main()
         CHECK_EQ(romset_scan(&r2->c, s, sizeof(s)), ROM_MISSING);
         CHECK(strstr(s, "/SD/cores/amiga/roms/") != 0 && !strstr(s, "/usb"));
     }
+#endif
     DONE("test_corefolder");
 }

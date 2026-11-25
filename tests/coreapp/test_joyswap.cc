@@ -8,8 +8,11 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)   // the CPC's, the C128's, the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)   // the two Amiga apps (run.sh a12app with its shim, amigaapp): no file of the Amiga in any other build (T239.5 D13: the shared unit has none either)
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;        // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
 #ifdef TEST_APP_C128                     // the C128's app (run.sh c128app) has its own core only
 #include "c128_regs.h"
@@ -65,7 +68,7 @@ int main()
 #elif defined(TEST_APP_C128)
         { &c128_desc, C128_JOY },
 #else
-        { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY },
+        { &nes_desc, NES_JOY },
         { &zxnext_desc, ZXN_JOY },
 #endif
     };

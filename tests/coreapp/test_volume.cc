@@ -11,6 +11,9 @@
 #include "regset.h"
 #include "keyboard.h"
 #include "volume.h"
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }
@@ -46,8 +49,29 @@ static int lastv(FakeIo &io) { return io.vol_log.empty() ? -1 : io.vol_log.back(
 int main()
 {
     Host host;
+#ifdef TEST_APP_AMIGA
+    // T239.5 D13: the Amiga 500's cases of this file run as its app (run.sh amigaapp, unit amiga_volume); the shared unit volume keeps the others
     // no descriptor declares the item, no core has a register for it: the application adds it
     CHECK_EQ(count_key(amiga_desc, VOLUME_KEY), 0);
+    static CoreDesc ad;
+    static Setting as[SETTINGS_MAX];
+    CHECK(!volume_extend(&amiga_desc, &ad, as));                  // the Amiga gets the same item as every core (the A1200: a12_base)
+    CHECK_EQ(ad.nsettings, amiga_desc.nsettings + 1);
+    CHECK_EQ(count_key(ad, VOLUME_KEY), 1);
+    {   const Setting &av = ad.settings[ad.nsettings - 1];
+        CHECK(volume_is_generic(av) && !av.bind);
+    }
+    {
+        Rig a1(&ad);                                                  // the Amiga 500: the host's register, no register of its own (WP18)
+        MenuCtl m1(&a1.c, &host);
+        m1.open();
+        m1.key('{');
+        CHECK(!a1.io.vol_log.empty() && a1.io.vol_log.back().v == volume_byte(VOLUME_DEFAULT + 1));
+        CHECK(std::string(m1.toast_text()).find("105%") != std::string::npos);
+        for (auto &w : a1.io.log) CHECK(w.reg != 0x0A9);              // the old VOL_CFG address is never written
+    }
+#else
+    // no descriptor declares the item, no core has a register for it: the application adds it
     CHECK_EQ(count_key(nes_desc, VOLUME_KEY), 0);
 
     // ---- T164 WP11: the host's master volume for every core. The application adds "Volume" (apply = VOLUME_OP) to a core that has none; the step reaches
@@ -57,17 +81,11 @@ int main()
     CHECK_EQ(volume_byte(VOLUME_STEPS - 1), 255);                     // 200 % is the top, saturating
     CHECK_EQ(volume_byte(1), 6);
     CHECK_EQ(volume_byte(22), 141);                                   // 110 %
-    static CoreDesc gd, ad, od;
-    static Setting gs[SETTINGS_MAX], as[SETTINGS_MAX], os[SETTINGS_MAX];
+    static CoreDesc gd, od;
+    static Setting gs[SETTINGS_MAX], os[SETTINGS_MAX];
     CHECK(!volume_extend(&nes_desc, &gd, gs));
     CHECK_EQ(gd.nsettings, nes_desc.nsettings + 1);
     CHECK_EQ(count_key(gd, VOLUME_KEY), 1);
-    CHECK(!volume_extend(&amiga_desc, &ad, as));                  // the Amiga gets the same item as every core (the A1200: a12_base)
-    CHECK_EQ(ad.nsettings, amiga_desc.nsettings + 1);
-    CHECK_EQ(count_key(ad, VOLUME_KEY), 1);
-    {   const Setting &av = ad.settings[ad.nsettings - 1];
-        CHECK(volume_is_generic(av) && !av.bind);
-    }
     {   // a core that declares a "Volume" item itself (a register of its own) keeps it: no second one (the guard in volume_extend; no shipped core uses it since WP18)
         static const char *const two[] = { "Low", "High" };
         static Setting ds[SETTINGS_MAX], xs[SETTINGS_MAX];
@@ -156,14 +174,6 @@ int main()
         CHECK(o.io.vol_log.empty());
         CHECK_STR(om.toast_text(), "");
     }
-    {
-        Rig a1(&ad);                                                  // the A1200: the host's register, no register of its own (WP18)
-        MenuCtl m1(&a1.c, &host);
-        m1.open();
-        m1.key('{');
-        CHECK(!a1.io.vol_log.empty() && a1.io.vol_log.back().v == volume_byte(VOLUME_DEFAULT + 1));
-        CHECK(std::string(m1.toast_text()).find("105%") != std::string::npos);
-        for (auto &w : a1.io.log) CHECK(w.reg != 0x0A9);              // the old VOL_CFG address is never written
-    }
+#endif
     DONE("test_volume");
 }

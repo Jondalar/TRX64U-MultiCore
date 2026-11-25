@@ -294,7 +294,7 @@ int main()
     }
 
 #endif
-#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the Amiga 500 shares the queue (gateware: the shared amiga_input.v): the same record, the same events
     {
         FakeFs fs2;

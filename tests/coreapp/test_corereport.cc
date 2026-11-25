@@ -14,9 +14,17 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-extern const CoreDesc amiga_desc, apple2_desc;
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib): its build has its core only
+#else
+extern const CoreDesc apple2_desc;
+#endif
 
-const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &apple2_desc, 0 };
+#ifdef TEST_APP_AMIGA
+const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
+#endif
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
 
@@ -112,6 +120,27 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
 
 int main()
 {
+#ifdef TEST_APP_AMIGA
+    // ---- D3 in the real descriptors: the Amiga 500's (T239.5 D13: run as its app, run.sh amigaapp, unit amiga_corereport; the shared unit corereport keeps the Apple IIe's)
+    {
+        const CoreDesc *real[] = { &amiga_desc };
+        for (const CoreDesc *d : real) {
+            CHECK(d->nreport_regs > 0 && d->report_regs);
+            CHECK(!desc_check(d));
+        }
+        // a malformed list is refused by the check
+        CoreDesc d = amiga_desc;
+        static const ReportReg odd[] = { { "three", 0x10, 3 } };
+        d.report_regs = odd; d.nreport_regs = 1;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
+        d.report_regs = unnamed;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
+        d.report_regs = far_;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+    }
+#else
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     {
         Rig r;
@@ -231,22 +260,11 @@ int main()
     }
     // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
     {
-        const CoreDesc *real[] = { &amiga_desc, &apple2_desc };
+        const CoreDesc *real[] = { &apple2_desc };                // T239.5 D13: the Amiga 500's case and the malformed lists on its record are its unit amiga_corereport
         for (const CoreDesc *d : real) {
             CHECK(d->nreport_regs > 0 && d->report_regs);
             CHECK(!desc_check(d));
         }
-        // a malformed list is refused by the check
-        CoreDesc d = amiga_desc;
-        static const ReportReg odd[] = { { "three", 0x10, 3 } };
-        d.report_regs = odd; d.nreport_regs = 1;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
-        d.report_regs = unnamed;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
-        d.report_regs = far_;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
     }
     // the report of a real descriptor names its registers
     {
@@ -381,5 +399,6 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
+#endif
     DONE("test_corereport");
 }
