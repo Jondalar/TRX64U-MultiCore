@@ -1,6 +1,6 @@
 # T262 — A library builds lists, choices and tabs at run time with the SDK's own menu tools, and three base defects of the menu are gone
 
-**Status:** PROPOSED (2026-11-25), asked by TRX64-Ultimate (FW session) with Alex's go to them (translated): "ask for it, but so that
+**Status:** ACCEPTED (2026-11-25), asked by TRX64-Ultimate (FW session) with Alex's go to them (translated): "ask for it, but so that
 it moves the SDK forward generically".
 **Repo:** TRX64U-MultiCore — the SDK base's menu engine (`coreapp/src/menuctl.cc`, `picklist.*`, `ctx.h`), the library API
 (`app/sdkpkg/api.md`, `libload`), the record format (`tools/descrec.py`), the SDK release.
@@ -57,10 +57,10 @@ Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2
 
 ## §3 Decisions
 
-Open, one at a time with Alex:
-- **Q1** Which parts, in which SDK version? Proposal: the defects P7-P9 first, as 0.4.8; P1-P4 and P6 as 0.5.0 (new API: minor
-  version); P5 after them.
-- **Q2** Names for P1-P3 (proposal: node kind `list`, node key `pick`, tab key `show`).
+- **D1 (Alex, 2026-11-25, Q1, translated: "why not in one go? It only takes longer again with the CI/CD"):** all nine parts, P1-P9,
+  in one SDK release, 0.5.0 (new API: minor version).
+- **D2 (coordinator, 2026-11-25, Q2: API names, a technical detail):** node kind `list` (P1), node key `pick` (P2), tab key
+  `show` (P3).
 
 ## §4 Out
 

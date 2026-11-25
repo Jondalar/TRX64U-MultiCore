@@ -31,7 +31,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 | T259 | 3 | 🔨 | Diag core measures the A/V port: channel map, bit order, RGB, SYNCn and FB; tester values as presets (#73) | Built on t259-diag-av, merged into t260-diag (T260 D8); board: Alex's Sony via SCART RGB | [T259](docs/specs/T259-diag-av-port-measured.md) |
 | T260 | 3 | 🔨 | Diag core reaches every connector pin; a new test is a TOML on the SD, no build; own app, matrix lane (T239.5 D15) | Building on t260-diag (Alex 11-25): gateware pin bank + engine v2, app as generic runner | [T260](docs/specs/T260-diag-all-pins-tests-loaded.md) |
 | T261 | 2 | 🔨 | Builder serves TRX64-Ultimate too; SDK lane publishes SDK releases; trx64u.cor from their GitHub pre-release | Builder fw row live, SDK releases, emu net image proven (D8); trx64u pin on fw-main-d72ab54a (t239.3); D9 char ROM ok | [T261](docs/specs/T261-builder-sdk-for-trx64-ultimate.md) |
-| T262 | 2 | 📝 | SDK: runtime list rows, choice list, tab visibility, job caption, search providers for libraries; 3 menu defects | Proposed 11-25 by TRX64-Ultimate (online sub-app rework, Alex's go to them); Q1-Q2 open | [T262](docs/specs/T262-sdk-library-ui-requests.md) |
+| T262 | 2 | 📝 | SDK: runtime list rows, choice list, tab visibility, job caption, search providers for libraries; 3 menu defects | Accepted 11-25 (D1 Alex: all nine parts in one release, SDK 0.5.0; D2 names list/pick/show) | [T262](docs/specs/T262-sdk-library-ui-requests.md) |
 
 ## Board test required
 
