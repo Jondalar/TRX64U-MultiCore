@@ -52,9 +52,14 @@ reg = 0x0C
 bytes = 4
 
 [[report_reg]]
-name = "live pins"
-reg = 0x40
+name = "live pins 48-63 (joystick, PADDLE_CMP0)"
+reg = 0x46
 bytes = 2
+
+[[report_reg]]
+name = "live pins 64-71 (PADDLE_CMP1-3, DIS, ADJ)"
+reg = 0x48
+bytes = 1
 
 # ---- tasks: a test or a panel is a .toml of the core's folder on the card (cores/diag/sd: tests/, panels/, presets/), picked by the task or in the file browser
 [[task]]

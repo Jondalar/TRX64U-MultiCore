@@ -10,7 +10,7 @@ u2p_io_base = 0x10100000
 id = "DIAG"
 block = "ident"
 
-# 000-00F: the ID "DIAG" (byte 0 first), the caps bytes, DCAPS (b0 the joystick pins are open-drain outputs, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder), the build word; 00C-00F (engine clocks per microsecond x 256) is a module parameter that rtl_check does not read, the app names it as a number (portdiag_regs.h PD_TICKS)
+# 000-00F: the ID "DIAG" (byte 0 first), the caps bytes, DCAPS (b0 the joystick pins are open-drain outputs, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder, b3 the pin bank v2: ROM and DRIVE by index, b4 capture), the build word; 00C-00F (engine clocks per microsecond x 256) is a module parameter that rtl_check does not read, the app names it as a number (portdiag_regs.h PD_TICKS)
 [[block]]
 name = "ident"
 module = "diag_regs"
@@ -48,6 +48,14 @@ size = 0x10
     [[block.property.field]]
     name = "av"
     shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "bank"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "capture"
+    shift = 4
     bits = 1
   [[block.property]]
   name = "build"
@@ -92,6 +100,18 @@ size = 0x30
     name = "step_err"
     shift = 4
     bits = 1
+    [[block.property.field]]
+    name = "refused"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "sampling"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "guard_trip"
+    shift = 7
+    bits = 1
   [[block.property]]
   name = "ctrl"
   offset = 0x02
@@ -113,6 +133,10 @@ size = 0x30
     name = "clear"
     shift = 3
     bits = 1
+    [[block.property.field]]
+    name = "cap_reset"
+    shift = 4
+    bits = 1
   [[block.property]]
   name = "irq_cause"
   offset = 0x04
@@ -121,6 +145,16 @@ size = 0x30
   [[block.property]]
   name = "pc"
   offset = 0x06
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ref_pc"
+  offset = 0x07
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ref_cnt"
+  offset = 0x08
   width = 8
   dir = "r"
   [[block.property]]
@@ -144,22 +178,18 @@ size = 0x30
   width = 16
   dir = "r"
 
-# 040-043: the pins as the engine sees them (KBJOY_1[4:0], KBJOY_2[4:0], PADDLE_CMP[3:0]) and the pins it drives low
+# 040-04F: the snapshot of every pin of the bank, 128 bits, byte k = pins 8k+7..8k, bit = the pin's index in the pin table (synchronised; an output pin shows what the FPGA drives)
 [[block]]
 name = "live"
 module = "diag_regs"
 owner = "core"
 address = 0x101A0040
-size = 0x04
+size = 0x10
   [[block.property]]
-  name = "live"
+  name = "snap"
   offset = 0x00
-  width = 16
-  dir = "r"
-  [[block.property]]
-  name = "drv"
-  offset = 0x02
-  width = 16
+  width = 8
+  count = 16
   dir = "r"
 
 # 050-065: the A/V test encoder (diag_avout.v, T201, T259)
@@ -290,3 +320,175 @@ size = 0x16
   offset = 0x15
   width = 8
   dir = "rw"
+
+# 070-07F: DRVEN, a bit per pin index: the engine drives or overrides this pin now
+[[block]]
+name = "drven"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0070
+size = 0x10
+  [[block.property]]
+  name = "drven"
+  offset = 0x00
+  width = 8
+  count = 16
+  dir = "r"
+
+# 080 PIN_COUNT and 081 GUARD (b0: GAME or EXROM is low now; guarded pins are released while it is 1)
+[[block]]
+name = "pinbank"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0080
+size = 0x02
+  [[block.property]]
+  name = "count"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "guard"
+  offset = 0x01
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "now"
+    shift = 0
+    bits = 1
+
+# 0A0 PIN_IDX: the pin whose table entry the ROM window shows
+[[block]]
+name = "pinsel"
+module = "diag_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x01
+  [[block.property]]
+  name = "idx"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+
+# 0C0-0DF PIN_ROM: 32 bytes of the entry PIN_IDX (0-15 name, 16 dir, 17 class, 18 flags, 19 group, 20 idle)
+[[block]]
+name = "pinrom"
+module = "diag_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0x20
+  [[block.property]]
+  name = "rom"
+  offset = 0x00
+  width = 8
+  count = 32
+  dir = "r"
+
+# 100-11F CAP_SEL: the pin index of capture lane j (0x7F = unused)
+[[block]]
+name = "capsel"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x20
+  [[block.property]]
+  name = "sel"
+  offset = 0x00
+  width = 8
+  count = 32
+  dir = "rw"
+
+# 120 CAP_STATUS, 124 CAP_COUNT, 128 CAP_LOST, 12C CAP_LINES (20 bit: bytes 12C-12E, byte 12F is the top's constant 0, so the run has three elements)
+[[block]]
+name = "capst"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0120
+size = 0x01
+  [[block.property]]
+  name = "status"
+  offset = 0x00
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "sampling"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "written"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "overrun"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "busy"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "valid"
+    shift = 4
+    bits = 1
+
+[[block]]
+name = "capcnt"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0124
+size = 0x0C
+  [[block.property]]
+  name = "count"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "lost"
+  offset = 0x04
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "lines"
+  offset = 0x08
+  width = 8
+  count = 3
+  dir = "r"
+
+# 130-132 CAP_RADDR (the ring byte offset, bits 3:0 read 0; byte 133 reads 0), 134 CAP_RCTRL (b0: read the 16 bytes at CAP_RADDR into CAP_RDATA), 140-14F CAP_RDATA
+[[block]]
+name = "capraddr"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0130
+size = 0x03
+  [[block.property]]
+  name = "raddr"
+  offset = 0x00
+  width = 8
+  count = 3
+  dir = "rw"
+
+[[block]]
+name = "capctl"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0134
+size = 0x01
+  [[block.property]]
+  name = "rctrl"
+  offset = 0x00
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "caprd"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x10
+  [[block.property]]
+  name = "rdata"
+  offset = 0x00
+  width = 8
+  count = 16
+  dir = "r"

@@ -256,13 +256,13 @@ run ddt test_ddt.cc ddt_novic.cc $BASEL
 
 # T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
 # copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
-diagapp run diagtest test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.cc
-diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.cc
-diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
-diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+diagapp run diagtest test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
+diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
+diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
+diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
 diagapp run dtv2 test_dtv2.cc dtv2.cc
-diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
-diagapp run diag_desc test_diag_desc.cc desc_check.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc $BASEL
+diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
+diagapp run diag_desc test_diag_desc.cc desc_check.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists

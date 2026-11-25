@@ -1,29 +1,30 @@
 // The diag core's engine v2, the app's side (T260 P1-P3, S4 reader): the pin table read from the bitstream's ROM, the step words of v2, the capture ring read back. The register map is the gateware's
-// (docs/specs/T260 §5 "Register map v2", cores/diag/rtl/diag_regs.v): the offsets below are numbers until gateware.toml (TOML A) names them (open: the TOML A of v2 and its rtl_check line).
+// (docs/specs/T260 §5 "Register map v2", cores/diag/rtl/diag_regs.v); the registers are named by the driver table of gateware.toml.
 // Pure: the registers are a CoreIo, so tests/coreapp/test_dtv2.cc runs it all against a model of the register block.
 #ifndef DIAG_DTV2_H
 #define DIAG_DTV2_H
 
 #include <stdint.h>
 #include "io.h"
+#include "portdiag_regs.h"
 
-// ---- registers (core window page 0, byte offsets)
-#define DV2_PIN_COUNT   0x080         // R: the number of pins of the bank
-#define DV2_GUARD       0x081         // R: b0 GAME or EXROM is low now
-#define DV2_PIN_IDX     0x0A0         // RW: the pin whose ROM entry DV2_PIN_ROM shows
-#define DV2_PIN_ROM     0x0C0         // R: 32 bytes
-#define DV2_CAP_STATUS  0x120         // R: b0 sampling, b1 all lines written, b2 overrun, b3 reader busy, b4 reader data valid
-#define DV2_CAP_COUNT   0x124         // R: samples taken since CAP RESET (32 bit)
-#define DV2_CAP_LOST    0x128         // R: samples lost to overrun (32 bit)
-#define DV2_CAP_LINES   0x12C         // R: lines written to the ring (32 bit)
-#define DV2_CAP_RADDR   0x130         // RW: byte offset into the ring (32 bit, bits 3:0 read 0)
-#define DV2_CAP_RCTRL   0x134         // W: b0 read the 16 bytes at CAP_RADDR into CAP_RDATA
-#define DV2_CAP_RDATA   0x140         // R: 16 bytes
-#define DV2_CAP_SEL     0x100         // RW: the pin index of capture lane j (7 bit), 0x7F = unused
-#define DV2_CAP_ST_SAMPLING 0x01
-#define DV2_CAP_ST_WRITTEN  0x02
-#define DV2_CAP_ST_OVERRUN  0x04
-#define DV2_CAP_ST_VALID    0x10
+// ---- registers: the driver table's names (portdiag_regs.h, made from gateware.toml)
+#define DV2_PIN_COUNT   PD_PIN_COUNT
+#define DV2_GUARD       PD_GUARD
+#define DV2_PIN_IDX     PD_PIN_IDX
+#define DV2_PIN_ROM     PD_PIN_ROM
+#define DV2_CAP_STATUS  PD_CAP_STATUS
+#define DV2_CAP_COUNT   PD_CAP_COUNT
+#define DV2_CAP_LOST    PD_CAP_LOST
+#define DV2_CAP_LINES   PD_CAP_LINES
+#define DV2_CAP_RADDR   PD_CAP_RADDR
+#define DV2_CAP_RCTRL   PD_CAP_RCTRL
+#define DV2_CAP_RDATA   PD_CAP_RDATA
+#define DV2_CAP_SEL     PD_CAP_SEL
+#define DV2_CAP_ST_SAMPLING PD_CAP_ST_SAMPLING
+#define DV2_CAP_ST_WRITTEN  PD_CAP_ST_WRITTEN
+#define DV2_CAP_ST_OVERRUN  PD_CAP_ST_OVERRUN
+#define DV2_CAP_ST_VALID    PD_CAP_ST_VALID
 #define DV2_CAP_LANES   32
 
 // ---- the pin table (the ROM: name, direction, class, flags, group, idle)

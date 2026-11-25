@@ -8,28 +8,54 @@
 #define PD_OFS(addr)    ((addr) - DRV_ident_ADDR)
 
 #define PD_ID           PD_OFS(DRV_ident_id_ADDR)   // "DIAG", byte 0 first
-#define PD_CAPS         PD_OFS(DRV_ident_dcaps_ADDR)   // DCAPS: b0 the pins are drivable by the top, b1 PADDLE_DIS / PADDLE_ADJ
+#define PD_CAPS         PD_OFS(DRV_ident_dcaps_ADDR)   // DCAPS: b0 joystick pins open drain, b1 PADDLE_DIS / PADDLE_ADJ driven by the engine, b2 A/V encoder, b3 pin bank v2, b4 capture
 #define PD_CAP_PINS     0x01
-#define PD_CAP_PADCTL   0x02
+#define PD_CAP_PADDLE   0x02
 #define PD_CAP_AV       0x04           // T201: the A/V test encoder (the registers below)
+#define PD_CAP_BANK     0x08           // T260: the pin table ROM and DRIVE by index
+#define PD_CAP_CAPTURE  0x10           // T260: the capture ring
 #define PD_TICKS        0x00C          // 00C-00F, 32 bit little endian: clock ticks per microsecond x 256
-#define PD_CTRL         PD_OFS(DRV_engine_ctrl_ADDR)   // W: b0 RUN (edge), b1 ABORT, b2 GO, b3 CLEAR FIFO
+#define PD_CTRL         PD_OFS(DRV_engine_ctrl_ADDR)   // W: b0 RUN (edge), b1 ABORT, b2 GO, b3 CLEAR FIFO, b4 CAP RESET
 #define PD_CTRL_RUN     0x01
 #define PD_CTRL_ABORT   0x02
 #define PD_CTRL_GO      0x04
 #define PD_CTRL_CLEAR   0x08
-#define PD_STATUS       PD_OFS(DRV_engine_status_ADDR)   // R: b0 running, b1 waiting for GO, b2 done, b3 FIFO overflow, b4 step RAM error
+#define PD_CTRL_CAPRST  0x10
+#define PD_STATUS       PD_OFS(DRV_engine_status_ADDR)   // R: b0 running, b1 waiting for GO, b2 done, b3 FIFO overflow, b4 step error, b5 a step was refused, b6 capture sampling, b7 guard trip
 #define PD_ST_RUNNING   0x01
 #define PD_ST_WAITGO    0x02
 #define PD_ST_DONE      0x04
 #define PD_ST_OVERFLOW  0x08
 #define PD_ST_STEPERR   0x10
-#define PD_PC           PD_OFS(DRV_engine_pc_ADDR)   // 016: the engine's step index (8 bit; 017 reads 0)
+#define PD_ST_REFUSED   0x20
+#define PD_ST_CAPTURING 0x40
+#define PD_ST_GUARD     0x80
+#define PD_PC           PD_OFS(DRV_engine_pc_ADDR)   // 016: the engine's step index (8 bit)
+#define PD_REF_PC       PD_OFS(DRV_engine_ref_pc_ADDR)   // 017: the step index of the first refused step since RUN (a two word op: its second word)
+#define PD_REF_CNT      PD_OFS(DRV_engine_ref_cnt_ADDR)   // 018: the refused steps since RUN, saturating at 255
 #define PD_STEP         PD_OFS(DRV_engine_step_data_ADDR)   // 020-023: one step word, byte 0 first; the write of 023 stores it and advances the address
 #define PD_STEP_ADDR    PD_OFS(DRV_engine_step_addr_ADDR)   // the step write address; the app writes 0 before it loads
 #define PD_FIFO         PD_OFS(DRV_engine_fifo_data_ADDR)   // 030-033: the word at the head, byte 0 first; the read of 033 pops it
 #define PD_FIFO_LEVEL   PD_OFS(DRV_engine_fifo_level_ADDR)   // 034-035, 16 bit little endian
-#define PD_LIVE         PD_OFS(DRV_live_live_ADDR)   // 040-041, 16 bit little endian: {PADDLE_CMP[3:0], KBJOY_2[4:0], KBJOY_1[4:0]}, two flip-flop synchronised
+#define PD_SNAP         PD_OFS(DRV_live_snap_ADDR)   // 040-04F: the snapshot of every pin of the bank, 128 bit, byte k = pins 8k+7..8k (bit = the pin's index in the table)
+#define PD_SNAP_BYTES   16
+#define PD_DRVEN        PD_OFS(DRV_drven_drven_ADDR)   // 070-07F: a bit per pin index, the engine drives or overrides this pin now
+#define PD_PIN_COUNT    PD_OFS(DRV_pinbank_count_ADDR)   // 080: the pins of the bank
+#define PD_GUARD        PD_OFS(DRV_pinbank_guard_ADDR)   // 081: b0 GAME or EXROM is low now
+#define PD_PIN_IDX      PD_OFS(DRV_pinsel_idx_ADDR)   // 0A0: the pin whose table entry PD_PIN_ROM shows
+#define PD_PIN_ROM      PD_OFS(DRV_pinrom_rom_ADDR)   // 0C0-0DF: 32 bytes of that entry (0-15 name, 16 dir, 17 class, 18 flags, 19 group, 20 idle)
+#define PD_CAP_SEL      PD_OFS(DRV_capsel_sel_ADDR)   // 100-11F: the pin index of capture lane j, 0x7F = unused
+#define PD_CAP_STATUS   PD_OFS(DRV_capst_status_ADDR)   // 120: b0 sampling, b1 all lines written, b2 overrun, b3 reader busy, b4 reader data valid
+#define PD_CAP_ST_SAMPLING 0x01
+#define PD_CAP_ST_WRITTEN  0x02
+#define PD_CAP_ST_OVERRUN  0x04
+#define PD_CAP_ST_VALID    0x10
+#define PD_CAP_COUNT    PD_OFS(DRV_capcnt_count_ADDR)   // 124-127: samples taken since CAP RESET
+#define PD_CAP_LOST     PD_OFS(DRV_capcnt_lost_ADDR)   // 128-12B: samples lost to overrun since CAP RESET
+#define PD_CAP_LINES    PD_OFS(DRV_capcnt_lines_ADDR)   // 12C-12E: 16 byte lines of the ring used since CAP RESET (20 bit)
+#define PD_CAP_RADDR    PD_OFS(DRV_capraddr_raddr_ADDR)   // 130-132: the ring byte offset the reader takes (bits 3:0 read 0)
+#define PD_CAP_RCTRL    PD_OFS(DRV_capctl_rctrl_ADDR)   // 134 W: b0 read the 16 bytes at CAP_RADDR into CAP_RDATA
+#define PD_CAP_RDATA    PD_OFS(DRV_caprd_rdata_ADDR)   // 140-14F: the 16 bytes of the last read line
 
 // T201: the A/V test encoder (gateware cores/diag/rtl/diag_regs.v 050-05F), all read/write and live. Reset values are the C128's PAL values.
 #define PD_AV_STD       PD_OFS(DRV_av_std_ADDR)   // 0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50 (the sys_clk must be that System Mode's: the application sets both)
@@ -55,25 +81,6 @@
 #define PD_STEPS_MAX    256
 #define PD_FIFO_MAX     512
 
-// The live vector and the pin numbers in it. The port pins are the joystick inputs of the top (up, down, left, right, fire = pins 1, 2, 3, 4, 6; low =
-// pressed or driven), bit n of the 10 bit pin mask is bit n of the live vector.
-#define PD_PINS         10
-#define PD_CMP_SHIFT    10
-#define PD_CMPS         4
-#define PD_LIVE_BITS    14
-
-// The step word, [31:28] op, [27:24] sel, [23:0] arg, as the gateware's spec section 5 fixes it:
-//   DRIVE         arg[9:0] the pins, arg[19:10] the level per pin (0 drive low, 1 release); put a WAIT of 1 between a DRIVE and the SAMPLE that is to see it
-//   WAIT          arg the clocks
-//   SAMPLE        pushes {t[15:0], pins[9:0], cmp[3:0], twrap, lost}
-//   MASK          arg[13:0] the pins EDGES counts (reset to 0x3FFF at RUN)
-//   EDGES         arg the clocks; pushes the count of the masked pins' edges
-//   TIME_TO_FLIP  sel the CMP bits to watch, arg the timeout in clocks; pushes {timeout, 7'b0, clocks[23:0]}
-//   PADCTL        arg[0] DIS level, [1] DIS enabled, [2] ADJ level, [3] ADJ enabled
-//   LOOP          arg[7:0] K (the following steps), arg[23:8] C (repeats)
-//   WAIT_USER     arg the prompt number; the engine halts until GO and PC then points at this step
-enum { PD_OP_END = 0, PD_OP_DRIVE = 1, PD_OP_WAIT = 2, PD_OP_SAMPLE = 3, PD_OP_EDGES = 4, PD_OP_TIME_TO_FLIP = 5, PD_OP_PADCTL = 6, PD_OP_LOOP = 7, PD_OP_WAIT_USER = 8, PD_OP_MASK = 9 };
-#define PD_STEP_WORD(op, sel, arg) ((uint32_t)(((uint32_t)(op) << 28) | (((uint32_t)(sel) & 0xF) << 24) | ((uint32_t)(arg) & 0xFFFFFF)))
-#define PD_ARG_MAX      0xFFFFFFu
+// The step words are dtv2.h's (dv2_*): the layout of the gateware's register map v2, docs/specs/T260 section 5.
 
 #endif

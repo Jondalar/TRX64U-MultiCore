@@ -1,6 +1,5 @@
 // T260 S3 (the app reads the pin table of the bitstream), S4 (the reader of the capture ring), the v2 step words. The model is a register block that serves what the gateware's spec fixes
-// (docs/specs/T260 §5 "Register map v2"): the pin ROM of the bank (tests/coreapp/golden/diag_pins.toml, the copy of cores/diag/rtl/pins.toml of t260-gw: the lint of the merged tree
-// must find the two equal) and the DDR2 ring behind CAP_RADDR / CAP_RCTRL / CAP_RDATA.
+// (docs/specs/T260 §5 "Register map v2"): the pin ROM of the bank (cores/diag/rtl/pins.toml itself) and the DDR2 ring behind CAP_RADDR / CAP_RCTRL / CAP_RDATA.
 #include "check.h"
 #include "fakes.h"
 #include "dtv2.h"
@@ -23,7 +22,7 @@ static bool flag(const std::string &s, const char *key) { return s.find(std::str
 
 static std::vector<Entry> load_pins()
 {
-    std::ifstream f(std::string(GOLDEN_DIR) + "/diag_pins.toml");
+    std::ifstream f("cores/diag/rtl/pins.toml");        // the one source of the table (the tests run in the repository root, as diag_examples.h assumes)
     std::string line;
     std::vector<Entry> v;
     static const char *const dirs[] = { "in", "out", "inout" };

@@ -124,7 +124,7 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--top", "layer2_diag",
               "--bus", "layer2_diag:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "diag", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "4 block(s), 37 properties agree" in out, "diag: 4 blocks, 37 properties of gateware.toml agree with the RTL of the core window (diag_regs.v: the ident, engine, live and A/V blocks; TICKS_US is a module parameter the checker does not read)", out)
+must(rc == 0 and "14 block(s), 51 properties agree" in out, "diag: 14 blocks, 51 properties of gateware.toml agree with the RTL of the core window (diag_regs.v v2: ident, engine, live snapshot, A/V, DRVEN, pin bank, pin ROM, capture; TICKS_US is a module parameter the checker does not read)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
