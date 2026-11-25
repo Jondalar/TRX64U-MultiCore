@@ -70,32 +70,33 @@ static int n_every(bool hotkeys_only)                         // how many cores 
     for (const CoreDesc *const *pc = every_core(); *pc; pc++) { n += !hotkeys_only || (*pc)->hotkeys; }
     return n;
 }
-// the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, tests/coreapp/render/run.sh: the S1, UX and hotkey learn lines of each build)
+// the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, tests/coreapp/render/run.sh: the S1, UX, chrome and hotkey learn lines of
+// each build); the twelve builds together give what the one bench gave before the split (UX chrome: 321 tab strips, 417 legends, 2085 rail items, 45 pages, 306 page rows, 222 key names)
 struct Floors { int s1lists, s1states, s1two, s1marked, s1legends, uxhot, uxcmp, uxvals, ucn_strip, ucn_leg, ucn_rail, ucn_pages, ucn_hk, ucn_pcnames, hkl_cores; };
 #if defined(RENDER_APP_ATARI800)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 327, 0, 114, 57, 1, 12, 21, 18, 24, 120, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_NES)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 18, 354, 0, 45, 45, 1, 12, 7, 21, 27, 135, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_C264)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 351, 0, 243, 81, 1, 12, 25, 18, 24, 120, 3, 21, 0, 2 };
 #elif defined(RENDER_APP_ZXNEXT)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 345, 0, 57, 57, 1, 14, 19, 18, 24, 120, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_NEOGEO)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 351, 0, 324, 81, 1, 11, 12, 21, 27, 135, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_AMIGA)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 18, 414, 0, 696, 87, 1, 12, 38, 21, 27, 135, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_DDT_NOVIC)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 12, 252, 0, 0, 0, 0, 5, 18, 15, 18, 90, 0, 0, 0, 0 };
 #elif defined(RENDER_APP_ZX)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 321, 0, 51, 51, 1, 11, 20, 18, 24, 120, 3, 18, 18, 2 };
 #elif defined(RENDER_APP_CPC)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 327, 0, 114, 57, 1, 12, 21, 18, 24, 120, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_PET)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 18, 426, 0, 252, 63, 1, 11, 53, 21, 27, 135, 3, 18, 18, 2 };
 #elif defined(RENDER_APP_C128)
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 15, 399, 516, 258, 129, 1, 13, 33, 18, 24, 120, 3, 24, 0, 2 };
 #else
-static const Floors FLOOR = { 0 };
+static const Floors FLOOR = { 90, 2112, 0, 1092, 219, 5, 59, 149, 114, 147, 735, 15, 99, 60, 10 };   // the shared bench: the board's table (4) and the VIC-20 and the A1200
 #endif
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim

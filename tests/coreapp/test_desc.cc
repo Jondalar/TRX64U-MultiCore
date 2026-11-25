@@ -375,7 +375,7 @@ int main(int, char **argv)
 #elif defined(TEST_APP_NEOGEO)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the Neo Geo's .neo is run, not mounted: no image the walk counts
 #else
-        CHECK(seen_cbm >= 3 && seen_other >= 8);                    // the walk saw the shared cores (c64scpu; apple ...)
+        CHECK(seen_cbm == 3 && seen_other == 7);                    // the walk saw the shared cores (c64scpu; apple ...), measured 2026-11-25 (T239.5 D13: the moved cores' types are their apps')
 #endif
     }
 
