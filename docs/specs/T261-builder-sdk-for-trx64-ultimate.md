@@ -107,3 +107,38 @@ Scenario: S6 trx64u.cor from their pre-release
   (`tools/check_public_tree.py --files`) has 9 hits in the tarball, each one a path-scoped allowance of the tree mode
   (`_TEXT_ALLOW`: struct members shaped like host names, the ESP32 vendor default, example addresses, the stb_image author
   line) that misses only because the tarball's paths start with `menusim/` or `base/src/`; the same text is in the public tree.
+
+### MultiCore half (2026-11-25)
+
+- **P2 job:** `sdk-release` in `.github/workflows/matrix.yml` (after `sdk`; needs `sdk`; environment `builds`, `BUILDS_TOKEN`; runs `python3 -I ci/publish_sdk.py`). Its `if:` demands a push
+  to `integration`, `main` or `t239.3`; `tools/check_workflows.py` allows environment `builds` for this job under that rule too (selftest: 19 faults planted).
+  The matrix is called by `pipeline.yml` only on `t239.3` and `t239.3-*` (`pipeline.yml` `matrix:` job), so until the matrix is called on `integration`/`main` the job runs on
+  `t239.3` alone; the script's own guard (`P.SDK_BRANCHES`) holds for all three. The environment `builds` allows `t239.3` since 2026-11-25 (Alex, P5; its
+  deployment rules: `main`, `v*`, `t239.1`, `t239.3`); `integration` is added when the matrix runs there. `BUILDS_TOKEN` is a secret of the environment `builds`,
+  not of the repository: a job of a called workflow that names the environment reads it (the caller passes none); the first `t239.3` run proves it.
+- **Decision:** `ci/publish_sdk.py` stages the lane's `trx64-sdk-<version>.tar.gz` (version = `app/sdkpkg/SDK_VERSION`, must match the tarball name) and every `*.u2a`, writes a
+  fresh `SHA256SUMS` (the lane's names `./x` and its `coreapp.map` are not published), lists the releases of the builds repository (newest first), takes the newest published
+  one tagged `sdk-<version>-<8 hex>`, reads its `SHA256SUMS`, and publishes only when it differs from the one written here (every file, names and SHA-256:
+  a changed `.u2a` beside an unchanged tarball publishes too, review 2.4) or no such release exists. Equal: the log says
+  `the package of SDK <v> is unchanged (its <n> files are those of <tag>): nothing published`. The tarball is reproducible (`tools/sdk_pack.sh`: byte-ordered files, mtime 0, `gzip -n`).
+- **Assets:** `trx64-sdk-<version>.tar.gz`, the `.u2a` files of the lane (`ci/trxapps.sh` `libapp` lines: `testlib.u2a`, `unzip.u2a`, `miniz.u2a`, `trex_crt.u2a`,
+  `softboot.u2a`, `online.u2a`; the online sub-app is `online.u2a`, Assembly64 / CommoServe search), `SHA256SUMS`.
+- **Release kind:** pre-release, never latest: `ci/publish_release.py` `publish()` makes every release of the builds repository a draft, then `prerelease: true`, `make_latest: false`
+  (the pre-release convention, T239.1 D42); `publish_sdk.py` uses that function, so the SDK releases are the same kind.
+- **Shared code:** `publish_release.guard()` takes the branches and whether a v* tag publishes (`SDK_BRANCHES = integration, main, t239.3`, no tags); `publish()` takes the body text.
+  `ci/fakegh.py` lists releases newest first, as GitHub does.
+- **P4 pin forms:** only `ci/imports.py` decides where the file comes from (`source_url()`): release form `RELEASE=fw-<branch>-<sha8>` + `COR_FILE=trx64u.cor` ->
+  `https://github.com/<MC_BUILDS_REPO>/releases/download/<RELEASE>/<COR_FILE>` (base replaceable by `TRX_FW_RELEASE_URL`), Gitea form `PACKAGE`+`VERSION` ->
+  `<TRX_FW_PKG_URL>/<PACKAGE>/<VERSION>/<COR_FILE>`; `RELEASE` wins. `COR_FILE`, `COR_SHA256`, `COR_SIZE` are the same in both. The other readers
+  (`ci/package.sh`, `ci/check_pkg.py`, `ci/fetch_bits.py`, `tools/check_versions.py`) read only the `.cor` by its SHA-256 or test `COR_SHA256`, so they take both forms unchanged.
+  `release/imports/trx64u.pin` is left byte-for-byte as it is (the entry key `imp-trx64u-<key>` hashes the pin; a comment edit would re-key it); it moves to the release form with a
+  new pin once TRX64-Ultimate's first `fw-*` pre-release exists. Documentation: `ci/imports.py` header and the contract.
+- **Contract:** `docs/contracts/trx64u-firmware-handover.md` §1 (table row, header note) and §2 (the `trx64u` bullet) name the asset `trx64u.cor` of `fw-<branch>-<sha8>`, marked
+  "agreed with TRX64-Ultimate session 2026-11-25, T261 D5". The text must be copied byte for byte into TRX64-Ultimate's `docs/contracts/` (the `diff` check).
+- **Tests:** `ci/test_publish_sdk.py` (publish, unchanged publishes nothing, changed tarball publishes, other version, refused refs and tags, wrong package), `ci/test_imports.py`
+  `test_both_pin_forms`; both are in `ci/lint.sh`.
+- **Import keys (review 3.3):** `ci/imports.py` `key()` hashes `ci/imports.py` itself for a pin with `COR_SHA256`, and the builder names the import
+  entries with the trusted ref's (`integration`) `ci/imports.py`. So the release form reaches the builder only when this change reaches `integration`;
+  `t239.3`'s `ci/imports.py` already differs from `integration`'s, so this adds no new mismatch there. The pin moves to the release form after that.
+- **Review 2026-11-25** (one agent, `9d5770752`): 1.1 (the job runs on `t239.3` only) and 1.2 (environment secret) answered above; 2.4 fixed (all files
+  compared, test `online=b"on2"` publishes); 5.1 the duplicated D5 in the contract header removed; 3.3 noted above. Tests: `ci/test_publish_sdk.py` OK.

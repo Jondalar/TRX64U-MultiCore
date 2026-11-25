@@ -10,6 +10,9 @@ from a large core).
 TRX64-Ultimate builds, tests and delivers `trx64u.cor` and `trx64g.cor`, MultiCore's package takes them by their SHA-256).
 §10 rewritten 2026-11-24 by both sides on Alex's go ("Yes, you may!", translated): T230's target split (the features of
 `trx64u` as generic modules of MultiCore) is replaced by the split of MultiCore T239.3 D21 and D44.
+§1 and §2 amended 2026-11-25 (T261 D5, agreed with TRX64-Ultimate session 2026-11-25): `trx64u.cor` is the asset `trx64u.cor` of
+TRX64-Ultimate's GitHub pre-release `fw-<branch>-<sha8>` in the builds repository, replacing `trx64u_<sha8>.cor` of the Gitea package; the pin accepts both forms
+until their first `fw-*` pre-release exists.
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -27,7 +30,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Hand-over page (§3) | reads it (Gideon's application, §4) | its layout and the host that writes it |
 | Start file (§7) | Gideon's application ignores it | writes it (host) and reads it (generic coreapp) |
 | The way back (§7) | the ICAP loader in `c64_basic` (§8) | the menu marker and the IPROG (generic coreapp), the host's menu |
-| `trx64u.cor` (T239.3 D21) | builds it, tests it, delivers it as the file `trx64u_<sha8>.cor` of its package | takes it by its SHA-256 into the package, changes no byte |
+| `trx64u.cor` (T239.3 D21, T261 D5) | builds it, tests it, delivers it as the asset `trx64u.cor` of its pre-release `fw-<branch>-<sha8>` of the builds repository (agreed with TRX64-Ultimate session 2026-11-25, T261 D5; until then the file `trx64u_<sha8>.cor` of its Gitea package) | takes it by its SHA-256 into the package, changes no byte |
 | The generic coreapp and the SDK (config at start, persist, autostart, the TOML schemas, the op list) | - | owns and delivers them |
 | Foreign firmware as a core entry (§5) | - | owns it |
 | DDR2 windows (§6) | `0x03800000..0x03A00000` (debug service) | `STAGE_APP`, `STAGE_PART`, the update window of the coreapp |
@@ -67,7 +70,10 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   taken by hand from the release.
 - The two cores:
   - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp and its menu,
-    built by TRX64-Ultimate. The pin names the finished file: `PACKAGE`, `VERSION`, `COR_FILE`, `COR_SHA256`, `COR_SIZE`.
+    built by TRX64-Ultimate. The pin names the finished file: `COR_FILE`, `COR_SHA256`, `COR_SIZE`, and where it is fetched from, in one of two forms
+    (agreed with TRX64-Ultimate session 2026-11-25, T261 D5): the release form `RELEASE=fw-<branch>-<sha8>` with `COR_FILE=trx64u.cor` (the asset of that
+    pre-release of the builds repository), or the Gitea form `PACKAGE`, `VERSION` with `COR_FILE=trx64u_<sha8>.cor`, accepted until their first `fw-*`
+    pre-release exists. `RELEASE` wins when both are set.
   - `trx64g` — NAME "TRX64 Ultimate (Gideon app)", file `trx64g.cor`: TRX64-Ultimate's bitstream with its own
     application, packed by TRX64-Ultimate (T239.3 D46). The pin names the finished file as for `trx64u`.
 
