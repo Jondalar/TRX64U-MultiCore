@@ -30,6 +30,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 | T258 | 3 | 🔨 | C128: the ROM import takes VICE's ROM set and composes the system image from its parts (#105) | To c128-integ with T257 and T170, not integration (Alex 11-23); branch t258-jiffy8k, UX review failed | [T258](docs/specs/T258-c128-rom-vice-parts.md) |
 | T259 | 3 | 🔨 | Diag core measures the A/V port: channel map, bit order, RGB, SYNCn and FB; tester values as presets (#73) | Built on t259-diag-av, merged into t260-diag (T260 D8); board: Alex's Sony via SCART RGB | [T259](docs/specs/T259-diag-av-port-measured.md) |
 | T260 | 3 | 🔨 | Diag core reaches every connector pin; a new test is a TOML on the SD, no build; own app, matrix lane (T239.5 D15) | Building on t260-diag (Alex 11-25): gateware pin bank + engine v2, app as generic runner | [T260](docs/specs/T260-diag-all-pins-tests-loaded.md) |
+| T261 | 2 | 🔨 | Builder serves TRX64-Ultimate too; SDK lane publishes SDK releases; trx64u.cor from their GitHub pre-release | Building (Alex 11-25): builder sources, sdk-* releases, 0.4.6 backfill, pin from fw-* | [T261](docs/specs/T261-builder-sdk-for-trx64-ultimate.md) |
 
 ## Board test required
 
