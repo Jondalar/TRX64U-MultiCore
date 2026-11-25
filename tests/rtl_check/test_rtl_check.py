@@ -130,6 +130,8 @@ must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not
 
 # D55: emit. The header reader: names by offset, a bit mask after a register with a larger offset is no register, a function-like macro is evaluated.
 import tempfile
+import io
+import contextlib
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import toml_a_emit
 with tempfile.TemporaryDirectory() as td:
@@ -147,6 +149,30 @@ with tempfile.TemporaryDirectory() as td:
          "emit: the VIC-20's core window (bytes 0..0x1FF) is written from the decode as 5 blocks, 17 properties with the standard block (id, caps, caps2, build), and `check` agrees with the same RTL", out)
     must("identical (address, width, count, dir): 15" in out and "bytes the RTL decodes that the hand-written file does not describe: 0 bytes" in out,
          "emit --compare: 15 of the hand-written properties of cores/vc20/app/gateware.toml in that range are the same register (address, width, dir); the RTL has no byte the hand-written file leaves out", out)
+
+# D55 review 1a/4a: a stray `endif / `else is Unsupported (not an IndexError); a rejected emit leaves no file
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import rtl_check as R
+for f in (lambda: R.pp_ifdef("a\n`endif\n"), lambda: R.pp_ifdef("`else\n"), lambda: R.lex("`endif\nwire a;", "verilog", "x.v"), lambda: R.lex("`else\n", "verilog", "x.v")):
+    try:
+        f()
+        must(False, "a stray `endif / `else raises Unsupported")
+    except R.Unsupported:
+        pass
+must(True, "a stray `endif / `else raises Unsupported in pp_ifdef and lex")
+with tempfile.TemporaryDirectory() as td:
+    out_toml = os.path.join(td, "rej.toml")
+    real = toml_a_emit._verify
+    toml_a_emit._verify = lambda *a: 1
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = toml_a_emit.cmd_emit(["--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--list", "gideon_vhdl.tcl", "--top", "layer2_vc20",
+                                       "--bus", "vc20_core:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000", "--core", "vc20",
+                                       "--scan", "0:0x100", "-j", "1", "--toml-a-out", out_toml, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--cache", os.path.join(td, "c.json")])
+    finally:
+        toml_a_emit._verify = real
+    must(rc == 1 and not os.path.exists(out_toml) and not os.path.exists(out_toml + ".tmp") and "was not written" in buf.getvalue(), "emit: a TOML A that `check` rejects leaves no file (neither the output nor the .tmp)", buf.getvalue())
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)

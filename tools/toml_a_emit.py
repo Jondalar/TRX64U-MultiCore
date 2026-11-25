@@ -11,14 +11,16 @@ naturally aligned) at the offsets the core's C headers name (--header: `#define 
 name is not an offset), and a run of 16 or more bytes that no header cuts is one run property (count). dir is exactly what the RTL does at every byte of the register.
 Registers are grouped into blocks by holes (4 bytes or more) and the standard block (the first 16 bytes). What is left for a person: the meaning (name placeholders
 `r_<offset>` carry a `# TODO meaning` marker), the grouping into capabilities, the `module` of each block, the four characters of [identity]. The result is checked with
-`check` against the same RTL before the command succeeds (--no-verify skips it).
+`check` against the same RTL before it is written: the file is written to <out>.tmp, checked, and renamed only on success (a rejected one is deleted); --no-verify skips the check.
+The check proves what is IN the file, not that nothing is missing (partial scan, undecodable or unknown bytes, the 64-block / 512-property limits: notes in the file's head).
 
 --pages first[:N] limits the scan to the first N bytes of the window (default 0x1000) and the 256-byte pages that a header names (the dry run's mode: minutes became seconds; a register
 elsewhere that no header names is missed, which the full scan, the default, does not).
 
 The scan is one stimulus per byte and direction (about 4 ms each: a 64 KiB window takes minutes), spread over -j processes (default 2); --cache FILE keeps the bytes' answers
-so a second run with the same RTL is instant (delete it when the RTL changes).
+so a second run is instant; the cache carries a hash of the design, lists, defines, top, buses and the content of every source file (and of the two engine files), and is dropped when it differs.
 """
+import hashlib
 import json
 import multiprocessing
 import os
@@ -141,6 +143,7 @@ def _scan_chunk(job):
     ck = _W["ck"]
     out = []
     for a in range(lo, lo + n):
+        x0 = R.XNEG[0]
         try:
             w = bool(ck.stim(a, True)["write"])
             r = bool(ck.stim(a, False)["read"])
@@ -149,14 +152,30 @@ def _scan_chunk(job):
             continue
         if w or r:
             out.append((a, w, r))
+        elif R.XNEG[0] != x0:
+            out.append((a, "X", "the address went through an unknown negation"))      # no write and no read, but the decode met an unknown value: not "not decoded"
     return out
 
 
-def scan_window(args, ranges, jobs, label, cache, cache_file):
-    """[(rtl address, write, read)] for the bytes decoded in the ranges [(lo, size)] (rtl addresses = offsets from iobase); the answers of a 256-byte chunk are cached by (window, chunk)."""
+def scan_key(design, lists, defines, top, buses):
+    """A hash of everything an answer of the scan depends on: design, lists, defines, top, buses, the content of every source file the lists name, and the two engine files."""
+    h = hashlib.sha256()
+    h.update(repr((os.path.abspath(design), list(lists), sorted(defines), top, list(buses))).encode())
+    des = R.Design(design, list(lists) or "build.tcl")
+    for f in sorted(des.files):
+        h.update(f.encode())
+        if not des.blocked(f):
+            h.update(open(f, "rb").read())
+    for f in (R.__file__, __file__):
+        h.update(open(f, "rb").read())
+    return h.hexdigest()
+
+
+def scan_window(args, ranges, jobs, label, cache, cache_file, skey=""):
+    """[(rtl address, write, read)] for the bytes decoded in the ranges [(lo, size)] (rtl addresses = offsets from iobase); the answers of a 256-byte chunk are cached by (scan key, window, chunk); the scan key is a hash of the design, lists, defines, top, bus and the content of every source file read."""
     step = 256
     chunks = [(a, min(step, lo + size - a)) for lo, size in ranges for a in range(lo, lo + size, step)]
-    for c in list(cache):          # an answer that was Unsupported is not kept: the checker may know the pattern by the next run
+    for c in [c for c in cache if c != "_key"]:          # an answer that was Unsupported is not kept: the checker may know the pattern by the next run
         if any(x[1] == "U" for x in cache[c]):
             del cache[c]
     todo = [c for c in chunks if "%s|%d|%d" % (args[5], c[0], c[1]) not in cache]
@@ -196,7 +215,6 @@ def build_registers(bytes_, splits):
         i = j + 1
     regs = []
     for s, e, (w, r) in runs:
-        d = ("r" if r else "") + ("w" if w else "")
         d = "rw" if (w and r) else ("w" if w else "r")
         inner = [q for q in splits if s < q < e]
         if e - s >= RUN_MIN and not inner:
@@ -227,11 +245,15 @@ def group_blocks(regs):
     return blocks
 
 
-def emit_text(core, ident_id, bases, blocks, names, module, notes, ioc):
+def emit_text(core, ident_id, bases, blocks, names, module, notes, ioc, verified=True):
     L = []
     L.append("# TOML A of the %s core: a SKELETON that tools/rtl_check.py emit wrote from what the RTL decodes (T239.3 D55). Addresses, sizes, widths and directions are the RTL's;" % core)
     L.append("# the names come from the core's C headers by offset where one matches. Left for a person: every `# TODO` below (meaning of an unnamed register, the block grouping and names,")
-    L.append("# the module of each block, the four characters of [identity]). Proved against the RTL by `rtl_check.py check` before this file was written.")
+    L.append("# the module of each block, the four characters of [identity]). %s" % (
+        "Every property here passed `rtl_check.py check` against the RTL before this file was written (the file is written only then)." if verified else
+        "NOT verified: --no-verify skipped `rtl_check.py check`."))
+    L.append("# What `check` does NOT prove is completeness: a register the scan did not reach (a partial scan: --pages, --scan; bytes the decode does not follow; bytes that went through an")
+    L.append("# unknown value) is missing without any error, and blocks beyond the record's limits (64 blocks, 512 properties) are only noted below, not emitted.")
     for n in notes:
         L.append("# " + n)
     L.append("[io]")
@@ -366,6 +388,9 @@ def cmd_emit(args):
     iobase = 0x10000000
     jobs = int(opts["-j"])
     cache = json.load(open(opts["--cache"])) if opts["--cache"] and os.path.exists(opts["--cache"]) else {}
+    skey = scan_key(opts["--design"], lists, defines, opts["--top"], buses)
+    if opts["--cache"] and cache.get("_key") != skey:
+        cache = {"_key": skey}                 # the RTL, the lists, the defines or the engine changed: every answer is asked again
     blocks_all, notes, names_all = [], [], {}
     first_window = True
     for bus, window in zip(buses, windows):
@@ -386,13 +411,23 @@ def cmd_emit(args):
             ranges = [(lo + int(so, 0), int(sz, 0))]
         else:
             ranges = [(lo, ws)]
-        res = scan_window(args_, ranges, jobs, bus.split(":")[0], cache, opts["--cache"])
+        res = scan_window(args_, ranges, jobs, bus.split(":")[0], cache, opts["--cache"], skey)
         bad = [x for x in res if x[1] == "U"]
+        xs = sorted(x[0] for x in res if x[1] == "X")
+        if xs:
+            runs = []
+            for a in xs:
+                if runs and a == runs[-1][1]:
+                    runs[-1][1] = a + 1
+                else:
+                    runs.append([a, a + 1])
+            notes.append("%d byte(s) in %d range(s) went through an UNKNOWN value in the decode (an operand the checker cannot evaluate, negated) and are NOT in this file although they may be decoded: %s" % (
+                len(xs), len(runs), " ".join("+0x%X..+0x%X" % (lo - base_rt, hi - 1 - base_rt) for lo, hi in runs[:6]) + (" ..." if len(runs) > 6 else "")))
         for a, _, msg in bad[:3]:
             notes.append("UNSUPPORTED at +0x%X: %s" % (a - base_rt, msg))
         if bad:
             notes.append("%d byte(s) the decode does not follow (Unsupported) are not in this file" % len(bad))
-        bytes_ = {a - base_rt: (w, r) for a, w, r in res if w != "U"}
+        bytes_ = {a - base_rt: (w, r) for a, w, r in res if w not in ("U", "X")}
         if bad and not bytes_:
             raise R.Unsupported(bad[0][2])
         names = short_names(hdr)
@@ -467,15 +502,32 @@ def cmd_emit(args):
     ident = opts["--ident-id"] or (core.upper() + "____")[:4]
     module = opts["--module"] or re.sub(r"[^a-z0-9_]", "_", re.split(r"[:.]", buses[0])[0].lower())[:31]
     named = sum(1 for b in blocks_all for r in b["regs"] if r["off"] in names_all or (b.get("ident") and r["off"] in (0, 8)))
-    text = emit_text(core, ident, None, blocks_all, names_all, module, notes, (iobase, 0x10100000))
-    open(opts["--toml-a-out"], "w").write(text)
+    text = emit_text(core, ident, None, blocks_all, names_all, module, notes, (iobase, 0x10100000), "--no-verify" not in flags)
+    out_path = opts["--toml-a-out"]
+    tmp_path = out_path + ".tmp"
+    open(tmp_path, "w").write(text)
     print("emit: %s: %d block(s), %d propert%s (%d named from the headers, %d `# TODO meaning`)" % (
         opts["--toml-a-out"], len(blocks_all), nprop, "y" if nprop == 1 else "ies", named, nprop - named))
-    if opts["--compare"]:
-        compare(opts["--toml-a-out"], opts["--compare"], maps)
-    if "--no-verify" in flags:
-        return 0
-    chk = ["--design", opts["--design"], "--toml-a", opts["--toml-a-out"], "--top", opts["--top"]]
+    try:
+        if opts["--compare"]:
+            compare(tmp_path, opts["--compare"], maps)
+        if "--no-verify" in flags:
+            rc = 0
+        else:
+            rc = _verify(opts, lists, buses, windows, maps, defines, tmp_path)
+    except BaseException:
+        os.remove(tmp_path)
+        raise
+    if rc != 0:
+        os.remove(tmp_path)          # a file that `check` rejects is not left behind
+        print("emit: rejected by `check` against the same RTL: %s was not written" % out_path)
+        return rc
+    os.replace(tmp_path, out_path)
+    return 0
+
+
+def _verify(opts, lists, buses, windows, maps, defines, path):
+    chk = ["--design", opts["--design"], "--toml-a", path, "--top", opts["--top"]]
     for l in lists:
         chk += ["--list", l]
     for b, w in zip(buses, windows):

@@ -22,7 +22,7 @@ P="$(echo "$W"/trx64-sdk-*)"
 [ -d "$P" ] || fail "no trx64-sdk-* folder in $tgz"
 ver="$(sed -n 's/^sdk //p' "$P/VERSION")"
 for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld mk/appflags.mk mk/appbuild.mk tools/u2a_pack.py tools/descrec.py tools/cor_pack.py \
-         tools/app_build.py tools/libtab.py tools/rtl_check.py lib/libtrxbase.a lib/liblwip.a lib/liblvgl.a lib/crt0.o lib/port_asm.o base/SIZED.txt base/incdirs.txt base/linker.x base/version.toml \
+         tools/app_build.py tools/libtab.py tools/rtl_check.py tools/toml_a_emit.py lib/libtrxbase.a lib/liblwip.a lib/liblvgl.a lib/crt0.o lib/port_asm.o base/SIZED.txt base/incdirs.txt base/linker.x base/version.toml \
          libs/shared.toml gateware/shared.toml gateware/host.toml bin/menusim menusim/tools/menusim/run.sh menusim/tools/menusim/menusim.cc example/Makefile example/app/desc.toml example/app/toml_b.toml example/gateware/example.toml example/gateware/example_ctl.map.toml; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
