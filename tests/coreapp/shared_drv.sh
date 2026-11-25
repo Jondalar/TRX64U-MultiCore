@@ -5,7 +5,7 @@
 # the sections of the other sample cores' blocks (without their ident) appended to the header. Two cores' blocks lie in the same window, so no one table can hold both (the overlap rule of a
 # record): the header is macros only, the sections of another core are added by text. The block names of the sample cores must differ: the Neo Geo's neo_*.
 #   shared_drv_dir DIR   makes DIR/drv/drvtab.h (and the other files of a link's table) of the shared units. Sourced with ROOT set.
-SHARED_SAMPLE_CORES="neogeo"
+SHARED_SAMPLE_CORES=""
 shared_drv_dir() {
   python3 - "$ROOT" "$1" $SHARED_SAMPLE_CORES <<'PY' || return 1
 import os, re, sys

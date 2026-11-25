@@ -10,6 +10,7 @@
 #include "lib_skel.h"
 #include "ops_glue.h"
 #include "neogeo_regs.h"
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 
 struct Host : MenuHost {
     void info(int w, char *out, int n) { snprintf(out, n, "value %d", w); }

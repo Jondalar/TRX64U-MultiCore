@@ -37,6 +37,7 @@ const CoreDesc *const compiled_in_table[] = { &zxnext_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)
 // the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
 #include "cores.h"
+extern const CoreDesc neogeo_desc; // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_AMIGA)

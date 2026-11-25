@@ -88,11 +88,11 @@ int main()
     CHECK_EQ(xinput_claim(0x01, 0x01, 0x00, true, true), XI_NONE);              // audio
     CHECK_EQ(xinput_claim(0x03, 0x01, 0x01, true, true), XI_NONE);              // HID keyboard: stays the HID driver's
     CHECK_EQ(xinput_claim(0x03, 0x00, 0x00, true, true), XI_NONE);
-    // D4: the capability `pad` is exactly the cores that have a PadSpec
+    // D4: the capability `pad` is exactly the cores that have a PadSpec (the Neo Geo's: the unit neogeo_pad, built as its app)
     {
-        const CoreDesc *all[] = { &snes_desc, &neogeo_desc };
+        const CoreDesc *all[] = { &snes_desc };
         for (const CoreDesc *d : all) CHECK_EQ(desc_has_capability(d, "pad"), d->pad != NULL);
-        CHECK(desc_has_capability(&snes_desc, "pad") && desc_has_capability(&neogeo_desc, "pad"));
+        CHECK(desc_has_capability(&snes_desc, "pad"));
     }
     // the synthetic descriptor is a gamepad for hidpad_parse, with 16 buttons, a hat and X/Y
     {

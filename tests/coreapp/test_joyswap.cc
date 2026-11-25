@@ -37,6 +37,7 @@ extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores
 #endif
 #ifdef TEST_APP_NEOGEO
 #include "neogeo_regs.h"
+extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 #endif
 #ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app) has its own core only; its swap is a flag of its own (its own tests), so it has no row below, only its key
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)

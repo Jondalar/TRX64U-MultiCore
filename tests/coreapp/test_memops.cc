@@ -57,6 +57,7 @@ const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_ZXNEXT)           // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp): its core is the only one in its table
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };

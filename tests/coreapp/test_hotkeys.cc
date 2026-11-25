@@ -27,6 +27,9 @@ extern const CoreDesc c264_desc;                // the Commodore 264 is its own 
 #ifdef TEST_APP_ZXNEXT
 extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 #endif
+#ifdef TEST_APP_NEOGEO
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -79,7 +82,7 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -179,7 +182,7 @@ int main()
         g.io.key(KJ, false); g.io.key(CTRL, false);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
     // ---- a core without the setting: the line says so, nothing changes
     {
         char line[64];
@@ -232,7 +235,7 @@ int main()
         uint32_t all = 0; first_fire(g, lp, 0, 100, &all); CHECK_EQ(all, 0u);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -299,10 +302,12 @@ int main()
         const Row rows[] = { { &c264_desc, "c264", true } };
 #elif defined(TEST_APP_ZXNEXT)
         const Row rows[] = { { &zxnext_desc, "zxnext", true } };
+#elif defined(TEST_APP_NEOGEO)
+        const Row rows[] = { { &neogeo_desc, "neogeo", true } };
 #else
         const Row rows[] = { { &c64scpu_desc, "c64scpu", true },
                              { &apple2_desc, "apple2", true },
-                             { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
+                             { &snes_desc, "snes", true },
                              { &portdiag_desc, "portdiag", false } };
 #endif
         for (const Row &r : rows) {

@@ -3,5 +3,4 @@
 // name them. Only the declarations, no include: desc.h must still come in at the unit's own place (compiled_table.cc renames core_table before it).
 #ifdef __cplusplus
 struct CoreDesc;
-extern const CoreDesc neogeo_desc;
 #endif

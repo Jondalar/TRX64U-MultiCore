@@ -37,6 +37,9 @@ extern const CoreDesc c264_desc;                // the Commodore 264 is its own 
 #ifdef TEST_APP_ZXNEXT
 extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 #endif
+#ifdef TEST_APP_NEOGEO
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -77,8 +80,10 @@ const CoreDesc *const core_table[] = { &nes_desc, 0 };
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_ZXNEXT)          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp) with its core only
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp) with its core only
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &neogeo_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -255,10 +260,13 @@ int main(int, char **argv)
         static const Mi want[1] = { { "", "" } };                          // the Next has no model or memory setting, so no machine line: nothing to find (the count below is skipped)
         static const char *const none[] = { "ZX Spectrum Next" };
         const int n_none = 1;
+#elif defined(TEST_APP_NEOGEO)
+        static const Mi want[] = { { "SNK Neo Geo", "System type,BIOS" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
             { "C64 with SuperCPU", "SuperCPU speed" },
-            { "SNK Neo Geo", "System type,BIOS" },
         };
         static const char *const none[] = { "Apple IIe", "Super Nintendo" };
         const int n_none = 2;
@@ -359,6 +367,8 @@ int main(int, char **argv)
         CHECK(seen_cbm == 2 && seen_other == 0);                     // the walk saw the 264's two drive image types (.d64, .g64); its .prg, .p00, .bin and .rom mount nothing
 #elif defined(TEST_APP_ZXNEXT)
         CHECK(seen_cbm == 0 && seen_other == 1);                     // the walk saw the Next's SD card image (.img: Mount SD image and reset), no CBM image
+#elif defined(TEST_APP_NEOGEO)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // the Neo Geo's .neo is run, not mounted: no image the walk counts
 #else
         CHECK(seen_cbm >= 3 && seen_other >= 8);                    // the walk saw the shared cores (c64scpu; apple ...)
 #endif
@@ -492,6 +502,8 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_ZXNEXT)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_NEOGEO)
+        CHECK(n205 == 1);
 #else
         CHECK(n205 >= 10);                                         // T239.5 D13: the Amiga 500's row is its unit amiga_desc (measured 10 without it, 2026-11-25)
 #endif
@@ -524,8 +536,10 @@ int main(int, char **argv)
         static const char *const own[] = { "C264" };                         // the drive library's write-back (the drive window is the core's own block drive_a)
 #elif defined(TEST_APP_ZXNEXT)
         static const char *const own[] = { 0 };                              // the Next's SD image is written through the sector mailbox as the card asks: no flush of its own to hand over
+#elif defined(TEST_APP_NEOGEO)
+        static const char *const own[] = { "NEO_" };                         // the backup RAM's and the memory card's save
 #else
-        static const char *const own[] = { "APL2", "SNES", "NEO_" };
+        static const char *const own[] = { "APL2", "SNES" };
 #endif
         for (const char *id : own) {
             if (!id) continue;
@@ -550,7 +564,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -819,6 +833,15 @@ int main(int, char **argv)
     CHECK(!desc_has_capability(&atari800_desc, "drive_a") && !desc_has_capability(&atari800_desc, "iec"));    // no Commodore drive on an Atari
     CHECK(!desc_has_capability(&atari800_desc, "si") && !desc_has_capability(&atari800_desc, "sio2"));         // whole names, not prefixes
     }
+#elif defined(TEST_APP_NEOGEO)
+    // T212 D8: the pad maps stand in F5 Input (the SNES's and the NES's: the shared unit desc)
+    CHECK(task_place(&neogeo_desc, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
+    CHECK(task_place(&neogeo_desc, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
+    // T212 D9: the saves and the ROM set folder belong to the cartridge slot's list
+    CHECK(slot_lists(&neogeo_desc, "Cartridge", true, "Save the memory card and backup RAM now"));
+    CHECK(slot_lists(&neogeo_desc, "Cartridge", false, "Load a ROM set from a folder") && slot_lists(&neogeo_desc, "Cartridge", true, "Load a ROM set from a folder"));
+    CHECK_STR(task_place(&neogeo_desc, "Load a ROM set from a folder").c_str(), "");
+    CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
 #elif defined(TEST_APP_NES)
     // T104.1 Q10: the capability list of the real descriptor
     CHECK(desc_has_capability(&nes_desc, "cartridge") && !desc_has_capability(&nes_desc, "sio"));
@@ -1052,6 +1075,8 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
+#elif defined(TEST_APP_NEOGEO)
+    golden(&neogeo_desc, "neogeo");
 #elif defined(TEST_APP_ZXNEXT)
     golden(&zxnext_desc, "zxnext");
 #elif defined(TEST_APP_C264)
@@ -1065,7 +1090,6 @@ int main(int, char **argv)
 #else
     golden(&apple2_desc, "apple2");
     golden(&snes_desc, "snes");
-    golden(&neogeo_desc, "neogeo");
     golden(&c64scpu_desc, "c64scpu");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
@@ -1125,7 +1149,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
@@ -1158,7 +1182,7 @@ int main(int, char **argv)
     CHECK(ops_state(&mc, "test.slot") == 0);
     // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, Sound check on top of Home with the reset (the Next's 50 / 60 Hz, CPU speed and NMI: the unit zxnext_desc)
     {
-        for (const CoreDesc *d : { &snes_desc, &neogeo_desc }) {
+        for (const CoreDesc *d : { &snes_desc }) {                           // the NES's and the Neo Geo's: the units nes_desc and neogeo_desc
             CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
             CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
         }
@@ -1167,13 +1191,9 @@ int main(int, char **argv)
         for (const char *tk : { "Map buttons, pad 1", "Sound check" }) CHECK(task_place(&snes_desc, tk).find("#") != std::string::npos);
         CHECK_STR(task_place(&snes_desc, "Save the battery RAM now").c_str(), "");     // no task is under the drive rows any more: D9 puts it in the list
     }
-    // T212 D9: the saves and the ROM set folder belong to the cartridge slot's list
+    // T212 D9: the saves belong to the cartridge slot's list (the Neo Geo's saves and ROM set folder: the unit neogeo_desc)
     {
         CHECK(slot_lists(&snes_desc, "Cartridge", true, "Save the battery RAM now") && !slot_lists(&snes_desc, "Cartridge", false, "Save the battery RAM now"));
-        CHECK(slot_lists(&neogeo_desc, "Cartridge", true, "Save the memory card and backup RAM now"));
-        CHECK(slot_lists(&neogeo_desc, "Cartridge", false, "Load a ROM set from a folder") && slot_lists(&neogeo_desc, "Cartridge", true, "Load a ROM set from a folder"));
-        CHECK_STR(task_place(&neogeo_desc, "Load a ROM set from a folder").c_str(), "");
-        CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
     }
     // T212 D10: the tape keys of the Spectrum's, the CPC's and the PET's decks are the units zx_desc, cpc_desc and pet_desc
 #endif

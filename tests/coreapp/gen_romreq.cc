@@ -25,6 +25,7 @@ const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)
 // the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
 #include "cores.h"
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_AMIGA)
 // the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
@@ -97,9 +98,11 @@ int main()
         if (d->romset) {
             emit(d->cor_name, d->folder, d->romset->role, d->romset->ext, d->romset->sizes, 1 | 4, 0);
         }
+#ifdef TEST_APP_NEOGEO                                  // the TRX64U rows follow the Neo Geo's: only the Neo Geo's app (run.sh neogeoapp) emits them
         if (!strcmp(d->folder, "neogeo")) {
             emit_trx64u();
         }
+#endif
     }
     return 0;
 }
