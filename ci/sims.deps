@@ -142,8 +142,8 @@ amiga_lat: cores/amiga/sim cores/amiga/rtl/trx designs/ddr2_test/sim cores/amiga
 @a8 = cores/atari800 vendor/icepi tools/atari800_gen.sh tools/atari800_ce28.py tools/patches/atari800
 atari_gate: @a8
 atari_machine: @reads
-# T108: the disk bench also compiles the application's SIO responder and what it includes
-@a8disk = @a8 ci/roms.txt tests/coreapp/own_drv.sh cores/atari800/app/gateware.toml cores/atari800/app/sdk.toml coreapp/gateware/host.toml coreapp/src/fsif.h coreapp/src/io.h
+# T108: the disk bench also compiles the application's SIO responder and what it includes; its drvtab.h is made by own_drv.sh through tools/app_build.py and tools/descrec.py with the maps
+@a8disk = @a8 ci/roms.txt tests/coreapp/own_drv.sh tools/app_build.py tools/descrec.py app/sdkpkg/maps cores/atari800/app/gateware.toml cores/atari800/app/sdk.toml coreapp/gateware/host.toml coreapp/src/fsif.h coreapp/src/io.h
 atari_disk: @a8disk
 atari_disk_ghost: @a8disk
 atari_disk_nobaud: @a8disk
