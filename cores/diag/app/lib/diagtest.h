@@ -136,8 +136,13 @@ struct DtProgram {
 };
 int dt_compile(const DiagTest &t, const DtPins &pins, uint32_t tpus256, DtProgram *p, DtErr *err);
 
-// What the result FIFO holds, in order: the slot of each word (a loop repeats its body), -1 for none. The number of words, -1 when more than the FIFO holds.
-int dt_plan(const DiagTest &t, int8_t slot_of[512]);
+// What the result FIFO delivers over the whole run, in order: the slot of each word (a loop repeats its body). The runner pops the FIFO while the engine waits at a wait_user and while it runs, so the
+// 512 words of the hardware FIFO bind per segment (the steps between two wait_user), the words of the whole run are bound by DT_WORDS_MAX.
+// Returns the number of words; -1 when the run pushes more than DT_WORDS_MAX; -2 when one segment alone pushes more than 512 (*seg = its number from 1, *seg_line = the line of the wait_user that
+// opens it, 0 for the first segment).
+#define DT_WORDS_MAX 1024
+#define DT_FIFO_HW   512
+int dt_plan(const DiagTest &t, int8_t slot_of[DT_WORDS_MAX], int *seg = 0, int *seg_line = 0);
 
 // Result of a run.
 enum { DT_PASS = 0, DT_FAIL = 1, DT_NOFLIP = 2, DT_NODATA = 3 };
@@ -146,8 +151,8 @@ struct DtResult {
     char status[16];                   // done, aborted, timeout, refused, error
     char reason[DT_STR];               // refused, error: why
     uint32_t tpus256;
-    uint32_t fifo[512]; int nfifo;
-    int8_t slot_of[512];
+    uint32_t fifo[DT_WORDS_MAX]; int nfifo;
+    int8_t slot_of[DT_WORDS_MAX];
     int expect;                        // the words the step list pushes
     uint32_t timeout_ticks[DT_SLOTS];  // per time_to_edge slot: a value this large is 'no edge'
     const DtProgram *prog;             // the compiled test the values belong to (the pins of the evals, the capture slots)

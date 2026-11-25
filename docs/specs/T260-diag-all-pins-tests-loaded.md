@@ -378,6 +378,17 @@ the hardware semantics assumed there and not yet checked on a bench or the board
   words and ports and does not compile against engine v2; it needs the v2 ports as `tb_probe.v` wires them, the v2 PADDLE_DIS model (pin 67 / 68, class pz) and the compiled words of `dt_compile`; its `sims.deps` key is updated, the bench itself is not run here. (3) `test desc` (shared) aborts after the core "DDT Look Ma, No VIC"
   at `09e7dcb73` already (before step 5); its `n205 >= 16` check (red there as well) is set to 15, the cores left in the shared table since diag moved out. `test_appdlg: 161 checks, 0 failed`.
 
+*Step 5, the open points closed (fourth app session, 2026-11-25).*
+- **cd32 (decision of the coordinator, 2026-11-25, not Alex's word):** the test stays one file, unchanged in content. The runner pops the result FIFO while the engine waits at a `wait_user` and polls it while the engine runs
+  (`drain_fifo` in `cores/diag/app/lib/diagtest.cc`: level read high byte first - the level only grows while the engine runs, so a read across a carry is too small, never too big; a pop works in every engine state, `probe.v`
+  `fifo_rd` is not gated by `running` or `waiting`). The 512 words of the hardware FIFO bind **per segment** (the steps between two `wait_user`); `dt_plan` refuses a test whose segment alone pushes more, naming the segment
+  (`segment 2 (after the wait_user of line 31) pushes more than the 512 words ...`), and a run of more than `DT_WORDS_MAX` = 1024 words in all (the result buffers). STATUS b3 stays the run-time guard: an overflow ends the test
+  with "the result FIFO overflowed" in the result file. `test_cd32_v2` now proves cd32 (700 words in three segments) runs to `status = "done"` with its three prompts, and a one-segment overflow is refused with the engine not started:
+  `test_diagtest: 628 checks, 0 failed`, `test diagtest: PASS`.
+- **`test desc` abort, cause:** `tests/coreapp/run.sh` ran the unit `desc` (which opens `$T/bundles/desc_own.bin` through `RecordMenu`) before the only `gen_bundle.py` call; step 3 (`bdb0f350b`) had removed the early call that
+  existed for the diag.cor export, so the file was missing and `RecordMenu` aborted (`record_menu.h:39`) after the last table core. Not a T260 gateware or table problem: t239.3's tree has the early call and passes. Fixed by the early
+  `gen_bundle.py` call before the `desc` line: `test_desc: 1954 checks, 0 failed`.
+
 *Not built, handed over (S5, S6, the rest of S4 and the v2 switch of the app).* The app still runs the v1 engine: `portdiag_regs.h` (PD_OP_*, PD_LIVE, the 10-pin mask), `gateware.toml` (live block 0x40-0x43), the old compiler and
 evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live page: ports and comparators from LIVE). Against a v2 bitstream they do not work. What is to be done, in this order, one commit each:
 1. `gateware.toml` v2 and `portdiag_regs.h` v2 (registers named through the driver table; the engine block, `live` = 16 byte snapshot, the pin and capture registers; PD_OP_* replaced by dtv2.h's words) and the

@@ -403,7 +403,7 @@ static void test_plan_loop()
         "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=3\nbody=3\n[[step]]\nop=\"drive\"\npins=[\"KBJOY_2_JOY4\"]\n[[step]]\nop=\"sample\"\ninto=\"bits\"\n"
         "[[step]]\nop=\"drive\"\npins=[\"KBJOY_2_JOY4\"]\nlevel=\"release\"\n[[step]]\nop=\"edges\"\npin=\"KBJOY_1_JOY0\"\nclocks=50\ninto=\"e\"\n";
     CHECK(parse(t, &g_f, &e));
-    int8_t slot_of[512];
+    int8_t slot_of[DT_WORDS_MAX];
     CHECK_EQ(dt_plan(g_f.test, slot_of), 16);            // three samples of five words, then the edges count
     for (int i = 0; i < 15; i++) { CHECK_EQ(slot_of[i], 0); }
     CHECK_EQ(slot_of[15], 1);
@@ -586,8 +586,8 @@ static void test_prompts()
     CHECK(m.fs.text("/SD/cores/diag/results/stick2_20261102-143015.toml").find("b2_moves = \"PASS") != std::string::npos);
 }
 
-// OPEN (docs/specs/T260 section 5, step 5, open points): under engine v2 a SAMPLE pushes five words and the result FIFO holds 512. The shipped cd32 takes 140 samples = 700 words, so the runner
-// says so at once and nothing runs; the pad model of the T175 unit (PadModel, the six lever settings) cannot be driven through it until cd32 is split or sampled differently (Alex's decision).
+// Under engine v2 a SAMPLE pushes five words and the hardware FIFO holds 512. cd32 takes 140 samples = 700 words in all, but the runner pops the FIFO at every wait_user and while the
+// engine runs, so the 512 bind per segment. cd32 runs to its result file; a test with one segment alone above 512 is refused at once, naming the segment.
 static void test_cd32_v2()
 {
     Rig r;
@@ -595,16 +595,33 @@ static void test_cd32_v2()
     r.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/sd/tests/cd32.toml"));
     CHECK_EQ(r.run("pins.toml"), 0);
     CHECK_EQ(r.run("cd32.toml"), 0);
-    CHECK_EQ(r.out.nerror, 1);
-    CHECK_EQ(r.eng.run_count, 1);                        // the engine was not started for cd32
-    CHECK(r.ui.prompts.empty());
+    CHECK_EQ(r.out.nerror, 0);
+    CHECK_EQ(r.eng.run_count, 2);
+    CHECK_EQ((int)r.ui.prompts.size(), 3);
     std::string x = r.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml");
-    CHECK(x.find("status = \"error\"") != std::string::npos);
-    CHECK(x.find("more than 512 words") != std::string::npos);
+    CHECK(x.find("status = \"done\"") != std::string::npos);
     DtErr e;
     CHECK(parse(slurp("cores/diag/sd/tests/cd32.toml"), &g_f, &e));
-    int8_t slot_of[512];
-    CHECK_EQ(dt_plan(g_f.test, slot_of), -1);
+    int8_t slot_of[DT_WORDS_MAX];
+    int seg = 0, line = 0;
+    CHECK_EQ(dt_plan(g_f.test, slot_of, &seg, &line), 700);   // more than the FIFO holds, in three segments of at most 512
+    // one segment alone above 512 words: refused, nothing started, the segment named
+    std::string big = "[test]\nid=\"seg\"\nversion=3\n[[prompt]]\nid=\"a\"\ntext=\"go\"\n"
+        "[[step]]\nop=\"loop\"\ncount=60\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"s0\"\n"
+        "[[step]]\nop=\"wait_user\"\nprompt=\"a\"\n"
+        "[[step]]\nop=\"loop\"\ncount=110\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"s1\"\n";
+    CHECK(parse(big, &g_f, &e));
+    CHECK_EQ(dt_plan(g_f.test, slot_of, &seg, &line), -2);
+    CHECK_EQ(seg, 2);
+    CHECK(line > 0);
+    Rig q;
+    q.fs.put_text("/SD/cores/diag/tests/seg.toml", big);
+    CHECK_EQ(q.run("seg.toml"), 0);
+    CHECK_EQ(q.out.nerror, 1);
+    CHECK_EQ(q.eng.run_count, 0);
+    std::string y = q.fs.text("/SD/cores/diag/results/seg_20261102-143015.toml");
+    CHECK(y.find("status = \"error\"") != std::string::npos);
+    CHECK(y.find("segment 2 (after the wait_user of line") != std::string::npos);
 }
 
 // T175 S-joy (board 2026-11-15, cd32keys v1): the joystick in port 2 drives the menu, so a prompt that says "hold a direction, then press RETURN" was answered by the held
@@ -751,7 +768,7 @@ static void test_engine_errors()
     Rig q;
     q.fs.put_text("/SD/cores/diag/tests/l.toml", "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=100\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"x\"\n[[step]]\nop=\"loop\"\ncount=20\nbody=1\n[[step]]\nop=\"sample\"\n");
     CHECK_EQ(q.run("l.toml"), 0);
-    CHECK(q.fs.text("/SD/cores/diag/results/l_20261102-143015.toml").find("more than 512 words") != std::string::npos);
+    CHECK(q.fs.text("/SD/cores/diag/results/l_20261102-143015.toml").find("segment 1 (before the first wait_user) pushes more than the 512 words") != std::string::npos);
     // the engine pushed a different count than the step list: refused, no verdict
     Rig w;
     w.fs.put_text("/SD/cores/diag/tests/small.toml", SMALL);

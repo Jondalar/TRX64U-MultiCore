@@ -1196,11 +1196,18 @@ int dt_compile(const DiagTest &t, const DtPins &pins, uint32_t tpus256, DtProgra
     return 0;
 }
 
-int dt_plan(const DiagTest &t, int8_t slot_of[512])
+int dt_plan(const DiagTest &t, int8_t slot_of[DT_WORDS_MAX], int *seg, int *seg_line)
 {
-    int n = 0;
+    int n = 0, segno = 1, segwords = 0, segline = 0;
+    int bad = 0, badline = 0;
     for (int i = 0; i < t.nsteps; i++) {
         const DtStep &s = t.steps[i];
+        if (s.op == DT_OP_WAIT_USER) {                       // the runner pops the FIFO empty while the engine waits here
+            segno++;
+            segwords = 0;
+            segline = s.line;
+            continue;
+        }
         int reps = 1, body = 1;
         if (s.op == DT_OP_LOOP) {
             reps = (int)s.count;
@@ -1212,7 +1219,11 @@ int dt_plan(const DiagTest &t, int8_t slot_of[512])
                 const DtStep &x = t.steps[i + j];
                 int w = x.op == DT_OP_SAMPLE ? DT_SAMPLE_WORDS : x.op == DT_OP_EDGES || x.op == DT_OP_TTE ? 1 : 0;
                 for (int k = 0; k < w; k++) {
-                    if (n >= 512) {
+                    if (++segwords > DT_FIFO_HW && !bad) {
+                        bad = segno;
+                        badline = segline;
+                    }
+                    if (n >= DT_WORDS_MAX) {
                         return -1;
                     }
                     slot_of[n++] = x.slot;
@@ -1222,6 +1233,15 @@ int dt_plan(const DiagTest &t, int8_t slot_of[512])
         if (s.op == DT_OP_LOOP) {
             i += body - 1;
         }
+    }
+    if (bad) {
+        if (seg) {
+            *seg = bad;
+        }
+        if (seg_line) {
+            *seg_line = badline;
+        }
+        return -2;
     }
     return n;
 }
@@ -1816,6 +1836,18 @@ static uint32_t rd_fifo_word(CoreIo *io)
     return v;
 }
 
+// Pops what the result FIFO holds into r->fifo. The level is read high byte first: while the engine runs the level only grows, so a read that straddles a carry is too small, never too big.
+static void drain_fifo(CoreIo *io, DtResult *r)
+{
+    int level = (io->rd(PD_FIFO_LEVEL + 1) << 8) | io->rd(PD_FIFO_LEVEL);
+    if (level > DT_FIFO_HW) {
+        level = DT_FIFO_HW;
+    }
+    for (int i = 0; i < level && r->nfifo < DT_WORDS_MAX; i++) {
+        r->fifo[r->nfifo++] = rd_fifo_word(io);
+    }
+}
+
 static char g_text[DT_FILE_MAX + 1];
 static DiagFile g_file;
 static DtProgram g_prog;
@@ -1956,9 +1988,20 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             break;
         }
         memcpy(r.timeout_ticks, g_prog.timeout_ticks, sizeof(r.timeout_ticks));
-        r.expect = dt_plan(t, r.slot_of);
+        int bad_seg = 0, bad_line = 0;
+        r.expect = dt_plan(t, r.slot_of, &bad_seg, &bad_line);
+        if (r.expect == -2) {
+            if (bad_line) {
+                snprintf(why, sizeof(why), "segment %d (after the wait_user of line %d) pushes more than the %d words of the result FIFO before the next wait_user", bad_seg, bad_line, DT_FIFO_HW);
+            } else {
+                snprintf(why, sizeof(why), "segment %d (before the first wait_user) pushes more than the %d words of the result FIFO before the next wait_user", bad_seg, DT_FIFO_HW);
+            }
+            set_status(&r, "error", why);
+            break;
+        }
         if (r.expect < 0) {
-            set_status(&r, "error", "the test pushes more than 512 words into the result FIFO");
+            snprintf(why, sizeof(why), "the test pushes more than %d words in all", DT_WORDS_MAX);
+            set_status(&r, "error", why);
             break;
         }
         if (check_requires(env, t, why, sizeof(why))) {
@@ -1996,7 +2039,12 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
                 set_status(&r, "error", "the engine reports a step RAM error");
                 break;
             }
+            if (st & PD_ST_OVERFLOW) {
+                set_status(&r, "error", "the result FIFO overflowed");
+                break;
+            }
             if (st & PD_ST_WAITGO) {
+                drain_fifo(io, &r);                          // everything pushed before the prompt is in the FIFO now
                 uint32_t pc = io->rd(PD_PC);
                 int si = -1;
                 for (int k = 0; k < t.nsteps; k++) {
@@ -2042,6 +2090,7 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             if (st & PD_ST_DONE) {
                 break;
             }
+            drain_fifo(io, &r);                              // the engine runs: keep the FIFO short
             if (env->now_ms() - t0 > limit) {
                 set_status(&r, "timeout", "the engine did not finish in time");
                 break;
@@ -2049,14 +2098,8 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             env->delay_ms(1);
         }
         uint8_t st = io->rd(PD_STATUS);
-        int level = io->rd(PD_FIFO_LEVEL) | ((int)io->rd(PD_FIFO_LEVEL + 1) << 8);
-        if (level > 512) {
-            level = 512;
-        }
-        for (int i = 0; i < level; i++) {
-            r.fifo[i] = rd_fifo_word(io);
-        }
-        r.nfifo = level;
+        drain_fifo(io, &r);
+        int level = r.nfifo;
         if (st & PD_ST_REFUSED) {                            // the engine skipped a step: a pin it may not drive, a guarded one with a cartridge in; the step and the pin go to the result
             r.refused = io->rd(PD_REF_CNT);
             r.refused_word = io->rd(PD_REF_PC);
