@@ -96,7 +96,7 @@ CORES = [
     dict(id="neogeo", match=("neo geo",), title="SNK Neo Geo (MVS / AES)", folder="neogeo",
          files="`sp-s2.sp1` (MVS) or `neo-epo.sp1` (AES) or `uni-bios.rom`, 131,072 bytes each; `000-lo.lo` 65,536 bytes (zoom table); `sfix.sfix` 131,072 bytes; `romsets.xml`",
          needed="one BIOS, the zoom table and the fix ROM; a game set for anything to run",
-         sources="coreapp/cores/neogeo.cc (roms); coreapp/cores/neoset.cc"),
+         sources="cores/neogeo/app/lib/neogeo.cc (roms); cores/neogeo/app/lib/neoset.cc"),
     dict(id="zx", match=("spectrum",), title="ZX Spectrum 48K / 128K", folder="zx",
          files="`48.rom` 16,384 bytes (48K); `128.rom` 32,768 bytes (128K)", needed="one of the two (each gives its model)",
          sources="coreapp/cores/zx.cc:131-135; coreapp/cores/zx_regs.h:42-43; coreapp/src/romfind.cc (sets)"),

@@ -32,7 +32,7 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 17
+file coreapp/cores/cores.h 16
 file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27
@@ -41,10 +41,6 @@ file coreapp/cores/ddt_novic.cc 48
 file coreapp/cores/ddt_regs.h 13
 file coreapp/cores/drive_rom_pick.h 98
 file coreapp/cores/hk_defaults.h 23
-file coreapp/cores/neogeo.cc 651
-file coreapp/cores/neogeo_regs.h 78
-file coreapp/cores/neoset.cc 589
-file coreapp/cores/neoset.h 58
 file coreapp/cores/pet.cc 745
 file coreapp/cores/pet_models.h 111
 file coreapp/cores/pet_regs.h 52

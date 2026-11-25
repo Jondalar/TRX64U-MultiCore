@@ -220,8 +220,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			d1541_fs.cc \
 			snes.cc \
 			snes_rom.cc \
-			neogeo.cc \
-			neoset.cc \
 			u64cfg.cc \
 			ring.cc \
 			ringops.cc \
