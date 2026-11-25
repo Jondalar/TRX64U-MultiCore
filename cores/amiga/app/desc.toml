@@ -1,8 +1,12 @@
-# The Amiga 500's data description (T239.3 D17): the tables of its descriptor (coreapp/cores/amiga.cc make(0)), compiled by tools/descrec.py into the description record of the .cor
+# The Amiga 500's data description (T239.3 D17): the tables of its descriptor (cores/amiga/app/lib/amiga.cc make(0)), compiled by tools/descrec.py into the description record of the .cor
 # (record 6, layout in coreapp/src/descrec.h). The Amiga 500 (cores/amiga/app) and the Amiga 1200 (cores/amiga1200/app) are two records of one gateware ID; they
 # differ in the identity, the memory choices, the picture (the 1200's 32 bit buffers and its picture window), the Kickstart Auto looks for, and the ID feature that tells them apart.
 # What the record cannot hold is code and stays in the core's C++: init, release, the operations of register_ops (the poll, "Mount DF0 and reset", the pad's two settings), the
-# Kickstart version and pick functions, and the names of the state values. Register numbers are cores/amiga/rtl/trx/amiga_regs.v (coreapp/cores/amiga_regs.h); the DDR2 window starts at 0x01000000.
+# Kickstart version and pick functions, and the names of the state values. The DDR2 window starts at 0x01000000.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/amiga/rtl/trx/amiga_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property"; tools/descrec.py makes the
+# numbers of them (api.md 6.14.20). The keys of the two tables window_media and sector_media (mount_reg, dlog_*, mbox_*, feat_reg), the pad's regs and the rawkeys table stay numbers: descrec resolves names in reg, reg_* , fb_base
+# and fb_stride only, and the frame buffer's base and stride are the application's choice (three buffers in the DDR2 window), not a register.
+toml_a = "gateware.toml"
 machine_info = "Chipset,Chip RAM,Slow RAM,Fast RAM"
 
 [core]
@@ -30,14 +34,14 @@ y0 = 0
 fb_base = 0x01D00000
 fb_stride = 0x00100000
 nbuf = 3
-reg_latest = 0x0AC
-reg_seq = 0x0AF
+reg_latest = "am_video.fb_latest"
+reg_seq = "am_video.frame_seq"
 reg_fb_base = 0
 reg_fb_stride = 0
 bpp = 2
 
 [freeze]
-reg_status = 0x0A8
+reg_status = "am_machine.status"
 mask = 0x40
 timeout_ms = 200
 
@@ -60,7 +64,7 @@ key = "Chip RAM (at next reset)"
 label = "Chip RAM"
 values = ["512K", "1M", "1.5M", "2M"]
 when = "reset"
-reg_bind = { reg = 0x0A1, shift = 0, mask = 3 }
+reg_bind = { reg = "am_machine.mem_cfg", shift = 0, mask = 3 }
 
 [[core_setting]]
 key = "Slow RAM (at next reset)"
@@ -68,21 +72,21 @@ label = "Slow RAM"
 values = ["None", "512K", "1M", "1.5M"]
 default = 1
 when = "reset"
-reg_bind = { reg = 0x0A1, shift = 2, mask = 3 }
+reg_bind = { reg = "am_machine.mem_cfg", shift = 2, mask = 3 }
 
 [[core_setting]]
 key = "Fast RAM (at next reset)"
 label = "Fast RAM"
 values = ["None", "2M", "4M"]
 when = "reset"
-reg_bind = { reg = 0x0A2, shift = 0, mask = 0xFF }
+reg_bind = { reg = "am_machine.fast_cfg", shift = 0, mask = 0xFF }
 
 [[core_setting]]
 key = "Chipset (at next reset)"
 label = "Chipset"
 values = ["OCS", "ECS"]
 when = "reset"
-reg_bind = { reg = 0x0A4, shift = 0, mask = 0xFF, bytes = [0x00, 0x08] }
+reg_bind = { reg = "am_machine.chipset_cfg", shift = 0, mask = 0xFF, bytes = [0x00, 0x08] }
 
 [[core_setting]]
 key = "Floppy drives (at next reset)"
@@ -90,26 +94,26 @@ label = "Floppy drives"
 values = ["1", "2", "3", "4"]
 default = 1
 when = "reset"
-reg_bind = { reg = 0x0A5, shift = 2, mask = 3 }
+reg_bind = { reg = "am_machine.floppy_cfg", shift = 2, mask = 3 }
 
 [[core_setting]]
 key = "Floppy write protect (next reset)"
 label = "Floppy write protect"
 values = ["No", "Yes"]
 when = "reset"
-reg_bind = { reg = 0x0A5, shift = 1, mask = 1 }
+reg_bind = { reg = "am_machine.floppy_cfg", shift = 1, mask = 1 }
 
 [[core_setting]]
 key = "Real-time clock (at next reset)"
 label = "Real-time clock"
 values = ["Off", "On"]
 when = "reset"
-reg_bind = { reg = 0x0E0, shift = 0, mask = 1 }
+reg_bind = { reg = "am_rtc.rtc_en", shift = 0, mask = 1 }
 
 [[core_setting]]
 key = "Joystick ports"
 values = ["Normal", "Swapped"]
-reg_bind = { reg = 0x0A7, shift = 0, mask = 1 }
+reg_bind = { reg = "am_machine.joy_cfg", shift = 0, mask = 1 }
 
 [[core_setting]]
 key = "LED Load Indicator"
@@ -313,100 +317,100 @@ ext = ".hdf"
 
 # ---- the machine's own tables
 [[reset_write]]
-reg = 0xA3
+reg = "am_machine.cpu_cfg"
 value = 0x00
 
 [[reset_write]]
-reg = 0xA6
+reg = "am_machine.ide_cfg"
 value = 0x21
 
 [id_feature]
-reg = 0xC
+reg = "am_feat.features"
 mask = 0x8
 value = 0x0
 
 [[report_reg]]
 name = "FEAT"
-reg = 0xC
+reg = "am_feat.features"
 bytes = 1
 
 [[report_reg]]
 name = "CTRL (b0 hold, b1 video off)"
-reg = 0xA0
+reg = "am_machine.ctrl"
 bytes = 1
 
 [[report_reg]]
 name = "MEM_CFG (chip, slow)"
-reg = 0xA1
+reg = "am_machine.mem_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "FAST_CFG"
-reg = 0xA2
+reg = "am_machine.fast_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "CPU_CFG"
-reg = 0xA3
+reg = "am_machine.cpu_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "CHIPSET_CFG"
-reg = 0xA4
+reg = "am_machine.chipset_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "FLOPPY_CFG"
-reg = 0xA5
+reg = "am_machine.floppy_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "IDE_CFG"
-reg = 0xA6
+reg = "am_machine.ide_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "JOY_CFG"
-reg = 0xA7
+reg = "am_machine.joy_cfg"
 bytes = 1
 
 [[report_reg]]
 name = "RTC_EN"
-reg = 0xE0
+reg = "am_rtc.rtc_en"
 bytes = 1
 
 [[report_reg]]
 name = "RTC_STAT (b0 loaded)"
-reg = 0xE3
+reg = "am_rtc.rtc_stat"
 bytes = 1
 
 [[report_reg]]
 name = "STATUS (b6 paused)"
-reg = 0xA8
+reg = "am_machine.status"
 bytes = 1
 
 [[report_reg]]
 name = "FB_LATEST"
-reg = 0xAC
+reg = "am_video.fb_latest"
 bytes = 1
 
 [[report_reg]]
 name = "FRAME_SEQ"
-reg = 0xAF
+reg = "am_video.frame_seq"
 bytes = 1
 
 [[report_reg]]
 name = "MBOX_STATUS"
-reg = 0x1A0
+reg = "am_mbox.status"
 bytes = 1
 
 [[report_reg]]
 name = "DLOG_STATUS"
-reg = 0x1F0
+reg = "am_dlog.status"
 bytes = 1
 
 [rawkeys]
-reg = 0x1C4
+reg = "am_rawkey.rawkey"
 caps_usage = 0x39
 caps_code = 0x62
 hid = [
@@ -428,9 +432,9 @@ mod = [ 0x63, 0x60, 0x64, 0x66, 0x63, 0x61, 0x65, 0x67 ]
 
 [mouse]
 kind = "counters"
-reg_dx = 0x1C0
-reg_dy = 0x1C1
-reg_btn = 0x1C2
+reg_dx = "am_mouse.dx"
+reg_dy = "am_mouse.dy"
+reg_btn = "am_mouse.btn"
 clamp = 4000
 step = 127
 interval_ms = 2

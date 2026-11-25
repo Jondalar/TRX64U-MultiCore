@@ -10,6 +10,36 @@ const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+// the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)
+// the NES's app is its own build (run.sh nesapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_C264)
+// the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_ZXNEXT)
+// the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &zxnext_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)
+// the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &neogeo_desc, 0 };
+#elif defined(TEST_APP_AMIGA)
+// the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &amiga_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

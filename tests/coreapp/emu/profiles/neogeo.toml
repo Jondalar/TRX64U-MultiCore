@@ -1,4 +1,4 @@
-# The Neo Geo core as the core application sees it (T226 pictures; the layout of nes.toml). Registers from coreapp/cores/neogeo_regs.h.
+# The Neo Geo core as the core application sees it (T226 pictures; the layout of nes.toml). Registers from cores/neogeo/app/lib/neogeo_regs.h (named in cores/neogeo/app/gateware.toml).
 name = "neogeo"
 id = "NEO_"                  # neogeo.cc: the gateware's ID word
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"

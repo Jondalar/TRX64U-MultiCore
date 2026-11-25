@@ -14,7 +14,10 @@
 #include "cores.h"
 #include "settings.h"
 #include "ops_glue.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264)
+#define TEST_OWN_APP 1          // a core's own app (run.sh vc20app, c264app): its core only, not the shared app's cores
+#endif
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "c64_cart.h"
 #endif
 #include "drive_model.h"
@@ -22,7 +25,7 @@
 #include "menutree.h"
 #include "mediamounts.h"
 #include "engines.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "apple2_disk.h"
 #include "apple2_regs.h"
 #include "atari800_regs.h"
@@ -31,10 +34,15 @@
 #include "c64_regs.h"
 #include "c264_regs.h"
 #endif
+#ifdef TEST_APP_C264
+#include "c264_regs.h"
+#endif
 #include "d1541_drive.h"
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_C264)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
                                        &c128_desc, &amiga_desc, 0 };
@@ -48,7 +56,7 @@ struct GIo : FakeIo {                                    // a register file, the
     DRIVE_IO_FORWARD(dm)
 };
 
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 struct NeoIo : FakeIo {                                  // the Neo Geo's register block with its copy engine (tests/coreapp/test_neogeo.cc)
     NeoIo() { ddr.assign(0x07000000, 0); }
     void ddr_write(uint32_t off, const void *p, uint32_t n) override { if ((uint64_t)off + n <= 0x03000000ull) memcpy(&ddr[off], p, n); }
@@ -201,7 +209,7 @@ struct Run {
     }
     ~Run()
     {
-#ifndef TEST_APP_VC20
+#ifndef TEST_OWN_APP
         if (p.cart) {                                     // the cartridge port of the C64 keeps its state in the application: a start again has none
             char m[160];
             c.mount_changed = 0;
@@ -245,7 +253,7 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes atr(int sectors, uint32_t seed)
 {
     Bytes v(16, 0);
@@ -272,7 +280,7 @@ static Bytes d64(const char *name)
     (void)name;
     return d.img;
 }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes nes_file(uint32_t seed)
 {
     Bytes v(16, 0);
@@ -342,7 +350,7 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
 #endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 
 static Case apple_drive(int d)
 {
@@ -410,7 +418,7 @@ static Case cbm_drive()
     k.eject = [](Run &r, char *m, int n) { return mount_op(r, "drive.eject", { in_str("slot", "iec:drive_a") }, m, n); };
     return k;
 }
-#ifndef TEST_APP_VC20
+#ifndef TEST_OWN_APP
 static Case game_case(const char *run_op, const char *a, const char *b)
 {
     Case k;
@@ -427,7 +435,7 @@ static Case game_case(const char *run_op, const char *a, const char *b)
 static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     {   // ---- Apple IIe: two floppies and two slot 7 volumes
         Prof p;
         p.name = "apple2"; p.cfg = "/usb0/cores/apple2/apple2.cfg"; p.base = &apple2_desc;
@@ -489,6 +497,8 @@ static std::vector<Prof> profiles()
 #endif
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
+#elif defined(TEST_APP_C264)
+    for (int k = 2; k < 3; k++) {
 #else
     for (int k = 1; k < 3; k++) {
 #endif
@@ -497,6 +507,9 @@ static std::vector<Prof> profiles()
 #ifdef TEST_APP_VC20
         const CoreDesc *d = &vc20_desc;
         p.name = "vc20";
+#elif defined(TEST_APP_C264)
+        const CoreDesc *d = &c264_desc;
+        p.name = "c264";
 #else
         const CoreDesc *d = k == 1 ? &c128_desc : &c264_desc;
         p.name = k == 1 ? "c128" : "c264";
@@ -523,7 +536,7 @@ static std::vector<Prof> profiles()
         }
         v.push_back(p);
     }
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     {   // ---- the cartridge port of the C64 library (c64_cart.cc), on the C64 model
         Prof p;
         p.name = "c64cart"; p.cfg = "/usb0/cores/cartport/cartport.cfg"; p.base = &g_cart_core; p.cart = true;
@@ -855,7 +868,7 @@ static const Prof &prof(const std::vector<Prof> &v, const char *name)
 }
 
 // the Atari's .xex boot disk lives in D1 under its own word; an ATR mounted over it takes it away again
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void atari_xex(const Prof &p)
 {
     char msg[240];
@@ -938,7 +951,7 @@ static void drive_modes(const Prof &p)
 }
 
 // the CPC 464 has no drive: stored disks stay unmounted with a note, the tape comes back
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifndef TEST_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void cpc_464(const Prof &p)
 {
     char msg[240];
@@ -965,6 +978,8 @@ static void cpc_464(const Prof &p)
     printf("cpc: a 464 restores the tape and leaves A and B empty with a note\n");
 }
 
+#endif
+#ifndef TEST_APP_VC20
 // the C264 cartridge is a Plus/4 thing: restoring one sets the model, applied before the release
 static void c264_model(const Prof &p)
 {
@@ -989,6 +1004,8 @@ static void c264_model(const Prof &p)
     printf("c264: the restored cartridge sets the Plus/4 model\n");
 }
 
+#endif
+#ifndef TEST_OWN_APP
 // a Neo Geo ROM set: a folder and the set's name, restored through the same operation
 static void neo_folder(const Prof &p)
 {
@@ -1057,12 +1074,15 @@ int main()
         s3_missing(p);
         s8_sets(p);
         s8_writeback(p);
-#ifndef TEST_APP_VC20
+#ifndef TEST_OWN_APP
         if (p.game) game_empty_set(p);
 #endif
     }
 #ifdef TEST_APP_VC20
     drive_modes(prof(profs, "vc20"));
+#elif defined(TEST_APP_C264)
+    drive_modes(prof(profs, "c264"));
+    c264_model(prof(profs, "c264"));
 #else
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));

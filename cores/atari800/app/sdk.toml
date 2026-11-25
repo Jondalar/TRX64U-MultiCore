@@ -1,0 +1,46 @@
+# TOML B of the Atari 800 XL's app (T239.3 D55, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "atari800"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library atari800 below defines it); the core table of this app holds this core only
+desc = "atari800_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the Atari 800 XL runs on the host bitstream) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (a partial core: it can return to the host) and audio_master (the host's master volume and tone:
+# the rows Volume and Tone, T239.3 D36). The core has no 1541 and no IEC bus (its drives are SIO drives of the library), so no block of the drive window or of iec_status is named, and no block of the cartridge
+# page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if, so board.cc runs no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
+base_sources = ["portdiag.cc"]
+
+# The core's own code: its descriptor and hooks (init, release, warm reset, the operations of register_ops, the SIO media write-back, the mount slots) and its formats (ATR/XFD disks on the SIO bus, XEX
+# executables with the boot stub, cartridge images). Its files are in cores/atari800/app/lib; hk_defaults.h is a copy of the shared app's (the other cores still use the original).
+[[library]]
+name = "atari800"
+sources = ["atari800.cc", "atari_atr.cc", "atari_cart.cc", "atari_media.cc", "atari_sio.cc", "atari_xex.cc"]
+headers = ["atari800_regs.h", "atari_atr.h", "atari_cart.h", "atari_disk.h", "atari_media.h", "atari_sio.h", "atari_xex.h", "hk_defaults.h"]
+# newdisk: atari800.cc calls newdisk_register (the task Create blank ATR)
+needs = ["newfile", "newdisk"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: a8app, the group atari800): unit = 2 unit tests (a8_xex the XEX loader, a8_sio the SIO
+# bus against its handler model), service = 8 mock bitstream -> service (a8_media the media engine and the SIO write-back, a8_boot the core's start), ui = 9 service -> UI (a8_menuctl the menu on the
+# core's record), api = 10 service -> API: its operations through the service call the REST and RPC transports make (svc_call; the Atari's cases of the shared test_memops, TEST_APP_ATARI800)
+tests = { unit = ["a8_xex", "a8_sio"], service = ["a8_media", "a8_boot", "a8_descgen", "a8_romreq"], ui = ["a8_menuctl"], api = ["a8_memops"] }
+
+# The shared rule of a new file's folder and name (T122 D2): newdisk makes the blank ATR's path with it. The same sources as the shared app's library, S12
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+# "Create blank ATR" (the task of the descriptor, disk.create): the same sources as the shared app's library. The capability "sio" of the descriptor registers it too.
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]

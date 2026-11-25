@@ -12,6 +12,22 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 // the Amiga 1200's app is its own build (run.sh a12app): its table is its core only
 #include "cores.h"
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+// the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
+#include "cores.h"
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_C264)
+// the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+#include "cores.h"
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)
+// the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
+#include "cores.h"
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#elif defined(TEST_APP_AMIGA)
+// the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
+#include "cores.h"
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #else
 #include "table.cc"
 #endif

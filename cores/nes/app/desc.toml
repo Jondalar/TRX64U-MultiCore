@@ -1,7 +1,9 @@
-# The NES's data description (T239.3 D17): what coreapp/cores/nes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description
+# The NES's data description (T239.3 D17): what cores/nes/app/lib/nes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description
 # record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record cannot hold is
 # code, and stays in the core's C++: init, release, the operations of register_ops (.nes parsing included) and the three functions of the mount slot.
-# Register numbers are cores/nes/trx (coreapp/cores/nes_regs.h).
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/nes/trx/nes_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property", a reset
+# value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
 machine_info = "Console type"
 
 [core]
@@ -19,23 +21,23 @@ needs_program = "Choose a .nes file in Library (F3)"
 program_ext = ".nes"
 caps = ["cartridge", "pad"]            # a cartridge and nothing a drive library could serve
 
-# 256 x 224 shown 3 x 3 (768 x 672), centred on 1920 x 1080; the buffers are in the DDR2 window at 0x01000000 + NES_W_FB
+# 256 x 224 shown 3 x 3 (768 x 672), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE (the DDR2 window at 0x01000000 + NES_W_FB)
 [video]
 w = 256
 h = 224
 scale = 3
 x0 = 576
 y0 = 204
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "nes_video.fb_base.reset"
+fb_stride = "nes_video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "nes_video.fb_latest"
+reg_seq = "nes_video.frame_seq"
+reg_fb_base = "nes_video.fb_base"
+reg_fb_stride = "nes_video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "nes_machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -95,7 +97,7 @@ regs = [0x0F8, 0x0FA]
 buttons = ["A", "B", "Select", "Start", "Up", "Down", "Left", "Right"]
 default = ["face_right", "face_bottom", "select", "start", "up", "down", "left", "right"]
 
-# ---- hotkeys (hk_defaults.h hk_console): the consoles take no key of the keyboard, so the C64's map does not collide with anything. Keys as hotkeys.h:
+# ---- hotkeys (hk_defaults.h hk_console, the copy in cores/nes/app/lib): the consoles take no key of the keyboard, so the C64's map does not collide with anything. Keys as hotkeys.h:
 # 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
 [hotkeys]
 mod = [58, 255]

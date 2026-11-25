@@ -1,6 +1,6 @@
 // T104 5.1, 5.2 `rom_set`, 5.7: the Kickstart as a ROM set - scanned out of a directory, chosen by the setting or by Auto (which reads the version
 // out of the image, ADR-0056), placed in the window (a 256 KB ROM twice), reloaded when the choice changes, with the machine's RAM cleared on a
-// cold start. The record is the Amiga's and the A1200's (coreapp/cores/amiga.cc); the code under test is romset.cc, kickstart.cc and boot.cc.
+// cold start. The record is the Amiga's and the A1200's (cores/amiga/app/lib/amiga.cc, cores/amiga1200/app/lib/amiga1200.cc); the code under test is romset.cc, kickstart.cc and boot.cc.
 #include <string>
 #include "check.h"
 #include "amiga_model.h"

@@ -201,8 +201,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			picklist.cc \
 			lineedit.cc \
 			boot.cc \
-			atari800.cc \
-			nes.cc \
 			apple2.cc \
 			apple2_disk.cc \
 			apple2_nib.cc \
@@ -214,19 +212,14 @@ SRCS_CC	 =  u64ii_init.cc \
 			tape_deck.cc \
 			cpc.cc \
 			cpc_disk.cc \
-			c264.cc \
 			pet.cc \
 			c128.cc \
 			c64scpu.cc \
 			ddt_novic.cc \
 			portdiag.cc \
 			d1541_fs.cc \
-			zxnext.cc \
 			snes.cc \
 			snes_rom.cc \
-			neogeo.cc \
-			neoset.cc \
-			ines.cc \
 			u64cfg.cc \
 			ring.cc \
 			ringops.cc \
@@ -243,12 +236,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			ringfile.cc \
 			libfiles.cc \
 			kickstart.cc \
-			amiga.cc \
-			atari_sio.cc \
-			atari_atr.cc \
-			atari_xex.cc \
-			atari_cart.cc \
-			atari_media.cc \
 			fm_fs.cc \
 			fm_medium.cc \
 			mediasniff.cc \

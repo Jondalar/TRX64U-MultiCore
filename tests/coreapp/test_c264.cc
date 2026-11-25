@@ -1,4 +1,4 @@
-// T90 on the generic application: the Commodore 264 descriptor (coreapp/cores/c264.cc) against a model of the register block and the 16 KB ROM
+// T90 on the generic application: the Commodore 264 descriptor (cores/c264/app/lib/c264.cc) against a model of the register block and the 16 KB ROM
 // aperture of cores/c264/rtl/trx/c264_regs.v / c264_win.v. KERNAL, BASIC and the optional function ROMs through ROM_SEL, model / RAM size / joystick
 // swap written only while the machine is held, cartridge images (16 and 32 KB, the Plus/4 model), a .prg run with the 16 KB wrap refusal and
 // loaded without a reset, the picture on the pixel layer (384 x 288, 3 x 3, four buffers), Freeze's PAUSED bit. The descriptor is the real one.

@@ -1,7 +1,7 @@
 # The core-application blueprint (T93)
 
 One application on the lean base (LVGL, Freeze only) that every core without Gideon's Ultimate application runs. This
-build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and the A1200 (Amiga), atari800, nes, apple2, zx, zxnext, cpc, vc20, c264, c128, pet, snes, neogeo, c64scpu, diag and the two DDT demos. Only the C64 reference core (`trx64g.cor`) runs Gideon's Ultimate application; `trx64u.cor` runs our own application (the VC-20 and the C16/Plus/4 left Gideon's application on 2026-10-22, Alex; the A500 uses the blueprint since T93).
+build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and the A1200 (Amiga), apple2, zx, cpc, vc20, c128, pet, snes, neogeo, c64scpu, diag and the two DDT demos. Only the C64 reference core (`trx64g.cor`) runs Gideon's Ultimate application; `trx64u.cor` runs our own application (the VC-20 and the C16/Plus/4 left Gideon's application on 2026-10-22, Alex; the A500 uses the blueprint since T93).
 
 - `src/` the shared services: start and identity (`start.cc`), the hand-over (`host-app/software/hostapp/handover.*`), settings
   and the `.cfg` format (`settings.cc`, `cfgfile.cc`), the ROM manager (`romfind.cc`, `boot.cc`), the whitelist menu (`menutree.cc`,
@@ -21,8 +21,8 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
 - `cores/` one translation unit per core: its descriptor and hooks, next to that core's register constants. Media code a core owns sits beside
   it: `tape_pulses.*` (a .tap/.tzx/.cdt as the pulse stream of the Spectrum's and the CPC's tape engine) and `tape_deck.*` (insert, play, blocks,
   eject: shared by `zx.cc` and `cpc.cc`), `zx_snap.*` (.sna/.z80), `cpc_disk.*` (the two DSK drives with write-back), `cbm_run.*` (Run PRG and
-  Load PRG of the VIC-20 and the 264: the job around the PRG library, shared by the VIC-20's library `cores/vc20/app/lib/vc20.cc` and `c264.cc`).
-- `tools/build_coreapp.sh` builds it (`--dist` copies the image to `dist/coreapps/atari800.app`, `nes.app`, `apple2.app`, `zx.app`, `cpc.app`, `zxnext.app` and `c264.app`: one image, D14 (the VIC-20 has an app of its own since V-4, `tools/sdk_core_app.sh`), the core
+  Load PRG of the VIC-20 and the 264: the job around the PRG library, shared by the VIC-20's library `cores/vc20/app/lib/vc20.cc` and the 264's `cores/c264/app/lib/c264.cc`).
+- `tools/build_coreapp.sh` builds it (`--dist` copies the image to `dist/coreapps/apple2.app`, `zx.app`, `cpc.app`: one image, D14 (the VIC-20 has an app of its own since V-4, `tools/sdk_core_app.sh`, the Atari 800 XL, the NES, the C264 and the ZX Spectrum Next since T239.5 D15), the core
   is chosen at run time from the ID block; the Amiga names stay untouched).
 - `tests/coreapp/run.sh` runs the logic natively with a negative control per test.
 - `libs/shared.toml` is the TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with (sources, headers, the entries each hands the generic application). `tools/libtab.py` makes the library table

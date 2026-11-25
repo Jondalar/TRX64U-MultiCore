@@ -1,4 +1,4 @@
-// T116 S5/S9/S10: the ZX Spectrum Next descriptor (coreapp/cores/zxnext.cc) against a model of the register block of cores/zxnext/trx/zxn_regs.v:
+// T116 S5/S9/S10: the ZX Spectrum Next descriptor (cores/zxnext/app/lib/zxnext.cc) against a model of the register block of cores/zxnext/trx/zxn_regs.v:
 // the SD image the core starts with (the default file, the notice without one, the image chosen in the menu), a block served to the card model and
 // written back into the file, the clock the application gives the machine, the special keys. The descriptor under test is the real one.
 #include <string>
@@ -79,6 +79,7 @@ static std::vector<uint8_t> fw_standin(int top, size_t size, size_t at, bool onl
     static const char *const file[] = { "core.bit", "core.bit", "core2.bit", "core3.bit", "core4.bit", "core5.bit", "core6.bit", "core7.bit" };
     for (int copy = 0; copy < (only ? 1 : 3); copy++) {
         size_t o = at + (size_t)copy * 9000 + (copy == 2 ? 3000 : 0);
+        if (o + 37 * (size_t)(top - 1) > v.size()) break;                 // a copy that does not fit in the file is not written (it was written past the vector's end, 20000 bytes, third copy at 26000)
         for (int id = 0; id <= top - 2; id++, o += 37) {
             uint8_t *e = &v[o];
             memset(e, 0, 37);

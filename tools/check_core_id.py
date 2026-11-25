@@ -13,13 +13,13 @@ import sys
 PAIRS = (("cores/zx/trx/zx_regs.v", "coreapp/cores/zx.cc"),
          ("cores/cpc/trx/cpc_regs.v", "coreapp/cores/cpc.cc"),
          ("cores/vc20/rtl/trx/vc20_regs.vhd", "cores/vc20/app/lib/vc20.cc"),
-         ("cores/c264/rtl/trx/c264_regs.v", "coreapp/cores/c264.cc"),
+         ("cores/c264/rtl/trx/c264_regs.v", "cores/c264/app/lib/c264.cc"),
          ("cores/pet/rtl/trx/pet_regs.v", "coreapp/cores/pet.cc"),
-         ("cores/zxnext/trx/zxn_regs.v", "coreapp/cores/zxnext.cc"),
+         ("cores/zxnext/trx/zxn_regs.v", "cores/zxnext/app/lib/zxnext.cc"),
          ("cores/snes/trx/snes_regs.v", "coreapp/cores/snes.cc"),
          ("cores/c128/c128_regs.v", "coreapp/cores/c128.cc"),
          ("cores/c64scpu/c64scpu_regs.v", "coreapp/cores/c64scpu.cc"),
-         ("cores/neogeo/trx/neo_regs.v", "coreapp/cores/neogeo.cc"),
+         ("cores/neogeo/trx/neo_regs.v", "cores/neogeo/app/lib/neogeo.cc"),
          ("cores/ddt_novic/layer2_ddt_novic.v", "coreapp/cores/ddt_novic.cc"),
          ("cores/diag/rtl/diag_regs.v", "coreapp/cores/portdiag.cc"))
 

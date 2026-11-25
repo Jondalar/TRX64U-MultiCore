@@ -153,7 +153,7 @@ The base registers itself, so a descriptor can name them without registering any
 `machine.restart` (`boot.cc`), `settings.*`, `menu.browse`, `app.open`, `picture.apply`, `scale.apply`, `smooth.apply`, `follow.apply`, `volume.apply`,
 `tone.apply`, `pad.*` and `led.load` (`engines.cc`). Not the base's: `disk.create` is registered by the library `newdisk` for a core whose caps name
 `floppy` or `sio` (SDK: `api.md` 9.5.13), so an app whose TOML B does not link `newdisk` has no such operation; the memory operations
-`machine.read_mem` and `machine.write_mem` are the macro `MEM_OPS` (`memops.h`) that a core's own contributor calls (`cores/atari800.cc`; trx64u
+`machine.read_mem` and `machine.write_mem` are the macro `MEM_OPS` (`memops.h`) that a core's own contributor calls (`cores/atari800/app/lib/atari800.cc`; trx64u
 registers them in its library).
 
 ## 4. Settings

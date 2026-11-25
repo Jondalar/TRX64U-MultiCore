@@ -1,5 +1,5 @@
 # T239.3 D17 part 2: the data tables of a core that a C++ descriptor holds as small structs (sections 7 .. 16 of the description record), as TOML. The values are the Amiga 1200's
-# (coreapp/cores/amiga.cc, make(1)), written out once by a throwaway program from the compiled-in descriptor; tests/coreapp/test_descsec.cc compiles this file with the real tool, reads
+# (cores/amiga1200/app/lib/amiga1200.cc), written out once by a throwaway program from the compiled-in descriptor; tests/coreapp/test_descsec.cc compiles this file with the real tool, reads
 # it with the real reader and compares every field with amiga1200_desc, so a drift in either shows. Only these tables and the pad: no menu, no settings, no ROMs.
 [core]
 id = "AMIG"

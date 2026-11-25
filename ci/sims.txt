@@ -132,7 +132,7 @@
 2|nes|1800|sh cores/nes/sim/run.sh frame pal norender nonmi tone win cpu inv pause
 2|nes_maps|1800|sh cores/nes/sim/run.sh banks2 banks3 mmc1 mmc2 mmc3 mmc4 vrc24 mmc66 mmc34 mmc71 mmc79
 2|atari_machine|5400|sh cores/atari800/sim/machine/run.sh boot
-# T108 D1: the real XL OS boots a disk through the application's own SIO responder (coreapp/cores/atari_sio.cc compiled into the
+# T108 D1: the real XL OS boots a disk through the application's own SIO responder (cores/atari800/app/lib/atari_sio.cc compiled into the
 # simulator). Measured on the Mac in a container of 2 cores, two benches at a time: the boot 64 min (2.3 s of simulated time). The empty D1: that has to end at READY needs
 # 6.6 s of simulated time and is not here: it is the one mode run by hand (T108 5.3).
 # Tier 3 = never in the pipeline (Alex, 2026-10-17: "Raus ... Nur auf Knopfdruck"): four of these at 46-65 min

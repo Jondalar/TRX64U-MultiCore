@@ -1,0 +1,40 @@
+# TOML B of the ZX Spectrum Next's app (T239.3 D55, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "zxnext"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library zxnext below defines it); the core table of this app holds this core only
+desc = "zxnext_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the Next is a large core on the host's pieces) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36). The core
+# has no 1541 and no IEC bus, so no block of the drive window or of iec_status is named, and no block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if, so board.cc runs
+# no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
+base_sources = ["portdiag.cc"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of register_ops, the SD image served through the sector mailbox, the clock, the board issue). Its files are in cores/zxnext/app/lib;
+# hk_defaults.h is a copy of the shared app's (the other cores still use the original).
+[[library]]
+name = "zxnext"
+sources = ["zxnext.cc"]
+headers = ["zxnext_fw.h", "zxnext_regs.h", "hk_defaults.h"]
+# mouse: zxnext.cc declares the mouse sink (the MouseSinkSpec of the descriptor, caps "mouse")
+needs = ["mouse"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: zxnextapp, the group zxnext): unit = 2 unit tests (zxnext the descriptor against a model of the register
+# block: the SD image, the card's service, the clock, the keys, the board issue), service = 8 mock bitstream -> service (zxnext_joyswap the "Joystick ports" setting down to the register, zxnext_descgen the record compiled from
+# desc.toml against the descriptor; the Next has no ROM, so no row of the host's ROM table and no romreq unit), ui = 9 service -> UI (zxnext_menuctl the menu on the core's record: the Library, the sheet of an .img file, the mount), api = 10 service ->
+# API: its operations through the service call the REST and RPC transports make (svc_call; the Next's case of the shared test_memops, TEST_APP_ZXNEXT: 2 MB in the DDR2 window)
+tests = { unit = ["zxnext"], service = ["zxnext_joyswap", "zxnext_descgen"], ui = ["zxnext_menuctl"], api = ["zxnext_memops"] }
+
+# The USB mouse (the descriptor's mouse spec, caps "mouse"): the same sources as the shared app's library, S12
+[[library]]
+name = "mouse"
+sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
+headers = ["mousesink.h", "mouse_api.h"]
+table = "mouse_table"
+init = "mouse_lib_init"

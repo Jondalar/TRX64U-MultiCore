@@ -1,0 +1,403 @@
+# TOML A of the ZX Spectrum Next core (T239.3 D55, T239.5 D15): the gateware's registers as capabilities, written from what cores/zxnext/trx/zxn_regs.v decodes (tools/rtl_check.py proves it against the RTL, code to
+# code: tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the
+# core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6
+# (0x101A6000-0x101A6FFF) is decoded by zxn_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The core has no drive and no
+# IEC bus. desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the core are named zxn_*: the shared native units compile
+# several moved cores' libraries into one driver table (tests/coreapp/shared_drv.sh), whose block names (machine, video, irq ...) are the same words.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "ZXN_"
+block = "ident"
+
+# 000-00B: the ID "ZXN_" (byte 0 first; a build with ID_TRX2 = 1 answers "TRX2"), the caps bytes (0xC0: page 6 and the RGB565 pixel layer, the host's; caps2 0x02: BUILD is there), the layer-2 contract the core was written for (2), and
+# the build word (USR_ACCESS)
+[[block]]
+name = "ident"
+module = "zxn_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 00C: the features byte (b0: the SD size register zxn_sd.sd_size is in 512 byte sectors, always set)
+[[block]]
+name = "zxn_features"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A000C
+size = 0x1
+  [[block.property]]
+  name = "feat"
+  offset = 0x0
+  width = 8
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b4 a block request, b5 a Next frame is complete, b6 the host's video frame start, b7 page flip done
+[[block]]
+name = "zxn_irq"
+module = "zxn_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x8
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "block"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "zxn_ddr_cal"
+module = "zxn_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0-0A9: the machine. ctrl b0 reset hold, b1 halt (Freeze); joy b0 swaps the host's joystick ports (live); lock b0 frame lock off; board_id b3:0 the id NextReg 0x0F reports (reset 3 = issue 5; only the report);
+# status b0 in reset, b1 held (Freeze), b2 an SD image is mounted, b3 the card model is busy; machine b2:0 the machine timing (000 48K, 010 128K, 011 +3, 100 Pentagon), b3 60 Hz, b5:4 the CPU speed; frames the Next frame counter (low 16 bits)
+[[block]]
+name = "zxn_machine"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xA
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "joy"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "lock"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "board_id"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "sd_mounted"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "sd_busy"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "machine"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+
+# 0B0-0BF: the memory path's counters. miss_a, miss_b Layer 2 lines that were not there in time; stall the clocks the machine was held; prefetch
+[[block]]
+name = "zxn_cache"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x10
+  [[block.property]]
+  name = "miss_a"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "miss_b"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "stall"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "prefetch"
+  offset = 0xC
+  width = 32
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the
+# reset values of base_r and stride_r in zxn_regs.v (the DDR2 window at 0x01000000 + 0xD00000, four buffers 1 MB apart)
+[[block]]
+name = "zxn_video"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D0-0D7: the DDR2 addresses of the machine's 2 MB (ram_base, bits 20:0 ignored) and of the SD staging sector (stage_base, 512 aligned)
+[[block]]
+name = "zxn_mem"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0x8
+  [[block.property]]
+  name = "ram_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01000000
+  [[block.property]]
+  name = "stage_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01200000
+
+# 0E0-0E6: the clock as the DS1307 holds it, BCD, byte 0 at 0E0: seconds, minutes, hours (24 h), weekday 1-7, day, month, year 00-99
+[[block]]
+name = "zxn_rtc"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00E0
+size = 0x7
+  [[block.property]]
+  name = "rtc"
+  offset = 0x0
+  width = 8
+  count = 7
+  dir = "rw"
+
+# 0F0, 0F2: the Next's special keys F1-F10 (fkeys bit n = F(n+1), 10 bits) and the Multiface NMI button (buttons b0)
+[[block]]
+name = "zxn_keys"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A00F0
+size = 0x3
+  [[block.property]]
+  name = "fkeys"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "buttons"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+# 180, 184: the SD image. sd_mount b0 an image is present; sd_size its size in sectors
+[[block]]
+name = "zxn_sd"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A0180
+size = 0x8
+  [[block.property]]
+  name = "sd_mount"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "sd_size"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+
+# 1A0-1A8: the sector mailbox. mbox_status b0 pending, b1 write, b7:4 the request tag; mbox_lba the block; mbox_done answers the request whose tag the write carries in b7:4
+[[block]]
+name = "zxn_mbox"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A01A0
+size = 0x9
+  [[block.property]]
+  name = "mbox_status"
+  offset = 0x0
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "pending"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "write"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "tag"
+    shift = 4
+    bits = 4
+  [[block.property]]
+  name = "mbox_lba"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "mbox_done"
+  offset = 0x8
+  width = 8
+  dir = "w"
+
+# 1B0-1B8: the card model's counters. sd_reads, sd_writes the blocks served; sd_lastcmd the last command it was given: b6:0 the number, b7 it was an application command (ACMD)
+[[block]]
+name = "zxn_sd_stats"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A01B0
+size = 0x9
+  [[block.property]]
+  name = "sd_reads"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "sd_writes"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "sd_lastcmd"
+  offset = 0x8
+  width = 8
+  dir = "r"
+
+# 1C0-1C2: the mouse. mouse_dx (signed, x counter), mouse_dy (signed; the write sends the pair), mouse_btn b0 left, b1 right, b2 middle
+[[block]]
+name = "zxn_mouse"
+module = "zxn_regs"
+owner = "core"
+address = 0x101A01C0
+size = 0x3
+  [[block.property]]
+  name = "mouse_dx"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "mouse_dy"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "mouse_btn"
+  offset = 0x2
+  width = 8
+  dir = "rw"

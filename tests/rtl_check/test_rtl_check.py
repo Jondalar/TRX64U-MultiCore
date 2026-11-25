@@ -8,6 +8,12 @@
      (environment TRX64_ULTIMATE, or ~/Development/TRX64-Ultimate); it is read, never written.
   2b. the miniature design tests/rtl_check/mini2 (V-1c): a request splitter, a process alias and procedure, a VHDL block, a RAM write sink.
   2e. the miniature design tests/rtl_check/mini5 (V-1e): ascending vectors, a for-generate, an if-generate, a stride, a core block the design decodes itself.
+  3a. the Atari 800 XL (T239.5 D15): cores/atari800/app/gateware.toml against the files of cores/atari800/core_sources.tcl, the request being the five cw_* ports of layer2_atari800.
+  3b. the NES (T239.5 D15): cores/nes/app/gateware.toml against the files of cores/nes/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_nes.
+  3c. the Commodore 264 (T239.5 D15): cores/c264/app/gateware.toml against the files of cores/c264/core_sources.tcl, the requests being the five cw_* ports of layer2_c264 and, for its own drive_a, its drv_io_* ports.
+  3d. the ZX Spectrum Next (T239.5 D15): cores/zxnext/app/gateware.toml against the files of cores/zxnext/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_zxnext.
+  3e. the Neo Geo (T239.5 D15): cores/neogeo/app/gateware.toml against the files of cores/neogeo/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_neogeo.
+  3f. the Amiga 500 (T239.5 D15): cores/amiga/app/gateware.toml against the files of cores/amiga/core_sources.tcl, the request being the five cw_* ports of layer2_amiga (the A500's own amiga_regs.v).
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   2c. the miniature design tests/rtl_check/mini3 (V-1d): a handshake into a module with a register pipeline (c_addr, op_a), another master loading the same register, a Verilog
@@ -121,6 +127,43 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--bus", "layer2_amiga:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "amiga1200", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "17 block(s), 54 properties agree" in out, "amiga1200: 17 blocks, 54 properties of gateware.toml agree with the RTL of the core window (the A1200's own amiga_regs.v: with the display window and the crop window, which the Amiga 500's copy lacks; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/atari800/core_sources.tcl",
+              "--top", "layer2_atari800",
+              "--bus", "layer2_atari800:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "atari800", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "8 block(s), 33 properties agree" in out, "atari800: 8 blocks, 33 properties of gateware.toml agree with the RTL of the core window (a8_regs.vhd: the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the SIO handler's port, the four paddles as a run, the cache counters; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/nes/app/rtl_check_sources.tcl",
+              "--top", "layer2_nes",
+              "--bus", "layer2_nes:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "nes", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "9 block(s), 27 properties agree" in out, "nes: 9 blocks, 27 properties of gateware.toml agree with the RTL of the core window (nes_regs.v: the IRQ pair, the DDR2 calibration, the machine, the cache counters, the frame buffers, the cartridge base and window page, the 16 bytes of the iNES header as a run, the two pads; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/c264/core_sources.tcl", "--list", "gideon_vhdl.tcl",
+              "--top", "layer2_c264",
+              "--bus", "layer2_c264:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--bus", "layer2_c264:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata", "--window", "0x10020000:0x4000:full",
+              "--toml-a", os.path.join(ROOT, "cores", "c264", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "7 block(s), 35 properties agree" in out, "c264: 7 blocks, 35 properties of gateware.toml agree with the RTL of the core window (c264_regs.v: the IRQ pair, the DDR2 calibration, the machine, the ROM aperture's selector with the cartridge and tape pins, the frame buffers; page 6 is the hand-over to the host's pixel layer) and of its own drive_a block behind drive_l2 (no WD177x, no side, no drivetype)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/zxnext/app/rtl_check_sources.tcl",
+              "--top", "layer2_zxnext",
+              "--bus", "layer2_zxnext:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "zxnext", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "14 block(s), 42 properties agree" in out, "zxnext: 14 blocks, 42 properties of gateware.toml agree with the RTL of the core window (zxn_regs.v: the identity and the features byte, the IRQ pair, the DDR2 calibration, the machine, the cache counters, the frame buffers, the DDR2 bases, the clock, the keys, the SD image, the sector mailbox, the card's counters, the mouse; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/neogeo/app/rtl_check_sources.tcl",
+              "--top", "layer2_neogeo",
+              "--bus", "layer2_neogeo:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "neogeo", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "14 block(s), 56 properties agree" in out, "neogeo: 14 blocks, 56 properties of gateware.toml agree with the RTL of the core window (neo_regs.v: the identity, the IRQ pair, the DDR2 calibration, the machine, the hold counters, the frame buffers, the DDR2 bases, the mover, the clock, the pads, the ROM masks, the memory side's counters, the copy engine, the line cache counters; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/amiga/core_sources.tcl",
+              "--top", "layer2_amiga",
+              "--bus", "layer2_amiga:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "amiga", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "16 block(s), 48 properties agree" in out, "amiga: 16 blocks, 48 properties of gateware.toml agree with the RTL of the core window (the A500's own amiga_regs.v: the identity and its FEATURES word, the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the statistics selector, the clock, the four floppy drives, the two hard disks, the sector mailbox, the mouse, the raw keys, the second game port's pad, the floppy write log; no display window and no crop window, which only the A1200's copy has; page 6 is the hand-over to the host's pixel layer)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
