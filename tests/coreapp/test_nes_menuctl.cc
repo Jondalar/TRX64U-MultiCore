@@ -10,6 +10,8 @@
 #include "lib_skel.h"
 #include "ops_glue.h"
 
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+
 struct Host : MenuHost {
     void info(int w, char *out, int n) { snprintf(out, n, "value %d", w); }
     bool return_to_host(char *msg, int n) { snprintf(msg, n, "no ICAP loader"); return false; }

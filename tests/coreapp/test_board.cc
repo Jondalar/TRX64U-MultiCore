@@ -14,7 +14,7 @@
 #include "romfind.h"
 #include "keyboard.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 
 // the stub of a monolith core: its folder is "c64" and its settings section ("store") differs from it, so a settings path made from the store instead of the folder shows
 static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
@@ -298,8 +298,8 @@ int main()
         n = board_effective_caps(m, monocore.caps, monocore.ncaps, out, 3, 0, 0);
         CHECK_EQ(n, 3);
     }
-    // the Atari and the NES list what they have and ask for no striking
-    CHECK(!atari800_desc.board_caps && !nes_desc.board_caps && monocore.board_caps);
+    // the Atari lists what it has and asks for no striking (the NES's is its app's unit nes_core)
+    CHECK(!atari800_desc.board_caps && monocore.board_caps);
 
     // ---- T104.1 5.5: where the boot-attempt counter lives - a path the flash guard lets through, one per profile
     CHECK_STR(h.boot_cfg, "/Flash/boot.cfg");

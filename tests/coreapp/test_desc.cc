@@ -18,10 +18,13 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
+#ifdef TEST_APP_NES
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -52,8 +55,10 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 const CoreDesc *const core_table[] = { &pet_desc, 0 };
 #elif defined(TEST_APP_C128)            // the C128's app is its own build (run.sh c128app) with its core only
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_NES)             // the NES's app is its own build (run.sh nesapp) with its core only
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -210,12 +215,16 @@ int main(int, char **argv)
         static const Mi want[] = { { "Commodore 128", "40/80 DISPLAY" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_NES)
+        static const Mi want[] = { { "Nintendo Entertainment System", "Console type" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
             { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
             { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
             { "Atari 800 XL", "RAM size,Video standard" },
-            { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
+            { "SNK Neo Geo", "System type,BIOS" },
         };
         static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
         const int n_none = 3;
@@ -306,6 +315,8 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the PET's drive images (.d64, .d80, .d82: Mount in Drive 8 / 8.1, Run Disk = pet.mount_run) are no reference table's image
 #elif defined(TEST_APP_C128)
         CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
+#elif defined(TEST_APP_NES)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // the NES has no disk image type: a cartridge (.nes) is no image the walk counts
 #else
         CHECK(seen_cbm >= 5 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu; atari, apple, zxnext ...)
 #endif
@@ -429,8 +440,10 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_C128)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_NES)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 11);
+        CHECK(n205 >= 10);
 #endif
     }
 
@@ -451,6 +464,8 @@ int main(int, char **argv)
         static const char *const own[] = { "PET1" };                         // the dual drive unit's dirty images are the core's own write-back
 #elif defined(TEST_APP_C128)
         static const char *const own[] = { "C128" };                         // the drive library's write-back (the drive window is the core's own)
+#elif defined(TEST_APP_NES)
+        static const char *const own[] = { 0 };                              // the cartridge is read, never written back: no flush of its own to hand over
 #else
         static const char *const own[] = { "APL2", "A8XL", "C264", "SNES", "NEO_" };
 #endif
@@ -477,7 +492,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -580,7 +595,6 @@ int main(int, char **argv)
     // T104.1 Q10: the capability list. The real descriptors name theirs; a library asks for one by name.
     CHECK(desc_has_capability(&atari800_desc, "sio") && desc_has_capability(&atari800_desc, "cartridge"));
     CHECK(!desc_has_capability(&atari800_desc, "drive_a") && !desc_has_capability(&atari800_desc, "iec"));    // no Commodore drive on an Atari
-    CHECK(desc_has_capability(&nes_desc, "cartridge") && !desc_has_capability(&nes_desc, "sio"));
     CHECK(!desc_has_capability(&testcore::desc, "sio") && !desc_has_capability(&testcore::desc, ""));         // a core that claims none has none
     CHECK(!desc_has_capability(&atari800_desc, "si") && !desc_has_capability(&atari800_desc, "sio2"));         // whole names, not prefixes
     static const char *const good_caps[] = { "drive_a", "iec", "sio2", "a23456789012345" };
@@ -737,17 +751,9 @@ int main(int, char **argv)
     }
 #elif defined(TEST_APP_C128)
     // the C128 has no tape deck of its own (an external datasette sits on the C2N port, op c128.set_dset): no tape keys to walk
-#elif defined(TEST_APP_PET)
-    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not (the Spectrum's and the CPC's are the units zx_desc and cpc_desc)
-    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind" }) {
-        CHECK(slot_lists(&pet_desc, "Tape", true, k) && !slot_lists(&pet_desc, "Tape", false, k));
-        CHECK_STR(task_place(&pet_desc, k).c_str(), "");
-        const Task *t = find_task(&pet_desc, k);
-        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
-    }
-#else
-#ifndef TEST_APP_A1200
-
+#elif defined(TEST_APP_NES)
+    // T104.1 Q10: the capability list of the real descriptor
+    CHECK(desc_has_capability(&nes_desc, "cartridge") && !desc_has_capability(&nes_desc, "sio"));
     // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
         static CoreDesc rbase = nes_desc;
@@ -764,7 +770,20 @@ int main(int, char **argv)
                 if (!strcasecmp(td->settings[i].key, td->settings[j].key)) { dup++; printf("duplicate setting key %s\n", td->settings[i].key); }
         CHECK_EQ(dup, 0);
     }
-#endif
+    // the NES declares no drive and no ROM
+    { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
+    // T212 D8: the pad maps stand in F5 Input
+    CHECK(task_place(&nes_desc, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
+    CHECK(task_place(&nes_desc, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
+#elif defined(TEST_APP_PET)
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not (the Spectrum's and the CPC's are the units zx_desc and cpc_desc)
+    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind" }) {
+        CHECK(slot_lists(&pet_desc, "Tape", true, k) && !slot_lists(&pet_desc, "Tape", false, k));
+        CHECK_STR(task_place(&pet_desc, k).c_str(), "");
+        const Task *t = find_task(&pet_desc, k);
+        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+    }
+#else
 
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
     {
@@ -952,9 +971,10 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
+#elif defined(TEST_APP_NES)
+    golden(&nes_desc, "nes");
 #else
     golden(&atari800_desc, "atari800");
-    golden(&nes_desc, "nes");
     golden(&apple2_desc, "apple2");
     golden(&zxnext_desc, "zxnext");
     golden(&snes_desc, "snes");
@@ -1020,10 +1040,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
-    // the NES declares no drive and no ROM; the TEST core no cartridge
-    { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
-
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
@@ -1056,7 +1073,7 @@ int main(int, char **argv)
     CHECK(ops_state(&mc, "test.slot") == 0);
     // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, 50 / 60 Hz and CPU speed in F5's machine tab, Sound check and the NMI on top of Home with the resets
     {
-        for (const CoreDesc *d : { &snes_desc, &nes_desc, &neogeo_desc }) {
+        for (const CoreDesc *d : { &snes_desc, &neogeo_desc }) {
             CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
             CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
         }

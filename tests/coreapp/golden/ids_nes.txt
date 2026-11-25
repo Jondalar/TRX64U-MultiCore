@@ -1,0 +1,48 @@
+Record Core F1/home 0 task:Timewarp...
+Record Core F1/home 1 task:Monitor...
+Record Core F1/home 2 fixed:10:Save as config...
+Record Core F1/home 3 fixed:11:Load config...
+Record Core F1/timewarp 0 node:tw.resume
+Record Core F1/monitor 0 node:monitor.key:n63
+Record Core F5/settings 0 fixed:13:Machine
+Record Core F5/settings 1 set:Console type
+Record Core F5/settings 2 set:Joystick ports
+Record Core F5/settings 3 set:Pad map
+Record Core F5/settings 4 fixed:13:Video
+Record Core F5/settings 5 set:Picture
+Record Core F5/settings 6 set:Scale
+Record Core F5/settings 7 set:Smoothing
+Record Core F5/settings 8 fixed:13:Audio
+Record Core F5/settings 9 set:Volume
+Record Core F5/settings 10 set:Tone
+Record Core F7/settings 0 fixed:13:Storage
+Record Core F7/settings 1 set:Persist medium mounts
+Record Core F7/settings 2 set:Enter Home on Startup
+Record Core F7/settings 3 set:Home Directory
+Record Core F7/settings 4 fixed:13:Menu
+Record Core F7/settings 5 set:Menu opens at
+Record Core F7/settings 6 fixed:13:Hotkeys
+Record Core F7/settings 7 fixed:16:Hotkeys
+Record Core F7/hotkeys 0 set:Hotkey modifier
+Record Core F7/hotkeys 1 set:Hotkey menu
+Record Core F7/hotkeys 2 set:Hotkey volume up
+Record Core F7/hotkeys 3 set:Hotkey volume down
+Record Core F7/hotkeys 4 set:Hotkey reset
+Record Core F7/hotkeys 5 set:Hotkey swap joystick
+Record Core F7/hotkeys 6 set:Hotkey picture mode
+Record Core F7/hotkeys 7 set:Hotkey Timewarp
+Record Core F7/hotkeys 8 set:Hotkey Monitor
+Record Core F8/expert 0 fixed:13:Actions
+Record Core F8/expert 1 fixed:6:Restart core
+Record Core F8/expert 2 fixed:7:Return to host menu
+Record Core F8/expert 3 fixed:13:Network
+Record Core F8/expert 4 fixed:9:WiFi
+Record Core F8/expert 5 fixed:13:Support
+Record Core F8/expert 6 fixed:8:Bug report
+Record Core F8/expert 7 fixed:17:Keys and help
+Record Core F8/expert 8 fixed:13:Reset
+Record Core F8/expert 9 fixed:5:Reset to host defaults
+Record Core F8/expert 10 fixed:13:Status
+Record Core F8/expert 11 info:Build
+Record Core F8/expert 12 info:ROMs
+Record Core F8/expert 13 info:Libraries

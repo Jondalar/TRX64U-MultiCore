@@ -111,11 +111,11 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$AMLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$AMLIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264, the ZX Spectrum Next, the Neo Geo and the Amiga 500 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Atari 800 XL, the Commodore 264, the ZX Spectrum Next, the Neo Geo and the Amiga 500 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -I"$AMLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -I"$AMLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -128,7 +128,7 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Atari 800 XL is its own app as well (T239.5 D15: cores/atari800/app). a8app CMD... builds like vc20app, with the Atari's library, its table and TEST_APP_ATARI800: its units are in the group atari800.
 INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
-# The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library, its table and TEST_APP_NES: its units are in the group nes.
+# The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_NES+=("$i"); done
 # The Commodore 264 is its own app as well (T239.5 D15: cores/c264/app). c264app CMD... builds like nesapp, with the 264's library, its table and TEST_APP_C264: its units are in the group c264.
@@ -147,7 +147,7 @@ amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga; "$@"; }
 neogeoapp() { local INC=("${INC_NEOGEO[@]}") CA_APP=neogeo; "$@"; }
 zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264; "$@"; }
-nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes; "$@"; }
+nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800; "$@"; }
 # DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
@@ -218,11 +218,10 @@ control_job() {
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
   cp -R "$A8LIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true
   cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true
   cp -R "$ZXNLIB"/* "$d"/ 2>/dev/null || true
   cp -R "$NEOLIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$AMLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's, the Amiga 500's
+  cp -R "$AMLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's, the Amiga 500's
   [ -z "${APPLIB:-}" ] || cp "$APPLIB"/* "$d"/   # a core of its own app: its library over the shared sources of the same name
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
@@ -301,7 +300,7 @@ run romfind test_romfind.cc $ROMF
 
 a8app run a8_boot test_boot_atari.cc $ATARI
 
-run video test_video.cc amiga.cc $ATARI nes.cc ines.cc c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
+run video test_video.cc amiga.cc $ATARI c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
 # T136 S3: the A1200's 32-bit pixels: the stride and the format follow the descriptor's bytes per pixel
 
 run settings test_settings.cc $ATARI
@@ -341,7 +340,7 @@ run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc ins
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
-LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $ATARI nes.cc ines.cc board.cc"
+LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $ATARI board.cc"
 run libscan test_libscan.cc $LIBSRC
 GUARDSRC="libguard.cc bootcfg.cc"
 run libguard test_libguard.cc $GUARDSRC
@@ -357,36 +356,36 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run joyswap test_joyswap.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run ledcores test_ledcores.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc snes_rom.cc c264.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
 # T180 D10 (#40): the home folder of every core (the A1200 here): Set as home folder lands in its .cfg, Enter Home on Startup decides where F3 opens
-run home test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
-control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
+run home test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $ATARI
+control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $ATARI
 # T192.3 D30: the menu opens where it was left ("Menu opens at" = Last screen): area, tab, row, Library folder and file, scroll; Home (F1) as before; what is gone falls back
-run reopen test_reopen.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
+run reopen test_reopen.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $ATARI
 # T160: the A1200's Volume setting and the menu's SHIFT+ / SHIFT- (C64 '{' '}', USB '+' '_' '-')
-run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI
 # T189 S7: the generic Tone setting (the register write 0x51, the .cfg, a new session, own Tone / no_tone / own_volume)
-run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI
 # T239.3 base 3.3: the application's own settings (look, keyboard joystick, USB mouse) and the core hooks of a library's table "corehooks"
-run baseset test_baseset.cc amiga.cc nes.cc ines.cc $ATARI
+run baseset test_baseset.cc amiga.cc $ATARI
 # T239.3 D32, P2-4 QC: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): whole, placed, and the code's own tables agree with them
-run baserows test_baserows.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run baserows test_baserows.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI
 # T239.3 base 3.3, a core whose code is a library (core_hooks.h): the record names it (hooks), the base takes its table of that library through the real loader, calls the descriptor's hooks
 # (init, release, warm_reset, cold_start, media_flush, media_pending) and serves the [mount] slots through it; the records and library files are made by the real tools
 CL="$T/corelib_fx"
 python3 -I "$TST/gen_corelib.py" "$CL" "$ROOT"
 RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/desc_empty.rec $CL/desc_long.rec $CL/cmodel.u2a $CL/cnohooks.u2a $CL/cmajor2.u2a" \
-  run corelib test_corelib.cc overlay.cc libload.cc libmenu.cc descrec.cc libsvc.cc hooklib.cc nes.cc ines.cc $ATARI
+  run corelib test_corelib.cc overlay.cc libload.cc libmenu.cc descrec.cc libsvc.cc hooklib.cc $ATARI
 # T164 WP11: the host's master volume for every core (the generic item, the register write, the toast on every page)
 # T104.1 Q10: the capability list the loader asks
 # a tab that silently drops the last of its entries: the golden would differ, and so must the count check
@@ -397,16 +396,16 @@ run menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menu
 nesapp run nes_menuctl test_nes_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc nes.cc ines.cc $BASEL
 a8app run a8_menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 # T180 D3, D6, D7 (S4-S6): the F3 Library of a core that is not the C64 - no [Recent]/[Favorites], the file operations of the common part, + / - paging with the volume on SHIFT.
-run f3 test_f3.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run f3 test_f3.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 # GitHub #93 (T209 "File Browser, n entries"): the Library and the copy/move folder pick list a folder of 784 / 3000 entries to its end; a heap budget cuts the list and says so
-run library_n test_library_n.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run library_n test_library_n.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 # #38: the name limit back to 55 (the prefill and the typing), the field without scrolling, the operation's argument back to 55
 # T180 D8: a cursor in every entry - the editor is wired in (CRSR left dropped), inserts at the cursor, draws it where it is
 # T180 #38: a file with a FAT long name (80 and 255 characters) in the F3 Library: listed, the sheet, mounted, renamed, copied, moved, deleted by its whole name. Controls: the entry
 # back at 55 characters, the path buffers back at 260, the list row not cut with "..", the path argument of an operation back at 255, the clipboard path cut, a folder frame cut.
 
 # T107: the Picture setting, the layout that follows a mode, and the start-up path that uses the same layout
-PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI nes.cc ines.cc $C64"
+PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI $C64"
 # T164 S10 (WP15): the EDID into the row mask, the best row (Q6), the list without an EDID (Q9); the row table against host/hdmi_modes.vh
 run edid test_edid.cc edid.cc
 run sid_decide test_sid_decide.cc
@@ -418,7 +417,7 @@ run pictfollow test_pictfollow.cc $PICSRC
 # T164 D10c amended (Alex 2026-11-04): the Auto value names its mode and whose it is; plain "Auto" has to fail, and so does a first value that a stored label no longer finds
 
 # T107 D7/D8: a core whose gateware owns the picture (the A1200): real frame per mode, Integer without the cap / Fit / Fill, the Scale item for that core only
-SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc"
+SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI"
 run scale test_scale.cc $SCSRC
 # T107 5.9: the menu laid out again with the mode: no relayout, the origin not centred, a fractional factor
 # T164 D10a: the compact canvas below 960 wide: the old fixed 960 x 540 canvas at 800 x 600 / 576p, and a canvas the port is not told of
@@ -441,7 +440,7 @@ run fs64 test_fs64.cc $ROMF atari_atr.cc
 # T104.2 (the generic application on the TRX64 Ultimate monolith). Controls break one expression of the product; the bench has to go red.
 # The C64 model (c64_model.h) is the bench's reading of ultimate_sys.vhd / trx_sys.v / trx_dbg.v, not the gateware: what the board does
 # is the board steps of the spec.
-ALLC="$ATARI nes.cc ines.cc board.cc start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc overlay.cc descrec.cc"
+ALLC="$ATARI board.cc start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc overlay.cc descrec.cc"
 
 # S2, S4, S11: the profile from the ICAP byte and the hand-over, the capabilities the probes strike, the settings file, the menu without a way back
 run board test_board.cc $ALLC
@@ -490,7 +489,7 @@ control wb_ef3_evt_hi c64_cart.cc 's/ | (hi << 21)) \& (g_flash->chip_size - 1)/
 control wb_ef3_chip_erase c64_cart.cc 's/        size = p->chip_size;/        size = 0x10000;/' test_writeback.cc $WBL
 control wb_failed_write_dropped writeback.cc 's/^        end(false);$/        end(true);/' test_writeback.cc $WBL
 control wb_ask_no_forget writeback.cc 's/^        wb_forget();$/        (void)0;/' test_writeback.cc $WBL
-WBM="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI"
+WBM="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $ATARI"
 run writeback_menu test_writeback_menu.cc $WBM
 # T192.3 leak 4 (persistence): the answer "no" of the module's question keeps the file as it is
 control wbm_answer_ignored writeback.cc 's/wb_answer(c, a.i(0) != 0, o.msg, o.msglen)/wb_answer(c, true, o.msg, o.msglen)/' test_writeback_menu.cc $WBM
@@ -586,7 +585,7 @@ control mnt_set_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RE
 # engine writes back before it lets the medium go (eject, replacement, reset, reload, restart), completely, and keeps the medium when it cannot
 control mwb_hook_flush engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
 control mwb_hook_pending engines.cc 's/ || (d \&\& d->media_pending \&\& d->media_pending(c))//' $MWB
-DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -612,7 +611,7 @@ neogeoapp control neo_failed_forgotten neogeo.cc 's/st->save_failed = true;/(voi
 neogeoapp control neo_unchanged_stops neogeo.cc 's/return st->loaded \&\& st->save_path\[0\] \&\& (st->save_failed || st->dirty_seen || (c->io->rd(NEO_STATUS) \& NEO_ST_DIRTY));/return st->loaded \&\& st->save_path[0];/' test_neogeo.cc $NEOG
 
 # T180 D2/D5 for every core (S2, S3, S8): the engines with a mount state of their own (Apple II, Atari, CPC, ZX tape, the drive library of the VC-20 / C128 / C264 / C64, the cartridge ports,
-# the NES / SNES / Neo Geo game) keep their mounts in the .cfg, restore them BEFORE the release, leave a missing medium empty with a note, and take a media set in and out with one reset.
+# the SNES / Neo Geo game) keep their mounts in the .cfg, restore them BEFORE the release, leave a missing medium empty with a note, and take a media set in and out with one reset.
 # The descriptors are the real ones on models of their register blocks. Every engine tells the application (mount_notify) from its own mount and eject.
 MMEL="${DESCL#test_desc.cc }"
 MME="test_media_mounts_engines.cc $MMEL start.cc handover.cc"
@@ -634,12 +633,10 @@ control mme_drive_hook cbm1541.cc 's/    d->on_change(drive_changed, c);/    (vo
 control mme_c64_cart c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_c264_cart c264.cc 's/^    mount_notify(c, 1); *\/\/ T180 D2: the slots.*$/    (void)0;/' $MME
 control mme_c264_model c264.cc 's/        c->settings->set(mi, 1); *\/\/ Plus\/4/        (void)mi;/' $MME
-control mme_nes_eject nes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_neo_eject neogeo.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_drive_fail d1541_drive.cc 's/^        changed(); *\/\/ T180 D2: the old disk is out and the drive is empty$/        (void)0;/' $MME
 control mme_c64_giveup c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2: told by the name of the slot.*$/    (void)0;/' $MME
-control mme_nes_fail nes.cc 's/^        mount_notify(c, 0); *\/\/ the old program is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_snes_fail snes.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_neo_fail neogeo.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_neo_folder neogeo.cc 's/"folder %s", arg/"%s", arg/' $MME
@@ -716,7 +713,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -838,7 +835,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+ALLCORES="amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -850,10 +847,6 @@ run deckeys test_deckeys.cc overlay.cc descrec.cc
 # T239.3 P1-1 (D30, D34): TOML A, the record of version 7, from golden/desc_toml_a.toml and the SDK's module maps as the real tool compiles them
 CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
 run desctoml test_desctoml.cc overlay.cc descrec.cc
-
-# T239.3 D32: where the rows the application adds stand in the menu: the base UI TOML's table, a core's routes and places over it (golden/desc_places.toml as the real tool compiles it), the menu built from both
-CARGS="$BUN/desc_places.bin" RARGS="$CARGS"
-run uiplace test_uiplace.cc overlay.cc descrec.cc $PICSRC
 
 # T239.3 P1-4 (D30 condition 2, D31): the service's start check of ID and build against the record's identity, the same fixture, a model of the standard block
 CARGS="$BUN/desc_toml_a.bin" RARGS="$CARGS"
@@ -867,12 +860,12 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-RARGS="$BUN/desc_cut.bin" run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
-# T192.3: Timewarp's and the monitor's keys of the record menu are operations, the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole
-RARGS="$BUN/desc_cut.bin" run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
-run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+# T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc libfiles.cc $SVC $ATARI
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc amiga.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
@@ -888,9 +881,9 @@ run memops test_memops.cc $MEMSRC
 
 # T156: USB gamepads. The HID parser on descriptors written to the spec (none of them is the 8BitDo SN30 Pro's: its bytes are not known yet), the pad
 # service on the real NES and SNES descriptors, the mapping wizard in the real menu. Controls: one defect each, the same test built against it must fail.
-PADSRC="snes.cc snes_rom.cc nes.cc ines.cc neogeo.cc neoset.cc $ATARI"
+PADSRC="snes.cc snes_rom.cc neogeo.cc neoset.cc $ATARI"
 run hidpad test_hidpad.cc hidpad.cc
-RARGS="$BUN/desc_own.bin" run pad test_pad.cc $PADSRC overlay.cc descrec.cc                   # descrec.cc: T228 R10, the menu record's pad (golden/desc_own.toml)
+run pad test_pad.cc $PADSRC overlay.cc descrec.cc                   # T228 R10, the menu record's pad (golden/desc_own.toml) over the NES's descriptor, is the NES's unit nes_pad
 run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
 control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC overlay.cc descrec.cc
 run padmenu test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
@@ -945,7 +938,7 @@ PASS=$((PASS + 1))
 # and the Mac build of apps/unzip runs inside the real loader over the FakeFs; the test needs no RISC-V instruction.
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; ATARI_NOSTUB="${ATARI/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
-UZSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
+UZSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB $C64"
 CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/otherlib.u2a $UZ/pollib.u2a $UZ/menulib.u2a $UZ/hooklib.u2a $UZ/plain.u2a $UZ/ringlib.u2a $UZ/ring2lib.u2a $UZ/ringapp.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
@@ -1045,6 +1038,31 @@ if ca_in atari800 && ca_unit a8_romreq; then t_romreq_a8; PASS=$((PASS + 1)); fi
 NESD="desc_check.cc overlay.cc descrec.cc nes.cc ines.cc $BASEL"
 nesapp run nes_memops test_memops.cc $SVC $NESD
 RARGS="$BUN/app" nesapp run nes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NESD
+# T239.5 D13: the NES's cases of the shared tests, built as its app (the shared builds no longer name it): its descriptor and menu, the hotkeys, the joystick swap, the cartridge slot,
+# the pads, the picture and the generic items on its record, the record menus over its descriptor (desc_places, desc_cut)
+NESA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $NESD"
+NESM="test_media_mounts_engines.cc $NESA start.cc handover.cc"
+RARGS="$T/bundles/desc_own.bin" nesapp run nes_desc test_desc.cc $NESA
+nesapp run nes_hotkeys test_hotkeys.cc $NESA
+nesapp run nes_joyswap test_joyswap.cc $NESD
+nesapp run nes_mounts $NESM
+nesapp control mme_nes_eject nes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $NESM
+nesapp control mme_nes_fail nes.cc 's/^        mount_notify(c, 0); *\/\/ the old program is gone and the slot is empty (T180 D2)$/        (void)0;/' $NESM
+RARGS="$BUN/desc_own.bin" nesapp run nes_pad test_pad.cc $NESD                                  # with T228 R10, the menu record's pad (golden/desc_own.toml)
+nesapp run nes_xinput test_xinput.cc xinput.cc $NESD
+nesapp run nes_padmenu test_padmenu.cc $NESA
+nesapp run nes_picture test_picture.cc $NESA
+nesapp run nes_pictfollow test_pictfollow.cc $NESA
+nesapp run nes_scale test_scale.cc $NESA
+nesapp run nes_video test_video.cc $NESD
+nesapp run nes_volume test_volume.cc $NESA
+nesapp run nes_tone test_tone.cc $NESA
+nesapp run nes_baseset test_baseset.cc $NESD
+nesapp run nes_baserows test_baserows.cc $NESA
+nesapp run nes_libscan test_libscan.cc libload.cc libmenu.cc libscan.cc board.cc $NESA
+CARGS="$BUN/desc_places.bin" RARGS="$BUN/desc_places.bin" nesapp run nes_uiplace test_uiplace.cc $NESA
+RARGS="$BUN/desc_cut.bin" nesapp run nes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NESA
+RARGS="$BUN/desc_cut.bin" nesapp run nes_cut test_cut.cc libload.cc libmenu.cc libfiles.cc $NESA
 
 # T239.5 D15: the Commodore 264's units built as its app (c264app: its library cores/c264/app/lib and its own table, the group c264) that are not above (c264) - the units its TOML B
 # (cores/c264/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: c264.cc with the PRG job, the drive library and the base's (no other core).

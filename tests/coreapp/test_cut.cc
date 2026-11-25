@@ -8,7 +8,9 @@
 #include <vector>
 #include "check.h"
 #include "model_grid.h"
+#ifndef TEST_APP_NES                     // the Atari's SIO bus (its library): the shared unit's file manager and S8 cases
 #include "sio_model.h"
+#endif
 #include "fakes.h"
 #include "cores.h"
 #include "menuctl.h"
@@ -18,12 +20,16 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "record_menu.h"
+#ifndef TEST_APP_NES
 #include "atari_media.h"
+#endif
 #include "libload.h"
 #include "libexports.h"
 #include "menuflows.h"
 
-extern const CoreDesc nes_desc;
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_cut): the record's cases; the shared unit keeps the file manager, S8 and the key table
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
 static RecordMenu *g_rm;
@@ -61,7 +67,12 @@ template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 }
 
 struct Rec {
-    SioModel io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
+#ifdef TEST_APP_NES
+    FakeIo io;                           // the NES's app has no Atari library: the record core's cases use no SIO bus
+#else
+    SioModel io;
+#endif
+    FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
     explicit Rec(const CoreDesc *d = 0, const MenuMerge *mm = 0)
     {
         if (!d) { d = &g_rm->desc; mm = &g_rm->mm; }
@@ -109,6 +120,7 @@ static bool open_by_home_row(MenuCtl &m, const char *label)
     return false;
 }
 
+#ifndef TEST_APP_NES
 struct Lib {
     SioModel io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
     Lib()
@@ -137,13 +149,15 @@ struct Lib {
     void to_games() { m->key(KEY_F3); for (int i = 0; i < 12 && strcmp(m->title(), "/"); i++) m->key(KEY_LEFT); enter("usb0/"); enter("games/"); }
     void run_job() { int n = 0; while (m->tick() && ++n < 400) { } }
 };
+#endif
 
 int main(int, char **argv)
 {
+    setvbuf(stdout, 0, _IONBF, 0);
+#ifdef TEST_APP_NES
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     g_rm = new RecordMenu(&base, argv[1]);
-    setvbuf(stdout, 0, _IONBF, 0);
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
         Rec r;
@@ -437,6 +451,8 @@ int main(int, char **argv)
         CHECK_STR(r.m->status(), "The ring is gone");
         CHECK(r.m->status_bad());
     }
+#else
+    (void)argv;
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {
         Lib l;
@@ -563,5 +579,6 @@ int main(int, char **argv)
         }
         CHECK_EQ(menu_intent_by_name("no such intent"), -1);
     }
+#endif
     DONE("test_cut");
 }

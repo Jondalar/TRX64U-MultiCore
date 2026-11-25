@@ -37,9 +37,14 @@ int video_gateware_row(void) { return g_gw_row; }
 // and the Atari, which only the shared app links, drop out
 #define SC_REC amiga1200_desc
 const CoreDesc *const core_table[] = { &amiga1200_desc, &testcore::desc, 0 };
+#elif defined(TEST_APP_NES)
+// T239.5 D13: built as the NES's app (nes_scale): the cases on the NES's record - a frame-buffer core with the three rows, a core that draws its own picture
+// (its record with w = 0), a host without the gateware; the frame-buffer cases of the Amiga's record (SC_REC) are not in this app
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
 #define SC_REC amiga_desc
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &amiga_desc, &testcore::desc, 0 };
 #endif
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
@@ -103,6 +108,7 @@ bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return t
 // T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
 static void follow_item()
 {
+#ifndef TEST_APP_NES
     for (const CoreDesc *d : { &SC_REC }) {
         Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
@@ -127,8 +133,8 @@ static void follow_item()
         CHECK_EQ(ext.nsettings, d->nsettings + 3);
         CHECK_EQ(follow_index(&ext), -1);
     }
+#else
     // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
@@ -136,6 +142,7 @@ static void follow_item()
       CHECK_EQ(follow_index(&ext), -1);
     }
 #endif
+#ifndef TEST_APP_NES
     // a descriptor may not declare the key itself
     { CoreDesc bad = SC_REC; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
       static const char *const v[2] = { "Off", "On" };
@@ -168,6 +175,7 @@ static void follow_item()
       follow_apply(&c, 0);
       CHECK_EQ(g_follow_written, 0);
     }
+#endif
 }
 
 struct Rig {
@@ -191,6 +199,7 @@ struct Rig {
 
 static void items_and_apply()
 {
+#ifndef TEST_APP_NES
     // T164 G14: Picture, Scale and Smoothing for every frame-buffer core on a gateware host; a host without it (an old firmware) has Picture alone
     { Rig r(&SC_REC);
       CHECK(!r.why);
@@ -215,11 +224,14 @@ static void items_and_apply()
       CHECK(reg.find_op(SCALE_OP) != 0);
       CHECK(reg.find_op(SMOOTH_OP) != 0);
     }
+#endif
     // every frame-buffer core has them, not only the A1200 (the A500, the Atari and the NES too) ...
 #ifdef TEST_APP_A1200
     const CoreDesc *others[] = { &SC_REC, 0 };
+#elif defined(TEST_APP_NES)
+    const CoreDesc *others[] = { &nes_desc, 0 };
 #else
-    const CoreDesc *others[] = { &amiga_desc, &atari800_desc, &nes_desc, 0 };
+    const CoreDesc *others[] = { &amiga_desc, &atari800_desc, 0 };
 #endif
     for (const CoreDesc *const *p = others; *p; p++) {
         Rig r(*p);
@@ -233,15 +245,13 @@ static void items_and_apply()
         CHECK_EQ(smooth_index(&o.ext), -1);
     }
     // a core that draws its own picture has no frame buffer to scale
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#ifdef TEST_APP_NES      // the NES's record: its app (run.sh nesapp)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Rig r(&own);
       CHECK_EQ(r.ext.nsettings, own.nsettings + 1);
       CHECK_EQ(scale_index(&r.ext), -1);
     }
-#endif
     // T222: a core whose picture is the VIC through a gateware with the scale register: Picture and Scale (default Fit), no Smoothing; Scale writes 0x4F01
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, true };
@@ -276,6 +286,7 @@ static void items_and_apply()
       CHECK_EQ(scale_index(&ext), -1);
     }
 #endif
+#ifndef TEST_APP_NES
     // Smoothing (Q3): the scaler's register follows the item, written with every layer set so that it survives the menu
     { Rig r(&SC_REC);
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
@@ -289,7 +300,7 @@ static void items_and_apply()
       smooth_apply(&r.c, 0);
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#else                    // the NES's record: its app (run.sh nesapp)
     { Rig r(&nes_desc, false);                                   // an old host has no such register: never written
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       r.vid->init(); r.vid->show();
@@ -297,6 +308,7 @@ static void items_and_apply()
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
 #endif
+#ifndef TEST_APP_NES
     // the mode goes to the gateware when it answers, to the firmware otherwise
     { Rig r(&SC_REC);
       g_fw.clear(); g_gw.clear();
@@ -369,7 +381,7 @@ static void items_and_apply()
       CHECK(g_fw.empty() && g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1080P));
       CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
     }
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#else                    // the NES's record: its app (run.sh nesapp)
     { Rig r(&nes_desc, false);
       g_fw.clear(); g_gw.clear(); video_current = 0;
       picture_apply(&r.c, 2);
@@ -385,6 +397,7 @@ static void items_and_apply()
 // mode's active area, laid out again with every mode change (also while the menu is up and the video service shows nothing), independent of Scale.
 static void menu_places()
 {
+#ifndef TEST_APP_NES
     struct P { int value, factor, x, y, cw, ch; };       // D10a: the canvas too (960 x 540, or the mode's own size below 960 wide)
     static const P t[] = {                                       // the Picture item's value is the mode + 1
         { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // 1920 x 1080: x2 fills it
@@ -427,8 +440,8 @@ static void menu_places()
         const PxRec::Pl &g = r.px.place.back();
         CHECK(g.x == 160 && g.y == 90 && g.w == 960 && g.h == 540);
     }
+#else                    // the NES's record: its app (run.sh nesapp)
     // a core on a host without the gateware keeps the layer the way it was: no place at all
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
     { Rig n(&nes_desc, false);
       picture_apply(&n.c, 2);
       CHECK(n.px.place.empty());
@@ -438,7 +451,9 @@ static void menu_places()
 
 int main()
 {
+#ifndef TEST_APP_NES                     // the layout table stands on no core: the shared unit's
     layouts();
+#endif
     menu_places();
     items_and_apply();
     follow_item();

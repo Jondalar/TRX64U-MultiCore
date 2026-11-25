@@ -8,8 +8,12 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)   // the CPC's, the C128's, the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_NES)   // the CPC's, the C128's, the Next's, the Neo Geo's and the NES's app have their own core only: no file of the Amiga in their group
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
+#include "nes_regs.h"
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #endif
 #ifdef TEST_APP_C128                     // the C128's app (run.sh c128app) has its own core only
 #include "c128_regs.h"
@@ -19,9 +23,8 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)   // the A1200's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_NES)   // the A1200's, CPC's, C128's, Next's, Neo Geo's, Amiga 500's and NES's app have their own core only
 #include "c264_regs.h"
-#include "nes_regs.h"
 #include "zxnext_regs.h"
 #endif
 #ifdef TEST_APP_ZXNEXT
@@ -64,8 +67,10 @@ int main()
         { &cpc_desc, CPC_JOY },
 #elif defined(TEST_APP_C128)
         { &c128_desc, C128_JOY },
+#elif defined(TEST_APP_NES)
+        { &nes_desc, NES_JOY },
 #else
-        { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY },
+        { &amiga_desc, AM_JOY_CFG },
         { &zxnext_desc, ZXN_JOY },
 #endif
     };
@@ -109,7 +114,7 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_NES)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);

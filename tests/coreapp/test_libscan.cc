@@ -1,7 +1,7 @@
 // T104.1 D12, Q10: the libraries of a folder are loaded at the start of a core application - in dependency order, a cycle refused, a
 // missing folder no error, one log line per file, a library whose capability the core lacks refused with a sentence that names the library,
 // the capability and the core. The file system is a map of byte vectors, the heap a model, the core descriptors are the real ones (the
-// capability list goes through desc_has_capability on atari800_desc / nes_desc, the table through desc_check). What is not here: that
+// capability list goes through desc_has_capability on the descriptor of the table, the table through desc_check). What is not here: that
 // RISC-V code runs; the host's twin of lib_register is a function of this file (the same split tests/loader/ makes).
 #include <string>
 #include <vector>
@@ -15,7 +15,14 @@
 #include "libscan.h"
 #include "board.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+#ifdef TEST_APP_NES                      // the NES's app (nes_libscan): the cases on its record
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#define LS_BASE nes_desc
+#else
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#define LS_BASE atari800_desc
+#endif
 
 // the capabilities of a monolith core (TRX64-Ultimate's trx64u asks for these seven): the list the board strikes from in the check below (T239.3 P1-8)
 static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
@@ -138,7 +145,7 @@ struct World {
     LibLoader ld;
     Log log;
     LibScanResult r;
-    World(const CoreDesc *d = &atari800_desc) : host(d), ld(&host, &reg) { }
+    World(const CoreDesc *d = &LS_BASE) : host(d), ld(&host, &reg) { }
     void add(const char *path, const Img &i) { fs.put(path, build(i)); }
     void run() { lib_load_folder(&ld, &fs, lib_roots, LIB_FOLDER, &log, &r); }
     std::string dump() const { std::string s; for (size_t i = 0; i < log.lines.size(); i++) { s += log.lines[i] + "\n"; } return s; }
@@ -156,6 +163,7 @@ int main()
     // the real descriptors are well formed and name their capabilities (desc_check is the one of the product)
     for (const CoreDesc *const *p = core_table; *p; p++) { const char *why = desc_check(*p); if (why) printf("%s: %s\n", (*p)->cor_name, why); CHECK(!why); }
     CHECK(!desc_check_table(core_table));
+#ifndef TEST_APP_NES
 
     // ---- a missing folder is not an error
     {
@@ -306,7 +314,10 @@ int main()
         CHECK(w.r.nkept == 2 && strstr(w.r.kept[0], "cbm1541") && strstr(w.r.kept[0], "drive_a") && strstr(w.r.kept[0], "Atari 800 XL"));
         CHECK_EQ(w.host.allocs, 1);                                   // nothing was allocated for the refused one
         CHECK_STR(w.r.summary, "1 loaded, 2 refused: cbm1541");
-        // the same files on the NES: it has neither
+    }
+#else
+    // ---- Q10 on the NES's record: the files of the Atari's case, it has neither
+    {
         World n(&nes_desc);
         n.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
         n.add(L1 "carts.u2a", Img("carts").capability("cartridge"));
@@ -350,6 +361,8 @@ int main()
             }
         }
     }
+#endif
+#ifndef TEST_APP_NES
     // ---- an application is not loaded from here; a file that is not a library is refused by name and the others still load
     {
         World w;
@@ -458,5 +471,6 @@ int main()
         CHECK_EQ(lib_dep_order(m, 3, order, cyc), 2);
         CHECK_EQ(cyc[2], 2);
     }
+#endif
     DONE("test_libscan");
 }

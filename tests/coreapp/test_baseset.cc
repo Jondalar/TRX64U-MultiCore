@@ -18,6 +18,9 @@
 #include "contrib.h"
 
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the joystick's way to the port on its record; the shared unit keeps the rest
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 static const char *const order[6] = { "Joystick Input", "Mouse Mode",
                                        "Mouse Sensitivity", "Mouse Acceleration", "Mouse Wheel Sensitivity", "Mouse Wheel Direction" };
@@ -109,13 +112,14 @@ static int count_key(const CoreDesc &d, const char *key)
 
 int main()
 {
+#ifndef TEST_APP_NES
     // ---- the rows: a core without a mouse and without a capability gets none, a core with a mouse gets two, one with both capabilities six, in the order of svc_settings.h; no descriptor declares one
     const CoreDesc &mouse_core = mouse_core_of(amiga_desc);
     CHECK(mouse_core.mouse != 0 && atari800_desc.mouse == 0);
     // D25: the Amiga declares Mouse Sensitivity / Acceleration itself (operations mouse.sens / mouse.accel); the application adds neither
     CHECK_EQ(count_key(amiga_desc, "Mouse Sensitivity"), 1);
     CHECK(!baseset_adds(&amiga_desc, "Mouse Sensitivity") && !baseset_adds(&amiga_desc, "Mouse Acceleration"));
-    const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
+    const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_atari = rich_of(atari800_desc, 1);
     {
         // a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
         const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
@@ -211,6 +215,8 @@ int main()
         CHECK_EQ(ox.nsettings, od.nsettings + 0);
         CHECK_EQ(count_key(ox, "Joystick Input"), 1);
     }
+#else
+    const CoreDesc &rich_nes = rich_of(nes_desc, 2);
 
     // ---- the settings reach the port: the keyboard's joystick; each also tells the hook, which is not armed yet
     {
@@ -232,6 +238,8 @@ int main()
         for (size_t i = 0; i < g_log.size(); i++) { saw_joy |= g_log[i] == "joy 1 3"; }
         CHECK(saw_joy);
     }
+#endif
+#ifndef TEST_APP_NES
 
     // ---- the USB driver's answers come from the settings by key; a core without a mouse answers the driver's defaults
     {
@@ -380,5 +388,6 @@ int main()
         CHECK(g_log.empty());
     }
     baseset_attach(0, 0);
+#endif
     DONE("baseset");
 }

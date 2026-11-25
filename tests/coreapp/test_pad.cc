@@ -9,9 +9,13 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
-#include "snes_regs.h"
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
 #include "nes_regs.h"
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#else
+#include "snes_regs.h"
 #include "neogeo_regs.h"
+#endif
 #include "pad.h"
 #include "ops_glue.h"
 #include "descrec.h"
@@ -69,6 +73,7 @@ static void unplug_all() { pad_detach(&k1); pad_detach(&k2); pad_detach(&k3); }
 int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
+#ifndef TEST_APP_NES                     // the cases of the shared app's cores; the NES's are its unit nes_pad (below)
     // ---- plug order, the placement of a third pad, a mouse is no pad
     {
         Rig r(&snes_desc);
@@ -159,31 +164,6 @@ int main(int argc, char **argv)
         CHECK_EQ(r.word(SNES_PAD1), 0);
         unplug_all();
     }
-    // ---- NES: A and B from the SNES layout's A (right) and B (bottom); the register is the controller's own order
-    {
-        Rig r(&nes_desc);
-        pad_configure(nes_desc.pad);
-        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        struct { int button; int bit; const char *name; } map[] = { { 2, 0, "A" }, { 1, 1, "B" }, { 7, 2, "Select" }, { 8, 3, "Start" } };
-        for (auto &m : map) {
-            V p = rep((uint16_t)(1u << (m.button - 1)));
-            pad_report(&k1, p.data(), (int)p.size());
-            pad_pace(&r.c);
-            CHECK_EQ(r.word(NES_PAD1) & 0xFF, 1u << m.bit);
-        }
-        V p = rep(0x0001 | 0x0002, 4);                                     // A and B together, hat down
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x03u | (1u << 5));
-        p = rep(0, 2);                                                     // right is bit 7
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x80u);
-        pad_detach(&k1);
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1), 0);
-        unplug_all();
-    }
     // ---- Neo Geo: the register is the machine's joystick word (right, left, down, up, A, B, C, D, Start, Select, Coin); the default map is the MiSTer core's
     // positional one (A = the pad's bottom button, B = right, C = left, D = top, Coin = L); the word is written through the core's own service
     {
@@ -268,17 +248,7 @@ int main(int argc, char **argv)
         pad_report(&k1, p.data(), (int)p.size());
         pad_pace(&r.c);
         CHECK_EQ(r.word(SNES_PAD1), (1u << 2) | (1u << 3));
-        // the NES takes A and B from the same positions
-        Rig rn(&nes_desc);
-        pad_configure(nes_desc.pad);
-        p = rep(0x0001);                                                       // SN30 Button 1 is the right button: NES A
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&rn.c);
-        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 1u);
-        p = rep(0x0002);                                                       // Button 2 is the bottom one: NES B
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&rn.c);
-        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 2u);
+        // the NES takes A and B from the same positions: its unit nes_pad
         unplug_all();
     }
     // ---- the descriptor is kept (REST) and printed once more long after the plug
@@ -463,6 +433,47 @@ int main(int argc, char **argv)
         CHECK_STR(pad_src_name(PAD_SRC_NONE, nm, sizeof(nm)), "none");
         unplug_all();
     }
+#else                                    // the NES's app (run.sh nesapp): the cases on its core
+    // ---- NES: A and B from the SNES layout's A (right) and B (bottom); the register is the controller's own order
+    {
+        Rig r(&nes_desc);
+        pad_configure(nes_desc.pad);
+        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
+        struct { int button; int bit; const char *name; } map[] = { { 2, 0, "A" }, { 1, 1, "B" }, { 7, 2, "Select" }, { 8, 3, "Start" } };
+        for (auto &m : map) {
+            V p = rep((uint16_t)(1u << (m.button - 1)));
+            pad_report(&k1, p.data(), (int)p.size());
+            pad_pace(&r.c);
+            CHECK_EQ(r.word(NES_PAD1) & 0xFF, 1u << m.bit);
+        }
+        V p = rep(0x0001 | 0x0002, 4);                                     // A and B together, hat down
+        pad_report(&k1, p.data(), (int)p.size());
+        pad_pace(&r.c);
+        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x03u | (1u << 5));
+        p = rep(0, 2);                                                     // right is bit 7
+        pad_report(&k1, p.data(), (int)p.size());
+        pad_pace(&r.c);
+        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x80u);
+        pad_detach(&k1);
+        pad_pace(&r.c);
+        CHECK_EQ(r.word(NES_PAD1), 0);
+        unplug_all();
+    }
+    // ---- the numbering of a pad: the 8BitDo SN30 Pro (by its id, as on the SNES) gives the NES its A and B from the same positions
+    {
+        Rig rn(&nes_desc);
+        pad_configure(nes_desc.pad);
+        CHECK(pad_attach(&k1, "8Bitdo SN30 Pro", 0x2DC8, 0x6001, d_hat.data(), (int)d_hat.size()));
+        V p = rep(0x0001);                                                     // SN30 Button 1 is the right button: NES A
+        pad_report(&k1, p.data(), (int)p.size());
+        pad_pace(&rn.c);
+        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 1u);
+        p = rep(0x0002);                                                       // Button 2 is the bottom one: NES B
+        pad_report(&k1, p.data(), (int)p.size());
+        pad_pace(&rn.c);
+        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 2u);
+        unplug_all();
+    }
     // ---- T228 R10: a menu record's pad (golden/desc_own.toml, compiled by gen_bundle.py; argv[1] is its bin): one port fed by the first pad (by_id), the host's joystick lines (joy_lines, bits
     // 0..4 up down left right fire, 1 = pressed), pad.port picks port 1 or 2 and releases the one it leaves; no register of the core is written
     {
@@ -518,5 +529,6 @@ int main(int argc, char **argv)
         CHECK(r.io.log.empty());
         unplug_all();
     }
+#endif
     DONE("pad");
 }

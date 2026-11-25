@@ -13,6 +13,10 @@
 #include "volume.h"
 #include "tone.h"
 
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the item on its core; the shared unit keeps the Amiga's
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
+
 struct Rig {
     FakeIo io; FakeFs fs; CoreCtx c; Settings *st;
     explicit Rig(const CoreDesc *d, FakeFs *shared = 0)
@@ -41,8 +45,10 @@ static void set_tone(Rig &r, const char *value)
 
 int main()
 {
+#ifndef TEST_APP_NES
+    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);                    // no descriptor declares it: the application adds it
+#else
     CHECK_EQ(count_key(nes_desc, TONE_KEY), 0);                      // no descriptor declares it: the application adds it
-    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);
     static CoreDesc gd, vd, od, nd, dd, dx;
     static Setting gs[SETTINGS_MAX], vs[SETTINGS_MAX], os[SETTINGS_MAX], ns[SETTINGS_MAX], xs[SETTINGS_MAX];
     CHECK(!tone_extend(&nes_desc, &gd, gs));
@@ -103,5 +109,6 @@ int main()
         set_tone(g2, "Flat");
         CHECK_EQ(lastt(g2.io), 0);
     }
+#endif
     DONE("test_tone");
 }

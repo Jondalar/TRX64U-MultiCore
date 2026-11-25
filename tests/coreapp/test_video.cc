@@ -6,6 +6,19 @@
 #include "videomode.h"
 #include "trxcanvas.h"
 #include "cores.h"
+#ifdef TEST_APP_NES
+// the NES's app (run.sh nesapp, nes_video): ADR-0057 on its record - the NES draws 256 x 224 at scale 3 and fills 93 % of 720p's height where 1080p leaves
+// 38 % of it black; the mode comes out of the picture, no table names it
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+int main()
+{
+    PxRec px2;
+    FakeIo io2;
+    Video nes_v(nes_desc.video, &px2, &io2);
+    CHECK_EQ(nes_v.wanted_hdmi(), VID_HDMI_720P);
+    DONE("test_video");
+}
+#else
 #include "atari800_regs.h"
 #include "amiga_regs.h"
 
@@ -156,16 +169,13 @@ int main()
     CHECK_EQ(px.last(PX_SIZE), (288u << 16) | 384u);
     CHECK_EQ(px.last(PX_POS), (108u << 16) | 426u);
     CHECK_EQ(px.last(PX_CTRL), 0x33);
-    // ADR-0057: the mode a core's own numbers ask for. The NES draws 256 x 224 at scale 3 and fills
-    // 93 % of 720p's height where 1080p leaves 38 % of it black; the Atari draws 384 x 288 at scale 3,
-    // which needs 1080p's 864 lines. Neither has a mode written down anywhere: both come out of the
-    // picture, which is why a core added tomorrow needs no entry in a table.
+    // ADR-0057: the mode a core's own numbers ask for. The Atari draws 384 x 288 at scale 3, which needs
+    // 1080p's 864 lines (the NES's 720p is its app's unit nes_video). It has no mode written down anywhere:
+    // it comes out of the picture, which is why a core added tomorrow needs no entry in a table.
     {
         PxRec px2;
         FakeIo io2;
-        Video nes_v(nes_desc.video, &px2, &io2);
         Video a8_v(atari800_desc.video, &px2, &io2);
-        CHECK_EQ(nes_v.wanted_hdmi(), VID_HDMI_720P);
         CHECK_EQ(a8_v.wanted_hdmi(), VID_HDMI_1080P);
     }
     // T104.2 D5, S5: w == 0 says the core draws its own picture (the C64 family's goes through Gideon's video path). The service writes no register
@@ -268,3 +278,4 @@ int main()
     }
     DONE("test_video");
 }
+#endif

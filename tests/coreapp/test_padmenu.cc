@@ -9,8 +9,12 @@
 #include "menuctl.h"
 #include "ops_glue.h"
 #include "cores.h"
-#include "snes_regs.h"
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
 #include "nes_regs.h"
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#else
+#include "snes_regs.h"
+#endif
 #include "keyboard.h"
 #include "pad.h"
 
@@ -87,6 +91,7 @@ struct Rig {
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
+#ifndef TEST_APP_NES                     // the SNES's cases; the NES's is its unit nes_padmenu (below)
     const char *cfgp = "/sd/cores/snes/snes.cfg";
     // ---- no pad: the task says so and the wizard does not start
     {
@@ -225,6 +230,7 @@ int main()
         CHECK(!pad_custom_valid(0));
         CHECK(r.fs.files.find("/sd/cores/snes/snes.cfg") == r.fs.files.end());
     }
+#else                                    // the NES's app (run.sh nesapp): the case on its core
     // ---- NES player 2 (eight buttons), with two pads: each player's map is its own
     {
         Rig r(&nes_desc, "/sd/cores/nes/nes.cfg");
@@ -250,5 +256,6 @@ int main()
         CHECK(t.find("Pad 2 map=0405060708090A0B") != std::string::npos);
         CHECK(t.find("Pad 1 map") == std::string::npos);
     }
+#endif
     DONE("padmenu");
 }

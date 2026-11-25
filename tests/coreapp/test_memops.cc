@@ -19,6 +19,9 @@ extern const CoreDesc cpc_desc;                 // cores.h lists the shared app'
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #include "zx_regs.h"
 #endif
+#ifdef TEST_APP_NES
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -60,7 +63,7 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
@@ -148,7 +151,7 @@ int main()
 #elif defined(TEST_APP_CPC)
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
-    struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
+    struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
         { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
 #endif
     for (auto &w : widths) {
@@ -213,19 +216,18 @@ int main()
         CHECK(res.data[0] == 0x77 && res.data[1] == 0x88);
         CHECK_EQ(r.call("machine.read_mem", 0x1FFFFF, 2, &res), OPE_ARG);
     }
-    // ---- cores whose memory the application cannot reach say so, and why
-    for (const CoreDesc *d : { &nes_desc, &amiga_desc, &portdiag_desc }) {
+    // ---- cores whose memory the application cannot reach say so, and why (the NES's is its unit nes_memops)
+    for (const CoreDesc *d : { &amiga_desc, &portdiag_desc }) {
         Rig r(d);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
     {
-        Rig r(&nes_desc), a(&amiga_desc);
-        OpResult x, y;
-        r.call("machine.read_mem", 0, 1, &x);
+        Rig a(&amiga_desc);
+        OpResult y;
         a.call("machine.read_mem", 0, 1, &y);
-        CHECK(strstr(x.msg, "NES") != 0 && strstr(y.msg, "Amiga") != 0);
+        CHECK(strstr(y.msg, "Amiga") != 0);
     }
 #endif
 #ifdef TEST_APP_ZX

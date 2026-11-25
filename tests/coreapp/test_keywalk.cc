@@ -20,7 +20,13 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the record core over the NES's descriptor, its goldens keywalk_nes.txt and ids_nes.txt
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#define KW_GOLDEN "_nes"
+#else                                    // the shared app: the cores of its table
 extern const CoreDesc *const core_table[];
+#define KW_GOLDEN ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -79,16 +85,22 @@ int main(int argc, char **argv)
     bool verbose = getenv("KEYWALK_VERBOSE") != 0;
     std::string out, ids;
     int probes = 0;
-    // the cores of the table, and a core whose menu is a record (golden/desc_cut.toml over the NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
+    // the cores of the table (the shared app), or a core whose menu is a record (the NES's app: golden/desc_cut.toml over the NES: the Timewarp and monitor pages, the key table;
+    // T239.3 P1-8, in place of the TRX64U's menu)
     struct Walk { const CoreDesc *d; const MenuMerge *merge; const char *name; };
     std::vector<Walk> walks;
+#ifndef TEST_APP_NES
+    (void)argc; (void)argv;
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
+#else
+    (void)argc;
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
@@ -185,7 +197,7 @@ int main(int argc, char **argv)
         }
     }
     printf("keywalk: %d probes\n", probes);
-    std::string path = std::string(GOLDEN_DIR) + "/keywalk.txt";
+    std::string path = std::string(GOLDEN_DIR) + "/keywalk" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(path) << out;
     }
@@ -207,14 +219,14 @@ int main(int argc, char **argv)
         }
     }
     CHECK(want == out);
-    std::string ipath = std::string(GOLDEN_DIR) + "/ids.txt";
+    std::string ipath = std::string(GOLDEN_DIR) + "/ids" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(ipath) << ids;
     }
     std::ifstream fi(ipath);
     std::string iwant((std::istreambuf_iterator<char>(fi)), std::istreambuf_iterator<char>());
     if (iwant != ids) {
-        printf("the identities of the rows differ from tests/coreapp/golden/ids.txt (UPDATE_GOLDEN=1 writes it)\n");
+        printf("the identities of the rows differ from tests/coreapp/golden/ids%s.txt (UPDATE_GOLDEN=1 writes it)\n", KW_GOLDEN);
     }
     CHECK(iwant == ids);
     DONE("test_keywalk");
