@@ -1,6 +1,6 @@
 # T262 — A library builds lists, choices and tabs at run time with the SDK's own menu tools, and three base defects of the menu are gone
 
-**Status:** ACCEPTED (2026-11-25), asked by TRX64-Ultimate (FW session) with Alex's go to them (translated): "ask for it, but so that
+**Status:** DONE (2026-11-25, D5); ACCEPTED 2026-11-25, asked by TRX64-Ultimate (FW session) with Alex's go to them (translated): "ask for it, but so that
 it moves the SDK forward generically".
 **Repo:** TRX64U-MultiCore — the SDK base's menu engine (`coreapp/src/menuctl.cc`, `picklist.*`, `ctx.h`), the library API
 (`app/sdkpkg/api.md`, `libload`), the record format (`tools/descrec.py`), the SDK release.
@@ -67,6 +67,9 @@ Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2
 - **D4 (coordinator, 2026-11-25, under D1 "in one go"):** TRX64-Ultimate's findings 1-14 on 0.5.0 and the `hw.cc:90` gap are fixed
   in one release, SDK 0.5.1; 11, 12 and 14 are generic additions (record `[[key]]` rows of a library, a call that opens a path's action
   sheet or places Browse's cursor, a file system's "size unknown").
+- **D5 (Alex, 2026-11-25, translated: "and FW is not waited for any more; if the session still finds something, it becomes a patch
+  release of the SDK on top"):** T262 is done with SDK 0.5.1 (`sdk-0.5.1-40f47ac8`, t239.3 run 45699830522); D3's half hour and
+  TRX64-Ultimate's UX review are no longer waited for. Their later findings go into an SDK patch release.
 
 ## §4 Out
 
@@ -108,5 +111,8 @@ Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; pu
   text, search text too; (14) request (Alex, their U21 D11): a file system (netfs) can say "size unknown" and the base's file list
   shows "-" instead of "0 KB". Plus the gap every core move reported: `hw.cc:90` names `DRV_cart_regs_ADDR` without
   `DRV_HAS_cart_regs`. All of it in one round, SDK 0.5.1 (D4), on `t239.3-sdk051`.
-- Open: Alex's half hour with the reworked online sub-app on the board (D3, replaces S9); the list page and the search form in
-  ue2emu with that real library (their UX review).
+- SDK 0.5.1 (D4), on `t239.3-sdk051`: part 1 (findings 1-10, 13, hw.cc; 10 commits), part 2 (11 library `[[key]]` rows, 12
+  `browse_at`/`browse_sheet`, 14 `FS_SIZE_UNKNOWN`, 13 file-name rule as default, base API 3.6), review (1 major: a library with only
+  key rows was evictable while the menu kept pointers into it; 7 minor), all fixed (2bd348f56, 11e77a792, 40f47ac86); fast tier on the
+  builder ok; published as `sdk-0.5.1-40f47ac8`.
+- D5: no further waiting on TRX64-Ultimate; their findings go into a patch release.
