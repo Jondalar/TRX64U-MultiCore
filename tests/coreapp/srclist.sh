@@ -42,11 +42,15 @@ coreapp_srcs() {
   # has is not added twice), each of the core's own sources (cores/<id>/app/lib) in a unit of its own that includes the driver table of the core's TOML A first (own_drv_dir;
   # the table's guard DRVTAB_H keeps out the shared table, which the callers put first on the one include path of their command line: without the unit, vc20.cc took the
   # shared app's table and did not compile, T213.3).
+  # T239.5 D13: OWN_ONLY="<core> ..." keeps those cores only (a render build of one core that moved to its own app), OWN_SKIP="<core> ..." leaves those out (the shared
+  # render bench builds none of them); neither: every core of the lanes (tools/menusim). OWN_TAG names the build's own directory (own_cores.h differs between the builds).
   local own kind lib w lanes d descs="" h OWN_SEEN=""
-  OWN_DIR="${TMPDIR:-/tmp}/owncores.$(id -u)"
+  OWN_DIR="${TMPDIR:-/tmp}/owncores.$(id -u)${OWN_TAG:+.$OWN_TAG}"
   lanes="$(python3 "$ROOT/tools/core_toml.py" lanes)" || { echo "srclist: tools/core_toml.py lanes failed" >&2; return 1; }   # first, so a failure is not swallowed
   while read -r own kind; do
     [ -n "$own" ] || continue
+    [ -z "${OWN_ONLY:-}" ] || case " $OWN_ONLY " in *" $own "*) ;; *) continue ;; esac
+    case " ${OWN_SKIP:-} " in *" $own "*) continue ;; esac
     d="$(python3 "$ROOT/tools/core_toml.py" sdk "$own" desc)" && [ -n "$d" ] || { echo "srclist: cores/$own/app/sdk.toml names no descriptor" >&2; return 1; }
     descs="$descs $d"
     own_drv_dir "$own" "$OWN_DIR/$own" || return 1

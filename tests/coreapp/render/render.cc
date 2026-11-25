@@ -35,14 +35,6 @@
 #include <vector>
 #include <zlib.h>
 
-extern const CoreDesc atari800_desc;
-extern const CoreDesc vc20_desc;
-extern const CoreDesc nes_desc;
-extern const CoreDesc c128_desc;
-extern const CoreDesc vc20_desc;
-extern const CoreDesc amiga1200_desc;
-extern const CoreDesc amiga_desc;
-extern const CoreDesc ddt_novic_desc;
 #include "picture.h"
 #include "volume.h"
 #include "videomode.h"
@@ -52,18 +44,59 @@ extern const CoreDesc ddt_novic_desc;
 #include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 #include "own_cores.h"                                        // T213.3 (T239.5 D13): the cores with an app of their own (tests/coreapp/srclist.sh), not in that table
-// every core the release ships: the board's table and the cores with an app of their own, as one list for the walks below
+// T239.5 D13: the shared bench (no RENDER_OWN_APP) walks the board's table and the cores with an app of their own that stay in it; a core that moved to its own app is a
+// build of its own (tests/coreapp/render/run.sh: RENDER_OWN_APP, RENDER_APP_<CORE>, its library and its driver table; own_cores.h names that core alone, its descriptor with it)
+#ifndef RENDER_APP_NAME
+#define RENDER_APP_NAME "shared"
+#endif
+// every core of this build, as one list for the walks below: the board's table and the cores with an app of their own; a core's own app walks that core alone (its image's
+// table is CORE_ONLY)
 static const CoreDesc *const *every_core()
 {
     static const CoreDesc *t[64];
     if (!t[0]) {
         int n = 0;
+#ifndef RENDER_OWN_APP
         for (const CoreDesc *const *pc = core_table; *pc && n < 62; pc++) { t[n++] = *pc; }
+#endif
         for (const CoreDesc *const *pc = own_cores; *pc && n < 63; pc++) { t[n++] = *pc; }
         t[n] = 0;
     }
     return t;
 }
+static int n_every(bool hotkeys_only)                         // how many cores the walks visit (hotkeys_only: those with a hotkey map)
+{
+    int n = 0;
+    for (const CoreDesc *const *pc = every_core(); *pc; pc++) { n += !hotkeys_only || (*pc)->hotkeys; }
+    return n;
+}
+// the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, tests/coreapp/render/run.sh: the S1, UX and hotkey learn lines of each build)
+struct Floors { int s1lists, s1states, s1two, s1marked, s1legends, uxhot, uxcmp, uxvals, ucn_strip, ucn_leg, ucn_rail, ucn_pages, ucn_hk, ucn_pcnames, hkl_cores; };
+#if defined(RENDER_APP_ATARI800)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_NES)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_C264)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_ZXNEXT)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_NEOGEO)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_AMIGA)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_DDT_NOVIC)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_ZX)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_CPC)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_PET)
+static const Floors FLOOR = { 0 };
+#elif defined(RENDER_APP_C128)
+static const Floors FLOOR = { 0 };
+#else
+static const Floors FLOOR = { 0 };
+#endif
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
 // T209 (UX review): no two texts of a page lie on each other (a title that wrapped into the line below, a value over a label). Returns the number of pairs.
@@ -246,6 +279,7 @@ static int find_file_row(Rig &c, const char *name)
 
 static RecordMenu *g_cut;                                           // the record core of main()
 
+#ifdef RENDER_APP_ATARI800                                 // T239.5 D13: the Atari 800 XL's build
 static void areas_core(void)
 {
     trx_skin_set(TRX_SKIN_PANEL);
@@ -358,6 +392,7 @@ static void areas_core(void)
         area_case("Library: LEFT from a full folder", key_px(c, KEY_LEFT), 120000, &c);
     }
 }
+#endif
 
 // T235: the Picture value of a resolution at 50 Hz on a PAL machine (the list is Auto and every row of the table, the machine's rate first within a resolution)
 static int pic_value50(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
@@ -469,44 +504,6 @@ static void a1200_menu(const char *out)
         }
         CHECK(found == 2);
     }
-    // T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and every row of the table (T235; the PC mode is
-    // listed at 60 Hz only, the screen names 1024 x 768), Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
-    {
-        static CoreDesc nes_ext;
-        PictureEnv pc = { (uint16_t)(1u << 10), 0, true, VID_SYS_PAL50 };
-        nes_ext = *board_desc(&nes_desc, &pc);
-        int pi = picture_index(&nes_ext), si = scale_index(&nes_ext), mi = smooth_index(&nes_ext);
-        CHECK(pi >= 0 && si >= 0 && mi >= 0);
-        CHECK(nes_ext.settings[pi].nvalues == 10 && !strcmp(nes_ext.settings[pi].values[pic_value50(VID_HDMI_1024x768)], "1024 x 768 (60 Hz)"));
-        Rig n(&nes_ext, "/usb0/cores/nes.cfg");
-        n.c.started = true;
-        n.c.program_loaded = true;
-        ui_open(&nes_ext);
-        picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P);
-        n.vid->init();
-        n.st->set(pi, pic_value50(VID_HDMI_1024x768));
-        n.st->set(si, VID_SCALE_FIT);
-        n.st->set(mi, 1);
-        n.m->open();
-        n.m->key(KEY_F5);
-        n.m->key('2');
-        ui_menu_render(*n.m);
-        lv_timer_handler();
-        bool seen_pic = false, seen_scale = false, seen_smooth = false;
-        for (int i = 0; i < n.m->rows(); i++) {
-            char l2[120], rt2[120];
-            bool a2;
-            n.m->row(i, l2, sizeof(l2), rt2, sizeof(rt2), &a2);
-            if (!strcmp(l2, "Picture")) { seen_pic = strstr(rt2, "1024 x 768") != 0; }
-            if (!strcmp(l2, "Scale")) { seen_scale = strstr(rt2, "Fit") != 0; }
-            if (!strcmp(l2, "Smoothing")) { seen_smooth = strstr(rt2, "On") != 0; }
-        }
-        CHECK(seen_pic && seen_scale && seen_smooth);
-        CHECK(!n.px.place.empty());
-        PxRec::Pl g = n.px.place.empty() ? PxRec::Pl{ 32, 114, 960, 540 } : n.px.place.back();
-        snprintf(p, sizeof(p), "%s/nes-picture-page-pc.png", out);
-        png_out(p, 1024, 768, g.x, g.y, g.w, g.h);
-    }
     // the value sits on the middle of the label's line (T209: every row is one line)
     for (int two = 0; two < 1; two++) {
         TrxRow row;
@@ -555,16 +552,72 @@ static void a1200_menu(const char *out)
     }
 }
 
-// T191: the Amiga 500 and 1200 Settings page with the row "Real-time clock (at next reset)" selected, 1080p; the picture goes to the output directory.
+#ifdef RENDER_APP_NES                                       // T239.5 D13: the NES's build
+// T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and every row of the table (T235; the PC mode is
+// listed at 60 Hz only, the screen names 1024 x 768), Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
+static void nes_picture_pc(const char *out)
+{
+    char p[512];
+    {
+        static CoreDesc nes_ext;
+        PictureEnv pc = { (uint16_t)(1u << 10), 0, true, VID_SYS_PAL50 };
+        nes_ext = *board_desc(&nes_desc, &pc);
+        int pi = picture_index(&nes_ext), si = scale_index(&nes_ext), mi = smooth_index(&nes_ext);
+        CHECK(pi >= 0 && si >= 0 && mi >= 0);
+        CHECK(nes_ext.settings[pi].nvalues == 10 && !strcmp(nes_ext.settings[pi].values[pic_value50(VID_HDMI_1024x768)], "1024 x 768 (60 Hz)"));
+        Rig n(&nes_ext, "/usb0/cores/nes.cfg");
+        n.c.started = true;
+        n.c.program_loaded = true;
+        ui_open(&nes_ext);
+        picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P);
+        n.vid->init();
+        n.st->set(pi, pic_value50(VID_HDMI_1024x768));
+        n.st->set(si, VID_SCALE_FIT);
+        n.st->set(mi, 1);
+        n.m->open();
+        n.m->key(KEY_F5);
+        n.m->key('2');
+        ui_menu_render(*n.m);
+        lv_timer_handler();
+        bool seen_pic = false, seen_scale = false, seen_smooth = false;
+        for (int i = 0; i < n.m->rows(); i++) {
+            char l2[120], rt2[120];
+            bool a2;
+            n.m->row(i, l2, sizeof(l2), rt2, sizeof(rt2), &a2);
+            if (!strcmp(l2, "Picture")) { seen_pic = strstr(rt2, "1024 x 768") != 0; }
+            if (!strcmp(l2, "Scale")) { seen_scale = strstr(rt2, "Fit") != 0; }
+            if (!strcmp(l2, "Smoothing")) { seen_smooth = strstr(rt2, "On") != 0; }
+        }
+        CHECK(seen_pic && seen_scale && seen_smooth);
+        CHECK(!n.px.place.empty());
+        PxRec::Pl g = n.px.place.empty() ? PxRec::Pl{ 32, 114, 960, 540 } : n.px.place.back();
+        snprintf(p, sizeof(p), "%s/nes-picture-page-pc.png", out);
+        png_out(p, 1024, 768, g.x, g.y, g.w, g.h);
+    }
+}
+#endif
+
+#if !defined(RENDER_OWN_APP) || defined(RENDER_APP_AMIGA)
+// T239.5 D13: the Amiga 500 is a build of its own (RENDER_APP_AMIGA), the A1200 is the shared bench's
+static const struct { const CoreDesc *src; const char *name, *cfg; } amiga_rows[] = {
+#ifdef RENDER_APP_AMIGA
+    { &amiga_desc, "a500", "amiga" },
+#else
+    { &amiga1200_desc, "a1200", "amiga1200" },
+#endif
+};
+static const int n_amiga_rows = (int)(sizeof(amiga_rows) / sizeof(amiga_rows[0]));
+
+// T191: the Amiga 500 and 1200 Settings page (each in its build) with the row "Real-time clock (at next reset)" selected, 1080p; the picture goes to the output directory.
 static void rtc_menu(const char *out)
 {
     static CoreDesc d[2];
-    const CoreDesc *src[2] = { &amiga_desc, &amiga1200_desc };
-    const char *name[2] = { "a500", "a1200" };
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < n_amiga_rows; k++) {
+        const CoreDesc *src = amiga_rows[k].src;
+        const char *name = amiga_rows[k].name;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-        d[k] = *board_desc(src[k], &env);
-        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", k ? "amiga1200" : "amiga");
+        d[k] = *board_desc(src, &env);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", amiga_rows[k].cfg);
         Rig r(&d[k], cfg);
         r.c.started = true;
         r.c.program_loaded = true;
@@ -589,8 +642,8 @@ static void rtc_menu(const char *out)
         lv_obj_invalidate(lv_screen_active());                 // the whole page into the picture, not only what the last call changed
         lv_timer_handler();
         PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
-        CHECK(view_bounds(name[k], 960, 540) == 0);
-        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-rtc.png", out, name[k]);
+        CHECK(view_bounds(name, 960, 540) == 0);
+        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-rtc.png", out, name);
         png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
     }
 }
@@ -599,12 +652,12 @@ static void rtc_menu(const char *out)
 static void follow_menu(const char *out)
 {
     static CoreDesc d[2];
-    const CoreDesc *src[2] = { &amiga_desc, &amiga1200_desc };
-    const char *name[2] = { "a500", "a1200" };
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < n_amiga_rows; k++) {
+        const CoreDesc *src = amiga_rows[k].src;
+        const char *name = amiga_rows[k].name;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
-        d[k] = *board_desc(src[k], &env);
-        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", k ? "amiga1200" : "amiga");
+        d[k] = *board_desc(src, &env);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", amiga_rows[k].cfg);
         Rig r(&d[k], cfg);
         r.c.started = true;
         r.c.program_loaded = true;
@@ -631,11 +684,12 @@ static void follow_menu(const char *out)
         lv_obj_invalidate(lv_screen_active());
         lv_timer_handler();
         PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
-        CHECK(view_bounds(name[k], 960, 540) == 0);
-        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-frame-follow.png", out, name[k]);
+        CHECK(view_bounds(name, 960, 540) == 0);
+        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-frame-follow.png", out, name);
         png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
     }
 }
+#endif
 
 // T164 D10a: the menu in every mode the host offers. Each mode gets the canvas trx_canvas_for names (960 x 540 at a whole factor; the mode's own size
 // below 960 wide: 576p PAL 720 x 576, 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
@@ -731,6 +785,7 @@ static void modes_menu(const char *out)
     ui_set_canvas(960, 540);
 }
 
+#ifdef RENDER_APP_NES
 // T164 D10c amended (Alex 2026-11-04): the Picture row of a core says which mode "Auto" is and whose it is ("Auto (1280 x 720 from host)" with the host's stored mode,
 // "Auto (W x H from screen)" without one). The row has to fit at every mode the host offers: the value is never cut to dots (view_bounds names the text as a key).
 static void modes_picture_row(const char *out)
@@ -797,7 +852,9 @@ static void modes_picture_row(const char *out)
     }
     ui_set_canvas(960, 540);
 }
+#endif
 
+#ifdef RENDER_APP_DDT_NOVIC
 // T168: the menu of the two DDT cores (one task, no settings, no program): the Actions page shows Reset, the pictures go to the output directory
 static void ddt_menu(const char *out)
 {
@@ -827,7 +884,9 @@ static void ddt_menu(const char *out)
         png(p, 2);
     }
 }
+#endif
 
+#ifdef RENDER_APP_C128
 // T185 D4: the C128's four JiffyDOS file rows on the F5 Settings tab, the file selector a row opens, the refusal of a file in it, and the F3 action list of a .bin file.
 // The bench writes the pictures; whether they read well is the UX review's.
 static void c128_kit_menu(const char *out)
@@ -921,6 +980,7 @@ static void c128_kit_menu(const char *out)
     snprintf(p, sizeof(p), "%s/c128-kit-file-actions.png", out);
     png(p, 2);
 }
+#endif
 
 // T175: the diag core's pages - the live port rows (idle page), the browser over the tests folder, a prompt of a test and the result of a run
 static void diag_pages(const char *out, int cw, int ch, const char *tag)
@@ -1223,9 +1283,9 @@ static void list_rules(const char *out)
     ui_set_canvas(960, 540);
     printf("S1 list rules: %d cores, %d lists, %d selection states, %d rows with a second line, %d marked rows, %d legends, %d failed\n",
            s1cores, s1lists, s1states, s1two, s1marked, s1legends, s1fails);
-    CHECK(s1cores >= 17 && s1lists >= 17 && s1states > 500);   // the 17 cores: the board's table (15) and the VIC-20 and the A1200 with an app of their own (T239.3 P1-8: no C64)
-    CHECK(s1two > 0);                                                       // the control needs two-line rows to see: the files' paths
-    CHECK(s1legends > 0 && s1marked > 0);
+    CHECK(s1cores == n_every(false) && s1lists >= FLOOR.s1lists && s1states >= FLOOR.s1states);   // every core of this build (every_core)
+    CHECK(s1two >= FLOOR.s1two);                                            // the control needs two-line rows to see: the files' paths
+    CHECK(s1legends >= FLOOR.s1legends && s1marked >= FLOOR.s1marked);
 }
 
 // ---- T187 D2, S3, S4, P4b: the page, the places, the focus of F8, the value's line -----------------------------------------------------------
@@ -1456,7 +1516,7 @@ static void ux_rules(void)
     }
     printf("UX rules: %d cores, %d with a hotkey map, %d generic rows compared with their route, %d storage rows in F7, %d F8 focuses, %d value changes, %d failed\n",
            uxcores, uxhot, uxcmp, uxstor, uxf8, uxvals, uxfails);
-    CHECK(uxcores >= 17 && uxhot >= 1 && uxcmp > 60 && uxf8 == uxcores && uxvals > 20);
+    CHECK(uxcores == n_every(false) && uxhot >= FLOOR.uxhot && uxcmp >= FLOOR.uxcmp && uxf8 == uxcores && uxvals >= FLOOR.uxvals);
 }
 
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
@@ -1607,12 +1667,9 @@ static void ux_chrome(void)
     }
     ui_set_canvas(960, 540);
     printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of cores with a PC keyboard, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    // The floors are what the walk gives. Cores: the core table holds 17 (coreapp/src/table.cc), each at 3 canvases. Before T239.3 P1-8 this walk had 19: the table's 18
-    // with the generic C64 descriptor c64_desc, and the C64 once more as TRX64U's menu record (`all.push_back(0)`); P1-8 removed both. CI run 45343698388 (the last
-    // with both) counted 477 legends, run 45371924902 (the first without) 417: 45 were the record's (15 views per canvas), 15 the generic descriptor's. The other counts
-    // of run 45371924902 against their floors: 321 tab strips (> 300), 2085 rail items (> 1000), 45 pages (>= 9), 306 page rows (> 30), 222 key names of cores with a PC
-    // keyboard (> 30; TRX64U never was one).
-    CHECK(ucn_cores >= 3 * 17 && ucn_leg >= 417 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
+    // The floors are what the walk of this build gives (FLOOR); every core of the build is walked at 3 canvases.
+    CHECK(ucn_cores == 3 * n_every(false) && ucn_leg >= FLOOR.ucn_leg && ucn_rail >= FLOOR.ucn_rail && ucn_pages >= FLOOR.ucn_pages && ucn_strip >= FLOOR.ucn_strip && ucn_hk >= FLOOR.ucn_hk
+          && ucn_pcnames >= FLOOR.ucn_pcnames);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
@@ -1686,6 +1743,16 @@ static void ux_wifi(const char *out)
 // learned line. Found by name through the menu tree (the modifier row is the page's first), not by area and tab number. At 1080p and 480p; the status line must lie
 // below the last drawn row and inside the pane, the legend fits the canvas, nothing is cut. Pictures for three cores of three families.
 static int hkl_cores, hkl_states;
+// the cores whose learned keys are pictured besides the A1200 (T239.5 D13: the C128 and the Atari 800 XL in their own builds)
+#if defined(RENDER_APP_C128)
+#define HKL_PIC(s) ((s) == &c128_desc)
+#elif defined(RENDER_APP_ATARI800)
+#define HKL_PIC(s) ((s) == &atari800_desc)
+#elif defined(RENDER_OWN_APP)
+#define HKL_PIC(s) false
+#else
+#define HKL_PIC(s) ((s) == &vc20_desc)
+#endif
 static void hotkey_learn(const char *out)
 {
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
@@ -1697,7 +1764,7 @@ static void hotkey_learn(const char *out)
             if (!src->hotkeys) { continue; }
             CoreDesc *d = board_desc(src, &env);
             const char *core = src->cor_name;
-            bool pic = src == &vc20_desc || src == &c128_desc || src == &atari800_desc || strstr(core, "1200");   // VIC-20, C128, Atari 800, A1200: three families
+            bool pic = HKL_PIC(src) || strstr(core, "1200");   // VIC-20, C128, Atari 800, A1200: three families
             char fn[96];
             snprintf(fn, sizeof(fn), "%s", core);
             for (char *q = fn; *q; q++) { if (!isalnum((unsigned char)*q)) { *q = '_'; } }
@@ -1789,9 +1856,10 @@ static void hotkey_learn(const char *out)
     }
     ui_set_canvas(960, 540);
     printf("hotkey learn: %d cores x 2 canvases, %d states\n", hkl_cores / 2, hkl_states);
-    CHECK(hkl_cores >= 2 * 3);
+    CHECK(hkl_cores == 2 * n_every(true) && hkl_cores >= FLOOR.hkl_cores);
 }
 
+#if !defined(RENDER_OWN_APP) || defined(RENDER_APP_C128) || defined(RENDER_APP_ATARI800)
 static void ux_shots(const char *out)
 {
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
@@ -1819,14 +1887,22 @@ static void ux_shots(const char *out)
     };
     struct Job { const CoreDesc *src; const char *core; St st[8]; int n; };   // T205: F5 is the core's one settings area (tabs: the core, Video, Audio, Input)
     static const Job jobs[] = {
+#ifndef RENDER_OWN_APP
         { &amiga1200_desc, "a1200", { { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
                                              { "F5-input", KEY_F5, "Input", 0 }, { "hotkeys", KEY_F5, "Input", 2 }, { "F1-home", KEY_F1, 0, 0 }, { "F8-system", KEY_F8, 0, 0 } }, 8 },
         { &vc20_desc, "vc20", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 },
                                        { "F5-audio", KEY_F5, "Audio", 0 }, { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 7 },
+#endif
+#ifdef RENDER_APP_C128
         { &c128_desc, "c128", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
+#endif
+#ifdef RENDER_APP_ATARI800
         { &atari800_desc, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
+#endif
+#ifndef RENDER_OWN_APP
         { &apple2_desc, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
+#endif
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
@@ -1851,6 +1927,7 @@ static void ux_shots(const char *out)
     }
     ui_set_canvas(960, 540);
 }
+#endif
 
 // ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the A1200 (board_desc, the board's chain), at 1080p (the 960 x 540 canvas, 2x) and 480p:
 // the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
@@ -2295,13 +2372,17 @@ static void pm_page_fixtures(const char *out)
         { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
     };
     for (const PmFx &f : fx) {
-        pm_page_case(out, &amiga1200_desc, "a1200", f);
+#ifdef RENDER_APP_NES
         pm_page_case(out, &nes_desc, "nes", f);
+#else
+        pm_page_case(out, &amiga1200_desc, "a1200", f);
+#endif
     }
     ui_set_canvas(960, 540);
 }
 
 
+#ifdef RENDER_APP_ATARI800                                 // T239.5 D13: the cases stand on the Atari 800 XL's descriptor: its build
 // T262 P9: a key that runs an operation and changes a value on a screen redraws that row, not the content area. The area LVGL holds after the key is the time (about 2.2 ms for every
 // 1,000 pixels on the board): the whole pane is ~350,000 pixels, a quarter of a second in which the content stands blank and the next keys wait; a row is ~35,000.
 static const char *g_t262_val = "One";
@@ -2476,20 +2557,25 @@ static void t262_list(const char *out)
     }
     ui_set_canvas(960, 540);
 }
+#endif
 
 int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
+#ifdef RENDER_APP_NES
     static CoreDesc cut_base = nes_desc;                            // a core with a record's pages: golden/desc_cut.toml (argv[2], compiled by run.sh) over the NES
     cut_base.needs_program = 0;
     g_cut = new RecordMenu(&cut_base, argc > 2 ? argv[2] : "desc_cut.bin");
+#endif
+#ifndef RENDER_OWN_APP
     if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
         mock_shots(out);
         printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
     }
-
+#endif
+#ifdef RENDER_APP_ATARI800                                          // T239.5 D13: the cases on the Atari 800 XL's descriptor (the main rig below): its build
     if (getenv("T262_ONLY")) {                                      // T262 P9: only the area of a key that runs an operation
         t262_rows(out);
         t262_list(out);
@@ -2989,6 +3075,8 @@ int main(int argc, char **argv)
         CHECK(!strcmp(l, "Start address") && !strcmp(r, "$10_"));
         c.m->key(KEY_ESCAPE);
     }
+#endif
+#ifdef RENDER_APP_NES
     // T239.3 base 3.3: a core with a record's pages. The record is tests/coreapp/golden/desc_cut.toml over the NES (the Timewarp and the Monitor page of Home); the Monitor page draws the text grid its node names
     {
         trx_skin_set(TRX_SKIN_PANEL);
@@ -3029,29 +3117,57 @@ int main(int argc, char **argv)
         lv_timer_handler();
         CHECK(find_label(lv_screen_active(), "> d C000") == 0 && find_label(lv_screen_active(), "TRX MONITOR") == 0);
     }
+#endif
 
+#ifndef RENDER_OWN_APP
     a1200_menu(out);
     modes_menu(out);
+#endif
+#if !defined(RENDER_OWN_APP) || defined(RENDER_APP_AMIGA)
     rtc_menu(out);
     follow_menu(out);
+#endif
+#ifdef RENDER_APP_NES
+    nes_picture_pc(out);
     modes_picture_row(out);
+#endif
+#ifdef RENDER_APP_DDT_NOVIC
     ddt_menu(out);
+#endif
+#ifdef RENDER_APP_C128
     c128_kit_menu(out);
+#endif
+#ifndef RENDER_OWN_APP
     diag_pages(out, 960, 540, "");
     diag_pages(out, 720, 576, "-576p");
+#endif
     ui_set_canvas(960, 540);
+#ifdef RENDER_APP_ATARI800
     areas_core();
+#endif
     list_rules(out);
     ux_rules();
     ux_chrome();
     hotkey_learn(out);
+#if !defined(RENDER_OWN_APP) || defined(RENDER_APP_C128) || defined(RENDER_APP_ATARI800)
     ux_shots(out);
+#endif
+#ifndef RENDER_OWN_APP
     ux_longname();
+#endif
+#if !defined(RENDER_OWN_APP) || defined(RENDER_APP_NES)
     pm_page_fixtures(out);
+#endif
+#ifndef RENDER_OWN_APP
     ux_wifi(out);
+#endif
+#ifdef RENDER_APP_ATARI800
     t262_rows(out);
     t262_list(out);
+#endif
+#ifndef RENDER_OWN_APP
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
-    printf("coreapp render: %d checks, %d failed\n", checks, fails);
+#endif
+    printf("coreapp render (%s): %d checks, %d failed\n", RENDER_APP_NAME, checks, fails);
     return fails ? 1 : 0;
 }
