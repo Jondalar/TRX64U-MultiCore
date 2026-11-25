@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # T239.5 (D8-D10): one cell of the matrix - one step of one lane - run by its job in .github/workflows/matrix.yml. The lanes run on the T239 branch
-# (t239.3, t239.3-*) instead of the old pipeline (D3). Each cell prints what it checked; a red cell stops its lane and the lanes that need it.
+# (t239.3, t239.3-*) instead of the old pipeline (D3), on every other push beside it (D11, D13, D14; ci/dispatch.py starts the lanes). Each cell prints
+# what it checked; a red cell stops its lane and the lanes that need it.
 #
 #   ci/lane.sh <lane> <step>
 #     sdk        unit | build | test | package
