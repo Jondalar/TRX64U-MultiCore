@@ -64,7 +64,7 @@ CORES = [
     dict(id="c128", match=("commodore 128",), title="Commodore 128", folder="c128",
          files="one system ROM image of 73,728 bytes: `boot0.rom`, `c128.rom`, `c128-system.rom` or `c128_system.rom`",
          needed="the system ROM image",
-         sources="coreapp/cores/c128.cc:168-172 (roms[]); coreapp/cores/c128_regs.h:50 (C128_ROM_BYTES)"),
+         sources="cores/c128/app/lib/c128.cc (roms[]); cores/c128/app/lib/c128_regs.h (C128_ROM_BYTES)"),
     dict(id="pet", match=("commodore pet",), title="Commodore PET", folder="pet",
          files="per model: BASIC (8,192 or 12,288), Editor (2,048), KERNAL (4,096), Characters (2,048 or 4,096) bytes, VICE's file names (`basic-4.901465-23-20-21.bin`, `edit-4-40-n-60Hz.901499-01.bin`, `kernal-4.901465-22.bin`, `characters.901640-01.bin` and the 2 / 1 / 8032 variants) or `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`; optional: disk drive DOS and controller ROMs, SuperPET Waterloo ROMs",
          needed="BASIC, Editor, KERNAL and Characters of the chosen model; the drive and Waterloo ROMs only for those features",

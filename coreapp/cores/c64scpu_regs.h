@@ -1,6 +1,6 @@
 // The C64SCPU core's register page as the application uses it (T182 step 8, spec section 3 "ROM and register contract"). The core window is the
 // c64u core's (pages 0, 4, 7, C, D, as there) plus one page of its own, E: cores/c64scpu/c64scpu_regs.v. CoreIo::rd/wr take a byte offset from the
-// core window, so the page is 0xE000 + off (as c128_regs.h). Reads of absent offsets give 0.
+// core window, so the page is 0xE000 + off (as cores/c128/app/lib/c128_regs.h). Reads of absent offsets give 0.
 // The offsets up to 0x0A5 are the register page as step 1 built it (the kept C128 offsets); 0x054, 0x058, 0x05C and 0x060 are the registers of this
 // step: the gateware side (steps 2-4) implements them as written here.
 #ifndef COREAPP_C64SCPU_REGS_H

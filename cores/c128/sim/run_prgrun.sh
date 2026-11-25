@@ -1,7 +1,7 @@
 #!/bin/sh
 # T217: the program start on the C128 core (128 mode), against the REAL C128 ROMs (local bench, never in CI: the ROM files live outside the repository).
 # The machine boots to BASIC 7's prompt. At PRG_AT the application's start of a program is replayed: tools/cbm_prg_sim.cc places the .prg with the application's own
-# library code and numbers (app/loaders/cbm_prg.cc, coreapp/cores/c128_prg.h) - the program and BASIC's pointers into the RAM window, "RUN" or "SYS n" into the keyboard
+# library code and numbers (app/loaders/cbm_prg.cc, cores/c128/app/lib/c128_prg.h) - the program and BASIC's pointers into the RAM window, "RUN" or "SYS n" into the keyboard
 # buffer ($034A, count $D0) - and tb_c128.v +PRG_AT replays it into RAM block 0.
 # Cases (all must hold):
 #   basic   the BASIC program (load $1C01) runs: its POKE lands in RAM ($0B00 = 42), its PEEK(47) shows BASIC's VARTAB = the end of the relinked chain, TXTTAB is $1C01
@@ -22,7 +22,7 @@ cases=${*:-"basic ml none"}
 [ -x "$build/obj/tb_c128" ] || C128_SIM_DEFS="Z80 SID_REDIP NO_TURBO NO_REU VDC_WHOLE VDC64 TRX_SIM_ROMS ROM_CACHE RAM_DDR2" sh "$here/build_machine.sh" "$build" || exit 1
 w="$build/prgrun_$(echo $cases | tr " " _)"; rm -rf "$w"; mkdir -p "$w"
 eval "$(python3 -I "$here/prgrun_gen.py" c128 "$w" | sed 's/ /\n/g' | sed 's/^/G_/')"
-c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/app/loaders" -I"$root/app/video" || exit 1
+c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/cores/c128/app/lib" -I"$root/app/loaders" -I"$root/app/video" || exit 1
 rc=0
 for cs in $cases; do
   run="$w/$cs"; mkdir -p "$run"; cp -a "$build/run/." "$run/"

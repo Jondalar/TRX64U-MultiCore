@@ -156,8 +156,6 @@ static void follow_picture(CoreCtx *c, int mon80)
 // The capture lies in the application's DDR2 window (0x01000000-0x01FFFFFF): STILL_BASE (gateware default 0x05050000) is above what the RISC-V can address, so the
 // start moves it to the free 256 KB-aligned hole below the VDC buffers (the ROM image 0x01C00000, the RAM 0x01C20000 + 128 KB); slot n at + n x 0x10000.
 #define C128_STILL_DDR   0x01CC0000u
-#define C128_STILL_BASE  0x6064u                        // pix_layer.v: W 32 bit, byte 3 commits
-#define C128_STILL_STATUS 0x6068u                       // R: b0 valid, b1 60 Hz (240 rows), b3:2 slot of the last complete frame, b31:8 frames captured
 
 static uint32_t act_switch_ms(CoreCtx *c)
 {

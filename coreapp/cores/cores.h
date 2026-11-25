@@ -9,7 +9,6 @@ extern const CoreDesc nes_desc;
 extern const CoreDesc apple2_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc c264_desc;
-extern const CoreDesc c128_desc;
 extern const CoreDesc c64scpu_desc;
 extern const CoreDesc zxnext_desc;
 extern const CoreDesc snes_desc;
