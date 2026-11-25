@@ -103,6 +103,10 @@ Scenario: S6 trx64u.cor from their pre-release
   `online`) unchanged, by SHA-256, taken from TRX64-Ultimate's release (the pins, D5), until the registry (T239.4). The `.cfw`/`.ue2` are
   not in it. (An earlier reading of Alex's "our build shall not deliver trx64g and trx64u" as "not in the package" was wrong: he
   meant "not build".)
+  Narrowed the same day (Alex in the TRX64-Ultimate session, relayed by it, translated: "Softboot is a pure function of the
+  Gideon-based app; it need not come with a .cor release for MultiCore, because MultiCore makes it obsolete."): `softboot.u2a` is in
+  neither their pre-release nor our package. Their `fw-*` pre-release carries `trx64u.cor`, `trex_crt.u2a`, `online.u2a`, `manifest.json`,
+  `SHA256SUMS`; how `trx64g.cor` comes is open with Alex (their GitHub pipeline builds no Gideon app; it is built on demand on Gitea).
 
 ## §4 Out
 
