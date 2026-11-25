@@ -1401,7 +1401,12 @@ int main(int argc, char **argv)
         Rig r(cs, 1, &f3sk);
         CHECK(!r.has_err("search"));
         r.m->open();
+        const int lists0 = r.fs.lists;
         CHECK(r.m->goto_spec("F3/search") && r.m->search_tab());
+        const int lists1 = r.fs.lists;
+        CHECK(lists1 - lists0 <= 1);                                                   // T262 D4 (2): the idle Search tab reads no folder (the one list is the media chips' "/"), ...
+        CHECK(!r.m->relist());
+        CHECK_EQ(r.fs.lists, lists1);                                                  // ... and not when the menu looks again
         CHECK_EQ(r.m->search_source_count(), 1);
         CHECK(r.m->tab_id() != 0 && r.tab("F3", "search").size() <= 1);                // the source takes no row of the tab
         r.m->key(KEY_RETURN);                                                          // T262 D4: with a source, RETURN still asks for a name, as without one

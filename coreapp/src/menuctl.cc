@@ -498,7 +498,9 @@ void MenuCtl::go(int area, int tab)
             fm_.vmode = 0;
         }
         fm_.refresh_roots();                                            // the media chips: an FTP host set since the last visit, a result list that came
-        fm_.load_dir();
+        if (!(search_tab() && !fm_.vmode)) {                            // T262 D4: the idle Search tab lists no folder: reading one (a long one, a network medium) held the tab blank for a second
+            fm_.load_dir();
+        }
         if (search_tab() && !fm_.vmode) {
             fm_.nlist = 0;                                                      // no folder listing under a field that has not been used
             fm_.lib_sync();
@@ -789,7 +791,7 @@ const char *MenuCtl::title() const
 // Library's own folder is read again and the cursor follows its entry by name (filemgr.cc). Nothing is read while a prompt, a sheet or a job holds the screen.
 bool MenuCtl::relist()
 {
-    if (!is_browser() || chooser_ || entry_ || pick_ || busy_) {
+    if (!is_browser() || chooser_ || entry_ || pick_ || busy_ || (search_tab() && !fm_.vmode)) {      // the idle Search tab lists nothing, so there is nothing to read again
         return false;
     }
     return fm_.relist();
