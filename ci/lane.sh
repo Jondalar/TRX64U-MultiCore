@@ -139,7 +139,14 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
       done ;;
     # 8, 9, 10: the tests its TOML B names for the step (D4)
     service) core_tests "$id" service ;;
-    ui)      core_tests "$id" ui ;;
+    # 9 also runs the core's render build when it has one (T239.5 D13: its cases of the coreapp render bench, RENDER_APP_<CORE>, run in its lane alone; the shared bench builds none)
+    ui)
+      core_tests "$id" ui
+      if [[ " $("$ROOT/tests/coreapp/render/run.sh" --own) " == *" $id "* ]]; then
+        [ -d "${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl/src" ] || die "no LVGL in this checkout: the render build of $id cannot run"
+        say "the render build of $id (tests/coreapp/render/run.sh, RENDER_CORE=$id)"
+        TRX_LVGL_CACHE="${TRX_LVGL_CACHE:-${CI_TRXAPPS_CACHE:-/cache/trxapps}/lvgl}" RENDER_CORE="$id" nice -n 15 "$ROOT/tests/coreapp/render/run.sh" "${TMPDIR:-/tmp}/lane-render-$id"
+      fi ;;
     api)     core_tests "$id" api ;;
     # 11: the .cor - a partial core: its partial bound to the host it was routed against and its own app (ci/pack_one.sh); a large core: its flat bitstream
     # (the entry mono-<id>-<key> the lane bits:<id> restored) and its own app (tools/pack_large_cor.sh with its TOML B, T213.3 P4); the heap figures again, from

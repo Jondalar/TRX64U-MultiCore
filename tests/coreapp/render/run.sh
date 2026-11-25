@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # Renders the core application's menu with the real ui.cc, MenuCtl and LVGL, the board stubbed.
 #   tests/coreapp/render/run.sh [outdir]
-#   RENDER_CORE=shared|<core>|all (default all): the shared bench, the build of one core of RENDER_OWN, or the shared bench and every build of RENDER_OWN
+#   tests/coreapp/render/run.sh --own   prints the cores of RENDER_OWN (ci/lane.sh: which core lane runs its render build) and stops
+#   RENDER_CORE=shared|<core>|all (default shared): the shared bench (ci/apptests.sh coreapp_render, ci/render.sh), the build of one core of RENDER_OWN (that core's
+#   lane, ci/lane.sh core:<id> ui), or the shared bench and every build of RENDER_OWN (by hand)
 set -euo pipefail
+# T239.5 D13: the cores that moved to an app of their own are render builds of their own (RENDER_OWN_APP, RENDER_APP_<CORE>: render.cc takes that core's cases only, its walks
+# visit that core alone; srclist.sh compiles its library against its own driver table and no other core's). The shared bench builds none of them; each runs in its core's lane.
+RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128"
+if [ "${1:-}" = --own ]; then echo "$RENDER_OWN"; exit 0; fi
 R="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$R/../../.." && pwd)"
 source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
@@ -25,10 +31,7 @@ LK="$("$ROOT/tests/lvgl_objs.sh" --key "$L" "$HA/lv_conf.h")"
 cp "$HA/lv_conf.h" "$B/"   # what lvgl_objs.sh puts beside the objects, made at once so that every unit sees it whether or not an earlier one built
 need_objs() { [ -n "${OBJS:-}" ] || OBJS="$("$ROOT/tests/lvgl_objs.sh" "$L" "$HA/lv_conf.h")"; }
 source "$ROOT/tests/coreapp/srclist.sh"   # T236 D2: the sources, defines and include path, shared with tools/menusim
-# T239.5 D13: the cores that moved to an app of their own are render builds of their own (RENDER_OWN_APP, RENDER_APP_<CORE>: render.cc takes that core's cases only, its walks
-# visit that core alone; srclist.sh compiles its library against its own driver table and no other core's). The shared bench builds none of them.
-RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128"
-RENDER_CORE="${RENDER_CORE:-all}"
+RENDER_CORE="${RENDER_CORE:-shared}"
 case " shared all $RENDER_OWN " in *" $RENDER_CORE "*) ;; *) echo "render: RENDER_CORE=$RENDER_CORE is not shared, all or one of: $RENDER_OWN" >&2; exit 2 ;; esac
 CORE_INCS0="$CORE_INCS"
 srcs_of() {   # srcs_of shared|<core>: SRCS and CORE_INCS of that build
