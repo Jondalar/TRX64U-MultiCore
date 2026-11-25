@@ -20,7 +20,7 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the record core over the NES's descriptor, its goldens keywalk_nes.txt and ids_nes.txt
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the NES's descriptor, then the record core over it, its goldens keywalk_nes.txt and ids_nes.txt
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #define KW_GOLDEN "_nes"
 #elif defined(TEST_APP_ATARI800)         // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
@@ -39,6 +39,30 @@ const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
 extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #define KW_GOLDEN "_neogeo"
+#elif defined(TEST_APP_AMIGA)            // the Amiga 500's app (run.sh amigaapp, the unit amiga_keywalk): its table is its core only, its rows are golden/keywalk_amiga.txt and ids_amiga.txt
+extern const CoreDesc amiga_desc;        // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
+#define KW_GOLDEN "_amiga"
+#elif defined(TEST_APP_CPC)              // the CPC's app (run.sh cpcapp, the unit cpc_keywalk): its table is its core only, its rows are golden/keywalk_cpc.txt and ids_cpc.txt
+extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#define KW_GOLDEN "_cpc"
+#elif defined(TEST_APP_C128)             // the C128's app (run.sh c128app, the unit c128_keywalk): its table is its core only, its rows are golden/keywalk_c128.txt and ids_c128.txt
+extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#define KW_GOLDEN "_c128"
+#elif defined(TEST_APP_PET)              // the PET's app (run.sh petapp, the unit pet_keywalk): its table is its core only, its rows are golden/keywalk_pet.txt and ids_pet.txt
+extern const CoreDesc pet_desc;          // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#define KW_GOLDEN "_pet"
+#elif defined(TEST_APP_DDT)              // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_keywalk): its table is its core only, its rows are golden/keywalk_ddt_novic.txt and ids_ddt_novic.txt
+extern const CoreDesc ddt_novic_desc;    // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
+#define KW_GOLDEN "_ddt_novic"
+#elif defined(TEST_APP_ZX)               // the ZX Spectrum's app (run.sh zxapp, the unit zx_keywalk): its table is its core only, its rows are golden/keywalk_zx.txt and ids_zx.txt
+extern const CoreDesc zx_desc;           // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#define KW_GOLDEN "_zx"
 #else                                    // the shared app: the cores of its table
 extern const CoreDesc *const core_table[];
 #define KW_GOLDEN ""
@@ -101,8 +125,8 @@ int main(int argc, char **argv)
     bool verbose = getenv("KEYWALK_VERBOSE") != 0;
     std::string out, ids;
     int probes = 0;
-    // the cores of the table (the shared app), or a core whose menu is a record (the NES's app: golden/desc_cut.toml over the NES: the Timewarp and monitor pages, the key table;
-    // T239.3 P1-8, in place of the TRX64U's menu)
+    // the cores of the table (the shared app, or a core's own app: its core), or in the NES's app the NES's descriptor and a core whose menu is a record (golden/desc_cut.toml over the
+    // NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
     struct Walk { const CoreDesc *d; const MenuMerge *merge; const char *name; };
     std::vector<Walk> walks;
 #ifndef TEST_APP_NES
@@ -112,6 +136,7 @@ int main(int argc, char **argv)
     }
 #else
     (void)argc;
+    walks.push_back({ &nes_desc, 0, 0 });                       // the NES's own menu, as its app shows it
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);

@@ -18,14 +18,15 @@ base_sources = ["portdiag.cc"]
 
 # The core's own code: its descriptor and hooks (init, release, the ROM choice per model, the dual drive unit's media functions, the tape slot, the register map), the model table, the tape deck with its
 # pulse converter (copies of the files the ZX Spectrum's and the CPC's apps have their own copies of, T239.5 D16: the shared app's last users were the PET and the cores that moved before it). Its files are in cores/pet/app/lib.
-# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: petapp): unit = 2 unit tests, service = 8 mock bitstream -> service, ui = 9 service -> UI
-# (the PET's cases of the shared tests, TEST_APP_PET). The PET has no case of step 10 (service -> API): it has no memory window of the application's, so no read_mem / write_mem case.
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: petapp): unit = 2 unit tests, service = 8 mock bitstream -> service, ui = 9 service -> UI,
+# api = 10 service -> API (the PET's cases of the shared tests, TEST_APP_PET). Its step 10 is pet_uicover (its declaration over the API): it has no memory window of the application's, so no
+# read_mem / write_mem case.
 [[library]]
 name = "pet"
 sources = ["pet.cc", "tape_deck.cc", "tape_pulses.cc"]
 headers = ["pet_models.h", "pet_regs.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
 needs = ["cbmprg", "cbmrun", "pad", "padkeys"]
-tests = { unit = ["pet_models", "tape_pet"], service = ["pet_descgen", "pet_romreq"], ui = ["pet_desc", "pet_hotkeys", "pet_cut"] }
+tests = { unit = ["pet_models", "tape_pet"], service = ["pet_descgen", "pet_romreq"], ui = ["pet_desc", "pet_hotkeys", "pet_cut", "pet_keywalk"], api = ["pet_uicover"] }
 
 [[library]]
 name = "cbmprg"

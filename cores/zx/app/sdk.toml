@@ -24,4 +24,4 @@ base_sources = ["portdiag.cc"]
 name = "zx"
 sources = ["zx.cc", "zx_snap.cc", "tape_deck.cc", "tape_pulses.cc"]
 headers = ["zx_regs.h", "zx_snap.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
-tests = { unit = ["zx", "zx_snap", "boot_zx", "tape_zx"], service = ["zx_descgen", "zx_mounts", "zx_romreq"], ui = ["zx_desc", "zx_hotkeys"], api = ["zx_memops"] }
+tests = { unit = ["zx", "zx_snap", "boot_zx", "tape_zx"], service = ["zx_descgen", "zx_mounts", "zx_romreq"], ui = ["zx_desc", "zx_hotkeys", "zx_keywalk"], api = ["zx_memops", "zx_uicover"] }

@@ -27,24 +27,41 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
-#ifdef TEST_APP_ZXNEXT                          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
+#if defined(TEST_APP_ZXNEXT)                    // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
 extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
-#else
-#ifdef TEST_APP_NEOGEO                   // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_uicover): its table is its core only
-extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+#elif defined(TEST_APP_NEOGEO)                  // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_uicover): its table is its core only
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
-#else
-extern const CoreDesc *const core_table[];
-#ifdef TEST_APP_ATARI800                 // the Atari's app is its own build (run.sh a8app, the unit a8_uicover): its table is its core only
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#elif defined(TEST_APP_ATARI800)                // the Atari's app is its own build (run.sh a8app, the unit a8_uicover): its table is its core only
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#endif
-#ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
-extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
+#elif defined(TEST_APP_C264)                    // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+extern const CoreDesc c264_desc;                // no shared header declares it (cores/c264/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
-#endif
-#endif
+#elif defined(TEST_APP_NES)                     // the NES's app (run.sh nesapp, the unit nes_uicover): its table is its core only
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_AMIGA)                   // the Amiga 500's app (run.sh amigaapp, the unit amiga_uicover): its table is its core only
+extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
+#elif defined(TEST_APP_CPC)                     // the CPC's app (run.sh cpcapp, the unit cpc_uicover): its table is its core only
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_C128)                    // the C128's app (run.sh c128app, the unit c128_uicover): its table is its core only
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_PET)                     // the PET's app (run.sh petapp, the unit pet_uicover): its table is its core only
+extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#elif defined(TEST_APP_DDT)                     // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_uicover): its table is its core only
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
+#elif defined(TEST_APP_ZX)                      // the ZX Spectrum's app (run.sh zxapp, the unit zx_uicover): its table is its core only
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#else                                           // the shared app: the cores of its table
+extern const CoreDesc *const core_table[];
 #endif
 
 static bool g_ui = false;

@@ -735,9 +735,11 @@ RESTSRC="$SVC $PICSRC"
 unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
-# T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
+# T192.1 D21: the API is generated from the declaration; this walks the declaration of every core of the shared table and asserts every row, setting value and operation is reachable
+# (T239.5 D13: each moved core's walk is its app's unit <core>_uicover)
 run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
-# T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
+# T192.3 S6 / S15: every key of the menu on every core of the shared table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table
+# reproduces it (T239.5 D13: each moved core's walk is its app's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt)
 run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
 run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
@@ -985,7 +987,8 @@ nesapp run nes_baseset test_baseset.cc $NESD
 nesapp run nes_baserows test_baserows.cc $NESA
 nesapp run nes_libscan test_libscan.cc libload.cc libmenu.cc libscan.cc board.cc $NESA
 CARGS="$BUN/desc_places.bin" RARGS="$BUN/desc_places.bin" nesapp run nes_uiplace test_uiplace.cc $NESA
-RARGS="$BUN/desc_cut.bin" nesapp run nes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NESA
+RARGS="$BUN/desc_cut.bin" nesapp run nes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NESA     # the NES's menu and the record menu over it: golden/keywalk_nes.txt, ids_nes.txt
+nesapp run nes_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $NESA                                                  # every row, setting value and operation of its declaration over the API
 RARGS="$BUN/desc_cut.bin" nesapp run nes_cut test_cut.cc libload.cc libmenu.cc libfiles.cc $NESA
 
 # T239.5 D15: the Commodore 264's units built as its app (c264app: its library cores/c264/app/lib and its own table, the group c264) that are not above (c264) - the units its TOML B
@@ -1114,6 +1117,9 @@ amigaapp run amiga_start test_start.cc start.cc handover.cc amiga.cc $BASEL
 amigaapp run amiga_video test_video.cc amiga.cc $BASEL
 RARGS="$T/bundles/desc_own.bin" amigaapp run amiga_desc test_desc.cc $AMD
 amigaapp run amiga_hotkeys test_hotkeys.cc $AMD
+# every key of its menu against its golden (amiga_keywalk: golden/keywalk_amiga.txt, ids_amiga.txt) and every row, setting value and operation of its declaration over the API (amiga_uicover)
+amigaapp run amiga_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $AMD
+amigaapp run amiga_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $AMD
 amigaapp run amiga_volume test_volume.cc $AMA
 amigaapp run amiga_tone test_tone.cc $AMA
 amigaapp run amiga_baseset test_baseset.cc amiga.cc $BASEL
@@ -1220,6 +1226,9 @@ ddtapp run ddt_memops test_memops.cc $SVC $DDTD
 RARGS="$T/bundles/desc_own.bin" ddtapp run ddt_desc test_desc.cc $DDTD
 RARGS="$BUN/app" ddtapp run ddt_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $DDTD
 ddtapp run ddt_hotkeys test_hotkeys.cc $DDTD
+# T239.5 D13: every key of its menu against its golden (ddt_keywalk: golden/keywalk_ddt_novic.txt, ids_ddt_novic.txt) and its declaration over the API (ddt_uicover), TEST_APP_DDT
+ddtapp run ddt_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DDTD
+ddtapp run ddt_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DDTD
 
 # T239.5 D4, D16: the ZX Spectrum's units, built as its app (zxapp: its library cores/zx/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the
 # group zx) - the units its TOML B (cores/zx/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zx.cc, zx_snap.cc, the tape deck and the base's.
@@ -1237,6 +1246,9 @@ zxapp run zx_memops test_memops.cc $SVC $ZXD
 RARGS="$T/bundles/desc_own.bin" zxapp run zx_desc test_desc.cc $ZXD
 RARGS="$BUN/app" zxapp run zx_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $ZXD
 zxapp run zx_hotkeys test_hotkeys.cc $ZXD
+# T239.5 D13: every key of its menu against its golden (zx_keywalk: golden/keywalk_zx.txt, ids_zx.txt) and its declaration over the API (zx_uicover), TEST_APP_ZX
+zxapp run zx_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $ZXD
+zxapp run zx_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $ZXD
 zxapp run zx_mounts test_media_mounts_engines.cc $ZXD start.cc handover.cc
 # the ZX Spectrum's rows of the host's ROM table: gen_romreq built as the Spectrum's app, its rows in the host's table
 t_romreq_zx() {
@@ -1271,6 +1283,9 @@ RARGS="$BUN/app" cpcapp run cpc_descgen test_descgen.cc compiled_table.cc libfil
 cpcapp run cpc_hotkeys test_hotkeys.cc $CPCD
 cpcapp run cpc_ledcores test_ledcores.cc $CPCD
 cpcapp run cpc_joyswap test_joyswap.cc $CPCD
+# T239.5 D13: every key of its menu against its golden (cpc_keywalk: golden/keywalk_cpc.txt, ids_cpc.txt) and its declaration over the API (cpc_uicover), TEST_APP_CPC
+cpcapp run cpc_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $CPCD
+cpcapp run cpc_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $CPCD
 cpcapp run cpc_mounts $CPCM
 cpcapp run cpc_newdisk test_newdisk.cc newdisk.cc newfile.cc $CPCD
 cpcapp run cpc_createflow test_createflow.cc newdisk.cc newfile.cc $CPCD
@@ -1321,6 +1336,9 @@ RARGS="$T/bundles/desc_own.bin" petapp run pet_desc test_desc.cc $PETD
 RARGS="$BUN/app" petapp run pet_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $PETD
 petapp run pet_hotkeys test_hotkeys.cc $PETD
 petapp run pet_cut test_pet_cut.cc $PETD
+# T239.5 D13: every key of its menu against its golden (pet_keywalk: golden/keywalk_pet.txt, ids_pet.txt) and its declaration over the API (pet_uicover), TEST_APP_PET
+petapp run pet_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $PETD
+petapp run pet_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $PETD
 # the PET's rows of the host's ROM table: gen_romreq built as the PET's app, its rows in the host's table
 t_romreq_pet() {
   local INC=("${INC_PET[@]}") APPLIB="$PETLIB"
@@ -1354,6 +1372,9 @@ RARGS="$BUN/app" c128app run c128_descgen test_descgen.cc compiled_table.cc libf
 c128app run c128_hotkeys test_hotkeys.cc $C128D
 c128app run c128_ledcores test_ledcores.cc $C128D
 c128app run c128_joyswap test_joyswap.cc $C128D
+# T239.5 D13: every key of its menu against its golden (c128_keywalk: golden/keywalk_c128.txt, ids_c128.txt) and its declaration over the API (c128_uicover), TEST_APP_C128
+c128app run c128_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $C128D
+c128app run c128_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $C128D
 c128app run c128_mounts $C128M
 # the C128's rows of the host's ROM table: gen_romreq built as the C128's app, its rows in the host's table
 t_romreq_c128() {
