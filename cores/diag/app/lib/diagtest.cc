@@ -1,6 +1,7 @@
 // The diag core's test files: parser, compiler, evaluation, the two result files, the run (T175). See diagtest.h.
 #include "diagtest.h"
 #include "portdiag_regs.h"
+#include "portdiag.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +29,7 @@ static void cpy(char *d, int n, const char *s)
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 // one line of TOML: `key = value`, a value is a string, an integer (decimal or 0x..), true/false, or an array of those on one line
-#define KV_ITEMS 16
+#define KV_ITEMS 32
 enum { V_STR = 1, V_INT, V_BOOL, V_ARR_STR, V_ARR_INT };
 struct Kv {
     char key[32];
@@ -187,18 +188,36 @@ static int parse_kv(const char *p, Kv *kv, DtErr *e, int line)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
-// the pins
-static const char *const pin_names[PD_LIVE_BITS] = {
-    "p1_up", "p1_down", "p1_left", "p1_right", "p1_fire", "p2_up", "p2_down", "p2_left", "p2_right", "p2_fire", "cmp0", "cmp1", "cmp2", "cmp3"
-};
-static int pin_index(const char *s)
+// the pin names: a test names pins as the bitstream's table spells them (SLOT_ADDR3, KBJOY_2_JOY4); they are kept in the test's pool and resolved against the table by dt_compile
+static int names_add(DiagTest &t, const Kv &kv, int line, DtErr *e, uint16_t *first, uint8_t *n, int cap)
 {
-    for (int i = 0; i < PD_LIVE_BITS; i++) {
-        if (!strcmp(s, pin_names[i])) {
-            return i;
-        }
+    if (kv.n < 1 || kv.n > cap || kv.type != V_ARR_STR) {
+        return fail(e, line, "pins = [..] names 1 .. %d pins of the table, in quotes", cap);
     }
-    return -1;
+    if (t.nnames + kv.n > DT_NAMES) {
+        return fail(e, line, "the file names more than %d pins in all", DT_NAMES);
+    }
+    *first = (uint16_t)t.nnames;
+    for (int i = 0; i < kv.n; i++) {
+        if (!kv.items[i][0] || strlen(kv.items[i]) >= DT_PN) {
+            return fail(e, line, "'%s' is no pin name of the table (at most %d characters)", kv.items[i], DT_PN - 1);
+        }
+        cpy(t.names[t.nnames++], DT_PN, kv.items[i]);
+    }
+    *n = (uint8_t)kv.n;
+    return 0;
+}
+static int name_add1(DiagTest &t, const char *name, int line, DtErr *e, uint16_t *first)
+{
+    if (t.nnames >= DT_NAMES) {
+        return fail(e, line, "the file names more than %d pins in all", DT_NAMES);
+    }
+    if (!name[0] || strlen(name) >= DT_PN) {
+        return fail(e, line, "'%s' is no pin name of the table (at most %d characters)", name, DT_PN - 1);
+    }
+    *first = (uint16_t)t.nnames;
+    cpy(t.names[t.nnames++], DT_PN, name);
+    return 0;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -214,11 +233,11 @@ struct Builder {
     bool have_op;
     char op[16];
     bool got[24];                           // keys seen in this entry
-    char into[DT_NAME], pinname[DT_NAME], promptref[DT_NAME], levelname[16];
+    char into[DT_NAME], pinname[DT_NAME], promptref[DT_NAME], levelname[16], edgename[16], regname[32];
     bool pins_given;
-    int pins_mask;
-    int cmp_mask;
-    int dis, adj;
+    uint16_t pins_first;
+    uint8_t pins_n;
+    bool have_value;
     DtStep st;
     DtEval ev;
     char ev_value[DT_NAME];
@@ -262,7 +281,8 @@ static int slot_add(Builder &b, const char *name, uint8_t kind, int line)
 
 static const struct { const char *name; int op; } op_names[] = {
     { "end", DT_OP_END }, { "drive", DT_OP_DRIVE }, { "wait", DT_OP_WAIT }, { "sample", DT_OP_SAMPLE }, { "edges", DT_OP_EDGES },
-    { "time_to_flip", DT_OP_TIME_TO_FLIP }, { "padctl", DT_OP_PADCTL }, { "loop", DT_OP_LOOP }, { "wait_user", DT_OP_WAIT_USER },
+    { "time_to_edge", DT_OP_TTE }, { "loop", DT_OP_LOOP }, { "wait_user", DT_OP_WAIT_USER }, { "write_reg", DT_OP_WRITE_REG },
+    { "capture", DT_OP_CAPTURE }, { "capwait", DT_OP_CAPWAIT },
 };
 
 // the keys a step may carry, per op (besides `op`)
@@ -272,11 +292,12 @@ static bool step_key_ok(int op, const char *k)
     case DT_OP_DRIVE: return !strcmp(k, "pins") || !strcmp(k, "level");
     case DT_OP_WAIT: return !strcmp(k, "us") || !strcmp(k, "clocks");
     case DT_OP_SAMPLE: return !strcmp(k, "into");
-    case DT_OP_EDGES: return !strcmp(k, "pin") || !strcmp(k, "us") || !strcmp(k, "clocks") || !strcmp(k, "into");
-    case DT_OP_TIME_TO_FLIP: return !strcmp(k, "cmp") || !strcmp(k, "timeout_us") || !strcmp(k, "timeout_clocks") || !strcmp(k, "into");
-    case DT_OP_PADCTL: return !strcmp(k, "dis") || !strcmp(k, "adj");
+    case DT_OP_EDGES: return !strcmp(k, "pin") || !strcmp(k, "edge") || !strcmp(k, "us") || !strcmp(k, "clocks") || !strcmp(k, "into");
+    case DT_OP_TTE: return !strcmp(k, "pin") || !strcmp(k, "edge") || !strcmp(k, "timeout_us") || !strcmp(k, "timeout_clocks") || !strcmp(k, "into");
     case DT_OP_LOOP: return !strcmp(k, "count") || !strcmp(k, "body");
     case DT_OP_WAIT_USER: return !strcmp(k, "prompt");
+    case DT_OP_WRITE_REG: return !strcmp(k, "reg") || !strcmp(k, "value");
+    case DT_OP_CAPTURE: return !strcmp(k, "pins") || !strcmp(k, "every_us") || !strcmp(k, "every_clocks") || !strcmp(k, "samples") || !strcmp(k, "into");
     }
     return false;
 }
@@ -286,12 +307,13 @@ static void entry_reset(Builder &b)
     b.have_op = false;
     b.op[0] = 0;
     memset(b.got, 0, sizeof(b.got));
-    b.into[0] = b.pinname[0] = b.promptref[0] = 0;
+    b.into[0] = b.pinname[0] = b.promptref[0] = b.regname[0] = 0;
     cpy(b.levelname, sizeof(b.levelname), "low");
+    cpy(b.edgename, sizeof(b.edgename), "any");
     b.pins_given = false;
-    b.pins_mask = 0;
-    b.cmp_mask = 0;
-    b.dis = b.adj = -1;
+    b.pins_first = 0;
+    b.pins_n = 0;
+    b.have_value = false;
     memset(&b.st, 0, sizeof(b.st));
     b.st.prompt = -1;
     b.st.slot = -1;
@@ -312,22 +334,24 @@ static int step_done(Builder &b)
     DtStep s = b.st;
     s.line = line;
     int op = s.op;
-    bool us = b.got[0] /*us*/, clocks = b.got[1] /*clocks*/;
+    bool us = b.got[0] /*us | every_us*/, clocks = b.got[1] /*clocks | every_clocks*/;
     switch (op) {
     case DT_OP_DRIVE:
-        if (!b.pins_given || !b.pins_mask) {
-            return fail(b.e, line, "drive needs pins = [..] naming at least one of the ten port pins");
+        if (!b.pins_given) {
+            return fail(b.e, line, "drive needs pins = [..] naming pins of the table");
         }
-        if (b.pins_mask & ~0x3FF) {
-            return fail(b.e, line, "drive can only touch the ten port pins, not the comparator bits");
-        }
-        s.mask = (uint32_t)b.pins_mask;
+        s.pfirst = b.pins_first;
+        s.npins = b.pins_n;
         if (!strcmp(b.levelname, "low")) {
-            s.level = 0;
+            s.level = DV2_LOW;
+        } else if (!strcmp(b.levelname, "high")) {
+            s.level = DV2_HIGH;
+        } else if (!strcmp(b.levelname, "hiz")) {
+            s.level = DV2_HIZ;
         } else if (!strcmp(b.levelname, "release")) {
-            s.level = 1;
+            s.level = DV2_REL;
         } else {
-            return fail(b.e, line, "level must be \"low\" or \"release\"; the engine never drives a pin high");
+            return fail(b.e, line, "level must be \"low\", \"high\", \"hiz\" or \"release\" (which of them a pin allows is the table's class; the engine refuses the others)");
         }
         break;
     case DT_OP_WAIT:
@@ -337,31 +361,27 @@ static int step_done(Builder &b)
         s.in_us = us;
         break;
     case DT_OP_EDGES:
-        if (us == clocks) {
-            return fail(b.e, line, "edges needs exactly one of us / clocks");
+    case DT_OP_TTE: {
+        bool tte = op == DT_OP_TTE;
+        if (tte ? b.got[2] == b.got[3] : us == clocks) {
+            return fail(b.e, line, tte ? "time_to_edge needs exactly one of timeout_us / timeout_clocks" : "edges needs exactly one of us / clocks");
         }
-        s.in_us = us;
-        if (!b.pinname[0] || pin_index(b.pinname) < 0) {
-            return fail(b.e, line, "edges needs pin = one of the pin names (p1_up .. p2_fire, cmp0 .. cmp3)");
+        s.in_us = tte ? b.got[2] : us;
+        if (!b.pinname[0] || name_add1(t, b.pinname, line, b.e, &s.pfirst)) {
+            return b.pinname[0] ? -1 : fail(b.e, line, "%s needs pin = a pin name of the table", tte ? "time_to_edge" : "edges");
         }
-        s.sel = (uint8_t)pin_index(b.pinname);
+        s.npins = 1;
+        if (!strcmp(b.edgename, "any")) {
+            s.edge = DV2_ANY;
+        } else if (!strcmp(b.edgename, "rising")) {
+            s.edge = DV2_RISING;
+        } else if (!strcmp(b.edgename, "falling")) {
+            s.edge = DV2_FALLING;
+        } else {
+            return fail(b.e, line, "edge is \"any\", \"rising\" or \"falling\"");
+        }
         break;
-    case DT_OP_TIME_TO_FLIP:
-        if (b.got[2] == b.got[3]) {
-            return fail(b.e, line, "time_to_flip needs exactly one of timeout_us / timeout_clocks");
-        }
-        s.in_us = b.got[2];
-        if (!b.cmp_mask) {
-            return fail(b.e, line, "time_to_flip needs cmp = [..] naming comparator bits 0 .. 3");
-        }
-        s.sel = (uint8_t)b.cmp_mask;
-        break;
-    case DT_OP_PADCTL:
-        if (b.dis < 0 && b.adj < 0) {
-            return fail(b.e, line, "padctl needs dis and/or adj (0 or 1)");
-        }
-        s.pad = (uint16_t)((b.dis > 0 ? 1 : 0) | (b.dis >= 0 ? 2 : 0) | (b.adj > 0 ? 4 : 0) | (b.adj >= 0 ? 8 : 0));      // the engine's PADCTL: b0 DIS level, b1 DIS enable, b2 ADJ level, b3 ADJ enable
-        break;
+    }
     case DT_OP_LOOP:
         if (!b.got[4] || !b.got[5] || s.count < 1 || s.count > 0xFFFF || s.body < 1 || s.body > 255) {
             return fail(b.e, line, "loop needs count = 1 .. 65535 and body = 1 .. 255 (the number of steps that follow)");
@@ -375,14 +395,53 @@ static int step_done(Builder &b)
         s.prompt = (int8_t)pi;
         break;
     }
+    case DT_OP_WRITE_REG: {
+        if (!b.regname[0] || !b.have_value) {
+            return fail(b.e, line, "write_reg needs reg = \"block.property\" (or an offset 0x50 .. 0x6F) and value");
+        }
+        PanelReg r;
+        if (b.regname[0] == '#') {                             // an offset, kept as "#<number>" by apply_kv
+            r.ofs = (uint16_t)atoi(b.regname + 1);
+            r.bytes = 1;
+            r.mask = 0xFF;
+            r.shift = 0;
+        } else if (!portdiag_reg_by_name(b.regname, &r)) {
+            return fail(b.e, line, "write_reg: '%s' is no register of the core's TOML A (block.property, e.g. av.std)", b.regname);
+        }
+        if (r.mask != (r.bytes == 2 ? 0xFFFFu : 0xFFu) || r.shift || r.ofs < 0x50 || r.ofs + r.bytes - 1 > 0x6F) {
+            return fail(b.e, line, "write_reg takes whole registers of 0x050 .. 0x06F (the generator registers), not '%s'", b.regname);
+        }
+        if (s.value > (r.bytes == 2 ? 0xFFFFu : 0xFFu)) {
+            return fail(b.e, line, "write_reg: the value %u does not fit the %d byte register", (unsigned)s.value, r.bytes);
+        }
+        s.reg = r.ofs;
+        s.regbytes = r.bytes;
+        break;
     }
-    if (op == DT_OP_SAMPLE || op == DT_OP_EDGES || op == DT_OP_TIME_TO_FLIP) {
+    case DT_OP_CAPTURE:
+        if (!b.pins_given) {
+            return fail(b.e, line, "capture needs pins = [..] (1 .. %d pins of the table)", DT_EPINS);
+        }
+        if (us == clocks) {
+            return fail(b.e, line, "capture needs exactly one of every_us / every_clocks");
+        }
+        if (!b.got[6] || s.samples < 1) {
+            return fail(b.e, line, "capture needs samples = 1 .. %d", DT_CAP_MAX);
+        }
+        s.in_us = us;
+        s.pfirst = b.pins_first;
+        s.npins = b.pins_n;
+        break;
+    }
+    if (op == DT_OP_SAMPLE || op == DT_OP_EDGES || op == DT_OP_TTE || op == DT_OP_CAPTURE) {
         if (b.into[0]) {
-            int sl = slot_add(b, b.into, op == DT_OP_SAMPLE ? DT_SLOT_SAMPLE : op == DT_OP_EDGES ? DT_SLOT_EDGES : DT_SLOT_TIME, line);
+            int sl = slot_add(b, b.into, op == DT_OP_SAMPLE ? DT_SLOT_SAMPLE : op == DT_OP_EDGES ? DT_SLOT_EDGES : op == DT_OP_TTE ? DT_SLOT_TIME : DT_SLOT_CAP, line);
             if (sl < 0) {
                 return -1;
             }
             s.slot = (int8_t)sl;
+        } else if (op == DT_OP_CAPTURE) {
+            return fail(b.e, line, "capture needs into = a name: its samples are the result");
         }
     }
     if (t.nsteps >= DT_SRC_STEPS) {
@@ -420,9 +479,9 @@ static int eval_done(Builder &b)
         if (dot) {
             *dot = 0;
             const char *fld = dot + 1;
-            ev.field = !strcmp(fld, "pins") ? DT_F_PINS : !strcmp(fld, "cmp") ? DT_F_CMP : !strcmp(fld, "ts") ? DT_F_TS : !strcmp(fld, "flags") ? DT_F_FLAGS : 255;
+            ev.field = !strcmp(fld, "pins") ? DT_F_PINS : !strcmp(fld, "ts") ? DT_F_TS : 255;
             if (ev.field == 255) {
-                return fail(b.e, line, "'%s': a sample's fields are pins, cmp, ts and flags", fld);
+                return fail(b.e, line, "'%s': a sample's fields are pins (with pins = [..]) and ts", fld);
             }
         }
         ev.slot = (int8_t)slot_find(t, nm);
@@ -431,6 +490,18 @@ static int eval_done(Builder &b)
         }
         if (ev.field != DT_F_RAW && t.slots[ev.slot].kind != DT_SLOT_SAMPLE) {
             return fail(b.e, line, "'%s' has fields only when a sample stored it", nm);
+        }
+        if (t.slots[ev.slot].kind == DT_SLOT_SAMPLE && ev.field == DT_F_RAW) {
+            return fail(b.e, line, "'%s' is a sample: its values are '%s.pins' (with pins = [..]) and '%s.ts'", nm, nm, nm);
+        }
+        if (t.slots[ev.slot].kind == DT_SLOT_CAP) {
+            return fail(b.e, line, "'%s' is a capture: its samples are written to the result file, no eval reads them", nm);
+        }
+        if ((ev.field == DT_F_PINS) != (ev.npins > 0)) {
+            return fail(b.e, line, ev.npins ? "pins = [..] belongs to a value '%s.pins'" : "'%s.pins' needs pins = [..] (the names, bit j of the value is the j-th)", nm);
+        }
+        if (ev.field == DT_F_PINS && ev.has_mask) {
+            return fail(b.e, line, "an eval of pins takes no mask: the names choose the bits");
         }
         if (!(ev.has_eq || ev.has_min || ev.has_max || ev.has_min_us || ev.has_max_us || ev.differs[0])) {
             return fail(b.e, line, "an eval of a value needs eq, min/max, min_us/max_us or differs");
@@ -443,13 +514,13 @@ static int eval_done(Builder &b)
             }
         }
         if ((ev.has_min_us || ev.has_max_us) && t.slots[ev.slot].kind != DT_SLOT_TIME) {
-            return fail(b.e, line, "min_us / max_us are for a time_to_flip slot; '%s' is not one", nm);
+            return fail(b.e, line, "min_us / max_us are for a time_to_edge slot; '%s' is not one", nm);
         }
     } else {
         if (!ev.nall) {
             return fail(b.e, line, "an [[eval]] needs value = \"slot\" or all = [..]");
         }
-        if (ev.has_eq || ev.has_min || ev.has_max || ev.has_min_us || ev.has_max_us || ev.has_mask || ev.differs[0]) {
+        if (ev.has_eq || ev.has_min || ev.has_max || ev.has_min_us || ev.has_max_us || ev.has_mask || ev.differs[0] || ev.npins) {
             return fail(b.e, line, "an eval with all = [..] takes no thresholds");
         }
     }
@@ -665,7 +736,7 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
                     return 0;
                 }
             }
-            return fail(b.e, line, "the engine has no step '%s' (end, drive, wait, sample, edges, time_to_flip, padctl, loop, wait_user)", kv.s);
+            return fail(b.e, line, "the engine has no step '%s' (end, drive, wait, sample, edges, time_to_edge, loop, wait_user, write_reg, capture, capwait)", kv.s);
         }
         if (!b.have_op) {
             return fail(b.e, line, "op must be the first key of a [[step]]");
@@ -674,35 +745,54 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
             return fail(b.e, line, "the key '%s' does not belong to the step '%s'", k, b.op);
         }
         if (!strcmp(k, "pins")) {
-            if (want_type(b, kv, V_ARR_STR, line)) {
+            if (want_type(b, kv, V_ARR_STR, line) || names_add(f.test, kv, line, b.e, &b.pins_first, &b.pins_n, b.st.op == DT_OP_CAPTURE ? DT_EPINS : 16)) {
                 return -1;
             }
             b.pins_given = true;
-            for (int i = 0; i < kv.n; i++) {
-                int ix = pin_index(kv.items[i]);
-                if (ix < 0) {
-                    return fail(b.e, line, "'%s' is not a pin name (p1_up p1_down p1_left p1_right p1_fire, p2_..)", kv.items[i]);
-                }
-                b.pins_mask |= 1 << ix;
-            }
             return 0;
         }
-        if (!strcmp(k, "level")) {
+        if (!strcmp(k, "level") || !strcmp(k, "edge") || !strcmp(k, "reg")) {
+            if (!strcmp(k, "reg") && kv.type == V_INT) {
+                snprintf(b.regname, sizeof(b.regname), "#%d", (int)kv.i);
+                return 0;
+            }
             if (want_type(b, kv, V_STR, line)) {
                 return -1;
             }
-            cpy(b.levelname, sizeof(b.levelname), kv.s);
+            if (strlen(kv.s) >= (!strcmp(k, "reg") ? sizeof(b.regname) : sizeof(b.levelname))) {
+                return fail(b.e, line, "'%s' is too long", k);
+            }
+            cpy(!strcmp(k, "level") ? b.levelname : !strcmp(k, "edge") ? b.edgename : b.regname, !strcmp(k, "reg") ? (int)sizeof(b.regname) : 16, kv.s);
             return 0;
         }
-        if (!strcmp(k, "us") || !strcmp(k, "clocks") || !strcmp(k, "timeout_us") || !strcmp(k, "timeout_clocks")) {
+        if (!strcmp(k, "us") || !strcmp(k, "clocks") || !strcmp(k, "timeout_us") || !strcmp(k, "timeout_clocks") || !strcmp(k, "every_us") || !strcmp(k, "every_clocks")) {
             if (want_type(b, kv, V_INT, line)) {
                 return -1;
             }
-            if (kv.i < 1 || kv.i > (int64_t)PD_ARG_MAX) {
-                return fail(b.e, line, "'%s' must be 1 .. %u", k, (unsigned)PD_ARG_MAX);
+            if (kv.i < 1 || kv.i > 0x7FFFFFFFLL) {
+                return fail(b.e, line, "'%s' must be 1 .. %u", k, 0x7FFFFFFFu);
             }
             b.st.n = (uint32_t)kv.i;
-            b.got[!strcmp(k, "us") ? 0 : !strcmp(k, "clocks") ? 1 : !strcmp(k, "timeout_us") ? 2 : 3] = true;
+            b.got[!strcmp(k, "us") || !strcmp(k, "every_us") ? 0 : !strcmp(k, "clocks") || !strcmp(k, "every_clocks") ? 1 : !strcmp(k, "timeout_us") ? 2 : 3] = true;
+            return 0;
+        }
+        if (!strcmp(k, "samples") || !strcmp(k, "value")) {
+            if (want_type(b, kv, V_INT, line)) {
+                return -1;
+            }
+            if (!strcmp(k, "samples")) {
+                if (kv.i < 1 || kv.i > DT_CAP_MAX) {
+                    return fail(b.e, line, "samples must be 1 .. %d (the readback of a test holds that many)", DT_CAP_MAX);
+                }
+                b.st.samples = (uint32_t)kv.i;
+                b.got[6] = true;
+            } else {
+                if (kv.i < 0 || kv.i > 0xFFFF) {
+                    return fail(b.e, line, "value is 0 .. 65535");
+                }
+                b.st.value = (uint32_t)kv.i;
+                b.have_value = true;
+            }
             return 0;
         }
         if (!strcmp(k, "into") || !strcmp(k, "pin") || !strcmp(k, "prompt")) {
@@ -713,28 +803,6 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
                 return fail(b.e, line, "'%s' is too long", k);
             }
             cpy(!strcmp(k, "into") ? b.into : !strcmp(k, "pin") ? b.pinname : b.promptref, DT_NAME, kv.s);
-            return 0;
-        }
-        if (!strcmp(k, "cmp")) {
-            if (want_type(b, kv, V_ARR_INT, line)) {
-                return -1;
-            }
-            for (int i = 0; i < kv.n; i++) {
-                if (kv.iitems[i] < 0 || kv.iitems[i] > 3) {
-                    return fail(b.e, line, "cmp bits are 0 .. 3");
-                }
-                b.cmp_mask |= 1 << kv.iitems[i];
-            }
-            return 0;
-        }
-        if (!strcmp(k, "dis") || !strcmp(k, "adj")) {
-            if (want_type(b, kv, V_INT, line)) {
-                return -1;
-            }
-            if (kv.i != 0 && kv.i != 1) {
-                return fail(b.e, line, "'%s' is 0 or 1", k);
-            }
-            (!strcmp(k, "dis") ? b.dis : b.adj) = (int)kv.i;
             return 0;
         }
         if (!strcmp(k, "count") || !strcmp(k, "body")) {
@@ -782,6 +850,12 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
         }
         if (!strcmp(k, "all")) {
             return list_add(b, ev.all, &ev.nall, DT_ALL, kv, line);
+        }
+        if (!strcmp(k, "pins")) {
+            if (want_type(b, kv, V_ARR_STR, line) || names_add(f.test, kv, line, b.e, &ev.pfirst, &ev.npins, DT_EPINS)) {
+                return -1;
+            }
+            return 0;
         }
         if (!strcmp(k, "each")) {
             if (want_type(b, kv, V_BOOL, line)) {
@@ -870,8 +944,8 @@ static int finish(Builder &b)
                 return fail(b.e, s.line, "the loop wants %d steps after it, the file has fewer", s.body);
             }
             for (int j = i + 1; j <= i + s.body; j++) {
-                if (t.steps[j].op == DT_OP_LOOP || t.steps[j].op == DT_OP_WAIT_USER || t.steps[j].op == DT_OP_END) {
-                    return fail(b.e, t.steps[j].line, "a loop body holds no loop, wait_user or end");
+                if (t.steps[j].op == DT_OP_LOOP || t.steps[j].op == DT_OP_WAIT_USER || t.steps[j].op == DT_OP_END || t.steps[j].op == DT_OP_CAPTURE || t.steps[j].op == DT_OP_CAPWAIT) {
+                    return fail(b.e, t.steps[j].line, "a loop body holds no loop, wait_user, capture, capwait or end");
                 }
             }
         }
@@ -963,7 +1037,7 @@ int dt_parse(const char *text, uint32_t len, DiagFile *out, DtErr *err)
             }
             continue;
         }
-        Kv kv;
+        static Kv kv;                         // large: static (the application parses one file at a time)
         if (parse_kv(p, &kv, err, line)) {
             return -1;
         }
@@ -979,72 +1053,145 @@ int dt_parse(const char *text, uint32_t len, DiagFile *out, DtErr *err)
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 // the compiler
-static int to_ticks(uint32_t n, bool us, uint32_t tpus256, uint32_t *out, int line, DtErr *e)
+static int to_ticks(uint32_t n, bool us, uint32_t tpus256, uint64_t maxv, uint32_t *out, int line, DtErr *e)
 {
     uint64_t v = us ? ((uint64_t)n * tpus256 + 255) / 256 : n;       // a time in microseconds rounds up: a wait is never shorter than asked
-    if (v < 1 || v > PD_ARG_MAX) {
-        return fail(e, line, "%u %s is %s%u clocks at this clock; the engine counts 1 .. %u", (unsigned)n, us ? "us" : "clocks", v > 0xFFFFFFFFull ? "more than " : "", (unsigned)(v > 0xFFFFFFFFull ? 0xFFFFFFFFull : v), (unsigned)PD_ARG_MAX);   // T251: no length modifier on the board
+    if (v < 1 || v > maxv) {
+        return fail(e, line, "%u %s is %s%u clocks at this clock; the engine counts 1 .. %u here", (unsigned)n, us ? "us" : "clocks", v > 0xFFFFFFFFull ? "more than " : "", (unsigned)(v > 0xFFFFFFFFull ? 0xFFFFFFFFull : v), (unsigned)maxv);   // T251: no length modifier on the board
     }
     *out = (uint32_t)v;
     return 0;
 }
 
-int dt_compile(const DiagTest &t, uint32_t tpus256, DtProgram *p, DtErr *err)
+// the words a step costs in the step RAM
+static int step_words(const DtStep &s)
+{
+    switch (s.op) {
+    case DT_OP_DRIVE: return s.npins;
+    case DT_OP_EDGES: case DT_OP_TTE: case DT_OP_CAPTURE: return 2;
+    case DT_OP_WRITE_REG: return s.regbytes;
+    }
+    return 1;
+}
+
+int dt_compile(const DiagTest &t, const DtPins &pins, uint32_t tpus256, DtProgram *p, DtErr *err)
 {
     memset(p, 0, sizeof(*p));
     if (!tpus256) {
         return fail(err, 0, "the engine reports no clock (ticks per microsecond is 0)");
     }
+    // every name of the pool against the table; the line of the first step or eval that uses it is the error's
+    for (int i = 0; i < t.nnames; i++) {
+        int ix = dtv2_pin_find(pins, t.names[i]);
+        if (ix < 0) {
+            int line = 0;
+            for (int k = 0; k < t.nsteps && !line; k++) {
+                const DtStep &s = t.steps[k];
+                if ((s.op == DT_OP_DRIVE || s.op == DT_OP_EDGES || s.op == DT_OP_TTE || s.op == DT_OP_CAPTURE) && i >= s.pfirst && i < s.pfirst + s.npins) {
+                    line = s.line;
+                }
+            }
+            for (int k = 0; k < t.nevals && !line; k++) {
+                if (i >= t.evals[k].pfirst && i < t.evals[k].pfirst + t.evals[k].npins) {
+                    line = t.evals[k].line;
+                }
+            }
+            return fail(err, line, "'%s' is no pin of this bitstream's table", t.names[i]);
+        }
+        p->pin_of[i] = (uint8_t)ix;
+    }
+    memset(p->cap_lane, 0x7F, sizeof(p->cap_lane));
     int n = 0;
     for (int i = 0; i < t.nsteps; i++) {
         const DtStep &s = t.steps[i];
-        uint32_t w = 0, v = 0;
-        if (n + 2 > 255) {
+        uint32_t v = 0;
+        if (n + step_words(s) + 1 > 256) {
             return fail(err, s.line, "the step list is longer than the step RAM");
         }
         p->word_of[i] = (uint16_t)n;
         switch (s.op) {
-        case DT_OP_DRIVE: w = PD_STEP_WORD(PD_OP_DRIVE, 0, s.mask | (s.level ? s.mask << 10 : 0)); break;
+        case DT_OP_DRIVE:
+            for (int k = 0; k < s.npins; k++) {
+                p->words[n++] = dv2_drive(s.level, p->pin_of[s.pfirst + k]);
+            }
+            break;
         case DT_OP_WAIT:
-            if (to_ticks(s.n, s.in_us, tpus256, &v, s.line, err)) {
+            if (to_ticks(s.n, s.in_us, tpus256, 0xFFFFFF, &v, s.line, err)) {
                 return -1;
             }
-            w = PD_STEP_WORD(PD_OP_WAIT, 0, v);
+            p->words[n++] = dv2_wait(v);
             break;
-        case DT_OP_SAMPLE: w = PD_STEP_WORD(PD_OP_SAMPLE, 0, 0); break;
+        case DT_OP_SAMPLE: p->words[n++] = dv2_sample(); break;
         case DT_OP_EDGES:
-            if (to_ticks(s.n, s.in_us, tpus256, &v, s.line, err)) {
+            if (to_ticks(s.n, s.in_us, tpus256, 0xFFFFFFFFull, &v, s.line, err)) {
                 return -1;
             }
-            p->words[n++] = PD_STEP_WORD(PD_OP_MASK, 0, 1u << s.sel);
-            w = PD_STEP_WORD(PD_OP_EDGES, 0, v);
+            p->words[n++] = dv2_edges(s.edge, p->pin_of[s.pfirst]);
+            p->words[n++] = v;
             break;
-        case DT_OP_TIME_TO_FLIP:
-            if (to_ticks(s.n, s.in_us, tpus256, &v, s.line, err)) {
+        case DT_OP_TTE:
+            if (to_ticks(s.n, s.in_us, tpus256, 0x7FFFFFFF, &v, s.line, err)) {
                 return -1;
             }
-            w = PD_STEP_WORD(PD_OP_TIME_TO_FLIP, s.sel, v);
+            p->words[n++] = dv2_tte(s.edge, p->pin_of[s.pfirst]);
+            p->words[n++] = v;
             if (s.slot >= 0) {
                 p->timeout_ticks[s.slot] = v;
             }
             break;
-        case DT_OP_PADCTL: w = PD_STEP_WORD(PD_OP_PADCTL, 0, s.pad); break;
         case DT_OP_LOOP: {
             int words = 0;
             for (int j = 1; j <= s.body; j++) {
-                words += t.steps[i + j].op == DT_OP_EDGES ? 2 : 1;
+                words += step_words(t.steps[i + j]);
             }
             if (words > 255) {
                 return fail(err, s.line, "the loop body is longer than 255 words");
             }
-            w = PD_STEP_WORD(PD_OP_LOOP, 0, (s.count << 8) | (uint32_t)words);
+            p->words[n++] = dv2_loop(s.count, (uint32_t)words);
             break;
         }
-        case DT_OP_WAIT_USER: w = PD_STEP_WORD(PD_OP_WAIT_USER, 0, s.prompt); break;
+        case DT_OP_WAIT_USER: p->words[n++] = dv2_wait_user((uint32_t)s.prompt); break;
+        case DT_OP_WRITE_REG:
+            for (int k = 0; k < s.regbytes; k++) {
+                p->words[n++] = dv2_write_reg(s.reg + (uint32_t)k, (s.value >> (8 * k)) & 0xFF);
+            }
+            break;
+        case DT_OP_CAPTURE: {
+            if (to_ticks(s.n, s.in_us, tpus256, 0xFFFFFF, &v, s.line, err)) {
+                return -1;
+            }
+            if (p->cap_total + s.samples > DT_CAP_MAX) {
+                return fail(err, s.line, "the captures of a test hold at most %d samples in all (this one makes %u)", DT_CAP_MAX, (unsigned)(p->cap_total + s.samples));
+            }
+            uint8_t lane[DT_EPINS];
+            for (int k = 0; k < s.npins; k++) {
+                lane[k] = p->pin_of[s.pfirst + k];
+            }
+            if (!p->ncap_lanes) {
+                p->ncap_lanes = s.npins;
+                memcpy(p->cap_lane, lane, s.npins);
+            } else if (p->ncap_lanes != s.npins || memcmp(p->cap_lane, lane, s.npins)) {
+                return fail(err, s.line, "every capture of a test names the same pins in the same order (one set of lanes per run)");
+            }
+            p->cap_off[s.slot] = p->cap_total;
+            p->cap_samples[s.slot] = s.samples;
+            p->cap_total += s.samples;
+            p->words[n++] = dv2_capture(v);
+            p->words[n++] = s.samples;
+            break;
         }
-        p->words[n++] = w;
+        case DT_OP_CAPWAIT: p->words[n++] = dv2_capwait(); break;
+        }
     }
-    p->words[n++] = PD_STEP_WORD(PD_OP_END, 0, 0);
+    // the ring line of each capture: it starts on the line after the one the capture before it ended on (CAP RESET before RUN puts the first at line 0)
+    uint32_t line0 = 0;
+    for (int i = 0; i < t.nsteps; i++) {
+        if (t.steps[i].op == DT_OP_CAPTURE) {
+            p->cap_line0[t.steps[i].slot] = line0;
+            line0 += dtv2_cap_lines(t.steps[i].samples);
+        }
+    }
+    p->words[n++] = dv2_end();
     p->n = n;
     return 0;
 }
@@ -1063,7 +1210,8 @@ int dt_plan(const DiagTest &t, int8_t slot_of[512])
         for (int r = 0; r < reps; r++) {
             for (int j = 0; j < body; j++) {
                 const DtStep &x = t.steps[i + j];
-                if (x.op == DT_OP_SAMPLE || x.op == DT_OP_EDGES || x.op == DT_OP_TIME_TO_FLIP) {
+                int w = x.op == DT_OP_SAMPLE ? DT_SAMPLE_WORDS : x.op == DT_OP_EDGES || x.op == DT_OP_TTE ? 1 : 0;
+                for (int k = 0; k < w; k++) {
                     if (n >= 512) {
                         return -1;
                     }
@@ -1080,31 +1228,17 @@ int dt_plan(const DiagTest &t, int8_t slot_of[512])
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 // evaluation
-bool dt_value(const DiagTest &t, const DtResult &r, const DtEval &e, int index, int64_t *out)
+// the words of slot `slot` in FIFO order: the n-th of them is r.fifo[...]
+static int slot_word_ix(const DtResult &r, int slot, int nth)
 {
-    (void)t;
-    int seen = 0;
     for (int i = 0; i < r.nfifo; i++) {
-        if (r.slot_of[i] != e.slot) {
-            continue;
+        if (r.slot_of[i] == slot && nth-- == 0) {
+            return i;
         }
-        if (seen++ != index) {
-            continue;
-        }
-        uint32_t w = r.fifo[i];
-        switch (e.field) {
-        case DT_F_PINS: *out = (w >> 6) & 0x3FF; break;
-        case DT_F_CMP: *out = (w >> 2) & 0xF; break;
-        case DT_F_TS: *out = w >> 16; break;
-        case DT_F_FLAGS: *out = w & 3; break;
-        default: *out = t.slots[e.slot].kind == DT_SLOT_TIME ? (w & 0xFFFFFF) : w; break;
-        }
-        return true;
     }
-    return false;
+    return -1;
 }
-
-static int slot_values(const DtResult &r, int slot)
+static int slot_words(const DtResult &r, int slot)
 {
     int n = 0;
     for (int i = 0; i < r.nfifo; i++) {
@@ -1112,15 +1246,62 @@ static int slot_values(const DtResult &r, int slot)
     }
     return n;
 }
-
-static int fifo_index(const DtResult &r, int slot, int nth)
+static int slot_values(const DiagTest &t, const DtResult &r, int slot)
 {
-    for (int i = 0; i < r.nfifo; i++) {
-        if (r.slot_of[i] == slot && nth-- == 0) {
-            return i;
+    return slot_words(r, slot) / (t.slots[slot].kind == DT_SLOT_SAMPLE ? DT_SAMPLE_WORDS : 1);
+}
+
+// The four snapshot words of the n-th value of a sample slot, and t.
+static bool sample_at(const DiagTest &t, const DtResult &r, int slot, int index, uint32_t *ts, uint32_t snap[4])
+{
+    if (slot < 0 || t.slots[slot].kind != DT_SLOT_SAMPLE) {
+        return false;
+    }
+    int w0 = slot_word_ix(r, slot, index * DT_SAMPLE_WORDS);
+    if (w0 < 0 || slot_words(r, slot) < (index + 1) * DT_SAMPLE_WORDS) {
+        return false;
+    }
+    int seen = 0;
+    uint32_t v[DT_SAMPLE_WORDS];
+    for (int i = w0; i < r.nfifo && seen < DT_SAMPLE_WORDS; i++) {
+        if (r.slot_of[i] == slot) {
+            v[seen++] = r.fifo[i];
         }
     }
-    return 0;
+    *ts = v[0];
+    for (int k = 0; k < 4; k++) {
+        snap[k] = v[1 + k];
+    }
+    return true;
+}
+
+bool dt_value(const DiagTest &t, const DtResult &r, const DtEval &e, int index, int64_t *out)
+{
+    if (e.slot < 0) {
+        return false;
+    }
+    if (t.slots[e.slot].kind == DT_SLOT_SAMPLE) {
+        uint32_t ts, snap[4];
+        if (!sample_at(t, r, e.slot, index, &ts, snap)) {
+            return false;
+        }
+        if (e.field == DT_F_TS) {
+            *out = ts;
+        } else {
+            uint32_t v = 0;
+            for (int j = 0; j < e.npins; j++) {
+                v |= (uint32_t)dt_snap_bit(snap, r.prog ? r.prog->pin_of[e.pfirst + j] : 0) << j;
+            }
+            *out = v;
+        }
+        return true;
+    }
+    int w = slot_word_ix(r, e.slot, index);
+    if (w < 0) {
+        return false;
+    }
+    *out = t.slots[e.slot].kind == DT_SLOT_TIME ? (int64_t)(r.fifo[w] & 0x7FFFFFFF) : (int64_t)r.fifo[w];
+    return true;
 }
 
 static int eval_one(const DiagTest &t, const DtResult &r, const DtEval &e)
@@ -1135,7 +1316,7 @@ static int eval_one(const DiagTest &t, const DtResult &r, const DtEval &e)
         }
         return DT_PASS;
     }
-    int nv = slot_values(r, e.slot);
+    int nv = slot_values(t, r, e.slot);
     int from = e.each ? 0 : e.index, to = e.each ? nv : e.index + 1;
     if (nv == 0 || to > nv) {
         return DT_NODATA;
@@ -1146,11 +1327,14 @@ static int eval_one(const DiagTest &t, const DtResult &r, const DtEval &e)
         if (!dt_value(t, r, e, ix, &v)) {
             return DT_NODATA;
         }
-        if (t.slots[e.slot].kind == DT_SLOT_TIME && (r.fifo[fifo_index(r, e.slot, ix)] >> 31)) {
-            if (res == DT_PASS) {
-                res = DT_NOFLIP;
+        if (t.slots[e.slot].kind == DT_SLOT_TIME) {
+            int w = slot_word_ix(r, e.slot, ix);
+            if (w >= 0 && (r.fifo[w] >> 31)) {
+                if (res == DT_PASS) {
+                    res = DT_NOFLIP;
+                }
+                continue;
             }
-            continue;
         }
         int64_t m = e.has_mask ? (v & (int64_t)e.mask) : v;
         bool ok = true;
@@ -1195,22 +1379,6 @@ void dt_evaluate(const DiagTest &t, DtResult *r)
         } else {
             r->nfail++;
         }
-    }
-}
-
-void dt_pins_text(uint32_t live, char *out, int n)
-{
-    static const char dirs[5] = { 'U', 'D', 'L', 'R', 'F' };
-    int o = 0;
-    for (int port = 0; port < 2; port++) {
-        o += snprintf(out + o, n - o, "%sP%d", port ? "  " : "", port + 1);
-        for (int b = 0; b < 5; b++) {
-            o += snprintf(out + o, n - o, " %c%d", dirs[b], (int)((live >> (port * 5 + b)) & 1));
-        }
-    }
-    o += snprintf(out + o, n - o, "  CMP");
-    for (int b = 0; b < 4; b++) {
-        o += snprintf(out + o, n - o, " %d", (int)((live >> (PD_CMP_SHIFT + b)) & 1));
     }
 }
 
@@ -1288,7 +1456,7 @@ static const char *prompt_word(int s)
 }
 static const char *kind_word(int k)
 {
-    return k == DT_SLOT_SAMPLE ? "sample" : k == DT_SLOT_EDGES ? "edges" : "time";
+    return k == DT_SLOT_SAMPLE ? "sample" : k == DT_SLOT_EDGES ? "edges" : k == DT_SLOT_CAP ? "capture" : "time";
 }
 
 static bool slot_listed(const DiagTest &t, int s)
@@ -1309,7 +1477,7 @@ static void verdict_text(const DtEval &e, int v, char *out, int n)
     if (v == DT_PASS) {
         snprintf(out, n, "%s", e.verdict);
     } else if (v == DT_NOFLIP) {
-        snprintf(out, n, "no flip within the timeout");
+        snprintf(out, n, "no edge within the timeout");
     } else if (v == DT_NODATA) {
         snprintf(out, n, "no value was measured");
     } else if (e.fail[0]) {
@@ -1320,6 +1488,58 @@ static void verdict_text(const DtEval &e, int v, char *out, int n)
 }
 
 static bool has_eval(const DtResult &r) { return !strcmp(r.status, "done"); }
+
+// The pins an eval looks at in a sample slot (the names of every eval whose value or differs is that slot), by table index, first seen first: what the readable report shows of a sample.
+static int show_pins(const DiagTest &t, const DtResult &r, int slot, uint8_t out[16])
+{
+    int n = 0;
+    for (int i = 0; i < t.nevals && r.prog; i++) {
+        const DtEval &e = t.evals[i];
+        if (e.npins && (e.slot == slot || e.differs_slot == slot) && e.value[0]) {
+            for (int j = 0; j < e.npins && n < 16; j++) {
+                uint8_t ix = r.prog->pin_of[e.pfirst + j];
+                bool have = false;
+                for (int k = 0; k < n; k++) {
+                    have |= out[k] == ix;
+                }
+                if (!have) {
+                    out[n++] = ix;
+                }
+            }
+        }
+    }
+    return n;
+}
+static const char *pin_name(const DtResult &r, int ix) { return r.pins && ix >= 0 && ix < r.pins->n ? r.pins->p[ix].name : "?"; }
+
+// "step 12 (line 40): drive KBJOY_1_JOY0" - the step the engine refused first, from REF_PC (a two word op: its second word)
+static void refused_text(const DiagTest &t, const DtResult &r, char *out, int n)
+{
+    out[0] = 0;
+    if (!r.refused || !r.prog) {
+        return;
+    }
+    int si = -1;
+    for (int k = 0; k < t.nsteps; k++) {
+        if (r.prog->word_of[k] <= r.refused_word) {
+            si = k;
+        }
+    }
+    if (si < 0) {
+        snprintf(out, n, "word %d", r.refused_word);
+        return;
+    }
+    const DtStep &s = t.steps[si];
+    static const char *const ops[] = { "end", "drive", "wait", "sample", "edges", "time_to_edge", "loop", "wait_user", "write_reg", "capture", "capwait" };
+    int k = r.refused_word - r.prog->word_of[si];
+    if (s.op == DT_OP_DRIVE && k >= 0 && k < s.npins) {
+        snprintf(out, n, "step %d (line %d): drive %s %s", si + 1, s.line, t.names[s.pfirst + k], s.level == DV2_LOW ? "low" : s.level == DV2_HIGH ? "high" : s.level == DV2_HIZ ? "hiz" : "release");
+    } else if ((s.op == DT_OP_EDGES || s.op == DT_OP_TTE) && s.npins) {
+        snprintf(out, n, "step %d (line %d): %s %s", si + 1, s.line, ops[s.op], t.names[s.pfirst]);
+    } else {
+        snprintf(out, n, "step %d (line %d): %s", si + 1, s.line, ops[s.op]);
+    }
+}
 
 int dt_write_toml(const DiagTest &t, const DtResult &r, const char *core_version, const char *stamp, char *out, int cap)
 {
@@ -1340,6 +1560,13 @@ int dt_write_toml(const DiagTest &t, const DtResult &r, const char *core_version
         o.str(r.reason);
     }
     o.put("\n");
+    if (r.refused || r.guard_trip) {
+        char rt[160];
+        refused_text(t, r, rt, sizeof(rt));
+        o.put("\n[refused]\ncount = %d\nfirst = ", r.refused);
+        o.str(rt);
+        o.put("\nguard_trip = %s\n", r.guard_trip ? "true" : "false");
+    }
     if (t.nprompts) {
         o.put("\n[prompt]\n");
         for (int i = 0; i < t.nprompts; i++) {
@@ -1352,6 +1579,18 @@ int dt_write_toml(const DiagTest &t, const DtResult &r, const char *core_version
         if (!slot_listed(t, s)) {
             continue;
         }
+        if (t.slots[s].kind == DT_SLOT_CAP && r.prog) {
+            o.put("\n[slot.%s]\nkind = \"capture\"\nlanes = [", t.slots[s].name);
+            for (int k = 0; k < r.prog->ncap_lanes; k++) {
+                o.put("%s\"%s\"", k ? ", " : "", pin_name(r, r.prog->cap_lane[k]));
+            }
+            o.put("]\nsamples = %u\nvalues = [", (unsigned)r.prog->cap_samples[s]);
+            for (uint32_t k = 0; k < r.prog->cap_samples[s] && r.prog->cap_off[s] + k < (uint32_t)r.ncap; k++) {
+                o.put("%s%u", k ? ", " : "", (unsigned)r.cap[r.prog->cap_off[s] + k]);
+            }
+            o.put("]\n");
+            continue;
+        }
         o.put("\n[slot.%s]\nkind = \"%s\"\nvalues = [", t.slots[s].name, kind_word(t.slots[s].kind));
         bool first = true;
         for (int i = 0; i < r.nfifo; i++) {
@@ -1362,15 +1601,36 @@ int dt_write_toml(const DiagTest &t, const DtResult &r, const char *core_version
         }
         o.put("]\n");
         if (t.slots[s].kind == DT_SLOT_SAMPLE) {
-            static const struct { const char *name; int shift; uint32_t mask; } f[] = { { "ts", 16, 0xFFFF }, { "pins", 6, 0x3FF }, { "cmp", 2, 0xF } };
-            for (int k = 0; k < 3; k++) {
-                o.put("%s = [", f[k].name);
-                first = true;
-                for (int i = 0; i < r.nfifo; i++) {
-                    if (r.slot_of[i] == s) {
-                        o.put("%s%u", first ? "" : ", ", (unsigned)((r.fifo[i] >> f[k].shift) & f[k].mask));
-                        first = false;
+            int nv = slot_values(t, r, s);
+            o.put("ts = [");
+            for (int i = 0; i < nv; i++) {
+                uint32_t ts, sn[4];
+                sample_at(t, r, s, i, &ts, sn);
+                o.put("%s%u", i ? ", " : "", (unsigned)ts);
+            }
+            o.put("]\nsnapshot = [");
+            for (int i = 0; i < nv; i++) {
+                uint32_t ts, sn[4];
+                sample_at(t, r, s, i, &ts, sn);
+                o.put("%s\"%08x%08x%08x%08x\"", i ? ", " : "", (unsigned)sn[3], (unsigned)sn[2], (unsigned)sn[1], (unsigned)sn[0]);
+            }
+            o.put("]\n");
+            uint8_t sh[16];
+            int nsh = show_pins(t, r, s, sh);
+            if (nsh) {
+                o.put("pins = [");
+                for (int k = 0; k < nsh; k++) {
+                    o.put("%s\"%s\"", k ? ", " : "", pin_name(r, sh[k]));
+                }
+                o.put("]\nlevels = [");
+                for (int i = 0; i < nv; i++) {
+                    uint32_t ts, sn[4];
+                    sample_at(t, r, s, i, &ts, sn);
+                    o.put("%s\"", i ? ", " : "");
+                    for (int k = 0; k < nsh; k++) {
+                        o.put("%d", dt_snap_bit(sn, sh[k]) ? 1 : 0);
                     }
+                    o.put("\"");
                 }
                 o.put("]\n");
             }
@@ -1433,42 +1693,58 @@ int dt_write_text(const DiagTest &t, const DtResult &r, const char *core_version
             o.put("  %-8s %-9s %s\n", t.prompts[i].id, prompt_word(r.prompt_state[i]), t.prompts[i].text);
         }
     }
-    if (r.nfifo) {
+    if (r.refused || r.guard_trip) {
+        char rt[160];
+        refused_text(t, r, rt, sizeof(rt));
+        o.put("\nRefused: %d step(s) of the list were refused by the engine%s%s%s\n", r.refused, rt[0] ? ", the first is " : "", rt, r.guard_trip ? ". GAME or EXROM went low: a guarded output was released." : ".");
+    }
+    if (r.nfifo || r.ncap) {
         o.put("\nMeasurements\n");
         for (int s = 0; s < t.nslots; s++) {
             if (!slot_listed(t, s)) {
                 continue;
             }
-            int k = 0;
-            for (int i = 0; i < r.nfifo; i++) {
-                if (r.slot_of[i] != s) {
-                    continue;
+            if (t.slots[s].kind == DT_SLOT_CAP) {
+                if (r.prog) {
+                    o.put("  %-14s capture %u samples of %d lanes (the .toml has the samples)\n", t.slots[s].name, (unsigned)r.prog->cap_samples[s], r.prog->ncap_lanes);
                 }
+                continue;
+            }
+            int nvals = slot_values(t, r, s);
+            uint8_t sh[16];
+            int nsh = t.slots[s].kind == DT_SLOT_SAMPLE ? show_pins(t, r, s, sh) : 0;
+            for (int k = 0; k < nvals; k++) {
                 if (k >= 64) {                         // the readable report shows the first 64 of a long loop; the .toml has them all
-                    k++;
                     continue;
                 }
-                uint32_t w = r.fifo[i];
                 char lbl[40];
-                snprintf(lbl, sizeof(lbl), "%s[%d]", t.slots[s].name, k++);
+                snprintf(lbl, sizeof(lbl), "%s[%d]", t.slots[s].name, k);
                 if (t.slots[s].kind == DT_SLOT_SAMPLE) {
-                    char pt[96];
-                    dt_pins_text(((w >> 6) & 0x3FF) | (((w >> 2) & 0xF) << PD_CMP_SHIFT), pt, sizeof(pt));
-                    o.put("  %-14s sample  t=%u  %s\n", lbl, (unsigned)(w >> 16), pt);
-                } else if (t.slots[s].kind == DT_SLOT_EDGES) {
-                    o.put("  %-14s edges   %u\n", lbl, (unsigned)w);
-                } else {
-                    bool nf = (w >> 31) != 0;
-                    if (nf) {
-                        o.put("  %-14s time    no flip within %u ticks\n", lbl, (unsigned)(w & 0xFFFFFF));
+                    uint32_t ts, sn[4];
+                    sample_at(t, r, s, k, &ts, sn);
+                    o.put("  %-14s sample  t=%u ", lbl, (unsigned)ts);
+                    if (nsh) {
+                        for (int q = 0; q < nsh; q++) {
+                            o.put(" %s=%d", pin_name(r, sh[q]), dt_snap_bit(sn, sh[q]) ? 1 : 0);
+                        }
                     } else {
-                        uint64_t x100 = r.tpus256 ? (uint64_t)(w & 0xFFFFFF) * 25600 / r.tpus256 : 0;
-                        o.put("  %-14s time    %u ticks = %u.%02u us\n", lbl, (unsigned)(w & 0xFFFFFF), (unsigned)(x100 / 100), (unsigned)(x100 % 100));
+                        o.put(" snapshot %08x%08x%08x%08x", (unsigned)sn[3], (unsigned)sn[2], (unsigned)sn[1], (unsigned)sn[0]);
+                    }
+                    o.put("\n");
+                } else {
+                    uint32_t w = r.fifo[slot_word_ix(r, s, k)];
+                    if (t.slots[s].kind == DT_SLOT_EDGES) {
+                        o.put("  %-14s edges   %u\n", lbl, (unsigned)w);
+                    } else if (w >> 31) {
+                        o.put("  %-14s time    no edge within %u ticks\n", lbl, (unsigned)(w & 0x7FFFFFFF));
+                    } else {
+                        uint64_t x100 = r.tpus256 ? (uint64_t)(w & 0x7FFFFFFF) * 25600 / r.tpus256 : 0;
+                        o.put("  %-14s time    %u ticks = %u.%02u us\n", lbl, (unsigned)(w & 0x7FFFFFFF), (unsigned)(x100 / 100), (unsigned)(x100 % 100));
                     }
                 }
             }
-            if (k > 64) {
-                o.put("  %-14s ... %d more values in the .toml\n", t.slots[s].name, k - 64);
+            if (nvals > 64) {
+                o.put("  %-14s ... %d more values in the .toml\n", t.slots[s].name, nvals - 64);
             }
         }
     }
@@ -1488,10 +1764,31 @@ int dt_write_text(const DiagTest &t, const DtResult &r, const char *core_version
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 // the run
-uint32_t diag_live(CoreIo *io)
+static DtPins g_live_pins;
+static CoreIo *g_live_io;
+static bool g_live_ok;
+const DtPins *diag_pins(CoreIo *io)
 {
-    uint32_t lo = io->rd(PD_LIVE), hi = io->rd(PD_LIVE + 1);
-    return (lo | (hi << 8)) & ((1u << PD_LIVE_BITS) - 1);
+    if (!g_live_ok || g_live_io != io) {
+        g_live_ok = dtv2_pins_read(io, &g_live_pins) == 0;
+        g_live_io = io;
+    }
+    return g_live_ok ? &g_live_pins : 0;
+}
+void diag_pins_forget(void)
+{
+    g_live_ok = false;
+    g_live_io = 0;
+}
+
+void diag_live(CoreIo *io, uint32_t w[4])
+{
+    for (int k = 0; k < 4; k++) {
+        w[k] = 0;
+        for (int i = 0; i < 4; i++) {
+            w[k] |= (uint32_t)io->rd(PD_SNAP + 4 * k + i) << (8 * i);
+        }
+    }
 }
 
 static uint32_t rd32(CoreIo *io, uint32_t reg)
@@ -1523,7 +1820,8 @@ static char g_text[DT_FILE_MAX + 1];
 static DiagFile g_file;
 static DtProgram g_prog;
 static DtResult g_res;
-static char g_toml[40 * 1024];
+static DtPins g_pins;
+static char g_toml[64 * 1024];
 static char g_txt[24 * 1024];
 
 static void set_status(DtResult *r, const char *status, const char *reason)
@@ -1644,9 +1942,15 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             set_status(&r, "error", "the core does not answer as DIAG");
             break;
         }
+        if (!(io->rd(PD_CAPS) & PD_CAP_BANK) || dtv2_pins_read(io, &g_pins)) {
+            set_status(&r, "error", "the core has no pin table (a bitstream before the pin bank: DCAPS bit 3 is clear or PIN_COUNT is 0)");
+            break;
+        }
+        r.prog = &g_prog;
+        r.pins = &g_pins;
         r.tpus256 = rd32(io, PD_TICKS);
         DtErr ce;
-        if (dt_compile(t, r.tpus256, &g_prog, &ce)) {
+        if (dt_compile(t, g_pins, r.tpus256, &g_prog, &ce)) {
             snprintf(why, sizeof(why), "step %d: %s", ce.line, ce.msg);
             set_status(&r, "error", why);
             break;
@@ -1672,6 +1976,10 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
         }
         io->wr(PD_CTRL, PD_CTRL_ABORT);
         io->wr(PD_CTRL, PD_CTRL_CLEAR);
+        io->wr(PD_CTRL, PD_CTRL_CAPRST);                      // the ring starts at line 0 (refused while a capture samples: the ABORT stopped it)
+        for (int j = 0; j < DV2_CAP_LANES; j++) {
+            io->wr(PD_CAP_SEL + j, j < g_prog.ncap_lanes ? g_prog.cap_lane[j] : 0x7F);
+        }
         io->wr(PD_STEP_ADDR, 0);
         for (int i = 0; i < g_prog.n; i++) {
             wr_step(io, g_prog.words[i]);
@@ -1689,7 +1997,7 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
                 break;
             }
             if (st & PD_ST_WAITGO) {
-                uint32_t pc = io->rd(PD_PC) | ((uint32_t)io->rd(PD_PC + 1) << 8);
+                uint32_t pc = io->rd(PD_PC);
                 int si = -1;
                 for (int k = 0; k < t.nsteps; k++) {
                     if (g_prog.word_of[k] == pc) {
@@ -1712,7 +2020,7 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
                 // the engine has left the prompt when it is not waiting any more or stands at another step (the next prompt may follow at once)
                 uint32_t g0 = env->now_ms();
                 for (;;) {
-                    uint32_t pc2 = io->rd(PD_PC) | ((uint32_t)io->rd(PD_PC + 1) << 8);
+                    uint32_t pc2 = io->rd(PD_PC);
                     if (!(io->rd(PD_STATUS) & PD_ST_WAITGO) || pc2 != pc) {
                         break;
                     }
@@ -1722,7 +2030,7 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
                     env->delay_ms(1);
                 }
                 {
-                    uint32_t pc2 = io->rd(PD_PC) | ((uint32_t)io->rd(PD_PC + 1) << 8);
+                    uint32_t pc2 = io->rd(PD_PC);
                     if ((io->rd(PD_STATUS) & PD_ST_WAITGO) && pc2 == pc) {
                         set_status(&r, "error", "the engine did not leave the prompt after GO");
                         break;
@@ -1749,6 +2057,35 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             r.fifo[i] = rd_fifo_word(io);
         }
         r.nfifo = level;
+        if (st & PD_ST_REFUSED) {                            // the engine skipped a step: a pin it may not drive, a guarded one with a cartridge in; the step and the pin go to the result
+            r.refused = io->rd(PD_REF_CNT);
+            r.refused_word = io->rd(PD_REF_PC);
+        }
+        r.guard_trip = (st & PD_ST_GUARD) != 0;
+        if (!strcmp(r.status, "done") && g_prog.cap_total) {   // a capture goes on after END: wait until the writer is idle, then read the ring back
+            uint32_t c0 = env->now_ms();
+            while ((io->rd(PD_CAP_STATUS) & (PD_CAP_ST_SAMPLING | PD_CAP_ST_WRITTEN)) != PD_CAP_ST_WRITTEN) {
+                if (env->now_ms() - c0 > limit) {
+                    set_status(&r, "timeout", "the capture did not end in time");
+                    break;
+                }
+                env->delay_ms(1);
+            }
+            if (!strcmp(r.status, "done")) {
+                for (int k = 0; k < t.nsteps; k++) {
+                    const DtStep &cs = t.steps[k];
+                    if (cs.op == DT_OP_CAPTURE && !dtv2_cap_read(io, g_prog.cap_line0[cs.slot], cs.samples, r.cap + g_prog.cap_off[cs.slot])) {
+                        set_status(&r, "error", "the capture ring cannot be read back (the reader does not answer)");
+                        break;
+                    }
+                }
+                r.ncap = (int)g_prog.cap_total;
+                if (io->rd(PD_CAP_STATUS) & PD_CAP_ST_OVERRUN) {
+                    snprintf(why, sizeof(why), "the capture overran: %u samples were lost (the period is too short for the DDR2)", (unsigned)(io->rd(PD_CAP_LOST) | (io->rd(PD_CAP_LOST + 1) << 8) | (io->rd(PD_CAP_LOST + 2) << 16)));
+                    set_status(&r, "error", why);
+                }
+            }
+        }
         if (!strcmp(r.status, "done")) {
             if (st & PD_ST_OVERFLOW) {
                 set_status(&r, "error", "the result FIFO overflowed");
@@ -1996,7 +2333,7 @@ static int av_parse(const char *text, uint32_t len, AvTest *t, DtErr *err)
             }
             continue;
         }
-        Kv kv;
+        static Kv kv;
         if (parse_kv(q, &kv, err, line)) {
             return -1;
         }
@@ -2453,7 +2790,7 @@ static int xpad_parse(const char *text, uint32_t len, XpadTest *t, DtErr *err)
             sect = 1;
             continue;
         }
-        Kv kv;
+        static Kv kv;
         if (parse_kv(q, &kv, err, line)) {
             return -1;
         }

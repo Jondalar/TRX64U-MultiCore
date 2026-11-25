@@ -20,13 +20,23 @@ static CoreDialogs *host() { return g_ctx ? g_ctx->dialogs : 0; }
 // ---- the live page ---------------------------------------------------------------------------------------------------------------------------
 static char g_p1[40], g_p2[40], g_cmp[24];
 
+// The pins the page shows are found by their names in the bitstream's table (diag_pins), never by a number. The level of a pin: 1 high, 0 low, '-' when the table has no such pin.
+static char pin_level(CoreCtx *c, const uint32_t w[4], const char *name)
+{
+    const DtPins *t = diag_pins(c->io);
+    int ix = t ? dtv2_pin_find(*t, name) : -1;
+    return ix < 0 ? '-' : dt_snap_bit(w, ix) ? '1' : '0';
+}
 static const char *port_text(CoreCtx *c, int port, char *buf, int n)
 {
-    uint32_t live = diag_live(c->io);
+    uint32_t w[4];
+    diag_live(c->io, w);
     static const char dirs[5] = { 'U', 'D', 'L', 'R', 'F' };
     int o = 0;
     for (int b = 0; b < 5; b++) {
-        o += snprintf(buf + o, n - o, "%s%c%d", b ? "  " : "", dirs[b], (int)((live >> (port * 5 + b)) & 1));
+        char nm[16];
+        snprintf(nm, sizeof(nm), "KBJOY_%d_JOY%d", port + 1, b);
+        o += snprintf(buf + o, n - o, "%s%c%c", b ? "  " : "", dirs[b], pin_level(c, w, nm));
     }
     return buf;
 }
@@ -34,8 +44,9 @@ static const char *st_p1(CoreCtx *c) { return port_text(c, 0, g_p1, sizeof(g_p1)
 static const char *st_p2(CoreCtx *c) { return port_text(c, 1, g_p2, sizeof(g_p2)); }
 static const char *st_cmp(CoreCtx *c)
 {
-    uint32_t live = diag_live(c->io);
-    snprintf(g_cmp, sizeof(g_cmp), "%d  %d  %d  %d", (int)((live >> 10) & 1), (int)((live >> 11) & 1), (int)((live >> 12) & 1), (int)((live >> 13) & 1));
+    uint32_t w[4];
+    diag_live(c->io, w);
+    snprintf(g_cmp, sizeof(g_cmp), "%c  %c  %c  %c", pin_level(c, w, "PADDLE_CMP0"), pin_level(c, w, "PADDLE_CMP1"), pin_level(c, w, "PADDLE_CMP2"), pin_level(c, w, "PADDLE_CMP3"));
     return g_cmp;
 }
 
@@ -339,6 +350,7 @@ static int start(CoreCtx *c, const char *path, const char *sub, OpOut &o)
         return OPE_BUSY;
     }
     folder_of(c);
+    diag_pins_forget();                                // the pin table is read again for this core
     g_ctx = c;
     g_pick_sub = sub;
     snprintf(g_path, sizeof(g_path), "%s", path);
@@ -361,6 +373,7 @@ static int pd_init(CoreCtx *c, char *, int)
     c->io->wr(PD_CTRL, PD_CTRL_ABORT);                 // every output released
     c->io->wr(PD_CTRL, PD_CTRL_CLEAR);
     folder_of(c);
+    diag_pins_forget();                                // the pin table is read again for this core
     g_ctx = c;
     panel_set_system_hook(picture_set_system);          // a panel row with `system` (the Standard of the A/V panel) sets the System Mode as the C128's page does
     return 0;
