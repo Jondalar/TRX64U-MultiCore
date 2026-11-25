@@ -1,4 +1,4 @@
-// T104 5.15 / T85: the Amiga 500 runs the generic core application. Its record (coreapp/cores/amiga.cc, amiga_desc) is read against the
+// T104 5.15 / T85: the Amiga 500 runs the generic core application. Its record (cores/amiga/app/lib/amiga.cc, amiga_desc) is read against the
 // register decode of the gateware the A500 core is built from (cores/amiga/rtl/trx/amiga_regs.v, NOT the A1200's own copy in cores/amiga1200):
 // the application is driven through a start (settings, hold, release), the four floppy slots, both hard disks, the mouse and the picture
 // window, and every register it writes or reads must be one the A500 gateware decodes. The A1200 has its own app (T213.3): built as that app

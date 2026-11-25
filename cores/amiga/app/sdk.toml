@@ -25,6 +25,11 @@ sources = ["amiga.cc"]
 headers = ["amiga_regs.h", "amiga_keys.h", "hk_defaults.h"]
 # newdisk: amiga.cc calls newdisk_register (the task Create blank ADF); pad: pad2_apply calls pad_ensure and pad_set_target (the gamepad as game port 2)
 needs = ["newdisk", "pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: amigaapp, the group amiga): unit = 2 unit tests (amiga500 the record against the register decode of the A500's gateware, amiga_regset the
+# settings down to the register bytes, amiga_rawkeys the key queue, amiga_ledload the LED selector, amiga_fbwin the picture of a core without a display window), service = 8 mock bitstream -> service (amiga_joyswap the "Joystick ports" setting down to the
+# register, amiga_descgen the record compiled from desc.toml against the descriptor, amiga_romreq its row of the host's ROM table, amiga_romset the Kickstart set, amiga_mousescale the Mouse Sensitivity and Acceleration rows), ui = 9 service -> UI
+# (amiga_ledcores the LED setting in the menu), api = 10 service -> API: its operations through the service call the REST and RPC transports make (svc_call; the A500's case of the shared test_memops, TEST_APP_AMIGA)
+tests = { unit = ["amiga500", "amiga_regset", "amiga_rawkeys", "amiga_ledload", "amiga_fbwin"], service = ["amiga_joyswap", "amiga_descgen", "amiga_romreq", "amiga_romset", "amiga_mousescale"], ui = ["amiga_ledcores"], api = ["amiga_memops"] }
 
 # "Create blank ADF" (the task of the descriptor, disk.create): the same sources as the shared app's library, S12. The capability "floppy" of the descriptor registers it too.
 [[library]]
@@ -67,8 +72,6 @@ name = "folderhd"
 sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
 headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
 bind = "folderhd_bind"
-# T239.5 D4: the folder as an Amiga hard disk (the FFS volume writer and its mailbox) on the A500's record
-tests = { unit = ["amiga_folderhd"] }
 
 # The cluster link map of an open FatFs file: the file manager's CoreFs seeks through it in a large HDF image (T104 5.16)
 [[library]]

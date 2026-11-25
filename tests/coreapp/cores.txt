@@ -3,7 +3,6 @@
 # `coreapp:<core>` per line here (plus `coreapp` = shared and `coreapp:cross`), keyed over the core's files and the shared sources only.
 # Files not listed are shared sources (the C64 program and cartridge libraries, the CBM drive library, tape, hotkey defaults, the table): a change there runs every group that links them.
 # Format: <core>: <file name or glob>... (names inside coreapp/cores/). A file under two cores, or one that is listed and missing, fails the suite.
-amiga: amiga.cc amiga_keys.h amiga_regs.h
 apple2: apple2*.cc apple2*.h
 c128: c128.cc c128_keys.h c128_regs.h
 pet: pet.cc pet_regs.h

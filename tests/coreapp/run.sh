@@ -78,12 +78,15 @@ source "$TST/nes_drv.sh"
 source "$TST/c264_drv.sh"
 source "$TST/zxnext_drv.sh"
 source "$TST/neogeo_drv.sh"
+source "$TST/amiga_drv.sh"
 source "$TST/shared_drv.sh"
 a8_drv_dir "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
 zxnext_drv_dir "$T/zxnexttab" || { echo "coreapp: the ZX Spectrum Next's driver table was not generated" >&2; exit 1; }   # zxnext_regs.h names the registers through it
 neogeo_drv_dir "$T/neogeotab" || { echo "coreapp: the Neo Geo's driver table was not generated" >&2; exit 1; }   # neogeo_regs.h names the registers through it
+amiga_drv_dir "$T/amigatab" || { echo "coreapp: the Amiga 500's driver table was not generated" >&2; exit 1; }   # amiga_regs.h names the registers through it
+AMLIB="$ROOT/cores/amiga/app/lib"   # T239.5 D15: the Amiga 500's library lives in its own repository part (cores/amiga/app/lib), not in coreapp/cores
 NEOLIB="$ROOT/cores/neogeo/app/lib"   # T239.5 D15: the Neo Geo's library lives in its own repository part (cores/neogeo/app/lib), not in coreapp/cores
 ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
@@ -93,18 +96,18 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$NEOLIB" "$AMLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264, the ZX Spectrum Next and the Neo Geo as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264, the ZX Spectrum Next, the Neo Geo and the Amiga 500 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -I"$NEOLIB" -I"$AMLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
 INC_VC20=(-DTEST_APP_VC20=1 -I"$VC20LIB" -I"$T/vc20tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_VC20+=("$i"); done
 # The Amiga 1200 is its own app as well (T213.3: cores/amiga1200/app). a12app CMD... builds like vc20app, with the A1200's library, its table and TEST_APP_A1200, and with a shim amiga_regs.h
-# (tests/coreapp/a1200shim) in front of the shared header, so the files that serve both apps get the A1200's registers; the shared app's amiga.cc is not in these builds (amiga1200.cc is).
+# (tests/coreapp/a1200shim) in front of the shared header, so the files that serve both apps get the A1200's registers; amiga.cc, the A500's library, is not in these builds (amiga1200.cc is).
 INC_A1200=(-DTEST_APP_A1200=1 -I"$TST/a1200shim" -I"$A1200LIB" -I"$T/a12tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Atari 800 XL is its own app as well (T239.5 D15: cores/atari800/app). a8app CMD... builds like vc20app, with the Atari's library, its table and TEST_APP_ATARI800: its units are in the group atari800.
@@ -112,16 +115,20 @@ INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
 # The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library, its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || INC_NES+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_NES+=("$i"); done
 # The Commodore 264 is its own app as well (T239.5 D15: cores/c264/app). c264app CMD... builds like nesapp, with the 264's library, its table and TEST_APP_C264: its units are in the group c264.
 INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || INC_C264+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_C264+=("$i"); done
 # The ZX Spectrum Next is its own app as well (T239.5 D15: cores/zxnext/app). zxnextapp CMD... builds like c264app, with the Next's library, its table and TEST_APP_ZXNEXT: its units are in the group zxnext.
 INC_ZXNEXT=(-DTEST_APP_ZXNEXT=1 -I"$ZXNLIB" -I"$T/zxnexttab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || INC_ZXNEXT+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_ZXNEXT+=("$i"); done
 # The Neo Geo is its own app as well (T239.5 D15: cores/neogeo/app). neogeoapp CMD... builds like zxnextapp, with the Neo Geo's library, its table and TEST_APP_NEOGEO: its units are in the group neogeo.
 INC_NEOGEO=(-DTEST_APP_NEOGEO=1 -I"$NEOLIB" -I"$T/neogeotab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || INC_NEOGEO+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_NEOGEO+=("$i"); done
+# The Amiga 500 is its own app as well (T239.5 D15: cores/amiga/app). amigaapp CMD... builds like neogeoapp, with the Amiga's library, its table and TEST_APP_AMIGA: its units are in the group amiga.
+INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || [ "$i" = "-I$NEOLIB" ] || [ "$i" = "-I$AMLIB" ] || INC_AMIGA+=("$i"); done
+amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga; "$@"; }
 neogeoapp() { local INC=("${INC_NEOGEO[@]}") CA_APP=neogeo; "$@"; }
 zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264; "$@"; }
@@ -181,7 +188,8 @@ control_job() {
   cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true
   cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true
   cp -R "$ZXNLIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$NEOLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's
+  cp -R "$NEOLIB"/* "$d"/ 2>/dev/null || true
+  cp -R "$AMLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's, the Neo Geo's, the Amiga 500's
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -685,19 +693,19 @@ control fh_absent folderhd_fold.cc 's/bool gone = fs->remove(path) || host_absen
 # S10: the poll is not held longer than the slice
 control fh_slice folderhd_fold.cc 's/if (now - t0 + longest >= FH_SLICE_MS) {/if (false) {/' $FHD
 
-run regset test_regset.cc $AM
+amigaapp run amiga_regset test_regset.cc $AM
 # T138 S3: the A1200 offers the Zorro III board (FAST_CFG 4), the A500 does not
 
 run mousesink test_mousesink.cc $AM
 # T141: the USB keyboard as raw Amiga key events (S3 the keys, S4 each key once / the menu / the register's room)
-run rawkeys test_rawkeys.cc $AM
+amigaapp run amiga_rawkeys test_rawkeys.cc $AM
 # rk_menukey is gone (T141 D5): SCROLL LOCK, the one menu key left, has no Amiga code, so dropping it from the menu keys sends nothing either
 # T159 S1/S2: case LED 1 = the machine's drive LED (the selector written once)
-run ledload test_ledload.cc $AM
+amigaapp run amiga_ledload test_ledload.cc $AM
 
 # T190 (#51): Mouse sensitivity / acceleration in the Amiga cores: the rows, a +10 report scaled as each setting says, the restart applying the stored values
-run mousescale test_mousescale.cc amiga.cc $BASEL
-control scale_store settings.cc 's/^    return write_cfg();$/    return true;/' test_mousescale.cc amiga.cc $BASEL
+amigaapp run amiga_mousescale test_mousescale.cc amiga.cc $BASEL
+amigaapp control scale_store settings.cc 's/^    return write_cfg();$/    return true;/' test_mousescale.cc amiga.cc $BASEL
 t_mousescale() {
   python3 -I "$TST/test_mousescale.py" > /dev/null
   return 0
@@ -706,7 +714,7 @@ ca_in shared && cc_block mousescale t_mousescale
 PASS=$((PASS + 1))
 
 # T104.1 5.6: the mouse library, a report stream into the Amiga's counters and the C64's 1351, and the keys-only UI
-run mouselib test_mouselib.cc amiga.cc $BASEL
+amigaapp run amiga_mouselib test_mouselib.cc amiga.cc $BASEL
 t_mousenav() {
   python3 -I "$TST/test_mousenav.py" > /dev/null
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
@@ -714,17 +722,17 @@ t_mousenav() {
 ca_in shared && cc_block mousenav t_mousenav
 PASS=$((PASS + 1))
 
-run romset test_romset.cc $AM
+amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
 DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
-run amiga500 test_amiga500.cc $AM
+amigaapp run amiga500 test_amiga500.cc $AM
 # T191: the clock: the setting not bound to AM_RTC_EN, loaded again at every release, the nibbles written without the loader hold, the weekday dropped
 
 # T97 5.10: the picture window follows the display window, in the application (fbwin.h)
-run fbwin test_fbwin.cc $AM
+amigaapp run amiga_fbwin test_fbwin.cc $AM
 
 # S12: the image has to fit the flash slot the boot ROM starts it from; the script ci/trxapps.sh runs on the built coreapp.app
 t_appsize() {
@@ -1100,6 +1108,30 @@ PY
   return 0
 }
 if ca_in neogeo && ca_unit neogeo_romreq; then t_romreq_neogeo; PASS=$((PASS + 1)); fi
+
+# T239.5 D15: the Amiga 500's units built as its app (amigaapp: its library cores/amiga/app/lib and its own table, the group amiga): amiga500 (its record against the decode of its gateware), amiga_regset, amiga_rawkeys, amiga_ledload,
+# amiga_mousescale (with its control), amiga_mouselib, amiga_romset and amiga_fbwin, run above where they were the shared units on the A500's record (the shared units keep it as a sample core on a fixture table), and the units below, which the
+# TOML B (cores/amiga/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: amiga.cc and the base's (no other core).
+AMD="desc_check.cc overlay.cc descrec.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
+amigaapp run amiga_joyswap test_joyswap.cc $AMD
+amigaapp run amiga_memops test_memops.cc $SVC $AMD
+RARGS="$BUN/app" amigaapp run amiga_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc freeze.cc $AMD
+amigaapp run amiga_ledcores test_ledcores.cc $AMD
+# the Amiga 500's rows of the host's ROM table: gen_romreq built as the Amiga 500's app, its rows in the host's table
+t_romreq_amiga() {
+  local INC=("${INC_AMIGA[@]}")
+  build "$T/gen_romreq_amiga" "$TST/gen_romreq.cc" $AMD
+  "$T/gen_romreq_amiga" > "$T/romreq_amiga.inc"
+  python3 -I - "$T/romreq_amiga.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Amiga 500's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test amiga_romreq: PASS"
+  return 0
+}
+if ca_in amiga && ca_unit amiga_romreq; then t_romreq_amiga; PASS=$((PASS + 1)); fi
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

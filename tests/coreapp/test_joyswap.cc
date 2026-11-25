@@ -11,7 +11,7 @@
 #if !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)       // the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
 #include "amiga_regs.h"
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)       // the A1200's, the Next's and the Neo Geo's app (run.sh a12app, zxnextapp, neogeoapp) have their own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)       // the A1200's, the Next's, the Neo Geo's and the Amiga 500's app (run.sh a12app, zxnextapp, neogeoapp, amigaapp) have their own core only
 #include "c128_regs.h"
 #include "c264_regs.h"
 #include "cpc_regs.h"
@@ -52,6 +52,8 @@ int main()
         { &zxnext_desc, ZXN_JOY },
 #elif defined(TEST_APP_NEOGEO)
         { &neogeo_desc, NEO_PAD },
+#elif defined(TEST_APP_AMIGA)
+        { &amiga_desc, AM_JOY_CFG },
 #else
         { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
         { &cpc_desc, CPC_JOY }, { &zxnext_desc, ZXN_JOY },
@@ -97,7 +99,7 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 1"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 2"), 1);
