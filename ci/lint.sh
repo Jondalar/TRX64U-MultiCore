@@ -49,6 +49,7 @@ check "python compile" bash -c 'git ls-files -- "*.py" | xargs python3 -m py_com
 check "ruff" bash -c 'git ls-files -- "*.py" | xargs ruff check --no-cache --select E9,F63,F7,F82'
 
 gcheck core "core descriptors" python3 tools/core_toml.py --check
+gcheck core "diag pin table (T260)" python3 tools/diag_pins_gen.py --check
 check "issue forms (T161)" python3 tools/check_issue_forms.py --selftest
 if command -v patch >/dev/null; then check "atari800 gen" sh tools/atari800_gen.sh --check; fi
 check "nes gen" python3 tools/nes_gen.py --check

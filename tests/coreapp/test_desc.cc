@@ -363,7 +363,7 @@ int main(int, char **argv)
 #elif defined(TEST_APP_A1200)
         CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 16);
+        CHECK(n205 >= 15);                               // the shared app's cores since the diag core left it (T260 P7)
 #endif
     }
 
