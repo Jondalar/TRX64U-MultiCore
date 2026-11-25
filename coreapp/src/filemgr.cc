@@ -600,6 +600,23 @@ void FileMgr::apply_pending()
         refresh_roots();
         load_dir();
     }
+    placed = false;
+    if (l.want_name[0]) {                                               // T262 D4 finding 12: the cursor on the entry an operation named (browse_at, browse_sheet), not on ".."
+        for (int i = 0; i < nlist; i++) {
+            if (!strcasecmp(list[i].name, l.want_name)) {
+                sel = i;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            char m[FS_NAME_MAX + 16];
+            snprintf(m, sizeof(m), "%s is not here", l.want_name);
+            say(m, true);
+        }
+        l.want_name[0] = 0;
+        lib_sync();
+    }
     if (l.mark_all) {
         l.mark_all = false;
         for (int i = 0; i < nlist; i++) {

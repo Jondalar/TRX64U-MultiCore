@@ -4309,7 +4309,14 @@ bool MenuCtl::take_screen()
     char spec[sizeof(c_->want_screen)];
     snprintf(spec, sizeof(spec), "%s", c_->want_screen);
     c_->want_screen[0] = 0;
-    return goto_spec(spec);
+    const bool went = goto_spec(spec);
+    if (c_->lib.want_sheet) {                                        // T262 D4 finding 12: browse_sheet: RETURN on the file the cursor was put on opens its action sheet
+        c_->lib.want_sheet = false;
+        if (went && is_browser() && fm_.placed && fm_.sel < fm_.nlist && !fm_.list[fm_.sel].dir) {
+            activate(false, false);
+        }
+    }
+    return went;
 }
 
 // The text a node's `sub` or `chip` key names: "@state.name" (a state value), "@info.Line" (an application information line), "link.Line" (ONLINE when

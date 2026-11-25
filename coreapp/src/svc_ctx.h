@@ -77,6 +77,13 @@ typedef struct SvcCtx {
     // while a job runs grows under the cursor. Only the last call before the operation returns counts; a call with an empty `op` or `src` does nothing. Task: lock, inside an operation's
     // handler called by the menu (an operation called by another door shows no list).
     void (*ask_list)(const char *op, int phase, const char *prompt, const char *src);
+    // Base 3.6 (T262 D4 finding 12): the file browser (F3, tab "browse") opens on the folder of `path` with the cursor on the file it names (not on ".."): the menu goes there when the operation
+    // that called this has returned. Result: false when the call was refused (not inside an operation the menu called, a path that is no "/medium/.../name", or a path too long for the
+    // browser); true when the request was stored (a file that is not in the folder then leaves the cursor at the top and the status line says so). Task: lock, inside an operation's handler.
+    bool (*browse_at)(const char *path);
+    // The same, and then the action sheet of that file opens, as RETURN on it in the browser (the list of what can be done with it). A path that names a folder only places the cursor.
+    // Result and task as browse_at.
+    bool (*browse_sheet)(const char *path);
 } SvcCtx;
 
 #ifdef __cplusplus

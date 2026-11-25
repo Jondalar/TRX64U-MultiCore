@@ -93,6 +93,31 @@ int main()
     // ---- D6: the file operations in a core that carries none of its own
     OpResult tmp;
     CHECK(ops_call(&r.c, "files.rename", 0, 0, &tmp) != OPE_NOT_FOUND);       // the operation exists in this core (the registry knows the name)
+
+    {   // T262 D4 finding 12: browse_at puts Browse on a folder with the cursor on a file (not on ".."); browse_sheet opens that file's action sheet as RETURN does
+        r.c.lib.want_dir[0] = 0;
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        r.c.lib.want_sheet = false;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "p.xex");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "z.bin");
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(r.m->chooser());
+        CHECK(r.find_row("Rename") >= 0);
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->chooser());
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "nothere.bin");        // a name that is not in the folder: no sheet, the cursor stays at the top
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(!r.m->chooser());
+        CHECK(!r.c.lib.want_sheet && !r.c.lib.want_name[0]);
+    }
     CHECK(ops_call(&r.c, "files.mkdir", 0, 0, &tmp) != OPE_NOT_FOUND);
     CHECK(ops_call(&r.c, "files.copy_job", 0, 0, &tmp) != OPE_NOT_FOUND);
 

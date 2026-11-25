@@ -31,6 +31,8 @@ struct LibSel {
     bool mark_all, mark_none;             // asked by an operation, taken by the menu
     char home[200];                       // the home folder ("" none)
     char want_dir[200];                   // an operation asks the Library to open this folder (the Home desk), taken by the menu
+    char want_name[FS_NAME_MAX + 1];      // with want_dir (T262 D4): the entry the cursor stands on after the folder is read ("" none: the top)
+    bool want_sheet;                      // with want_name: the action sheet of that entry opens, as RETURN on it (MenuCtl::take_screen)
 };
 
 struct CoreCtx {

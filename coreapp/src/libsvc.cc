@@ -258,6 +258,24 @@ struct LibSvc {
             ops_ask_list(c, op, phase, prompt ? prompt : "", src);
         }
     }
+    // T262 D4 finding 12: Browse on the folder of `path`, the cursor on its file (and its action sheet): the same way a library asks for a screen (want_screen, taken by the menu when the operation returns).
+    static bool browse_to(const char *path, bool sheet)
+    {
+        CoreCtx *c = C();
+        const char *sl = path && path[0] == '/' ? strrchr(path, '/') : 0;
+        if (!c || !c->menu_op || !sl || !sl[1] || strlen(path) >= sizeof(c->lib.want_dir) || strlen(sl + 1) > FS_NAME_MAX) {
+            return false;
+        }
+        const size_t dl = sl == path ? 1 : (size_t)(sl - path);
+        memcpy(c->lib.want_dir, path, dl);
+        c->lib.want_dir[dl] = 0;
+        snprintf(c->lib.want_name, sizeof(c->lib.want_name), "%s", sl + 1);
+        c->lib.want_sheet = sheet;
+        snprintf(c->want_screen, sizeof(c->want_screen), "F3/browse");
+        return true;
+    }
+    static bool browse_at(const char *path) { return browse_to(path, false); }
+    static bool browse_sheet(const char *path) { return browse_to(path, true); }
     static bool media_source(const char *slot, char *buf, int len)
     {
         CoreCtx *c = C();
@@ -780,6 +798,8 @@ void LibLoader::add_services()
     ctxtab_.media_source = LibSvc::media_source;
     ctxtab_.mount_notify = LibSvc::mount_notify;
     ctxtab_.ask_list = LibSvc::ask_list;
+    ctxtab_.browse_at = LibSvc::browse_at;
+    ctxtab_.browse_sheet = LibSvc::browse_sheet;
 
     memset(&io_, 0, sizeof(io_));
     io_.size = sizeof(io_);
