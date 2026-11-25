@@ -1,0 +1,156 @@
+# T260 P1/P2: the pin bank of the diag core - the ONE source of the pin table. tools/diag_pins_gen.py generates from it
+#   cores/diag/rtl/diag_pintab.vh   (IX_<name> indexes, N_PINS, the class / guard functions the probe engine uses)
+#   cores/diag/rtl/diag_pinrom.v    (the pin-table ROM the application reads through registers 0C0-0DF)
+#   cores/diag/mono/diag_dgin.vh    (mono/top.v: the snapshot input dg_in[index] = the net the top reads for that pin)
+# and `--check` (lint, sim diag_pins) finds the generated files current and the table equal to the top's connector ports (S3).
+#
+# index   position in the snapshot (register 040-04F) and in the ROM; fixed numbers, never reused. At most 15 characters in `name`.
+# port    the port of mono/top.v; bit = the bit of a vector port.   src = the net the top reads for the snapshot when it is not the port itself.
+# dir     in: the snapshot is the ball. out: the snapshot is what the FPGA drives (a released tri-state output reads 0). inout: the ball.
+# class   none = not drivable (read only);  od = open drain, LOW only;  pull = output 1 pulls the line low, LOW only (the snapshot bit is the output: 1 = pulling);
+#         push = push-pull LOW / HIGH, released = the idle value (`idle`, or the host's own function when `host`);  pz = LOW / HIGH, released = high-Z;
+#         pzh = as pz plus HIZ, released = driven 1 (the transceiver is off then).
+# guard   a cartridge-port pin: the gateware refuses a drive and releases it while SLOT_GAMEn or SLOT_EXROMn is low (T260 D4).
+# inv     the snapshot bit is 1 while the line is LOW (the IEC pins, SLOT_RST_I/O).   buf  behind a transceiver (the test sets DIR / OEn to read or drive it).
+# pwr     a power enable: never driven.   gen  owned by a generator block (diag_avout): read only, set through WRITE_REG.   host  the host's own function when released.
+# idle    level when released: 0, 1; absent = high-Z / host-owned.
+pin = [
+  { index = 0, name = "SLOT_ADDR0", port = "SLOT_ADDR", bit = 0, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 1, name = "SLOT_ADDR1", port = "SLOT_ADDR", bit = 1, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 2, name = "SLOT_ADDR2", port = "SLOT_ADDR", bit = 2, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 3, name = "SLOT_ADDR3", port = "SLOT_ADDR", bit = 3, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 4, name = "SLOT_ADDR4", port = "SLOT_ADDR", bit = 4, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 5, name = "SLOT_ADDR5", port = "SLOT_ADDR", bit = 5, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 6, name = "SLOT_ADDR6", port = "SLOT_ADDR", bit = 6, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 7, name = "SLOT_ADDR7", port = "SLOT_ADDR", bit = 7, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 8, name = "SLOT_ADDR8", port = "SLOT_ADDR", bit = 8, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 9, name = "SLOT_ADDR9", port = "SLOT_ADDR", bit = 9, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 10, name = "SLOT_ADDR10", port = "SLOT_ADDR", bit = 10, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 11, name = "SLOT_ADDR11", port = "SLOT_ADDR", bit = 11, dir = "inout", class = "pzh", group = "slot", guard = true, buf = true, idle = 1 },
+  { index = 12, name = "SLOT_ADDR12", port = "SLOT_ADDR", bit = 12, dir = "inout", class = "pz", group = "slot", guard = true },
+  { index = 13, name = "SLOT_ADDR13", port = "SLOT_ADDR", bit = 13, dir = "inout", class = "pz", group = "slot", guard = true },
+  { index = 14, name = "SLOT_ADDR14", port = "SLOT_ADDR", bit = 14, dir = "inout", class = "pz", group = "slot", guard = true },
+  { index = 15, name = "SLOT_ADDR15", port = "SLOT_ADDR", bit = 15, dir = "inout", class = "pz", group = "slot", guard = true },
+  { index = 16, name = "SLOT_DATA0", port = "SLOT_DATA", bit = 0, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 17, name = "SLOT_DATA1", port = "SLOT_DATA", bit = 1, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 18, name = "SLOT_DATA2", port = "SLOT_DATA", bit = 2, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 19, name = "SLOT_DATA3", port = "SLOT_DATA", bit = 3, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 20, name = "SLOT_DATA4", port = "SLOT_DATA", bit = 4, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 21, name = "SLOT_DATA5", port = "SLOT_DATA", bit = 5, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 22, name = "SLOT_DATA6", port = "SLOT_DATA", bit = 6, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 23, name = "SLOT_DATA7", port = "SLOT_DATA", bit = 7, dir = "inout", class = "pz", group = "slot", guard = true, buf = true },
+  { index = 24, name = "SLOT_RWn", port = "SLOT_RWn", dir = "inout", class = "pz", group = "slot", guard = true },
+  { index = 25, name = "SLOT_ROMLn", port = "SLOT_ROMLn", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 26, name = "SLOT_ROMHn", port = "SLOT_ROMHn", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 27, name = "SLOT_IO1n", port = "SLOT_IO1n", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 28, name = "SLOT_IO2n", port = "SLOT_IO2n", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 29, name = "SLOT_PHI2", port = "SLOT_PHI2", dir = "out", class = "push", group = "slot", guard = true, idle = 0 },
+  { index = 30, name = "SLOT_DOTCLK", port = "SLOT_DOTCLK", dir = "out", class = "push", group = "slot", guard = true, idle = 0 },
+  { index = 31, name = "SLOT_BA", port = "SLOT_BA", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 32, name = "SLOT_ADDRDIR", port = "SLOT_ADDRDIR", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 33, name = "SLOT_ADDROEn", port = "SLOT_ADDROEn", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 34, name = "SLOT_DATADIR", port = "SLOT_DATADIR", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 35, name = "SLOT_DATAOEn", port = "SLOT_DATAOEn", dir = "out", class = "push", group = "slot", guard = true, idle = 1 },
+  { index = 36, name = "SLOT_RST_O", port = "SLOT_RST_O", dir = "out", class = "pull", group = "slot", guard = true, inv = true, idle = 0 },
+  { index = 37, name = "SLOT_RST_I", port = "SLOT_RST_I", dir = "in", class = "none", group = "slot", inv = true },
+  { index = 38, name = "SLOT_GAMEn", port = "SLOT_GAMEn", dir = "in", class = "none", group = "slot" },
+  { index = 39, name = "SLOT_EXROMn", port = "SLOT_EXROMn", dir = "in", class = "none", group = "slot" },
+  { index = 40, name = "SLOT_DMAn", port = "SLOT_DMAn", dir = "in", class = "none", group = "slot" },
+  { index = 41, name = "SLOT_IRQn", port = "SLOT_IRQn", dir = "in", class = "none", group = "slot" },
+  { index = 42, name = "SLOT_NMIn", port = "SLOT_NMIn", dir = "in", class = "none", group = "slot" },
+  { index = 43, name = "SLOT_SID1n", port = "SLOT_SID1n", dir = "out", class = "push", group = "slot", idle = 1 },
+  { index = 44, name = "SLOT_SID2n", port = "SLOT_SID2n", dir = "out", class = "push", group = "slot", idle = 1 },
+  { index = 45, name = "SLOT_SID_ADDR", port = "SLOT_SID_ADDR", dir = "out", class = "push", group = "slot", idle = 0 },
+  { index = 46, name = "SLOT_PWR", port = "SLOT_PWR", dir = "out", class = "none", group = "slot", pwr = true },
+  { index = 47, name = "CIA_RSTn", port = "CIA_RSTn", dir = "in", class = "none", group = "misc" },
+  { index = 48, name = "CIA_BUFFER_EN", port = "CIA_BUFFER_EN", dir = "out", class = "none", group = "misc", pwr = true },
+  { index = 49, name = "CIA_PWR_EN", port = "CIA_PWR_EN", dir = "out", class = "none", group = "misc", pwr = true },
+  { index = 50, name = "KBJOY_1_JOY0", port = "KBJOY_1_JOY", bit = 0, dir = "inout", class = "od", group = "joy", src = "kbj1_i[0]" },
+  { index = 51, name = "KBJOY_1_JOY1", port = "KBJOY_1_JOY", bit = 1, dir = "inout", class = "od", group = "joy", src = "kbj1_i[1]" },
+  { index = 52, name = "KBJOY_1_JOY2", port = "KBJOY_1_JOY", bit = 2, dir = "inout", class = "od", group = "joy", src = "kbj1_i[2]" },
+  { index = 53, name = "KBJOY_1_JOY3", port = "KBJOY_1_JOY", bit = 3, dir = "inout", class = "od", group = "joy", src = "kbj1_i[3]" },
+  { index = 54, name = "KBJOY_1_JOY4", port = "KBJOY_1_JOY", bit = 4, dir = "inout", class = "od", group = "joy", src = "kbj1_i[4]" },
+  { index = 55, name = "KBJOY_2_JOY0", port = "KBJOY_2_JOY", bit = 0, dir = "inout", class = "od", group = "joy", src = "kbj2_i[0]" },
+  { index = 56, name = "KBJOY_2_JOY1", port = "KBJOY_2_JOY", bit = 1, dir = "inout", class = "od", group = "joy", src = "kbj2_i[1]" },
+  { index = 57, name = "KBJOY_2_JOY2", port = "KBJOY_2_JOY", bit = 2, dir = "inout", class = "od", group = "joy", src = "kbj2_i[2]" },
+  { index = 58, name = "KBJOY_2_JOY3", port = "KBJOY_2_JOY", bit = 3, dir = "inout", class = "od", group = "joy", src = "kbj2_i[3]" },
+  { index = 59, name = "KBJOY_2_JOY4", port = "KBJOY_2_JOY", bit = 4, dir = "inout", class = "od", group = "joy", src = "kbj2_i[4]" },
+  { index = 60, name = "KBJOY_RESTORE", port = "KBJOY_RESTORE", dir = "in", class = "none", group = "joy" },
+  { index = 61, name = "KBJOY_INT", port = "KBJOY_INT", dir = "in", class = "none", group = "misc" },
+  { index = 62, name = "BLING_KEYB", port = "BLING_KEYB", dir = "in", class = "none", group = "misc" },
+  { index = 63, name = "PADDLE_CMP0", port = "PADDLE_CMP", bit = 0, dir = "in", class = "none", group = "paddle" },
+  { index = 64, name = "PADDLE_CMP1", port = "PADDLE_CMP", bit = 1, dir = "in", class = "none", group = "paddle" },
+  { index = 65, name = "PADDLE_CMP2", port = "PADDLE_CMP", bit = 2, dir = "in", class = "none", group = "paddle" },
+  { index = 66, name = "PADDLE_CMP3", port = "PADDLE_CMP", bit = 3, dir = "in", class = "none", group = "paddle" },
+  { index = 67, name = "PADDLE_DIS", port = "PADDLE_DIS", dir = "out", class = "pz", group = "paddle", src = "PADDLE_DIS_LV" },
+  { index = 68, name = "PADDLE_ADJ", port = "PADDLE_ADJ", dir = "out", class = "pz", group = "paddle", src = "PADDLE_ADJ_LV" },
+  { index = 69, name = "C2N_MOTOR", port = "C2N_MOTOR", dir = "inout", class = "od", group = "c2n", src = "c2n_motor_i" },
+  { index = 70, name = "C2N_SENSE", port = "C2N_SENSE", dir = "inout", class = "od", group = "c2n", src = "c2n_sense_i" },
+  { index = 71, name = "C2N_READ", port = "C2N_READ", dir = "inout", class = "od", group = "c2n", src = "c2n_read_i" },
+  { index = 72, name = "C2N_WRITE", port = "C2N_WRITE", dir = "inout", class = "od", group = "c2n", src = "c2n_write_i" },
+  { index = 73, name = "IEC_ATN_I", port = "IEC_ATN_I", dir = "in", class = "none", group = "iec", inv = true },
+  { index = 74, name = "IEC_CLOCK_I", port = "IEC_CLOCK_I", dir = "in", class = "none", group = "iec", inv = true },
+  { index = 75, name = "IEC_DATA_I", port = "IEC_DATA_I", dir = "in", class = "none", group = "iec", inv = true },
+  { index = 76, name = "IEC_RESET_I", port = "IEC_RESET_I", dir = "in", class = "none", group = "iec", inv = true },
+  { index = 77, name = "IEC_ATN_O", port = "IEC_ATN_O", dir = "out", class = "pull", group = "iec", inv = true, idle = 0 },
+  { index = 78, name = "IEC_CLOCK_O", port = "IEC_CLOCK_O", dir = "out", class = "pull", group = "iec", inv = true, idle = 0 },
+  { index = 79, name = "IEC_DATA_O", port = "IEC_DATA_O", dir = "out", class = "pull", group = "iec", inv = true, idle = 0 },
+  { index = 80, name = "IEC_RESET_O", port = "IEC_RESET_O", dir = "out", class = "pull", group = "iec", inv = true, idle = 0 },
+  { index = 81, name = "IEC_SRQ_O", port = "IEC_SRQ_O", dir = "out", class = "pull", group = "iec", inv = true, idle = 0 },
+  { index = 82, name = "UI_BUTTON0", port = "UI_BUTTON", bit = 0, dir = "in", class = "none", group = "ui" },
+  { index = 83, name = "UI_BUTTON1", port = "UI_BUTTON", bit = 1, dir = "in", class = "none", group = "ui" },
+  { index = 84, name = "UI_BUTTON2", port = "UI_BUTTON", bit = 2, dir = "in", class = "none", group = "ui" },
+  { index = 85, name = "LED_BOARDn", port = "LED_BOARDn", dir = "out", class = "push", group = "led", host = true },
+  { index = 86, name = "LED_CASE1n", port = "LED_CASE1n", dir = "out", class = "push", group = "led", host = true },
+  { index = 87, name = "LED_CASE2n", port = "LED_CASE2n", dir = "out", class = "push", group = "led", host = true },
+  { index = 88, name = "LED_CASE3n", port = "LED_CASE3n", dir = "out", class = "push", group = "led", host = true },
+  { index = 89, name = "LED_DATA", port = "LED_DATA", dir = "out", class = "push", group = "led", host = true, idle = 0 },
+  { index = 90, name = "LED_CLOCK", port = "LED_CLOCK", dir = "out", class = "push", group = "led", host = true, idle = 0 },
+  { index = 91, name = "BLING_LED", port = "BLING_LED", dir = "out", class = "push", group = "led", host = true },
+  { index = 92, name = "HDMI_HPD", port = "HDMI_HPD", dir = "in", class = "none", group = "misc" },
+  { index = 93, name = "AVID_R2", port = "AVID_R", bit = 2, dir = "out", class = "none", group = "av", gen = true },
+  { index = 94, name = "AVID_R3", port = "AVID_R", bit = 3, dir = "out", class = "none", group = "av", gen = true },
+  { index = 95, name = "AVID_R4", port = "AVID_R", bit = 4, dir = "out", class = "none", group = "av", gen = true },
+  { index = 96, name = "AVID_R5", port = "AVID_R", bit = 5, dir = "out", class = "none", group = "av", gen = true },
+  { index = 97, name = "AVID_R6", port = "AVID_R", bit = 6, dir = "out", class = "none", group = "av", gen = true },
+  { index = 98, name = "AVID_R7", port = "AVID_R", bit = 7, dir = "out", class = "none", group = "av", gen = true },
+  { index = 99, name = "AVID_R8", port = "AVID_R", bit = 8, dir = "out", class = "none", group = "av", gen = true },
+  { index = 100, name = "AVID_R9", port = "AVID_R", bit = 9, dir = "out", class = "none", group = "av", gen = true },
+  { index = 101, name = "AVID_G2", port = "AVID_G", bit = 2, dir = "out", class = "none", group = "av", gen = true },
+  { index = 102, name = "AVID_G3", port = "AVID_G", bit = 3, dir = "out", class = "none", group = "av", gen = true },
+  { index = 103, name = "AVID_G4", port = "AVID_G", bit = 4, dir = "out", class = "none", group = "av", gen = true },
+  { index = 104, name = "AVID_G5", port = "AVID_G", bit = 5, dir = "out", class = "none", group = "av", gen = true },
+  { index = 105, name = "AVID_G6", port = "AVID_G", bit = 6, dir = "out", class = "none", group = "av", gen = true },
+  { index = 106, name = "AVID_G7", port = "AVID_G", bit = 7, dir = "out", class = "none", group = "av", gen = true },
+  { index = 107, name = "AVID_G8", port = "AVID_G", bit = 8, dir = "out", class = "none", group = "av", gen = true },
+  { index = 108, name = "AVID_G9", port = "AVID_G", bit = 9, dir = "out", class = "none", group = "av", gen = true },
+  { index = 109, name = "AVID_B2", port = "AVID_B", bit = 2, dir = "out", class = "none", group = "av", gen = true },
+  { index = 110, name = "AVID_B3", port = "AVID_B", bit = 3, dir = "out", class = "none", group = "av", gen = true },
+  { index = 111, name = "AVID_B4", port = "AVID_B", bit = 4, dir = "out", class = "none", group = "av", gen = true },
+  { index = 112, name = "AVID_B5", port = "AVID_B", bit = 5, dir = "out", class = "none", group = "av", gen = true },
+  { index = 113, name = "AVID_B6", port = "AVID_B", bit = 6, dir = "out", class = "none", group = "av", gen = true },
+  { index = 114, name = "AVID_B7", port = "AVID_B", bit = 7, dir = "out", class = "none", group = "av", gen = true },
+  { index = 115, name = "AVID_B8", port = "AVID_B", bit = 8, dir = "out", class = "none", group = "av", gen = true },
+  { index = 116, name = "AVID_B9", port = "AVID_B", bit = 9, dir = "out", class = "none", group = "av", gen = true },
+  { index = 117, name = "AVID_CLK", port = "AVID_CLK", dir = "out", class = "none", group = "av", gen = true },
+  { index = 118, name = "AVID_SYNCn", port = "AVID_SYNCn", dir = "out", class = "none", group = "av", gen = true },
+  { index = 119, name = "AVID_FB", port = "AVID_FB", dir = "out", class = "none", group = "av", gen = true },
+  { index = 120, name = "ETH_LED_YELn", port = "ETH_LED_YELn", dir = "out", class = "push", group = "led", host = true },
+]
+
+[bank]
+count = 121        # the number of pins; the lint compares it with the entries
+
+# top.v ports that are not in the bank (T260 D3: the internal buses stay with the host). The lint finds every top.v port either in `pin` or here.
+[excluded]
+clocks   = ["RMII_REFCLK", "HDMI_REFCLK_P", "HDMI_REFCLK_N", "HDMI_CLK_SYNTH", "CLOCK_C64_SYNTH"]
+hdmi     = ["HDMI_DATA_P", "HDMI_DATA_N", "HDMI_CLK_P", "HDMI_CLK_N", "HDMI_SCL", "HDMI_SDA", "HDMI_DDC_EN"]
+i2c      = ["I2C18_SCL", "I2C18_SDA", "I2C33_SCL", "I2C33_SDA"]
+audio    = ["AUDIO_MCLK", "AUDIO_BCLK", "AUDIO_LRCLK", "AUDIO_SDI", "AUDIO_SDO", "SPEAKER_DATA"]
+uart     = ["UART_TXD", "UART_RXD"]
+ethernet = ["RMII_CRS_DV", "RMII_RX_DATA", "RMII_TX_EN", "RMII_TX_DATA", "MDIO_CLK", "MDIO_DATA"]
+wifi     = ["WIFI_TXD", "WIFI_RTS", "WIFI_BOOT", "WIFI_DIS", "WIFI_RXD", "WIFI_CTS"]
+sd       = ["SD_SSn", "SD_CLK", "SD_MOSI", "SD_MISO", "SD_CARDDETn"]
+flash    = ["FLASH_CSn", "FLASH_MOSI", "FLASH_MISO"]
+usb      = ["ULPI_CLOCK", "ULPI_NXT", "ULPI_DIR", "ULPI_STP", "ULPI_RESET", "ULPI_REFCLK", "ULPI_DATA", "HUB_RESETn", "HUB_CLOCK"]
+ddr2     = ["ddr2_dq", "ddr2_dqs_n", "ddr2_dqs_p", "ddr2_addr", "SDRAM_A13", "ddr2_ba", "ddr2_ras_n", "ddr2_cas_n", "ddr2_we_n", "ddr2_ck_p", "ddr2_ck_n", "ddr2_cke", "ddr2_cs_n", "ddr2_odt", "ddr2_dm"]
