@@ -130,7 +130,6 @@ def make_stick(stick, roms_dir, core="amiga1200", ovtest=False):
                 f.write(bytes(b))
         return
     if core == "diag":                               # T260 D6: the diag core's tests, panels and presets are the folder cores/diag/sd of the repository, copied to the card as a tester does by FTP
-        import shutil
         shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "cores", "diag", "sd"), os.path.join(stick, "cores", "diag"))
         return
     if core == "nes":

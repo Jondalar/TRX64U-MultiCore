@@ -1,4 +1,3 @@
-  cp "$DIAGLIB"/* "$d"/ 2>/dev/null || true   # T260: the diag app's library (cores/diag/app/lib) is where its control's mutated source lives
 #!/usr/bin/env bash
 # Native tests of the core-application blueprint (T93), after the pattern of tests/hostapp/run.sh (T101): the logic of
 # coreapp/src is compiled on the Mac against stubs, no board. Negative controls (T174 D5.4, Alex 2026-11-08) exist only for the tests of flash
