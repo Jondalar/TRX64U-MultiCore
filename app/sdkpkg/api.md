@@ -17,19 +17,19 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 5.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 6.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
 1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2, 3.3, 3.4, 3.5 or 3.6. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). Base 3.4 added the members `exit_to_machine` and `goto_screen` of `api->overlay` (4.17.18, 4.17.19) and the group `api->wb`, the write-back service for libraries (4.18). Base 3.5 (SDK 0.5.0, T262) added the member `ask_list` of `api->ctx` (4.14.14), the node kind `LN_LIST` (6.19), the sources of the F3 search (6.20) and, in the menu record, the node keys `pick = "@state"`, `busy`, `more`, `search`, `find` and `fields` (6.7.3), the tab key `show` (6.11.7) and the key row key `legend` (6.18.3). Base 3.6 (SDK 0.5.1, T262 D4) added the members `browse_at` and `browse_sheet` of `api->ctx` (4.14.15, 4.14.16), the value `SVCFS_SIZE_UNKNOWN` of `SvcFsEntryLong.size` (4.4.24.6) and, in the menu record of a library, the key table `[[key]]` (6.18.5). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.6 writes `needs base >= 3.1`, `needs base >= 3.2`, `needs base >= 3.3`, `needs base >= 3.4`, `needs base >= 3.5` or `needs base >= 3.6`. A library built against 3.4 or 3.5 loads and runs on 3.6 unchanged: every addition is a new member at the end of a table, a new value of an enum, or a new key of a text.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.5.0 is base 3.5. Base 3.4 (SDK 0.4.6 and 0.4.7), base 3.3 (SDK 0.4.0 to 0.4.5, in 0.4.5's state), base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.5.1 is base 3.6. Base 3.5 (SDK 0.5.0), base 3.4 (SDK 0.4.6 and 0.4.7), base 3.3 (SDK 0.4.0 to 0.4.5, in 0.4.5's state), base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 5. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 6. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
@@ -1220,7 +1220,6 @@ Since base 3.5 (T262). A member after `mount_notify`; a library or an applicatio
 4.14.14.4 Only the last call before the operation returns counts. A call with an empty `op` or an empty `src` does nothing. The call is for an operation that the menu calls (a node, a hotkey, a file action); an operation that another door calls (REST, a poll) shows no list. The task holds the core lock, inside the handler.
 4.14.14.5 A node can ask for the same list without code: `pick = "@state"` in its `ui` (6.7.3, 6.19.3).
 
-### 4.15 `api->io` (`SvcIo`)
 #### 4.14.15 `api->ctx->browse_at`
 
 Since base 3.6 (T262 D4). A member after `ask_list`; check the `size` member of the table before use (`SVC_HAS(api->ctx, browse_at)`).
@@ -1236,6 +1235,7 @@ Since base 3.6 (T262 D4). A member after `browse_at`.
 4.14.16.1 `bool browse_sheet(const char *path)` does what `browse_at` does and then opens the action sheet of the file, as RETURN on it in the browser does: the list of what can be done with the file (its actions, Rename, Delete, Copy to ...).
 4.14.16.2 When `path` names a folder or is not in the folder, no sheet opens; the cursor is placed as `browse_at` places it. Result and task are those of `browse_at` (4.14.15.3).
 
+### 4.15 `api->io` (`SvcIo`)
 
 Since base 3.3.
 
@@ -1959,8 +1959,8 @@ Since base 3.0.
 | `legend` | The short label of an `F` key in the key legend of the tab. |
 | `ask` | A question. RETURN asks the person for a name, then calls the operation with the name bound by `B_TEXT`. |
 | `ask_state` | A state value whose text is the start of the name `ask` offers (up to `ask_max` characters). |
-| `ask_max` | Since 0.5.1. The most characters `ask` holds, 1 to 255; default 24 as before. |
-| `ask_any` | Since 0.5.1. The text of `ask` is free (a search, a message): every printable character, not only those of a file name. Without it `ask` is a name and refuses `/ \ : * ? " < > \|` as before. |
+| `ask_max` | Since base 3.6 (SDK 0.5.1). The most characters `ask` holds, 1 to 255; default 24 as before. |
+| `ask_any` | Since base 3.6 (SDK 0.5.1). The text of `ask` is free (a search, a message): every printable character, not only those of a file name. Without it `ask` is a name and refuses `/ \ : * ? " < > \|` as before. |
 | `confirm` | A question. RETURN asks Yes or No before the operation runs. |
 | `job` | The operation runs as a job with a progress display. With `ask`, the person types the name first. The row shows the label of the node (or its `busy` text) while the job runs (since 0.5.1 on a screen, a tab with a layout, the screen stays and this row carries the words and the percentage; elsewhere the page of the job is one row, and its title says the words once, not as the title and the row), and a percentage with a bar only once the operation has reported one (`job_pct` above 0): a job that reports no progress shows its words alone. This holds for every node with `job`, also for one that a library built against base 3.4 declares: with base 3.5 such a node that never reports progress no longer shows `0%` and an empty bar. |
 | `busy` | Since base 3.5 (T262). A spec (6.7.2). The words the row shows while the node's job runs, in place of the label; resolved at every draw, so a state can change it. Empty: the label. Without `job` it has no effect. |
@@ -2155,6 +2155,8 @@ Since base 3.3.
 6.18.3 `legend = "Label"` (since base 3.5, T262; a record with a legend table is not read by a base before 3.5) puts the row into the key legend at the foot of the tab it is for: the key's name and the label in capitals (`CTRL+O CLEAR`, `X GO ON`). The label is 1 to 16 printable characters. Only an op row of one key can have it (not a range, not `any`, not a decline or a swallow). The row is in the legend only while its `when` holds. The record writes the labels in a table behind the rows; a record that has no `legend` is byte for byte the record it was. A base from before this key refuses a record with the table (the length of the section does not fit), so a record that must also load there leaves `legend` out.
 6.18.4 The legend is that of a list tab or a screen of the core's menu. The file browser's own legend, and the legend of an application's screens, do not list the rows of this table.
 
+6.18.5 A library's menu record (`u2a_pack --menu`) may carry `[[key]]` rows as a core's record does (since base 3.6, T262 D4): `key` or `codes`, `op`, `do`, `value`, `when`, `legend` and the flags of 6.18.2, scoped by `layout` or `node`. While the library is loaded the menu merges its rows into the key table behind those of the core, in the order the libraries loaded, tried in that order for the tab that is shown; the rows go when the library is unloaded. `op` names an operation that is registered when the key is pressed (the library's own, normally). At most 32 rows of all libraries together are merged; one over that is refused with a line in the log. A library's record still carries no `[[window]]` and no route; an application's menu record carries no key table. A base before 3.6 refuses a file whose menu record has a key table, so a library that must also load there leaves it out.
+
 ### 6.17 The driver table: TOML A at build time
 
 6.17.1 The application is linked against one TOML A. `python3 tools/descrec.py drivers desc.toml OUT_DIR [--maps DIR_OR_FILE ...]` checks the file by the rules of 6.14 and writes two files into OUT_DIR: `drvtab.h` and `drvtab.c`. The build runs it before any source is compiled and writes a file only when its text changes, so an unchanged TOML A recompiles nothing. The shared app is linked against `coreapp/gateware/shared.toml`, whose blocks are the addresses it has today.
@@ -2171,8 +2173,6 @@ Since base 3.3.
 6.17.5.7 An application linked against a TOML A without the block `audio_master` (0x10100550, 2 bytes, map `audio_master`: `volume` at +0, `tone` at +1, both write only) writes no master volume and no master tone (`CoreIo::master_volume` and `CoreIo::master_tone` do nothing), and the base adds no Volume row and no Tone row to any core (6.15.12).
 6.17.5.8 A board probe runs only when the app's driver table has the block it asks of (`BoardProbe::blocks()`, `BB_*` of `board.h`): the ICAP loader, `drive_a`, `cmd_if`, `iec_status`, and for the cartridge, the ring and the REU the blocks `c64cart`, `c64_debug` and `dma`. A capability whose block is not there is struck without a read.
 6.17.5.9 The standard block's property `caps` is read only for the probe of the cartridge and the ring (`BB_CART`, `BB_RING`): a TOML A whose standard block has no `caps` links, and `hw.cc` answers 0. An app linked without the block `cart_regs` of the base has no cartridge-port registers (0.5.1; before it, it did not compile): `cart_rd` reads 0, `cart_wr` goes nowhere, `stop` and `mode_reset` do nothing, so `hw.cc` neither stops nor holds the machine (`tools/core_move.py sdkgaps` compiles the base's sources against a table without each optional block, one at a time).
-6.18.5 A library's menu record (`u2a_pack --menu`) may carry `[[key]]` rows as a core's record does (since base 3.6, T262 D4): `key` or `codes`, `op`, `do`, `value`, `when`, `legend` and the flags of 6.18.2, scoped by `layout` or `node`. While the library is loaded the menu merges its rows into the key table behind those of the core, in the order the libraries loaded, tried in that order for the tab that is shown; the rows go when the library is unloaded. `op` names an operation that is registered when the key is pressed (the library's own, normally). At most 32 rows of all libraries together are merged; one over that is refused with a line in the log. A library's record still carries no `[[window]]` and no route; an application's menu record carries no key table. A base before 3.6 refuses a file whose menu record has a key table, so a library that must also load there leaves it out.
-
 6.17.6 Two names that make the same macro (the block `a` with the property `b_c`, and the block `a_b` with the property `c`) are refused when the table is generated.
 6.17.7 `drvtab.c` holds the table of the blocks, `drv_blocks[]` with `drv_nblocks`: name, module, owner, address and size. A native test redirects every register access with `-DDRV_PTR_HEADER='"drv_fake.h"'` (`test/drv_fake.h` of the package, `tests/drv_fake.h` in this repository: one array for the address space), so a test reads back what a driver wrote.
 6.17.8 The shared drivers take their blocks from the table: the cartridge port and the built-in drive A (`hw.cc`; without `drive_a` in the TOML A the app has no drive), the debug register (`dmasvc.cc`), the ICAP loader and the partition control (`hw.cc`) and the master volume and tone bytes (`hw.cc`).

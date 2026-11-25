@@ -1,4 +1,4 @@
-// T262, SDK 0.5.0 (base 3.5): a library built against the table of base 3.4 still loads and runs on this base, and the additions are told by what the table carries.
+// T262, SDK 0.5.0 and 0.5.1 (base 3.5, 3.6): a library built against the table of base 3.4 or 3.5 still loads and runs on this base, and the additions are told by what the table carries.
 //   S1 an image that needs `base >= 3.4` loads on this base (minor U2A_BASE_MINOR); the same image needing 3.5 is refused by a base of 3.4, with the sentence that names both
 //   S2 the library's code, compiled against the 3.4 headers (the frozen struct layouts of this file, written from them), calls api->ctx through the old layout: every member it
 //      knows is where it was and does what it did; the new table is the old one with one member appended (the old size is a prefix, the old members have the same offsets)
@@ -92,12 +92,16 @@ int main()
         int h = -1;
         char err[LIB_ERR_MAX] = "";
         CHECK_EQ(ld.load(&old, &h, err, LIB_ERR_MAX), 0);
-        CHECK(U2A_BASE_MINOR >= 5);
+        CHECK(U2A_BASE_MINOR >= 6);
         CHECK_EQ(ld.api_.abi_minor, U2A_BASE_MINOR);
         MemSource fresh;
-        fresh.d = image("newlib", 5);                                // built against 3.5: this base is that
+        fresh.d = image("newlib", 5);                                // built against 3.5 (SDK 0.5.0): this base takes it unchanged
         int h2 = -1;
         CHECK_EQ(ld.load(&fresh, &h2, err, LIB_ERR_MAX), 0);
+        MemSource newest;
+        newest.d = image("newestlib", 6);                            // built against 3.6: this base is that
+        int h6 = -1;
+        CHECK_EQ(ld.load(&newest, &h6, err, LIB_ERR_MAX), 0);
         OpRegistry reg4; CoreCtx c4;
         memset(&c4, 0, sizeof(c4));
         c4.fs = &fs;
@@ -108,6 +112,9 @@ int main()
         err[0] = 0;
         CHECK_EQ(base34.load(&fresh, &h3, err, LIB_ERR_MAX), LIB_NEEDS);
         CHECK(strstr(err, "needs base 3.5, this base is 3.4") != 0);
+        err[0] = 0;
+        CHECK_EQ(base34.load(&newest, &h3, err, LIB_ERR_MAX), LIB_NEEDS);
+        CHECK(strstr(err, "needs base 3.6, this base is 3.4") != 0);
         err[0] = 0;
         CHECK_EQ(base34.load(&old, &h3, err, LIB_ERR_MAX), 0);       // and still takes the library of its own minor
     }
@@ -134,7 +141,12 @@ int main()
         CHECK((old->state() & CTX_PAUSED) != 0);
         CHECK(old->notice("hello", true) && !old->notice("again", true));
         CHECK_STR(c.notice, "hello");
-        CHECK(SVC_HAS(now, ask_list));                                // a library of this base finds the member ...
+        CHECK(SVC_HAS(now, ask_list) && SVC_HAS(now, browse_at) && SVC_HAS(now, browse_sheet));   // a library of this base finds the members ...
+        CHECK_EQ(offsetof(SvcCtx, browse_at), offsetof(SvcCtx, ask_list) + sizeof(now->ask_list));      // 3.6 appends after 3.5's last member
+        CHECK_EQ(offsetof(SvcCtx, browse_sheet), offsetof(SvcCtx, browse_at) + sizeof(now->browse_at));
+        SvcCtx as35 = *now;
+        as35.size = offsetof(SvcCtx, browse_at);                      // the table a 3.5 library knows: ask_list is its last member
+        CHECK(SVC_HAS(&as35, ask_list) && !SVC_HAS(&as35, browse_at) && !SVC_HAS(&as35, browse_sheet));
         SvcCtx shrunk = *now;
         shrunk.size = sizeof(SvcCtx34);                               // ... and a table of the old size does not have it
         CHECK(!SVC_HAS(&shrunk, ask_list));

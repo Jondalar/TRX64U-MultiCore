@@ -216,9 +216,9 @@ unchanged: everything below is a new member at the end of a table, a new value o
 - **Defects (P7, P8, P9).** A Run that waited for its fetch closes the menu. When the focused row of a screen hides, the focus goes to the next row that takes it. A value that changed on a
   screen is written into its row in place, so a RETURN on an operation row no longer builds the pane again (about 365,000 pixels became about 50,000 per RETURN) and no key is lost meanwhile.
 
-## What is new in 0.5.1 (base API 3.5, T262 D4)
+## What is new in 0.5.1 (base API 3.6, T262 D4)
 
-One round of fixes for the defects TRX64-Ultimate found in 0.5.0. A library built against 3.4 or 3.5 loads as before; where a fix changes what a screen shows, the line says so.
+One round of fixes for the defects TRX64-Ultimate found in 0.5.0. The base API is 3.6 (3.5 is released with SDK 0.5.0 and stays as it was). A library built against 3.4 or 3.5 loads as before; where a fix changes what a screen shows, the line says so.
 
 - **hw.cc without `cart_regs`.** An app whose TOML A has no block `cart_regs` compiles: no cartridge-port registers, `stop` and `mode_reset` do nothing (`api.md` 6.17.5.9).
 - **A list node's count and a greyed row.** The count of a `list` node leaves out the `+` row and the `!` notes; the tone `disabled` greys a whole list row (`api.md` 6.19).
