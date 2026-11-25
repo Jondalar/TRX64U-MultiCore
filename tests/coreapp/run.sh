@@ -1083,7 +1083,8 @@ neogeoapp run neogeo_memops test_memops.cc $SVC $NEOD
 RARGS="$BUN/app" neogeoapp run neogeo_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NEOD
 # T239.5 D13: the Neo Geo's cases of the shared tests (TEST_APP_NEOGEO), built as its app: the checks every descriptor passes and its menu's golden (neogeo_desc), the default hotkeys of S5
 # (neogeo_hotkeys), the cartridge slot kept in the .cfg and restored before the release, a ROM set folder, a set with no game (neogeo_mounts, with the controls of its engine: T180 D2/D5),
-# the joystick word its service writes from a USB pad and the capability "pad" (neogeo_pad).
+# the joystick word its service writes from a USB pad and the capability "pad" (neogeo_pad), every key of its menu against its golden (neogeo_keywalk: golden/keywalk_neogeo.txt, ids_neogeo.txt) and every
+# row, setting value and operation of its declaration reachable over the API (neogeo_uicover).
 NEOA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $NEOD"
 NEOM="test_media_mounts_engines.cc $NEOA start.cc handover.cc"
 RARGS="$T/bundles/desc_own.bin" neogeoapp run neogeo_desc test_desc.cc $NEOA
@@ -1093,6 +1094,8 @@ neogeoapp control mme_neo_eject neogeo.cc 's/^    mount_notify(c, 0);$/    (void
 neogeoapp control mme_neo_fail neogeo.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $NEOM
 neogeoapp control mme_neo_folder neogeo.cc 's/"folder %s", arg/"%s", arg/' $NEOM
 neogeoapp run neogeo_pad test_pad.cc $NEOD
+neogeoapp run neogeo_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NEOA
+neogeoapp run neogeo_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $NEOA
 # the Neo Geo's rows of the host's ROM table: gen_romreq built as the Neo Geo's app, its rows (and the trx64u rows it emits) in the host's table
 t_romreq_neogeo() {
   local INC=("${INC_NEOGEO[@]}") APPLIB="$NEOLIB"

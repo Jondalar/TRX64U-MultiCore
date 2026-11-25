@@ -20,7 +20,14 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_NEOGEO                   // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_keywalk): its table is its core only, its golden is its own
+extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#define KEYWALK_APP "_neogeo"
+#else
 extern const CoreDesc *const core_table[];
+#define KEYWALK_APP ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -85,10 +92,12 @@ int main(int argc, char **argv)
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
+#ifndef TEST_APP_NEOGEO                                         // the record stands on the NES, a core of the shared units
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
@@ -185,7 +194,7 @@ int main(int argc, char **argv)
         }
     }
     printf("keywalk: %d probes\n", probes);
-    std::string path = std::string(GOLDEN_DIR) + "/keywalk.txt";
+    std::string path = std::string(GOLDEN_DIR) + "/keywalk" KEYWALK_APP ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(path) << out;
     }
@@ -207,7 +216,7 @@ int main(int argc, char **argv)
         }
     }
     CHECK(want == out);
-    std::string ipath = std::string(GOLDEN_DIR) + "/ids.txt";
+    std::string ipath = std::string(GOLDEN_DIR) + "/ids" KEYWALK_APP ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(ipath) << ids;
     }
