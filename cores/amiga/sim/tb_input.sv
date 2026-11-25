@@ -55,7 +55,7 @@ module tb_input;
         // joysticks: host {fire, right, left, down, up}
         joy2 = 5'b01010; joy1 = 5'b10001; #1000;
         check(j0 == 8'b00000101 && j1 == 8'b00011000, "joystick bit order; host port n is Amiga port n");
-        joy2 = 5'b10000; #100; check(j0[4] === 1'b1, "fire");
+        joy1 = 5'd0; joy2 = 5'b10000; #100; check(j0[4] === 1'b1 && j1 == 8'd0, "fire: host port 2 is Amiga port 2 only");
         // T157 S1/S2: the swap moves the host's port 2 to the Amiga's port 1 (joystick1) and back; joystick0 is the Amiga's port 2 (#125)
         joy1 = 5'd0; joy2 = 5'b10000; jswap = 0; #1000;
         check(j0[4] === 1'b1 && j1 == 8'd0, "swap off: host port 2 fire is Amiga port 2 only");

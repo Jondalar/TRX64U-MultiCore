@@ -1503,8 +1503,8 @@ minimig minimig
 
 	//I/O
 	.cd32pad2_en  (cd32pad2_en      ), // T225
-	._joy1        (~JOY0            ), // joystick 1 [fire4,fire3,fire2,fire,up,down,left,right] (default mouse port)
-	._joy2        (~JOY1            ), // joystick 2 [fire4,fire3,fire2,fire,up,down,left,right] (default joystick port)
+	._joy1        (~JOY0            ), // joystick 1 [fire4,fire3,fire2,fire,up,down,left,right] (the Amiga's port 2 here: userio's joy_swap is 0, #125)
+	._joy2        (~JOY1            ), // joystick 2 [fire4,fire3,fire2,fire,up,down,left,right] (the Amiga's port 1, the mouse port, here: joy_swap is 0)
 	._joy3        (~JOY2            ), // joystick 3 [fire4,fire3,fire2,fire,up,down,left,right]
 	._joy4        (~JOY3            ), // joystick 4 [fire4,fire3,fire2,fire,up,down,left,right]
 	.joya1        (JOYA0            ),
