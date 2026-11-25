@@ -1228,9 +1228,11 @@ def toml_a_names(tomla, maps=None):
     """{ "block.property": register number, "block.property.state": value } of a TOML A document (checked by compile_desc first); the register number counts from the
     address of the identity block."""
     import copy
-    if not maps:                                                # no maps given (cor_pack --desc, compile_text): the SDK's own, where the package has them beside the tools
-        mdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "sdkpkg", "maps")
-        maps = load_maps([mdir]) if os.path.isdir(mdir) else {}
+    if not maps:                                                # no maps given (cor_pack --desc, compile_text): the SDK's own maps, found where this file stands
+        here = os.path.dirname(os.path.abspath(__file__))
+        # the package puts them beside its tools (<sdk>/tools, <sdk>/maps: tools/sdk_pack.sh), the repository in app/sdkpkg/maps
+        mdirs = [d for d in (os.path.join(here, "..", "maps"), os.path.join(here, "..", "app", "sdkpkg", "maps")) if os.path.isdir(d)]
+        maps = load_maps(mdirs[:1]) if mdirs else {}
     if maps:
         tomla = resolve_maps(tomla, maps)                       # a block of the TOML A that names a module map (the C128's drive_a, drive_wd) is read with its properties
     compile_desc(copy.deepcopy(tomla))

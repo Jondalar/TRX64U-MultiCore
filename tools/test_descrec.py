@@ -1310,7 +1310,21 @@ class TomlA(unittest.TestCase):
         b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
         self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
 
-    HOST_TOMLA = os.path.join(os.path.dirname(GOLD), "..", "..", "coreapp", "gateware", "host.toml")
+    def test_the_package_reads_the_maps_beside_its_tools(self):
+        # the SDK package (tools/sdk_pack.sh) holds descrec.py in <sdk>/tools and the maps in <sdk>/maps: toml_a_names with no maps given (cor_pack.py pack --desc) reads them there
+        import shutil
+        import tempfile
+        b = self.BASE + '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "uci"\n'
+        code = "import sys; sys.path.insert(0, sys.argv[1]); import descrec; print(len(descrec.toml_a_names(descrec.toml_loads(sys.stdin.read()))))"
+        with tempfile.TemporaryDirectory() as t:
+            os.mkdir(os.path.join(t, "tools"))
+            shutil.copy(D.__file__, os.path.join(t, "tools"))
+            shutil.copytree(self.MAPS, os.path.join(t, "maps"))
+            r = subprocess.run([sys.executable, "-I", "-c", code, os.path.join(t, "tools")], input=b, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertGreater(int(r.stdout), 2)                                     # the identity's two properties and the map's
+
+    HOST_TOMLA =os.path.join(os.path.dirname(GOLD), "..", "..", "coreapp", "gateware", "host.toml")
 
     def _host_fragment(self):
         with open(self.HOST_TOMLA) as f:
