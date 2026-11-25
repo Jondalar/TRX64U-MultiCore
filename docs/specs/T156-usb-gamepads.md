@@ -188,7 +188,7 @@ Branch `t164-pads` = `t164` + `t156-pads` + Neo Geo. Why: NES, SNES and Neo Geo 
   `pad0`/`pad1` (MiSTer layout: b0 right, 1 left, 2 down, 3 up, 4 A, 5 B, 6 C, 7 D, 8 Start, 9 Select, 10 Coin). The port swap (`0A3`) moves the host's joysticks, not the pads (the first pad plugged is player 1).
 - **Neo Geo map (Alex, 2026-11-01, asked "by position or by name": "position"):** the positional map of the MiSTer core (`neogeo.sv`, `jp`; the layout of the Neo Geo CD pad) with the D3 numbering: A = the pad's bottom button,
   B = right, C = left, D = top, Start, Select, Coin = L; stick and hat as the D-pad. The alternative, the name map (`jn`: A = SNES A (right), B = SNES B (bottom), C = X, D = Y), is a table change in
-  `cores/neogeo/app/lib/neogeo.cc` (`padbtn_def`; `coreapp/cores/neogeo.cc` until T239.5 D15). Application: setting "Pad map", tasks "Map buttons, pad 1/2", the core's service runs `pad_pace` every 16 ms (it ran every 500 ms; its clock, save and log keep their own timers).
+  `coreapp/cores/neogeo.cc` (`padbtn_def`). Application: setting "Pad map", tasks "Map buttons, pad 1/2", the core's service runs `pad_pace` every 16 ms (it ran every 500 ms; its clock, save and log keep their own timers).
 - **Merge details:** `PadSpec` is the last field of `CoreDesc`; `place = "Explore"` (a DFX-lane knob, `build_mono.tcl` does not read it) is dropped from `cores/nes`; the golden export of the real image
   gets the base's new `pad.*` operations and states (`tests/coreapp/golden/ops_trx64u.txt`, added by hand from the native export, to be confirmed by `tests/ui/export.py --update` on an image); a pad map saved under
   "Auto Save Config" Off/Ask waits with the other changes for `save()`.
