@@ -157,7 +157,7 @@ int main()
     {
         Rig r;
         CHECK(g_api->wb != 0 && LIB_API_COVERS(g_api, wb) && g_api->wb->size == sizeof(SvcWb));
-        CHECK_EQ(g_api->abi_minor, 4);
+        CHECK_EQ(g_api->abi_minor, U2A_BASE_MINOR);
         r.fs.put_size(P, 64, 0xEE);
         SvcWbMedium m = medium(P);
         CHECK_EQ(g_api->wb->register_medium(&m), SVCWB_OK);

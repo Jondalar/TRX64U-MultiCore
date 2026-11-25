@@ -198,6 +198,24 @@ make test
 - The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.
 
+## What is new in 0.5.0 (base API 3.5, T262)
+
+This release lets a library build lists, choices and tabs at run time with the menu's own tools, and removes three defects of the menu. A library built against 0.4.x loads and runs
+unchanged: everything below is a new member at the end of a table, a new value of an enum, or a new key of a text (`api.md` 1.2.9).
+
+- **Rows at run time (P1).** A node of kind `list` shows the rows of a state, one line each (value, label, right column, tone, up to three lines the row says about itself), and calls an
+  operation with the index of the row the person takes; a last row that starts with `+` asks the library for more by the operation named in the node's `more`. No node is declared for a row.
+  `api.md` 6.19 and `LN_LIST` (6.5).
+- **Choices (P2).** `api->ctx->ask_list` (4.14.14) and the node key `pick = "@state"` (6.7.3, 6.19.3) open the base's list of choices for a library. The list has no fixed number of rows
+  (it was 40): it is sized by its text, bounded by the memory budget.
+- **Tabs that come and go (P3).** `show = "@state"` on a tab of a menu record: the tab is on the strip while the state has a value (6.11.7).
+- **A busy caption for a job (P4).** The node key `busy` names the words a node's job shows, and a percentage shows only once the operation reports one (6.7.3).
+- **A source of the F3 search (P5).** A node of kind `list` at `F3/search` with `search`, `find` and `fields` makes a library a source: the search of the Library gets one form with a Source
+  row, the fields of the source, and the results open as a list (6.20).
+- **The key legend (P6).** `legend = "Label"` on a row of the key table puts the key into the foot legend of its tab (6.18.3).
+- **Defects (P7, P8, P9).** A Run that waited for its fetch closes the menu. When the focused row of a screen hides, the focus goes to the next row that takes it. A value that changed on a
+  screen is written into its row in place, so a RETURN on an operation row no longer builds the pane again (about 365,000 pixels became about 50,000 per RETURN) and no key is lost meanwhile.
+
 ## Licence
 
 GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own

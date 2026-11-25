@@ -85,7 +85,7 @@
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
-//   node   anchor kind label op state order when_state capability id first_bind nbind flags attr      (flags bit 0: closes the menu; attr: string offset, 0 = none,
+//   node   anchor kind label op state order when_state capability id first_bind nbind flags attr      (kind: LibNodeKind, 0 button .. 4 group, 5 list (T262); flags bit 0: closes the menu; attr: string offset, 0 = none,
 //          "key;key=value;..." how it is shown: primary, link, goto, sub, chip, tone, off - libapi.h LibNodeDecl::attr; the anchor's group is its slot in the layout)
 //   action label op first_ext next first_size nsize first_bind nbind flags reserved                    (flags bit 0: closes the menu)
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)

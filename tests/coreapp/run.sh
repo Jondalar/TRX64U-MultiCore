@@ -397,6 +397,8 @@ control wb_eeprom_torn c64_cart.cc 's/        if (wr_count(io) == before) {/    
 control wb_eeprom_not_loaded c64_cart.cc 's/^        load_eeprom(io, f, fsize, hdr);/        (void)0;/' test_writeback.cc $WBL
 # T239.3 D51: the write-back service for libraries through api->wb: register, report, write now, the safe write; the setting decides; the base's driver's medium is not taken; the operation; the end of the image
 run wblib test_wblib.cc libload.cc libsvc.cc descrec.cc overlay.cc libmenu.cc $BASEL
+# T262, SDK 0.5.0: a library built against the table of base 3.4 loads and runs on base 3.5; the additions are told by the table's size
+run libcompat test_libcompat.cc libload.cc libsvc.cc descrec.cc overlay.cc libmenu.cc $BASEL
 control wb_lib_mark_dropped libsvc.cc 's/            l->wb_svc_->mark(off, len);/            (void)off;/' test_wblib.cc libload.cc libsvc.cc descrec.cc overlay.cc libmenu.cc $BASEL
 control wb_ef3_order c64_cart.cc 's/(((a >> 13) \& 7) << 14)/(((a >> 13) \& 7) << 13)/' test_writeback.cc $WBL
 control wb_ef3_window c64_cart.cc 's/^        g_image_max = IMAGE_MAX_EF3;/        g_image_max = IMAGE_MAX;/' test_writeback.cc $WBL
