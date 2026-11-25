@@ -1933,7 +1933,8 @@ Since base 3.0.
 | `ask` | A question. RETURN asks the person for a name, then calls the operation with the name bound by `B_TEXT`. |
 | `ask_state` | A state value whose text is the start of the name `ask` offers (up to 24 characters). |
 | `confirm` | A question. RETURN asks Yes or No before the operation runs. |
-| `job` | The operation runs as a job with a progress display. With `ask`, the person types the name first. |
+| `job` | The operation runs as a job with a progress display. With `ask`, the person types the name first. The row shows the label of the node (or its `busy` text) while the job runs, and a percentage with a bar only once the operation has reported one (`job_pct` above 0): a job that reports no progress shows its words alone. |
+| `busy` | A spec (6.7.2). The words the row shows while the node's job runs, in place of the label; resolved at every draw, so a state can change it. Empty: the label. Without `job` it has no effect. |
 | `pick` | A label. The person picks a folder before the job starts. |
 | `view` | One of `log`, `edid`, `trace`, `info`, `scan`, `help`. RETURN opens the viewer on text the application keeps in memory. |
 | `rename` | RETURN renames the file the Library browser has under the cursor. |

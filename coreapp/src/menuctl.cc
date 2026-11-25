@@ -24,13 +24,14 @@ static bool fm_on_browser(void *user);
 
 MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ this, fm_say, fm_on_browser }), area_(0), tab_(0), status_bad_(false), chooser_(false),
     chooser_ft_(0), chooser_sel_(0), chooser_acts_(0), chooser_n_(0), entry_text_mode_(false), entry_task_(0),
-    pick_(false), pick_task_(0), pick_set_(-1), pick_n_(0), pick_sel_(0), pick_ok_(true), busy_(false), job_started_(false), job_bare_(false), job_task_(0),
+    pick_(false), pick_task_(0), pick_set_(-1), pick_n_(0), pick_sel_(0), pick_ok_(true), busy_(false), job_started_(false), job_bare_(false), job_node_(false), job_seen_pct_(false), job_task_(0),
     entry_(false), entry_act_(0), entry_def_(0), entry_n_(0), entry_fresh_(false), app_mode_(false), flow_q_(0)
 {
     pick_list_ = 0;
     pick_cap_ = 0;
     pick_more_ = false;
     follow_last_[0] = 0;
+    node_busy_[0] = 0;
     close_req_ = false;
     pump_close_ = false;
     entry_set_ = -1;
@@ -2143,23 +2144,48 @@ MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name, bool bare)
     c_->job_path[0] = 0;
     c_->job_cancel = false;
     job_bare_ = bare;
+    job_node_ = &t == &node_task_;                                   // T262 P4: a node's job says what the node says, and a percentage only once the operation reports one
+    job_seen_pct_ = false;
     char sj[80];
-    if (bare) {
+    if (job_node_) {
+        char bz[64];
+        job_busy(bz, sizeof(bz));
+        snprintf(sj, sizeof(sj), "%s ... <- cancels", bz);
+    } else if (bare) {
         snprintf(sj, sizeof(sj), "%s ... <- cancels", t.label);
     }
-    set_status(bare ? sj : t.op && !strcmp(t.op, "sectors.mount_folder") ? "Mounting the folder ... <- cancels" : "Building the image ... <- cancels", false);   // a folder mount builds no image (T128, discussion #36)
+    set_status(bare || job_node_ ? sj : t.op && !strcmp(t.op, "sectors.mount_folder") ? "Mounting the folder ... <- cancels" : "Building the image ... <- cancels", false);   // a folder mount builds no image (T128, discussion #36)
     return R_REDRAW;
+}
+
+// T262 P4: what a node's job is called while it runs: the node's `busy` text (a spec, resolved now), else the node's label.
+void MenuCtl::job_busy(char *out, int n) const
+{
+    out[0] = 0;
+    if (node_busy_[0]) {
+        spec_text(node_busy_, out, n);
+    }
+    if (!out[0]) {
+        snprintf(out, n, "%s", job_task_ && job_task_->label ? job_task_->label : "");
+    }
 }
 
 void MenuCtl::job_text(char *left, int ln, char *right, int rn, char *sub, int sn) const
 {
+    const bool pct = !job_node_ || job_seen_pct_ || c_->job_pct > 0;         // a node's job shows a percentage once the operation reports one; a file written by a task always does
     if (c_->job_path[0]) {
         snprintf(left, ln, "Writing %s", c_->job_path);
+    } else if (job_node_) {
+        job_busy(left, ln);
     } else {
         snprintf(left, ln, "%s", job_bare_ && job_task_ ? job_task_->label : job_task_ && job_task_->op && !strcmp(job_task_->op, "sectors.mount_folder") ? "Mounting the folder" : "Building the image");
     }
-    snprintf(right, rn, "%d%s", c_->job_pct, "%");                  // the firmware's printf has no %%
-    if (sub && sn) {
+    if (pct) {
+        snprintf(right, rn, "%d%s", c_->job_pct, "%");              // the firmware's printf has no %%
+    }
+    if (sub && sn && !pct) {
+        snprintf(sub, sn, "<- cancels");
+    } else if (sub && sn) {
         char bar[24];
         int fill = c_->job_pct * 20 / 100;
         for (int i = 0; i < 20; i++) {
@@ -2193,6 +2219,9 @@ bool MenuCtl::tick()
     job_started_ = true;
     int rc = ops_run_bound(c_, t.op, t.bind, t.nbind, 0, &r, 0, job_name_);
     c_->job_step = false;
+    if (c_->job_pct > 0) {
+        job_seen_pct_ = true;
+    }
     if (rc) {
         busy_ = false;
         c_->job_cancel = false;
@@ -2207,6 +2236,10 @@ bool MenuCtl::tick()
         char s[240];
         if (c_->job_path[0]) {
             snprintf(s, sizeof(s), "Writing %s: %d%s  (<- cancels)", c_->job_path, c_->job_pct, "%");
+        } else if (job_node_ && !job_seen_pct_) {                                        // T262 P4: no percentage before the operation reports one
+            char bz[64];
+            job_busy(bz, sizeof(bz));
+            snprintf(s, sizeof(s), "%s ...  (<- cancels)", bz);
         } else {
             snprintf(s, sizeof(s), "%s: %d%s  (<- cancels)", t.label, c_->job_pct, "%");     // a job that names no file (base 3.3: a task with job = true)
         }
@@ -2428,6 +2461,7 @@ bool MenuCtl::text_key(int k, Result *out)
         if (ui_attr(n->attr, "job")) {                                // T228 R21: a named file written in steps with the progress display (Save frame)
             memset(&node_task_, 0, sizeof(node_task_));
             node_task_.label = "Saving the state";
+            node_busy_[0] = 0;
             node_task_.op = n->op;
             node_task_.bind = n->bind;
             node_task_.nbind = n->nbind;
@@ -3312,6 +3346,9 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             node_task_.op = n.op;
             node_task_.bind = n.bind;
             node_task_.nbind = n.nbind;
+            if (!ui_attr(n.attr, "busy", node_busy_, sizeof(node_busy_))) {         // T262 P4: what the job is called while it runs
+                node_busy_[0] = 0;
+            }
             char pl[40];
             if (ui_attr(n.attr, "pick", pl, sizeof(pl))) {
                 static char pick_text[40];

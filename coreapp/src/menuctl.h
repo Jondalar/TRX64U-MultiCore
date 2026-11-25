@@ -299,6 +299,7 @@ private:
     const char *setting_label(int idx) const { const Setting &s = c_->desc->settings[idx]; return s.label ? s.label : s.key; }
     Result start_job(const Task &t, const char *name, bool bare = false);
     void job_text(char *left, int ln, char *right, int rn, char *sub, int sn) const;
+    void job_busy(char *out, int n) const;                         // T262 P4: the caption of a node's job
     const FileAction *chooser_action(int i) const { return &chooser_acts_[i]; }
     Result start_action(const FileAction &a, const char *file);
     // T104.2 D6: the address prompt of an action with `ask` - hex digits, BACK, RETURN, ESC. Starts on the file's own word.
@@ -432,6 +433,8 @@ private:
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
     bool busy_, job_started_, job_bare_;
+    bool job_node_, job_seen_pct_;                                 // T262 P4: the job is a node's (its caption is the node's, not a file write's); the operation has reported a percentage above 0
+    char node_busy_[64];                                           // the node's `busy` spec (ui attribute), "": the node's label
     bool app_mode_;
     char follow_last_[40];
     bool close_req_;

@@ -53,6 +53,8 @@ static std::string g_slot_called;
 static int op_slot(CoreCtx *, const OpArgs &a, OpOut &) { g_slot_called = a.s(0); return OPE_OK; }
 static const ArgSpec slot_arg[] = { ARG_SLOT("slot") };
 static int g_polls;
+static int g_jobcalls, g_jobpct = 0, g_jobsteps = 3;                  // zl.jobstep: answers `more` for g_jobsteps calls, reporting g_jobpct
+static int op_jobstep(CoreCtx *c, const OpArgs &, OpOut &o) { g_jobcalls++; c->job_pct = g_jobpct; o.more = g_jobcalls < g_jobsteps; return OPE_OK; }
 static int op_poll(CoreCtx *, const OpArgs &, OpOut &o) { g_polls++; o.more = false; return OPE_OK; }
 static const char *st_slot_a(CoreCtx *) { return "disk-a"; }
 static const char *st_slot_b(CoreCtx *) { return 0; }
@@ -72,6 +74,7 @@ static void add_lib_ops(OpRegistry *r)
     r->add_state("zl.state", st_state);
     r->add_op("zl.slotop", slot_arg, 1, op_slot);
     r->add_op("zl.poll", 0, 0, op_poll);
+    r->add_op("zl.jobstep", 0, 0, op_jobstep);
     r->add_state("zl.drive_a.image", st_slot_a);
     r->add_state("zl.drive_b.image", st_slot_b);
     r->add_state("zl.gate", st_gate);
@@ -951,6 +954,47 @@ int main(int argc, char **argv)
         r.m->footer_legend(leg, sizeof(leg));
         CHECK(strstr(leg, "Q ELSEWHERE") != 0 && strstr(leg, "CLEAR") == 0);
         g_gate.clear();
+    }
+
+    // ---- T262 P4: a node's job shows the node's own words while it runs and a percentage only once the operation reports one (not "Building the image 0%")
+    {
+        static const LibTabDecl tabs[] = { { "F5", "jobs", "Jobs", TW_NODES, 0, 0 } };
+        static const LibNodeDecl nodes[] = {
+            { "F5/jobs", LN_OP, "Search", "zl.jobstep", 0, 1, 0, 0, 0, 0, 0, false, "job;busy=Asking the server" },
+            { "F5/jobs", LN_OP, "Fetch", "zl.jobstep", 0, 2, 0, 0, 0, 0, 0, false, "job" },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 2;
+        Contributor cs[] = { { "jobber", CR_LIB, &rec } };
+        Rig r(cs, 1);
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/jobs"));
+        r.go_to("Search");
+        g_jobcalls = 0; g_jobpct = 0;
+        r.m->key(KEY_RETURN);                                                    // the job starts
+        CHECK(r.m->busy());
+        CHECK_STR(r.left(0).c_str(), "Asking the server");                        // the node's `busy` text, not "Building the image"
+        CHECK_STR(r.right(0).c_str(), "");                                        // no percentage: the operation reported none
+        CHECK(strstr(r.m->status(), "Asking the server") != 0 && strstr(r.m->status(), "Building") == 0);
+        CHECK(r.m->tick() && r.m->busy());                                        // a step that reports nothing
+        CHECK_STR(r.right(0).c_str(), "");
+        CHECK(strstr(r.m->status(), "Asking the server") != 0 && strstr(r.m->status(), "%") == 0);
+        g_jobpct = 40;
+        CHECK(r.m->tick() && r.m->busy());                                        // a step that reports 40
+        CHECK_STR(r.right(0).c_str(), "40%");
+        CHECK_STR(r.left(0).c_str(), "Asking the server");
+        CHECK(r.m->tick() && !r.m->busy());                                       // the last step
+        // a node with no `busy` is called what it is labelled
+        r.go_to("Fetch");
+        g_jobcalls = 0; g_jobpct = 0;
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->busy());
+        CHECK_STR(r.left(0).c_str(), "Fetch");
+        CHECK_STR(r.right(0).c_str(), "");
+        while (r.m->tick()) {}
     }
 
     DONE("test_contrib");

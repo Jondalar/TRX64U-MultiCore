@@ -297,6 +297,14 @@ class OwnMenu(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.compile_text('key = [{ node = "t", codes = [65, 66], op = "a.b", legend = "L" }]\n' + MIN)
 
+    def test_a_job_node_may_name_its_busy_words(self):         # T262 P4: ui `busy` beside `job`
+        node = '\n[[node]]\nanchor = "F5/t"\nkind = "op"\nlabel = "Search"\nop = "a.b"\nui = { job = true, busy = "%s" }\n'
+        b = D.compile_text(MIN + node % "@a.busy|Asking")
+        self.assertIn(b"job;busy=@a.busy|Asking", b)
+        self.assertEqual(D.parse_desc(b)["node"][0]["ui"], "job;busy=@a.busy|Asking")
+        with self.assertRaises(D.DescError):
+            D.compile_text(MIN + node % "a;b")
+
     def test_a_tab_may_be_shown_by_a_state(self):             # T262 P3: `show = "@state"`, alone or beside a layout and its ui
         b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = "@zl.gate"'))
         self.assertIn(b";show=@zl.gate", b)
