@@ -87,8 +87,10 @@ public:
         }
     }
     void ram_memonly(bool on) { C64_DMA_MEMONLY_REG = on ? 1 : 0; }
+#ifdef DRV_HAS_cart_regs
     uint8_t cart_rd(uint32_t reg) { return *DRV_PTR(uint8_t, DRV_cart_regs_ADDR + reg); }
     void cart_wr(uint32_t reg, uint8_t v) { *DRV_PTR(uint8_t, DRV_cart_regs_ADDR + reg) = v; }
+#endif
     void bus_wr(uint32_t off, uint8_t v) { *(volatile uint8_t *)(C64_IO_BASE + off) = v; }
     uint8_t bus_rd(uint32_t off) { return *(volatile uint8_t *)(C64_IO_BASE + off); }
     void eeprom_read(uint32_t off, void *p, uint32_t n)
@@ -215,8 +217,13 @@ public:
         e[1] = g;
         e[2] = b;
     }
+#ifdef DRV_HAS_cart_regs
     void stop(bool on) { C64_STOP_REG(on ? DRV_cart_regs_stop_stopped : DRV_cart_regs_stop_run); }
     void mode_reset(bool on) { C64_MODE_REG(on ? C64_MODE_RESET : C64_MODE_UNRESET); }
+#else
+    void stop(bool on) { (void)on; }
+    void mode_reset(bool on) { (void)on; }
+#endif
     uint32_t now_ms()
     {
         static uint16_t last;
