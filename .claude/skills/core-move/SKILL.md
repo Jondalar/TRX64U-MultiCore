@@ -23,9 +23,13 @@ changes nothing.
 ## 2. What the script has already decided (check it, do not redo it)
 
 - `gateware.toml`: addresses, widths, directions are the RTL's. Names come from the old register header by offset; every other register is `r_<offset>`
-  with `# TODO meaning`. The blocks are cut by holes of 4 bytes and at the first 16 bytes (the standard block); the module of a block is a placeholder.
-  Dense regions (more than 64 registers in one block: a hand-over to the host's pixel layer, a RAM) are not emitted: the notes in the file's head name
-  them. The A1200's `pixel.nframes` (0x101A60A6) is such a case: describe the one register by hand.
+  with `# TODO meaning`. The blocks are cut by holes of 4 bytes and at the first 16 bytes (the standard block: id +0, caps +4, caps2 +5, build +8, as `hw.cc`
+  and the identity check need them); the module of a block is a placeholder. A block of 65 to 256 registers is cut into blocks of 64 (the record's limit);
+  a dense region of more than 256 (a hand-over to the host's pixel layer, the C64's I/O pages that a core passes through, a RAM) is not emitted: the notes in
+  the file's head name it. The A1200's `pixel.nframes` (0x101A60A6) is such a case: describe the one register by hand. A flat core's `define symbols
+  (`core_toml.py env <id>`, TRX_DEFS) are given to the checker.
+- The drive: a core that uses the shared 1541 library gets the block `drive_a` as the shipped map `cbm1541` (not from the RTL; write the core's own list
+  from the drive window with a second `--bus`, as the VIC-20's: `# TODO` in the file).
 - `sdk.toml`: `base_blocks` = the VIC-20's and the A1200's common set (cart_regs, the ICAP blocks, partition, audio_master; iec_status with cbm1541);
   the libraries are the shared ones whose headers the core's code includes, with their `needs`.
 - The core's code is the include closure of `coreapp/cores/<id>.cc` inside `coreapp/cores`. A file that another core's closure reaches too is listed
@@ -67,7 +71,9 @@ changes nothing.
 
 ## 4. Gates (all green before the first matrix run)
 
-`python3 tools/core_move.py gates <core>` runs: `rtl_check.py check` against the RTL; the core's sources and the SDK's driver sources compiled natively
+`python3 tools/core_move.py sdkgaps [gateware.toml]` compiles the base's sources against the table with one optional base block taken out at a time (and
+`ident.caps`): every error that names a DRV_ macro is a driver that serves a block only some bitstreams have and does not test `DRV_HAS_<block>` (api.md
+6.17.5); run it after any change to `coreapp/src`. `python3 tools/core_move.py gates <core>` runs: `rtl_check.py check` against the RTL; the core's sources and the SDK's driver sources compiled natively
 (`g++-16 -fsyntax-only`, the core's own `drvtab.h` first); `tools/check_d24.py`; `tools/core_toml.py lanes` (the core must be listed as `<id> dfx|large`).
 By hand besides: `python3 tools/check_todo.py`, `tests/rtl_check/test_rtl_check.py`, the units of the core's `tests` keys (one run), the menu simulator
 (`tools/menusim/run.sh`) for the core's F5 page. No `tools/dev.sh` per step (CLAUDE.md): the coordinator runs the RISC-V build and the test units once at

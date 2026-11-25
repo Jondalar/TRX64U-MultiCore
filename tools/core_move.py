@@ -409,7 +409,9 @@ def gates(core, appdir=None, work=None):
     print("gates: compile the app's sources against its driver table (g++ -fsyntax-only)")
     work = work or tempfile.mkdtemp(prefix="coremove.")
     inf = info(core)
-    inf["own"] = [f for f in os.listdir(os.path.join(appdir, "lib")) if f.endswith((".cc", ".h"))] if os.path.isdir(os.path.join(appdir, "lib")) else inf["own"]
+    if os.path.isdir(os.path.join(appdir, "lib")):          # moved: its files are in the app's lib, its libraries are the TOML B's
+        inf["own"] = [os.path.relpath(os.path.join(d, f), os.path.join(appdir, "lib")) for d, _, fs in os.walk(os.path.join(appdir, "lib")) for f in fs if f.endswith((".cc", ".h"))]
+        inf["libs"] = [l["name"] for l in descrec.toml_loads(rd(os.path.join(appdir, "sdk.toml"))).get("library", [])[1:]]
     res = compile_core(inf, os.path.join(appdir, "gateware.toml"), os.path.join(appdir, "sdk.toml"), os.path.join(appdir, "lib") if os.path.isdir(os.path.join(appdir, "lib")) else CORES_SRC, work)
     for f, first, _ in res:
         print("  %s: %s" % (f, first))
@@ -435,12 +437,22 @@ def apply(core, full):
     if not inf["layer2"]:
         print("core_move: no layer2 RTL to emit from (see the plan): stop")
         return 1
+    # the TOML A first, from the sources where they are (their headers name the registers): when the RTL cannot be read, nothing has been moved
+    tmp = tempfile.mkdtemp(prefix="coremove_apply.")
+    rc, out = run_emit(inf, os.path.join(tmp, "gateware.toml"), full, 2, os.path.join(tempfile.gettempdir(), "emit_%s.json" % core))
+    print(out.strip().split("\n")[-1])
+    if rc != 0 or not os.path.exists(os.path.join(tmp, "gateware.toml")):
+        print("core_move: the TOML A cannot be written from the RTL (see above): nothing was moved. A gap of tools/rtl_check.py is fixed there, not worked around here.")
+        shutil.rmtree(tmp)
+        return 1
     os.makedirs(os.path.join(app, "lib"), exist_ok=True)
     for f in inf["own"]:
         os.makedirs(os.path.dirname(os.path.join(app, "lib", f)), exist_ok=True)
         subprocess.check_call(["git", "mv", os.path.join("coreapp", "cores", f), os.path.join("cores", core, "app", "lib", f)], cwd=ROOT)
-    rc, out = run_emit(inf, os.path.join(app, "gateware.toml"), full, 2, os.path.join(tempfile.gettempdir(), "emit_%s.json" % core))
-    print(out.strip().split("\n")[-1])
+    shutil.copy(os.path.join(tmp, "gateware.toml"), os.path.join(app, "gateware.toml"))
+    if os.path.exists(os.path.join(tmp, "rtl_check_sources.tcl")):
+        shutil.copy(os.path.join(tmp, "rtl_check_sources.tcl"), os.path.join(app, "rtl_check_sources.tcl"))
+    shutil.rmtree(tmp)
     add_drive(inf, os.path.join(app, "gateware.toml"))
     with open(os.path.join(app, "sdk.toml"), "w") as f:
         f.write(sdk_toml(inf))
