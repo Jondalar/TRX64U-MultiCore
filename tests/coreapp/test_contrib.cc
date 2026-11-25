@@ -1135,6 +1135,12 @@ int main(int argc, char **argv)
         CHECK(r.m->rows() > 50 && r.m->rows() < 200);
         CHECK(r.left(r.m->rows() - 1).substr(0, 6) == "value ");                      // whole lines only
         CHECK(strstr(r.m->status(), "not shown") != 0);
+        {                                                                            // T262 review 3: the text and the offset of every row (an int) stay within the quarter
+            size_t bytes = 0;
+            for (int i = 0; i < r.m->rows(); i++) bytes += r.left(i).size() + 1 + sizeof(int);
+            CHECK(bytes <= 1000);
+            printf("PASS the list's text and offsets stay within the quarter of the heap (%zu of 1000)\n", bytes);
+        }
         ListGrow::free_heap() = 0;
         r.m->key(KEY_ESCAPE);
         g_choices.clear();

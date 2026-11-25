@@ -45,13 +45,25 @@ int picklist_parse(PickRows *p, const char *text)
         return 0;
     }
     const int want = (int)strlen(text);
-    const int take = ListGrow::fit(want, 1);                     // bytes: a quarter of the heap that is free now at most
-    int len = take < want ? take : want;
-    if (len < want) {                                            // cut at the end of a line: never half a row
-        while (len > 0 && text[len - 1] != '\n') {
-            len--;
+    const int all = want + (int)sizeof(int) * picklist_count(text);   // the text and the offset of every non-empty line (what the two mallocs hold)
+    const int take = ListGrow::fit(all, 1);                      // bytes: a quarter of the heap that is free now at most, for both
+    int len = want;
+    if (take < all) {                                            // cut at the end of a line: never half a row; every row costs its text and its offset
+        int cost = 0;
+        len = 0;
+        for (const char *q = text; *q;) {
+            const char *e = strchr(q, '\n');
+            const int l = (int)((e ? e : q + strlen(q)) - q);
+            const int step = l + (e ? 1 : 0);
+            const int c = step + (l > 0 ? (int)sizeof(int) : 0);
+            if (cost + c > take) {
+                break;
+            }
+            cost += c;
+            len += step;
+            q += step;
         }
-        p->cut = true;
+        p->cut = len < want;
     }
     if (len <= 0) {
         return 0;
