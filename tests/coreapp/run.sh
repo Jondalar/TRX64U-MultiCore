@@ -76,10 +76,13 @@ A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library
 source "$TST/a8_drv.sh"
 source "$TST/nes_drv.sh"
 source "$TST/c264_drv.sh"
+source "$TST/zxnext_drv.sh"
 source "$TST/shared_drv.sh"
 a8_drv_dir "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
+zxnext_drv_dir "$T/zxnexttab" || { echo "coreapp: the ZX Spectrum Next's driver table was not generated" >&2; exit 1; }   # zxnext_regs.h names the registers through it
+ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
@@ -87,11 +90,11 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$C264LIB" "$ZXNLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL, the NES and the Commodore 264 as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+# T239.5 D15: the shared units use the Atari 800 XL, the NES, the Commodore 264 and the ZX Spectrum Next as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
 shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -I"$C264LIB" -I"$ZXNLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -106,10 +109,14 @@ INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
 # The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library, its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || INC_NES+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || INC_NES+=("$i"); done
 # The Commodore 264 is its own app as well (T239.5 D15: cores/c264/app). c264app CMD... builds like nesapp, with the 264's library, its table and TEST_APP_C264: its units are in the group c264.
 INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || INC_C264+=("$i"); done
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || INC_C264+=("$i"); done
+# The ZX Spectrum Next is its own app as well (T239.5 D15: cores/zxnext/app). zxnextapp CMD... builds like c264app, with the Next's library, its table and TEST_APP_ZXNEXT: its units are in the group zxnext.
+INC_ZXNEXT=(-DTEST_APP_ZXNEXT=1 -I"$ZXNLIB" -I"$T/zxnexttab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || [ "$i" = "-I$C264LIB" ] || [ "$i" = "-I$ZXNLIB" ] || INC_ZXNEXT+=("$i"); done
+zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800; "$@"; }
@@ -165,7 +172,8 @@ control_job() {
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
   cp -R "$A8LIB"/* "$d"/ 2>/dev/null || true
   cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true
-  cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's
+  cp -R "$C264LIB"/* "$d"/ 2>/dev/null || true
+  cp -R "$ZXNLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the libraries of the moved cores (the controls mutate their files): the Atari 800 XL's, the NES's, the Commodore 264's, the ZX Spectrum Next's
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -219,7 +227,7 @@ run hostkey test_hostkey.cc start.cc handover.cc amiga.cc $BASEL
 # T115 7 H2: the pick by id (I1-I5)
 
 ZXN="zxnext.cc $BASEL"
-run zxnext test_zxnext.cc $ZXN
+zxnextapp run zxnext test_zxnext.cc $ZXN
 # T116 D11: Auto
 NEOG="neogeo.cc neoset.cc $BASEL"
 run neogeo test_neogeo.cc $NEOG
@@ -1053,6 +1061,14 @@ PY
   return 0
 }
 if ca_in c264 && ca_unit c264_romreq; then t_romreq_c264; PASS=$((PASS + 1)); fi
+
+# T239.5 D15: the ZX Spectrum Next's units built as its app (zxnextapp: its library cores/zxnext/app/lib and its own table, the group zxnext) that are not above (zxnext) - the units its TOML B
+# (cores/zxnext/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zxnext.cc and the base's (no other core). The Next has no ROM: no romreq unit.
+ZXND="desc_check.cc overlay.cc descrec.cc zxnext.cc $BASEL"
+zxnextapp run zxnext_joyswap test_joyswap.cc $ZXND
+zxnextapp run zxnext_menuctl test_zxnext_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ZXND
+zxnextapp run zxnext_memops test_memops.cc $SVC $ZXND
+RARGS="$BUN/app" zxnextapp run zxnext_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $ZXND
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

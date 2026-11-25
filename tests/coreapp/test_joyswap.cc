@@ -9,11 +9,14 @@
 #include "ops_glue.h"
 #include "regset.h"
 #include "amiga_regs.h"
-#ifndef TEST_APP_A1200                   // the A1200's app (run.sh a12app) has its own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT)       // the A1200's and the Next's app (run.sh a12app, zxnextapp) have their own core only
 #include "c128_regs.h"
 #include "c264_regs.h"
 #include "cpc_regs.h"
 #include "nes_regs.h"
+#include "zxnext_regs.h"
+#endif
+#ifdef TEST_APP_ZXNEXT
 #include "zxnext_regs.h"
 #endif
 
@@ -40,6 +43,8 @@ int main()
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
+#elif defined(TEST_APP_ZXNEXT)
+        { &zxnext_desc, ZXN_JOY },
 #else
         { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
         { &cpc_desc, CPC_JOY }, { &zxnext_desc, ZXN_JOY },
@@ -85,7 +90,7 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
-#ifndef TEST_APP_A1200
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 1"), 1);
     CHECK_EQ(count_key(zx_desc, "Joystick port 2"), 1);

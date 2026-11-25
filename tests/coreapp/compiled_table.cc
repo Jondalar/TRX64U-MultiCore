@@ -25,6 +25,11 @@ const CoreDesc *const compiled_in_table[] = { &nes_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_ZXNEXT)
+// the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &zxnext_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"
