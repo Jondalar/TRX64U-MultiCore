@@ -5,7 +5,7 @@
 # base as tools/build_hostapp.sh (it builds the lwip and lvgl libraries the same way). nice-d, JOBS jobs.
 #
 #   tools/build_coreapp.sh [make target...]    # default: all;  "clean" to start over
-#   tools/build_coreapp.sh --dist              # build, then dist/coreapps/<core>.app for nes, apple2, zx, cpc, zxnext, snes, c264 and amiga (BLUEPRINT_CORES; the VIC-20 has an app of its own, tools/sdk_core_app.sh)
+#   tools/build_coreapp.sh --dist              # build, then dist/coreapps/<core>.app for apple2, zx, cpc, zxnext, snes, c264 and amiga (BLUEPRINT_CORES; the VIC-20 has an app of its own, tools/sdk_core_app.sh)
 #
 # One image serves every core (T93 D14): the descriptor is chosen at run time from the core's ID block, so the
 # files in dist/coreapps/ are the same bytes under the names ci/package.sh and tools/pack_cores_mc.sh look for.
@@ -37,7 +37,7 @@ if [ -f "$R/coreapp.app" ]; then
     mkdir -p "$ROOT/dist/coreapps"
     # Only the cores that have a descriptor in coreapp/src/table.cc. Not "every core whose core.toml says blueprint": the Amiga and
     # the A1200 say so too (spec 5.2) and their applications are Gideon-base builds that must never be overwritten here.
-    for c in ${BLUEPRINT_CORES:-nes apple2 zx cpc zxnext snes neogeo c264 pet c128 c64scpu amiga diag}; do
+    for c in ${BLUEPRINT_CORES:-apple2 zx cpc zxnext snes neogeo c264 pet c128 c64scpu amiga diag}; do
       # The .bin, never the .app: a .app is the image behind a 12-byte header (load, length, entry), which the host
       # update file wants and a bundle does not - cor_pack puts record 3 at app_load as it is and jumps to app_entry,
       # so the header would sit on the entry point. That is what shipped on 2026-10-15 and left the Atari and the NES

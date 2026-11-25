@@ -4,7 +4,6 @@
 
 #include "desc.h"
 
-extern const CoreDesc nes_desc;
 extern const CoreDesc apple2_desc;
 extern const CoreDesc zx_desc;
 extern const CoreDesc cpc_desc;

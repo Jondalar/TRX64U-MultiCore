@@ -10,7 +10,6 @@ const CoreDesc *const core_table[] = { &CORE_ONLY, 0 };
 const CoreDesc *const core_table[] = { 0 };
 #else
 const CoreDesc *const core_table[] = {
-    &nes_desc,
     &apple2_desc,
     &zx_desc,
     &cpc_desc,

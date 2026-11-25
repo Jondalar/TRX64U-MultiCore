@@ -1,7 +1,7 @@
 # The NES core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml, S44 of the u64-emulator repository).
-# Registers from coreapp/cores/nes_regs.h.
+# Registers from cores/nes/app/gateware.toml.
 name = "nes"
-id = "NES_"                  # nes.cc: the gateware's ID word
+id = "NES_"                  # cores/nes/app/lib/nes.cc: the gateware's ID word
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [regs]

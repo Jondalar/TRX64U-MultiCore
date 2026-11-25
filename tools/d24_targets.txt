@@ -42,14 +42,10 @@ coreapp/cores/ddt_novic.cc core-library hooks and tables; no desc.toml yet (D9)
 coreapp/cores/ddt_regs.h data register map (D8)
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
 coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
-coreapp/cores/ines.cc core-library the core's own file format or engine (D9)
-coreapp/cores/ines.h core-library the core's own file format or engine (D9)
 coreapp/cores/neogeo.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/neogeo_regs.h data register map (D8)
 coreapp/cores/neoset.cc core-library the core's own file format or engine (D9)
 coreapp/cores/neoset.h core-library the core's own file format or engine (D9)
-coreapp/cores/nes.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/nes_regs.h data register map (D8)
 coreapp/cores/pet.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/pet_models.h core-library PET models, ROM CRCs, PRG numbers
 coreapp/cores/pet_regs.h data register map (D8)

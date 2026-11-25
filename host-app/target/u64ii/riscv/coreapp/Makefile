@@ -201,7 +201,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			picklist.cc \
 			lineedit.cc \
 			boot.cc \
-			nes.cc \
 			apple2.cc \
 			apple2_disk.cc \
 			apple2_nib.cc \
@@ -225,7 +224,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			snes_rom.cc \
 			neogeo.cc \
 			neoset.cc \
-			ines.cc \
 			u64cfg.cc \
 			ring.cc \
 			ringops.cc \

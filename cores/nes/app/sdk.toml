@@ -1,0 +1,42 @@
+# TOML B of the NES's app (T239.3 D55, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "nes"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library nes below defines it); the core table of this app holds this core only
+desc = "nes_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the NES is a large core on the host's pieces) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36). The core
+# has no 1541 and no IEC bus, so no block of the drive window or of iec_status is named, and no block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if, so board.cc runs
+# no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
+base_sources = ["portdiag.cc"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of register_ops, the mount slot) and the iNES header reader (the mapper word, the masks and the mirroring the gateware's
+# nes_flags makes of it). Its files are in cores/nes/app/lib; hk_defaults.h is a copy of the shared app's (the other cores still use the original).
+[[library]]
+name = "nes"
+sources = ["ines.cc", "nes.cc"]
+headers = ["ines.h", "nes_regs.h", "hk_defaults.h"]
+# pad: nes.cc declares the USB pads (the PadSpec of the descriptor, caps "pad")
+needs = ["pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: nesapp, the group nes): unit = 2 unit tests (nes_ines the iNES header against the mapper
+# words computed by hand), service = 8 mock bitstream -> service (nes_core the core's hooks against a model of the register block, nes_descgen the record compiled from desc.toml against the descriptor,
+# nes_romreq the host's ROM table), ui = 9 service -> UI (nes_menuctl the menu on the core's record), api = 10 service -> API: its operations through the service call the REST and RPC transports make
+# (svc_call; the NES's case of the shared test_memops, TEST_APP_NES)
+tests = { unit = ["nes_ines"], service = ["nes_core", "nes_descgen", "nes_romreq"], ui = ["nes_menuctl"], api = ["nes_memops"] }
+
+# The USB gamepads (the descriptor's pad spec, caps "pad"): the pad service with its maps and mapping wizard (the Input tab's Map buttons tasks), the HID descriptor reader and the XInput driver. The
+# same sources as the shared app's library, S12 (its table "pad" is what engines.cc and ops_glue.cc call)
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"

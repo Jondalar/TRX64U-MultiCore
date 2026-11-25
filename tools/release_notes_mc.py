@@ -81,7 +81,7 @@ CORES = [
          sources="coreapp/cores/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
     dict(id="nes", match=("nintendo",), title="Nintendo Entertainment System", folder="nes",
          files="none", needed="nothing",
-         sources="coreapp/cores/nes.cc:139-160 (no ROM list in the descriptor)"),
+         sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),
     dict(id="diag", match=("port diagnostics",), title="Port Diagnostics", folder="diag",
          files="none", needed="nothing",
          sources="coreapp/cores/portdiag.cc (the folders `tests/` and `results/` under the core folder; the files of record 8 of diag.cor, the example tests, are written when missing), cores/diag/mono/core.toml (no ROM, no media)"),
