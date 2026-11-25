@@ -99,4 +99,11 @@ Scenario: S6 trx64u.cor from their pre-release
 
 ## §5 Build notes
 
-(filled while building)
+- **S5 / P3, 2026-11-25:** `sdk-0.4.6-6e280710` published in `Jondalar/trx64mc-builds` (pre-release, not latest). The bytes are
+  the ones TRX64-Ultimate pinned, taken from the Gitea packages `TREX/generic/trx64-sdk/0.4.6-6e280710` and
+  `TREX/generic/trx64-online/1.0-6e280710` (the hand-over upload of `t239.3` 6e2807103; its pipeline run 45437617746 has no SDK
+  artifact): `trx64-sdk-0.4.6.tar.gz` sha256 fd3175de...5701356, 10,699,890 bytes; `online.u2a` 061c7394...ab820968, 26,147
+  bytes; `SHA256SUMS` over both. Made as a draft, the server's asset digests compared, then published. The leak check
+  (`tools/check_public_tree.py --files`) has 9 hits in the tarball, each one a path-scoped allowance of the tree mode
+  (`_TEXT_ALLOW`: struct members shaped like host names, the ESP32 vendor default, example addresses, the stb_image author
+  line) that misses only because the tarball's paths start with `menusim/` or `base/src/`; the same text is in the public tree.
