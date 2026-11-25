@@ -2,6 +2,7 @@
 """T239.3 P1-3 (D30 condition 1): TOML A against the RTL, code to code, and the reverse lint on C/C++ sources.
 
   rtl_check.py check --design DIR --toml-a FILE [--maps DIR]... [--list build.tcl]... [--define NAME]... [--top top] [--bus ultimate_sys.io_req | --bus MODULE:write=P,read=P,address=P,data=P,response=P --window BASE:SIZE]
+  rtl_check.py emit --design DIR --toml-a-out FILE --core NAME --bus ... --window ... [--header FILE]...   (D55: a TOML A skeleton from the decode; tools/toml_a_emit.py)
   rtl_check.py lint-src PATH... [--toml-a FILE [--maps DIR]...] [--iobase 0x10000000] [--span 0x1000000] [--allow FILE:LITERAL]...
 
 check
@@ -2100,13 +2101,40 @@ class Design:
         return self.records.get(tyname)
 
 
+def pp_ifdef(text):
+    """The `ifdef / `ifndef / `elsif / `else / `endif lines of a Verilog text decided with DEFINES (the line-based form of lex's): a branch that is off, and the directive lines, become empty
+    lines (D55: layer2_c128.v chooses the module of an instance, and the header of the instance is inside the branches)."""
+    cond, out = [], []
+    for ln in text.split("\n"):
+        d = re.match(r"\s*`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", ln)
+        on = all(c[2] for c in cond)
+        if d:
+            kw, nm = d.groups()
+            if kw in ("ifdef", "ifndef"):
+                hit = (nm in DEFINES) == (kw == "ifdef")
+                cond.append((on, hit, hit))
+            elif kw == "elsif":
+                par, taken, _ = cond[-1]
+                hit = (nm in DEFINES) and not taken
+                cond[-1] = (par, taken or hit, hit)
+            elif kw == "else":
+                par, taken, _ = cond[-1]
+                cond[-1] = (par, True, not taken)
+            else:
+                cond.pop()
+            out.append("")
+        else:
+            out.append(ln if on else "")
+    return "\n".join(out)
+
+
 def top_instances(design, topname, extra_names):
     """The instantiations of the top-level Verilog file, read by a scan (the file is huge and not decoded): module, label, {formal: expr}."""
     f = design.index.get(topname)
     if f is None:
         raise CheckError("no top module %s in the source list" % topname)
     text = read_source(f)
-    text = re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S)
+    text = pp_ifdef(re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S))
     m = Mod(topname, "vlog", f)
     for dm in re.finditer(r"\b(?:wire|reg)\s*(?:\[\s*(\d+)\s*:\s*(\d+)\s*\])?\s*([\w\s,]+?)\s*(?:=|;)", text):
         w = int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1
@@ -2779,8 +2807,8 @@ class Ev:
                 return v_not(a)
             if op == "!":
                 return v_tv(None if truth(a) is None else 1 - truth(a))
-            if op == "-" and a.known():
-                return V(-a.v, 0, a.w)
+            if op == "-":
+                return V(-a.v, 0, a.w) if a.known() else allx(a.w if a.w is not None else 32)       # D55: an unknown operand (c264's decode) negates to an unknown value, as v_arith does
             if op == "+":
                 return a
             if op in ("|", "&", "^"):
@@ -4475,10 +4503,13 @@ def cmd_lint(args):
 
 
 def main(argv):
-    if len(argv) < 2 or argv[1] not in ("check", "lint-src"):
+    if len(argv) < 2 or argv[1] not in ("check", "lint-src", "emit"):
         print(__doc__)
         return 2
     try:
+        if argv[1] == "emit":
+            import toml_a_emit       # D55: the generator, tools/toml_a_emit.py (reads this file's decode engine)
+            return toml_a_emit.cmd_emit(argv[2:])
         return (cmd_check if argv[1] == "check" else cmd_lint)(argv[2:])
     except (Unsupported, CheckError) as e:
         if os.environ.get("RTL_CHECK_TRACE"):
