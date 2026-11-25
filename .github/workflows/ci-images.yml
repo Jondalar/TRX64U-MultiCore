@@ -118,7 +118,7 @@ jobs:
           docker run --rm "$IMAGE" sh -c 'yosys -V; ghdl --version | head -1; shellcheck --version | head -2; ruff --version; python3 -c "import yaml; print(\"yaml ok\")"'
 
   # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed (the build job's output
-  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration or t239.1).
+  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration, t239.1 or t239.3).
   emu:
     needs: build
     if: needs.build.outputs.push == 'true'
