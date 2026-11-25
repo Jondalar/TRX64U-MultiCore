@@ -313,6 +313,14 @@ void MenuCtl::rebuild()
     memset(first_, 0, sizeof(first_));
     memset(last_tab_, 0, sizeof(last_tab_));
     unheading();
+    if (pick_ && pick_dyn_ && pl_mode_ == PL_NODE) {                 // T262 review 4: pl_node_ points into the tree that is gone: the list is closed, nothing runs
+        pick_ = pick_dyn_ = false;
+        picklist_free(&pl_);
+        pl_mode_ = PL_OP;
+        pl_node_ = 0;
+        set_status("The menu changed", false);
+    }
+    sf_src_ = -1;                                                    // the search form's source is an index into the sources of the tree that is gone: This device
     if (pick_modes_) {                                               // T187 D5: the screen changed under the page: the rows are made again, the cursor keeps its mode
         pick_modes_refresh(true);
         pick_n_ = pm_.n;
@@ -5315,6 +5323,11 @@ MenuCtl::Result MenuCtl::sf_run()
         return R_REDRAW;
     }
     const int src = sf_src_;
+    if (!c_->merge || src >= c_->merge->nsrcs) {                    // a source that is not there any more
+        sf_src_ = -1;
+        set_status("The source is gone", true);
+        return R_REDRAW;
+    }
     const MergedNode &sn = c_->merge->srcs[src];
     static char find_op[40], busy[64];
     if (!ui_attr(sn.n.attr, "find", find_op, sizeof(find_op))) {

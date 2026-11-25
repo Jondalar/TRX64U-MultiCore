@@ -1208,6 +1208,44 @@ int main(int argc, char **argv)
     static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
     static const Skeleton f3sk = { f3areas, 1 };
 
+    // ---- T262 review 4: a rebuild of the tree (the list of libraries changed) closes an open node pick and takes the search form back to This device
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl pn[] = { { "F5/settings", LN_OP, "Many", "zl.chosen", 0, 1, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" } };
+        static const LibNodeDecl sn[] = { { "F3/search", LN_LIST, "Online results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "search=Online;find=zl.find;fields=Group,Handle;more=zl.more" } };
+        LibRecord pr, sr;
+        memset(&pr, 0, sizeof(pr)); memset(&sr, 0, sizeof(sr));
+        pr.struct_size = sr.struct_size = sizeof(pr);
+        pr.nodes = pn; pr.nnodes = 1;
+        sr.nodes = sn; sr.nnodes = 1;
+        Contributor pc[] = { { "rebuilt", CR_LIB, &pr } };
+        Contributor sc[] = { { "rebuilt", CR_LIB, &sr } };
+        g_choices = "a\nb\n";
+        g_chosen.clear();
+        {
+            Rig r(pc, 1);
+            r.m->open();
+            r.m->key(KEY_F5);
+            r.go_to("Many");
+            r.m->key(KEY_RETURN);
+            CHECK(r.m->picking());
+            r.m->rebuild();                                                          // the tree is made again under the open list
+            CHECK(!r.m->picking());
+            r.m->key(KEY_RETURN);
+            CHECK(g_chosen.empty());                                                 // no operation ran on a node of the old tree
+        }
+        Rig r(sc, 1, &f3sk);
+        r.m->open();
+        CHECK(r.m->goto_spec("F3/search"));
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->search_form());
+        r.m->key(KEY_RETURN);
+        CHECK_STR(r.right(0).c_str(), "Online");
+        r.m->rebuild();
+        CHECK_STR(r.right(0).c_str(), "This device");
+        printf("PASS a rebuild closes a node pick and resets the search source\n");
+    }
+
     // ---- T262 P5: a library is a source of the F3 search: one form (Source, Name contains, the source's fields, Search); a source's results open as the list of P1; no source: the search is what it was
     {
         static const LibNodeDecl nodes[] = { { "F3/search", LN_LIST, "Online results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "search=Online;find=zl.find;fields=Group,Handle;more=zl.more" } };
