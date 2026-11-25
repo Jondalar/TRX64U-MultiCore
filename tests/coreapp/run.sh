@@ -257,6 +257,7 @@ control diagtest_overwrite instfiles.cc 's/if (fs->stat(path, \&sz, \&dir) \&\& 
 control diagtest_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, path, sz, olds, nold))/(true)/' test_diagtest.cc diagtest.cc instfiles.cc
 
 run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+run diag_avtrace test_diag_avtrace.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
