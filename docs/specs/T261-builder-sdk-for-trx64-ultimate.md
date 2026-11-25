@@ -115,7 +115,8 @@ Scenario: S6 trx64u.cor from their pre-release
   The matrix is called by `pipeline.yml` only on `t239.3` and `t239.3-*` (`pipeline.yml` `matrix:` job), so until the matrix is called on `integration`/`main` the job runs on
   `t239.3` alone; the script's own guard (`P.SDK_BRANCHES`) holds for all three. The environment `builds` allows `t239.3` since 2026-11-25 (Alex, P5; its
   deployment rules: `main`, `v*`, `t239.1`, `t239.3`); `integration` is added when the matrix runs there. `BUILDS_TOKEN` is a secret of the environment `builds`,
-  not of the repository: a job of a called workflow that names the environment reads it (the caller passes none); the first `t239.3` run proves it.
+  not of the repository. Run 45569965584 (`1882f8375`) proved that a called workflow's job does not get it from naming the environment alone:
+  `ci/publish_sdk.py: BUILDS_TOKEN is not set` (review 1.2 had warned). Fix: `secrets: inherit` on the `matrix:` call in `pipeline.yml`.
 - **Decision:** `ci/publish_sdk.py` stages the lane's `trx64-sdk-<version>.tar.gz` (version = `app/sdkpkg/SDK_VERSION`, must match the tarball name) and every `*.u2a`, writes a
   fresh `SHA256SUMS` (the lane's names `./x` and its `coreapp.map` are not published), lists the releases of the builds repository (newest first), takes the newest published
   one tagged `sdk-<version>-<8 hex>`, reads its `SHA256SUMS`, and publishes only when it differs from the one written here (every file, names and SHA-256:
@@ -142,3 +143,25 @@ Scenario: S6 trx64u.cor from their pre-release
   `t239.3`'s `ci/imports.py` already differs from `integration`'s, so this adds no new mismatch there. The pin moves to the release form after that.
 - **Review 2026-11-25** (one agent, `9d5770752`): 1.1 (the job runs on `t239.3` only) and 1.2 (environment secret) answered above; 2.4 fixed (all files
   compared, test `online=b"on2"` publishes); 5.1 the duplicated D5 in the contract header removed; 3.3 noted above. Tests: `ci/test_publish_sdk.py` OK.
+
+### Builder half (2026-11-25, `TREX/trx64mc-builder`)
+
+- **P1:** `pull/config.py` holds a table of rows (`ROWS`): `multicore` is today's behaviour from today's variables; `fw` (`Jondalar/TRX64-Ultimate`)
+  reads `FW_`-prefixed variables over D2's defaults. `SOURCES` (default `multicore`) switches rows on. `pull/order.py` takes the row's entry regex; the fw
+  row demands `lanes == ["bits:c64_basic"]` and at most one entry. `pull/keys.py` takes the row's mirror and key code list (`pull/keycode-fw.txt`:
+  `ci/keys.sh`, `ci/lib.sh`). `pull/publish.py` tags `<prefix>bit-<entry>` (`fw-bit-<entry>`), pre-release, not latest, its own `SHA256SUMS`.
+  `pull/poll.py` `poll_all` polls every row; one row's error, or bad configuration, is logged and the next row is polled, the job is red at the end.
+  `pull/build.sh` picks the row by repository, refuses a `bits:` lane for MultiCore and every other lane for fw, checks the claim's `source_repo`
+  (an old claim without it counts as MultiCore), and runs `FW_BUILD_COMMAND` (a script under `ci/`, from configuration only) with
+  `CI_BIT_CACHE` and `CI_HANDOFF`. Imports stay MultiCore's: `pull/imports.py` only passes `TRX_FW_RELEASE_URL` to `ci/imports.py`.
+- **Paths (TRX64-Ultimate's request):** `FW_CI_BIT_CACHE` default `/cache/bit`, their existing bit cache (their key `c64u-0dce5fff4ef99009` is
+  there, so the first fw run publishes without Vivado); their build uses `/cache` as `TRX_CACHE` and `/cache/heavy.lock` (slot 0); the build job
+  mounts the whole cache read-write at `/cache`. Hand-over `/cache/trx64u/runs`.
+- **Tests:** `pull/run_tests.sh`: ghapi 2, publish 12, keys 32, build 7, poll 45, imports 4, sources 24, each `OK`; the existing ones unchanged.
+- **Review** (one agent, `af501f4`, `404ee75`): MultiCore unchanged with `SOURCES` unset (old claims load, no new dispatch input). Fixed in
+  `a6dc4f1`: a row's bad configuration no longer stops the poll; the fw scratch build sets `TRX_CACHE=/scratch/trx`; `FW_BUILDS_REPO` defaults to
+  `BUILDS_REPO`; `pull.yml` passes every `FW_` variable the README names.
+- **Deployed 2026-11-25:** `a6dc4f1` on the builder repository's `main`. Gitea variables: `FW_KEYCODE_REF=u20`, `FW_TRUSTED_BRANCHES=main,u20`
+  (TRX64-Ultimate's switch branch, ruleset `protected`; back to `main` when their switch is merged). `SOURCES` stays unset until `u20` is on GitHub.
+- **P5 (outside):** done by Alex with the TRX64-Ultimate session: the App installed on their repository and the protection rule of `bitstreams`,
+  `SRC_API_TOKEN` extended, environments `vivado`, `bitstreams`, `builds`; environment `builds` here allows `t239.3` (2026-11-25).

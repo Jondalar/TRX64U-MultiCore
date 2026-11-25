@@ -307,6 +307,7 @@ jobs:
   matrix:
     if: ${{ (github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
     uses: ./.github/workflows/matrix.yml
+    secrets: inherit    # T261: BUILDS_TOKEN is a secret of the environment `builds`; a called workflow's job that names the environment reads it only when the caller inherits
 
   summary:
     name: Result
