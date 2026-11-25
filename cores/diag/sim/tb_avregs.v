@@ -127,7 +127,7 @@ module tb_avregs;
         rdb(0, 12'h05A); check(rv == 8'd0, "SYNC resets to 0");
         rdb(0, 12'h05B); check(rv == 8'd77, "BLANK resets to 77");
         rdb(0, 12'h05C); check(rv == 8'd11, "WHITE resets to 11");
-        rdb(0, 12'h006); check(rv == 8'h07, "DCAPS has the A/V bit");
+        rdb(0, 12'h006); check(rv == 8'h1F && rv[2], "DCAPS has the A/V bit (bit 2; T260: bits 3 and 4 are the pin bank and the capture)");
         // live writes, no reset
         wr(10'b0000000010, 12'h053, 8'd0);
         wr(10'b0000000100, 12'h058, 8'd16);

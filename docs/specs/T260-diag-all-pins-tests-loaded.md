@@ -267,7 +267,29 @@ Read-back: the RISC-V cannot address the ring, so the application reads it throu
 
 #### Benches (builder, `trx64-sim-env:5`, `docker run --rm --cpus 2`)
 
-(lines filled when run)
+Run on the builder (scratch copy, `docker run --rm --cpus 2 -v $PWD:/w -w /w trx64-sim-env:5 sh <script>`, build outputs removed in the container, scratch removed; 2026-11-25):
+
+| scenario | script | PASS line |
+|---|---|---|
+| S1 every pin to its snapshot bit (121 pins, SAMPLE words and LIVE registers, two pins low together, SAMPLE timestamps) | `cores/diag/sim/probe/run.sh` | `PASS tb_probe errors=0 checks=3463` |
+| S2 DRIVE in every mode on every pin (refusals by class / index / guard, DRVEN, REF_PC / REF_CNT), guard trip, release at END / ABORT / step error / decouple / reset, WRITE_REG, EDGES, TIME_TO_EDGE, LOOP, FIFO overflow | same bench | (the same `PASS tb_probe` line: one bench, one verdict) |
+| S3 the ROM through registers 0A0 / 0C0-0DF = pins.toml (`tools/diag_pins_gen.py --dump`) | same script | `PASS S3 the pin-table ROM read through registers 0A0 / 0C0-0DF equals pins.toml (121 pins)` then `PASS probe (engine v2, pin bank, capture and ROM bench pass)` |
+| S3 lint: table = top.v ports, generated files current | `cores/diag/sim/pins/run.sh` (and `python3 tools/diag_pins_gen.py --check`) | `ok   diag pins: 121 pins, the generated files are current, the table equals the connector ports of cores/diag/mono/top.v` |
+| S4 capture 4 pins x 4096 samples every clock into the DDR2 model, sample for sample against the TB's own pin history; register reader lines 0-5; partial line, second capture, refusals, ABORT, END, slow-DDR2 overrun | same bench as S1 | inside `PASS tb_probe errors=0 checks=3463` (checks "S4: 4 pins x 4096 samples, sample for sample, against the TB's own history", "S4: a slow DDR2 gives an overrun") |
+| pads (joystick 2072 checks, cartridge A / D / R/W 192 checks) and the wiring of the top | `cores/diag/sim/pins/run.sh` | `PASS tb_pads errors=0 checks=2072`, `PASS tb_slotpads errors=0 checks=192`, `PASS pins (released = old input, drive on one pad only, host idle kept, pin table = top ports, wiring checked)` |
+| T201 / T259 blocks unchanged (the diag_regs port change reaches them) | `avregs`, `avmap`, `avenc` run scripts | `PASS avregs (every knob register changes the words as specified, live; marker freeze; the csync of each sync knob)`, `PASS avmap (names and scan-group maps, channel probe words per bar, RGB words per permutation and bit order, SYNCn / FB per knob)`, `PASS avenc (the diag encoder = the C128's, PAL / NTSC / PAL-60 / NTSC-50)` |
+
+The bench found and fixed while building: the T175 expectation "DCAPS 0x07" of tb_avregs (now 0x1F); the DDR2 model answers like mig_arb (a command is taken in the clock e_en and e_rdy are
+both high), and the capture writer sends a pending next buffer in the very next clock - with a one-command-per-three-clocks turnaround the four line buffers overran at K = 1.
+What the bench does not show: the DDR2 bandwidth of the real board under video load (the model takes a command every clock). K = 1 (400 MB/s of ring writes) needs the board; CAP_STATUS b2
+and CAP_LOST say when a run was too fast. The sustained rate that is safe is a board measurement (open).
+
+CI entries this half needs and did not touch (`ci/` belongs to the app half's worktree): 
+- `ci/lint.sh`, next to the other generated-file checks: `gcheck core "diag pin table (T260)" python3 tools/diag_pins_gen.py --check` (the same check also runs inside bench `diag_pins`).
+- `ci/sims.deps` (the bench cache keys; without these a changed pin table would hit a stale result): `diag_probe`: `cores/diag/rtl/probe.v cores/diag/rtl/diag_regs.v cores/diag/rtl/diag_cap.v cores/diag/rtl/diag_pinrom.v cores/diag/rtl/diag_pintab.vh cores/diag/rtl/pins.toml tools/diag_pins_gen.py cores/diag/sim/tb_probe.v cores/diag/sim/probe/run.sh`;
+  `diag_pins`: add `cores/diag/rtl/diag_pintab.vh cores/diag/rtl/diag_pinrom.v cores/diag/rtl/pins.toml cores/diag/mono/diag_dgin.vh tools/diag_pins_gen.py`; `diag_avregs`, `diag_avmap`: add `cores/diag/rtl/diag_pinrom.v`.
+- `diag_co` (tb_co.v, the app compiler against the RTL) is NOT ported: it drives the T175 step words and the T175 ports (`.drv_low`, `.pins_async({cmp, pin})`, 14 bit live) and fails to compile against engine v2.
+  It needs the app's compiler v2 first (the step encoding above); then tb_co.v takes the v2 ports (as tb_probe.v wires them) and its models the pin names.
 
 #### Area and timing estimate (S11, no Vivado here)
 
