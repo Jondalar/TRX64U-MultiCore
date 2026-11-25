@@ -925,6 +925,11 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                 matrix_kb->set_keyboard_only(!on);
             }
         }
+        bool text(const char *title, char *buf, int max) override { return dlg->text(title, buf, max); }
+        int edit_list(const char *title, const char *text, DlgRow *rows, int n, int sel, void (*cb)(void *, int, int), void *ud) override
+        {
+            return dlg->edit_list(title, text, rows, n, sel, cb, ud);
+        }
         void notice(const char *title, const char *text) override { dlg->message(title, text); }
         bool pick(const char *start, char *out, int outlen) override { return dlg->pick_file(start, ".toml", out, outlen); }
         bool stamp(char out[16]) override

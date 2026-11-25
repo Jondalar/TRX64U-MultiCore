@@ -25,7 +25,7 @@ AppDlg::AppDlg(OsPort *os, CoreFs *fs)
 int AppDlg::ask(const Req &r)
 {
     if (headless_) {
-        return r.kind == DK_CHOOSE ? -1 : 0;
+        return r.kind == DK_CHOOSE || r.kind == DK_EDIT ? -1 : 0;
     }
     os_->lock(ask_);                                  // one question at a time: a second asker waits for the first to be answered
     os_->lock(mu_);
@@ -38,7 +38,7 @@ int AppDlg::ask(const Req &r)
         os_->take(done_, 50);
     }
     os_->lock(mu_);
-    int a = abandoned_ && !answered_ ? (r.kind == DK_CHOOSE ? -1 : 0) : answer_;
+    int a = abandoned_ && !answered_ ? (r.kind == DK_CHOOSE || r.kind == DK_EDIT ? -1 : 0) : answer_;
     pending_ = false;                                 // (a request nobody took up before abandon() is withdrawn here)
     os_->unlock(mu_);
     os_->unlock(ask_);
@@ -126,6 +126,24 @@ int AppDlg::choose_timed(const char *title, const char *text, const char *const 
     r.items = items;
     r.nitems = n;
     r.timeout_s = timeout_s > 0 ? timeout_s : 0;
+    return ask(r);
+}
+
+int AppDlg::edit_list(const char *title, const char *text, DlgRow *rows, int n, int sel, void (*cb)(void *, int, int), void *ud)
+{
+    if (n <= 0 || n > DLG_EDIT_MAX || !rows) {
+        return -1;
+    }
+    Req r;
+    memset(&r, 0, sizeof(r));
+    r.kind = DK_EDIT;
+    r.title = title;
+    r.text = text;
+    r.erows = rows;
+    r.nitems = n;
+    r.sel = sel < 0 || sel >= n ? 0 : sel;
+    r.ecb = cb;
+    r.live_ud = ud;
     return ask(r);
 }
 
@@ -314,7 +332,7 @@ bool AppDlg::service()
         os_->unlock(mu_);
         sel_ = 0;
         first_ = 0;
-        if (cur_.kind == DK_CHOOSE) {
+        if (cur_.kind == DK_CHOOSE || cur_.kind == DK_EDIT) {
             sel_ = cur_.sel;
         } else if (cur_.kind == DK_TEXT) {
             snprintf(tx_, sizeof(tx_), "%s", cur_.buf);
@@ -470,6 +488,45 @@ bool AppDlg::apply(const DlgIntent &in)
         }
         break;
     }
+    case DK_EDIT: {
+        const int n = cur_.nitems;
+        if (in.id == DI_UP && sel_ > 0) {
+            sel_--;
+            rev_++;
+        } else if (in.id == DI_DOWN && sel_ + 1 < n) {
+            sel_++;
+            rev_++;
+        } else if (in.id == DI_PAGE_UP) {
+            sel_ = sel_ > 10 ? sel_ - 10 : 0;
+            rev_++;
+        } else if (in.id == DI_PAGE_DOWN) {
+            sel_ = sel_ + 10 < n ? sel_ + 10 : n - 1;
+            rev_++;
+        } else if (in.id == DI_HOME) {
+            sel_ = 0;
+            rev_++;
+        } else if (in.id == DI_END) {
+            sel_ = n - 1;
+            rev_++;
+        } else if ((in.id == DI_LEFT || in.id == DI_RIGHT) && !cur_.erows[sel_].action) {
+            if (cur_.ecb) {
+                cur_.ecb(cur_.live_ud, sel_, in.id == DI_LEFT ? DLG_EDIT_LEFT : DLG_EDIT_RIGHT);
+            }
+            rev_++;
+        } else if (in.id == DI_RETURN) {
+            if (cur_.erows[sel_].action) {
+                finish(sel_);
+            } else {
+                if (cur_.ecb) {
+                    cur_.ecb(cur_.live_ud, sel_, DLG_EDIT_ENTER);
+                }
+                rev_++;
+            }
+        } else if (back || stop) {
+            finish(-1);
+        }
+        break;
+    }
     case DK_TEXT:
         if (in.id == DI_RETURN) {
             snprintf(cur_.buf, cur_.max, "%s", tx_);
@@ -569,7 +626,7 @@ void AppDlg::fill_rows()
 {
     int total = 0;
     bool folder = cur_.kind == DK_PICK_FOLDER;
-    if (cur_.kind == DK_CHOOSE) {
+    if (cur_.kind == DK_CHOOSE || cur_.kind == DK_EDIT) {
         total = cur_.nitems;
     } else if (cur_.kind == DK_PICK_FILE || cur_.kind == DK_PICK_FOLDER) {
         total = pk_n_ + (folder ? 1 : 0);
@@ -588,8 +645,12 @@ void AppDlg::fill_rows()
     for (int i = 0; i < rows; i++) {
         int ix = first_ + i;
         v_.row_dir[i] = false;
+        v_.row_val[i] = 0;
         if (cur_.kind == DK_CHOOSE) {
             v_.row[i] = cur_.items[ix];
+        } else if (cur_.kind == DK_EDIT) {
+            v_.row[i] = cur_.erows[ix].label;
+            v_.row_val[i] = cur_.erows[ix].action ? 0 : cur_.erows[ix].value;
         } else if (folder && ix == 0) {
             v_.row[i] = "[ use this folder ]";
         } else {
@@ -621,7 +682,7 @@ const DlgView &AppDlg::view()
     v_.caret = 0;
     v_.buttons = cur_.buttons;
     v_.live = cur_.live != 0;
-    if (cur_.kind == DK_MESSAGE || cur_.kind == DK_BUTTONS || cur_.kind == DK_CHOOSE) {
+    if (cur_.kind == DK_MESSAGE || cur_.kind == DK_BUTTONS || cur_.kind == DK_CHOOSE || cur_.kind == DK_EDIT) {
         if (cur_.text) {
             snprintf(v_.text, sizeof(v_.text), "%s", cur_.text);
         }

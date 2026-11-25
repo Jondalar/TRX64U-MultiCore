@@ -148,6 +148,55 @@ int main()
         CHECK_STR(v.row[v.rows - 1], "Last");
         d.take_key(KEY_RETURN);
     }
+    // T260 P5: the edit list - LEFT / RIGHT / RETURN call back on the menu task and the rows are drawn from what the callback wrote, RETURN on an action row answers its index, ESC -1
+    {
+        static DlgRow rows[3];
+        snprintf(rows[0].label, sizeof(rows[0].label), "Level");
+        snprintf(rows[0].value, sizeof(rows[0].value), "0");
+        rows[0].action = false;
+        snprintf(rows[1].label, sizeof(rows[1].label), "Mode");
+        snprintf(rows[1].value, sizeof(rows[1].value), "a");
+        rows[1].action = false;
+        snprintf(rows[2].label, sizeof(rows[2].label), "Save");
+        rows[2].value[0] = 0;
+        rows[2].action = true;
+        struct Log { int n = 0; int row[8], key[8]; } lg;
+        auto cb = [](void *ud, int row, int key) {
+            Log *l = (Log *)ud;
+            if (l->n < 8) { l->row[l->n] = row; l->key[l->n] = key; l->n++; }
+            int v = atoi(rows[0].value);
+            if (row == 0) { snprintf(rows[0].value, sizeof(rows[0].value), "%d", key == DLG_EDIT_RIGHT ? v + 1 : key == DLG_EDIT_LEFT ? v - 1 : 10); }
+        };
+        int a = -9, b = -9;
+        {
+            Run r([&] { a = d.edit_list("Panel", "a note", rows, 3, 0, cb, &lg); });
+            CHECK(wait_open(d));
+            CHECK_EQ(d.view().kind, (int)DK_EDIT);
+            CHECK_EQ(d.view().nitems, 3);
+            CHECK_STR(d.view().row[0], "Level");
+            CHECK_STR(d.view().row_val[0], "0");
+            CHECK(d.view().row_val[2] == 0);              // an action row shows no value
+            d.take_key(KEY_RIGHT);
+            d.take_key(KEY_RIGHT);
+            d.take_key(KEY_LEFT);
+            CHECK_STR(d.view().row_val[0], "1");           // the row text is what the callback wrote
+            d.take_key(KEY_RETURN);                        // RETURN on a value row calls back with ENTER, the list stays
+            CHECK(d.open() && !r.done);
+            CHECK_STR(d.view().row_val[0], "10");
+            d.take_key(KEY_DOWN);
+            d.take_key(KEY_DOWN);
+            d.take_key(KEY_LEFT);                          // LEFT / RIGHT on an action row do nothing
+            d.take_key(KEY_RETURN);                        // the action row answers its index
+            for (int i = 0; i < 3000 && !r.done; i++) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+            CHECK(r.done);
+        }
+        CHECK_EQ(a, 2);
+        CHECK_EQ(lg.n, 4);
+        CHECK(lg.row[0] == 0 && lg.key[0] == DLG_EDIT_RIGHT && lg.key[2] == DLG_EDIT_LEFT && lg.key[3] == DLG_EDIT_ENTER);
+        { Run r([&] { b = d.edit_list("Panel", "", rows, 3, 1, cb, &lg); }); const int k[] = { KEY_ESCAPE, -1 }; drive(d, r, k); }   // the cursor starts on `sel`; ESC closes
+        CHECK_EQ(b, -1);
+        CHECK_EQ(d.edit_list("Panel", "", rows, 0, 0, cb, &lg), -1);
+    }
     // text: typed, corrected, taken; ESC clears first, then cancels; the buffer is only written on RETURN
     {
         char buf[16] = "old";

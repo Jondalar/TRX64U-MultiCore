@@ -20,6 +20,5 @@ extern const CoreDesc neogeo_desc;
 extern const CoreDesc amiga_desc;
 extern const CoreDesc amiga1200_desc;
 extern const CoreDesc ddt_novic_desc;
-extern const CoreDesc portdiag_desc;
 
 #endif
