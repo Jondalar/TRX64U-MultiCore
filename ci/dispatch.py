@@ -3,9 +3,11 @@
 .github/workflows/matrix.yml and decides the lanes and their steps (D8): the core lanes are the cores that moved to the SDK (a TOML B of their own,
 tools/core_toml.py lanes: a partial core, or a large core with its flat bitstream, T213.3 P5); every lane starts, and a lane whose inputs did not change is served from its content-keyed caches (the images stage
 key, the app test units, the bitstream releases); the sims of the bitstream lanes run on demand only (ci/select.sh sims-tier > 0: "[sims]" or the
-dispatch input), for the owners host, core:<id> and large:<id>.
+dispatch input), for the owners host, core:<id> and large:<id>. D14: every run also makes the whole package (ci/lane.sh package), so the work order names every
+entry. D11: beside the old pipeline (integration, integ-*: --beside) the run's plan, work order, approval and sims are the old pipeline's jobs, so this run
+starts no sims of its own (the old job `sim` runs the same benches from the same plan).
 
-  ci/dispatch.py <plan.json> --tier N
+  ci/dispatch.py <plan.json> --tier N [--beside]
       prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (core:<id> or large:<id>), sim_owners (JSON lists), sims_tier; and appends the matrix of this
       run (lanes from top to bottom, the steps from left to right) to $GITHUB_STEP_SUMMARY when that is set
 """
@@ -48,9 +50,9 @@ def sim_owners(plan_path, tier, targets):
     return [o for o in owners if o in keep]
 
 
-def matrix(lanes, owners):
+def matrix(lanes, owners, beside=False):
     """The rows of this run: (lane, {step number: what runs there})."""
-    sims = lambda o: "sims" if o in owners else "sims on demand"
+    sims = lambda o: "sims" if o in owners else ("sims: the old job sim" if beside else "sims on demand")
     rows = [("Every push", {1: "tree checks", 3: "dispatcher"}),
             ("SDK", {1: "lint", 2: "unit tests", 6: "build", 7: "test", 11: "package", 13: "deploy"}),
             ("Bitstream host", {2: sims("host"), 3: "key", 6: "Vivado (builder)", 7: "report", 11: "keep", 13: "to the lanes"})]
@@ -60,11 +62,13 @@ def matrix(lanes, owners):
     rows.append(("Host menu", {1: "lint", 2: "unit tests", 6: "build", 12: "emulator", 13: "deliver"}))
     for c, k in lanes:
         rows.append((c + (" (large)" if k == "large" else ""), {i + 1: s.lower() for i, s in enumerate(STEPS)}))
+    rows.append(("Whole package (D14)", {11: "collect (every lane's bitstreams), package (every .cor)", 13: "deliver (the artifact package)"}))
     return rows
 
 
 def main(argv):
-    if len(argv) != 3 or argv[1] != "--tier":
+    beside = argv[3:] == ["--beside"]
+    if len(argv) not in (3, 4) or argv[1] != "--tier" or (len(argv) == 4 and not beside):
         print(__doc__, file=sys.stderr)
         return 2
     plan_path, tier = argv[0], int(argv[2])
@@ -75,7 +79,7 @@ def main(argv):
     lanes = moved_cores()
     cores = [c for c, _ in lanes]
     targets = [target(c, k) for c, k in lanes]
-    owners = sim_owners(plan_path, tier, targets)
+    owners = [] if beside else sim_owners(plan_path, tier, targets)
     out = {"cores": cores, "lint_groups": ["tree", "sdk", "host"] + ["core:" + c for c in cores],
            "cor_targets": targets, "sim_owners": owners}
     for k, v in out.items():
@@ -85,8 +89,10 @@ def main(argv):
     if summary:
         lines = ["### The matrix of this push (T239.5)", "",
                  "Changed: %s code files, branch %s, base %s" % (plan.get("changed"), plan.get("branch"), (plan.get("base") or {}).get("commit") or "none"), "",
+                 ("Beside the old pipeline (D11): the plan, the work order, the approval and the sims are its jobs; the package of record is this run's whole package"
+                  if beside else "Alone (D3): this run's dispatcher uploads the plan and the work order"), "",
                  "| lane | " + " | ".join("%d %s" % (i + 1, s) for i, s in enumerate(STEPS)) + " |", "|---" * (len(STEPS) + 1) + "|"]
-        for lane, cells in matrix(lanes, owners):
+        for lane, cells in matrix(lanes, owners, beside):
             lines.append("| %s | " % lane + " | ".join(cells.get(i + 1, "") for i in range(len(STEPS))) + " |")
         with open(summary, "a") as fh:
             fh.write("\n".join(lines) + "\n")
