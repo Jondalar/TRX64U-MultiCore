@@ -1042,8 +1042,8 @@ int menu_dump(const CoreDesc *d, const MenuTree *t, char *out, int max)
                     EMIT("%s%s", d->tasks[e.index].closes_menu ? " (closes the menu)" : "", d->tasks[e.index].ask ? " (asks a name)" : "");
                 } else if (e.kind == EK_NODE) {
                     const MenuNode &n = t->nodes[e.index];
-                    static const char *const kinds[] = { "button", "setting", "state", "widget", "group" };
-                    EMIT(" = %s", n.kind < 5 ? kinds[n.kind] : "?");
+                    static const char *const kinds[] = { "button", "setting", "state", "widget", "group", "list" };
+                    EMIT(" = %s", n.kind < 6 ? kinds[n.kind] : "?");
                     if (n.op) {
                         EMIT(" calls %s", n.op);
                     }

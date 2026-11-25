@@ -305,6 +305,43 @@ class OwnMenu(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.compile_text(MIN + node % "a;b")
 
+    def test_a_node_may_be_a_list_a_pick_or_a_search_source(self):   # T262 P1, P2, P5: kind list (rows of a state), ui pick = "@state", ui search/find/fields
+        lst = '\n[[node]]\nanchor = "F5/t"\nkind = "list"\nlabel = "Results"\nop = "a.take"\nstate = "a.rows"\nui = { more = "a.more" }\n'
+        r = D.parse_desc(D.compile_text(MIN + lst))
+        self.assertEqual(r["node"][0]["kind"], D.NODE_KINDS["list"])
+        self.assertEqual((r["node"][0]["op"], r["node"][0]["state"], r["node"][0]["ui"]), ("a.take", "a.rows", "more=a.more"))
+        doc = D.decoded_to_doc(r)
+        self.assertEqual((doc["node"][0]["kind"], doc["node"][0]["ui"]), ("list", {"more": "a.more"}))       # the decompiler names the kind again
+        for bad in (lst.replace('op = "a.take"\n', ''), lst.replace('state = "a.rows"\n', ''), lst.replace('ui = { more = "a.more" }', 'bind = [{ arg = "i", int = 1 }]'),
+                    lst.replace('a.more', 'More'), lst.replace('kind = "list"', 'kind = "op"')):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + bad)
+        pick = '\n[[node]]\nanchor = "F5/t"\nkind = "op"\nlabel = "Year"\nop = "a.set"\nbind = [{ arg = "value", text = true }]\nui = { pick = "%s" }\n'
+        b = D.compile_text(MIN + pick % "@a.years")
+        self.assertEqual(D.parse_desc(b)["node"][0]["ui"], "pick=@a.years")
+        D.compile_text(MIN + pick % "Pick the folder")                 # a label without '@' is still the job's folder pick
+        for bad in ("@", "@a b", "@" + "x" * 40):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + pick % bad)
+        src = '\n[[node]]\nanchor = "F3/search"\nkind = "list"\nlabel = "Online"\nop = "a.take"\nstate = "a.rows"\nui = { search = "Online", find = "a.find", fields = "Group,Handle" }\n'
+        r = D.parse_desc(D.compile_text(MIN + src))
+        self.assertEqual(r["node"][0]["ui"], "search=Online;find=a.find;fields=Group,Handle")
+        for bad in (src.replace('F3/search', 'F5/t'), src.replace('find = "a.find", ', ''), src.replace('"Group,Handle"', '"A,B,C,D,E"'), src.replace('"Group,Handle"', '"A,,B"'),
+                    src.replace('kind = "list"', 'kind = "op"')):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + bad)
+        # the application's exports: the list's operations take index/answer, the search takes one query, the states exist
+        def arg(name, typ):
+            return {"name": name, "type": typ, "lo": 0, "hi": 1000000, "maxlen": 64, "labels": []}
+        ops = {"a.take": [arg("index", "int"), arg("answer", "string")], "a.more": [], "a.find": [arg("query", "string")], "a.set": [arg("value", "string")], "a.wrong": [arg("x", "int")]}
+        states = {"a.rows", "a.years"}
+        rec = D.parse_desc(D.compile_text(MIN + lst + src + pick % "@a.years"))
+        self.assertEqual(D.check_ops(rec, ops, states), [])
+        self.assertEqual(len(D.check_ops(rec, dict(ops, **{"a.take": ops["a.wrong"]}), states)), 2)      # both the list and the source name it
+        self.assertEqual(len(D.check_ops(rec, ops, {"a.years"})), 2)                                     # no state for the rows
+        self.assertEqual(len(D.check_ops(rec, dict(ops, **{"a.find": [arg("q", "string")]}), states)), 1)
+        self.assertEqual(len(D.check_ops(rec, ops, {"a.rows"})), 1)                                      # no state for the pick
+
     def test_a_tab_may_be_shown_by_a_state(self):             # T262 P3: `show = "@state"`, alone or beside a layout and its ui
         b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = "@zl.gate"'))
         self.assertIn(b";show=@zl.gate", b)

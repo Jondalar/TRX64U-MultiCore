@@ -1,6 +1,8 @@
 #include "picklist.h"
+#include "listgrow.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static void put(char *dst, int n, const char *s, int len)
 {
@@ -11,53 +13,176 @@ static void put(char *dst, int n, const char *s, int len)
     dst[len] = 0;
 }
 
-int picklist_parse(PickRows *out, const char *text)
+void picklist_init(PickRows *p)
 {
-    out->n = 0;
-    while (text && *text && out->n < PICKLIST_MAX) {
+    memset(p, 0, sizeof(*p));
+}
+
+void picklist_free(PickRows *p)
+{
+    free(p->text);
+    free(p->off);
+    picklist_init(p);
+}
+
+int picklist_count(const char *text)
+{
+    int n = 0;
+    while (text && *text) {
         const char *e = strchr(text, '\n');
-        int ll = e ? (int)(e - text) : (int)strlen(text);
-        if (ll > 0) {
-            PickRow &r = out->row[out->n];
-            memset(&r, 0, sizeof(r));
-            if (text[0] == '!') {
-                r.note = true;
-                put(r.label, sizeof(r.label), text + 1, ll - 1);
-            } else {
-                const char *f[3] = { text, 0, 0 };
-                int fl[3] = { 0, 0, 0 };
-                int k = 0;
-                for (const char *q = text; q < text + ll; q++) {
-                    if (*q == '\t' && k < 2) {
-                        fl[k] = (int)(q - f[k]);
-                        f[++k] = q + 1;
-                    }
-                }
-                fl[k] = (int)(text + ll - f[k]);
-                put(r.value, sizeof(r.value), f[0], fl[0]);
-                if (k >= 1) {
-                    put(r.label, sizeof(r.label), f[1], fl[1]);
-                }
-                if (k >= 2) {
-                    put(r.right, sizeof(r.right), f[2], fl[2]);
-                }
-                if (!r.label[0]) {
-                    snprintf(r.label, sizeof(r.label), "%s", r.value);
-                }
-            }
-            out->n++;
+        if ((e ? e : text + strlen(text)) > text) {
+            n++;
         }
         text = e ? e + 1 : 0;
     }
-    return out->n;
+    return n;
+}
+
+int picklist_parse(PickRows *p, const char *text)
+{
+    picklist_free(p);
+    if (!text || !*text) {
+        return 0;
+    }
+    const int want = (int)strlen(text);
+    const int take = ListGrow::fit(want, 1);                     // bytes: a quarter of the heap that is free now at most
+    int len = take < want ? take : want;
+    if (len < want) {                                            // cut at the end of a line: never half a row
+        while (len > 0 && text[len - 1] != '\n') {
+            len--;
+        }
+        p->cut = true;
+    }
+    if (len <= 0) {
+        return 0;
+    }
+    char *t = (char *)malloc((size_t)len + 1);
+    if (!t) {
+        p->cut = true;
+        return 0;
+    }
+    memcpy(t, text, (size_t)len);
+    t[len] = 0;
+    int lines = 0;
+    for (const char *q = t; q && *q;) {
+        const char *e = strchr(q, '\n');
+        if ((e ? e : q + strlen(q)) > q) {
+            lines++;
+        }
+        q = e ? e + 1 : 0;
+    }
+    int *off = (int *)malloc(sizeof(int) * (size_t)(lines ? lines : 1));
+    if (!off) {
+        free(t);
+        p->cut = true;
+        return 0;
+    }
+    int k = 0;
+    for (const char *q = t; q && *q;) {
+        const char *e = strchr(q, '\n');
+        if ((e ? e : q + strlen(q)) > q) {
+            off[k++] = (int)(q - t);
+        }
+        q = e ? e + 1 : 0;
+    }
+    p->text = t;
+    p->off = off;
+    p->n = lines;
+    p->cap = lines;
+    p->len = len;
+    return lines;
+}
+
+bool picklist_same(const PickRows &p, const char *text)
+{
+    if (!text || !*text) {
+        return p.n == 0 && !p.cut;
+    }
+    if (!p.text) {
+        return false;
+    }
+    if (p.cut) {
+        return strncmp(p.text, text, (size_t)p.len) == 0 && (int)strlen(text) > p.len;
+    }
+    return strcmp(p.text, text) == 0;
+}
+
+void picklist_get(const PickRows &p, int i, PickRow *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->tone = -1;
+    if (i < 0 || i >= p.n) {
+        return;
+    }
+    const char *text = p.text + p.off[i];
+    const char *e = strchr(text, '\n');
+    const int ll = e ? (int)(e - text) : (int)strlen(text);
+    if (text[0] == '!') {
+        out->note = true;
+        put(out->label, sizeof(out->label), text + 1, ll - 1);
+        return;
+    }
+    if (text[0] == '+') {
+        out->more = true;
+        put(out->label, sizeof(out->label), text + 1, ll - 1);
+        if (!out->label[0]) {
+            snprintf(out->label, sizeof(out->label), "More");
+        }
+        return;
+    }
+    const char *f[3 + 1 + PICKLIST_SIDE_MAX];
+    int fl[3 + 1 + PICKLIST_SIDE_MAX];
+    int k = 0;
+    f[0] = text;
+    for (const char *q = text; q < text + ll; q++) {
+        if (*q == '\t' && k < 3 + PICKLIST_SIDE_MAX) {
+            fl[k] = (int)(q - f[k]);
+            f[++k] = q + 1;
+        }
+    }
+    fl[k] = (int)(text + ll - f[k]);
+    put(out->value, sizeof(out->value), f[0], fl[0]);
+    if (k >= 1) {
+        put(out->label, sizeof(out->label), f[1], fl[1]);
+    }
+    if (k >= 2) {
+        put(out->right, sizeof(out->right), f[2], fl[2]);
+    }
+    if (k >= 3) {
+        static const char *const tones[] = { "muted", "cyan", "violet", "amber", "coral" };
+        for (int t = 0; t < 5; t++) {
+            if ((int)strlen(tones[t]) == fl[3] && !strncmp(f[3], tones[t], (size_t)fl[3])) {
+                out->tone = t;
+            }
+        }
+    }
+    for (int s = 4; s <= k; s++) {
+        if (fl[s] > 0 && out->nside < PICKLIST_SIDE_MAX) {
+            put(out->side[out->nside++], sizeof(out->side[0]), f[s], fl[s]);
+        }
+    }
+    if (!out->label[0]) {
+        snprintf(out->label, sizeof(out->label), "%s", out->value);
+    }
 }
 
 int picklist_find(const PickRows &p, const char *value)
 {
     for (int i = 0; i < p.n; i++) {
-        if (!p.row[i].note && !strcmp(p.row[i].value, value)) {
+        PickRow r;
+        picklist_get(p, i, &r);
+        if (!r.note && !r.more && !strcmp(r.value, value)) {
             return i;
         }
     }
     return -1;
+}
+
+void picklist_side_text(const PickRow &r, char *out, int n)
+{
+    out[0] = 0;
+    int p = 0;
+    for (int i = 0; i < r.nside && p < n - 1; i++) {
+        p += snprintf(out + p, (size_t)(n - p), "%s%s", i ? "  -  " : "", r.side[i]);
+    }
 }

@@ -8,6 +8,7 @@
 #include "descrec.h"
 #include "overlay.h"
 #include "writeback.h"
+#include "ops_glue.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -247,6 +248,14 @@ struct LibSvc {
                 c->mounts_dirty[i] = 1;
                 return;
             }
+        }
+    }
+    // T262 P2: the base's list of choices for a library. Only the request is stored; the menu shows the list when the operation that asked has returned (CoreCtx::want_prompt).
+    static void ask_list(const char *op, int phase, const char *prompt, const char *src)
+    {
+        CoreCtx *c = C();
+        if (c && op && op[0] && src && src[0]) {
+            ops_ask_list(c, op, phase, prompt ? prompt : "", src);
         }
     }
     static bool media_source(const char *slot, char *buf, int len)
@@ -770,6 +779,7 @@ void LibLoader::add_services()
     ctxtab_.job_progress = LibSvc::job_progress;
     ctxtab_.media_source = LibSvc::media_source;
     ctxtab_.mount_notify = LibSvc::mount_notify;
+    ctxtab_.ask_list = LibSvc::ask_list;
 
     memset(&io_, 0, sizeof(io_));
     io_.size = sizeof(io_);

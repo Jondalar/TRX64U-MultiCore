@@ -90,7 +90,8 @@ struct LibEventDecl {
     const ArgSpec *payload;               // null: none
 };
 
-enum LibNodeKind { LN_OP = 0, LN_SETTING = 1, LN_STATE = 2, LN_WIDGET = 3, LN_GROUP = 4 };
+// LN_LIST (base 3.5, T262 P1): a row that opens the rows of the state `state` as a list; `op` is called with the index of the row the person takes (api.md 6.19). Not accepted in a library of a base before 3.5.
+enum LibNodeKind { LN_OP = 0, LN_SETTING = 1, LN_STATE = 2, LN_WIDGET = 3, LN_GROUP = 4, LN_LIST = 5 };
 struct LibNodeDecl {
     const char *anchor;                   // "F5/drives/drive_a": area key / tab id / group (D8)
     uint8_t kind;

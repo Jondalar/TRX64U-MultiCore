@@ -1316,7 +1316,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         uint32_t fb = W(e, 9), nb = W(e, 10), fl = W(e, 11);
         uint32_t ao = W(e, 12);
         d.attr = ao ? r.str(ao, &bad) : 0;
-        if (bad || !d.anchor || !d.label || kind > LN_GROUP || (fl & ~1u) || (d.attr && !d.attr[0]) || (int32_t)W(e, 5) < -32768 || (int32_t)W(e, 5) > 32767 ||
+        if (bad || !d.anchor || !d.label || kind > LN_LIST || (fl & ~1u) || (d.attr && !d.attr[0]) || (int32_t)W(e, 5) < -32768 || (int32_t)W(e, 5) > 32767 ||
             (uint64_t)fb + nb > tb[B].count) {
             return r.fail("description record: node %u has a bad string, kind, order or binding run", (unsigned)i);
         }

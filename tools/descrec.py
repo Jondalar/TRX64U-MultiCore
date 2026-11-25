@@ -256,7 +256,7 @@ INFO_LINES = ("Core", "Application", "Network", "Media", "ROMs", "Libraries")   
 FILE_FLAG = 8              # the time code of a core setting: the setting is a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
 WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
-NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
+NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4, "list": 5}      # list: T262 P1, the rows of a state at run time (api.md 6.19)
 BIND_KINDS = {"file": 0, "int": 1, "str": 2, "ask": 3, "text": 4}
 PAD_OUTPUTS = {"registers": 0, "joystick": 1}       # pad.h PAD_OUT_REGS, PAD_OUT_JOY
 PAD_ROLES = ("face_right", "face_bottom", "face_left", "face_top", "l", "r", "select", "start")   # pad.h PAD_ROLE_RIGHT (0x40) .. PAD_ROLE_START (0x47)
@@ -517,7 +517,7 @@ class _Strings:
         return self.idx[s]
 
 
-UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "busy": str, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str, "open": str}
+UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "busy": str, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str, "open": str, "more": str, "search": str, "find": str, "fields": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
 UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
@@ -771,6 +771,31 @@ def compile_desc(doc, merged=(), app_base=False):
             goto = _ui_table(ui, UI_NODE_KEYS).get("goto")
             if goto is not None and not re.fullmatch(r"(F[1-8]|APP)(/[a-z0-9_]+)?", goto):
                 raise DescError("node %s: ui goto %r is an area key or area/tab" % (label, goto))
+        if kind == "list":
+            if not _opt(n, "op", str, "node " + label, None) or not _opt(n, "state", str, "node " + label, None):
+                raise DescError("node %s: a list has a state that holds its rows and an op that takes a row" % label)
+            if _opt(n, "bind", list, "node " + label, []):
+                raise DescError("node %s: the op of a list takes its row by `index` and `answer`, it has no bind" % label)
+        if ui:                                                      # T262: the keys of a list, of a pick and of a search source
+            uit = _ui_table(ui, UI_NODE_KEYS)
+            pick = uit.get("pick")
+            if pick is not None and pick.startswith("@"):            # `pick = "@state"`: a list of the state's choices; any other text is the label of a job's folder pick
+                if kind != "op" or not re.fullmatch(r"@[A-Za-z0-9_.]{1,39}", pick):
+                    raise DescError("node %s: ui pick @state is the name of a state (at most 39 characters) on a button" % label)
+            for k in ("more", "search", "find", "fields"):
+                if k in uit and kind != "list":
+                    raise DescError("node %s: ui %s belongs to a node of kind list" % (label, k))
+            if kind == "list":
+                if "more" in uit and not re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", uit["more"]):
+                    raise DescError("node %s: ui more is the name of an operation (domain.verb)" % label)
+            if "search" in uit or "find" in uit or "fields" in uit:
+                if anchor != "F3/search" or "search" not in uit or "find" not in uit:
+                    raise DescError("node %s: a search source stands at F3/search and has ui search (its name) and find (the operation that searches)" % label)
+                if not re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", uit["find"]):
+                    raise DescError("node %s: ui find is the name of an operation (domain.verb)" % label)
+                fl = uit["fields"].split(",") if "fields" in uit else []
+                if len(fl) > 4 or any(not f.strip() or len(f) > 24 for f in fl):
+                    raise DescError("node %s: ui fields are at most 4 labels of 1 to 24 characters, separated by commas" % label)
         if ui:                                                      # a letter belongs to its page: no two elements of a page claim one, none claims a digit or a key of the navigation
             uit = _ui_table(ui, UI_NODE_KEYS)
             page = "/".join(anchor.split("/")[:2])
@@ -2911,7 +2936,7 @@ def parse_desc(blob):
         raise DescError("description record: tabs without an area, or the route flag disagrees")
     out["node"] = []
     for anchor, kind, label, op, state, order, when, cap, nid, fb, nb, fl, attr in tabs["node"]:
-        if not s(anchor) or not s(label) or kind > 4 or fl & ~1 or (attr and not s(attr)) or fb + nb > len(out["bind"]):
+        if not s(anchor) or not s(label) or kind > max(NODE_KINDS.values()) or fl & ~1 or (attr and not s(attr)) or fb + nb > len(out["bind"]):
             raise DescError("description record: a bad node")
         out["node"].append({"anchor": s(anchor), "kind": kind, "label": s(label), "op": s(op), "state": s(state),
                             "order": order - 2 ** 32 if order >= 2 ** 31 else order, "when_state": s(when), "capability": s(cap),
@@ -3406,7 +3431,25 @@ def check_ops(rec, ops, states):
         ui = _ui_table(n.get("ui"), UI_NODE_KEYS)
         if n["kind"] == NODE_KINDS["op"]:
             if n["op"] or not ("goto" in ui or "off" in ui):
-                add(_bind_problem(ops, "node", n["label"], n["op"] or "", n["bind"], False, False, "ask" in ui))     # ui ask: the node prompts for a name first (MenuCtl::begin_ask), the text goes to the argument bound with `text`
+                add(_bind_problem(ops, "node", n["label"], n["op"] or "", n["bind"], False, False, "ask" in ui or ui.get("pick", "").startswith("@")))     # ui ask: the node prompts for a name first (MenuCtl::begin_ask), the text goes to the argument bound with `text`; ui pick @state: the chosen value goes there
+            if ui.get("pick", "").startswith("@"):
+                state_ok("node", n["label"], ui["pick"][1:])
+        elif n["kind"] == NODE_KINDS["list"]:                         # T262 P1/P5: the state holds the rows; the operations take `index` and `answer` of those they declare, a source's `find` takes `query`
+            state_ok("node", n["label"], n["state"])
+            for key, opn in (("op", n["op"]), ("more", ui.get("more"))):
+                if opn is None:
+                    continue
+                a = ops.get(opn)
+                if a is None:
+                    add('node "%s": the list operation "%s" is not exported by the application' % (n["label"], opn))
+                elif any((x["name"], x["type"]) not in (("index", "int"), ("answer", "string")) for x in a):
+                    add('node "%s": the list operation "%s" takes only `index` (int) and `answer` (string)' % (n["label"], opn))
+            if "find" in ui:
+                a = ops.get(ui["find"])
+                if a is None:
+                    add('node "%s": the search operation "%s" is not exported by the application' % (n["label"], ui["find"]))
+                elif [(x["name"], x["type"]) for x in a] != [("query", "string")]:
+                    add('node "%s": the search operation "%s" takes one string named `query`' % (n["label"], ui["find"]))
         elif n["kind"] == NODE_KINDS["state"]:
             if n["state"] or not ("sub" in ui or "chip" in ui):
                 state_ok("node", n["label"], n["state"])

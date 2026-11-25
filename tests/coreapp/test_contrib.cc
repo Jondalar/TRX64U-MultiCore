@@ -61,6 +61,30 @@ static const char *st_slot_b(CoreCtx *) { return 0; }
 static std::string g_gate;                                        // "zl.gate": a row that hides itself while it has a value
 static const char *st_gate(CoreCtx *) { return g_gate.empty() ? 0 : g_gate.c_str(); }
 
+// T262 P1/P2/P5: a list of rows the library keeps, the operation that takes a row, the one that asks for more, the choice of a pick node, the search of a source
+static std::string g_rows, g_choices, g_chosen, g_take_answer, g_found;
+static int g_taken = -1, g_more_calls = 0, g_find_calls = 0;
+static int op_take(CoreCtx *, const OpArgs &a, OpOut &o) { g_taken = a.i(0); g_take_answer = a.n > 1 ? a.s(1) : "-"; snprintf(o.msg, o.msglen, "took %d", (int)a.i(0)); return OPE_OK; }
+static int g_phase = -1;
+static int op_phase(CoreCtx *, const OpArgs &a, OpOut &) { g_phase = a.i(0); g_chosen = a.s(1); return OPE_OK; }
+static const ArgSpec phase_args[] = { ARG_INT("phase", 0, 100), ARG_STRING("answer", 64) };
+static int op_chosen(CoreCtx *, const OpArgs &a, OpOut &) { g_chosen = a.s(0); return OPE_OK; }
+static int op_more(CoreCtx *, const OpArgs &, OpOut &)
+{
+    g_more_calls++;
+    std::string add;
+    const int base = 200 * g_more_calls;
+    for (int i = 0; i < 200; i++) add += "\tResult " + std::to_string(base + i) + "\n";
+    g_rows = g_rows.substr(0, g_rows.rfind("+")) + add + (g_more_calls < 2 ? "+More results" : "");
+    return OPE_OK;
+}
+static int op_find(CoreCtx *, const OpArgs &a, OpOut &) { g_find_calls++; g_found = a.s(0); g_rows = "\tOne\tx\n\tTwo\n"; return OPE_OK; }
+static const char *st_rows(CoreCtx *) { return g_rows.empty() ? 0 : g_rows.c_str(); }
+static const char *st_choices(CoreCtx *) { return g_choices.empty() ? 0 : g_choices.c_str(); }
+static const ArgSpec take_args[] = { ARG_INT("index", 0, 1000000), ARG_STRING("answer", 64) };
+static const ArgSpec chosen_args[] = { ARG_STRING("value", 64) };
+static const ArgSpec find_args[] = { ARG_STRING("query", 200) };
+
 static void add_lib_ops(OpRegistry *r)
 {
     r->contributor("zlib");
@@ -78,6 +102,13 @@ static void add_lib_ops(OpRegistry *r)
     r->add_state("zl.drive_a.image", st_slot_a);
     r->add_state("zl.drive_b.image", st_slot_b);
     r->add_state("zl.gate", st_gate);
+    r->add_op("zl.take", take_args, 2, op_take);
+    r->add_op("zl.chosen", chosen_args, 1, op_chosen);
+    r->add_op("zl.phase", phase_args, 2, op_phase);
+    r->add_op("zl.more", 0, 0, op_more);
+    r->add_op("zl.find", find_args, 1, op_find);
+    r->add_state("zl.rows", st_rows);
+    r->add_state("zl.choices", st_choices);
 }
 
 static const OpBind b_fast[] = { B_STR("mode", "fast") };
@@ -995,6 +1026,110 @@ int main(int argc, char **argv)
         CHECK_STR(r.left(0).c_str(), "Fetch");
         CHECK_STR(r.right(0).c_str(), "");
         while (r.m->tick()) {}
+    }
+
+    // ---- T262 P2: a node with `pick = "@state"` lists the state's rows (47 of them: the old list stopped at 40); RETURN on a row runs the node's operation with the value as its text
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_OP, "Year", "zl.chosen", 0, 1, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "picker", CR_LIB, &rec } };
+        g_choices.clear();
+        for (int y = 1; y <= 47; y++) g_choices += std::to_string(1900 + y) + "\tYear " + std::to_string(1900 + y) + (y % 2 ? "\tleft\n" : "\n");
+        g_chosen.clear();
+        Rig r(cs, 1);
+        r.m->open();
+        r.m->key(KEY_F5);
+        r.go_to("Year");
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        CHECK(r.m->picking());
+        CHECK_EQ(r.m->rows(), 47);                                                  // every value, no cap
+        CHECK_STR(r.left(0).c_str(), "Year 1901");
+        CHECK_STR(r.right(0).c_str(), "left");
+        r.m->key(KEY_END);
+        CHECK_EQ(r.m->selected(), 46);
+        CHECK_STR(r.left(46).c_str(), "Year 1947");
+        r.m->key(KEY_PAGEUP);
+        CHECK_EQ(r.m->selected(), 36);
+        r.m->key(KEY_END);
+        r.m->key(KEY_RETURN);                                                        // the list closes, the operation got the value
+        CHECK(!r.m->picking());
+        CHECK_STR(g_chosen.c_str(), "1947");
+        r.go_to("Year");
+        r.m->key(KEY_RETURN);
+        r.m->key(KEY_ESCAPE);                                                        // a cancel runs nothing
+        CHECK(!r.m->picking());
+        CHECK_STR(g_chosen.c_str(), "1947");
+        g_chosen.clear();
+        // the base's own call (ops_ask_list) shows the same list, with the same size
+        g_choices.clear();
+        for (int y = 0; y < 500; y++) g_choices += "v" + std::to_string(y) + "\n";
+        ops_ask_list(&r.c, "zl.phase", 7, "Many", "zl.choices");
+        CHECK(r.m->take_prompt());
+        CHECK_EQ(r.m->rows(), 500);
+        r.m->key(KEY_END);
+        r.m->key(KEY_RETURN);                                                        // the phase and the value reach the operation that asked
+        CHECK_EQ(g_phase, 7);
+        CHECK_STR(g_chosen.c_str(), "v499");
+    }
+
+    // ---- T262 P1: a node of kind `list`: the rows come from the library at run time (200 of them, none declared), RETURN on a row calls the operation with its index, the last row asks for more
+    {
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_LIST, "Results", "zl.take", "zl.rows", 1, 0, 0, 0, 0, 0, false, "more=zl.more" } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "lister", CR_LIB, &rec } };
+        g_rows.clear();
+        g_taken = -1; g_more_calls = 0;
+        Rig r(cs, 1);
+        CHECK(!r.has_err("Results"));
+        r.m->open();
+        r.m->key(KEY_F5);
+        const int row = r.find_row("Results");
+        CHECK(row >= 0);
+        CHECK_STR(r.right(row).c_str(), "None yet");                                  // no rows yet
+        for (int i = 0; i < 200; i++) g_rows += "id" + std::to_string(i) + "\tResult " + std::to_string(i) + "\t" + std::to_string(i * 3) + " KB\t" + (i % 2 ? "amber" : "muted") + "\tside one " + std::to_string(i) + "\tside two\n";
+        g_rows += "+More results";
+        CHECK_STR(r.right(row).c_str(), "201 >");
+        r.go_to("Results");
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        CHECK(r.m->picking());
+        CHECK_EQ(r.m->rows(), 201);                                                   // 200 results and the row that asks for more
+        CHECK_STR(r.left(0).c_str(), "Result 0");
+        CHECK_STR(r.right(5).c_str(), "15 KB");
+        CHECK_STR(r.sub(5).c_str(), "side one 5  -  side two");                        // what the row says about itself, for the foot
+        CHECK_EQ(r.m->list_tone(5), 3);
+        CHECK_EQ(r.m->list_tone(4), 0);
+        CHECK_STR(r.left(200).c_str(), "More results");
+        r.m->key(KEY_DOWN); r.m->key(KEY_DOWN); r.m->key(KEY_DOWN);
+        r.m->key(KEY_RETURN);                                                         // RETURN on the third row after the first: the operation gets its index and its value
+        CHECK_EQ(g_taken, 3);
+        CHECK_STR(g_take_answer.c_str(), "id3");
+        CHECK(r.m->picking());                                                        // the list stays up
+        CHECK_STR(r.m->status(), "took 3");
+        r.m->key(KEY_END);
+        CHECK_EQ(r.m->selected(), 200);
+        r.m->key(KEY_RETURN);                                                         // more: the library appends, the list is read again and keeps the cursor
+        CHECK_EQ(g_more_calls, 1);
+        CHECK_EQ(r.m->rows(), 401);
+        CHECK_EQ(r.m->selected(), 200);
+        CHECK_STR(r.left(200).c_str(), "Result 200");
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->picking());
+        // a record that is nothing but its rows state (no operation for a row) is refused by name
+        static const LibNodeDecl bad[] = { { "F5/settings", LN_LIST, "Bare list", 0, "zl.rows", 1 } };
+        LibRecord br;
+        memset(&br, 0, sizeof(br));
+        br.nodes = bad; br.nnodes = 1;
+        Contributor cb[] = { { "bad", CR_LIB, &br } };
+        Rig rb(cb, 1);
+        CHECK(rb.has_err("without an operation for a row"));
+        g_rows.clear();
     }
 
     DONE("test_contrib");

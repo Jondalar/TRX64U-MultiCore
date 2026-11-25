@@ -1209,6 +1209,16 @@ Since base 3.3.
 4.14.13.2 The call only marks the slot. The base reads the spec of the slot on its next pass, under the core lock, and stores it for the setting `Persist medium mounts` and for the media sets. The pass waits until the start has mounted what the `.cfg` file stores. A second call before the pass stores once. A name the core does not list does nothing.
 4.14.13.3 The engine that makes the change calls it. A shared library notifies every change it makes to its own slot, so the code of a core that calls one of its members does not. Any task may call it.
 
+#### 4.14.14 `api->ctx->ask_list`
+
+Since base 3.5 (T262). A member after `mount_notify`; a library or an application checks the `size` member of the table before it uses it (`SVC_HAS(api->ctx, ask_list)`).
+
+4.14.14.1 `void ask_list(const char *op, int phase, const char *prompt, const char *src)` asks the person to choose one of a list of rows. `src` is the name of a state whose text holds the rows (6.19.2). The call only stores the request. When the operation that called it has returned to the menu, the menu shows the rows under the title `prompt` as a list that scrolls and takes UP, DOWN, PAGE UP, PAGE DOWN, HOME and END.
+4.14.14.2 RETURN takes the row under the cursor, `<-` and ESC leave without a choice. The base then calls `op` again with the arguments it declares by name: `phase` (an `AT_INT`, the number given here) and `answer` (an `AT_STRING`, the value of the row, which is the first field of its line). An operation of another shape is refused by the call, with the registry's sentence in the status row.
+4.14.14.3 The list has no fixed number of rows. The base copies the text of the state, at most a quarter of the heap that is free then (the largest list that fits is shown whole; a longer one is cut at the end of a line and the status row says so), so 47 values and 5000 values are the same call. The rows are read again about every half second while the list is up: a list that a job fills grows under the cursor, and the cursor stays on its value.
+4.14.14.4 Only the last call before the operation returns counts. A call with an empty `op` or an empty `src` does nothing. The call is for an operation that the menu calls (a node, a hotkey, a file action); an operation that another door calls (REST, a poll) shows no list. The task holds the core lock, inside the handler.
+4.14.14.5 A node can ask for the same list without code: `pick = "@state"` in its `ui` (6.7.3, 6.19.3).
+
 ### 4.15 `api->io` (`SvcIo`)
 
 Since base 3.3.
@@ -1871,6 +1881,7 @@ The kind of a menu node.
 | `LN_STATE` | A line that shows the state value `state`. |
 | `LN_WIDGET` | Not accepted. This base refuses it. A tab declares its widget with `LibTabDecl`. |
 | `LN_GROUP` | A heading that groups the nodes after it. |
+| `LN_LIST` | Since base 3.5 (T262). A row that opens the rows of the state `state` as a list; `op` is called with the row the person takes (6.19). |
 
 ### 6.6 `LibNodeDecl`
 
@@ -1878,7 +1889,7 @@ Since base 3.0.
 
 `LibNodeDecl` declares a node of the menu.
 
-6.6.1 The merge refuses a node that has no label, that has a kind other than button, state line or group, or whose anchor does not name a tab of the route that takes nodes.
+6.6.1 The merge refuses a node that has no label, that has a kind other than button, state line, group or list, or whose anchor does not name a tab of the route that takes nodes.
 6.6.2 A button needs an `op`, unless its `attr` has `goto` or `off`. A state line needs a `state`, unless its `attr` has `sub` or `chip`.
 6.6.3 The operation of a button has to exist, and its bindings have to fit (section 5.5). A node cannot bind a file. `B_TEXT` is accepted when `attr` has `ask`.
 6.6.4 The state of a state line has to exist.
@@ -1935,7 +1946,8 @@ Since base 3.0.
 | `confirm` | A question. RETURN asks Yes or No before the operation runs. |
 | `job` | The operation runs as a job with a progress display. With `ask`, the person types the name first. The row shows the label of the node (or its `busy` text) while the job runs, and a percentage with a bar only once the operation has reported one (`job_pct` above 0): a job that reports no progress shows its words alone. |
 | `busy` | A spec (6.7.2). The words the row shows while the node's job runs, in place of the label; resolved at every draw, so a state can change it. Empty: the label. Without `job` it has no effect. |
-| `pick` | A label. The person picks a folder before the job starts. |
+| `pick` | A label: the person picks a folder before the job starts. Or `@state` (since base 3.5, T262): RETURN opens the rows of the state as a list (6.19.3) and runs the node's operation with the chosen value bound by `B_TEXT`. A value that starts with `@` is the list; any other text is the label of the folder pick. |
+| `more` | A node of kind `list` (6.19). The operation that asks the library for more rows. |
 | `view` | One of `log`, `edid`, `trace`, `info`, `scan`, `help`. RETURN opens the viewer on text the application keeps in memory. |
 | `rename` | RETURN renames the file the Library browser has under the cursor. |
 | `open` | An operation name. The base calls it, without arguments, when the person opens the page the node is on. |
@@ -2145,6 +2157,26 @@ Since base 3.3.
 6.17.8 The shared drivers take their blocks from the table: the cartridge port and the built-in drive A (`hw.cc`; without `drive_a` in the TOML A the app has no drive), the debug register (`dmasvc.cc`), the ICAP loader and the partition control (`hw.cc`) and the master volume and tone bytes (`hw.cc`).
 6.17.9 Every source writes every block (D53; it replaces D50's rule that only the owner writes). `drvtab.h` gives the `_WR` macros of every block, the base's (`owner = "base"`) like the core's, to every source: a core's own library and its `[app]` sources, the SDK's shared libraries and a `.u2a` library built with `lib.mk`. The registers a core has are the ones its TOML A names. The c64cart table drops the cartridge's cached lines itself after `ram_write` and `image_write` (9.5.3).
 
+### 6.19 The list node: `LN_LIST`, `pick`
+
+Since base 3.5 (T262).
+
+6.19.1 A node of kind `list` (`kind = "list"` in a menu record) shows the rows a library makes at run time, with no node declared for a row. In its tab it is one row: the label of the node and, as its value, how many rows the state holds now (`None yet`, or the text of its `empty`, while there are none). RETURN opens the rows as a page of their own: a list that scrolls, with the title of the node, that takes UP, DOWN, PAGE UP, PAGE DOWN, HOME, END, RETURN and `<-`. It has the `when_state`, `hide`, `why` and `empty` of every node. The kind needs a `state` (the rows) and an `op` (what a row does), and takes no `bind`; the merge refuses it without them, and when the state, the operation or the operation `more` is not registered.
+6.19.2 The state holds the rows as text, one row a line; the fields of a line are separated by TAB and every field after the first may be left out:
+
+| Field | Contract |
+|---|---|
+| 1 `value` | What the row is. A choice passes it as `answer` (4.14.14); a list passes it as `answer` too. It may be empty. |
+| 2 `label` | The text of the row, up to 61 characters. Empty: the value. |
+| 3 `right` | The second column, up to 39 characters (a size, a signal strength, a year). |
+| 4 `tone` | `muted`, `cyan`, `violet`, `amber` or `coral`. The row is drawn in that tone by a screen that draws tones; `list_tone` of the menu controller reads it. |
+| 5 to 7 | Up to three lines the row says about itself. A list shows them, joined with a dash, in the foot while the row is selected. |
+
+A line that starts with `!` is a note: shown, never taken (a search that is still running). A line that starts with `+` is the last row, the one that asks for more: its text after the `+` is its label (empty: `More`). Empty lines are skipped. The text is read from the state again about every half second while the page is up, so a job that appends rows makes the list grow; the cursor stays on its row number.
+6.19.3 RETURN on a row of a list calls `op` with the arguments the operation declares by name: `index` (`AT_INT`, the row, 0 for the first, a note or the `+` row counted) and `answer` (`AT_STRING`, the value of the row). The page stays open; the answer of the operation is the status row, a prompt or list the operation asks for (4.14.14) replaces the page. RETURN on the `+` row calls the operation named by the node's `more` (the same two arguments) and reads the rows again; a list with no `more` does nothing on that row. `<-` closes the page. For `pick = "@state"` the page is the same list, a row closes it, and the node's own operation runs with the value of the row bound by `B_TEXT` (a node that has the other `pick`, a label, is the folder pick of a job as before; the two are told apart by the `@`).
+6.19.4 The rows cost the text only: the base copies the text of the state (at most a quarter of the free heap; a longer text is cut at the end of a line and the status row says so) and reads a row from its line when it is drawn. A list of 200 or of 5000 rows needs no node, no state for a row and no number fixed in the base. The older limit of 40 rows of a choice list is gone.
+6.19.5 A tab may hold several list nodes; each opens its own state. A library built before base 3.5 declares none and loads and runs as it did: the kind, the keys and `ask_list` are additions.
+
 ## 7. Limits
 
 | Limit | Value |
@@ -2155,6 +2187,7 @@ Since base 3.3.
 | Jobs at once | 4 |
 | Sockets at once | 16 |
 | Menu nodes | 320 |
+| Rows of a list or a choice | the memory budget (a quarter of the free heap), no fixed number |
 | Contributed settings | 16 |
 | Values of one setting | 16 |
 | File types, file actions | 40, 96 |

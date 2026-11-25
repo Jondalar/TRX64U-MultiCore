@@ -32,6 +32,7 @@ public:
     enum { VROWS = FileMgr::VROWS, VIEW_ROWS = FileMgr::VIEW_ROWS, VIEW_COLS = FileMgr::VIEW_COLS, VIEW_MAX = FileMgr::VIEW_MAX };
 
     MenuCtl(CoreCtx *c, MenuHost *h);
+    ~MenuCtl();
 
     // Builds the tree again from the descriptor and ctx->merge (the libraries were loaded after the menu was made). The selection starts over.
     void rebuild();
@@ -64,6 +65,7 @@ public:
     bool pump(bool quiet);
     int progress() const { return busy_ ? c_->job_pct : -1; }
     bool picking() const { return pick_; }
+    int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral), -1 none
     bool picking_modes() const { return pick_ && pick_modes_; }          // T187 F6: the Picture page names its path in the top bar
     // T156 D5: the mapping of a pad's buttons ("Map buttons"): the menu asks for the core's buttons one by one and the person presses the pad's
     // button for each. The run loop calls map_tick() each pass while mapping(); true: the screen changed.
@@ -400,15 +402,24 @@ private:
     bool entry_mset_;
     bool pick_sets_;
     // T228 R21: a pick list made at run time (picklist.h): pick_ is up, pl_ holds the rows, pick_sel_ is the cursor. The rows are re-read from the state pl_src_ while it is up
-    // (a scan that finishes). RETURN on a choice: a setting (pl_set_ >= 0) takes the value as its text, else the operation pl_op_ is called with the phase and the value.
+    // (a scan that finishes). RETURN on a choice, by pl_mode_: PL_OP (an operation asked: pl_op_ is called with the phase and the value, or a setting (pl_set_ >= 0) takes the value as its text),
+    // PL_NODE (a node with ui `pick = "@state"`, T262 P2: the node's operation runs with the value bound by B_TEXT), PL_LIST (a node of kind `list`, T262 P1: pl_op_ is called with the index of the
+    // row; a last row that starts with '+' calls pl_more_ and reads the rows again).
+    enum { PL_OP = 0, PL_NODE = 1, PL_LIST = 2 };
     bool pick_dyn_ = false;
-    PickRows pl_;
-    char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "";
-    int pl_phase_ = 0, pl_set_ = -1;
+    PickRows pl_ = {};
+    char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "", pl_more_[40] = "";
+    int pl_phase_ = 0, pl_set_ = -1, pl_mode_ = PL_OP;
+    const MenuNode *pl_node_ = 0;
     uint32_t pl_last_ = 0;
     void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
+    void begin_pick_node(const MenuNode &n, const char *label, const char *src);   // T262 P2
+    void begin_list_view(const char *title, const char *src, const char *op, const char *more);   // T262 P1
     bool pick_list_refresh();                                      // reads the rows again; true: they changed
     Result pick_list_take();
+    Result list_call(const char *op, int index, const char *answer);   // the operation of a list row: it gets the arguments it declares (index, answer)
+    bool list_view() const { return pick_dyn_ && pl_mode_ == PL_LIST; }       // T262 P1: the page on screen is the rows of a `list` node
+    bool pl_row_at(int i, PickRow *r) const { if (i < 0 || i >= pl_.n) return false; picklist_get(pl_, i, r); return true; }
     // T228 R21, FW config_menu.h:118-125: the drop-down of a setting ends with "Enter Manually" (the text editor of the same setting); an operation's list has no such row
     bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }
     int pick_dyn_rows() const { return pick_manual() ? pl_.n + 1 : (pl_.n ? pl_.n : 1); }

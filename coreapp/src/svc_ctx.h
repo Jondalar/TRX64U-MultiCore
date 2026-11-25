@@ -70,6 +70,13 @@ typedef struct SvcCtx {
     // engine that makes the change. A shared library notifies every change it makes to its own slot (c64cart_api.h, cbm1541_api.h), so a core's code that calls
     // one of its members does not. Task: any.
     void (*mount_notify)(const char *slot);
+    // Base 3.5 (T262 P2): the base's list of choices. `src` is the name of a state whose text holds the rows, one a line: value TAB label TAB right (the label and the right column may be left
+    // out; a line that starts with '!' is a note that is shown and never taken; api.md 6.19.2). When the operation `op` that calls this has returned, the menu shows the rows as a list that scrolls
+    // (as many rows as the memory budget allows, no fixed number), the person takes one with RETURN or leaves with <-. The base then calls `op` again with the arguments it declares: `phase`
+    // (AT_INT, the number given here) and `answer` (AT_STR, the value of the row). `prompt` is the title of the list. The rows are read again while the list is up, so a list that fills
+    // while a job runs grows under the cursor. Only the last call before the operation returns counts; a call with an empty `op` or `src` does nothing. Task: lock, inside an operation's
+    // handler called by the menu (an operation called by another door shows no list).
+    void (*ask_list)(const char *op, int phase, const char *prompt, const char *src);
 } SvcCtx;
 
 #ifdef __cplusplus

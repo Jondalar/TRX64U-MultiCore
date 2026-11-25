@@ -94,6 +94,10 @@ const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 a
 #define CONTRIB_BINDPOOL 64
 #endif
 #define CONTRIB_ERR_LEN 200
+#ifndef CONTRIB_SEARCH_MAX
+#define CONTRIB_SEARCH_MAX 6              // library sources of the F3 search
+#endif
+#define CONTRIB_SEARCH_FIELDS 4           // fields (beside the name) of one source
 
 struct MergedNode {
     MenuNode n;
@@ -127,6 +131,9 @@ struct MenuMerge {
     int bind_used;
     MergedNode nodes[MENU_NODES_MAX];
     int nnodes;
+    // T262 P5: the library sources of the F3 search: nodes of kind list that stand in the tab "search" with ui `search` (api.md 6.20). They take no place in the tab, the menu reads them.
+    MergedNode srcs[CONTRIB_SEARCH_MAX];
+    int nsrcs;
     // for each setting of the merged descriptor: the group it names, null for the descriptor's own and for an ungrouped contribution
     const char *setting_group[SETTINGS_MAX];
     int ncontributed_settings;

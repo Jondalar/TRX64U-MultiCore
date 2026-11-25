@@ -551,7 +551,7 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             refuse(mm, "%s: node \"%s\" names a widget; this base serves the browser and the settings list through the route, and no other widget", c.name, id);
             continue;
         }
-        if (n.kind != LN_OP && n.kind != LN_STATE && n.kind != LN_GROUP) {
+        if (n.kind != LN_OP && n.kind != LN_STATE && n.kind != LN_GROUP && n.kind != LN_LIST) {
             refuse(mm, "%s: node \"%s\" has a kind this base does not know", c.name, id);
             continue;
         }
@@ -562,6 +562,10 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
         }
         if (n.kind == LN_STATE && !text(n.state) && !ui_attr(n.attr, "sub") && !ui_attr(n.attr, "chip")) {
             refuse(mm, "%s: node \"%s\" is a state line without a state", c.name, id);
+            continue;
+        }
+        if (n.kind == LN_LIST && (!text(n.state) || !text(n.op))) {
+            refuse(mm, "%s: node \"%s\" is a list without a state that holds its rows or without an operation for a row", c.name, id);
             continue;
         }
         char area[8], tab[32];
@@ -589,6 +593,44 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             refuse(mm, "%s: node \"%s\" anchors %s/%s, which the route does not have", c.name, id, area, tab);
             continue;
         }
+        const bool source = n.kind == LN_LIST && ui_attr(n.attr, "search") && st->widget == TW_BROWSER && !strcmp(tab, "search");     // T262 P5: a list that stands for a source of the F3 search
+        if (source) {
+            char nm[40], fo[40], fl[96];
+            if (!ui_attr(n.attr, "search", nm, sizeof(nm)) || !nm[0] || !ui_attr(n.attr, "find", fo, sizeof(fo)) || !fo[0]) {
+                refuse(mm, "%s: node \"%s\" is a search source without a name (search=) or without the operation that searches (find=)", c.name, id);
+                continue;
+            }
+            int nf = 0;
+            if (ui_attr(n.attr, "fields", fl, sizeof(fl)) && fl[0]) {
+                nf = 1;
+                for (const char *q = fl; *q; q++) {
+                    nf += *q == ',';
+                }
+            }
+            if (nf > CONTRIB_SEARCH_FIELDS) {
+                refuse(mm, "%s: node \"%s\" names %d search fields; %d at most", c.name, id, nf, CONTRIB_SEARCH_FIELDS);
+                continue;
+            }
+            if (reg && (!reg->find_op(fo) || !reg->find_op(n.op) || !reg->find_state(n.state))) {
+                refuse(mm, "%s: node \"%s\" names an operation or a state of the search that nobody registered", c.name, id);
+                continue;
+            }
+            if (mm->nsrcs >= CONTRIB_SEARCH_MAX) {
+                refuse(mm, "%s: node \"%s\" has no room (%d search sources at most)", c.name, id, CONTRIB_SEARCH_MAX);
+                continue;
+            }
+            MergedNode &sn = mm->srcs[mm->nsrcs++];
+            memset(&sn, 0, sizeof(sn));
+            sn.n.kind = n.kind;
+            sn.n.op = n.op;
+            sn.n.state = n.state;
+            sn.n.when_state = n.when_state;
+            sn.n.attr = n.attr;
+            sn.n.owner = c.name;
+            sn.label = n.label;
+            sn.id = id;
+            continue;
+        }
         if (!tab_takes_nodes(*st)) {
             refuse(mm, "%s: node \"%s\" anchors %s/%s, a tab that shows the %s and takes no nodes", c.name, id, area, tab,
                    st->widget == TW_BROWSER ? "file browser" : "information lines");
@@ -600,7 +642,9 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
         }
         if (reg) {
             if (n.kind == LN_OP && text(n.op)) {
-                const char *why = bind_check(*reg, "nodes", n.label, n.op, n.bind, n.nbind, false, false, ui_attr(n.attr, "ask"));
+                char pk[8];
+                const bool text_ok = ui_attr(n.attr, "ask") || (ui_attr(n.attr, "pick", pk, sizeof(pk)) && pk[0] == '@');     // the typed text, or the chosen value of a pick (T262 P2)
+                const char *why = bind_check(*reg, "nodes", n.label, n.op, n.bind, n.nbind, false, false, text_ok);
                 if (why) {
                     refuse(mm, "%s: %s", c.name, why);
                     continue;
@@ -609,6 +653,13 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             if (n.kind == LN_STATE && text(n.state) && !reg->find_state(n.state)) {
                 refuse(mm, "%s: node \"%s\" shows state \"%s\", which nobody registered", c.name, id, n.state);
                 continue;
+            }
+            if (n.kind == LN_LIST) {                                       // T262 P1: the state holds the rows, the operation takes a row, `more` (if any) asks for more
+                char mo[40];
+                if (!reg->find_state(n.state) || !reg->find_op(n.op) || (ui_attr(n.attr, "more", mo, sizeof(mo)) && !reg->find_op(mo))) {
+                    refuse(mm, "%s: node \"%s\" names a state or an operation of its list that nobody registered", c.name, id);
+                    continue;
+                }
             }
         }
         if (mm->nnodes >= MENU_NODES_MAX) {

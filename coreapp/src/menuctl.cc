@@ -75,6 +75,11 @@ static bool fm_on_browser(void *user)
 
 // The menu has opened and the machine is held: the flows a module owns get their turn (menuflows.cc: the question about a changed cartridge). An operation answers a note for the
 // status line; a question it put up is shown as a confirmation (RETURN yes, <- no).
+MenuCtl::~MenuCtl()
+{
+    picklist_free(&pl_);
+}
+
 void MenuCtl::held_open()
 {
     int n;
@@ -418,9 +423,9 @@ void MenuCtl::go(int area, int tab)
     entry_ = false;
     learn_ = -1;
     pick_ = false;
+    pick_dyn_ = false;
     pick_release();
     pick_sets_ = false;
-    pick_dyn_ = false;
     pick_modes_ = false;
     fm_.view = false;
     search_edit_ = false;
@@ -842,15 +847,19 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         return;
     }
     if (pick_ && pick_dyn_) {                                       // T228 R21: a list made at run time
-        if (i < pl_.n) {
-            const PickRow &pr = pl_.row[i];
+        PickRow pr;
+        if (pl_row_at(i, &pr)) {
             *active = !pr.note;
             snprintf(left, ln, "%s", pr.label);
             if (right && rn) {
                 snprintf(right, rn, "%s", pr.right);
             }
             if (sub && sn) {
-                snprintf(sub, sn, "%s", pr.note ? "Wait, the list fills by itself" : "RETURN takes this one, <- cancels");
+                if (pl_mode_ == PL_LIST && !pr.note && !pr.more && pr.nside) {      // T262 P1: what the row says about itself stands in the foot while it is selected
+                    picklist_side_text(pr, sub, sn);
+                } else {
+                    snprintf(sub, sn, "%s", pr.note ? "Wait, the list fills by itself" : pr.more ? "RETURN asks for more rows, <- goes back" : pl_mode_ == PL_LIST ? "RETURN opens this row, <- goes back" : "RETURN takes this one, <- cancels");
+                }
             }
         } else if (pick_manual()) {                                  // the last row: type the value
             *active = true;
@@ -1070,6 +1079,18 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             *active = false;
         } else if (n.kind == LN_GROUP) {
             *active = false;
+        } else if (n.kind == LN_LIST) {                                      // T262 P1: the number of rows the node's state holds now; RETURN opens them
+            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            if (cnt) {
+                snprintf(right, rn, "%d >", cnt);
+            } else {
+                char em[40];
+                snprintf(right, rn, "%s", ui_attr(n.attr, "empty", em, sizeof(em)) ? em : "None yet");
+            }
+            *active = node_ready(n);
+            if (!*active && sub && sn) {
+                snprintf(sub, sn, "Not available now");
+            }
         } else {
             *active = node_ready(n);
             if (!*active && sub && sn) {
@@ -1564,6 +1585,9 @@ void MenuCtl::pick_release()
     pick_list_ = 0;
     pick_cap_ = 0;
     pick_more_ = false;
+    if (!pick_dyn_) {
+        picklist_free(&pl_);                                         // a list made at run time that is not up any more gives its rows back
+    }
 }
 
 void MenuCtl::load_pick()
@@ -1674,12 +1698,17 @@ void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op
     pick_set_ = -1;
     pick_n_ = 0;
     pick_path_[0] = 0;
+    pl_mode_ = PL_OP;
+    pl_node_ = 0;
+    pl_more_[0] = 0;
     snprintf(pl_title_, sizeof(pl_title_), "%s", title);
     snprintf(pl_src_, sizeof(pl_src_), "%s", src);
     snprintf(pl_op_, sizeof(pl_op_), "%s", op);
     pl_phase_ = phase;
     pl_set_ = setting;
     pl_last_ = c_->io->now_ms();
+    picklist_free(&pl_);
+    pick_sel_ = 0;
     pick_list_refresh();
     pick_sel_ = 0;
     if (setting >= 0) {                                              // the cursor starts on the value in force
@@ -1693,54 +1722,144 @@ void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op
         }
         pick_sel_ = f >= 0 ? f : v[0] ? pl_.n : 0;                 // a value that is in no row was typed: the cursor on "Enter manually"
     }
-    for (int k = 0; k < pl_.n && pick_sel_ < pl_.n && pl_.row[pick_sel_].note; k++) {
+    for (int k = 0; k < pl_.n && pick_sel_ < pl_.n; k++) {
+        PickRow pr;
+        picklist_get(pl_, pick_sel_, &pr);
+        if (!pr.note) {
+            break;
+        }
         pick_sel_ = pick_sel_ + 1 < pl_.n ? pick_sel_ + 1 : 0;
     }
     set_status("Choose; RETURN takes it, <- cancels", false);
+}
+
+// T262 P2: a node with ui `pick = "@state"`: RETURN opens the state's rows as a list, the choice runs the node's operation with the value bound by B_TEXT (as `ask` does with the typed text).
+void MenuCtl::begin_pick_node(const MenuNode &n, const char *label, const char *src)
+{
+    begin_pick_list(label, src, "", 0, -1);
+    pl_mode_ = PL_NODE;
+    pl_node_ = &n;
+}
+
+// T262 P1: a node of kind `list`: the state's rows, RETURN on one calls `op` with its index, the last row that starts with '+' calls `more`.
+void MenuCtl::begin_list_view(const char *title, const char *src, const char *op, const char *more)
+{
+    begin_pick_list(title, src, op, 0, -1);
+    pl_mode_ = PL_LIST;
+    snprintf(pl_more_, sizeof(pl_more_), "%s", more ? more : "");
+    set_status("RETURN opens the row, <- goes back", false);
 }
 
 // The rows come from the state's text each time: a scan that finishes fills the list while it is up. The cursor stays on the same value.
 bool MenuCtl::pick_list_refresh()
 {
     const char *t = ops_state(c_, pl_src_);
-    PickRows nr;
-    picklist_parse(&nr, t);
-    char cur[sizeof(pl_.row[0].value)] = "";
-    bool had = pick_sel_ >= 0 && pick_sel_ < pl_.n && !pl_.row[pick_sel_].note;
-    if (had) {
-        snprintf(cur, sizeof(cur), "%s", pl_.row[pick_sel_].value);
-    }
-    bool same = nr.n == pl_.n;
-    for (int i = 0; same && i < nr.n; i++) {
-        same = !strcmp(nr.row[i].value, pl_.row[i].value) && !strcmp(nr.row[i].label, pl_.row[i].label) && !strcmp(nr.row[i].right, pl_.row[i].right) && nr.row[i].note == pl_.row[i].note;
-    }
-    if (same) {
+    if (picklist_same(pl_, t)) {
         return false;
     }
-    pl_ = nr;
-    int f = had ? picklist_find(pl_, cur) : -1;
+    char cur[sizeof(PickRow::value)] = "";
+    PickRow pr;
+    const int was = pick_sel_;
+    bool had = was >= 0 && was < pl_.n;
+    if (had) {
+        picklist_get(pl_, was, &pr);
+        had = !pr.note && !pr.more;
+        if (had) {
+            snprintf(cur, sizeof(cur), "%s", pr.value);
+        }
+    }
+    picklist_parse(&pl_, t);
+    int f = had && pl_mode_ != PL_LIST ? picklist_find(pl_, cur) : -1;
+    if (pl_mode_ == PL_LIST && was >= 0 && pl_.n) {                   // a list's rows have no identity: the cursor stays on its row number (the "more" row that was taken is now the first new row)
+        f = was < pl_.n ? was : pl_.n - 1;
+    }
     if (f >= 0) {
         pick_sel_ = f;
     } else {
         pick_sel_ = 0;
-        while (pick_sel_ + 1 < pl_.n && pl_.row[pick_sel_].note) {
+        while (pick_sel_ + 1 < pl_.n) {
+            picklist_get(pl_, pick_sel_, &pr);
+            if (!pr.note) {
+                break;
+            }
             pick_sel_++;
         }
     }
     return true;
 }
 
+// The operation of a list row gets the arguments it declares: `index` (the row, 0 first) and `answer` (the row's value text); an argument it does not declare is not passed.
+MenuCtl::Result MenuCtl::list_call(const char *op, int index, const char *answer)
+{
+    OpIn in[2];
+    int nin = 0;
+    const OpDef *d = ops_of(c_)->find_op(op);
+    for (int i = 0; d && i < d->nargs && nin < 2; i++) {
+        if (!strcmp(d->args[i].name, "index")) {
+            in[nin++] = in_int("index", index);
+        } else if (!strcmp(d->args[i].name, "answer")) {
+            in[nin++] = in_str("answer", answer);
+        }
+    }
+    OpResult r;
+    int rc = ops_call(c_, op, in, nin, &r);
+    if (rc) {
+        set_status(r.msg[0] ? r.msg : "failed", true);
+        return R_REDRAW;
+    }
+    if (take_prompt()) {
+        return R_REDRAW;
+    }
+    set_status(r.msg[0] ? r.msg : "done", false);
+    fm_.apply_pending();
+    return R_REDRAW;
+}
+
 MenuCtl::Result MenuCtl::pick_list_take()
 {
-    char value[sizeof(pl_.row[0].value)];
-    snprintf(value, sizeof(value), "%s", pl_.row[pick_sel_].value);
+    PickRow pr;
+    picklist_get(pl_, pick_sel_, &pr);
+    char value[sizeof(pr.value)];
+    snprintf(value, sizeof(value), "%s", pr.value);
     const int set = pl_set_;
     char op[sizeof(pl_op_)];
     snprintf(op, sizeof(op), "%s", pl_op_);
     const int phase = pl_phase_;
+    if (pl_mode_ == PL_LIST) {                                       // the page stays: the library works on the row, the rows are read again
+        const int idx = pick_sel_;
+        Result res;
+        if (pr.more) {
+            char mo[sizeof(pl_more_)];
+            snprintf(mo, sizeof(mo), "%s", pl_more_);
+            res = mo[0] ? list_call(mo, idx, value) : R_NONE;
+        } else {
+            res = list_call(op, idx, value);
+        }
+        if (pick_ && pick_dyn_) {
+            pick_list_refresh();
+        }
+        return res;
+    }
+    const MenuNode *node = pl_node_;
     pick_ = pick_dyn_ = false;
+    picklist_free(&pl_);
+    pl_mode_ = PL_OP;
+    pl_node_ = 0;
     OpResult r;
     int rc;
+    if (node) {                                                      // T262 P2: the node's operation with the chosen value as its text
+        rc = ops_run_bound(c_, node->op, node->bind, node->nbind, 0, &r, 0, value);
+        if (rc) {
+            set_status(r.msg[0] ? r.msg : "failed", true);
+            return R_REDRAW;
+        }
+        if (take_prompt()) {
+            return R_REDRAW;
+        }
+        set_status(r.msg[0] ? r.msg : "done", false);
+        fm_.apply_pending();
+        return node->closes_menu ? R_CLOSE : R_REDRAW;
+    }
     if (set >= 0) {                                                  // a setting: the same operation a REST client calls (a blank text clears it)
         rc = settings_set(c_, c_->desc->settings[set].key, value[0] ? value : " ", &r);
         set_status(r.msg, rc != 0);
@@ -1968,11 +2087,13 @@ bool MenuCtl::pick_key(int k, Result *out)
             if (pick_manual() && pick_sel_ == pl_.n) {               // "Enter manually": the text editor of the same setting (FW requestString)
                 const int set = pl_set_;
                 pick_ = pick_dyn_ = false;
+                picklist_free(&pl_);
                 begin_text_setting(set);
                 *out = R_REDRAW;
                 return true;
             }
-            if (pick_sel_ >= pl_.n || pl_.row[pick_sel_].note) {
+            PickRow cr;
+            if (!pl_row_at(pick_sel_, &cr) || cr.note || (cr.more && !pl_more_[0])) {
                 *out = R_NONE;
                 return true;
             }
@@ -1981,12 +2102,14 @@ bool MenuCtl::pick_key(int k, Result *out)
         case KEY_LEFT:
         case KEY_ESCAPE:
             pick_ = pick_dyn_ = false;
+            picklist_free(&pl_);
             set_status("Cancelled", false);
             *out = R_REDRAW;
             return true;
         case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
         case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
             pick_ = pick_dyn_ = false;
+            picklist_free(&pl_);
             return false;
         default:
             *out = R_NONE;
@@ -3326,10 +3449,27 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
                 }
             }
         }
+        if (n.kind == LN_LIST) {                                                    // T262 P1: the rows of the node's state, opened as a list
+            if (!node_ready(n)) {
+                return R_NONE;
+            }
+            char mo[40];
+            if (!ui_attr(n.attr, "more", mo, sizeof(mo))) {
+                mo[0] = 0;
+            }
+            begin_list_view(label, n.state ? n.state : "", n.op ? n.op : "", mo);
+            return R_REDRAW;
+        }
         if (n.kind != LN_OP || !node_ready(n)) {
             return R_NONE;
         }
         char q[120];
+        char pk[48];
+        const bool pick_state = ui_attr(n.attr, "pick", pk, sizeof(pk)) && pk[0] == '@';          // T262 P2: `pick = "@state"` is a list of choices; any other `pick` is the folder pick of a job
+        if (pick_state) {
+            begin_pick_node(n, label, pk + 1);
+            return R_REDRAW;
+        }
         if (ui_attr(n.attr, "rename")) {
             fm_.lib_sync();
             if (!c_->lib.cur[0]) {
@@ -3487,7 +3627,7 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         return;
     }
     if (pick_ && pick_dyn_) {
-        snprintf(out, n, "UP/DOWN  CHOOSE   RETURN  TAKE   <-  CANCEL");
+        snprintf(out, n, pl_mode_ == PL_LIST ? "UP/DOWN  ROW   RETURN  OPEN   <-  BACK" : "UP/DOWN  CHOOSE   RETURN  TAKE   <-  CANCEL");
         return;
     }
     if (pick_ && pick_sets_) {
@@ -4020,7 +4160,12 @@ const char *MenuCtl::dialog(char *text, int n) const
         return "busy";
     }
     if (pick_) {
-        snprintf(text, n, "%s", pick_modes_ ? pm_.row[pick_sel_].name : pick_sets_ ? sets_[pick_sel_] : pick_dyn_ ? (pick_sel_ < pl_.n ? pl_.row[pick_sel_].label : "") : pick_path_);
+        PickRow pr;
+        pr.label[0] = 0;
+        if (pick_dyn_) {
+            pl_row_at(pick_sel_, &pr);
+        }
+        snprintf(text, n, "%s", pick_modes_ ? pm_.row[pick_sel_].name : pick_sets_ ? sets_[pick_sel_] : pick_dyn_ ? pr.label : pick_path_);
         return "pick";
     }
     if (entry_) {
@@ -4203,6 +4348,22 @@ void MenuCtl::item(int i, Item *it)
             it->enabled = false;
             if (!ui_attr(n.attr, "why", it->sub, sizeof(it->sub))) {
                 snprintf(it->sub, sizeof(it->sub), "Not available now");
+            }
+        }
+        if (n.kind == LN_LIST) {                                           // T262 P1: a button that opens the node's rows; its chip is how many there are
+            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            char em[40];
+            if (cnt) {
+                snprintf(it->chip, sizeof(it->chip), "%d", cnt);
+            } else {
+                snprintf(it->chip, sizeof(it->chip), "%s", ui_attr(n.attr, "empty", em, sizeof(em)) ? em : "none yet");
+            }
+            if (!node_ready(n)) {
+                it->dim = true;
+                it->enabled = false;
+                if (!ui_attr(n.attr, "why", it->sub, sizeof(it->sub))) {
+                    snprintf(it->sub, sizeof(it->sub), "Not available now");
+                }
             }
         }
         if (n.kind == LN_GROUP) {
