@@ -9,9 +9,11 @@ name: Pipeline
 # does not trust by itself (D14); environment `builds` (job prerelease) is the D1 publish.
 #
 # T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix (matrix.yml, the job `matrix`) and none of the jobs of this file: its `plan` does not run
-# there, so every job that needs it is skipped. T239.5 D11, D13, D14: integration and integ-* run both, the matrix beside the jobs of this file (input beside:
-# this file's plan, work order, approval and sims are the run's). There the package of record is the matrix's whole package (its jobs collect and package,
-# the artifact `package`, with the .cor of every core lane): this file's job `package` does not run, and update and emu take the matrix's artifact.
+# there, so every job that needs it is skipped. T239.5 D11, D13, D14: every other push of a branch or a v* tag (not t239.1, not a pull request) runs both, the
+# matrix beside the jobs of this file (input beside: this file's plan, work order, approval, lint and sims are the run's; input tests false on a push to main
+# or a v* tag, D51). There the package of record is the matrix's whole package (its jobs collect and package, the artifact `package`, with the .cor of every
+# core lane): this file's job `package` runs only on t239.1 and for a pull request, and update, emu and prerelease take the matrix's artifact. The child
+# cor leaves out the cores with an app of their own (ci/orchestrate.py): their .cor comes from their matrix lane.
 # Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository
 # is the push's run). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and runs for it.
 # D9: schedule and workflow_dispatch work only for workflows on the default branch, so the nightly and sims-long run from a push to a scratch branch
@@ -119,7 +121,7 @@ jobs:
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
           CHILDREN: ${{ steps.children.outputs.children }}
-          COR_TARGETS: ${{ steps.children.outputs.cor_targets }}
+          COR_TARGETS: ${{ steps.children.outputs.order_targets }}    # T239.5 D13: the cor legs' cores and the touched cores with an app of their own (their matrix lanes)
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
@@ -236,20 +238,20 @@ jobs:
     with:
       target: ${{ matrix.target }}
 
-  # T239.5 D14: not on integration and integ-*, where the matrix's whole package is the run's package (one artifact `package` per run)
+  # T239.5 D14: only where the matrix does not run (t239.1, a pull request); elsewhere the matrix's whole package is the run's package (one artifact `package` per run)
   package:
     needs: [plan, lint, keys, apptests, images, sim, cor]
     if: >-
       ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'package')
-      && !(github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) }}
+      && (github.event_name == 'pull_request' || github.ref == 'refs/heads/t239.1') }}
     uses: ./.github/workflows/package.yml
 
-  # the package of this file's job package, or on integration and integ-* the matrix's (T239.5 D14); there, as before, only after every test job of this file is green
+  # the package of this file's job package, or where the matrix runs the matrix's (T239.5 D14); there, as before, only after every test job of this file is green
   update:
     needs: [plan, lint, keys, apptests, images, sim, cor, package, matrix]
     if: >-
       ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'update')
-      && (needs.package.result == 'success' || ((github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) && needs.matrix.result == 'success')) }}
+      && (needs.package.result == 'success' || (github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' && needs.matrix.result == 'success')) }}
     uses: ./.github/workflows/update.yml
 
   # D23: after update, where update ran; its kit takes this run's VIC-20 .cor and host image (no .ue2 since T239.1 step 17)
@@ -260,11 +262,13 @@ jobs:
 
   # D1: the package of a push to main, t239.1 (during D9) or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the
   # job runs the commit's own scripts with the token of that environment, so the push must be one of Alex's (rulesets of main and v* tags, D15, D28).
+  # T239.5 D14: on main and v* tags the package is the matrix's whole package (this file's job package runs only on t239.1 there).
   prerelease:
     name: Pre-release
-    needs: [plan, package, update, emu]
+    needs: [plan, package, update, emu, matrix]
     if: >-
-      ${{ !cancelled() && needs.plan.result == 'success' && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+      && (needs.package.result == 'success' || (github.ref != 'refs/heads/t239.1' && needs.matrix.result == 'success'))
       && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.1' || startsWith(github.ref, 'refs/tags/v'))
       && contains(fromJSON(needs.plan.outputs.children), 'prerelease') }}
     runs-on: ubuntu-latest
@@ -312,15 +316,16 @@ jobs:
         run: ci/child.sh prerelease
 
   # T239.5 D10: the matrix of the T239 branch (the lanes of the SDK, the bitstreams, the host menu and the moved cores; its own dispatcher, work order and approval).
-  # D11: on integration and integ-* beside this file's jobs, after `plan` (whose artifacts plan and work-order the matrix's lanes and the builder read there).
+  # D11, D13, D14: on every other push of a branch or a v* tag beside this file's jobs, after `plan` (whose artifacts plan and work-order the matrix's lanes and
+  # the builder read there); not on t239.1 and not for a pull request (this file's package there).
   matrix:
     needs: plan
     if: >-
-      ${{ !cancelled() && (needs.plan.result == 'success' || needs.plan.result == 'skipped')
-      && (github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-') || github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) }}
+      ${{ !cancelled() && (needs.plan.result == 'success' || needs.plan.result == 'skipped') && github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' }}
     uses: ./.github/workflows/matrix.yml
     with:
       beside: ${{ !(github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
+      tests: ${{ !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     secrets: inherit    # T261: BUILDS_TOKEN is a secret of the environment `builds`; a called workflow's job that names the environment reads it only when the caller inherits
 
   summary:
