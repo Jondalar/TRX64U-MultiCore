@@ -17,8 +17,8 @@ module avm_unit #(parameter MAP = 0, MODE = 0, PCH = 0, RCH = 0, PERM = 5, REV =
     wire [7:0] ga, gb, gc;
     wire syn_n, fb;
     diag_regs r (.clk(clk), .we(we), .re(1'b0), .addr({5'd0, a}), .wdata(d), .rdata(), .ack(), .irq(), .build(32'd0), .px_we(), .px_re(), .px_rdata(8'd0),
-        .ev_vsync(1'b0), .ev_flip(1'b0), .ev_eng(1'b0), .run(), .abort(), .go(), .fifo_clr(), .st_we(), .st_addr(), .st_wdata(), .status(5'd0), .pc(8'd0),
-        .fifo_q(32'd0), .fifo_level(10'd0), .fifo_rd(), .live(14'd0), .drv_low(10'd0), .av_cfg(cfg));
+        .ev_vsync(1'b0), .ev_flip(1'b0), .ev_eng(1'b0), .run(), .abort(), .go(), .fifo_clr(), .st_we(), .st_addr(), .st_wdata(), .status(8'd0), .pc(8'd0), .ref_pc(8'd0), .ref_cnt(8'd0),
+        .fifo_q(32'd0), .fifo_level(10'd0), .fifo_rd(), .live(128'd0), .drv_en(128'd0), .guard_now(1'b0), .cap_rst(), .e_we(1'b0), .e_off(12'd0), .e_wd(8'd0), .e_wack(), .cap_sel(), .cap_st(8'd0), .cap_count(32'd0), .cap_lost(32'd0), .cap_lines(32'd0), .rd_start(), .rd_line_ix(), .rd_valid_i(1'b0), .rd_data(128'd0), .av_cfg(cfg));
     diag_avout o (.clk(clk), .av_cfg(cfg), .ga(ga), .gb(gb), .gc(gc), .syn_n(syn_n), .fb(fb));
     // the balls, as mono/top.v
     wire [9:2] R, G, B;

@@ -185,6 +185,7 @@ Core window page 0, byte offsets, as T175 §5 unless said. "Changed" marks every
 | **120** | R | **CAP_STATUS: b0 sampling, b1 all lines written to the ring (set when a capture ended and the writer is idle), b2 overrun (a line was dropped; the ring has a hole), b3 reader busy, b4 reader data valid** |
 | **124-127** | R | **CAP_COUNT: samples taken since CAP RESET** |
 | **128-12B** | R | **CAP_LOST: samples lost to overrun since CAP RESET** |
+| **12C-12F** | R | **CAP_LINES: 16 byte lines of the ring used since CAP RESET (a capture ends on a line boundary, the next one starts at ring byte 16 x CAP_LINES)** |
 | **130-133** | RW | **CAP_RADDR: byte offset into the ring, bits 3:0 read 0, bits 31:23 read 0** |
 | **134** | W | **CAP_RCTRL: b0 = read the 16 bytes at CAP_RADDR into CAP_RDATA; CAP_RADDR += 16 when the data is valid** |
 | **140-14F** | R | **CAP_RDATA: the 16 bytes of the last read line (byte 0 = ring byte at the old CAP_RADDR)** |
@@ -205,14 +206,14 @@ AVID pins (the generators own them; set them with WRITE_REG). Released: `push` p
 pins to driven 1. Every output is released at END, ABORT, a step error, decouple and reset. The slot pins act only while the host has released the expansion port (T135
 D6, `port_lock` in mono/top.v); under the lock the DRIVEN state is visible in 070-07F but the balls stay idle.
 
-**Step word (engine v2).** `[31:28]` op; one word unless said; an op costs 2 clocks plus its own time (a second word costs 1 more clock). Written through STEP_DATA as before.
+**Step word (engine v2).** `[31:28]` op; one word unless said; an op costs 2 clocks plus its own time (a second word costs 1 more clock; SAMPLE costs 2 + 5 for its five pushes, measured exec to exec: 7; WAIT N: 2 + N; DRIVE: 2). A DRIVE's output changes 2 clocks after its execute clock and shows in the snapshot 2 clocks after that (the synchroniser); put a WAIT between a DRIVE and a SAMPLE that must see it. Written through STEP_DATA as before.
 
 | op | name | word 0 | word 1 / result |
 |---|---|---|---|
 | 0 | END | | stop, release, done |
 | 1 | DRIVE | `[27:26]` mode, `[6:0]` pin index | |
 | 2 | WAIT | `[23:0]` N ticks (exact; 0 = none) | |
-| 3 | SAMPLE | | result 5 words: t (32 bit, ticks since RUN or GO), then the snapshot words 0..3 (pins 31..0, 63..32, 95..64, 127..96) |
+| 3 | SAMPLE | | result 5 words: t (32 bit, the clocks since RUN or GO at the op's execute clock), then the snapshot words 0..3 (pins 31..0, 63..32, 95..64, 127..96) |
 | 4 | EDGES | `[27:26]` edge (0 any, 1 rising, 2 falling), `[6:0]` pin | word 1 = N ticks (32 bit). Result 1 word: the count of the chosen edges of that pin during N ticks |
 | 5 | TIME_TO_EDGE | as EDGES | word 1 = timeout ticks (31 bit). Result 1 word `{timeout, clocks[30:0]}`; clocks = 0: the edge is seen on the first clock after the op |
 | 6 | (reserved) | | step error |
@@ -226,12 +227,57 @@ The observation of EDGES / TIME_TO_EDGE is of the synchronised bit (2 FF) of the
 PADDLE_DIS / PADDLE_ADJ are pins 67 / 68 (class `pz`: HIGH / LOW enable the output, RELEASE = high-Z), and the observation of several pins is SAMPLE or CAPTURE. END and
 ABORT stop the engine; a running capture continues after END (it is only an observer) and stops at ABORT, decouple and reset.
 
-**Capture and the ring.** Sample i is one 32 bit word: bit j = the level of the pin CAP_SEL[j] (lane j) at tick `t0 + i*K + 3` (a fixed pipeline skew of all lanes, measured
-by the bench), t0 = the clock of the CAPTURE op's execution. Samples are stored at ring byte offset 4*i in the order taken (four per 16 byte line, sample 0 in bytes 0-3, little
-endian); a following capture continues behind the previous one until CAP RESET. The ring is DDR2 bytes **0x06000000-0x067FFFFF** (8 MiB, 524,288 lines, 2,097,152 samples).
+**Capture and the ring.** Sample i is one 32 bit word: bit j = the level of the pin CAP_SEL[j] (lane j) as the outside stood in clock `X + i*K` (clocks of cpu_clk), X = the execute clock
+of the CAPTURE op's second word (the 2 FF synchroniser and the lane mux pipeline are accounted for; measured by the bench against the TB's own history, S4). Samples are stored at ring byte offset 4*i in the order taken (four per 16 byte line, sample 0 in bytes 0-3, little
+endian); a following capture starts on the next line (CAP_LINES says where) and goes on until CAP RESET. The ring is DDR2 bytes **0x06000000-0x067FFFFF** (8 MiB, 524,288 lines, 2,097,152 samples).
 The app reads it back through CAP_RADDR / CAP_RCTRL / CAP_RDATA (the RISC-V cannot address that range: its bus ends at 64 MB). Proof of the range: see "DDR2 ring" below.
 
 **Changed against T175 §5 in short:** 006 bits; 011 bits 5-7; 012 bit 4; 016 stays, 017 / 018 new; LIVE 040-043 replaced by the 128 bit snapshot 040-04F; DRV 042-043 replaced
 by 070-07F; the step word (pin by index, MASK / PADCTL / TTF gone, EDGES / TIME_TO_EDGE two words, SAMPLE five words, WRITE_REG / CAPTURE / CAPWAIT new); ops 0, 2, 7, 8 as before.
 
-(RTL notes, benches, area: below, filled while building.)
+REF_PC of a two-word op is the index of its second word. A refused EDGES / TIME_TO_EDGE (pin past the bank) still takes its second word and pushes 0xFFFFFFFF.
+
+#### Built (what the RTL does, read back from the files)
+
+- `cores/diag/rtl/pins.toml`: the one source (121 pins). `tools/diag_pins_gen.py` makes `rtl/diag_pintab.vh` (IX_<name>, DG_N, `dgpin_cls`: {guard, class}), `rtl/diag_pinrom.v` (ROM,
+  4096 x 8, one RAMB36) and `mono/diag_dgin.vh` (dg_in); `--check` is the lint (S3): files current, every top.v port a bank pin or excluded, direction and vector range agree,
+  every drivable pin named in top.v.
+- `rtl/probe.v` engine v2, `rtl/diag_cap.v` capture + ring writer + reader, `rtl/diag_regs.v` register map v2 (the A/V block 050-065 untouched), `rtl/diag_pads.v` `diag_pads`
+  (joystick, unchanged) and `diag_slot_pads` (A / D / R/W of the cartridge port), `mono/layer2_diag.v` (ports dg_in / dg_en / dg_o / dg_z / dg_dc, e_* from diag_cap),
+  `mono/top.v` (+ `top.v.diff`): C2N, PADDLE, IEC, SID, slot control, LED, BLING_LED, ETH_LED pads take the bank's drive; `build_mono.tcl` reads the new files and `rtl/`, `mono/` as include directories.
+- Guard: `dg_en` of a guarded pin is `en & ~guard_now` (combinational, 2 FF behind the balls), the pin's flops are cleared while GAME or EXROM is low: a guarded output is let go for
+  good, not parked until the cartridge leaves. Decouple: `dg_dc` = `dc_cpu` clears every pin and stops the engine; the top also gates every pad with `core_decouple` / `port_off` as before.
+- A0-A11 behind the address transceiver: released = driven 1 (the host's idle, as before); HIZ releases them so a test that sets ADDRDIR = 0 and ADDROEn = 0 reads the port side.
+- Changed against the host's pads: C2N_MOTOR / READ / WRITE are open drain, low only (D4; the host copy drove READ / WRITE push-pull when its layer 2 enabled them, the diag layer 2 never did);
+  PADDLE_DIS / PADDLE_ADJ are the bank's pins 67 / 68 (the old PADCTL).
+
+#### DDR2 ring (P3, step 4)
+
+Range: **bytes 0x06000000 - 0x067FFFFF** (8 MiB, MIG word address 0x3000000 + 8 per line). Who can write DDR2 in the diag build, from the code (not from a comment):
+- client 0, the RISC-V (and the MAC / USB DMA behind it): `cpu_mem_bridge` takes `address[25:0]`, a BYTE address (`host/ddr2_port.v`), so it reaches bytes 0x00000000-0x03FFFFFF only.
+- client 1 (`ddr_addr`, mono/top.v): REU (`reu_cmd_valid` = 0, layer2_diag.v), the sampler (`smp_f_tgl` = 0) and the JTAG debug window (`jtag_ddr_addr = {ddr_window, ...}`): the window
+  writes only when a person uses it (tools/trxdbg.py); nobody may write 0x06000000+ with it while a capture is read back.
+- client 2, the drive: `drv_we` = `drv_tgl` = 0 in layer2_diag.v. cart_fill's client c_: `c_en` = 0. The engine client e_: only `diag_cap` (all other e_ assigns removed).
+- the video client v_ (pix_layer): the still capture, enabled by default (`r_still_en`), writes base + slot x 0x10000 + 16 B x widx, widx <= 3374: with the default STILL_BASE 0x05050000 that is
+  0x05050000-0x0506D2B0 (plus the second slot), 15 MiB below the ring. A register write moves STILL_BASE; the diag app does not (it cannot address 0x06000000+ with a pointer either).
+What the rest of the DDR2 is doing in this build: 0x00000000-0x03FFFFFF the RISC-V application (firmware, heap, the REU window 0x01000000-0x01FFFFFF, a cartridge ROM image at 0x3C00000);
+0x05040000-0x0506D2B0 the still capture (two slots); nothing in the diag build writes 0x04000000-0x0503FFFF, 0x0506D2B1-0x05FFFFFF or 0x06800000-0x07FFFFFF (no claim is made on them: the
+T20 frame-ring area, 0x04000000-0x07FFFFFF, belongs to the TRX64 core, and the diag core has no trx_engine). Only the 8 MiB above is taken.
+Read-back: the RISC-V cannot address the ring, so the application reads it through CAP_RADDR / CAP_RCTRL / CAP_RDATA (16 bytes a read, e_ client reads).
+
+#### Benches (builder, `trx64-sim-env:5`, `docker run --rm --cpus 2`)
+
+(lines filled when run)
+
+#### Area and timing estimate (S11, no Vivado here)
+
+The CI bitstream report must confirm: LUT / FF of `probe`, `cap`, `regs` (utilization_hier), RAMB, WNS of the cpu_clk domain. Estimate from the code:
+- probe: pin synchroniser 2 x 121 FF, engine state, 32 bit counters (t, ts, cnt, elapsed, tmo, edges), snapshot 128 FF: about 650 FF, 450 LUT (69 drive decodes, the 128:1 pin select, the
+  class function), 2 RAMB18 (step RAM, FIFO) = 1 BRAM tile.
+- cap: the lane muxes dominate: 32 lanes x 8 chunks of 16:1 = 256 muxes of about 4.5 LUT = ~1,150 LUT + 64, 288 FF in the mux stages, 512 FF in the four line buffers, ~250 FF of
+  counters and the reader's 128 FF line: about 1,050 FF, 1,500 LUT. The parameter LANES trims it (16 lanes: about -600 LUT, -150 FF).
+- regs: lane selects 224 FF, the byte muxes of LIVE / DRVEN / RDATA, the pin ROM (4096 x 8 = 1 RAMB36): about 300 FF, 250 LUT, 1 BRAM tile.
+- pads / top: 69 override muxes and 24 IOBUF of diag_slot_pads: about 150 LUT.
+Together about 2,350 LUT, 2,000 FF, 2 BRAM tiles (T175's estimate was 700 LUT, 400 FF, 1 tile). Timing risks to look at in the report: the 128 snapshot flops fan out to 32
+lane muxes (stage A, 16:1 per chunk, one register after it) and to the 128:1 pin select; the ui_clk <-> cpu_clk crossings are toggles with 2 FF (the host's clock groups make them asynchronous).
+
