@@ -4,6 +4,7 @@
 #define COREAPP_FSIF_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -88,6 +89,24 @@ static inline bool fs_write_refused(const char *path)
 static inline uint32_t fs_size32(uint64_t size)
 {
     return size > 0xFFFFFFFFull ? 0xFFFFFFFFu : (uint32_t)size;
+}
+
+// FsEntry::size of a file whose size the file system does not know (a listing that names no size, T262 D4 finding 14): the base's file list shows "-" for it, not "0 KB".
+// A real size is never this value; a file system that never says it behaves as before. The 32 bit layouts (list_short, svc_list) carry 0xFFFFFFFF for it.
+#define FS_SIZE_UNKNOWN 0xFFFFFFFFFFFFFFFFull
+static inline bool fs_size_known(uint64_t size)
+{
+    return size != FS_SIZE_UNKNOWN;
+}
+// The right column of a file row: "3 KB", or "-" when the size is unknown. Returns out.
+static inline char *fs_size_kb(char *out, size_t n, uint64_t size)
+{
+    if (fs_size_known(size)) {
+        snprintf(out, n, "%u KB", (unsigned)((size + 1023) >> 10));
+    } else {
+        snprintf(out, n, "-");
+    }
+    return out;
 }
 
 // FsEntry::attr (T128 section 3 D4): what the folder disk needs of a host entry beyond its name.

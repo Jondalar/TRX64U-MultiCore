@@ -457,6 +457,7 @@ Since base 3.3.
 4.4.24.3 A `max` of 0 or less writes nothing and returns the number of entries the folder has. The base counts them in a block of the heap of 72 bytes an entry and returns -1 when the heap has no room for it.
 4.4.24.4 `out` is the caller's, on the heap of the image or on its stack. An entry has 264 bytes, so a long listing is taken in a block of the heap and freed afterwards.
 4.4.24.5 The folders come first, as in `list`. A task that may block calls it: the medium is read.
+4.4.24.6 `SvcFsEntryLong.size` is the size in bytes. The value `SVCFS_SIZE_UNKNOWN` (all 64 bits set, since base 3.6, T262 D4) says that the file system does not know the size of the file (a listing that carries none). The base's file list shows `-` in the size column for such a file, not `0 KB`; a size that is known is shown as before. A real size is never this value, so a file system and a library built against 3.4 or 3.5 that never says it behave as they did. `list` (4.4.17) carries a 32 bit size and reports `0xFFFFFFFF` for it.
 
 #### 4.4.25 `SvcFsEntryLong`
 

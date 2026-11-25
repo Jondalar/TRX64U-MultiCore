@@ -981,7 +981,11 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             snprintf(left, ln, "%s%s", fe.name, fe.dir && strcmp(fe.name, "..") ? "/" : "");
             if (!fe.dir && right && rn) {
                 char sz[21];
-                snprintf(right, rn, "%s bytes", u64_dec(fe.size, sz));     // T251 D1: exFAT files can exceed 4 GiB
+                if (fs_size_known(fe.size)) {
+                    snprintf(right, rn, "%s bytes", u64_dec(fe.size, sz));     // T251 D1: exFAT files can exceed 4 GiB
+                } else {
+                    snprintf(right, rn, "-");
+                }
             }
             if (!pick_ok_ && sub && sn) {
                 snprintf(sub, sn, "This folder cannot be read");
@@ -1097,7 +1101,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         snprintf(left, ln, "%s%s", fm_.list[i].name, fm_.list[i].dir ? "/" : "");
         if (!fm_.list[i].dir) {
-            snprintf(right, rn, "%u KB", (unsigned)((fm_.list[i].size + 1023) >> 10));
+            fs_size_kb(right, (size_t)rn, fm_.list[i].size);
         }
         return;
     }

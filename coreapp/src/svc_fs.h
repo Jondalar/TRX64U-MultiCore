@@ -11,13 +11,15 @@
 extern "C" {
 #endif
 
+#define SVCFS_SIZE_UNKNOWN 0xFFFFFFFFFFFFFFFFull   /* SvcFsEntryLong::size: no size is known (base 3.6) */
+
 // The layout of FsEntry (fsif.h, FS_NAME_MAX 255): the base checks sizeof(SvcFsEntryLong) == sizeof(FsEntry) where both are in sight (libapi.h).
 typedef struct SvcFsEntryLong {
     char name[256];                       // the whole name, zero terminated
     uint16_t fdate, ftime;                // FAT packed modification date and time, 0: unknown
     uint8_t attr;                         // FS_ATTR_*
     bool dir;
-    uint64_t size;
+    uint64_t size;                        // bytes; SVCFS_SIZE_UNKNOWN (base 3.6, T262 D4): the file system does not know it, the file list shows "-"
 } SvcFsEntryLong;
 
 typedef struct SvcFsAdd {

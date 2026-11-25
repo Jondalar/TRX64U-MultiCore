@@ -64,6 +64,8 @@ int main()
     r.fs.put("/usb0/games/notes.txt", bytes(10, 3));
     r.fs.put("/usb0/games/p.xex", bytes(10, 4));
     r.fs.put("/usb0/games/z.bin", bytes(10, 5));
+    r.fs.put("/usb0/games/q.dat", bytes(10, 6));
+    r.fs.size_unknown.insert("/usb0/games/q.dat");                 // T262 D4 finding 14: a file whose size the file system does not know
     r.m->open();
 
     // ---- D3: the media level has the media and nothing else; no Favorites in any sheet
@@ -75,6 +77,8 @@ int main()
     for (int i = 0; i < r.m->rows(); i++) CHECK(r.left(i)[0] != '[');       // no list of the Library at all until a home folder is set
     r.enter("usb0/"); r.enter("games/");
     CHECK_STR(r.m->title(), "/usb0/games");
+    CHECK_STR(r.value(r.find_row("a.atr")).c_str(), "1 KB");                // a size that is known: as before
+    CHECK_STR(r.value(r.find_row("q.dat")).c_str(), "-");                   // an unknown size is a dash, not "0 KB"
     r.go_to("a.atr");
     r.m->key(KEY_RETURN);                                          // the sheet of a file
     CHECK(r.m->chooser());
