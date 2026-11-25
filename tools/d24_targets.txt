@@ -68,9 +68,6 @@ coreapp/cores/nes_regs.h data register map (D8)
 coreapp/cores/pet.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/pet_models.h core-library PET models, ROM CRCs, PRG numbers
 coreapp/cores/pet_regs.h data register map (D8)
-coreapp/cores/portdiag.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/portdiag.h core-library the core's own file format or engine (D9)
-coreapp/cores/portdiag_regs.h data register map (D8)
 coreapp/cores/snes.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/snes_regs.h data register map (D8)
 coreapp/cores/snes_rom.cc core-library the core's own file format or engine (D9)
@@ -88,8 +85,6 @@ coreapp/cores/zxnext_fw.h core-library Next firmware board ids
 coreapp/cores/zxnext_regs.h data register map (D8)
 coreapp/src/amiga_ffs.cc core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/amiga_ffs.h core-library Amiga FFS format, Amiga only (D9)
-coreapp/src/diagtest.cc core-library the diag core's test runner
-coreapp/src/diagtest.h core-library the diag core's test runner
 coreapp/src/monitor.cc ultimate-repo bus monitor (D12)
 coreapp/src/monitor.h ultimate-repo bus monitor (D12)
 coreapp/src/monsrv.cc ultimate-repo monitor server (D12)

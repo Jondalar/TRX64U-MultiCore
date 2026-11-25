@@ -24,7 +24,6 @@ const CoreDesc *const core_table[] = {
     &neogeo_desc,
     &amiga_desc,
     &ddt_novic_desc,
-    &portdiag_desc,
     0
 };
 #endif

@@ -1813,76 +1813,46 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
 // T201: the A/V tests. A file with kind = "avtest" walks combinations of the A/V encoder's knobs (docs/specs/T201-diag-av-out.md): per combination it sets the knobs, asks
 // the narrow questions, and writes the answers with the combination to results/<id>_<stamp>.toml and .txt. No probe engine is involved.
 //   [test] name, id, version        [ask] questions = [...], timeout_s, first_gate (a NO to the first question skips the others), stop_after_ok (all YES ends the walk)
-//   [base] knob = "label"           the knobs that stay fixed (every knob not named in the file keeps the value the A/V page holds); preset = "name" (T259 P4): first every knob takes the value of
+//   [base] knob = "label"           the knobs that stay fixed (every knob not named in the file keeps the value the A/V panel holds); preset = "name" (T259 P4): first every knob takes the value of
 //                                   <folder>/presets/<name>.toml, then the knobs named here win; the result file names the preset
 //   [sweep] knob = ["label", ...]   the axes: the walk is the product of the lists in file order, the last axis changes fastest
 // A knob's key is its row's name in lower case with '_' for blanks ("v_sign"); its value is the label the page shows ("Inverted"), compared without regard to case. When the
 // standard is set by the file and burst start, burst end and blank level are not, they follow the standard (PAL 28 / 99 / 77, NTSC 20 / 102 / 73).
-static const char *const av_l_std[]    = { "PAL 50 Hz", "NTSC 60 Hz", "PAL 60 Hz", "NTSC 50 Hz" };
-static const int16_t     av_v_std[]    = { 0, 1, 2, 3 };
-static const char *const av_l_groups[] = { "Y=A, C=B, CVBS=C", "Y=A, C=C, CVBS=B", "Y=B, C=A, CVBS=C", "Y=C, C=A, CVBS=B", "Y=B, C=C, CVBS=A", "Y=C, C=B, CVBS=A" };
-static const int16_t     av_v_groups[] = { 0, 1, 2, 3, 4, 5 };
-static const char *const av_l_bits[]   = { "MSB first", "Reversed" };
-static const int16_t     av_v_bits[]   = { 0, 1 };
-static const char *const av_l_vsign[]  = { "Normal", "Inverted" };
-static const char *const av_l_trim[]   = { "-480 Hz", "-450 Hz", "-420 Hz", "-390 Hz", "-360 Hz", "-330 Hz", "-300 Hz", "-270 Hz", "-240 Hz", "-210 Hz", "-180 Hz", "-150 Hz",
-    "-120 Hz", "-90 Hz", "-60 Hz", "-30 Hz", "0 Hz", "+30 Hz", "+60 Hz", "+90 Hz", "+120 Hz", "+150 Hz", "+180 Hz", "+210 Hz", "+240 Hz", "+270 Hz", "+300 Hz", "+330 Hz",
-    "+360 Hz", "+390 Hz", "+420 Hz", "+450 Hz", "+480 Hz" };
-static const int16_t     av_v_trim[]   = { -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-static const char *const av_l_bstart[] = { "16", "18", "20", "22", "24", "26", "28", "30", "32", "36", "40" };
-static const int16_t     av_v_bstart[] = { 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40 };
-static const char *const av_l_bend[]   = { "90", "94", "96", "98", "99", "100", "102", "104", "106", "110" };
-static const int16_t     av_v_bend[]   = { 90, 94, 96, 98, 99, 100, 102, 104, 106, 110 };
-static const char *const av_l_bamp[]   = { "0 %", "50 %", "75 %", "100 %", "125 %", "150 %" };
-static const int16_t     av_v_bamp[]   = { 0, 16, 24, 32, 40, 48 };
-static const char *const av_l_gain[]   = { "0 %", "50 %", "75 %", "100 %", "125 %", "150 %", "190 %" };
-static const int16_t     av_v_gain[]   = { 0, 8, 12, 16, 20, 24, 30 };
-static const char *const av_l_sync[]   = { "0", "8", "16", "24", "32" };
-static const int16_t     av_v_sync[]   = { 0, 8, 16, 24, 32 };
-static const char *const av_l_blank[]  = { "64", "68", "73", "77", "80", "84", "88" };
-static const int16_t     av_v_blank[]  = { 64, 68, 73, 77, 80, 84, 88 };
-static const char *const av_l_white[]  = { "8/16", "9/16", "10/16", "11/16", "12/16", "13/16", "14/16", "15/16", "16/16" };
-static const int16_t     av_v_white[]  = { 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-static const char *const av_l_eq[]     = { "Off", "On" };
-static const char *const av_l_vlen[]   = { "3 lines", "2.5 lines", "6 lines" };
-static const int16_t     av_v_vlen[]   = { 6, 5, 12 };                     // half lines: a vsync of 3 lines is 6 half lines
-static const char *const av_l_vpos[]   = { "-8", "-4", "0", "+4", "+8" };
-static const int16_t     av_v_vpos[]   = { -8, -4, 0, 4, 8 };
-static const char *const av_l_lines[]  = { "263", "262" };
-static const char *const av_l_map[]    = { "Scan groups", "Names" };
-static const char *const av_l_mode[]   = { "Test picture", "Channel probe", "RGB" };
-static const char *const av_l_pch[]    = { "A or R", "B or G", "C or B" };
-static const char *const av_l_rch[]    = { "Palette picture", "R ramp", "G ramp", "B ramp" };
-static const char *const av_l_syncn[]  = { "High", "Low", "Csync", "Inverted csync" };
-static const char *const av_l_fb[]     = { "Low", "High", "Window", "Inverted window" };
-static const int16_t     av_v_n4[]     = { 0, 1, 2, 3 };
-#define AVN(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
-const AvKnob dt_av_knobs[DT_AV_N] = {
-    { "Standard",        av_l_std,    AVN(av_l_std),    0, av_v_std, 0, 3 },
-    { "Groups",          av_l_groups, AVN(av_l_groups), 5, av_v_groups, 0, 5 },
-    { "Bits A",          av_l_bits,   AVN(av_l_bits),   0, av_v_bits, 0, 1 },
-    { "Bits B",          av_l_bits,   AVN(av_l_bits),   0, av_v_bits, 0, 1 },
-    { "Bits C",          av_l_bits,   AVN(av_l_bits),   0, av_v_bits, 0, 1 },
-    { "V sign",          av_l_vsign,  AVN(av_l_vsign),  1, av_v_bits, 0, 1 },
-    { "Subcarrier trim", av_l_trim,   AVN(av_l_trim),   16, av_v_trim, -128, 127 },
-    { "Burst start",     av_l_bstart, AVN(av_l_bstart), 6, av_v_bstart, 0, 127 },
-    { "Burst end",       av_l_bend,   AVN(av_l_bend),   4, av_v_bend, 0, 1023 },
-    { "Burst level",     av_l_bamp,   AVN(av_l_bamp),   3, av_v_bamp, 0, 63 },
-    { "Chroma gain",     av_l_gain,   AVN(av_l_gain),   3, av_v_gain, 0, 31 },
-    { "Sync level",      av_l_sync,   AVN(av_l_sync),   0, av_v_sync, 0, 255 },
-    { "Blank level",     av_l_blank,  AVN(av_l_blank),  3, av_v_blank, 0, 255 },
-    { "White level",     av_l_white,  AVN(av_l_white),  3, av_v_white, 0, 31 },
-    { "Equalizing",      av_l_eq,     AVN(av_l_eq),     0, av_v_bits, 0, 1 },
-    { "Vsync length",    av_l_vlen,   AVN(av_l_vlen),   0, av_v_vlen, 0, 31 },
-    { "Vsync position",  av_l_vpos,   AVN(av_l_vpos),   2, av_v_vpos, -128, 127 },
-    { "Lines 60 Hz",     av_l_lines,  AVN(av_l_lines),  0, av_v_bits, 0, 1 },
-    { "Map",             av_l_map,    AVN(av_l_map),    0, av_v_bits, 0, 1 },
-    { "Mode",            av_l_mode,   AVN(av_l_mode),   0, av_v_n4,   0, 2 },
-    { "Probe channel",   av_l_pch,    AVN(av_l_pch),    0, av_v_n4,   0, 2 },
-    { "RGB picture",     av_l_rch,    AVN(av_l_rch),    0, av_v_n4,   0, 3 },
-    { "SYNCn",           av_l_syncn,  AVN(av_l_syncn),  0, av_v_n4,   0, 3 },
-    { "FB",              av_l_fb,     AVN(av_l_fb),     0, av_v_n4,   0, 3 },
-};
+// The walk's knobs are the first DT_AV_N value rows of the A/V panel file (cores/diag/sd/panels/avout.toml, loaded through DiagEnv::av_panel): the same rows the panel shows, in this order, so a
+// test file and the panel name the same labels and the same register values. A panel that lacks one of them, or has another key in its place, is refused with the key it expected.
+static const char *const av_keys[DT_AV_N] = { "Standard", "Groups", "Bits A", "Bits B", "Bits C", "V sign", "Subcarrier trim", "Burst start", "Burst end", "Burst level", "Chroma gain", "Sync level",
+    "Blank level", "White level", "Equalizing", "Vsync length", "Vsync position", "Lines 60 Hz", "Map", "Mode", "Probe channel", "RGB picture", "SYNCn", "FB" };
+static const Panel *g_avp;
+static const PanelRow &AK(int k) { return g_avp->row[k]; }
+static int av_def(int k)                                   // the label index of the knob's default
+{
+    int i = panel_name_idx(AK(k), AK(k).def);
+    return i < 0 ? 0 : i;
+}
+static bool av_bind(DiagEnv *env, char *why, int n)
+{
+    g_avp = 0;
+    if (!env->av_panel) {
+        snprintf(why, n, "this application has no A/V panel to drive");
+        return false;
+    }
+    const Panel *p = env->av_panel(env->av_ud, why, n);
+    if (!p) {
+        return false;
+    }
+    if (p->nrows < DT_AV_N) {
+        snprintf(why, n, "the A/V panel has %d rows, the walks need %d knobs", p->nrows, DT_AV_N);
+        return false;
+    }
+    for (int k = 0; k < DT_AV_N; k++) {
+        if (p->row[k].action[0] || !p->row[k].n || strcmp(p->row[k].key, av_keys[k])) {
+            snprintf(why, n, "the A/V panel's row %d is \"%s\", the walks need the knob \"%s\" with names there", k + 1, p->row[k].key, av_keys[k]);
+            return false;
+        }
+    }
+    g_avp = p;
+    return true;
+}
 
 #define AV_AXES   DT_AV_N
 #define AV_MAXSTEPS 400
@@ -1917,7 +1887,7 @@ static bool av_key_is(const char *key, const char *knob)   // "v_sign" is "V sig
 static int av_knob_of(const char *key)
 {
     for (int k = 0; k < DT_AV_N; k++) {
-        if (av_key_is(key, dt_av_knobs[k].key)) {
+        if (av_key_is(key, AK(k).key)) {
             return k;
         }
     }
@@ -1934,8 +1904,8 @@ static bool ieq(const char *a, const char *b)
 }
 static int av_label_of(int k, const char *v)
 {
-    for (int i = 0; i < dt_av_knobs[k].n; i++) {
-        if (ieq(dt_av_knobs[k].labels[i], v)) {
+    for (int i = 0; i < AK(k).n; i++) {
+        if (ieq(AK(k).names[i], v)) {
             return i;
         }
     }
@@ -1943,50 +1913,22 @@ static int av_label_of(int k, const char *v)
 }
 static int av_idx_of_val(int k, int v)
 {
-    for (int i = 0; i < dt_av_knobs[k].n; i++) {
-        if (dt_av_knobs[k].val[i] == v) {
+    for (int i = 0; i < AK(k).n; i++) {
+        if (AK(k).vals[i] == v) {
             return i;
         }
     }
-    return dt_av_knobs[k].def;
+    return av_def(k);
 }
 
-int dt_av_knob_of(const char *key)                      // T259: "v_sign" or "V sign"
+static int av_idx_of_raw(int k, int32_t raw) { return panel_name_idx(AK(k), raw); }
+static void av_preset_parse(const char *text, int32_t raw[DT_AV_N])
 {
-    char k[40];
-    int i = 0;
-    for (; key[i] && i < 39; i++) {
-        k[i] = (char)(key[i] == ' ' ? '_' : tolower((unsigned char)key[i]));
-    }
-    k[i] = 0;
-    return av_knob_of(k);
-}
-int dt_av_idx_of_raw(int k, int32_t raw)
-{
-    for (int i = 0; i < dt_av_knobs[k].n; i++) {
-        if (dt_av_knobs[k].val[i] == raw) {
-            return i;
-        }
-    }
-    return -1;
-}
-void dt_av_preset_parse(const char *text, int32_t raw[DT_AV_N])
-{
+    int32_t r[PNL_ROWS];
+    uint8_t have[PNL_ROWS];
+    panel_preset_parse(*g_avp, text, r, have);
     for (int k = 0; k < DT_AV_N; k++) {
-        char pat[40];
-        snprintf(pat, sizeof(pat), "\n%s = \"", dt_av_knobs[k].key);
-        const char *p = strstr(text, pat);
-        raw[k] = DT_AV_ABSENT;
-        if (p) {
-            char v[48];
-            int j = 0;
-            for (p += strlen(pat); *p && *p != '"' && j < 47; p++) {
-                v[j++] = *p;
-            }
-            v[j] = 0;
-            int i = v[0] == '#' ? -1 : av_label_of(k, v);
-            raw[k] = v[0] == '#' ? atoi(v + 1) : i >= 0 ? dt_av_knobs[k].val[i] : DT_AV_BADVAL;
-        }
+        raw[k] = have[k] == PNL_HAVE ? r[k] : have[k] == PNL_BAD ? DT_AV_BADVAL : DT_AV_ABSENT;
     }
 }
 
@@ -2110,7 +2052,7 @@ static int av_parse(const char *text, uint32_t len, AvTest *t, DtErr *err)
         } else {
             int k = av_knob_of(kv.key);
             if (k < 0) {
-                return fail(err, line, "%s is not a knob of the A/V page", kv.key);
+                return fail(err, line, "%s is not a knob of the A/V panel", kv.key);
             }
             if (sect == 3) {
                 if (kv.type != V_STR) {
@@ -2118,7 +2060,7 @@ static int av_parse(const char *text, uint32_t len, AvTest *t, DtErr *err)
                 }
                 int i = av_label_of(k, kv.s);
                 if (i < 0) {
-                    return fail(err, line, "%s has no value \"%s\"", dt_av_knobs[k].key, kv.s);
+                    return fail(err, line, "%s has no value \"%s\"", AK(k).key, kv.s);
                 }
                 t->base[k] = i;
             } else {
@@ -2136,7 +2078,7 @@ static int av_parse(const char *text, uint32_t len, AvTest *t, DtErr *err)
                 for (int i = 0; i < kv.n; i++) {
                     ax.idx[i] = av_label_of(k, kv.items[i]);
                     if (ax.idx[i] < 0) {
-                        return fail(err, line, "%s has no value \"%s\"", dt_av_knobs[k].key, kv.items[i]);
+                        return fail(err, line, "%s has no value \"%s\"", AK(k).key, kv.items[i]);
                     }
                 }
             }
@@ -2214,7 +2156,7 @@ static bool av_flush(void *ud, const char *p, int n)
 static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
 {
     if (!env->av_set || !env->av_get) {
-        snprintf(out->msg, sizeof(out->msg), "%s: this application has no A/V page to drive", t.id);
+        snprintf(out->msg, sizeof(out->msg), "%s: this application has no A/V panel to drive", t.id);
         return -1;
     }
     char stamp[16];
@@ -2231,11 +2173,11 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
             return -1;
         }
         g_text[n] = 0;
-        dt_av_preset_parse(g_text, raw);
+        av_preset_parse(g_text, raw);
         for (int k = 0; k < DT_AV_N; k++) {
-            int i = raw[k] == DT_AV_ABSENT || raw[k] == DT_AV_BADVAL ? -1 : dt_av_idx_of_raw(k, raw[k]);
+            int i = raw[k] == DT_AV_ABSENT || raw[k] == DT_AV_BADVAL ? -1 : av_idx_of_raw(k, raw[k]);
             if (raw[k] != DT_AV_ABSENT && i < 0) {
-                snprintf(out->msg, sizeof(out->msg), "%s: the preset %s has no usable value for %s (a free value or an unknown label; a walk takes labels only)", t.id, t.preset, dt_av_knobs[k].key);
+                snprintf(out->msg, sizeof(out->msg), "%s: the preset %s has no usable value for %s (a free value or an unknown label; a walk takes labels only)", t.id, t.preset, AK(k).key);
                 return -1;
             }
             if (base[k] < 0) {
@@ -2283,8 +2225,8 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
     }
     h.put("]\n\n[knobs]\n");
     for (int k = 0; k < DT_AV_N; k++) {
-        h.put("%s = ", dt_av_knobs[k].key);
-        h.str(dt_av_knobs[k].labels[cur[k]]);
+        h.put("%s = ", AK(k).key);
+        h.str(AK(k).names[cur[k]]);
         h.put("\n");
     }
     hx.put("A/V test %s (%s)\nDate %s\n%s%s%s\nEvery combination whose first answer is YES, with all its answers; GOOD marks the ones where every answer is the good one (", t.name, t.id, stamp, t.preset[0] ? "Preset " : "", t.preset, t.preset[0] ? "\n" : "");
@@ -2322,7 +2264,7 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
             rem /= t.axis[a].n;
         }
         if (fixed_std) {
-            int sv = dt_av_knobs[AVK_STD].val[pick[AVK_STD]];
+            int sv = AK(AVK_STD).vals[pick[AVK_STD]];
             bool ntsc = sv == 1 || sv == 3;
             if (!fixed_b[0]) pick[AVK_BSTART] = av_idx_of_val(AVK_BSTART, ntsc ? 20 : 28);
             if (!fixed_b[1]) pick[AVK_BEND] = av_idx_of_val(AVK_BEND, ntsc ? 102 : 99);
@@ -2347,8 +2289,8 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
                 show |= t.axis[a].knob == k;
             }
             if (show) {
-                o.put("%s = ", dt_av_knobs[k].key);
-                o.str(dt_av_knobs[k].labels[pick[k]]);
+                o.put("%s = ", AK(k).key);
+                o.str(AK(k).names[pick[k]]);
                 o.put("\n");
             }
         }
@@ -2399,7 +2341,7 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
             nq1++;
             x.put("Step %d%s: ", s + 1, good ? " GOOD" : "");
             for (int k = 0; k < DT_AV_N; k++) {
-                x.put("%s%s=%s", k ? ", " : "", dt_av_knobs[k].key, dt_av_knobs[k].labels[pick[k]]);
+                x.put("%s%s=%s", k ? ", " : "", AK(k).key, AK(k).names[pick[k]]);
             }
             x.put("; answers: ");
             for (int qi = 0; qi < t.nq; qi++) {
@@ -2417,7 +2359,7 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
     o.put("\n[result]\nstatus = \"%s\"\nsteps_asked = %d\nsteps_first_yes = %d\nsteps_good = %d\n", aborted ? "aborted" : "done", done, nq1, ngood);
     for (int i = 0; i < nlk; i++) {
         x.put(i ? "" : "\nThe TV locks on (channel probe):\n");
-        x.put("  map %s, channel %s: the bars get brighter from left to right: %s%s\n", dt_av_knobs[AVK_MAP].labels[lk[i].map], dt_av_knobs[AVK_PCH].labels[lk[i].ch], lk[i].bars,
+        x.put("  map %s, channel %s: the bars get brighter from left to right: %s%s\n", AK(AVK_MAP).names[lk[i].map], AK(AVK_PCH).names[lk[i].ch], lk[i].bars,
               ieq(lk[i].bars, "YES") ? " (the listed bit order)" : ieq(lk[i].bars, "NO") ? " (another bit order: set the Bits rows)" : "");
     }
     x.put("\nStatus: %s. %d of %d combinations walked, %d with the first answer YES, %d good.\n", aborted ? "stopped by the tester" : "done", done, t.total, nq1, ngood);
@@ -2648,6 +2590,11 @@ int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out)
         int n = env->fs->load(path, g_text, DT_FILE_MAX);
         if (n >= 0 && is_avtest(g_text, (uint32_t)n)) {                  // T201: an A/V test has its own parser and runner
             DtErr e;
+            char why[160];
+            if (!av_bind(env, why, sizeof(why))) {
+                snprintf(out->msg, sizeof(out->msg), "%s", why);
+                return -1;
+            }
             if (av_parse(g_text, (uint32_t)n, &g_av, &e)) {
                 const char *fn = strrchr(path, '/');
                 if (e.line) {
@@ -2699,7 +2646,8 @@ int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out)
         int an = env->fs->load(tp, g_text, DT_FILE_MAX);
         if (an >= 0 && is_avtest(g_text, (uint32_t)an)) {          // T259 S5: a member may be an A/V test (its own pair of result files)
             DtErr ae;
-            int rc = av_parse(g_text, (uint32_t)an, &g_av, &ae);
+            char why[160];
+            int rc = av_bind(env, why, sizeof(why)) ? av_parse(g_text, (uint32_t)an, &g_av, &ae) : (snprintf(ae.msg, sizeof(ae.msg), "%s", why), ae.line = 0, -1);
             char id[DT_NAME];
             snprintf(id, sizeof(id), "%s", g_av.id);
             if (!rc) {

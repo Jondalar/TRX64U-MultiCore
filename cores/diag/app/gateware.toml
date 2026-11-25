@@ -1,0 +1,292 @@
+# TOML A of the Port Diagnostics core (T260 P7): the gateware's registers as capabilities, written from what cores/diag/rtl/diag_regs.v decodes (tools/rtl_check.py proves it against the RTL,
+# code to code; the case of tests/rtl_check, command in app/sdkpkg/api.md 6.14.19). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports, the
+# register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6 (0x101A6000) is forwarded to the host's pixel layer.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "DIAG"
+block = "ident"
+
+# 000-00F: the ID "DIAG" (byte 0 first), the caps bytes, DCAPS (b0 the joystick pins are open-drain outputs, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder), the build word; 00C-00F (engine clocks per microsecond x 256) is a module parameter that rtl_check does not read, the app names it as a number (portdiag_regs.h PD_TICKS)
+[[block]]
+name = "ident"
+module = "diag_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x10
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x05
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "dcaps"
+  offset = 0x06
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "pins"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "padctl"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "av"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+# 010-02F and 030-035: the probe engine - status, control, the step list RAM and the result FIFO
+[[block]]
+name = "engine"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0010
+size = 0x30
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x01
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "running"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "waiting"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "done"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "overflow"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "step_err"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x02
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "run"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "abort"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "go"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "clear"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "pc"
+  offset = 0x06
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "step_data"
+  offset = 0x10
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "step_addr"
+  offset = 0x14
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "fifo_data"
+  offset = 0x20
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "fifo_level"
+  offset = 0x24
+  width = 16
+  dir = "r"
+
+# 040-043: the pins as the engine sees them (KBJOY_1[4:0], KBJOY_2[4:0], PADDLE_CMP[3:0]) and the pins it drives low
+[[block]]
+name = "live"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0040
+size = 0x04
+  [[block.property]]
+  name = "live"
+  offset = 0x00
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "drv"
+  offset = 0x02
+  width = 16
+  dir = "r"
+
+# 050-065: the A/V test encoder (diag_avout.v, T201, T259)
+[[block]]
+name = "av"
+module = "diag_regs"
+owner = "core"
+address = 0x101A0050
+size = 0x16
+  [[block.property]]
+  name = "std"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "perm"
+  offset = 0x01
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rev"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "vinv"
+  offset = 0x03
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "vinv"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "freeze"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "trim"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "bstart"
+  offset = 0x05
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "bend"
+  offset = 0x06
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "bamp"
+  offset = 0x08
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "gain"
+  offset = 0x09
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "sync"
+  offset = 0x0A
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "blank"
+  offset = 0x0B
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "white"
+  offset = 0x0C
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "syncb"
+  offset = 0x0D
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "eq"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "l262"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "vlen"
+  offset = 0x0E
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "vpos"
+  offset = 0x0F
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "map"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "mode"
+  offset = 0x11
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "pch"
+  offset = 0x12
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rch"
+  offset = 0x13
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "synm"
+  offset = 0x14
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "fbm"
+  offset = 0x15
+  width = 8
+  dir = "rw"

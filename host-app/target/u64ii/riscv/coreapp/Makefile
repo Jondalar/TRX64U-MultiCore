@@ -219,7 +219,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			c128.cc \
 			c64scpu.cc \
 			ddt_novic.cc \
-			portdiag.cc \
 			d1541_fs.cc \
 			zxnext.cc \
 			snes.cc \
@@ -233,7 +232,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			monitor.cc \
 			monsrv.cc \
 			diag.cc \
-			diagtest.cc \
 			bugreport.cc \
 			corereport.cc \
 			netfs.cc \

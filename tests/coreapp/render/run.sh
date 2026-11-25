@@ -9,9 +9,6 @@ HA="$ROOT/host-app/software/hostapp"
 L="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl"   # ULTIMATE_SW points at another copy
 OUT="${1:-/tmp/coreapp-render}"; mkdir -p "$OUT"
 B="$(mktemp -d)"; T="$B"; CXX="${CXX:-c++}"
-# the diag core's example tests are record 8 of diag.cor (T175): the real packer makes the record, the application's installer writes it (tests/coreapp/diag_examples.h)
-python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$B/diag_files.rec" > /dev/null
-export DIAG_FILES_REC="$B/diag_files.rec"
 # the record of a core with a Timewarp page and a Monitor page (golden/desc_cut.toml, T239.3 P1-8), compiled by the real tool; render.cc reads it over the NES (argv[2])
 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import descrec; open(sys.argv[3], "wb").write(descrec.compile_text(open(sys.argv[2]).read()))' "$ROOT" "$ROOT/tests/coreapp/golden/desc_cut.toml" "$B/desc_cut.bin"
 # T100 D14: the render is a unit (tests/ctlcache.sh): what a unit read - every source and header the compile opens, LVGL's headers,

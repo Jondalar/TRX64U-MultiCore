@@ -230,12 +230,14 @@ int main()
         const Row rows[] = { { &vc20_desc, "vc20", true } };
 #elif defined(TEST_APP_A1200)
         const Row rows[] = { { &amiga1200_desc, "amiga1200", true } };
+#elif defined(TEST_APP_DIAG)
+        const Row rows[] = { { &portdiag_desc, "portdiag", false } };
 #else
         const Row rows[] = { { &c64scpu_desc, "c64scpu", true }, { &c128_desc, "c128", true },
                              { &c264_desc, "c264", true }, { &pet_desc, "pet", true }, { &amiga_desc, "amiga", true }, { &apple2_desc, "apple2", true },
                              { &atari800_desc, "atari800", true }, { &zx_desc, "zx", true }, { &zxnext_desc, "zxnext", true }, { &cpc_desc, "cpc", true },
                              { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
-                             { &ddt_novic_desc, "ddt_novic", false }, { &portdiag_desc, "portdiag", false } };
+                             { &ddt_novic_desc, "ddt_novic", false } };
 #endif
         for (const Row &r : rows) {
             CHECK_EQ(r.d->hotkeys != 0, r.has);

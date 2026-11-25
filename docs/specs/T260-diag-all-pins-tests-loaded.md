@@ -303,3 +303,74 @@ The CI bitstream report must confirm: LUT / FF of `probe`, `cap`, `regs` (utiliz
 Together about 2,350 LUT, 2,000 FF, 2 BRAM tiles (T175's estimate was 700 LUT, 400 FF, 1 tile). Timing risks to look at in the report: the 128 snapshot flops fan out to 32
 lane muxes (stage A, 16:1 per chunk, one register after it) and to the 128:1 pin select; the ui_clk <-> cpu_clk crossings are toggles with 2 FF (the host's clock groups make them asynchronous).
 
+### App half (branch `t260-app`, 2026-11-25)
+
+*Step 1, S7 golden (3b765e9f4).* `tests/coreapp/test_diag_avtrace.cc` records the old A/V page's register writes: each of the three shipped presets loaded by name
+(`pd.av_preset`), then RIGHT (next value, the last wraps) on each of the 24 rows from that preset's state. `tests/coreapp/golden/diag_av_trace.txt`, 301 lines;
+`test diag_avtrace: PASS` (77 checks). The same unit still passes after the move below with registers named by the driver table (offsets unchanged).
+
+*Step 2, P7/S8 (a79d6cc76 and the commit after it).*
+- Own app `cores/diag/app`: `sdk.toml` (TOML B, `desc = "portdiag_desc"`, libraries diag + pad, base blocks as the A1200's), `gateware.toml` (TOML A: blocks ident, engine, live, av = 4
+  blocks, 37 properties), `rtl_check_sources.tcl`, `lib/` = `portdiag.cc/.h`, `portdiag_regs.h` (registers by the driver table), `diagtest.cc/.h` (git mv from `coreapp/`).
+  `rtl_check`: `4 block(s), 37 properties agree with the RTL of host` (case added to `tests/rtl_check/test_rtl_check.py`, not run to the end here: the file takes minutes).
+  Two findings that shaped the TOML A: `TICKS_US` (00C) is a module parameter, rtl_check cannot read it, the app names it as a number (`PD_TICKS`); PC (016) is 8 bit, not 16.
+- Out of the shared app: `coreapp/src/diagtest.cc/.h`, `coreapp/cores/portdiag.cc/.h/_regs.h` (about 3400 lines), the table row, the Makefile's two sources, `diag` in
+  `BLUEPRINT_CORES`, the D24 ledger lines of diag (`file` x5, `exception` x4, `ids run.cc diag 2 -> 1`) and the targets, `SRC_PER_CORE` of `check_d24.py`; `base_sources = ["portdiag.cc"]`
+  of vc20 and amiga1200 and of the SDK example (it was there only because `run.cc` called `portdiag_attach`). `check_d24.py` is green.
+- The hook is generic now: `coreapp/src/coredlg.h` `CoreDialogs` (the old `PdHost`, same methods), `CoreCtx::dialogs`, `run.cc` fills it (`HostDialogs`). The diag lib asks through `c->dialogs`.
+- Units, built as the diag app (`run.sh` `diagapp`, `tests/coreapp/diag_drv.sh`): `diagtest` (610 checks), `portdiag` (705), `diag_avtrace` (77), `diag_desc` (7, new: the descriptor cases
+  the shared test_desc/test_hotkeys/test_memops held for diag, now without diag); `diagtest_halffile` stays a control. The TOML B names them (`libtab.py tests`). The shared units no longer list diag.
+  Gone: the controls `diagtest_overwrite` and `diagtest_superseded` (they broke `instfiles.cc` through the diag unit; the installer is now exercised by `test_bundle` on a fixture core
+  `instfiles`, no control there), the golden `menu_portdiag.txt` (needs a diag-app build of `test_desc`'s golden(), open).
+- Lane: `tools/core_toml.py lanes` lists `diag large`; `ci/package.sh` and `ci/cor.sh` leave it out loudly by the TOML B switch (generic, as for the A1200); `ci/emu_kit.sh --core diag`
+  and `tests/hostapp/emu_host.sh` (EMU_OWN_APP=diag) added - the profile is this tree's `tests/coreapp/emu/profiles/diag.toml` (the emulator release has none), hotkey and start time copied
+  from the A1200's round, **not run** (step 12 runs only in the matrix).
+
+*Step 3, P6/S9.* `cores/diag/mono/core.toml` has no `install_dir`/`install_old`; `cores/diag/superseded` is deleted (its two sample files moved to `tests/coreapp/instfiles/old`
+with five test files as the fixture of `test_bundle`'s record 8 case, which is generic: the A500's sub-app test uses record 8 too). `gen_bundle.py`: `diag.cor` has no record 8
+(`test_cor_pack.py` checks the descriptors name no install folder; `python3 tools/test_cor_pack.py`: OK; `test bundle: PASS`, 102 checks). `ci/lane.sh` step 13 copies
+`cores/diag/sd` to `SD/cores/diag/` inside the delivery (`deliver-diag/SD/cores/diag/{tests,presets}`), listed in its `SHA256SUMS`: copy that folder to `/SD/cores/diag/`.
+
+*Step 4, P5/S7: the panel (second app session).* **Decision of the coordinator, 2026-11-25, under D5 (the default, not Alex's word):** a panel is a TOML file on the SD card (`/SD/cores/diag/panels/`), opened from the diag
+app like a test (file picker over `/SD/cores/diag/`, or the task "Open a panel"; the `kind = "panel"` line tells it from a test), and shown through a new generic CoreDialogs method.
+- `CoreDialogs::edit_list` (+ `text`), `AppDlg::edit_list` (`DK_EDIT`: rows of label and value, UP/DOWN/PAGE/HOME/END, LEFT/RIGHT/RETURN call back on the menu task, an action row answers its index, ESC -1), drawn by ui.cc
+  with the value right-aligned, in the remote snapshot as kind `edit`; documented in api.md 9.8. One deviation from the brief: RETURN on an *action* row does not call back, it closes the list and answers the row, because the
+  action (a file picker, a name to type) must run on the diag task - a dialog cannot be opened from the menu task's callback. `test appdlg: PASS` (new case, real keys).
+- Panel format and code: `cores/diag/app/lib/panel.h/.cc` (parser, rows bound to registers by "block.property[.field]" of the TOML A or by offset, bits/mask/signed/min/max/step, value names, default, `system`/`video_format` for the
+  Standard row, presets as text, Defaults, the list); names resolved by `pdnames.cc` from the driver table macros. The A/V page is `cores/diag/sd/panels/avout.toml` (24 knob rows in the T259 order, Load preset, Save preset, Defaults);
+  gone: all A/V C of `portdiag.cc` (`av_put_raw`, 24 ops, `g_av_settings`, presets, playground), the `[[core_setting]]`/`[lists]` rows and the two tasks and the "Load A/V preset" action of `desc.toml` (the core has no settings page now);
+  `pd.run` opens a panel when the file's kind is panel. The A/V *walks* (kind avtest) took their knob table from the panel file: `dt_av_knobs` (C) is deleted, `av_bind` in diagtest.cc checks that the first 24 rows have the keys the
+  walks need; a walk with no panel file on the card is refused with that reason.
+- Proof S7: `test_diag_avtrace.cc` loads the three shipped presets through the panel's own "Load preset" action and presses RIGHT / LEFT on each of the 24 rows through the ScriptDlg model of CoreDialogs; its register writes equal
+  `golden/diag_av_trace.txt` (written by the old C page, unchanged): `test_diag_avtrace: 83 checks, 0 failed`, `test diag_avtrace: PASS`. Other units: `test_panel: 51 checks, 0 failed` (new: parser refusals, bits/signed/two-byte rows,
+  steps, presets round trip, Defaults, the `system` hook, the list with Save preset), `test_portdiag: 60 checks`, `test_diagtest: 612 checks`, `test_diag_desc: 7 checks`, all PASS.
+- Found on the way: the control `diagtest_halffile` was vacuous since the move (its mutated source, `cores/diag/app/lib/diagtest.cc`, was not copied into the mutation directory); `run.sh` copies `$DIAGLIB` now: `control diagtest_halffile: fails as it must (1 check(s) red)`.
+- Leftovers of step 1: `cores.h` (declaration and D24 ledger line), `svc_board.h` comment, `coreapp.allow` line, the render bench (`render.cc`: descriptor and the two text functions by prototype, own_cores.h carries the diag app; the A/V settings pages are gone, the
+  runner walk against the engine model is out of that bench - it is a unit - and a "panel" dialog picture is in; `-fsyntax-only` clean, **not run**: LVGL objects). `menu_portdiag.txt`: the A1200's app has no such golden case either
+  (`test_desc` skips it under `TEST_APP_A1200`), so there is none to restore. `tests/ui/fixtures.py` copies `cores/diag/sd` to the diag card. No ue2emu picture of the panel: it needs the RISC-V image (`tools/dev.sh riscv`, not allowed here).
+
+*Step 5, runner v2 (second app session): the part that is built.* `cores/diag/app/lib/dtv2.h/.cc`: the pin table read from the ROM through PIN_IDX / PIN_ROM (`dtv2_pins_read`, `dtv2_pin_find`), the v2 step words as
+inline encoders (`dv2_drive`, `dv2_edges`, `dv2_tte`, `dv2_write_reg`, `dv2_capture`, ...), the ring reader (`dtv2_cap_read`: CAP_RADDR, CAP_RCTRL, poll CAP_STATUS b4, 16 bytes of CAP_RDATA, four samples a line;
+`dtv2_cap_lines`: a following capture starts on the next line). Unit `dtv2` on a model of the register block that serves the 121-pin ROM from `tests/coreapp/golden/diag_pins.toml` (a copy of `cores/diag/rtl/pins.toml`
+of t260-gw - the lint of the merged tree must find the two equal) and a synthetic ring: `test_dtv2: 399 checks, 0 failed`, `test dtv2: PASS` - S3 (the app reads every pin by name, 121 of them, a bitstream without a table is
+refused) and the S4 reader (4096 samples of a known pattern, a second capture that starts on the next line, a reader that never answers is given up on). The offsets in dtv2.h are numbers from the gateware's register map;
+the hardware semantics assumed there and not yet checked on a bench or the board: a write of CAP_RCTRL clears CAP_STATUS b4 until the new line is in CAP_RDATA.
+
+*Not built, handed over (S5, S6, the rest of S4 and the v2 switch of the app).* The app still runs the v1 engine: `portdiag_regs.h` (PD_OP_*, PD_LIVE, the 10-pin mask), `gateware.toml` (live block 0x40-0x43), the old compiler and
+evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live page: ports and comparators from LIVE). Against a v2 bitstream they do not work. What is to be done, in this order, one commit each:
+1. `gateware.toml` v2 and `portdiag_regs.h` v2 (registers named through the driver table; the engine block, `live` = 16 byte snapshot, the pin and capture registers; PD_OP_* replaced by dtv2.h's words) and the
+   `rtl_check` line: the case reads `cores/diag/rtl/diag_regs.v`, which is v1 in this branch - run it in a scratch worktree of t260-gw with this branch's `gateware.toml` (`tools/rtl_check.py`, case `diag` of
+   `tests/rtl_check`). The live page (`pd.port1`, `pd.port2`, `pd.cmp`) reads pins 50-54 / 55-59 / 63-66 of the snapshot by name from the table (not by number).
+2. Test language v2 (all pins by NAME, resolved against the table at compile time - `dt_compile` takes `const DtPins &`): `drive pins=[NAME..] level=low|high|hiz|release` (one DRIVE word per pin), `wait`, `sample into=`
+   (5 FIFO words: t and the snapshot), `edges pin= edge=any|rising|falling us=|clocks=`, `time_to_edge pin= edge= timeout_us=|timeout_clocks=` (the old `time_to_flip cmp=[n]` is `time_to_edge pin="PADDLE_CMPn"`),
+   `write_reg reg="av.std"|0x50 value=` (names through `portdiag_reg_by_name`, only 0x050-0x06F), `capture pins=[<= 32 names] every_us=|every_clocks= samples= into=` (CAP RESET before RUN; the runner reads the lines back
+   with `dtv2_cap_read`, the first line of each capture is the sum of `dtv2_cap_lines` of the earlier ones; at most 4096 samples a test, said at compile time), `capwait`; `padctl` goes (PADDLE_DIS / PADDLE_ADJ are pins
+   67 / 68, class pz: HIGH / LOW enable, RELEASE = high-Z). Evals: `value = "slot.pins"` with `pins = ["NAME", ..]` in place of `mask` (bit j of the value = the j-th name), `eq`/`min`/`max`/`differs` over that value;
+   `slot.ts` the 32 bit t; the fields `cmp` and `flags` go. LOOP counts WORDS (a drive of n pins is n words, EDGES / TTE / CAPTURE two). A refused EDGES / TTE still pushes 0xFFFFFFFF (gateware §5). `STATUS` b5 / REF_PC / REF_CNT
+   are the "refused" status of a run (REF_PC of a two word op is its second word).
+3. S5: a unit test writes a TOML at run time (no shipped file) that names pins only by name, loads, compiles (the words name the table indexes - compare with `dv2_*` of `dtv2_pin_find`), runs on the model, and the result
+   files have its values and verdicts. S6: convert the files of `cores/diag/sd/tests` (pins, stick2, paddle, cd32, cd32keys, joystick, xpad*, av* need no change: they are kinds suite / avtest / xpad) by a script, and prove that
+   each compiles to the old compiler's words translated: take the old words from the unchanged HEAD `diagtest.cc` of `b6a2a2212` (golden `tests/coreapp/golden/diag_old_words.txt`, one line per file) and translate by rule in
+   the test (old DRIVE mask -> one DRIVE per pin in bit order, MASK+EDGES -> EDGES, TIME_TO_FLIP sel -> TTE any, PADCTL -> DRIVE DIS, DRIVE ADJ (a part not named is RELEASE), LOOP K recounted in words), then compare.
+4. `diag_engine.h` (the model) to v2 for the benches of the shipped tests (pins as a 128 bit state, open drain pins pulled high, DRIVE LOW pulls a pin low, the comparators of the paddle test), `render.cc` and
+   `test_portdiag.cc` follow (they read LIVE at 0x40).

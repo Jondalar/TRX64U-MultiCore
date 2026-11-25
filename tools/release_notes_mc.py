@@ -84,7 +84,7 @@ CORES = [
          sources="coreapp/cores/nes.cc:139-160 (no ROM list in the descriptor)"),
     dict(id="diag", match=("port diagnostics",), title="Port Diagnostics", folder="diag",
          files="none", needed="nothing",
-         sources="coreapp/cores/portdiag.cc (the folders `tests/` and `results/` under the core folder; the files of record 8 of diag.cor, the example tests, are written when missing), cores/diag/mono/core.toml (no ROM, no media)"),
+         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `presets/` and `results/` under the core folder; the tests and presets come in the delivery's folder SD/cores/diag, T260 D6, not in the .cor), cores/diag/mono/core.toml (no ROM, no media)"),
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",

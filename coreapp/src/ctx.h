@@ -14,6 +14,7 @@ class OpRegistry;
 class Executor;
 class CoreLock;
 class PartialPort;
+class CoreDialogs;
 
 // What the Library shows and has marked (T104.2 UI): the menu writes it as the browser moves, the file operations (fileops.cc) read it. One writer, and the
 // operations run while the menu waits for them, so there is no lock.
@@ -93,6 +94,8 @@ struct CoreCtx {
     char job_path[260];                   // the file being written, written by the operation once it is placed
     // The files the core's bundle installs on the card (record 8, instfiles.h): the application sets it, null in builds that link no bundle; -1 = cannot write.
     int (*install_files)(CoreCtx *c);
+    // T260 P7: the application host's dialogs for a core whose code asks the person (coredlg.h); null in builds that have none (tests, before the start).
+    CoreDialogs *dialogs;
     // T104.3: the operation `app.open` asks the application host (apphost.h) to open an application; null: this build has none. The answer is the operation's.
     int (*app_open)(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
     // T228 R21: the action an application adds to one file when its actions are listed ("Run with App", FW user_file_interaction.cc:55-76), null: none. The application sets it.

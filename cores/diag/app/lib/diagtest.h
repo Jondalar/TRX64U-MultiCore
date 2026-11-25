@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "io.h"
 #include "fsif.h"
+#include "panel.h"
 
 #define DT_STR        160              // a text value of a file
 #define DT_NAME       24               // an id, a slot name
@@ -174,25 +175,12 @@ public:
     virtual void show(const char *title, const char *text) = 0;
 };
 
-// ---- T201: the knobs of the A/V test picture (one row of the A/V page each, one key of an A/V test file each) ----
+// ---- T201: the knobs of the A/V test picture (one row of the A/V panel each, one key of an A/V test file each; the panel file, panels/avout.toml, defines them: panel.h) ----
 #define DT_AV_N 24
 enum { AVK_STD = 0, AVK_GROUPS, AVK_BITS_A, AVK_BITS_B, AVK_BITS_C, AVK_VSIGN, AVK_TRIM, AVK_BSTART, AVK_BEND, AVK_BAMP, AVK_GAIN, AVK_SYNC, AVK_BLANK, AVK_WHITE,
        AVK_EQ, AVK_VLEN, AVK_VPOS, AVK_LINES, AVK_MAP, AVK_MODE, AVK_PCH, AVK_RCH, AVK_SYNCN, AVK_FB };      // T259: the last six are registers 060-065 in this order
-struct AvKnob {
-    const char *key;                   // the row's name on the page and in the settings file
-    const char *const *labels;         // the values in user terms, as the page shows them and a test file names them
-    uint8_t n, def;
-    const int16_t *val;                // the register value of each label (the trim: the signed byte)
-    int16_t lo, hi;                    // T259: the register's whole range, what the playground accepts
-};
-extern const AvKnob dt_av_knobs[DT_AV_N];
-// T259: a knob by its key ("v_sign" or "V sign"), -1 if none; a preset file's text into one register value per knob (DT_AV_ABSENT: the file does not name it, DT_AV_BADVAL: a label the knob does not
-// have; a value "#n" is a free register value); the label of a knob that has exactly this register value, -1 if none.
-#define DT_AV_ABSENT (-100000)
-#define DT_AV_BADVAL (-100001)
-int dt_av_knob_of(const char *key);
-void dt_av_preset_parse(const char *text, int32_t raw[DT_AV_N]);
-int dt_av_idx_of_raw(int k, int32_t raw);
+#define DT_AV_ABSENT (-100000)          // a preset file does not name the knob
+#define DT_AV_BADVAL (-100001)          // ... names a label the knob does not have
 
 struct DiagEnv {
     CoreIo *io;
@@ -205,8 +193,10 @@ struct DiagEnv {
     const char *folder;                // "/SD/cores/diag"
     uint32_t run_timeout_ms;           // one test without a prompt open; 0: 60 s
     uint32_t counter;                  // the stamp when there is no RTC
-    // T201, an A/V test: the application's hooks onto the A/V page. av_get: the label index the page holds for a knob; av_set: puts a knob into the gateware (the standard also
+    // T201, an A/V test: the application's hooks onto the A/V panel. av_get: the label index the page holds for a knob; av_set: puts a knob into the gateware (the standard also
     // sets the System Mode) without touching the page's stored value; av_done: puts the page's own values back after the walk. Null in a run of a probe test.
+    // av_panel gives the A/V panel file's rows (panel.h; the first DT_AV_N rows are the walk's knobs, in the order of the AVK_ enum), or null with the reason in `why`.
+    const Panel *(*av_panel)(void *ud, char *why, int n);
     int (*av_get)(void *ud, int knob);
     void (*av_set)(void *ud, int knob, int idx);
     void (*av_done)(void *ud);
