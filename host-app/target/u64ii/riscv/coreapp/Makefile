@@ -208,10 +208,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_nib.cc \
 			apple2_woz.cc \
 			apple2_hdd.cc \
-			tape_pulses.cc \
-			tape_deck.cc \
 			c264.cc \
-			pet.cc \
 			c128.cc \
 			c64scpu.cc \
 			portdiag.cc \

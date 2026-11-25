@@ -68,7 +68,7 @@ CORES = [
     dict(id="pet", match=("commodore pet",), title="Commodore PET", folder="pet",
          files="per model: BASIC (8,192 or 12,288), Editor (2,048), KERNAL (4,096), Characters (2,048 or 4,096) bytes, VICE's file names (`basic-4.901465-23-20-21.bin`, `edit-4-40-n-60Hz.901499-01.bin`, `kernal-4.901465-22.bin`, `characters.901640-01.bin` and the 2 / 1 / 8032 variants) or `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`; optional: disk drive DOS and controller ROMs, SuperPET Waterloo ROMs",
          needed="BASIC, Editor, KERNAL and Characters of the chosen model; the drive and Waterloo ROMs only for those features",
-         sources="coreapp/cores/pet.cc (roms[], names and sizes)"),
+         sources="cores/pet/app/lib/pet.cc (roms[], names and sizes)"),
     dict(id="amiga", match=("amiga (ocs", "amiga 500"), title="Amiga (OCS/ECS, 68000)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 1.3", needed="one Kickstart",
          sources="coreapp/cores/amiga.cc:32,148-154,181; coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),

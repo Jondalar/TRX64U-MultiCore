@@ -14,7 +14,6 @@ const CoreDesc *const core_table[] = {
     &nes_desc,
     &apple2_desc,
     &c264_desc,
-    &pet_desc,
     &c128_desc,
     &c64scpu_desc,
     &zxnext_desc,

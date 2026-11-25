@@ -1,0 +1,435 @@
+# TOML A of the pet core (T239.3 D55, T239.5 D16): the gateware's registers as capabilities. The emitter (tools/rtl_check.py emit) wrote the first form from the RTL; the names, the blocks and the
+# fields are from cores/pet/rtl/trx/pet_regs.v (the register block of the Commodore PET core). tools/rtl_check.py check proves every property against the RTL (the core window: the cw_* ports of the
+# instance in layer2_pet.v; the host decodes 0x101A0000-0x101AFFFF to them, so the app's register offset is the address minus 0x101A0000).
+# Not described: page 6 (0x101A6000-0x101A6FFF) is forwarded by pet_regs to the host's pixel layer (px_we, px_re, px_rdata); the core's own code does not use it and the host's TOML A owns that layer.
+# The 16 KB ROM aperture (pet_win.v) is a DMA window of the host, not a register block. Everything else in the window reads 0.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "PET1"
+block = "ident"
+
+# 000-00B: the ID "PET1" (byte 0 first), the caps bytes (004 0xC0: page 6 and the RGB565 pixel layer of the host; 005 0x02: BUILD is there) and the build word (the host's USR_ACCESS)
+[[block]]
+name = "ident"
+module = "pet_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b7 page flip done (px_ev_flip), b6 video frame start (px_ev_vsync), b5 a PET frame is complete
+[[block]]
+name = "irq"
+module = "pet_regs"
+owner = "core"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "ddr_cal"
+module = "pet_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0-0AE: the machine. ctrl b0 holds the core in reset, b1 halts it (Freeze; the application writes none: the host's C64_MODE and C64_STOP do both); model 0 2001, 1 3032, 2 4032, 3 8032, 4 8096, 5 SuperPET, ramsz 0 8 KiB, 1 16 KiB, 2 or 3 32 KiB, sp_cpu 0 6502, 1 6809, 2 PROG, sp_ram b0 the SuperPET's 64 KiB bank RAM: all five taken at the core's next reset; cpu_x 0..7 = CPU speed x1..x8, live; diag b0 the DIAG jumper (PIA1 PA7 low); status b0 in reset, b1 held (Freeze), b2 80 column picture; hz b0 0 = 60 Hz picture, 1 = 50 Hz; phosphor 0 green, 1 amber, 2 white; keymode b0 0 symbolic, 1 positional (live); frames is the PET's frame counter, cpuaddr a sample of the CPU's address bus
+[[block]]
+name = "machine"
+module = "pet_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xF
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "model"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "cpu_x"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "diag"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "col80"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "hz"
+  offset = 0x5
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "phosphor"
+  offset = 0x6
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ramsz"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "sp_cpu"
+  offset = 0xA
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "keymode"
+  offset = 0xB
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0xC
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "sp_ram"
+  offset = 0xE
+  width = 8
+  dir = "rw"
+
+# 0B0: what is behind the host's 16 KB ROM aperture (b3:0): 0 the ROM space $8000-$BFFF, 1 the ROM space $C000-$FFFF, 2 the character ROM, 3 the Waterloo ROM $A000-$DFFF, 8 the Waterloo ROM $E000-$FFFF (6 / 7 the same for the 8250)
+[[block]]
+name = "rom"
+module = "pet_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x1
+  [[block.property]]
+  name = "rom_sel"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# 0C0-0CB: the picture's frame buffers. fb_base and fb_stride have the reset values of base_r and stride_r in pet_regs.v: the host's REU block, four buffers one megabyte apart; fb_latest b7 valid, b1:0 the newest complete buffer; fb_overruns counts the lines that could not be handed to the DDR2 side in time
+[[block]]
+name = "video"
+module = "pet_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D0-0E7: the dual drive unit. ctl b0 device 8 on, b1 drive type 1 = 4040 (D64), 0 = 8250 (D80 / D82); ro b0 / b1 the image of drive 0 / 1 is write protected; mnt (write) b0 / b1 toggles the mount strobe (size and read-only are taken at the strobe, size 0 = no disk); clr (write) b0 / b1 toggles the clear-dirty strobe; status b1:0 dirty (the drive wrote to its image in DDR2), b3:2 drive activity; size0, size1 the image size in bytes; base0, base1 the DDR2 byte address of the image (reset 0x01100000 / 0x01220000)
+[[block]]
+name = "drive"
+module = "pet_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0x18
+  [[block.property]]
+  name = "ctl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ro"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "mnt"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "clr"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "size0"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "size1"
+  offset = 0xC
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "base0"
+  offset = 0x10
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01100000
+  [[block.property]]
+  name = "base1"
+  offset = 0x14
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01220000
+
+# 0F0-0F3: the write log of the drives (the drive wrote to a chunk of its image in DDR2). log_st b0 the log has an entry, b1 it overflowed (write b1 to clear); log_track the 8 KiB chunk the oldest entry names; log_drive its drive; log_pop any write drops the oldest entry
+[[block]]
+name = "dlog"
+module = "pet_regs"
+owner = "core"
+address = 0x101A00F0
+size = 0x4
+  [[block.property]]
+  name = "log_st"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "log_track"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "log_drive"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "log_pop"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+# 140-153: cassette 1, the pulse engine (pet_tape.v). ctrl b0 play (a rising edge starts the tape, the PET's motor gates it); base is the DDR2 byte address of the pulse stream (reset 0x01800000); pos: write = the word position a seek loads, read = the position now; seek: any write loads pos; status b0 playing, b1 end of tape, b2 stop marker, b3 DDR2 read stuck; underrun counts the missed words; pin b0 motor pin driven, b1 write pin driven, b3 SENSE pulled low while the tape plays, b4 the datasette's READ and SENSE pins are the PET's inputs; lines is the PET side of the port: b0 motor on, b1 SENSE low, b2 READ line, b3 WRITE line
+[[block]]
+name = "tape"
+module = "pet_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x14
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "play"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01800000
+  [[block.property]]
+  name = "pos"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "seek"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "playing"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "end"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "stop_marker"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "ddr_stuck"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "underrun"
+  offset = 0x11
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "pin"
+  offset = 0x12
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "lines"
+  offset = 0x13
+  width = 8
+  dir = "r"
+
+# 160-168: the USB pads. pad1, pad2 are the button words (b0 up, b1 down, b2 left, b3 right, b4 fire; low byte first); padkey0..4 the C64 key each of the five buttons presses (b5:0 the key's matrix bit col*8+row, b6 with C64 SHIFT, 0xFF none)
+[[block]]
+name = "pads"
+module = "pet_regs"
+owner = "core"
+address = 0x101A0160
+size = 0x9
+  [[block.property]]
+  name = "pad1"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "pad2"
+  offset = 0x2
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "padkey0"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "padkey1"
+  offset = 0x5
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "padkey2"
+  offset = 0x6
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "padkey3"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "padkey4"
+  offset = 0x8
+  width = 8
+  dir = "rw"

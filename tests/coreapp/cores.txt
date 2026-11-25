@@ -8,7 +8,6 @@ apple2: apple2*.cc apple2*.h
 atari800: atari800*.cc atari800*.h atari_*.cc atari_*.h
 c128: c128.cc c128_keys.h c128_regs.h
 c264: c264.cc c264_regs.h
-pet: pet.cc pet_regs.h
 neogeo: neogeo.cc neogeo_regs.h neoset.cc neoset.h
 nes: nes.cc nes_regs.h ines.cc ines.h
 snes: snes.cc snes_regs.h snes_rom.cc snes_rom.h

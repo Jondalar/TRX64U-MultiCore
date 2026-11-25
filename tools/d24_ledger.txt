@@ -49,7 +49,7 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 18
+file coreapp/cores/cores.h 17
 file coreapp/cores/drive_rom_pick.h 98
 file coreapp/cores/hk_defaults.h 23
 file coreapp/cores/ines.cc 100
@@ -60,9 +60,6 @@ file coreapp/cores/neoset.cc 589
 file coreapp/cores/neoset.h 58
 file coreapp/cores/nes.cc 189
 file coreapp/cores/nes_regs.h 23
-file coreapp/cores/pet.cc 745
-file coreapp/cores/pet_models.h 111
-file coreapp/cores/pet_regs.h 52
 file coreapp/cores/portdiag.cc 473
 file coreapp/cores/portdiag.h 20
 file coreapp/cores/portdiag_regs.h 50
@@ -70,10 +67,6 @@ file coreapp/cores/snes.cc 558
 file coreapp/cores/snes_regs.h 44
 file coreapp/cores/snes_rom.cc 222
 file coreapp/cores/snes_rom.h 26
-file coreapp/cores/tape_deck.cc 138
-file coreapp/cores/tape_deck.h 31
-file coreapp/cores/tape_pulses.cc 485
-file coreapp/cores/tape_pulses.h 24
 file coreapp/cores/zxnext.cc 283
 file coreapp/cores/zxnext_fw.h 170
 file coreapp/cores/zxnext_regs.h 36

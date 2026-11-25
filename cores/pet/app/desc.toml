@@ -1,7 +1,7 @@
-# The PET's data description (T239.3 D17): what coreapp/cores/pet.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description record
+# The PET's data description (T239.3 D17): what cores/pet/app/lib/pet.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description record
 # (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the core's C++: init, release, the
-# operations of register_ops, the model's ROM choice (rom_key), the drive and tape slots' media functions. Register numbers are cores/pet/rtl/trx/pet_regs.v
-# (coreapp/cores/pet_regs.h); the settings are register bits.
+# operations of register_ops, the model's ROM choice (rom_key), the drive and tape slots' media functions. The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20). The settings are register bits.
+toml_a = "gateware.toml"
 machine_info = "Model,RAM"
 
 [restart]
@@ -29,16 +29,16 @@ h = 400
 scale = 2
 x0 = 320
 y0 = 140
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -56,7 +56,7 @@ names = ["Drive 8", "Drive 8.1", "Tape"]
 # the USB pads' button words go to PET_PAD1 / PET_PAD2; the core turns each button into the key its setting names
 [pad]
 output = "registers"
-regs = [0x160, 0x162]
+regs = ["pads.pad1", "pads.pad2"]
 buttons = ["Up", "Down", "Left", "Right", "Fire"]
 default = ["up", "down", "left", "right", "face_bottom"]
 
@@ -169,32 +169,32 @@ label = "Model"
 values = ["2001", "3032", "4032", "8032", "8096", "SuperPET", "2001 + BASIC 2"]
 default = 2
 when = "reset"
-reg_bind = { reg = 0x0A1, mask = 7, bytes = [0, 1, 2, 3, 4, 5, 0] }
+reg_bind = { reg = "machine.model", mask = 7, bytes = [0, 1, 2, 3, 4, 5, 0] }
 
 [[core_setting]]
 key = "CPU speed"
 values = ["x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"]
-reg_bind = { reg = 0x0A2, mask = 7 }
+reg_bind = { reg = "machine.cpu_x", mask = 7 }
 
 [[core_setting]]
 key = "Diag (at next reset)"
 label = "Diag jumper"
 values = ["Off", "On"]
 when = "reset"
-reg_bind = { reg = 0x0A3, mask = 1 }
+reg_bind = { reg = "machine.diag", mask = 1 }
 
 [[core_setting]]
 key = "Picture rate"
 label = "Refresh rate"
 group = "video"
 values = ["60 Hz", "50 Hz"]
-reg_bind = { reg = 0x0A5, mask = 1 }
+reg_bind = { reg = "machine.hz", mask = 1 }
 
 [[core_setting]]
 key = "Phosphor"
 group = "video"
 values = ["Green", "Amber", "White"]
-reg_bind = { reg = 0x0A6, mask = 3 }
+reg_bind = { reg = "machine.phosphor", mask = 3 }
 
 # listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
 [[core_setting]]
@@ -204,7 +204,7 @@ values = ["8 KiB", "16 KiB", "32 KiB"]
 default = 2
 when = "reset"
 show_state = "pet.ramrow"
-reg_bind = { reg = 0x0A7, mask = 3 }
+reg_bind = { reg = "machine.ramsz", mask = 3 }
 
 # the dual unit of ieee_drive: drives 0 and 1. PET_DRV_CTL b0 device 8 on, b1 4040
 [[core_setting]]
@@ -212,13 +212,13 @@ key = "Drive 8 (at next reset)"
 label = "Drive"
 values = ["Off", "4040 (D64)", "8250 (D80, D82)"]
 when = "reset"
-reg_bind = { reg = 0x0D0, mask = 3, bytes = [0, 3, 1] }
+reg_bind = { reg = "drive.ctl", mask = 3, bytes = [0, 3, 1] }
 
 # PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (proven by a real datasette LOAD, GitHub #26); b1 WRITE out stays 0 until a SAVE on real tape is proven
 [[core_setting]]
 key = "Datasette port"
 values = ["Off (file only)", "External datasette"]
-reg_bind = { reg = 0x152, mask = 0x1F, bytes = [0x00, 0x11] }
+reg_bind = { reg = "tape.pin", mask = 0x1F, bytes = [0x00, 0x11] }
 
 # listed only while the model is the SuperPET (the only one that looks at it); "Program ($EFF8)": the 6502 starts and hands over by writing $EFF8 b0 = 0
 [[core_setting]]
@@ -227,7 +227,7 @@ label = "SuperPET CPU"
 values = ["6502", "6809", "Program ($EFF8)"]
 when = "reset"
 show_state = "pet.superpet"
-reg_bind = { reg = 0x0AA, mask = 3 }
+reg_bind = { reg = "machine.sp_cpu", mask = 3 }
 
 # the SuperPET's 96 KiB = 32 KiB + the 64 KiB bank RAM (4 KiB banks behind $9000); 32 KiB = the ROM behind $9000. The default is the whole machine
 [[core_setting]]
@@ -237,14 +237,14 @@ values = ["32 KiB", "96 KiB"]
 default = 1
 when = "reset"
 show_state = "pet.superpet"
-reg_bind = { reg = 0x0AE, mask = 1, bytes = [0, 1] }
+reg_bind = { reg = "machine.sp_ram", mask = 1, bytes = [0, 1] }
 
 # how the host's C64 keys become PET keys
 [[core_setting]]
 key = "Keyboard mapping"
 group = "input"
 values = ["Symbolic (key legend)", "Positional (PET key place)"]
-reg_bind = { reg = 0x0AB, mask = 1 }
+reg_bind = { reg = "machine.keymode", mask = 1 }
 
 # pad / joystick as keys (padkeys.h): the five buttons are the same on both USB pads and both joystick ports; each setting is the C64 key (col * 8 + row, +64 = SHIFT as well,
 # 255 none) its button presses, written to one register byte. The defaults are the number pad's 8 2 4 6 for the four directions and SPACE for fire
@@ -254,7 +254,7 @@ label = "Pad / joystick up"
 group = "input"
 list = "padkeys"
 default = 1
-reg_bind = { reg = 0x164, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+reg_bind = { reg = "pads.padkey0", mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
 
 [[core_setting]]
 key = "Pad down key"
@@ -262,7 +262,7 @@ label = "Pad / joystick down"
 group = "input"
 list = "padkeys"
 default = 2
-reg_bind = { reg = 0x165, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+reg_bind = { reg = "pads.padkey1", mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
 
 [[core_setting]]
 key = "Pad left key"
@@ -270,7 +270,7 @@ label = "Pad / joystick left"
 group = "input"
 list = "padkeys"
 default = 3
-reg_bind = { reg = 0x166, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+reg_bind = { reg = "pads.padkey2", mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
 
 [[core_setting]]
 key = "Pad right key"
@@ -278,7 +278,7 @@ label = "Pad / joystick right"
 group = "input"
 list = "padkeys"
 default = 4
-reg_bind = { reg = 0x167, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+reg_bind = { reg = "pads.padkey3", mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
 
 [[core_setting]]
 key = "Pad fire key"
@@ -286,7 +286,7 @@ label = "Pad / joystick fire"
 group = "input"
 list = "padkeys"
 default = 11
-reg_bind = { reg = 0x168, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+reg_bind = { reg = "pads.padkey4", mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
 
 [[core_setting]]
 key = "Pad map"
