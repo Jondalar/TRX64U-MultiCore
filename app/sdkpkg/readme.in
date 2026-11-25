@@ -209,7 +209,7 @@ unchanged: everything below is a new member at the end of a table, a new value o
 - **Choices (P2).** `api->ctx->ask_list` (4.14.14) and the node key `pick = "@state"` (6.7.3, 6.19.3) open the base's list of choices for a library. The list has no fixed number of rows
   (it was 40): it is sized by its text, bounded by the memory budget.
 - **Tabs that come and go (P3).** `show = "@state"` on a tab of a menu record: the tab is on the strip while the state has a value (6.11.7).
-- **A busy caption for a job (P4).** The node key `busy` names the words a node's job shows, and a percentage shows only once the operation reports one (6.7.3).
+- **A busy caption for a job (P4).** The node key `busy` names the words a node's job shows, and a percentage shows only once the operation reports one (6.7.3). This also changes the job nodes of libraries built against 0.4.x: a job that never reports progress shows its words alone, no longer `0%` with an empty bar.
 - **A source of the F3 search (P5).** A node of kind `list` at `F3/search` with `search`, `find` and `fields` makes a library a source: the search of the Library gets one form with a Source
   row, the fields of the source, and the results open as a list (6.20).
 - **The key legend (P6).** `legend = "Label"` on a row of the key table puts the key into the foot legend of its tab (6.18.3).

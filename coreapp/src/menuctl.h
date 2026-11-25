@@ -211,8 +211,8 @@ public:
     bool search_editing() const { return search_edit_; }
     enum { SF_FIELDS = 4 };                                         // fields of one source (contrib.h CONTRIB_SEARCH_FIELDS)
     bool search_form() const { return pick_form_; }                 // T262 P5: the search form of the Library is up (the media and the sources of libraries)
-    int search_source_count() const;
-    void search_source_name(char *out, int n) const;                // the source the form searches now ("This device", or a library's name)                                // T262 P5: how many sources of libraries the F3 search offers now
+    int search_source_count() const;                               // T262 P5: how many sources of libraries the F3 search offers now
+    void search_source_name(char *out, int n) const;                // the source the form searches now ("This device", or a library's name)
     bool in_image() const { return fm_.image_ft >= 0; }
     const char *chooser_file() const { return chooser_file_; }     // the file whose actions the list shows
     int chooser_count() const { return chooser_n_; }
