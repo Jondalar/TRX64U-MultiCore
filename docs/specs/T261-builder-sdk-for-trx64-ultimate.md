@@ -108,6 +108,11 @@ Scenario: S6 trx64u.cor from their pre-release
   neither their pre-release nor our package. Their `fw-*` pre-release carries `trx64u.cor`, `trex_crt.u2a`, `online.u2a`, `manifest.json`,
   `SHA256SUMS`. `trx64g.cor` (Alex there: "A", relayed): stays a Gitea build of the gideon-app line, on demand, not in `fw-*`; our
   `trx64g.pin` keeps the Gitea package form, and a new build comes as a new Gitea package with its version and SHA-256.
+- **D8 (Alex, 2026-11-25, translated: "Then make the emulator image please, now, directly, else that never gets to the finish"):** the
+  emulator image (`ci/emu/Dockerfile`) builds `ue2emu` with the `net` feature, so `--net user` works: TRX64-Ultimate's emulator check
+  reads the firmware's REST server through it (their run 45576354413 was red only there). libslirp >= 4.7 (`slirp_handle_timer`) is
+  built from source at a pinned tag and commit, since Ubuntu 22.04 has 4.6; the image stays on 22.04. `ci-images.yml` pushes from
+  `t239.3` too. TRX64-Ultimate pins the new digest; ours follows once it is proven.
 
 ## §4 Out
 
