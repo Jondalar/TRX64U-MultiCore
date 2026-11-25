@@ -110,42 +110,6 @@ Commodore 264 (C16, Plus/4) F8/expert 10 fixed:13:Status
 Commodore 264 (C16, Plus/4) F8/expert 11 info:Build
 Commodore 264 (C16, Plus/4) F8/expert 12 info:ROMs
 Commodore 264 (C16, Plus/4) F8/expert 13 info:Libraries
-Commodore 128 F1/home 0 task:Reset
-Commodore 128 F1/home 1 task:Reload ROMs, reset
-Commodore 128 F1/home 2 media:drive.drive_a.image
-Commodore 128 F1/home 3 fixed:10:Save as config...
-Commodore 128 F1/home 4 fixed:11:Load config...
-Commodore 128 F5/settings 0 set:40/80 DISPLAY (at next reset)
-Commodore 128 F5/settings 1 set:Picture shown
-Commodore 128 F5/settings 2 set:Auto switch
-Commodore 128 F5/settings 3 set:Auto switch time
-Commodore 128 F5/settings 4 set:Joystick ports
-Commodore 128 F5/settings 5 set:Datasette port
-Commodore 128 F5/settings 6 set:System Mode
-Commodore 128 F5/settings 7 set:ROM set
-Commodore 128 F5/settings 8 set:JiffyDOS C128 ROM
-Commodore 128 F5/settings 9 set:JiffyDOS C64 ROM
-Commodore 128 F5/settings 10 set:JiffyDOS 1541 ROM
-Commodore 128 F5/settings 11 set:JiffyDOS 1581 ROM
-Commodore 128 F5/settings 12 set:Drive
-Commodore 128 F5/settings 13 set:Drive Bus ID
-Commodore 128 F5/settings 14 set:Extra RAM
-Commodore 128 F5/settings 15 set:Disk swap delay
-Commodore 128 F5/settings 16 set:LED Load Indicator
-Commodore 128 F8/expert 0 fixed:13:Actions
-Commodore 128 F8/expert 1 fixed:6:Restart core
-Commodore 128 F8/expert 2 fixed:7:Return to host menu
-Commodore 128 F8/expert 3 fixed:13:Network
-Commodore 128 F8/expert 4 fixed:9:WiFi
-Commodore 128 F8/expert 5 fixed:13:Support
-Commodore 128 F8/expert 6 fixed:8:Bug report
-Commodore 128 F8/expert 7 fixed:17:Keys and help
-Commodore 128 F8/expert 8 fixed:13:Reset
-Commodore 128 F8/expert 9 fixed:5:Reset to host defaults
-Commodore 128 F8/expert 10 fixed:13:Status
-Commodore 128 F8/expert 11 info:Build
-Commodore 128 F8/expert 12 info:ROMs
-Commodore 128 F8/expert 13 info:Libraries
 C64 with SuperCPU F1/home 0 task:Reset
 C64 with SuperCPU F1/home 1 task:Reload ROMs, reset
 C64 with SuperCPU F1/home 2 media:drive.drive_a.image

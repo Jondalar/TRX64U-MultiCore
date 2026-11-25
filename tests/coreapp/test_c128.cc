@@ -1,4 +1,4 @@
-// T113 5.5 on the generic application: the Commodore 128 descriptor (coreapp/cores/c128.cc) against a model of the core's register page E
+// T113 5.5 on the generic application: the Commodore 128 descriptor (cores/c128/app/lib/c128.cc) against a model of the core's register page E
 // (byte offsets 0xE000 + off from the core window, T113 section 5.5) and of the DDR2 window. The 72 KiB system ROM image at window offset
 // 0x00C00000 and the flush of the ROM line cache behind it, D4080 taken only in the hold, MON_SEL live and the pixel layer that follows it,
 // the picture (640 x 400 or woven 640 x 480 by FB_LATEST b2, 2 x 2, three buffers), Freeze's held bit, the menu (1541 and 1581 pieces), and the USB keyboard's extra keys.
@@ -19,6 +19,8 @@
 #include "hotkeys.h"
 #include <utility>
 #include <stdio.h>
+
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 
 // picture.cc calls the board's video_apply (video_stub.cc has a weak one that does nothing): this bench records the System Modes it is given
 static std::vector<std::pair<int, int>> g_applied;

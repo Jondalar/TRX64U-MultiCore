@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, zxapp, cpcapp) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, zxapp, cpcapp, c128app) with its core only
 #endif
 #if defined(TEST_APP_ZX) || defined(TEST_APP_CPC)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
@@ -51,9 +51,12 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #elif defined(TEST_APP_CPC)
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_C128)
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
-                                       &c128_desc, &amiga_desc, 0 };
+                                       &amiga_desc, 0 };
 #endif
 
 typedef std::vector<uint8_t> Bytes;
@@ -526,17 +529,22 @@ static std::vector<Prof> profiles()
 #ifndef MME_NO_DRIVE
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
+#elif defined(TEST_APP_C128)
+    for (int k = 1; k < 2; k++) {
 #else
-    for (int k = 1; k < 3; k++) {
+    for (int k = 2; k < 3; k++) {
 #endif
     // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
         Prof p;
 #ifdef TEST_APP_VC20
         const CoreDesc *d = &vc20_desc;
         p.name = "vc20";
+#elif defined(TEST_APP_C128)
+        const CoreDesc *d = &c128_desc;
+        p.name = "c128";
 #else
-        const CoreDesc *d = k == 1 ? &c128_desc : &c264_desc;
-        p.name = k == 1 ? "c128" : "c264";
+        const CoreDesc *d = &c264_desc;
+        p.name = "c264";
 #endif
         p.cfg = std::string("/usb0/cores/") + p.name + "/" + p.name + ".cfg";
         p.base = d;
@@ -1109,10 +1117,11 @@ int main()
                                                        // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
 #elif defined(TEST_APP_CPC)
     cpc_464(prof(profs, "cpc"));
+#elif defined(TEST_APP_C128)
+    drive_modes(prof(profs, "c128"));
 #else
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
-    drive_modes(prof(profs, "c128"));
     drive_modes(prof(profs, "c264"));
     c264_model(prof(profs, "c264"));
     neo_folder(prof(profs, "neogeo"));
