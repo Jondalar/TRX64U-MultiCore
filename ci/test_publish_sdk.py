@@ -19,9 +19,9 @@ SHA = "c" * 40
 sha = lambda b: hashlib.sha256(b).hexdigest()
 
 
-def lane_dir(tar=b"sdk-one", version="0.4.7"):
+def lane_dir(tar=b"sdk-one", version="0.4.7", online=b"on"):
     d = tempfile.mkdtemp()
-    files = {"trx64-sdk-%s.tar.gz" % version: tar, "online.u2a": b"on", "unzip.u2a": b"un", "coreapp.map": b"map"}
+    files = {"trx64-sdk-%s.tar.gz" % version: tar, "online.u2a": online, "unzip.u2a": b"un", "coreapp.map": b"map"}
     for n, b in files.items():
         open(os.path.join(d, n), "wb").write(b)
     open(os.path.join(d, "SHA256SUMS"), "w").write("".join("%s  ./%s\n" % (sha(b), n) for n, b in sorted(files.items())))
@@ -62,6 +62,8 @@ class SdkTest(unittest.TestCase):
         self.assertIn("sdk-0.4.7-eeeeeeee", self.gh.releases)
         self.run_s(lane_dir(tar=b"sdk-two"), sha_="f" * 40)                    # equal to the newest only: still nothing
         self.assertNotIn("sdk-0.4.7-ffffffff", self.gh.releases)
+        self.run_s(lane_dir(tar=b"sdk-two", online=b"on2"), sha_="9" * 40)     # the same tarball, a changed sub-app: published
+        self.assertIn("sdk-0.4.7-99999999", self.gh.releases)
 
     def test_other_version_and_refs(self):
         self.gh.add_release("sdk-0.4.6-6e280710", {"trx64-sdk-0.4.6.tar.gz": b"sdk-one", "SHA256SUMS": ("%s  trx64-sdk-0.4.6.tar.gz\n" % sha(b"sdk-one")).encode()})

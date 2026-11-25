@@ -8,7 +8,7 @@ made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's
 from a large core).
 §1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21, D44 and D46, step P1-8:
 TRX64-Ultimate builds, tests and delivers `trx64u.cor` and `trx64g.cor`, MultiCore's package takes them by their SHA-256).
-§1 and §2 amended 2026-11-25 (T261 D5, agreed with TRX64-Ultimate session 2026-11-25, T261 D5): `trx64u.cor` is the asset `trx64u.cor` of
+§1 and §2 amended 2026-11-25 (T261 D5, agreed with TRX64-Ultimate session 2026-11-25): `trx64u.cor` is the asset `trx64u.cor` of
 TRX64-Ultimate's GitHub pre-release `fw-<branch>-<sha8>` in the builds repository, replacing `trx64u_<sha8>.cor` of the Gitea package; the pin accepts both forms
 until their first `fw-*` pre-release exists.
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and

@@ -8,8 +8,9 @@ files under their own names and SHA256SUMS (written here). A pre-release, never 
     env  BUILDS_TOKEN, MC_BUILDS_REPO, MC_SRC_REPO, PUBLISH_API, CI_BRANCH, CI_REF_TYPE: as ci/publish_release.py; only a push to integration, main or t239.3 publishes.
 
 It publishes only when the package differs from the newest published release of the same SDK version: the releases tagged sdk-<version>-<8 hex> are listed (newest
-first, as GitHub lists them), the first one's SHA256SUMS is read, and the tarball's SHA-256 is compared with its line. Equal: nothing is published and the log says so.
-No such release yet, or none with that line: publish. The tarball is reproducible (tools/sdk_pack.sh), so equal bytes mean an unchanged package.
+first, as GitHub lists them), the first one's SHA256SUMS is read and compared with the SHA256SUMS written here (the tarball and every .u2a, names and SHA-256).
+Equal: nothing is published and the log says so. No such release yet, or any file added, removed or changed: publish. The tarball is reproducible
+(tools/sdk_pack.sh), so equal bytes mean an unchanged package.
 """
 import argparse
 import hashlib
@@ -36,7 +37,7 @@ def read_version(path):
 
 
 def stage(src, version, out):
-    """The files of the release in out, with their SHA256SUMS; returns the tarball's SHA-256."""
+    """The files of the release in out, with their SHA256SUMS; returns {name: SHA-256} of those files and their names."""
     tar = "trx64-sdk-%s.tar.gz" % version
     if not os.path.isfile(os.path.join(src, tar)):
         raise P.PublishError("%s holds no %s (app/sdkpkg/SDK_VERSION says %s)" % (src, tar, version))
@@ -50,7 +51,7 @@ def stage(src, version, out):
     with open(os.path.join(out, "SHA256SUMS"), "w") as f:
         for n in names:
             f.write("%s  %s\n" % (sums[n], n))
-    return sums[tar], names
+    return sums, names
 
 
 def read_sums(text):
@@ -78,8 +79,8 @@ def newest_of_version(api, repo, version, pages=5):
     return None
 
 
-def unchanged(api, repo, version, tar_sha, fetch=fetch_text):
-    """The tag of the newest release of this version when its SHA256SUMS lists this tarball, else None."""
+def unchanged(api, repo, version, sums, fetch=fetch_text):
+    """The tag of the newest release of this version when its SHA256SUMS names exactly these files with these SHA-256, else None."""
     rel = newest_of_version(api, repo, version)
     if rel is None:
         return None
@@ -87,7 +88,7 @@ def unchanged(api, repo, version, tar_sha, fetch=fetch_text):
     for a in rel.get("assets", []):
         if a.get("name") == "SHA256SUMS":
             try:
-                return rel["tag_name"] if read_sums(fetch(a["browser_download_url"]) or "").get(tar) == tar_sha else None
+                return rel["tag_name"] if read_sums(fetch(a["browser_download_url"]) or "") == sums else None
             except (urllib.error.URLError, OSError):
                 raise P.PublishError("could not read SHA256SUMS of %s" % rel["tag_name"])
     return None
@@ -111,11 +112,11 @@ def main(argv=None, env=None, log=print):
     tag = "sdk-%s-%s" % (version, args.sha[:8])
     out = tempfile.mkdtemp()
     try:
-        tar_sha, names = stage(args.dir, version, out)
+        sums, names = stage(args.dir, version, out)
         api = P.Api(env.get("PUBLISH_API", "https://api.github.com"), env["BUILDS_TOKEN"])
-        same = unchanged(api, args.repo, version, tar_sha)
+        same = unchanged(api, args.repo, version, sums)
         if same:
-            log("publish_sdk: the package of SDK %s is unchanged (trx64-sdk-%s.tar.gz %s... is in %s): nothing published" % (version, version, tar_sha[:12], same))
+            log("publish_sdk: the package of SDK %s is unchanged (its %d files are those of %s): nothing published" % (version, len(sums), same))
             return 0
         body = ("SDK package %s of commit `%s` of the source repository, made by the SDK lane of its pipeline (T261 D4): the package, the sub-apps (.u2a) "
                 "of the lane and SHA256SUMS.\n\nA release is published only when the package differs from the last release of its version." % (version, args.sha))
