@@ -119,6 +119,9 @@ struct Engine : FakeIo {
         return ext_level(pin);
     }
     uint32_t pins() const { uint32_t v = 0; for (int i = 0; i < 10; i++) { v |= (uint32_t)level(EP_J1 + i) << i; } return v; }     // the ten port pins, bit n = pin 50 + n
+    int n_driven() const { int n = 0; for (int i = 0; i < 128; i++) { n += mode[i] != DV2_REL; } return n; }
+    // the last PADCTL of engine v1, as the two pins say it: b0 DIS level, b1 DIS driven, b2 ADJ level, b3 ADJ driven (what a model of a pad behind the pot levers reads)
+    uint32_t padctl() const { return (mode[EP_DIS] == DV2_HIGH ? 1u : 0) | (mode[EP_DIS] != DV2_REL ? 2u : 0) | (mode[EP_ADJ] == DV2_HIGH ? 4u : 0) | (mode[EP_ADJ] != DV2_REL ? 8u : 0); }
     bool guard_now() const { return !ext[EP_GAME] || !ext[EP_EXROM]; }
     uint32_t snap_word(int k) const { uint32_t w = 0; for (int b = 0; b < 32; b++) { w |= (uint32_t)level(32 * k + b) << b; } return w; }
     void release_all() { memset(mode, 0, sizeof(mode)); }

@@ -736,7 +736,7 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
                     return 0;
                 }
             }
-            return fail(b.e, line, "the engine has no step '%s' (end, drive, wait, sample, edges, time_to_edge, loop, wait_user, write_reg, capture, capwait)", kv.s);
+            return fail(b.e, line, "no step '%s' (end drive wait sample edges time_to_edge loop wait_user write_reg capture capwait)", kv.s);
         }
         if (!b.have_op) {
             return fail(b.e, line, "op must be the first key of a [[step]]");

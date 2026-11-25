@@ -91,13 +91,13 @@ static std::string err_of(const std::string &text, int *line)
 static const char *SMALL =
     "[test]\nname = \"Small\"\nid = \"small\"\nversion = 3\nneeds = [\"stick\"]\n"
     "[[prompt]]\nid = \"p\"\ntext = \"Hold fire\"\ntimeout_s = 5\n"
-    "[[step]]\nop = \"drive\"\npins = [\"p2_fire\"]\nlevel = \"low\"\n"
+    "[[step]]\nop = \"drive\"\npins = [\"KBJOY_2_JOY4\"]\nlevel = \"low\"\n"
     "[[step]]\nop = \"wait\"\nus = 20\n"
     "[[step]]\nop = \"sample\"\ninto = \"s1\"\n"
-    "[[step]]\nop = \"drive\"\npins = [\"p2_fire\"]\nlevel = \"release\"\n"
+    "[[step]]\nop = \"drive\"\npins = [\"KBJOY_2_JOY4\"]\nlevel = \"release\"\n"
     "[[step]]\nop = \"wait_user\"\nprompt = \"p\"\n"
-    "[[step]]\nop = \"time_to_flip\"\ncmp = [0, 2]\ntimeout_us = 400\ninto = \"t\"\n"
-    "[[eval]]\nid = \"fire_low\"\nvalue = \"s1.pins\"\nmask = 512\neq = 0\nverdict = \"fire follows\"\nfail = \"fire stays high\"\n"
+    "[[step]]\nop = \"time_to_edge\"\npin = \"PADDLE_CMP2\"\ntimeout_us = 400\ninto = \"t\"\n"
+    "[[eval]]\nid = \"fire_low\"\nvalue = \"s1.pins\"\npins = [\"KBJOY_2_JOY4\"]\neq = 0\nverdict = \"fire follows\"\nfail = \"fire stays high\"\n"
     "[[eval]]\nid = \"fast\"\nvalue = \"t\"\nmin_us = 5\nmax_us = 100\nverdict = \"flips in time\"\n"
     "[result]\nformat = \"toml\"\nkeys = [\"s1\", \"t\"]\n";
 
@@ -160,22 +160,22 @@ static void test_parse_errors()
     bad("version = 3", "versio = 3", 4, "unknown key 'versio' in [test]");
     bad("[test]", "[tset]", 1, "unknown section [tset]");
     bad("[[prompt]]", "[prompt]", 6, "unknown section");
-    bad("level = \"low\"", "level = \"high\"", 10, "never drives a pin high");
-    bad("pins = [\"p2_fire\"]\nlevel = \"low\"", "pins = [\"p2_fyre\"]\nlevel = \"low\"", 12, "'p2_fyre' is not a pin name");
+    bad("level = \"low\"", "level = \"up\"", 10, "level must be");
     bad("us = 20", "us = twenty", 16, "neither a string");
     bad("timeout_s = 5", "timeout_s = 99999", 9, "0 .. 3600");
     bad("prompt = \"p\"", "prompt = \"q\"", 24, "no [[prompt]] before it defines");
     bad("into = \"s1\"", "into = \"t\"", 27, "used by two steps");
     bad("value = \"s1.pins\"", "value = \"s9.pins\"", 32, "which no step stores into");
-    bad("value = \"s1.pins\"", "value = \"s1.pinz\"", 32, "fields are pins, cmp, ts and flags");
+    bad("value = \"s1.pins\"", "value = \"s1.pinz\"", 32, "fields are pins");
     bad("min_us = 5\nmax_us = 100", "min_us = 5\nmax_us = 100\nbogus = 1", 44, "unknown key 'bogus'");
     bad("verdict = \"flips in time\"", "verdict2 = \"x\"", 44, "unknown key");
     bad("keys = [\"s1\", \"t\"]", "keys = [\"s1\", \"nope\"]", 0, "no step stores into");
-    bad("pins = [\"p2_fire\"]\nlevel = \"low\"", "pins = [\"p2_fire\"\nlevel = \"low\"", 12, "closed with ]");
+    bad("pins = [\"KBJOY_2_JOY4\"]\nlevel = \"low\"", "pins = [\"KBJOY_2_JOY4\"\nlevel = \"low\"", 12, "closed with ]");
     bad("name = \"Small\"", "name = \"Small", 2, "not closed");
-    bad("cmp = [0, 2]", "cmp = [0, 7]", 29, "0 .. 3");
-    // a time slot is compared in microseconds only if a time_to_flip made it
-    bad("value = \"t\"\nmin_us = 5", "value = \"s1.pins\"\nmin_us = 5", 39, "are for a time_to_flip slot");
+    bad("pin = \"PADDLE_CMP2\"", "cmp = [0]", 29, "does not belong to the step 'time_to_edge'");
+    bad("pins = [\"KBJOY_2_JOY4\"]\neq = 0", "eq = 0", 32, "needs pins = [..]");
+    // a time slot is compared in microseconds only if a time_to_edge made it
+    bad("value = \"t\"\nmin_us = 5", "value = \"s1.pins\"\npins = [\"KBJOY_2_JOY4\"]\nmin_us = 5", 39, "are for a time_to_edge slot");
     // files that are not tests
     CHECK_STR(err_of("", &line).c_str(), "[test] needs an id");
     CHECK_STR(err_of("[test]\nid = \"x\"\n", &line).c_str(), "a test has no [[step]]");
@@ -185,7 +185,7 @@ static void test_parse_errors()
     CHECK_STR(err_of("kind = \"suite\"\n[suite]\nid = \"x\"\ntests = [\"a/b.toml\"]\n", &line).c_str(), "tests lists file names of the same folder (at most 16, no path)");
     // a loop that runs off the end, and a loop in a loop
     CHECK_STR(err_of("[test]\nid=\"a\"\n[[step]]\nop=\"loop\"\ncount=2\nbody=3\n[[step]]\nop=\"sample\"\n", &line).c_str(), "the loop wants 3 steps after it, the file has fewer");
-    CHECK_STR(err_of("[test]\nid=\"a\"\n[[step]]\nop=\"loop\"\ncount=2\nbody=2\n[[step]]\nop=\"loop\"\ncount=2\nbody=1\n[[step]]\nop=\"sample\"\n", &line).c_str(), "a loop body holds no loop, wait_user or end");
+    CHECK_STR(err_of("[test]\nid=\"a\"\n[[step]]\nop=\"loop\"\ncount=2\nbody=2\n[[step]]\nop=\"loop\"\ncount=2\nbody=1\n[[step]]\nop=\"sample\"\n", &line).c_str(), "a loop body holds no loop, wait_user, capture, capwait or end");
     // 256 steps do not fit the step RAM
     std::string many = "[test]\nid=\"a\"\n";
     for (int i = 0; i < 256; i++) many += "[[step]]\nop=\"sample\"\n";
@@ -194,10 +194,19 @@ static void test_parse_errors()
     Rig r;
     r.fs.put_text("/SD/cores/diag/tests/bad.toml", "[test]\nid = \"b\"\n[[step]]\nop = \"jump\"\n");
     CHECK_EQ(r.run("bad.toml"), -1);
-    CHECK_STR(r.out.msg, "bad.toml line 4: the engine has no step 'jump' (end, drive, wait, sample, edges, time_to_flip, padctl, loop, wait_user)");
+    CHECK_STR(r.out.msg, "bad.toml line 4: no step 'jump' (end drive wait sample edges time_to_edge loop wait_user write_reg capture capwait)");
     CHECK_EQ(r.eng.run_count, 0);
     CHECK_EQ(r.eng.wptr, 0);
     CHECK(!r.fs.has("/SD/cores/diag/results/b_20261102-143015.toml"));
+}
+
+// the bitstream's table as the app reads it from the model
+static DtPins g_tab;
+static const DtPins &table()
+{
+    Engine e;
+    CHECK_EQ(dtv2_pins_read(&e, &g_tab), 0);
+    return g_tab;
 }
 
 static void test_compile()
@@ -205,27 +214,40 @@ static void test_compile()
     DtErr e;
     CHECK(parse(SMALL, &g_f, &e));
     DtProgram p;
+    const DtPins &tb = table();
+    CHECK_EQ(tb.n, 121);
     // 100 ticks per microsecond: 20 us = 2000 ticks, 400 us = 40000
-    CHECK_EQ(dt_compile(g_f.test, 25600, &p, &e), 0);
-    CHECK_EQ(p.n, 7);
-    CHECK_EQ(p.words[0], 0x10000200u);                 // DRIVE, low (level bits 0), pin 9 (p2_fire)
+    CHECK_EQ(dt_compile(g_f.test, tb, 25600, &p, &e), 0);
+    CHECK_EQ(p.n, 8);
+    CHECK_EQ(p.words[0], dv2_drive(DV2_LOW, 59));      // KBJOY_2_JOY4 is index 59 of the table
+    CHECK_EQ(p.words[0], 0x1400003Bu);
     CHECK_EQ(p.words[1], 0x200007D0u);                 // WAIT 2000
     CHECK_EQ(p.words[2], 0x30000000u);                 // SAMPLE
-    CHECK_EQ(p.words[3], 0x10080200u);                 // DRIVE, release: the level bit of pin 9 is bit 19
+    CHECK_EQ(p.words[3], 0x1000003Bu);                 // DRIVE, release
     CHECK_EQ(p.words[4], 0x80000000u);                 // WAIT_USER prompt 0
-    CHECK_EQ(p.words[5], 0x55009C40u);           // TIME_TO_FLIP, comparators 0 and 2 (mask 5), 40000
-    CHECK_EQ(p.words[6], 0x00000000u);                 // END
+    CHECK_EQ(p.words[5], 0x50000041u);                 // TIME_TO_EDGE any on PADDLE_CMP2 (index 65) ..
+    CHECK_EQ(p.words[6], 40000u);                      // .. with the timeout as its second word
+    CHECK_EQ(p.words[7], 0x00000000u);                 // END
     CHECK_EQ(p.timeout_ticks[1], 40000u);
     // a clock of 12.5 ticks per microsecond rounds a time up, never down
-    CHECK_EQ(dt_compile(g_f.test, 3200, &p, &e), 0);
+    CHECK_EQ(dt_compile(g_f.test, tb, 3200, &p, &e), 0);
     CHECK_EQ(p.words[1], 0x200000FAu);                 // 20 us * 12.5 = 250
-    CHECK_EQ(dt_compile(g_f.test, 3210, &p, &e), 0);   // 12.539 ticks per us: 250.78 -> 251
+    CHECK_EQ(dt_compile(g_f.test, tb, 3210, &p, &e), 0);   // 12.539 ticks per us: 250.78 -> 251
     CHECK_EQ(p.words[1] & 0xFFFFFF, 251u);
-    // a clock the engine cannot count in 24 bits
-    CHECK_EQ(dt_compile(g_f.test, 0, &p, &e), -1);
+    CHECK_EQ(dt_compile(g_f.test, tb, 0, &p, &e), -1);
+    // a wait the engine cannot count in 24 bits is refused by the compiler, a TIME_TO_EDGE timeout may be 31 bits
     std::string t = SMALL;
     t.replace(t.find("us = 20"), 7, "us = 20000000");
-    CHECK(parse(t, &g_f, &e) == false);                 // refused by the parser: 24 bits
+    CHECK(parse(t, &g_f, &e));
+    CHECK_EQ(dt_compile(g_f.test, tb, 25600, &p, &e), -1);
+    CHECK(strstr(e.msg, "clocks at this clock") != 0);
+    // a name the bitstream's table does not have: refused with the line of the step
+    t = SMALL;
+    t.replace(t.find("KBJOY_2_JOY4"), 12, "KBJOY_2_JOY9");
+    CHECK(parse(t, &g_f, &e));
+    CHECK_EQ(dt_compile(g_f.test, tb, 25600, &p, &e), -1);
+    CHECK_EQ(e.line, 10);
+    CHECK_STR(e.msg, "'KBJOY_2_JOY9' is no pin of this bitstream's table");
     // S2: a changed threshold changes the verdict, not the step list or the engine's words
     CHECK(parse(SMALL, &g_f, &e));
     DiagFile a = g_f;
@@ -234,27 +256,129 @@ static void test_compile()
     t.replace(t.find("max_us = 100"), 12, "max_us = 3");
     DiagFile *b = new DiagFile;
     CHECK(parse(t, b, &e));
-    CHECK_EQ(dt_compile(a.test, 25600, &pa, &e), 0);
-    CHECK_EQ(dt_compile(b->test, 25600, &pb, &e), 0);
+    CHECK_EQ(dt_compile(a.test, tb, 25600, &pa, &e), 0);
+    CHECK_EQ(dt_compile(b->test, tb, 25600, &pb, &e), 0);
     CHECK(!memcmp(&pa, &pb, sizeof(pa)));
     delete b;
 }
 
-// the step words of PADCTL are the engine's: b0 DIS level, b1 DIS enable, b2 ADJ level, b3 ADJ enable (cores/diag/rtl/probe.v op 6)
-static void test_padctl_words()
+// S5: a test written at run time that names pins only by name and uses no op the build added for it: it compiles to the table's indexes, runs against the model, and the result file has the
+// values and the verdicts. A pin the table has and no shipped test mentions (a cartridge port line behind its transceiver, an LED) is driven and read like any other.
+static void test_s5_unknown_test()
 {
-    DtErr e;
-    DtProgram p;
-    auto word = [&](const char *args) {
-        std::string t = std::string("[test]\nid=\"p\"\n[[step]]\nop=\"padctl\"\n") + args;
-        CHECK(parse(t, &g_f, &e));
-        CHECK_EQ(dt_compile(g_f.test, 25600, &p, &e), 0);
-        return p.words[0];
-    };
-    CHECK_EQ(word("dis=1\nadj=0\n"), 0x6000000Bu);     // DIS high and driven, ADJ low and driven
-    CHECK_EQ(word("dis=0\n"), 0x60000002u);             // DIS low and driven, ADJ left alone (released)
-    CHECK_EQ(word("adj=1\n"), 0x6000000Cu);             // ADJ high and driven, DIS released
-    CHECK_EQ(word("dis=1\nadj=1\n"), 0x6000000Fu);
+    const char *toml =
+        "[test]\nname = \"Never seen\"\nid = \"never\"\nversion = 1\n"
+        "[[step]]\nop = \"drive\"\npins = [\"LED_CASE2n\", \"SLOT_ADDR12\"]\nlevel = \"low\"\n"
+        "[[step]]\nop = \"wait\"\nus = 10\n"
+        "[[step]]\nop = \"sample\"\ninto = \"low\"\n"
+        "[[step]]\nop = \"drive\"\npins = [\"SLOT_ADDR12\"]\nlevel = \"high\"\n"
+        "[[step]]\nop = \"wait\"\nus = 10\n"
+        "[[step]]\nop = \"sample\"\ninto = \"high\"\n"
+        "[[step]]\nop = \"edges\"\npin = \"UI_BUTTON1\"\nedge = \"falling\"\nus = 100\ninto = \"presses\"\n"
+        "[[eval]]\nid = \"low_ok\"\nvalue = \"low.pins\"\npins = [\"LED_CASE2n\", \"SLOT_ADDR12\"]\neq = 0\nverdict = \"both pulled low\"\n"
+        "[[eval]]\nid = \"high_ok\"\nvalue = \"high.pins\"\npins = [\"LED_CASE2n\", \"SLOT_ADDR12\"]\neq = 2\nverdict = \"addr12 high, the LED let go\"\nfail = \"wrong levels\"\n";
+    Rig r;
+    r.fs.put_text("/SD/cores/diag/tests/never.toml", toml);
+    const DtPins &tb = table();
+    int led = dtv2_pin_find(tb, "LED_CASE2n"), a12 = dtv2_pin_find(tb, "SLOT_ADDR12"), btn = dtv2_pin_find(tb, "UI_BUTTON1");
+    CHECK(led >= 0 && a12 >= 0 && btn >= 0);
+    CHECK_EQ(r.run("never.toml"), 0);
+    CHECK_EQ(r.out.nerror, 0);
+    // the step words are the table's indexes: two drives for the two pins of the first step
+    CHECK_EQ(r.eng.steps[0], dv2_drive(DV2_LOW, led));
+    CHECK_EQ(r.eng.steps[1], dv2_drive(DV2_LOW, a12));
+    CHECK_EQ(r.eng.steps[4], dv2_drive(DV2_HIGH, a12));
+    CHECK_EQ(r.eng.steps[7], dv2_edges(DV2_FALLING, btn));
+    CHECK_EQ(r.eng.steps[8], 10000u);                  // 100 us at 100 ticks per us
+    std::string x = r.fs.text("/SD/cores/diag/results/never_20261102-143015.toml");
+    CHECK(x.find("status = \"done\"") != std::string::npos);
+    CHECK(x.find("[slot.low]\nkind = \"sample\"") != std::string::npos);
+    CHECK(x.find("pins = [\"LED_CASE2n\", \"SLOT_ADDR12\"]\nlevels = [\"00\"]") != std::string::npos);     // the pins its evals look at, by name, in the result
+    CHECK(x.find("low_ok = \"PASS: both pulled low\"") != std::string::npos);
+    CHECK(x.find("high_ok = \"PASS: addr12 high, the LED let go\"") != std::string::npos);
+    CHECK(x.find("[slot.presses]\nkind = \"edges\"\nvalues = [0]") != std::string::npos);
+    CHECK_EQ(r.out.npass, 1);
+    CHECK_EQ(r.eng.n_driven(), 0);                       // everything released at the end
+}
+
+// S6: the T175 compiler's words (tests/coreapp/golden/diag_old_words.txt, taken from the unchanged diagtest.cc of b6a2a2212 for every shipped test of kind test) translated to v2 by
+// the rule of docs/specs/T260 section 5, equal to the words of this compiler for the converted file.
+//   DRIVE mask level      -> one DRIVE per pin of the mask, in bit order, mode LOW (level bit 0) or RELEASE (level bit 1); the ten port pins are table indexes 50 + bit
+//   MASK m + EDGES n      -> EDGES any on that pin (index 50 + bit), then the word n
+//   TIME_TO_FLIP sel n    -> TIME_TO_EDGE any on PADDLE_CMP (63 + the bit of sel), then the word n
+//   PADCTL a              -> DRIVE PADDLE_DIS (67) then DRIVE PADDLE_ADJ (68): mode HIGH if the level bit is set, else LOW if the enable bit is set, else RELEASE
+//   LOOP K C              -> LOOP with K recounted in words of the translated body
+//   WAIT, SAMPLE, WAIT_USER, END -> the same word
+static std::vector<uint32_t> translate_old(const std::vector<uint32_t> &old)
+{
+    std::vector<uint32_t> nw;
+    std::vector<size_t> loop_at;
+    size_t loop_end = 0;
+    for (size_t i = 0; i < old.size(); i++) {
+        uint32_t w = old[i], op = w >> 28, arg = w & 0xFFFFFF;
+        if (loop_at.size() && i == loop_end) {
+            nw[loop_at.back()] = (nw[loop_at.back()] & ~0xFFu) | (uint32_t)(nw.size() - loop_at.back() - 1);
+            loop_at.pop_back();
+        }
+        switch (op) {
+        case 1:                                           // DRIVE: arg[9:0] pins, arg[19:10] level (1 = release)
+            for (int b = 0; b < 10; b++) {
+                if (arg >> b & 1) { nw.push_back(dv2_drive((arg >> (10 + b) & 1) ? DV2_REL : DV2_LOW, 50 + b)); }
+            }
+            break;
+        case 9: {                                         // MASK, then EDGES
+            int b = 0;
+            while (!(arg >> b & 1)) { b++; }
+            uint32_t n = old[++i] & 0xFFFFFF;
+            nw.push_back(dv2_edges(DV2_ANY, 50 + b));
+            nw.push_back(n);
+            break;
+        }
+        case 5: {                                         // TIME_TO_FLIP, sel = the comparator bits
+            int b = 0;
+            while (!(((w >> 24) & 15) >> b & 1)) { b++; }
+            nw.push_back(dv2_tte(DV2_ANY, 63 + b));
+            nw.push_back(arg);
+            break;
+        }
+        case 6:                                           // PADCTL: b0 DIS level, b1 DIS enable, b2 ADJ level, b3 ADJ enable
+            nw.push_back(dv2_drive((arg & 1) ? DV2_HIGH : (arg & 2) ? DV2_LOW : DV2_REL, 67));
+            nw.push_back(dv2_drive((arg & 4) ? DV2_HIGH : (arg & 8) ? DV2_LOW : DV2_REL, 68));
+            break;
+        case 7:
+            loop_at.push_back(nw.size());
+            nw.push_back((7u << 28) | (arg & 0xFFFF00));
+            loop_end = i + 1 + (arg & 0xFF);              // K counts the old words: a MASK + EDGES pair is two of them
+            break;
+        default: nw.push_back(w);
+        }
+    }
+    return nw;
+}
+
+static void test_s6_old_words()
+{
+    std::ifstream f(std::string(GOLDEN_DIR) + "/diag_old_words.txt");
+    std::string line;
+    int files = 0;
+    const DtPins &tb = table();
+    while (std::getline(f, line)) {
+        if (line.empty() || line[0] == '#') { continue; }
+        size_t c = line.find(':');
+        std::string name = line.substr(0, c);
+        std::vector<uint32_t> old;
+        for (const char *p = line.c_str() + c + 1; *p;) { char *e; unsigned long v = strtoul(p, &e, 16); if (e == p) { break; } old.push_back((uint32_t)v); p = e; }
+        DtErr e;
+        CHECK(parse(slurp("cores/diag/sd/tests/" + name), &g_f, &e));
+        DtProgram p;
+        CHECK_EQ(dt_compile(g_f.test, tb, 0x6400, &p, &e), 0);
+        std::vector<uint32_t> want = translate_old(old), got(p.words, p.words + p.n);
+        if (want != got) { printf("  S6 %s: %zu words wanted, %zu compiled\n", name.c_str(), want.size(), got.size()); for (size_t i = 0; i < want.size() && i < got.size(); i++) { if (want[i] != got[i]) { printf("  first difference at word %zu: %08x vs %08x\n", i, want[i], got[i]); break; } } }
+        CHECK(want == got);
+        files++;
+    }
+    CHECK_EQ(files, 5);                                  // cd32, cd32keys, paddle, pins, stick2 are the shipped files of kind test; joystick is a suite, the av and xpad files have their own runners
+    // every shipped file of the folder is accepted by its own parser (kinds test and suite here; the others by theirs: the walks in test_avwalk, xpad in test_xpad)
 }
 
 // STATUS shows the DONE of the run before for a few clocks after the RUN write (ABORT sets DONE, only RUN clears it): the runner waits before it polls
@@ -269,29 +393,27 @@ static void test_stale_done()
     CHECK_EQ(r.out.nerror, 0);
     std::string t = r.fs.text("/SD/cores/diag/results/pins_20261102-143015.toml");
     CHECK(t.find("status = \"done\"") != std::string::npos);
-    CHECK_EQ(r.eng.driven, 0u);
+    CHECK_EQ(r.eng.n_driven(), 0);
 }
 
 static void test_plan_loop()
 {
     DtErr e;
     const char *t =
-        "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=3\nbody=3\n[[step]]\nop=\"drive\"\npins=[\"p2_fire\"]\n[[step]]\nop=\"sample\"\ninto=\"bits\"\n"
-        "[[step]]\nop=\"drive\"\npins=[\"p2_fire\"]\nlevel=\"release\"\n[[step]]\nop=\"edges\"\npin=\"p1_up\"\nclocks=50\ninto=\"e\"\n";
+        "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=3\nbody=3\n[[step]]\nop=\"drive\"\npins=[\"KBJOY_2_JOY4\"]\n[[step]]\nop=\"sample\"\ninto=\"bits\"\n"
+        "[[step]]\nop=\"drive\"\npins=[\"KBJOY_2_JOY4\"]\nlevel=\"release\"\n[[step]]\nop=\"edges\"\npin=\"KBJOY_1_JOY0\"\nclocks=50\ninto=\"e\"\n";
     CHECK(parse(t, &g_f, &e));
     int8_t slot_of[512];
-    CHECK_EQ(dt_plan(g_f.test, slot_of), 4);
-    CHECK_EQ(slot_of[0], 0);
-    CHECK_EQ(slot_of[1], 0);
-    CHECK_EQ(slot_of[2], 0);
-    CHECK_EQ(slot_of[3], 1);
+    CHECK_EQ(dt_plan(g_f.test, slot_of), 16);            // three samples of five words, then the edges count
+    for (int i = 0; i < 15; i++) { CHECK_EQ(slot_of[i], 0); }
+    CHECK_EQ(slot_of[15], 1);
     DtProgram p;
-    CHECK_EQ(dt_compile(g_f.test, 25600, &p, &e), 0);
+    CHECK_EQ(dt_compile(g_f.test, table(), 25600, &p, &e), 0);
     CHECK_EQ(p.words[0], 0x70000303u);                 // LOOP: 3 repeats of the next 3 words
-    CHECK_EQ(p.words[4], 0x90000001u);                 // MASK: pin 0 (p1_up)
-    CHECK_EQ(p.words[5], 0x40000032u);                 // EDGES, 50 clocks
+    CHECK_EQ(p.words[4], 0x40000032u);                 // EDGES any, KBJOY_1_JOY0 (index 50)
+    CHECK_EQ(p.words[5], 50u);                         // the clocks, the second word
     // 513 words do not fit the FIFO
-    std::string big = "[test]\nid=\"b\"\n[[step]]\nop=\"loop\"\ncount=300\nbody=1\n[[step]]\nop=\"sample\"\n[[step]]\nop=\"loop\"\ncount=300\nbody=1\n[[step]]\nop=\"sample\"\n";
+    std::string big = "[test]\nid=\"b\"\n[[step]]\nop=\"loop\"\ncount=300\nbody=1\n[[step]]\nop=\"sample\"\n";
     CHECK(parse(big, &g_f, &e));
     CHECK_EQ(dt_plan(g_f.test, slot_of), -1);
     // the engine, a loop in it: the FIFO holds three samples and the edges count, in plan order
@@ -303,7 +425,7 @@ static void test_plan_loop()
     CHECK(toml.find("status = \"done\"") != std::string::npos);
     CHECK(toml.find("[slot.bits]\nkind = \"sample\"\nvalues = [") != std::string::npos);
     CHECK(toml.find("\nfifo = [") != std::string::npos);
-    CHECK_EQ(r.eng.driven, 0u);
+    CHECK_EQ(r.eng.n_driven(), 0);
 }
 
 // the engine run of SMALL: fire follows, the comparators flip after 12.5 us
@@ -311,15 +433,15 @@ static const char *EXP_TOML =
     "# TRX64U Port Diagnostics result (T175). Raw words are the engine's FIFO words in order; see the spec for their layout.\n"
     "[meta]\ntest = \"small\"\nname = \"Small\"\nversion = 3\ncore = \"0.1.0\"\ndate = \"20261102-143015\"\nticks_per_us_x256 = 25600\nstatus = \"done\"\n"
     "\n[prompt]\np = \"OK\"\n"
-    "\n[slot.s1]\nkind = \"sample\"\nvalues = [131104704]\nts = [2000]\npins = [511]\ncmp = [0]\n"
+    "\n[slot.s1]\nkind = \"sample\"\nvalues = [2000, 2684354559, 2013257711, 4028375032, 16777215]\nts = [2000]\nsnapshot = [\"00fffffff01c1ff877ffdfef9fffffff\"]\npins = [\"KBJOY_2_JOY4\"]\nlevels = [\"0\"]\n"
     "\n[slot.t]\nkind = \"time\"\nvalues = [1250]\n"
-    "\n[raw]\nfifo = [131104704, 1250]\n"
+    "\n[raw]\nfifo = [2000, 2684354559, 2013257711, 4028375032, 16777215, 1250]\n"
     "\n[eval]\nfire_low = \"PASS: fire follows\"\nfast = \"PASS: flips in time\"\n";
 static const char *EXP_TXT =
     "TRX64U Port Diagnostics\n=======================\n"
     "Test:    Small (small, version 3)\nCore:    0.1.0\nDate:    2026-11-02 14:30:15\nClock:   100.00 ticks per microsecond\nNeeds:   stick\nStatus:  done\n"
     "\nPrompts\n  p        OK        Hold fire\n"
-    "\nMeasurements\n  s1[0]          sample  t=2000  P1 U1 D1 L1 R1 F1  P2 U1 D1 L1 R1 F0  CMP 0 0 0 0\n  t[0]           time    1250 ticks = 12.50 us\n"
+    "\nMeasurements\n  s1[0]          sample  t=2000  KBJOY_2_JOY4=0\n  t[0]           time    1250 ticks = 12.50 us\n"
     "\nVerdicts\n  PASS   fire follows\n  PASS   flips in time\n\n2 passed, 0 not passed\n";
 
 static void test_run_files()
@@ -336,7 +458,7 @@ static void test_run_files()
     // the engine was loaded with the compiled list, run once, aborted at the end (every output released)
     CHECK_EQ(r.eng.run_count, 1);
     CHECK_EQ(r.eng.abort_writes, 2);
-    CHECK_EQ(r.eng.driven, 0u);
+    CHECK_EQ(r.eng.n_driven(), 0);
     CHECK_EQ(r.ui.prompts.size(), 1u);
     CHECK_STR(r.ui.prompts[0].c_str(), "Hold fire");
     CHECK_EQ(r.ui.shown.size(), 1u);
@@ -354,14 +476,14 @@ static void test_run_files()
     std::string x = r2.fs.text("/SD/cores/diag/results/small_20261102-143015.toml");
     CHECK(x.find("fast = \"FAIL: flips in time - not met\"") != std::string::npos);
     CHECK(!memcmp(r.eng.steps, r2.eng.steps, sizeof(r.eng.steps)));
-    // no flip within the timeout is no number
+    // no edge within the timeout is no number
     Rig r3;
     r3.fs.put_text("/SD/cores/diag/tests/small.toml", SMALL);
     CHECK_EQ(r3.run("small.toml"), 0);
     std::string y = r3.fs.text("/SD/cores/diag/results/small_20261102-143015.toml");
-    CHECK(y.find("fast = \"NOFLIP: no flip within the timeout\"") != std::string::npos);
+    CHECK(y.find("fast = \"NOFLIP: no edge within the timeout\"") != std::string::npos);
     std::string yt = r3.fs.text("/SD/cores/diag/results/small_20261102-143015.txt");
-    CHECK(yt.find("t[0]           time    no flip within 40000 ticks") != std::string::npos);
+    CHECK(yt.find("t[0]           time    no edge within 40000 ticks") != std::string::npos);
     // a pin that cannot be driven: fire stays high, the first eval fails with its own text
     Rig r4;
     r4.fs.put_text("/SD/cores/diag/tests/small.toml", SMALL);
@@ -433,7 +555,7 @@ static void test_prompts()
     std::string x = a.fs.text("/SD/cores/diag/results/small_20261102-143015.toml");
     CHECK(x.find("status = \"aborted\"") != std::string::npos);
     CHECK(x.find("[eval]") == std::string::npos);
-    CHECK_EQ(a.eng.driven, 0u);
+    CHECK_EQ(a.eng.n_driven(), 0);
     CHECK_EQ(a.out.nerror, 1);
     // the person's answer reaches the machine between the prompts: stick2 with a button 2 on pin 9's comparator
     Rig k;
@@ -449,7 +571,7 @@ static void test_prompts()
     CHECK(t.find("b1_pin6 = \"PASS: button 1 pulls pin 6 low\"") != std::string::npos);
     CHECK(t.find("b2_moves = \"PASS: button 2 is seen") != std::string::npos);      // an Amiga stick: the second button is on a pot line, seen by a comparator
     CHECK(t.find("rel_pins = \"PASS") != std::string::npos);
-    CHECK(k.fs.text("/SD/cores/diag/results/stick2_20261102-143015.txt").find("b2[0]          sample  t=0  P1 U1 D1 L1 R1 F1  P2 U1 D1 L1 R1 F1  CMP 0 0 1 0") != std::string::npos);
+    CHECK(k.fs.text("/SD/cores/diag/results/stick2_20261102-143015.txt").find("b2[0]          sample  t=0  PADDLE_CMP0=0 PADDLE_CMP1=0 PADDLE_CMP2=1 PADDLE_CMP3=0 KBJOY_2_JOY0=1") != std::string::npos);
     // the same stick, nothing pressed at the second prompt: button 1 is not seen
     Rig n;
     n.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/sd/tests/stick2.toml"));
@@ -464,69 +586,25 @@ static void test_prompts()
     CHECK(m.fs.text("/SD/cores/diag/results/stick2_20261102-143015.toml").find("b2_moves = \"PASS") != std::string::npos);
 }
 
-// A pad behind the pot levers (T175 cd32 v2). The model: with the lever setting `works` (a PADCTL argument) the pad shifts, pin 5 reads low and pin 9 carries
-// blue, red (0 while held), five buttons, the ID 1, then 0; with any other setting nothing shifts and the comparators show `idle`.
-struct PadModel {
-    int works = -1;                                    // the PADCTL argument that lets the pad shift, -1: none
-    bool red = false;
-    uint32_t idle = 0xF;
-    uint32_t operator()(const Engine &e) const
-    {
-        if (works < 0 || (int)e.padctl != works) return idle;
-        static const int bits[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 };    // read 0 blue, read 1 red, ..., read 7 the ID, then zeros
-        int pos = e.rises < 10 ? e.rises : 9;
-        int b = pos == 1 && red ? 0 : bits[pos];
-        return (uint32_t)(b << 3) | 3;                                    // cmp2 (pin 5) low, cmp3 = the data
-    }
-};
-
-static std::string run_cd32(PadModel *pm)
+// OPEN (docs/specs/T260 section 5, step 5, open points): under engine v2 a SAMPLE pushes five words and the result FIFO holds 512. The shipped cd32 takes 140 samples = 700 words, so the runner
+// says so at once and nothing runs; the pad model of the T175 unit (PadModel, the six lever settings) cannot be driven through it until cd32 is split or sampled differently (Alex's decision).
+static void test_cd32_v2()
 {
     Rig r;
     r.fs.put_text("/SD/cores/diag/tests/pins.toml", slurp("cores/diag/sd/tests/pins.toml"));
     r.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/sd/tests/cd32.toml"));
     CHECK_EQ(r.run("pins.toml"), 0);
-    r.eng.cmp_fn = [pm](const Engine &e) { return (*pm)(e); };
-    r.ui.answer = [pm](int idx) { pm->red = idx == 2; return DUI_CONTINUE; };       // the second question is the red button held; the first and the third are not
     CHECK_EQ(r.run("cd32.toml"), 0);
-    CHECK_EQ(r.ui.prompts.size(), 3u);
-    return r.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml");
-}
-
-static void test_cd32_v2()
-{
-    // CONTROL: the tester's board (discussion 30): every sample equal, CMP 0 0 1 0, whatever is held and whichever lever. v1 passed this; v2 must fail every setting
-    PadModel same;
-    same.idle = 4;
-    std::string x = run_cd32(&same);
-    const char *lev[] = { "d0", "d1", "d0a0", "d0a1", "d1a0", "d1a1" };
-    for (const char *l : lev) {
-        CHECK(x.find(std::string(l) + "_ok = \"FAIL") != std::string::npos);
-        CHECK(x.find(std::string(l) + "_reads = \"FAIL") != std::string::npos);
-        CHECK(x.find(std::string(l) + "_ok = \"PASS") == std::string::npos);
-    }
-    CHECK(x.find("status = \"done\"") != std::string::npos);
-    CHECK(x.find("[slot.n_d1]") != std::string::npos);                                // the raw samples are in the file even when every eval fails
-    // a pad that shifts under DIS high alone (PADCTL arg 3): only d1 works, red held changes read 1, pin 5 is low, the ID bit follows
-    PadModel good;
-    good.works = 3;
-    std::string y = run_cd32(&good);
-    CHECK(y.find("d1_ok = \"PASS: WORKS: d1 (DIS high, ADJ released) reads the CD32 pad\"") != std::string::npos);
-    CHECK(y.find("d1_reads = \"PASS") != std::string::npos);
-    CHECK(y.find("d1_pin5 = \"PASS") != std::string::npos);
-    CHECK(y.find("d1_id = \"PASS") != std::string::npos);
-    for (const char *l : lev) {
-        if (strcmp(l, "d1")) {
-            CHECK(y.find(std::string(l) + "_ok = \"FAIL") != std::string::npos);     // the other settings do not
-            CHECK(y.find(std::string(l) + "_pin5 = \"FAIL") != std::string::npos);
-        }
-    }
-    // a line held low by a lever (pin 9 low in both runs) is not a pad either: idle fails, ok fails
-    PadModel stuck;
-    stuck.idle = 0x3;
-    std::string z = run_cd32(&stuck);
-    CHECK(z.find("d1_idle = \"FAIL") != std::string::npos);
-    CHECK(z.find("d1_ok = \"FAIL") != std::string::npos);
+    CHECK_EQ(r.out.nerror, 1);
+    CHECK_EQ(r.eng.run_count, 1);                        // the engine was not started for cd32
+    CHECK(r.ui.prompts.empty());
+    std::string x = r.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml");
+    CHECK(x.find("status = \"error\"") != std::string::npos);
+    CHECK(x.find("more than 512 words") != std::string::npos);
+    DtErr e;
+    CHECK(parse(slurp("cores/diag/sd/tests/cd32.toml"), &g_f, &e));
+    int8_t slot_of[512];
+    CHECK_EQ(dt_plan(g_f.test, slot_of), -1);
 }
 
 // T175 S-joy (board 2026-11-15, cd32keys v1): the joystick in port 2 drives the menu, so a prompt that says "hold a direction, then press RETURN" was answered by the held
@@ -578,21 +656,29 @@ static void test_menu_input()
     CHECK(!g_f.test.kbd_only);
 }
 
+// SMALL with `requires = ["pins.drivable"]` and no prompt: stands for cd32 (which the FIFO bound below keeps from running at all)
+static std::string needs_pins()
+{
+    std::string t = SMALL;
+    t.insert(t.find("needs = "), "requires = [\"pins.drivable\"]\n");
+    return t;
+}
+
 static void test_requires_suite()
 {
-    // S6 control: cd32 stops without a PASS of pins.drivable (no result at all, then a result that says no), runs with one
-    const std::string cd32 = slurp("cores/diag/sd/tests/cd32.toml");
+    // S6 control: a test that requires pins.drivable stops without a PASS of it (no result at all, then a result that says no), runs with one
+    const std::string cd32 = needs_pins();
     Rig r;
     r.fs.put_text("/SD/cores/diag/tests/cd32.toml", cd32);
     CHECK_EQ(r.run("cd32.toml"), 0);
     CHECK_EQ(r.out.nrefused, 1);
     CHECK_EQ(r.eng.run_count, 0);
     CHECK(r.ui.prompts.empty());
-    std::string x = r.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml");
+    std::string x = r.fs.text("/SD/cores/diag/results/small_20261102-143015.toml");
     CHECK(x.find("status = \"refused\"") != std::string::npos);
     CHECK(x.find("run pins.toml first") != std::string::npos);
     CHECK(x.find("fifo = []") != std::string::npos);
-    // the pins test on a board that drives nothing says drivable is not met; cd32 stops on it
+    // the pins test on a board that drives nothing says drivable is not met; the test that requires it stops on it
     Rig p;
     p.fs.put_text("/SD/cores/diag/tests/pins.toml", slurp("cores/diag/sd/tests/pins.toml"));
     p.fs.put_text("/SD/cores/diag/tests/cd32.toml", cd32);
@@ -604,7 +690,7 @@ static void test_requires_suite()
     CHECK(pt.find("ok_p1_up = \"FAIL: p1_up cannot be driven\"") != std::string::npos);
     CHECK_EQ(p.run("cd32.toml"), 0);
     CHECK_EQ(p.out.nrefused, 1);
-    CHECK(p.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml").find("cannot run on this board: pins.drivable is not PASS in pins_20261102-143015.toml") != std::string::npos);
+    CHECK(p.fs.text("/SD/cores/diag/results/small_20261102-143015.toml").find("cannot run on this board: pins.drivable is not PASS in pins_20261102-143015.toml") != std::string::npos);
     // a pin that reads low by itself is "stuck", and is not "driven"
     Rig s;
     s.fs.put_text("/SD/cores/diag/tests/pins.toml", slurp("cores/diag/sd/tests/pins.toml"));
@@ -615,18 +701,15 @@ static void test_requires_suite()
     CHECK(st.find("ok_p1_right = \"FAIL: p1_right cannot be driven\"") != std::string::npos);
     CHECK(st.find("ok_p1_up = \"PASS: p1_up can be driven\"") != std::string::npos);
     CHECK(st.find("drivable = \"PASS") != std::string::npos);
-    // a board that drives everything: pins passes, and cd32 then runs: 8 clock pulses, 8 samples, the prompt shown
+    // a board that drives everything: pins passes, and the test that requires it then runs
     Rig d;
     d.fs.put_text("/SD/cores/diag/tests/pins.toml", slurp("cores/diag/sd/tests/pins.toml"));
     d.fs.put_text("/SD/cores/diag/tests/cd32.toml", cd32);
     CHECK_EQ(d.run("pins.toml"), 0);
     CHECK(d.fs.text("/SD/cores/diag/results/pins_20261102-143015.toml").find("drivable = \"PASS") != std::string::npos);
     CHECK_EQ(d.run("cd32.toml"), 0);
-    CHECK_EQ(d.out.nfail, 1);                            // a board that shows nothing reads no pad: the test fails (v1 passed on any data)
     CHECK_EQ(d.eng.run_count, 2);
-    std::string ct = d.fs.text("/SD/cores/diag/results/cd32_20261102-143015.toml");
-    CHECK(ct.find("[slot.n_d1]") != std::string::npos);
-    CHECK(ct.find("d1_ok = \"FAIL") != std::string::npos);
+    CHECK_EQ(d.out.ntests, 1);
     // the suite: both tests in a row, a pair of files each, and one for the suite
     Rig u;
     u.fs.put_text("/SD/cores/diag/tests/pins.toml", slurp("cores/diag/sd/tests/pins.toml"));
@@ -662,11 +745,11 @@ static void test_engine_errors()
     CHECK_EQ(r.eng.wptr, 0);
     // a FIFO that overflowed is an error, not a verdict
     Rig o;
-    o.fs.put_text("/SD/cores/diag/tests/l.toml", "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=500\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"x\"\n[[eval]]\nvalue=\"x\"\nmin=0\nverdict=\"v\"\n");
+    o.fs.put_text("/SD/cores/diag/tests/l.toml", "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=100\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"x\"\n[[eval]]\nvalue=\"x.ts\"\nmin=0\nverdict=\"v\"\n");
     CHECK_EQ(o.run("l.toml"), 0);
     CHECK_EQ(o.out.nerror, 0);                            // 500 fit
     Rig q;
-    q.fs.put_text("/SD/cores/diag/tests/l.toml", "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=500\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"x\"\n[[step]]\nop=\"loop\"\ncount=20\nbody=1\n[[step]]\nop=\"sample\"\n");
+    q.fs.put_text("/SD/cores/diag/tests/l.toml", "[test]\nid=\"l\"\n[[step]]\nop=\"loop\"\ncount=100\nbody=1\n[[step]]\nop=\"sample\"\ninto=\"x\"\n[[step]]\nop=\"loop\"\ncount=20\nbody=1\n[[step]]\nop=\"sample\"\n");
     CHECK_EQ(q.run("l.toml"), 0);
     CHECK(q.fs.text("/SD/cores/diag/results/l_20261102-143015.toml").find("more than 512 words") != std::string::npos);
     // the engine pushed a different count than the step list: refused, no verdict
@@ -675,7 +758,7 @@ static void test_engine_errors()
     w.eng.on_prompt = nullptr;
     w.ui.answer = [&w](int) { w.eng.fifo.push_back(7); return DUI_CONTINUE; };
     CHECK_EQ(w.run("small.toml"), 0);
-    CHECK(w.fs.text("/SD/cores/diag/results/small_20261102-143015.toml").find("the engine pushed 3 words, the step list pushes 2") != std::string::npos);
+    CHECK(w.fs.text("/SD/cores/diag/results/small_20261102-143015.toml").find("the engine pushed 7 words, the step list pushes 6") != std::string::npos);
 }
 
 static void test_examples()
@@ -688,9 +771,10 @@ static void test_examples()
     Rig l;
     l.eng.forced_low = 0x201;
     l.eng.cmp_now = 5;
-    char pt[120];
-    dt_pins_text(diag_live(&l.eng), pt, sizeof(pt));
-    CHECK_STR(pt, "P1 U0 D1 L1 R1 F1  P2 U1 D1 L1 R1 F0  CMP 1 0 1 0");
+    uint32_t w[4];
+    diag_live(&l.eng, w);                               // the snapshot of the bank: port 1 up and port 2 fire held low from outside, comparators 0 and 2 high
+    CHECK(!dt_snap_bit(w, 50) && dt_snap_bit(w, 51) && dt_snap_bit(w, 54) && dt_snap_bit(w, 55) && !dt_snap_bit(w, 59));
+    CHECK(dt_snap_bit(w, 63) && !dt_snap_bit(w, 64) && dt_snap_bit(w, 65) && !dt_snap_bit(w, 66));
 }
 
 // T201 S4, S9, S11: the shipped vsync walk (v2, since T259 avvsync.toml). Each step sets its combination, asks its questions, records YES / NO / MISSED / SKIPPED or the choice's label, the result files carry the combination; the page's values come back at the end.
@@ -1038,7 +1122,8 @@ int main()
     test_parse_shipped();
     test_parse_errors();
     test_compile();
-    test_padctl_words();
+    test_s5_unknown_test();
+    test_s6_old_words();
     test_plan_loop();
     test_stale_done();
     test_run_files();
