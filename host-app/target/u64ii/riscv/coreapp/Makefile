@@ -210,8 +210,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_hdd.cc \
 			tape_pulses.cc \
 			tape_deck.cc \
-			cpc.cc \
-			cpc_disk.cc \
 			c264.cc \
 			pet.cc \
 			c128.cc \

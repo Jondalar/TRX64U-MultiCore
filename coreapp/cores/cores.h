@@ -7,7 +7,6 @@
 extern const CoreDesc atari800_desc;
 extern const CoreDesc nes_desc;
 extern const CoreDesc apple2_desc;
-extern const CoreDesc cpc_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc c264_desc;
 extern const CoreDesc pet_desc;

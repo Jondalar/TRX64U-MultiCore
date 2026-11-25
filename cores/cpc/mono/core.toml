@@ -4,7 +4,7 @@ id           = "cpc"
 name         = "Amstrad CPC 464 / 664 / 6128"
 version      = "0.0.1"
 contract     = 2
-app          = "blueprint"     # the T104 generic application (coreapp/cores/cpc.cc), not Gideon's base (T92 §5 2026-10-22; supersedes D11)
+app          = "blueprint"     # the core's own app is linked from cores/cpc/app/sdk.toml (cores/cpc/app/lib/cpc.cc, T239.5 D16), not Gideon's base (T92 §5 2026-10-22; supersedes D11)
 order        = 12              # after the ZX Spectrum (11); the T79 core list put the CPC with the Spectrum at position 8
 delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 46.5; Alex: "whatever does not fit becomes a
                                # large core"): this file is the only descriptor, no DFX lane; cores/cpc/mono/build_mono.tcl, lane large-cpc

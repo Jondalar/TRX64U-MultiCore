@@ -11,7 +11,7 @@ import sys
 
 # (register file with `wire [31:0] id = ... : 32'h........;`, application descriptor with `{ 'A', 'B', 'C', 'D' },`)
 PAIRS = (("cores/zx/trx/zx_regs.v", "cores/zx/app/lib/zx.cc"),
-         ("cores/cpc/trx/cpc_regs.v", "coreapp/cores/cpc.cc"),
+         ("cores/cpc/trx/cpc_regs.v", "cores/cpc/app/lib/cpc.cc"),
          ("cores/vc20/rtl/trx/vc20_regs.vhd", "cores/vc20/app/lib/vc20.cc"),
          ("cores/c264/rtl/trx/c264_regs.v", "coreapp/cores/c264.cc"),
          ("cores/pet/rtl/trx/pet_regs.v", "coreapp/cores/pet.cc"),

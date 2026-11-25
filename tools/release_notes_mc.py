@@ -103,7 +103,7 @@ CORES = [
     dict(id="cpc", match=("amstrad",), title="Amstrad CPC 464 / 664 / 6128", folder="cpc",
          files="464: `os464.rom`, `basic464.rom`; 664: `os664.rom`, `basic664.rom`, `amsdos.rom`; 6128: `os6128.rom`, `basic6128.rom`, `amsdos.rom` (16,384 bytes each)",
          needed="the files of one model (a disk drive needs `amsdos.rom`)",
-         sources="coreapp/cores/cpc.cc:135-145; coreapp/cores/cpc_regs.h:42; coreapp/src/romfind.cc (sets)"),
+         sources="cores/cpc/app/lib/cpc.cc (roms[]); cores/cpc/app/lib/cpc_regs.h (the sizes); coreapp/src/romfind.cc (sets)"),
 ]
 
 

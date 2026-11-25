@@ -49,10 +49,6 @@ coreapp/cores/cbm1541_desc.h shared-library drive library's pieces, own record P
 coreapp/cores/cbm_run.cc shared-library Run PRG of five cores
 coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
-coreapp/cores/cpc.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/cpc_disk.cc core-library the core's own file format or engine (D9)
-coreapp/cores/cpc_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/cpc_regs.h data register map (D8)
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
 coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
 coreapp/cores/ines.cc core-library the core's own file format or engine (D9)

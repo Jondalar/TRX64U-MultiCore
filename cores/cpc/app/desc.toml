@@ -1,7 +1,8 @@
-# The Amstrad CPC's data description (T239.3 D17): what coreapp/cores/cpc.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Amstrad CPC's data description (T239.3 D17): what cores/cpc/app/lib/cpc.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
-# operations of register_ops, the media write-back (the FDC's dirty chunks) and the three functions of the mount slots. Register numbers are
-# cores/cpc/trx/cpc_regs.v (coreapp/cores/cpc_regs.h).
+# operations of register_ops, the media write-back (the FDC's dirty chunks) and the three functions of the mount slots. The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the
+# name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
 machine_info = "Model"
 
 [core]
@@ -25,16 +26,16 @@ h = 540
 scale = 2
 x0 = 240
 y0 = 0
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
 nbuf = 3
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "machine.status"
 mask = 0x02
 timeout_ms = 200
 

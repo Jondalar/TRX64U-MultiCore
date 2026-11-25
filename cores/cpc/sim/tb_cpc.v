@@ -429,7 +429,7 @@ module tb_cpc;
     task rm_wr32(input [11:0] a, input [31:0] v);
         begin rm_wr(a, v[7:0]); rm_wr(a + 12'd1, v[15:8]); rm_wr(a + 12'd2, v[23:16]); rm_wr(a + 12'd3, v[31:24]); end
     endtask
-    // cpcd_mount (coreapp/cores/cpc_disk.cc) after the image copy: the dirty marks cleared, base, size, the MOUNT strobe (write protect off)
+    // cpcd_mount (cores/cpc/app/lib/cpc_disk.cc) after the image copy: the dirty marks cleared, base, size, the MOUNT strobe (write protect off)
     task rm_mount(input integer drv, input [31:0] base, input [31:0] sz);
         integer m;
         begin
