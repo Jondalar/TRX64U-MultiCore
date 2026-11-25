@@ -2155,8 +2155,70 @@ bool MenuCtl::pick_key(int k, Result *out)
             return true;
         }
     }
-    if (pick_form_) {
-        return sf_key(k, out);
+    if (pick_form_) {                                               // T262 P5: the search form (sf_*), raw input of the pick page
+        const int cnt = sf_rows();
+        auto cycle = [&]() {
+            int idx[CONTRIB_SEARCH_MAX];
+            const int n = search_sources(idx, CONTRIB_SEARCH_MAX);
+            int pos = 0;                                                // 0 is This device, i + 1 the i-th source offered
+            for (int i = 0; i < n; i++) {
+                if (idx[i] == sf_src_) {
+                    pos = i + 1;
+                }
+            }
+            pos = (pos + 1) % (n + 1);
+            sf_src_ = pos ? idx[pos - 1] : -1;
+        };
+        switch (k) {
+        case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
+        case KEY_DOWN: if (pick_sel_ < cnt - 1) pick_sel_++; *out = R_REDRAW; return true;
+        case KEY_HOME: pick_sel_ = 0; *out = R_REDRAW; return true;
+        case KEY_END: pick_sel_ = cnt - 1; *out = R_REDRAW; return true;
+        case KEY_RIGHT:
+            if (pick_sel_ == 0) {
+                cycle();
+            }
+            *out = R_REDRAW;
+            return true;
+        case KEY_RETURN:
+        case KEY_SPACE:
+            if (pick_sel_ == 0) {
+                cycle();
+                *out = R_REDRAW;
+            } else if (pick_sel_ == cnt - 1) {
+                *out = sf_run();
+            } else {                                                    // a text row: the one line editor, back to the form when it ends
+                entry_ = true;
+                entry_text_mode_ = true;
+                entry_task_ = 0;
+                entry_set_ = -1;
+                ask_node_ = 0;
+                prompt_ = false;
+                confirm_node_ = 0;
+                confirm_task_ = 0;
+                entry_rename_ = false;
+                entry_mset_ = false;
+                search_edit_ = false;
+                sf_edit_ = pick_sel_;
+                entry_load(sf_value(pick_sel_), 38);
+                set_status("Type the text; RETURN takes it, <- cancels", false);
+                *out = R_REDRAW;
+            }
+            return true;
+        case KEY_LEFT:
+        case KEY_ESCAPE:
+            pick_ = pick_form_ = false;
+            set_status("Cancelled", false);
+            *out = R_REDRAW;
+            return true;
+        case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
+        case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
+            pick_ = pick_form_ = false;
+            return false;
+        default:
+            *out = R_NONE;
+            return true;
+        }
     }
     if (pick_dyn_) {
         const int cnt = pick_dyn_rows();
@@ -5373,72 +5435,6 @@ MenuCtl::Result MenuCtl::sf_run()
     return R_REDRAW;
 }
 
-bool MenuCtl::sf_key(int k, Result *out)
-{
-    const int cnt = sf_rows();
-    auto cycle = [&]() {
-        int idx[CONTRIB_SEARCH_MAX];
-        const int n = search_sources(idx, CONTRIB_SEARCH_MAX);
-        int pos = 0;                                                // 0 is This device, i + 1 the i-th source offered
-        for (int i = 0; i < n; i++) {
-            if (idx[i] == sf_src_) {
-                pos = i + 1;
-            }
-        }
-        pos = (pos + 1) % (n + 1);
-        sf_src_ = pos ? idx[pos - 1] : -1;
-    };
-    switch (k) {
-    case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
-    case KEY_DOWN: if (pick_sel_ < cnt - 1) pick_sel_++; *out = R_REDRAW; return true;
-    case KEY_HOME: pick_sel_ = 0; *out = R_REDRAW; return true;
-    case KEY_END: pick_sel_ = cnt - 1; *out = R_REDRAW; return true;
-    case KEY_RIGHT:
-        if (pick_sel_ == 0) {
-            cycle();
-        }
-        *out = R_REDRAW;
-        return true;
-    case KEY_RETURN:
-    case KEY_SPACE:
-        if (pick_sel_ == 0) {
-            cycle();
-            *out = R_REDRAW;
-        } else if (pick_sel_ == cnt - 1) {
-            *out = sf_run();
-        } else {                                                    // a text row: the one line editor, back to the form when it ends
-            entry_ = true;
-            entry_text_mode_ = true;
-            entry_task_ = 0;
-            entry_set_ = -1;
-            ask_node_ = 0;
-            prompt_ = false;
-            confirm_node_ = 0;
-            confirm_task_ = 0;
-            entry_rename_ = false;
-            entry_mset_ = false;
-            search_edit_ = false;
-            sf_edit_ = pick_sel_;
-            entry_load(sf_value(pick_sel_), 38);
-            set_status("Type the text; RETURN takes it, <- cancels", false);
-            *out = R_REDRAW;
-        }
-        return true;
-    case KEY_LEFT:
-    case KEY_ESCAPE:
-        pick_ = pick_form_ = false;
-        set_status("Cancelled", false);
-        *out = R_REDRAW;
-        return true;
-    case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
-    case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
-        pick_ = pick_form_ = false;
-        return false;
-    default:
-        *out = R_NONE;
-        return true;
-    }
-}
 
 void MenuCtl::begin_rename(const char *path)
 {

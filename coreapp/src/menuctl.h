@@ -276,7 +276,6 @@ private:
     void begin_search();                                           // RETURN or '/' in the Search tab: the form when a library is a source, else the one text prompt
     void begin_search_form();
     Result sf_run();
-    bool sf_key(int k, Result *out);
     void sf_open_results(int src);
     void begin_rename(const char *path);
     void begin_confirm_job(const Task *t, const char *question);
