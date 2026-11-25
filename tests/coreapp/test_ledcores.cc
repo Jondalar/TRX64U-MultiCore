@@ -18,9 +18,15 @@ int main()
     const CoreDesc *const cores[] = { &amiga_desc };
 #elif defined(TEST_APP_C264)                   // the Commodore 264's app is its own build (run.sh c264app): its core is the only one in it
     const CoreDesc *const cores[] = { &c264_desc };
+#elif defined(TEST_APP_CPC)                   // the CPC's app is its own build (run.sh cpcapp): its core is the only one in it
+    extern const CoreDesc cpc_desc;
+    const CoreDesc *const cores[] = { &cpc_desc };
+#elif defined(TEST_APP_C128)                  // the C128's app is its own build (run.sh c128app): its core is the only one in it
+    extern const CoreDesc c128_desc;
+    const CoreDesc *const cores[] = { &c128_desc };
 #else
-    const CoreDesc *const cores[] = { &amiga_desc, &atari800_desc, &apple2_desc, &cpc_desc,
-                                  &c264_desc, &c128_desc };
+    const CoreDesc *const cores[] = { &amiga_desc, &atari800_desc, &apple2_desc,
+                                  &c264_desc };
 #endif
     for (const CoreDesc *dp : cores) {
         const CoreDesc &d = *dp;

@@ -1,4 +1,4 @@
-// T119 5.13: the ZX Spectrum core application's start and model switch (coreapp/cores/zx.cc + boot.cc), the real descriptor against a model of the
+// T119 5.13: the ZX Spectrum core application's start and model switch (cores/zx/app/lib/zx.cc + boot.cc), the real descriptor against a model of the
 // register block: CTRL b0 hold, MODEL, the ROM through WIN_PAGE + the aperture. The ROMs are 16,384 / 32,768 bytes; when the environment names
 // a folder with the genuine 48.rom / 128.rom (ZX_ROM_DIR, never in the repository) those bytes are used, else a pattern of the same size.
 // Every scenario checks the same thing the board needs: the core ends released (CTRL b0 clear, host reset line off), the model register
@@ -10,6 +10,7 @@
 #include "fakes.h"
 #include "boot.h"
 #include "cores.h"
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib, run.sh zxapp)
 #include "zx_regs.h"
 
 struct Ui : BootUi {

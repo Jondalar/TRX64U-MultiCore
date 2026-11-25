@@ -165,6 +165,32 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "amiga", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "16 block(s), 48 properties agree" in out, "amiga: 16 blocks, 48 properties of gateware.toml agree with the RTL of the core window (the A500's own amiga_regs.v: the identity and its FEATURES word, the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the statistics selector, the clock, the four floppy drives, the two hard disks, the sector mailbox, the mouse, the raw keys, the second game port's pad, the floppy write log; no display window and no crop window, which only the A1200's copy has; page 6 is the hand-over to the host's pixel layer)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/ddt_novic/core_sources.tcl", "--top", "layer2_ddt_novic",
+              "--bus", "layer2_ddt_novic:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "ddt_novic", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "6 block(s), 19 properties agree" in out, "ddt_novic: 6 blocks, 19 properties of gateware.toml agree with the RTL of the core window (ddt_regs.v's ident, irq, ddr_cal, geometry, machine and video registers; page 6, the host's pixel layer, is not described)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/zx/app/rtl_check_sources.tcl", "--top", "layer2_zx",
+              "--bus", "layer2_zx:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "zx", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "10 block(s), 38 properties agree" in out, "zx: 10 blocks, 38 properties of gateware.toml agree with the RTL of the core window (zx_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, snapshot, tape and key-injection registers; page 6, the host's pixel layer, is not described)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/cpc/app/rtl_check_sources.tcl", "--top", "layer2_cpc",
+              "--bus", "layer2_cpc:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "cpc", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "12 block(s), 41 properties agree" in out, "cpc: 12 blocks, 41 properties of gateware.toml agree with the RTL of the core window (cpc_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, tape, key-injection, disk and the two dirty maps; page 6, the host's pixel layer, is not described)")
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/pet/app/rtl_check_sources.tcl", "--top", "layer2_pet",
+              "--bus", "layer2_pet:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "pet", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "10 block(s), 55 properties agree" in out, "pet: 10 blocks, 55 properties of gateware.toml agree with the RTL of the core window (pet_regs.v's ident, irq, ddr_cal, machine, ROM aperture select, video, the dual drive unit, its write log, the cassette and the pads; page 6, the host's pixel layer, is not described)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/c128/app/rtl_check_sources.tcl", "--top", "layer2_c128",
+              "--bus", "layer2_c128:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--bus", "layer2_c128:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata", "--window", "0x10020000:0x4000:full",
+              "--toml-a", os.path.join(ROOT, "cores", "c128", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--define", "VDC64", "--define", "ROM_CACHE", "--define", "RAM_DDR2", "--define", "SID2", "--define", "SOCK_AUDIO", "--define", "TAPE", "--define", "NO_NET", "--define", "NO_VIC_SCALER")
+must(rc == 0 and "17 block(s), 86 properties agree" in out, "c128: 17 blocks, 86 properties of gateware.toml agree with the RTL of the core window (the C64U window's ident, irq, ddr_cal, caps and tape pins, the host's pixel layer capture, the C128's page E: id, irq, machine, ROM line cache, video, cold start, character store, counters, activity) and of the drive window behind c64u_drive_l2 (mm_drive: the 1541 block and the WD177x block of the 1581)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,

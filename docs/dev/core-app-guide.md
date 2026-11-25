@@ -407,20 +407,23 @@ share a gateware ID and are told apart by the bundle's name).
 
 ## 9. A worked example: ddt_novic
 
-The smallest descriptor in the tree. No ROMs, no settings, no program, one task. `coreapp/cores/ddt_regs.h`:
+The smallest descriptor in the tree. No ROMs, no settings, no program, one task. Since T239.5 D16 the core has an app of its own (`cores/ddt_novic/app`: `sdk.toml`, `gateware.toml`,
+`desc.toml`, the library in `lib/`); the registers are named through the driver table of its TOML A, not by number. `cores/ddt_novic/app/lib/ddt_regs.h`:
 
 ```c
-#define DDT_CTRL        0x0A0          // b0 reset hold, b1 halt (Freeze)
-#define DDT_STATUS      0x0A4          // b0 in reset, b1 held (Freeze)
-#define DDT_ST_HELD     0x02
-#define DDT_FB_LATEST   0x0C0
-#define DDT_FRAME_SEQ   0x0C1
-#define DDT_FB_BASE     0x0C4
-#define DDT_FB_STRIDE   0x0C8
-#define DDT_FB_ADDR          0x01D00000u    // the reset value of FB_BASE: the host's REU block
+#define DDT_OFS(addr)  ((addr) - DRV_ident_ADDR)
+#define DDT_CTRL        DDT_OFS(DRV_machine_ctrl_ADDR)
+#define DDT_CTRL_HOLD   DRV_machine_ctrl_reset_hold_MASK        // b0 reset hold (b1 halt: Freeze)
+#define DDT_STATUS      DDT_OFS(DRV_machine_status_ADDR)
+#define DDT_ST_HELD     DRV_machine_status_held_MASK            // b1 held (Freeze); b0 in reset
+#define DDT_FB_LATEST   DDT_OFS(DRV_video_fb_latest_ADDR)
+#define DDT_FRAME_SEQ   DDT_OFS(DRV_video_frame_seq_ADDR)
+#define DDT_FB_BASE     DDT_OFS(DRV_video_fb_base_ADDR)
+#define DDT_FB_STRIDE   DDT_OFS(DRV_video_fb_stride_ADDR)
+#define DDT_FB_ADDR          DRV_video_fb_base_reset            // the host's REU block
 ```
 
-`coreapp/cores/ddt_novic.cc`:
+`cores/ddt_novic/app/lib/ddt_novic.cc`:
 
 ```cpp
 static int ddt_init(CoreCtx *c, char *, int)    { c->io->wr(DDT_CTRL, DDT_CTRL_HOLD); c->io->mode_reset(true);  return 0; }

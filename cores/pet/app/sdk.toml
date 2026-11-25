@@ -1,0 +1,54 @@
+# TOML B of the PET's app (T239.3 D55, T239.5 D16): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in
+# its link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The
+# base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "pet"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library pet below defines it); the core table of this app holds this core only
+desc = "pet_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A that the shared drivers (hw.cc) name: the host's mode register
+# (cart_regs), the five ICAP blocks of the loader, the partition block and the host's master volume and tone (audio_master). The core has no drive block of the host's kind (its dual
+# drive unit is the core's own "drive" block), no cartridge, no ring and no DMA window block of its own, so board.cc runs no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
+base_sources = ["portdiag.cc"]
+
+# The core's own code: its descriptor and hooks (init, release, the ROM choice per model, the dual drive unit's media functions, the tape slot, the register map), the model table, the tape deck with its
+# pulse converter (copies of the files the ZX Spectrum's and the CPC's apps have their own copies of, T239.5 D16: the shared app's last users were the PET and the cores that moved before it). Its files are in cores/pet/app/lib.
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: petapp): unit = 2 unit tests, service = 8 mock bitstream -> service, ui = 9 service -> UI
+# (the PET's cases of the shared tests, TEST_APP_PET). The PET has no case of step 10 (service -> API): it has no memory window of the application's, so no read_mem / write_mem case.
+[[library]]
+name = "pet"
+sources = ["pet.cc", "tape_deck.cc", "tape_pulses.cc"]
+headers = ["pet_models.h", "pet_regs.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
+needs = ["cbmprg", "cbmrun", "pad", "padkeys"]
+tests = { unit = ["pet_models", "tape_pet"], service = ["pet_descgen", "pet_romreq"], ui = ["pet_desc", "pet_hotkeys", "pet_cut"] }
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+headers = ["cbm_prg.h", "cbmprg_api.h"]
+bind = "cbmprg_bind"
+
+[[library]]
+name = "cbmrun"
+sources = ["cbm_run.cc", "c64_go.cc"]
+headers = ["cbm_run.h", "c64_go.h"]
+needs = ["cbmprg"]
+
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"
+
+[[library]]
+name = "padkeys"
+sources = ["padkeys.cc", "padkeys_exports.cc"]
+headers = ["padkeys.h", "padkeys_api.h"]
+table = "padkeys_table"

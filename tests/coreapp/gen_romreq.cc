@@ -28,6 +28,26 @@ const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 // the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
 #include "cores.h"
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
+#elif defined(TEST_APP_ZX)
+// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#elif defined(TEST_APP_CPC)
+// the CPC's app is its own build (run.sh cpcapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores (cores/cpc/app/lib holds this one)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_PET)
+// the PET's app is its own build (run.sh petapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores (cores/pet/app/lib holds this one)
+const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#elif defined(TEST_APP_C128)
+// the C128's app is its own build (run.sh c128app): its table is its core only
+#include "cores.h"
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores (cores/c128/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #else
 #include "table.cc"
 #endif

@@ -1,6 +1,6 @@
 // T157: the "Joystick ports" setting (Normal / Swapped) of every generic-app core that has one. For each core: the setting is there exactly once, a change
 // is applied (the core's own register gets the swap bit, at once, through the setting's operation or its register bits), the .cfg keeps it
-// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800, cpc, zxnext) are in the
+// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800, zxnext; the CPC's is the unit cpc_joyswap) are in the
 // same table, so their registers are checked as well (S4). zx (a choice per port) and c264 (its register is taken in reset) are named
 // differently on purpose (T157 D1) and checked for their own key.
 #include "check.h"
@@ -8,13 +8,19 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#if !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)       // the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)   // the CPC's, the C128's, the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
 #include "amiga_regs.h"
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)       // the A1200's, the Next's, the Neo Geo's and the Amiga 500's app (run.sh a12app, zxnextapp, neogeoapp, amigaapp) have their own core only
+#ifdef TEST_APP_C128                     // the C128's app (run.sh c128app) has its own core only
 #include "c128_regs.h"
-#include "c264_regs.h"
+extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+#endif
+#ifdef TEST_APP_CPC                      // the CPC's app (run.sh cpcapp) has its own core only
 #include "cpc_regs.h"
+extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)   // the A1200's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
+#include "c264_regs.h"
 #include "nes_regs.h"
 #include "zxnext_regs.h"
 #endif
@@ -54,9 +60,13 @@ int main()
         { &neogeo_desc, NEO_PAD },
 #elif defined(TEST_APP_AMIGA)
         { &amiga_desc, AM_JOY_CFG },
+#elif defined(TEST_APP_CPC)
+        { &cpc_desc, CPC_JOY },
+#elif defined(TEST_APP_C128)
+        { &c128_desc, C128_JOY },
 #else
-        { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
-        { &cpc_desc, CPC_JOY }, { &zxnext_desc, ZXN_JOY },
+        { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY },
+        { &zxnext_desc, ZXN_JOY },
 #endif
     };
     for (const Row &r : rows) {
@@ -99,10 +109,8 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
-    CHECK_EQ(count_key(zx_desc, "Joystick port 1"), 1);
-    CHECK_EQ(count_key(zx_desc, "Joystick port 2"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
 #endif

@@ -206,16 +206,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_nib.cc \
 			apple2_woz.cc \
 			apple2_hdd.cc \
-			zx.cc \
-			zx_snap.cc \
-			tape_pulses.cc \
-			tape_deck.cc \
-			cpc.cc \
-			cpc_disk.cc \
-			pet.cc \
-			c128.cc \
 			c64scpu.cc \
-			ddt_novic.cc \
 			portdiag.cc \
 			d1541_fs.cc \
 			snes.cc \

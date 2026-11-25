@@ -18,17 +18,42 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#ifndef TEST_APP_VC20          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
+#ifdef TEST_APP_C128
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+#endif
+#ifdef TEST_APP_PET
+extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+#endif
+#ifdef TEST_APP_CPC
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
+#ifdef TEST_APP_ZX
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+#endif
+#ifdef TEST_APP_DDT
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+#endif
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_DDT)             // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp) with its core only
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
+#elif defined(TEST_APP_ZX)              // the ZX Spectrum's app is its own build (run.sh zxapp) with its core only
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#elif defined(TEST_APP_CPC)             // the CPC's app is its own build (run.sh cpcapp) with its core only
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_PET)             // the PET's app is its own build (run.sh petapp) with its core only
+const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#elif defined(TEST_APP_C128)            // the C128's app is its own build (run.sh c128app) with its core only
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -165,11 +190,31 @@ int main(int, char **argv)
         static const Mi want[] = { { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_DDT)
+        static const Mi want[1] = { { "", "" } };                          // DDT Look Ma, No VIC has no setting, so no machine line: nothing to find (the count below is skipped)
+        static const char *const none[] = { "DDT Look Ma, No VIC" };
+        const int n_none = 1;
+#elif defined(TEST_APP_ZX)
+        static const Mi want[] = { { "ZX Spectrum 48K / 128K", "Model" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
+#elif defined(TEST_APP_CPC)
+        static const Mi want[] = { { "Amstrad CPC 464 / 664 / 6128", "Model" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
+#elif defined(TEST_APP_PET)
+        static const Mi want[] = { { "Commodore PET", "Model,RAM" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
+#elif defined(TEST_APP_C128)
+        static const Mi want[] = { { "Commodore 128", "40/80 DISPLAY" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
-            { "Commodore PET", "Model,RAM" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
-            { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
-            { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
+            { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
+            { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
+            { "Atari 800 XL", "RAM size,Video standard" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
         static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
@@ -197,7 +242,9 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
+#ifndef TEST_APP_DDT
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
+#endif
         CHECK_EQ(nones, n_none);
     }
 
@@ -249,8 +296,18 @@ int main(int, char **argv)
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
 #elif defined(TEST_APP_A1200)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
+#elif defined(TEST_APP_DDT)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
+#elif defined(TEST_APP_ZX)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // the Spectrum has no disk image type: snapshots and tapes are no image the walk counts
+#elif defined(TEST_APP_CPC)
+        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the CPC's DSK (Mount A and reset), no CBM image
+#elif defined(TEST_APP_PET)
+        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the PET's drive images (.d64, .d80, .d82: Mount in Drive 8 / 8.1, Run Disk = pet.mount_run) are no reference table's image
+#elif defined(TEST_APP_C128)
+        CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
 #else
-        CHECK(seen_cbm >= 6 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
+        CHECK(seen_cbm >= 5 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu; atari, apple, zxnext ...)
 #endif
     }
 
@@ -362,8 +419,18 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_A1200)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_DDT)
+        CHECK(n205 == 1);
+#elif defined(TEST_APP_ZX)
+        CHECK(n205 == 1);
+#elif defined(TEST_APP_CPC)
+        CHECK(n205 == 1);
+#elif defined(TEST_APP_PET)
+        CHECK(n205 == 1);
+#elif defined(TEST_APP_C128)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 16);
+        CHECK(n205 >= 11);
 #endif
     }
 
@@ -374,8 +441,18 @@ int main(int, char **argv)
         static const char *const own[] = { "VC20" };
 #elif defined(TEST_APP_A1200)
         static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
+#elif defined(TEST_APP_DDT)
+        static const char *const own[] = { 0 };                              // DDT has no medium
+#elif defined(TEST_APP_ZX)
+        static const char *const own[] = { 0 };                              // the tape deck has no flush of its own to hand over
+#elif defined(TEST_APP_CPC)
+        static const char *const own[] = { "CPC_" };                         // the FDC's dirty chunks are the core's own write-back
+#elif defined(TEST_APP_PET)
+        static const char *const own[] = { "PET1" };                         // the dual drive unit's dirty images are the core's own write-back
+#elif defined(TEST_APP_C128)
+        static const char *const own[] = { "C128" };                         // the drive library's write-back (the drive window is the core's own)
 #else
-        static const char *const own[] = { "APL2", "A8XL", "CPC_", "C128", "C264", "SNES", "NEO_" };
+        static const char *const own[] = { "APL2", "A8XL", "C264", "SNES", "NEO_" };
 #endif
         for (const char *id : own) {
             if (!id) continue;
@@ -400,7 +477,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -630,6 +707,44 @@ int main(int, char **argv)
         CHECK_EQ(asked, 4);                                                // Create D64 / G64, Save as D64 / G64
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
+#elif defined(TEST_APP_DDT)
+    // the real core: one task, Reset, and nothing to ask (the records that the shared app's cores have are tested in the shared unit)
+    CHECK(ddt_novic_desc.ntasks == 1 && !ddt_novic_desc.tasks[0].ask && ddt_novic_desc.nsettings == 0);
+#elif defined(TEST_APP_ZX)
+    // the real core: Reset, Reload ROMs and the five tape keys + Eject, nothing to ask; the model, two joystick ports and the tape sound as settings
+    CHECK(zx_desc.ntasks == 8 && zx_desc.nsettings == 4);
+    for (int i = 0; i < zx_desc.ntasks; i++) CHECK(!zx_desc.tasks[i].ask);
+    // T157 D1: the joystick ports are two settings of the core's own, each there once (the shared unit joyswap has the cores that keep the other form)
+    for (const char *k : { "Joystick port 1", "Joystick port 2" }) {
+        int n = 0;
+        for (int i = 0; i < zx_desc.nsettings; i++) if (!strcmp(zx_desc.settings[i].key, k)) n++;
+        CHECK_EQ(n, 1);
+    }
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not
+    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" }) {
+        CHECK(slot_lists(&zx_desc, "Tape", true, k) && !slot_lists(&zx_desc, "Tape", false, k));
+        CHECK_STR(task_place(&zx_desc, k).c_str(), "");
+        const Task *t = find_task(&zx_desc, k);
+        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+    }
+#elif defined(TEST_APP_CPC)
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not (the PET's are in the unit pet_desc)
+    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" }) {
+        CHECK(slot_lists(&cpc_desc, "Tape", true, k) && !slot_lists(&cpc_desc, "Tape", false, k));
+        CHECK_STR(task_place(&cpc_desc, k).c_str(), "");
+        const Task *t = find_task(&cpc_desc, k);
+        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+    }
+#elif defined(TEST_APP_C128)
+    // the C128 has no tape deck of its own (an external datasette sits on the C2N port, op c128.set_dset): no tape keys to walk
+#elif defined(TEST_APP_PET)
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not (the Spectrum's and the CPC's are the units zx_desc and cpc_desc)
+    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind" }) {
+        CHECK(slot_lists(&pet_desc, "Tape", true, k) && !slot_lists(&pet_desc, "Tape", false, k));
+        CHECK_STR(task_place(&pet_desc, k).c_str(), "");
+        const Task *t = find_task(&pet_desc, k);
+        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+    }
 #else
 #ifndef TEST_APP_A1200
 
@@ -827,21 +942,26 @@ int main(int, char **argv)
     golden(&vc20_desc, "vc20");
 #elif defined(TEST_APP_A1200)
     golden(&amiga1200_desc, "amiga1200");
+#elif defined(TEST_APP_DDT)
+    golden(&ddt_novic_desc, "ddt_novic");
+#elif defined(TEST_APP_ZX)
+    golden(&zx_desc, "zx");
+#elif defined(TEST_APP_CPC)
+    golden(&cpc_desc, "cpc");
+#elif defined(TEST_APP_PET)
+    golden(&pet_desc, "pet");
+#elif defined(TEST_APP_C128)
+    golden(&c128_desc, "c128");
 #else
     golden(&atari800_desc, "atari800");
     golden(&nes_desc, "nes");
     golden(&apple2_desc, "apple2");
-    golden(&zx_desc, "zx");
-    golden(&cpc_desc, "cpc");
     golden(&zxnext_desc, "zxnext");
     golden(&snes_desc, "snes");
     golden(&neogeo_desc, "neogeo");
     golden(&c264_desc, "c264");
-    golden(&pet_desc, "pet");
-    golden(&c128_desc, "c128");
     golden(&c64scpu_desc, "c64scpu");
     golden(&amiga_desc, "amiga");
-    golden(&ddt_novic_desc, "ddt_novic");
     golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
 #endif
@@ -900,7 +1020,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // stands on the shared app's cores; the VIC-20's and the A1200's app are their own builds (run.sh vc20app, a12app) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 
@@ -957,22 +1077,7 @@ int main(int, char **argv)
         CHECK_STR(task_place(&neogeo_desc, "Load a ROM set from a folder").c_str(), "");
         CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
     }
-    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not
-    {
-        struct T { const CoreDesc *d; const char *keys[5]; };
-        const T tapes[] = { { &cpc_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
-                            { &zx_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
-                            { &pet_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", 0, 0 } } };
-        for (const T &tp : tapes) {
-            for (const char *k : tp.keys) {
-                if (!k) continue;
-                CHECK(slot_lists(tp.d, "Tape", true, k) && !slot_lists(tp.d, "Tape", false, k));
-                CHECK_STR(task_place(tp.d, k).c_str(), "");
-                const Task *t = find_task(tp.d, k);
-                CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
-            }
-        }
-    }
+    // T212 D10: the tape keys of the Spectrum's, the CPC's and the PET's decks are the units zx_desc, cpc_desc and pet_desc
     // T212 D11: the Atari's cartridge removal is the slot's Eject (cold start, closes the menu), no task on top of Home
     {
         CHECK(find_task(&atari800_desc, "Remove cartridge, cold start") == 0);

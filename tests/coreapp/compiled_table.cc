@@ -40,6 +40,36 @@ const CoreDesc *const compiled_in_table[] = { &neogeo_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &amiga_desc, 0 };
+#elif defined(TEST_APP_DDT)
+// DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc ddt_novic_desc;   // cores.h lists the shared app's cores (cores/ddt_novic/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &ddt_novic_desc, 0 };
+#elif defined(TEST_APP_ZX)
+// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc zx_desc;   // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &zx_desc, 0 };
+#elif defined(TEST_APP_CPC)
+// the CPC's app is its own build (run.sh cpcapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc cpc_desc;   // cores.h lists the shared app's cores (cores/cpc/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_PET)
+// the PET's app is its own build (run.sh petapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc pet_desc;   // cores.h lists the shared app's cores (cores/pet/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &pet_desc, 0 };
+#elif defined(TEST_APP_C128)
+// the C128's app is its own build (run.sh c128app): its table is its core only
+#include "cores.h"
+extern const CoreDesc c128_desc;   // cores.h lists the shared app's cores (cores/c128/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &c128_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

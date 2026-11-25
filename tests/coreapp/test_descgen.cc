@@ -610,6 +610,16 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_neogeo.txt").c_str());
 #elif defined(TEST_APP_AMIGA)
     std::ifstream idx((dir + "/index_app_amiga.txt").c_str());
+#elif defined(TEST_APP_DDT)
+    std::ifstream idx((dir + "/index_app_ddt_novic.txt").c_str());
+#elif defined(TEST_APP_ZX)
+    std::ifstream idx((dir + "/index_app_zx.txt").c_str());
+#elif defined(TEST_APP_CPC)
+    std::ifstream idx((dir + "/index_app_cpc.txt").c_str());
+#elif defined(TEST_APP_PET)
+    std::ifstream idx((dir + "/index_app_pet.txt").c_str());
+#elif defined(TEST_APP_C128)
+    std::ifstream idx((dir + "/index_app_c128.txt").c_str());
 #else
     std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
 #endif

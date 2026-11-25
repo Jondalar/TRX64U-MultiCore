@@ -1,7 +1,8 @@
-# The Commodore 128's data description (T239.3 D17): what coreapp/cores/c128.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Commodore 128's data description (T239.3 D17): what cores/c128/app/lib/c128.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the
 # core's C++: init, release, the operations of register_ops, the USB keyboard's held-key function (rawkeys) and the drive's media functions.
-# Register numbers are the page 0xE000 of coreapp/cores/c128_regs.h (C128_REG(off) = 0xE000 + off).
+# The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
 machine_info = "40/80 DISPLAY"
 
 [restart]
@@ -29,16 +30,16 @@ h = 480
 scale = 2
 x0 = 320
 y0 = 60
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
 nbuf = 3
-reg_latest = 0xE060
-reg_seq = 0xE061
-reg_fb_base = 0xE064
-reg_fb_stride = 0xE068
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
 
 [freeze]
-reg_status = 0xE030
+reg_status = "machine.status"
 mask = 0x08
 timeout_ms = 200
 

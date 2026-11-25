@@ -36,8 +36,8 @@ CORES_SRC = os.path.join(ROOT, "coreapp", "cores")
 SRC = os.path.join(ROOT, "coreapp", "src")
 WINDOW = "0x101A0000:0x10000"
 BUS = "layer2_%s:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata"
-DRV_BUS = "layer2_%s:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata"   # the drive window of a core that has its own drive_l2 (the VIC-20's, the C264's)
-DRV_WINDOW = "0x10020000:0x4000:full"
+BUS_DRV = "layer2_%s:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata"      # the drive window (0x10020000, the whole address on the port) of a core that has its own block drive_a
+WINDOW_DRV = "0x10020000:0x4000:full"
 BASE_BLOCKS = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]    # the A1200's and the VIC-20's common set (sdk.toml)
 MIN_A = """[io]
 iobase = 0x10000000
@@ -461,9 +461,9 @@ def gates(core, appdir=None, work=None):
     print("gates: rtl_check")
     l = ["--list", os.path.relpath(os.path.join(appdir, "rtl_check_sources.tcl"), os.path.join(ROOT, "host"))] if os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")) else \
         sum([["--list", x] for x in info(core)["lists"]], [])
-    own_drive = re.search(r'name = "drive_a"\nmodule = "(?!cbm1541")', rd(os.path.join(appdir, "gateware.toml"))) is not None    # a TOML A that describes the core's own drive block (not the shipped map)
-    drv = ["--bus", DRV_BUS % core, "--window", DRV_WINDOW] if own_drive else []
-    if own_drive:
+    own_drive = re.search(r'name = "drive_a"\nmodule = "(?!cbm1541")', rd(os.path.join(appdir, "gateware.toml"))) is not None    # a TOML A that describes the core's own drive block (not the shipped map): its drive window is a second bus of the same module
+    drv = ["--bus", BUS_DRV % core, "--window", WINDOW_DRV] if own_drive else []
+    if own_drive and not os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")):
         l += ["--list", "gideon_vhdl.tcl"]      # the drive's VHDL (drive_l2) is Gideon's file list, which a core's recipe sources itself
     p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW, *drv,
             "--toml-a", os.path.join(appdir, "gateware.toml"), "--maps", "app/sdkpkg/maps", *sum([["--define", d] for d in defines(core)], [])], cwd=ROOT)

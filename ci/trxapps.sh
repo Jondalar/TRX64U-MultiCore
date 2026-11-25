@@ -63,7 +63,7 @@ fi
 # switch everything to the generic core app for now", translated); the A500 (`amiga`) had it from 2026-10-24 (Alex: "the app must also be switched
 # to generic!", translated) until T239.5 D15: its own app now (cores/amiga/app, its source cores/amiga/app/lib/amiga.cc). cores/vc20/app/lib/vc20.cc and cores/c264/app/lib/c264.cc
 # replace the machine code of the fork branch t90-c16app.
-BLUEPRINT_CORES="${BLUEPRINT_CORES:-apple2 zx cpc snes pet ddt_novic diag}"
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-apple2 snes diag}"
 # T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the
 # shared image. The VIC-20 is the first (S11); the shared image holds none of its code (no core table entry, no source in the Makefile), the packages' coreapps/vc20.app is the linked app.
 # T239.3 V-5 (D25): the stage key holds every cores/*/app tree and the output of list-own-app (it follows the `pipeline` flag of the core.toml files), so a new TOML B or a changed flag is a new key. The list is the cores whose TOML B names a descriptor ([app] desc, tools/core_toml.py list-own-app), not a name written here; a core of it that is also in BLUEPRINT_CORES would get the shared image

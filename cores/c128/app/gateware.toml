@@ -1,0 +1,478 @@
+# TOML A of the C128 core (T239.3 D55, T239.5 D16): the gateware's registers as capabilities. The emitter (tools/rtl_check.py emit) wrote the first form from the RTL; the blocks, the names and the
+# fields are from cores/c128/c128_regs.v (the core's own register page E, c128_act.v for its activity words) and cores/c64u/c64u_io.v (the C64U window the core keeps for the rest of
+# the window: identity, interrupts, the tape pins). tools/rtl_check.py check proves every property against the RTL (the core window: the cw_* ports of layer2_c128; the host decodes
+# 0x101A0000-0x101AFFFF to them, so the app's register offset is the address minus 0x101A0000; the drive window 0x10020000 is the drv_io_* port of the same module).
+# Not described: the pages of the C64U window that the core's code does not use and that no shipped driver names (the cartridge page 4, the expansion port page 7, the streams, the UCI, the
+# tape streamer and recorder pages C and D, the reSID8 and socket controls, the sampler window), and page 6 beyond the two registers of the capture: it is the host's pixel layer.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "C128"
+block = "ident"
+
+# 000-003: the ID "C128" (layer2_c128.v answers bytes 0-3 itself, byte 0 first), 004 caps, 005 caps2, 006 caps3 and 008-00B the build word come from c64u_io.v (the C64U window the core keeps for everything but page E)
+[[block]]
+name = "ident"
+module = "layer2_c128"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps3"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears) of the C64U window: b4 flash operation pending, b5 EEPROM written, b6 video frame start, b7 page flip done; 018 LEVEL_IRQ (live levels, not masked), 019 LEVEL_IRQ_EN. The core's own interrupt cause is page E (block page_irq)
+[[block]]
+name = "irq"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0010
+size = 0xA
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "level_irq"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "level_irq_en"
+  offset = 0x9
+  width = 8
+  dir = "rw"
+
+# 020-027: the DDR2 controller's calibration result, read only
+[[block]]
+name = "ddr_cal"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "cal"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "cal_hi"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 070-073: the capability word, host_caps | this core's bits (layer2_c128.v core_caps)
+[[block]]
+name = "core_caps"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0070
+size = 0x4
+  [[block.property]]
+  name = "caps"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+# 078 PIN_CTRL: reset 0 = every pin released. b0 drive MOTOR with the machine's motor bit, b1 drive WRITE with the machine's write line, b2 drive READ with the streamer's line, b3 SENSE pulled low while the streamer or the recorder ask for it, b4 the SENSE and READ pins feed the machine (an external datasette), b5 drive PADDLE_DIS (layer2_c128.v pin_ctrl)
+[[block]]
+name = "tape"
+module = "c64u_io"
+owner = "core"
+address = 0x101A0078
+size = 0x1
+  [[block.property]]
+  name = "pin_ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# 6000-6FFF is the host's pixel layer (host/pix_layer.v), which the C64U window passes through. The two registers the app uses: still_base (32 bit write, the byte at +3 commits) is the DDR2 address of the picture capture of the VIC, still_status (read) b0 valid, b1 60 Hz, b3:2 the slot of the last complete frame, b31:8 the frames captured
+[[block]]
+name = "pixel"
+module = "pix_layer"
+owner = "core"
+address = 0x101A6064
+size = 0x8
+  [[block.property]]
+  name = "still_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "still_status"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# E000-E004: the C128 page's own ID and layout version (c128_regs.v)
+[[block]]
+name = "page_id"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE000
+size = 0x5
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+
+# E010 IRQ_EN, E014 IRQ_CAUSE (write 1 clears): b0 a VDC frame is complete, b1 the monitor-switch key, b2 the 40/80 key; the line is (irq_en & cause) != 0 (cw_irq)
+[[block]]
+name = "page_irq"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "vdc_frame"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "mon_key"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "d4080_key"
+    shift = 2
+    bits = 1
+
+# E020 mon_sel b0 = 1: the 80 column picture (the VDC) is shown, toggled by the monitor-switch key; E021 d4080 b0 the 40/80 DISPLAY switch ($D505 bit 7 reads it, 1 = 80 columns); E022 capslk b0 the CAPS LOCK latch; E023 boot64 b0 start like a C64, taken at the core's reset; E024 joy_swap b0 the host's joystick ports 1 and 2 are swapped before the core, live; E028-E02A xkeys: the USB keyboard's extra keys K0-K2, byte n = column Kn, bit r = row r, 1 = pressed; E02B xspecial: levels acted on at the rising edge, b0 CAPS LOCK, b1 40/80, b2 monitor switch; E030 status: the bits of the signals named (layer2_c128.v c128_status: b0 c128_n, b1 z80_act, b2 fast_en, b3 c64_halted = held by Freeze, b4 vmode_sys == 0); all settings but status are back at their reset values by a cold start
+[[block]]
+name = "machine"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE020
+size = 0x11
+  [[block.property]]
+  name = "mon_sel"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "d4080"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "capslk"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "boot64"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy_swap"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "xkeys"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  count = 3
+  stride = 1
+  [[block.property]]
+  name = "xspecial"
+  offset = 0xB
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "c128_n"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "z80_act"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "fast_en"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "vmode0"
+    shift = 4
+    bits = 1
+
+# E040 ctrl: write b0 flushes the ROM line cache, read b0 the flush is running; E044 hits, E048 misses (32 bit); E050 base: the DDR2 byte address of the system ROM image (0x01C00000)
+[[block]]
+name = "rom"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE040
+size = 0x14
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "hits"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "misses"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "base"
+  offset = 0x10
+  width = 32
+  dir = "r"
+
+# E060 fb_latest b7 valid, b2 the picture is woven, b1:0 the buffer of the newest complete VDC picture; E061 frame_seq; E062 fb_overruns; E064 fb_base and E068 fb_stride (reset values 0x01D00000 and 0x00100000: three buffers of 640 x 480 RGB565); E070 vdc_ctrl b0 the frame writer is enabled (reset 1)
+[[block]]
+name = "video"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE060
+size = 0x11
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+  [[block.property]]
+  name = "vdc_ctrl"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 1
+
+# E080: write b0 = 1 starts a cold start (the core's reset is pulsed and held until the frame phase of the power-on start comes round, the settings of this page take their reset values); read b0 = the cold start is running
+[[block]]
+name = "cold"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE080
+size = 0x1
+  [[block.property]]
+  name = "cold"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# E090/E091 addr (13 bit): the byte address of the character ROM store, byte i = byte 0x10000 + i of the system ROM image; E092 data: write stores the byte at addr and adds 1, read gives the byte at addr (two clocks after an addr write) and adds 1
+[[block]]
+name = "chr"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE090
+size = 0x3
+  [[block.property]]
+  name = "addr"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "data"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+# E0A0 rom_waits: CPU cycles held by a missed ROM line (32 bit); E0A4 rom_fillmax: the longest line fetch in core clocks; E0B0 fr_min, E0B4 fr_max: the shortest and the longest VIC frame in core clocks since the last clear (20 bit each: the low 16 bits and a byte); E0B8 dbg_clr: any write clears both; E0C0-E0C9 ram_*: counters of the RAM in the DDR2 (0 in a build with block RAM): VIC reads answered $FF, CPU reads held by a cache or slot miss, DDR2 line reads, writes that found the write FIFO full (must stay 0), VIC reads of RAM block 1
+[[block]]
+name = "perf"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE0A0
+size = 0x2A
+  [[block.property]]
+  name = "rom_waits"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "rom_fillmax"
+  offset = 0x4
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_min"
+  offset = 0x10
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_min_hi"
+  offset = 0x12
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fr_max"
+  offset = 0x14
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_max_hi"
+  offset = 0x16
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "dbg_clr"
+  offset = 0x18
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "ram_vic_ff"
+  offset = 0x20
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "ram_cpu_wait"
+  offset = 0x22
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "ram_fetch"
+  offset = 0x24
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "ram_wlost"
+  offset = 0x26
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "ram_blk1"
+  offset = 0x28
+  width = 16
+  dir = "r"
+
+# E0D0-E0D4 (c128_act.v): which chip is being used, per VIC frame, of the last complete one. vic: CPU writes to the VIC's registers $D000-$D02E, cram: to the colour RAM, vdc: to the VDC's data register $D601 (8 bit each, saturating at 255); flags b0 the VIC's DEN at the end of the frame; seq the frame number (wraps): read it before and after the others, they belong together when it is the same
+[[block]]
+name = "act"
+module = "c128_regs"
+owner = "core"
+address = 0x101AE0D0
+size = 0x5
+  [[block.property]]
+  name = "vic"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "cram"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "vdc"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "flags"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "seq"
+  offset = 0x4
+  width = 8
+  dir = "r"
+# 0x10020000: the drive of the core (Gideon's mm_drive, c64u_drive_l2 behind drv_io_*): the 1541 or the 1581 as the app selects, with the shipped maps cbm1541 (the 1541 and the parameter RAM) and wd177x (the 1581's controller)
+[[block]]
+name = "drive_a"
+module = "c64u_drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x1800
+map = "cbm1541"
+
+[[block]]
+name = "drive_wd"
+module = "c64u_drive_l2"
+owner = "core"
+address = 0x10021800
+size = 0x10
+map = "wd177x"

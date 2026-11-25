@@ -22,7 +22,7 @@ if [ ! -x "$build/obj/tb_c64scpu" ]; then
 fi
 w="$build/prgrun_$(echo $cases | tr " " _)"; rm -rf "$w"; mkdir -p "$w"
 eval "$(python3 -I "$here/prgrun_gen.py" scpu "$w" | sed 's/ /\n/g' | sed 's/^/G_/')"
-c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/app/loaders" -I"$root/app/video" || exit 1
+c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/cores/c128/app/lib" -I"$root/app/loaders" -I"$root/app/video" || exit 1
 rc=0
 for cs in $cases; do
   run="$w/$cs"; mkdir -p "$run"; cp -a "$build/run/." "$run/"

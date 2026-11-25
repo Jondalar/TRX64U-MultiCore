@@ -11,13 +11,8 @@ const CoreDesc *const core_table[] = { 0 };
 #else
 const CoreDesc *const core_table[] = {
     &apple2_desc,
-    &zx_desc,
-    &cpc_desc,
-    &pet_desc,
-    &c128_desc,
     &c64scpu_desc,
     &snes_desc,
-    &ddt_novic_desc,
     &portdiag_desc,
     0
 };

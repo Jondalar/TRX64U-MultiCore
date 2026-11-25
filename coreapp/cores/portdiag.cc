@@ -47,7 +47,7 @@ static const char *st_last(CoreCtx *) { return g_last; }
 // ---- the A/V page (T201): one row per knob of the test picture's encoder (gateware cores/diag/rtl/diag_avout.v), live ----------------------------------------------
 // The rows are the descriptor's settings (the "Port Diagnostics Settings" tab), built from the knob table of the test runner (diagtest.cc) so a test file and the page name the same values.
 // A row writes its register at once; its value stays in the core's .cfg like any setting. The standard also sets the System Mode (the clock the subcarrier constant is for), as the C128's does.
-static const uint8_t av_sysfmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };            // C64_VIDEOFORMAT per mode, as cores/c128.cc sysmode_fmt
+static const uint8_t av_sysfmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };            // C64_VIDEOFORMAT per mode, as cores/c128/app/lib/c128.cc sysmode_fmt
 
 static void av_put(CoreCtx *c, int k, int idx)
 {
