@@ -250,6 +250,31 @@ int screens_headings(char out[][40], int max)
     return k;
 }
 
+// T262 D4: a window never leaves empty space below the last row while rows stand above it (rows hid, or the selection is on none of them): the first unit moves up until the
+// units from it to the end fill the room, and is 0 when all of them fit.
+static int fill_first(int n, int first, int avail)
+{
+    if (first >= n || first < 0) {
+        first = 0;
+    }
+    int total = 0;
+    for (int k = 0; k < n; k++) {
+        total += g_u[k].h;
+    }
+    if (total <= avail) {
+        return 0;
+    }
+    int below = 0;
+    for (int k = first; k < n; k++) {
+        below += g_u[k].h;
+    }
+    while (first > 0 && below + g_u[first - 1].h <= avail) {
+        first--;
+        below += g_u[first].h;
+    }
+    return first;
+}
+
 // The first unit of the window that holds the selected item and as many units around it as fit in `avail` pixels; `first` is where the last one began.
 static int window_first(int n, int sel, int first, int avail)
 {
@@ -260,7 +285,7 @@ static int window_first(int n, int sel, int first, int avail)
         }
     }
     if (su < 0) {
-        return first < n ? first : 0;
+        return fill_first(n, first, avail);
     }
     {                                                                  // a window that does not start on a heading carries the heading of its group (sticky): one heading row of the room
         int tot = 0, hd = 0;
@@ -295,23 +320,7 @@ static int window_first(int n, int sel, int first, int avail)
     if (first > 0 && g_u[first - 1].heading && first == su) {          // the heading above the first row stays with it
         first--;
     }
-    int total = 0;
-    for (int k = 0; k < n; k++) {
-        total += g_u[k].h;
-    }
-    if (total <= avail) {
-        first = 0;
-    } else {                                                           // no empty space below the last row when the window can be filled
-        int below = 0;
-        for (int k = first; k < n; k++) {
-            below += g_u[k].h;
-        }
-        while (first > 0 && below + g_u[first - 1].h <= avail) {
-            first--;
-            below += g_u[first].h;
-        }
-    }
-    return first;
+    return fill_first(n, first, avail);
 }
 
 static int main_avail(bool bar, bool status)

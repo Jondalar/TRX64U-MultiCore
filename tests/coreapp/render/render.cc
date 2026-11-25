@@ -2373,6 +2373,68 @@ static void t262_rows(const char *out)
     CHECK(px2 > 0 && px2 < 100000);
 }
 
+// T262 D4 (10): a form that scrolled keeps no empty space below its last row when rows hide. The selection stands on the button of the bar (not a row of the list), so the window
+// has no row to follow: it must still be filled from the end.
+static const char *g_t262_hide = 0;
+static int t262_noop(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+static const char *t262_hide_state(CoreCtx *) { return g_t262_hide; }
+static void t262_form_scroll(const char *out)
+{
+    static const LibTabDecl tabs[] = { { "F5", "form", "Form", TW_NODES, 0, 0 } };
+    static const char *const looks[] = { "split;title=Form;side=Side", 0 };
+    static char labels[30][16];
+    static LibNodeDecl nodes[31];
+    for (int i = 0; i < 30; i++) {
+        snprintf(labels[i], sizeof(labels[i]), "Field %d", i);
+        nodes[i] = { "F5/form", LN_OP, labels[i], "t262.noop", 0, (int16_t)(i + 1), 0, 0, 0, 0, 0, false, i >= 18 ? "hide=@t262.hide" : 0 };
+    }
+    nodes[30] = { "F5/form/bar", LN_OP, "Go", "t262.noop", 0, 100, 0, 0, 0, 0, 0, false, "primary" };
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    rec.tabs = tabs; rec.ntabs = 1;
+    rec.nodes = nodes; rec.nnodes = 31;
+    rec.tab_layouts = looks;
+    Contributor cs[] = { { "t262f", CR_LIB, &rec } };
+    CoreDesc *base = board_desc(&atari800_desc);
+    Rig c(base, "/usb0/cores/t262f.cfg");
+    c.c.started = true;
+    OpRegistry *reg = ops_of(&c.c);
+    reg->contributor("t262f");
+    reg->add_op("t262.noop", 0, 0, t262_noop);
+    reg->add_state("t262.hide", t262_hide_state);
+    static CoreDesc merged;
+    static MenuMerge mm;
+    g_t262_hide = 0;
+    CHECK(contrib_merge(base, 0, 0, cs, 1, reg, &merged, &mm) == 0);
+    c.c.desc = &merged; c.c.merge = &mm;
+    ui_open(&merged);
+    c.m->rebuild();
+    c.m->open();
+    CHECK(c.m->goto_spec("F5/form"));
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    auto shown = [&]() { int k = 0; char nm[16]; for (int i = 0; i < 30; i++) { snprintf(nm, sizeof(nm), "Field %d", i); k += find_label(lv_screen_active(), nm) != 0; } return k; };
+    const int full = shown();                                              // the rows one window holds
+    CHECK(full > 4 && full < 18);
+    for (int i = 0; i < 20; i++) {                                         // down the rows: the window scrolls
+        c.m->key(KEY_DOWN);
+        ui_menu_render(*c.m);
+    }
+    CHECK(find_label(lv_screen_active(), "Field 0") == 0);                 // the first rows are above the window now
+    c.m->key(KEY_END);                                                     // the bar's button: no row of the list holds the selection
+    ui_menu_render(*c.m);
+    g_t262_hide = "1";                                                     // rows 18 .. 29 hide: 18 rows stay, more than one window holds, the window began below row 8
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(shown() >= full);                                               // the window is full to its last row, no empty space under "Field 17"
+    CHECK(find_label(lv_screen_active(), "Field 17") != 0);
+    char p[512];
+    snprintf(p, sizeof(p), "%s/t262-form-scroll.png", out);
+    png(p, 2);
+    printf("PASS t262 form scroll: rows hid under a scrolled window, the window is full to the last row\n");
+}
+
 // T262 P1: the page of a `list` node draws what its rows carry: one line per row (name, the right column in the row's tone), the selected row's side lines in the side panel
 // (not in the foot line). At 480p, 720p and 1080p: the tone is drawn, the panel holds the lines, no text lies on another, the selection stays in view.
 static std::string g_t262_list;
@@ -2492,6 +2554,7 @@ int main(int argc, char **argv)
 
     if (getenv("T262_ONLY")) {                                      // T262 P9: only the area of a key that runs an operation
         t262_rows(out);
+        t262_form_scroll(out);
         t262_list(out);
         printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
@@ -3050,6 +3113,7 @@ int main(int argc, char **argv)
     pm_page_fixtures(out);
     ux_wifi(out);
     t262_rows(out);
+    t262_form_scroll(out);
     t262_list(out);
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
