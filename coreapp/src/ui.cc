@@ -290,6 +290,20 @@ static uint32_t g_inplace;                         // window moves and value cha
 static lv_obj_t *g_pos;                            // the "a-b of n" label of the kept list
 static lv_obj_t *g_status;                         // the status line at the pane's foot
 static lv_obj_t *g_title;                          // the pane's title line (the tab's name, or the browser's path)
+// The pane's title line is one line (UX R5): a long path is cut in the middle to the room the line has, never wrapped into the rows below it.
+static const char *title_fit(const char *s, char *buf, int n)
+{
+    return trx_fit_mid(s, trx_content_w() - 2 * trx_theme().space_lg - 240 - 4, trx_theme().display, buf, n);
+}
+static void title_set(lv_obj_t *l, const char *s)
+{
+    const int room = trx_content_w() - 2 * trx_theme().space_lg - 240;
+    const int tw = trx_text_w(s, trx_theme().display) + 4;
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_CLIP);
+    lv_label_set_text(l, s);
+    lv_obj_set_width(l, tw < room ? tw : room);
+}
+
 static bool g_status_bad;
 #define UI_HOME_MAX 24
 static lv_obj_t *g_home[UI_HOME_MAX];                // the Home panel's status rows, kept so a selection move there restyles two of them
@@ -788,11 +802,12 @@ static bool listv_inplace(MenuCtl &m)
         trx_row_select(g_lv_row[i], w.first + i == sel);
         g_lv_h[i] = h;
     }
-    if (g_title && strcmp(lv_label_get_text(g_title), m.title())) {
-        const int room = trx_content_w() - 2 * t.space_lg - 240;
-        const int tw = trx_text_w(m.title(), t.display) + 4;
-        lv_obj_set_width(g_title, tw < room ? tw : room);
-        lv_label_set_text(g_title, m.title());
+    if (g_title) {
+        char tb[320];
+        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+        if (strcmp(lv_label_get_text(g_title), ft)) {
+            title_set(g_title, ft);
+        }
     }
     if (g_pos && w.count < m.rows()) {
         char pos[64];
@@ -954,11 +969,12 @@ void ui_menu_render(MenuCtl &m)
                 }
                 g_rown = w.count;
                 if (ok) {
-                    if (g_title && strcmp(lv_label_get_text(g_title), m.title())) {
-                        int room = trx_content_w() - 2 * t.space_lg - 240;
-                        int tw = trx_text_w(m.title(), t.display) + 4;
-                        lv_obj_set_width(g_title, tw < room ? tw : room);
-                        lv_label_set_text(g_title, m.title());
+                    if (g_title) {
+                        char tb[320];
+                        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+                        if (strcmp(lv_label_get_text(g_title), ft)) {
+                            title_set(g_title, ft);
+                        }
                     }
                     if (g_pos && w.count < m.rows()) {
                         char pos[64];
@@ -991,9 +1007,9 @@ void ui_menu_render(MenuCtl &m)
     // the title line of the pane: the tab's name, or the browser's path
     int x = t.space_lg;
     int y = t.space_md;
-    int title_room = trx_content_w() - 2 * x - 240;
-    lv_obj_t *title = trx_txt(c, x, y, m.title(), t.display, t.ink, title_room);
-    lv_obj_set_width(title, trx_text_w(m.title(), t.display) + 4 < title_room ? trx_text_w(m.title(), t.display) + 4 : title_room);
+    char tb0[320];
+    lv_obj_t *title = trx_txt(c, x, y, "", t.display, t.ink, 0);
+    title_set(title, title_fit(m.title(), tb0, sizeof(tb0)));
     y += 26;
 
     // Home is the prototype's dashboard, not a list: the running machine on the left, the status rows

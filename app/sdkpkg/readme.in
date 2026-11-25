@@ -238,6 +238,7 @@ One round of fixes for the defects TRX64-Ultimate found in 0.5.0. The base API i
 A patch on 0.5.1: the base API stays 3.6, no header changes.
 
 - **browse_at and browse_sheet from a list row and an ask_list answer.** The calls took the menu to the browser only from a node row's operation; from the operation of a `list` row or of an `ask_list` answer they did nothing and the request stayed pending until a later row. They now work there (`api.md` 4.14.15, 4.14.16).
+- **A long folder path in the Library's header no longer wraps into the first row.** The header of the browser is one line: a path that does not fit is cut in the middle with an ellipsis, so its start and its last folder stay visible.
 
 ## Licence
 

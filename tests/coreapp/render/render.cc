@@ -2435,6 +2435,65 @@ static void t262_form_scroll(const char *out)
     printf("PASS t262 form scroll: rows hid under a scrolled window, the window is full to the last row\n");
 }
 
+// T262 D5 finding 16: the Library's path header is one line. A long folder name is cut in the middle (UX R5), it does not wrap into the first row (R2).
+static void t262_path_header(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "480p", 640, 480 }, { "720p", 1280, 720 }, { "1080p", 1920, 1080 } };
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        ui_set_canvas(want.w, want.h);
+        CoreDesc *base = board_desc(&atari800_desc);
+        Rig c(base, "/usb0/cores/t262p.cfg");
+        c.fs.put_text("/usb0/ONLINE/ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]/pic1.atr", "x");
+        c.fs.put_text("/usb0/ONLINE/ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]/pic2.atr", "x");
+        ui_open(base);
+        c.m->open();
+        c.m->key(KEY_F3);
+        ui_menu_render(*c.m); lv_timer_handler();
+        c.m->relist();
+        ui_menu_render(*c.m); lv_timer_handler();
+        const char *steps[] = { "usb0", "ONLINE", "ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]" };
+        for (const char *st : steps) {
+            int r = find_dir_row(c, st);
+            CHECK(r >= 0);
+            if (r < 0) { break; }
+            select_row(c, r);
+            c.m->key(KEY_RETURN);
+            ui_menu_render(*c.m); lv_timer_handler();
+            c.m->relist();
+            ui_menu_render(*c.m); lv_timer_handler();
+        }
+        char tag[64];
+        snprintf(tag, sizeof(tag), "t262 path header %s", cv.name);
+        lv_obj_t *scr = lv_screen_active();
+        lv_obj_update_layout(scr);
+        lv_obj_t *hd = find_label(scr, "/usb0");
+        lv_obj_t *r0 = find_label(scr, "..");
+        CHECK(strstr(c.m->title(), "ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]") != 0);
+        CHECK(hd && r0);
+        if (hd && r0) {
+            lv_area_t ah, ar;
+            lv_obj_get_coords(hd, &ah);
+            lv_obj_get_coords(r0, &ar);
+            const int lh = lv_font_get_line_height(trx_theme().display);
+            const bool one_line = (ah.y2 - ah.y1 + 1) <= lh + 2;
+            const bool clear = ah.y2 < ar.y1 || ah.x2 < ar.x1 || ar.x2 < ah.x1;
+            printf("%s: header \"%s\" [%d,%d - %d,%d] first row [%d,%d - %d,%d] line %d px\n", tag, lv_label_get_text(hd), ah.x1, ah.y1, ah.x2, ah.y2, ar.x1, ar.y1, ar.x2, ar.y2, lh);
+            CHECK(one_line);
+            CHECK(clear);
+            CHECK(strchr(lv_label_get_text(hd), '\n') == 0);
+            if (one_line && clear) { printf("PASS t262 path header %s: one line, clear of the first row\n", cv.name); }
+        }
+        CHECK(txt_overlaps(tag) == 0);
+        char fn[512];
+        snprintf(fn, sizeof(fn), "%s/t262-path-%s.png", out, cv.name);
+        lv_obj_invalidate(scr);
+        lv_timer_handler();
+        if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+    }
+    ui_set_canvas(960, 540);
+}
+
 // T262 P1: the page of a `list` node draws what its rows carry: one line per row (name, the right column in the row's tone), the selected row's side lines in the side panel
 // (not in the foot line). At 480p, 720p and 1080p: the tone is drawn, the panel holds the lines, no text lies on another, the selection stays in view.
 static std::string g_t262_list;
@@ -2629,6 +2688,7 @@ int main(int argc, char **argv)
         t262_form_scroll(out);
         t262_list(out);
         t262_search_tab(out);
+        t262_path_header(out);
         printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
     }
@@ -3189,6 +3249,7 @@ int main(int argc, char **argv)
     t262_form_scroll(out);
     t262_list(out);
     t262_search_tab(out);
+    t262_path_header(out);
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
