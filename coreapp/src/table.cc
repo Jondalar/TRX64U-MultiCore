@@ -17,7 +17,6 @@ const CoreDesc *const core_table[] = {
     &c128_desc,
     &c64scpu_desc,
     &snes_desc,
-    &amiga_desc,
     &ddt_novic_desc,
     &portdiag_desc,
     0

@@ -236,7 +236,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			ringfile.cc \
 			libfiles.cc \
 			kickstart.cc \
-			amiga.cc \
 			fm_fs.cc \
 			fm_medium.cc \
 			mediasniff.cc \

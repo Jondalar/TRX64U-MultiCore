@@ -13,6 +13,7 @@
   3c. the Commodore 264 (T239.5 D15): cores/c264/app/gateware.toml against the files of cores/c264/core_sources.tcl, the requests being the five cw_* ports of layer2_c264 and, for its own drive_a, its drv_io_* ports.
   3d. the ZX Spectrum Next (T239.5 D15): cores/zxnext/app/gateware.toml against the files of cores/zxnext/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_zxnext.
   3e. the Neo Geo (T239.5 D15): cores/neogeo/app/gateware.toml against the files of cores/neogeo/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_neogeo.
+  3f. the Amiga 500 (T239.5 D15): cores/amiga/app/gateware.toml against the files of cores/amiga/core_sources.tcl, the request being the five cw_* ports of layer2_amiga (the A500's own amiga_regs.v).
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   2c. the miniature design tests/rtl_check/mini3 (V-1d): a handshake into a module with a register pipeline (c_addr, op_a), another master loading the same register, a Verilog
@@ -157,6 +158,12 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--bus", "layer2_neogeo:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "neogeo", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "14 block(s), 56 properties agree" in out, "neogeo: 14 blocks, 56 properties of gateware.toml agree with the RTL of the core window (neo_regs.v: the identity, the IRQ pair, the DDR2 calibration, the machine, the hold counters, the frame buffers, the DDR2 bases, the mover, the clock, the pads, the ROM masks, the memory side's counters, the copy engine, the line cache counters; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/amiga/core_sources.tcl",
+              "--top", "layer2_amiga",
+              "--bus", "layer2_amiga:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "amiga", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "16 block(s), 48 properties agree" in out, "amiga: 16 blocks, 48 properties of gateware.toml agree with the RTL of the core window (the A500's own amiga_regs.v: the identity and its FEATURES word, the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the statistics selector, the clock, the four floppy drives, the two hard disks, the sector mailbox, the mouse, the raw keys, the second game port's pad, the floppy write log; no display window and no crop window, which only the A1200's copy has; page 6 is the hand-over to the host's pixel layer)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))

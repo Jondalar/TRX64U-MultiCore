@@ -54,7 +54,7 @@ CORES = [
          sources="cores/c264/app/lib/c264.cc (roms[], names and sizes); cores/c264/app/lib/c264_regs.h"),
     dict(id="amiga1200", match=("amiga 1200",), title="Amiga 1200 (AGA, 68020)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 3.1", needed="one Kickstart (3.x for the hard disk)",
-         sources="coreapp/cores/amiga.cc:34,223 (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
+         sources="cores/amiga1200/app/lib/amiga1200.cc (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
     dict(id="c64scpu", match=("supercpu",), title="C64 with SuperCPU", folder="c64scpu",
          files="the SuperCPU ROM of 131,072, 65,536 or 262,144 bytes (`scpu64.rom`, `scpu.rom`, `supercpu.rom` or `scpu64-v2.04.rom`); "
                "`basic-901226-01.bin` (8,192), `kernal-901227-03.bin` (8,192), `chargen-901225-01.bin` (4,096); optional: the 1541 ROM "
@@ -71,7 +71,7 @@ CORES = [
          sources="coreapp/cores/pet.cc (roms[], names and sizes)"),
     dict(id="amiga", match=("amiga (ocs", "amiga 500"), title="Amiga (OCS/ECS, 68000)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 1.3", needed="one Kickstart",
-         sources="coreapp/cores/amiga.cc:32,148-154,181; coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
+         sources="cores/amiga/app/lib/amiga.cc (variant table, Kickstart, folder); coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
     dict(id="atari800", match=("atari",), title="Atari 800 XL", folder="atari800",
          files="`ATARIXL.ROM` 16,384; `BASIC.ROM` or `ATARIBAS.ROM` 8,192 bytes", needed="both",
          sources="cores/atari800/app/lib/atari800.cc:72-75; cores/atari800/app/lib/atari800_regs.h:43-44; coreapp/src/romfind.cc:59-130"),

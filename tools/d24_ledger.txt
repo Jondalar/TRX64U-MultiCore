@@ -2,9 +2,6 @@
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
 exception coreapp/src/u64cfg.cc +1033 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-file coreapp/cores/amiga.cc 330
-file coreapp/cores/amiga_keys.h 23
-file coreapp/cores/amiga_regs.h 62
 file coreapp/cores/apple2.cc 340
 file coreapp/cores/apple2_disk.cc 470
 file coreapp/cores/apple2_disk.h 71
@@ -32,7 +29,7 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 16
+file coreapp/cores/cores.h 15
 file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27

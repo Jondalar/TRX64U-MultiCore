@@ -59,11 +59,11 @@ fi
 # `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's application for it. trx64u is TRX64-Ultimate's (T239.3 D21):
 # its application is built there, and this stage builds none for it.
 # Every core whose core.toml says blueprint is in the list below. The A1200 ran the generic image from 2026-10-20 (T104) until T213.3: it has its
-# own app now, built by its matrix lane (ci/lane.sh core:amiga1200), not by this stage (T239.5 D13). vc20 (since V-4 its own app, SDK_OWN_APPS), atari800 (its own app since T239.5 D15, SDK_OWN_APPS), nes, c264, zxnext and neogeo (large cores with an app of their own since T239.5 D15, SDK_OWN_APPS; c264 had the generic app since 2026-10-22, Alex: "apart from trx64 and c64u,
-# switch everything to the generic core app for now", translated); the A500 (`amiga`) has it since 2026-10-24 (Alex: "the app must also be switched
-# to generic!", translated). coreapp/cores/amiga.cc is the A500's source. cores/vc20/app/lib/vc20.cc and cores/c264/app/lib/c264.cc
+# own app now, built by its matrix lane (ci/lane.sh core:amiga1200), not by this stage (T239.5 D13). vc20 (since V-4 its own app, SDK_OWN_APPS), atari800 (its own app since T239.5 D15, SDK_OWN_APPS), nes, c264, zxnext, neogeo and amiga (large cores with an app of their own since T239.5 D15, SDK_OWN_APPS; c264 had the generic app since 2026-10-22, Alex: "apart from trx64 and c64u,
+# switch everything to the generic core app for now", translated); the A500 (`amiga`) had it from 2026-10-24 (Alex: "the app must also be switched
+# to generic!", translated) until T239.5 D15: its own app now (cores/amiga/app, its source cores/amiga/app/lib/amiga.cc). cores/vc20/app/lib/vc20.cc and cores/c264/app/lib/c264.cc
 # replace the machine code of the fork branch t90-c16app.
-BLUEPRINT_CORES="${BLUEPRINT_CORES:-apple2 zx cpc snes pet amiga ddt_novic diag}"
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-apple2 zx cpc snes pet ddt_novic diag}"
 # T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the
 # shared image. The VIC-20 is the first (S11); the shared image holds none of its code (no core table entry, no source in the Makefile), the packages' coreapps/vc20.app is the linked app.
 # T239.3 V-5 (D25): the stage key holds every cores/*/app tree and the output of list-own-app (it follows the `pipeline` flag of the core.toml files), so a new TOML B or a changed flag is a new key. The list is the cores whose TOML B names a descriptor ([app] desc, tools/core_toml.py list-own-app), not a name written here; a core of it that is also in BLUEPRINT_CORES would get the shared image

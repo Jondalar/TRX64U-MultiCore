@@ -3,7 +3,7 @@ id           = "amiga"
 name         = "Amiga (OCS/ECS, 68000)"
 version      = "0.2.0"
 contract     = 2
-app          = "blueprint"     # T93: the core-application blueprint, Amiga first
+app          = "blueprint"     # the generic core application; the Amiga 500's record is amiga_desc: its own app cores/amiga/app (T239.5 D15), not the shared one (cores/amiga/app/lib/amiga.cc)
 order        = 3
 delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1 "Second cut": pb_l2 shrank to 13,200 LUT, the A500 is 14,298 LUT and no longer fits; Alex 2026-10-27:
                                # "VC20 usw - was nicht mehr DFX sein kann wird large Core. Einfach bauen.", translated: "VC20 etc. - whatever can no longer be DFX becomes a

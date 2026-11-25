@@ -1,9 +1,9 @@
 # Copied from ~/Development/u64-emulator/docs/examples/core-amiga1200.toml (S44, u64-emulator repository); keep in step with it.
 # S44: the A1200 core of TRX64U-MultiCore as the core application sees it (docs/specs/S44-multicore-cores.md).
 #   ue2emu run --trx-io --c64 none --core docs/examples/core-amiga1200.toml --firmware coreapp.elf ...
-# Registers from TRX64U-MultiCore coreapp/cores/amiga_regs.h; the MultiCore repo keeps the profiles of its cores.
+# Registers from TRX64U-MultiCore cores/amiga1200/app/gateware.toml; the MultiCore repo keeps the profiles of its cores.
 name = "amiga1200"
-id = "AMIG"                  # amiga.cc: the gateware's one ID word, shared with the A500
+id = "AMIG"                  # the gateware's one ID word, shared with the A500
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [ro]

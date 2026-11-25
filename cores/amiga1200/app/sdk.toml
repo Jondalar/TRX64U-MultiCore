@@ -19,8 +19,8 @@ base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count",
 # coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
 base_sources = ["portdiag.cc"]
 
-# The core's own code: its descriptor and hooks (init, release, the poll and the pad operations, the register map). Its files are in cores/amiga1200/app/lib: amiga1200.cc is the A1200's record of
-# coreapp/cores/amiga.cc (which the shared app keeps, with the A500's and the A1200's records, T213.3 P6).
+# The core's own code: its descriptor and hooks (init, release, the poll and the pad operations, the register map). Its files are in cores/amiga1200/app/lib: amiga1200.cc is the A1200's record, as
+# cores/amiga/app/lib/amiga.cc is the A500's (the Amiga 500's own app, T239.5 D15).
 [[library]]
 name = "amiga1200"
 sources = ["amiga1200.cc"]
