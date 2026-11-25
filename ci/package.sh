@@ -97,10 +97,7 @@ cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapp
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
 [ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
-# T228 R21: the cartridge tools and Softboot, shipped the same way (the updater copies every .u2a beside the update file into <cores>/apps)
-for a in trex_crt softboot online; do
-  [ -s "$trxapps/$a.u2a" ] && cp "$trxapps/$a.u2a" "$out/" || mark_red package "$a" "stage trxapps made no $a.u2a"
-done
+# T261 D6: trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features; TRX64-Ultimate builds and delivers them, this package does not
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"
 # T172: the host app is cached by the content of its tree, so the version string it was built with is that of the run that filled the cache. The
 # copy that ships is stamped with this run's version (the field TRXVSTAMP: in the image, host-app/target/common/rules.mk), before the .txu and the
