@@ -88,14 +88,13 @@ CPCLIB="$ROOT/cores/cpc/app/lib"   # the CPC's library lives in its own reposito
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
-source "$TST/a8_drv.sh"
+source "$TST/own_drv.sh"
 source "$TST/nes_drv.sh"
 source "$TST/c264_drv.sh"
 source "$TST/zxnext_drv.sh"
 source "$TST/neogeo_drv.sh"
 source "$TST/amiga_drv.sh"
-source "$TST/shared_drv.sh"
-a8_drv_dir "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
+own_drv_dir atari800 "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
 zxnext_drv_dir "$T/zxnexttab" || { echo "coreapp: the ZX Spectrum Next's driver table was not generated" >&2; exit 1; }   # zxnext_regs.h names the registers through it
@@ -113,9 +112,10 @@ MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board im
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
 find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$DDTLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D13: the shared units use no moved core (each runs in its own app); the shared table holds no block of one
-shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/moved_decl.h" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+# T239.5 D13: the shared units use no core that moved to its own app (each runs in its app's group), so their table is the shared app's TOML A alone, its base blocks with it
+python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps" > /dev/null || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
+python3 "$ROOT/tools/descrec.py" basetab "$ROOT/coreapp/gateware/shared.toml" "$T/drv" > /dev/null || { echo "coreapp: the base table of the shared units was not generated" >&2; exit 1; }
+INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -423,7 +423,6 @@ run fs64 test_fs64.cc $ROMF
 # T104.2 (the generic application on the TRX64 Ultimate monolith). Controls break one expression of the product; the bench has to go red.
 # The C64 model (c64_model.h) is the bench's reading of ultimate_sys.vhd / trx_sys.v / trx_dbg.v, not the gateware: what the board does
 # is the board steps of the spec.
-ALLC="$BASEL board.cc start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc overlay.cc descrec.cc"
 
 # S2, S4, S11: the profile from the ICAP byte and the hand-over, the capabilities the probes strike, the settings file, the menu without a way back: the unit a8_board and its
 # controls (the cases stand on the Atari's descriptor, the stub monocore), built as its app (below); the NES's line is its app's unit nes_core

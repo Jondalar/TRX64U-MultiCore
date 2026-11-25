@@ -2,9 +2,8 @@
 # RTL, code to code: tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF
 # to the core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6
 # (0x101A6000-0x101A6FFF) is decoded by c264_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The 1541 block (0x10020000) belongs to
-# drive_l2 behind the drv_io_* ports of layer2_c264.v (second --bus of the check, below): the registers drive_l2 decodes, no WD177x. The blocks of the core are named c264_*: the shared native units compile
-# its library into one driver table with the other moved cores' libraries (tests/coreapp/shared_drv.sh), whose block names (machine, video, irq ...) are the same words. desc.toml names a register of this file
-# as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+# drive_l2 behind the drv_io_* ports of layer2_c264.v (second --bus of the check, below): the registers drive_l2 decodes, no WD177x. The blocks of the core are named c264_*.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
 [io]
 iobase = 0x10000000
 u2p_io_base = 0x10100000

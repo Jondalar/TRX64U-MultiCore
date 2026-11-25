@@ -4,7 +4,7 @@
 # window). Page 6 (0x101A6000) is decoded by amiga_regs and forwarded to the host's pixel layer (px_we, px_re), outside this file except for the one register the app reads (block am_pixel). The core has no 1541, no IEC
 # and no WD177x: the Amiga's floppies and hard disks are the registers of the blocks am_floppy, am_hdf and am_mbox, and the DDR2 window (Kickstart, ADF images, HDF staging sector, the frame buffers) is memory, not
 # registers: the offsets of it are in cores/amiga/app/lib/amiga_regs.h (AM_W_*). desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the
-# core are named am_* (except ident): the shared native units compile several moved cores' libraries into one driver table (tests/coreapp/shared_drv.sh), whose block names (machine, video, irq ...) are the same words.
+# core are named am_* (except ident).
 [io]
 iobase = 0x10000000
 u2p_io_base = 0x10100000

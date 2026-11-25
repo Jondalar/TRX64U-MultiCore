@@ -22,8 +22,8 @@ what=${1:-disk}
 out=$here/build
 mkdir -p "$out"
 prep() {
-  # atari800_regs.h names the registers through the driver table of the app (drvtab.h): made by prep (once, before the container runs) from the core's TOML A as the app's link makes it (tests/coreapp/a8_drv.sh)
-  ROOT=$root; . "$root/tests/coreapp/a8_drv.sh"; a8_drv_dir "$out/a8tab" || exit 1
+  # atari800_regs.h names the registers through the driver table of the app (drvtab.h): made by prep (once, before the container runs) from the core's TOML A as the app's link makes it (tests/coreapp/own_drv.sh)
+  ROOT=$root; . "$root/tests/coreapp/own_drv.sh"; own_drv_dir atari800 "$out/a8tab" || exit 1
   64tass -q -b --nostart -o "$out/bootdisk.bin" "$here/bootdisk.asm"
   python3 "$here/gen_disk.py" "$out/bootdisk.bin" "$out/boot.atr" > /dev/null
   python3 "$here/../machine/rom2hex.py" "$root/cores/atari800/roms/atarixl.rom" "$out/osxl.hex" > /dev/null
