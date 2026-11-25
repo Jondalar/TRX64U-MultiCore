@@ -91,6 +91,11 @@ Scenario: S6 trx64u.cor from their pre-release
 - **D5 Import:** the pin says `RELEASE=fw-<branch>-<sha8>`, `COR_FILE=trx64u.cor`, `COR_SHA256`, `COR_SIZE`; the builder's
   `imports.py` fetches the asset from that release of the builds repository; the contract
   `docs/contracts/trx64u-firmware-handover.md` changes on both sides in the same step. `trx64g` keeps its pin.
+- **D6 (Alex, 2026-11-25, translated: "ok, out, and TRX64-Ultimate must build that itself please"):** `trex_crt.u2a`, `softboot.u2a`
+  and `online.u2a` are trx64u's features (T239.3 D21, D44). MultiCore's SDK lane no longer builds or publishes them: `ci/trxapps.sh` part
+  `sdk` builds `testlib.u2a`, `unzip.u2a`, `miniz.u2a`, so an SDK release carries those three beside the tarball. TRX64-Ultimate builds the
+  three in its own pipeline from its own copy of `apps/trex_crt`, `apps/softboot`, `apps/online`; the copies here are deleted once theirs
+  build. `sdk-0.4.7-760763ec` (immutable) still holds them; the next SDK release does not.
 
 ## §4 Out
 
@@ -117,6 +122,8 @@ Scenario: S6 trx64u.cor from their pre-release
   deployment rules: `main`, `v*`, `t239.1`, `t239.3`); `integration` is added when the matrix runs there. `BUILDS_TOKEN` is a secret of the environment `builds`,
   not of the repository. Run 45569965584 (`1882f8375`) proved that a called workflow's job does not get it from naming the environment alone:
   `ci/publish_sdk.py: BUILDS_TOKEN is not set` (review 1.2 had warned). Fix: `secrets: inherit` on the `matrix:` call in `pipeline.yml`.
+  **S4 passed 2026-11-25:** run 45574274739 (`760763ec1`) green; it published `sdk-0.4.7-760763ec` (pre-release): `trx64-sdk-0.4.7.tar.gz`
+  (10,707,809 bytes), `miniz.u2a`, `online.u2a`, `softboot.u2a`, `testlib.u2a`, `trex_crt.u2a`, `unzip.u2a`, `SHA256SUMS`.
 - **Decision:** `ci/publish_sdk.py` stages the lane's `trx64-sdk-<version>.tar.gz` (version = `app/sdkpkg/SDK_VERSION`, must match the tarball name) and every `*.u2a`, writes a
   fresh `SHA256SUMS` (the lane's names `./x` and its `coreapp.map` are not published), lists the releases of the builds repository (newest first), takes the newest published
   one tagged `sdk-<version>-<8 hex>`, reads its `SHA256SUMS`, and publishes only when it differs from the one written here (every file, names and SHA-256:
@@ -162,6 +169,11 @@ Scenario: S6 trx64u.cor from their pre-release
   `a6dc4f1`: a row's bad configuration no longer stops the poll; the fw scratch build sets `TRX_CACHE=/scratch/trx`; `FW_BUILDS_REPO` defaults to
   `BUILDS_REPO`; `pull.yml` passes every `FW_` variable the README names.
 - **Deployed 2026-11-25:** `a6dc4f1` on the builder repository's `main`. Gitea variables: `FW_KEYCODE_REF=u20`, `FW_TRUSTED_BRANCHES=main,u20`
-  (TRX64-Ultimate's switch branch, ruleset `protected`; back to `main` when their switch is merged). `SOURCES` stays unset until `u20` is on GitHub.
+  (TRX64-Ultimate's switch branch, ruleset `protected`; back to `main` when their switch is merged). `SOURCES=multicore,fw` set once `u20`
+  (26be21a, `ci/keys.sh` + `ci/lib.sh`) was on GitHub.
+- **S3 passed 2026-11-25:** builder poll 4023 (`a6dc4f1`): `== source multicore`, `== source fw: Jondalar/TRX64-Ultimate`, `published
+  fw-bit-c64u-0dce5fff4ef99009 (8 assets, immutable=True)`, `approved environment bitstreams of run 45576354413` (their first run, `u20`
+  eaf121b); the entry came from `/cache/bit`, no Vivado. The release: pre-release, `c64_basic.bit`, `ddr2_test.bit`, `hdmi_test.bit`, `from`,
+  `key`, `wns.txt`, `reports.tar.gz`, `SHA256SUMS`. S2: the same poll and every poll since the deploy (4014-4023) green for MultiCore.
 - **P5 (outside):** done by Alex with the TRX64-Ultimate session: the App installed on their repository and the protection rule of `bitstreams`,
   `SRC_API_TOKEN` extended, environments `vivado`, `bitstreams`, `builds`; environment `builds` here allows `t239.3` (2026-11-25).
