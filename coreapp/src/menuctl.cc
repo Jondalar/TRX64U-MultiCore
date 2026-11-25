@@ -32,6 +32,7 @@ MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ 
     pick_more_ = false;
     follow_last_[0] = 0;
     close_req_ = false;
+    pump_close_ = false;
     entry_set_ = -1;
     le_init(&entry_le_, "", 40, 0);
     page_rows_ = 10;
@@ -2556,7 +2557,9 @@ bool MenuCtl::pend_tick(uint32_t now)
     const FileAction a = pend_act_;
     char f[FS_PATH_MAX];
     snprintf(f, sizeof(f), "%s", pend_file_);
-    run_action(a, f, pend_ask_);                                // still fetching: pending again (the status row says so); else it has run
+    if (run_action(a, f, pend_ask_) == R_CLOSE) {               // still fetching: pending again (the status row says so); else it has run, and a Run closes the menu as a key's would
+        (app_mode_ ? close_req_ : pump_close_) = true;
+    }
     return true;
 }
 

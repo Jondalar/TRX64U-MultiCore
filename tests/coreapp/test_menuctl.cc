@@ -202,6 +202,27 @@ int main()
     r.go_to("usb0/"); r.m->key(KEY_RETURN);
     CHECK_STR(r.m->title(), "/usb0");
     if (g_fails) {
+    // T262 P7: a Run that waited for its file closes the menu when it has run (pump raises it; the loop closes as for a key's R_CLOSE)
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/p.xex";
+        w.fs.loading_n = 2;
+        w.go_to("p.xex");
+        w.m->key(KEY_RETURN);                                     // the sheet
+        CHECK_EQ(w.m->key(KEY_RETURN), MenuCtl::R_REDRAW);         // Run: the file is not there yet
+        CHECK(w.m->action_pending() && !w.m->take_pump_close());
+        w.io.t += 300; w.m->pump(true);
+        CHECK(w.m->action_pending() && !w.m->take_pump_close());   // still fetching
+        w.io.t += 300; w.m->pump(true);
+        CHECK(!w.m->action_pending());                            // it has run
+        CHECK(w.m->take_pump_close());                            // ... and the menu is to close
+        CHECK(!w.m->take_pump_close());                           // once
+    }
     DONE("test_menuctl");                                      // the media level is wrong: what follows stands on it
     }
     CHECK(r.find_row("../") == 0);

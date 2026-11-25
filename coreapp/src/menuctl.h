@@ -120,6 +120,9 @@ public:
     bool take_screen();                                            // T228 R1: the screen an operation asked for (CoreCtx::want_screen, menu.screen) is shown; true: moved
     bool screen_way(const char *layout, char *out, int n) const;   // T228 R1: how the screen of that layout is opened (the keys help); false: none here
     void app_start();                                             // runs the open tab's `enter` operation (an application's screens)
+    // The controller's own clock ran an action that closes the menu (a Run after a fetch, pend_tick): the loop closes the menu as it does for a key's R_CLOSE; an application's session
+    // raises close_req_ instead (take_close_request).
+    bool take_pump_close() { bool r = pump_close_; pump_close_ = false; return r; }
     bool take_close_request() { bool r = close_req_; close_req_ = false; return r; }   // the application asked for its screens to close (follow = "close")
     bool follow_tick();                                            // the application asked for another tab through the first tab's `follow` state; true: moved
     bool locked(char *why, int n) const;                           // the open tab's `lock` state holds a reason: RUN/STOP does not close the screens now
@@ -429,6 +432,7 @@ private:
     bool app_mode_;
     char follow_last_[40];
     bool close_req_;
+    bool pump_close_;
     const Task *job_task_;
     char job_name_[FS_PATH_MAX];
     // the address prompt
