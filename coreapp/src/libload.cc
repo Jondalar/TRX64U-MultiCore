@@ -930,7 +930,7 @@ static bool exports_corehooks(const LibInfo *li)
 bool LibLoader::contributes(int handle) const
 {
     const LibInfo *li = info(handle);
-    return li && (record_contributes(li->record) || (li->menu && record_contributes(li->menu->rec)) || exports_corehooks(li));
+    return li && (record_contributes(li->record) || (li->menu && (record_contributes(li->menu->rec) || li->menu->nkeys > 0)) || exports_corehooks(li));
 }
 
 bool LibLoader::unserved_text(const char *, const LibRecord &, char *, int)

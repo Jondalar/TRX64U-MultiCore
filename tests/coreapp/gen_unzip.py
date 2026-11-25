@@ -47,7 +47,9 @@ subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), 
 # a library that declares a poll in its menu record and one that declares a file action: neither is evicted when memory is short
 open(os.path.join(out, "pollib.toml"), "w").write('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
 open(os.path.join(out, "menulib.toml"), "w").write('[[file_action]]\next = [".zip"]\nlabel = "Menu lib action"\napp = "unzip"\naction = "here"\n')
-for lib in ("pollib", "menulib"):
+# a library whose menu record has only [[key]] rows: the merged key table points into the record, so it is never evicted either (finding 1)
+open(os.path.join(out, "keylib.toml"), "w").write('[[key]]\nlayout = "list"\ncodes = [48, 57]\ndo = "decline"\n')
+for lib in ("pollib", "menulib", "keylib"):
     subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, lib + ".u2a"),
                            "--kind", "lib", "--name", lib, "--version", "1", "--needs", "base>=3.1", "--menu", os.path.join(out, lib + ".toml")], stdout=subprocess.DEVNULL)
 

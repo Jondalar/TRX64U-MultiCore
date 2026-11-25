@@ -177,7 +177,7 @@ public:
     void use(int handle);
     void unuse(int handle);
     int uses(int handle) const;
-    // True when the library declares anything the base serves from the library's memory: a poll, menu nodes, file actions, settings or tabs, in its
+    // True when the library declares anything the base serves from the library's memory: a poll, menu nodes, file actions, settings, tabs or key rows, in its
     // lib_register record or in its menu record, or exports the table "corehooks" (hookhost.h). Such a library is never evicted (AppIndex::prepare_open): the poll would call into freed code and the
     // merged menu would point into freed strings.
     bool contributes(int handle) const;
