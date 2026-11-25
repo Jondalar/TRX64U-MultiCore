@@ -262,30 +262,6 @@ C64 with SuperCPU F8/expert 10 fixed:13:Status
 C64 with SuperCPU F8/expert 11 info:Build
 C64 with SuperCPU F8/expert 12 info:ROMs
 C64 with SuperCPU F8/expert 13 info:Libraries
-ZX Spectrum Next F1/home 0 task:Reset
-ZX Spectrum Next F1/home 1 task:NMI: Multiface (M1 button)
-ZX Spectrum Next F1/home 2 media:zxnext.sd.image
-ZX Spectrum Next F1/home 3 fixed:10:Save as config...
-ZX Spectrum Next F1/home 4 fixed:11:Load config...
-ZX Spectrum Next F5/settings 0 set:Joystick ports
-ZX Spectrum Next F5/settings 1 set:Frame lock to 50 Hz
-ZX Spectrum Next F5/settings 2 set:Board issue
-ZX Spectrum Next F5/settings 3 task:F3: 50 / 60 Hz
-ZX Spectrum Next F5/settings 4 task:F8: CPU speed
-ZX Spectrum Next F8/expert 0 fixed:13:Actions
-ZX Spectrum Next F8/expert 1 fixed:6:Restart core
-ZX Spectrum Next F8/expert 2 fixed:7:Return to host menu
-ZX Spectrum Next F8/expert 3 fixed:13:Network
-ZX Spectrum Next F8/expert 4 fixed:9:WiFi
-ZX Spectrum Next F8/expert 5 fixed:13:Support
-ZX Spectrum Next F8/expert 6 fixed:8:Bug report
-ZX Spectrum Next F8/expert 7 fixed:17:Keys and help
-ZX Spectrum Next F8/expert 8 fixed:13:Reset
-ZX Spectrum Next F8/expert 9 fixed:5:Reset to host defaults
-ZX Spectrum Next F8/expert 10 fixed:13:Status
-ZX Spectrum Next F8/expert 11 info:Build
-ZX Spectrum Next F8/expert 12 info:ROMs
-ZX Spectrum Next F8/expert 13 info:Libraries
 Super Nintendo F1/home 0 task:Reset
 Super Nintendo F1/home 1 task:Sound check
 Super Nintendo F1/home 2 media:snes.cartridge.image

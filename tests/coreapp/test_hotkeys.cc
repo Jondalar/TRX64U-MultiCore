@@ -12,6 +12,9 @@
 #include "keyboard.h"
 #include "regset.h"
 #include "padkeys.h"
+#ifdef TEST_APP_ZXNEXT
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -64,7 +67,7 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -263,10 +266,12 @@ int main()
         const Row rows[] = { { &pet_desc, "pet", true } };
 #elif defined(TEST_APP_C128)
         const Row rows[] = { { &c128_desc, "c128", true } };
+#elif defined(TEST_APP_ZXNEXT)
+        const Row rows[] = { { &zxnext_desc, "zxnext", true } };
 #else
         const Row rows[] = { { &c64scpu_desc, "c64scpu", true },
                              { &c264_desc, "c264", true }, { &amiga_desc, "amiga", true }, { &apple2_desc, "apple2", true },
-                             { &atari800_desc, "atari800", true }, { &zxnext_desc, "zxnext", true },
+                             { &atari800_desc, "atari800", true },
                              { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
                              { &portdiag_desc, "portdiag", false } };
 #endif
@@ -294,7 +299,7 @@ int main()
             CHECK(g.st->find(HK_KEY_MOD) >= 0);
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT)
     // ---- T207: a hotkey is set by pressing the key (S1 the prompt and the key, S2 a used key is refused, S3 the modifier)
     {
         struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
@@ -495,7 +500,7 @@ int main()
         CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT)
     // ---- T228 R1/R16 (gate fixes 3 and 5): two tasks of a core's menu (Timewarp... and Monitor..., hotkey T and O) hold CTRL+T and CTRL+O by default; a key the stored settings give a
     // fixed action is not doubled. The core is the NES descriptor with the two tasks and the items hk_extend and hk_extend_tasks make (T239.3 P1-8: trx64u's menu is TRX64-Ultimate's)
     {

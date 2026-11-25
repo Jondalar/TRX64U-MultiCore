@@ -27,7 +27,12 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_ZXNEXT                          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#else
 extern const CoreDesc *const core_table[];
+#endif
 
 static bool g_ui = false;
 static MenuCtl *M;

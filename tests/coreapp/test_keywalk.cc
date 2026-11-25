@@ -20,7 +20,14 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_ZXNEXT                          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only, its rows are golden/keywalk_zxnext.txt and ids_zxnext.txt
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#define KW_APP "_zxnext"
+#else
 extern const CoreDesc *const core_table[];
+#define KW_APP ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -85,10 +92,14 @@ int main(int argc, char **argv)
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
+#ifndef TEST_APP_ZXNEXT                                         // the record core stands on the NES: the shared app's walk
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+#else
+    (void)argv;
+#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
@@ -185,7 +196,7 @@ int main(int argc, char **argv)
         }
     }
     printf("keywalk: %d probes\n", probes);
-    std::string path = std::string(GOLDEN_DIR) + "/keywalk.txt";
+    std::string path = std::string(GOLDEN_DIR) + "/keywalk" KW_APP ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(path) << out;
     }
@@ -207,14 +218,14 @@ int main(int argc, char **argv)
         }
     }
     CHECK(want == out);
-    std::string ipath = std::string(GOLDEN_DIR) + "/ids.txt";
+    std::string ipath = std::string(GOLDEN_DIR) + "/ids" KW_APP ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(ipath) << ids;
     }
     std::ifstream fi(ipath);
     std::string iwant((std::istreambuf_iterator<char>(fi)), std::istreambuf_iterator<char>());
     if (iwant != ids) {
-        printf("the identities of the rows differ from tests/coreapp/golden/ids.txt (UPDATE_GOLDEN=1 writes it)\n");
+        printf("the identities of the rows differ from tests/coreapp/golden/ids%s.txt (UPDATE_GOLDEN=1 writes it)\n", KW_APP);
     }
     CHECK(iwant == ids);
     DONE("test_keywalk");
