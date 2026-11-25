@@ -29,10 +29,6 @@ op	volume.change	value:int:-2:2:0:
 op	tone.apply	value:int:0:2:0:
 op	hotkeys.apply	value:int:0:65:0:
 op	home.apply	value:int:-2000:2000:0:
-op	base.overlay	value:int:0:16:0:
-op	base.scheme	value:int:0:16:0:
-op	base.squeeze	value:int:0:16:0:
-op	base.nav	value:int:0:16:0:
 op	base.joystick	value:int:0:16:0:
 op	base.mouse_mode	value:int:0:16:0:
 op	base.mouse_sens	value:int:0:16:0:

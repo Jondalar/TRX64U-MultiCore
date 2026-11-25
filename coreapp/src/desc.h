@@ -79,7 +79,7 @@ struct RegWrite {
 // T239.3 D32: the run-time lists a core's choice row may name with its `pick` (menubuild.cc menu_pick_fill serves them; video.modes is the Picture row of the base alone). tools/descrec.py CORE_PICKS is the same list.
 static inline bool setting_pick_served(const char *name)
 {
-    return name && (!strcmp(name, "hotkeys.keys") || !strcmp(name, "hotkeys.modifiers") || !strcmp(name, "view.schemes"));
+    return name && (!strcmp(name, "hotkeys.keys") || !strcmp(name, "hotkeys.modifiers"));
 }
 struct Setting {
     const char *key;                      // the item text, also the key in <name>.cfg

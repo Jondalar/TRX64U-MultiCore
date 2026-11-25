@@ -25,7 +25,7 @@ struct BaseRow {
     uint8_t kind;               // Setting::kind: 0 a choice among values, 1 a text
     const char *apply;
     const char *show_state;     // the condition that lists the row; null: always
-    const char *pick;           // null: the values are the row's; else the name of the list that fills them at run time ("video.modes", "hotkeys.modifiers", "hotkeys.keys", "view.schemes") and `values` is what the row shows until it has
+    const char *pick;           // null: the values are the row's; else the name of the list that fills them at run time ("video.modes", "hotkeys.modifiers", "hotkeys.keys") and `values` is what the row shows until it has
 };
 // The row of an operation (and its key, when the operation serves several rows; the case of the key does not matter), null when the base UI TOML has none.
 const BaseRow *menu_base_row(const char *apply, const char *key = 0);

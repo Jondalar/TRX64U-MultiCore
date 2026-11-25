@@ -8,7 +8,6 @@
 #include "home.h"
 #include "hotkeys.h"
 #include "baseset.h"
-#include "trx_scheme_names.h"
 #include <string.h>
 #include <strings.h>
 
@@ -54,11 +53,6 @@ static void menu_pick_fill(Setting *store, int n)
     for (int i = 0; i < n; i++) {
         Setting &s = store[i];
         if (s.kind != 0 || !s.pick || (s.apply && menu_base_row(s.apply, s.key))) {
-            continue;
-        }
-        if (!strcmp(s.pick, "view.schemes")) {
-            s.values = trx_scheme_names;
-            s.nvalues = TRX_SCHEME_COUNT;
             continue;
         }
         for (int j = 0; j < g_base_nrows; j++) {        // hotkeys.keys, hotkeys.modifiers: the list of the base row that names it

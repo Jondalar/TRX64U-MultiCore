@@ -68,7 +68,7 @@ struct OvState {
     bool still;                            // a still surface exists (the base's capture of the stopped machine, or a library's)
     bool live_key;                         // the page of the open menu lets the picture through (Timewarp)
     bool elems;                            // at least one element that is not the still is shown by a library or the base
-    uint8_t alpha;                         // the layer's alpha for the open menu: 255 minus the person's Overlay Transparency
+    uint8_t alpha;                         // the layer's alpha for the open menu: the menu's alpha (ui.cc)
 };
 struct OvPlan {
     uint8_t holder;                        // OVH_*
@@ -205,7 +205,7 @@ public:
     void frozen(bool on);                  // the machine is held for the menu
     void paused(bool on);
     void live_key(bool on);
-    void look(uint8_t alpha);              // 255 minus the person's Overlay Transparency
+    void look(uint8_t alpha);              // the menu's alpha (ui.cc)
     // The menu's close has begun (before the core's menu_closed hook), until the next menu(): a library's still that goes meanwhile asks for no new still of the base's while the menu is
     // still up; the request waits for menu(false) and is served only if the machine stands then (Pause). A machine that runs again takes no still.
     void closing();

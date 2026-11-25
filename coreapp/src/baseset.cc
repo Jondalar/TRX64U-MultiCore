@@ -1,6 +1,5 @@
 #include "baseset.h"
 #include "menubuild.h"
-#include "trx_scheme_names.h"
 #include "hookhost.h"
 #include "ops.h"
 #include "ops_glue.h"
@@ -12,19 +11,15 @@
 
 namespace {
 
-enum { B_TRANSP, B_SCHEME, B_SQUEEZE, B_NAV, B_JOY, B_MODE, B_SENS, B_ACCEL, B_WSENS, B_WDIR, B_N, B_MOUSE0 = B_MODE };
+enum { B_JOY, B_MODE, B_SENS, B_ACCEL, B_WSENS, B_WDIR, B_N, B_MOUSE0 = B_MODE };
 
 struct Def {
     const char *op;                     // the operation: the row (key, label, values, default, base, condition) is the base UI TOML's (coreapp/base_ui.toml), found by it
-    uint8_t kind;                       // baseset_kind: 1 a look row, 2 an input row
+    uint8_t kind;                       // baseset_kind: 2, an input row (1 was the look rows, gone with T239.3 D56)
     const char *needs;                  // the capability (CoreDesc::caps) a core has to name for the row; null: any core (the mouse rows: any core with a mouse)
 };
 #define N(a) (int)(sizeof(a) / sizeof(a[0]))
 const Def defs[B_N] = {
-    { "base.overlay", 1, 0 },
-    { "base.scheme", 1, 0 },
-    { "base.squeeze", 1, 0 },
-    { "base.nav", 1, 0 },
     { "base.joystick", 2, BASE_CAP_KEYBOARD_JOYSTICK },
     { "base.mouse_mode", 2, BASE_CAP_MOUSE_DRIVER },
     { "base.mouse_sens", 2, 0 },
@@ -80,25 +75,6 @@ int apply(CoreCtx *c, int id)
 {
     const BaseSetPort *p = g_port;
     switch (id) {
-    case B_TRANSP:
-    case B_SCHEME:
-        if (p && p->look) {
-            p->look(val(c, B_TRANSP, def_of(B_TRANSP)), val(c, B_SCHEME, def_of(B_SCHEME)));
-        }
-        break;
-    case B_SQUEEZE:
-        if (p && p->squeeze) {
-            p->squeeze(val(c, B_SQUEEZE, def_of(B_SQUEEZE)));
-        }
-        break;
-    case B_NAV: {
-        // The default of a machine that has never been set up is WASD Cursors on the product sold under Commodore's name; a value the person stored stays.
-        int ix = c->settings ? c->settings->find(key_of(B_NAV)) : -1;
-        if (ix >= 0 && c->settings->layer(ix) == Settings::L_DEFAULT && p && p->commodore && p->commodore()) {
-            c->settings->override_value(ix, 1);
-        }
-        break;
-    }
     case B_JOY: {
         int v = val(c, B_JOY, 0);
         if (p && p->keyboard_joystick && v >= 0 && v < N(wasd_of)) {
@@ -114,7 +90,7 @@ int apply(CoreCtx *c, int id)
 }
 
 #define OP(id, name) int op_##name(CoreCtx *c, const OpArgs &, OpOut &) { return apply(c, id); }
-OP(B_TRANSP, overlay) OP(B_SCHEME, scheme) OP(B_SQUEEZE, squeeze) OP(B_NAV, nav) OP(B_JOY, joystick) OP(B_MODE, mouse_mode)
+OP(B_JOY, joystick) OP(B_MODE, mouse_mode)
 OP(B_SENS, mouse_sens) OP(B_ACCEL, mouse_accel) OP(B_WSENS, wheel_sens) OP(B_WDIR, wheel_dir)
 const ArgSpec value_arg[] = { ARG_INT("value", 0, 16) };
 
@@ -166,7 +142,7 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         return 0;
     }
     if (d->nsettings + add > SETTINGS_MAX) {
-        return "settings: no room for the items the application adds for its look, the joystick and the mouse";
+        return "settings: no room for the items the application adds for the joystick and the mouse";
     }
     if (store != d->settings) {
         for (int i = 0; i < d->nsettings; i++) {
@@ -180,14 +156,10 @@ const char *baseset_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         }
         const BaseRow *r = row_of(i);
         if (!r) {
-            return "settings: the base UI TOML lacks a row of the application's look, joystick or mouse";
+            return "settings: the base UI TOML lacks a row of the application's joystick or mouse";
         }
         Setting &s = store[n++];
         menu_base_setting(s, *r);
-        if (r->pick && !strcmp(r->pick, "view.schemes")) {      // the pick "view.schemes": the colour schemes of the view (app/view/trx_scheme_names.h), the row's values until then
-            s.values = trx_scheme_names;
-            s.nvalues = TRX_SCHEME_COUNT;
-        }
         s.show_state = r->show_state && want[B_MODE] ? r->show_state : 0;     // "only while Mouse Mode says cursor keys" needs the row that says it
     }
     out->settings = store;
@@ -262,10 +234,6 @@ extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
 
 void baseset_register(OpRegistry &r)
 {
-    r.add_op("base.overlay", value_arg, 1, op_overlay);
-    r.add_op("base.scheme", value_arg, 1, op_scheme);
-    r.add_op("base.squeeze", value_arg, 1, op_squeeze);
-    r.add_op("base.nav", value_arg, 1, op_nav);
     r.add_op("base.joystick", value_arg, 1, op_joystick);
     r.add_op("base.mouse_mode", value_arg, 1, op_mouse_mode);
     r.add_op("base.mouse_sens", value_arg, 1, op_mouse_sens);

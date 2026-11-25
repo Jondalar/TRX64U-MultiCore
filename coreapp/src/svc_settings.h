@@ -78,12 +78,6 @@ typedef struct SvcSettings {
 // ---- settings of the generic application (the base owns them as it owns Picture and Volume; any core's menu can show them) -------------------------------
 // A library reads them like any setting, by key. It does not apply them: the base does. The key is the stored key of every core's .cfg and the stored values carry over
 // when a core's menu stops declaring its own copy. Values are listed by position; the first is position 0 and the default is the position named.
-//   "Overlay Transparency"            the menu's transparency (replaces ui_set_look): "0 %", "25 %", "50 %", "75 %"; default 1.
-//   "Color Scheme"                    the menu's colours (replaces ui_set_look): "Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2",
-//                                     "Commodore 3"; default 1.
-//   "Filename overflow squeeze"       where a long name is shortened (replaces ui_set_name_squeeze): "None", "Beginning", "Middle", "End"; default 0.
-//   "Navigation Style"                how the menu reads letter keys: "Quick Search", "WASD Cursors" (W, A, S, D move the cursor); default 0, and 1 on the
-//                                     Commodore product (board.is_commodore) while the person has stored no value.
 //   "Joystick Input"                  the keyboard as a joystick: "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"; default 0.
 //                                     The base's keyboard driver takes from it which port the keyboard joystick drives and whether W, A, S, D act as its
 //                                     directions (and still type); hardware of the core that follows the position is set by the core's library, which reads
@@ -98,10 +92,9 @@ typedef struct SvcSettings {
 //   "Mouse Acceleration"              "Off", "Adaptive"; default 0.
 //   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
 //   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
-// The base declares Mouse Sensitivity and Mouse Acceleration for every core with a mouse (coreapp/src/baseset.cc), and a menu TOML can hide any of the ten by key ("hide"; trx64u hides
-// "Color Scheme", T228 R7: the Ultimate's colour scheme is not a setting of that machine). trx64u declared them in its menu TOML (all five) and no longer does. The Amiga cores keep their own Mouse Sensitivity and Mouse Acceleration in
+// The base declares Mouse Sensitivity and Mouse Acceleration for every core with a mouse (coreapp/src/baseset.cc), and a menu TOML can hide any of the six by key ("hide"). The menu's look (transparency, colour scheme, filename squeeze, navigation style) is no setting of the base (T239.3 D56). trx64u declared them in its menu TOML (all five) and no longer does. The Amiga cores keep their own Mouse Sensitivity and Mouse Acceleration in
 // cores/amiga.cc (the operations mouse.sens / mouse.accel, mousesink.h): a key the descriptor declares itself is not added again, so the Amiga's F5 Input tab is as before 3.3 (T239.3 D25);
-// desc_check refuses any other descriptor that declares one of the ten.
+// desc_check refuses any other descriptor that declares one of the six.
 
 #ifdef __cplusplus
 }

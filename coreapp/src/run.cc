@@ -516,7 +516,7 @@ void coreapp_held(const char *why, const BoardProfile *board)
 }
 
 // What the application's own settings (baseset.h) put into the board: the menu's look, the product, the host keyboard's joystick registers.
-static const BaseSetPort board_set_port = { ui_set_look, ui_set_name_squeeze, isCommodoreBoard, hw_keyboard_joystick };
+static const BaseSetPort board_set_port = { hw_keyboard_joystick };
 
 // T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
 // descriptor registers the groups it uses in its register_ops (vc20.cc: cbm1541); a record core gets them by its data: the Diagnostics tab here, the groups

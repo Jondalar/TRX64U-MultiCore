@@ -129,35 +129,6 @@ Amstrad CPC 464 / 664 / 6128 F8/expert 10 fixed:13:Status
 Amstrad CPC 464 / 664 / 6128 F8/expert 11 info:Build
 Amstrad CPC 464 / 664 / 6128 F8/expert 12 info:ROMs
 Amstrad CPC 464 / 664 / 6128 F8/expert 13 info:Libraries
-VIC-20 F1/home 0 task:Reset
-VIC-20 F1/home 1 task:Reload ROMs, reset
-VIC-20 F1/home 2 media:vc20.program
-VIC-20 F1/home 3 media:drive.drive_a.image
-VIC-20 F1/home 4 fixed:10:Save as config...
-VIC-20 F1/home 5 fixed:11:Load config...
-VIC-20 F5/settings 0 set:Memory Expansion (at next reset)
-VIC-20 F5/settings 1 set:Block 5 ($A000), when expanded
-VIC-20 F5/settings 2 set:JiffyDOS
-VIC-20 F5/settings 3 set:Datasette port
-VIC-20 F5/settings 4 set:Drive
-VIC-20 F5/settings 5 set:Drive Bus ID
-VIC-20 F5/settings 6 set:Extra RAM
-VIC-20 F5/settings 7 set:Disk swap delay
-VIC-20 F5/settings 8 set:LED Load Indicator
-VIC-20 F8/expert 0 fixed:13:Actions
-VIC-20 F8/expert 1 fixed:6:Restart core
-VIC-20 F8/expert 2 fixed:7:Return to host menu
-VIC-20 F8/expert 3 fixed:13:Network
-VIC-20 F8/expert 4 fixed:9:WiFi
-VIC-20 F8/expert 5 fixed:13:Support
-VIC-20 F8/expert 6 fixed:8:Bug report
-VIC-20 F8/expert 7 fixed:17:Keys and help
-VIC-20 F8/expert 8 fixed:13:Reset
-VIC-20 F8/expert 9 fixed:5:Reset to host defaults
-VIC-20 F8/expert 10 fixed:13:Status
-VIC-20 F8/expert 11 info:Build
-VIC-20 F8/expert 12 info:ROMs
-VIC-20 F8/expert 13 info:Libraries
 Commodore 264 (C16, Plus/4) F1/home 0 task:Reset
 Commodore 264 (C16, Plus/4) F1/home 1 task:Reload ROMs, reset
 Commodore 264 (C16, Plus/4) F1/home 2 media:c264.program
@@ -408,45 +379,6 @@ Amiga (OCS/ECS, 68000) F8/expert 10 fixed:13:Status
 Amiga (OCS/ECS, 68000) F8/expert 11 info:Build
 Amiga (OCS/ECS, 68000) F8/expert 12 info:ROMs
 Amiga (OCS/ECS, 68000) F8/expert 13 info:Libraries
-Amiga 1200 (AGA, 68020) F1/home 0 task:Reset Amiga
-Amiga 1200 (AGA, 68020) F1/home 1 task:Reload Kickstart, Reset
-Amiga 1200 (AGA, 68020) F1/home 2 media:amiga.df0.image
-Amiga 1200 (AGA, 68020) F1/home 3 media:amiga.df1.image
-Amiga 1200 (AGA, 68020) F1/home 4 media:amiga.df2.image
-Amiga 1200 (AGA, 68020) F1/home 5 media:amiga.df3.image
-Amiga 1200 (AGA, 68020) F1/home 6 media:amiga.hd0.image
-Amiga 1200 (AGA, 68020) F1/home 7 media:amiga.hd1.image
-Amiga 1200 (AGA, 68020) F1/home 8 fixed:10:Save as config...
-Amiga 1200 (AGA, 68020) F1/home 9 fixed:11:Load config...
-Amiga 1200 (AGA, 68020) F5/settings 0 set:Kickstart file (at reload)
-Amiga 1200 (AGA, 68020) F5/settings 1 set:Chip RAM (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 2 set:Slow RAM (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 3 set:Fast RAM (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 4 set:Chipset (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 5 set:Floppy drives (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 6 set:Floppy write protect (next reset)
-Amiga 1200 (AGA, 68020) F5/settings 7 set:Real-time clock (at next reset)
-Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
-Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
-Amiga 1200 (AGA, 68020) F5/input 0 set:Map port 2 to USB controller
-Amiga 1200 (AGA, 68020) F5/input 1 set:Port 2 acts as
-Amiga 1200 (AGA, 68020) F5/input 2 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/input 3 set:Mouse Acceleration
-Amiga 1200 (AGA, 68020) F5/input 4 task:Map port 2 buttons
-Amiga 1200 (AGA, 68020) F8/expert 0 fixed:13:Actions
-Amiga 1200 (AGA, 68020) F8/expert 1 fixed:6:Restart core
-Amiga 1200 (AGA, 68020) F8/expert 2 fixed:7:Return to host menu
-Amiga 1200 (AGA, 68020) F8/expert 3 fixed:13:Network
-Amiga 1200 (AGA, 68020) F8/expert 4 fixed:9:WiFi
-Amiga 1200 (AGA, 68020) F8/expert 5 fixed:13:Support
-Amiga 1200 (AGA, 68020) F8/expert 6 fixed:8:Bug report
-Amiga 1200 (AGA, 68020) F8/expert 7 fixed:17:Keys and help
-Amiga 1200 (AGA, 68020) F8/expert 8 fixed:13:Reset
-Amiga 1200 (AGA, 68020) F8/expert 9 fixed:5:Reset to host defaults
-Amiga 1200 (AGA, 68020) F8/expert 10 fixed:13:Status
-Amiga 1200 (AGA, 68020) F8/expert 11 info:Build
-Amiga 1200 (AGA, 68020) F8/expert 12 info:ROMs
-Amiga 1200 (AGA, 68020) F8/expert 13 info:Libraries
 DDT Look Ma, No VIC F1/home 0 task:Reset
 DDT Look Ma, No VIC F8/expert 0 fixed:13:Actions
 DDT Look Ma, No VIC F8/expert 1 fixed:6:Restart core
@@ -518,19 +450,14 @@ Record Core F5/settings 7 set:Smoothing
 Record Core F5/settings 8 fixed:13:Audio
 Record Core F5/settings 9 set:Volume
 Record Core F5/settings 10 set:Tone
-Record Core F7/settings 0 fixed:13:Look
-Record Core F7/settings 1 set:Overlay Transparency
-Record Core F7/settings 2 set:Color Scheme
-Record Core F7/settings 3 set:Filename overflow squeeze
-Record Core F7/settings 4 set:Navigation Style
-Record Core F7/settings 5 fixed:13:Storage
-Record Core F7/settings 6 set:Persist medium mounts
-Record Core F7/settings 7 set:Enter Home on Startup
-Record Core F7/settings 8 set:Home Directory
-Record Core F7/settings 9 fixed:13:Menu
-Record Core F7/settings 10 set:Menu opens at
-Record Core F7/settings 11 fixed:13:Hotkeys
-Record Core F7/settings 12 fixed:16:Hotkeys
+Record Core F7/settings 0 fixed:13:Storage
+Record Core F7/settings 1 set:Persist medium mounts
+Record Core F7/settings 2 set:Enter Home on Startup
+Record Core F7/settings 3 set:Home Directory
+Record Core F7/settings 4 fixed:13:Menu
+Record Core F7/settings 5 set:Menu opens at
+Record Core F7/settings 6 fixed:13:Hotkeys
+Record Core F7/settings 7 fixed:16:Hotkeys
 Record Core F7/hotkeys 0 set:Hotkey modifier
 Record Core F7/hotkeys 1 set:Hotkey menu
 Record Core F7/hotkeys 2 set:Hotkey volume up

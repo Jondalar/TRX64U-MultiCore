@@ -32,7 +32,7 @@ static bool pq_up;                                  // T187 F1: the picture ques
 static char msg_title_s[80], msg_text_s[720];
 static bool msg_bad;
 static const CoreDesc *g_desc;
-static volatile int g_look_t = 1, g_look_scheme = 1;           // "Overlay Transparency" and "Color Scheme" (ui_set_look)
+static const int g_look_t = 1, g_look_scheme = 1;                // the menu's transparency (position 1 = 25 %) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
 static volatile bool g_look_dirty = true;
 static void apply_alpha(void);
 static bool ov_on(void);
@@ -1283,20 +1283,7 @@ void ui_message_clear(void)
     }
 }
 
-void ui_set_look(int transparency, int scheme)
-{
-    g_look_t = transparency < 0 ? 0 : (transparency > 3 ? 3 : transparency);
-    g_look_scheme = scheme;
-    g_look_dirty = true;
-}
-
-static volatile int g_squeeze = -1;                          // -1: no such setting in this core, T209's "start...end.ext" cut stays
-void ui_set_name_squeeze(int quarter)
-{
-    g_squeeze = quarter < 0 || quarter > 3 ? -1 : quarter;
-    g_look_dirty = true;
-}
-int ui_name_squeeze(void) { return g_squeeze; }
+int ui_name_squeeze(void) { return -1; }                     // no setting sets it (T239.3 D56): trx_fit_name takes -1, T209's "start...end.ext" cut
 
 // ---- the overlay service on LVGL (T256) -------------------------------------------------------------------------------------------------------------------------------
 // The service (overlay.cc) decides; this is its layer: the holder, the key and the alpha go to the port, the still lies on LVGL's bottom layer, the elements are images on the screen
@@ -1509,7 +1496,7 @@ void ui_overlay_closing(void)
     }
 }
 
-// the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
+// the layer's global alpha from the fixed transparency (position 1 of 0, 25, 50, 75 % = 25 %)
 static void apply_alpha(void)
 {
     const uint8_t a = (uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0));

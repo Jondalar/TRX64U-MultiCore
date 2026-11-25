@@ -208,10 +208,9 @@ hotkeys with the menu closed step the item `[hotkeys] vol_key` names, else `Volu
 `desc_check` refuses a descriptor that declares *Picture*, *Scale*, *Smoothing* or *Frame follow* (`picture_extend` refuses the keys too) or names
 `picture.apply`, `scale.apply`, `smooth.apply` or `follow.apply` as a setting's `apply`.
 
-`baseset_extend` (base 3.3, `baseset.h`) adds up to ten more, last of all, and only where the code can do what the row says (T228 R20): the look of the
-menu (*Overlay Transparency*, *Color Scheme*, *Filename overflow squeeze*, *Navigation Style*), *Joystick Input* (only for a core whose `caps` name
+`baseset_extend` (base 3.3, `baseset.h`) adds up to six more, last of all, and only where the code can do what the row says (T228 R20): *Joystick Input* (only for a core whose `caps` name
 `kbd_joystick`) and, for a core whose descriptor has a `mouse`, *Mouse Sensitivity* and *Mouse Acceleration* (*Mouse Mode*, *Mouse Wheel Sensitivity* and
-*Mouse Wheel Direction* need the capability `mouse_driver`). A menu TOML's top-level `hide` list holds the keys it does not want (trx64u: *Color Scheme*).
+*Mouse Wheel Direction* need the capability `mouse_driver`). A menu TOML's top-level `hide` list holds the keys it does not want.
 Their operations are `base.*`. A descriptor or menu TOML does not declare one: `desc_check` refuses the keys, except *Mouse Sensitivity* and *Mouse
 Acceleration* with the core's own operations `mouse.sens` and `mouse.accel`. A library of the core reads them by key and hears a change through the core
 hook `base_setting_changed` (`core_hooks.h`).

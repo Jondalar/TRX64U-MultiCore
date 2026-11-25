@@ -381,7 +381,7 @@ int main(int argc, char **argv)
         DescRecord *p = new DescRecord;
         CHECK_EQ(parse(pk, p, why), 0);
         CHECK_EQ(p->ncsettings, 1);
-        CHECK_STR(p->csettings[0].pick, "view.schemes");
+        CHECK_STR(p->csettings[0].pick, "hotkeys.keys");
         CHECK_EQ(p->csettings[0].nvalues, 1);
         CHECK_STR(p->csettings[0].values[0], "Blue");
         delete p;
