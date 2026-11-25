@@ -92,7 +92,7 @@ static inline uint32_t fs_size32(uint64_t size)
 }
 
 // FsEntry::size of a file whose size the file system does not know (a listing that names no size, T262 D4 finding 14): the base's file list shows "-" for it, not "0 KB".
-// A real size is never this value; a file system that never says it behaves as before. The 32 bit layouts (list_short, svc_list) carry 0xFFFFFFFF for it.
+// A real size is never this value; a file system that never says it behaves as before. list_short and svc_list carry the 64 bit size unchanged, so they report this value as it is.
 #define FS_SIZE_UNKNOWN 0xFFFFFFFFFFFFFFFFull
 static inline bool fs_size_known(uint64_t size)
 {

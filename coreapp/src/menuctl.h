@@ -68,7 +68,7 @@ public:
     int list_side_n(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) && !r.note && !r.more ? r.nside : 0; }   // T262 P1: the side lines of row i (the side panel shows those of the selected row)
     void list_side(int i, int k, char *out, int n) const;                  // side line k of row i into out ("" when there is none)
     bool list_view() const { return pick_dyn_ && pl_mode_ == PL_LIST; }       // T262 P1: the page on screen is the rows of a `list` node
-    int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral), -1 none
+    int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral, 5 disabled), -1 none
     bool picking_modes() const { return pick_ && pick_modes_; }          // T187 F6: the Picture page names its path in the top bar
     // T156 D5: the mapping of a pad's buttons ("Map buttons"): the menu asks for the core's buttons one by one and the person presses the pad's
     // button for each. The run loop calls map_tick() each pass while mapping(); true: the screen changed.
@@ -150,7 +150,7 @@ public:
         char group[28];                  // a setting's group (a heading over the first row of each group when a tab lists several), "" none
         char title[80], sub[120], chip[40], value[64];   // sub (T209): the foot line while this row is selected - why it is greyed, what RETURN does; never a second line of the row
         int kind;
-        int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral; -1: by the chip's word
+        int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral, 5 disabled; -1: by the chip's word
         bool primary, link;
         bool enabled;                    // RETURN does something
         bool dim;                        // greyed: not usable now; `sub` then says why (in the foot, while the row is selected)

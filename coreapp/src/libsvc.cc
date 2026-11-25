@@ -263,10 +263,13 @@ struct LibSvc {
     {
         CoreCtx *c = C();
         const char *sl = path && path[0] == '/' ? strrchr(path, '/') : 0;
-        if (!c || !c->menu_op || !sl || !sl[1] || strlen(path) >= sizeof(c->lib.want_dir) || strlen(sl + 1) > FS_NAME_MAX) {
+        if (!c || !c->menu_op || !sl || !sl[1]) {
             return false;
         }
         const size_t dl = sl == path ? 1 : (size_t)(sl - path);
+        if (dl >= sizeof(c->lib.want_dir) || strlen(sl + 1) >= sizeof(c->lib.want_name)) {   // the folder and the name are checked each against its own buffer, not the whole path against the folder's
+            return false;
+        }
         memcpy(c->lib.want_dir, path, dl);
         c->lib.want_dir[dl] = 0;
         snprintf(c->lib.want_name, sizeof(c->lib.want_name), "%s", sl + 1);

@@ -394,6 +394,15 @@ int main(int argc, char **argv)
         CHECK_STR(r.c.lib.want_dir, "/usb0/games"); CHECK_STR(r.c.lib.want_name, "a.d64"); CHECK(!r.c.lib.want_sheet); CHECK_STR(r.c.want_screen, "F3/browse");
         CHECK(cx->browse_sheet("/x"));
         CHECK_STR(r.c.lib.want_dir, "/"); CHECK_STR(r.c.lib.want_name, "x"); CHECK(r.c.lib.want_sheet);
+        {   // the folder and the name are measured each against its own buffer (finding 3): a whole path longer than the folder's buffer is fine
+            const std::string d150 = "/" + std::string(149, 'd'), n100(100, 'n');
+            CHECK(cx->browse_at((d150 + "/" + n100).c_str()));
+            CHECK_STR(r.c.lib.want_dir, d150.c_str()); CHECK_STR(r.c.lib.want_name, n100.c_str());
+            CHECK(cx->browse_at(("/" + std::string(198, 'd') + "/" + std::string(255, 'n')).c_str()));      // 199 and 255: the most the buffers hold
+            CHECK_EQ(strlen(r.c.lib.want_dir), 199u); CHECK_EQ(strlen(r.c.lib.want_name), 255u);
+            CHECK(!cx->browse_at(("/" + std::string(199, 'd') + "/n").c_str()));                           // a folder of 200: refused
+            CHECK(!cx->browse_at(("/d/" + std::string(256, 'n')).c_str()));                                // a name of 256: refused
+        }
         r.c.menu_op = 0;
         r.c.lib.want_sheet = false; r.c.lib.want_name[0] = 0; r.c.want_screen[0] = 0; r.c.lib.want_dir[0] = 0;
         g_slot[1] = "ro /usb0/g.crt";                                        // the engine changes by its own doing

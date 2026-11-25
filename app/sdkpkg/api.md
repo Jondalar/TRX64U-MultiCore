@@ -457,7 +457,7 @@ Since base 3.3.
 4.4.24.3 A `max` of 0 or less writes nothing and returns the number of entries the folder has. The base counts them in a block of the heap of 72 bytes an entry and returns -1 when the heap has no room for it.
 4.4.24.4 `out` is the caller's, on the heap of the image or on its stack. An entry has 264 bytes, so a long listing is taken in a block of the heap and freed afterwards.
 4.4.24.5 The folders come first, as in `list`. A task that may block calls it: the medium is read.
-4.4.24.6 `SvcFsEntryLong.size` is the size in bytes. The value `SVCFS_SIZE_UNKNOWN` (all 64 bits set, since base 3.6, T262 D4) says that the file system does not know the size of the file (a listing that carries none). The base's file list shows `-` in the size column for such a file, not `0 KB`; a size that is known is shown as before. A real size is never this value, so a file system and a library built against 3.4 or 3.5 that never says it behave as they did. `list` (4.4.17) carries a 32 bit size and reports `0xFFFFFFFF` for it.
+4.4.24.6 `SvcFsEntryLong.size` is the size in bytes. The value `SVCFS_SIZE_UNKNOWN` (all 64 bits set, since base 3.6, T262 D4) says that the file system does not know the size of the file (a listing that carries none). The base's file list shows `-` in the size column for such a file, not `0 KB`; a size that is known is shown as before. A real size is never this value, so a file system and a library built against 3.4 or 3.5 that never says it behave as they did. `list` (4.4.17) copies the 64 bit size of `SvcFsEntry` unchanged, so it reports the same value.
 
 #### 4.4.25 `SvcFsEntryLong`
 
@@ -954,7 +954,7 @@ The library group. A library puts a table of function pointers in its record (`L
 4.10.2.4 `table_size` may be null. It receives the number of bytes of the table: `size` of the export, or `exports_size` of the library.
 4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
 4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs and that contributes nothing (4.10.2.7) may be unloaded when an application is opened and the heap is short.
-4.10.2.7 A library that declares a poll, menu nodes, file actions, settings or tabs, in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
+4.10.2.7 A library that declares a poll, menu nodes, file actions, settings, tabs or key rows (6.18.5), in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
 
 #### 4.10.3 `api->lib->need`
 
@@ -1224,7 +1224,7 @@ Since base 3.5 (T262). A member after `mount_notify`; a library or an applicatio
 
 Since base 3.6 (T262 D4). A member after `ask_list`; check the `size` member of the table before use (`SVC_HAS(api->ctx, browse_at)`).
 
-4.14.15.1 `bool browse_at(const char *path)` opens the file browser (F3, tab `browse`) on the folder of `path` with the cursor on the file that `path` names, not on `..`. `path` is `/medium/.../name`: it starts with `/` and has a name after its last `/`; a path with no name (`/usb0/games/`), a relative path, a null and a path the browser cannot hold (200 characters for the folder, 255 for the name) are refused.
+4.14.15.1 `bool browse_at(const char *path)` opens the file browser (F3, tab `browse`) on the folder of `path` with the cursor on the file that `path` names, not on `..`. `path` is `/medium/.../name`: it starts with `/` and has a name after its last `/`; a path with no name (`/usb0/games/`), a relative path, a null and a path the browser cannot hold (a folder of more than 199 characters, a name of more than 255; each is measured alone, the whole path may be longer than either) are refused.
 4.14.15.2 The call only stores the request. The menu goes to the browser when the operation that called it has returned (as for a screen an operation asks for, 4.17.19), reads the folder and puts the cursor on the entry whose name is `name` (case does not count). A name that is not in the folder leaves the cursor at the top and the status row says `<name> is not here`.
 4.14.15.3 It returns `true` when the request was stored. It returns `false` outside an operation that the menu calls (a job, a REST call, a poll) and for a refused path. Only the last call before the operation returns counts. The task holds the core lock, inside the handler.
 
