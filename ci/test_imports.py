@@ -141,6 +141,49 @@ class ImportsTest(unittest.TestCase):
             I.fetch(pin, store, "x", base="https://registry.invalid/g", opener=lambda u, timeout: Resp(blob[:-1] + b"?"))
         self.assertEqual(os.listdir(store), [], "another file is not kept")
 
+    def test_both_pin_forms(self):
+        """T261 D5: the Gitea form (PACKAGE, VERSION) and the release form (RELEASE) take the same COR_FILE, SHA-256 and size, and fetch from their own place."""
+        blob = b"cor bytes " * 100
+        sha = hashlib.sha256(blob).hexdigest()
+        common = {"ID": "d", "COR_SHA256": sha, "COR_SIZE": str(len(blob))}
+        gitea = dict(common, PACKAGE="pkg", VERSION="v1", COR_FILE="d_1.cor")
+        rel = dict(common, RELEASE="fw-main-0123abcd", COR_FILE="trx64u.cor")
+        self.assertEqual(I.source_url(gitea, "s", "x", base="https://r.invalid/g")[0], "https://r.invalid/g/pkg/v1/d_1.cor")
+        self.assertEqual(I.source_url(rel, "s", "x", base="https://r.invalid/dl")[0], "https://r.invalid/dl/fw-main-0123abcd/trx64u.cor")
+        pkg_repo = I._env_file(os.path.join(ROOT, "ci", "pkg.env"))["MC_BUILDS_REPO"]
+        self.assertEqual(I.source_url(rel, "s", "x")[0], "https://github.com/%s/releases/download/fw-main-0123abcd/trx64u.cor" % pkg_repo)
+        self.assertEqual(I.source_url(dict(gitea, RELEASE="fw-main-0123abcd", COR_FILE="trx64u.cor"), "s", "x")[0].split("/")[-2:], ["fw-main-0123abcd", "trx64u.cor"], "RELEASE wins")
+        with self.assertRaises(I.ImportError_):
+            I.source_url(dict(rel, COR_FILE="../x"), "s", "x")
+        seen = []
+
+        class Resp:
+            def __init__(self, data):
+                self.data = data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n):
+                d, self.data = self.data[:n], self.data[n:]
+                return d
+
+        def good(url, timeout):
+            seen.append(url)
+            return Resp(blob)
+        store = os.path.join(self.root, "store3")
+        I.fetch(rel, store, "x", base="https://r.invalid/dl", opener=good)
+        self.assertEqual(seen, ["https://r.invalid/dl/fw-main-0123abcd/trx64u.cor"])
+        self.assertEqual(open(os.path.join(store, sha), "rb").read(), blob)
+        # a pin file of the release form is read and packed like the Gitea form: same fields, the key follows the pin's bytes
+        self.write("release/imports/e.pin", "ID=e\nRELEASE=fw-main-0123abcd\nCOR_FILE=trx64u.cor\nCOR_SHA256=%s\nCOR_SIZE=%d\n" % (sha, len(blob)))
+        self.write("release/imports/f.pin", "ID=f\nPACKAGE=pkg\nVERSION=v1\nCOR_FILE=f_1.cor\nCOR_SHA256=%s\nCOR_SIZE=%d\n" % (sha, len(blob)))
+        os.environ.pop("TRX_FW_PKG_URL", None)
+        out = I.pack([n for n in I.names(self.root) if n.startswith("imp-e-")][0], store, os.path.join(self.root, "out_e"), root=self.root)
+        self.assertEqual(open(out, "rb").read(), blob, "a store that holds the file needs no fetch in either form")
+        out = I.pack([n for n in I.names(self.root) if n.startswith("imp-f-")][0], store, os.path.join(self.root, "out_f"), root=self.root)
+        self.assertEqual(open(out, "rb").read(), blob)
+
 
 if __name__ == "__main__":
     unittest.main()

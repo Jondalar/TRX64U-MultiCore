@@ -6,8 +6,12 @@ pull/imports.py of trx64mc-builder, with the code and the pins of its trusted re
 repository. ci/fetch_bits.py restores them like the bitstreams, ci/collect.sh hands them to the package (bit-imports).
 
 Two kinds of pin:
-  COR_SHA256 (trx64u and trx64g, T239.3 D21, D46): the file is TRX64-Ultimate's finished .cor (PACKAGE, VERSION, COR_FILE, COR_SHA256, COR_SIZE). Nothing is packed: `pack` takes it from
-        the store by its SHA-256 (the store is filled by hand, or fetched when TRX_FW_PKG_URL is set), `finish` checks it again, and the package holds it byte for byte.
+  COR_SHA256 (trx64u and trx64g, T239.3 D21, D46): the file is TRX64-Ultimate's finished .cor. Nothing is packed: `pack` takes it from
+        the store by its SHA-256 (the store is filled by hand, or fetched), `finish` checks it again, and the package holds it byte for byte. Two forms say where a store
+        that lacks it fetches it from (T261 D5); COR_FILE, COR_SHA256 and COR_SIZE are the same in both:
+        Gitea form    PACKAGE, VERSION: <TRX_FW_PKG_URL>/<PACKAGE>/<VERSION>/<COR_FILE> (T239.3 D45)
+        release form  RELEASE=fw-<branch>-<sha8>: the asset COR_FILE of that release of the builds repository (MC_BUILDS_REPO of ci/pkg.env), https://github.com/<repo>/releases/download/<RELEASE>/<COR_FILE>;
+                      the base can be replaced by the environment TRX_FW_RELEASE_URL (up to and including the repository's /releases/download), the tests do. RELEASE wins over PACKAGE/VERSION.
   BIT_SHA256 (no pin uses it since T239.3 D46): the monolith bitstream and Gideon's application (APP_FILE) of the TRX64-Ultimate package, packed here
         (tools/pack_import_cor.sh).
 
@@ -167,20 +171,48 @@ def from_store(store, sha, what):
     return p
 
 
-def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
-    """The COR_SHA256 file of a pin into the store, from <base>/<PACKAGE>/<VERSION>/<COR_FILE>; the SHA-256 and the size of the pin decide, a file that differs is not kept."""
+def source_url(pin, store, what, base=None, root=ROOT):
+    """Where the COR_SHA256 file of a pin is fetched from, and the name for messages: the release form (RELEASE) or the Gitea form (PACKAGE, VERSION)."""
+    pid = pin.get("ID")
+    if pin.get("RELEASE"):
+        for k in ("COR_FILE", "COR_SIZE"):
+            if not pin.get(k):
+                raise ImportError_("release/imports/%s.pin has no %s" % (pid, k))
+        if not NAME_OK.match(pin["RELEASE"]) or not NAME_OK.match(pin["COR_FILE"]):
+            raise ImportError_("release/imports/%s.pin: RELEASE and COR_FILE are plain names" % pid)
+        base = base or os.environ.get("TRX_FW_RELEASE_URL", "")
+        if not base:
+            repo = _env_file(os.path.join(root, "ci", "pkg.env")).get("MC_BUILDS_REPO", "")
+            if not repo:
+                raise ImportError_("ci/pkg.env has no MC_BUILDS_REPO")
+            base = "https://github.com/%s/releases/download" % repo
+        return "%s/%s/%s" % (base.rstrip("/"), pin["RELEASE"], pin["COR_FILE"]), "%s/%s" % (pin["RELEASE"], pin["COR_FILE"])
     base = base or os.environ.get("TRX_FW_PKG_URL", "")
     if not base:
         raise ImportError_("%s (%s...) is not in the store %s and TRX_FW_PKG_URL is not set" % (what, pin["COR_SHA256"][:12], store))
     for k in ("PACKAGE", "VERSION", "COR_FILE", "COR_SIZE"):
         if not pin.get(k):
-            raise ImportError_("release/imports/%s.pin has no %s" % (pin.get("ID"), k))
+            raise ImportError_("release/imports/%s.pin has no %s" % (pid, k))
     if not NAME_OK.match(pin["PACKAGE"]) or not NAME_OK.match(pin["VERSION"]) or not NAME_OK.match(pin["COR_FILE"]):
-        raise ImportError_("release/imports/%s.pin: PACKAGE, VERSION and COR_FILE are plain names" % pin.get("ID"))
-    size = int(pin["COR_SIZE"])
+        raise ImportError_("release/imports/%s.pin: PACKAGE, VERSION and COR_FILE are plain names" % pid)
+    return "%s/%s/%s/%s" % (base.rstrip("/"), pin["PACKAGE"], pin["VERSION"], pin["COR_FILE"]), "%s/%s/%s" % (pin["PACKAGE"], pin["VERSION"], pin["COR_FILE"])
+
+
+def _env_file(path):
+    d = {}
+    for line in open(path):
+        m = re.match(r"^(\w+)=(\S+)", line)
+        if m:
+            d[m.group(1)] = m.group(2)
+    return d
+
+
+def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
+    """The COR_SHA256 file of a pin into the store, from where source_url says; the SHA-256 and the size of the pin decide, a file that differs is not kept."""
+    url, named = source_url(pin, store, what, base)
+    size = int(pin.get("COR_SIZE") or 0)
     if not 0 < size <= MAX_FETCH:
-        raise ImportError_("COR_SIZE %s is out of range" % pin["COR_SIZE"])
-    url = "%s/%s/%s/%s" % (base.rstrip("/"), pin["PACKAGE"], pin["VERSION"], pin["COR_FILE"])
+        raise ImportError_("COR_SIZE %s is out of range" % pin.get("COR_SIZE"))
     os.makedirs(store, exist_ok=True)
     tmp = os.path.join(store, ".fetch-%d" % os.getpid())
     try:
@@ -192,10 +224,10 @@ def fetch(pin, store, what, base=None, opener=urllib.request.urlopen):
                     raise ImportError_("%s is larger than COR_SIZE %d" % (pin["COR_FILE"], size))
                 f.write(b)
         if got != size or sha256_file(tmp) != pin["COR_SHA256"]:
-            raise ImportError_("what %s/%s/%s serves is not the pinned file (size or SHA-256)" % (pin["PACKAGE"], pin["VERSION"], pin["COR_FILE"]))
+            raise ImportError_("what %s serves is not the pinned file (size or SHA-256)" % named)
         os.replace(tmp, os.path.join(store, pin["COR_SHA256"]))
     except (urllib.error.URLError, OSError) as e:
-        raise ImportError_("%s/%s/%s could not be fetched: %s" % (pin["PACKAGE"], pin["VERSION"], pin["COR_FILE"], type(e).__name__))
+        raise ImportError_("%s could not be fetched: %s" % (named, type(e).__name__))
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)

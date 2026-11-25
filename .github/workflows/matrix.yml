@@ -194,6 +194,37 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  # T261 P2, D4: the package of the SDK lane as the release sdk-<sdk_version>-<sha8> of the builds repository, when it differs from the last release of its version
+  # (ci/publish_sdk.py). The environment `builds` lets only its allowed refs in; the job runs the commit's own scripts with that environment's token.
+  sdk-release:
+    name: SDK release (T261)
+    needs: [sdk]
+    if: ${{ !cancelled() && needs.sdk.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.3') }}
+    runs-on: ubuntu-latest
+    environment: builds
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Container paths
+        run: echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: sdk
+          path: ${{ env.CI_TEMP }}/sdk-in
+      - name: SDK release
+        env:
+          MC_BUILDS_REPO: Jondalar/trx64mc-builds
+          BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
+        run: python3 -I ci/publish_sdk.py --dir "$CI_TEMP/sdk-in" --sha "$GITHUB_SHA"
+
   # the host menu lane - 2 unit tests, 6 build, 13 deliver (12, the emulator, is the job emu)
   host:
     name: "Host menu: unit tests, build, deliver"
@@ -479,7 +510,7 @@ jobs:
 
   summary:
     name: Result (the matrix)
-    needs: [dispatch, approve, lint, sdk, host, sims, bits, core, emu]
+    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
