@@ -421,7 +421,7 @@ static void pd_register(OpRegistry &r)
 }
 
 static const ReportReg report_regs[] = {
-    { "caps", PD_CAPS, 1 }, { "status", PD_STATUS, 1 }, { "pc", PD_PC, 2 }, { "fifo level", PD_FIFO_LEVEL, 2 }, { "ticks per us x256", PD_TICKS, 4 }, { "live pins", PD_LIVE, 2 },
+    { "caps", PD_CAPS, 1 }, { "status", PD_STATUS, 1 }, { "pc", PD_PC, 1 }, { "fifo level", PD_FIFO_LEVEL, 2 }, { "ticks per us x256", PD_TICKS, 4 }, { "live pins 48-63 (joystick, PADDLE_CMP0)", PD_SNAP + 6, 2 }, { "live pins 64-71 (PADDLE_CMP1-3, DIS, ADJ)", PD_SNAP + 8, 1 },
 };
 
 extern const CoreDesc portdiag_desc;

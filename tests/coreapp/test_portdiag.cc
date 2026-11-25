@@ -61,7 +61,7 @@ int main()
     CHECK_STR(d.filetypes[0].ext, ".toml");
     CHECK_STR(d.filetypes[0].actions[0].op, "pd.run");
 
-    FakeIo io;
+    Engine io;                                          // the model of engine v2: it serves the pin table the live page reads its pins from by name
     FakeFs fs;
     CoreCtx c;
     memset(&c, 0, sizeof(c));
@@ -89,15 +89,15 @@ int main()
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
     CHECK_EQ((size_t)fs.writes, n);                     // the start writes nothing to the card
 
-    // the rows read the live register: bits 0-4 port 1, 5-9 port 2, 10-13 the comparators
-    io.regs[PD_LIVE] = 0x1F ^ 0x04;                    // port 1 left low
-    io.regs[PD_LIVE + 1] = 0x04 | 0x08;                // cmp bit 0 and 1 high -> bits 10, 11
+    // the rows read the snapshot by the names of the table: KBJOY_1_JOY0-4, KBJOY_2_JOY0-4, PADDLE_CMP0-3
+    io.forced_low = 0x3E4;                             // port 1 left low, port 2 all low
+    io.cmp_now = 3;                                    // comparators 0 and 1 high
     uint32_t rev;
     CHECK_STR(reg.state(&c, "pd.port1", &rev), "U1  D1  L0  R1  F1");
     CHECK_STR(reg.state(&c, "pd.port2", &rev), "U0  D0  L0  R0  F0");
     CHECK_STR(reg.state(&c, "pd.cmp", &rev), "1  1  0  0");
-    io.regs[PD_LIVE] = 0xFF;
-    io.regs[PD_LIVE + 1] = 0x03;
+    io.forced_low = 0;
+    io.cmp_now = 0;
     CHECK_STR(reg.state(&c, "pd.port2", &rev), "U1  D1  L1  R1  F1");
 
     // the operations: unattached they refuse, attached they start the runner once
@@ -111,10 +111,10 @@ int main()
     CHECK_EQ(reg.call(&c, "pd.run", &in, 1, &r), OPE_BUSY);          // one test at a time
     CHECK_EQ(reg.call(&c, "pd.pick", 0, 0, &r), OPE_BUSY);
     CHECK_EQ(h.spawned, 1);
-    // the task body runs against the engine: here the register model answers no "DIAG", so the run ends with an error file and the host is free again
+    // the task body runs against the engine model: the pins test runs to its end and writes its result files, and the host is free again
     h.fn(h.arg);
     CHECK(fs.has("/SD/cores/diag/results/pins_20261102-143015.toml"));
-    CHECK(fs.text("/SD/cores/diag/results/pins_20261102-143015.toml").find("status = \"error\"") != std::string::npos);
+    CHECK(fs.text("/SD/cores/diag/results/pins_20261102-143015.toml").find("status = \"done\"") != std::string::npos);
     CHECK_EQ(reg.call(&c, "pd.pick", 0, 0, &r), OPE_OK);              // free again, and it picks first
     h.fn(h.arg);
     CHECK_EQ(h.picks, 1);
