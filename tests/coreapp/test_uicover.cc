@@ -28,6 +28,10 @@ struct Host : MenuHost {
 };
 
 extern const CoreDesc *const core_table[];
+#ifdef TEST_APP_ATARI800                 // the Atari's app is its own build (run.sh a8app, the unit a8_uicover): its table is its core only
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#endif
 
 static bool g_ui = false;
 static MenuCtl *M;

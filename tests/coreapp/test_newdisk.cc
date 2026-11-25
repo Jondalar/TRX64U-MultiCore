@@ -16,10 +16,13 @@
 #include "keyboard.h"
 #include "lib_skel.h"
 #include "newdisk.h"
-#ifndef TEST_APP_CPC             // the other cores' formats are the shared unit's; the CPC's app has no Apple II, Atari or Amiga code
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800)   // the other cores' formats are the shared unit's; the CPC's and the Atari's app have no Apple II or Amiga code
 #include "apple2_nib.h"
-#include "atari_atr.h"
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_ATARI800          // the Atari's ATR: its app (run.sh a8app, the unit a8_newdisk)
+#include "atari_atr.h"
+extern const CoreDesc atari800_desc;           // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
 #ifdef TEST_APP_CPC
 #include "cpc_regs.h"
@@ -30,8 +33,10 @@ typedef std::vector<uint8_t> Bytes;
 
 #ifdef TEST_APP_CPC               // the CPC's app is its own build (run.sh cpcapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_ATARI800)          // the Atari's app is its own build (run.sh a8app): its core is the only one in its table
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &amiga_desc, 0 };
+const CoreDesc *const core_table[] = { &apple2_desc, &amiga_desc, 0 };
 #endif
 
 // a file's bytes, empty when there is none (operator[] would insert an empty entry that FakeFs::list then trips over)
@@ -45,7 +50,7 @@ static uint32_t be32(const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t
 static bool all_zero(const uint8_t *p, size_t n) { for (size_t i = 0; i < n; i++) if (p[i]) return false; return true; }
 static int popcount8(unsigned v) { int n = 0; for (; v; v >>= 1) n += v & 1; return n; }
 
-#ifndef TEST_APP_CPC
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800)
 // ---- Apple II: what DOS 3.3 reads -------------------------------------------------------------------------------------------------------------
 static void check_apple(const Bytes &img)
 {
@@ -166,6 +171,8 @@ static void check_adf(const Bytes &img, const char *name)
     }
 }
 
+#endif
+#ifdef TEST_APP_ATARI800
 // ---- Atari: DOS 2.0S through the product's ATR reader ----------------------------------------------------------------------------------------
 static void check_atr(const Bytes &img)
 {
@@ -326,9 +333,11 @@ struct Case {
 static void check_image(int fmt, const Bytes &b, const char *vol)
 {
     switch (fmt) {
-#ifndef TEST_APP_CPC
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800)
     case ND_APPLE_DSK: check_apple(b); break;
     case ND_ADF:       check_adf(b, vol); break;
+#endif
+#ifdef TEST_APP_ATARI800
     case ND_ATR:       check_atr(b); break;
 #endif
     case ND_CPC_DSK:   check_cpc(b); break;
@@ -459,7 +468,7 @@ static void run_case(const Case &k)
 int main()
 {
     // ---- the builders, alone ----
-#ifndef TEST_APP_CPC
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800)
     {
         Bytes b(ND_APPLE_BYTES);
         CHECK_EQ(nd_apple_dos33(b.data(), (uint32_t)b.size()), ND_APPLE_BYTES);
@@ -479,6 +488,8 @@ int main()
         nd_adf_ofs(b.data(), (uint32_t)b.size(), "");
         check_adf(b, "Empty");
     }
+#endif
+#ifdef TEST_APP_ATARI800
     {
         Bytes b(ND_ATR_BYTES, 0x77);
         CHECK_EQ(nd_atr_dos2(b.data(), (uint32_t)b.size()), ND_ATR_BYTES);
@@ -509,16 +520,18 @@ int main()
     // ---- the entries of the real descriptors ----
 #ifdef TEST_APP_CPC
     const Case cases[] = { { &cpc_desc, "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_CPC_DSK } };
+#elif defined(TEST_APP_ATARI800)
+    const Case cases[] = { { &atari800_desc,  "Create blank ATR", "Name of the new ATR", ".atr", 0, ND_ATR } };
 #else
     const Case cases[] = {
         { &apple2_desc,    "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_APPLE_DSK },
         { &amiga_desc,     "Create blank ADF", "Name of the new ADF", ".adf", 0, ND_ADF },
-        { &atari800_desc,  "Create blank ATR", "Name of the new ATR", ".atr", 0, ND_ATR },
     };
 #endif
     for (const Case &k : cases) run_case(k);
 
-    // ---- the operation refuses what it cannot make ----
+    // ---- the operation refuses what it cannot make (a case of the apps of the CPC and the Atari, on their descriptors) ----
+#if defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800)
     {
 #ifdef TEST_APP_CPC
         CoreRig r(&cpc_desc);
@@ -530,5 +543,6 @@ int main()
         CHECK(ops_call(&r.c, "disk.create", in, 3, &res) != 0);        // not a format of the list
         CHECK(r.fs.files.empty());
     }
+#endif
     DONE("newdisk");
 }

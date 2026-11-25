@@ -6,9 +6,14 @@
 #include "videomode.h"
 #include "trxcanvas.h"
 #include "cores.h"
+#ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_video) has its own core only
 #include "atari800_regs.h"
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#else
 #include "amiga_regs.h"
+#endif
 
+#ifndef TEST_APP_ATARI800                // on the C64SCPU's picture (the shared app's core)
 // T228: the menu on a monolith-type bitstream (TRX64-Ultimate's). Its pix_layer has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
 // factor of the menu's output size over its canvas there (trx_canvas_factor); its frame is the gateware's row (U16), from the start and after every mode.
 static void monolith_menu()
@@ -76,10 +81,13 @@ static void monolith_menu()
     nv.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
     CHECK(npx.place.empty() && npx.canvas.empty());
 }
+#endif
 
 int main()
 {
+#ifndef TEST_APP_ATARI800
     monolith_menu();
+#else
     const VideoDesc &d = atari800_desc.video;
     // the numbers of T88 D5: 384 x 288 at scale 3 = 1152 x 864, centred on 1920 x 1080 and shifted by 14 hires pixels
     CHECK_EQ(d.w * d.scale, 1152);
@@ -87,9 +95,11 @@ int main()
     CHECK_EQ(d.x0, (1920 - 1152) / 2 + 14 * 3);
     CHECK_EQ(d.y0, (1080 - 864) / 2);
     CHECK(d.x0 + (int)(d.w * d.scale) <= 1920);
+#endif
     CHECK_EQ(Video::ctrl_value(2, true), 0x23);           // the Amiga application's PX_CTRL_ON for scale 2, RGB565
     CHECK_EQ(Video::ctrl_value(2, false), 0x22);
     CHECK_EQ(Video::ctrl_value(3, true), 0x33);
+#ifdef TEST_APP_ATARI800
 
     FakeIo io;
     PxRec px;
@@ -156,6 +166,7 @@ int main()
     CHECK_EQ(px.last(PX_SIZE), (288u << 16) | 384u);
     CHECK_EQ(px.last(PX_POS), (108u << 16) | 426u);
     CHECK_EQ(px.last(PX_CTRL), 0x33);
+#endif
     // ADR-0057: the mode a core's own numbers ask for. The NES draws 256 x 224 at scale 3 and fills
     // 93 % of 720p's height where 1080p leaves 38 % of it black; the Atari draws 384 x 288 at scale 3,
     // which needs 1080p's 864 lines. Neither has a mode written down anywhere: both come out of the
@@ -163,11 +174,15 @@ int main()
     {
         PxRec px2;
         FakeIo io2;
+#ifndef TEST_APP_ATARI800
         Video nes_v(nes_desc.video, &px2, &io2);
-        Video a8_v(atari800_desc.video, &px2, &io2);
         CHECK_EQ(nes_v.wanted_hdmi(), VID_HDMI_720P);
+#else
+        Video a8_v(atari800_desc.video, &px2, &io2);
         CHECK_EQ(a8_v.wanted_hdmi(), VID_HDMI_1080P);
+#endif
     }
+#ifndef TEST_APP_ATARI800                // the shared app's cores
     // T104.2 D5, S5: w == 0 says the core draws its own picture (the C64 family's goes through Gideon's video path). The service writes no register
     // of the core - they would be the ID bytes - and never puts a picture on the layer.
     {
@@ -216,9 +231,11 @@ int main()
         CHECK(ev.wanted_hdmi() >= 0);
     }
 
+#endif
     // T104 5.3: the Amiga's three buffers are gateware parameters. No FB_BASE / FB_STRIDE register exists (register 0 is the ID block), so
     // nothing is written there, and a buffer the descriptor does not have is never shown (a reported 3 would address the byte past the window).
     {
+#ifndef TEST_APP_ATARI800
         const VideoDesc &a = amiga_desc.video;
         CHECK_EQ(a.nbuf, 3);
         CHECK_EQ(a.reg_fb_base, 0);
@@ -244,6 +261,7 @@ int main()
         CHECK(!av.poll());
         CHECK_EQ(apx.w.size(), n);
         CHECK_EQ(av.front(), 0x01D00000u + 2 * 0x100000u);    // the picture stays where it was
+#else
         // the four buffers of the Atari still reach buffer 3
         FakeIo bio;
         PxRec bpx;
@@ -253,7 +271,9 @@ int main()
         bio.regs[A8_FB_LATEST] = 0x80 | 3;
         bio.regs[A8_FRAME_SEQ] = 1;
         CHECK(bv.poll());
+#endif
     }
+#ifndef TEST_APP_ATARI800                // the shared app's cores
     // T136 S3: the A500 keeps format 1 and its buffers in the window (the A1200's 32-bit format: its unit a12_base, test_a12base.cc)
     {
         CHECK_EQ(Video::ctrl_value(2, true, 2), 0x25);
@@ -266,5 +286,6 @@ int main()
         CHECK_EQ(opx.last(PX_CTRL), 0x23);
         CHECK_EQ(opx.last(PX_STRIDE), 720u * 2u);
     }
+#endif
     DONE("test_video");
 }

@@ -15,6 +15,7 @@ const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #elif defined(TEST_APP_ATARI800)
 // the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
 #include "cores.h"
+extern const CoreDesc atari800_desc;                // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #elif defined(TEST_APP_C264)
 // the Commodore 264's app is its own build (run.sh c264app): its table is its core only

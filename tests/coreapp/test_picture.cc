@@ -20,7 +20,12 @@
 static std::vector<std::pair<int, int>> g_applied;
 void video_apply(int sys, int hdmi) { g_applied.push_back({ sys, hdmi }); }
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+#ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#endif
 
 struct Lay { int w, h, hdmi, sys, bx, by, scale, x0, y0; };
 
@@ -86,7 +91,11 @@ struct Rig {
 
 static void extension()
 {
-    const CoreDesc *all[] = { &atari800_desc, &nes_desc, &testcore::desc, 0 };
+#ifdef TEST_APP_ATARI800
+    const CoreDesc *all[] = { &atari800_desc, 0 };
+#else
+    const CoreDesc *all[] = { &nes_desc, &testcore::desc, 0 };
+#endif
     for (const CoreDesc *const *p = all; *p; p++) {
         const CoreDesc *d = *p;
         CoreDesc ext; Setting items[SETTINGS_MAX];
@@ -141,6 +150,7 @@ static bool pos_is(Rig &r, int scale, int x0, int y0)
 
 static int pic(Rig &r, int hdmi) { (void)r; return 1 + hdmi; }
 
+#ifndef TEST_APP_ATARI800                // the NES's and the C64SCPU's cases: the shared unit picture
 static void nes_startup()
 {
     // the hand-over says 1080p PAL; nothing stored: Auto, which for the NES is 720p, and the position moves with it
@@ -186,9 +196,11 @@ static void nes_startup()
     CHECK_EQ(picture_start(&r3.c, -1, -1), VID_HDMI_720P);
     CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_720P));
 }
+#endif
 
 static void runtime_change()
 {
+#ifndef TEST_APP_ATARI800
     // the layer is shown; the person picks another mode: the layer goes off, the geometry changes, it comes back
     g_applied.clear();
     Rig r(&nes_desc);
@@ -223,6 +235,7 @@ static void runtime_change()
     h.vid->show();
     CHECK_EQ(h.px.last(PX_POS), (204u << 16) | 576u);
 
+#else
     // the Atari: its 14-pixel offset is the same in every mode, and Auto stays 1080p after a smaller mode was chosen
     Rig a(&atari800_desc);
     CHECK_EQ(picture_start(&a.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
@@ -238,8 +251,10 @@ static void runtime_change()
     g_applied.clear();
     picture_apply(&none, pic(a, VID_HDMI_720P));
     CHECK_EQ(g_applied.size(), 0u);
+#endif
 }
 
+#ifndef TEST_APP_ATARI800
 static void through_the_menu()
 {
     // the person's way: F5, Video, the Picture row, a key (T187 D1, T205 D1: Video is a tab of F5) - applied live and written to the .cfg beside the .cor
@@ -281,6 +296,7 @@ static void through_the_menu()
     m.row(row, l, 100, rr, 100, &a);
     CHECK(std::string(rr).find("576p") != std::string::npos);
 }
+#endif
 
 // T187 D5: the shared page logic (picmodes.cc) - the info line wording of the spec, the tags, the cursor rule that never applies on a move
 static void picmodes_shared()
@@ -424,6 +440,7 @@ static void picmodes_shared()
     CHECK(picpage_key(&pg, PMK_BACK) == PMA_CLOSE);
 }
 
+#ifndef TEST_APP_ATARI800
 // T104.2 D5: a core that draws its own picture has no wish. Auto leaves the screen in the mode it is in; a chosen mode is still applied.
 static void own_picture()
 {
@@ -530,6 +547,7 @@ static void host_auto()
           CHECK_EQ((int)st.layer(pi), (int)Settings::L_CORE);                              // the label was found: the stored Auto is the core's own choice, not the default's
       } }
 }
+#endif
 
 // T107 5.x (2026-10-20): the host's output is always 1920 x 1080 (host/overlay.v:8, host/vic_scaler.v), whatever mode the
 // application asked for, so the layout is the 1080p layout in EVERY mode and system. Apple II 280 x 192 is 560 x 384 at scale 2
@@ -558,7 +576,11 @@ static void fixed_frame()
         CHECK(fw == 1920 && fh == 1080);
     }
     // through the application: a Picture choice of 576p / 720p moves nothing on the layer
-    static const CoreDesc *const cores[] = { &nes_desc, &atari800_desc };
+#ifdef TEST_APP_ATARI800
+    static const CoreDesc *const cores[] = { &atari800_desc };
+#else
+    static const CoreDesc *const cores[] = { &nes_desc };
+#endif
     for (const CoreDesc *d : cores) {
         for (int m : modes) {
             Rig r(d);
@@ -569,6 +591,7 @@ static void fixed_frame()
             CHECK(pos_is(r, ref.vid->scale(), ref.vid->x0(), ref.vid->y0()));
         }
     }
+#ifndef TEST_APP_ATARI800
     CHECK(nes_desc.video.x0 == 576);
     // set_mode puts the layout's numbers into the working geometry, not the descriptor's: a descriptor that says scale 2 gets
     // the scale the frame allows, and the offset it implies (its own x0/y0 are only the bias, init_bias)
@@ -585,6 +608,8 @@ static void fixed_frame()
     CHECK_EQ(v.x0(), ex);
     CHECK_EQ(v.y0(), ey);
     CHECK(es == 3 && (ex != 512 || ey != 160));
+#else
+    FakeIo io; PxRec px;
     // wanted_hdmi() answers from the descriptor's own scale, not from the one set_mode() worked out
     CoreDesc small = atari800_desc;
     small.video.scale = 1;
@@ -594,10 +619,13 @@ static void fixed_frame()
     CHECK_EQ(sv.scale(), 3);
     CHECK_EQ(sv.wanted_hdmi(), before);
     CHECK_EQ(before, VID_HDMI_480_576);
+#endif
+#ifndef TEST_APP_ATARI800
     // the start-up path goes through the same layout
     Rig o(&odd);
     picture_start(&o.c, VID_SYS_PAL50, VID_HDMI_1080P);
     CHECK(pos_is(o, es, ex, ey));
+#endif
 }
 
 int main()
@@ -605,11 +633,15 @@ int main()
     layout_table();
     fixed_frame();
     extension();
+#ifndef TEST_APP_ATARI800
     nes_startup();
+#endif
     runtime_change();
+#ifndef TEST_APP_ATARI800
     own_picture();
     host_auto();
     through_the_menu();
     picmodes_shared();
+#endif
     DONE("test_picture");
 }

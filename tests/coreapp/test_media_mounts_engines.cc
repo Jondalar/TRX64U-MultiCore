@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
@@ -33,7 +33,6 @@
 #ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "apple2_disk.h"
 #include "apple2_regs.h"
-#include "atari800_regs.h"
 #include "nes_regs.h"
 #include "neogeo_regs.h"
 #include "c64_regs.h"
@@ -41,6 +40,9 @@
 #endif
 #ifdef TEST_APP_C264
 #include "c264_regs.h"
+#endif
+#ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
+#include "atari800_regs.h"
 #endif
 #ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
@@ -59,8 +61,11 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_C128)
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
                                        &amiga_desc, 0 };
 #endif
 
@@ -273,7 +278,7 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_ATARI800
 static Bytes atr(int sectors, uint32_t seed)
 {
     Bytes v(16, 0);
@@ -399,6 +404,8 @@ static Case apple_unit(int u)
     k.eject = [u](Run &r, char *m, int n) { return mount_op(r, "apple2.hdd_eject", { in_int("unit", u) }, m, n); };
     return k;
 }
+#endif
+#ifdef TEST_APP_ATARI800
 static Case atari_drive(int d)
 {
     Case k;
@@ -481,6 +488,8 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_ATARI800
     {   // ---- Atari 800 XL: D1-D4 and the cartridge
         Prof p;
         p.name = "atari800"; p.cfg = "/usb0/cores/atari800/atari800.cfg"; p.base = &atari800_desc;
@@ -911,7 +920,7 @@ static const Prof &prof(const std::vector<Prof> &v, const char *name)
 }
 
 // the Atari's .xex boot disk lives in D1 under its own word; an ATR mounted over it takes it away again
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_ATARI800
 static void atari_xex(const Prof &p)
 {
     char msg[240];
@@ -1136,9 +1145,10 @@ int main()
     cpc_464(prof(profs, "cpc"));
 #elif defined(TEST_APP_C128)
     drive_modes(prof(profs, "c128"));
-#else
+#elif defined(TEST_APP_ATARI800)
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
+#else
     drive_modes(prof(profs, "c264"));
     c264_model(prof(profs, "c264"));
     neo_folder(prof(profs, "neogeo"));

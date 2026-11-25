@@ -6,6 +6,7 @@
 #include "fakes.h"
 #include "settings.h"
 #include "cores.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 // The flash as the application sees it: a byte image that only get() reads. There is no write method to call - the test
 // proves the image is the same after a whole session (S5, "read back and hashed" on the board).

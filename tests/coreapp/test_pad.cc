@@ -9,9 +9,13 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
+#ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_pad) has its own core only
 #include "snes_regs.h"
 #include "nes_regs.h"
 #include "neogeo_regs.h"
+#else
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
 #include "pad.h"
 #include "ops_glue.h"
 #include "descrec.h"
@@ -69,6 +73,20 @@ static void unplug_all() { pad_detach(&k1); pad_detach(&k2); pad_detach(&k3); }
 int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
+#ifdef TEST_APP_ATARI800                // the Atari 800 XL's case (its app, run.sh a8app)
+    // ---- a core without a pad record: reports are taken, nothing is written
+    {
+        Rig r(&atari800_desc);
+        pad_configure(0);
+        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
+        V p = rep(0xFFFF, 0);
+        pad_report(&k1, p.data(), (int)p.size());
+        CHECK(!pad_pace(&r.c));
+        CHECK_EQ((int)r.io.log.size(), 0);
+        unplug_all();
+    }
+    DONE("pad");
+#else
     // ---- plug order, the placement of a third pad, a mouse is no pad
     {
         Rig r(&snes_desc);
@@ -226,17 +244,6 @@ int main(int argc, char **argv)
         pad_detach(&k1);
         pad_pace(&r.c);
         CHECK_EQ(r.word(NEO_PAD1), 0);
-        unplug_all();
-    }
-    // ---- a core without a pad record: reports are taken, nothing is written
-    {
-        Rig r(&atari800_desc);
-        pad_configure(0);
-        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        V p = rep(0xFFFF, 0);
-        pad_report(&k1, p.data(), (int)p.size());
-        CHECK(!pad_pace(&r.c));
-        CHECK_EQ((int)r.io.log.size(), 0);
         unplug_all();
     }
     // ---- the numbering of a pad: the 8BitDo SN30 Pro (read on the board) has its own entry, every other pad the generic one (T156, board 2026-10-29)
@@ -519,4 +526,5 @@ int main(int argc, char **argv)
         unplug_all();
     }
     DONE("pad");
+#endif
 }

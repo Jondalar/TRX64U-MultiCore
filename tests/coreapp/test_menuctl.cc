@@ -12,6 +12,7 @@
 #include "lib_skel.h"
 #include "ops_glue.h"
 #include "home.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 struct Host : MenuHost {
     int returns = 0; bool can = false;

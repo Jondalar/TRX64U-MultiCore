@@ -9,6 +9,7 @@
 #include "keyboard.h"
 #include "cores.h"
 #include "atari800_regs.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 static jmp_buf g_gone;                               // the host's way back does not return: the model leaves boot_start the same way
 

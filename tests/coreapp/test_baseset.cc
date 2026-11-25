@@ -16,6 +16,9 @@
 #include "core_hooks.h"
 #include "mousesink.h"
 #include "contrib.h"
+#ifdef TEST_APP_ATARI800
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
 
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 
@@ -109,13 +112,44 @@ static int count_key(const CoreDesc &d, const char *key)
 
 int main()
 {
+#ifdef TEST_APP_ATARI800
+    // ---- the rows on the Atari 800 XL (its app, run.sh a8app, the unit a8_baseset): a core without a mouse and without a capability gets none, with the joystick's capability the
+    // joystick row alone (the capability is no mouse row); the menu's look is no row of it (T239.3 D56)
+    {
+        CHECK(atari800_desc.mouse == 0);
+        const CoreDesc &rich_atari = rich_of(atari800_desc, 1);
+        Rig nm(&atari800_desc);
+        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings);
+        for (int k = 0; k < 6; k++) {
+            CHECK_EQ(count_key(atari800_desc, order[k]), 0);
+            CHECK_EQ(count_key(nm.d, order[k]), 0);
+            CHECK_EQ(baseset_adds(&atari800_desc, order[k]), false);
+            CHECK_EQ(baseset_adds(&rich_atari, order[k]), k == 0);
+        }
+        CHECK_EQ(count_key(Rig(&rich_atari).d, "Mouse Mode"), 0);
+        CHECK_EQ(count_key(Rig(&rich_atari).d, "Joystick Input"), 1);
+        for (const char *gone : { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style" }) CHECK_EQ(count_key(nm.d, gone), 0);
+        // a descriptor that declares a key itself keeps it: no second one
+        static const char *const two[] = { "A", "B" };
+        static Setting own[SETTINGS_MAX];
+        for (int i = 0; i < atari800_desc.nsettings; i++) own[i] = atari800_desc.settings[i];
+        own[atari800_desc.nsettings] = Setting{ "Joystick Input", two, 2, 0, WHEN_LIVE, 0, 0 };
+        CoreDesc od = rich_atari, ox;
+        static Setting os[SETTINGS_MAX];
+        od.settings = own; od.nsettings = atari800_desc.nsettings + 1;
+        CHECK(!baseset_extend(&od, &ox, os));
+        CHECK_EQ(ox.nsettings, od.nsettings + 0);
+        CHECK_EQ(count_key(ox, "Joystick Input"), 1);
+    }
+    DONE("baseset");
+#else
     // ---- the rows: a core without a mouse and without a capability gets none, a core with a mouse gets two, one with both capabilities six, in the order of svc_settings.h; no descriptor declares one
     const CoreDesc &mouse_core = mouse_core_of(amiga_desc);
-    CHECK(mouse_core.mouse != 0 && atari800_desc.mouse == 0);
+    CHECK(mouse_core.mouse != 0);
     // D25: the Amiga declares Mouse Sensitivity / Acceleration itself (operations mouse.sens / mouse.accel); the application adds neither
     CHECK_EQ(count_key(amiga_desc, "Mouse Sensitivity"), 1);
     CHECK(!baseset_adds(&amiga_desc, "Mouse Sensitivity") && !baseset_adds(&amiga_desc, "Mouse Acceleration"));
-    const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_atari = rich_of(atari800_desc, 1), &rich_nes = rich_of(nes_desc, 2);
+    const CoreDesc &rich_amiga = rich_of(mouse_core, 0), &rich_nes = rich_of(nes_desc, 2);
     {
         // a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core
         const char *names[2] = { BASE_CAP_KEYBOARD_JOYSTICK, BASE_CAP_MOUSE_DRIVER };
@@ -128,15 +162,12 @@ int main()
         CHECK(!desc_has_capability(&mouse_core, BASE_CAP_KEYBOARD_JOYSTICK) && !desc_has_capability(&mouse_core, BASE_CAP_MOUSE_DRIVER));
     }
     for (int k = 0; k < 6; k++) {
-        CHECK_EQ(count_key(atari800_desc, order[k]), 0);
         CHECK_EQ(count_key(mouse_core, order[k]), 0);
     }
     {
-        Rig nm(&atari800_desc), wm(&rich_amiga);
-        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings);
+        Rig wm(&rich_amiga);
         CHECK_EQ(wm.d.nsettings, mouse_core.nsettings + 6);
         for (int k = 0; k < 6; k++) {
-            CHECK_EQ(count_key(nm.d, order[k]), 0);                      // the joystick, the mouse and the wheel only where the code can do them
             CHECK_EQ(count_key(wm.d, order[k]), 1);
             CHECK_STR(wm.d.settings[mouse_core.nsettings + k].key, order[k]);
             const Setting &s = wm.d.settings[mouse_core.nsettings + k];
@@ -154,9 +185,7 @@ int main()
                 bool want = k == 2 || k == 3;
                 CHECK_EQ(count_key(am.d, order[k]), want ? 1 : 0);
                 CHECK_EQ(baseset_adds(&mouse_core, order[k]), want);
-                CHECK_EQ(baseset_adds(&atari800_desc, order[k]), false);
                 CHECK_EQ(baseset_adds(&rich_amiga, order[k]), true);
-                CHECK_EQ(baseset_adds(&rich_atari, order[k]), k == 0);
             }
             CHECK(am.d.settings[am.ix("Mouse Sensitivity")].show_state == 0);           // there is no Mouse Mode row to be the condition
             CHECK(am.d.settings[am.ix("Mouse Acceleration")].show_state == 0);
@@ -165,9 +194,6 @@ int main()
             CHECK_EQ(am.ix("Mouse Wheel Sensitivity"), -1);
             CHECK_EQ(am.ix("Mouse Wheel Direction"), -1);
             CHECK(!baseset_adds(&mouse_core, "No Such Key"));
-            // the capability alone is not enough for a mouse row: a core without a mouse has none
-            CHECK_EQ(count_key(Rig(&rich_atari).d, "Mouse Mode"), 0);
-            CHECK_EQ(count_key(Rig(&rich_atari).d, "Joystick Input"), 1);
             // the menu description hides a row of the application by its key (menu.toml `hide`): the merge drops it, nothing else
             static const char *const hide[] = { "Mouse Sensitivity", "Mouse Acceleration" };
             Overrides ov = { hide, 2, 0, 0 };
@@ -185,7 +211,7 @@ int main()
         CHECK_EQ(baseset_count(), 6);
         // T239.3 D56: the menu's look is no row of the application, for no core: the base has no row, no operation and no key for it
         for (const char *gone : { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style" }) {
-            CHECK_EQ(count_key(nm.d, gone), 0); CHECK_EQ(count_key(wm.d, gone), 0);
+            CHECK_EQ(count_key(wm.d, gone), 0);
             CHECK(!baseset_adds(&rich_amiga, gone));
         }
         auto at = [&](Rig &r, const char *key) -> const Setting & { return r.d.settings[r.ix(key)]; };
@@ -199,17 +225,6 @@ int main()
         CHECK_EQ(wd.nvalues, 2); CHECK_STR(wd.values[1], "Reversed");
         CHECK_STR(ms.show_state, "set.Mouse_Mode==Cursor keys");
         CHECK_STR(jy.apply, "base.joystick");
-        // a descriptor that declares a key itself keeps it: no second one
-        static const char *const two[] = { "A", "B" };
-        static Setting own[SETTINGS_MAX];
-        for (int i = 0; i < atari800_desc.nsettings; i++) own[i] = atari800_desc.settings[i];
-        own[atari800_desc.nsettings] = Setting{ "Joystick Input", two, 2, 0, WHEN_LIVE, 0, 0 };
-        CoreDesc od = rich_atari, ox;
-        static Setting os[SETTINGS_MAX];
-        od.settings = own; od.nsettings = atari800_desc.nsettings + 1;
-        CHECK(!baseset_extend(&od, &ox, os));
-        CHECK_EQ(ox.nsettings, od.nsettings + 0);
-        CHECK_EQ(count_key(ox, "Joystick Input"), 1);
     }
 
     // ---- the settings reach the port: the keyboard's joystick; each also tells the hook, which is not armed yet
@@ -256,7 +271,9 @@ int main()
         r.set("Mouse Mode", "Wheel: joystick");
         CHECK_EQ(u64_get_usb_hid_config_value(0x55, 99), 3);
         // the settings are replaced (a new config is loaded, a new object): the answers follow the new object, not the old index
-        Rig nm(&atari800_desc);
+        static CoreDesc plain = mouse_core;                                // a core without the setting: the case's core with no mouse and no capability
+        plain.mouse = 0; plain.caps = 0; plain.ncaps = 0;
+        Rig nm(&plain);
         baseset_attach(&r.c, &port);                                       // (a Rig attaches itself)
         r.c.settings = nm.st;
         r.c.desc = &nm.d;
@@ -381,4 +398,5 @@ int main()
     }
     baseset_attach(0, 0);
     DONE("baseset");
+#endif
 }

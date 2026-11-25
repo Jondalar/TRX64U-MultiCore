@@ -9,6 +9,7 @@
 #include "menuctl.h"
 #include "cores.h"
 #include "keyboard.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 

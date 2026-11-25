@@ -18,10 +18,13 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ATARI800)          // stands on the shared app's cores; the VIC-20's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, ddtapp, zxapp) with their core only
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
+#ifdef TEST_APP_ATARI800
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -52,8 +55,10 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 const CoreDesc *const core_table[] = { &pet_desc, 0 };
 #elif defined(TEST_APP_C128)            // the C128's app is its own build (run.sh c128app) with its core only
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_ATARI800)        // the Atari's app is its own build (run.sh a8app) with its core only
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc, &c64scpu_desc, &amiga_desc, &portdiag_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -210,11 +215,14 @@ int main(int, char **argv)
         static const Mi want[] = { { "Commodore 128", "40/80 DISPLAY" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_ATARI800)
+        static const Mi want[] = { { "Atari 800 XL", "RAM size,Video standard" } };
+        static const char *const none[1] = { 0 };
+        const int n_none = 0;
 #else
         static const Mi want[] = {
             { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
             { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
-            { "Atari 800 XL", "RAM size,Video standard" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
         static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
@@ -304,10 +312,12 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the CPC's DSK (Mount A and reset), no CBM image
 #elif defined(TEST_APP_PET)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the PET's drive images (.d64, .d80, .d82: Mount in Drive 8 / 8.1, Run Disk = pet.mount_run) are no reference table's image
+#elif defined(TEST_APP_ATARI800)
+        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Atari's images (.atr, .xfd, .xex, the cartridge) are no reference table's image
 #elif defined(TEST_APP_C128)
         CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
 #else
-        CHECK(seen_cbm >= 5 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu; atari, apple, zxnext ...)
+        CHECK(seen_cbm >= 5 && seen_other >= 8);                    // the walk saw the shared cores (c264, c64scpu; apple, zxnext ...)
 #endif
     }
 
@@ -429,8 +439,10 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_C128)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_ATARI800)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 >= 11);
+        CHECK(n205 >= 10);
 #endif
     }
 
@@ -451,8 +463,10 @@ int main(int, char **argv)
         static const char *const own[] = { "PET1" };                         // the dual drive unit's dirty images are the core's own write-back
 #elif defined(TEST_APP_C128)
         static const char *const own[] = { "C128" };                         // the drive library's write-back (the drive window is the core's own)
+#elif defined(TEST_APP_ATARI800)
+        static const char *const own[] = { "A8XL" };                         // the SIO drives' write-back
 #else
-        static const char *const own[] = { "APL2", "A8XL", "C264", "SNES", "NEO_" };
+        static const char *const own[] = { "APL2", "C264", "SNES", "NEO_" };
 #endif
         for (const char *id : own) {
             if (!id) continue;
@@ -477,7 +491,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ATARI800)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -557,17 +571,7 @@ int main(int, char **argv)
     d = testcore::desc; d.filetypes = f3; CHECK(desc_check(&d) && strstr(desc_check(&d), "unbound"));
     static const Task file_in_task[1] = { { "T", "test.mount", testcore::mount_bind, 1, false } };
     d = testcore::desc; d.tasks = file_in_task; CHECK(desc_check(&d) && strstr(desc_check(&d), "no file"));
-    static const OpBind atari_bad_drive[2] = { B_FILE("path"), B_INT("drive", 4) };
-    static const FileAction a4[1] = { { "A", "atari800.mount", atari_bad_drive, 2, false } };
-    static const FileType f4[1] = { { ".atr", a4, 1 } };
-    d = atari800_desc; d.filetypes = f4; d.nfiletypes = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "binds 4") && strstr(desc_check(&d), "0 .. 3"));
-    static const OpBind atari_twice[3] = { B_FILE("path"), B_INT("drive", 1), B_INT("drive", 2) };
-    static const FileAction a5[1] = { { "A", "atari800.mount", atari_twice, 3, false } };
-    static const FileType f5[1] = { { ".atr", a5, 1 } };
-    d = atari800_desc; d.filetypes = f5; d.nfiletypes = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "twice"));
-    // a setting whose operation takes fewer values than the item has; one value is no setting
-    static const Setting too_few[1] = { { "RAM", atari800_desc.settings[0].values, 7, 0, WHEN_RESET, "atari800.set_speed" } };
-    d = atari800_desc; d.settings = too_few; d.nsettings = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "takes 0 .. 3"));
+    // one value is no setting
     static const Setting one_value[1] = { { "One", testcore::av, 1, 0, WHEN_LIVE, "test.set_a" } };
     d = testcore::desc; d.settings = one_value; d.nsettings = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "two values"));
     // a ROM put that does not take the bytes
@@ -578,11 +582,8 @@ int main(int, char **argv)
     d = testcore::desc; d.register_ops = Thief::reg; CHECK(desc_check(&d) && strstr(desc_check(&d), "base") && strstr(desc_check(&d), "thief"));
 
     // T104.1 Q10: the capability list. The real descriptors name theirs; a library asks for one by name.
-    CHECK(desc_has_capability(&atari800_desc, "sio") && desc_has_capability(&atari800_desc, "cartridge"));
-    CHECK(!desc_has_capability(&atari800_desc, "drive_a") && !desc_has_capability(&atari800_desc, "iec"));    // no Commodore drive on an Atari
     CHECK(desc_has_capability(&nes_desc, "cartridge") && !desc_has_capability(&nes_desc, "sio"));
     CHECK(!desc_has_capability(&testcore::desc, "sio") && !desc_has_capability(&testcore::desc, ""));         // a core that claims none has none
-    CHECK(!desc_has_capability(&atari800_desc, "si") && !desc_has_capability(&atari800_desc, "sio2"));         // whole names, not prefixes
     static const char *const good_caps[] = { "drive_a", "iec", "sio2", "a23456789012345" };
     d = testcore::desc; d.caps = good_caps; d.ncaps = 4; CHECK(!desc_check(&d));
     static const char *const up_caps[] = { "Drive_A" };
@@ -745,6 +746,26 @@ int main(int, char **argv)
         const Task *t = find_task(&pet_desc, k);
         CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
     }
+#elif defined(TEST_APP_ATARI800)
+    // the real core: what desc_check refuses on its records (a drive its operation does not take, a drive bound twice, a setting with more values than its operation takes),
+    // and its capability list (T104.1 Q10: the real descriptors name theirs; a library asks for one by name)
+    {
+        CoreDesc d;
+    static const OpBind atari_bad_drive[2] = { B_FILE("path"), B_INT("drive", 4) };
+    static const FileAction a4[1] = { { "A", "atari800.mount", atari_bad_drive, 2, false } };
+    static const FileType f4[1] = { { ".atr", a4, 1 } };
+    d = atari800_desc; d.filetypes = f4; d.nfiletypes = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "binds 4") && strstr(desc_check(&d), "0 .. 3"));
+    static const OpBind atari_twice[3] = { B_FILE("path"), B_INT("drive", 1), B_INT("drive", 2) };
+    static const FileAction a5[1] = { { "A", "atari800.mount", atari_twice, 3, false } };
+    static const FileType f5[1] = { { ".atr", a5, 1 } };
+    d = atari800_desc; d.filetypes = f5; d.nfiletypes = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "twice"));
+    // a setting whose operation takes fewer values than the item has
+    static const Setting too_few[1] = { { "RAM", atari800_desc.settings[0].values, 7, 0, WHEN_RESET, "atari800.set_speed" } };
+    d = atari800_desc; d.settings = too_few; d.nsettings = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "takes 0 .. 3"));
+    CHECK(desc_has_capability(&atari800_desc, "sio") && desc_has_capability(&atari800_desc, "cartridge"));
+    CHECK(!desc_has_capability(&atari800_desc, "drive_a") && !desc_has_capability(&atari800_desc, "iec"));    // no Commodore drive on an Atari
+    CHECK(!desc_has_capability(&atari800_desc, "si") && !desc_has_capability(&atari800_desc, "sio2"));         // whole names, not prefixes
+    }
 #else
 #ifndef TEST_APP_A1200
 
@@ -796,7 +817,7 @@ int main(int, char **argv)
         // a setting is exactly one of: an operation, register bits, the rom_set's choice
         static Setting both[1];
         both[0] = amiga_desc.settings[1];
-        both[0].apply = "atari800.set_ram";
+        both[0].apply = "dummy800.set_ram";
         d = amiga_desc; d.settings = both; d.nsettings = 1; d.romset = 0;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "exactly one of"));
         static Setting neither[1];
@@ -952,8 +973,9 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
-#else
+#elif defined(TEST_APP_ATARI800)
     golden(&atari800_desc, "atari800");
+#else
     golden(&nes_desc, "nes");
     golden(&apple2_desc, "apple2");
     golden(&zxnext_desc, "zxnext");
@@ -1020,7 +1042,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_ATARI800)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // the NES declares no drive and no ROM; the TEST core no cartridge
     { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
 
@@ -1078,6 +1100,8 @@ int main(int, char **argv)
         CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
     }
     // T212 D10: the tape keys of the Spectrum's, the CPC's and the PET's decks are the units zx_desc, cpc_desc and pet_desc
+#endif
+#ifdef TEST_APP_ATARI800
     // T212 D11: the Atari's cartridge removal is the slot's Eject (cold start, closes the menu), no task on top of Home
     {
         CHECK(find_task(&atari800_desc, "Remove cartridge, cold start") == 0);
