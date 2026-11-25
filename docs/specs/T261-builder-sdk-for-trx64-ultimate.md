@@ -97,6 +97,11 @@ Scenario: S6 trx64u.cor from their pre-release
   three in its own pipeline from its own copy of `apps/trex_crt`, `apps/softboot`, `apps/online`; the copies here are deleted once theirs
   build. `sdk-0.4.7-760763ec` (immutable) still holds them; the next SDK release does not. MultiCore's package (`ci/package.sh`)
   no longer carries them either; TRX64-Ultimate delivers them.
+- **D7 (Alex, 2026-11-25, translated: "Yes, our build here shall not deliver trx64g and trx64u (and all apps that are special to
+  them), exactly."):** MultiCore's package and pre-release carry neither `trx64u.cor` nor `trx64g.cor`; TRX64-Ultimate delivers both. This
+  replaces D5 and TRX64-Ultimate's D12 (MultiCore takes `trx64u.cor` from their pre-release): the imports `imp-trx64u`/`imp-trx64g`
+  (`release/imports/*.pin`, `ci/imports.py`, the builder's import step, `ci/package.sh` bit-imports, the `--allow-trx` exception of
+  `ci/prerelease.sh`) go. When: open (asked 2026-11-25).
 
 ## §4 Out
 
