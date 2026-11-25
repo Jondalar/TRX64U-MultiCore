@@ -185,8 +185,8 @@ Draft. It is completed when the open questions of §3 are decided.
   (`overlay.cc` 223-230), and the retake when the library's still goes takes a new one anyway (D11, `take_still` frees first).
   Built in the fix round after T-3 (SDK 0.4.5).
 - **Note 2026-11-25 (T239.3 D56):** Alex took the rows Overlay transparency and Color scheme out of the generic core app
-  ("trx64g parameters"). The menu of a core app keeps a fixed transparency then; S2 ("the menu opens with the Overlay Transparency
-  the person set") holds for an app that still has the row, and for the generic core app it checks the fixed value.
+  ("trx64g parameters"; all four Look rows are "zombies from the old Gideon menu, that was wired nowhere"). S2 ("the menu opens
+  with the Overlay Transparency the person set") has no row left to test in the generic core app.
 
 All open decisions are taken (D1-D14).
 
