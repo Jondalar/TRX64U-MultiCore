@@ -1,7 +1,8 @@
-// T175: the layer 2 of the Port Diagnostics core (Alex 2026-11-02, T175 Q6: "a measuring core": no machine). Register block (cores/diag/rtl/diag_regs.v), the probe engine
-// (cores/diag/rtl/probe.v), a raster for the host's scaler and the pixel layer (page 6, forwarded) the core application draws on. Built from the ports of layer2_null.v plus the two
-// that the open-drain joystick pads need: kbjoy_i (the pads' level) and kbjoy_low (drive low). mono/top.v is the only user; the file is not a layer-2 contract file (the
-// contract check reads cores/<id>/layer2_<id>.v) because it has these two extra ports. The build renames the module "layer2" (mono/build_mono.tcl).
+// T175 / T260: the layer 2 of the diag core (Alex 2026-11-02, T175 Q6: "a measuring core": no machine). Register block (cores/diag/rtl/diag_regs.v), the probe engine v2
+// (rtl/probe.v), the capture (rtl/diag_cap.v: a ring in the DDR2 through the engine client e_*), a raster for the host's scaler and the pixel layer (page 6, forwarded) the core
+// application draws on. Built from the ports of layer2_null.v plus the pin bank (T260): dg_in (every pin of the bank, index = pins.toml), dg_en / dg_o / dg_z (what the engine drives; mono/top.v
+// puts them on the pads) and dg_dc (the decouple, cpu_clk). mono/top.v is the only user; the file is not a layer-2 contract file (the contract check reads cores/<id>/layer2_<id>.v)
+// because it has these ports. The build renames the module "layer2" (mono/build_mono.tcl).
 `timescale 1ns / 1ps
 module layer2_diag (
     input  wire IEC_ATN_I,
@@ -251,39 +252,62 @@ module layer2_diag (
     output wire win_port_use,
     output wire [7:0] win_port_wdata,
     output wire win_port_we,
-    input  wire [9:0] kbjoy_i,
-    output wire [9:0] kbjoy_low,
+    input  wire [127:0] dg_in,
+    output wire [127:0] dg_en, dg_o, dg_z,
+    input  wire dg_dc,
     output wire [7:0] av_ga, av_gb, av_gc,           // T201: the A/V test picture's three group words (diag_avout.v); mono/top.v puts them on the balls
     output wire av_syn_n, av_fb                      // T259: AVID_SYNCn and AVID_FB
 );
 
     // ---------------------------------------------------------------- the window the application reads
-    wire        e_run, e_abort, e_go, e_clr, e_stwe, e_rd, e_ev;
-    wire [7:0]  e_staddr, e_pc;
+    wire        e_run, e_abort, e_go, e_clr, e_stwe, e_rd, e_ev, e_caprst;
+    wire [7:0]  e_staddr, e_pc, e_refpc, e_refcnt;
     wire [31:0] e_stdata, e_fq;
     wire [9:0]  e_lvl;
-    wire [13:0] e_live;
-    wire        e_running, e_waiting, e_done, e_ovf, e_err;
-    wire [9:0]  e_low;
+    wire [127:0] e_live;
+    wire        e_running, e_waiting, e_done, e_ovf, e_err, e_refused, e_gtrip, e_gnow;
     wire [92:0] av_cfg;
+    wire        r_we, r_wack;                           // the engine's WRITE_REG
+    wire [11:0] r_off;
+    wire [7:0]  r_wd;
+    wire        c_go, c_refused, c_sampling, c_idle, c_over, c_stop, c_rdstart, c_rdbusy, c_rdvalid;
+    wire [23:0] c_k;
+    wire [31:0] c_m, c_count, c_lost;
+    wire [19:0] c_lines;
+    wire [18:0] c_rdix;
+    wire [127:0] c_rddata;
+    wire [223:0] c_sel;
     diag_regs regs (
         .clk(cpu_clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .ack(cw_ack), .irq(cw_irq),
         .build(usr_access), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata),
         .ev_vsync(px_ev_vsync), .ev_flip(px_ev_flip), .ev_eng(e_ev),
         .run(e_run), .abort(e_abort), .go(e_go), .fifo_clr(e_clr), .st_we(e_stwe), .st_addr(e_staddr), .st_wdata(e_stdata),
-        .status({e_err, e_ovf, e_done, e_waiting, e_running}), .pc(e_pc), .fifo_q(e_fq), .fifo_level(e_lvl), .fifo_rd(e_rd),
-        .live(e_live), .drv_low(e_low), .av_cfg(av_cfg)
+        .status({e_gtrip, c_sampling, e_refused, e_err, e_ovf, e_done, e_waiting, e_running}), .pc(e_pc), .ref_pc(e_refpc), .ref_cnt(e_refcnt),
+        .fifo_q(e_fq), .fifo_level(e_lvl), .fifo_rd(e_rd),
+        .live(e_live), .drv_en(dg_en), .guard_now(e_gnow), .cap_rst(e_caprst), .av_cfg(av_cfg),
+        .e_we(r_we), .e_off(r_off), .e_wd(r_wd), .e_wack(r_wack),
+        .cap_sel(c_sel), .cap_st({3'b000, c_rdvalid, c_rdbusy, c_over, c_idle, c_sampling}), .cap_count(c_count), .cap_lost(c_lost), .cap_lines({12'd0, c_lines}),
+        .rd_start(c_rdstart), .rd_line_ix(c_rdix), .rd_valid_i(c_rdvalid), .rd_data(c_rddata)
     );
     diag_avout avout (.clk(sys_clk), .av_cfg(av_cfg), .ga(av_ga), .gb(av_gb), .gc(av_gc), .syn_n(av_syn_n), .fb(av_fb));
     probe eng (
-        .clk(cpu_clk), .rst(cpu_rst), .run(e_run), .abort(e_abort), .go(e_go), .fifo_clr(e_clr),
+        .clk(cpu_clk), .rst(cpu_rst), .run(e_run), .abort(e_abort), .go(e_go), .fifo_clr(e_clr), .dc(dg_dc),
         .st_we(e_stwe), .st_addr(e_staddr), .st_wdata(e_stdata),
-        .pins_async({paddle_cmp_i, kbjoy_i}), .drv_low(e_low),
-        .pad_dis_o(paddle_dis_o), .pad_dis_en(paddle_dis_en), .pad_adj_o(paddle_adj_o), .pad_adj_en(paddle_adj_en),
+        .pins_async(dg_in), .dg_en(dg_en), .dg_o(dg_o), .dg_z(dg_z),
         .fifo_rd(e_rd), .fifo_q(e_fq), .fifo_level(e_lvl), .live(e_live),
-        .running(e_running), .waiting(e_waiting), .done(e_done), .ovf(e_ovf), .err(e_err), .pc_o(e_pc), .ev(e_ev)
+        .running(e_running), .waiting(e_waiting), .done(e_done), .ovf(e_ovf), .err(e_err), .refused(e_refused), .guard_trip(e_gtrip), .guard_now(e_gnow),
+        .ref_pc(e_refpc), .ref_cnt(e_refcnt), .pc_o(e_pc), .ev(e_ev),
+        .reg_we(r_we), .reg_addr(r_off), .reg_wdata(r_wd), .reg_wack(r_wack),
+        .cap_go(c_go), .cap_k(c_k), .cap_m(c_m), .cap_refused(c_refused), .cap_sampling(c_sampling), .cap_stop(c_stop)
     );
-    assign kbjoy_low = e_low;
+    diag_cap cap (
+        .clk(cpu_clk), .rst(cpu_rst), .live(e_live), .sel(c_sel), .go(c_go), .k(c_k), .m(c_m), .stop(c_stop), .ring_rst(e_caprst),
+        .refused(c_refused), .sampling(c_sampling), .idle_all(c_idle), .overrun(c_over), .count(c_count), .lost(c_lost), .lines(c_lines),
+        .rd_start(c_rdstart), .rd_line_ix(c_rdix), .rd_busy(c_rdbusy), .rd_valid(c_rdvalid), .rd_data(c_rddata),
+        .ui_clk(ui_clk), .ui_rst(ui_rst), .calib(ddr_calib),
+        .e_en(e_en), .e_addr(e_addr), .e_cmd(e_cmd), .e_wdf_data(e_wdf_data), .e_wdf_mask(e_wdf_mask), .e_wdf_wren(e_wdf_wren),
+        .e_rdy(e_rdy), .e_rd_valid(e_rd_valid), .e_rd_data(c_rd_data)
+    );
 
     // the drive and GCR windows: nothing behind them, they answer at once with 0 (a stray access is no bus timeout)
     reg drv_ack_r = 1'b0, gcr_ack_r = 1'b0;
@@ -371,12 +395,6 @@ module layer2_diag (
     assign drv_tgl = 1'b0;
     assign drv_we = 1'b0;
     assign drv_wdata = 32'd0;
-    assign e_addr = 27'd0;
-    assign e_cmd = 3'd0;
-    assign e_en = 1'b0;
-    assign e_wdf_data = 128'd0;
-    assign e_wdf_mask = 16'd0;
-    assign e_wdf_wren = 1'b0;
     assign gate_frz = 1'b0;
     assign pp_data = 8'd0;
     assign pp_eof = 1'b0;
@@ -394,6 +412,10 @@ module layer2_diag (
     assign sid_sock_addr = 1'b0;
     assign smp_f_addr = 27'd0;
     assign smp_f_tgl = 1'b0;
+    assign paddle_adj_en = 1'b0;
+    assign paddle_adj_o = 1'b0;
+    assign paddle_dis_en = 1'b0;
+    assign paddle_dis_o = 1'b0;
     assign c2n_motor_en = 1'b0;
     assign c2n_motor_o = 1'b0;
     assign c2n_read_en = 1'b0;

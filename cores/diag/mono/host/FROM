@@ -74,3 +74,5 @@ usb_dpram.vhd
 usb_phy.v
 usb_pins.xdc
 vic_scaler.v
+
+T260 (2026-11-25): no host copy changed. mono/top.v (the core's own fork, mono/top.v.diff) carries the pin bank: the pads of the cartridge port's A / D / R/W lines are diag_slot_pads (rtl/diag_pads.v), C2N, PADDLE, IEC, SID, the slot control lines and the LED lines take the drive of the bank (dg_en / dg_o / dg_z from layer 2's probe engine) in place of layer 2's old ports, `include "diag_pintab.vh"` / `"diag_dgin.vh"` (generated from rtl/pins.toml by tools/diag_pins_gen.py), layer 2's engine client e_* writes the capture ring (rtl/diag_cap.v). pins.xdc is the T175 one.

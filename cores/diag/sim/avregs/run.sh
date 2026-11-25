@@ -5,7 +5,7 @@ set -e
 here=$(cd "$(dirname "$0")/.." && pwd)
 root=$here/../../..
 out=$here/build/avregs; mkdir -p "$out"
-src="$here/tb_avregs.v $root/cores/diag/rtl/diag_regs.v $root/cores/diag/rtl/diag_avout.v $root/cores/diag/rtl/diag_yc.v"
+src="$here/tb_avregs.v $root/cores/diag/rtl/diag_regs.v $root/cores/diag/rtl/diag_pinrom.v $root/cores/diag/rtl/diag_avout.v $root/cores/diag/rtl/diag_yc.v"
 iverilog -g2012 -s tb_avregs -o "$out/tb.vvp" $src
 iverilog -g2012 -s tb_avsync -o "$out/sy.vvp" $src
 vvp -n "$out/sy.vvp" > "$out/sylog" 2>&1 &
