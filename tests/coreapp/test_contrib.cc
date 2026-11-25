@@ -1396,11 +1396,25 @@ int main(int argc, char **argv)
         r.m->key(KEY_DOWN);
         r.m->key(KEY_RETURN);
         CHECK_EQ(g_taken, 1);
+        r.m->key(KEY_ESCAPE);                                                          // T262 D4: <- from the results is the form again, the results kept
+        CHECK(r.m->search_form() && r.m->picking());
+        CHECK_STR(r.right(0).c_str(), "Online"); CHECK_STR(r.right(1).c_str(), "ab");
+        CHECK_EQ(r.m->rows(), 6);                                                      // Source, Name contains, Group, Handle, Results, Search
+        CHECK_STR(r.left(4).c_str(), "Results"); CHECK_STR(r.right(4).c_str(), "2 >");
+        CHECK_EQ(r.m->selected(), 4);                                                  // the cursor is on the way back
+        r.m->key(KEY_RETURN);                                                          // ... which opens them again, on the row they were left on
+        CHECK(!r.m->search_form() && r.m->picking() && r.m->list_view());
+        CHECK_STR(r.m->title(), "Online results");
+        CHECK_EQ(r.m->rows(), 2);
+        CHECK_EQ(r.m->selected(), 1);
         r.m->key(KEY_ESCAPE);
-        CHECK(!r.m->picking());
+        CHECK(r.m->search_form());
+        r.m->key(KEY_ESCAPE);                                                          // <- from the form leaves it, the results go
+        CHECK(!r.m->picking() && !r.m->search_form());
         r.m->key('/');                                                                 // the form again: it kept the source and the texts
         CHECK(r.m->search_form());
         CHECK_STR(r.right(0).c_str(), "Online"); CHECK_STR(r.right(1).c_str(), "ab");
+        CHECK_EQ(r.m->rows(), 5);                                                      // no Results row after the results were given up
         r.m->key(KEY_UP);
         r.m->key(KEY_RETURN);                                                          // the next source after the last: This device
         CHECK_STR(r.right(0).c_str(), "This device");

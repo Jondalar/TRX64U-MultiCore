@@ -436,6 +436,11 @@ private:
     char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "", pl_more_[40] = "";
     int pl_phase_ = 0, pl_set_ = -1, pl_mode_ = PL_OP;
     const MenuNode *pl_node_ = 0;
+    bool pl_from_search_ = false;                                  // T262 D4: the list on screen is the results of the search form's source: <- goes back to the form
+    bool sf_kept_ = false;                                         // the form is up again and pl_ still holds those results (the form's Results row opens them)
+    int sf_res_sel_ = 0;                                           // the cursor the results had when the form was taken back
+    void sf_back_to_form();                                        // <- from the results: the form again, the results kept
+    void sf_drop_kept();                                           // the results the form kept are given back
     uint32_t pl_last_ = 0;
     void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
     void begin_pick_node(const MenuNode &n, const char *label, const char *src);   // T262 P2

@@ -323,6 +323,10 @@ void MenuCtl::rebuild()
         pl_node_ = 0;
         set_status("The menu changed", false);
     }
+    if (sf_kept_) {
+        pick_ = pick_form_ = false;                                  // the results the form kept belong to a source of the tree that is gone
+        sf_drop_kept();
+    }
     sf_src_ = -1;                                                    // the search form's source is an index into the sources of the tree that is gone: This device
     if (pick_modes_) {                                               // T187 D5: the screen changed under the page: the rows are made again, the cursor keeps its mode
         pick_modes_refresh(true);
@@ -459,6 +463,8 @@ void MenuCtl::go(int area, int tab)
     pick_dyn_ = false;
     pick_form_ = false;
     sf_edit_ = -1;
+    sf_kept_ = false;
+    pl_from_search_ = false;
     pick_release();
     pick_sets_ = false;
     pick_modes_ = false;
@@ -889,11 +895,19 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
                 snprintf(nm, sizeof(nm), "Library");
             }
             snprintf(right, rn, "%s", nm);
+        } else if (sf_kept_ && i == last - 1) {
+            int cnt = 0;
+            for (int k = 0; k < pl_.n; k++) {
+                PickRow kr;
+                picklist_get(pl_, k, &kr);
+                cnt += !kr.note && !kr.more;
+            }
+            snprintf(right, rn, "%d >", cnt);
         } else if (i != last) {
             snprintf(right, rn, "%s", sf_value(i)[0] ? sf_value(i) : "Any");
         }
         if (sub && sn) {
-            snprintf(sub, sn, "%s", i == 0 ? "RETURN or RIGHT takes the next source" : i == last ? "RETURN searches, <- cancels" : "RETURN types the text, <- cancels");
+            snprintf(sub, sn, "%s", sf_kept_ && i == last - 1 ? "RETURN opens the last results, <- cancels" : i == 0 ? "RETURN or RIGHT takes the next source" : i == last ? "RETURN searches, <- cancels" : "RETURN types the text, <- cancels");
         }
         return;
     }
@@ -1768,6 +1782,8 @@ void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op
     pick_path_[0] = 0;
     pl_mode_ = PL_OP;
     pl_node_ = 0;
+    pl_from_search_ = false;
+    sf_kept_ = false;
     pl_more_[0] = 0;
     snprintf(pl_title_, sizeof(pl_title_), "%s", title);
     snprintf(pl_src_, sizeof(pl_src_), "%s", src);
@@ -2191,6 +2207,15 @@ bool MenuCtl::pick_key(int k, Result *out)
                 *out = R_REDRAW;
             } else if (pick_sel_ == cnt - 1) {
                 *out = sf_run();
+            } else if (sf_kept_ && pick_sel_ == cnt - 2) {              // T262 D4: the results the form kept
+                pick_form_ = false;
+                pick_dyn_ = true;
+                sf_kept_ = false;
+                pl_from_search_ = true;
+                pick_sel_ = sf_res_sel_ < pl_.n ? sf_res_sel_ : pl_.n ? pl_.n - 1 : 0;
+                pl_last_ = c_->io->now_ms();
+                set_status("RETURN opens the row, <- goes back", false);
+                *out = R_REDRAW;
             } else {                                                    // a text row: the one line editor, back to the form when it ends
                 entry_ = true;
                 entry_text_mode_ = true;
@@ -2212,12 +2237,14 @@ bool MenuCtl::pick_key(int k, Result *out)
         case KEY_LEFT:
         case KEY_ESCAPE:
             pick_ = pick_form_ = false;
+            sf_drop_kept();
             set_status("Cancelled", false);
             *out = R_REDRAW;
             return true;
         case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
         case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
             pick_ = pick_form_ = false;
+            sf_drop_kept();
             return false;
         default:
             *out = R_NONE;
@@ -2252,6 +2279,11 @@ bool MenuCtl::pick_key(int k, Result *out)
             return true;
         case KEY_LEFT:
         case KEY_ESCAPE:
+            if (pl_mode_ == PL_LIST && pl_from_search_) {                // T262 D4: the results of the form's source: back to the form, the results kept
+                sf_back_to_form();
+                *out = R_REDRAW;
+                return true;
+            }
             pick_ = pick_dyn_ = false;
             picklist_free(&pl_);
             set_status("Cancelled", false);
@@ -5327,7 +5359,7 @@ int MenuCtl::sf_nfields() const
 
 int MenuCtl::sf_rows() const
 {
-    return 2 + (sf_src_ >= 0 ? sf_nfields() : 0) + 1;
+    return 2 + (sf_src_ >= 0 ? sf_nfields() : 0) + (sf_kept_ ? 1 : 0) + 1;
 }
 
 void MenuCtl::sf_label(int row, char *out, int n) const
@@ -5338,6 +5370,8 @@ void MenuCtl::sf_label(int row, char *out, int n) const
         snprintf(out, (size_t)n, "Name contains");
     } else if (row == sf_rows() - 1) {
         snprintf(out, (size_t)n, "Search");
+    } else if (sf_kept_ && row == sf_rows() - 2) {
+        snprintf(out, (size_t)n, "Results");
     } else if (!sf_field_label(c_->merge, sf_src_, row - 2, out, n)) {
         out[0] = 0;
     }
@@ -5345,7 +5379,7 @@ void MenuCtl::sf_label(int row, char *out, int n) const
 
 const char *MenuCtl::sf_value(int row) const
 {
-    return row == 1 ? sf_query_ : row >= 2 && row - 2 < SF_FIELDS ? sf_field_[row - 2] : "";
+    return row == 1 ? sf_query_ : row >= 2 && row - 2 < SF_FIELDS && !(sf_kept_ && row == sf_rows() - 2) ? sf_field_[row - 2] : "";
 }
 
 void MenuCtl::begin_search()
@@ -5391,10 +5425,37 @@ void MenuCtl::sf_open_results(int src)
         mo[0] = 0;
     }
     begin_list_view(sn.label, sn.n.state, sn.n.op, mo);
+    pl_from_search_ = true;                                         // T262 D4: <- goes back to the form, the results kept
+}
+
+void MenuCtl::sf_drop_kept()
+{
+    if (sf_kept_) {
+        picklist_free(&pl_);
+        pl_mode_ = PL_OP;
+        pl_node_ = 0;
+    }
+    sf_kept_ = false;
+    pl_from_search_ = false;
+}
+
+void MenuCtl::sf_back_to_form()
+{
+    const int was = pick_sel_;
+    pick_dyn_ = false;
+    pick_form_ = true;
+    pick_ = true;
+    sf_edit_ = -1;
+    sf_kept_ = true;
+    pl_from_search_ = false;
+    sf_res_sel_ = was;
+    pick_sel_ = sf_rows() - 2;                                      // the Results row
+    set_status("RETURN changes the row, \"Results\" opens the last results, \"Search\" runs it, <- cancels", false);
 }
 
 MenuCtl::Result MenuCtl::sf_run()
 {
+    sf_drop_kept();
     if (sf_src_ < 0) {                                              // This device: the search of the Library, its hits stand in the tab
         snprintf(fm_.search_q, sizeof(fm_.search_q), "%s", sf_query_);
         pick_ = pick_form_ = false;

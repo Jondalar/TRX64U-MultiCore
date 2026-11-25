@@ -226,6 +226,7 @@ One round of fixes for the defects TRX64-Ultimate found in 0.5.0. A library buil
 - **A form keeps no empty space.** When rows hide under a window that had scrolled, the window moves up until it is full, also while the selection stands on a button outside the list.
 - **`goto_screen` redraws.** A `goto_screen` called by an operation the menu runs (a row, a key, a list row) draws the new screen at once; the next key no longer acts on it unseen.
 - **The search tab with a source.** RETURN on the idle Search tab asks for a name as it does without a source; the form is `/`. The idle tab shows the text the form holds, and its side panel no longer says "No media found." (`api.md` 6.20.2).
+- **`<-` from search results.** It goes back to the search form with the results kept; a row `Results` of the form opens them again (`api.md` 6.20.2).
 
 ## Licence
 
