@@ -28,6 +28,12 @@ const CoreDesc *const compiled_in_table[] = { &zx_desc, 0 };
 extern const CoreDesc cpc_desc;   // cores.h lists the shared app's cores (cores/cpc/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_PET)
+// the PET's app is its own build (run.sh petapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc pet_desc;   // cores.h lists the shared app's cores (cores/pet/app/lib holds this one)
+extern const CoreDesc *const compiled_in_table[];
+const CoreDesc *const compiled_in_table[] = { &pet_desc, 0 };
 #else
 #define core_table compiled_in_table
 #include "table.cc"

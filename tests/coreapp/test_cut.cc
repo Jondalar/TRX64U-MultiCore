@@ -23,7 +23,6 @@
 #include "libexports.h"
 #include "menuflows.h"
 
-extern const CoreDesc pet_desc;
 extern const CoreDesc nes_desc;
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
@@ -145,20 +144,6 @@ int main(int, char **argv)
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     g_rm = new RecordMenu(&base, argv[1]);
     setvbuf(stdout, 0, _IONBF, 0);
-    // ---- T228 DC5: the machine line names the RAM only while its row is shown (PET: the 2001, 3032 and 4032 have the row, the CRTC models have 32 KiB whatever it says) ------------------
-    {
-        Rec r(&pet_desc, 0);
-        Settings *st = r.c.settings;
-        int model = st->find("Model (at next reset)"), ram = st->find("RAM (at next reset)");
-        CHECK(model >= 0 && ram >= 0);
-        char line[160];
-        st->set(model, 2);                                      // 4032
-        r.m->machine_line(line, sizeof(line));
-        CHECK_STR(line, "4032 - RAM 32 KiB");
-        st->set(model, 3);                                      // 8032
-        r.m->machine_line(line, sizeof(line));
-        CHECK_STR(line, "8032");
-    }
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
         Rec r;

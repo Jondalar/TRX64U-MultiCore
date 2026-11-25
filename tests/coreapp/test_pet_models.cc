@@ -1,4 +1,4 @@
-// T134: the PET models of the core app (coreapp/cores/pet_models.h): the ROM file each model takes (VICE's names, 50/60 Hz editor, the 4 KiB
+// T134: the PET models of the core app (cores/pet/app/lib/pet_models.h): the ROM file each model takes (VICE's names, 50/60 Hz editor, the 4 KiB
 // character file of the 8032) and the PRG loader's numbers for BASIC 1 (2001) next to BASIC 2/4.
 #include "pet_models.h"
 #include "check.h"

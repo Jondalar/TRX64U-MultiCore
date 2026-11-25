@@ -12,6 +12,9 @@
 #include "keyboard.h"
 #include "regset.h"
 #include "padkeys.h"
+#ifdef TEST_APP_PET
+extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+#endif
 #ifdef TEST_APP_CPC
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
@@ -58,7 +61,7 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -253,9 +256,11 @@ int main()
         const Row rows[] = { { &zx_desc, "zx", true } };
 #elif defined(TEST_APP_CPC)
         const Row rows[] = { { &cpc_desc, "cpc", true } };
+#elif defined(TEST_APP_PET)
+        const Row rows[] = { { &pet_desc, "pet", true } };
 #else
         const Row rows[] = { { &c64scpu_desc, "c64scpu", true }, { &c128_desc, "c128", true },
-                             { &c264_desc, "c264", true }, { &pet_desc, "pet", true }, { &amiga_desc, "amiga", true }, { &apple2_desc, "apple2", true },
+                             { &c264_desc, "c264", true }, { &amiga_desc, "amiga", true }, { &apple2_desc, "apple2", true },
                              { &atari800_desc, "atari800", true }, { &zxnext_desc, "zxnext", true },
                              { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
                              { &portdiag_desc, "portdiag", false } };
@@ -284,7 +289,7 @@ int main()
             CHECK(g.st->find(HK_KEY_MOD) >= 0);
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET)
     // ---- T207: a hotkey is set by pressing the key (S1 the prompt and the key, S2 a used key is refused, S3 the modifier)
     {
         struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
@@ -394,6 +399,8 @@ int main()
             CHECK(hk_current().mod_a != CBM && hk_current().mod_b != CBM);
         }
     }
+#endif
+#ifdef TEST_APP_PET
     // ---- T232: pad keys A-Z and learn by key press (PET rows; the board's path: the menu learn -> settings_set -> regset -> the register file)
     {
         struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
@@ -482,6 +489,8 @@ int main()
         m->key(KEY_RETURN); press(64); release(64);
         CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
     }
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET)
     // ---- T228 R1/R16 (gate fixes 3 and 5): two tasks of a core's menu (Timewarp... and Monitor..., hotkey T and O) hold CTRL+T and CTRL+O by default; a key the stored settings give a
     // fixed action is not doubled. The core is the NES descriptor with the two tasks and the items hk_extend and hk_extend_tasks make (T239.3 P1-8: trx64u's menu is TRX64-Ultimate's)
     {

@@ -604,6 +604,8 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_zx.txt").c_str());
 #elif defined(TEST_APP_CPC)
     std::ifstream idx((dir + "/index_app_cpc.txt").c_str());
+#elif defined(TEST_APP_PET)
+    std::ifstream idx((dir + "/index_app_pet.txt").c_str());
 #else
     std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
 #endif

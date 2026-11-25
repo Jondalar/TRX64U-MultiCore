@@ -137,6 +137,11 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "cpc", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "12 block(s), 41 properties agree" in out, "cpc: 12 blocks, 41 properties of gateware.toml agree with the RTL of the core window (cpc_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, tape, key-injection, disk and the two dirty maps; page 6, the host's pixel layer, is not described)")
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/pet/app/rtl_check_sources.tcl", "--top", "layer2_pet",
+              "--bus", "layer2_pet:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "pet", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "10 block(s), 55 properties agree" in out, "pet: 10 blocks, 55 properties of gateware.toml agree with the RTL of the core window (pet_regs.v's ident, irq, ddr_cal, machine, ROM aperture select, video, the dual drive unit, its write log, the cassette and the pads; page 6, the host's pixel layer, is not described)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
