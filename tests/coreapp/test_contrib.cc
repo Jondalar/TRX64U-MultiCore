@@ -69,6 +69,16 @@ static int op_take(CoreCtx *, const OpArgs &a, OpOut &o) { g_taken = a.i(0); g_t
 static int g_phase = -1;
 static int op_phase(CoreCtx *, const OpArgs &a, OpOut &) { g_phase = a.i(0); g_chosen = a.s(1); return OPE_OK; }
 static const ArgSpec phase_args[] = { ARG_INT("phase", 0, 100), ARG_STRING("answer", 64) };
+// T262 D5 finding 15: operations that do what ctx.browse_at / browse_sheet do (libsvc.cc browse_to: the folder, the name, the sheet and the screen request), called by a list row, an ask_list answer and a pick node
+static void want_browse(CoreCtx *c, bool sheet)
+{
+    snprintf(c->lib.want_dir, sizeof(c->lib.want_dir), "/usb0/g");
+    snprintf(c->lib.want_name, sizeof(c->lib.want_name), "four.tst");
+    c->lib.want_sheet = sheet;
+    snprintf(c->want_screen, sizeof(c->want_screen), "F3/browse");
+}
+static int op_rowsheet(CoreCtx *c, const OpArgs &, OpOut &) { want_browse(c, true); return OPE_OK; }
+static int op_askat(CoreCtx *c, const OpArgs &, OpOut &) { want_browse(c, false); return OPE_OK; }
 static int op_chosen(CoreCtx *, const OpArgs &a, OpOut &) { g_chosen = a.s(0); return OPE_OK; }
 static int op_more(CoreCtx *, const OpArgs &, OpOut &)
 {
@@ -114,6 +124,9 @@ static void add_lib_ops(OpRegistry *r)
     r->add_op("zl.take", take_args, 2, op_take);
     r->add_op("zl.chosen", chosen_args, 1, op_chosen);
     r->add_op("zl.phase", phase_args, 2, op_phase);
+    r->add_op("zl.rowsheet", take_args, 2, op_rowsheet);
+    r->add_op("zl.askat", phase_args, 2, op_askat);
+    r->add_op("zl.pickat", chosen_args, 1, op_askat);
     r->add_op("zl.more", 0, 0, op_more);
     r->add_op("zl.find", find_args, 1, op_find);
     r->add_op("zl.jobfind", find_args, 1, op_jobfind);
@@ -1321,6 +1334,74 @@ int main(int argc, char **argv)
         Rig rb(cb, 1);
         CHECK(rb.has_err("without an operation for a row"));
         g_rows.clear();
+    }
+
+    // ---- T262 D5 finding 15: browse_at / browse_sheet from the operation of a list row, of an ask_list answer and of a pick node take the menu to F3/browse at once; nothing stays pending
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_LIST, "Results", "zl.rowsheet", "zl.rows", 1, 0, 0, 0, 0, 0, false, 0 },
+                                             { "F5/settings", LN_OP, "Many", "zl.pickat", 0, 2, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" },
+                                             { "F5/settings", LN_OP, "Beep", "zl.beep", 0, 3 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 3;
+        Contributor cs[] = { { "jumper", CR_LIB, &rec } };
+        g_rows = "r0\tRow zero\n";
+        g_choices = "a\nb\n";
+        Rig r(cs, 1);
+        r.m->open();
+        r.m->key(KEY_F3); r.go_to("usb0/"); r.m->key(KEY_RETURN); r.go_to("g/"); r.m->key(KEY_RETURN);    // the browser exists and has been entered once
+        struct Local {
+            static void from_f5(Rig &r) { r.m->key(KEY_F5); }
+            static void check_landed(Rig &r)
+            {
+                CHECK_STR(r.m->title(), "/usb0/g");
+                CHECK(!r.m->picking());
+                CHECK(!r.c.want_screen[0] && !r.c.lib.want_dir[0] && !r.c.lib.want_name[0] && !r.c.lib.want_sheet);
+            }
+        };
+        // (a) a list row's operation calls browse_sheet: the menu is on the browser, the sheet of the file is open
+        Local::from_f5(r);
+        r.go_to("Results");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->picking());
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        Local::check_landed(r);
+        CHECK(r.m->chooser());
+        CHECK(r.find_row("Mount") >= 0);
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        // (c) the next, unrelated operation does not jump
+        Local::from_f5(r);
+        r.go_to("Beep");
+        const int beeps = g_beeps;
+        r.m->key(KEY_RETURN);
+        CHECK_EQ(g_beeps, beeps + 1);
+        CHECK(strcmp(r.m->title(), "/usb0/g"));
+        CHECK(!r.c.want_screen[0]);
+        // (b) the operation an ask_list answer calls uses browse_at: the cursor is on the file, no sheet
+        ops_ask_list(&r.c, "zl.askat", 5, "Which", "zl.choices");
+        CHECK(r.m->take_prompt());
+        CHECK(r.m->picking());
+        r.m->key(KEY_RETURN);
+        Local::check_landed(r);
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        Local::from_f5(r);
+        r.go_to("Beep");
+        r.m->key(KEY_RETURN);
+        CHECK(strcmp(r.m->title(), "/usb0/g"));                                      // (c) again
+        // (d) a pick node's operation (the node branch of the same function)
+        r.go_to("Many");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->picking());
+        r.m->key(KEY_RETURN);
+        Local::check_landed(r);
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        g_rows.clear(); g_choices.clear();
+        printf("PASS a list row, an ask_list answer and a pick node reach F3/browse from browse_at / browse_sheet, nothing stays pending\n");
     }
 
     // ---- T262 D4 (13): `ask` holds 24 characters and refuses file-name characters, as before; `ask_max` and `ask_any` make it a free text of its own limit

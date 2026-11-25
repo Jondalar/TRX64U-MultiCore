@@ -1926,6 +1926,9 @@ MenuCtl::Result MenuCtl::list_call(const char *op, int index, const char *answer
     if (take_prompt()) {
         return R_REDRAW;
     }
+    if (take_screen()) {                                            // T262 D5 finding 15: the operation of a list row went to a screen (browse_at, browse_sheet, goto_screen)
+        return R_REDRAW;
+    }
     set_status(r.msg[0] ? r.msg : "done", false);
     fm_.apply_pending();
     return R_REDRAW;
@@ -1972,6 +1975,9 @@ MenuCtl::Result MenuCtl::pick_list_take()
         if (take_prompt()) {
             return R_REDRAW;
         }
+        if (take_screen()) {                                         // T262 D5 finding 15
+            return R_REDRAW;
+        }
         set_status(r.msg[0] ? r.msg : "done", false);
         fm_.apply_pending();
         return node->closes_menu ? R_CLOSE : R_REDRAW;
@@ -1988,6 +1994,9 @@ MenuCtl::Result MenuCtl::pick_list_take()
         return R_REDRAW;
     }
     if (take_prompt()) {
+        return R_REDRAW;
+    }
+    if (take_screen()) {                                            // T262 D5 finding 15: the operation an ask_list answer calls
         return R_REDRAW;
     }
     set_status(r.msg[0] ? r.msg : "done", false);

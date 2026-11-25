@@ -1227,13 +1227,14 @@ Since base 3.6 (T262 D4). A member after `ask_list`; check the `size` member of 
 4.14.15.1 `bool browse_at(const char *path)` opens the file browser (F3, tab `browse`) on the folder of `path` with the cursor on the file that `path` names, not on `..`. `path` is `/medium/.../name`: it starts with `/` and has a name after its last `/`; a path with no name (`/usb0/games/`), a relative path, a null and a path the browser cannot hold (a folder of more than 199 characters, a name of more than 255; each is measured alone, the whole path may be longer than either) are refused.
 4.14.15.2 The call only stores the request. The menu goes to the browser when the operation that called it has returned (as for a screen an operation asks for, 4.17.19), reads the folder and puts the cursor on the entry whose name is `name` (case does not count). A name that is not in the folder leaves the cursor at the top and the status row says `<name> is not here`.
 4.14.15.3 It returns `true` when the request was stored. It returns `false` outside an operation that the menu calls (a job, a REST call, a poll) and for a refused path. Only the last call before the operation returns counts. The task holds the core lock, inside the handler.
+4.14.15.4 The call works from the operation of a node row, from the operation of a `list` row (6.19.3) and from the operation an `ask_list` answer calls (4.14.14); the menu goes to the browser when that operation has returned (since SDK 0.5.2, T262 D5; 0.5.1 did it for a node row only).
 
 #### 4.14.16 `api->ctx->browse_sheet`
 
 Since base 3.6 (T262 D4). A member after `browse_at`.
 
 4.14.16.1 `bool browse_sheet(const char *path)` does what `browse_at` does and then opens the action sheet of the file, as RETURN on it in the browser does: the list of what can be done with the file (its actions, Rename, Delete, Copy to ...).
-4.14.16.2 When `path` names a folder or is not in the folder, no sheet opens; the cursor is placed as `browse_at` places it. Result and task are those of `browse_at` (4.14.15.3).
+4.14.16.2 When `path` names a folder or is not in the folder, no sheet opens; the cursor is placed as `browse_at` places it. Result and task are those of `browse_at` (4.14.15.3). It works from the same operations (a node row, a `list` row, an `ask_list` answer).
 
 ### 4.15 `api->io` (`SvcIo`)
 

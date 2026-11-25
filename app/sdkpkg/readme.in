@@ -233,6 +233,13 @@ One round of fixes for the defects TRX64-Ultimate found in 0.5.0. The base API i
 - **A job keeps its form.** A node's job that started on a screen leaves the screen standing: the job's row carries the words (`busy`) and the percentage, the other rows stay. On a page of one row the words are the row's, the title is the tab's when it would repeat them (`api.md` 6.7.3).
 - **The list page keeps its rows.** A key on the page of a `list` node (a move, a RETURN, a status line, rows that changed) writes the rows, the foot and the side panel in place; the page is built again only when its shape changes (about 365,000 pixels became 7,000 to 110,000 per key). The idle Search tab of the F3 Library no longer reads the folder it does not show (it held the tab blank for as long as the folder took).
 
+
+## What is new in 0.5.2 (base API 3.6, T262 D5)
+
+A patch on 0.5.1: the base API stays 3.6, no header changes.
+
+- **browse_at and browse_sheet from a list row and an ask_list answer.** The calls took the menu to the browser only from a node row's operation; from the operation of a `list` row or of an `ask_list` answer they did nothing and the request stayed pending until a later row. They now work there (`api.md` 4.14.15, 4.14.16).
+
 ## Licence
 
 GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own
