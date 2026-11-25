@@ -2301,6 +2301,78 @@ static void pm_page_fixtures(const char *out)
     ui_set_canvas(960, 540);
 }
 
+
+// T262 P9: a key that runs an operation and changes a value on a screen redraws that row, not the content area. The area LVGL holds after the key is the time (about 2.2 ms for every
+// 1,000 pixels on the board): the whole pane is ~350,000 pixels, a quarter of a second in which the content stands blank and the next keys wait; a row is ~35,000.
+static const char *g_t262_val = "One";
+static int t262_cycle(CoreCtx *, const OpArgs &, OpOut &) { g_t262_val = !strcmp(g_t262_val, "One") ? "Two" : "One"; return OPE_OK; }
+static const char *t262_state(CoreCtx *) { return g_t262_val; }
+static void t262_rows(const char *out)
+{
+    static const LibTabDecl tabs[] = { { "F5", "form", "Form", TW_NODES, 0, 0 } };
+    static const char *const looks[] = { "split;title=Form;side=Side", 0 };
+    static const LibNodeDecl nodes[] = {
+        { "F5/form", LN_OP, "Category", "t262.cycle", 0, 1, 0, 0, 0, 0, 0, false, "chip=@t262.val" },
+        { "F5/form", LN_OP, "Name", "t262.cycle", 0, 2, 0, 0, 0, 0, 0, false, "chip=@t262.val" },
+        { "F5/form", LN_OP, "Group", "t262.cycle", 0, 3, 0, 0, 0, 0, 0, false, "chip=@t262.val" },
+        { "F5/form", LN_OP, "Search", "t262.cycle", 0, 4 },
+    };
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    rec.tabs = tabs; rec.ntabs = 1;
+    rec.nodes = nodes; rec.nnodes = 4;
+    rec.tab_layouts = looks;
+    Contributor cs[] = { { "t262", CR_LIB, &rec } };
+    CoreDesc *base = board_desc(&atari800_desc);
+    Rig c(base, "/usb0/cores/t262.cfg");
+    c.c.started = true;
+    OpRegistry *reg = ops_of(&c.c);
+    reg->contributor("t262");
+    reg->add_op("t262.cycle", 0, 0, t262_cycle);
+    reg->add_state("t262.val", t262_state);
+    static CoreDesc merged;
+    static MenuMerge mm;
+    CHECK(contrib_merge(base, 0, 0, cs, 1, reg, &merged, &mm) == 0);
+    c.c.desc = &merged; c.c.merge = &mm;
+    ui_open(&merged);
+    c.m->rebuild();
+    c.m->open();
+    CHECK(c.m->goto_spec("F5/form"));
+    CHECK(c.m->screen());
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    char l[100], r[100]; bool a;
+    c.m->row(0, l, 100, r, 100, &a);
+    CHECK(!strcmp(l, "Category"));
+    CHECK(find_label(lv_screen_active(), "One") != 0);
+    char p[512];
+    snprintf(p, sizeof(p), "%s/t262-before.png", out);
+    png(p, 2);
+    const uint32_t ip0 = screens_inplace_writes(), cheap0 = screens_cheap_moves(), fr0 = trx_shell_frames();
+    c.m->key(KEY_RETURN);                                                   // the operation answers "Two": the chip of every row says it
+    ui_menu_render(*c.m);
+    const uint32_t px = inv_pixels();
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "Two") != 0 && find_label(lv_screen_active(), "One") == 0);
+    CHECK(screens_inplace_writes() == ip0 + 1);                            // the words were written in place
+    CHECK(trx_shell_frames() == fr0);
+    printf("AREA t262 RETURN on an op row: %u px (the pane is ~350,000)\n", (unsigned)px);
+    CHECK(px > 0 && px < 100000);
+    snprintf(p, sizeof(p), "%s/t262-after.png", out);
+    png(p, 2);
+    c.m->key(KEY_DOWN);                                                     // the move after it is the cheap path as ever
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(screens_cheap_moves() == cheap0 + 1);
+    c.m->key(KEY_RETURN);
+    ui_menu_render(*c.m);
+    const uint32_t px2 = inv_pixels();
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "One") != 0);
+    CHECK(px2 > 0 && px2 < 100000);
+}
+
 int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
@@ -2314,6 +2386,11 @@ int main(int argc, char **argv)
         return fails ? 1 : 0;
     }
 
+    if (getenv("T262_ONLY")) {                                      // T262 P9: only the area of a key that runs an operation
+        t262_rows(out);
+        printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
+        return fails ? 1 : 0;
+    }
     CoreDesc *atari_main = board_desc(&atari800_desc);
     Rig r(atari_main, "/usb0/cores/atari800.cfg");
     r.fs.put_size("/usb0/roms/atari800/atarixl.rom", 16384);
@@ -2867,6 +2944,7 @@ int main(int argc, char **argv)
     ux_longname();
     pm_page_fixtures(out);
     ux_wifi(out);
+    t262_rows(out);
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;

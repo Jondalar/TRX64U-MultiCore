@@ -21,6 +21,8 @@ typedef MenuCtl::Item Item;
 static Item g_it[MAXI];
 static int g_n;
 static lv_obj_t *g_obj[MAXI];                     // the focus object of item i, null when it has none
+static lv_obj_t *g_robj[MAXI];                    // T262 P9: the row object rows_of() made for item i (a status row or a setting row), null when the item has none in the window
+static uint32_t g_tsig;                           // the texts of the rows the last build or retext wrote
 static bool g_valid;
 static uint32_t g_sig;
 static int g_area = -1, g_tab = -1;
@@ -29,6 +31,7 @@ static lv_obj_t *g_hint;                          // the line at the pane's foot
 static char g_hint_text[OP_MSG_MAX];
 static bool g_hint_bad;
 static uint32_t g_cheap;
+static uint32_t g_inplace;                        // T262 P9: renders that wrote the rows' words in place instead of building the pane
 static int g_mfirst;                              // the first unit of the main list in the window (a tab with more rows than the panel holds)
 static int g_munits, g_mdrawn_to;                 // the units the window was made from and the one after the last drawn, for the position label
 
@@ -45,6 +48,7 @@ static bool g_viewer;
 static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 the monitor
 
 uint32_t screens_cheap_moves(void) { return g_cheap; }
+uint32_t screens_inplace_writes(void) { return g_inplace; }
 
 static void live_forget(void);
 void screens_forget(void)
@@ -59,6 +63,7 @@ void screens_forget(void)
     g_selpan = 0;
     g_wn = 0;
     memset(g_obj, 0, sizeof(g_obj));
+    memset(g_robj, 0, sizeof(g_robj));
 }
 
 bool screens_wanted(MenuCtl &m) { return m.screen(); }
@@ -355,6 +360,7 @@ static int rows_of(lv_obj_t *card, int x, int y, int w, const char *slot, int se
             o = trx_status_row(card, x, y, w, r, &y);
         }
         g_obj[i] = focus ? o : 0;
+        g_robj[i] = o;
     }
     g_munits = n;
     g_mdrawn_to = last_drawn;
@@ -371,6 +377,75 @@ static int items_in(const char *slot)
 }
 
 // ---- the signature: everything on the screen except which item has the focus ---------------------------------------------------------------
+// T262 P9: a key that runs an operation changes a value on the screen (the category of a search, a count). The pane built again for that is the whole content area, and the
+// board draws about 2.2 ms for every 1,000 pixels of it: a quarter of a second in which the content stands blank (the key after it waits too). A row that rows_of() draws is
+// therefore written in place - its words, its tone, its switch - and only a change of the pane's shape (a row that comes or goes, gets or loses its value, another kind) builds it again.
+static bool retext_item(const Item &it)
+{
+    return !it.hidden && it.kind != MenuCtl::IK_HEADING && (in_slot(it, "main") || in_slot(it, "media") || in_slot(it, "machine"));
+}
+
+static const char *row_meta(const Item &it)
+{
+    const char *m = it.kind == MenuCtl::IK_MEDIA ? (it.value[0] ? it.value : 0) : (it.chip[0] ? it.chip : (it.value[0] ? it.value : 0));
+    return m ? m : "";
+}
+
+static bool row_has_meta(const Item &it)
+{
+    return it.kind == MenuCtl::IK_SETTING ? (!it.toggle && it.value[0]) : row_meta(it)[0] != 0;
+}
+
+// The layouts whose rows rows_of() draws and nothing else of the pane depends on (an application's screens, the grid and the library have their own draws).
+static bool inplace_layout(MenuCtl &m)
+{
+    return !m.layout_is("library") && !m.layout_is("app") && !m.layout_is("grid") && !m.layout_is("terminal") && !m.app_mode();
+}
+
+static uint32_t text_sig(void)
+{
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < g_n; i++) {
+        const Item &it = g_it[i];
+        if (!retext_item(it)) {
+            continue;
+        }
+        h = hs(h, it.title);
+        h = hs(h, it.sub);
+        h = hs(h, it.chip);
+        h = hs(h, it.value);
+        h = hi(h, (it.tone + 1) | it.dim << 8 | it.on << 9);
+    }
+    return h;
+}
+
+// The rows of the window, written again from the items: only what differs is touched. False: a row would have to be built again.
+static bool retext_rows(void)
+{
+    for (int i = 0; i < g_n; i++) {
+        lv_obj_t *o = g_robj[i];
+        const Item &it = g_it[i];
+        if (!o || !retext_item(it)) {
+            continue;
+        }
+        const bool focus = it.kind != MenuCtl::IK_INFO && it.kind != MenuCtl::IK_VALUE;
+        const int w = lv_obj_get_width(o);
+        bool ok;
+        if (it.kind == MenuCtl::IK_SETTING) {
+            TrxSettingRow r = { it.title, it.toggle ? 0 : it.value, it.toggle, it.on, focus && i == g_sel, it.dim, it.reset, TT_MUTED };
+            ok = trx_setting_row_retext(o, r, w);
+        } else {
+            const char *meta = row_meta(it);
+            TrxStatusRow r = { it.title, meta[0] ? meta : 0, tone_of(it), focus && i == g_sel, it.dim };
+            ok = trx_status_row_retext(o, r, w);
+        }
+        if (!ok) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static uint32_t signature(MenuCtl &m)
 {
     uint32_t h = 2166136261u;
@@ -383,15 +458,20 @@ static uint32_t signature(MenuCtl &m)
     char s[120];
     m.session_line(s, sizeof(s));
     h = hs(h, s);
+    const bool inplace = inplace_layout(m);
     for (int i = 0; i < g_n; i++) {
         const Item &it = g_it[i];
         h = hs(h, it.slot);
         h = hs(h, it.group);
+        h = hi(h, it.hidden);
+        if (inplace && retext_item(it)) {                                // T262 P9: the words, colours and switch of such a row are written in place (text_sig); its shape is part of the pane
+            h = hi(h, it.kind | it.primary << 8 | it.link << 9 | it.enabled << 10 | it.toggle << 12 | it.reset << 14 | (row_has_meta(it) ? 1 : 0) << 15);
+            continue;
+        }
         h = hs(h, it.title);
         h = hs(h, it.sub);
         h = hs(h, it.chip);
         h = hs(h, it.value);
-        h = hi(h, it.hidden);
         h = hi(h, it.kind | (it.tone + 1) << 4 | it.primary << 8 | it.link << 9 | it.enabled << 10 | it.dim << 11 | it.toggle << 12 | it.on << 13 | it.reset << 14);
     }
     char p[80];
@@ -1528,7 +1608,19 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         return true;
     }
     uint32_t sig = signature(m);
-    if (g_valid && g_area == m.area() && g_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && sig == g_sig) {
+    const uint32_t tsig = text_sig();
+    bool same = g_valid && g_area == m.area() && g_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && sig == g_sig;
+    if (same && tsig != g_tsig && inplace_layout(m)) {                 // T262 P9: only the words of the rows moved: they are written in place
+        if (retext_rows()) {
+            g_tsig = tsig;
+            g_inplace++;
+        } else {
+            same = false;
+        }
+    } else if (same && tsig != g_tsig) {
+        same = false;
+    }
+    if (same) {
         apply_selection(m, sel, sheet);
         hint_update(m);
         if (m.app_mode()) {
@@ -1537,6 +1629,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         return true;
     }
     ui_menu_forget_rows();                                        // the old rows and mine are gone with the pane
+    memset(g_robj, 0, sizeof(g_robj));
     lv_obj_t *c = trx_shell(scr, info, route, m.area(), ui_shell_tab(m));
     char name[24];
     ui_name(m.layout(), name, sizeof(name));
@@ -1566,6 +1659,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     }
     g_valid = true;
     g_sig = sig;
+    g_tsig = tsig;
     g_area = m.area();
     g_tab = m.tab();
     g_sel = sel;

@@ -1147,6 +1147,98 @@ lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow 
     return row;
 }
 
+// T262 P9: a status row given new texts and colours without building it again, so that a value that changed in the menu repaints that row's labels and not the pane. False
+// (the caller builds the pane again) when the row is not one of trx_status_row() or has a meta word that the new content has not, or the other way round.
+bool trx_status_row_retext(lv_obj_t *row, const TrxStatusRow &r, int w)
+{
+    const TrxTheme &t = trx_theme();
+    if (!row) {
+        return false;
+    }
+    const char *meta = r.meta && *r.meta ? r.meta : 0;
+    if (lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 2 + (meta ? 1 : 0))) {
+        return false;
+    }
+    int tx = t.space_sm + 4 + t.space_md;
+    char mbuf[160], tbuf[160];
+    if (meta) {
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - tx) * 45 / 100;
+        meta = trx_fit_mid(meta, w - tx - t.space_sm - t.space_md - (lab < keep ? lab : keep), t.caption, mbuf, sizeof(mbuf));
+    }
+    int mw = meta ? trx_text_w(meta, t.caption) : 0;
+    int room = w - tx - t.space_sm - (mw ? mw + t.space_md : 0);
+    lv_obj_t *dot = lv_obj_get_child(row, ROW_MARKS), *title = lv_obj_get_child(row, ROW_MARKS + 1);
+    lv_obj_set_style_bg_color(dot, lv_color_hex(r.dim ? t.line : trx_tone_color(r.tone)), 0);
+    const char *ttl = r.title ? trx_fit_mid(r.title, room, t.body, tbuf, sizeof(tbuf)) : r.title;
+    if (strcmp(lv_label_get_text(title), ttl ? ttl : "")) {
+        lv_label_set_text(title, ttl ? ttl : "");
+    }
+    if (lv_obj_get_width(title) != room) {
+        lv_obj_set_width(title, room);
+    }
+    lv_obj_set_style_text_color(title, lv_color_hex(r.dim ? (r.selected ? t.muted : dimmer(t)) : t.ink), 0);
+    if (meta) {
+        lv_obj_t *ml = lv_obj_get_child(row, ROW_MARKS + 2);
+        if (strcmp(lv_label_get_text(ml), meta)) {
+            lv_label_set_text(ml, meta);
+        }
+        if (lv_obj_get_x(ml) != w - mw - t.space_sm) {
+            lv_obj_set_x(ml, w - mw - t.space_sm);
+        }
+        lv_obj_set_style_text_color(ml, lv_color_hex(r.dim ? t.muted : trx_tone_color(r.tone)), 0);
+    }
+    return true;
+}
+
+// The same for a setting row with no ring: its title, its value or its switch. False when the row has a ring or the new content has another kind of control.
+bool trx_setting_row_retext(lv_obj_t *row, const TrxSettingRow &r, int w)
+{
+    const TrxTheme &t = trx_theme();
+    if (!row || r.reset) {
+        return false;
+    }
+    const char *val = r.toggle ? 0 : r.value;
+    if (lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1 + ((r.toggle || val) ? 1 : 0))) {
+        return false;
+    }
+    char vbuf[160];
+    if (val) {
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - 2 * t.space_md) * 45 / 100;
+        val = trx_fit_mid(val, w - 2 * t.space_md - t.space_lg - (lab < keep ? lab : keep), t.body, vbuf, sizeof(vbuf));
+    }
+    int cw = r.toggle ? 34 : (val ? trx_text_w(val, t.body) : 0);
+    int room = w - 2 * t.space_md - (cw ? cw + t.space_lg : 0);
+    lv_obj_t *title = lv_obj_get_child(row, ROW_MARKS);
+    if (strcmp(lv_label_get_text(title), r.title ? r.title : "")) {
+        lv_label_set_text(title, r.title ? r.title : "");
+    }
+    if (lv_obj_get_width(title) != room) {
+        lv_obj_set_width(title, room);
+    }
+    lv_obj_set_style_text_color(title, lv_color_hex(r.dim ? t.muted : t.ink), 0);
+    if (r.toggle) {
+        lv_obj_t *tr = lv_obj_get_child(row, ROW_MARKS + 1);
+        uint32_t on_col = r.tone == TT_MUTED ? t.accent : trx_tone_color(r.tone);
+        lv_obj_set_style_bg_color(tr, lv_color_hex(r.on ? on_col : t.line), 0);
+        lv_obj_t *knob = lv_obj_get_child(tr, 0);
+        if (knob && lv_obj_get_x(knob) != (r.on ? 34 - 16 : 2)) {
+            lv_obj_set_x(knob, r.on ? 34 - 16 : 2);
+        }
+    } else if (val) {
+        lv_obj_t *vl = lv_obj_get_child(row, ROW_MARKS + 1);
+        if (strcmp(lv_label_get_text(vl), val)) {
+            lv_label_set_text(vl, val);
+        }
+        if (lv_obj_get_x(vl) != w - cw - t.space_md) {
+            lv_obj_set_x(vl, w - cw - t.space_md);
+        }
+        lv_obj_set_style_text_color(vl, lv_color_hex(r.dim ? t.muted : t.ink), 0);
+    }
+    return true;
+}
+
 lv_obj_t *trx_setting_row(lv_obj_t *par, int x, int y, int w, const TrxSettingRow &r, int *next_y)
 {
     const TrxTheme &t = trx_theme();
