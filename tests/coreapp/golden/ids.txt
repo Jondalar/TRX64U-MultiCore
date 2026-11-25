@@ -1,26 +1,3 @@
-Nintendo Entertainment System F1/home 0 task:Reset
-Nintendo Entertainment System F1/home 1 media:nes.cartridge.image
-Nintendo Entertainment System F1/home 2 fixed:10:Save as config...
-Nintendo Entertainment System F1/home 3 fixed:11:Load config...
-Nintendo Entertainment System F5/settings 0 set:Console type
-Nintendo Entertainment System F5/settings 1 set:Joystick ports
-Nintendo Entertainment System F5/settings 2 set:Pad map
-Nintendo Entertainment System F5/input 0 task:Map buttons, pad 1
-Nintendo Entertainment System F5/input 1 task:Map buttons, pad 2
-Nintendo Entertainment System F8/expert 0 fixed:13:Actions
-Nintendo Entertainment System F8/expert 1 fixed:6:Restart core
-Nintendo Entertainment System F8/expert 2 fixed:7:Return to host menu
-Nintendo Entertainment System F8/expert 3 fixed:13:Network
-Nintendo Entertainment System F8/expert 4 fixed:9:WiFi
-Nintendo Entertainment System F8/expert 5 fixed:13:Support
-Nintendo Entertainment System F8/expert 6 fixed:8:Bug report
-Nintendo Entertainment System F8/expert 7 fixed:17:Keys and help
-Nintendo Entertainment System F8/expert 8 fixed:13:Reset
-Nintendo Entertainment System F8/expert 9 fixed:5:Reset to host defaults
-Nintendo Entertainment System F8/expert 10 fixed:13:Status
-Nintendo Entertainment System F8/expert 11 info:Build
-Nintendo Entertainment System F8/expert 12 info:ROMs
-Nintendo Entertainment System F8/expert 13 info:Libraries
 Apple IIe F1/home 0 task:Reset (Ctrl-Reset)
 Apple IIe F1/home 1 task:Cold start
 Apple IIe F1/home 2 task:Reload ROMs, cold start

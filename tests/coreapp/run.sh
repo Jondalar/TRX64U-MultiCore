@@ -74,17 +74,21 @@ source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/a8_drv.sh"
+source "$TST/nes_drv.sh"
+source "$TST/shared_drv.sh"
 a8_drv_dir "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
+nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
+NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$A8LIB" "$NESLIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
-# T239.5 D15: the shared units use the Atari 800 XL as their sample core (its library is compiled into them), so the table holds its blocks too (a8_drv.sh); the real shared app has none of them
-a8_shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
-INC=(-include "$TST/a8_decl.h" -I"$A8LIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
+# T239.5 D15: the shared units use the Atari 800 XL and the NES as their sample cores (their libraries are compiled into them), so the table holds their blocks too (shared_drv.sh); the real shared app has none of them
+shared_drv_dir "$T" || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
+INC=(-include "$TST/moved_decl.h" -I"$A8LIB" -I"$NESLIB" -DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$T/drv" -I"$LOADERS" -I"$VIDEO" -I"$ROOT/app/view" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
@@ -97,6 +101,10 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Atari 800 XL is its own app as well (T239.5 D15: cores/atari800/app). a8app CMD... builds like vc20app, with the Atari's library, its table and TEST_APP_ATARI800: its units are in the group atari800.
 INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
+# The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library, its table and TEST_APP_NES: its units are in the group nes.
+INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || [ "$i" = "-I$A8LIB" ] || [ "$i" = "-I$NESLIB" ] || INC_NES+=("$i"); done
+nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
 vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
@@ -148,7 +156,8 @@ control_job() {
   local d="$JOBDIR/mut"; mkdir -p "$d"
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
-  cp -R "$A8LIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the Atari 800 XL's library (the controls mutate its files)
+  cp -R "$A8LIB"/* "$d"/ 2>/dev/null || true
+  cp -R "$NESLIB"/* "$d"/ 2>/dev/null || true   # T239.5 D15: the NES's library (the controls mutate its files)   # T239.5 D15: the Atari 800 XL's library (the controls mutate its files)
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -248,9 +257,9 @@ a8app control sio_nowrite atari_sio.cc 's/if (d->write(pend_sector_, data_)) {/i
 
 a8app run a8_media test_atari_media.cc $ATARI
 
-run ines test_ines.cc ines.cc
+nesapp run nes_ines test_ines.cc ines.cc
 
-run nes test_nes.cc $NESSRC
+nesapp run nes_core test_nes.cc $NESSRC
 
 run ddt test_ddt.cc ddt_novic.cc $BASEL
 
@@ -321,7 +330,8 @@ RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/d
 # T184 D3: the one WiFi row of every core (test_desc.cc): a core without it, and a core with a second row, are both seen
 # T104.2 D10: tasks and media list by group like settings, an information tab names its lines
 
-run menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
+nesapp run nes_menuctl test_nes_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc nes.cc ines.cc $BASEL
 a8app run a8_menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 # T180 D3, D6, D7 (S4-S6): the F3 Library of a core that is not the C64 - no [Recent]/[Favorites], the file operations of the common part, + / - paging with the volume on SHIFT.
 run f3 test_f3.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
@@ -1006,6 +1016,12 @@ PY
   return 0
 }
 if ca_in atari800 && ca_unit a8_romreq; then t_romreq_a8; PASS=$((PASS + 1)); fi
+
+# T239.5 D15: the NES's units built as its app (nesapp: its library cores/nes/app/lib and its own table, the group nes) that are not above (nes_ines, nes_core, nes_menuctl) - the units its TOML B
+# (cores/nes/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: nes.cc with ines.cc and the base's (no other core). The NES has no ROM: no romreq unit.
+NESD="desc_check.cc overlay.cc descrec.cc nes.cc ines.cc $BASEL"
+nesapp run nes_memops test_memops.cc $SVC $NESD
+RARGS="$BUN/app" nesapp run nes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NESD
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

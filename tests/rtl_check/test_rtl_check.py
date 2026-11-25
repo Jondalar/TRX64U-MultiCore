@@ -9,6 +9,7 @@
   2b. the miniature design tests/rtl_check/mini2 (V-1c): a request splitter, a process alias and procedure, a VHDL block, a RAM write sink.
   2e. the miniature design tests/rtl_check/mini5 (V-1e): ascending vectors, a for-generate, an if-generate, a stride, a core block the design decodes itself.
   3a. the Atari 800 XL (T239.5 D15): cores/atari800/app/gateware.toml against the files of cores/atari800/core_sources.tcl, the request being the five cw_* ports of layer2_atari800.
+  3b. the NES (T239.5 D15): cores/nes/app/gateware.toml against the files of cores/nes/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_nes.
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
      the core window (cw_*) of the instance vc of layer2_vc20; it needs this repository only.
   2c. the miniature design tests/rtl_check/mini3 (V-1d): a handshake into a module with a register pipeline (c_addr, op_a), another master loading the same register, a Verilog
@@ -128,6 +129,12 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--bus", "layer2_atari800:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "atari800", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "8 block(s), 33 properties agree" in out, "atari800: 8 blocks, 33 properties of gateware.toml agree with the RTL of the core window (a8_regs.vhd: the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the SIO handler's port, the four paddles as a run, the cache counters; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/nes/app/rtl_check_sources.tcl",
+              "--top", "layer2_nes",
+              "--bus", "layer2_nes:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "nes", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "9 block(s), 27 properties agree" in out, "nes: 9 blocks, 27 properties of gateware.toml agree with the RTL of the core window (nes_regs.v: the IRQ pair, the DDR2 calibration, the machine, the cache counters, the frame buffers, the cartridge base and window page, the 16 bytes of the iNES header as a run, the two pads; page 6 is the hand-over to the host's pixel layer)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
