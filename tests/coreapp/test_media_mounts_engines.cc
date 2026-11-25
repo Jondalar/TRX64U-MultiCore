@@ -37,10 +37,10 @@
 #include "nes_regs.h"
 #include "neogeo_regs.h"
 #include "c64_regs.h"
-#include "c264_regs.h"
 #endif
 #ifdef TEST_APP_C264
 #include "c264_regs.h"
+extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
 #ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
@@ -60,7 +60,7 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc,
                                        &amiga_desc, 0 };
 #endif
 
@@ -531,15 +531,13 @@ static std::vector<Prof> profiles()
         v.push_back(p);
     }
 #endif
-#ifndef MME_NO_DRIVE
+#if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
 #elif defined(TEST_APP_C264)
     for (int k = 2; k < 3; k++) {
 #elif defined(TEST_APP_C128)
     for (int k = 1; k < 2; k++) {
-#else
-    for (int k = 2; k < 3; k++) {
 #endif
     // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
         Prof p;
@@ -552,9 +550,6 @@ static std::vector<Prof> profiles()
 #elif defined(TEST_APP_C128)
         const CoreDesc *d = &c128_desc;
         p.name = "c128";
-#else
-        const CoreDesc *d = &c264_desc;
-        p.name = "c264";
 #endif
         p.cfg = std::string("/usb0/cores/") + p.name + "/" + p.name + ".cfg";
         p.base = d;
@@ -565,7 +560,7 @@ static std::vector<Prof> profiles()
         };
         p.cases = { cbm_drive() };
         if (k == 2) {
-#ifndef MME_OWN_APP
+#ifdef TEST_APP_C264                   // the 264's cartridge image: its app's
             Case cart;
             cart.key = "Mount Cartridge";
             cart.a = "/usb0/a.bin";
@@ -1024,10 +1019,8 @@ static void cpc_464(const Prof &p)
 }
 
 #endif
-#ifndef TEST_APP_VC20
+#ifdef TEST_APP_C264
 // the C264 cartridge is a Plus/4 thing: restoring one sets the model, applied before the release
-#endif
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void c264_model(const Prof &p)
 {
     char msg[240];
@@ -1139,8 +1132,6 @@ int main()
 #else
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
-    drive_modes(prof(profs, "c264"));
-    c264_model(prof(profs, "c264"));
     neo_folder(prof(profs, "neogeo"));
 #endif
     DONE("test_media_mounts_engines");

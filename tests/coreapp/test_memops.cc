@@ -22,6 +22,9 @@ extern const CoreDesc zx_desc;                  // cores.h lists the shared app'
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
+#ifdef TEST_APP_C264
+extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
+#endif
 #if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 #include "zxnext_regs.h"
@@ -60,9 +63,8 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc,
                                        &amiga_desc, &portdiag_desc, 0 };
-#define HEX_CORE c264_desc
 #endif
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")
@@ -149,7 +151,7 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
-        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
+        { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
 #endif
     for (auto &w : widths) {
         Rig r(w.d);
@@ -160,7 +162,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)   // the A1200's, DDT's ... memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264)   // the C64-family cores of an app: the VIC-20's and the 264's (the shared app has none)
 #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
 #else
@@ -334,7 +336,7 @@ int main()
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "DDT") != 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
-#else
+#elif defined(HEX_CORE)                  // the shared app has no 64 KB C64-family core left: its apps run this case (vc20_memops, c264_memops, ...)
     // ---- the hex text of a write (the 64 KB C64-family core of the app)
     {
         Rig r(&HEX_CORE);

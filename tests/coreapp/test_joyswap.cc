@@ -8,8 +8,11 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)   // the CPC's, the C128's, the Next's and the Neo Geo's app have their own core only: no file of the Amiga in their group
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_C264)   // the CPC's, the C128's, the Next's, the Neo Geo's and the 264's app have their own core only: no file of the Amiga in their group
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_C264                     // the Commodore 264's app (run.sh c264app) has its own core only
+extern const CoreDesc c264_desc;         // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
 #ifdef TEST_APP_C128                     // the C128's app (run.sh c128app) has its own core only
 #include "c128_regs.h"
@@ -19,8 +22,7 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)   // the A1200's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
-#include "c264_regs.h"
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_C264)   // the A1200's, CPC's, C128's, Next's, Neo Geo's, Amiga 500's and 264's app have their own core only
 #include "nes_regs.h"
 #include "zxnext_regs.h"
 #endif
@@ -51,6 +53,7 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
+#ifndef TEST_APP_C264                    // the 264 has no setting of this form (its own key is checked below): no row
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
@@ -108,9 +111,11 @@ int main()
         regset_apply(&c2, true);                                           // what the start sequence does with every setting
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
+#endif
     // the cores that keep another form: their own key is there once (T157 D1)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#ifdef TEST_APP_C264
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
+#elif !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
 #endif

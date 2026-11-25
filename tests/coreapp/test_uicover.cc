@@ -28,6 +28,10 @@ struct Host : MenuHost {
 };
 
 extern const CoreDesc *const core_table[];
+#ifdef TEST_APP_C264                     // the Commodore 264's app is its own build (run.sh c264app): its table is its core only
+extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#endif
 
 static bool g_ui = false;
 static MenuCtl *M;

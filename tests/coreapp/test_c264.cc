@@ -5,6 +5,8 @@
 #include <algorithm>
 #include "cbm_rig.h"
 
+extern const CoreDesc c264_desc;                // no shared header declares it: the Commodore 264 is its own app (cores/c264/app/lib)
+
 // The register file as the bench reads cores/c264/rtl/trx/c264_regs.v and c264_win.v - literal numbers on purpose (see test_vc20.cc)
 #define T264_MODEL      0x0A1
 #define T264_RAM_SIZE   0x0A2
