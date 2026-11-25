@@ -411,7 +411,11 @@ public:
 #endif
     }
     uint32_t fpga_caps() { return getFpgaCapabilities(); }
+#ifdef DRV_ident_caps_RD
     uint8_t trx_caps() { return DRV_ident_caps_RD(); }
+#else
+    uint8_t trx_caps() { return 0; }        // a TOML A whose standard block has no property caps (board.cc reads it only with a cartridge or ring block: api.md 6.17.5)
+#endif
     uint8_t iec_version()
     {
 #ifdef DRV_HAS_iec_status

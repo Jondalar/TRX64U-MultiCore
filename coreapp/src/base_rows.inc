@@ -9,15 +9,11 @@ static const char *const g_base_values_6[] = { "" };
 static const char *const g_base_values_7[] = { "Home (F1)", "Last screen" };
 static const char *const g_base_values_8[] = { "Off", "CTRL", "C=", "C= + CTRL", "C= + L SHIFT", "C= + RUN/STOP", "CTRL + L SHIFT", "CTRL + RUN/STOP" };
 static const char *const g_base_values_9[] = { "Off", "DEL", "RETURN", "CRSR RIGHT", "F7", "F1", "F3", "F5", "CRSR DOWN", "3", "W", "A", "4", "Z", "S", "E", "L SHIFT", "5", "R", "D", "6", "C", "F", "T", "X", "7", "Y", "G", "8", "B", "H", "U", "V", "9", "I", "J", "0", "M", "K", "O", "N", "+", "P", "L", "-", ".", ":", "@", ",", "POUND", "*", ";", "HOME", "R SHIFT", "=", "UP ARROW", "/", "1", "LEFT ARROW", "CTRL", "2", "SPACE", "C=", "Q", "RUN/STOP", "RESTORE" };
-static const char *const g_base_values_10[] = { "0 %", "25 %", "50 %", "75 %" };
-static const char *const g_base_values_11[] = { "Standard Blue", "Ultimate Black" };
-static const char *const g_base_values_12[] = { "None", "Beginning", "Middle", "End" };
-static const char *const g_base_values_13[] = { "Quick Search", "WASD Cursors" };
-static const char *const g_base_values_14[] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
-static const char *const g_base_values_15[] = { "Cursor keys", "Wheel: cursor keys", "Wheel: joystick" };
-static const char *const g_base_values_16[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
-static const char *const g_base_values_17[] = { "Off", "Adaptive" };
-static const char *const g_base_values_18[] = { "Normal", "Reversed" };
+static const char *const g_base_values_10[] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
+static const char *const g_base_values_11[] = { "Cursor keys", "Wheel: cursor keys", "Wheel: joystick" };
+static const char *const g_base_values_12[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
+static const char *const g_base_values_13[] = { "Off", "Adaptive" };
+static const char *const g_base_values_14[] = { "Normal", "Reversed" };
 static const BaseRow g_base_row[] = {
     { "Picture", 0, g_base_values_0, 1, 0, 0, 0, "picture.apply", 0, "video.modes" },
     { "Scale", 0, g_base_values_1, 3, 0, 0, 0, "scale.apply", 0, 0 },
@@ -36,15 +32,11 @@ static const BaseRow g_base_row[] = {
     { "Hotkey reset", "Reset", g_base_values_9, 66, 0, 0, 0, "hotkeys.apply", 0, "hotkeys.keys" },
     { "Hotkey swap joystick", "Swap joystick ports", g_base_values_9, 66, 0, 0, 0, "hotkeys.apply", 0, "hotkeys.keys" },
     { "Hotkey picture mode", "Picture mode", g_base_values_9, 66, 0, 0, 0, "hotkeys.apply", 0, "hotkeys.keys" },
-    { "Overlay Transparency", "Overlay transparency", g_base_values_10, 4, 1, 0, 0, "base.overlay", 0, 0 },
-    { "Color Scheme", "Color scheme", g_base_values_11, 2, 1, 0, 0, "base.scheme", 0, "view.schemes" },
-    { "Filename overflow squeeze", 0, g_base_values_12, 4, 0, 0, 0, "base.squeeze", 0, 0 },
-    { "Navigation Style", "Navigation style", g_base_values_13, 2, 0, 0, 0, "base.nav", 0, 0 },
-    { "Joystick Input", "Joystick input", g_base_values_14, 6, 0, 0, 0, "base.joystick", 0, 0 },
-    { "Mouse Mode", "Mouse as", g_base_values_15, 3, 0, 0, 0, "base.mouse_mode", 0, 0 },
-    { "Mouse Sensitivity", "Mouse cursor sensitivity", g_base_values_16, 16, 7, 1, 0, "base.mouse_sens", "set.Mouse_Mode==Cursor keys", 0 },
-    { "Mouse Acceleration", "Mouse cursor acceleration", g_base_values_17, 2, 0, 0, 0, "base.mouse_accel", "set.Mouse_Mode==Cursor keys", 0 },
-    { "Mouse Wheel Sensitivity", "Mouse wheel sensitivity", g_base_values_16, 16, 7, 1, 0, "base.wheel_sens", 0, 0 },
-    { "Mouse Wheel Direction", "Mouse wheel direction", g_base_values_18, 2, 0, 0, 0, "base.wheel_dir", 0, 0 },
+    { "Joystick Input", "Joystick input", g_base_values_10, 6, 0, 0, 0, "base.joystick", 0, 0 },
+    { "Mouse Mode", "Mouse as", g_base_values_11, 3, 0, 0, 0, "base.mouse_mode", 0, 0 },
+    { "Mouse Sensitivity", "Mouse cursor sensitivity", g_base_values_12, 16, 7, 1, 0, "base.mouse_sens", "set.Mouse_Mode==Cursor keys", 0 },
+    { "Mouse Acceleration", "Mouse cursor acceleration", g_base_values_13, 2, 0, 0, 0, "base.mouse_accel", "set.Mouse_Mode==Cursor keys", 0 },
+    { "Mouse Wheel Sensitivity", "Mouse wheel sensitivity", g_base_values_12, 16, 7, 1, 0, "base.wheel_sens", 0, 0 },
+    { "Mouse Wheel Direction", "Mouse wheel direction", g_base_values_14, 2, 0, 0, 0, "base.wheel_dir", 0, 0 },
 };
-static const int g_base_nrows = 27;
+static const int g_base_nrows = 23;

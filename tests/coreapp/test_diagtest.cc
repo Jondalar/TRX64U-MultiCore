@@ -1,4 +1,4 @@
-// T175: the test files of the diag core (coreapp/src/diagtest.cc) against a model of the probe engine behind CoreIo. What is proven: the TOML schema
+// T175: the test files of the diag core (cores/diag/app/lib/diagtest.cc) against a model of the probe engine behind CoreIo. What is proven: the TOML schema
 // (the files that ship parse; every kind of mistake is refused with its line), the step list (exact words, microseconds to clocks), the FIFO decode,
 // the thresholds, both result files byte for byte, the card that refuses a write (no half result), the refusal of a test whose precondition is not
 // met, the suite, the examples written once. The model has the register map of section 3 and the step-word fields of cores/portdiag_regs.h.

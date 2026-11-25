@@ -187,14 +187,3 @@ int menu_keymap_key_of(int intent, int arg)
     }
     return -1;
 }
-
-int menu_keymap_wasd(int k)
-{
-    switch (k) {
-    case 'w': return KEY_UP;
-    case 'a': return KEY_LEFT;
-    case 's': return KEY_DOWN;
-    case 'd': return KEY_RIGHT;
-    }
-    return k;
-}

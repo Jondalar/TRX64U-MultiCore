@@ -18,7 +18,6 @@
 #include "baseset.h"
 #include "mediamounts.h"
 #include "videomode.h"
-#include "trx_scheme_names.h"
 
 static const BaseRow *row(const char *op, const char *key) { return menu_base_row(op, key); }
 
@@ -39,7 +38,7 @@ int main()
         CHECK(r.key && r.key[0] && r.apply && r.apply[0] && r.values && r.nvalues >= 1);
         CHECK(r.def >= 0 && r.def < r.nvalues);
         CHECK(r.kind == 0 || r.kind == 1);
-        CHECK(!r.pick || !strcmp(r.pick, "video.modes") || !strcmp(r.pick, "hotkeys.modifiers") || !strcmp(r.pick, "hotkeys.keys") || !strcmp(r.pick, "view.schemes"));
+        CHECK(!r.pick || !strcmp(r.pick, "video.modes") || !strcmp(r.pick, "hotkeys.modifiers") || !strcmp(r.pick, "hotkeys.keys"));
         CHECK(r.pick || r.nvalues >= 2 || r.kind == 1);                    // a row with no pick is a choice among values, or a text
         for (int j = i + 1; j < n; j++) {
             CHECK(strcmp(all[j].apply, r.apply) || strcasecmp(all[j].key, r.key));
@@ -84,11 +83,7 @@ int main()
     const BaseRow *tone = row(TONE_OP, TONE_KEY);
     CHECK_EQ(tone->nvalues, TONE_STEPS);
     CHECK_EQ(tone->def, TONE_DEFAULT);
-    const BaseRow *scheme = row("base.scheme", 0);                             // the pick "view.schemes": the names are the view's (app/view/trx_scheme_names.h); the row shows the first until then
-    CHECK(pick_is(scheme, "view.schemes") && scheme->nvalues <= TRX_SCHEME_COUNT && scheme->def < TRX_SCHEME_COUNT);
-    for (int i = 0; i < scheme->nvalues; i++) {
-        CHECK_STR(scheme->values[i], trx_scheme_names[i]);
-    }
+    CHECK(!row("base.scheme", 0) && !row("base.overlay", 0));                 // T239.3 D56: the menu's colour scheme and transparency are no base rows
     const BaseRow *mod = row(HK_OP, HK_KEY_MOD);
     CHECK(pick_is(mod, "hotkeys.modifiers"));
     CHECK_EQ(mod->nvalues, hk_modifier_presets());
@@ -135,9 +130,6 @@ int main()
         const BaseRow *r = row(d4.settings[i].apply, d4.settings[i].key);
         CHECK(r && d4.settings[i].def == r->def);
         CHECK(r && (r->pick ? d4.settings[i].nvalues >= r->nvalues : d4.settings[i].values == r->values));
-        if (r && pick_is(r, "view.schemes")) {
-            CHECK_EQ(d4.settings[i].nvalues, TRX_SCHEME_COUNT);
-        }
     }
     DONE("test_baserows");
 }

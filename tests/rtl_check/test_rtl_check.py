@@ -18,6 +18,8 @@
   2f. the miniature design tests/rtl_check/mini6 (V-1f): a unit two modules behind the handshake (an instance inside the module that the continuous assignments feed), a genvar select, a write that
       clears a register whatever the data is, a register written under an address compare while another expression names the data behind a different compare.
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
+  5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
+     same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
 """
 import os
@@ -131,6 +133,52 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
      "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
      "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
+
+# D55: emit. The header reader: names by offset, a bit mask after a register with a larger offset is no register, a function-like macro is evaluated.
+import tempfile
+import io
+import contextlib
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import toml_a_emit
+with tempfile.TemporaryDirectory() as td:
+    hp = os.path.join(td, "x_regs.h")
+    open(hp, "w").write("#define X_PAGE 0x100\n#define X_REG(o) (X_PAGE + (o))\n#define X_CTRL 0x0A0 // b0 hold\n#define X_HOLD 0x01\n#define X_FLAGS X_REG(0x24)\n#define X_FLAGS_SWAP 0x40\n#define X_BIG 0x20000\n")
+    got = toml_a_emit.header_offsets([hp], 0x10000)
+    must(got == {0xA0: "X_CTRL", 0x124: "X_FLAGS", 0x100: "X_PAGE"}, "emit: the header reader names X_CTRL (0xA0) and X_FLAGS (a macro: 0x124) and leaves out the bit X_HOLD, the field X_FLAGS_SWAP and the value outside the window", str(got))
+    out_toml = os.path.join(td, "vc20_core.toml")
+    rc, out = run("emit", "--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--list", "gideon_vhdl.tcl", "--top", "layer2_vc20",
+                  "--bus", "vc20_core:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000", "--core", "vc20",
+                  "--scan", "0:0x200", "-j", "1", "--toml-a-out", out_toml, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"),
+                  "--compare", os.path.join(ROOT, "cores", "vc20", "app", "gateware.toml"))
+    text = open(out_toml).read() if os.path.exists(out_toml) else ""
+    must(rc == 0 and "emit: " in out and "5 block(s), 17 properties agree with the RTL" in out and '[identity]' in text and 'name = "ident"' in text and 'name = "caps"' in text,
+         "emit: the VIC-20's core window (bytes 0..0x1FF) is written from the decode as 5 blocks, 17 properties with the standard block (id, caps, caps2, build), and `check` agrees with the same RTL", out)
+    must("identical (address, width, count, dir): 15" in out and "bytes the RTL decodes that the hand-written file does not describe: 0 bytes" in out,
+         "emit --compare: 15 of the hand-written properties of cores/vc20/app/gateware.toml in that range are the same register (address, width, dir); the RTL has no byte the hand-written file leaves out", out)
+
+# D55 review 1a/4a: a stray `endif / `else is Unsupported (not an IndexError); a rejected emit leaves no file
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import rtl_check as R
+for f in (lambda: R.pp_ifdef("a\n`endif\n"), lambda: R.pp_ifdef("`else\n"), lambda: R.lex("`endif\nwire a;", "verilog", "x.v"), lambda: R.lex("`else\n", "verilog", "x.v")):
+    try:
+        f()
+        must(False, "a stray `endif / `else raises Unsupported")
+    except R.Unsupported:
+        pass
+must(True, "a stray `endif / `else raises Unsupported in pp_ifdef and lex")
+with tempfile.TemporaryDirectory() as td:
+    out_toml = os.path.join(td, "rej.toml")
+    real = toml_a_emit._verify
+    toml_a_emit._verify = lambda *a: 1
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = toml_a_emit.cmd_emit(["--design", os.path.join(ROOT, "host"), "--list", "../cores/vc20/core_sources.tcl", "--list", "gideon_vhdl.tcl", "--top", "layer2_vc20",
+                                       "--bus", "vc20_core:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000", "--core", "vc20",
+                                       "--scan", "0:0x100", "-j", "1", "--toml-a-out", out_toml, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--cache", os.path.join(td, "c.json")])
+    finally:
+        toml_a_emit._verify = real
+    must(rc == 1 and not os.path.exists(out_toml) and not os.path.exists(out_toml + ".tmp") and "was not written" in buf.getvalue(), "emit: a TOML A that `check` rejects leaves no file (neither the output nor the .tmp)", buf.getvalue())
 
 rc, out = run("lint-src", os.path.join(HERE, "lint", "clean.cc"))
 must(rc == 0 and "no literal I/O address" in out, "lint-src: a source without a literal address passes", out)

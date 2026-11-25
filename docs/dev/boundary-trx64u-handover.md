@@ -14,6 +14,11 @@ Rules for all rows:
 
 Kinds: base = a call, state or operation of the base (also `io.*` register calls); export = a table of a shared library of this repository; theirs = your own code; removed = no call needed.
 
+
+> **2026-11-25, T239.3 D56:** the four look settings of the generic application (`Overlay Transparency`, `Color Scheme`,
+> `Filename overflow squeeze`, `Navigation Style`) and the calls `ui_set_look`, `ui_set_name_squeeze` are gone (Alex: zombies of
+> the old Gideon menu). The rows below that name them describe the boundary before D56; the base declares six settings now.
+
 ## base library (59 pending: base 24, export 29, theirs 2, removed 4)
 
 | Pending call | Final name | Header | Signature | Note |

@@ -652,7 +652,7 @@ def _expand_apps(doc):
 
 
 # the run-time lists the application serves to a core's choice row (menubuild.cc menu_pick_fill); video.modes is the Picture row of the base alone
-CORE_PICKS = ("hotkeys.keys", "hotkeys.modifiers", "view.schemes")
+CORE_PICKS = ("hotkeys.keys", "hotkeys.modifiers")
 
 
 def compile_desc(doc, merged=(), app_base=False):

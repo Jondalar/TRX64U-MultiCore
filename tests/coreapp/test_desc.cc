@@ -672,7 +672,7 @@ int main(int, char **argv)
             d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
             CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
             mix[0] = amiga_desc.settings[sens];
-            mix[0].key = "Overlay Transparency";                    // a look key on the mouse operation
+            mix[0].key = "Joystick Input";                    // a look key on the mouse operation
             d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
             CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
         }

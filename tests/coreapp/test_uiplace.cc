@@ -94,15 +94,15 @@ int main(int argc, char **argv)
     menu_place_groups(menu_place_base(), store, bd.nsettings);
     {
         const UiPlace *b = menu_place_base();
-        CHECK_EQ(b->nroutes, 7);
+        CHECK_EQ(b->nroutes, 6);
+        for (int i = 0; i < b->nroutes; i++) CHECK(strcmp(b->routes[i].group, "look") && strcmp(b->routes[i].heading, "Look"));   // T239.3 D56: F7 App has no Look group
+        for (const char *gone : { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style" }) CHECK(!find(bd, gone));
         const struct { const char *key, *route, *area, *tab, *heading, *group; } want[] = {
             { "Volume", "audio", "F5", "audio", "Audio", "audio" },
             { "Tone", "audio", "F5", "audio", "Audio", "audio" },
             { HOME_ENTER_KEY, "storage", "F7", "settings", "Storage", "storage" },
             { HOME_DIR_KEY, "storage", "F7", "settings", "Storage", "storage" },
             { REOPEN_KEY, "menu", "F7", "settings", "Menu", "system" },
-            { "Overlay Transparency", "look", "F7", "settings", "Look", "app" },
-            { "Navigation Style", "look", "F7", "settings", "Look", "app" },
         };
         for (const auto &w : want) {
             const Setting *s = find(bd, w.key);
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
         CHECK(hk && hk->page && !strcmp(hk->label, "Hotkeys") && !strcmp(hk->area, "F7"));
         // the order of the table is the order the application adds the rows in
         int32_t last = UI_NO_ORDER;
-        const char *chain[] = { "Volume", "Tone", HOME_ENTER_KEY, HOME_DIR_KEY, REOPEN_KEY, "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style" };
+        const char *chain[] = { "Volume", "Tone", HOME_ENTER_KEY, HOME_DIR_KEY, REOPEN_KEY };
         for (const char *k : chain) {
             const UiPlaceRow *p = menu_place_of(menu_place_base(), *find(bd, k));
             CHECK(p != 0 && p->order != UI_NO_ORDER && p->order > last);

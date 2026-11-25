@@ -96,7 +96,7 @@ int main()
     for (int k = 0; k < 1; k++) {
         const CoreDesc *d = both[k];
         const CoreDesc *own = &AM_REC;
-        CHECK_EQ(d->nsettings - own->nsettings, 4);        // the application's look rows only (baseset.h): the mouse rows are the core's
+        CHECK_EQ(d->nsettings - own->nsettings, 0);        // the application adds no row since D56 (the look rows are gone): the mouse rows are the core's
         int ns = -1, na = -1, cnt = 0;
         for (int i = 0; i < d->nsettings; i++) {
             if (!strcmp(d->settings[i].key, "Mouse Sensitivity")) { ns = i; cnt++; }

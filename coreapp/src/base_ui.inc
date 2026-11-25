@@ -4,11 +4,10 @@ static const UiPlace g_base_place = {
         { "video", "F5", "video", "Video", 0, false },
         { "audio", "F5", "audio", "Audio", 0, false },
         { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },
-        { "look", "F7", "settings", "Look", 0, false },
         { "appinput", "F7", "settings", "Input", 0, false },
         { "storage", "F7", "settings", "Storage", 0, false },
         { "menu", "F7", "settings", "Menu", 0, false },
-    }, 7,
+    }, 6,
     {
         { "picture.apply", "Picture", "video", "video", 10 },
         { "scale.apply", "Scale", "video", "video", 20 },
@@ -21,17 +20,13 @@ static const UiPlace g_base_place = {
         { "home.apply", "Home Directory", "storage", "storage", 90 },
         { "home.apply", "Menu opens at", "menu", "system", 100 },
         { "hotkeys.apply", 0, "hotkeys", "input", 110 },
-        { "base.overlay", 0, "look", "app", 120 },
-        { "base.scheme", 0, "look", "app", 130 },
-        { "base.squeeze", 0, "look", "app", 140 },
-        { "base.nav", 0, "look", "app", 150 },
         { "base.joystick", 0, "appinput", "app", 160 },
         { "base.mouse_mode", 0, "appinput", "app", 170 },
         { "base.mouse_sens", 0, "appinput", "app", 180 },
         { "base.mouse_accel", 0, "appinput", "app", 190 },
         { "base.wheel_sens", 0, "appinput", "app", 200 },
         { "base.wheel_dir", 0, "appinput", "app", 210 },
-    }, 21
+    }, 17
 };
 static const UiElements g_base_elem = {
     {

@@ -1365,7 +1365,7 @@ group = "audio_2"
     def test_the_base_table_is_whole_and_current(self):
         rec = D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
         names = {r["group"] for r in rec["group_route"]}
-        self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "look", "appinput", "storage", "menu"])
+        self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "appinput", "storage", "menu"])
         for p in rec["place"]:
             self.assertIn(p["route"], names, p["op"])
             self.assertIn("group", p)
@@ -1420,14 +1420,15 @@ class BaseRows(unittest.TestCase):
         self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
 
     def test_a_run_time_list_is_named_by_pick_in_a_base_row_and_in_a_core_row(self):
-        row = '[[core_setting]]\nkey = "Scheme"\nvalues = ["Blue"]\npick = "view.schemes"\napply = "x.apply"\n'
+        row = '[[core_setting]]\nkey = "Scheme"\nvalues = ["Blue"]\npick = "hotkeys.keys"\napply = "x.apply"\n'
         for app_base in (True, False):
             r = D.parse_desc(D.compile_desc(D.toml_loads(row), app_base=app_base))
-            self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("view.schemes", ["Blue"]))
+            self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("hotkeys.keys", ["Blue"]))
         with self.assertRaises(D.DescError):
-            D.compile_desc(D.toml_loads(row.replace("view.schemes", "video.modes")))     # a core's row names a list the application serves to it
+            D.compile_desc(D.toml_loads(row.replace("hotkeys.keys", "video.modes")))     # a core's row names a list the application serves to it
         self.assertNotIn("provider", open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read().replace("# ", "").split("[lists]", 1)[1])
-        self.assertEqual({r["key"]: r["pick"] for r in self.base()["cset"] if r["pick"]}["Color Scheme"], "view.schemes")
+        self.assertNotIn("Color Scheme", [r["key"] for r in self.base()["cset"]])      # T239.3 D56: no base row for the colour scheme or the transparency
+        self.assertNotIn("Overlay Transparency", [r["key"] for r in self.base()["cset"]])
 
     def test_the_rows_are_the_ones_the_application_exports(self):
         r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")],

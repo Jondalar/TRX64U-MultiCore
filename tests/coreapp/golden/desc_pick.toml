@@ -2,5 +2,5 @@
 [[core_setting]]
 key = "Scheme"
 values = ["Blue"]
-pick = "view.schemes"
+pick = "hotkeys.keys"
 apply = "test.scheme"

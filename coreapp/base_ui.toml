@@ -31,12 +31,6 @@ label = "Hotkeys"
 page = true
 
 [[group_route]]
-group = "look"
-area = "F7"
-tab = "settings"
-heading = "Look"
-
-[[group_route]]
 group = "appinput"
 area = "F7"
 tab = "settings"
@@ -131,31 +125,7 @@ route = "hotkeys"
 group = "input"
 order = 110
 
-# the look, the joystick and the mouse of the generic application (baseset.cc)
-[[place]]
-op = "base.overlay"
-route = "look"
-group = "app"
-order = 120
-
-[[place]]
-op = "base.scheme"
-route = "look"
-group = "app"
-order = 130
-
-[[place]]
-op = "base.squeeze"
-route = "look"
-group = "app"
-order = 140
-
-[[place]]
-op = "base.nav"
-route = "look"
-group = "app"
-order = 150
-
+# the joystick and the mouse of the generic application (baseset.cc)
 [[place]]
 op = "base.joystick"
 route = "appinput"
@@ -194,7 +164,7 @@ order = 210
 
 # ---- the rows: label, key, kind, values and default of every row the application adds to every core (T239.3 D32, P2-4 and its QC entry). They are the rows of a core's UI TOML ([[core_setting]],
 # the same keys, tools/descrec.py) with one difference that belongs to the application: a row may take the key and the operation of Picture, Scale, Smoothing and Frame follow. A list that changes at run time names its `pick`; the values of such a row are what it shows until the list has filled it; the lists are what the application serves: "video.modes" the resolutions the screen takes,
-# "hotkeys.modifiers" and "hotkeys.keys" the names of the keys the core's keyboard has, "view.schemes" the colour schemes of the view (app/view/trx_scheme_names.h). tools/gen_base_ui.py compiles the rows into coreapp/src/base_rows.inc; the extend functions of
+# "hotkeys.modifiers" and "hotkeys.keys" the names of the keys the core's keyboard has. tools/gen_base_ui.py compiles the rows into coreapp/src/base_rows.inc; the extend functions of
 # menubuild.cc take a row from there (menu_base_row) and keep only what a row cannot say: whether the core gets the row at all, a default that the core's own map or the gateware sets,
 # the values of a list that changes at run time, the condition of a row that depends on another row. The group a row stands in is its place's (above), not the row's; a place finds its row by operation and key.
 [lists]
@@ -329,35 +299,7 @@ default = "Off"
 pick = "hotkeys.keys"
 apply = "hotkeys.apply"
 
-# the look, the joystick and the mouse of the generic application (baseset.cc): a core gets the joystick and mouse rows when it names the capability, the two cursor rows only while Mouse Mode says cursor keys
-[[core_setting]]
-key = "Overlay Transparency"
-label = "Overlay transparency"
-values = ["0 %", "25 %", "50 %", "75 %"]
-default = "25 %"
-apply = "base.overlay"
-
-[[core_setting]]
-key = "Color Scheme"
-label = "Color scheme"
-values = ["Standard Blue", "Ultimate Black"]
-default = "Ultimate Black"
-pick = "view.schemes"
-apply = "base.scheme"
-
-[[core_setting]]
-key = "Filename overflow squeeze"
-values = ["None", "Beginning", "Middle", "End"]
-default = "None"
-apply = "base.squeeze"
-
-[[core_setting]]
-key = "Navigation Style"
-label = "Navigation style"
-values = ["Quick Search", "WASD Cursors"]
-default = "Quick Search"
-apply = "base.nav"
-
+# the joystick and the mouse of the generic application (baseset.cc): a core gets the joystick and mouse rows when it names the capability, the two cursor rows only while Mouse Mode says cursor keys
 [[core_setting]]
 key = "Joystick Input"
 label = "Joystick input"

@@ -110,8 +110,6 @@ int menu_intent_by_name(const char *name);
 bool menu_stage_swallows(int stage);                  // a live stage in which no row took the key ends the walk: nothing happens
 // The key of the first row with this intent and argument (an area by its number, a tab by its digit), -1 when none: a remote intent by name needs it.
 int menu_keymap_key_of(int intent, int arg);
-// T228 R21, FW UserInterface::keymapper (userinterface.cc:1081-1093): the navigation style WASD Cursors - w, a, s, d are Up, Left, Down, Right; any other key stays.
-int menu_keymap_wasd(int k);
 
 // One translated key: what a producer sends. `stage`/`row` say where the table walk stands; a row that declines continues from the next one.
 struct MenuIntent {

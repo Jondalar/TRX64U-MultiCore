@@ -440,91 +440,6 @@ Amstrad CPC 464 / 664 / 6128 F8/expert s13 59 36697528
 Amstrad CPC 464 / 664 / 6128 F8/expert s14 59 36697528
 Amstrad CPC 464 / 664 / 6128 F8/expert s15 59 1ef61ef8
 Amstrad CPC 464 / 664 / 6128 F8/expert s16 59 c0224a92
-VIC-20 F1/home s0 59 3357844d
-VIC-20 F1/home s1 59 5e26ca7d
-VIC-20 F1/home s2 59 a4206e8c
-VIC-20 F1/home s3 59 3357844d
-VIC-20 F1/home s4 59 5e26ca7d
-VIC-20 F1/home s5 59 fcc3f2f3
-VIC-20 F1/home s6 59 5e26ca7d
-VIC-20 F1/home s7 59 a4206e8c
-VIC-20 F1/home s8 59 3a453637
-VIC-20 F1/home s9 59 3a453637
-VIC-20 F1/home s10 59 3357844d
-VIC-20 F1/home s11 59 9a4bfdae
-VIC-20 F1/home s12 59 9a4bfdae
-VIC-20 F1/home s13 59 9a4bfdae
-VIC-20 F1/home s14 59 9a4bfdae
-VIC-20 F1/home s15 59 5e26ca7d
-VIC-20 F1/home s16 59 a4206e8c
-VIC-20 F1/drive s0 59 af9e019c
-VIC-20 F1/drive s1 59 5e26ca7d
-VIC-20 F1/drive s2 59 5e26ca7d
-VIC-20 F1/drive s3 59 af9e019c
-VIC-20 F1/drive s4 59 5e26ca7d
-VIC-20 F1/drive s5 59 5e26ca7d
-VIC-20 F1/drive s6 59 5e26ca7d
-VIC-20 F1/drive s7 59 a4206e8c
-VIC-20 F1/drive s8 59 3a453637
-VIC-20 F1/drive s9 59 3a453637
-VIC-20 F1/drive s10 59 af9e019c
-VIC-20 F1/drive s11 59 9a4bfdae
-VIC-20 F1/drive s12 59 9a4bfdae
-VIC-20 F1/drive s13 59 9a4bfdae
-VIC-20 F1/drive s14 59 9a4bfdae
-VIC-20 F1/drive s15 59 5e26ca7d
-VIC-20 F1/drive s16 59 a4206e8c
-VIC-20 F3/browse s0 59 4d86d67e
-VIC-20 F3/browse s1 59 abeb4051
-VIC-20 F3/browse s2 59 6da8b979
-VIC-20 F3/browse s3 59 abeb4051
-VIC-20 F3/browse s4 59 766074f1
-VIC-20 F3/browse s5 59 766074f1
-VIC-20 F3/browse s6 59 abeb4051
-VIC-20 F3/browse s7 59 5180c8b3
-VIC-20 F3/browse s8 59 7cf7b8e7
-VIC-20 F3/browse s9 59 af564b14
-VIC-20 F3/browse s10 59 61155f93
-VIC-20 F3/browse s11 59 7e15b50c
-VIC-20 F3/browse s12 59 46713240
-VIC-20 F3/browse s13 59 9c4440da
-VIC-20 F3/browse s14 59 bf03430d
-VIC-20 F3/browse s15 59 6a8fa73c
-VIC-20 F3/browse s16 59 9ae84575
-VIC-20 F5/settings s0 59 bd0d1e12
-VIC-20 F5/settings s1 59 8c66149b
-VIC-20 F5/settings s2 59 bf7dfa4d
-VIC-20 F5/settings s3 59 5afc4b0b
-VIC-20 F5/settings s4 59 77557f30
-VIC-20 F5/settings s5 59 6b1fb64f
-VIC-20 F5/settings s6 59 f8748957
-VIC-20 F5/settings s7 59 9336a4ca
-VIC-20 F5/settings s8 59 32aae5aa
-VIC-20 F5/settings s9 59 c47a8a55
-VIC-20 F5/settings s10 59 1efb674c
-VIC-20 F5/settings s11 59 72476fe6
-VIC-20 F5/settings s12 59 fcda07b3
-VIC-20 F5/settings s13 59 b352eac0
-VIC-20 F5/settings s14 59 a6704688
-VIC-20 F5/settings s15 59 fa3f92dd
-VIC-20 F5/settings s16 59 37801df2
-VIC-20 F8/expert s0 59 82b2a8a8
-VIC-20 F8/expert s1 59 9ca9662e
-VIC-20 F8/expert s2 59 f8829d35
-VIC-20 F8/expert s3 59 82b2a8a8
-VIC-20 F8/expert s4 59 9ca9662e
-VIC-20 F8/expert s5 59 ac2f2520
-VIC-20 F8/expert s6 59 9ca9662e
-VIC-20 F8/expert s7 59 f8829d35
-VIC-20 F8/expert s8 59 ebf6e3d7
-VIC-20 F8/expert s9 59 ebf6e3d7
-VIC-20 F8/expert s10 59 82b2a8a8
-VIC-20 F8/expert s11 59 6c9d6e37
-VIC-20 F8/expert s12 59 6c9d6e37
-VIC-20 F8/expert s13 59 6c9d6e37
-VIC-20 F8/expert s14 59 6c9d6e37
-VIC-20 F8/expert s15 59 9ca9662e
-VIC-20 F8/expert s16 59 f8829d35
 Commodore 264 (C16, Plus/4) F1/home s0 59 15db5e11
 Commodore 264 (C16, Plus/4) F1/home s1 59 b600fe11
 Commodore 264 (C16, Plus/4) F1/home s2 59 849ec263
@@ -1290,108 +1205,6 @@ Amiga (OCS/ECS, 68000) F8/expert s13 59 8fdf83fa
 Amiga (OCS/ECS, 68000) F8/expert s14 59 8fdf83fa
 Amiga (OCS/ECS, 68000) F8/expert s15 59 7d4ea4fc
 Amiga (OCS/ECS, 68000) F8/expert s16 59 b643ba86
-Amiga 1200 (AGA, 68020) F1/home s0 59 3039f4a9
-Amiga 1200 (AGA, 68020) F1/home s1 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/home s2 59 89083e85
-Amiga 1200 (AGA, 68020) F1/home s3 59 3039f4a9
-Amiga 1200 (AGA, 68020) F1/home s4 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/home s5 59 26aad299
-Amiga 1200 (AGA, 68020) F1/home s6 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/home s7 59 89083e85
-Amiga 1200 (AGA, 68020) F1/home s8 59 c6870e18
-Amiga 1200 (AGA, 68020) F1/home s9 59 c6870e18
-Amiga 1200 (AGA, 68020) F1/home s10 59 3039f4a9
-Amiga 1200 (AGA, 68020) F1/home s11 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/home s12 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/home s13 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/home s14 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/home s15 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/home s16 59 89083e85
-Amiga 1200 (AGA, 68020) F1/drive s0 59 533d3878
-Amiga 1200 (AGA, 68020) F1/drive s1 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s2 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s3 59 533d3878
-Amiga 1200 (AGA, 68020) F1/drive s4 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s5 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s6 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s7 59 89083e85
-Amiga 1200 (AGA, 68020) F1/drive s8 59 c6870e18
-Amiga 1200 (AGA, 68020) F1/drive s9 59 c6870e18
-Amiga 1200 (AGA, 68020) F1/drive s10 59 533d3878
-Amiga 1200 (AGA, 68020) F1/drive s11 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/drive s12 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/drive s13 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/drive s14 59 d63c3fcb
-Amiga 1200 (AGA, 68020) F1/drive s15 59 753bc2e8
-Amiga 1200 (AGA, 68020) F1/drive s16 59 89083e85
-Amiga 1200 (AGA, 68020) F3/browse s0 59 22bdc4a2
-Amiga 1200 (AGA, 68020) F3/browse s1 59 dd49dae1
-Amiga 1200 (AGA, 68020) F3/browse s2 59 46575841
-Amiga 1200 (AGA, 68020) F3/browse s3 59 dd49dae1
-Amiga 1200 (AGA, 68020) F3/browse s4 59 5b725105
-Amiga 1200 (AGA, 68020) F3/browse s5 59 5b725105
-Amiga 1200 (AGA, 68020) F3/browse s6 59 dd49dae1
-Amiga 1200 (AGA, 68020) F3/browse s7 59 0c14c3cf
-Amiga 1200 (AGA, 68020) F3/browse s8 59 e7d333eb
-Amiga 1200 (AGA, 68020) F3/browse s9 59 8e588124
-Amiga 1200 (AGA, 68020) F3/browse s10 59 c3894917
-Amiga 1200 (AGA, 68020) F3/browse s11 59 e6bb2d84
-Amiga 1200 (AGA, 68020) F3/browse s12 59 0e52c8ec
-Amiga 1200 (AGA, 68020) F3/browse s13 59 e99a4132
-Amiga 1200 (AGA, 68020) F3/browse s14 59 20eef381
-Amiga 1200 (AGA, 68020) F3/browse s15 59 bca44288
-Amiga 1200 (AGA, 68020) F3/browse s16 59 7c8ca7d1
-Amiga 1200 (AGA, 68020) F5/settings s0 59 c95b8f54
-Amiga 1200 (AGA, 68020) F5/settings s1 59 11aa3135
-Amiga 1200 (AGA, 68020) F5/settings s2 59 c3aa76b5
-Amiga 1200 (AGA, 68020) F5/settings s3 59 533b72a2
-Amiga 1200 (AGA, 68020) F5/settings s4 59 533b72a2
-Amiga 1200 (AGA, 68020) F5/settings s5 59 13495edf
-Amiga 1200 (AGA, 68020) F5/settings s6 59 533b72a2
-Amiga 1200 (AGA, 68020) F5/settings s7 59 db5d8cd4
-Amiga 1200 (AGA, 68020) F5/settings s8 59 2b41abc7
-Amiga 1200 (AGA, 68020) F5/settings s9 59 45fedee3
-Amiga 1200 (AGA, 68020) F5/settings s10 59 f474a330
-Amiga 1200 (AGA, 68020) F5/settings s11 59 25e4ff66
-Amiga 1200 (AGA, 68020) F5/settings s12 59 7854fa08
-Amiga 1200 (AGA, 68020) F5/settings s13 59 c9e369aa
-Amiga 1200 (AGA, 68020) F5/settings s14 59 58353412
-Amiga 1200 (AGA, 68020) F5/settings s15 59 661a7d0b
-Amiga 1200 (AGA, 68020) F5/settings s16 59 51e0b393
-Amiga 1200 (AGA, 68020) F5/input s0 59 18157628
-Amiga 1200 (AGA, 68020) F5/input s1 59 4b133e21
-Amiga 1200 (AGA, 68020) F5/input s2 59 fef1327c
-Amiga 1200 (AGA, 68020) F5/input s3 59 e5dabe2c
-Amiga 1200 (AGA, 68020) F5/input s4 59 b5ddffe0
-Amiga 1200 (AGA, 68020) F5/input s5 59 22d5fbde
-Amiga 1200 (AGA, 68020) F5/input s6 59 7339f712
-Amiga 1200 (AGA, 68020) F5/input s7 59 e75129cc
-Amiga 1200 (AGA, 68020) F5/input s8 59 5cbac4c0
-Amiga 1200 (AGA, 68020) F5/input s9 59 506fa5c2
-Amiga 1200 (AGA, 68020) F5/input s10 59 333ff3fd
-Amiga 1200 (AGA, 68020) F5/input s11 59 b86d872f
-Amiga 1200 (AGA, 68020) F5/input s12 59 09c435d2
-Amiga 1200 (AGA, 68020) F5/input s13 59 c2339081
-Amiga 1200 (AGA, 68020) F5/input s14 59 c78d56b4
-Amiga 1200 (AGA, 68020) F5/input s15 59 cd1f78f5
-Amiga 1200 (AGA, 68020) F5/input s16 59 21bd9f79
-Amiga 1200 (AGA, 68020) F8/expert s0 59 24a0131a
-Amiga 1200 (AGA, 68020) F8/expert s1 59 a406244f
-Amiga 1200 (AGA, 68020) F8/expert s2 59 c32ebdb3
-Amiga 1200 (AGA, 68020) F8/expert s3 59 24a0131a
-Amiga 1200 (AGA, 68020) F8/expert s4 59 a406244f
-Amiga 1200 (AGA, 68020) F8/expert s5 59 5dc30002
-Amiga 1200 (AGA, 68020) F8/expert s6 59 a406244f
-Amiga 1200 (AGA, 68020) F8/expert s7 59 c32ebdb3
-Amiga 1200 (AGA, 68020) F8/expert s8 59 8462da15
-Amiga 1200 (AGA, 68020) F8/expert s9 59 8462da15
-Amiga 1200 (AGA, 68020) F8/expert s10 59 24a0131a
-Amiga 1200 (AGA, 68020) F8/expert s11 59 8085758f
-Amiga 1200 (AGA, 68020) F8/expert s12 59 8085758f
-Amiga 1200 (AGA, 68020) F8/expert s13 59 8085758f
-Amiga 1200 (AGA, 68020) F8/expert s14 59 8085758f
-Amiga 1200 (AGA, 68020) F8/expert s15 59 a406244f
-Amiga 1200 (AGA, 68020) F8/expert s16 59 c32ebdb3
 DDT Look Ma, No VIC F1/home s0 59 93d1d982
 DDT Look Ma, No VIC F1/home s1 59 24c37604
 DDT Look Ma, No VIC F1/home s2 59 24c37604
@@ -1511,17 +1324,17 @@ Port Diagnostics F8/expert s13 59 b7addf07
 Port Diagnostics F8/expert s14 59 b7addf07
 Port Diagnostics F8/expert s15 59 a4ab5351
 Port Diagnostics F8/expert s16 59 33678202
-Record Core F1/home s0 59 8f4cc3a4
+Record Core F1/home s0 59 0d1ec2e3
 Record Core F1/home s1 59 5257ee34
 Record Core F1/home s2 59 4f7449d4
-Record Core F1/home s3 59 8505b773
+Record Core F1/home s3 59 4f257610
 Record Core F1/home s4 59 96ea604d
-Record Core F1/home s5 59 167d0dd4
+Record Core F1/home s5 59 3798945f
 Record Core F1/home s6 59 96ea604d
 Record Core F1/home s7 59 c7b38aee
 Record Core F1/home s8 59 c7b38aee
 Record Core F1/home s9 59 c7b38aee
-Record Core F1/home s10 59 9a87fcc5
+Record Core F1/home s10 59 b07c2174
 Record Core F1/home s11 59 c7b38aee
 Record Core F1/home s12 59 c7b38aee
 Record Core F1/home s13 59 c7b38aee
@@ -1562,88 +1375,88 @@ Record Core F1/monitor s13 59 c933495c
 Record Core F1/monitor s14 59 c933495c
 Record Core F1/monitor s15 59 c933495c
 Record Core F1/monitor s16 59 c933495c
-Record Core F3/browse s0 59 6c5cec47
-Record Core F3/browse s1 59 7fcdaa92
-Record Core F3/browse s2 59 dc62ced1
-Record Core F3/browse s3 59 69724960
-Record Core F3/browse s4 59 35602aad
-Record Core F3/browse s5 59 cc66ce03
-Record Core F3/browse s6 59 475fd6ea
-Record Core F3/browse s7 59 48a216f9
-Record Core F3/browse s8 59 5376a080
-Record Core F3/browse s9 59 3dc180f9
-Record Core F3/browse s10 59 a8dd713b
-Record Core F3/browse s11 59 409dc2e3
-Record Core F3/browse s12 59 aad2335f
-Record Core F3/browse s13 59 a9580e17
-Record Core F3/browse s14 59 bef55065
-Record Core F3/browse s15 59 fbc1c45a
-Record Core F3/browse s16 59 35cb6809
-Record Core F5/settings s0 59 aa758c82
-Record Core F5/settings s1 59 9af0c977
-Record Core F5/settings s2 59 b70bc525
-Record Core F5/settings s3 59 172832eb
-Record Core F5/settings s4 59 0675a160
-Record Core F5/settings s5 59 89c488e2
-Record Core F5/settings s6 59 abec34c3
-Record Core F5/settings s7 59 920ca73c
-Record Core F5/settings s8 59 133b780b
-Record Core F5/settings s9 59 fc1bc2aa
-Record Core F5/settings s10 59 28228dd1
-Record Core F5/settings s11 59 7501a947
-Record Core F5/settings s12 59 a4982a72
-Record Core F5/settings s13 59 69230820
-Record Core F5/settings s14 59 6865a88c
-Record Core F5/settings s15 59 761a65eb
-Record Core F5/settings s16 59 65e04f38
-Record Core F7/settings s0 59 e8c96204
-Record Core F7/settings s1 59 deacf42d
-Record Core F7/settings s2 59 84d7e764
-Record Core F7/settings s3 59 879e11bd
-Record Core F7/settings s4 59 448a1511
-Record Core F7/settings s5 59 e2bb28a6
-Record Core F7/settings s6 59 e22487f3
-Record Core F7/settings s7 59 646049eb
-Record Core F7/settings s8 59 59397db7
-Record Core F7/settings s9 59 101246aa
-Record Core F7/settings s10 59 e4079b0e
-Record Core F7/settings s11 59 b13b51b7
-Record Core F7/settings s12 59 5fe8a031
-Record Core F7/settings s13 59 208d92a5
-Record Core F7/settings s14 59 ac0e120c
-Record Core F7/settings s15 59 35101e37
-Record Core F7/settings s16 59 f524c942
-Record Core F7/hotkeys s0 59 4cf1806d
+Record Core F3/browse s0 59 6fb0904a
+Record Core F3/browse s1 59 04ba3b2f
+Record Core F3/browse s2 59 f2c5f08a
+Record Core F3/browse s3 59 75679755
+Record Core F3/browse s4 59 aae40510
+Record Core F3/browse s5 59 c74c3dce
+Record Core F3/browse s6 59 9123848d
+Record Core F3/browse s7 59 16e523b6
+Record Core F3/browse s8 59 6d4b0c31
+Record Core F3/browse s9 59 edbf94ec
+Record Core F3/browse s10 59 3d1adada
+Record Core F3/browse s11 59 bb6f959e
+Record Core F3/browse s12 59 c889d268
+Record Core F3/browse s13 59 6e88b75a
+Record Core F3/browse s14 59 e224eb0a
+Record Core F3/browse s15 59 7c1c3035
+Record Core F3/browse s16 59 6f09d4b8
+Record Core F5/settings s0 59 6776e1eb
+Record Core F5/settings s1 59 045f9326
+Record Core F5/settings s2 59 e55cc10e
+Record Core F5/settings s3 59 16437d0e
+Record Core F5/settings s4 59 42d28f69
+Record Core F5/settings s5 59 e4467beb
+Record Core F5/settings s6 59 9792d3ea
+Record Core F5/settings s7 59 9269e2c7
+Record Core F5/settings s8 59 1cfce892
+Record Core F5/settings s9 59 0bc5f8c5
+Record Core F5/settings s10 59 b8ab3a26
+Record Core F5/settings s11 59 0b125bd4
+Record Core F5/settings s12 59 2f901d6f
+Record Core F5/settings s13 59 92deaf97
+Record Core F5/settings s14 59 72dfad89
+Record Core F5/settings s15 59 59f709b2
+Record Core F5/settings s16 59 3b83d093
+Record Core F7/settings s0 59 c42e362f
+Record Core F7/settings s1 59 90ca01c0
+Record Core F7/settings s2 59 f3acdcb6
+Record Core F7/settings s3 59 0c143d41
+Record Core F7/settings s4 59 85d41d1f
+Record Core F7/settings s5 59 8a61a294
+Record Core F7/settings s6 59 4614cea0
+Record Core F7/settings s7 59 1b3014dd
+Record Core F7/settings s8 59 09ecfd95
+Record Core F7/settings s9 59 09ecfd95
+Record Core F7/settings s10 59 dcc57602
+Record Core F7/settings s11 59 2bae1880
+Record Core F7/settings s12 59 2bae1880
+Record Core F7/settings s13 59 2bae1880
+Record Core F7/settings s14 59 2bae1880
+Record Core F7/settings s15 59 a762250d
+Record Core F7/settings s16 59 20cc0ab7
+Record Core F7/hotkeys s0 59 71fa1ded
 Record Core F7/hotkeys s1 59 ee2f8ee6
 Record Core F7/hotkeys s2 59 fd7a48bc
-Record Core F7/hotkeys s3 59 c3d9536b
+Record Core F7/hotkeys s3 59 b019d22b
 Record Core F7/hotkeys s4 59 b89373f2
 Record Core F7/hotkeys s5 59 c7417de9
 Record Core F7/hotkeys s6 59 b89373f2
 Record Core F7/hotkeys s7 59 b89373f2
 Record Core F7/hotkeys s8 59 b89373f2
 Record Core F7/hotkeys s9 59 b89373f2
-Record Core F7/hotkeys s10 59 2114eaa2
+Record Core F7/hotkeys s10 59 b2ba758a
 Record Core F7/hotkeys s11 59 b89373f2
 Record Core F7/hotkeys s12 59 b89373f2
 Record Core F7/hotkeys s13 59 b89373f2
 Record Core F7/hotkeys s14 59 b89373f2
 Record Core F7/hotkeys s15 59 b89373f2
 Record Core F7/hotkeys s16 59 b89373f2
-Record Core F8/expert s0 59 db2ed186
-Record Core F8/expert s1 59 c17c3a18
-Record Core F8/expert s2 59 e0c83de1
-Record Core F8/expert s3 59 db2ed186
-Record Core F8/expert s4 59 c17c3a18
-Record Core F8/expert s5 59 0fcc0ad6
-Record Core F8/expert s6 59 c17c3a18
-Record Core F8/expert s7 59 e0c83de1
-Record Core F8/expert s8 59 577b1144
-Record Core F8/expert s9 59 577b1144
-Record Core F8/expert s10 59 db2ed186
-Record Core F8/expert s11 59 a4090710
-Record Core F8/expert s12 59 a4090710
-Record Core F8/expert s13 59 a4090710
-Record Core F8/expert s14 59 a4090710
-Record Core F8/expert s15 59 c17c3a18
-Record Core F8/expert s16 59 e0c83de1
+Record Core F8/expert s0 59 60378316
+Record Core F8/expert s1 59 ece80868
+Record Core F8/expert s2 59 315f1c79
+Record Core F8/expert s3 59 60378316
+Record Core F8/expert s4 59 ece80868
+Record Core F8/expert s5 59 fde1a266
+Record Core F8/expert s6 59 ece80868
+Record Core F8/expert s7 59 315f1c79
+Record Core F8/expert s8 59 0e5aad34
+Record Core F8/expert s9 59 0e5aad34
+Record Core F8/expert s10 59 60378316
+Record Core F8/expert s11 59 8e96caa0
+Record Core F8/expert s12 59 8e96caa0
+Record Core F8/expert s13 59 8e96caa0
+Record Core F8/expert s14 59 8e96caa0
+Record Core F8/expert s15 59 ece80868
+Record Core F8/expert s16 59 315f1c79
