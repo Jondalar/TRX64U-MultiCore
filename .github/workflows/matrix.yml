@@ -8,10 +8,12 @@ run-name: "matrix @${{ github.event.pull_request.head.sha || github.sha }}"
 # it does not have it. ci/lane.sh runs one step of one lane; ci/dispatch.py decides what this push has to do (D9).
 # It runs instead of the old pipeline's jobs on the T239 branch (t239.3, t239.3-*, D3): pipeline.yml calls it there, so the builder, which serves the runs of
 # pipeline.yml, builds the bitstreams this file's work order names as missing (T239.1 D11) and releases the environment `bitstreams` (D21).
-# D11, D13: on integration and integ-* it runs beside the old pipeline's jobs (input beside): there the run's plan, work order and approval are the old
-# job `plan`'s and `approve`'s (the artifacts `plan` and `work-order` exist once per run; the builder reads that work order, which names every entry, as a
-# package needs them all), its sims are the old job `sim`'s, and the package of record is this file's whole package (D14, the jobs collect and package): the
-# old job `package` does not run there, and the old jobs update and emu take this file's artifact `package`.
+# D11, D13: on every other push of a branch or v* tag (not t239.1, not a pull request) it runs beside the old pipeline's jobs (input beside): there the run's
+# plan, work order, approval, lint and sims are the old jobs plan, approve, lint and sim (the artifacts `plan` and `work-order` exist once per run; the builder
+# reads that work order), and where the old pipeline makes a package (scope full, or update asked) the package of record is this file's whole package (D14,
+# the jobs collect and package): the old job package does not run, and the old jobs update, emu and prerelease take this file's artifact `package`. On a
+# feature branch without a package only the lanes the push touched run (ci/dispatch.py). Input tests (T239.1 D51): false on a push to main or a v* tag,
+# where no test runs - the lanes build, pack and deliver; their test steps (2, 4, 7 of the SDK, 8-10) and the emulator job are left out.
 permissions:
   contents: read
 
@@ -19,9 +21,13 @@ on:
   workflow_call:
     inputs:
       beside:
-        description: "true on integration and integ-*: the old pipeline runs in the same run (its plan, work order, approval and sims serve the matrix too)"
+        description: "true beside the old pipeline (every push but the T239 branch's): its plan, work order, approval, lint and sims serve the matrix too"
         type: boolean
         default: false
+      tests:
+        description: "false on a push to main or a v* tag (T239.1 D51: no test job there); the lanes then skip their test steps and the emulator job"
+        type: boolean
+        default: true
 
 jobs:
   # Every push: what changed (ci/plan.sh), the lanes and steps of this push (ci/dispatch.py, the matrix in the summary), the work order of the builder
@@ -36,6 +42,9 @@ jobs:
       CI_REF_TYPE: ${{ github.ref_type }}
     outputs:
       cores: ${{ steps.dispatch.outputs.cores }}
+      sdk: ${{ steps.dispatch.outputs.sdk }}
+      host: ${{ steps.dispatch.outputs.host }}
+      package: ${{ steps.dispatch.outputs.package }}
       lint_groups: ${{ steps.dispatch.outputs.lint_groups }}
       sim_owners: ${{ steps.dispatch.outputs.sim_owners }}
       sims_tier: ${{ steps.dispatch.outputs.sims_tier }}
@@ -69,19 +78,23 @@ jobs:
         id: dispatch
         env:
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
+          UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
           BESIDE: ${{ inputs.beside }}
         run: |
           set -eu
           tier="$(ci/select.sh sims-tier)"
+          # as the old plan job: the update files are asked for (ci/select.sh update), so a package is made (ci/orchestrate.py: package = scope full or update)
+          update="$(ci/select.sh update)"
           # the plan carries the tier of this run, as the old plan job stamps it: a sims leg (ci/child.sh sim) reads it from the plan artifact
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
           b=""; [ "$BESIDE" != true ] || b=--beside
           # into a file first: a failing dispatcher fails this step (a pipe into tee would hide its exit code)
-          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" $b > "$CI_HANDOFF/dispatch.out"
+          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" $b > "$CI_HANDOFF/dispatch.out"
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
           cat "$CI_HANDOFF/dispatch.out"
       # D14: the whole package needs every entry (ci/order.py: a package child needs them all). Beside the old pipeline (D11) its job plan has uploaded the run's
-      # plan and work order (the same plan; on integration and integ-* its work order names every entry too), so this job uploads neither: one of each per run
+      # plan and work order (the same plan; its work order names every entry where a package is made, else the touched cores' entries, those with an app of
+      # their own included: ci/orchestrate.py order_targets), so this job uploads neither: one of each per run
       - name: Work order (the bitstreams the builder builds)
         id: order
         if: ${{ !inputs.beside }}
@@ -118,11 +131,11 @@ jobs:
     steps:
       - run: echo "approved; the builder builds the missing keys of this commit"
 
-  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>)
+  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>); alone only - beside, the old job lint runs every group
   lint:
     name: "1 Lint (${{ matrix.group }})"
     needs: dispatch
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-sim@sha256:3e366a085f3ff5bfec33b5fa08359a625034038803b8b89f3406691683a625e0
@@ -152,7 +165,7 @@ jobs:
   sdk:
     name: "SDK (A): unit tests, build, test, package, deploy"
     needs: [dispatch, lint]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.lint.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.dispatch.outputs.sdk == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -195,10 +208,12 @@ jobs:
           restore-keys: |
             ccache-
       - name: 2 Unit tests (the base and the shared libraries)
+        if: ${{ inputs.tests }}
         run: ci/lane.sh sdk unit
       - name: 6 Build (the base, the shared libraries, the sub-apps, the package)
         run: ci/lane.sh sdk build
       - name: 7 Test (the package checks itself)
+        if: ${{ inputs.tests }}
         run: ci/lane.sh sdk test
       - name: 11 Package (what the lane deploys)
         run: ci/lane.sh sdk package
@@ -252,7 +267,7 @@ jobs:
   host:
     name: "Host menu: unit tests, build, deliver"
     needs: [dispatch, lint]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.lint.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.dispatch.outputs.host == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -295,6 +310,7 @@ jobs:
           restore-keys: |
             ccache-
       - name: 2 Unit tests (tests/hostapp)
+        if: ${{ inputs.tests }}
         run: ci/lane.sh host unit
       - name: 6 Build (the host app and its emulator build)
         run: ci/lane.sh host build
@@ -325,7 +341,7 @@ jobs:
   bits:
     name: "Bitstreams: the host and ${{ matrix.core }}"
     needs: [dispatch, approve, sims]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
     runs-on: ubuntu-latest
     environment: bitstreams
     container:
@@ -378,7 +394,7 @@ jobs:
   core:
     name: "${{ matrix.core }} (B): steps 2-11 and 13"
     needs: [dispatch, lint, sdk, bits]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.lint.result == 'success' && needs.sdk.result == 'success' && needs.bits.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.sdk.result == 'success' && needs.bits.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -432,10 +448,12 @@ jobs:
           name: bits-${{ matrix.core }}
           path: ${{ env.CI_TEMP }}/bit
       - name: 2 Unit tests (its own libraries)
+        if: ${{ inputs.tests }}
         run: ci/lane.sh "core:$CORE" unit
       - name: 3 What has changed
         run: ci/lane.sh "core:$CORE" changed
       - name: 4 Comparison (the gateware, the TOML A against the RTL, the app)
+        if: ${{ inputs.tests }}
         run: ci/lane.sh "core:$CORE" compare
       - name: 5 What must be in the app (TOML A and TOML B against the building blocks)
         run: ci/lane.sh "core:$CORE" needs
@@ -444,10 +462,13 @@ jobs:
       - name: 7 Complete and fits (the link map, the application region and the heap, the shared libraries)
         run: ci/lane.sh "core:$CORE" fits
       - name: 8 Tests mock bitstream -> service
+        if: ${{ inputs.tests }}
         run: ci/lane.sh "core:$CORE" service
       - name: 9 Tests service -> UI
+        if: ${{ inputs.tests }}
         run: ci/lane.sh "core:$CORE" ui
       - name: 10 Tests service -> API
+        if: ${{ inputs.tests }}
         run: ci/lane.sh "core:$CORE" api
       - name: 11 Package (the .cor with the bitstream)
         run: ci/lane.sh "core:$CORE" package
@@ -464,7 +485,7 @@ jobs:
   emu:
     name: "12 Emulator tests: the host menu and ${{ matrix.core }}"
     needs: [dispatch, host, core]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.host.result == 'success' && needs.core.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
@@ -537,7 +558,7 @@ jobs:
   collect:
     name: "Whole package: 11 collect (every lane's bitstreams)"
     needs: [dispatch, approve]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' }}
     runs-on: ubuntu-latest
     environment: bitstreams
     container:
@@ -598,7 +619,7 @@ jobs:
   package:
     name: "Whole package: 11 package (every .cor), 13 deliver"
     needs: [dispatch, collect, sdk, host, core]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
