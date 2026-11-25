@@ -63,7 +63,7 @@ boundary scan of Gideon's firmware and on what two TV sets showed, and the two s
   reverse bits inside a group). H1 fits every observation so far: the lattice on the Sony's luma pin, Rick's colour only with odd
   settings, his chroma 180 degrees off. **H2: `AVID_SYNCn` is the composite sync on DIN 7 and `AVID_FB` the fast switching on DIN 8.**
   Both are hypotheses until S1 and S3 have run.
-- **SYNCn and FB** are tied off in every core (`cores/diag/mono/top.v:1898-1899`, `cores/c64scpu/mono/top.v:1438-1439`: SYNCn = 1,
+- **SYNCn and FB** are tied off in every core (`cores/diag/mono/top.v:1898-1899` before T259, `cores/c64scpu/mono/top.v:1438-1439`: SYNCn = 1,
   FB = 0; the sync rides in the words). What they do is not measured; H2 below.
 - **RGB.** Gideon's app offers "Analog Video Mode: CVBS + SVideo / RGB" (`u64_config.cc`: `CFG_ANALOG_OUT_SELECT`,
   `VIDEO_FMT_RGB_OUTPUT` in `C64_VIDEOFORMAT`). So the C64U puts out RGB on the same DAC channels in that mode; no core of ours can. C64U
@@ -114,7 +114,7 @@ Scenario: S3 SYNCn and FB
   Then  the effect is recorded per combination (no change / sync lost / blanked / TV switches to RGB)
 
 Scenario: S4 presets
-  Given the presets "Sony PAL" (the C128's values), "NTSC-50.rix01" and "NTSC-60.rix02" (§1)
+  Given the presets "Sony-PAL" (the C128's values), "NTSC-50.rix01" and "NTSC-60.rix02" (§1)
   When  one is chosen on the A/V page or named in a walk file's [base]
   Then  every knob takes the preset's value, and the result file names the preset
 
@@ -162,6 +162,13 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   PAL chroma (burst, V switch, levels) seen in composite on the Sony (SCART pin 20 carries Y + C). Y/C as two pins on a PAL set:
   Alex plans to bring up his Commodore 1084 (PAL, luma/chroma inputs); that needs a C64 8-pin DIN to cinch cable (luma, chroma,
   composite). Until that runs, PAL Y/C is untested; that is named here, not hidden.
+- **D4 (Alex, 2026-11-24, on the D24 ledger):** the diag app's growth for P4 and P6 is an exception of the ledger
+  (`tools/d24_ledger.txt`: `portdiag.cc` +59, `portdiag_regs.h` +1, `diagtest.cc` +113, `diagtest.h` +6). Alex (translated): "yes of
+  course, I want T259 so that we can measure." Why no generic path fits: a contributed range setting has at most 16 values, the
+  playground (D3) needs free values up to the register's range (0..1023), and a suite could not hold A/V walks.
+- **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
+  Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
+  avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
 
 ### Open questions for Alex
 
@@ -177,4 +184,41 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
 
 ## §5 Build notes
 
-(empty)
+Built 2026-11-24 on `t259-diag-av` (P1-P4, P6; P5 is not part of this build, §4). Not yet pushed: the pipeline builds the diag bitstream after the coordinator's review.
+
+**What is where**
+- Gateware: `cores/diag/rtl/diag_avout.v` (the names map, the probe, RGB, the two pins), `diag_regs.v` 060-065 (one byte each, reset 0 = the T201 behaviour), `mono/layer2_diag.v` and `mono/top.v` (`AVID_SYNCn` / `AVID_FB` come from the core; `top.v.diff` regenerated). The ball wiring of the three scan groups in `top.v` is unchanged: the names map is made inside `diag_avout.v` by arranging the words of `ga`, `gb`, `gc` so that the same wiring puts bit n of a named word on `AVID_x[n + 2]` (H1: R = composite, G = luma, B = chroma, MSB first). `perm` and `rev` act on slot 0, 1, 2 = A, B, C (scan groups) or R, G, B (names); `perm` 4 ("Y=B, C=C, CVBS=A" on the page) is H1 exactly.
+- Probe picture (S1): the channel under test carries sync tip, blanking (77), eight bars of 32 dots (bar k = the code 1 << k, so the first six are darker than blanking and look black; the last two are grey and white), then all bits to the window's end; the other two channels sit at blanking. Bars are raw DAC codes, as §2 says.
+- RGB (S2): the palette as R, G, B words (full scale = the white knob / 16, at most 1), black outside the picture window, no sync in the words; the RGB picture knob lights one word as a ramp across the window, the others 0. `perm` picks the channel of each word (word 0 = R, 1 = G, 2 = B; the page's labels still say Y, C, CVBS).
+- Pins (S3): SYNCn: High, Low, Csync (low in the sync pulses), Inverted csync; FB: Low, High, Window (high in the picture window), Inverted window. They are aligned with the words of the active mode (9 clocks behind the sync of the encoder modes, 4 behind it in probe and RGB).
+- Application: six rows on the A/V page (Map, Mode, Probe channel, RGB picture, SYNCn, FB; keys `map`, `mode`, `probe_channel`, `rgb_picture`, `syncn`, `fb` in a walk file). Presets are files `<core folder>/presets/<name>.toml` in the T201 format; a value `"#n"` is a free register value. Shipped and installed with the core: `Sony-PAL` (the C128's values on the scan groups), `NTSC-50.rix01` (NTSC 50 Hz), `NTSC-60.rix02` (NTSC 60 Hz), both of Rick's on the scan groups. Tasks: "Load A/V preset by name", "Save A/V preset", "Set an A/V knob (playground)" (`knob=value`: any number of the knob's register range, or one of its labels). A walk names a preset with `[base] preset = "name"` (the preset's knobs, then the file's own [base] knobs win); the result files carry `preset = ` / `Preset <name>`. A preset with a free value cannot be a walk's base (it refuses, naming the knob).
+- Walks (S5): `avout.toml` v3 is a suite of `avprobe.toml` (6 steps: map Names / Scan groups x channel A or R, B or G, C or B; the .txt ends with "The TV locks on" naming map, channel and whether the bars rose), `avrgb.toml` (24 steps: 6 permutations x R, G, B ramp and the palette picture) and `avsync.toml` (32 steps: Test picture / RGB x SYNCn x FB). The T201 vsync walk is `avvsync.toml` (id avvsync; the old avout.toml v2 is in `superseded/`, so an unedited copy is replaced).
+
+**Proofs** (iverilog and the application tests run once on the Mac, `nice -n 15`)
+
+| # | Result |
+|---|---|
+| S1 | `ci/sims.txt` `diag_avmap` (tb_avmap, 40 units): `PASS tb_avmap errors=0 checks=4259387 units=40`. Per map (names / scan groups) and channel: the run list sync tip (148 clocks), blanking, the eight bars (128 clocks each, values 1, 2, 4 ... 128), all bits (576), blanking; the other two channels are 77 at every clock. Board: Alex's Sony, Rick's 1702 (open) |
+| S2 | the same bench: the palette bars (white, yellow, cyan, green, magenta, red, blue, 200 clocks each) in R, G, B words for all six permutations, three bit orders and the scan groups; the one-word ramp for R, G, B, never falling, 255 at the end, the other words 0. Board: Sony through the SCART RGB cable (open) |
+| S3 | the same bench: SYNCn and FB follow each knob value (a constant, or the encoder's csync / window delayed to the words: 9 clocks in test picture mode, 4 in probe and RGB), in the three modes; in the probe the sync pin is low exactly where the word is the sync code. Board: Sony, tester (open) |
+| S4 | `tests/coreapp/test_diagtest.cc` `test_avpresets`: each preset sets all 24 knobs to the values of section 1 through the walk's hooks; the result files name the preset; a [base] knob wins; a missing preset and a free value refuse. `test_diagtest: 617 checks, 0 failed` |
+| S5 | `test_avwalk`: the suite runs avprobe (6 steps), avrgb (24), avsync (32) in this order, each with its result pair, and the probe's .txt names the channel and bit order. Same run. Board: a full walk (open) |
+| S7 | `tests/coreapp/test_portdiag.cc` (where the register model lives): every knob takes lo, hi, mid and their neighbours through `pd.av_free` and the register holds exactly it, out of range and unknown refuse; every knob set free, saved, loaded by name into a fresh gateware gives the same registers. `test_portdiag: 711 checks, 0 failed`. Board: Alex tunes PAL RGB (open) |
+| S6 | Vivado, the builder's build of db29691a (pipeline run 45408377169, `build_mono_diag`; the later commits change no gateware input, so the key and the bitstream in the board's `diag.cor` of 0612dccf1 are the same): `All user specified timing constraints are met.`, WNS 0.017 ns, TNS 0.000, WHS 0.053 ns; Slice LUTs 13112 of 32600 (40.22 %), Slice Registers 16345 (25.07 %), Block RAM Tile 22.5 of 75 (30.00 %), DSPs 36 of 120 (30.00 %); `diag_avout` 781 LUT (778 logic, 3 SRL), 449 FF, 12 DSP. Before the build, the Yosys estimate of `diag_avout` against the T201 module: LUT 725 -> 869 (+144), FF 451 -> 524 (+73), DSP48 10 -> 14 (+4: the three RGB scalers and the ramp), SRL16 2 -> 7; `diag_regs` +6 byte registers (about 11 FF, 20 LUT); `top.v` nothing |
+
+The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): `diag_avenc` (`PASS tb_avenc errors=0`), `diag_avregs` (`PASS avregs`, with `PASS tb_avsync errors=0 checks=146`).
+
+**Notes and open points**
+- The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
+- "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
+- D24: the application part grew four per-core files (`diagtest.cc` +113 code lines, `diagtest.h` +6, `portdiag.cc` +59, `portdiag_regs.h` +1); the ledger exceptions are D4 (2026-11-24).
+- Board steps (Alex and the tester): flash the diag core; run avprobe on the Sony's luma pin and Rick's 1702 inputs; avrgb with the SCART cable; avsync; tune PAL RGB in the playground and save the preset.
+- First pipeline run of the branch (2026-11-24, run 45408377169) was red twice: `ci/layers_check.sh` splits its table at
+  spaces, so `Sony PAL.toml` was "in no section" (the only tracked file under host/, cores/, vendor/ with a space); the preset
+  is `Sony-PAL` now, like the two NTSC ones. `tests/coreapp/golden/menu_portdiag.txt` lacked the six new rows and the two
+  tasks; it is the dump that run printed (`test_desc.cc:47`), nothing else in it changed.
+- Second run (2026-11-24, run 45412495356): `tests/coreapp/test_bundle.cc:421` still counted the diag core's install as before T259 (8 writes of
+  10 files); the record holds 17 files now (14 tests, 3 presets), so the case writes 15. The count is corrected.
+- The coordinator's test run (`tools/dev.sh test`, 2026-11-24) found the next one behind it: `test_keywalk` (golden `keywalk.txt`, `ids.txt`) lacked
+  the eight new rows. Both are rewritten (only the Port Diagnostics lines change; the hashes of F1/home match the builder's run), and `test_cut`,
+  the last unit that compiles `portdiag.cc` and `diagtest.cc`, passes (638 checks).
