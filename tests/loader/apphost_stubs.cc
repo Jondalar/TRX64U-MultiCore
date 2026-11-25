@@ -7,6 +7,7 @@
 #include "filemgr.h"
 
 bool ui_available(void) { return false; }
+void ops_ask_list(CoreCtx *, const char *, int, const char *, const char *) { }   // T262 P2: ctx.ask_list (libsvc.cc) raises the menu's choice list; no menu here
 void ui_menu_forget_rows(void) { }
 OpRegistry *ops_of(CoreCtx *) { return 0; }
 int contrib_merge(const CoreDesc *, const Skeleton *, const Overrides *, const Contributor *, int, const OpRegistry *, CoreDesc *, MenuMerge *) { return 0; }
@@ -28,6 +29,7 @@ void AppDlg::abandon() { }
 bool AppDlg::service() { return false; }
 
 MenuCtl::MenuCtl(CoreCtx *c, MenuHost *) : fm_(c, FileMgr::Port()) { }
+MenuCtl::~MenuCtl() { }                                                         // T262: the menu frees its run-time list (picklist) when it goes
 void MenuCtl::set_status(const char *, bool) { }
 bool MenuCtl::follow_tick() { return false; }
 void MenuCtl::app_start() { }

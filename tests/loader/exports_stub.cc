@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include "exports_stub.h"
+#include "ops_glue.h"
 #include "c64_cart.h"
 #include "c64_regs.h"
 #include "cbm1541.h"
@@ -96,3 +97,5 @@ int CbmDrive::create(const char *path, int format, const char *name, char *msg, 
 
 void tempdisk_init(void) {}
 void tempdisk_set(bool auto_cleanup, bool subfolders) { g_stub.temp_auto = auto_cleanup; g_stub.temp_sub = subfolders; }
+
+void ops_ask_list(CoreCtx *, const char *, int, const char *, const char *) { }   // T262 P2: ctx.ask_list (libsvc.cc) raises the menu's choice list; no menu here
