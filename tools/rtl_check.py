@@ -294,6 +294,7 @@ VLOG_TOK = re.compile(r'''
 ''', re.X | re.S)
 
 
+XNEG = [0]        # how often a unary minus met an unknown operand (the value became all-X); tools/toml_a_emit.py compares it around each stimulus
 DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
 
 
@@ -314,6 +315,8 @@ def lex(text, lang, fname):
                 if kw in ("ifdef", "ifndef"):
                     hit = (nm in DEFINES) == (kw == "ifdef")
                     cond.append((on, hit, hit))
+                elif not cond:
+                    raise Unsupported("%s:%d: `%s without an open `ifdef" % (fname, line, kw))
                 elif kw == "elsif":
                     par, taken, _ = cond[-1]
                     hit = (nm in DEFINES) and not taken
@@ -2113,6 +2116,8 @@ def pp_ifdef(text):
             if kw in ("ifdef", "ifndef"):
                 hit = (nm in DEFINES) == (kw == "ifdef")
                 cond.append((on, hit, hit))
+            elif not cond:
+                raise Unsupported("`%s without an open `ifdef" % kw)
             elif kw == "elsif":
                 par, taken, _ = cond[-1]
                 hit = (nm in DEFINES) and not taken
@@ -2808,7 +2813,10 @@ class Ev:
             if op == "!":
                 return v_tv(None if truth(a) is None else 1 - truth(a))
             if op == "-":
-                return V(-a.v, 0, a.w) if a.known() else allx(a.w if a.w is not None else 32)       # D55: an unknown operand (c264's decode) negates to an unknown value, as v_arith does
+                if not a.known():
+                    XNEG[0] += 1                  # emit reads this: a byte whose decode went through an unknown negation is not "not decoded", it is unknown
+                    return allx(a.w if a.w is not None else 32)
+                return V(-a.v, 0, a.w)       # D55: an unknown operand (c264's decode) negates to an unknown value, as v_arith does
             if op == "+":
                 return a
             if op in ("|", "&", "^"):
