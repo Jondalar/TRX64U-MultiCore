@@ -15,8 +15,8 @@ a port too).
 
 ## §1 The problem
 
-- **Who:** a person with one joystick who switches between cores. The C64 convention is port 2; the Amiga, the Atari and others
-  expect the joystick in their port 1. Today the person unplugs and replugs the joystick at every core change.
+- **Who:** a person with one joystick who switches between cores. The C64 convention is port 2; the Atari and others expect the
+  joystick in their port 1 (the Amiga takes it in its port 2 as the C64 does; corrected 2026-11-25, issue #125, §5). Today the person unplugs and replugs the joystick at every core change.
 - **What happens today** (read from the code): the two 9-pin ports reach every core as `c64_joy1` / `c64_joy2`
   (`contract/layer2_ports.txt:116-117`), merged in the host from the pins and the application's injection
   (`host/top.v:1223-1229`, `app_input`: `phys_joy1 = pins_s2[4:0]`, `phys_joy2 = pins_s2[9:5]`). No host-side swap.
@@ -62,7 +62,7 @@ Scenario: S4 the existing swaps still work
   # tests/coreapp register trace (existing tests stay green)
 
 Scenario: S5 board
-  Given the Amiga core, joystick in physical port 2, "Joystick ports" = Swapped
+  Given the Amiga core, joystick in physical port 2, "Joystick ports" = Normal (Swapped before #125, §5)
   Then  the game in the Amiga's joystick port moves; switching back to the C64 core, port 2 still works without replugging
 ```
 
@@ -92,7 +92,7 @@ Scenario: S5 board
 
   | Core | Setting (`coreapp/cores`) | Register | Swap in the gateware |
   |---|---|---|---|
-  | amiga, amiga1200 | `amiga.cc` `s[7]`, `RegBind b_joy`, `WHEN_LIVE` | `AM_JOY_CFG` 0x0A7 b0 (`amiga_regs.v`, `joy_cfg`; no commit toggle: quasi static) | `amiga_input.v` `ja`/`jb` (the host's joy1/joy2 into `joystick0`/`joystick1`); `amiga_core.v` takes `r_joy` through two flip-flops into `sys_clk`; A1200 forks + `.diff` follow |
+  | amiga, amiga1200 | `amiga.cc` `s[7]`, `RegBind b_joy`, `WHEN_LIVE` | `AM_JOY_CFG` 0x0A7 b0 (`amiga_regs.v`, `joy_cfg`; no commit toggle: quasi static) | `amiga_input.v` `p2`/`p1` (the host's joy2/joy1 into `joystick0` = the Amiga's port 2 / `joystick1` = its port 1, crossed with the bit; `ja`/`jb` with the ports the wrong way round before #125); `amiga_core.v` takes `r_joy` through two flip-flops into `sys_clk`; A1200 forks + `.diff` follow |
   | nes | `nes.cc` `settings[1]`, op `nes.set_joy`, `WHEN_LIVE` | `NES_JOY` 0x0A2 b0 (`nes_regs.v`) | `nes_pad.v` (joystick part of both controller ports; B/Select/Start stay with the port's keys); `nes_core.v` wires it |
   | c128 | `c128.cc`, op `c128.set_joy`, `WHEN_LIVE` | `C128_JOY` page E 0x024 b0 (`c128_regs.v`; COLD puts it back to 0, the restart writes the setting again) | new `c128_joyswap.v` (two flip-flops, then the exchange) between `layer2_c128.v` and the core |
 
@@ -108,7 +108,12 @@ Scenario: S5 board
   - `cores/amiga1200/tools/check_wrapper_fork.sh`: all forks `ok` (the two `.diff` regenerated).
   - Whole-core runs with the changed sources: `cores/amiga/sim/run_l2.sh` (Verilator, `amiga_core` with the new register and sync): `PASS tb_l2 errors=0`; `cores/nes/sim/run_l2.sh`: `PASS run_l2`. `layer2_c128.v` has no simulation bench that elaborates it (the machine benches build `c64_core_c128` only); its three changed lines are compiled first by the CI bitstream. `core_sources.tcl` of the C128 lists its files by name, so `c128_joyswap.v` is added there; `ci/sims.txt` / `.lane` / `.deps` get `nes_padswap` (`amiga_input` and `c128_regs` were in already).
   - `tests/coreapp/run.sh` whole (builder): exit 0, 1011 controls all red as they must (6 new); `tests/hostapp/run.sh` exit 0; `tests/loader/run.sh`: 1 program, 40 controls, all as they must; `tools/host_pin.sh --check`: the host is unchanged (315 files).
-- **Open:** the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push). Board S5 (Amiga with a joystick in physical port 2): closed as done 2026-11-18 (last entry).
+- **Amiga ports corrected (2026-11-25, issue #125, T213.3 §5):** the Amiga takes its joystick in port 2 (port 1 is the mouse
+  port), and `amiga_input.v` had fed the host's port 1 into the Amiga's port 2, so Normal acted swapped and S5 passed with
+  Swapped. Since d870c7ea2 Normal is port n -> port n: a joystick in the C64's port 2 plays the Amiga's joystick port with
+  Normal; §1 and S5 are corrected to it. A saved Swapped now crosses the ports. The bench's expectations are flipped (line 104
+  is the record of the old ones).
+- **Open:** the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push). Board S5 (Amiga with a joystick in physical port 2): closed as done 2026-11-18 (last entry) with Swapped, the mapping before #125; open again with Normal on the new bitstreams.
 - **2026-10-29, vc20 decided (Alex: "a"):** no setting on the VC-20. Its one joystick port takes both physical ports (OR), so a
   joystick works in either port already; S3 holds for every core with two ports.
 - **2026-11-18 - board steps closed as done (shipped and in use):** S5 (joystick port swap, then trx64u) - Alex 2026-11-15: "Under A
