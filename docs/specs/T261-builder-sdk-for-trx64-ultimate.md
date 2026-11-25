@@ -115,7 +115,8 @@ Scenario: S6 trx64u.cor from their pre-release
   The matrix is called by `pipeline.yml` only on `t239.3` and `t239.3-*` (`pipeline.yml` `matrix:` job), so until the matrix is called on `integration`/`main` the job runs on
   `t239.3` alone; the script's own guard (`P.SDK_BRANCHES`) holds for all three. The environment `builds` allows `t239.3` since 2026-11-25 (Alex, P5; its
   deployment rules: `main`, `v*`, `t239.1`, `t239.3`); `integration` is added when the matrix runs there. `BUILDS_TOKEN` is a secret of the environment `builds`,
-  not of the repository: a job of a called workflow that names the environment reads it (the caller passes none); the first `t239.3` run proves it.
+  not of the repository. Run 45569965584 (`1882f8375`) proved that a called workflow's job does not get it from naming the environment alone:
+  `ci/publish_sdk.py: BUILDS_TOKEN is not set` (review 1.2 had warned). Fix: `secrets: inherit` on the `matrix:` call in `pipeline.yml`.
 - **Decision:** `ci/publish_sdk.py` stages the lane's `trx64-sdk-<version>.tar.gz` (version = `app/sdkpkg/SDK_VERSION`, must match the tarball name) and every `*.u2a`, writes a
   fresh `SHA256SUMS` (the lane's names `./x` and its `coreapp.map` are not published), lists the releases of the builds repository (newest first), takes the newest published
   one tagged `sdk-<version>-<8 hex>`, reads its `SHA256SUMS`, and publishes only when it differs from the one written here (every file, names and SHA-256:
