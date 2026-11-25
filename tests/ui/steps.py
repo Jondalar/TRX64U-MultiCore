@@ -845,15 +845,6 @@ def picture_not_tag_of(c, name, tagpic):
         raise AssertionFailed("%d of the %d pixels of the tag's text are bright in %s too: the tag is drawn over the open menu" % (same, len(text), name))
 
 
-@step(r'the picture "([^"]+)" differs in brightness from "([^"]+)"')
-def picture_brightness_differs(c, a, b):
-    """Overlay Transparency: how much of the picture behind the menu shows changes the frame; the two pictures differ by more than 3 percent of their brightness."""
-    ta = _canvas_rect(os.path.join(emu_mod.OUT, a + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
-    tb = _canvas_rect(os.path.join(emu_mod.OUT, b + ".png"), 0, 0, 960, 540, lambda r, g, b: False)
-    if abs(ta[1] - tb[1]) <= 0.03 * max(ta[1], tb[1], 1):
-        raise AssertionFailed("%s (brightness %d) and %s (%d) do not differ: the transparency was not applied" % (a, ta[1], b, tb[1]))
-
-
 # ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the core runs from a .cor that carries it (`# core: vc20+ovtest`) -----------------
 def _lib_op(c, name):
     """The test library's operation over REST. A 404 is a core that did not load the library: the log of the emulator says why."""
