@@ -369,6 +369,9 @@ int main(int argc, char **argv)
         // T262 P2: ctx.ask_list is the base's list of choices for a library: only the request is stored, the menu shows the list when the operation has returned
         CHECK(cx->size >= offsetof(SvcCtx, ask_list) + sizeof(cx->ask_list) && cx->ask_list);
         r.c.want_prompt.kind = 0;
+        cx->ask_list("lib.pick", 4, "Pick a year", "lib.years");              // outside a call of the menu (a job, a REST call): nothing is asked
+        CHECK_EQ(r.c.want_prompt.kind, 0);
+        r.c.menu_op = 1;                                                     // inside an operation the menu called
         cx->ask_list("lib.pick", 4, "Pick a year", "lib.years");
         CHECK_EQ(r.c.want_prompt.kind, 3);
         CHECK_EQ(r.c.want_prompt.phase, 4);
@@ -379,6 +382,7 @@ int main(int argc, char **argv)
         cx->ask_list("", 1, "x", "y");                                       // no operation to call again: nothing is asked
         cx->ask_list("lib.pick", 1, "x", "");                                // no rows: nothing is asked
         CHECK_EQ(r.c.want_prompt.kind, 0);
+        r.c.menu_op = 0;
         g_slot[1] = "ro /usb0/g.crt";                                        // the engine changes by its own doing
         cx->mount_notify("Cart");
         CHECK_EQ(r.c.mounts_dirty[1], 1);

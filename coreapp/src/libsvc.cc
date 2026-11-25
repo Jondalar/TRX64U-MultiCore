@@ -254,7 +254,7 @@ struct LibSvc {
     static void ask_list(const char *op, int phase, const char *prompt, const char *src)
     {
         CoreCtx *c = C();
-        if (c && op && op[0] && src && src[0]) {
+        if (c && c->menu_op && op && op[0] && src && src[0]) {   // only inside an operation the menu called: another door shows no list
             ops_ask_list(c, op, phase, prompt ? prompt : "", src);
         }
     }

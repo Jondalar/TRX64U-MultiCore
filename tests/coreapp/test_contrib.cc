@@ -1086,6 +1086,30 @@ int main(int argc, char **argv)
         CHECK_STR(g_chosen.c_str(), "v499");
     }
 
+    // ---- T262 review 2: a question left over from an earlier call is never raised by a later, unrelated menu call
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_OP, "Many", "zl.chosen", 0, 1, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" },
+                                             { "F5/settings", LN_OP, "Beep", "zl.beep", 0, 2 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 2;
+        Contributor cs[] = { { "stale", CR_LIB, &rec } };
+        g_choices = "a\nb\n";
+        Rig r(cs, 1);
+        r.m->open();
+        r.m->key(KEY_F5);
+        ops_ask_list(&r.c, "zl.phase", 7, "Old", "zl.choices");                      // an operation of another door asked, nobody took it
+        r.go_to("Beep");
+        int beeps = g_beeps;
+        r.m->key(KEY_RETURN);
+        CHECK_EQ(g_beeps, beeps + 1);
+        CHECK(!r.m->picking());
+        CHECK_EQ(r.c.want_prompt.kind, 0);
+        printf("PASS a stale question is not raised by a later menu call\n");
+    }
+
     // ---- T262 P2: the rows are bounded by the memory budget, not by a number: with a heap that is nearly full the list is cut at the end of a line and says so; with room it is whole
     {
         static const OpBind b_val[] = { B_TEXT("value") };

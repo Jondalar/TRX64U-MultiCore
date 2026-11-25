@@ -17,6 +17,28 @@
 #include <ctype.h>
 #include "../../host-app/software/components/u64_str.h"   // u64_dec: the board's printf has no 64 bit conversion (T251 D1)
 
+
+// T262 review 2: every operation the menu calls runs with CoreCtx::menu_op raised and with no question left over from an earlier call, so a question (ops_ask_list through the
+// service) belongs to the call that asked it and is never raised by a later, unrelated menu call; a call from any other door finds menu_op down and asks nothing.
+struct MenuOpScope {
+    CoreCtx *c;
+    explicit MenuOpScope(CoreCtx *cc) : c(cc)
+    {
+        if (!c->menu_op) {
+            c->want_prompt.kind = 0;
+        }
+        c->menu_op++;
+    }
+    ~MenuOpScope() { c->menu_op--; }
+};
+static int m_call(CoreCtx *c, const char *name, const OpIn *in, int nin, OpResult *r) { MenuOpScope g(c); return ops_call(c, name, in, nin, r); }
+static int m_call_direct(CoreCtx *c, const char *name, const OpIn *in, int nin, OpResult *r) { MenuOpScope g(c); return ops_call_direct(c, name, in, nin, r); }
+static int m_run_bound(CoreCtx *c, const char *op, const OpBind *bind, int nbind, const char *file, OpResult *r, int32_t ask = 0, const char *ask_text = 0)
+{
+    MenuOpScope g(c);
+    return ops_run_bound(c, op, bind, nbind, file, r, ask, ask_text);
+}
+
 static const char *base_name_of(const char *p);
 
 static void fm_say(void *user, const char *text, bool bad);
@@ -87,7 +109,7 @@ void MenuCtl::held_open()
     for (int i = 0; i < n; i++) {
         OpResult r;
         r.msg[0] = 0;
-        ops_call(c_, fl[i].open, 0, 0, &r);
+        m_call(c_, fl[i].open, 0, 0, &r);
         if (r.msg[0]) {
             set_status(r.msg, true);
         }
@@ -449,7 +471,7 @@ void MenuCtl::go(int area, int tab)
             char oop[64];
             if (pe.kind == EK_NODE && tree_.nodes[pe.index].attr && ui_attr(tree_.nodes[pe.index].attr, "open", oop, sizeof(oop)) && oop[0]) {
                 OpResult pr;
-                ops_call(c_, oop, 0, 0, &pr);
+                m_call(c_, oop, 0, 0, &pr);
                 go_ran_ = true;
             }
         }
@@ -1848,7 +1870,7 @@ MenuCtl::Result MenuCtl::list_call(const char *op, int index, const char *answer
         }
     }
     OpResult r;
-    int rc = ops_call(c_, op, in, nin, &r);
+    int rc = m_call(c_, op, in, nin, &r);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
@@ -1894,7 +1916,7 @@ MenuCtl::Result MenuCtl::pick_list_take()
     OpResult r;
     int rc;
     if (node) {                                                      // T262 P2: the node's operation with the chosen value as its text
-        rc = ops_run_bound(c_, node->op, node->bind, node->nbind, 0, &r, 0, value);
+        rc = m_run_bound(c_, node->op, node->bind, node->nbind, 0, &r, 0, value);
         if (rc) {
             set_status(r.msg[0] ? r.msg : "failed", true);
             return R_REDRAW;
@@ -1912,7 +1934,7 @@ MenuCtl::Result MenuCtl::pick_list_take()
         return R_REDRAW;
     }
     OpIn in[2] = { in_int("phase", phase), in_str("answer", value) };
-    rc = ops_call(c_, op, in, 2, &r);
+    rc = m_call(c_, op, in, 2, &r);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
@@ -1947,7 +1969,7 @@ MenuCtl::Result MenuCtl::prompt_done(const char *answer)
     snprintf(op, sizeof(op), "%s", prompt_op_);
     OpIn in[2] = { in_int("phase", prompt_phase_), in_str("answer", answer) };
     OpResult r;
-    int rc = ops_call(c_, op, in, 2, &r);
+    int rc = m_call(c_, op, in, 2, &r);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
@@ -2005,7 +2027,7 @@ MenuCtl::Result MenuCtl::pick_take(const char *path)
     const Setting &s = c_->desc->settings[pick_set_];
     OpIn in = in_str("path", path);
     OpResult r;
-    int rc = ops_call(c_, s.apply, &in, 1, &r);
+    int rc = m_call(c_, s.apply, &in, 1, &r);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "The file was not taken", true);
         return R_REDRAW;
@@ -2178,7 +2200,7 @@ bool MenuCtl::pick_key(int k, Result *out)
             pick_ = pick_sets_ = false;
             OpIn in[1] = { in_str("name", sets_[pick_sel_]) };
             OpResult r;
-            int rc = ops_call(c_, menu_fixed(EK_LOAD_SET, 0)->op, in, 1, &r);
+            int rc = m_call(c_, menu_fixed(EK_LOAD_SET, 0)->op, in, 1, &r);
             set_status(r.msg[0] ? r.msg : (rc ? "failed" : "done"), rc != 0);
             *out = rc ? R_REDRAW : R_CLOSE;                        // the core was reset: it runs
             return true;
@@ -2390,7 +2412,7 @@ bool MenuCtl::tick()
     OpResult r;
     c_->job_step = true;
     job_started_ = true;
-    int rc = ops_run_bound(c_, t.op, t.bind, t.nbind, 0, &r, 0, job_name_);
+    int rc = m_run_bound(c_, t.op, t.bind, t.nbind, 0, &r, 0, job_name_);
     c_->job_step = false;
     if (c_->job_pct > 0) {
         job_seen_pct_ = true;
@@ -2497,7 +2519,7 @@ bool MenuCtl::text_key(int k, Result *out)
             entry_ = false;
             OpIn in[1] = { in_int("value", k == KEY_RETURN ? 1 : 0) };
             OpResult r;
-            int rc = ops_call(c_, f->answer, in, 1, &r);
+            int rc = m_call(c_, f->answer, in, 1, &r);
             set_status(r.msg, rc != 0);
             *out = R_REDRAW;
             return true;
@@ -2507,7 +2529,7 @@ bool MenuCtl::text_key(int k, Result *out)
             flow_q_ = 0;                                          // unanswered: asked again at the next open
             entry_ = false;
             OpResult r;
-            ops_call(c_, f->leave, 0, 0, &r);
+            m_call(c_, f->leave, 0, 0, &r);
             return false;
         }
         default:
@@ -2546,7 +2568,7 @@ bool MenuCtl::text_key(int k, Result *out)
             confirm_node_ = 0;
             entry_ = false;
             OpResult r;
-            int rc = ops_run_bound(c_, n->op, n->bind, n->nbind, 0, &r);
+            int rc = m_run_bound(c_, n->op, n->bind, n->nbind, 0, &r);
             if (rc) {
                 set_status(r.msg[0] ? r.msg : "failed", true);
                 *out = R_REDRAW;
@@ -2599,7 +2621,7 @@ bool MenuCtl::text_key(int k, Result *out)
         }
         OpIn in[1] = { in_str("name", text) };
         OpResult r;
-        int rc = ops_call(c_, menu_fixed(EK_SAVE_SET, 0)->op, in, 1, &r);
+        int rc = m_call(c_, menu_fixed(EK_SAVE_SET, 0)->op, in, 1, &r);
         set_status(r.msg, rc != 0);
         *out = R_REDRAW;
         return true;
@@ -2667,7 +2689,7 @@ bool MenuCtl::text_key(int k, Result *out)
             return true;
         }
         OpResult r;
-        int rc = ops_run_bound(c_, n->op, n->bind, n->nbind, 0, &r, 0, text);
+        int rc = m_run_bound(c_, n->op, n->bind, n->nbind, 0, &r, 0, text);
         set_status(r.msg[0] ? r.msg : (rc ? "failed" : "done"), rc != 0);
         *out = rc ? R_REDRAW : (n->closes_menu ? R_CLOSE : R_REDRAW);
         return true;
@@ -2746,7 +2768,7 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
     if (t.ask) {
         note_folder();
     }
-    int rc = ops_run_bound(c_, t.op, t.bind, t.nbind, 0, &r, 0, text);
+    int rc = m_run_bound(c_, t.op, t.bind, t.nbind, 0, &r, 0, text);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
@@ -2773,7 +2795,7 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
 int MenuCtl::repeat_count(const FileAction &a, const char *file)
 {
     OpResult r;
-    if (ops_run_bound(c_, a.repeat_op, a.bind, a.nbind, file, &r, 0) || r.ndata < 2) {
+    if (m_run_bound(c_, a.repeat_op, a.bind, a.nbind, file, &r, 0) || r.ndata < 2) {
         return 0;
     }
     return r.data[0] | (r.data[1] << 8);
@@ -2867,7 +2889,7 @@ MenuCtl::Result MenuCtl::run_action_inner(const FileAction &a, const char *file,
     if (a.index) {
         ask = a.index;                                                    // T228 R21: the number of the repeated entry goes to the bound asked value
     }
-    int rc = ops_run_bound(c_, a.op, a.bind, a.nbind, file, &r, ask);
+    int rc = m_run_bound(c_, a.op, a.bind, a.nbind, file, &r, ask);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
@@ -3420,7 +3442,7 @@ MenuCtl::Result MenuCtl::drive_row(const MenuEntry &e)
     if (e.kind == EK_DRIVE_EJECT) {
         if (m.eject_op && ops_state(c_, m.state)) {
             OpResult r;
-            int rc = ops_run_bound(c_, m.eject_op, m.eject_bind, m.neject_bind, 0, &r);
+            int rc = m_run_bound(c_, m.eject_op, m.eject_bind, m.neject_bind, 0, &r);
             char s[120];
             snprintf(s, sizeof(s), rc ? "%s: cannot eject. %s" : "%s ejected", m.name, r.msg);
             set_status(s, rc != 0);
@@ -3472,7 +3494,7 @@ MenuCtl::Result MenuCtl::run_fixed(const MenuEntry &e)
     OpResult r;
     msg[0] = 0;
     if (fd->pre_op) {
-        if (ops_call(c_, fd->pre_op, 0, 0, &r)) {
+        if (m_call(c_, fd->pre_op, 0, 0, &r)) {
             set_status(r.msg, true);
             return R_REDRAW;
         }
@@ -3492,7 +3514,7 @@ MenuCtl::Result MenuCtl::run_fixed(const MenuEntry &e)
         begin_confirm(&fixed_q, fd->confirm);
         return R_REDRAW;
     }
-    int rc = ops_call(c_, fd->op, 0, 0, &r);
+    int rc = m_call(c_, fd->op, 0, 0, &r);
     if (fd->ok_text) {
         if (rc) {
             set_status(r.msg[0] ? r.msg : fd->fail_text, true);
@@ -3516,7 +3538,7 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
         if (n.kind == LN_OP && ui_attr(n.attr, "goto", arg, sizeof(arg))) {
             if (n.op && n.op[0] && node_ready(n)) {                                 // a node that has an operation runs it on the way (a bookmark of the monitor)
                 OpResult gr;
-                ops_run_bound(c_, n.op, n.bind, n.nbind, 0, &gr);
+                m_run_bound(c_, n.op, n.bind, n.nbind, 0, &gr);
                 fm_.apply_pending();
             }
             return goto_spec(arg) ? R_REDRAW : R_NONE;
@@ -3594,7 +3616,7 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             return R_REDRAW;
         }
         OpResult r;
-        int rc = ops_run_bound(c_, n.op, n.bind, n.nbind, 0, &r);
+        int rc = m_run_bound(c_, n.op, n.bind, n.nbind, 0, &r);
         if (rc) {
             set_status(r.msg[0] ? r.msg : "failed", true);
             return R_REDRAW;
@@ -3990,7 +4012,7 @@ void MenuCtl::app_start()
     char eop[48];
     if (app_mode_ && layout_param("enter", eop, sizeof(eop))) {
         OpResult r;
-        ops_call(c_, eop, 0, 0, &r);
+        m_call(c_, eop, 0, 0, &r);
     }
 }
 
@@ -4780,7 +4802,7 @@ MenuCtl::Result MenuCtl::run_row_op(const KeyRow &row, int k, bool *took)
         in[nin++] = in_int("key", k);
     }
     OpResult r;
-    int rc = (row.flags & KF_DIRECT) ? ops_call_direct(c_, row.op, nin ? in : 0, nin, &r) : ops_call(c_, row.op, nin ? in : 0, nin, &r);
+    int rc = (row.flags & KF_DIRECT) ? m_call_direct(c_, row.op, nin ? in : 0, nin, &r) : m_call(c_, row.op, nin ? in : 0, nin, &r);
     if ((row.flags & KF_UNSUPPORTED_DECLINES) && rc == OPE_UNSUPPORTED) {
         *took = false;
         return R_NONE;
@@ -5057,7 +5079,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         }
         OpIn oi[1] = { in_int("key", k) };                           // a memory view: the cursor keys scroll it (and change the bank), whatever is selected
         OpResult kr;
-        ops_call(c_, kop, oi, 1, &kr);
+        m_call(c_, kop, oi, 1, &kr);
         return R_REDRAW;
     }
     case MI_APP_BACK: {                                              // one step out: the tab the screen names (`back`), else the first tab, else the caller
@@ -5100,7 +5122,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         }
         OpIn oi[1] = { in_int("key", k) };
         OpResult kr;
-        ops_call(c_, kop, oi, 1, &kr);
+        m_call(c_, kop, oi, 1, &kr);
         return R_REDRAW;
     }
     case MI_BUSY_CANCEL:
@@ -5323,7 +5345,7 @@ MenuCtl::Result MenuCtl::sf_run()
     }
     OpIn in[1] = { in_str("query", q) };
     OpResult r;
-    int rc = ops_call(c_, find_op, in, 1, &r);
+    int rc = m_call(c_, find_op, in, 1, &r);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "The search failed", true);
         return R_REDRAW;
@@ -5531,7 +5553,7 @@ void MenuCtl::wizard_key(int intent)
     const char *op = intent == MI_WIZ_NEXT ? w->next : intent == MI_WIZ_BACK ? w->back : w->cancel;
     OpResult r;
     r.msg[0] = 0;
-    int rc = ops_call(c_, op, 0, 0, &r);
+    int rc = m_call(c_, op, 0, 0, &r);
     if (r.msg[0]) {
         set_status(r.msg, rc != 0);
     }
@@ -5547,7 +5569,7 @@ bool MenuCtl::map_tick()
     OpResult r;
     r.msg[0] = 0;
     r.more = false;
-    int rc = ops_call(c_, w->tick, 0, 0, &r);
+    int rc = m_call(c_, w->tick, 0, 0, &r);
     if (!r.more) {
         return false;
     }

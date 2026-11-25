@@ -69,6 +69,7 @@ struct CoreCtx {
         char prompt[80];
         char src[40];
     } want_prompt;
+    uint8_t menu_op;                    // > 0 while an operation the menu called runs (menuctl.cc): only then may an operation ask the person (ops_ask_list through the service)
     const struct MenuMerge *merge;       // what libraries, applications and the description put into the menu (contrib.h); null: nothing
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
