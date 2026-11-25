@@ -9,7 +9,9 @@ name: Pipeline
 # does not trust by itself (D14); environment `builds` (job prerelease) is the D1 publish.
 #
 # T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix (matrix.yml, the job `matrix`) and none of the jobs of this file: its `plan` does not run
-# there, so every job that needs it is skipped.
+# there, so every job that needs it is skipped. T239.5 D11, D13, D14: integration and integ-* run both, the matrix beside the jobs of this file (input beside:
+# this file's plan, work order, approval and sims are the run's). There the package of record is the matrix's whole package (its jobs collect and package,
+# the artifact `package`, with the .cor of every core lane): this file's job `package` does not run, and update and emu take the matrix's artifact.
 # Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository
 # is the push's run). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and runs for it.
 # D9: schedule and workflow_dispatch work only for workflows on the default branch, so the nightly and sims-long run from a push to a scratch branch
@@ -234,14 +236,20 @@ jobs:
     with:
       target: ${{ matrix.target }}
 
+  # T239.5 D14: not on integration and integ-*, where the matrix's whole package is the run's package (one artifact `package` per run)
   package:
     needs: [plan, lint, keys, apptests, images, sim, cor]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'package') }}
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'package')
+      && !(github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) }}
     uses: ./.github/workflows/package.yml
 
+  # the package of this file's job package, or on integration and integ-* the matrix's (T239.5 D14); there, as before, only after every test job of this file is green
   update:
-    needs: [plan, package]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.package.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'update') }}
+    needs: [plan, lint, keys, apptests, images, sim, cor, package, matrix]
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'update')
+      && (needs.package.result == 'success' || ((github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) && needs.matrix.result == 'success')) }}
     uses: ./.github/workflows/update.yml
 
   # D23: after update, where update ran; its kit takes this run's VIC-20 .cor and host image (no .ue2 since T239.1 step 17)
@@ -303,10 +311,16 @@ jobs:
           BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: ci/child.sh prerelease
 
-  # T239.5 D10: the matrix of the T239 branch (the lanes of the SDK, the bitstreams, the host menu and the moved cores; its own dispatcher, work order and approval)
+  # T239.5 D10: the matrix of the T239 branch (the lanes of the SDK, the bitstreams, the host menu and the moved cores; its own dispatcher, work order and approval).
+  # D11: on integration and integ-* beside this file's jobs, after `plan` (whose artifacts plan and work-order the matrix's lanes and the builder read there).
   matrix:
-    if: ${{ (github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
+    needs: plan
+    if: >-
+      ${{ !cancelled() && (needs.plan.result == 'success' || needs.plan.result == 'skipped')
+      && (github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-') || github.ref == 'refs/heads/integration' || startsWith(github.ref, 'refs/heads/integ-')) }}
     uses: ./.github/workflows/matrix.yml
+    with:
+      beside: ${{ !(github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
     secrets: inherit    # T261: BUILDS_TOKEN is a secret of the environment `builds`; a called workflow's job that names the environment reads it only when the caller inherits
 
   summary:
