@@ -195,3 +195,28 @@ app like a test (file picker over `/SD/cores/diag/`, or the task "Open a panel";
   runner walk against the engine model is out of that bench - it is a unit - and a "panel" dialog picture is in; `-fsyntax-only` clean, **not run**: LVGL objects). `menu_portdiag.txt`: the A1200's app has no such golden case either
   (`test_desc` skips it under `TEST_APP_A1200`), so there is none to restore. `tests/ui/fixtures.py` copies `cores/diag/sd` to the diag card. No ue2emu picture of the panel: it needs the RISC-V image (`tools/dev.sh riscv`, not allowed here).
 
+*Step 5, runner v2 (second app session): the part that is built.* `cores/diag/app/lib/dtv2.h/.cc`: the pin table read from the ROM through PIN_IDX / PIN_ROM (`dtv2_pins_read`, `dtv2_pin_find`), the v2 step words as
+inline encoders (`dv2_drive`, `dv2_edges`, `dv2_tte`, `dv2_write_reg`, `dv2_capture`, ...), the ring reader (`dtv2_cap_read`: CAP_RADDR, CAP_RCTRL, poll CAP_STATUS b4, 16 bytes of CAP_RDATA, four samples a line;
+`dtv2_cap_lines`: a following capture starts on the next line). Unit `dtv2` on a model of the register block that serves the 121-pin ROM from `tests/coreapp/golden/diag_pins.toml` (a copy of `cores/diag/rtl/pins.toml`
+of t260-gw - the lint of the merged tree must find the two equal) and a synthetic ring: `test_dtv2: 399 checks, 0 failed`, `test dtv2: PASS` - S3 (the app reads every pin by name, 121 of them, a bitstream without a table is
+refused) and the S4 reader (4096 samples of a known pattern, a second capture that starts on the next line, a reader that never answers is given up on). The offsets in dtv2.h are numbers from the gateware's register map;
+the hardware semantics assumed there and not yet checked on a bench or the board: a write of CAP_RCTRL clears CAP_STATUS b4 until the new line is in CAP_RDATA.
+
+*Not built, handed over (S5, S6, the rest of S4 and the v2 switch of the app).* The app still runs the v1 engine: `portdiag_regs.h` (PD_OP_*, PD_LIVE, the 10-pin mask), `gateware.toml` (live block 0x40-0x43), the old compiler and
+evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live page: ports and comparators from LIVE). Against a v2 bitstream they do not work. What is to be done, in this order, one commit each:
+1. `gateware.toml` v2 and `portdiag_regs.h` v2 (registers named through the driver table; the engine block, `live` = 16 byte snapshot, the pin and capture registers; PD_OP_* replaced by dtv2.h's words) and the
+   `rtl_check` line: the case reads `cores/diag/rtl/diag_regs.v`, which is v1 in this branch - run it in a scratch worktree of t260-gw with this branch's `gateware.toml` (`tools/rtl_check.py`, case `diag` of
+   `tests/rtl_check`). The live page (`pd.port1`, `pd.port2`, `pd.cmp`) reads pins 50-54 / 55-59 / 63-66 of the snapshot by name from the table (not by number).
+2. Test language v2 (all pins by NAME, resolved against the table at compile time - `dt_compile` takes `const DtPins &`): `drive pins=[NAME..] level=low|high|hiz|release` (one DRIVE word per pin), `wait`, `sample into=`
+   (5 FIFO words: t and the snapshot), `edges pin= edge=any|rising|falling us=|clocks=`, `time_to_edge pin= edge= timeout_us=|timeout_clocks=` (the old `time_to_flip cmp=[n]` is `time_to_edge pin="PADDLE_CMPn"`),
+   `write_reg reg="av.std"|0x50 value=` (names through `portdiag_reg_by_name`, only 0x050-0x06F), `capture pins=[<= 32 names] every_us=|every_clocks= samples= into=` (CAP RESET before RUN; the runner reads the lines back
+   with `dtv2_cap_read`, the first line of each capture is the sum of `dtv2_cap_lines` of the earlier ones; at most 4096 samples a test, said at compile time), `capwait`; `padctl` goes (PADDLE_DIS / PADDLE_ADJ are pins
+   67 / 68, class pz: HIGH / LOW enable, RELEASE = high-Z). Evals: `value = "slot.pins"` with `pins = ["NAME", ..]` in place of `mask` (bit j of the value = the j-th name), `eq`/`min`/`max`/`differs` over that value;
+   `slot.ts` the 32 bit t; the fields `cmp` and `flags` go. LOOP counts WORDS (a drive of n pins is n words, EDGES / TTE / CAPTURE two). A refused EDGES / TTE still pushes 0xFFFFFFFF (gateware §5). `STATUS` b5 / REF_PC / REF_CNT
+   are the "refused" status of a run (REF_PC of a two word op is its second word).
+3. S5: a unit test writes a TOML at run time (no shipped file) that names pins only by name, loads, compiles (the words name the table indexes - compare with `dv2_*` of `dtv2_pin_find`), runs on the model, and the result
+   files have its values and verdicts. S6: convert the files of `cores/diag/sd/tests` (pins, stick2, paddle, cd32, cd32keys, joystick, xpad*, av* need no change: they are kinds suite / avtest / xpad) by a script, and prove that
+   each compiles to the old compiler's words translated: take the old words from the unchanged HEAD `diagtest.cc` of `b6a2a2212` (golden `tests/coreapp/golden/diag_old_words.txt`, one line per file) and translate by rule in
+   the test (old DRIVE mask -> one DRIVE per pin in bit order, MASK+EDGES -> EDGES, TIME_TO_FLIP sel -> TTE any, PADCTL -> DRIVE DIS, DRIVE ADJ (a part not named is RELEASE), LOOP K recounted in words), then compare.
+4. `diag_engine.h` (the model) to v2 for the benches of the shipped tests (pins as a 128 bit state, open drain pins pulled high, DRIVE LOW pulls a pin low, the comparators of the paddle test), `render.cc` and
+   `test_portdiag.cc` follow (they read LIVE at 0x40).

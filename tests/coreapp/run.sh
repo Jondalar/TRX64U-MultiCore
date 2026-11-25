@@ -260,6 +260,7 @@ diagapp run diagtest test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.
 diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc panel.cc pdnames.cc instfiles.cc
 diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
 diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+diagapp run dtv2 test_dtv2.cc dtv2.cc
 diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
 diagapp run diag_desc test_diag_desc.cc desc_check.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc $BASEL
 run freeze test_freeze.cc freeze.cc
