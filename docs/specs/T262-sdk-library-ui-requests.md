@@ -61,6 +61,9 @@ Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2
   in one SDK release, 0.5.0 (new API: minor version).
 - **D2 (coordinator, 2026-11-25, Q2: API names, a technical detail):** node kind `list` (P1), node key `pick` (P2), tab key
   `show` (P3).
+- **D3 (Alex, 2026-11-25, translated: "Forget this test ... When the online.u2a is reworked I play with it for half an hour and then
+  it is fine"):** S9 is not run as a counted board test. The proof of T262 on the board is Alex's half hour with TRX64-Ultimate's
+  reworked online sub-app on SDK 0.5.0.
 
 ## §4 Out
 
@@ -86,5 +89,5 @@ Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; pu
   search form's handler (menu controller gate, T192.3): moved into `pick_key` (199705ec7).
 - Tests: 27 coreapp units PASS, render bench 291,182 checks 0 failed (`t262_list` at 480p, 720p, 1080p), `tools/test_descrec.py`
   119 OK, RISC-V build ok.
-- Open: S9 on the board (Alex: no blank content, no lost key over 150 RETURNs); the list page and the search form in ue2emu with a
-  real library (TRX64-Ultimate's online sub-app is the first user, their UX review).
+- Open: Alex's half hour with the reworked online sub-app on the board (D3, replaces S9); the list page and the search form in
+  ue2emu with that real library (their UX review).
