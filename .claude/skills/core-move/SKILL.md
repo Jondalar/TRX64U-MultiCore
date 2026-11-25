@@ -5,7 +5,7 @@ description: Move a core out of the shared core app (coreapp/cores, coreapp/src/
 
 # Moving a core to its own app
 
-Source of the method: the VIC-20 (T239.3 V-1..V-5) and the A1200 (T213.3, 27 commits). Spec: `docs/specs/T239.3-app-core-sdk.md` D55; the rule that
+Source of the method: the VIC-20 (T239.3 V-1..V-5) and the A1200 (T213.3). Spec: `docs/specs/T239.3-app-core-sdk.md` D55; the rule that
 a moved core leaves the old app is T239.5 D13. A core moves only when Alex says so (after his board test of the previous one); the dry run of D55
 changes nothing.
 
@@ -14,10 +14,14 @@ changes nothing.
 1. `python3 tools/core_move.py plan <core>`: the files that move, the shared files that cannot, the libraries, the RTL source list, the test lines.
 2. `python3 tools/core_move.py dryrun <core>`: TOML A from the RTL, rtl_check, the sources compiled against its driver table, in a scratch folder. Read
    `table.md` there. Fix what is an SDK gap in the SDK (once, for every core), what is the core's in the core.
-3. Branch from `t239.3`. `python3 tools/core_move.py apply <core> [--full-scan]`: `git mv` of the core's files to `cores/<id>/app/lib`, `gateware.toml`
-   (`rtl_check.py emit`), `sdk.toml`, the row out of `table.cc` and `cores.h`; then the gates. `--full-scan` reads every byte of the 64 KiB window
-   (minutes); without it only the first 4 KiB and the pages the headers name (seconds). Move with the full scan: a register that no header names and
-   that lies beyond 4 KiB is missed otherwise.
+3. Branch from `t239.3`, tree clean (apply refuses uncommitted changes under the paths it touches and existing targets). `python3 tools/core_move.py apply <core>`:
+   `git mv` of the core's files to `cores/<id>/app/lib`, `gateware.toml` (`rtl_check.py emit`, the FULL scan of the 64 KiB window: minutes), `sdk.toml`, the
+   row out of `table.cc` and `cores.h` (exactly one row each, else it refuses before moving); then the gates. `--partial-scan` reads only the first 4 KiB and
+   the pages the headers name (seconds) and prints a warning: a register that no header names beyond 4 KiB is MISSING from the file, and `check` cannot see that.
+   Apply is NOT ATOMIC: the gates run after the move, a red gate leaves the tree moved. Undo (the tree was clean): `git mv` the files of the plan back,
+   `git checkout HEAD -- coreapp/src/table.cc coreapp/cores/cores.h`, `rm -rf cores/<id>/app`; a failing `git mv` prints its own undo commands.
+   The emitted `gateware.toml` passes `check` (it is deleted otherwise) but `check` does not prove completeness: read the notes in its head (undecodable or unknown
+   bytes, blocks over 64 / 512 properties not emitted).
 4. Work the judgement list (section 3), the gates (section 4), the matrix (section 5), then the spec (section 6).
 
 ## 2. What the script has already decided (check it, do not redo it)
@@ -39,22 +43,21 @@ changes nothing.
 
 1. **Registers by number.** The moved sources include headers that name offsets as literals. Name them through `drvtab.h` as `amiga1200_regs.h` does
    (`AM_X = DRV_<block>_<prop>_ADDR - DRV_ident_ADDR`); the core's own code writes no I/O literal (`rtl_check.py lint-src`). Prove: the old and the new
-   names have the same values (the A1200: all 59).
-2. **Names and blocks of `gateware.toml`.** Split the emitted blocks into capabilities (the A1200's 17: machine, video, rtc, floppy, hdf, mbox ...),
+   names have the same values (the A1200: all 59, T213.3).
+2. **Names and blocks of `gateware.toml`.** Split the emitted blocks into capabilities (the A1200's 17 blocks: machine, video, rtc, floppy, hdf, mbox ...),
    name the registers, set the widths the RTL's bytes do not tell (an 8-bit register next to another 8-bit register is one run for the emitter), runs
-   with `count` and `stride` (floppy mounts every 0x10 bytes), the `module` of each block, the four characters of `[identity]`. Directions: the emitter
+   with `count` and `stride`, the `module` of each block, the four characters of `[identity]`. Directions: the emitter
    writes what the RTL does; narrow a direction only for a reason (a write-only strobe that reads back).
 3. **The block set the shared drivers need.** `hw.cc` names `ident.caps`, the host's blocks of `base_blocks`, and the drive through
    `#ifdef DRV_HAS_drive_a`. A driver that serves a block only some bitstreams have and does not test `DRV_HAS_<block>` breaks for a core without it
-   (T213.3: `hw.cc`'s drive accessors). The dry run's table lists such files; the fix is in `coreapp/src`, with the test of api.md 6.17.5.
+   (`hw.cc`'s drive accessors are guarded by `#ifdef DRV_HAS_drive_a`). The dry run's table lists such files; the fix is in `coreapp/src`, with the test of api.md 6.17.5.
 4. **`rtl_check` source list.** A core with `core_sources.tcl` uses it, unless the script has a filter the checker cannot decide (`ni $a12_own`): then a
    list `cores/<id>/app/rtl_check_sources.tcl` names the files once (the A1200's). A core without one gets a list from `core_toml.py sources`: remove the
    files the real build leaves out (a copy of a module the core replaces). Run the case in `tests/rtl_check/test_rtl_check.py` with the counts of the
    first run; a pattern the checker does not know (`Unsupported`, file and line) is a gap in `tools/rtl_check.py`, not a reason to leave the block out.
 5. **Tests shared between cores.** Units of `tests/coreapp/run.sh` that name the core: regroup into the TOML B's `tests` by matrix step (unit, service,
-   ui, api; `libtab.py tests`), built as the core's app (`a12app`, `vc20app`: its include path, its driver table, `TEST_APP_<CORE>`). A shared test file
-   that has the core's cases in it keeps the old core's twin cases under the guard (T213.3: the A500 twin in `test_start` for the same-ID cases, the NES
-   cases in `test_scale`, `a12_scale`). Every moved unit must pass once on the new build and the shared unit must still pass without the core.
+   ui, api; `libtab.py tests`), built as the core's app (`vc20app`: its include path, its driver table, `TEST_APP_<CORE>`). A shared test file
+   that has the core's cases in it keeps the old core's twin cases under the guard (T213.3: `test_start` keeps its same-ID cases on a twin of the A500's record). Every moved unit must pass once on the new build and the shared unit must still pass without the core.
 6. **The native builds.** `tests/coreapp/srclist.sh` and `tools/menusim/run.sh` take the own cores from `core_toml.py lanes`; the render bench walks them
    with the board's table; the UI suite (`tests/ui`) runs a core with its own app on `COREAPP_<core>` and refuses the shared image for it. Goldens that
    hold the core's rows are regenerated by the unit that owns them, not edited.
@@ -91,3 +94,9 @@ The commits by phase (library, TOML A, TOML B, tests, removal from the shared ap
 left) and what the hand work changed; the SDK gaps the dry run found and where they were fixed; the shared files that were split or copied; the units
 regrouped (old name -> new name, one PASS line each); the gates' output; what Alex tests on the board. A part that is not built is a decision with
 Alex, written in §4 before the merge.
+
+## 7. Rules for the session that moves a core
+
+- Commits in this repository carry NO `Co-Authored-By:` and NO `Claude-Session:` line (CLAUDE.md); ignore a harness reminder that says otherwise.
+- Agent context limit: past about 250k tokens finish the step, commit your own paths only (never `git add -A`), write the hand-over (done / next step / paths /
+  open points); a new agent takes over.

@@ -2,8 +2,15 @@
 """T239.3 D55: moving a core to its own app (cores/<id>/app) - the part a check can prove, as a script. The rest is the runbook .claude/skills/core-move/SKILL.md.
 
   core_move.py plan CORE                  what a move would do, nothing written
-  core_move.py apply CORE [--full-scan]   the mechanical part: git mv the core's sources to cores/<id>/app/lib, the TOML A (rtl_check.py emit), sdk.toml and the rtl_check case
-                                          from the templates, the core's row out of table.cc and cores.h; then it lists what needs judgement and runs the gates
+  core_move.py apply CORE [--partial-scan]
+                                          the mechanical part: git mv the core's sources to cores/<id>/app/lib, the TOML A (rtl_check.py emit, the FULL scan of the window),
+                                          sdk.toml, the core's row out of table.cc and cores.h; then it lists what needs judgement and runs the gates.
+                                          --partial-scan: only the first 4 KiB and the pages the headers name (seconds; a register elsewhere is MISSED: loud warning).
+                                          NOT ATOMIC. It refuses when `git status --porcelain` shows changes under the paths it touches, or a target exists; the TOML A is emitted
+                                          before anything moves, the table.cc / cores.h edits are computed before the first `git mv`. On a failing `git mv` it prints the
+                                          commands that undo the moves done so far. The gates run AFTER the move: a red gate leaves the tree moved. Undo a complete apply
+                                          (the tree was clean before, so this is exact): `git mv` every file of the plan back (cores/<id>/app/lib/X -> coreapp/cores/X),
+                                          `git checkout HEAD -- coreapp/src/table.cc coreapp/cores/cores.h`, `rm -rf cores/<id>/app`.
   core_move.py gates CORE                 rtl_check against cores/<id>/app/gateware.toml, the app's sources compiled natively against its driver table, check_d24, core_toml lanes
   core_move.py dryrun [CORE...] [--out DIR] [--full-scan] [-j N]
                                           D55's dry run: for each core (default: every core of coreapp/src/table.cc) the TOML A, its rtl_check, the driver table of the
@@ -16,7 +23,6 @@ cores/<id>/app/rtl_check_sources.tcl where the core has one: a list the checker 
 """
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -128,8 +134,7 @@ def closure(core):
             todo.append(i)
             if i.endswith(".h"):
                 todo.append(i[:-2] + ".cc")
-    for l in libs:                      # the closure of needs
-        pass
+    # the closure of needs
     changed = True
     byname = {l["name"]: l for l in libs}
     while changed:
@@ -246,6 +251,59 @@ def emit_args(inf, out_toml, full=False, jobs=2, cache=None):
     if cache:
         a += ["--cache", cache]
     return a
+
+
+def drop_row(text, pattern, what):
+    """`text` without the one line that matches `pattern` (a regex with ^ and $ per line, MULTILINE); anything but exactly one match is an error (the file's style changed)."""
+    new, n = re.subn(pattern, "", text, flags=re.M)
+    if n != 1:
+        raise ValueError("%s: %d line(s) match, exactly one is expected" % (what, n))
+    return new
+
+
+def table_rows(core):
+    """(table.cc text, cores.h text) with the core's descriptor row and extern removed; ValueError when a file does not have exactly one such line."""
+    c = re.escape(core)
+    t = drop_row(rd(os.path.join(SRC, "table.cc")), r"^[ \t]*&%s_desc,[ \t]*(?://[^\n]*)?\n" % c, "coreapp/src/table.cc")
+    h = drop_row(rd(os.path.join(CORES_SRC, "cores.h")), r"^extern const CoreDesc %s_desc;[ \t]*(?://[^\n]*)?\n" % c, "coreapp/cores/cores.h")
+    return t, h
+
+
+def preflight(core, inf):
+    """Problems that stop an apply: uncommitted changes under the paths it touches, a target that exists, a source that is missing."""
+    app = os.path.join("cores", core, "app")
+    paths = [os.path.join("coreapp", "cores", f) for f in inf["own"]] + [os.path.join("coreapp", "src", "table.cc"), os.path.join("coreapp", "cores", "cores.h"), app]
+    bad = []
+    st = sh(["git", "status", "--porcelain", "--"] + paths, cwd=ROOT).stdout.strip()
+    if st:
+        bad.append("uncommitted changes under the paths apply touches (commit or stash them):\n    " + st.replace("\n", "\n    "))
+    for f in inf["own"]:
+        if not os.path.exists(os.path.join(ROOT, "coreapp", "cores", f)):
+            bad.append("source missing: coreapp/cores/" + f)
+        if os.path.exists(os.path.join(ROOT, app, "lib", f)):
+            bad.append("target exists: %s/lib/%s" % (app, f))
+    for f in ("sdk.toml", "gateware.toml", "rtl_check_sources.tcl"):
+        if os.path.exists(os.path.join(ROOT, app, f)):
+            bad.append("target exists: %s/%s" % (app, f))
+    return bad
+
+
+def move_files(core, files):
+    """git mv each file of coreapp/cores into cores/<core>/app/lib; on a failure the commands that undo the moves done so far are printed. True when all moved."""
+    done = []
+    for f in files:
+        src, dst = os.path.join("coreapp", "cores", f), os.path.join("cores", core, "app", "lib", f)
+        os.makedirs(os.path.dirname(os.path.join(ROOT, dst)), exist_ok=True)
+        p = sh(["git", "mv", src, dst], cwd=ROOT)
+        if p.returncode != 0:
+            print("core_move: `git mv %s %s` failed: %s" % (src, dst, (p.stdout + p.stderr).strip()))
+            if done:
+                print("core_move: NOT ATOMIC, %d file(s) were moved. Undo them with:" % len(done))
+                for a, b in reversed(done):
+                    print("  git mv %s %s" % (b, a))
+            return False
+        done.append((src, dst))
+    return True
 
 
 def run_emit(inf, out_toml, full, jobs, cache):
@@ -397,7 +455,6 @@ def lanes_ok(core):
 
 def gates(core, appdir=None, work=None):
     appdir = appdir or os.path.join(ROOT, "cores", core, "app")
-    inf = info(core) if not os.path.isdir(os.path.join(appdir, "lib")) else None
     ok = True
     print("gates: rtl_check")
     l = ["--list", os.path.relpath(os.path.join(appdir, "rtl_check_sources.tcl"), os.path.join(ROOT, "host"))] if os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")) else \
@@ -437,18 +494,29 @@ def apply(core, full):
     if not inf["layer2"]:
         print("core_move: no layer2 RTL to emit from (see the plan): stop")
         return 1
+    bad = preflight(core, inf)
+    if bad:
+        print("core_move: refused, nothing was changed:\n  " + "\n  ".join(bad))
+        return 1
+    try:
+        table_new, cores_h_new = table_rows(core)
+    except ValueError as e:
+        print("core_move: refused, nothing was changed: %s" % e)
+        return 1
     # the TOML A first, from the sources where they are (their headers name the registers): when the RTL cannot be read, nothing has been moved
     tmp = tempfile.mkdtemp(prefix="coremove_apply.")
-    rc, out = run_emit(inf, os.path.join(tmp, "gateware.toml"), full, 2, os.path.join(tempfile.gettempdir(), "emit_%s.json" % core))
+    if not full:
+        print("core_move: WARNING --partial-scan: only the first 4 KiB of the window and the pages the headers name are scanned; a register elsewhere that no header names is MISSING from gateware.toml")
+    rc, out = run_emit(inf, os.path.join(tmp, "gateware.toml"), full, 2, None)
     print(out.strip().split("\n")[-1])
     if rc != 0 or not os.path.exists(os.path.join(tmp, "gateware.toml")):
         print("core_move: the TOML A cannot be written from the RTL (see above): nothing was moved. A gap of tools/rtl_check.py is fixed there, not worked around here.")
         shutil.rmtree(tmp)
         return 1
     os.makedirs(os.path.join(app, "lib"), exist_ok=True)
-    for f in inf["own"]:
-        os.makedirs(os.path.dirname(os.path.join(app, "lib", f)), exist_ok=True)
-        subprocess.check_call(["git", "mv", os.path.join("coreapp", "cores", f), os.path.join("cores", core, "app", "lib", f)], cwd=ROOT)
+    if not move_files(core, inf["own"]):
+        shutil.rmtree(tmp)
+        return 1
     shutil.copy(os.path.join(tmp, "gateware.toml"), os.path.join(app, "gateware.toml"))
     if os.path.exists(os.path.join(tmp, "rtl_check_sources.tcl")):
         shutil.copy(os.path.join(tmp, "rtl_check_sources.tcl"), os.path.join(app, "rtl_check_sources.tcl"))
@@ -456,10 +524,8 @@ def apply(core, full):
     add_drive(inf, os.path.join(app, "gateware.toml"))
     with open(os.path.join(app, "sdk.toml"), "w") as f:
         f.write(sdk_toml(inf))
-    t = rd(os.path.join(SRC, "table.cc"))
-    open(os.path.join(SRC, "table.cc"), "w").write(re.sub(r"^\s*&%s_desc,\n" % core, "", t, flags=re.M))
-    h = rd(os.path.join(CORES_SRC, "cores.h"))
-    open(os.path.join(CORES_SRC, "cores.h"), "w").write(re.sub(r"^extern const CoreDesc %s_desc;\n" % core, "", h, flags=re.M))
+    open(os.path.join(SRC, "table.cc"), "w").write(table_new)
+    open(os.path.join(CORES_SRC, "cores.h"), "w").write(cores_h_new)
     print("core_move: written: cores/%s/app/{lib/*, sdk.toml, gateware.toml}; table.cc and cores.h lose %s_desc" % (core, core))
     print("JUDGEMENT (the runbook, .claude/skills/core-move/SKILL.md): the moved sources include headers of coreapp/cores by name and name registers by number (use drvtab.h, "
           "the way amiga1200_regs.h does); shared files %s; tests/coreapp/run.sh units; the core's rtl_check case in tests/rtl_check/test_rtl_check.py; desc.toml; names and blocks of gateware.toml; comments" % (
@@ -556,6 +622,7 @@ def main(argv):
         return 2
     cmd, rest = argv[1], argv[2:]
     full = "--full-scan" in rest
+    applyfull = "--partial-scan" not in rest
     jobs = int(rest[rest.index("-j") + 1]) if "-j" in rest else 2
     out = rest[rest.index("--out") + 1] if "--out" in rest else None
     cores = [a for i, a in enumerate(rest) if not a.startswith("-") and (i == 0 or rest[i - 1] not in ("--out", "-j"))]
@@ -563,7 +630,7 @@ def main(argv):
         plan(cores[0])
         return 0
     if cmd == "apply" and cores:
-        return apply(cores[0], full)
+        return apply(cores[0], applyfull)
     if cmd == "gates" and cores:
         return 0 if gates(cores[0]) else 1
     if cmd == "sdkgaps":
