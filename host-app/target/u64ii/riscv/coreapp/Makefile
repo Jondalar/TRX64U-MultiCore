@@ -201,7 +201,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			picklist.cc \
 			lineedit.cc \
 			boot.cc \
-			atari800.cc \
 			nes.cc \
 			apple2.cc \
 			apple2_disk.cc \
@@ -244,11 +243,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			libfiles.cc \
 			kickstart.cc \
 			amiga.cc \
-			atari_sio.cc \
-			atari_atr.cc \
-			atari_xex.cc \
-			atari_cart.cc \
-			atari_media.cc \
 			fm_fs.cc \
 			fm_medium.cc \
 			mediasniff.cc \

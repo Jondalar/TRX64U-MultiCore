@@ -2,8 +2,6 @@
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
 exception coreapp/src/u64cfg.cc +1033 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-file coreapp/cores/6502/xexboot.asm 161
-file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 330
 file coreapp/cores/amiga_keys.h 23
 file coreapp/cores/amiga_regs.h 62
@@ -16,19 +14,6 @@ file coreapp/cores/apple2_nib.h 21
 file coreapp/cores/apple2_regs.h 69
 file coreapp/cores/apple2_woz.cc 154
 file coreapp/cores/apple2_woz.h 17
-file coreapp/cores/atari800.cc 208
-file coreapp/cores/atari800_regs.h 39
-file coreapp/cores/atari_atr.cc 115
-file coreapp/cores/atari_atr.h 15
-file coreapp/cores/atari_cart.cc 61
-file coreapp/cores/atari_cart.h 14
-file coreapp/cores/atari_disk.h 16
-file coreapp/cores/atari_media.cc 188
-file coreapp/cores/atari_media.h 33
-file coreapp/cores/atari_sio.cc 362
-file coreapp/cores/atari_sio.h 67
-file coreapp/cores/atari_xex.cc 64
-file coreapp/cores/atari_xex.h 8
 file coreapp/cores/c128.cc 1078
 file coreapp/cores/c128_keys.h 12
 file coreapp/cores/c128_prg.h 30
@@ -49,7 +34,7 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 21
+file coreapp/cores/cores.h 20
 file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27

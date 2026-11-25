@@ -143,7 +143,7 @@ amiga_lat: cores/amiga/sim cores/amiga/rtl/trx designs/ddr2_test/sim cores/amiga
 atari_gate: @a8
 atari_machine: @reads
 # T108: the disk bench also compiles the application's SIO responder and what it includes
-@a8disk = @a8 ci/roms.txt coreapp/cores/atari_sio.cc coreapp/cores/atari_sio.h coreapp/cores/atari_atr.cc coreapp/cores/atari_atr.h coreapp/cores/atari_disk.h coreapp/cores/atari800_regs.h coreapp/src/fsif.h coreapp/src/io.h
+@a8disk = @a8 ci/roms.txt tests/coreapp/a8_drv.sh cores/atari800/app/gateware.toml cores/atari800/app/sdk.toml coreapp/gateware/host.toml coreapp/src/fsif.h coreapp/src/io.h
 atari_disk: @a8disk
 atari_disk_ghost: @a8disk
 atari_disk_nobaud: @a8disk

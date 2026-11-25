@@ -74,7 +74,7 @@ CORES = [
          sources="coreapp/cores/amiga.cc:32,148-154,181; coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
     dict(id="atari800", match=("atari",), title="Atari 800 XL", folder="atari800",
          files="`ATARIXL.ROM` 16,384; `BASIC.ROM` or `ATARIBAS.ROM` 8,192 bytes", needed="both",
-         sources="coreapp/cores/atari800.cc:72-75; coreapp/cores/atari800_regs.h:39-40; coreapp/src/romfind.cc:59-130"),
+         sources="cores/atari800/app/lib/atari800.cc:72-75; cores/atari800/app/lib/atari800_regs.h:43-44; coreapp/src/romfind.cc:59-130"),
     dict(id="snes", match=("super nintendo",), title="Super Nintendo", folder="snes",
          files="none: the S-SMP's 64 byte boot ROM is embedded in the application",
          needed="nothing",

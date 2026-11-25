@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Assembles coreapp/cores/6502/xexboot.asm (64tass) into coreapp/cores/6502/xexboot_bin.h. tests/coreapp/run.sh
+# Assembles cores/atari800/app/lib/6502/xexboot.asm (64tass) into cores/atari800/app/lib/6502/xexboot_bin.h. tests/coreapp/run.sh
 # re-assembles it and fails when the committed header differs, so the 6502 source and the bytes cannot drift apart.
 #   tools/gen_xexboot.sh [--check]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-D="$ROOT/coreapp/cores/6502"
+D="$ROOT/cores/atari800/app/lib/6502"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 "$ROOT/tools/64tass.sh" --m6502 --nostart -o "$T/x.bin" "$D/xexboot.asm" >/dev/null
 python3 - "$T/x.bin" "$T/x.h" <<'PY'

@@ -1,4 +1,4 @@
-// T108 D1: the application's SIO responder (coreapp/cores/atari_sio.cc, unmodified) driving the register window of the
+// T108 D1: the application's SIO responder (cores/atari800/app/lib/atari_sio.cc, unmodified) driving the register window of the
 // simulated Atari core. GHDL calls in through VHPIDIRECT (tb_a8_disk.vhd). The engine is written as straight code that
 // blocks on every bridge access, so it runs in a thread of its own: each access becomes a request to the testbench, which
 // performs it on the core's register window, lets the right amount of simulated time pass, and answers.

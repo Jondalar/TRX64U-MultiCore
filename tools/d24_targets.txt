@@ -1,8 +1,6 @@
 # T239.3 S6: the target of every file of the D24 ledger (tools/d24_ledger.txt), read from the code. tools/check_d24.py reads it: a ledger file without a line here is red.
 # Line: <path> <target> <reason: a few words>. Targets: data (tables that are TOML, register maps: D8), core-library (one core's own code: hooks and its formats, D9),
 # shared-library (code several cores use, kept here: D10, D12), ultimate-repo (only the D12 list), generic-module (code that belongs to the generic app for every core).
-coreapp/cores/6502/xexboot.asm core-library Atari XEX boot stub
-coreapp/cores/6502/xexboot_bin.h core-library Atari XEX boot stub, generated
 coreapp/cores/amiga.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/amiga_keys.h data key table, rawkeys in TOML
 coreapp/cores/amiga_regs.h data register map (D8)
@@ -15,19 +13,6 @@ coreapp/cores/apple2_nib.h core-library the core's own file format or engine (D9
 coreapp/cores/apple2_regs.h data register map (D8)
 coreapp/cores/apple2_woz.cc core-library the core's own file format or engine (D9)
 coreapp/cores/apple2_woz.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari800.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/atari800_regs.h data register map (D8)
-coreapp/cores/atari_atr.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_atr.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_cart.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_cart.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_media.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_media.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_sio.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_sio.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_xex.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_xex.h core-library the core's own file format or engine (D9)
 coreapp/cores/c128.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/c128_keys.h core-library C128 extra keys code
 coreapp/cores/c128_prg.h core-library C128 program start

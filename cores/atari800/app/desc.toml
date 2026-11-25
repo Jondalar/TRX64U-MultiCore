@@ -1,7 +1,9 @@
-# The Atari 800 XL's data description (T239.3 D17): what coreapp/cores/atari800.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Atari 800 XL's data description (T239.3 D17): what cores/atari800/app/lib/atari800.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
 # cannot hold is code, and stays in the core's C++: init, release, warm_reset, the operations of register_ops, the SIO media write-back and the three
-# functions of the mount slots. Register numbers are cores/atari800/trx/a8_regs.vhd (coreapp/cores/atari800_regs.h).
+# functions of the mount slots. The gateware's facts are in the core's TOML A, gateware.toml (cores/atari800/trx/a8_regs.vhd checked by tools/rtl_check.py): a register is written as the
+# name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
 machine_info = "RAM size,Video standard"
 
 [core]
@@ -18,23 +20,23 @@ service_period_ms = 5
 caps = ["sio", "cartridge"]            # the SIO bus its drives sit on and a cartridge port; no IEC, so a Commodore drive library is refused here
 
 # 384 x 288 shown 3 x 3 (1152 x 864), centred on 1920 x 1080: x0 = 384 centres the window, +42 (14 hires pixels x 3) puts the picture itself in the middle (the
-# blanking hides the window's last 28 columns, so the picture sits 14 left); the buffers are in the DDR2 window at 0x01000000 + A8_W_FB
+# blanking hides the window's last 28 columns, so the picture sits 14 left); the buffers are the core's reset values of FB_BASE / FB_STRIDE (the DDR2 window at 0x01000000 + A8_W_FB)
 [video]
 w = 384
 h = 288
 scale = 3
 x0 = 426
 y0 = 108
-fb_base = 0x01D00000
-fb_stride = 0x00100000
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
 
 [freeze]
-reg_status = 0x0A8
+reg_status = "machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -270,13 +272,13 @@ ext = ".bin"
   bind = [ { arg = "path", file = true } ]
   closes_menu = true
 
-# ---- hotkeys (hk_defaults.h hk_typing): CTRL is a typing key on this machine, so the modifier is C= + CTRL, which it has no function for; then RESTORE menu, "+" / "-"
+# ---- hotkeys (hk_defaults.h hk_typing, the copy in cores/atari800/app/lib): CTRL is a typing key on this machine, so the modifier is C= + CTRL, which it has no function for; then RESTORE menu, "+" / "-"
 # volume, R reset, J swap joystick ports, P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
 [hotkeys]
 mod = [61, 58]
 actions = [64, 40, 43, 17, 34, 41, 255]
 pc_keys = true
 
-# the slots of the core's own media engine (atari_media.cc); their three functions (spec, mount, eject) are code
+# the slots of the core's own media engine (cores/atari800/app/lib/atari_media.cc); their three functions (spec, mount, eject) are code
 [mount]
 names = ["D1", "D2", "D3", "D4", "Cartridge"]
