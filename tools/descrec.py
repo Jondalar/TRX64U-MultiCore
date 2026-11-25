@@ -1208,7 +1208,15 @@ def _resolve_walk(node, names, what, where):
     if isinstance(node, dict):
         for k in list(node):
             v = node[k]
-            if _is_ref_key(k) and isinstance(v, str):
+            if k == "regs" and isinstance(v, list):               # [pad] regs = ["block.property", 0]: the two players' registers, a number stays a number
+                for i, e in enumerate(v):
+                    if isinstance(e, str):
+                        if e not in names:
+                            raise DescError("%s: regs[%d] = %r is no property or state of the TOML A" % (what, i, e))
+                        if e.count(".") == 1 and names[e] < 0:
+                            raise DescError("%s: regs[%d] = %r lies below the core's window" % (what, i, e))
+                        v[i] = names[e]
+            elif _is_ref_key(k) and isinstance(v, str):
                 if v not in names:
                     raise DescError("%s: %s = %r is no property or state of the TOML A" % (what, k, v))
                 if v.count(".") == 1 and names[v] < 0:
@@ -1223,7 +1231,7 @@ def _resolve_walk(node, names, what, where):
 
 def _has_ref(node):
     if isinstance(node, dict):
-        return any((_is_ref_key(k) and isinstance(v, str)) or _has_ref(v) for k, v in node.items())
+        return any((_is_ref_key(k) and isinstance(v, str)) or (k == "regs" and isinstance(v, list) and any(isinstance(e, str) for e in v)) or _has_ref(v) for k, v in node.items())
     if isinstance(node, list):
         return any(_has_ref(v) for v in node)
     return False
