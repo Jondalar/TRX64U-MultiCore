@@ -95,13 +95,14 @@ Scenario: S6 trx64u.cor from their pre-release
   and `online.u2a` are trx64u's features (T239.3 D21, D44). MultiCore's SDK lane no longer builds or publishes them: `ci/trxapps.sh` part
   `sdk` builds `testlib.u2a`, `unzip.u2a`, `miniz.u2a`, so an SDK release carries those three beside the tarball. TRX64-Ultimate builds the
   three in its own pipeline from its own copy of `apps/trex_crt`, `apps/softboot`, `apps/online`; the copies here are deleted once theirs
-  build. `sdk-0.4.7-760763ec` (immutable) still holds them; the next SDK release does not. MultiCore's package (`ci/package.sh`)
-  no longer carries them either; TRX64-Ultimate delivers them.
-- **D7 (Alex, 2026-11-25, translated: "Yes, our build here shall not deliver trx64g and trx64u (and all apps that are special to
-  them), exactly."):** MultiCore's package and pre-release carry neither `trx64u.cor` nor `trx64g.cor`; TRX64-Ultimate delivers both. This
-  replaces D5 and TRX64-Ultimate's D12 (MultiCore takes `trx64u.cor` from their pre-release): the imports `imp-trx64u`/`imp-trx64g`
-  (`release/imports/*.pin`, `ci/imports.py`, the builder's import step, `ci/package.sh` bit-imports, the `--allow-trx` exception of
-  `ci/prerelease.sh`) go. When: open (asked 2026-11-25).
+  build. `sdk-0.4.7-760763ec` (immutable) still holds them; the next SDK release does not. MultiCore's release package keeps
+  carrying them, taken from TRX64-Ultimate's release (D7).
+- **D7 (Alex, 2026-11-25, translated: "TRX64-Ultimate FW builds trx64-ultimate.cfw/.ue2, trx64g.cor, trx64u.cor and the apps that are
+  only theirs. And then the .cor and the .u2a are, until we have the registry, in OUR release package please!"):** MultiCore builds
+  none of these. Its release package carries `trx64u.cor`, `trx64g.cor` and TRX64-Ultimate's `.u2a` (`trex_crt`, `softboot`,
+  `online`) unchanged, by SHA-256, taken from TRX64-Ultimate's release (the pins, D5), until the registry (T239.4). The `.cfw`/`.ue2` are
+  not in it. (An earlier reading of Alex's "our build shall not deliver trx64g and trx64u" as "not in the package" was wrong: he
+  meant "not build".)
 
 ## §4 Out
 
