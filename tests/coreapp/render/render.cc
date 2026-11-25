@@ -2373,6 +2373,110 @@ static void t262_rows(const char *out)
     CHECK(px2 > 0 && px2 < 100000);
 }
 
+// T262 P1: the page of a `list` node draws what its rows carry: one line per row (name, the right column in the row's tone), the selected row's side lines in the side panel
+// (not in the foot line). At 480p, 720p and 1080p: the tone is drawn, the panel holds the lines, no text lies on another, the selection stays in view.
+static std::string g_t262_list;
+static const char *t262_list_state(CoreCtx *) { return g_t262_list.empty() ? 0 : g_t262_list.c_str(); }
+static int t262_list_take(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+static const ArgSpec t262_take_args[] = { ARG_INT("index", 0, 1000000), ARG_STRING("answer", 64) };
+static void t262_list(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "480p", 640, 480 }, { "720p", 1280, 720 }, { "1080p", 1920, 1080 } };
+    g_t262_list.clear();
+    static const char *const tn[] = { "muted", "cyan", "violet", "amber", "coral" };
+    for (int i = 0; i < 40; i++) {
+        g_t262_list += "id" + std::to_string(i) + "\tResult " + std::to_string(i) + "\t" + std::to_string(i * 3) + " KB\t" + tn[i % 5] + "\tside one of " + std::to_string(i) + "\tside two of " + std::to_string(i) + "\tside three of " + std::to_string(i) + "\n";
+    }
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        ui_set_canvas(want.w, want.h);
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_LIST, "Results", "t262.take", "t262.rows", 1, 0, 0, 0, 0, 0, false, 0 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "t262l", CR_LIB, &rec } };
+        CoreDesc *base = board_desc(&atari800_desc);
+        Rig c(base, "/usb0/cores/t262l.cfg");
+        c.c.started = true;
+        OpRegistry *reg = ops_of(&c.c);
+        reg->contributor("t262l");
+        reg->add_op("t262.take", t262_take_args, 2, t262_list_take);
+        reg->add_state("t262.rows", t262_list_state);
+        static CoreDesc merged;
+        static MenuMerge mm;
+        CHECK(contrib_merge(base, 0, 0, cs, 1, reg, &merged, &mm) == 0);
+        c.c.desc = &merged; c.c.merge = &mm;
+        ui_open(&merged);
+        c.m->rebuild();
+        c.m->open();
+        CHECK(c.m->goto_spec("F5/settings"));
+        int row = -1;
+        for (int i = 0; i < c.m->rows(); i++) {
+            char l[100], r[100]; bool a;
+            c.m->row(i, l, 100, r, 100, &a);
+            if (!strcmp(l, "Results")) { row = i; }
+        }
+        CHECK(row >= 0);
+        while (c.m->selected() < row) { c.m->key(KEY_DOWN); }
+        c.m->key(KEY_RETURN);
+        CHECK(c.m->list_view());
+        ui_menu_render(*c.m);
+        lv_timer_handler();
+        char tag[64];
+        snprintf(tag, sizeof(tag), "t262 list %s", cv.name);
+        const TrxTheme &t = trx_theme();
+        // the tone is drawn: the right column of row 3 (amber) and row 4 (coral) stand in their tones, row 0 (muted) in the muted one
+        lv_obj_t *l3 = find_label(lv_screen_active(), "9 KB"), *l4 = find_label(lv_screen_active(), "12 KB");
+        CHECK(l3 && l4);
+        if (l3 && l4) {
+            CHECK(lv_color_to_u32(lv_obj_get_style_text_color(l3, LV_PART_MAIN)) % 0x1000000 == trx_tone_color(TT_AMBER));
+            CHECK(lv_color_to_u32(lv_obj_get_style_text_color(l4, LV_PART_MAIN)) % 0x1000000 == trx_tone_color(TT_CORAL));
+        }
+        // the side panel holds the selected row's lines (row 0), right of the rows, and the foot line does not say them
+        lv_obj_t *s1 = find_label(lv_screen_active(), "side one of 0"), *s3 = find_label(lv_screen_active(), "side three of 0");
+        lv_obj_t *r0 = find_label(lv_screen_active(), "Result 0"), *sk = find_label(lv_screen_active(), "SELECTED");
+        CHECK(s1 && s3 && r0 && sk);
+        if (s1 && s3 && r0) {
+            lv_area_t as, ar;
+            lv_obj_get_coords(s1, &as);
+            lv_obj_get_coords(r0, &ar);
+            CHECK(as.x1 > ar.x2);
+            lv_area_t a3;
+            lv_obj_get_coords(s3, &a3);
+            CHECK(a3.y2 <= (int)trx_canvas_h());
+        }
+        int sx1, sy1, sx2, sy2; char st[200];
+        if (ui_status_probe(&sx1, &sy1, &sx2, &sy2, st, sizeof(st))) { CHECK(!strstr(st, "side one")); }
+        CHECK(txt_overlaps(tag) == 0);
+        char fn[512];
+        snprintf(fn, sizeof(fn), "%s/t262-list-%s.png", out, cv.name);
+        lv_obj_invalidate(lv_screen_active());
+        lv_timer_handler();
+        if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+        // the last row selected: the window moved, the row stands inside the card and the panel shows its lines
+        c.m->key(KEY_END);
+        ui_menu_render(*c.m);
+        lv_timer_handler();
+        lv_obj_t *e = find_label(lv_screen_active(), "Result 39");
+        CHECK(e != 0);
+        CHECK(find_label(lv_screen_active(), "Result 0") == 0);
+        CHECK(find_label(lv_screen_active(), "side one of 39") != 0);
+        if (e) {
+            lv_area_t ae;
+            lv_obj_get_coords(e, &ae);
+            CHECK(ae.y1 >= 0 && ae.y2 <= (int)trx_canvas_h() - 20);
+        }
+        CHECK(txt_overlaps(tag) == 0);
+        snprintf(fn, sizeof(fn), "%s/t262-list-%s-last.png", out, cv.name);
+        lv_obj_invalidate(lv_screen_active());
+        lv_timer_handler();
+        if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+        printf("PASS t262 list page %s: tone drawn, side lines in the panel, selection in view\n", cv.name);
+    }
+    ui_set_canvas(960, 540);
+}
+
 int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
@@ -2388,6 +2492,7 @@ int main(int argc, char **argv)
 
     if (getenv("T262_ONLY")) {                                      // T262 P9: only the area of a key that runs an operation
         t262_rows(out);
+        t262_list(out);
         printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
     }
@@ -2945,6 +3050,7 @@ int main(int argc, char **argv)
     pm_page_fixtures(out);
     ux_wifi(out);
     t262_rows(out);
+    t262_list(out);
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;

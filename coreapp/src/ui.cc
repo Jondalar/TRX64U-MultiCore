@@ -600,6 +600,94 @@ void ui_menu_forget_rows(void)
     screens_forget();
 }
 
+// T262 P1: the page of a `list` node: one line per row (dot and name, the right column in the row's tone) in a card, the selected row's side lines in the panel at its
+// right (the look of the F3 browser's SELECTED panel). The window is as many fixed-height lines as the card holds.
+static int listv_side_w(void) { return trx_compact() ? 170 : 230; }
+
+static int listv_card_h(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    int h = trx_content_h() - (t.space_md + 26) - list_foot(m) - t.space_sm;
+    return h < trx_status_row_h() + 2 * t.space_sm ? trx_status_row_h() + 2 * t.space_sm : h;
+}
+
+static TrxWindow listv_window(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    int rows = (listv_card_h(m) - 2 * t.space_sm) / trx_status_row_h();
+    int first = (g_last_area != m.area() || g_last_tab != m.tab()) ? m.first_hint() : g_first;
+    TrxWindow w = trx_window(m.rows(), m.selected(), first, rows < 1 ? 1 : rows);
+    m.note_first(w.first);
+    return w;
+}
+
+static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
+{
+    const TrxTheme &t = trx_theme();
+    const int W = trx_content_w() - 2 * x, sw = listv_side_w(), lw = W - sw - t.space_lg, ch = listv_card_h(m);
+    const int sel = m.selected();
+    TrxWindow w = listv_window(m);
+    g_first = w.first;
+    lv_obj_t *card = trx_card(c, x, y, lw, ch, false);
+    int ry = t.space_sm;
+    for (int i = 0; i < w.count; i++) {
+        const int idx = w.first + i;
+        char left[120], right[120], sub[8];
+        bool active;
+        m.row(idx, left, sizeof(left), right, sizeof(right), &active, sub, sizeof(sub));
+        const int tone = m.list_tone(idx);
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
+        trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, r, &ry);
+    }
+    lv_obj_t *sp = trx_card(c, x + lw + t.space_lg, y, sw, ch, true);
+    trx_kicker(sp, t.space_md, t.space_sm, "SELECTED");
+    if (m.rows() > 0) {
+        char left[120], right[120];
+        bool active;
+        m.row(sel, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        const int pw = sw - 2 * t.space_md;
+        int py = 30;
+        lv_obj_t *nl = trx_txt(sp, t.space_md, py, left, t.body, t.ink, pw);
+        lv_label_set_long_mode(nl, LV_LABEL_LONG_MODE_WRAP);
+        lv_obj_update_layout(nl);
+        py += lv_obj_get_height(nl) + t.space_sm;
+        const int tone = m.list_tone(sel);
+        if (right[0]) {
+            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
+            lv_label_set_long_mode(vl, LV_LABEL_LONG_MODE_WRAP);
+            lv_obj_update_layout(vl);
+            py += lv_obj_get_height(vl) + t.space_sm;
+        }
+        for (int k = 0; k < m.list_side_n(sel); k++) {
+            char line[80];
+            m.list_side(sel, k, line, sizeof(line));
+            if (py + lv_font_get_line_height(t.caption) > ch - t.space_sm) {
+                break;
+            }
+            lv_obj_t *sl = trx_txt(sp, t.space_md, py, line, t.caption, t.muted, pw);
+            lv_label_set_long_mode(sl, LV_LABEL_LONG_MODE_WRAP);
+            lv_obj_update_layout(sl);
+            py += lv_obj_get_height(sl) + t.space_xs;
+        }
+    }
+    g_rowlist = false;                                       // no cheap path: the next key builds this page again
+    g_rown = 0;
+    g_title = 0;
+    {
+        const char *st = status_line(m);
+        const int room = trx_content_w() - 2 * x;
+        g_status = trx_txt(c, x, trx_content_h() - 20 - status_extra(m), st, t.caption, m.status_bad() ? t.bad : t.muted, room);
+        lv_label_set_long_mode(g_status, LV_LABEL_LONG_MODE_WRAP);
+        g_status_bad = m.status_bad();
+        lv_obj_set_width(g_status, trx_text_w(st, t.caption) + 4 < room ? trx_text_w(st, t.caption) + 4 : room);
+    }
+    if (w.count < m.rows()) {
+        char pos[64];
+        pos_text(pos, sizeof(pos), w, m);
+        g_pos = trx_txt(c, trx_content_w() - x - trx_text_w(pos, t.caption), t.space_md + 4, pos, t.caption, t.muted);
+    }
+}
+
 void ui_menu_render(MenuCtl &m)
 {
     if (!have_ui || pq_up) {
@@ -620,7 +708,7 @@ void ui_menu_render(MenuCtl &m)
 
     if (!screens_wanted(m) && !m.is_home()) {                       // T209 D4: the foot names the paging keys of a list longer than its window; the window is known before the shell is made
         int room0;
-        TrxWindow w0 = list_window(m, &room0);
+        TrxWindow w0 = m.list_view() ? listv_window(m) : list_window(m, &room0);
         m.note_paged(w0.count < m.rows());
     }
     TrxShellInfo info;
@@ -681,7 +769,7 @@ void ui_menu_render(MenuCtl &m)
             return;
         }
     }
-    if (g_rowlist && !m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
+    if (g_rowlist && !m.is_home() && !m.list_view() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
         int sel = m.selected();
         int o = g_rowsel - g_rowfirst, nw = sel - g_rowfirst;
 #ifdef UI_CHEAP_DEBUG
@@ -786,6 +874,12 @@ void ui_menu_render(MenuCtl &m)
         return;
     }
 
+    if (m.list_view()) {
+        ui_listv(c, m, x, y);
+        g_last_area = m.area();
+        g_last_tab = m.tab();
+        return;
+    }
     int n = m.rows();
     int sel = m.selected();
     if (g_last_area != m.area() || g_last_tab != m.tab()) {

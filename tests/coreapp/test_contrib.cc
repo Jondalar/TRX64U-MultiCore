@@ -1142,7 +1142,9 @@ int main(int argc, char **argv)
         CHECK_EQ(r.m->rows(), 201);                                                   // 200 results and the row that asks for more
         CHECK_STR(r.left(0).c_str(), "Result 0");
         CHECK_STR(r.right(5).c_str(), "15 KB");
-        CHECK_STR(r.sub(5).c_str(), "side one 5  -  side two");                        // what the row says about itself, for the foot
+        CHECK_EQ(r.m->list_side_n(5), 2);                                             // what the row says about itself, for the side panel (not the foot)
+        { char sl[80]; r.m->list_side(5, 0, sl, sizeof(sl)); CHECK_STR(sl, "side one 5"); r.m->list_side(5, 1, sl, sizeof(sl)); CHECK_STR(sl, "side two"); }
+        CHECK_STR(r.sub(5).c_str(), "RETURN opens this row, <- goes back");
         CHECK_EQ(r.m->list_tone(5), 3);
         CHECK_EQ(r.m->list_tone(4), 0);
         CHECK_STR(r.left(200).c_str(), "More results");

@@ -177,12 +177,3 @@ int picklist_find(const PickRows &p, const char *value)
     }
     return -1;
 }
-
-void picklist_side_text(const PickRow &r, char *out, int n)
-{
-    out[0] = 0;
-    int p = 0;
-    for (int i = 0; i < r.nside && p < n - 1; i++) {
-        p += snprintf(out + p, (size_t)(n - p), "%s%s", i ? "  -  " : "", r.side[i]);
-    }
-}

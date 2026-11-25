@@ -65,6 +65,9 @@ public:
     bool pump(bool quiet);
     int progress() const { return busy_ ? c_->job_pct : -1; }
     bool picking() const { return pick_; }
+    int list_side_n(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) && !r.note && !r.more ? r.nside : 0; }   // T262 P1: the side lines of row i (the side panel shows those of the selected row)
+    void list_side(int i, int k, char *out, int n) const;                  // side line k of row i into out ("" when there is none)
+    bool list_view() const { return pick_dyn_ && pl_mode_ == PL_LIST; }       // T262 P1: the page on screen is the rows of a `list` node
     int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral), -1 none
     bool picking_modes() const { return pick_ && pick_modes_; }          // T187 F6: the Picture page names its path in the top bar
     // T156 D5: the mapping of a pad's buttons ("Map buttons"): the menu asks for the core's buttons one by one and the person presses the pad's
@@ -438,7 +441,6 @@ private:
     bool pick_list_refresh();                                      // reads the rows again; true: they changed
     Result pick_list_take();
     Result list_call(const char *op, int index, const char *answer);   // the operation of a list row: it gets the arguments it declares (index, answer)
-    bool list_view() const { return pick_dyn_ && pl_mode_ == PL_LIST; }       // T262 P1: the page on screen is the rows of a `list` node
     bool pl_row_at(int i, PickRow *r) const { if (i < 0 || i >= pl_.n) return false; picklist_get(pl_, i, r); return true; }
     // T228 R21, FW config_menu.h:118-125: the drop-down of a setting ends with "Enter Manually" (the text editor of the same setting); an operation's list has no such row
     bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }

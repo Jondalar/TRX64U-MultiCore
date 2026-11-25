@@ -45,7 +45,5 @@ void picklist_get(const PickRows &p, int i, PickRow *out);
 int picklist_find(const PickRows &p, const char *value);
 // The number of rows the text has (what picklist_parse would return without the budget), without copying it.
 int picklist_count(const char *text);
-// The side lines of a row joined with "  -  " (the foot of a list view).
-void picklist_side_text(const PickRow &r, char *out, int n);
 
 #endif

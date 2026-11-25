@@ -885,9 +885,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
                 snprintf(right, rn, "%s", pr.right);
             }
             if (sub && sn) {
-                if (pl_mode_ == PL_LIST && !pr.note && !pr.more && pr.nside) {      // T262 P1: what the row says about itself stands in the foot while it is selected
-                    picklist_side_text(pr, sub, sn);
-                } else {
+                {                                                                   // T262 P1: the side lines of a list row stand in the side panel (list_side), not in the foot
                     snprintf(sub, sn, "%s", pr.note ? "Wait, the list fills by itself" : pr.more ? "RETURN asks for more rows, <- goes back" : pl_mode_ == PL_LIST ? "RETURN opens this row, <- goes back" : "RETURN takes this one, <- cancels");
                 }
             }
@@ -1776,6 +1774,15 @@ void MenuCtl::begin_pick_node(const MenuNode &n, const char *label, const char *
 }
 
 // T262 P1: a node of kind `list`: the state's rows, RETURN on one calls `op` with its index, the last row that starts with '+' calls `more`.
+void MenuCtl::list_side(int i, int k, char *out, int n) const
+{
+    PickRow r;
+    out[0] = 0;
+    if (k >= 0 && list_view() && pl_row_at(i, &r) && k < r.nside) {
+        snprintf(out, (size_t)n, "%s", r.side[k]);
+    }
+}
+
 void MenuCtl::begin_list_view(const char *title, const char *src, const char *op, const char *more)
 {
     begin_pick_list(title, src, op, 0, -1);
