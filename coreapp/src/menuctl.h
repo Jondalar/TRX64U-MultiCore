@@ -68,7 +68,7 @@ public:
     int list_side_n(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) && !r.note && !r.more ? r.nside : 0; }   // T262 P1: the side lines of row i (the side panel shows those of the selected row)
     void list_side(int i, int k, char *out, int n) const;                  // side line k of row i into out ("" when there is none)
     bool list_view() const { return pick_dyn_ && pl_mode_ == PL_LIST; }       // T262 P1: the page on screen is the rows of a `list` node
-    int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral), -1 none
+    int list_tone(int i) const { PickRow r; return list_view() && pl_row_at(i, &r) ? r.tone : -1; }   // T262 P1: the tone of row i of the list on screen (0 muted .. 4 coral, 5 disabled), -1 none
     bool picking_modes() const { return pick_ && pick_modes_; }          // T187 F6: the Picture page names its path in the top bar
     // T156 D5: the mapping of a pad's buttons ("Map buttons"): the menu asks for the core's buttons one by one and the person presses the pad's
     // button for each. The run loop calls map_tick() each pass while mapping(); true: the screen changed.
@@ -150,7 +150,7 @@ public:
         char group[28];                  // a setting's group (a heading over the first row of each group when a tab lists several), "" none
         char title[80], sub[120], chip[40], value[64];   // sub (T209): the foot line while this row is selected - why it is greyed, what RETURN does; never a second line of the row
         int kind;
-        int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral; -1: by the chip's word
+        int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral, 5 disabled; -1: by the chip's word
         bool primary, link;
         bool enabled;                    // RETURN does something
         bool dim;                        // greyed: not usable now; `sub` then says why (in the foot, while the row is selected)
@@ -208,6 +208,7 @@ public:
     bool search_active() const { return fm_.vmode == 1; }
     bool manage_tab() const;
     const char *search_query() const { return fm_.search_q; }
+    const char *search_form_text() const { return sf_query_; }     // T262 D4: what the form's Name contains holds (the idle Search tab shows it)
     bool search_editing() const { return search_edit_; }
     enum { SF_FIELDS = 4 };                                         // fields of one source (contrib.h CONTRIB_SEARCH_FIELDS)
     bool search_form() const { return pick_form_; }                 // T262 P5: the search form of the Library is up (the media and the sources of libraries)
@@ -273,7 +274,7 @@ private:
     void sf_label(int row, char *out, int n) const;                // the label of a form row
     const char *sf_value(int row) const;                           // the typed text of a form row (the name, a field)
     int sf_rows() const;
-    void begin_search();                                           // RETURN or '/' in the Search tab: the form when a library is a source, else the one text prompt
+    void begin_search();                                           // '/' in the Search tab: the form when a library is a source, else the one text prompt (RETURN always asks for a name)
     void begin_search_form();
     Result sf_run();
     void sf_open_results(int src);
@@ -369,6 +370,7 @@ private:
     uint32_t toast_until_ = 0, toast_rev_ = 0;
     bool status_bad_;
     bool resolve_spec(const char *spec, int *ra, int *rt) const;
+    bool goto_redraw_ = false;                                     // a goto_screen moved the open menu: pump() says the screen changed, once
     char pend_goto_[48] = "";                                      // goto_when_open: the place open() goes to
     char pend_say_[OP_MSG_MAX] = "";
     bool pend_say_bad_ = false;
@@ -417,6 +419,7 @@ private:
     char confirm_q_[120];
     const MenuNode *ask_node_;                                     // a node that asks for a name before it runs (ui `ask`); null: none
     char ask_q_[80];
+    bool ask_any_ = false;                                         // the node's `ask_any`: the text is free (a search, a message), not a file name
     void entry_load(const char *text, int max);                    // the text field holds `text` (cut to max), the cursor behind it
     int entry_set_;                                                // >= 0: the text being typed is this setting's (a text setting)
     void entry_row(char *right, int rn, char mask = 0);                     // the entry's text and cursor as the row's value, scrolled
@@ -433,6 +436,11 @@ private:
     char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "", pl_more_[40] = "";
     int pl_phase_ = 0, pl_set_ = -1, pl_mode_ = PL_OP;
     const MenuNode *pl_node_ = 0;
+    bool pl_from_search_ = false;                                  // T262 D4: the list on screen is the results of the search form's source: <- goes back to the form
+    bool sf_kept_ = false;                                         // the form is up again and pl_ still holds those results (the form's Results row opens them)
+    int sf_res_sel_ = 0;                                           // the cursor the results had when the form was taken back
+    void sf_back_to_form();                                        // <- from the results: the form again, the results kept
+    void sf_drop_kept();                                           // the results the form kept are given back
     uint32_t pl_last_ = 0;
     void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
     void begin_pick_node(const MenuNode &n, const char *label, const char *src);   // T262 P2
@@ -445,10 +453,10 @@ private:
     bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }
     int pick_dyn_rows() const { return pick_manual() ? pl_.n + 1 : (pl_.n ? pl_.n : 1); }
     // T228 R21: the text prompt of an operation (ops_ask_text): RETURN calls the operation again with the text
-    bool prompt_ = false, prompt_secret_ = false;
+    bool prompt_ = false, prompt_secret_ = false, prompt_any_ = false;
     char prompt_op_[40] = "", prompt_q_[80] = "";
     int prompt_phase_ = 0;
-    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret);
+    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret, bool any = false);
     Result prompt_done(const char *answer);
     bool pick_modes_ = false;                                       // T187 D5: pick_ is the page of the screen's modes (pm_ holds the rows; pick_sel_ is the cursor)
     PictureModes pm_;
@@ -465,6 +473,10 @@ private:
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
     bool busy_, job_started_, job_bare_;
+    bool job_screen_ = false;                                      // T262 D4: the node's job started on a screen: the screen stays, the job's row carries the caption (busy_page() is false)
+    int job_entry_ = -1;                                           // its row: the entry index in the tree
+    mutable char title_buf_[64];
+    bool busy_page() const { return busy_ && !job_screen_; }       // the one-row page of a running job (a file written, a job from a list)
     bool job_node_, job_seen_pct_;                                 // T262 P4: the job is a node's (its caption is the node's, not a file write's); the operation has reported a percentage above 0
     char node_busy_[64];                                           // the node's `busy` spec (ui attribute), "": the node's label
     bool app_mode_;

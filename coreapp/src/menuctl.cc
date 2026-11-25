@@ -323,6 +323,10 @@ void MenuCtl::rebuild()
         pl_node_ = 0;
         set_status("The menu changed", false);
     }
+    if (sf_kept_) {
+        pick_ = pick_form_ = false;                                  // the results the form kept belong to a source of the tree that is gone
+        sf_drop_kept();
+    }
     sf_src_ = -1;                                                    // the search form's source is an index into the sources of the tree that is gone: This device
     if (pick_modes_) {                                               // T187 D5: the screen changed under the page: the rows are made again, the cursor keeps its mode
         pick_modes_refresh(true);
@@ -459,6 +463,8 @@ void MenuCtl::go(int area, int tab)
     pick_dyn_ = false;
     pick_form_ = false;
     sf_edit_ = -1;
+    sf_kept_ = false;
+    pl_from_search_ = false;
     pick_release();
     pick_sets_ = false;
     pick_modes_ = false;
@@ -492,7 +498,9 @@ void MenuCtl::go(int area, int tab)
             fm_.vmode = 0;
         }
         fm_.refresh_roots();                                            // the media chips: an FTP host set since the last visit, a result list that came
-        fm_.load_dir();
+        if (!(search_tab() && !fm_.vmode)) {                            // T262 D4: the idle Search tab lists no folder: reading one (a long one, a network medium) held the tab blank for a second
+            fm_.load_dir();
+        }
         if (search_tab() && !fm_.vmode) {
             fm_.nlist = 0;                                                      // no folder listing under a field that has not been used
             fm_.lib_sync();
@@ -505,7 +513,7 @@ void MenuCtl::go(int area, int tab)
 
 bool MenuCtl::heading(int i)
 {
-    if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
+    if (busy_page() || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
         return false;
     }
     const MenuEntry &e = tree_.e[cur().first + i];
@@ -529,7 +537,7 @@ int MenuCtl::first_hint() const
 
 void MenuCtl::note_first(int first)
 {
-    if (!is_browser() && !pick_ && !busy_ && !wizard() && !entry_) {
+    if (!is_browser() && !pick_ && !busy_page() && !wizard() && !entry_) {
         first_[area_][tab_] = first;
     }
 }
@@ -756,6 +764,14 @@ const char *MenuCtl::title() const
         return pick_form_ ? "Search" : pick_modes_ ? "Picture" : pick_sets_ ? "Load config" : pick_dyn_ ? pl_title_ : pick_path_;
     }
     if (busy_) {
+        if (job_node_) {                                             // T262 D4: the words of the job stand in its row; the title says it once only when it is another text
+            char bz[64];
+            job_busy(bz, sizeof(bz));
+            if (!strcmp(bz, job_task_->label)) {
+                snprintf(title_buf_, sizeof(title_buf_), "%s", cur().name ? cur().name : "");
+                return title_buf_;
+            }
+        }
         return job_task_->label;
     }
     if (const MenuWizard *w = wizard()) {
@@ -775,7 +791,7 @@ const char *MenuCtl::title() const
 // Library's own folder is read again and the cursor follows its entry by name (filemgr.cc). Nothing is read while a prompt, a sheet or a job holds the screen.
 bool MenuCtl::relist()
 {
-    if (!is_browser() || chooser_ || entry_ || pick_ || busy_) {
+    if (!is_browser() || chooser_ || entry_ || pick_ || busy_ || (search_tab() && !fm_.vmode)) {      // the idle Search tab lists nothing, so there is nothing to read again
         return false;
     }
     return fm_.relist();
@@ -798,7 +814,7 @@ int MenuCtl::entries()
 
 int MenuCtl::rows()
 {
-    if (busy_ || wizard()) {
+    if (busy_page() || wizard()) {
         return 1;
     }
     if (pick_) {
@@ -824,7 +840,7 @@ int MenuCtl::rows()
 
 int MenuCtl::selected() const
 {
-    if (busy_ || wizard()) {
+    if (busy_page() || wizard()) {
         return 0;
     }
     if (pick_) {
@@ -859,7 +875,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         sub[0] = 0;
     }
     *active = true;
-    if (busy_) {
+    if (busy_page()) {
         job_text(left, ln, right, rn, sub, sub ? sn : 0);
         return;
     }
@@ -889,11 +905,19 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
                 snprintf(nm, sizeof(nm), "Library");
             }
             snprintf(right, rn, "%s", nm);
+        } else if (sf_kept_ && i == last - 1) {
+            int cnt = 0;
+            for (int k = 0; k < pl_.n; k++) {
+                PickRow kr;
+                picklist_get(pl_, k, &kr);
+                cnt += !kr.note && !kr.more;
+            }
+            snprintf(right, rn, "%d >", cnt);
         } else if (i != last) {
             snprintf(right, rn, "%s", sf_value(i)[0] ? sf_value(i) : "Any");
         }
         if (sub && sn) {
-            snprintf(sub, sn, "%s", i == 0 ? "RETURN or RIGHT takes the next source" : i == last ? "RETURN searches, <- cancels" : "RETURN types the text, <- cancels");
+            snprintf(sub, sn, "%s", sf_kept_ && i == last - 1 ? "RETURN opens the last results, <- cancels" : i == 0 ? "RETURN or RIGHT takes the next source" : i == last ? "RETURN searches, <- cancels" : "RETURN types the text, <- cancels");
         }
         return;
     }
@@ -915,7 +939,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
     if (pick_ && pick_dyn_) {                                       // T228 R21: a list made at run time
         PickRow pr;
         if (pl_row_at(i, &pr)) {
-            *active = !pr.note;
+            *active = !pr.note && pr.tone != 5;                                // T262 D4: the tone `disabled` greys the whole row
             snprintf(left, ln, "%s", pr.label);
             if (right && rn) {
                 snprintf(right, rn, "%s", pr.right);
@@ -957,7 +981,11 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             snprintf(left, ln, "%s%s", fe.name, fe.dir && strcmp(fe.name, "..") ? "/" : "");
             if (!fe.dir && right && rn) {
                 char sz[21];
-                snprintf(right, rn, "%s bytes", u64_dec(fe.size, sz));     // T251 D1: exFAT files can exceed 4 GiB
+                if (fs_size_known(fe.size)) {
+                    snprintf(right, rn, "%s bytes", u64_dec(fe.size, sz));     // T251 D1: exFAT files can exceed 4 GiB
+                } else {
+                    snprintf(right, rn, "-");
+                }
             }
             if (!pick_ok_ && sub && sn) {
                 snprintf(sub, sn, "This folder cannot be read");
@@ -1073,7 +1101,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         snprintf(left, ln, "%s%s", fm_.list[i].name, fm_.list[i].dir ? "/" : "");
         if (!fm_.list[i].dir) {
-            snprintf(right, rn, "%u KB", (unsigned)((fm_.list[i].size + 1023) >> 10));
+            fs_size_kb(right, (size_t)rn, fm_.list[i].size);
         }
         return;
     }
@@ -1144,7 +1172,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         } else if (n.kind == LN_GROUP) {
             *active = false;
         } else if (n.kind == LN_LIST) {                                      // T262 P1: the number of rows the node's state holds now; RETURN opens them
-            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            const int cnt = picklist_count_rows(n.state ? ops_state(c_, n.state) : 0);
             if (cnt) {
                 snprintf(right, rn, "%d >", cnt);
             } else {
@@ -1195,7 +1223,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
 // T187 D9: the row i of the open list is a setting whose value takes effect at the next reset (a text or a file selector has no such mark: its second line is the value).
 bool MenuCtl::row_reset(int i) const
 {
-    if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
+    if (busy_page() || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
         return false;
     }
     const MenuEntry &e = tree_.e[cur().first + i];
@@ -1581,21 +1609,25 @@ void MenuCtl::begin_ask(const MenuNode *n, const char *prompt)
     entry_set_ = -1;
     ask_node_ = n;
     snprintf(ask_q_, sizeof(ask_q_), "%s", prompt);
+    char mx[16];                                                     // T262 D4: the limit and the characters are the node's: `ask_max` (default 24), `ask_any` (a free text takes every printable character)
+    int lim = ui_attr(n->attr, "ask_max", mx, sizeof(mx)) ? atoi(mx) : 24;
+    lim = lim < 1 ? 24 : lim > LE_MAX ? LE_MAX : lim;
+    ask_any_ = ui_attr(n->attr, "ask_any");
     char sug[LE_MAX + 1];
     sug[0] = 0;
     char st[64];
     if (ui_attr(n->attr, "ask_state", st, sizeof(st))) {
         if (const char *p = ops_state(c_, st)) {
             int k = 0;
-            while (k < 24 && p[k] && name_char_ok((unsigned char)p[k])) {
+            while (k < lim && p[k] && (ask_any_ ? (unsigned char)p[k] >= 0x20 && (unsigned char)p[k] <= 0x7E : name_char_ok((unsigned char)p[k]))) {
                 sug[k] = p[k];
                 k++;
             }
             sug[k] = 0;
         }
     }
-    entry_load(sug, 24);
-    set_status("Type the name; RETURN takes it, <- cancels", false);
+    entry_load(sug, lim);
+    set_status(ask_any_ ? "Type the text; RETURN takes it, <- cancels" : "Type the name; RETURN takes it, <- cancels", false);
 }
 
 void MenuCtl::begin_text_setting(int idx)
@@ -1764,6 +1796,8 @@ void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op
     pick_path_[0] = 0;
     pl_mode_ = PL_OP;
     pl_node_ = 0;
+    pl_from_search_ = false;
+    sf_kept_ = false;
     pl_more_[0] = 0;
     snprintf(pl_title_, sizeof(pl_title_), "%s", title);
     snprintf(pl_src_, sizeof(pl_src_), "%s", src);
@@ -1892,6 +1926,9 @@ MenuCtl::Result MenuCtl::list_call(const char *op, int index, const char *answer
     if (take_prompt()) {
         return R_REDRAW;
     }
+    if (take_screen()) {                                            // T262 D5 finding 15: the operation of a list row went to a screen (browse_at, browse_sheet, goto_screen)
+        return R_REDRAW;
+    }
     set_status(r.msg[0] ? r.msg : "done", false);
     fm_.apply_pending();
     return R_REDRAW;
@@ -1938,6 +1975,9 @@ MenuCtl::Result MenuCtl::pick_list_take()
         if (take_prompt()) {
             return R_REDRAW;
         }
+        if (take_screen()) {                                         // T262 D5 finding 15
+            return R_REDRAW;
+        }
         set_status(r.msg[0] ? r.msg : "done", false);
         fm_.apply_pending();
         return node->closes_menu ? R_CLOSE : R_REDRAW;
@@ -1956,12 +1996,16 @@ MenuCtl::Result MenuCtl::pick_list_take()
     if (take_prompt()) {
         return R_REDRAW;
     }
+    if (take_screen()) {                                            // T262 D5 finding 15: the operation an ask_list answer calls
+        return R_REDRAW;
+    }
     set_status(r.msg[0] ? r.msg : "done", false);
     return R_REDRAW;
 }
 
-void MenuCtl::begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret)
+void MenuCtl::begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret, bool any)
 {
+    prompt_any_ = any;
     entry_ = true;
     entry_text_mode_ = true;
     entry_task_ = 0;
@@ -2006,7 +2050,7 @@ bool MenuCtl::take_prompt()
     if (w.kind == 3) {
         begin_pick_list(w.prompt, w.src, w.op, w.phase, -1);
     } else {
-        begin_prompt(w.op, w.phase, w.prompt, w.maxlen, w.kind == 2);
+        begin_prompt(w.op, w.phase, w.prompt, w.maxlen, w.kind == 2, w.any);
     }
     return true;
 }
@@ -2167,7 +2211,11 @@ bool MenuCtl::pick_key(int k, Result *out)
                 }
             }
             pos = (pos + 1) % (n + 1);
+            const int was = sf_src_;
             sf_src_ = pos ? idx[pos - 1] : -1;
+            if (sf_src_ != was) {
+                sf_drop_kept();                                         // the kept results are the old source's: its Results row must not open them under the new one
+            }
         };
         switch (k) {
         case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
@@ -2187,6 +2235,15 @@ bool MenuCtl::pick_key(int k, Result *out)
                 *out = R_REDRAW;
             } else if (pick_sel_ == cnt - 1) {
                 *out = sf_run();
+            } else if (sf_kept_ && pick_sel_ == cnt - 2) {              // T262 D4: the results the form kept
+                pick_form_ = false;
+                pick_dyn_ = true;
+                sf_kept_ = false;
+                pl_from_search_ = true;
+                pick_sel_ = sf_res_sel_ < pl_.n ? sf_res_sel_ : pl_.n ? pl_.n - 1 : 0;
+                pl_last_ = c_->io->now_ms();
+                set_status("RETURN opens the row, <- goes back", false);
+                *out = R_REDRAW;
             } else {                                                    // a text row: the one line editor, back to the form when it ends
                 entry_ = true;
                 entry_text_mode_ = true;
@@ -2208,12 +2265,14 @@ bool MenuCtl::pick_key(int k, Result *out)
         case KEY_LEFT:
         case KEY_ESCAPE:
             pick_ = pick_form_ = false;
+            sf_drop_kept();
             set_status("Cancelled", false);
             *out = R_REDRAW;
             return true;
         case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
         case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
             pick_ = pick_form_ = false;
+            sf_drop_kept();
             return false;
         default:
             *out = R_NONE;
@@ -2248,6 +2307,11 @@ bool MenuCtl::pick_key(int k, Result *out)
             return true;
         case KEY_LEFT:
         case KEY_ESCAPE:
+            if (pl_mode_ == PL_LIST && pl_from_search_) {                // T262 D4: the results of the form's source: back to the form, the results kept
+                sf_back_to_form();
+                *out = R_REDRAW;
+                return true;
+            }
             pick_ = pick_dyn_ = false;
             picklist_free(&pl_);
             set_status("Cancelled", false);
@@ -2416,6 +2480,8 @@ MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name, bool bare)
     job_bare_ = bare;
     job_node_ = &t == &node_task_;                                   // T262 P4: a node's job says what the node says, and a percentage only once the operation reports one
     job_seen_pct_ = false;
+    job_screen_ = job_node_ && cur().layout && cur().layout[0] && !is_browser() && !pick_ && !wizard() && cur().count > 0 && sel_[area_][tab_] < cur().count;
+    job_entry_ = job_screen_ ? cur().first + sel_[area_][tab_] : -1;
     char sj[80];
     if (job_node_) {
         char bz[64];
@@ -2725,6 +2791,7 @@ bool MenuCtl::text_key(int k, Result *out)
         search_edit_ = false;
         entry_ = false;
         snprintf(fm_.search_q, sizeof(fm_.search_q), "%s", entry_le_.buf);
+        snprintf(sf_query_, sizeof(sf_query_), "%s", entry_le_.buf);     // the form's Name contains is this text
         fm_.run_search();
         *out = R_REDRAW;
         return true;
@@ -2818,8 +2885,8 @@ bool MenuCtl::text_key(int k, Result *out)
     default: {
         // T180 D8: the one line editor (app/edit) takes every other key of a text: characters go in at the cursor, DEL (INST/DEL) takes the one before
         // it, CRSR left / right, HOME and END (CLR = SHIFT+HOME) move it. RETURN and <- / ESC were taken above: no editing key takes or cancels.
-        // The search and a setting's text take any printable character, the others (a file or folder name, a task's name) not the ones FAT or a path cannot hold.
-        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_);
+        // The search, a setting's text, an operation's own question that asked for it (ops_ask_text `any`) and a node's `ask_any` take any printable character, the others (a file or folder name, a task's name, a node's `ask`, an operation's question without `any`) not the ones FAT or a path cannot hold.
+        const bool any = search_edit_ || sf_edit_ >= 0 || (entry_set_ >= 0 && !entry_rename_ && !entry_mset_) || (prompt_ && prompt_any_) || (ask_node_ && ask_any_);
         entry_le_.reject = any ? 0 : "/\\:*?\"<>|";
         const int cur0 = entry_le_.cur, len0 = entry_le_.len;
         le_key(&entry_le_, k);
@@ -3051,6 +3118,10 @@ bool MenuCtl::pump(bool quiet)
 {
     int nk = quiet ? 0 : 1;
     bool changed = false;
+    if (goto_redraw_) {                                              // T262 D4: a goto_screen of a library moved the open menu (the loop took the request at its pass): the screen is drawn now, not with the next key
+        goto_redraw_ = false;
+        changed = true;
+    }
     if (nk == 0 && wizard() && map_tick()) {                         // a wizard's next press (the pad mapping)
         nk++;
         changed = true;
@@ -3149,8 +3220,8 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         if (chooser_) {
             return start_action(chooser_acts_[chooser_sel_], chooser_file_);
         }
-        if (search_tab() && !fm_.vmode) {                              // nothing found yet: RETURN asks for the query (the form, when a library is a source)
-            begin_search();
+        if (search_tab() && !fm_.vmode) {                              // nothing found yet: RETURN asks for the query (T262 D4: the form is '/', also when a library is a source)
+            begin_search_edit();
             return R_REDRAW;
         }
         if (fm_.sel >= fm_.nlist) {
@@ -3871,7 +3942,7 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         if (chooser_) {
             snprintf(out, n, "LETTER  RUN THE ITEM   RETURN  RUN   <-  CLOSE THE SHEET");
         } else if (search_tab() && !fm_.vmode) {
-            snprintf(out, n, search_source_count() ? "RETURN  SEARCH FORM   1-3  TAB   <- UP" : "RETURN  TYPE A NAME   1-3  TAB   <- UP");
+            snprintf(out, n, search_source_count() ? "RETURN  TYPE A NAME   /  SOURCES   1-3  TAB   <- UP" : "RETURN  TYPE A NAME   1-3  TAB   <- UP");
         } else if (fm_.seek_on) {
             snprintf(out, n, "TYPE THE NAME   ? ANY CHARACTER   RETURN OR <-  END");
         } else if (media_level()) {                                    // as the host's File Browser at "/": the keys that do something
@@ -3959,8 +4030,8 @@ void MenuCtl::footer_legend_keys(char *out, int n)
             p += snprintf(out + p, n - p, "  %c %s", kb[0], lab);
         }
     }
-    for (int i = 0; c_->merge && i < c_->merge->nkeys && p < n - 12; i++) {      // T262 P6: a row of the core's key table that names itself ("legend"), for the tab that is shown
-        const CoreKey &r = c_->merge->keys[i];
+    for (int i = 0; c_->merge && i < c_->merge->nkeys_all() && p < n - 12; i++) {      // T262 P6: a row of the core's key table (and of the libraries') that names itself ("legend"), for the tab that is shown
+        const CoreKey &r = c_->merge->key_at(i);
         char kn[12];
         if (!r.legend || r.row.lo < 0 || r.row.lo != r.row.hi || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node)) || (r.row.when && !when_holds(c_, r.row.when)) ||
             !legend_key_name(r.row.lo, kn, sizeof(kn))) {
@@ -4125,7 +4196,7 @@ bool MenuCtl::screen() const
     if (fm_.view) {
         return true;
     }
-    return cur().layout && cur().layout[0] && !busy_ && !pick_ && !entry_;
+    return cur().layout && cur().layout[0] && !busy_page() && !pick_ && !entry_;
 }
 
 const char *MenuCtl::core_title() const
@@ -4191,7 +4262,9 @@ bool MenuCtl::goto_spec(const char *spec)
 bool MenuCtl::goto_when_open(const char *spec)
 {
     if (c_->menu_open) {
-        return goto_spec(spec);
+        const bool went = goto_spec(spec);
+        goto_redraw_ = goto_redraw_ || went;
+        return went;
     }
     int a, t;
     if (!resolve_spec(spec, &a, &t) || strlen(spec) >= sizeof(pend_goto_)) {
@@ -4254,7 +4327,19 @@ bool MenuCtl::take_screen()
     char spec[sizeof(c_->want_screen)];
     snprintf(spec, sizeof(spec), "%s", c_->want_screen);
     c_->want_screen[0] = 0;
-    return goto_spec(spec);
+    const bool went = goto_spec(spec);
+    const bool browsing = went && is_browser() && !search_tab();      // only the browser's folder read takes want_dir and want_name
+    if (c_->lib.want_sheet) {                                        // T262 D4 finding 12: browse_sheet: RETURN on the file the cursor was put on opens its action sheet
+        c_->lib.want_sheet = false;
+        if (browsing && fm_.placed && fm_.sel < fm_.nlist && !fm_.list[fm_.sel].dir) {
+            activate(false, false);
+        }
+    }
+    if (!browsing) {                                                 // browse_at that went nowhere (no such screen, or a later goto_screen replaced it): the next Browse entry must not apply it
+        c_->lib.want_dir[0] = 0;
+        c_->lib.want_name[0] = 0;
+    }
+    return went;
 }
 
 // The text a node's `sub` or `chip` key names: "@state.name" (a state value), "@info.Line" (an application information line), "link.Line" (ONLINE when
@@ -4534,7 +4619,7 @@ void MenuCtl::item(int i, Item *it)
             }
         }
         if (n.kind == LN_LIST) {                                           // T262 P1: a button that opens the node's rows; its chip is how many there are
-            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            const int cnt = picklist_count_rows(n.state ? ops_state(c_, n.state) : 0);
             char em[40];
             if (cnt) {
                 snprintf(it->chip, sizeof(it->chip), "%d", cnt);
@@ -4557,6 +4642,14 @@ void MenuCtl::item(int i, Item *it)
     default:
         it->kind = IK_FIXED;
         break;
+    }
+    if (busy_ && job_screen_ && cur().first + i == job_entry_) {      // T262 D4: the screen stays while the node's job runs; its row says what the job is doing (and the percentage once it reports one)
+        char l2[120], r2[40];
+        l2[0] = r2[0] = 0;
+        job_text(l2, sizeof(l2), r2, sizeof(r2), 0, 0);
+        snprintf(it->title, sizeof(it->title), "%s%s%s", l2, r2[0] ? "  " : "", r2);
+        it->enabled = true;
+        it->dim = false;
     }
     item_ident(e, it);
 }
@@ -4684,7 +4777,7 @@ bool MenuCtl::stage_on(int stage) const
     case KS_SHEET: return chooser_ && !entry_ && !pick_ && !busy_;
     case KS_APP: return app_mode_ && !busy_ && !entry_ && !pick_ && !chooser_;
     case KS_APP_TERM: return layout_is("terminal") && app_mode_ && !busy_ && !entry_ && !pick_;
-    case KS_CORE: return c_->merge && c_->merge->nkeys > 0 && !app_mode_ && !busy_ && !entry_ && !pick_;      // the rows of the core's record say which tab they are for (core_row_next)
+    case KS_CORE: return c_->merge && c_->merge->nkeys_all() > 0 && !app_mode_ && !busy_ && !entry_ && !pick_;      // the rows of the core's record say which tab they are for (core_row_next)
     case KS_BUSY: return busy_;
     case KS_PICK: return pick_ && !(pick_form_ && sf_edit_ >= 0);          // the form's own text being typed is the entry's
     case KS_ENTRY: return entry_;
@@ -4699,8 +4792,8 @@ bool MenuCtl::stage_on(int stage) const
 int MenuCtl::core_row_next(int k, int from) const
 {
     const MenuMerge *mm = c_->merge;
-    for (int i = mm ? from : 0; mm && i < mm->nkeys; i++) {
-        const CoreKey &r = mm->keys[i];
+    for (int i = mm ? from : 0; mm && i < mm->nkeys_all(); i++) {
+        const CoreKey &r = mm->key_at(i);
         if (!(r.row.lo < 0 || (k >= r.row.lo && k <= r.row.hi)) || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node))) {
             continue;
         }
@@ -4720,7 +4813,7 @@ const KeyRow *MenuCtl::row_at(int idx) const
     if (idx >= 0 && idx < n) {
         return &rows[idx];
     }
-    return idx >= n && c_->merge && idx - n < c_->merge->nkeys ? &c_->merge->keys[idx - n].row : 0;
+    return idx >= n && c_->merge && idx - n < c_->merge->nkeys_all() ? &c_->merge->key_at(idx - n).row : 0;
 }
 
 // The first row, in the first live stage from `stage`, that holds this key (row `from` onwards in that stage). A live stage that swallows and holds no row for the key is an
@@ -4738,7 +4831,7 @@ bool MenuCtl::resolve_from(int k, int stage, int from, MenuIntent *out) const
         int idx;
         if (s == KS_CORE) {
             int ci = core_row_next(k, cur > n ? cur - n : 0);
-            r = ci >= 0 ? &c_->merge->keys[ci].row : 0;
+            r = ci >= 0 ? &c_->merge->key_at(ci).row : 0;
             idx = n + ci;
         } else {
             r = menu_keymap_next(s, k, &cur, when_holds, c_);
@@ -5093,7 +5186,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         return R_NONE;
     }
     case MI_SEARCH_OPEN:
-        begin_search();                                              // the idle Search tab: RETURN opens the field (the form, when a library is a source)
+        begin_search_edit();                                         // the idle Search tab: RETURN asks for a name, with a source or without (T262 D4; the form is '/')
         return R_REDRAW;
     case MI_PAGE_BROWSER:
         page(in.arg);
@@ -5244,7 +5337,7 @@ void MenuCtl::begin_search_edit()
     confirm_task_ = 0;
     entry_rename_ = false;
     search_edit_ = true;
-    entry_load(fm_.search_q, 38);
+    entry_load(fm_.search_q[0] ? fm_.search_q : sf_query_, 38);          // the name the form holds is the name of this search too
     set_status("Type a part of the name; RETURN searches", false);
 }
 
@@ -5316,7 +5409,7 @@ int MenuCtl::sf_nfields() const
 
 int MenuCtl::sf_rows() const
 {
-    return 2 + (sf_src_ >= 0 ? sf_nfields() : 0) + 1;
+    return 2 + (sf_src_ >= 0 ? sf_nfields() : 0) + (sf_kept_ ? 1 : 0) + 1;
 }
 
 void MenuCtl::sf_label(int row, char *out, int n) const
@@ -5327,6 +5420,8 @@ void MenuCtl::sf_label(int row, char *out, int n) const
         snprintf(out, (size_t)n, "Name contains");
     } else if (row == sf_rows() - 1) {
         snprintf(out, (size_t)n, "Search");
+    } else if (sf_kept_ && row == sf_rows() - 2) {
+        snprintf(out, (size_t)n, "Results");
     } else if (!sf_field_label(c_->merge, sf_src_, row - 2, out, n)) {
         out[0] = 0;
     }
@@ -5334,7 +5429,7 @@ void MenuCtl::sf_label(int row, char *out, int n) const
 
 const char *MenuCtl::sf_value(int row) const
 {
-    return row == 1 ? sf_query_ : row >= 2 && row - 2 < SF_FIELDS ? sf_field_[row - 2] : "";
+    return row == 1 ? sf_query_ : row >= 2 && row - 2 < SF_FIELDS && !(sf_kept_ && row == sf_rows() - 2) ? sf_field_[row - 2] : "";
 }
 
 void MenuCtl::begin_search()
@@ -5380,10 +5475,37 @@ void MenuCtl::sf_open_results(int src)
         mo[0] = 0;
     }
     begin_list_view(sn.label, sn.n.state, sn.n.op, mo);
+    pl_from_search_ = true;                                         // T262 D4: <- goes back to the form, the results kept
+}
+
+void MenuCtl::sf_drop_kept()
+{
+    if (sf_kept_) {
+        picklist_free(&pl_);
+        pl_mode_ = PL_OP;
+        pl_node_ = 0;
+    }
+    sf_kept_ = false;
+    pl_from_search_ = false;
+}
+
+void MenuCtl::sf_back_to_form()
+{
+    const int was = pick_sel_;
+    pick_dyn_ = false;
+    pick_form_ = true;
+    pick_ = true;
+    sf_edit_ = -1;
+    sf_kept_ = true;
+    pl_from_search_ = false;
+    sf_res_sel_ = was;
+    pick_sel_ = sf_rows() - 2;                                      // the Results row
+    set_status("RETURN changes the row, \"Results\" opens the last results, \"Search\" runs it, <- cancels", false);
 }
 
 MenuCtl::Result MenuCtl::sf_run()
 {
+    sf_drop_kept();
     if (sf_src_ < 0) {                                              // This device: the search of the Library, its hits stand in the tab
         snprintf(fm_.search_q, sizeof(fm_.search_q), "%s", sf_query_);
         pick_ = pick_form_ = false;

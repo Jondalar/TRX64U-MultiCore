@@ -69,6 +69,16 @@ static int op_take(CoreCtx *, const OpArgs &a, OpOut &o) { g_taken = a.i(0); g_t
 static int g_phase = -1;
 static int op_phase(CoreCtx *, const OpArgs &a, OpOut &) { g_phase = a.i(0); g_chosen = a.s(1); return OPE_OK; }
 static const ArgSpec phase_args[] = { ARG_INT("phase", 0, 100), ARG_STRING("answer", 64) };
+// T262 D5 finding 15: operations that do what ctx.browse_at / browse_sheet do (libsvc.cc browse_to: the folder, the name, the sheet and the screen request), called by a list row, an ask_list answer and a pick node
+static void want_browse(CoreCtx *c, bool sheet)
+{
+    snprintf(c->lib.want_dir, sizeof(c->lib.want_dir), "/usb0/g");
+    snprintf(c->lib.want_name, sizeof(c->lib.want_name), "four.tst");
+    c->lib.want_sheet = sheet;
+    snprintf(c->want_screen, sizeof(c->want_screen), "F3/browse");
+}
+static int op_rowsheet(CoreCtx *c, const OpArgs &, OpOut &) { want_browse(c, true); return OPE_OK; }
+static int op_askat(CoreCtx *c, const OpArgs &, OpOut &) { want_browse(c, false); return OPE_OK; }
 static int op_chosen(CoreCtx *, const OpArgs &a, OpOut &) { g_chosen = a.s(0); return OPE_OK; }
 static int op_more(CoreCtx *, const OpArgs &, OpOut &)
 {
@@ -114,6 +124,9 @@ static void add_lib_ops(OpRegistry *r)
     r->add_op("zl.take", take_args, 2, op_take);
     r->add_op("zl.chosen", chosen_args, 1, op_chosen);
     r->add_op("zl.phase", phase_args, 2, op_phase);
+    r->add_op("zl.rowsheet", take_args, 2, op_rowsheet);
+    r->add_op("zl.askat", phase_args, 2, op_askat);
+    r->add_op("zl.pickat", chosen_args, 1, op_askat);
     r->add_op("zl.more", 0, 0, op_more);
     r->add_op("zl.find", find_args, 1, op_find);
     r->add_op("zl.jobfind", find_args, 1, op_jobfind);
@@ -997,6 +1010,46 @@ int main(int argc, char **argv)
         g_gate.clear();
     }
 
+    // ---- T262 D4 finding 11: the key rows of a library's menu record follow the core's, name themselves in the legend, and run the library's operation
+    {
+        static const LibTabDecl tabs[] = { { "F5", "keyed", "Keyed", TW_NODES, 0, 0 } };
+        static const LibNodeDecl nodes[] = { { "F5/keyed", LN_OP, "Row", "zl.beep", 0, 1 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 1;
+        Contributor cs[] = { { "keyer", CR_LIB, &rec } };
+        static CoreKey own[1], lib[2];
+        memset(own, 0, sizeof(own)); memset(lib, 0, sizeof(lib));
+        own[0].node = "keyed"; own[0].row.stage = KS_CORE; own[0].row.intent = MI_SWALLOW; own[0].row.lo = own[0].row.hi = 'z';
+        for (int i = 0; i < 2; i++) {
+            lib[i].node = "keyed"; lib[i].row.stage = KS_CORE; lib[i].row.intent = MI_OP; lib[i].row.op = "zl.beep";
+        }
+        lib[0].row.lo = lib[0].row.hi = 'k'; lib[0].legend = "Beep it";
+        lib[1].row.lo = lib[1].row.hi = 'z';                                           // the core took 'z' first
+        Rig r(cs, 1);
+        r.mm->keys = own; r.mm->nkeys = 1;
+        CHECK_EQ(contrib_add_keys(r.mm, "keyer", lib, 2), 2);
+        CHECK_EQ(r.mm->nkeys_all(), 3);
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/keyed"));
+        char leg[200];
+        r.m->footer_legend(leg, sizeof(leg));
+        CHECK(strstr(leg, "K BEEP IT") != 0);
+        g_beeps = 0;
+        r.m->key('k');
+        CHECK_EQ(g_beeps, 1);                                                          // the library's row runs its operation
+        r.m->key('z');
+        CHECK_EQ(g_beeps, 1);                                                          // the core's row stands before the library's
+        CoreKey many[1];
+        memset(many, 0, sizeof(many));
+        MenuMerge *mm = r.mm;
+        mm->nlibkeys = CONTRIB_KEYS_MAX;
+        CHECK_EQ(contrib_add_keys(mm, "keyer", many, 1), 0);                           // no room: refused and told
+        CHECK(mm->nerr > 0 && strstr(mm->err[mm->nerr - 1], "no room") != 0);
+    }
+
     // ---- T262 P4: a node's job shows the node's own words while it runs and a percentage only once the operation reports one (not "Building the image 0%")
     {
         static const LibTabDecl tabs[] = { { "F5", "jobs", "Jobs", TW_NODES, 0, 0 } };
@@ -1035,7 +1088,53 @@ int main(int argc, char **argv)
         CHECK(r.m->busy());
         CHECK_STR(r.left(0).c_str(), "Fetch");
         CHECK_STR(r.right(0).c_str(), "");
+        CHECK(strcmp(r.m->title(), "Fetch") != 0);                                // T262 D4: the words stand in the row, not also as the title
         while (r.m->tick()) {}
+    }
+
+    // ---- T262 D4 (7): a node's job on a screen keeps the screen: the other rows stay, the job's row says what it does
+    {
+        static const LibTabDecl tabs[] = { { "F5", "form", "Form", TW_NODES, 0, 0 } };
+        static const char *const looks[] = { "split;title=Form;side=Side", 0 };
+        static const LibNodeDecl nodes[] = {
+            { "F5/form", LN_OP, "Alpha", "zl.beep", 0, 1 },
+            { "F5/form", LN_OP, "Search", "zl.jobstep", 0, 2, 0, 0, 0, 0, 0, false, "job;busy=Asking the server" },
+            { "F5/form", LN_OP, "Omega", "zl.beep", 0, 3 },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.tabs = tabs; rec.ntabs = 1;
+        rec.nodes = nodes; rec.nnodes = 3;
+        rec.tab_layouts = looks;
+        Contributor cs[] = { { "formjob", CR_LIB, &rec } };
+        Rig r(cs, 1);
+        r.m->open();
+        CHECK(r.m->goto_spec("F5/form"));
+        CHECK(r.m->screen());
+        r.go_to("Search");
+        const int jrow = r.m->selected();
+        g_jobcalls = 0; g_jobpct = 0;
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->busy());
+        CHECK(r.m->screen());                                                     // the form stays
+        CHECK_EQ(r.m->rows(), 3);
+        CHECK_EQ(r.m->selected(), jrow);
+        MenuCtl::Item it;
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Asking the server");                                 // the job row carries the caption, no percentage before the operation reports one
+        r.m->item(jrow - 1, &it);
+        CHECK_STR(it.title, "Alpha");
+        r.m->item(jrow + 1, &it);
+        CHECK_STR(it.title, "Omega");
+        g_jobpct = 40;
+        CHECK(r.m->tick() && r.m->tick());
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Asking the server  40%");
+        while (r.m->tick()) {}
+        CHECK(!r.m->busy());
+        r.m->item(jrow, &it);
+        CHECK_STR(it.title, "Search");
     }
 
     // ---- T262 P2: a node with `pick = "@state"` lists the state's rows (47 of them: the old list stopped at 40); RETURN on a row runs the node's operation with the value as its text
@@ -1084,6 +1183,21 @@ int main(int argc, char **argv)
         r.m->key(KEY_RETURN);                                                        // the phase and the value reach the operation that asked
         CHECK_EQ(g_phase, 7);
         CHECK_STR(g_chosen.c_str(), "v499");
+    }
+
+    // ---- T262 D4 (13, review): an operation's text prompt keeps the name rule (no / \ : * ? " < > |) unless it asks with `any`
+    {
+        Rig r(0, 0);
+        r.m->open();
+        const char *typed = "a:b/c?d";
+        for (int any = 0; any < 2; any++) {
+            g_chosen.clear();
+            ops_ask_text(&r.c, "zl.phase", 3, "Name", 40, false, any != 0);
+            CHECK(r.m->take_prompt());
+            for (const char *p = typed; *p; p++) r.m->key(*p);
+            r.m->key(KEY_RETURN);
+            CHECK_STR(g_chosen.c_str(), any ? typed : "abcd");
+        }
     }
 
     // ---- T262 review 2: a question left over from an earlier call is never raised by a later, unrelated menu call
@@ -1165,7 +1279,7 @@ int main(int argc, char **argv)
         CHECK_STR(r.right(row).c_str(), "None yet");                                  // no rows yet
         for (int i = 0; i < 200; i++) g_rows += "id" + std::to_string(i) + "\tResult " + std::to_string(i) + "\t" + std::to_string(i * 3) + " KB\t" + (i % 2 ? "amber" : "muted") + "\tside one " + std::to_string(i) + "\tside two\n";
         g_rows += "+More results";
-        CHECK_STR(r.right(row).c_str(), "201 >");
+        CHECK_STR(r.right(row).c_str(), "200 >");                                     // T262 D4: the '+' row is not a result
         r.go_to("Results");
         CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
         CHECK(r.m->picking());
@@ -1193,6 +1307,24 @@ int main(int argc, char **argv)
         CHECK_STR(r.left(200).c_str(), "Result 200");
         r.m->key(KEY_ESCAPE);
         CHECK(!r.m->picking());
+        // T262 D4: the tone `disabled` greys the whole row (its active flag is what the page draws dim); a note is no row, so the node counts 2
+        {
+            g_rows = "a\tOpen one\t1 KB\tcyan\nb\tGone\t2 KB\tdisabled\n!A note\n+More";
+            Rig rd(cs, 1);
+            rd.m->open();
+            rd.m->key(KEY_F5);
+            const int rw = rd.find_row("Results");
+            CHECK_STR(rd.right(rw).c_str(), "2 >");
+            rd.go_to("Results");
+            rd.m->key(KEY_RETURN);
+            CHECK(rd.m->picking());
+            char l[100], rt[100]; bool act = false;
+            rd.m->row(0, l, 100, rt, 100, &act); CHECK(act);
+            rd.m->row(1, l, 100, rt, 100, &act); CHECK(!act);
+            CHECK_EQ(rd.m->list_tone(1), 5);
+            CHECK_STR(rt, "2 KB");
+        }
+        g_rows.clear();
         // a record that is nothing but its rows state (no operation for a row) is refused by name
         static const LibNodeDecl bad[] = { { "F5/settings", LN_LIST, "Bare list", 0, "zl.rows", 1 } };
         LibRecord br;
@@ -1202,6 +1334,106 @@ int main(int argc, char **argv)
         Rig rb(cb, 1);
         CHECK(rb.has_err("without an operation for a row"));
         g_rows.clear();
+    }
+
+    // ---- T262 D5 finding 15: browse_at / browse_sheet from the operation of a list row, of an ask_list answer and of a pick node take the menu to F3/browse at once; nothing stays pending
+    {
+        static const OpBind b_val[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = { { "F5/settings", LN_LIST, "Results", "zl.rowsheet", "zl.rows", 1, 0, 0, 0, 0, 0, false, 0 },
+                                             { "F5/settings", LN_OP, "Many", "zl.pickat", 0, 2, 0, 0, 0, b_val, 1, false, "pick=@zl.choices" },
+                                             { "F5/settings", LN_OP, "Beep", "zl.beep", 0, 3 } };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 3;
+        Contributor cs[] = { { "jumper", CR_LIB, &rec } };
+        g_rows = "r0\tRow zero\n";
+        g_choices = "a\nb\n";
+        Rig r(cs, 1);
+        r.m->open();
+        r.m->key(KEY_F3); r.go_to("usb0/"); r.m->key(KEY_RETURN); r.go_to("g/"); r.m->key(KEY_RETURN);    // the browser exists and has been entered once
+        struct Local {
+            static void from_f5(Rig &r) { r.m->key(KEY_F5); }
+            static void check_landed(Rig &r)
+            {
+                CHECK_STR(r.m->title(), "/usb0/g");
+                CHECK(!r.m->picking());
+                CHECK(!r.c.want_screen[0] && !r.c.lib.want_dir[0] && !r.c.lib.want_name[0] && !r.c.lib.want_sheet);
+            }
+        };
+        // (a) a list row's operation calls browse_sheet: the menu is on the browser, the sheet of the file is open
+        Local::from_f5(r);
+        r.go_to("Results");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->picking());
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        Local::check_landed(r);
+        CHECK(r.m->chooser());
+        CHECK(r.find_row("Mount") >= 0);
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        // (c) the next, unrelated operation does not jump
+        Local::from_f5(r);
+        r.go_to("Beep");
+        const int beeps = g_beeps;
+        r.m->key(KEY_RETURN);
+        CHECK_EQ(g_beeps, beeps + 1);
+        CHECK(strcmp(r.m->title(), "/usb0/g"));
+        CHECK(!r.c.want_screen[0]);
+        // (b) the operation an ask_list answer calls uses browse_at: the cursor is on the file, no sheet
+        ops_ask_list(&r.c, "zl.askat", 5, "Which", "zl.choices");
+        CHECK(r.m->take_prompt());
+        CHECK(r.m->picking());
+        r.m->key(KEY_RETURN);
+        Local::check_landed(r);
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        Local::from_f5(r);
+        r.go_to("Beep");
+        r.m->key(KEY_RETURN);
+        CHECK(strcmp(r.m->title(), "/usb0/g"));                                      // (c) again
+        // (d) a pick node's operation (the node branch of the same function)
+        r.go_to("Many");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->picking());
+        r.m->key(KEY_RETURN);
+        Local::check_landed(r);
+        CHECK_STR(r.left(r.m->selected()).c_str(), "four.tst");
+        g_rows.clear(); g_choices.clear();
+        printf("PASS a list row, an ask_list answer and a pick node reach F3/browse from browse_at / browse_sheet, nothing stays pending\n");
+    }
+
+    // ---- T262 D4 (13): `ask` holds 24 characters and refuses file-name characters, as before; `ask_max` and `ask_any` make it a free text of its own limit
+    {
+        static const OpBind b_text[] = { B_TEXT("value") };
+        static const LibNodeDecl nodes[] = {
+            { "F5/settings", LN_OP, "Name it", "zl.chosen", 0, 1, 0, 0, 0, b_text, 1, false, "ask=Name" },
+            { "F5/settings", LN_OP, "Say it", "zl.chosen", 0, 2, 0, 0, 0, b_text, 1, false, "ask=Text;ask_max=100;ask_any" },
+        };
+        LibRecord rec;
+        memset(&rec, 0, sizeof(rec));
+        rec.struct_size = sizeof(rec);
+        rec.nodes = nodes; rec.nnodes = 2;
+        Contributor cs[] = { { "asker", CR_LIB, &rec } };
+        Rig r(cs, 1);
+        CHECK(!r.has_err("Say it"));
+        r.m->open();
+        r.m->key(KEY_F5);
+        const char *typed = "a:b/c?d*e<f>g|h 123456789012345678901234567890";                          // 47 characters, the first 7 of them are not file name characters
+        r.go_to("Name it");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->entering());
+        for (const char *p = typed; *p; p++) r.m->key(*p);
+        r.m->key(KEY_RETURN);
+        CHECK_EQ((int)g_chosen.size(), 24);                                                  // the file name: 24 characters, none of the refused ones
+        CHECK(g_chosen.find_first_of("/\\:*?\"<>|") == std::string::npos);
+        r.go_to("Say it");
+        r.m->key(KEY_RETURN);
+        CHECK(r.m->entering());
+        for (const char *p = typed; *p; p++) r.m->key(*p);
+        r.m->key(KEY_RETURN);
+        CHECK_STR(g_chosen.c_str(), typed);                                                  // the free text: every character, all 47 (the limit is 100)
     }
 
     static const SkelTab f3tabs[] = { { "browse", "Browse", 1, TW_BROWSER, 0, 0 }, { "search", "Search", 2, TW_BROWSER, 0, 0 } };
@@ -1276,7 +1508,7 @@ int main(int argc, char **argv)
         Rig r(sc, 1, &f3sk);
         r.m->open();
         CHECK(r.m->goto_spec("F3/search"));
-        r.m->key(KEY_RETURN);
+        r.m->key('/');
         CHECK(r.m->search_form());
         r.m->key(KEY_RETURN);
         CHECK_STR(r.right(0).c_str(), "Online");
@@ -1305,10 +1537,23 @@ int main(int argc, char **argv)
         Rig r(cs, 1, &f3sk);
         CHECK(!r.has_err("search"));
         r.m->open();
+        FsEntry rootbuf[8];
+        const int lb = r.fs.lists;
+        r.fs.list("/", rootbuf, 8);
+        const int one_root = r.fs.lists - lb;                                          // what the media chips' read of "/" costs: the only list the idle tab may make
+        const int lists0 = r.fs.lists;
         CHECK(r.m->goto_spec("F3/search") && r.m->search_tab());
+        const int lists1 = r.fs.lists;
+        CHECK_EQ(lists1 - lists0, one_root);                                           // T262 D4 (2): the idle Search tab reads no folder (a folder read would add its own list to the chips' "/"), ...
+        CHECK(!r.m->relist());
+        CHECK_EQ(r.fs.lists, lists1);                                                  // ... and not when the menu looks again
         CHECK_EQ(r.m->search_source_count(), 1);
         CHECK(r.m->tab_id() != 0 && r.tab("F3", "search").size() <= 1);                // the source takes no row of the tab
-        r.m->key(KEY_RETURN);
+        r.m->key(KEY_RETURN);                                                          // T262 D4: with a source, RETURN still asks for a name, as without one
+        CHECK(r.m->entering() && !r.m->search_form() && !r.m->picking());
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->entering());
+        r.m->key('/');                                                                 // the form is offered separately
         CHECK(r.m->search_form() && r.m->picking() && !r.m->entering());
         CHECK_EQ(r.m->rows(), 3);                                                      // Source, Name contains, Search
         CHECK_STR(r.left(0).c_str(), "Source"); CHECK_STR(r.right(0).c_str(), "This device");
@@ -1325,6 +1570,7 @@ int main(int argc, char **argv)
         CHECK(!r.m->entering() && r.m->search_form());
         CHECK_STR(r.right(1).c_str(), "ab");
         CHECK_STR(r.right(2).c_str(), "Any");
+        CHECK_STR(r.m->search_form_text(), "ab");                                      // the idle Search tab shows what the form holds
         r.m->key(KEY_DOWN); r.m->key(KEY_DOWN);
         r.m->key(KEY_RETURN);                                                          // the field Handle
         r.m->key('x');
@@ -1341,11 +1587,35 @@ int main(int argc, char **argv)
         r.m->key(KEY_DOWN);
         r.m->key(KEY_RETURN);
         CHECK_EQ(g_taken, 1);
+        r.m->key(KEY_ESCAPE);                                                          // T262 D4: <- from the results is the form again, the results kept
+        CHECK(r.m->search_form() && r.m->picking());
+        CHECK_STR(r.right(0).c_str(), "Online"); CHECK_STR(r.right(1).c_str(), "ab");
+        CHECK_EQ(r.m->rows(), 6);                                                      // Source, Name contains, Group, Handle, Results, Search
+        CHECK_STR(r.left(4).c_str(), "Results"); CHECK_STR(r.right(4).c_str(), "2 >");
+        CHECK_EQ(r.m->selected(), 4);                                                  // the cursor is on the way back
+        r.m->key(KEY_RETURN);                                                          // ... which opens them again, on the row they were left on
+        CHECK(!r.m->search_form() && r.m->picking() && r.m->list_view());
+        CHECK_STR(r.m->title(), "Online results");
+        CHECK_EQ(r.m->rows(), 2);
+        CHECK_EQ(r.m->selected(), 1);
         r.m->key(KEY_ESCAPE);
-        CHECK(!r.m->picking());
+        CHECK(r.m->search_form());
+        CHECK_EQ(r.m->rows(), 6);                                                      // T262 D4 finding 7: the source changes -> the old source's kept results go with it
+        r.m->key(KEY_HOME);
+        r.m->key(KEY_RETURN);                                                          // the next source after Online is This device
+        CHECK_STR(r.right(0).c_str(), "This device");
+        CHECK_EQ(r.m->rows(), 3);                                                      // Source, Name contains, Search: no Results row
+        CHECK(r.find_row("Results") < 0);
+        r.m->key(KEY_RETURN);                                                          // back to Online: the old results are not offered again
+        CHECK_STR(r.right(0).c_str(), "Online");
+        CHECK_EQ(r.m->rows(), 5);                                                      // Source, Name contains, Group, Handle, Search
+        CHECK(r.find_row("Results") < 0);
+        r.m->key(KEY_ESCAPE);                                                          // <- from the form leaves it, the results go
+        CHECK(!r.m->picking() && !r.m->search_form());
         r.m->key('/');                                                                 // the form again: it kept the source and the texts
         CHECK(r.m->search_form());
         CHECK_STR(r.right(0).c_str(), "Online"); CHECK_STR(r.right(1).c_str(), "ab");
+        CHECK_EQ(r.m->rows(), 5);                                                      // no Results row after the results were given up
         r.m->key(KEY_UP);
         r.m->key(KEY_RETURN);                                                          // the next source after the last: This device
         CHECK_STR(r.right(0).c_str(), "This device");
@@ -1373,7 +1643,7 @@ int main(int argc, char **argv)
             Rig r(cs, 1, &f3sk);
             r.m->open();
             r.m->goto_spec("F3/search");
-            r.m->key(KEY_RETURN);
+            r.m->key('/');
             r.m->key(KEY_RETURN);                                                      // Slow
             r.m->key(KEY_END);
             g_jobcalls = 0;

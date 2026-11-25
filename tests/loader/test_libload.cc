@@ -994,6 +994,19 @@ static void menu_record()
     refused("menu with a route", w, with_menu(Img("alpha", "A"), route), LIB_BAD_FILE, "alpha", "gives a route");
     std::vector<uint8_t> hides = read_file("menu_hide.bin");
     refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides or renames");
+    {   // T262 D4 finding 11: a library's record may carry [[key]] rows (the legend with them); a record with windows is still the core's
+        World wk;
+        char err[LIB_ERR_MAX] = "";
+        int h = -1;
+        CHECK_EQ(wk.load(with_menu(Img("alpha", "A"), read_file("menu_keys.bin")), &h, err), LIB_OK);
+        const LibInfo *i = wk.ld->info(h);
+        CHECK(i && i->menu && i->menu->nkeys == 2);
+        if (i && i->menu && i->menu->nkeys == 2) {
+            CHECK_STR(i->menu->keys[0].node, "lib"); CHECK_EQ(i->menu->keys[0].row.lo, 'x'); CHECK_STR(i->menu->keys[0].row.op, "test.echo"); CHECK_STR(i->menu->keys[0].legend, "Echo");
+            CHECK_STR(i->menu->keys[1].layout, "list"); CHECK_EQ(i->menu->keys[1].row.intent, MI_DECLINE);
+        }
+    }
+    refused("menu with windows", w, with_menu(Img("alpha", "A"), read_file("windows.bin")), LIB_BAD_FILE, "alpha", "has windows");
     Img f2("alpha", "A");
     f2.flags = 8;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");

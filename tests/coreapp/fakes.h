@@ -67,6 +67,7 @@ public:
         return true;
     }
 
+    std::set<std::string> size_unknown;                    // lower case paths whose listing says FS_SIZE_UNKNOWN (T262 D4 finding 14)
     void put(const std::string &path, const std::vector<uint8_t> &data) { files[lower(path)] = data; names[lower(path)] = path; }
     void put_text(const std::string &path, const std::string &text) { put(path, std::vector<uint8_t>(text.begin(), text.end())); }
     void put_size(const std::string &path, size_t n, uint8_t fill = 0xA5) { put(path, std::vector<uint8_t>(n, fill)); }
@@ -132,7 +133,7 @@ public:
             memset(&e, 0, sizeof(e));
             if (slash == std::string::npos) {
                 strncpy(e.name, rest.c_str(), sizeof(e.name) - 1);
-                e.size = kv.second.size();
+                e.size = size_unknown.count(kv.first) ? FS_SIZE_UNKNOWN : kv.second.size();
             } else {
                 strncpy(e.name, rest.substr(0, slash).c_str(), sizeof(e.name) - 1);
                 e.dir = true;

@@ -87,6 +87,7 @@ bool ui_list_probe(UiListProbe *p);
 bool ui_status_probe(int *x1, int *y1, int *x2, int *y2, char *txt, int n);
 // Window moves and changed rows served by writing the rows again instead of building the pane (T104, 2026-10-22).
 uint32_t ui_inplace_moves(void);
+uint32_t ui_listv_builds(void);                    // T262 D4: list pages built from scratch (a key on the page writes it in place)
 void ui_menu_forget_rows(void);
 
 // How a file name too long for its row is cut (trx_fit_name quarter): -1, no setting sets it (T239.3 D56).

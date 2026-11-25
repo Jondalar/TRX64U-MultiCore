@@ -508,7 +508,7 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     }
     const char *dot = strrchr(f.name, '.');
     snprintf(r->ext, sizeof(r->ext), "%s", dot ? dot + 1 : "");
-    snprintf(r->sub, sizeof(r->sub), "%u KB", (unsigned)((f.size + 1023) >> 10));
+    fs_size_kb(r->sub, sizeof(r->sub), f.size);
     snprintf(r->value, sizeof(r->value), "%s", r->sub);
     if (vmode && i < VROWS) {                                                  // the folder it lies in
         snprintf(r->sub, sizeof(r->sub), "%s", vfull[i]);
@@ -599,6 +599,23 @@ void FileMgr::apply_pending()
         sel = 0;
         refresh_roots();
         load_dir();
+    }
+    placed = false;
+    if (l.want_name[0]) {                                               // T262 D4 finding 12: the cursor on the entry an operation named (browse_at, browse_sheet), not on ".."
+        for (int i = 0; i < nlist; i++) {
+            if (!strcasecmp(list[i].name, l.want_name)) {
+                sel = i;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            char m[FS_NAME_MAX + 16];
+            snprintf(m, sizeof(m), "%s is not here", l.want_name);
+            say(m, true);
+        }
+        l.want_name[0] = 0;
+        lib_sync();
     }
     if (l.mark_all) {
         l.mark_all = false;

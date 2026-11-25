@@ -88,6 +88,7 @@ struct FileMgr {
     void parent_dir();
     void refresh_roots();
     void lib_sync();                                // the folder, the cursor and the marks into CoreCtx::lib, where the file operations read them
+    bool placed = false;                            // the last apply_pending put the cursor on the entry that was asked for (CoreCtx::lib.want_name)
     void apply_pending();                           // what an operation asked of the Library (mark all, none, open this folder) is done
     const char *full_path(int i, char *buf, int n) const;
     bool visible_ext(const char *name, const FileType **ft) const;

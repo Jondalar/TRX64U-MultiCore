@@ -401,8 +401,8 @@ int main(int argc, char **argv)
                 printf("S6b/S7: in use kept, freed after the end, then evicted\n");
             }
             // a library that declares a poll, or a file action, or exports the table "corehooks", is never evicted: unzip is refused, by name and with the figures, and the library stays loaded
-            for (int which = 0; which < 3; which++) {
-                const char *nm = which == 2 ? "hooklib" : which ? "menulib" : "pollib";
+            for (int which = 0; which < 4; which++) {
+                const char *nm = which == 3 ? "keylib" : which == 2 ? "hooklib" : which ? "menulib" : "pollib";
                 fs.put(std::string("/sd/cores/apps/") + nm + ".u2a", slurp(dir + "/" + nm + ".u2a"));
                 HeapHost hh(&testcore::desc, 1u << 24);
                 LibLoader ld(&hh, reg);
@@ -416,7 +416,9 @@ int main(int argc, char **argv)
                 CHECK(!idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
                 CHECK(strstr(err, "Not enough memory for unzip (needs ") != 0);
                 CHECK(ld.handle_of(nm) >= 0);
-                printf("S6e: %s with a %s is not evicted; %s\n", nm, which == 2 ? "corehooks export" : which ? "file action" : "poll", err);
+                // finding 1: key rows only (no node, tab or action): the merged key table points into the record, which must stay valid
+                CHECK(which != 3 || (ld.info(ld.handle_of(nm))->menu && ld.info(ld.handle_of(nm))->menu->nkeys == 1));
+                printf("S6e: %s with a %s is not evicted; %s\n", nm, which == 3 ? "key row" : which == 2 ? "corehooks export" : which ? "file action" : "poll", err);
             }
             // a library that contributes nothing is evictable (S6a above), and the loader says so
             {

@@ -1,7 +1,7 @@
 // The menu record of a library or application (T104.1 D9 "a sibling for libraries", Alex 2026-10-26): the nodes, file actions, settings, tabs and poll a
 // file declares as TOML (tools/u2a_pack.py --menu), compiled to the record of descrec.h and carried behind the other parts of the .u2a. Header flag
 // bit 0 says it is there and the `reserved` word holds its file offset. What a file's operations, states and events are stays code (lib_register):
-// they are handlers. The record may not give a route and may not hide or rename what others contribute - that is the description's.
+// they are handlers. The record may not give a route, hide or rename what others contribute, or carry windows - that is the description's. It may carry key rows (section 18, base 3.6; a library's only): contrib_add_keys merges them behind the core's.
 #ifndef COREAPP_LIBMENU_H
 #define COREAPP_LIBMENU_H
 

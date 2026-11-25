@@ -38,9 +38,14 @@ version = "3.4"
 released = true
 headers = "22fd021dcfb654a4a933010080ddc33b5c88a7ebee5cd18f4712ec76992e30b3"
 #
-# 3.5 (SDK 0.5.0, T262): the node kind LN_LIST (libapi.h), api->ctx->ask_list (svc_ctx.h); the search sources are nodes of that kind, no header member. Not released yet: its hash
-# follows the headers (python3 tools/sdk_api.py update).
+# 3.5 (SDK 0.5.0, T262): the node kind LN_LIST (libapi.h), api->ctx->ask_list (svc_ctx.h); the search sources are nodes of that kind, no header member. Released: SDK 0.5.0 carried it, in this state; the hash is fixed.
 [[lock]]
 version = "3.5"
-released = false
+released = true
 headers = "5f20315f650767193d099ba57a370eb97aac873c7e1fa67ac9bc550674764e7a"
+#
+# 3.6 (SDK 0.5.1, T262 D4): api->ctx gets browse_at and browse_sheet (svc_ctx.h), SVCFS_SIZE_UNKNOWN (svc_fs.h); [[key]] rows in a library's menu record (no header member). Released: SDK 0.5.1 carried it; SDK 0.5.2 is a patch on it (no header change), the hash is fixed.
+[[lock]]
+version = "3.6"
+released = true
+headers = "176b3dbd37e17705eae830273e0b3de8e9da92d9d1c927318751c57562790e50"

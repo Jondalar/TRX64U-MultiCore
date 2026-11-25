@@ -25,6 +25,20 @@ void picklist_free(PickRows *p)
     picklist_init(p);
 }
 
+// T262 D4: the rows a person can take: the lines that are neither the '+' (more) row nor a '!' note (a node's count says how many results there are, not how many lines).
+int picklist_count_rows(const char *text)
+{
+    int n = 0;
+    while (text && *text) {
+        const char *e = strchr(text, '\n');
+        if ((e ? e : text + strlen(text)) > text && text[0] != '+' && text[0] != '!') {
+            n++;
+        }
+        text = e ? e + 1 : 0;
+    }
+    return n;
+}
+
 int picklist_count(const char *text)
 {
     int n = 0;
@@ -161,8 +175,8 @@ void picklist_get(const PickRows &p, int i, PickRow *out)
         put(out->right, sizeof(out->right), f[2], fl[2]);
     }
     if (k >= 3) {
-        static const char *const tones[] = { "muted", "cyan", "violet", "amber", "coral" };
-        for (int t = 0; t < 5; t++) {
+        static const char *const tones[] = { "muted", "cyan", "violet", "amber", "coral", "disabled" };
+        for (int t = 0; t < 6; t++) {
             if ((int)strlen(tones[t]) == fl[3] && !strncmp(f[3], tones[t], (size_t)fl[3])) {
                 out->tone = t;
             }

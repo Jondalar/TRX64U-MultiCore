@@ -290,6 +290,20 @@ static uint32_t g_inplace;                         // window moves and value cha
 static lv_obj_t *g_pos;                            // the "a-b of n" label of the kept list
 static lv_obj_t *g_status;                         // the status line at the pane's foot
 static lv_obj_t *g_title;                          // the pane's title line (the tab's name, or the browser's path)
+// The pane's title line is one line (UX R5): a long path is cut in the middle to the room the line has, never wrapped into the rows below it.
+static const char *title_fit(const char *s, char *buf, int n)
+{
+    return trx_fit_mid(s, trx_content_w() - 2 * trx_theme().space_lg - 240 - 4, trx_theme().display, buf, n);
+}
+static void title_set(lv_obj_t *l, const char *s)
+{
+    const int room = trx_content_w() - 2 * trx_theme().space_lg - 240;
+    const int tw = trx_text_w(s, trx_theme().display) + 4;
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_CLIP);
+    lv_label_set_text(l, s);
+    lv_obj_set_width(l, tw < room ? tw : room);
+}
+
 static bool g_status_bad;
 #define UI_HOME_MAX 24
 static lv_obj_t *g_home[UI_HOME_MAX];                // the Home panel's status rows, kept so a selection move there restyles two of them
@@ -303,8 +317,18 @@ static uint32_t g_shape;                           // the pane's structure: titl
 static uint32_t g_cheap;                           // selection moves served without rebuilding the pane
 static int g_first, g_last_area = -1, g_last_tab = -1;   // the list window, read by list_signature()
 
+// T262 D4: the page of a `list` node keeps its row objects: a key writes the rows and the side panel in place instead of building the page again (a build of it was ~365,000 px,
+// a quarter of a second blank on the board, for every RETURN and for every status line that changed later).
+static bool g_lv_valid;
+static lv_obj_t *g_lv_row[UI_ROWS_MAX];
+static lv_obj_t *g_lv_sp;                                    // the side panel's card
+static int g_lv_n, g_lv_sel = -1, g_lv_sw, g_lv_ch, g_lv_rw;
+static uint32_t g_lv_shape, g_lv_h[UI_ROWS_MAX], g_lv_ph;
+static uint32_t g_lv_builds;                                 // pages built from scratch (the bench's count)
+
 uint32_t ui_cheap_moves(void) { return g_cheap; }
 uint32_t ui_inplace_moves(void) { return g_inplace; }
+uint32_t ui_listv_builds(void) { return g_lv_builds; }
 
 static uint32_t sig_str(uint32_t h, const char *s)
 {
@@ -588,6 +612,7 @@ bool ui_list_probe(UiListProbe *p)
 
 void ui_menu_forget_rows(void)
 {
+    g_lv_valid = false;
     g_rown = 0;
     g_rowsel = -1;
     g_rowsig = 0;
@@ -621,25 +646,32 @@ static TrxWindow listv_window(MenuCtl &m)
     return w;
 }
 
-static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
+static uint32_t lv_hi(uint32_t h, int v) { return (h ^ (uint32_t)v) * 16777619u; }
+
+// What the side panel shows for the selected row: its name, right column, tone and side lines.
+static uint32_t listv_panel_hash(MenuCtl &m, int sel)
+{
+    uint32_t h = 2166136261u;
+    h = lv_hi(h, m.rows() > 0);
+    if (m.rows() > 0) {
+        char left[120], right[120];
+        bool active;
+        m.row(sel, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        h = sig_str(h, left);
+        h = sig_str(h, right);
+        h = lv_hi(h, m.list_tone(sel) + 1);
+        for (int k = 0; k < m.list_side_n(sel); k++) {
+            char line[80];
+            m.list_side(sel, k, line, sizeof(line));
+            h = sig_str(h, line);
+        }
+    }
+    return h;
+}
+
+static void listv_panel(lv_obj_t *sp, MenuCtl &m, int sel, int sw, int ch)
 {
     const TrxTheme &t = trx_theme();
-    const int W = trx_content_w() - 2 * x, sw = listv_side_w(), lw = W - sw - t.space_lg, ch = listv_card_h(m);
-    const int sel = m.selected();
-    TrxWindow w = listv_window(m);
-    g_first = w.first;
-    lv_obj_t *card = trx_card(c, x, y, lw, ch, false);
-    int ry = t.space_sm;
-    for (int i = 0; i < w.count; i++) {
-        const int idx = w.first + i;
-        char left[120], right[120], sub[8];
-        bool active;
-        m.row(idx, left, sizeof(left), right, sizeof(right), &active, sub, sizeof(sub));
-        const int tone = m.list_tone(idx);
-        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
-        trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, r, &ry);
-    }
-    lv_obj_t *sp = trx_card(c, x + lw + t.space_lg, y, sw, ch, true);
     trx_kicker(sp, t.space_md, t.space_sm, "SELECTED");
     if (m.rows() > 0) {
         char left[120], right[120];
@@ -653,7 +685,7 @@ static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
         py += lv_obj_get_height(nl) + t.space_sm;
         const int tone = m.list_tone(sel);
         if (right[0]) {
-            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
+            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 && tone < 5 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
             lv_label_set_long_mode(vl, LV_LABEL_LONG_MODE_WRAP);
             lv_obj_update_layout(vl);
             py += lv_obj_get_height(vl) + t.space_sm;
@@ -670,9 +702,58 @@ static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
             py += lv_obj_get_height(sl) + t.space_xs;
         }
     }
-    g_rowlist = false;                                       // no cheap path: the next key builds this page again
+}
+
+// What a row of the list page shows: its words, tone, dimness and whether it is the selected one.
+static uint32_t listv_row_hash(MenuCtl &m, int idx, int sel)
+{
+    char left[120], right[120];
+    bool active;
+    m.row(idx, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+    uint32_t h = sig_str(2166136261u, left);
+    h = sig_str(h, right);
+    return lv_hi(h, (m.list_tone(idx) + 1) | active << 4 | (idx == sel) << 5);
+}
+
+// The page's shape: what the frame, the window and the foot hold. A change of it is a new page.
+static uint32_t listv_shape(MenuCtl &m, const TrxWindow &w)
+{
+    uint32_t h = lv_hi(2166136261u, w.count);
+    h = lv_hi(h, w.count < m.rows());
+    h = lv_hi(h, status_extra(m));
+    return lv_hi(h, listv_card_h(m));
+}
+
+static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
+{
+    const TrxTheme &t = trx_theme();
+    const int W = trx_content_w() - 2 * x, sw = listv_side_w(), lw = W - sw - t.space_lg, ch = listv_card_h(m);
+    const int sel = m.selected();
+    TrxWindow w = listv_window(m);
+    g_first = w.first;
+    lv_obj_t *card = trx_card(c, x, y, lw, ch, false);
+    int ry = t.space_sm;
+    g_lv_n = w.count <= UI_ROWS_MAX ? w.count : 0;                     // a window of more rows than the table holds is never written in place
+    g_lv_rw = lw - 2 * t.space_md;
+    for (int i = 0; i < w.count; i++) {
+        const int idx = w.first + i;
+        char left[120], right[120], sub[8];
+        bool active;
+        m.row(idx, left, sizeof(left), right, sizeof(right), &active, sub, sizeof(sub));
+        const int tone = m.list_tone(idx);
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 && tone < 5 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
+        lv_obj_t *ro = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, r, &ry);
+        if (i < UI_ROWS_MAX) {
+            g_lv_row[i] = ro;
+            g_lv_h[i] = listv_row_hash(m, idx, sel);
+        }
+    }
+    lv_obj_t *sp = trx_card(c, x + lw + t.space_lg, y, sw, ch, true);
+    listv_panel(sp, m, sel, sw, ch);
+    g_lv_sp = sp;
+    g_lv_ph = listv_panel_hash(m, sel);
+    g_rowlist = false;                                       // the generic list's cheap path is not this page's: its own is listv_inplace
     g_rown = 0;
-    g_title = 0;
     {
         const char *st = status_line(m);
         const int room = trx_content_w() - 2 * x;
@@ -686,6 +767,66 @@ static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
         pos_text(pos, sizeof(pos), w, m);
         g_pos = trx_txt(c, trx_content_w() - x - trx_text_w(pos, t.caption), t.space_md + 4, pos, t.caption, t.muted);
     }
+    g_lv_sel = sel;
+    g_lv_sw = sw;
+    g_lv_ch = ch;
+    g_lv_shape = listv_shape(m, w);
+    g_lv_valid = g_lv_n == w.count;
+    g_lv_builds++;
+}
+
+// The page stands (same frame, same window length, same foot): the rows whose words moved are written again, the selection moves between two rows, the panel is made again
+// only when what it says changed. False: the page has to be built again.
+static bool listv_inplace(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    const int sel = m.selected();
+    TrxWindow w = listv_window(m);
+    if (!g_lv_valid || w.count != g_lv_n || listv_shape(m, w) != g_lv_shape || !g_status) {
+        return false;
+    }
+    g_first = w.first;
+    for (int i = 0; i < w.count; i++) {
+        const uint32_t h = listv_row_hash(m, w.first + i, sel);
+        if (h == g_lv_h[i]) {
+            continue;
+        }
+        char left[120], right[120];
+        bool active;
+        m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        const int tone = m.list_tone(w.first + i);
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 && tone < 5 ? (TrxTone)tone : TT_MUTED, w.first + i == sel, !active };
+        if (!trx_status_row_retext(g_lv_row[i], r, g_lv_rw)) {
+            return false;
+        }
+        trx_row_select(g_lv_row[i], w.first + i == sel);
+        g_lv_h[i] = h;
+    }
+    if (g_title) {
+        char tb[320];
+        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+        if (strcmp(lv_label_get_text(g_title), ft)) {
+            title_set(g_title, ft);
+        }
+    }
+    if (g_pos && w.count < m.rows()) {
+        char pos[64];
+        pos_text(pos, sizeof(pos), w, m);
+        if (strcmp(lv_label_get_text(g_pos), pos)) {
+            lv_label_set_text(g_pos, pos);
+            lv_obj_set_x(g_pos, trx_content_w() - t.space_lg - trx_text_w(pos, t.caption));
+        }
+    }
+    status_set(status_line(m), m.status_bad());
+    const uint32_t ph = listv_panel_hash(m, sel);
+    if (ph != g_lv_ph && g_lv_sp) {
+        lv_obj_clean(g_lv_sp);
+        listv_panel(g_lv_sp, m, sel, g_lv_sw, g_lv_ch);
+        g_lv_ph = ph;
+    }
+    g_lv_sel = sel;
+    g_inplace++;
+    return true;
 }
 
 void ui_menu_render(MenuCtl &m)
@@ -769,6 +910,9 @@ void ui_menu_render(MenuCtl &m)
             return;
         }
     }
+    if (m.list_view() && g_lv_valid && g_last_area == m.area() && g_last_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && listv_inplace(m)) {
+        return;                                                     // T262 D4: the list page stands, its rows and panel were written in place
+    }
     if (g_rowlist && !m.is_home() && !m.list_view() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
         int sel = m.selected();
         int o = g_rowsel - g_rowfirst, nw = sel - g_rowfirst;
@@ -825,11 +969,12 @@ void ui_menu_render(MenuCtl &m)
                 }
                 g_rown = w.count;
                 if (ok) {
-                    if (g_title && strcmp(lv_label_get_text(g_title), m.title())) {
-                        int room = trx_content_w() - 2 * t.space_lg - 240;
-                        int tw = trx_text_w(m.title(), t.display) + 4;
-                        lv_obj_set_width(g_title, tw < room ? tw : room);
-                        lv_label_set_text(g_title, m.title());
+                    if (g_title) {
+                        char tb[320];
+                        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+                        if (strcmp(lv_label_get_text(g_title), ft)) {
+                            title_set(g_title, ft);
+                        }
                     }
                     if (g_pos && w.count < m.rows()) {
                         char pos[64];
@@ -862,9 +1007,9 @@ void ui_menu_render(MenuCtl &m)
     // the title line of the pane: the tab's name, or the browser's path
     int x = t.space_lg;
     int y = t.space_md;
-    int title_room = trx_content_w() - 2 * x - 240;
-    lv_obj_t *title = trx_txt(c, x, y, m.title(), t.display, t.ink, title_room);
-    lv_obj_set_width(title, trx_text_w(m.title(), t.display) + 4 < title_room ? trx_text_w(m.title(), t.display) + 4 : title_room);
+    char tb0[320];
+    lv_obj_t *title = trx_txt(c, x, y, "", t.display, t.ink, 0);
+    title_set(title, title_fit(m.title(), tb0, sizeof(tb0)));
     y += 26;
 
     // Home is the prototype's dashboard, not a list: the running machine on the left, the status rows
@@ -875,6 +1020,7 @@ void ui_menu_render(MenuCtl &m)
     }
 
     if (m.list_view()) {
+        g_title = title;
         ui_listv(c, m, x, y);
         g_last_area = m.area();
         g_last_tab = m.tab();

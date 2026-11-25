@@ -285,7 +285,7 @@ int cmp_uaem(const void *pa, const void *pb)
 
 struct Report {
     char *out; int cap, len;
-    uint32_t hidden, uaem, toolong, big, badname, internal, links;
+    uint32_t hidden, uaem, toolong, big, unknown, badname, internal, links;
     char first[6][60]; int nfirst;
     void note(uint32_t *counter, const char *what, const char *name)
     {
@@ -465,6 +465,10 @@ bool Impl::scan(char *msg, int msglen, char *report, int replen)
                 rep.note(&rep.toolong, "name too long for the listing", nm);
                 continue;
             }
+            if (!fe.dir && !fs_size_known(fe.size)) {                      // the layout (blocks, header chain, free space) is fixed from the sizes before the first block is served: a file whose size the file system does not name cannot be placed
+                rep.note(&rep.unknown, "file of unknown size", nm);
+                continue;
+            }
             if (!fe.dir && fe.size >= 0x100000000ull) {
                 rep.note(&rep.big, "file of 4 GiB or more", nm);
                 continue;
@@ -627,12 +631,13 @@ bool Impl::scan(char *msg, int msglen, char *report, int replen)
     report[0] = 0;
     add("%u hidden; ", rep.hidden);
     add("%u 4 GiB or larger; ", rep.big);
+    add("%u of unknown size; ", rep.unknown);
     add("%u names too long; ", rep.toolong);
     add("%u names the Amiga cannot hold; ", rep.badname);
     for (int i = 0; i < rep.nfirst && o < replen - 1; i++) {
         o += snprintf(report + o, (size_t)(replen - o), "[%s] ", rep.first[i]);
     }
-    st->skipped = rep.hidden + rep.big + rep.toolong + rep.badname;
+    st->skipped = rep.hidden + rep.big + rep.unknown + rep.toolong + rep.badname;
     return ok;
 }
 
@@ -1716,7 +1721,7 @@ static uint64_t tree_bytes(CoreFs *fs, const char *dir, int depth, uint32_t *bud
             char sub[300];
             snprintf(sub, sizeof(sub), "%s/%s", dir, e[i].name);
             total += FFS_BLOCK + tree_bytes(fs, sub, depth + 1, budget, false);
-        } else if (e[i].size < 0x100000000ull) {
+        } else if (fs_size_known(e[i].size) && e[i].size < 0x100000000ull) {   // a size the file system does not name is not counted (the scan leaves such a file out)
             total += (e[i].size + FFS_BLOCK - 1) / FFS_BLOCK * FFS_BLOCK + FFS_BLOCK + e[i].size / (72 * FFS_BLOCK) * FFS_BLOCK;
         }
     }

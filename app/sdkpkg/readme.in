@@ -216,6 +216,30 @@ unchanged: everything below is a new member at the end of a table, a new value o
 - **Defects (P7, P8, P9).** A Run that waited for its fetch closes the menu. When the focused row of a screen hides, the focus goes to the next row that takes it. A value that changed on a
   screen is written into its row in place, so a RETURN on an operation row no longer builds the pane again (about 365,000 pixels became about 50,000 per RETURN) and no key is lost meanwhile.
 
+## What is new in 0.5.1 (base API 3.6, T262 D4)
+
+One round of fixes for the defects TRX64-Ultimate found in 0.5.0. The base API is 3.6 (3.5 is released with SDK 0.5.0 and stays as it was). A library built against 3.4 or 3.5 loads as before; where a fix changes what a screen shows, the line says so.
+
+- **hw.cc without `cart_regs`.** An app whose TOML A has no block `cart_regs` compiles: no cartridge-port registers, `stop` and `mode_reset` do nothing (`api.md` 6.17.5.9).
+- **A list node's count and a greyed row.** The count of a `list` node leaves out the `+` row and the `!` notes; the tone `disabled` greys a whole list row (`api.md` 6.19).
+- **`ask` per use.** `ask_max` (1 to 255, default 24) and `ask_any` (every printable character) make `ask` a free text; without them it is the name of a file as before. A text prompt that an operation asks for (`ops_ask_text`) keeps the file-name rule as before and takes every printable character only when it asks with `any`.
+- **Key rows in a library's menu record (`api.md` 6.18.5).** A library's `--menu` TOML may carry `[[key]]` rows (key or codes, op, label `legend`, `when`, as a core's `menu.toml`). While the library is loaded the menu merges them behind the core's rows; windows stay a core's. A library whose record has only key rows is never unloaded to make room for an application (the key table points into its record).
+- **`browse_at` and `browse_sheet` (`api->ctx`, `api.md` 4.14.15, 4.14.16).** One opens Browse on the folder of a path with the cursor on its file (not on `..`), the other also opens the file's action sheet, as RETURN does. Base 3.6; a library checks `SVC_HAS(api->ctx, browse_at)`. The folder (up to 199 characters) and the name (up to 255) are each measured alone; a long path is not refused for its total.
+- **A file whose size is unknown (`SVCFS_SIZE_UNKNOWN`, `api.md` 4.4.24.6).** A file system lists such a file with the size `SVCFS_SIZE_UNKNOWN`; the file list shows `-` instead of `0 KB`. A size that is known shows as before. A folder as a disk (the folder-disk mount) leaves such a file out and names it in its report ("of unknown size"), apart from the files of 4 GiB or more.
+- **A form keeps no empty space.** When rows hide under a window that had scrolled, the window moves up until it is full, also while the selection stands on a button outside the list.
+- **`goto_screen` redraws.** A `goto_screen` called by an operation the menu runs (a row, a key, a list row) draws the new screen at once; the next key no longer acts on it unseen.
+- **The search tab with a source.** RETURN on the idle Search tab asks for a name as it does without a source; the form is `/`. The idle tab shows the text the form holds, and its side panel no longer says "No media found." (`api.md` 6.20.2).
+- **`<-` from search results.** It goes back to the search form with the results kept; a row `Results` of the form opens them again (`api.md` 6.20.2).
+- **A job keeps its form.** A node's job that started on a screen leaves the screen standing: the job's row carries the words (`busy`) and the percentage, the other rows stay. On a page of one row the words are the row's, the title is the tab's when it would repeat them (`api.md` 6.7.3).
+- **The list page keeps its rows.** A key on the page of a `list` node (a move, a RETURN, a status line, rows that changed) writes the rows, the foot and the side panel in place; the page is built again only when its shape changes (about 365,000 pixels became 7,000 to 110,000 per key). The idle Search tab of the F3 Library no longer reads the folder it does not show (it held the tab blank for as long as the folder took).
+
+## What is new in 0.5.2 (base API 3.6, T262 D5)
+
+A patch on 0.5.1: the base API stays 3.6, no header changes.
+
+- **browse_at and browse_sheet from a list row and an ask_list answer.** The calls took the menu to the browser only from a node row's operation; from the operation of a `list` row or of an `ask_list` answer they did nothing and the request stayed pending until a later row. They now work there (`api.md` 4.14.15, 4.14.16).
+- **A long folder path in the Library's header no longer wraps into the first row.** The header of the browser is one line: a path that does not fit is cut in the middle with an ellipsis, so its start and its last folder stay visible.
+
 ## Licence
 
 GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own

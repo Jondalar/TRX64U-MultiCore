@@ -2455,6 +2455,127 @@ static void t262_rows(const char *out)
     CHECK(px2 > 0 && px2 < 100000);
 }
 
+// T262 D4 (10): a form that scrolled keeps no empty space below its last row when rows hide. The selection stands on the button of the bar (not a row of the list), so the window
+// has no row to follow: it must still be filled from the end.
+static const char *g_t262_hide = 0;
+static int t262_noop(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+static const char *t262_hide_state(CoreCtx *) { return g_t262_hide; }
+static void t262_form_scroll(const char *out)
+{
+    static const LibTabDecl tabs[] = { { "F5", "form", "Form", TW_NODES, 0, 0 } };
+    static const char *const looks[] = { "split;title=Form;side=Side", 0 };
+    static char labels[30][16];
+    static LibNodeDecl nodes[31];
+    for (int i = 0; i < 30; i++) {
+        snprintf(labels[i], sizeof(labels[i]), "Field %d", i);
+        nodes[i] = { "F5/form", LN_OP, labels[i], "t262.noop", 0, (int16_t)(i + 1), 0, 0, 0, 0, 0, false, i >= 18 ? "hide=@t262.hide" : 0 };
+    }
+    nodes[30] = { "F5/form/bar", LN_OP, "Go", "t262.noop", 0, 100, 0, 0, 0, 0, 0, false, "primary" };
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    rec.tabs = tabs; rec.ntabs = 1;
+    rec.nodes = nodes; rec.nnodes = 31;
+    rec.tab_layouts = looks;
+    Contributor cs[] = { { "t262f", CR_LIB, &rec } };
+    CoreDesc *base = board_desc(&atari800_desc);
+    Rig c(base, "/usb0/cores/t262f.cfg");
+    c.c.started = true;
+    OpRegistry *reg = ops_of(&c.c);
+    reg->contributor("t262f");
+    reg->add_op("t262.noop", 0, 0, t262_noop);
+    reg->add_state("t262.hide", t262_hide_state);
+    static CoreDesc merged;
+    static MenuMerge mm;
+    g_t262_hide = 0;
+    CHECK(contrib_merge(base, 0, 0, cs, 1, reg, &merged, &mm) == 0);
+    c.c.desc = &merged; c.c.merge = &mm;
+    ui_open(&merged);
+    c.m->rebuild();
+    c.m->open();
+    CHECK(c.m->goto_spec("F5/form"));
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    auto shown = [&]() { int k = 0; char nm[16]; for (int i = 0; i < 30; i++) { snprintf(nm, sizeof(nm), "Field %d", i); k += find_label(lv_screen_active(), nm) != 0; } return k; };
+    const int full = shown();                                              // the rows one window holds
+    CHECK(full > 4 && full < 18);
+    for (int i = 0; i < 20; i++) {                                         // down the rows: the window scrolls
+        c.m->key(KEY_DOWN);
+        ui_menu_render(*c.m);
+    }
+    CHECK(find_label(lv_screen_active(), "Field 0") == 0);                 // the first rows are above the window now
+    c.m->key(KEY_END);                                                     // the bar's button: no row of the list holds the selection
+    ui_menu_render(*c.m);
+    g_t262_hide = "1";                                                     // rows 18 .. 29 hide: 18 rows stay, more than one window holds, the window began below row 8
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(shown() >= full);                                               // the window is full to its last row, no empty space under "Field 17"
+    CHECK(find_label(lv_screen_active(), "Field 17") != 0);
+    char p[512];
+    snprintf(p, sizeof(p), "%s/t262-form-scroll.png", out);
+    png(p, 2);
+    printf("PASS t262 form scroll: rows hid under a scrolled window, the window is full to the last row\n");
+}
+
+// T262 D5 finding 16: the Library's path header is one line. A long folder name is cut in the middle (UX R5), it does not wrap into the first row (R2).
+static void t262_path_header(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "480p", 640, 480 }, { "720p", 1280, 720 }, { "1080p", 1920, 1080 } };
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        ui_set_canvas(want.w, want.h);
+        CoreDesc *base = board_desc(&atari800_desc);
+        Rig c(base, "/usb0/cores/t262p.cfg");
+        c.fs.put_text("/usb0/ONLINE/ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]/pic1.atr", "x");
+        c.fs.put_text("/usb0/ONLINE/ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]/pic2.atr", "x");
+        ui_open(base);
+        c.m->open();
+        c.m->key(KEY_F3);
+        ui_menu_render(*c.m); lv_timer_handler();
+        c.m->relist();
+        ui_menu_render(*c.m); lv_timer_handler();
+        const char *steps[] = { "usb0", "ONLINE", "ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]" };
+        for (const char *st : steps) {
+            int r = find_dir_row(c, st);
+            CHECK(r >= 0);
+            if (r < 0) { break; }
+            select_row(c, r);
+            c.m->key(KEY_RETURN);
+            ui_menu_render(*c.m); lv_timer_handler();
+            c.m->relist();
+            ui_menu_render(*c.m); lv_timer_handler();
+        }
+        char tag[64];
+        snprintf(tag, sizeof(tag), "t262 path header %s", cv.name);
+        lv_obj_t *scr = lv_screen_active();
+        lv_obj_update_layout(scr);
+        lv_obj_t *hd = find_label(scr, "/usb0");
+        lv_obj_t *r0 = find_label(scr, "..");
+        CHECK(strstr(c.m->title(), "ULTIMATE HIRES IMAGE PACK 384X272 [ULTIMATE]") != 0);
+        CHECK(hd && r0);
+        if (hd && r0) {
+            lv_area_t ah, ar;
+            lv_obj_get_coords(hd, &ah);
+            lv_obj_get_coords(r0, &ar);
+            const int lh = lv_font_get_line_height(trx_theme().display);
+            const bool one_line = (ah.y2 - ah.y1 + 1) <= lh + 2;
+            const bool clear = ah.y2 < ar.y1 || ah.x2 < ar.x1 || ar.x2 < ah.x1;
+            printf("%s: header \"%s\" [%d,%d - %d,%d] first row [%d,%d - %d,%d] line %d px\n", tag, lv_label_get_text(hd), ah.x1, ah.y1, ah.x2, ah.y2, ar.x1, ar.y1, ar.x2, ar.y2, lh);
+            CHECK(one_line);
+            CHECK(clear);
+            CHECK(strchr(lv_label_get_text(hd), '\n') == 0);
+            if (one_line && clear) { printf("PASS t262 path header %s: one line, clear of the first row\n", cv.name); }
+        }
+        CHECK(txt_overlaps(tag) == 0);
+        char fn[512];
+        snprintf(fn, sizeof(fn), "%s/t262-path-%s.png", out, cv.name);
+        lv_obj_invalidate(scr);
+        lv_timer_handler();
+        if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+    }
+    ui_set_canvas(960, 540);
+}
+
 // T262 P1: the page of a `list` node draws what its rows carry: one line per row (name, the right column in the row's tone), the selected row's side lines in the side panel
 // (not in the foot line). At 480p, 720p and 1080p: the tone is drawn, the panel holds the lines, no text lies on another, the selection stays in view.
 static std::string g_t262_list;
@@ -2536,6 +2657,28 @@ static void t262_list(const char *out)
         lv_obj_invalidate(lv_screen_active());
         lv_timer_handler();
         if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
+        // T262 D4 (1): a key on the page writes it in place: a move redraws two rows and the panel, a RETURN the status line, not the page (~365,000 px a build)
+        {
+            const uint32_t b0 = ui_listv_builds(), ip0 = ui_inplace_moves();
+            c.m->key(KEY_DOWN);
+            ui_menu_render(*c.m);
+            const uint32_t px = inv_pixels();
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0 && ui_inplace_moves() == ip0 + 1);
+            CHECK(find_label(lv_screen_active(), "side one of 1") != 0 && find_label(lv_screen_active(), "side one of 0") == 0);
+            CHECK(px > 0 && px < 150000);                                      // two rows and the panel, a third of the ~365,000 of a build
+            c.m->key(KEY_RETURN);                                              // the library works on the row: the status line says so, the page stands
+            ui_menu_render(*c.m);
+            const uint32_t px2 = inv_pixels();
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0 && ui_inplace_moves() == ip0 + 2);
+            CHECK(px2 < 100000);
+            printf("AREA t262 list %s: DOWN %u px, RETURN %u px\n", cv.name, (unsigned)px, (unsigned)px2);
+            c.m->key(KEY_UP);
+            ui_menu_render(*c.m);
+            lv_timer_handler();
+            CHECK(ui_listv_builds() == b0);
+        }
         // the last row selected: the window moved, the row stands inside the card and the panel shows its lines
         c.m->key(KEY_END);
         ui_menu_render(*c.m);
@@ -2558,6 +2701,56 @@ static void t262_list(const char *out)
     }
     ui_set_canvas(960, 540);
 }
+
+// T262 D4 (4): the idle Search tab with a library as a source: the row shows the text the form holds, and the empty tab's side panel does not say there are no media.
+static void t262_search_tab(const char *out)
+{
+    g_t262_list.clear();
+    static const LibNodeDecl nodes[] = { { "F3/search", LN_LIST, "Online results", "t262.take", "t262.rows", 1, 0, 0, 0, 0, 0, false, "search=Online;find=t262.take;fields=Group" } };
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    rec.nodes = nodes; rec.nnodes = 1;
+    Contributor cs[] = { { "t262s", CR_LIB, &rec } };
+    static const SkelTab f3tabs[] = { { "browse", "Browse", 1, TW_BROWSER, 0, "library" }, { "search", "Search", 2, TW_BROWSER, 0, "library" } };
+    static const SkelArea f3areas[] = { { "F3", "Library", false, f3tabs, 2 } };
+    static const Skeleton f3sk = { f3areas, 1 };
+    CoreDesc *base = board_desc(&atari800_desc);
+    Rig c(base, "/usb0/cores/t262s.cfg");
+    c.c.started = true;
+    OpRegistry *reg = ops_of(&c.c);
+    reg->contributor("t262s");
+    reg->add_op("t262.take", t262_take_args, 2, t262_list_take);
+    reg->add_state("t262.rows", t262_list_state);
+    static CoreDesc merged;
+    static MenuMerge mm;
+    CHECK(contrib_merge(base, &f3sk, 0, cs, 1, reg, &merged, &mm) == 0);
+    c.c.desc = &merged; c.c.merge = &mm;
+    ui_open(&merged);
+    c.m->rebuild();
+    c.m->open();
+    CHECK(c.m->goto_spec("F3/search"));
+    CHECK(c.m->search_tab() && c.m->search_source_count() == 1);
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "No media found.") == 0);
+    CHECK(find_label(lv_screen_active(), "This device  -  Name contains:  press RETURN to type") != 0);
+    c.m->key('/');                                                          // the form: type a name in its second row
+    c.m->key(KEY_DOWN);
+    c.m->key(KEY_RETURN);
+    c.m->key('a'); c.m->key('b');
+    c.m->key(KEY_RETURN);
+    c.m->key(KEY_ESCAPE);                                                   // leave the form
+    CHECK(!c.m->picking());
+    ui_menu_render(*c.m);
+    lv_timer_handler();
+    CHECK(find_label(lv_screen_active(), "This device  -  Name contains:  ab") != 0);
+    CHECK(find_label(lv_screen_active(), "No media found.") == 0);
+    char p[512];
+    snprintf(p, sizeof(p), "%s/t262-search-tab.png", out);
+    png(p, 2);
+    printf("PASS t262 search tab: the form's text stands in the row, the panel does not claim there are no media\n");
+}
 #endif
 
 int main(int argc, char **argv)
@@ -2579,7 +2772,10 @@ int main(int argc, char **argv)
 #ifdef RENDER_APP_ATARI800                                          // T239.5 D13: the cases on the Atari 800 XL's descriptor (the main rig below): its build
     if (getenv("T262_ONLY")) {                                      // T262 P9: only the area of a key that runs an operation
         t262_rows(out);
+        t262_form_scroll(out);
         t262_list(out);
+        t262_search_tab(out);
+        t262_path_header(out);
         printf("coreapp render (T262_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
     }
@@ -3164,7 +3360,10 @@ int main(int argc, char **argv)
 #endif
 #ifdef RENDER_APP_ATARI800
     t262_rows(out);
+    t262_form_scroll(out);
     t262_list(out);
+    t262_search_tab(out);
+    t262_path_header(out);
 #endif
 #ifndef RENDER_OWN_APP
     mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before

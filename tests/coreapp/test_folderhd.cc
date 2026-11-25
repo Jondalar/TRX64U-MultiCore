@@ -872,6 +872,23 @@ static void s8_limits()
         CHECK(rd.check_all());
         CHECK(rd.find("small.txt") && !rd.find("huge.bin") && rd.ents.size() == 1);
     }
+    // finding 4: a file whose size the file system does not name is left out, named in the report as such (not as a file of 4 GiB), and counted as skipped
+    {
+        FakeFs fs;
+        put_dated(fs, "/usb0/h/small.txt", pat(1, 100));
+        put_dated(fs, "/usb0/h/unk.bin", pat(2, 100));
+        fs.size_unknown.insert("/usb0/h/unk.bin");
+        Env e(&fs);
+        CHECK_EQ(e.mount(0, "/usb0/h", "1", msg, sizeof(msg)), 0);
+        const char *rep = e.disk(0)->report();
+        CHECK(strstr(rep, "unk.bin") != 0 && strstr(rep, "unknown size") != 0 && strstr(rep, "4 GiB or more") == 0);
+        CHECK_EQ(e.disk(0)->stats().skipped, 1);
+        Dev dev(*e.r, 0);
+        Reader rd(dev);
+        CHECK(rd.check_all());
+        CHECK(rd.find("small.txt") && !rd.find("unk.bin") && rd.ents.size() == 1);
+        printf("S8x: a file of unknown size is left out and reported\n");
+    }
     // the overlay: more metadata than the heap cap is kept, in the scratch file, and nothing is lost
     {
         FakeFs fs;

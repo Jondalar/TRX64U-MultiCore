@@ -383,6 +383,28 @@ int main(int argc, char **argv)
         cx->ask_list("lib.pick", 1, "x", "");                                // no rows: nothing is asked
         CHECK_EQ(r.c.want_prompt.kind, 0);
         r.c.menu_op = 0;
+        // T262 D4 finding 12: ctx.browse_at / browse_sheet store the folder, the file and the screen for the menu; only inside an operation the menu called, only for "/medium/.../name"
+        CHECK(cx->size >= offsetof(SvcCtx, browse_sheet) + sizeof(cx->browse_sheet) && cx->browse_at && cx->browse_sheet);
+        memset(r.c.lib.want_dir, 0, sizeof(r.c.lib.want_dir)); r.c.lib.want_name[0] = 0; r.c.lib.want_sheet = false; r.c.want_screen[0] = 0;
+        CHECK(!cx->browse_at("/usb0/games/a.d64"));                          // outside a call of the menu: refused
+        CHECK(r.c.want_screen[0] == 0);
+        r.c.menu_op = 1;
+        CHECK(!cx->browse_at("a.d64") && !cx->browse_at("/usb0/games/") && !cx->browse_at(0));
+        CHECK(cx->browse_at("/usb0/games/a.d64"));
+        CHECK_STR(r.c.lib.want_dir, "/usb0/games"); CHECK_STR(r.c.lib.want_name, "a.d64"); CHECK(!r.c.lib.want_sheet); CHECK_STR(r.c.want_screen, "F3/browse");
+        CHECK(cx->browse_sheet("/x"));
+        CHECK_STR(r.c.lib.want_dir, "/"); CHECK_STR(r.c.lib.want_name, "x"); CHECK(r.c.lib.want_sheet);
+        {   // the folder and the name are measured each against its own buffer (finding 3): a whole path longer than the folder's buffer is fine
+            const std::string d150 = "/" + std::string(149, 'd'), n100(100, 'n');
+            CHECK(cx->browse_at((d150 + "/" + n100).c_str()));
+            CHECK_STR(r.c.lib.want_dir, d150.c_str()); CHECK_STR(r.c.lib.want_name, n100.c_str());
+            CHECK(cx->browse_at(("/" + std::string(198, 'd') + "/" + std::string(255, 'n')).c_str()));      // 199 and 255: the most the buffers hold
+            CHECK_EQ(strlen(r.c.lib.want_dir), 199u); CHECK_EQ(strlen(r.c.lib.want_name), 255u);
+            CHECK(!cx->browse_at(("/" + std::string(199, 'd') + "/n").c_str()));                           // a folder of 200: refused
+            CHECK(!cx->browse_at(("/d/" + std::string(256, 'n')).c_str()));                                // a name of 256: refused
+        }
+        r.c.menu_op = 0;
+        r.c.lib.want_sheet = false; r.c.lib.want_name[0] = 0; r.c.want_screen[0] = 0; r.c.lib.want_dir[0] = 0;
         g_slot[1] = "ro /usb0/g.crt";                                        // the engine changes by its own doing
         cx->mount_notify("Cart");
         CHECK_EQ(r.c.mounts_dirty[1], 1);
