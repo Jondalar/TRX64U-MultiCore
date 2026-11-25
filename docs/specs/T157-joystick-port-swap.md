@@ -113,7 +113,7 @@ Scenario: S5 board
   Swapped. Since d870c7ea2 Normal is port n -> port n: a joystick in the C64's port 2 plays the Amiga's joystick port with
   Normal; §1 and S5 are corrected to it. A saved Swapped now crosses the ports. The bench's expectations are flipped (line 104
   is the record of the old ones).
-- **Open:** the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push). Board S5 (Amiga with a joystick in physical port 2): closed as done 2026-11-18 (last entry) with Swapped, the mapping before #125; open again with Normal on the new bitstreams.
+- **Open:** the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push). Board S5 (Amiga with a joystick in physical port 2): closed as done 2026-11-18 (last entry) with Swapped, the mapping before #125; passed again 2026-11-25 with Normal on the A1200 (`a1200-239.cor`, Alex: "Joystick 'Normal' is port 2 then. Very good."); the A500 waits for its bitstream.
 - **2026-10-29, vc20 decided (Alex: "a"):** no setting on the VC-20. Its one joystick port takes both physical ports (OR), so a
   joystick works in either port already; S3 holds for every core with two ports.
 - **2026-11-18 - board steps closed as done (shipped and in use):** S5 (joystick port swap, then trx64u) - Alex 2026-11-15: "Under A
