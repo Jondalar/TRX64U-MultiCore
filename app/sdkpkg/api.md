@@ -2162,7 +2162,7 @@ Since base 3.3.
 
 Since base 3.5 (T262).
 
-6.19.1 A node of kind `list` (`kind = "list"` in a menu record) shows the rows a library makes at run time, with no node declared for a row. In its tab it is one row: the label of the node and, as its value, how many rows the state holds now (`None yet`, or the text of its `empty`, while there are none). RETURN opens the rows as a page of their own: a list that scrolls, with the title of the node, that takes UP, DOWN, PAGE UP, PAGE DOWN, HOME, END, RETURN and `<-`. It has the `when_state`, `hide`, `why` and `empty` of every node. The kind needs a `state` (the rows) and an `op` (what a row does), and takes no `bind`; the merge refuses it without them, and when the state, the operation or the operation `more` is not registered.
+6.19.1 A node of kind `list` (`kind = "list"` in a menu record) shows the rows a library makes at run time, with no node declared for a row. In its tab it is one row: the label of the node and, as its value, how many rows the state holds now (0.5.1: the `+` row and the `!` notes are not counted; `None yet`, or the text of its `empty`, while there are none). RETURN opens the rows as a page of their own: a list that scrolls, with the title of the node, that takes UP, DOWN, PAGE UP, PAGE DOWN, HOME, END, RETURN and `<-`. It has the `when_state`, `hide`, `why` and `empty` of every node. The kind needs a `state` (the rows) and an `op` (what a row does), and takes no `bind`; the merge refuses it without them, and when the state, the operation or the operation `more` is not registered.
 6.19.2 The state holds the rows as text, one row a line; the fields of a line are separated by TAB and every field after the first may be left out:
 
 | Field | Contract |
@@ -2170,7 +2170,7 @@ Since base 3.5 (T262).
 | 1 `value` | What the row is. A choice passes it as `answer` (4.14.14); a list passes it as `answer` too. It may be empty. |
 | 2 `label` | The text of the row, up to 61 characters. Empty: the value. |
 | 3 `right` | The second column, up to 39 characters (a size, a signal strength, a year). |
-| 4 `tone` | `muted`, `cyan`, `violet`, `amber` or `coral`. The row's dot and its right column are drawn in that tone (the same five tones as every status row); `list_tone` of the menu controller reads it. |
+| 4 `tone` | `muted`, `cyan`, `violet`, `amber` or `coral`. The row's dot and its right column are drawn in that tone (the same five tones as every status row); `list_tone` of the menu controller reads it. `disabled` (0.5.1) greys the whole row, name, dot and right column, as a row that cannot be taken is drawn; RETURN on it still calls `op`, the library decides. |
 | 5 to 7 | Up to three lines the row says about itself. The list page shows the lines of the selected row, one under the other, in the SELECTED panel at the right of the rows (the panel of the F3 browser); the foot line does not repeat them. The rows stay one line each: name, the right column in its tone. |
 
 A line that starts with `!` is a note: shown, never taken (a search that is still running). A line that starts with `+` is the last row, the one that asks for more: its text after the `+` is its label (empty: `More`). Empty lines are skipped. The text is read from the state again about every half second while the page is up, so a job that appends rows makes the list grow; the cursor stays on its row number.

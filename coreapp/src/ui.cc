@@ -636,7 +636,7 @@ static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
         bool active;
         m.row(idx, left, sizeof(left), right, sizeof(right), &active, sub, sizeof(sub));
         const int tone = m.list_tone(idx);
-        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 && tone < 5 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
         trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, r, &ry);
     }
     lv_obj_t *sp = trx_card(c, x + lw + t.space_lg, y, sw, ch, true);
@@ -653,7 +653,7 @@ static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
         py += lv_obj_get_height(nl) + t.space_sm;
         const int tone = m.list_tone(sel);
         if (right[0]) {
-            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
+            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 && tone < 5 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
             lv_label_set_long_mode(vl, LV_LABEL_LONG_MODE_WRAP);
             lv_obj_update_layout(vl);
             py += lv_obj_get_height(vl) + t.space_sm;

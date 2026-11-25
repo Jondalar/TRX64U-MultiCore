@@ -1165,7 +1165,7 @@ int main(int argc, char **argv)
         CHECK_STR(r.right(row).c_str(), "None yet");                                  // no rows yet
         for (int i = 0; i < 200; i++) g_rows += "id" + std::to_string(i) + "\tResult " + std::to_string(i) + "\t" + std::to_string(i * 3) + " KB\t" + (i % 2 ? "amber" : "muted") + "\tside one " + std::to_string(i) + "\tside two\n";
         g_rows += "+More results";
-        CHECK_STR(r.right(row).c_str(), "201 >");
+        CHECK_STR(r.right(row).c_str(), "200 >");                                     // T262 D4: the '+' row is not a result
         r.go_to("Results");
         CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
         CHECK(r.m->picking());
@@ -1193,6 +1193,24 @@ int main(int argc, char **argv)
         CHECK_STR(r.left(200).c_str(), "Result 200");
         r.m->key(KEY_ESCAPE);
         CHECK(!r.m->picking());
+        // T262 D4: the tone `disabled` greys the whole row (its active flag is what the page draws dim); a note is no row, so the node counts 2
+        {
+            g_rows = "a\tOpen one\t1 KB\tcyan\nb\tGone\t2 KB\tdisabled\n!A note\n+More";
+            Rig rd(cs, 1);
+            rd.m->open();
+            rd.m->key(KEY_F5);
+            const int rw = rd.find_row("Results");
+            CHECK_STR(rd.right(rw).c_str(), "2 >");
+            rd.go_to("Results");
+            rd.m->key(KEY_RETURN);
+            CHECK(rd.m->picking());
+            char l[100], rt[100]; bool act = false;
+            rd.m->row(0, l, 100, rt, 100, &act); CHECK(act);
+            rd.m->row(1, l, 100, rt, 100, &act); CHECK(!act);
+            CHECK_EQ(rd.m->list_tone(1), 5);
+            CHECK_STR(rt, "2 KB");
+        }
+        g_rows.clear();
         // a record that is nothing but its rows state (no operation for a row) is refused by name
         static const LibNodeDecl bad[] = { { "F5/settings", LN_LIST, "Bare list", 0, "zl.rows", 1 } };
         LibRecord br;

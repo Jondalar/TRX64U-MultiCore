@@ -915,7 +915,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
     if (pick_ && pick_dyn_) {                                       // T228 R21: a list made at run time
         PickRow pr;
         if (pl_row_at(i, &pr)) {
-            *active = !pr.note;
+            *active = !pr.note && pr.tone != 5;                                // T262 D4: the tone `disabled` greys the whole row
             snprintf(left, ln, "%s", pr.label);
             if (right && rn) {
                 snprintf(right, rn, "%s", pr.right);
@@ -1144,7 +1144,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         } else if (n.kind == LN_GROUP) {
             *active = false;
         } else if (n.kind == LN_LIST) {                                      // T262 P1: the number of rows the node's state holds now; RETURN opens them
-            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            const int cnt = picklist_count_rows(n.state ? ops_state(c_, n.state) : 0);
             if (cnt) {
                 snprintf(right, rn, "%d >", cnt);
             } else {
@@ -4534,7 +4534,7 @@ void MenuCtl::item(int i, Item *it)
             }
         }
         if (n.kind == LN_LIST) {                                           // T262 P1: a button that opens the node's rows; its chip is how many there are
-            const int cnt = picklist_count(n.state ? ops_state(c_, n.state) : 0);
+            const int cnt = picklist_count_rows(n.state ? ops_state(c_, n.state) : 0);
             char em[40];
             if (cnt) {
                 snprintf(it->chip, sizeof(it->chip), "%d", cnt);

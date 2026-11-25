@@ -1,7 +1,7 @@
 // The rows of a pick list and of a list view the menu shows (T228 R21, T262 P1/P2): rows made at run time. A state holds them as text, one row a line, fields separated by TAB:
 //     value TAB label TAB right TAB tone TAB side TAB side TAB side
 // Every field after `value` may be left out (the label is then the value). `right` is a second column (a signal strength, a size). `tone` is one of muted, cyan, violet,
-// amber, coral (a list view; empty: none). `side` is a line the row says about itself (a list view shows them in the foot while the row is selected), at most three.
+// amber, coral, or disabled (a list view; empty: none; `disabled` greys the whole row, the way a row that cannot be taken is drawn). `side` is a line the row says about itself (a list view shows them in the side panel while the row is selected), at most three.
 // A line that starts with '!' is a note, not a choice (a scan that is still running): it is shown and never taken. A line that starts with '+' is the last row of a list view
 // that asks for more: its text is the row's label (empty: "More"). Pure: the same file runs in tests/coreapp/.
 //
@@ -18,7 +18,7 @@ struct PickRow {
     char right[40];
     bool note;                        // not a choice
     bool more;                        // a list view's last row: RETURN asks the library for more rows
-    int tone;                         // -1 none, 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral
+    int tone;                         // -1 none, 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral, 5 disabled (the whole row greyed)
     int nside;
     char side[PICKLIST_SIDE_MAX][64];
 };
@@ -45,5 +45,7 @@ void picklist_get(const PickRows &p, int i, PickRow *out);
 int picklist_find(const PickRows &p, const char *value);
 // The number of rows the text has (what picklist_parse would return without the budget), without copying it.
 int picklist_count(const char *text);
+// The rows a person can take: picklist_count without the '+' (more) row and the '!' notes (the count a list node shows).
+int picklist_count_rows(const char *text);
 
 #endif
