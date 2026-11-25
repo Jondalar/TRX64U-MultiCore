@@ -68,4 +68,23 @@ Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2
 
 ## §5 Build notes
 
-(filled while building)
+Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; published as SDK 0.5.0, release `sdk-0.5.0-199705ec`
+(t239.3 run 45628574736 green). Base API 3.5; a library built against 3.4 loads unchanged (unit `libcompat`).
+
+- Part A (37061be04 P7, ff08e69b5 P3+P6+P8, de7e48137 P4, f14e37d25 P9). Causes confirmed in the code: P7 `pend_tick` dropped
+  `run_action`'s result; P8 `sync_show` rebuilt without refocus; P9 a changed value changed the screen signature and the whole pane
+  was rebuilt (365,569 px per RETURN; now 40,700-50,600 px: rows are rewritten in place on split, status and desk layouts; library,
+  app, grid and terminal layouts still rebuild); no key-dropping code was found (the run loop takes 24 queued keys per pass), the
+  shorter render is the fix; P4 the file-write caption; P6 the key table had no legend; P3 tabs fixed at merge.
+- Part B (334e6c813 P1+P2, c71441346 P5, 5cbefbb28 release): `list` is one row in its tab that opens its rows as a page (a tab holds
+  at most 128 items, read every frame: screens.cc MAXI); the old folder `pick` key stays, `pick = "@state"` (leading '@') is the
+  choice list; a search source is a `list` node at `F3/search`. Part C (8e91f9325): the list page draws the rows' tones and the
+  selected row's side lines in a SELECTED panel.
+- Review (one agent): 8 findings, 7 fixed with a unit each (6a9c152a4 pump close saves the reopen place, b0cf2efc2 stale ask_list,
+  7dbd16cfe heap budget counts the offsets, 964505682 rebuild closes an open node pick, 02f568514 menu never opens on a hidden tab,
+  16aab962c docs); one did not hold (an app session's menu always consumes its close). The t239.3 lint then found raw keys in the
+  search form's handler (menu controller gate, T192.3): moved into `pick_key` (199705ec7).
+- Tests: 27 coreapp units PASS, render bench 291,182 checks 0 failed (`t262_list` at 480p, 720p, 1080p), `tools/test_descrec.py`
+  119 OK, RISC-V build ok.
+- Open: S9 on the board (Alex: no blank content, no lost key over 150 RETURNs); the list page and the search form in ue2emu with a
+  real library (TRX64-Ultimate's online sub-app is the first user, their UX review).
