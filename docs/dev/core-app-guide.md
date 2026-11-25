@@ -217,8 +217,7 @@ hook `base_setting_changed` (`core_hooks.h`).
 
 Settings can also carry `group`, `show_state` (show the row only while a state value holds), `kind` 1/2 (a text the person types, shown plain or as stars)
 or 3 (a file the person selects: the row shows its path, `apply` takes one text `path`, and no reset applies it), `lock_state` (a state whose text stands in
-place of the value while it has one; the menu then refuses a change) and `pick` (a value list filled at run time: `hotkeys.keys`, `hotkeys.modifiers`,
-`view.schemes`).
+place of the value while it has one; the menu then refuses a change) and `pick` (a value list filled at run time: `hotkeys.keys`, `hotkeys.modifiers`).
 
 ## 5. ROMs
 
