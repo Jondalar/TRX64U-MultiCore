@@ -76,6 +76,9 @@ DDTLIB="$ROOT/cores/ddt_novic/app/lib"   # the DDT core's library lives in its o
 source "$TST/zx_drv.sh"
 zx_drv_dir "$T/zxtab" || { echo "coreapp: the ZX Spectrum's driver table was not generated" >&2; exit 1; }   # zx_regs.h names the registers through it
 ZXLIB="$ROOT/cores/zx/app/lib"   # the ZX Spectrum's library lives in its own repository part (cores/zx/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
+source "$TST/cpc_drv.sh"
+cpc_drv_dir "$T/cpctab" || { echo "coreapp: the CPC's driver table was not generated" >&2; exit 1; }   # cpc_regs.h names the registers through it
+CPCLIB="$ROOT/cores/cpc/app/lib"   # the CPC's library lives in its own repository part (cores/cpc/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
@@ -103,6 +106,9 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DDT+=("$i"); done
 # so its own copies of tape_deck.cc, tape_pulses.cc (and the headers, by -I) are the ones built, not the shared app's.
 INC_ZX=(-DTEST_APP_ZX=1 -I"$ZXLIB" -I"$T/zxtab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_ZX+=("$i"); done
+INC_CPC=(-DTEST_APP_CPC=1 -I"$CPCLIB" -I"$T/cpctab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_CPC+=("$i"); done
+cpcapp() { local INC=("${INC_CPC[@]}") CA_APP=cpc APPLIB="$CPCLIB"; "$@"; }
 zxapp() { local INC=("${INC_ZX[@]}") CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
 ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
@@ -155,6 +161,7 @@ control_job() {
   local d="$JOBDIR/mut"; mkdir -p "$d"
   cp "$SRC"/* "$d"/ 2>/dev/null || true
   cp -R "$CORES"/* "$d"/ 2>/dev/null || true
+  [ -z "${APPLIB:-}" ] || cp "$APPLIB"/* "$d"/   # a core of its own app: its library over the shared sources of the same name
   cp "$LOADERS"/* "$d"/ 2>/dev/null || true
   cp "$VIDEO"/* "$d"/ 2>/dev/null || true
   cp "$LIB1541"/* "$d"/ 2>/dev/null || true
@@ -289,14 +296,14 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc snes_rom.cc c264.cc pet.cc c128.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -445,23 +452,10 @@ control a2d_no_flush apple2_disk.cc '/T180 D4: written back first/s/if (a2_flush
 A2="apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc $BASEL"
 run apple2 test_apple2.cc $A2
 
-# T91 (the ZX Spectrum on the generic application): the tape converter of the shared app's copy (the CPC's and the PET's); the Spectrum's own copy is the unit tape_zx below
+# T91 (the ZX Spectrum on the generic application): the tape converter of the shared app's copy (the PET's); the Spectrum's and the CPC's own copies are the units tape_zx and tape_cpc below
 TP="tape_pulses.cc"
 run tape test_tape.cc $TP
 
-# T92 (the Amstrad CPC on the generic application): the descriptor, the two DSK drives with their write-back and the tape, against a model of the core
-CPC="cpc.cc cpc_disk.cc tape_deck.cc tape_pulses.cc $BASEL"
-run cpc test_cpc.cc $CPC
-run cpc_menu test_cpc_menu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $CPC
-control cpc_disk_take cpc_disk.cc 's/            c->io->wr(dirty_reg\[drive\] + m, b);    \/\/ taken.*$/            (void)0;/' test_cpc.cc $CPC
-control cpc_disk_idle cpc_disk.cc 's/now - d.last_ms >= CPCD_IDLE_MS || //' test_cpc.cc $CPC
-control cpc_disk_maxdirty cpc_disk.cc 's/ || now - d.first_ms >= CPCD_MAX_DIRTY_MS//' test_cpc.cc $CPC
-control cpc_disk_short cpc_disk.cc 's/uint32_t len = disk.size - off < CPC_DIRTY_CHUNK ? disk.size - off : CPC_DIRTY_CHUNK;/uint32_t len = CPC_DIRTY_CHUNK;/' test_cpc.cc $CPC
-control cpc_disk_eject cpc_disk.cc 's/^    cpcd_poll(c, s, false);   .*$/    (void)0;/' test_cpc.cc $CPC
-control cpc_disk_retry cpc_disk.cc 's/now - d.try_ms >= 1000/false/' test_cpc.cc $CPC
-control cpc_disk_mountflush cpc_disk.cc 's/if (d.mounted \&\& !flush_drive(c, d, drive)) {/if (false) {/' test_cpc.cc $CPC
-control cpc_disk_marks cpc_disk.cc 's/c->io->wr(dirty_reg\[drive\] + m, 0xFF);/(void)0;/' test_cpc.cc $CPC
-control cpc_disk_flushinit cpc.cc 's/    cpcd_flush_all(c, \&st->disks);   .*$/    (void)0;/;s/^static int cpc_media_flush.*$/static int cpc_media_flush(CoreCtx *, char *, int) { return 0; }/' test_cpc.cc $CPC
 
 # T83 (the VIC-20 on the generic application): the descriptor against a model of the register block and the ROM aperture; the PRG job (cbm_run.cc) is shared with the 264
 VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
@@ -537,7 +531,7 @@ control mnt_set_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RE
 # engine writes back before it lets the medium go (eject, replacement, reset, reload, restart), completely, and keeps the medium when it cannot
 control mwb_hook_flush engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
 control mwb_hook_pending engines.cc 's/ || (d \&\& d->media_pending \&\& d->media_pending(c))//' $MWB
-DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -548,10 +542,6 @@ control a2d_hdd_sync_ignored apple2_hdd.cc 's/if (!u->file->sync()) {/if (!u->fi
 # Atari: a sync the medium refuses leaves the drive dirty and the disk in the drive
 control a8_flush_ignored atari_media.cc 's/if (!st->sio.flush_drive(drive, msg, msglen)) {/if (!st->sio.flush_drive(drive, msg, msglen) \&\& false) {/' test_atari_media.cc $ATARI
 control a8_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_atari_media.cc $ATARI
-# CPC: the marks the poll has not taken are taken before the disk is replaced, a sync that failed is owed until it works
-control cpc_unsynced_forgotten cpc_disk.cc 's/disk.unsynced = true;/(void)0;/' test_cpc.cc $CPC
-control cpc_mount_poll cpc_disk.cc '/T180 D1: the last marks/s/cpcd_poll(c, s, false);/(void)0;/' test_cpc.cc $CPC
-control cpc_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_cpc.cc $CPC
 # the drive library of the Commodore cores: written back before eject and replacement, a track the file did not take is written again, an unlinked disk stops nothing
 vc20app control drv_mount_settle d1541_drive.cc '/T180 D1, D4: what the head wrote/s/settle();/(void)0;/' test_cbm1541.cc $VC20
 vc20app control drv_eject_settle d1541_drive.cc '/T180 D4: written back (again) before the gate asks/s/settle();/wait_for_writeback();/' test_cbm1541.cc $VC20
@@ -581,10 +571,6 @@ control mme_a8_disk atari_media.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2
 control mme_a8_cart atari_media.cc 's/^    mount_notify(c, SIO_DRIVES); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_a8_cart_reg atari_media.cc 's/^    a8_write_cart_reg(c); *\/\/ the machine is held.*$/    (void)0;/' $MME
 control mme_a8_xex atari_media.cc 's/"xex %s", path/"%s", path/' $MME
-control mme_cpc_mount cpc_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2: the slots are A, B, Tape$/    (void)0;/' $MME
-control mme_cpc_eject cpc_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2$/    (void)0;/' $MME
-control mme_cpc_eject_empty cpc_disk.cc 's/^        mount_notify(c, drive); *\/\/ T180 D2: an eject of the empty.*$/        (void)0;/' $MME
-control mme_cpc_model cpc.cc 's/int mi = c->media_restoring \&\& c->settings/int mi = false \&\& c->settings/' $MME
 control mme_tape_notify tape_deck.cc 's/^    mount_notify(c, r.slot); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_drive_mount d1541_drive.cc 's/^    changed(); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_drive_eject d1541_drive.cc 's/^    changed(); *\/\/ T180 D2: the empty drive is stored$/    (void)0;/' $MME
@@ -597,7 +583,6 @@ control mme_c264_model c264.cc 's/        c->settings->set(mi, 1); *\/\/ Plus\/4
 control mme_nes_eject nes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_neo_eject neogeo.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
-control mme_cpc_fail cpc_disk.cc 's/^            mount_notify(c, drive); *\/\/ the old disk is out and the drive is empty$/            (void)0;/' $MME
 control mme_tape_fail tape_deck.cc 's/^            mount_notify(c, r.slot); *\/\/ the old tape is out and the deck is empty$/            (void)0;/' $MME
 control mme_drive_fail d1541_drive.cc 's/^        changed(); *\/\/ T180 D2: the old disk is out and the drive is empty$/        (void)0;/' $MME
 control mme_c64_giveup c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2: told by the name of the slot.*$/    (void)0;/' $MME
@@ -678,7 +663,7 @@ PASS=$((PASS + 1))
 run romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 run amiga500 test_amiga500.cc $AM
@@ -733,7 +718,7 @@ vc20app control drv_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&i
 
 # T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC. The images are read back by
 # checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu.
-NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc cpc.cc cpc_disk.cc tape_deck.cc tape_pulses.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
+NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
 run newdisk test_newdisk.cc $NDSRC
 control nd_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isdir)) {/        if (false) {/' test_newdisk.cc $NDSRC
 control nd_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_newdisk.cc $NDSRC
@@ -800,7 +785,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+ALLCORES="amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -829,11 +814,11 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-RARGS="$BUN/desc_cut.bin" run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$BUN/desc_cut.bin" run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: Timewarp's and the monitor's keys of the record menu are operations, the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole
-RARGS="$BUN/desc_cut.bin" run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+RARGS="$BUN/desc_cut.bin" run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc tape_pulses.cc tape_deck.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc c264.cc pet.cc c128.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
@@ -1024,6 +1009,59 @@ PY
   return 0
 }
 if ca_in zx && ca_unit zx_romreq; then t_romreq_zx; PASS=$((PASS + 1)); fi
+
+# T239.5 D4, D16: the CPC's units, built as its app (cpcapp: its library cores/cpc/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the group cpc) -
+# the units its TOML B (cores/cpc/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: cpc.cc, cpc_disk.cc, the tape deck and the base's.
+# The descriptor, the two DSK drives with their write-back and the tape, against a model of the core.
+CPCS="cpc.cc cpc_disk.cc tape_pulses.cc tape_deck.cc $BASEL"
+CPCA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $CPCS"
+CPCD="desc_check.cc overlay.cc descrec.cc $CPCA"
+CPCM="test_media_mounts_engines.cc $CPCD start.cc handover.cc"
+CARGS="" RARGS=""
+cpcapp run cpc test_cpc.cc $CPCS
+cpcapp run cpc_menu test_cpc_menu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $CPCS
+cpcapp run tape_cpc test_tape.cc tape_pulses.cc
+cpcapp run cpc_memops test_memops.cc $SVC $CPCD
+RARGS="$T/bundles/desc_own.bin" cpcapp run cpc_desc test_desc.cc $CPCD
+RARGS="$BUN/app" cpcapp run cpc_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $CPCD
+cpcapp run cpc_hotkeys test_hotkeys.cc $CPCD
+cpcapp run cpc_ledcores test_ledcores.cc $CPCD
+cpcapp run cpc_joyswap test_joyswap.cc $CPCD
+cpcapp run cpc_mounts $CPCM
+cpcapp run cpc_newdisk test_newdisk.cc newdisk.cc newfile.cc $CPCD
+cpcapp run cpc_createflow test_createflow.cc newdisk.cc newfile.cc $CPCD
+cpcapp control cpc_disk_take cpc_disk.cc 's/            c->io->wr(dirty_reg\[drive\] + m, b);    \/\/ taken.*$/            (void)0;/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_idle cpc_disk.cc 's/now - d.last_ms >= CPCD_IDLE_MS || //' test_cpc.cc $CPCS
+cpcapp control cpc_disk_maxdirty cpc_disk.cc 's/ || now - d.first_ms >= CPCD_MAX_DIRTY_MS//' test_cpc.cc $CPCS
+cpcapp control cpc_disk_short cpc_disk.cc 's/uint32_t len = disk.size - off < CPC_DIRTY_CHUNK ? disk.size - off : CPC_DIRTY_CHUNK;/uint32_t len = CPC_DIRTY_CHUNK;/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_eject cpc_disk.cc 's/^    cpcd_poll(c, s, false);   .*$/    (void)0;/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_retry cpc_disk.cc 's/now - d.try_ms >= 1000/false/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_mountflush cpc_disk.cc 's/if (d.mounted \&\& !flush_drive(c, d, drive)) {/if (false) {/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_marks cpc_disk.cc 's/c->io->wr(dirty_reg\[drive\] + m, 0xFF);/(void)0;/' test_cpc.cc $CPCS
+cpcapp control cpc_disk_flushinit cpc.cc 's/    cpcd_flush_all(c, \&st->disks);   .*$/    (void)0;/;s/^static int cpc_media_flush.*$/static int cpc_media_flush(CoreCtx *, char *, int) { return 0; }/' test_cpc.cc $CPCS
+cpcapp control cpc_unsynced_forgotten cpc_disk.cc 's/disk.unsynced = true;/(void)0;/' test_cpc.cc $CPCS
+cpcapp control cpc_mount_poll cpc_disk.cc '/T180 D1: the last marks/s/cpcd_poll(c, s, false);/(void)0;/' test_cpc.cc $CPCS
+cpcapp control cpc_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_cpc.cc $CPCS
+cpcapp control mme_cpc_mount cpc_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2: the slots are A, B, Tape$/    (void)0;/' $CPCM
+cpcapp control mme_cpc_eject cpc_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2$/    (void)0;/' $CPCM
+cpcapp control mme_cpc_eject_empty cpc_disk.cc 's/^        mount_notify(c, drive); *\/\/ T180 D2: an eject of the empty.*$/        (void)0;/' $CPCM
+cpcapp control mme_cpc_model cpc.cc 's/int mi = c->media_restoring \&\& c->settings/int mi = false \&\& c->settings/' $CPCM
+cpcapp control mme_cpc_fail cpc_disk.cc 's/^            mount_notify(c, drive); *\/\/ the old disk is out and the drive is empty$/            (void)0;/' $CPCM
+# the CPC's rows of the host's ROM table: gen_romreq built as the CPC's app, its rows in the host's table
+t_romreq_cpc() {
+  local INC=("${INC_CPC[@]}") APPLIB="$CPCLIB"
+  build "$T/gen_romreq_cpc" "$TST/gen_romreq.cc" $CPCD
+  "$T/gen_romreq_cpc" > "$T/romreq_cpc.inc"
+  python3 -I - "$T/romreq_cpc.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the CPC's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test cpc_romreq: PASS"
+  return 0
+}
+if ca_in cpc && ca_unit cpc_romreq; then t_romreq_cpc; PASS=$((PASS + 1)); fi
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

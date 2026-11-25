@@ -16,14 +16,23 @@
 #include "keyboard.h"
 #include "lib_skel.h"
 #include "newdisk.h"
+#ifndef TEST_APP_CPC             // the other cores' formats are the shared unit's; the CPC's app has no Apple II, Atari or Amiga code
 #include "apple2_nib.h"
 #include "atari_atr.h"
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_CPC
 #include "cpc_regs.h"
+extern const CoreDesc cpc_desc;                // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
 
 typedef std::vector<uint8_t> Bytes;
 
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, 0 };
+#ifdef TEST_APP_CPC               // the CPC's app is its own build (run.sh cpcapp): its core is the only one in its table
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &amiga_desc, 0 };
+#endif
 
 // a file's bytes, empty when there is none (operator[] would insert an empty entry that FakeFs::list then trips over)
 static Bytes bytes_of(FakeFs &fs, const std::string &path)
@@ -36,6 +45,7 @@ static uint32_t be32(const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t
 static bool all_zero(const uint8_t *p, size_t n) { for (size_t i = 0; i < n; i++) if (p[i]) return false; return true; }
 static int popcount8(unsigned v) { int n = 0; for (; v; v >>= 1) n += v & 1; return n; }
 
+#ifndef TEST_APP_CPC
 // ---- Apple II: what DOS 3.3 reads -------------------------------------------------------------------------------------------------------------
 static void check_apple(const Bytes &img)
 {
@@ -196,11 +206,14 @@ static void check_atr(const Bytes &img)
     CHECK_EQ(img[4] | img[5] << 8, 128);
 }
 
+#endif
 // ---- CPC: the standard DSK as the u765 parses it (offsets 0x30 tracks, 0x31 sides, 0x33 track size / 256, track info at 0x100 + n * size) ---------
 static void check_cpc(const Bytes &img)
 {
     CHECK_EQ(img.size(), 194816u);
-    CHECK(img.size() <= (size_t)CPC_DSK_MAX);
+#ifdef TEST_APP_CPC
+    CHECK(img.size() <= (size_t)CPC_DSK_MAX);                // the number is the CPC app's own (cpc_regs.h)
+#endif
     if (img.size() != 194816u) return;
     CHECK(!memcmp(img.data(), "MV - CPC", 8));             // what cpc_disk.cc accepts: the first byte 'M' for the FDC
     CHECK_EQ(img[0x30], 40);
@@ -313,9 +326,11 @@ struct Case {
 static void check_image(int fmt, const Bytes &b, const char *vol)
 {
     switch (fmt) {
+#ifndef TEST_APP_CPC
     case ND_APPLE_DSK: check_apple(b); break;
     case ND_ADF:       check_adf(b, vol); break;
     case ND_ATR:       check_atr(b); break;
+#endif
     case ND_CPC_DSK:   check_cpc(b); break;
     }
 }
@@ -444,6 +459,7 @@ static void run_case(const Case &k)
 int main()
 {
     // ---- the builders, alone ----
+#ifndef TEST_APP_CPC
     {
         Bytes b(ND_APPLE_BYTES);
         CHECK_EQ(nd_apple_dos33(b.data(), (uint32_t)b.size()), ND_APPLE_BYTES);
@@ -469,6 +485,7 @@ int main()
         check_atr(b);
         CHECK_EQ(nd_atr_dos2(b.data(), ND_ATR_BYTES - 1), 0u);
     }
+#endif
     {
         Bytes b(ND_CPC_BYTES, 0x77);
         CHECK_EQ(nd_cpc_data(b.data(), (uint32_t)b.size()), ND_CPC_BYTES);
@@ -490,17 +507,24 @@ int main()
     CHECK_STR(nd_ext(ND_CPC_DSK), ".dsk");
 
     // ---- the entries of the real descriptors ----
+#ifdef TEST_APP_CPC
+    const Case cases[] = { { &cpc_desc, "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_CPC_DSK } };
+#else
     const Case cases[] = {
         { &apple2_desc,    "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_APPLE_DSK },
         { &amiga_desc,     "Create blank ADF", "Name of the new ADF", ".adf", 0, ND_ADF },
         { &atari800_desc,  "Create blank ATR", "Name of the new ATR", ".atr", 0, ND_ATR },
-        { &cpc_desc,       "Create blank DSK", "Name of the new DSK", ".dsk", 0, ND_CPC_DSK },
     };
+#endif
     for (const Case &k : cases) run_case(k);
 
     // ---- the operation refuses what it cannot make ----
     {
+#ifdef TEST_APP_CPC
+        CoreRig r(&cpc_desc);
+#else
         CoreRig r(&atari800_desc);
+#endif
         OpResult res;
         OpIn in[3] = { in_str("path", "x"), in_str("format", "nope"), in_str("name", "") };
         CHECK(ops_call(&r.c, "disk.create", in, 3, &res) != 0);        // not a format of the list

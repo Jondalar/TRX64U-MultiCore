@@ -2,7 +2,7 @@
 """T92 S2 (and T91): no ROM bytes, no media image, no snapshot in the Spectrum and CPC cores' trees.
 The cores' benches run programs written in the repository (tools/zx_progs.py, cpc_progs.py) and load ROMs, disks and tapes from outside; so a tracked
 file under cores/zx or cores/cpc may only be source (Verilog, VHDL, Tcl, TOML, shell), a checksum, a bench program as a hex text of at most 16 KB of
-characters (our biggest is under 6 KB; a 16 KB ROM as hex text is over 48 KB), the C++ sources of the Spectrum's own app (cores/zx/app/lib, at most 64 KB each), or the licence texts of the vendored sources. The core logo
+characters (our biggest is under 6 KB; a 16 KB ROM as hex text is over 48 KB), the C++ sources of the Spectrum's and the CPC's own apps (cores/zx/app/lib, cores/cpc/app/lib, at most 64 KB each), or the licence texts of the vendored sources. The core logo
 (<root>/logo/, T114) is ours and checked by tools/core_logos/build.py --check, so that directory is not looked at here.
 
   tools/check_no_rom.py           the tracked files of cores/zx and cores/cpc
@@ -17,7 +17,7 @@ ROOTS = ("cores/zx", "cores/cpc")
 OK_EXT = {".v", ".sv", ".vh", ".vhd", ".tcl", ".toml", ".sh", ".py", ".sha256", ".meta", ".hex"}
 OK_NAMES = {"NOTICE", "COPYING", "SHA256SUMS"}
 HEX_MAX = 16 * 1024
-APP_SRC_MAX = 64 * 1024     # a C++ source of the Spectrum's app (cores/zx/app/lib: zx.cc, zx_snap.*, the tape deck); our biggest is 15 KB
+APP_SRC_MAX = 64 * 1024     # a C++ source of the Spectrum's or the CPC's app (cores/zx/app/lib: zx.cc, zx_snap.*, the tape deck; cores/cpc/app/lib: cpc.cc, cpc_disk.*, the tape deck); our biggest is 17 KB
 
 
 def bad_files(paths, base):
@@ -30,7 +30,7 @@ def bad_files(paths, base):
             continue
         if p.split("/")[2:3] == ["logo"] and p.count("/") == 3:
             continue
-        if p.startswith("cores/zx/app/lib/") and ext in (".cc", ".h") and size <= APP_SRC_MAX:       # the core's own app: C++ source (T239.5 D16), not data
+        if p.startswith(("cores/zx/app/lib/", "cores/cpc/app/lib/")) and ext in (".cc", ".h") and size <= APP_SRC_MAX:       # the core's own app: C++ source (T239.5 D16), not data
             continue
         if ext not in OK_EXT:
             bad.append((p, "extension %r is not source, checksum or bench program" % ext))

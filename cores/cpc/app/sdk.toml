@@ -25,6 +25,7 @@ name = "cpc"
 sources = ["cpc.cc", "cpc_disk.cc", "tape_deck.cc", "tape_pulses.cc"]
 headers = ["cpc_disk.h", "cpc_regs.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
 needs = ["newfile", "newdisk"]
+tests = { unit = ["cpc", "cpc_menu", "tape_cpc"], service = ["cpc_descgen", "cpc_mounts", "cpc_romreq", "cpc_newdisk"], ui = ["cpc_desc", "cpc_hotkeys", "cpc_ledcores", "cpc_joyswap", "cpc_createflow"], api = ["cpc_memops"] }
 
 [[library]]
 name = "newfile"

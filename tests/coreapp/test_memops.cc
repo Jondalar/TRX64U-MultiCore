@@ -11,6 +11,10 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
+#ifdef TEST_APP_CPC
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#include "cpc_regs.h"
+#endif
 #ifdef TEST_APP_ZX
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #include "zx_regs.h"
@@ -18,8 +22,7 @@ extern const CoreDesc zx_desc;                  // cores.h lists the shared app'
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX)
-#include "cpc_regs.h"
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC)
 #include "apple2_regs.h"
 #include "zxnext_regs.h"
 #endif
@@ -36,8 +39,11 @@ const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #elif defined(TEST_APP_ZX)                // the ZX Spectrum's app is its own build (run.sh zxapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #define HEX_CORE zx_desc
+#elif defined(TEST_APP_CPC)               // the CPC's app is its own build (run.sh cpcapp): its core is the only one in its table
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#define HEX_CORE cpc_desc
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &cpc_desc, &c264_desc, &zxnext_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &c264_desc, &zxnext_desc,
                                        &amiga_desc, &portdiag_desc, 0 };
 #define HEX_CORE c264_desc
 #endif
@@ -110,9 +116,11 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #elif defined(TEST_APP_ZX)
     struct W { const CoreDesc *d; int last; } widths[] = { { &zx_desc, 0x1FFFF } };
+#elif defined(TEST_APP_CPC)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF }, { &nes_desc, 0xFFFF }, { &apple2_desc, 0x1FFFF },
-        { &cpc_desc, 0x1FFFF }, { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
+        { &c264_desc, 0xFFFF }, { &zxnext_desc, 0x1FFFFF }, { &amiga_desc, 0xFFFFFF } };
 #endif
     for (auto &w : widths) {
         Rig r(w.d);
@@ -123,7 +131,7 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX)                 // the A1200's and DDT's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC)                 // the A1200's and DDT's memory is not reachable by the application: it has no window to read or write (its case is the one of the unreachable cores below)
 #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
 #else
@@ -147,7 +155,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC)          // the cases that stand on the shared app's cores
     // ---- the Atari: the same window, no ram-only bit
     {
         Rig r(&atari800_desc);
@@ -165,26 +173,6 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0x10010, 2, &res), OPE_OK);
         CHECK(res.data[0] == 0xAA && res.data[1] == 0xBB);
         CHECK_EQ(r.call("machine.read_mem", 0xFFF0, 0x20, &res), OPE_ARG);       // main RAM ends at $FFFF, the aux region is another one
-    }
-    // ---- the CPC: 128 KB through a window of 64 KB, the page register put back to 0 (the ZX Spectrum's case is the unit zx_memops)
-    {
-        const CoreDesc *d = &cpc_desc;
-        int reg = CPC_WIN_PAGE;
-        Rig r(d, reg);
-        CHECK_EQ(r.write(0x1F000, "c0de", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x1F000], 0xC0); CHECK_EQ(r.io.big[0x1F001], 0xDE);
-        CHECK_EQ(r.io.regs[reg], 0);                                              // back on the first half
-        CHECK_EQ(r.write(0x00010, "11", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x10], 0x11);
-        CHECK_EQ(r.call("machine.read_mem", 0x1F000, 2, &res), OPE_OK);
-        CHECK(res.data[0] == 0xC0 && res.data[1] == 0xDE);
-        // an access across the 64 KB boundary of the window is split into two accesses, one per half
-        r.io.pages_used.clear();
-        CHECK_EQ(r.write(0xFFFE, "01020304", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0xFFFE], 1); CHECK_EQ(r.io.big[0xFFFF], 2); CHECK_EQ(r.io.big[0x10000], 3); CHECK_EQ(r.io.big[0x10001], 4);
-        CHECK(r.io.pages_used.size() == 2 && r.io.pages_used[0] == 0 && r.io.pages_used[1] == 1);
-        CHECK_EQ(r.io.regs[reg], 0);
-        CHECK_EQ(r.call("machine.read_mem", 0x1FFFF, 2, &res), OPE_ARG);
     }
     // ---- the ZX Spectrum Next: 2 MB in the DDR2 window
     {
@@ -215,6 +203,28 @@ int main()
     {
         const CoreDesc *d = &zx_desc;
         int reg = ZX_WIN_PAGE;
+        Rig r(d, reg);
+        CHECK_EQ(r.write(0x1F000, "c0de", &res), OPE_OK);
+        CHECK_EQ(r.io.big[0x1F000], 0xC0); CHECK_EQ(r.io.big[0x1F001], 0xDE);
+        CHECK_EQ(r.io.regs[reg], 0);                                              // back on the first half
+        CHECK_EQ(r.write(0x00010, "11", &res), OPE_OK);
+        CHECK_EQ(r.io.big[0x10], 0x11);
+        CHECK_EQ(r.call("machine.read_mem", 0x1F000, 2, &res), OPE_OK);
+        CHECK(res.data[0] == 0xC0 && res.data[1] == 0xDE);
+        // an access across the 64 KB boundary of the window is split into two accesses, one per half
+        r.io.pages_used.clear();
+        CHECK_EQ(r.write(0xFFFE, "01020304", &res), OPE_OK);
+        CHECK_EQ(r.io.big[0xFFFE], 1); CHECK_EQ(r.io.big[0xFFFF], 2); CHECK_EQ(r.io.big[0x10000], 3); CHECK_EQ(r.io.big[0x10001], 4);
+        CHECK(r.io.pages_used.size() == 2 && r.io.pages_used[0] == 0 && r.io.pages_used[1] == 1);
+        CHECK_EQ(r.io.regs[reg], 0);
+        CHECK_EQ(r.call("machine.read_mem", 0x1FFFF, 2, &res), OPE_ARG);
+    }
+#endif
+#ifdef TEST_APP_CPC
+    // ---- the CPC: 128 KB through a window of 64 KB, the page register put back to 0
+    {
+        const CoreDesc *d = &cpc_desc;
+        int reg = CPC_WIN_PAGE;
         Rig r(d, reg);
         CHECK_EQ(r.write(0x1F000, "c0de", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x1F000], 0xC0); CHECK_EQ(r.io.big[0x1F001], 0xDE);

@@ -80,32 +80,6 @@ Apple IIe F8/expert 10 fixed:13:Status
 Apple IIe F8/expert 11 info:Build
 Apple IIe F8/expert 12 info:ROMs
 Apple IIe F8/expert 13 info:Libraries
-Amstrad CPC 464 / 664 / 6128 F1/home 0 task:Reset
-Amstrad CPC 464 / 664 / 6128 F1/home 1 task:Reload ROMs, reset
-Amstrad CPC 464 / 664 / 6128 F1/home 2 media:cpc.a.image
-Amstrad CPC 464 / 664 / 6128 F1/home 3 media:cpc.b.image
-Amstrad CPC 464 / 664 / 6128 F1/home 4 media:cpc.tape.image
-Amstrad CPC 464 / 664 / 6128 F1/home 5 fixed:10:Save as config...
-Amstrad CPC 464 / 664 / 6128 F1/home 6 fixed:11:Load config...
-Amstrad CPC 464 / 664 / 6128 F5/settings 0 set:Model
-Amstrad CPC 464 / 664 / 6128 F5/settings 1 set:CRTC type
-Amstrad CPC 464 / 664 / 6128 F5/settings 2 set:Joystick ports
-Amstrad CPC 464 / 664 / 6128 F5/settings 3 set:Disks write protected
-Amstrad CPC 464 / 664 / 6128 F5/settings 4 set:LED Load Indicator
-Amstrad CPC 464 / 664 / 6128 F8/expert 0 fixed:13:Actions
-Amstrad CPC 464 / 664 / 6128 F8/expert 1 fixed:6:Restart core
-Amstrad CPC 464 / 664 / 6128 F8/expert 2 fixed:7:Return to host menu
-Amstrad CPC 464 / 664 / 6128 F8/expert 3 fixed:13:Network
-Amstrad CPC 464 / 664 / 6128 F8/expert 4 fixed:9:WiFi
-Amstrad CPC 464 / 664 / 6128 F8/expert 5 fixed:13:Support
-Amstrad CPC 464 / 664 / 6128 F8/expert 6 fixed:8:Bug report
-Amstrad CPC 464 / 664 / 6128 F8/expert 7 fixed:17:Keys and help
-Amstrad CPC 464 / 664 / 6128 F8/expert 8 fixed:13:Reset
-Amstrad CPC 464 / 664 / 6128 F8/expert 9 fixed:5:Reset to host defaults
-Amstrad CPC 464 / 664 / 6128 F8/expert 10 fixed:13:Status
-Amstrad CPC 464 / 664 / 6128 F8/expert 11 info:Build
-Amstrad CPC 464 / 664 / 6128 F8/expert 12 info:ROMs
-Amstrad CPC 464 / 664 / 6128 F8/expert 13 info:Libraries
 Commodore 264 (C16, Plus/4) F1/home 0 task:Reset
 Commodore 264 (C16, Plus/4) F1/home 1 task:Reload ROMs, reset
 Commodore 264 (C16, Plus/4) F1/home 2 media:c264.program

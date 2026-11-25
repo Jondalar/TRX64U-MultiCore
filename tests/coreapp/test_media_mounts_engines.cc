@@ -9,8 +9,11 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, zxapp) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, zxapp, cpcapp) with its core only
+#endif
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC)
+#define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
 #include "boot.h"
@@ -20,7 +23,7 @@
 #ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "c64_cart.h"
 #endif
-#ifndef TEST_APP_ZX
+#ifndef MME_NO_DRIVE
 #include "drive_model.h"
 #include "disk_build.h"
 #endif
@@ -36,7 +39,7 @@
 #include "c64_regs.h"
 #include "c264_regs.h"
 #endif
-#ifndef TEST_APP_ZX
+#ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
 #endif
 
@@ -45,16 +48,19 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_ZX)
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#elif defined(TEST_APP_CPC)
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &apple2_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &c264_desc,
                                        &c128_desc, &amiga_desc, 0 };
 #endif
 
 typedef std::vector<uint8_t> Bytes;
 
 // ---- the machines ------------------------------------------------------------------------------------------------------------------------
-#ifdef TEST_APP_ZX
-struct GIo : FakeIo { };                              // the Spectrum has no drive behind a window
+#ifdef MME_NO_DRIVE
+struct GIo : FakeIo { };                              // the Spectrum and the CPC have no drive behind a window
 #else
 struct GIo : FakeIo {                                    // a register file, the arrays and a drive behind the drive window
     DriveModel dm;
@@ -273,7 +279,7 @@ static Bytes atr(int sectors, uint32_t seed)
 #ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
 #endif
-#ifndef MME_OWN_APP
+#ifdef TEST_APP_CPC          // the CPC's disk image
 static Bytes dsk(uint32_t seed)
 {
     const char *magic = "MV - CPCEMU Disk-File\r\nDisk-Info\r\n";
@@ -284,7 +290,7 @@ static Bytes dsk(uint32_t seed)
     return v;
 }
 #endif
-#ifndef TEST_APP_ZX          // the Spectrum's app has no drive: no disk image, no 1541 library
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Bytes d64(const char *name)
 {
     Disk d(false);
@@ -395,6 +401,8 @@ static Case atari_drive(int d)
     k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "atari800.eject", { in_int("drive", d) }, m, n); };
     return k;
 }
+#endif
+#ifdef TEST_APP_CPC          // the CPC's two drives
 static Case cpc_drive(int d)
 {
     Case k;
@@ -407,7 +415,7 @@ static Case cpc_drive(int d)
     return k;
 }
 #endif
-#ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's app's
+#ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's and the CPC's apps'
 static Case tape_case(const char *pfx, const char *ext)
 {
     Case k;
@@ -421,7 +429,7 @@ static Case tape_case(const char *pfx, const char *ext)
     return k;
 }
 #endif
-#ifndef TEST_APP_ZX          // the Spectrum's app has no drive: no disk image, no 1541 library
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Case cbm_drive()
 {
     Case k;
@@ -489,6 +497,8 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(A8_CART1); }, 0x01, "the 8 KB cartridge's type written while the core is held" } };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_CPC
     {   // ---- Amstrad CPC: A, B, the tape
         Prof p;
         p.name = "cpc"; p.cfg = "/usb0/cores/cpc/cpc.cfg"; p.base = &cpc_desc;
@@ -513,7 +523,7 @@ static std::vector<Prof> profiles()
         v.push_back(p);
     }
 #endif
-#ifndef TEST_APP_ZX
+#ifndef MME_NO_DRIVE
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
 #else
@@ -936,7 +946,7 @@ static void notify_pass(const Prof &p)
 
 // the drive library's disk is read/write, read only or unlinked: the word in front of the path
 #endif
-#ifndef TEST_APP_ZX          // the Spectrum's app has no drive
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive
 static void drive_modes(const Prof &p)
 {
     char msg[240];
@@ -968,7 +978,7 @@ static void drive_modes(const Prof &p)
 #endif
 
 // the CPC 464 has no drive: stored disks stay unmounted with a note, the tape comes back
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_CPC
 static void cpc_464(const Prof &p)
 {
     char msg[240];
@@ -996,6 +1006,8 @@ static void cpc_464(const Prof &p)
 }
 
 // the C264 cartridge is a Plus/4 thing: restoring one sets the model, applied before the release
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void c264_model(const Prof &p)
 {
     char msg[240];
@@ -1095,12 +1107,13 @@ int main()
     drive_modes(prof(profs, "vc20"));
 #elif defined(TEST_APP_ZX)
                                                        // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
+#elif defined(TEST_APP_CPC)
+    cpc_464(prof(profs, "cpc"));
 #else
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));
     drive_modes(prof(profs, "c128"));
     drive_modes(prof(profs, "c264"));
-    cpc_464(prof(profs, "cpc"));
     c264_model(prof(profs, "c264"));
     neo_folder(prof(profs, "neogeo"));
 #endif

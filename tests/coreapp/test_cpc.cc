@@ -1,12 +1,13 @@
 // T92 D5-D12: the Amstrad CPC descriptor against a model of the register block and the windows of cores/cpc/trx/cpc_regs.v / cpc_win.v / cpc_fdc.v:
 // the ROM sets of the three models, the frame buffers, the DSK drives with their write-back (dirty chunks taken from the core, written to the file
-// when the writes have stopped), the tape. The descriptor under test is the real one (coreapp/cores/cpc.cc).
+// when the writes have stopped), the tape. The descriptor under test is the real one (cores/cpc/app/lib/cpc.cc).
 #include <string>
 #include "check.h"
 #include "fakes.h"
 #include "boot.h"
 #include "cores.h"
 #include "cpc_regs.h"
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib, run.sh cpcapp)
 #include "cpc_disk.h"
 #include "engines.h"
 #include "ops_glue.h"

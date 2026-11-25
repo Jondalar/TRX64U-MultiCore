@@ -1,6 +1,6 @@
 // T157: the "Joystick ports" setting (Normal / Swapped) of every generic-app core that has one. For each core: the setting is there exactly once, a change
 // is applied (the core's own register gets the swap bit, at once, through the setting's operation or its register bits), the .cfg keeps it
-// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800, cpc, zxnext) are in the
+// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800, zxnext; the CPC's is the unit cpc_joyswap) are in the
 // same table, so their registers are checked as well (S4). zx (a choice per port) and c264 (its register is taken in reset) are named
 // differently on purpose (T157 D1) and checked for their own key.
 #include "check.h"
@@ -8,11 +8,16 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
+#ifndef TEST_APP_CPC
 #include "amiga_regs.h"
-#ifndef TEST_APP_A1200                   // the A1200's app (run.sh a12app) has its own core only
+#endif
+#ifdef TEST_APP_CPC                      // the CPC's app (run.sh cpcapp) has its own core only
+#include "cpc_regs.h"
+extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC)   // the A1200's and the CPC's app (run.sh a12app, cpcapp) have their own core only
 #include "c128_regs.h"
 #include "c264_regs.h"
-#include "cpc_regs.h"
 #include "nes_regs.h"
 #include "zxnext_regs.h"
 #endif
@@ -40,9 +45,11 @@ int main()
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
+#elif defined(TEST_APP_CPC)
+        { &cpc_desc, CPC_JOY },
 #else
         { &amiga_desc, AM_JOY_CFG }, { &nes_desc, NES_JOY }, { &c128_desc, C128_JOY },
-        { &cpc_desc, CPC_JOY }, { &zxnext_desc, ZXN_JOY },
+        { &zxnext_desc, ZXN_JOY },
 #endif
     };
     for (const Row &r : rows) {
@@ -85,7 +92,7 @@ int main()
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
     // the cores that keep another form: their own key is there once (T157 D1)
-#ifndef TEST_APP_A1200
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC)
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
     CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
