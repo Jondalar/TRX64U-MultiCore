@@ -8,11 +8,20 @@ run-name: "matrix @${{ github.event.pull_request.head.sha || github.sha }}"
 # it does not have it. ci/lane.sh runs one step of one lane; ci/dispatch.py decides what this push has to do (D9).
 # It runs instead of the old pipeline's jobs on the T239 branch (t239.3, t239.3-*, D3): pipeline.yml calls it there, so the builder, which serves the runs of
 # pipeline.yml, builds the bitstreams this file's work order names as missing (T239.1 D11) and releases the environment `bitstreams` (D21).
+# D11, D13: on integration and integ-* it runs beside the old pipeline's jobs (input beside): there the run's plan, work order and approval are the old
+# job `plan`'s and `approve`'s (the artifacts `plan` and `work-order` exist once per run; the builder reads that work order, which names every entry, as a
+# package needs them all), its sims are the old job `sim`'s, and the package of record is this file's whole package (D14, the jobs collect and package): the
+# old job `package` does not run there, and the old jobs update and emu take this file's artifact `package`.
 permissions:
   contents: read
 
 on:
   workflow_call:
+    inputs:
+      beside:
+        description: "true on integration and integ-*: the old pipeline runs in the same run (its plan, work order, approval and sims serve the matrix too)"
+        type: boolean
+        default: false
 
 jobs:
   # Every push: what changed (ci/plan.sh), the lanes and steps of this push (ci/dispatch.py, the matrix in the summary), the work order of the builder
@@ -60,38 +69,45 @@ jobs:
         id: dispatch
         env:
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
+          BESIDE: ${{ inputs.beside }}
         run: |
           set -eu
           tier="$(ci/select.sh sims-tier)"
           # the plan carries the tier of this run, as the old plan job stamps it: a sims leg (ci/child.sh sim) reads it from the plan artifact
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
+          b=""; [ "$BESIDE" != true ] || b=--beside
           # into a file first: a failing dispatcher fails this step (a pipe into tee would hide its exit code)
-          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" > "$CI_HANDOFF/dispatch.out"
+          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" $b > "$CI_HANDOFF/dispatch.out"
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
           cat "$CI_HANDOFF/dispatch.out"
+      # D14: the whole package needs every entry (ci/order.py: a package child needs them all). Beside the old pipeline (D11) its job plan has uploaded the run's
+      # plan and work order (the same plan; on integration and integ-* its work order names every entry too), so this job uploads neither: one of each per run
       - name: Work order (the bitstreams the builder builds)
         id: order
+        if: ${{ !inputs.beside }}
         env:
           GH_TOKEN: ${{ github.token }}
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
-          CHILDREN: '["cor"]'
+          CHILDREN: '["cor","package"]'
           COR_TARGETS: ${{ steps.dispatch.outputs.cor_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        if: ${{ !inputs.beside }}
         with:
           name: plan
           path: ${{ env.CI_TEMP }}/handoff/plan.json
           retention-days: 3
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        if: ${{ !inputs.beside }}
         with:
           name: work-order
           path: ${{ env.CI_TEMP }}/handoff/work-order.json
           retention-days: 3
           if-no-files-found: error
 
-  # T239.1 D14: Alex's click for a commit the builder does not build by itself (as the job approve of pipeline.yml)
+  # T239.1 D14: Alex's click for a commit the builder does not build by itself (as the job approve of pipeline.yml; beside the old pipeline that job holds it: no work order here, so no `missing`)
   approve:
     name: Approve the builder's work (environment vivado)
     needs: dispatch
@@ -191,6 +207,13 @@ jobs:
         with:
           name: sdk
           path: ${{ env.CI_TEMP }}/handoff/sdk
+          retention-days: 14
+          if-no-files-found: error
+      - name: 13 Deploy (the artifact shared-app, the shared image the whole package packs the cores that still run it with)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: shared-app
+          path: ${{ env.CI_TEMP }}/handoff/shared-app
           retention-days: 14
           if-no-files-found: error
 
@@ -508,9 +531,131 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # D14: the whole package, 11 (first half): the bitstream entries of every lane and the imports, as the old pipeline's collect (T239.1 D40: kept in GitHub's
+  # cache by the run's entry names; D41: only a job that fetches releases waits at the environment bitstreams). Alone on the T239 branch without the imports
+  # (CI_IMPORTS=no, ci/lane.sh package names: the builder names their entries with integration's ci/imports.py, T261 review 3.3); beside, with them.
+  collect:
+    name: "Whole package: 11 collect (every lane's bitstreams)"
+    needs: [dispatch, approve]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    environment: bitstreams
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 60
+    env:
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+      CI_IMPORTS: ${{ inputs.beside && 'yes' || 'no' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - name: 11 Entry names (every lane's; the imports beside the old pipeline only)
+        id: bitnames
+        run: |
+          ci/lane.sh package names
+          echo "key=bits-$(sha256sum "$CI_HANDOFF/entry-names.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+        with:
+          path: ${{ env.CI_TEMP }}/bit
+          key: ${{ steps.bitnames.outputs.key }}
+          restore-keys: |
+            bits-
+      - name: 11 Fetch (every entry from the builds repository; the builder built the missing ones on the work order)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FETCH_KEYS: ${{ env.CI_TEMP }}/handoff/entry-names.txt
+        run: ci/fetch_bits.sh
+      - name: 11 Collect (the host, every partial core, every large core, the imports)
+        run: ci/lane.sh package collect
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: whole-bits
+          path: |
+            ${{ env.CI_TEMP }}/handoff/bit-*
+            ${{ env.CI_TEMP }}/handoff/large-*
+          retention-days: 1
+          if-no-files-found: error
+
+  # D14: the whole package, 11 (second half) and 13: ci/package.sh over every lane's result - the bitstreams of collect, the SDK lane's shared image, sub-apps and
+  # SDK package, the host menu, each core lane's .cor (D13: a core with an app of its own is delivered by its lane). The artifact `package` is the one the old
+  # pipeline's update, emu and prerelease read; beside it (integration, integ-*) its own job package does not run, so the run has one.
+  package:
+    name: "Whole package: 11 package (every .cor), 13 deliver"
+    needs: [dispatch, collect, sdk, host, core]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: whole-bits
+          path: ${{ env.CI_TEMP }}/handoff
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: sdk
+          path: ${{ env.CI_TEMP }}/handoff/sdk
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: shared-app
+          path: ${{ env.CI_TEMP }}/handoff/shared-app
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: host
+          path: ${{ env.CI_TEMP }}/handoff/host
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          pattern: deliver-*
+          path: ${{ env.CI_TEMP }}/handoff/lanes
+      - name: 11 Package (ci/package.sh over the lanes' results)
+        run: ci/lane.sh package package
+      - name: 13 Deliver (the artifact package)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: package
+          path: ${{ env.CI_WS }}/out
+          retention-days: 14
+          if-no-files-found: error
+
   summary:
     name: Result (the matrix)
-    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu]
+    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu, collect, package]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
