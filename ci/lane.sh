@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # T239.5 (D8-D10): one cell of the matrix - one step of one lane - run by its job in .github/workflows/matrix.yml. The lanes run on the T239 branch
-# (t239.3, t239.3-*) instead of the old pipeline (D3). Each cell prints what it checked; a red cell stops its lane and the lanes that need it.
+# (t239.3, t239.3-*) instead of the old pipeline (D3), on every other push beside it (D11, D13, D14; ci/dispatch.py starts the lanes). Each cell prints
+# what it checked; a red cell stops its lane and the lanes that need it.
 #
 #   ci/lane.sh <lane> <step>
 #     sdk        unit | build | test | package
@@ -8,6 +9,8 @@
 #     core:<id>  unit | changed | compare | needs | build | fits | service | ui | api | package | deliver
 #     bits:<id>  key | fetch | report  (a partial core: the host's and the core's bitstreams; a large core: its flat bitstream, T213.3 P5; the builder
 #                                     builds a missing key, ci/fetch_bits.sh restores it)
+#     package    names | collect | package   (D14: the whole package - every lane's bitstream entries, as the old pipeline's collect; then ci/package.sh over
+#                                     what the lanes delivered: the SDK lane's shared image, sub-apps and SDK package, the host menu, each core lane's .cor)
 #   A core lane is a partial core (dfx) or a large core (large: cores/<id>/mono/core.toml, its own flat bitstream), tools/core_toml.py lanes.
 #
 # The steps (D8): 1 lint (ci/lint.sh <lane>, its own job), 2 unit, 3 changed, 4 compare, 5 needs, 6 build, 7 fits (the SDK: test), 8 service, 9 ui, 10 api,
@@ -50,12 +53,16 @@ sdk)
     test)
       t="$(ls "$HANDOFF"/trxapps/trx64-sdk-*.tar.gz 2>/dev/null | head -1)"; [ -n "$t" ] || die "no SDK package in $HANDOFF/trxapps (step build)"
       RV_PREFIX=riscv32-unknown-elf- bash "$ROOT/tools/sdk_check.sh" "$t" ;;
-    # 11: what the lane deploys (13: the job's artifact `sdk`, which the core lanes take): the package, the sub-apps, the shared app's link map (S12)
+    # 11: what the lane deploys (13: the job's artifact `sdk`, which the core lanes take): the package, the sub-apps, the shared app's link map (S12); and the
+    # shared image with its ELF (13: the artifact `shared-app`), which the whole package packs the cores that still run it with (D14)
     package)
       o="$HANDOFF/sdk"; rm -rf "$o"; mkdir -p "$o"
       cp "$HANDOFF"/trxapps/trx64-sdk-*.tar.gz "$HANDOFF"/trxapps/*.u2a "$HANDOFF/trxapps/coreapp.map" "$o/"
       (cd "$o" && sha256sum ./* > SHA256SUMS && cat SHA256SUMS)
-      say "$(tar -xzOf "$o"/trx64-sdk-*.tar.gz --wildcards '*/VERSION' 2>/dev/null | head -3 | tr '\n' ' ')" ;;
+      say "$(tar -xzOf "$o"/trx64-sdk-*.tar.gz --wildcards '*/VERSION' 2>/dev/null | head -3 | tr '\n' ' ')"
+      s="$HANDOFF/shared-app"; rm -rf "$s"; mkdir -p "$s"
+      cp "$HANDOFF/trxapps/coreapp.bin" "$HANDOFF/trxapps/coreapp.elf" "$s/"
+      (cd "$s" && sha256sum coreapp.bin coreapp.elf) ;;
     *) die "the SDK lane has no step $step" ;;
   esac ;;
 
@@ -150,10 +157,16 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
     api)     core_tests "$id" api ;;
     # 11: the .cor - a partial core: its partial bound to the host it was routed against and its own app (ci/pack_one.sh); a large core: its flat bitstream
     # (the entry mono-<id>-<key> the lane bits:<id> restored) and its own app (tools/pack_large_cor.sh with its TOML B, T213.3 P4); the heap figures again, from
-    # the packer
+    # the packer. The app is packed as the old package stage packs every core app (ci/package.sh): a copy stamped with this run's version (tools/stamp_version.py,
+    # ci/version.sh coreapp), since the SDK lane's base may come from its cache, built by an earlier commit (T172); its ELF is stamped alike (step 13 delivers it)
     package)
       [ -s "$out/app/$id.app" ] || die "no $id.app (step build)"
       kind="$(kind_of "$id")"   # an assignment: a die in kind_of ends the step (inside a test it would be swallowed)
+      st="$out/stamped"; rm -rf "$st"; mkdir -p "$st"
+      cp "$out/app/$id.app" "$out/app/$id.elf" "$st/"
+      av="$("$ROOT/ci/version.sh" coreapp)"
+      python3 -I "$ROOT/tools/stamp_version.py" stamp "$st/$id.app" "$st/$id.elf" --version "$av" || die "tools/stamp_version.py could not stamp $av into $id.app"
+      say "the app stamped $av (it was built as $(python3 -I "$ROOT/tools/stamp_version.py" read "$out/app/$id.app"))"
       if [ "$kind" = large ]; then
         ent="$("$ROOT/ci/fetch_bits.sh" --names "large:$id")"
         bit="${CI_BIT_CACHE:?CI_BIT_CACHE}/$ent/${id}_mono.bit"
@@ -162,16 +175,17 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
         h="$(mget heap)"; ver="$("$ROOT/ci/version.sh" with "$(mget version)")"; name="$(mget name)"; short="$(mget short)"
         c="$(git -C "$ROOT" rev-parse --short=8 HEAD)"; mkdir -p "$out/cor"
         say "$ent and cores/$id/app (heap ${h:-0}: 0 = the region behind the image)"
-        "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$name" --version "$ver" --short "$short" --bit "$bit" --app-bin "$out/app/$id.app" \
+        "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$name" --version "$ver" --short "$short" --bit "$bit" --app-bin "$st/$id.app" \
           --heap "${h:-0}" --sizes "$tomlb" --bit-commit "$c" --app-commit "$c" --out "$out/cor"
       else
-        "$ROOT/ci/pack_one.sh" "$id" --app-dir "$out/app" --out "$out/cor"
+        "$ROOT/ci/pack_one.sh" "$id" --app-dir "$st" --out "$out/cor"
       fi ;;
-    # 13: the .cor, the app's ELF (the emulator's symbols) and the core's documents: its licence notice and the manual's chapters on cores and ROMs
+    # 13: the .cor, the app's ELF (the emulator's symbols; stamped as the app in the .cor, step 11) and the core's documents: its licence notice and the manual's
+    # chapters on cores and ROMs
     deliver)
       [ -s "$out/cor/$id.cor" ] || die "no $id.cor (step package)"
       d="$HANDOFF/deliver-$id"; rm -rf "$d"; mkdir -p "$d/docs"
-      cp "$out/cor/$id.cor" "$out/app/$id.elf" "$d/"
+      cp "$out/cor/$id.cor" "$out/stamped/$id.elf" "$d/"
       [ ! -f "$ROOT/cores/$id/rtl/NOTICE" ] || cp "$ROOT/cores/$id/rtl/NOTICE" "$d/docs/NOTICE-$id"
       cp "$ROOT/docs/manual/11-cores.md" "$ROOT/docs/manual/12-roms.md" "$d/docs/"
       (cd "$d" && sha256sum "$id.cor" "$id.elf" | tee SHA256SUMS) ;;
@@ -211,6 +225,46 @@ bits:?*)
     *) die "a bitstream lane has no step $step" ;;
   esac ;;
 
-*) die "unknown lane (sdk, host, core:<id>, bits:<id>)" ;;
+# D14 (Alex, 2026-11-24): the whole package with every core, as the old pipeline's package stage makes it. collect runs in the job that waits at the environment
+# bitstreams, after ci/fetch_bits.sh restored every entry; package in the job after the lanes, with their artifacts in $HANDOFF/sdk, host, shared-app and
+# lanes/deliver-<id> (the workflow downloads them there).
+package)
+  case "$step" in
+    # 11: the entry names this package fetches (ci/fetch_bits.sh --names: every lane's and the imports'), into $HANDOFF/entry-names.txt (the job keys GitHub's cache
+    # with them and hands them to ci/fetch_bits.sh, T239.1 D40). CI_IMPORTS=no (the T239 branch, alone): the import entries are left out, out loud - the builder names
+    # them with integration's ci/imports.py, whose key hashes ci/imports.py itself, so the names this branch's copy makes are never published (T261 review 3.3)
+    names)
+      "$ROOT/ci/fetch_bits.sh" --names > "$HANDOFF/entry-names.all"
+      if [ "${CI_IMPORTS:-yes}" = no ]; then
+        grep -v '^imp-' "$HANDOFF/entry-names.all" > "$HANDOFF/entry-names.txt" || true
+        say "CI_IMPORTS=no: left out $(grep '^imp-' "$HANDOFF/entry-names.all" | tr '\n' ' ')(no trx64u.cor, no trx64g.cor in this package)"
+      else
+        cp "$HANDOFF/entry-names.all" "$HANDOFF/entry-names.txt"
+      fi
+      rm -f "$HANDOFF/entry-names.all"
+      [ -s "$HANDOFF/entry-names.txt" ] || die "ci/fetch_bits.sh --names named no entry"
+      say "$(wc -l < "$HANDOFF/entry-names.txt" | tr -d ' ') entries" ;;
+    # 11: the bitstream entries of every lane (host, each partial core, each large core) and the imports (trx64u.cor, trx64g.cor; not with CI_IMPORTS=no), from the
+    # restored cache (ci/collect.sh)
+    collect) "$ROOT/ci/child.sh" collect ;;
+    # 11: the stage trxapps of the old pipeline put together from the lanes (13 of each: the artifacts sdk, host, shared-app), then ci/package.sh with the core
+    # lanes' .cor (CI_LANE_COR); the job uploads $ROOT/out as the artifact `package` (13), the name the old pipeline's update, emu and prerelease read
+    package)
+      t="$HANDOFF/trxapps"; rm -rf "$t"; mkdir -p "$t"
+      sdkt="$(sdk_tarball)"; [ -n "$sdkt" ] || die "no SDK package in $HANDOFF/sdk (the SDK lane's artifact sdk)"
+      for f in "$sdkt" "$HANDOFF/sdk/unzip.u2a" "$HANDOFF/sdk/miniz.u2a" "$HANDOFF/host/hostapp.app" "$HANDOFF/host/hostapp.elf" \
+               "$HANDOFF/shared-app/coreapp.bin" "$HANDOFF/shared-app/coreapp.elf"; do
+        [ -s "$f" ] || die "no ${f#"$HANDOFF"/} (the artifacts sdk, host and shared-app of the SDK and host menu lanes)"
+        cp "$f" "$t/"
+      done
+      git -C "$ROOT" rev-parse HEAD > "$t/trxapps_commit"
+      : > "$t/DONE"
+      ls "$HANDOFF"/lanes/deliver-*/*.cor > /dev/null 2>&1 || die "no .cor of a core lane in $HANDOFF/lanes (the artifacts deliver-<id>)"
+      say "the trxapps hand-over from the lanes: $(cd "$t" && ls | tr '\n' ' '); the core lanes' .cor: $(cd "$HANDOFF/lanes" && ls -- */*.cor | tr '\n' ' ')"
+      CI_LANE_COR="$HANDOFF/lanes" "$ROOT/ci/child.sh" package ;;
+    *) die "the whole package has no step $step" ;;
+  esac ;;
+
+*) die "unknown lane (sdk, host, core:<id>, bits:<id>, package)" ;;
 esac
 say "green"
