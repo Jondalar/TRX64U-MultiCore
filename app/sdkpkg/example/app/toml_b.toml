@@ -24,6 +24,7 @@ name = "cbmprg"
 sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
 headers = ["cbm_prg.h", "cbmprg_api.h"]
 bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
 
 # The core's own code (T239.3 D58, base 4.0: the base loads no library file, so the code of a core is linked into its app). A register library: the base calls example_register(const LibApi *,
 # LibRecord *) at start and takes the operations, the states and the export corehooks from the record, as it took them from a loaded file; `menu` is its menu record. The sources are in ../, found
