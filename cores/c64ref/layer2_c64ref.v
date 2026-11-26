@@ -273,7 +273,7 @@ module layer2 #(
     c64ref_keep #(.W(8))  keep_sid_lv  (.i(k_sid_lv_data), .o(sid_lv_data));
 
     // idle 0 (cpu_clk)
-    c64ref_tie_ff #(.W(754), .INIT(754'd0)) tie_ff (.clk(cpu_clk),
+    c64ref_tie_ff #(.W(756), .INIT(756'd0)) tie_ff (.clk(cpu_clk),
         .o({drive_dbg, e_addr, e_cmd, e_en, e_wdf_data, e_wdf_mask, e_wdf_wren, ap_addr, ap_req, ap_wdata, dbg_ev,
             dbg_own, dbg_stop, trx_j_rdata, trx_j_rvalid, paddle_adj_en, paddle_adj_o, smp_f_addr, smp_f_tgl, pp_data,
             pp_eof, pp_req, pp_valid, c2n_motor_en, c2n_motor_o, c2n_read_en, c2n_read_o, c2n_sense_o, c2n_write_en,
@@ -281,7 +281,7 @@ module layer2 #(
             drv_wdata, drv_we, drv_io_ack, drv_io_nc, drv_io_rdata, gcr_io_ack, gcr_io_nc, gcr_io_rdata, win_cram_addr,
             win_cram_use, win_port_addr, win_port_rom, win_port_use, win_port_wdata, win_port_we, gate_frz, tx_view,
             cart_active, reu_cmd_addr, reu_cmd_valid, reu_cmd_we, reu_wdata, reu_wdata_we, paddle_dis_en, IEC_ATN_O,
-            IEC_CLOCK_O, IEC_DATA_O, SLOT_DOTCLK, SLOT_PHI2, slot_rst_o, sid_sock_addr}));
+            IEC_CLOCK_O, IEC_DATA_O, SLOT_DOTCLK, SLOT_PHI2, slot_rst_o, sid_sock_addr, drv_clk_o, drv_data_o}));
     // idle 1 (cpu_clk): the expansion port's lines released, the drive LEDs off
     c64ref_tie_ff #(.W(41), .INIT({41{1'b1}})) tie_ff1 (.clk(cpu_clk),
         .o({SLOT_ADDRDIR, SLOT_ADDROEn, SLOT_BA, SLOT_DATADIR, SLOT_DATAOEn, SLOT_IO1n, SLOT_IO2n, SLOT_ROMHn,

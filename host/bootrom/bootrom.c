@@ -369,8 +369,10 @@ static int load(int source, uint32_t addr, int what, uint32_t *run_out)
             crc_word(w);
         }
         crc = ~crc;
-        if (src_flash && addr == appl_addr)
+        if (src_flash && addr == appl_addr) {
+            GUARD(G_LEN) = 12 + ((length + 3) & ~(uint32_t)3);  /* with no record too: the host app provisions from both */
             GUARD(G_CRC) = crc;
+        }
         RES(R_SUM) = sum;
         RES(R_XROT) = x;
         my_puts("sum ");

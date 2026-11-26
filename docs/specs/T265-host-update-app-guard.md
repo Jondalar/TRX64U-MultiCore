@@ -287,4 +287,13 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   `test_bootcfg`, `test_hostcore` (896), `test_hostvideo` (84), each green; the render bench and its golden (`hostrows.txt`, the settings row
   strings) were edited by hand and not run.
 
+- **Bundle review (2026-11-26, branch t265), fixed:** the boot ROM wrote the flash application's length into the guard block only on
+  a record path, so a host started with no record was never provisioned (`guard.cc` compares length and CRC): `load()` now writes
+  `G_LEN` with `G_CRC` on every load of the flash application, and the bench checks it in the no-record case (ROM 4,148 bytes).
+  c64ref's `drv_clk_o` / `drv_data_o` had lost their driver: tied idle 0 with the others (756 flops). The TOML A of the A/V
+  register: a 65th block was over descrec's limit of 64, so it is `overlay_mode_status.av_mode` (offset 6). The recovery program
+  links without the host log's outbyte wrap. RISC-V build (`tools/dev.sh riscv`): `hostrecovery.app` 181,868 bytes of a 258,032-byte
+  slot, `hostapp.app` 1,349,996 bytes; `tools/dev.sh test` (fast tier) green. Left as designed: the recovery program starts a flash
+  copy whose header and size match without checking its CRC (P2 decision above); the contract version moves 0.2.1 -> 0.3.0 for the
+  host's new pins, the 247 partition ports unchanged.
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).

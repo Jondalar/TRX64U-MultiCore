@@ -3,12 +3,12 @@
 # stage checks it. The ids are hashed from the working tree, staged or not.
 ec6c03cba9d3a72200413b5b563afa72c8940425 cores/c64ref/c64_core_c64ref.v
 e5a249dbff0f504fb90e6b46d65b6167bbf7e743 cores/c64ref/c64_core_ooc.xdc
-84a39369c9a69d3599fbf6e2fa896a9781caa780 cores/c64ref/c64_mem_c64ref.v
-7e6bbe8f75c2d860d3c23a74f72ff3bdf6b71657 cores/c64ref/c64_top_c64ref.v
+13187dfc0fc550820bc4aa329d596cef50761a72 cores/c64ref/c64_mem_c64ref.v
+76a2fc1536909c939cb432862cfc976c638a7313 cores/c64ref/c64_top_c64ref.v
 866e14f308cd07deb808bfede52f13c478aac6ae cores/c64ref/c64_turbo_c64ref.v
 9c02acb7743f38702661b1c46e0cfcff5ebb9687 cores/c64ref/core.toml
 b8f86c734a2620ea838c3905686adcc0c43c9ebc cores/c64ref/core_sources.tcl
-6f3ade21fabc84d8c95d2342b45074e32704b619 cores/c64ref/layer2_c64ref.v
+45242b70bbc8c8ec81032d5775ad5dcad111daae cores/c64ref/layer2_c64ref.v
 08294536e7eaa9405e663e1e7dd0b2e2704a6965 cores/common/dma_win.v
 43a5b148329181767d04d85bcb28aad259b63ed9 cores/common/drive_l2.vhd
 03e612c1f8152dbb1a9b3927781b9617d50872e5 cores/common/drive_l2_empty.v
@@ -25,11 +25,11 @@ ec3bb17a8b002c81d3409a4bfe04e5a2b380436d host/av_rgb.v
 a9c6227d75bc92b19436f1223bfbb6180456eaee host/bling_io.v
 9f20c2013e4947b13306a14767c12354c84508f2 host/bling_keyboard.v
 cb11b90ff7ee7192605ac0a1e927e707827ca724 host/bootrom/Makefile
-a70140db0957eda4100626d71f5a0bd4167c86d8 host/bootrom/bootrom.c
+65df1fefcf10cbbd397f917350f537585a24520c host/bootrom/bootrom.c
 c96e09c963be3dcb603e8370da56f77c2bbe8a22 host/bootrom/crt0.S
 fd3523e28a5e2fdd50f4a75fd2479e2155876dd0 host/bootrom/linker.ld
 2d104fb722d37d4ff8d6144e9916ff5de1daf3d6 host/bootrom/mkpkg.py
-c605257c11420fb2d9bf37b39f221756ac8d08d2 host/bootrom_pkg.vhd
+886c4cff075681ba3df1a55db1cf78de51772815 host/bootrom_pkg.vhd
 26304bb0ae1335cc1771936a540fd7ef581b213f host/build.tcl
 d5a65f04366891461e58d38243b2b84148215586 host/c64_text.v
 4cdb8cd1053c835810d890651c2f9a5676e2aa13 host/c64u.xdc

@@ -159,7 +159,7 @@ module c64_top_c64ref #(
   // Tape (T103, c64ref): the cassette port of the machine. tape_read is the level on the CIA 1 FLAG pin (the
   // datasette or the core's own TAP streamer), tape_sense_n the SENSE level the CPU port bit 4 reads (0 = a key
   // is down), tape_motor_n the CPU port bit 5 (0 = motor on), tape_write the CPU port bit 3 (the WRITE line).
-  // The streamer and the recorder are outside (cores/c64ref/c64ref_tape.v); icepi's c64_tape is not used.
+  // c64ref ties them idle (c64_core_c64ref.v: no tape since T265 D12); icepi's c64_tape is not used.
   input  wire       tape_read,
   input  wire       tape_sense_n,
   output wire       tape_cass_motor_n,
@@ -235,7 +235,7 @@ module c64_top_c64ref #(
   input  wire signed [22:0] smp_l,        // the sampler's sums (tied to 0 by c64_core_c64ref.v) (clk2x)
   input  wire signed [22:0] smp_r,
   // T37 SID sockets (clk): the app's socket addressing (C64_SID1/2_BASE, _MASK, _EN, quasi-static, in this clock), the
-  // hit of this access for the port (slot_port_c64ref.v) and the port's last D sample, which answers a socket read
+  // hit of this access for the port and the port's last D sample, which answers a socket read (c64ref: sockets off, T265 D12)
   input  wire [15:0] sock_base,           // {socket 2, socket 1} A11..A4
   input  wire [15:0] sock_mask,
   input  wire  [1:0] sock_en,
@@ -907,7 +907,7 @@ assign sid_pot_x = joy_pot_x || (pot_sel1 && pot_cmp[0]) || (pot_sel2 && pot_cmp
 assign sid_pot_y = joy_pot_y || (pot_sel1 && pot_cmp[1]) || (pot_sel2 && pot_cmp[3]);
 
 // ---------------------------------------------------------------------------
-// the cassette port (c64ref: the streamer and the recorder are outside, c64ref_tape.v)
+// the cassette port (c64ref: tied idle in c64_core_c64ref.v, no tape since T265 D12)
 // ---------------------------------------------------------------------------
 
 wire tape_cass_sense_n = tape_sense_n;

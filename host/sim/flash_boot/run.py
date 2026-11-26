@@ -216,6 +216,7 @@ def main():
         check("", r["guard"][0] == GUARD_VALID and r["guard"][G_VERDICT] == 0,
               f"no record: verdict {r['guard'][G_VERDICT]} (boots as today)")
         check("", r["guard"][G_CRC] == zlib.crc32(img), f"flash CRC reported ({r['guard'][G_CRC]:08X}, zlib {zlib.crc32(img):08X})")
+        check("", r["guard"][G_LEN] == len(img), f"flash length reported with no record too ({r['guard'][G_LEN]}, image {len(img)}): the host app provisions from it")
         check("", r["guard"][G_IFACE] == 1, "host interface in the guard block")
 
     @case

@@ -4,8 +4,8 @@
 // c64_top_c64ref puts out word addresses {bank, 0, byte_addr[21:1]}; byte map:
 //   0x00000-0x0FFFF  C64 RAM            -> ram (read/write)
 //   0x10000-0x17FFF  char/kernal/basic  -> rom (port A reads only)
-//   0x18000-          cartridge RAM/ROM  -> reads 0xFF (icepi's own cartridge
-//                                          is not used: cart_slot_c64ref serves them)
+//   0x18000-          cartridge RAM/ROM  -> reads 0xFF (c64ref has no cartridge
+//                                          model since T265 D12)
 // Every command is taken at once (cmd_ready = 1); read data comes one clock
 // later with rdata_valid and stays until the next read. The second port runs
 // on the falling edge of clk2x (T29), which keeps going while the machine
