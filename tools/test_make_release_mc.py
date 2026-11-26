@@ -86,6 +86,18 @@ class ReleaseBundleTest(unittest.TestCase):
         self.assertEqual(open(os.path.join(d, "trx64host_update_deadbeef_20261015.cfw"), "rb").read(),
                          open(self.cfw, "rb").read())
 
+    def test_recovery_file_ships_as_the_app_and_the_text_says_where_it_goes(self):
+        # T265 S10: hostrecovery.app is the bundle's host app byte for byte; INSTALL.md says to copy it to the ROOT of a stick or the SD card
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertEqual(open(os.path.join(d, "hostrecovery.app"), "rb").read(), open(self.app, "rb").read())
+        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
+        self.assertIn("| `hostrecovery.app` |", txt)
+        self.assertIn("root of the stick or the SD card", txt)
+        self.assertRegex(txt, r"[0-9a-f]{64}  hostrecovery\.app")
+        self.assertIn("The board stays dark after an updater of another firmware", txt)
+
     def test_unzip_ships_and_the_install_text_says_where_it_goes(self):
         # T180 D9: unzip.u2a rides along beside the .cor files; INSTALL.md names /cores/apps/ and lists it in the checksums
         u2a = os.path.join(self.d, "unzip.u2a")

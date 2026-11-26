@@ -145,4 +145,31 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   17,400 LUT. The register lives in `host/mode_req.v` (host-owned, survives a core swap); standard 0 = follow the core's raster.
   No contract port changes (247 ports, VERSION 2).
 
+**Built, P2 and P3 (2026-11-26, branch `t265-recovery`; boot ROM, `txu_pack.py`, `trx_pkg.py`, the matrix files are other branches):**
+
+- **Blocks.** The magic words the boot ROM and the recovery program must write are fixed in `host-app/software/hostapp/guard.h`: guard block (0xFF80) `0x31445247` "GRD1", recovery block (0xFF60)
+  `0x31564352` "RCV1", result magic `0x54313552`, statuses 1 (flash/request) and 9 (guard); recovery block words: magic, medium, stage address, stage length, stage CRC, copy equals record, 0,
+  chk = ~(xor of words 0..6). The stage length is the file length (record + data padded to 4). The host application decodes them once (`guard_capture`, `hostapp.cc`) and clears the three magic words.
+- **Recovery program** (`host-app/software/hostrecovery/recovery.cc`, `host-app/target/u64ii/riscv/hostrecovery/`): linked at 0x01800000, R1 (Gideon's file layer as the host app links it), the flash drive
+  attached through `FlashRo` (a `BlockDevice_Flash` whose `write` refuses) and never formatted, no `init_flash_disk()`. **Deviation from "read-only: no disk_write linked":** R1's FatFs and
+  `BlockDevice_Flash::write` are in the image (the file layer references them); nothing in `recovery.cc` calls a write, and the flash drive's device refuses one. R2 (an own `ffconf.h`
+  with `FF_FS_READONLY`, an own diskio, a hook in the vendored `usb_scsi.cc`) is the way to "writes nothing by construction" if Alex wants it; it is not built. Order: flash copy, `.new`, SD root, every
+  `Usb*` root; it searches every 500 ms and says so on the console every 5 s. The image rule is `guardimg.h` (shared with the test): the record rules of `fw_image_seal_parts` and a file of exactly
+  12 + padded length. Hand-off: block, `NANO_START = 0`, interrupts off, `memcpy` to the record's load address, fence, jump (no trampoline: the recovery does not live at 0x30000).
+  The slot image is `tools/rec_trailer.py` (record + data + CRC-32 trailer, limit 0x3EFF0 data bytes, refuses a bigger program); `ci/trxapps.sh` builds `hostrecovery` before `hostapp` and runs
+  `check_app_size.py ... 0x3EFF0`; the host app links the image (`SRCS_APP = recovery_slot.app`, the Makefile stops with a message when it is not built). Size: not measured (no RISC-V build here).
+- **Host app.** `guard.cc` (pure: record, copy, stamp, provisioning, repair check), `guard_board.cc` (capture, the background task at idle priority after the first frame, the gate:
+  update and restore wait while it runs, `legacy_stage` waits too), `host_core_flow_guard.cc` (the repair job `SJ_REPAIR`, run first when the recovery started the application; no `direct_phase`).
+  The copy is `/Flash/trx/hostrecovery.app` (+ `.new` + `.stm` "len crc" decimal); free space is checked before it is written (the file + 64 KiB); when a new copy cannot be written the old one,
+  `.new` and the stamp are deleted before the record is written and the screen gets a note saying what happened and what to do.
+- **Slots.** `FW_BIT_SLOT` is 0x1E0000; `FW_BIT_SLOT_FULL` (0x220000) is the slot of a whole Gideon/Commodore firmware (`fw_image_seal`, the restore of T137): without it the stock Commodore
+  bitstream (0x217300 bytes) could not be restored any more. Such a write takes the recovery program and the record with it (a clean install of that firmware, D2); the host provisions both again on its next start.
+- **.txu writer.** `UpdateJob` calls `guard_after_update` after `fw_write_parts` ok with the app part: copy, then record; a copy or record that fails is a warning line on the result page, the update
+  stays written (a copy that differs from the record is taken by the recovery, a missing record means no guard). The recovery program is not part of the `.txu`: the host app writes it at its first start.
+  Without `guard_install_fs` (the other benches) the step does nothing.
+- **Package.** `hostrecovery.app` = the stamped `hostapp.app` (`ci/package.sh`, `cmp`), required by `ci/prerelease.sh`, copied into the bundle by `tools/make_release_mc.sh`, checked against the `.txu`
+  app part by `tools/check_release_flash.py --recovery`, named in INSTALL.md (what is in here, the stick: the ROOT, known problems).
+- **Tests.** `tests/hostapp/run_guard.sh` (`test_guard.cc`): cut sweeps over the provisioning (102 cut points), the update writer (239) and the repair (172) with a flash and a RAM disk that lose power at every
+  operation; 12 source mutants. Not run: board, RISC-V build, the render bench with the new pages (`SJ_REPAIR`, the warn line), `tests/hostapp/run.sh` as a whole.
+
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
