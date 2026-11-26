@@ -107,6 +107,18 @@ with tempfile.TemporaryDirectory() as td:
     want("host+tests branch: order_targets name every lane the dispatcher starts", rc == 0 and set(d.get("cor_targets", [])) <= set(order)
          and sorted(t for t in order if t.split(":", 1)[1] in own) == want_own, out + dout)
 
+    # T239.5 S6, D15: a push that changes only the host app starts the host menu lane and, with it, the vc20 lane (the host lane's emulator test runs the
+    # host with vc20's .cor); the work order names vc20's bitstream, no other core lane starts
+    def host_app(p):
+        p.update(docs_only=False, scope="branch", sims=[], large=[], host=False, aux=False, dfx=[], tests=False, all=False)
+        p["apps"] = {"host": True, "core": False, "ultimate": False}
+        p["lanes"] = {"host": False, "dfx": [], "large": []}
+    ap = mk("host_app.json", host_app)
+    rc2, d, dout = dispatch(ap, "--beside")
+    want("host app only: the dispatcher starts the vc20 lane and nothing else of the cores", rc2 == 0 and d["cores"] == ["vc20"] and d["host"] == "true", dout)
+    rc, out, _ = run("outputs", ap, "--tier", "0", "--update", "no")
+    want("host app only: the work order names vc20's bitstream", rc == 0 and "core:vc20" in json.loads(kv_of(out)["order_targets"]), out)
+
     # T239.5 D13: a pull request runs no matrix (--matrix no): the work order names the cor legs only, no core with an app of its own
     rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no", "--matrix", "no")
     kv = kv_of(out)
