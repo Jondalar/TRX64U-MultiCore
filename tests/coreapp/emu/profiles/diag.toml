@@ -3,11 +3,10 @@ name = "diag"
 id = "DIAG"
 board = "multicore"
 
-[regs]
-0x0A0 = 0x01                 # CTRL: b0 HOLD
+# no [regs]: the diag core has no machine held in reset (its 0x0A0 is PIN_IDX of the pin bank v2, cores/diag/app/gateware.toml block pinsel)
 
 [ro]
-0x006 = 0x07                 # DCAPS: pins drivable, paddle control, A/V encoder
+0x006 = 0x1F                 # DCAPS (cores/diag/rtl/diag_regs.v): b0 open-drain joystick pins, b1 PADDLE_DIS / PADDLE_ADJ, b2 the A/V test encoder, b3 pin bank v2, b4 capture
 
 [handover]
 core = "Port Diagnostics"
