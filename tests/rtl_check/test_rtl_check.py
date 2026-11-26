@@ -25,7 +25,10 @@
   2h. the miniature design tests/rtl_check/mini8 (the review of T239.3's reader): each pattern that passed a wrong TOML A or crashed is refused (a finding or a pattern the
       check does not know): the 0 of an arm on the access type, of an outer arm before its inner decision, of an inner `when others` or `else`, of the other half of a vector;
       an overloaded, a recursive process function, a function local read before it is assigned, an argument declared with a subtype name, a byte outside the argument,
-      a top file's instance whose module is an undefined macro. A process variable written in the arm of the address is a write (the TOML A that says so agrees).
+      a top file's instance whose module is an undefined macro; a process variable that takes the address (under a case on the write flag, inside an arm of the address), a
+      decision on a variable that merges the address with another value, the 0 before or in the default of a reverse case (`case (1'b1)`) whose choices name the address, an arm
+      that assigns the address to a variable and decides on it, a slice argument for a formal the function indexes, an index outside the argument. A process variable
+      written in the arm of the address is a write (the TOML A that says so agrees).
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
      same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
@@ -157,7 +160,15 @@ for top, toml, what in (("topd", "mini8_d.toml", "review 1: the 0 an arm on the 
                         ("topf3", "mini8_f3.toml", "review 7: a process function that calls itself is refused"),
                         ("top8sub", "mini8_sub.toml", "review 6: a function argument declared with a subtype name is refused, not a crash"),
                         ("top8fn", "mini8_fn.toml", "review 7: a function slice outside its argument (bytes 4..7 of 32 bits) is refused, not a 0"),
-                        ("top8nomac", "mini8_nomac.toml", "review 7: a top file's instance whose module is a macro the file does not define is refused, not skipped")):
+                        ("top8nomac", "mini8_nomac.toml", "review 7: a top file's instance whose module is a macro the file does not define is refused, not skipped"),
+                        ("topv1", "mini8_v1.toml", "review 8: a process variable that takes the address under a case on the write flag (case we) is no write"),
+                        ("topv2", "mini8_v2.toml", "review 8: a case on a process variable that is the address on one path and 0 on another (merged, 0x25 or 0) is refused"),
+                        ("topv3", "mini8_v3.toml", "review 8: a process variable that takes the address inside an arm of the address (a2_regs' o) is no write"),
+                        ("topg1", "mini8_g1.toml", "review 8: the 0 of an outer arm before a reverse case (case (1'b1)) whose choices decide on the address is no decoded read"),
+                        ("topg2", "mini8_g2.toml", "review 8: the default 0 of a reverse case whose choices decide on the address is no decoded read"),
+                        ("toph1", "mini8_h1.toml", "review 8: an arm that assigns the address to a process variable and then decides on it is no last decision: its 0 is no decoded read"),
+                        ("topfx", "mini8_fx.toml", "review 8: a slice wd(31 downto 8) for a function formal the body indexes (return v(15 downto 8)) is refused, not renumbered from 0"),
+                        ("topix", "mini8_ix.toml", "review 8: an index of a function formal outside its argument (bit 15 and bit -1 of 8 bits) is refused, not a 0")):
     rc, out = mini8(top, toml)
     must(refused(rc, out), "mini8 (%s): %s" % (top, what), out)
 rc, out = mini8("topb", "mini8_b.toml")
