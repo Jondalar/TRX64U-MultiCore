@@ -1,0 +1,38 @@
+# The ROM needs of a core that states them in record 6 of its .cor (T239.3 P1-6): trx64u's four ROMs as TRX64-Ultimate's desc.toml lists them
+# and the ROM set of a Kickstart-like core. tests/hostapp/run.sh compiles it; test_coremaint reads it back.
+[core]
+id = "C64 "
+name = "TRX64U"
+title = "TRX64U"
+short_title = "TRX64U"
+folder = "c64"
+store = "TRX64U Settings"
+min_contract = 1
+
+[[rom]]
+role = "BASIC"
+names = ["basic-901226-01.bin", "basic.bin", "basic.901226-01", "basic.901226-01.bin", "basic.rom"]
+sizes = [8192]
+required = true
+put_op = "c64.put_basic"
+
+[[rom]]
+role = "KERNAL"
+names = ["kernal-901227-03.bin", "kernal.bin", "kernal.901227-03", "kernal.901227-03.bin", "kernal.rom"]
+sizes = [8192]
+required = true
+put_op = "c64.put_kernal"
+
+[[rom]]
+role = "CHAR"
+names = ["chargen-901225-01.bin", "chars.bin", "characters.901225-01", "characters.901225-01.bin", "chargen.bin", "chars.rom"]
+sizes = [4096]
+required = true
+put_op = "c64.put_char"
+
+[[rom]]
+role = "1541 drive"
+names = ["1541.rom", "1541.bin", "1541-ii.bin", "1541-ii.rom", "1541ii.rom", "1541c.rom", "dos1541.rom", "dos1541-325302-01+901229-05.bin"]
+sizes = [16384, 32768]
+shared = true
+put_op = "c64.put_drive_rom"

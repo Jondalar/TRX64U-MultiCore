@@ -1,4 +1,4 @@
-// Diagnostics, the F8 tab of that name (T104.2 UI; it was in F4 until T228 DC7): the debug log (what the application printed on the UART, kept in a ring), the EDID of the screen, the heap, the debug register, the trace as
+// Diagnostics, the F8 tab of that name (T104.2 UI; it was in F4 until T228 DC7): the debug log (what the application printed on the UART, kept in a ring), the EDID of the screen, the heap and the debug register as
 // text. Operations to save them, state values for the rows, and `diag_text()` for the viewer.
 #include "diag.h"
 #include "corereport.h"
@@ -6,9 +6,8 @@
 #include "usb_hid.h"
 #include "netops.h"
 #include "ops_glue.h"
-#include "trx64u_ops.h"
+#include "ctx.h"
 #include "videomode.h"
-#include "trx_ring.h"
 #include "u64.h"
 #include "FreeRTOS.h"
 #include "product.h"
@@ -94,7 +93,7 @@ void diag_help_areas(const char *timewarp, const char *monitor)
     snprintf(g_help_mon, sizeof(g_help_mon), "%s", monitor ? monitor : "");
 }
 
-// what the viewer shows: 0 log, 1 EDID (hex), 2 trace, 3 system information
+// what the viewer shows: 0 log, 1 EDID (hex), 3 system information, 5 keys (2 was the instruction trace of the TRX64 ring: that screen is the core library's)
 const char *diag_text(int kind, int *n)
 {
     static CoreCtx *c = 0;
@@ -112,23 +111,6 @@ const char *diag_text(int kind, int *n)
             memcpy(g_text, ed, len);
             *n = len;
         }
-        return g_text;
-    }
-    if (kind == 2) {
-        TrxTraceStatus st;
-        int w = 0;
-        if (!trx_ring_trace_status(&st) || !st.present || !st.on) {
-            *n = snprintf(g_text, sizeof(g_text), "The instruction trace is off (F5 > TRX > Recording > Instruction trace).\n");
-            return g_text;
-        }
-        static TrxTraceRec rec[64];
-        uint32_t first = st.records > 64 ? st.records - 64 : 0;
-        int got = trx_ring_trace_read(first, 64, rec);
-        for (int i = 0; i < got && w < (int)sizeof(g_text) - 100; i++) {
-            w += snprintf(g_text + w, sizeof(g_text) - w, "%04x  %02x %02x %02x  A=%02x X=%02x Y=%02x S=%02x P=%02x\n", rec[i].pc, rec[i].opcode, rec[i].b1, rec[i].b2,
-                          rec[i].a, rec[i].x, rec[i].y, rec[i].sp, rec[i].p);
-        }
-        *n = w;
         return g_text;
     }
     if (kind == 5) {
@@ -182,7 +164,7 @@ const char *diag_text(int kind, int *n)
 static int save_bytes(CoreCtx *c, const char *name, const char *ext, int kind, OpOut &o)
 {
     char p[260];
-    if (!trx_target_path(c, name, ext, p, sizeof(p))) {
+    if (!ctx_target_path(c, name, ext, p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
@@ -240,15 +222,6 @@ static const char *state_uptime(CoreCtx *c)
 // T228 DC1: the application knows it was started by the MultiCore host (the ICAP loader answered, board.h); a row that hides on this state is not offered there
 static const char *state_host_multicore(CoreCtx *c) { return !c->board || c->board->can_return_host ? "MultiCore host" : 0; }
 static const char *state_log(CoreCtx *) { snprintf(sb, sizeof(sb), "%u KB", (unsigned)((g_wrapped ? LOG_N : g_head) / 1024)); return sb; }
-static const char *state_trace(CoreCtx *)
-{
-    TrxTraceStatus st;
-    if (!trx_ring_trace_status(&st) || !st.present) {
-        return "no trace in this bitstream";
-    }
-    snprintf(sb, sizeof(sb), "%s, %u records", st.on ? "on" : "off", (unsigned)st.records);
-    return sb;
-}
 static t_usb_hid_status_snapshot g_hid;
 static void hid_refresh(void) { usb_hid_get_status_snapshot(g_hid); }
 static const char *st_mouse(CoreCtx *) { hid_refresh(); return g_hid.mouse_name[0] ? g_hid.mouse_name : "none"; }
@@ -297,7 +270,6 @@ void diag_register(OpRegistry &r)
     r.add_state("diag.uptime", state_uptime);
     r.add_state("host.multicore", state_host_multicore);
     r.add_state("diag.log", state_log);
-    r.add_state("diag.trace", state_trace);
     r.add_state("diag.suggest.log", state_suggest_log);
     r.add_state("diag.suggest.edid", state_suggest_edid);
 }

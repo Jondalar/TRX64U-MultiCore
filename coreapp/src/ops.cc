@@ -1,11 +1,12 @@
 #include "ops.h"
+#include "opscope.h"
 #include "ctx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
-OpRegistry::OpRegistry() : owner_("?"), nops_(0), nstates_(0), nevents_(0)
+OpRegistry::OpRegistry() : owner_("?"), owner_scope_(-1), scope_(0), nops_(0), nstates_(0), nevents_(0), gen_(0)
 {
     memset(ops_, 0, sizeof(ops_));
     memset(states_, 0, sizeof(states_));
@@ -77,13 +78,24 @@ int OpRegistry::add_op(const char *name, const ArgSpec *args, int nargs, op_fn f
         snprintf(err_, sizeof(err_), "%s: no room for operation \"%s\" (OPS_MAX)", owner_, name);
         return OPE_FAILED;
     }
+    gen_++;
     OpDef &d = ops_[nops_++];
     d.name = name;
     d.owner = owner_;
     d.args = args;
-    d.nargs = nargs;
+    d.nargs = (int16_t)nargs;
+    d.scope = owner_scope_;
     d.fn = fn;
     return OPE_OK;
+}
+
+static uint32_t name_hash(const char *s)
+{
+    uint32_t h = 2166136261u;
+    for (; *s; s++) {
+        h = (h ^ (uint8_t)*s) * 16777619u;
+    }
+    return h;
 }
 
 int OpRegistry::add_state(const char *name, state_fn get)
@@ -101,7 +113,9 @@ int OpRegistry::add_state(const char *name, state_fn get)
     }
     StateDef &s = states_[nstates_++];
     s.name = name;
+    s.nh = (uint16_t)name_hash(name);
     s.owner = owner_;
+    s.scope = owner_scope_;
     s.get = get;
     return OPE_OK;
 }
@@ -114,6 +128,7 @@ RegMark OpRegistry::mark() const
 
 void OpRegistry::rollback(const RegMark &m)
 {
+    gen_++;
     if (m.nops >= 0 && m.nops < nops_) {
         memset(&ops_[m.nops], 0, sizeof(OpDef) * (nops_ - m.nops));
         nops_ = m.nops;
@@ -130,6 +145,7 @@ void OpRegistry::rollback(const RegMark &m)
 
 void OpRegistry::drop_owner(const char *name)
 {
+    gen_++;
     int k = 0;
     for (int i = 0; i < nops_; i++) {
         if (ops_[i].owner && !strcmp(ops_[i].owner, name)) {
@@ -213,8 +229,9 @@ const OpDef *OpRegistry::find_op(const char *name) const
 
 const StateDef *OpRegistry::find_state(const char *name) const
 {
+    const uint16_t nh = name ? (uint16_t)name_hash(name) : 0;
     for (int i = 0; name && i < nstates_; i++) {
-        if (!strcmp(states_[i].name, name)) {
+        if (states_[i].nh == nh && !strcmp(states_[i].name, name)) {
             return &states_[i];
         }
     }
@@ -393,7 +410,12 @@ int OpRegistry::run(CoreCtx *c, const OpDef *d, const OpArgs &a, OpResult *r) co
     r->more = false;
     r->ndata = 0;
     OpOut o = { r->msg, (int)sizeof(r->msg), false, r->data, OP_DATA_MAX, 0 };
+    bool scoped = scope_ && d->scope >= 0;           // the core's own handlers (scope -1) take no detour
+    int scope_prev = scoped ? scope_->enter(d->scope) : 0;
     r->code = d->fn(c, a, o);
+    if (scoped) {
+        scope_->leave(scope_prev);
+    }
     if (r->code == OPE_OK) {
         for (int k = 0; k < d->nargs && k < a.n; k++) {
             if (d->args[k].type == AT_PATH && a.s(k)) {
@@ -424,24 +446,21 @@ int OpRegistry::call(CoreCtx *c, const char *name, const OpIn *in, int nin, OpRe
     return run(c, d, a, r);
 }
 
-static uint32_t fnv(const char *s)
-{
-    uint32_t h = 2166136261u;
-    for (; *s; s++) {
-        h = (h ^ (uint8_t)*s) * 16777619u;
-    }
-    return h;
-}
-
 const char *OpRegistry::state(CoreCtx *c, const char *name, uint32_t *rev)
 {
+    const uint16_t nh = name ? (uint16_t)name_hash(name) : 0;
     for (int i = 0; name && i < nstates_; i++) {
-        if (strcmp(states_[i].name, name)) {
+        if (states_[i].nh != nh || strcmp(states_[i].name, name)) {   // the hash first: most names share a long prefix, and the menu asks about 100 times a key
             continue;
         }
         StateDef &s = states_[i];
+        bool scoped = scope_ && s.scope >= 0;
+        int scope_prev = scoped ? scope_->enter(s.scope) : 0;
         const char *v = s.get(c);
-        uint32_t h = v ? fnv(v) + 1 : 0;              // no value is its own hash
+        if (scoped) {
+            scope_->leave(scope_prev);
+        }
+        uint32_t h = v ? name_hash(v) + 1 : 0;              // no value is its own hash
         if (!s.seen || h != s.hash) {
             s.seen = true;
             s.hash = h;

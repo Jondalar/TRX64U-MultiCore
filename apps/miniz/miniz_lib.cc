@@ -1,6 +1,5 @@
-// The library "miniz" (T197 P1): miniz's zip reader and inflate as one resident library of format 3. It registers nothing in the menu or the registry; what
-// it contributes is the call table of zip_lib.h, which an application reaches through api->lib->find("miniz", ZIPLIB_VERSION, &size).
-#include "libapi.h"
+// The call table of miniz's zip reader and inflate (zip_lib.h), linked into the image of the sub-app unzip (apps/unzip/Makefile, T239.3 D60). No core app links it and the base loads no
+// library file; the table is the sub-app's own, which glue.cc takes with miniz_table().
 #include "zip_lib.h"
 
 static const ZipLib k_table = {
@@ -15,17 +14,8 @@ static const ZipLib k_table = {
     tinfl_decompress_mem_to_mem,
 };
 
-#ifdef __riscv
-#define LIB_ENTRY_ATTR __attribute__((visibility("default"), section(".text.lib_register")))
-#else
-#define LIB_ENTRY_ATTR
-#endif
-extern "C" LIB_ENTRY_ATTR int lib_register(const LibApi *api, LibRecord *out)
+// The table (size word first); C++ linkage.
+const void *miniz_table(void)
 {
-    if (api->abi_major != 3 || api->abi_minor < 1) {
-        return 1;                                       // needs the library group (base 3.1)
-    }
-    out->exports = &k_table;
-    out->exports_size = sizeof(k_table);
-    return 0;
+    return &k_table;
 }

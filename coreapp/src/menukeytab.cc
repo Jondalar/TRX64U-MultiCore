@@ -64,29 +64,7 @@ static const KeyRow g_rows[] = {
     CLOSEKEYS(KS_APP_TERM, MI_DECLINE),
     ROW(KS_APP_TERM, ANY, MI_APP_TERMKEY, 0, 0, 0, 0),
 
-    // the monitor is trxmon's: every key is its own; what closes the menu stays the menu's (the menu button, RUN/STOP while the machine stands)
-    ROW(KS_MONITOR, K(KEY_F10), MI_DECLINE, 0, 0, 0, 0),
-    ROW(KS_MONITOR, K(KEY_SCRLOCK), MI_DECLINE, 0, 0, 0, 0),
-    ROW(KS_MONITOR, K(KEY_MENU), MI_DECLINE, 0, 0, 0, 0),
-    ROW(KS_MONITOR, K(KEY_BREAK), MI_DECLINE, 0, 0, 0, "!monitor.wants_stop"),
-    ROW(KS_MONITOR, ANY, MI_OP, 0, "monitor.key", KF_KEYARG | KF_DIRECTIVE | KF_DIRECT, 0),
-
-    // Timewarp (trx_timewarp_ui.cc): LEFT and RIGHT one frame, UP and DOWN one second, PAGE UP/DOWN (F1 and F7) ten seconds, HOME the oldest frame, RETURN rewinds there and runs,
-    // RUN/STOP and the left arrow cancel; a letter or digit is nobody's here
-    ROW(KS_TIMELINE, K(KEY_LEFT), MI_OP, -1, "tw.step", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_RIGHT), MI_OP, 1, "tw.step", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_UP), MI_OP, -1, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_DOWN), MI_OP, 1, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_PAGEUP), MI_OP, -10, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_F1), MI_OP, -10, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_PAGEDOWN), MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_F7), MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_HOME), MI_OP, 0, "tw.oldest", KF_STATUS, 0),
-    ROW(KS_TIMELINE, K(KEY_CTRL_O), MI_OP, 0, "tw.monitor", KF_DIRECTIVE, 0),
-    ROW(KS_TIMELINE, K(KEY_BREAK), MI_OP, 0, "tw.cancel", KF_CLOSE, 0),
-    ROW(KS_TIMELINE, K(KEY_ESCAPE), MI_OP, 0, "tw.cancel", KF_CLOSE, 0),
-    ROW(KS_TIMELINE, K(KEY_RETURN), MI_OP, 0, "tw.resume", KF_STATUS_OK | KF_CLOSE, 0),
-    ROW(KS_TIMELINE, 0x20, 0x7E, MI_SWALLOW, 0, 0, 0, 0),
+    // the monitor's and Timewarp's keys are the core's own (KS_CORE): its record's key table, tried here (menuctl.cc resolve_from)
 
     // a job runs: ESC drops it
     ROW(KS_BUSY, K(KEY_ESCAPE), MI_BUSY_CANCEL, 0, 0, 0, 0),
@@ -141,8 +119,7 @@ static const bool g_swallow[KS_COUNT] = {
     false,   // KS_SHEET
     false,   // KS_APP
     false,   // KS_APP_TERM
-    false,   // KS_MONITOR
-    false,   // KS_TIMELINE
+    false,   // KS_CORE
     true,    // KS_BUSY
     false,   // KS_PICK
     false,   // KS_ENTRY
@@ -209,15 +186,4 @@ int menu_keymap_key_of(int intent, int arg)
         }
     }
     return -1;
-}
-
-int menu_keymap_wasd(int k)
-{
-    switch (k) {
-    case 'w': return KEY_UP;
-    case 'a': return KEY_LEFT;
-    case 's': return KEY_DOWN;
-    case 'd': return KEY_RIGHT;
-    }
-    return k;
 }

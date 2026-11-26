@@ -21,12 +21,35 @@
 #include "newdisk.h"
 #include "newfile.h"
 #include "d1541_drive.h"
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
 #include "amiga_regs.h"
+#endif
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
+#ifdef TEST_APP_ATARI800
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
+#ifdef TEST_APP_CPC
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
 #include "sectors.h"
 
 typedef std::vector<uint8_t> Bytes;
 
-const CoreDesc *const core_table[] = { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, &vc20_desc, 0 };
+#ifdef TEST_APP_VC20
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
+const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
+#elif defined(TEST_APP_CPC)             // the CPC's app is its own build (run.sh cpcapp) with its core only
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
+#elif defined(TEST_APP_ATARI800)        // the Atari's app is its own build (run.sh a8app) with its core only
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
+#endif
 
 struct Host : MenuHost {
     void info(int, char *out, int n) { snprintf(out, n, "x"); }
@@ -55,7 +78,9 @@ struct Rig {
     {
         delete m;
         delete st;
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800)                  // the A1200's, the CPC's, the Amiga 500's and the Atari's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
+#endif
     }
     // selects the row of that name on the page that is up
     bool pick(const char *name)
@@ -165,13 +190,20 @@ static bool clean_name(const char *s)
 struct Create { const CoreDesc *d; const char *label; const char *ext; };
 
 static const Create creates[] = {
-    { &atari800_desc,  "Create blank ATR", ".atr" },
-    { &apple2_desc,    "Create blank DSK", ".dsk" },
-    { &amiga_desc,     "Create blank ADF", ".adf" },
-    { &amiga1200_desc, "Create blank ADF", ".adf" },
-    { &cpc_desc,       "Create blank DSK", ".dsk" },
+#ifdef TEST_APP_VC20
     { &vc20_desc,      "Create blank D64", ".d64" },
     { &vc20_desc,      "Create blank G64", ".g64" },
+#elif defined(TEST_APP_A1200)
+    { &amiga1200_desc, "Create blank ADF", ".adf" },
+#elif defined(TEST_APP_CPC)
+    { &cpc_desc,       "Create blank DSK", ".dsk" },
+#elif defined(TEST_APP_AMIGA)
+    { &amiga_desc,     "Create blank ADF", ".adf" },
+#elif defined(TEST_APP_ATARI800)
+    { &atari800_desc,  "Create blank ATR", ".atr" },
+#else
+    { &apple2_desc,    "Create blank DSK", ".dsk" },
+#endif
 };
 
 static const Task *task_of(const CoreDesc *d, const char *label)
@@ -245,7 +277,19 @@ static void check_suggestions()
         }
     }
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
-    for (const CoreDesc *d : { &atari800_desc, &apple2_desc, &cpc_desc, &amiga_desc, &amiga1200_desc, &vc20_desc }) {
+    #ifdef TEST_APP_VC20
+    for (const CoreDesc *d : { &vc20_desc }) {
+#elif defined(TEST_APP_A1200)
+    for (const CoreDesc *d : { &amiga1200_desc }) {
+#elif defined(TEST_APP_CPC)
+    for (const CoreDesc *d : { &cpc_desc }) {
+#elif defined(TEST_APP_AMIGA)
+    for (const CoreDesc *d : { &amiga_desc }) {
+#elif defined(TEST_APP_ATARI800)
+    for (const CoreDesc *d : { &atari800_desc }) {
+#else
+    for (const CoreDesc *d : { &apple2_desc }) {
+#endif
         for (int i = 0; i < d->ntasks; i++) {
             if (!d->tasks[i].ask_state) continue;
             Rig r(d);
@@ -256,6 +300,7 @@ static void check_suggestions()
     }
 }
 
+#ifdef TEST_APP_ATARI800          // check_junk and check_folder stand on the Atari's descriptor: its app runs them (run.sh a8app, the unit a8_createflow)
 // A state that hands over rubbish: what the prompt takes of it
 static char g_junk[80];
 static const char *state_junk(CoreCtx *) { return g_junk; }
@@ -540,6 +585,7 @@ static void check_folder()
         CHECK_STR(res.msg, "Created /usb1/disks/api.atr.");
     }
 }
+#endif
 
 // ---- (c) the progress -------------------------------------------------------------------------------------------------------------------------
 static void check_progress_for(const CoreDesc *desc, const char *label, const char *ext, int fmt, uint32_t bytes)
@@ -656,12 +702,19 @@ static void check_progress_for(const CoreDesc *desc, const char *label, const ch
 
 static void check_progress()
 {
-    check_progress_for(&atari800_desc, "Create blank ATR", ".atr", ND_ATR, ND_ATR_BYTES);
-    check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
-    check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
-    check_progress_for(&cpc_desc, "Create blank DSK", ".dsk", ND_CPC_DSK, ND_CPC_BYTES);
+#ifdef TEST_APP_VC20
     // the 1541 library: its own builder and writer state, same display
     check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
+#elif defined(TEST_APP_A1200)
+    check_progress_for(&amiga1200_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
+#elif defined(TEST_APP_CPC)
+    check_progress_for(&cpc_desc, "Create blank DSK", ".dsk", ND_CPC_DSK, ND_CPC_BYTES);
+#elif defined(TEST_APP_AMIGA)
+    check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
+#elif !defined(TEST_APP_ATARI800)
+    check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
+#else
+    check_progress_for(&atari800_desc, "Create blank ATR", ".atr", ND_ATR, ND_ATR_BYTES);
     // the operation called alone, as a REST client does: all of it in one call, still in chunks
     {
         Rig r(&atari800_desc);
@@ -674,15 +727,25 @@ static void check_progress()
         for (uint32_t s : r.fs.write_sizes) CHECK(s <= NF_CHUNK);
         CHECK(r.fs.write_sizes.size() >= 5);
     }
+#endif
 }
 
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // the Amiga's (T239.5 D13: the two Amiga apps; the shared unit has no Amiga)
 // ---- T128: "Mount folder as HD0/HD1" - the folder browser, the size in GB with its suggestion, the job, the refusal ----------------------------
 static void check_mount_folder()
 {
-    for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+#ifdef TEST_APP_A1200
+    for (const CoreDesc *d : { &amiga1200_desc }) {
+#else
+    for (const CoreDesc *d : { &amiga_desc }) {
+#endif
         printf("-- mount folder: %s\n", d->title);
         Rig r(d);
-        r.io.regs[AM_FEAT] = d == &amiga1200_desc ? 1 : 0;
+#ifdef TEST_APP_A1200
+        r.io.regs[AM_FEAT] = 1;
+#else
+        r.io.regs[AM_FEAT] = 0;
+#endif
         r.fs.put("/usb0/games/hd/a.txt", Bytes(1000, 7));
         r.fs.put("/usb0/games/hd/dir/b.txt", Bytes(100, 8));
         r.fs.put("/usb1/other/c.txt", Bytes(10, 9));
@@ -738,8 +801,10 @@ static void check_mount_folder()
     }
 }
 
+#endif
 int main()
 {
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));
@@ -748,10 +813,15 @@ int main()
     CHECK(!board_format_ok("%lu"));
     CHECK(!board_format_ok("100%"));
     // what the product prints is checked as it runs: a format with a precision (or %%) in any of the paths below is a failed check
+#endif
     check_suggestions();
+#ifdef TEST_APP_ATARI800
     check_junk();
     check_folder();
+#endif
     check_progress();
+#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)
     check_mount_folder();
+#endif
     DONE("createflow");
 }

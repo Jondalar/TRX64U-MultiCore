@@ -1,18 +1,10 @@
-# trx64u.cor: the large TRX64 .cor that runs OUR generic core application (T104.2): the monolith bitstream of TREX/TRX64-Ultimate (read only, never built
-# here) plus coreapp.bin of stage trxapps, packed by tools/pack_import_cor.sh in ci/package.sh. A new bitstream = a new pin, reviewed.
-# Shell variables; the bitstream is a file of the TRX64-Ultimate CI generic package trx64-ultimate/<PKG_VERSION>.
+# trx64u.cor is TRX64-Ultimate's file (T239.3 D21, P1-8): their CI builds, tests and delivers it, this package takes it by its sha256 and changes no byte
+# (ci/imports.py pack copies it from the builder's store, finish checks it again). Shell variables. Their build is the file COR_FILE of the generic package
+# PACKAGE, version VERSION, of their Gitea registry; a later build is a new pin (VERSION, COR_FILE, COR_SHA256, COR_SIZE), reviewed.
+# The name PACKAGE/VERSION/COR_FILE is all the pin says; where the registry is comes from the environment of the builder (ci/imports.py, TRX_FW_PKG_URL).
 ID=trx64u
-NAME="TRX64U"
-VERSION=d94aa68e
-# T253 D3: main-d94aa68e is the TRX64-Ultimate release 0.3.1, the patch release with the I2C fix (c392beed: the P7 scan on the 1.8 V bus only); Gitea prerelease trx64-main-d94aa68e, its manifest carries "version": "0.3.1"
-SEMVER=0.3.1
-PKG_VERSION=main-d94aa68e
-BIT_FILE=c64_basic.bit
-BIT_SHA256=c950aa551912decac2c684f95f68fea7b5723584463fefcf756fd315f53884ae
-ICON=tools/core_logos/trx64/icon.rgb565
-DESC=coreapp/cores/trx64u/menu.toml
-OPS=tests/coreapp/golden/ops_trx64u.txt
-# T228 R21 item 7: record 8 of the .cor, the files the application installs into the core folder (the SID player's C64 programs, release/imports/trx64u_files/README)
-FILES=release/imports/trx64u_files
-# T228: deactivated on 2026-11-17 (Alex, "only deactivate! do not delete .. first we fix the UI, then we build the core again", translated) by a
-# line that set PIPELINE to false (ci/package.sh packed nothing then); the line is gone since 2026-11-18: T228 is merged, trx64u ships in 0.2.0.
+PACKAGE=trx64-ultimate
+VERSION=u18-82fe1b90
+COR_FILE=trx64u_82fe1b90.cor
+COR_SHA256=b4e184bdc31b01c6ee43849dad154c0a160a57c2c03843d1dd83ed1c2594592b
+COR_SIZE=3987048

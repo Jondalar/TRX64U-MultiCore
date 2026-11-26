@@ -425,4 +425,5 @@ evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live
 - Run (fast tier, Mac): tests/coreapp 299 programs passed, both controls fail as they must; render shared 82,834 checks and diag 9,039
   checks, 0 failed; tests/loader, sdk_api, check_api_doc, check_d24, check_menuctl_gate, check_controls ok. Not run: RISC-V, the diag
   lane's gateware, ue2emu, the board.
-- The diag SD folder is not in the package (§4); `tools/release_notes_mc.py` says it is copied from `cores/diag/sd` by FTP.
+- The diag SD folder is not in the package (§4); `tools/release_notes_mc.py` says it is copied from `cores/diag/sd` by FTP. Superseded
+  by T239.5 D21 (02e28716d): the lane delivers `SD/cores/diag/`, every package and pre-release carries it as `SD.zip`.

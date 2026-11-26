@@ -1,0 +1,433 @@
+# TOML A of the Amiga 500 core (T239.5 D15): the gateware's registers as capabilities, written from what the A500's amiga_regs.v decodes (cores/amiga/rtl/trx/amiga_regs.v; tools/rtl_check.py proves it against the RTL,
+# code to code; command in app/sdkpkg/api.md 6.14.19). The Amiga 1200's own file (cores/amiga1200/app/gateware.toml) describes the A1200's copy of the same register block, with the display window and the crop window the A500 lacks.
+# The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports, the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the
+# window). Page 6 (0x101A6000) is decoded by amiga_regs and forwarded to the host's pixel layer (px_we, px_re), outside this file except for the one register the app reads (block am_pixel). The core has no 1541, no IEC
+# and no WD177x: the Amiga's floppies and hard disks are the registers of the blocks am_floppy, am_hdf and am_mbox, and the DDR2 window (Kickstart, ADF images, HDF staging sector, the frame buffers) is memory, not
+# registers: the offsets of it are in cores/amiga/app/lib/amiga_regs.h (AM_W_*). desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the
+# core are named am_* (except ident).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "AMIG"
+block = "ident"
+
+[[block]]
+name = "ident"
+module = "amiga_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x0C
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x05
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "core_ver"
+  offset = 0x06
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+# 00C FEATURES: what this bitstream has beyond the standard block (the Amiga 500's and 1200's gateware answer the same register; the A1200 adds the display and crop windows, fbwin). A block of its own, so the block ident
+# stays the standard one that every core's table has
+[[block]]
+name = "am_feat"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A000C
+size = 0x04
+  [[block.property]]
+  name = "features"
+  offset = 0x00
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "hdf_sect"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "audio_kpi"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "catchup_kpi"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "fbwin"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "rawkey"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "pad2"
+    shift = 5
+    bits = 1
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears)
+[[block]]
+name = "am_irq"
+module = "amiga_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x08
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "am_ddr_cal"
+module = "amiga_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x08
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x04
+  width = 32
+  dir = "r"
+
+# 0A0-0AB: the machine. Every write of ctrl, mem_cfg .. ide_cfg copies the configuration into the core (one commit toggle); joy_cfg is taken at once.
+[[block]]
+name = "am_machine"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x0C
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "video_off"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "mem_cfg"
+  offset = 0x01
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "fast_cfg"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "cpu_cfg"
+  offset = 0x03
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "chipset_cfg"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "ecs"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "aga"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "floppy_cfg"
+  offset = 0x05
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ide_cfg"
+  offset = 0x06
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy_cfg"
+  offset = 0x07
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x08
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "paused"
+    shift = 6
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x0A
+  width = 16
+  dir = "r"
+
+# 0AC-0B1: the picture's frame buffers (three, FB_BUFS; their addresses are gateware parameters, no register)
+[[block]]
+name = "am_video"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A00AC
+size = 0x06
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_shown"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_writing"
+  offset = 0x02
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x03
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x04
+  width = 16
+  dir = "r"
+
+# 0B8 STAT_SEL, 0BC STAT_VAL: the selectable counter (8 audio over/under, 9 fill min/max, 10 fill now, 11 catch-up)
+[[block]]
+name = "am_stat"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A00B8
+size = 0x08
+  [[block.property]]
+  name = "stat_sel"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "stat_val"
+  offset = 0x04
+  width = 32
+  dir = "r"
+
+# 0E0-0E3: the real-time clock of amiga_rtc.v. rtc_val is a nibble, rtc_idx commits it (0-12 register S1..W, 14 loader hold, 15 zero the second and set loaded)
+[[block]]
+name = "am_rtc"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A00E0
+size = 0x04
+  [[block.property]]
+  name = "rtc_en"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rtc_val"
+  offset = 0x01
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rtc_idx"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rtc_stat"
+  offset = 0x03
+  width = 8
+  dir = "r"
+
+# 100 + 0x10 * d: the four floppy drives, b0 present; any write announces the drive to the Minimig again
+[[block]]
+name = "am_floppy"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x31
+  [[block.property]]
+  name = "mount"
+  offset = 0x00
+  width = 8
+  count = 4
+  stride = 0x10
+  dir = "rw"
+
+# 180 + 8 * u: the two hard disks (IDE), b0 present at +0, the 32 bit size at +4 (bytes, or sectors when FEATURES b0 is set; set it before mounting)
+[[block]]
+name = "am_hdf"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A0180
+size = 0x10
+  [[block.property]]
+  name = "mount"
+  offset = 0x00
+  width = 8
+  count = 2
+  stride = 8
+  dir = "rw"
+  [[block.property]]
+  name = "size"
+  offset = 0x04
+  width = 32
+  count = 2
+  stride = 8
+  dir = "w"
+
+# 1A0 MBOX_STATUS (b0 pending, b1 write, b2 drive), 1A4 MBOX_LBA, 1A8 MBOX_DONE: the hard disk's sector mailbox
+[[block]]
+name = "am_mbox"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A01A0
+size = 0x0C
+  [[block.property]]
+  name = "status"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "lba"
+  offset = 0x04
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "done"
+  offset = 0x08
+  width = 8
+  dir = "w"
+
+# 1C0 MOUSE_DX, 1C1 MOUSE_DY (this write sends the pair), 1C2 MOUSE_BTN
+[[block]]
+name = "am_mouse"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A01C0
+size = 0x03
+  [[block.property]]
+  name = "dx"
+  offset = 0x00
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dy"
+  offset = 0x01
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "btn"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+
+# 1C4 RAWKEY: write = one Amiga key event {release, raw code}; read b0 = room for 8 more events
+[[block]]
+name = "am_rawkey"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A01C4
+size = 0x01
+  [[block.property]]
+  name = "rawkey"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+
+# 1D0-1D1 PAD2_WORD (the low byte is staged, the high byte b2:0 commits), 1D2 PAD2_MODE
+[[block]]
+name = "am_pad2"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A01D0
+size = 0x03
+  [[block.property]]
+  name = "word"
+  offset = 0x00
+  width = 16
+  dir = "w"
+  [[block.property]]
+  name = "mode"
+  offset = 0x02
+  width = 8
+  dir = "w"
+
+# 1F0 DLOG_STATUS (b0 not empty, b1 overflow; write b1 clears), 1F1 DLOG_TRACK, 1F2 DLOG_DRIVE, 1F3 DLOG_POP: the floppy write log
+[[block]]
+name = "am_dlog"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A01F0
+size = 0x04
+  [[block.property]]
+  name = "status"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "track"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "drive"
+  offset = 0x02
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "pop"
+  offset = 0x03
+  width = 8
+  dir = "w"
+
+# 6000-6FFF: the host's pixel layer, which amiga_regs forwards (px_we, px_re, px_rdata; the layer is host/pix_layer.v, in the flat design too). The one register the app reads: b31:16 of the
+# layer's status at 0x60A4, its count of HDMI output frames (the KPI line of amiga.poll).
+[[block]]
+name = "am_pixel"
+module = "amiga_regs"
+owner = "core"
+address = 0x101A60A4
+size = 0x04
+  [[block.property]]
+  name = "nframes"
+  offset = 0x02
+  width = 16
+  dir = "r"

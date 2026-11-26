@@ -28,12 +28,16 @@ public:
 // runs; the menu loop does not take it.
 class CoreLock {
 public:
-    explicit CoreLock(OsPort *os) : os_(os), m_(os->mutex_new()) { }
-    void lock() { os_->lock(m_); }
-    void unlock() { os_->unlock(m_); }
+    explicit CoreLock(OsPort *os) : os_(os), m_(os->mutex_new()), owner_(0) { }
+    void lock() { os_->lock(m_); owner_ = os_->self(); }
+    void unlock() { owner_ = 0; os_->unlock(m_); }
+    // Does the calling task hold the lock now? Only the holder can see its own id here, so no other task reads it as true (the lock is not recursive: a call that may
+    // come from a holder or from another task takes it only when this is false).
+    bool mine() { return owner_ && owner_ == os_->self(); }
 private:
     OsPort *os_;
     void *m_;
+    void *volatile owner_;
 };
 
 #define EXEC_SLOTS 8

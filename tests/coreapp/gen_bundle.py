@@ -2,12 +2,15 @@
 """Makes the fixtures the description and bundle tests read, with the real packer (tools/cor_pack.py, tools/descrec.py), so that the C++ readers of the
 board are tested against what the tools write (T104.1 D9, D12).
 
-    gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
+    gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + the menu record of the library alpha in record 7; beta has none), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
-                              diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
-                              nofiles.cor (the same core without record 8)
+                              merged.cor (the description with the menu of the library gamma merged in, no record 7), menu_alpha.bin, menu_gamma.bin, libs_v1.bin (record 7 version 1, refused), libs_ab.toml / libs_gamma.toml (the TOML B of the libraries), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
+                              instfiles.cor (a fixture core with record 8: tests/coreapp/instfiles/sd, earlier versions from tests/coreapp/instfiles/old),
+                              nofiles.cor (the same fixture core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
+                              data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
+                              desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks), desc_toml_a.bin (P1-1: TOML A, record version 7), desc_places.bin (D32: routes and places)
 """
+import glob
 import os
 import struct
 import sys
@@ -28,13 +31,14 @@ def bit_file():
 
 
 def u2a(name, needs=(), kind=1, version=(1, 0), menu=b""):
-    """A format-3 file as small as the loader takes one: header, needs, 64 bytes of payload (tests/coreapp/test_libscan.cc build())."""
+    """A format-3 file of base API 4 as small as the loader takes one: header, needs, 64 bytes of payload. Base 4.0 loads no library file (kind 1 is refused by the loader);
+    the fixtures use it for an application (kind 2): the sub-app of record 8."""
     needs_off = 104
     pay_off = needs_off + 20 * len(needs)
     reg = 0xFFFFFFFF if kind == 2 else 0
     main = 0 if kind == 2 else 0xFFFFFFFF
     menu_off = pay_off + 64 if menu else 0                     # the record follows the (empty) relocation table: payload is 64 bytes, a multiple of 4
-    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 3, 3, kind, 1 if kind == 1 else 0, 2, len(needs), 1 if menu else 0,
+    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 4, 4, kind, 1 if kind == 1 else 0, 2, len(needs), 1 if menu else 0,
                     name.encode(), (version[0] << 16) | version[1], b"", pay_off, 64, 16, 16, reg, main, pay_off + 64, 0, needs_off, 0, 0, menu_off)
     assert len(h) == 104, len(h)
     for n, v in needs:
@@ -42,35 +46,93 @@ def u2a(name, needs=(), kind=1, version=(1, 0), menu=b""):
     return h + bytes(64) + menu
 
 
+def toml_b(out, name, libs):
+    """A TOML B of an app with register libraries: [(name, menu TOML in golden/ or None, needs)]; written next to the fixtures, read by cor_pack.toml_b_libs."""
+    text = ""
+    for lib, menu, needs in libs:
+        text += '[[library]]\nname = "%s"\nsources = ["%s.cc"]\nregister = "%s_register"\n' % (lib, lib, lib)
+        if needs:
+            text += "needs = [%s]\n" % ", ".join('"%s"' % n for n in needs)
+        if menu:
+            text += 'menu = "%s"\n' % os.path.join(here, "golden", menu)
+        text += "\n"
+    path = os.path.join(out, name)
+    open(path, "w").write(text)
+    return path
+
+
 def main(out):
     os.makedirs(out, exist_ok=True)
     gold = os.path.join(here, "golden")
     desc = descrec.compile_text(open(os.path.join(gold, "desc_test.toml")).read())
     open(os.path.join(out, "desc_test.bin"), "wb").write(desc)
-    # the menu of TRX64U as menu.toml compiles (T104.2 D10): the record with the core's own tables
-    open(os.path.join(out, "desc_trx64u.bin"), "wb").write(descrec.compile_text(open(os.path.join(here, "..", "..", "coreapp", "cores", "trx64u", "menu.toml")).read()))
+    # a core's own menu tables and pad (T104.2 D10; T239.3 P1-8: a record of our own, trx64u's menu is TRX64-Ultimate's)
+    open(os.path.join(out, "desc_own.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_own.toml")).read()))
+    # a core with a Timewarp page and a monitor page, the record the tests of the key table and of the record-built menu read (test_cut.cc, test_keywalk.cc)
+    open(os.path.join(out, "desc_cut.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_cut.toml")).read()))
+    # base 3.3: a key table, register windows and job tasks (tests/coreapp/test_deckeys.cc)
+    open(os.path.join(out, "desc_keys.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_keys.toml")).read()))
+    # P1-1: TOML A (record version 7), its module maps from the SDK's (tests/coreapp/test_desctoml.cc)
+    open(os.path.join(out, "desc_toml_a.bin"), "wb").write(descrec.compile_checked(open(os.path.join(gold, "desc_toml_a.toml")).read(), maps=descrec.load_maps([os.path.join(here, "..", "..", "app", "sdkpkg", "maps")])))
+    # D32: a core's routes and places over the base's (tests/coreapp/test_uiplace.cc)
+    open(os.path.join(out, "desc_places.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_places.toml")).read()))
+    # T256 T-2: a core's elements over the base's (tests/coreapp/test_bundle.cc)
+    open(os.path.join(out, "desc_elements.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_elements.toml")).read()))
+    open(os.path.join(out, "desc_pick.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_pick.toml")).read()))   # a core row with a pick and one value (T239.3 D32)
     open(os.path.join(out, "desc_default.bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, "desc_default.toml")).read()))
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")
     menu_alpha = descrec.compile_text(open(os.path.join(gold, "menu_alpha.toml")).read())
-    alpha, beta = u2a("alpha", version=(1, 2), menu=menu_alpha), u2a("beta", needs=[("alpha", (1 << 16) | 0)])
-    open(os.path.join(out, "new.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=[beta, alpha], **kw))
-    # T104.2 D10: gamma has a menu without a poll, so the packer merges it into the description; the record names it
+    # Base 4.0 (T239.3 D58): no library file. The libraries a core links are the [[library]] of the TOML B of its app (--sizes of cor_pack): alpha (a menu with a poll, kept for the run
+    # time: record 7), beta (no menu record: nothing in record 7) and gamma (a menu without a poll: the packer merges it into the description, record 7 stays out).
+    ab = toml_b(out, "libs_ab.toml", [("alpha", "menu_alpha.toml", []), ("beta", None, ["alpha"])])
+    gamma = toml_b(out, "libs_gamma.toml", [("gamma", "menu_gamma.toml", [])])
+    alpha_libs, gamma_libs = C.toml_b_libs(ab), C.toml_b_libs(gamma)
     menu_gamma = descrec.compile_text(open(os.path.join(gold, "menu_gamma.toml")).read())
-    open(os.path.join(out, "merged.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=[u2a("gamma", menu=menu_gamma)], **kw))
+    open(os.path.join(out, "menu_alpha.bin"), "wb").write(menu_alpha)
+    open(os.path.join(out, "menu_gamma.bin"), "wb").write(menu_gamma)              # gamma's record on its own: the test links gamma with it where the bundle does not carry it
+    open(os.path.join(out, "new.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=alpha_libs, **kw))
+    # T104.2 D10: gamma has a menu without a poll, so the packer merges it into the description; the record names it
+    open(os.path.join(out, "merged.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=gamma_libs, **kw))
     open(os.path.join(out, "old.cor"), "wb").write(C.pack(name="Test Machine", **kw))
-    open(os.path.join(out, "other.cor"), "wb").write(C.pack(name="Another Machine", desc=desc, libs=[alpha], **kw))
+    open(os.path.join(out, "other.cor"), "wb").write(C.pack(name="Another Machine", desc=desc, libs=alpha_libs, **kw))
+    # record 7 as the version 1 packers wrote it ("TRXL", 1, count, [len, library file]...): base 4.0 refuses it (tests/coreapp/test_libscan.cc, test_bundle.cc read its bytes)
+    open(os.path.join(out, "libs_v1.bin"), "wb").write(b"TRXL" + struct.pack("<II", 1, 1) + struct.pack("<I", 8) + bytes(8))
     # a large core: the full bitstream is whatever scan_config accepts (an IDCODE write and a sync word)
     sync = struct.pack(">I", C.AXSS_SYNC)
     idcode = struct.pack(">II", (1 << 29) | (2 << 27) | (C.REG_IDCODE << 13) | 1, C.IDCODE_XC7A50T)
     data = b"\xFF" * 8 + sync + idcode + struct.pack(">I", 0x20000000) * 20
     bit = data + bytes(-len(data) % 4)
-    open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=[alpha]))
-    # T175: the Port Diagnostics core carries its example tests as record 8 (cores/diag/core.toml install_dir / install_old)
-    diag = os.path.join(here, "..", "..", "cores", "diag")
-    files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
-    open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
-    open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
+    open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=alpha_libs))
+    # T175, T260 D6: record 8 (the files a core installs on the card, coreapp/src/instfiles.cc) on a fixture core "instfiles": tests/coreapp/instfiles/sd (the files) and old (earlier shipped texts). No core
+    # of the table carries record 8 (T260 D6: the diag core's tests and presets are a folder of its lane's delivery)
+    fx = os.path.join(here, "instfiles")
+    files = C.collect_files(os.path.join(fx, "sd"), os.path.join(fx, "old"))
+    open(os.path.join(out, "instfiles.cor"), "wb").write(C.pack_large("instfiles", "Install Files", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
+    open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("instfiles", "Install Files", "0.1", bit, bytes(0x60 for _ in range(64))))
+    # record 8 that installs a sub-app into the core's own apps folder (tests/coreapp/test_firststart.cc)
+    open(os.path.join(out, "subapp.cor"), "wb").write(C.pack_large("subapp", "Sub App Core", "0.1", bit, bytes(0x60 for _ in range(64)), files=[("apps/probe.u2a", u2a("probe", kind=2), [])]))
+    # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them
+    app = os.path.join(out, "app")
+    os.makedirs(app, exist_ok=True)
+    lines = []
+    for toml in sorted(glob.glob(os.path.join(here, "..", "..", "cores", "*", "app", "desc.toml"))):
+        cid = os.path.basename(os.path.dirname(os.path.dirname(toml)))
+        blob = descrec.compile_text(open(toml).read(), toml)
+        name = descrec.parse_desc(blob)["core"]["name"]
+        open(os.path.join(app, cid + ".bin"), "wb").write(blob)
+        open(os.path.join(app, cid + ".cor"), "wb").write(C.pack(name=name, desc=blob, **kw))
+        open(os.path.join(app, cid + "_old.cor"), "wb").write(C.pack(name=name, **kw))
+        # a core with an app of its own (cores/<core>/app/sdk.toml, linked with its own table) is compared in that app's unit (index_app_<core>.txt, one file per app: an app's table holds its own core only), the others in the shared app's (index.txt)
+        own = os.path.exists(os.path.join(os.path.dirname(toml), "sdk.toml"))
+        if own:
+            open(os.path.join(app, "index_app_%s.txt" % cid), "w").write("%s %s\n" % (cid, name))
+        else:
+            lines.append("%s %s\n" % (cid, name))
+    open(os.path.join(app, "index.txt"), "w").write("".join(lines))
+    # T239.3 D17 part 2: the tables of sections 7 .. 17 (tests/coreapp/test_descsec.cc): the Amiga 1200's, and what no descriptor has together
+    for n in ("desc_sections", "desc_sections_extra"):
+        open(os.path.join(out, n + ".bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, n + ".toml")).read()))
 
 
 if __name__ == "__main__":

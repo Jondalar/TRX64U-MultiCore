@@ -1,0 +1,111 @@
+# A core with a Timewarp page and a monitor page (T239.3 P1-8, in place of the compiled menu of trx64u that test_cut.cc and test_keywalk.cc read before; that menu is
+# TRX64-Ultimate's now). The default route plus two pages of Home - the tab "timewarp" with the layout "timeline" and the tab "monitor" with the layout "terminal" and the
+# grid "textgrid" - opened by the Home rows "Timewarp..." and "Monitor...", and the key table that drives them (every flag kind, the intents op, decline and swallow).
+# The operations (tw.*, monitor.key) are the test's own. tests/coreapp/gen_bundle.py compiles it to desc_cut.bin; no tool checks its names against an application's export.
+
+# the keys of the two pages: tried in this order, after an application's screens and before the menu's grammar
+key = [
+  { layout = "terminal", key = "f10", do = "decline" },
+  { layout = "terminal", key = "scrlock", do = "decline" },
+  { layout = "terminal", key = "menu", do = "decline" },
+  { layout = "terminal", key = "runstop", do = "decline", when = "!monitor.wants_stop" },
+  { layout = "terminal", key = "any", op = "monitor.key", pass_key = true, directive = true, direct = true },
+  { layout = "timeline", key = "left", op = "tw.step", value = -1, status = true },
+  { layout = "timeline", key = "right", op = "tw.step", value = 1, status = true },
+  { layout = "timeline", key = "up", op = "tw.seconds", value = -1, status = true },
+  { layout = "timeline", key = "down", op = "tw.seconds", value = 1, status = true },
+  { layout = "timeline", key = "pgup", op = "tw.seconds", value = -10, status = true },
+  { layout = "timeline", key = "f1", op = "tw.seconds", value = -10, status = true },
+  { layout = "timeline", key = "pgdn", op = "tw.seconds", value = 10, status = true },
+  { layout = "timeline", key = "f7", op = "tw.seconds", value = 10, status = true },
+  { layout = "timeline", key = "home", op = "tw.oldest", status = true },
+  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true },
+  { layout = "timeline", key = "runstop", op = "tw.cancel", close = true },
+  { layout = "timeline", key = "esc", op = "tw.cancel", close = true },
+  { layout = "timeline", key = "return", op = "tw.resume", status_ok = true, close = true },
+  { layout = "timeline", codes = [32, 126], do = "swallow" },
+]
+
+[[area]]
+key = "F1"
+name = "Home"
+  [[area.tab]]
+  id = "home"
+  name = "Home"
+  widget = "info"
+  n = 1
+  [[area.tab]]
+  id = "timewarp"
+  name = "Timewarp"
+  widget = "nodes"
+  layout = "timeline"
+  ui = { page = "home", pos = "@tw.pos", info = "@tw.info", glyph = "@tw.glyph", track = "@tw.track", hint = "RETURN jump  <- cancel" }
+  [[area.tab]]
+  id = "monitor"
+  name = "Monitor"
+  widget = "nodes"
+  layout = "terminal"
+  ui = { page = "home", grid = "textgrid" }
+
+[[area]]
+key = "F3"
+name = "Library"
+  [[area.tab]]
+  id = "browse"
+  name = "Browse"
+  widget = "browser"
+
+[[area]]
+key = "F5"
+  [[area.tab]]
+  id = "settings"
+  widget = "settings"
+
+[[area]]
+key = "F7"
+name = "APP"
+  [[area.tab]]
+  id = "settings"
+  name = "Settings"
+  widget = "settings"
+  groups = ["app"]
+
+[[area]]
+key = "F8"
+name = "System"
+shifted = true
+  [[area.tab]]
+  id = "expert"
+  name = "System"
+  widget = "system"
+
+[[task]]
+group = "top"
+label = "Timewarp..."
+op = "menu.screen"
+bind = [ { arg = "screen", str = "F1/timewarp" }, { arg = "unless", str = "" } ]
+hotkey = "T"
+
+[[task]]
+group = "top"
+label = "Monitor..."
+op = "menu.screen"
+bind = [ { arg = "screen", str = "F1/monitor" }, { arg = "unless", str = "" } ]
+hotkey = "O"
+
+[[node]]
+anchor = "F1/timewarp/bar"
+kind = "op"
+label = "Resume here"
+op = "tw.resume"
+order = 10
+closes_menu = true
+ui = { primary = true }
+
+[[node]]
+anchor = "F1/monitor/bar"
+kind = "op"
+label = "Help"
+op = "monitor.key"
+bind = [ { arg = "key", int = 63 } ]
+order = 10

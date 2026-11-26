@@ -3,6 +3,7 @@
 // test core where a register or a setting has to be made up.
 #include <string>
 #include <set>
+#include <vector>
 #include "check.h"
 #include "fakes.h"
 #include "test_core.h"
@@ -13,10 +14,17 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-#include "trx64u_menu.h"
-extern const CoreDesc amiga_desc, amiga1200_desc, apple2_desc, c64_desc;
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib): its build has its core only
+#else
+extern const CoreDesc apple2_desc;
+#endif
 
-const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &amiga1200_desc, &apple2_desc, &c64_desc, 0 };
+#ifdef TEST_APP_AMIGA
+const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
+#endif
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
 
@@ -112,6 +120,27 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
 
 int main()
 {
+#ifdef TEST_APP_AMIGA
+    // ---- D3 in the real descriptors: the Amiga 500's (T239.5 D13: run as its app, run.sh amigaapp, unit amiga_corereport; the shared unit corereport keeps the Apple IIe's)
+    {
+        const CoreDesc *real[] = { &amiga_desc };
+        for (const CoreDesc *d : real) {
+            CHECK(d->nreport_regs > 0 && d->report_regs);
+            CHECK(!desc_check(d));
+        }
+        // a malformed list is refused by the check
+        CoreDesc d = amiga_desc;
+        static const ReportReg odd[] = { { "three", 0x10, 3 } };
+        d.report_regs = odd; d.nreport_regs = 1;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
+        d.report_regs = unnamed;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
+        d.report_regs = far_;
+        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+    }
+#else
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     {
         Rig r;
@@ -231,22 +260,11 @@ int main()
     }
     // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
     {
-        const CoreDesc *real[] = { &amiga_desc, &amiga1200_desc, &apple2_desc, &c64_desc };
+        const CoreDesc *real[] = { &apple2_desc };                // T239.5 D13: the Amiga 500's case and the malformed lists on its record are its unit amiga_corereport
         for (const CoreDesc *d : real) {
             CHECK(d->nreport_regs > 0 && d->report_regs);
             CHECK(!desc_check(d));
         }
-        // a malformed list is refused by the check
-        CoreDesc d = amiga_desc;
-        static const ReportReg odd[] = { { "three", 0x10, 3 } };
-        d.report_regs = odd; d.nreport_regs = 1;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
-        d.report_regs = unnamed;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
-        d.report_regs = far_;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
     }
     // the report of a real descriptor names its registers
     {
@@ -321,12 +339,31 @@ int main()
         ListGrow::free_heap() = 0;
         core_report_edid_reader() = 0;
     }
-    // ---- gate fix 10a: the biggest report there is - trx64u's whole menu (the most settings), the largest EDID the reader returns, a log of the full 16 KB - fits, nothing is cut
+    // ---- gate fix 10a: the biggest report there is - a core with 207 settings (the count of the largest menu there was), each with an 18 character label and a 14 character value (a row of the report is about 50 bytes), the largest
+    // EDID the reader returns, a log of the full 16 KB - fits, nothing is cut. (T239.3 P1-8: a synthetic core; the biggest real menu is TRX64-Ultimate's, which repeats this.)
     {
-        const CoreDesc *d = trx64u::desc();
+        static const int N_WORST = 207;                           // as many rows as the largest menu of a core had when this was made (trx64u's 207), labels and values as long as the real ones come
+        static std::vector<std::string> names;
+        static std::vector<Setting> rows;
+        names.clear(); rows.clear();
+        for (int i = 0; i < N_WORST; i++) {
+            char k[64];
+            snprintf(k, sizeof(k), "Setting label %03d", i);
+            names.push_back(k);
+        }
+        static const char *const v8[8] = { "Value of row 0", "Value of row 1", "Value of row 2", "Value of row 3", "Value of row 4", "Value of row 5", "Value of row 6", "Value of row 7" };
+        for (int i = 0; i < N_WORST; i++) {
+            Setting st0;
+            memset(&st0, 0, sizeof(st0));
+            st0.key = names[i].c_str(); st0.values = v8; st0.nvalues = 8; st0.def = i & 7; st0.when = WHEN_LIVE;
+            rows.push_back(st0);
+        }
+        static CoreDesc worst = testcore::desc;
+        worst.settings = rows.data(); worst.nsettings = N_WORST;
+        const CoreDesc *d = &worst;
         SpyIo io; FakeFs fs; CoreCtx c;
         memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs; c.merge = trx64u::merge();
+        c.desc = d; c.io = &io; c.fs = &fs;
         Settings st(d->settings, d->nsettings, d->store, &fs, "/sd/cores/worst.cfg", 0);
         st.load();
         c.settings = &st;
@@ -362,5 +399,6 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
+#endif
     DONE("test_corereport");
 }

@@ -19,6 +19,7 @@
 #include "appdlg.h"
 #include "menuctl.h"
 #include "exec.h"
+#include <strings.h>
 
 #define APPJOB_MAX 4
 
@@ -41,10 +42,11 @@ public:
 
     // Wires c->app_open and the service groups of the loader (dlg, job).
     void install();
-    // Everything the board knows that the base cannot: the groups that are the machine's (trx, net, the flash).
-    void set_machine_groups(const SvcTrx *trx, const SvcNet *net, const SvcC64 *c64, int (*flash_read)(uint32_t, void *, int), void (*handover)(void));
+    // Everything the board knows that the base cannot: the groups that are the machine's (net, the flash, the hand-over).
+    void set_machine_groups(const SvcNet *net, int (*flash_read)(uint32_t, void *, int), void (*handover)(void));
 
-    // What the machine has to undo when an application ends (its sockets, the debug block): called with the image still there.
+    // What the machine has to undo when an application ends, called with the image still there (its sockets, jobs and announced port are taken back through the loader's account
+    // of the image). Null: nothing.
     void set_end_hook(void (*fn)(void)) { end_hook_ = fn; }
 
     // ---- the menu task ----
@@ -66,6 +68,11 @@ public:
     // The person closed the screens (RUN/STOP, the left arrow at the first tab). False when the application will not let go yet (a job that cannot stop);
     // `why` then says so.
     bool close_session(char *why, int whylen);
+    // T256 D13 (exit_to_machine, goto_screen): the screens end, and with them the application unless it is resident and `keep_app`. Without `keep_app` a resident application in the background ends too
+    // (its task and jobs are waited for, 4 s, as open_now does for another application). True when nothing is left to end or it ended; false when a task or job cannot stop (`why` says so).
+    bool leave_app(bool keep_app, char *why, int whylen);
+    // Is `app` the application whose screens are up?
+    bool session_is(const char *app) const { return sess_ && handle_ >= 0 && !strcasecmp(name_, app); }
     // Is an application loaded or running (any of it)?
     bool busy() const { return handle_ >= 0 || req_pending_; }
     const char *open_name() const { return handle_ >= 0 ? name_ : ""; }
@@ -83,6 +90,7 @@ public:
     bool take_reply(char *out, int n, bool *bad);
 
 private:
+    friend struct AppHostTest;            // tests/loader: the job table against the real loader
     CoreCtx *c_;
     LibLoader *ld_;
     AppIndex *idx_;
@@ -133,6 +141,7 @@ private:
     static void job_entry(void *j);
     static SvcJobH *job_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t stack_bytes);
     static bool job_cancelled(SvcJobH *j);
+    static void job_cancel_one(SvcJobH *j);
     static int job_join(SvcJobH *j);
     static bool job_running(SvcJobH *j);
     static bool job_stop_requested(void);

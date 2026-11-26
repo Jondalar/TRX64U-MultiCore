@@ -6,6 +6,8 @@ would overwrite it when copied over a medium, or put a file of ours where a pers
   - a path with a folder below a "cores" folder (cores/<x>/...),
   - a folder beside a .cor of the same name (<name>.cor and <name>/),
   - a <name>.cfg beside its .cor (the settings are written by the core, not shipped).
+The top-level folder SD/ is exempt (T239.5 D21): it is the files a core lane delivers for the SD card (SD/cores/<id>/tests, presets, panels), never a core's settings,
+ROMs or saves; a whole package carries it; tools/make_release_mc.sh packs it as SD.zip (entries cores/<id>/...) into a pre-release and a release bundle, minus the cores with release = false.
 
   python3 tools/check_package_layout.py <directory | .zip> [...]     exit 1 and the names when a package holds one
   python3 tools/check_package_layout.py selftest
@@ -43,6 +45,8 @@ def violations(names):
     for n in sorted(names):
         parts = [p for p in n.rstrip("/").split("/") if p]
         low = [p.lower() for p in parts]
+        if parts[:1] == ["SD"]:
+            continue
         for i, p in enumerate(low[:-1]):
             if p == "cores" and (i + 2 < len(parts) or n.endswith("/")):
                 bad.append(n + "  (a folder below cores/)")
@@ -64,11 +68,13 @@ def violations(names):
 def selftest():
     ok = [["a.cor", "b.cor", "INSTALL.md", "ROMS.txt", "SHA256SUMS"],
           ["trx64mc-main-x/", "trx64mc-main-x/vc20.cor", "trx64mc-main-x/INSTALL.md"],
-          ["cores/", "cores/vc20.cor", "cores/amiga.cor"]]
+          ["cores/", "cores/vc20.cor", "cores/amiga.cor"],
+          ["diag.cor", "SD/cores/diag/tests/avprobe.toml", "SD/cores/diag/presets/x.toml"]]               # T239.5 D21: the SD/ tree of a package
     bad = [(["cores/apple2/roms/apple2e.rom", "cores/apple2.cor"], "cores/apple2/roms/apple2e.rom"),     # a core folder under cores/
            (["vc20.cor", "vc20/", "vc20/vc20.cfg"], "vc20/"),                                          # a folder beside its .cor
            (["pkg/vc20.cor", "pkg/vc20.cfg"], "pkg/vc20.cfg"),                                         # the settings beside the .cor
-           (["pkg/CORES/x/"], "pkg/CORES/x/")]                                                         # the case of "cores" does not matter
+           (["pkg/CORES/x/"], "pkg/CORES/x/"),                                                            # the case of "cores" does not matter
+           (["top/SD/cores/x/a.toml"], "top/SD/cores/x/a.toml")]                                       # SD/ is exempt at the top of a package only
     rc = 0
     for names in ok:
         v = violations(names)

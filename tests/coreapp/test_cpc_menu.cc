@@ -6,6 +6,7 @@
 #include "boot.h"
 #include "cores.h"
 #include "cpc_regs.h"
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib, run.sh cpcapp)
 #include "menuctl.h"
 #include "keyboard.h"
 #include "ops_glue.h"

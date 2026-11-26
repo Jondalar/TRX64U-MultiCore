@@ -80,6 +80,14 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
 
 int boot_put_builtin_rom(CoreCtx *c, const char *put_op, char *msg, int msglen)
 {
+    bool known = false;
+    for (int i = 0; put_op && i < c->desc->nroms; i++) {
+        known = known || (c->desc->roms[i].put_op && !strcmp(c->desc->roms[i].put_op, put_op));
+    }
+    if (!known) {
+        snprintf(msg, msglen, "no ROM of this core is put by \"%s\"", put_op ? put_op : "");
+        return 1;
+    }
     RomResult res[ROMS_MAX];
     if (scan_roms(c, res, msg, msglen) != ROM_FOUND) {
         return 1;
@@ -97,6 +105,19 @@ void boot_apply_settings(CoreCtx *c, bool all)
     regset_apply(c, all);
 }
 
+// The one release of the machine at the end of every start (start, reload, restart, cold reset, the media set): a bitstream that run.cc found not to be this core's (P1-4,
+// CoreCtx::identity_refused) is never released, whatever asks; the answer is the reason of the start notice.
+static int release_core(CoreCtx *c, char *msg, int msglen)
+{
+    if (c->identity_refused) {
+        snprintf(msg, msglen, "%s", c->identity_why);
+        return 1;
+    }
+    c->desc->release(c, msg, msglen);
+    c->started = true;
+    return 0;
+}
+
 int boot_finish(CoreCtx *c, char *msg, int msglen)
 {
     const CoreDesc *d = c->desc;
@@ -108,9 +129,7 @@ int boot_finish(CoreCtx *c, char *msg, int msglen)
         return 0;                                 // T180 D2: the start (or the media set) releases the machine once, after the media are in; the settings that depend on the program are in
     }
     c->io->delay_ms(d->reset_ms);
-    d->release(c, msg, msglen);
-    c->started = true;
-    return 0;
+    return release_core(c, msg, msglen);
 }
 
 static int need_program(CoreCtx *c, char *msg, int msglen)
@@ -196,8 +215,9 @@ BootResult boot_start(CoreCtx *c, BootUi *ui)
         return BOOT_WAITING_PROGRAM;
     }
     // step 7
-    d->release(c, msg, sizeof(msg));
-    c->started = true;
+    if (release_core(c, msg, sizeof(msg))) {
+        return BOOT_WAITING_PROGRAM;              // a bitstream that is not this core's: held
+    }
     return BOOT_RUNNING;
 }
 
@@ -238,9 +258,7 @@ int boot_cold_reset(CoreCtx *c, char *msg, int msglen)
     d->init(c, msg, msglen);                      // hold
     boot_apply_settings(c, false);                // the reset-time items go in while the core is held
     c->io->delay_ms(d->reset_ms);
-    d->release(c, msg, msglen);
-    c->started = true;
-    return 0;
+    return release_core(c, msg, msglen);
 }
 
 int boot_reload(CoreCtx *c, char *msg, int msglen)
@@ -347,9 +365,7 @@ static int reload(CoreCtx *c, char *msg, int msglen, bool rescan, bool cold, boo
     }
     boot_apply_settings(c, cold);                 // a restart writes every setting, the live ones too, as the start does
     c->io->delay_ms(d->reset_ms);
-    d->release(c, msg, msglen);
-    c->started = true;
-    return 0;
+    return release_core(c, msg, msglen);
 }
 
 int boot_warm_reset(CoreCtx *c, char *msg, int msglen)
@@ -370,10 +386,18 @@ int boot_warm_reset(CoreCtx *c, char *msg, int msglen)
     return boot_cold_reset(c, msg, msglen);
 }
 
+// base 3.3 (svc_board.h): a library puts back the ROM of one role of the descriptor, by the put operation that role names
+static const ArgSpec put_builtin_args[] = { ARG_STRING("put_op", 63) };
+static int op_put_builtin_rom(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    return boot_put_builtin_rom(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+
 void boot_register(OpRegistry &r)
 {
     r.add_op("machine.warm_reset", 0, 0, op_hook<boot_warm_reset>);
     r.add_op("machine.cold_reset", 0, 0, op_hook<boot_cold_reset>);
     r.add_op("machine.reload_roms", 0, 0, op_hook<boot_reload>);
     r.add_op("machine.restart", 0, 0, op_hook<boot_restart>);
+    r.add_op("machine.put_builtin_rom", put_builtin_args, 1, op_put_builtin_rom);
 }

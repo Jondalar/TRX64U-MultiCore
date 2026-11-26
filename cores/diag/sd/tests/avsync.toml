@@ -1,0 +1,24 @@
+# A/V SYNCn and FB pins (T259 S3): what the two pins do. Part 3 of avout.toml. Before the walk set the A/V panel (Open a panel, panels/avout.toml) to the map and groups that gave a picture (avprobe, avrgb) and
+# connect the TV the way you use it (S-Video / composite or the RGB SCART cable). Every combination of AVID_SYNCn (High, Low, Csync = low in the sync pulses, Inverted csync) and
+# AVID_FB (Low, High, Window = high in the picture window, Inverted window) is shown in the test picture (Y, C, CVBS words) and in RGB mode (the palette picture).
+# Question: what the TV does. no change = the same picture as with SYNCn High / FB Low, sync lost = it rolls or loses lock, blanked = no picture, RGB switch = the TV turns to its RGB
+# input (SCART fast switching); anything else: say it in the notes. GOOD marks "no change" and has no further meaning. Upload results/avsync_<date>.txt and .toml.
+kind = "avtest"
+
+[test]
+name = "A/V SYNCn and FB"
+id = "avsync"
+version = 1
+
+[ask]
+questions = ["What does the TV do?"]
+choices_1 = ["no change", "sync lost", "blanked", "RGB switch"]
+good = ["no change"]
+timeout_s = 30
+first_gate = false
+stop_after_ok = false
+
+[sweep]
+mode = ["Test picture", "RGB"]
+syncn = ["High", "Low", "Csync", "Inverted csync"]
+fb = ["Low", "High", "Window", "Inverted window"]

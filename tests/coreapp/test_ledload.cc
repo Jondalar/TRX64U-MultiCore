@@ -11,7 +11,7 @@ int main()
     {
         FakeFs fs;
         fs.put("/usb0/a.hdf", std::vector<uint8_t>(512 * 64, 7));
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         int si = r.st->find("LED Load Indicator");
         CHECK(si >= 0);
         CHECK_EQ(r.st->value(si), 0);                                    // default On
@@ -33,7 +33,7 @@ int main()
     // ---- S2: Off leaves the LED alone
     {
         FakeFs fs;
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         int si = r.st->find("LED Load Indicator");
         r.st->set(si, 1);
         ops_set(&r.c, "led.load", 1);
@@ -44,7 +44,7 @@ int main()
     // ---- switching Off after On takes the selector back to On / On once (a latched selector cannot be unset), then nothing
     {
         FakeFs fs;
-        AmigaRig r(&fs, &amiga1200_desc);
+        AmigaRig r(&fs, &AM_REC);
         ops_set(&r.c, "led.load", 0);
         ops_set(&r.c, "led.load", 1);
         CHECK_EQ(r.io.led_log.size(), 2);
@@ -55,6 +55,7 @@ int main()
         CHECK(r.io.led_log.size() == 3 && r.io.led_log[2].v == 0x04);
     }
 
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // ---- the A500 is the A1200 1:1 (T159 D-all, Alex 2026-11-02): the same setting, default On, the same single selector write 0x04
     {
         FakeFs fs;
@@ -67,5 +68,6 @@ int main()
         for (int i = 0; i < 100; i++) { engines_poll(&r.c); r.io.delay_ms(10); }
         CHECK_EQ(r.io.led_log.size(), 1);
     }
+#endif
     DONE("ledload");
 }

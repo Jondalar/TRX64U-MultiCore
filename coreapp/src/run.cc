@@ -4,11 +4,9 @@
 #include "FreeRTOS.h"
 #include "run.h"
 #include "diag.h"
+#include "libtab.h"
 #include "ui.h"
-#include "monitor.h"
 #include "netfs.h"
-#include "trx_ring.h"
-#include "trx64u_ops.h"
 #include "hw.h"
 #include "fm_fs.h"
 #include "d1541_fs.h"
@@ -29,15 +27,15 @@
 #include "mediamounts.h"
 #include "home.h"
 #include "freeze.h"
-#include "uci.h"
 #include "menuctl.h"
 #include "romfind.h"
 #include "ops_glue.h"
 #include "exec.h"
 #include "service.h"
 #include "writeback.h"
-#include "portdiag.h"
+#include "coredlg.h"
 extern "C" uint32_t get_fattime(void);
+extern "C" void heapcfg_report(uint32_t *start, uint32_t *size, uint32_t *word, uint32_t *reserve, uint32_t *region_end);   // heapcfg.c
 extern "C" bool rtc_time_valid(void);
 #include "libboard.h"
 #include "restsrv.h"
@@ -48,14 +46,15 @@ extern "C" bool rtc_time_valid(void);
 #include "apphost.h"
 #include "appsvc.h"
 #include "engines.h"
-#include "mousesink.h"
+#include "baseset.h"
+#include "hookhost.h"
+#include "hooklib.h"
+#include "product.h"
 #include "rawkeys.h"
 #include "trx_io.h"
 #include "trx_lv_port.h"
 #include "keyboard_usb.h"
 #include "usb_hid.h"
-#include "usb_xinput.h"
-#include "pad.h"
 #include "joystick_output.h"
 #include "keyboard_c64.h"
 #include "network_interface.h"
@@ -119,6 +118,7 @@ public:
 class TrxPx : public PxPort {
 public:
     void w32(uint32_t reg, uint32_t v) { trx_io_write32(TRX_IO_BASE + reg, v); }
+    uint32_t r32(uint32_t reg) { return trx_io_read32(TRX_IO_BASE + reg); }
     void menu_place(int x, int y, int w, int h) { trx_lv_set_place(x, y, w, h); }
     void menu_canvas(int w, int h) { ui_set_canvas(w, h); }
 };
@@ -163,8 +163,10 @@ class BoardFreeze : public FreezeOps {
 public:
     void stop(bool on) { ctx.io->stop(on); }
     uint8_t status() { return freeze_status(ctx.io, ctx.desc->freeze); }
-    void layer_to_menu() { video->hide(); ui_show(); }
-    void layer_to_core() { ui_hide(); video->show(); }
+    // T256: the overlay service holds the layer's state: it takes the core's picture off when LVGL takes the layer (BoardOverlayHost::layer_to_ui) and puts it back when the layer is the
+    // core's again (layer_to_core), so a paused machine keeps the still and its tag on the layer after the menu closed.
+    void layer_to_menu() { ui_overlay_frozen(true); ui_show(); }
+    void layer_to_core() { ui_overlay_frozen(false); ui_hide(); }
     bool wait_keys_idle(uint32_t timeout_ms)
     {
         uint32_t t0 = ctx.io->now_ms();
@@ -179,6 +181,99 @@ public:
     uint32_t now_ms() { return ctx.io->now_ms(); }
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) : 1); }
     void log(const char *t) { printf("%s\n", t); }
+};
+
+// T256: what the overlay service asks of the board. The still comes from Video (the host's capture, or the core's frame buffer), the layer changes hands through Video, and a library's
+// menu_hide / menu_show reach the main loop as a request it takes at its next pass.
+class BoardOverlayHost : public OverlayHost {
+public:
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette pal = 0) { return video && video->grab(dst, w, h, fw, fh, ox, oy, stride, pal); }
+    // Video::grab keeps one capture buffer for the application: the base's still (UI task) and a library's frame() (its own task) take turns on a mutex, which may wait (not the critical section of enter()).
+    void grab_lock() { if (grab_mx_) xSemaphoreTake(grab_mx_, portMAX_DELAY); }
+    void grab_unlock() { if (grab_mx_) xSemaphoreGive(grab_mx_); }
+    bool picture_rect(int, int, OvRect *r) { return video && video->picture_rect(&r->x, &r->y, &r->w, &r->h); }
+    void layer_to_ui() { video->hide(); }
+    void layer_to_core() { video->show(); }
+    void menu_hide() { req_ = OVR_HIDE; }
+    void menu_show() { req_ = OVR_SHOW; }
+    void enter() { portENTER_CRITICAL(); }
+    void leave() { portEXIT_CRITICAL(); }
+    bool ui_task() { return xTaskGetCurrentTaskHandle() == task_; }
+    uint32_t now_ms() { return ctx.io->now_ms(); }
+    void wait_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) : 1); }
+    void log(const char *line) { printf("%s\n", line); }
+    void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
+    int take_req() { int r = req_; req_ = 0; return r; }
+    // Called once by the UI task before the service starts (start_overlay), so the mutex exists before the first grab; no FreeRTOS call inside a critical section.
+    void bind_task()
+    {
+        task_ = xTaskGetCurrentTaskHandle();
+        if (!grab_mx_) {
+            grab_mx_ = xSemaphoreCreateMutex();
+        }
+    }
+private:
+    volatile int req_ = 0;
+    TaskHandle_t task_ = 0;
+    SemaphoreHandle_t grab_mx_ = 0;
+};
+static BoardOverlayHost ov_host;
+
+// The main loop's side of a library's menu_hide / menu_show (ovl_menu_request, overlay.cc): the intents of the menu's own hotkey, and the loop's close.
+template <class Close> class LoopMenuPort : public OvMenuPort {
+public:
+    LoopMenuPort(bool &close_req, Close &close) : close_req_(close_req), close_(close) { }
+    bool leave_intent() { close_req_ = false; uiapp_local_leave(); const bool c = close_req_; close_req_ = false; return c; }
+    void close_menu() { close_(); }
+    void open_intent() { uiapp_local_open(); }
+private:
+    bool &close_req_;
+    Close &close_;
+};
+
+// T256 D13: the main loop's side of exit_to_machine and goto_screen (ovl_nav_request, overlay.cc). The closes and opens are the loop's own, the person's keys' ones.
+template <class Close> class LoopNavPort : public OvNavPort {
+public:
+    LoopNavPort(CoreCtx &ctx, AppHost &apps, MenuCtl *menu, Close &close) : ctx_(ctx), apps_(apps), menu_(menu), close_(close) { }
+    bool can_run() { return menu_->closable(); }
+    void refuse() { menu_->say(ctx_.desc->needs_program, false); }          // the person's close says the same
+    bool app_open() { return apps_.open_name()[0] != 0; }
+    bool session_of(const char *app) { return apps_.session_is(app); }
+    bool end_app(bool keep_app)
+    {
+        char why[160];
+        if (apps_.leave_app(keep_app, why, sizeof(why))) {
+            return true;
+        }
+        menu_->say(why, true);
+        return false;
+    }
+    void set_paused(bool p) { ctx_.paused = p; }
+    void close_menu() { close_(); }
+    void open_menu() { uiapp_local_open(); }
+    bool go_place(const char *spec)
+    {
+        if (menu_->goto_when_open(spec)) {
+            return true;
+        }
+        menu_->say_when_open("The menu has no such screen.", true);
+        return false;
+    }
+    bool open_app(const char *app, const char *action)
+    {
+        char msg[160];
+        msg[0] = 0;
+        const int rc = apps_.request(app, action, "", msg, sizeof(msg));
+        menu_->say_when_open(msg, rc != 0);
+        return rc == 0;
+    }
+private:
+    CoreCtx &ctx_;
+    AppHost &apps_;
+    MenuCtl *menu_;
+    Close &close_;
 };
 
 // T97 5.12: the interrupt guard. Three times (10-21, 10-22, 10-23) the core poll task ran on with mstatus.MIE 0 and no critical section
@@ -261,26 +356,6 @@ private:
 
 char rom_names[200];
 
-// The mouse sink's accumulators are shared by the input task and the poll task (mousesink.h): a critical section, as the reference's was.
-class BoardMouseCrit : public MouseCrit {
-public:
-    void enter() { portENTER_CRITICAL(); }
-    void leave() { portEXIT_CRITICAL(); }
-};
-
-// The 1351 backend's pots (mousesink.h): the driver's own port-1 output, as it drove it before the library took the reports.
-class BoardMousePots : public MousePots {
-public:
-    void position(int16_t x, int16_t y)
-    {
-        portENTER_CRITICAL();
-        usb_hid_set_mouse1_position(x, y);
-        portEXIT_CRITICAL();
-        JoystickOutput::instance().paceMouse();
-    }
-    void buttons(uint8_t joy) { usb_hid_set_joy1_output(joy); }
-};
-
 // The two addresses the Network line and the REST server look at (T184 D5): the cable's, when it has link and a usable address, and the WiFi's, when the driver
 // says it is usable (not a cached lease). Status > Network reads the same interfaces (netops.cc st_eth_ip, st_wifi_ip).
 static void net_addresses(char *lan, int ln, char *wifi, int wn)
@@ -329,8 +404,17 @@ public:
             }
             break;
         case 2: {
-            char lan[24], wifi[24];
-            net_addresses(lan, sizeof(lan), wifi, sizeof(wifi));
+            // The header asks for this line on every render, so every key press asked four interfaces and the WiFi driver for their addresses. The addresses
+            // are read at most once a second (a link that came up shows on the next render after that second).
+            static char lan[24], wifi[24];
+            static uint32_t net_at;
+            static bool net_known;
+            uint32_t now = ctx.io->now_ms();
+            if (!net_known || now - net_at >= 1000) {
+                net_addresses(lan, sizeof(lan), wifi, sizeof(wifi));
+                net_at = now;
+                net_known = true;
+            }
             net_chip_text(out, n, lan, wifi, NET_NONE_TEXT);                       // "LAN x" / "WiFi x", the cable first
             break;
         }
@@ -403,12 +487,19 @@ static void cs_step(int step, const char *label)
     rest_starting(label);
 }
 
+void coreapp_wait_named(const char *what)
+{
+    cs_step(0, what);
+}
+
 void coreapp_held(const char *why, const BoardProfile *board)
 {
+    ui_splash_close();                            // the picture and the REST gate were opened before the description (coreapp_open_early)
+    rest_starting("The core is held");
     if (!matrix_kb && held_offers_return(board)) {
         matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
     }
-    char text[400], err[100] = "";
+    char text[720], err[100] = "";                 // the reason (up to 511 bytes, coreapp.cc) and the RETURN line after it
     held_text(why, board, 0, text, sizeof(text));
     ui_message("This core cannot be started", text, true);
     for (;;) {
@@ -424,16 +515,31 @@ void coreapp_held(const char *why, const BoardProfile *board)
     }
 }
 
-void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
+// What the application's own settings (baseset.h) put into the board: the menu's look, the product, the host keyboard's joystick registers.
+static const BaseSetPort board_set_port = { hw_keyboard_joystick };
+
+// T239.3 (advisor 2026-11-23): the base's own groups for a core described by its record, whose code is a library (ops_glue.h ops_record_groups). A built-in
+// descriptor registers the groups it uses in its register_ops (vc20.cc: cbm1541); a record core gets them by its data: the Diagnostics tab here, the groups
+// of the linked libraries from the library table (libtab.h, P3-1: the TOML B of the app names them, this file names none).
+static void record_groups(OpRegistry &r, const CoreDesc *d)
 {
-    static BoardUi board_ui;
-    static BoardFreeze board_freeze;
-    static BoardMenuHost board_host;
-    memset(&ctx, 0, sizeof(ctx));
+    diag_register(r);                                         // the Diagnostics tab (diag.cc): the log, the EDID, the heap, the media and USB states
+    libtab_register_ops(r, d);
+}
+
+static bool early_open;
+
+void coreapp_open_early(const Handover *h)
+{
+    if (early_open) {
+        return;
+    }
+    early_open = true;
     // T101 S9: the picture comes first. LVGL and the pixel layer are opened here, the splash is the first frame, and every step
-    // below that waits for something (the stick, the file system, a library, a ROM) is named on it.
+    // after it that waits for something (the bundle's medium, the stick, the file system, a library, a ROM) is named on it.
+    // T239.3 P2-2 (M1): this runs before the description of a core that has none compiled in is made of its bundle, which waits for the medium of the .cor.
     STARTLOG("phase core app run: pixel layer");
-    ui_open(desc);
+    ui_open(0);
     {
         // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture). T228: the running mode
         // is the gateware's row, not always the hand-over's (trx64u's bitstream starts in 1080p50), and 1080p without the gateware (video_menu_start).
@@ -447,12 +553,33 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     {
         char ver[64];
         snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
-        ui_splash_open(desc->cor_name, ver, CS_STEPS);
+        // the name of the core is the bundle's, from the hand-over (the descriptor does not exist yet); a start without a hand-over has none to show
+        const char *name = h && handover_valid(h) ? (h->core_name[0] ? h->core_name : handover_core_id(h)) : "";
+        ui_splash_open(name, ver, CS_STEPS);
     }
-    // The port opens now, not after the start: the start can wait as long as it takes (a ROM, the medium) and FTP answers meanwhile, so the API must
+    // The port opens now, not after the start: the start can wait as long as it takes (the bundle's medium, a ROM) and FTP answers meanwhile, so the API must
     // too (board 2026-11-09). Until rest_started below it answers 503 with the step (rest.h); REST and WS reach the service only after that.
     rest_starting("Starting");
     restsrv_start(&ctx, ip_string);               // REST and WS JSON-RPC over the same registry and executor (T104.1 D3, Q8: in the base)
+}
+
+void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *board)
+{
+    ops_record_groups = record_groups;                        // before anything makes the registry (ops_of)
+    ui_live_key_changed = hooks_menu_video;                   // the core hears each change of the picture behind the menu (core_hooks.h menu_video)
+    static BoardUi board_ui;
+    static BoardFreeze board_freeze;
+    static BoardMenuHost board_host;
+    memset(&ctx, 0, sizeof(ctx));
+    baseset_attach(&ctx, &board_set_port);        // the USB driver reads the mouse settings through it, the settings' operations act through the port
+    // The picture and the REST gate came first (coreapp_open_early): the core app task opens them before the description waits for the bundle's medium.
+    coreapp_open_early(h);                        // a no-op after the core app task; a caller that did not open them gets them here
+    ui_set_desc(desc);
+    {
+        char ver[64];
+        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
+        ui_splash_open(desc->cor_name, ver, CS_STEPS);     // the early splash named the bundle from the hand-over; the descriptor's name replaces it (still at step 0)
+    }
     static CoreDesc picture_desc;                 // the descriptor plus the application's own Picture item (T107)
     static Setting picture_items[SETTINGS_MAX];
     PictureEnv picture_env;
@@ -488,6 +615,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     net_fs.bind(&ctx);
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
+    {
+        uint32_t hs, hz, hw, hr, he;                    // P4-1: the one heap line of the start log: the region, the word that set it, the reserve under the stack, what is free now
+        heapcfg_report(&hs, &hz, &hw, &hr, &he);
+        STARTLOG("heap 0x%08x + 0x%x = 0x%08x (word 0x%x%s, stack reserve 0x%x, region end 0x%08x), %u free", (unsigned)hs, (unsigned)hz, (unsigned)(hs + hz),
+                 (unsigned)hw, hw ? "" : " = the region left", (unsigned)hr, (unsigned)he, (unsigned)xPortGetFreeHeapSize());
+    }
     ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
     core_report_edid_reader() = video_read_edid;       // R8: the bug report names the screen's EDID
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
@@ -518,23 +651,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     // state the host's power-up has (spec 5.15). Found on 2026-10-15: the NES ran, was released, and the screen
     // stayed black because a test hook had opened the menu in the application before.
     ctx.io->stop(false);
-    static BoardMouseCrit mouse_crit;
-    mouse_sink_set_crit(&mouse_crit);
-    // The USB mouse reaches the core through the library and nowhere else (T104.1 5.6): while this is registered the driver's own handling
-    // of a mouse report (port-1 output, cursor keys, menu navigation) does not run, so our menus are keys only. A core without a mouse
-    // record takes the report and drops it.
-    static BoardMousePots mouse_pots;
-    mouse_sink_set_pots(&mouse_pots);
-    usb_hid_set_mouse_sink(mouse_sink_usb_report);
+    // The USB mouse reaches the core through the mouse library and nowhere else, a USB gamepad through the pad service and nowhere else (T104.1 5.6, T156): the libraries register their USB hooks
+    // by their `init` entry (libtab_init, coreapp.cc), and the XInput claim follows the core's description by their `core` entry (libtab_core), so this file names none of them.
+    libtab_core(&ctx, desc, 0);                       // T196 D3, D4: an XInput pad only in a core that names the capability `pad`
     keyboard_usb_matrix_filter = hk_usb_matrix_filter;   // T181: the USB keyboard's hotkey combination does not reach the core (hotkeys.h)
     hk_usb_set_usage_map(usb_usage_matrix_index);
     usb_hid_set_keyboard_sink(rawkeys_usb_report);       // T141: a core with a rawkeys record gets the USB keyboard as its own key events
-    // T156: a USB gamepad reaches the core through the pad service and nowhere else; a core without a pad record drops the reports. The service
-    // shares the mouse sink's critical section (the USB task and the poll task).
-    static const UsbPadSink pad_sink = { pad_attach, pad_report, pad_detach };
-    pad_set_crit(&mouse_crit);
-    usb_hid_set_pad_sink(&pad_sink);
-    usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad"));      // T196 D3, D4: an XInput pad only in a core that names the capability `pad`
     matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
 
     cs_step(0, "Reading the settings");           // step 3: the views are built when the menu opens, none at the first open
@@ -590,20 +712,20 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     MenuCtl *menu = new MenuCtl(&ctx, &board_host);
     bool menu_open = false;
 
-    // The libraries (T104.1 D12): every .u2a of <stick>/trx/lib, after the descriptor and before the core is released, so what they register is
-    // there for the menu, the executor and the poll. A refusal (Q10: a capability this core lacks, a dependency, a cycle) is told here, on the
+    // The libraries (T104.1 D12; base 4.0, D58: the libraries linked with `register`, no library file), after the descriptor and before the core is released, so what
+    // they register is there for the menu, the executor and the poll. A refusal (a record or a budget the loader refuses, an export not delivered) is told here, on the
     // screen and in the log; the core still starts. So does a start that skips them all (libguard.h). Waits for a key, at most 6 s, so that it can be read and an unattended start is not held.
     static BundleExtras bundle;
     {
         LibBootReport lr;
-        cs_step(2, "Libraries on the stick");
+        cs_step(2, "Starting the libraries");
         bundle_read(&ctx, &bundle);                // the bundle's description (record 6) and where its libraries (record 7) lie
         if (bundle.why[0]) {
             printf("[core] %s\n", bundle.why);
         }
         // gate fix 4 (T228 R10): a pad the core's record declares ([pad]) is a pad as the capability is: the XInput claim follows the descriptor the menu will be built from. This is the
         // first place that knows the record; a pad enumerated before it (the call near the sink registration decided on the C descriptor alone) is not claimed.
-        usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad") || (bundle.desc && bundle.desc->has_pad));
+        libtab_core(&ctx, desc, bundle.desc);
         lib_board_load(&ctx, &lr, &bundle);
         if (lr.screen[0]) {                       // a refusal, or why no library was loaded at all (the Commodore key, a start that did not finish)
             board_ui.message(lr.title ? lr.title : "Library not loaded", lr.screen, true);
@@ -624,6 +746,27 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static AppIndex app_index;
     static LogStdout say_out;
     const CoreDesc *merge_base = ctx.desc;
+    // A core whose record names the library that is its code (CoreDesc::hooks_lib, core_hooks.h): its table of hooks is taken here, after the libraries are loaded and before the first
+    // reset (boot_start below), and the descriptor of every merge gets the library's hooks and mount slots (hooks_bind) before the menu is built from it. What goes wrong is told, the core runs on.
+    auto hooks_told = [&](const char *what) {
+        printf("[core] %s\n", what);
+        if (!ctx.notice_pending) {
+            snprintf(ctx.notice, sizeof(ctx.notice), "%s", what);
+            ctx.notice_pending = true;
+        }
+    };
+    if (desc->hooks_lib) {
+        char why[200];
+        if (hooks_attach_lib(lib_board_loader(), desc->hooks_lib, why, sizeof(why))) {
+            hooks_told(why);
+        }
+        static CoreDesc bound_desc;                          // bound once: every merge copies a descriptor whose hooks and mount slots are in place (init and release are never null for the tasks that run meanwhile)
+        bound_desc = *merge_base;
+        if (const char *bad = hooks_bind(&bound_desc)) {
+            hooks_told(bad);
+        }
+        merge_base = &bound_desc;
+    }
     auto do_merge = [&]() {
         app_index.set_room(lib_board_loader() ? lib_board_loader()->room() : 0xFFFFFFFFu, lib_board_loader());   // T197 P4: the loader window of this moment
         int refused = bundle_merge(&ctx, merge_base, &bundle, lib_board_loader(), &say_out, &merged_desc, &merge, &app_index);
@@ -631,12 +774,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         ctx.desc = &merged_desc;
         ctx.merge = &merge;
     };
+    ctx.install_files = core_files_install;
+    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h); before the application scan below, so that a sub-app it writes is listed at this start
     {
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
         app_index.set_multicore(!ctx.board || ctx.board->can_return_host);                  // the predicate of the state host.multicore (diag.cc)
-        appsvc_init(&ctx);                                                                 // appsvc_c64() reads the context (it is set again below, harmless)
-        app_index.set_cart_port(appsvc_c64() != 0);                                        // the cartridge tools only where the core gives that service (CART_APP_NEED)
+        // CART_APP_NEED (libfmt.h, T239.3 D40): the cartridge tools only where the running core's TOML A has the block c64cart - read from the bundle's description record, since the one app runs many cores
+        app_index.set_cart_port(bundle.desc && descrec_block(*bundle.desc, "c64cart") != 0);
         app_index.set_prg_apps(ops_of(&ctx)->find_op(PRG_APP_OP) != 0);                    // T228 R21 #14: a core that registered the operation gets "Run with App"
         app_index.scan(ctx.fs, app_folders, nf, &say_out);
         printf("[app] %d application(s) in %s\n", app_index.count(), nf ? app_folders[0] : "(no folder)");
@@ -656,24 +801,47 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
-    ctx.install_files = core_files_install;
-    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
-    BootResult r = boot_start(&ctx, &board_ui);
+    // The libraries' groups before the first reset and the start hook (api.md 9.7.10, 9.7.5.1): a library's init and start have api->io, the operations, the
+    // machine's groups and the jobs. The application host fills them when it installs. A dialog is served by the main loop only, so init and start ask none
+    // (api.md 4.5.5). The executor starts before the start hook (a call from the hook, which holds the core lock, runs on its task: exec.cc), the polls after it.
+    static BoardOs board_os;
+    static CoreLock core_lock(&board_os);
+    // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
+    static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);
+    appsvc_init(&ctx);
+    app_host.install();
+    app_host.set_machine_groups(appsvc_net(), appsvc_flash_read, appsvc_handover);
+    if (!desc->hooks_lib) {
+        hooks_attach();    // the table "corehooks" of a linked library of the core (core_hooks.h, libslot.h), if one exports it; a record that names its library took its table above
+    }
+    // T239.3 P1-4 (D30 condition 2, D31): the one check that stays at run time. The record of TOML A names the bitstream it was made for; the standard block of the bitstream that runs has to
+    // say the same (ID and build). A pair that does not match is told and the core is not released: the settings, the menu and the browser still open, the machine stays held on every path (CoreCtx::identity_refused: no release in boot.cc, no poll, no write-back task).
+    char ident_why[240];
+    ident_why[0] = 0;
+    bool ident_ok = bundle_check_identity(ctx.io, bundle.desc, ident_why, sizeof(ident_why)) == 0;
+    if (!ident_ok) {
+        printf("[core] identity: %s\n", ident_why);
+        snprintf(ctx.notice, sizeof(ctx.notice), "%s", ident_why);
+        ctx.notice_pending = true;
+        ctx.identity_refused = true;              // boot.cc releases the core on no path; the polls and the write-back below do not start
+        snprintf(ctx.identity_why, sizeof(ctx.identity_why), "%s", ident_why);
+    } else if (bundle.desc && bundle.desc->map) {
+        printf("[core] identity: %s build %08X, as the description says\n", bundle.desc->map->ident_id, (unsigned)bundle.desc->map->build);
+    }
+    BootResult r = ident_ok ? boot_start(&ctx, &board_ui) : BOOT_WAITING_PROGRAM;
     STARTLOG("phase boot_start returned (%s)", r == BOOT_RUNNING ? "running" : "waiting for a program");
     lib_board_started();                          // the start finished: the boot-attempt counter (libguard.h) goes back to 0
     collect_rom_names();
 
     // The service layer (T104.1 D2, D6, Q9): from here on every operation runs on the executor, in order, and the core's poll on a task of
-    // its own above this one's priority; the two share only the core lock. Before this point (the start sequence) an operation ran on
-    // this task, nobody else being there.
-    static BoardOs board_os;
+    // its own above this one's priority; the two share only the core lock. Before this point (the start sequence) an operation runs on
+    // the task that calls it: this one, or a library's job.
     // the guard's control (T97 5.12): a yield with interrupts off must count one hit and come back with them on, or the app stops here
     portDISABLE_INTERRUPTS();
     board_os.sleep_ms(0);
     printf("irq guard: self-test %s\n", irq_guard_hits == 1 ? "ok" : "FAILED");
-    static CoreLock core_lock(&board_os);
     if (ops_of(&ctx)->error()[0]) {
         printf("[core] a registration was refused: %s\n", ops_error(&ctx));
     }
@@ -682,40 +850,58 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         printf("[core] the executor task did not start; operations run on the menu's task\n");
     } else {
         ctx.exec = &executor;
+        ctx.lock = &core_lock;
     }
     wb_attach(&ctx, hw_wb_port());                           // T154: "Save Changed Cartridge", the interrupt of the cartridge's flash, the writes of the file
-    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);
-    if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
+    if (lib_board_loader()) {
+        lib_board_loader()->set_wb(wb_lib_svc());            // T239.3 D51: api->wb, the service for libraries (a library registers from the core's start hook on; before it: SVCWB_E_NOSERVICE)
+    }
+    if (ident_ok && hooks_present()) {                       // a library of the core starts its own engine (not on a bitstream that is not the core's: P1-4) (core_hooks.h start)
+        char why[120];
+        core_lock.lock();
+        if (hooks_start(&ctx, why, sizeof(why))) {
+            printf("[core] the core's start hook failed: %s\n", why);
+            snprintf(ctx.notice, sizeof(ctx.notice), "A part of the core did not start: %s", why);
+            ctx.notice_pending = true;
+        }
+        core_lock.unlock();
+    }
+    static PollTask wb_task(&board_os, &core_lock, ops_of(&ctx), &ctx, "writeback.poll", WB_POLL_MS, false);   // the first poll: after the start hook (core_hooks.h start)
+    if (!ident_ok) {
+        printf("[core] the write-back task does not start: the bitstream is not this core's\n");
+    } else if (!wb_task.start("Save cartridge", 0, 8 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the write-back task did not start; a changed cartridge is written at the menu's open only\n");
     }
-    ring_autostart = cfg_value(&ctx, "Timewarp Ring", 1) != 0;
-    trx_ring_engine_init();                                  // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
     rest_report = diag_report_rest;                           // T162: GET /v1/report
     static PollTask poll(&board_os, &core_lock, ops_of(&ctx), &ctx, desc->service_op, desc->service_period_ms, desc->poll_when_frozen);
-    if (desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
+    if (!ident_ok) {
+        printf("[core] %s is not polled: the bitstream is not this core's\n", desc->service_op ? desc->service_op : "the service");
+    } else if (desc->service_op && !poll.armed()) {
+        printf("[core] %s is not polled: it is not registered, or its name is %d bytes or longer\n", desc->service_op, POLL_OP_MAX - 1);
+    }
+    if (ident_ok && desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the poll task did not start; %s is not served\n", desc->service_op);
     }
-    // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock, none
-    // while the machine is frozen (Alex 2026-10-20: poll_when_frozen is gone).
-    for (int i = 0; i < merge.npolls; i++) {
-        PollTask *lp = new PollTask(&board_os, &core_lock, ops_of(&ctx), &ctx, merge.polls[i].op, merge.polls[i].period_ms, false);
-        if (!lp->start("Lib poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
-            printf("[core] the poll task of %s did not start; %s is not served\n", merge.polls[i].owner, merge.polls[i].op);
+    // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock; one runs
+    // while the machine is frozen for the menu only when its declaration says when_frozen (libapi.h LibPollDecl). Those of the libraries loaded from here on are added by the loader
+    // when they register, and end when they are released (T239.3 S3).
+    static LibPolls lib_polls(&board_os, &core_lock, ops_of(&ctx), &ctx, 6 * configMINIMAL_STACK_SIZE);
+    for (int i = 0; ident_ok && i < merge.npolls; i++) {
+        char why[120];
+        if (!lib_polls.add(merge.polls[i].owner, merge.polls[i].op, merge.polls[i].period_ms, merge.polls[i].when_frozen, why, sizeof(why))) {
+            printf("[core] the poll of %s did not start; %s is not served (%s)\n", merge.polls[i].owner, merge.polls[i].op, why);
         }
     }
-    // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
-    static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);
-    appsvc_init(&ctx);
-    app_host.install();
-    app_host.set_end_hook(appsvc_end);
-    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover);
-    // T175: the diag core's runner asks the person through the application host's dialogs, on a task of its own (portdiag.h)
-    struct DiagHost : PdHost {
+    if (ident_ok && lib_board_loader()) {
+        lib_board_loader()->set_poll_sink(&lib_polls);
+    }
+    // T260 P7: a core's code that asks the person (a test runner) does it through the application host's dialogs, on a task of its own (coredlg.h, CoreCtx::dialogs)
+    struct HostDialogs : CoreDialogs {
         BoardOs *os;
         AppDlg *dlg;
         bool spawn(void (*f)(void *), void *a) override
         {
-            return os->task_new("Port diag", f, a, 0, 16 * configMINIMAL_STACK_SIZE);
+            return os->task_new("Core dialogs", f, a, 0, 16 * configMINIMAL_STACK_SIZE);
         }
         int ask(const char *title, const char *text, int timeout_s) override
         {
@@ -738,6 +924,11 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                 matrix_kb->set_keyboard_only(!on);
             }
         }
+        bool text(const char *title, char *buf, int max) override { return dlg->text(title, buf, max); }
+        int edit_list(const char *title, const char *text, DlgRow *rows, int n, int sel, void (*cb)(void *, int, int), void *ud) override
+        {
+            return dlg->edit_list(title, text, rows, n, sel, cb, ud);
+        }
         void notice(const char *title, const char *text) override { dlg->message(title, text); }
         bool pick(const char *start, char *out, int outlen) override { return dlg->pick_file(start, ".toml", out, outlen); }
         bool stamp(char out[16]) override
@@ -751,15 +942,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             return true;
         }
     };
-    static DiagHost diag_host;
-    diag_host.os = &board_os;
-    diag_host.dlg = &app_host.dialog();
-    portdiag_attach(&diag_host);
+    static HostDialogs host_dialogs;
+    host_dialogs.os = &board_os;
+    host_dialogs.dlg = &app_host.dialog();
+    ctx.dialogs = &host_dialogs;
     uint32_t t_req = 0;
 
     auto open_menu = [&]() {
         t_req = ctx.io->now_ms();
-        ui_paused_tag(false);                     // the tag of a paused machine goes, the menu draws itself
         if (ctx.started) {
             ctx.frozen = true;                    // no poll starts from here on ...
             core_lock.lock();                     // ... and one that is in the core is finished (it holds the lock)
@@ -791,24 +981,23 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     };
     auto close_menu = [&]() {
         t_req = ctx.io->now_ms();
+        ui_overlay_closing();                     // T256: the core's menu_closed hook may take its still away: the base takes no new one for a machine that runs again
         rawkeys_menu(&ctx, false);                // T141: the keys still held are ignored until they are up
-        mon_release();                            // the monitor's hold on the machine, its breakpoints and observers go with the menu
         menu->toast_clear();                      // T160: the volume line does not stay over the running core
         ui_toast_render(*menu);
         ui_menu_visible(false);
-        if (trx_ring_pending()) {
-            trx_ring_unfreeze();                  // Timewarp: the frame chosen in the menu is where the machine runs on
+        if (hooks_has_menu_closed()) {
+            hooks_menu_closed();                  // the core's library gives back its debugger's hold and lands what the menu chose (core_hooks.h menu_closed)
         }
+        ui_paused_tag(ctx.paused);                // T256: Pause is told to the service first, so the layer goes from the menu to the still and the tag in one step
         if (freeze->frozen()) {
             freeze->leave(ctx.paused);            // the picture back, the closing key out of the matrix, then C64_STOP = 0
         } else {
-            ui_hide();
-            video->show();
+            ui_hide();                            // the service gives the layer back to the core (BoardOverlayHost::layer_to_core), or keeps it for the still
         }
         ctx.frozen = false;
         ctx.menu_open = false;
         menu_open = false;
-        ui_paused_tag(ctx.paused);
         uiapp_changed();
         printf("[core] menu closed, machine running %u ms after the close key\n", (unsigned)(ctx.io->now_ms() - t_req));
     };
@@ -882,10 +1071,20 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     }
     rest_started();                               // the token gate (rest_uic) and the executor are there: the start gate opens (rest.h)
 
+    // T256: the overlay service is up from here (the splash is closed, the merged table of the core's elements is known); a library that shows an element before this gets OVL_E_NOSERVICE.
+    auto start_overlay = [&]() {
+        ov_host.bind_task();
+        video->still_start();
+        ui_overlay_start(&ov_host, merge.has_elem ? &merge.elem_store : menu_elem_base(), video->own_picture());
+        if (lib_board_loader()) {
+            lib_board_loader()->set_overlay(ui_overlay());
+        }
+    };
     if (r == BOOT_RUNNING) {
         ui_splash_close();
         ui_message_clear();
         ui_poll();
+        start_overlay();
         ui_hide();
         video->show();
         printf("[core] %s released\n", desc->cor_name);
@@ -894,6 +1093,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
     } else {
         ui_splash_close();
+        start_overlay();
         uiapp_local_open();                       // the NES: the browser is the first thing, there is nothing to run yet
     }
 
@@ -949,7 +1149,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             if (menu_open) {
                 ui_menu_visible(true);
             } else if (ctx.paused) {
-                ui_paused_tag(true);                  // the machine stands: the layer goes back to the keyed screen with its tag
+                ui_paused_tag(true);                  // the machine stands: the service shows the still and the tag element again
             } else {
                 ui_hide();                            // the layer is the core's again
             }
@@ -974,8 +1174,30 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         }
     };
     bool ui_changed = false, redraw_next = false;
+    // T256: one pass for the overlay service: the text calls and redraws of libraries, and their menu_hide / menu_show (the person's close and the menu key). While LVGL holds the layer
+    // with the menu closed (the still, the elements) it renders here.
+    auto overlay_pass = [&]() {
+        OverlaySvc *ov = ui_overlay();
+        if (!ov || !ov->enabled()) {
+            return;
+        }
+        ov->frame();
+        LoopMenuPort<decltype(close_menu)> port(close_req, close_menu);
+        const int req = ov_host.take_req();
+        OvNav nav;
+        if (ov->take_nav(&nav)) {                  // a navigation call came after any hide / show: it counts, the older request is dropped (overlay.h)
+            LoopNavPort<decltype(close_menu)> nport(ctx, app_host, menu, close_menu);
+            ovl_nav_request(nav, menu_open, ctx.started, &nport);
+        } else {
+            ovl_menu_request(req, menu_open, ctx.started, &port);
+        }
+        if (!menu_open && ov->holds_layer()) {
+            ui_poll();
+        }
+    };
     for (;;) {
         picture_tick();
+        overlay_pass();
         if (!menu_open) {
             video->poll();
             uint32_t hf = hotkey_poll();
@@ -990,7 +1212,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                     continue;
                 }
             }
-            bool want = hw_menu_button_pressed() | uci_take_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
+            bool want = hw_menu_button_pressed() | libtab_freeze_request();   // a library's freeze request (the command interface's FREEZE of the core that runs UCI) is the menu button pressed
             int k;
             while ((k = getch_nowait()) >= 0) {
                 if (picture_confirm_pending()) {
@@ -1006,7 +1228,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             app_host.service(false);
             vTaskDelay(1);
         } else {
-            uci_take_freeze_request();                // the menu is open already: the request is answered
+            libtab_freeze_request();                // the menu is open already: the request is answered
             if (!app_host.session() && !menu->learning() && (hotkey_poll() & (1u << HKA_MENU))) {   // T207: not while a key is being learned
                 uiapp_local_leave();                  // T181: the menu hotkey closes it again (the leave intent; the loop closes below)
                 if (!close_req) {
@@ -1069,12 +1291,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             redraw_next = true;                           // a remote intent changed the menu: the next pass draws it
         }
         ui_changed = false;
+        if (menu->take_pump_close() && !ctx.desc->menu_first && menu_open) {   // the menu's own clock ran an action that closes it (a Run after a fetch; the controller has saved the reopen place as a key's R_CLOSE does): the close of a key's R_CLOSE
+            close_req = true;
+        }
         if (close_req) {                                  // ... or closed it (a remote `back`/RUN/STOP): the same close as the local key's
             close_req = false;
             if (menu_open) {
                 close_menu();
             }
         }
-        mon_serve(&ctx);                              // the RPC on TCP 4312, whatever the menu does (monsrv.h)
     }
 }

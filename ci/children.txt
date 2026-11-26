@@ -10,7 +10,8 @@
 #            owners   one leg per bench owner (ci/sims.lane) the plan names a bench of, in the run's tier
 #            gateware one target per named gateware lane: host (host or aux), core:<id> (plan dfx), large:<id> (plan large). Not a job: the builder
 #                     builds the missing keys (T239.1 D11) and releases the environment `bitstreams`, where the jobs that need them wait (D21)
-#            cor      feature branch (scope branch): one leg per named .cor core or large core
+#            cor      feature branch (scope branch): one leg per named .cor core or large core, not a core with an app of its own (T239.5 D13: its .cor
+#                     comes from its matrix lane; the work order still names its bitstream, ci/orchestrate.py order_targets)
 #            package  scope full, or the update files are asked for
 #            update   ci/select.sh update = yes
 #            prerelease  the package of a push to main, t239.1 or a v* tag goes to the builds repository (D1; the ref guard is the job's `if`)

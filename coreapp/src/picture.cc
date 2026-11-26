@@ -1,4 +1,5 @@
 #include "picture.h"
+#include "menubuild.h"
 #include "video.h"
 #include "videomode.h"
 #include "cfgfile.h"
@@ -62,9 +63,6 @@ static void snapshot_values(OldValues *o)
         }
     }
 }
-static const char *g_scale_values[VID_SCALE_COUNT];     // T107 D8: Integer, Fit, Fill
-static const char *const g_smooth_values[2] = { "Off", "On" };
-static const char *const g_follow_values[2] = { "Off", "On" };
 
 static void drop_unlocked(void);
 
@@ -164,73 +162,28 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     }
     snprintf(g_auto_text, sizeof(g_auto_text), "Auto");        // the text of a core that has not started its picture: picture_start names the mode
     fill_values();
+    const BaseRow *prow = menu_base_row(PICTURE_OP, PICTURE_KEY), *srow = menu_base_row(SCALE_OP, SCALE_KEY), *mrow = menu_base_row(SMOOTH_OP, SMOOTH_KEY), *frow = menu_base_row(FOLLOW_OP, FOLLOW_KEY);
+    if (!prow || !srow || !mrow || !frow || !prow->pick || strcmp(prow->pick, "video.modes") || srow->nvalues != VID_SCALE_COUNT) {
+        return "settings: the base UI TOML has no Picture, Scale, Smoothing and Frame follow rows that fit the picture service";    // the rows (label, kind, values, default) are the base UI TOML's; below is what a row cannot say
+    }
     Setting &p = store[d->nsettings];
-    p = Setting();                                 // every field, `bind` too: the store may be stack memory
-    p.key = PICTURE_KEY;
-    p.values = g_values;
+    menu_base_setting(p, *prow);                   // every field, `bind` too: the store may be stack memory
+    p.values = g_values;                           // the pick "video.modes": Auto and the rows the screen takes
     p.nvalues = 1 + g_nlist;
-    p.def = 0;
-    p.when = WHEN_LIVE;
-    p.apply = PICTURE_OP;
-    p.group = "video";                             // the setting group "video": the menu route sends the row by op and key (menu_route_of); the group only picks its block on a tab with sections
     if (vic_scaled) {
-        for (int m = 0; m < VID_SCALE_COUNT; m++) {
-            g_scale_values[m] = video_scale_name(m);
-        }
         Setting &q = store[d->nsettings + 1];
-        q = Setting();
-        q.key = SCALE_KEY;
-        q.values = g_scale_values;
-        q.nvalues = VID_SCALE_COUNT;
-        q.def = VID_SCALE_FIT;                         // the gateware powers up at Fit (U16 D3)
-        q.when = WHEN_LIVE;
-        q.apply = SCALE_OP;
-        q.group = "video";
+        menu_base_setting(q, *srow);
+        q.def = VID_SCALE_FIT;                         // the gateware powers up at Fit (U16 D3); the row's default, Integer, is the frame-buffer cores'
     }
     if (vic_smooth) {
-        Setting &r = store[d->nsettings + 2];
-        r = Setting();
-        r.key = SMOOTH_KEY;
-        r.values = g_smooth_values;
-        r.nvalues = 2;
-        r.def = 0;                                     // the gateware powers up with the smoothing off (T227)
-        r.when = WHEN_LIVE;
-        r.apply = SMOOTH_OP;
-        r.group = "video";
+        menu_base_setting(store[d->nsettings + 2], *mrow);     // the gateware powers up with the smoothing off (T227)
     }
     if (scaled) {
-        for (int m = 0; m < VID_SCALE_COUNT; m++) {
-            g_scale_values[m] = video_scale_name(m);
-        }
-        Setting &q = store[d->nsettings + 1];
-        q = Setting();
-        q.key = SCALE_KEY;
-        q.values = g_scale_values;
-        q.nvalues = VID_SCALE_COUNT;
-        q.def = VID_SCALE_INTEGER;
-        q.when = WHEN_LIVE;
-        q.apply = SCALE_OP;
-        q.group = "video";
-        Setting &r = store[d->nsettings + 2];
-        r = Setting();
-        r.key = SMOOTH_KEY;
-        r.values = g_smooth_values;
-        r.nvalues = 2;
-        r.def = 0;
-        r.when = WHEN_LIVE;
-        r.apply = SMOOTH_OP;
-        r.group = "video";
+        menu_base_setting(store[d->nsettings + 1], *srow);
+        menu_base_setting(store[d->nsettings + 2], *mrow);
     }
     if (g_gw && env && env->follow && d->video.w != 0 && d->nsettings + extra + 1 <= SETTINGS_MAX) {      // T234: the Amiga cores' Frame follow, with the other picture rows (F5 Video)
-        Setting &f = store[d->nsettings + extra];
-        f = Setting();
-        f.key = FOLLOW_KEY;
-        f.values = g_follow_values;
-        f.nvalues = 2;
-        f.def = 0;                                     // the gateware powers up Off (T234 D1)
-        f.when = WHEN_LIVE;
-        f.apply = FOLLOW_OP;
-        f.group = "video";
+        menu_base_setting(store[d->nsettings + extra], *frow);       // the gateware powers up Off (T234 D1)
         extra++;
     }
     *out = *d;
@@ -478,6 +431,8 @@ void scale_apply(CoreCtx *c, int value)
     if (g_vic_scale) {                             // T222: the VIC's picture is scaled by the gateware, at 0x4F01
         if (!video_set_scale_gateware(value)) {
             printf("[core] scale: the gateware did not take %s\n", video_scale_name(value));
+        } else if (c->video) {
+            c->video->set_vic_scale(value);          // T256: the still of this core is laid out as the scaler shows the picture
         }
         return;
     }

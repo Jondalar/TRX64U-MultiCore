@@ -70,7 +70,7 @@ static int hold_nop(CoreCtx *, char *, int) { g_holds++; return 0; }
 static int nop(CoreCtx *, char *, int) { return 0; }
 static CoreDesc quiet_desc()
 {
-    CoreDesc d = amiga1200_desc;
+    CoreDesc d = amiga_desc;
     d.init = hold_nop;
     d.release = nop;
     d.warm_reset = nop;

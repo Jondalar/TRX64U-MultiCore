@@ -1,4 +1,4 @@
-// PROVENANCE: copied from vendor/gideon/software/network/ftp_client.h (the 1541ultimate firmware, GPL-3.0; the client came upstream in pull request #662 by the TRX64 author, merged 2026-03-17, and was taken into the virtual file system in #695), T104.2 UI: the FTP client of the Library's FTP medium (netfs.cc).
+// PROVENANCE: copied from vendor/gideon/software/network/ftp_client.h (the 1541ultimate firmware, GPL-3.0; the client came upstream in pull request #662 by the TRX64 author, merged 2026-03-17, and was taken into the virtual file system in #695), T104.2 UI: the FTP client of the Library's FTP medium (the library "ftp", ftp_exports.cc).
 // T186: peer_ip, drop_control() and finish_transfer() added, adapted from omnicron-c64/ultimate-community-edition f7f665ab (GPL-3.0), see ftp_client.cc.
 #ifndef FTP_CLIENT_H
 #define FTP_CLIENT_H

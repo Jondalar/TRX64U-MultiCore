@@ -51,17 +51,25 @@ static char printable(uint8_t c)
     return (c >= 32 && c < 127) ? (char)c : '?';
 }
 
-StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDesc **desc, char *msg, int msglen, CoreIo *io)
+StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDesc **desc, char *msg, int msglen, CoreIo *io, DescSource *src)
 {
     *desc = 0;
     const CoreDesc *d = core_find((const char *)id);
+    bool from_bundle = false;
+    if (!d && src) {                                           // T239.3 D17: no descriptor compiled in: the bundle's data description makes one
+        d = src->describe(id, h, msg, msglen);
+        if (!d) {
+            return START_NO_DESCRIPTOR;
+        }
+        from_bundle = true;                                    // the bundle the hand-over names is the machine: its record's name and ID were checked against it
+    }
     if (!d) {
         snprintf(msg, msglen, "This application has no description for the core with the ID %c%c%c%c. The core stays held.",
                  printable(id[0]), printable(id[1]), printable(id[2]), printable(id[3]));
         return START_NO_DESCRIPTOR;
     }
     bool have = h && handover_valid(h);
-    if (d->id_shared) {
+    if (d->id_shared && !from_bundle) {
         // One gateware, several machines (T104 5.5: the Amiga and the A1200 answer with the same ID word): the ID block cannot say which
         // descriptor is meant, the bundle's name can. Without a name there is nothing to choose by, and nothing is guessed.
         const CoreDesc *named = 0;
@@ -116,24 +124,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
     c->cor_path[0] = c->cfg_path[0] = c->core_version[0] = c->host_version[0] = 0;
     c->host_key = 0;
     if (h && handover_valid(h)) {
-        uint32_t key = 0;
-        for (int i = 0; i < 8 && h->host_build[i]; i++) {
-            // case-insensitive: the firmware's small_printf writes %x in capitals (board 2026-11-06); any other character voids the key
-            char ch = h->host_build[i];
-            uint32_t v;
-            if (ch >= '0' && ch <= '9') {
-                v = (uint32_t)(ch - '0');
-            } else if (ch >= 'a' && ch <= 'f') {
-                v = (uint32_t)(ch - 'a' + 10);
-            } else if (ch >= 'A' && ch <= 'F') {
-                v = (uint32_t)(ch - 'A' + 10);
-            } else {
-                key = 0;
-                break;
-            }
-            key = (key << 4) | v;
-        }
-        c->host_key = key;
+        c->host_key = start_host_key(h);
         strncpy(c->cor_path, h->path, sizeof(c->cor_path) - 1);
         c->cor_path[sizeof(c->cor_path) - 1] = 0;
         snprintf(c->host_version, sizeof(c->host_version), "%s", handover_host_version(h));
@@ -143,7 +134,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
             c->cfg_path[0] = 0;
         }
     }
-    if (!c->cfg_path[0] && prof && prof->flash_cfg && prof->cfg_dir && c->desc && c->desc->folder) {       // T228 DC13: the parameter decides
+    if (!c->cfg_path[0] && prof && prof->flash_cfg && prof->cfg_dir[0] && c->desc && c->desc->folder) {       // T228 DC13: the parameter decides
         snprintf(c->cfg_path, sizeof(c->cfg_path), "%s/%s.cfg", prof->cfg_dir, c->desc->folder);
     }
 }
@@ -236,7 +227,7 @@ bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bo
 bool start_migrate_cfg(CoreCtx *c, const BoardProfile *prof)
 {
     char old[HANDOVER_PATH_MAX];
-    if (!c->fs || !c->cfg_path[0] || !prof || !prof->flash_cfg || !prof->cfg_dir || !c->desc || !c->desc->folder) {
+    if (!c->fs || !c->cfg_path[0] || !prof || !prof->flash_cfg || !prof->cfg_dir[0] || !c->desc || !c->desc->folder) {
         return false;
     }
     snprintf(old, sizeof(old), "%s/%s.cfg", prof->cfg_dir, c->desc->folder);

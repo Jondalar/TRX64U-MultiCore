@@ -37,8 +37,8 @@ int libmenu_read(LibSource *src, uint32_t fsize, uint32_t off, DescRecord **rec,
         snprintf(why, whylen, "its menu record cannot be read");
     } else if (descrec_parse(b, total, d, w, sizeof(w)) != 0) {
         snprintf(why, whylen, "%s", w);
-    } else if ((d->has_route && !(app && only_app_area(*d))) || d->ov.nhide || d->ov.nrename) {
-        snprintf(why, whylen, "its menu record gives a route or hides and renames what others contribute; only a core's description may");
+    } else if ((d->has_route && !(app && only_app_area(*d))) || d->ov.nhide || d->ov.nrename || (app && d->nkeys) || d->nwindows) {
+        snprintf(why, whylen, "its menu record gives a route, hides or renames what others contribute, has windows, or (an application) a key table; only a core's description may");
     } else {
         *rec = d;
         *bytes = b;

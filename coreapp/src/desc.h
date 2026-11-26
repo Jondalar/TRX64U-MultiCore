@@ -76,6 +76,11 @@ struct RegWrite {
 #define SCALE_KEY   "Scale"                // T107 D8: added with Picture to every frame-buffer core on a host whose gateware scales (T164 G14)
 #define SMOOTH_KEY  "Smoothing"            // T164 Q3: added with Scale
 #define FOLLOW_KEY  "Frame follow"         // T234: added after Smoothing to a frame-buffer core whose gateware has the Frame follow register (the Amiga cores)
+// T239.3 D32: the run-time lists a core's choice row may name with its `pick` (menubuild.cc menu_pick_fill serves them; video.modes is the Picture row of the base alone). tools/descrec.py CORE_PICKS is the same list.
+static inline bool setting_pick_served(const char *name)
+{
+    return name && (!strcmp(name, "hotkeys.keys") || !strcmp(name, "hotkeys.modifiers"));
+}
 struct Setting {
     const char *key;                      // the item text, also the key in <name>.cfg
     const char *const *values;            // labels, also the values in <name>.cfg
@@ -99,8 +104,10 @@ struct Setting {
     const char *show_state;
     // T104.2 UI: the name the menu shows; null: the key. The key is what the .cfg, REST and the operations name and never changes with a label.
     const char *label;
-    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
+    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none.
     const char *lock_state;
+    // T239.3 D32: a choice among values whose list changes at run time names it (the TOML's `pick`); `values` is what the row shows until the list has filled it. Null: the values are the row's. Last.
+    const char *pick;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------
@@ -127,6 +134,9 @@ struct Task {
     char hotkey;
     // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
     const char *show_state;
+    // T239.3 base 3.3: a stepped operation (the node attribute `job`): the menu calls the operation again while it answers `more`, with the progress line (CoreCtx::job_pct) and a cancel
+    // (CoreCtx::job_cancel). Last, as show_state.
+    bool job;
 };
 
 struct FileAction {
@@ -246,7 +256,8 @@ struct CoreDesc {
     const char *cor_name;                 // the manifest's name (core.toml name); the handover must agree (S1)
     const char *title;                    // menu title
     const char *short_title;              // the name on the navigation rail, where 148 px is all there is ("NES", "ATARI")
-    const char *folder;                   // roms/<folder> on the three roots, and the base of <name>.cfg's store name
+    const char *folder;                   // the base of <name>.cfg's store name, and roms/<folder> on the three roots when no .cor names the core folder (a
+                                          // developer start); a core started from its .cor reads its ROMs from its own folder alone (romfind.cc list_roots, T148 D2)
     const char *store;                    // the [section] of <name>.cfg
     uint32_t min_contract;                // 1
     const RomSpec *roms; int nroms;
@@ -282,14 +293,15 @@ struct CoreDesc {
     // descriptor sets it, whose hardware differs per bitstream; the Atari and the NES list what they have.
     bool board_caps;
     // ---- T104 5.2: the kinds of entry the Amiga needed, each one a data record the base serves (none of them is core code) ----
-    // The ID block is hard-wired in the gateware that two bundles share (amiga and amiga1200): both descriptors set id_shared and the
-    // bundle's name tells them apart (start.cc). Two descriptors with the same ID and no flag are still refused (desc_check_table).
+    // The ID block is hard-wired in the gateware that two bundles share (amiga and amiga1200): records with one ID word in one table set
+    // id_shared, and the bundle's name, the core's id or the feature bits tell them apart (start.cc). Since T213.3 the A1200 has its own app,
+    // so no shipped table has two (test_start keeps the case). Two descriptors with the same ID and no flag are still refused (desc_check_table).
     bool id_shared;
-    const RegWrite *reset_writes; int nreset_writes;      // written with every settings commit (regset.h)
+    const RegWrite *reset_writes; int nreset_writes;      // written after the settings by every regset_apply (boot_apply_settings: a start, a reset, a restart, a loaded config; regset.cc), never by a live change
     const RomSetSpec *romset;                             // a ROM chosen out of a directory's files (romset.h)
     const WindowMediaSpec *window_media;                  // raw images in windows of the DDR2 with a dirty log (winslot.h)
     const SectorMediaSpec *sector_media;                  // images served sector by sector through a mailbox (sectors.h)
-    const MouseSinkSpec *mouse;                           // a USB mouse delivered to the core as deltas (mousesink.h)
+    const MouseSinkSpec *mouse;                           // a USB mouse delivered to the core as deltas (mouse_api.h)
     const FbWinSpec *fbwin;                               // the picture window follows the chipset's display window (fbwin.h, T97 5.10)
     // T104.1 D15: the operation that resets the machine and types a script at READY - `text` is the pieces separated by '|', each at most ten
     // keys (the keyboard buffer), CR is '\r'. The drive library's Mount & Run is "mount, then this" (cbm1541.cc). Null: the core cannot type.
@@ -325,7 +337,7 @@ struct CoreDesc {
     // volume keys do nothing. Last in the record, so the positional initialisers stay as they are.
     bool own_volume;
     // T156: USB gamepads drive the machine's own controllers: the registers of the two players and the core's buttons with their default
-    // map (pad.h). Null: the core has no pad support; reports of a pad are taken and dropped.
+    // map (pad_api.h). Null: the core has no pad support; reports of a pad are taken and dropped.
     const PadSpec *pad;
     // T175: a core with no machine and no picture (the diag core): its application's screens are all there is. `menu_first` opens the menu after the start and
     // RUN/STOP does not close it; `live_ms` redraws the open menu that often, so state rows (the pins of the ports) are live. Last in the record, so the positional
@@ -361,6 +373,13 @@ struct CoreDesc {
     // T228 R17: "Restart core" clears cold_ram_bytes through the RAM window in its memory-only mode (CoreIo::ram_memonly: RAM under the I/O range too, as
     // trx64u's C64 needs). A core's menu record sets it ([restart] ram_only). Last in the record, so the positional initialisers stay as they are.
     bool cold_ram_only;
+    // T239.3 D17: the descriptor was made of a bundle's description record (descrec_core), not compiled in. Last in the record, so the positional initialisers stay as they are.
+    // While a descriptor is compiled in, the compiled-in one is the core: a record with data sections beside it changes nothing at run time (descrec_applies).
+    bool from_record;
+    // T239.3 base 3.3: the library of the bundle whose export "corehooks" (core_hooks.h) is the code of this core, named by the record (section 1, hooks); null: the core's code is compiled in.
+    // Such a descriptor leaves init, release, warm_reset, cold_start, media_flush, media_pending and the mount slot's three functions to the library: hookhost.h hooks_bind puts them in
+    // after the libraries are loaded. Last in the record, so the positional initialisers stay as they are.
+    const char *hooks_lib;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

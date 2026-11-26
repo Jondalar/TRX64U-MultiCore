@@ -1,5 +1,6 @@
 #include "hostzip_board.h"
 #include "fm_fs.h"
+#include "fastseek_api.h"
 #include "libapi.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -52,6 +53,9 @@ HcZipEnv *hostzip_env(const HcFlowEnv *base)
     static HcZipEnv env;
     if (!env.base) {
         env.base = base;
+#if FF_USE_FASTSEEK
+        fm_fs_set_fastseek(fastseek_table());          // the host application links the fast seek library itself: it has no TOML B (T239.3 P3-1)
+#endif
         env.fs = fm_fs();
         env.libhost = &lh;
         env.rig = 0;

@@ -1,5 +1,5 @@
 #include "desc_check.h"
-#include "pad.h"
+#include "pad_api.h"
 #include "bindcheck.h"
 #include <string.h>
 #include <strings.h>
@@ -8,6 +8,7 @@
 #include "settings.h"
 #include "ops_glue.h"
 #include "libfmt.h"
+#include "baseset.h"
 #include "picture.h"
 #include "engines.h"
 #include "mediamounts.h"
@@ -138,7 +139,7 @@ static const char *check_engines(const CoreDesc *d, const OpRegistry &reg)
     }
     if (d->mount_slots) {                                           // T180 D2, D5: the slots are keys of the .cfg ("Mount <name>=<spec>")
         const MountSlots &m = *d->mount_slots;
-        if (m.n < 1 || m.n > MOUNT_SLOTS_MAX || !m.names || !m.spec || !m.mount || !m.eject) {
+        if (m.n < 1 || m.n > MOUNT_SLOTS_MAX || !m.names || (!d->hooks_lib && (!m.spec || !m.mount || !m.eject))) {      // a hooks library's three functions come with hooks_bind
             return "mount_slots: 1..8 slots with names and the three operations (spec, mount, eject) are needed";
         }
         if ((d->window_media ? d->window_media->nslots : 0) + (d->sector_media ? d->sector_media->nunits : 0) + m.n > Settings::MOUNT_MAX) {
@@ -229,7 +230,7 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
     if (!text(d->folder)) return "folder (roms/<folder>) is missing";
     if (!text(d->store)) return "store (the [section] of the .cfg) is missing";
     if (d->min_contract < 1) return "min_contract must be 1 or more";
-    if (!d->init || !d->release) return "init and release: the control hooks are missing";
+    if ((!d->init || !d->release) && !d->hooks_lib) return "init and release: the control hooks are missing";      // a hooks library's come with hooks_bind (hookhost.h)
     if (!d->reset_ms) return "reset_ms: how long a reset is held is missing";
     if (d->video.w == 0) {
         // T104.2 D5: the core draws its own picture; nothing of the video service applies, and a half-filled descriptor is a mistake
@@ -312,6 +313,13 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         for (int j = 0; j < i; j++) {
             if (!strcasecmp(d->settings[j].key, s.key)) return "settings: two items with the same key";
         }
+        for (int k = 0; k < baseset_count(); k++) {
+            if (!strcasecmp(s.key, baseset_key(k))) {
+                // the one exception: a core whose own operations scale its mouse keeps its two rows (mouse_api.h); baseset_extend does not add them again. Each key with its own operation only.
+                bool own = s.apply && ((!strcasecmp(s.key, "Mouse Sensitivity") && !strcmp(s.apply, "mouse.sens")) || (!strcasecmp(s.key, "Mouse Acceleration") && !strcmp(s.apply, "mouse.accel")));
+                if (!own) return "settings: the look, joystick and mouse keys of baseset.h belong to the application";
+            }
+        }
         if (!strcasecmp(s.key, PICTURE_KEY) || !strcasecmp(s.key, SCALE_KEY) || !strcasecmp(s.key, SMOOTH_KEY) || !strcasecmp(s.key, FOLLOW_KEY)) return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
         if (s.apply && (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP))) return "settings: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows";
     }
@@ -332,6 +340,9 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         }
         if (tk.pick_dir && !text(tk.ask)) {
             return fail("tasks: \"%s\" picks a folder for a name it does not ask", tk.label);
+        }
+        if (tk.job && (tk.pick_dir || tk.hotkey)) {
+            return fail("tasks: \"%s\" is a job (a stepped operation with the progress line): it has no hotkey and no folder to pick (that task is stepped already)", tk.label);
         }
     }
     for (int i = 0; i < d->nfiletypes; i++) {

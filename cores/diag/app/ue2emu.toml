@@ -1,0 +1,15 @@
+# The Port Diagnostics core of TRX64U-MultiCore as the core application sees it (the layout of c128.toml). Read by the emulator tests (T196 S7 emulator run of the xpad test) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
+name = "diag"
+id = "DIAG"
+board = "multicore"
+
+# no [regs]: the diag core has no machine held in reset (its 0x0A0 is PIN_IDX of the pin bank v2, cores/diag/app/gateware.toml block pinsel)
+
+[ro]
+0x006 = 0x1F                 # DCAPS (cores/diag/rtl/diag_regs.v): b0 open-drain joystick pins, b1 PADDLE_DIS / PADDLE_ADJ, b2 the A/V test encoder, b3 pin bank v2, b4 capture
+
+[handover]
+core = "Port Diagnostics"
+id = "diag"
+path = "/Usb0/cores/diag.cor"
+video = "720p"

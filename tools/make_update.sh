@@ -5,7 +5,7 @@
 #
 # The id, and the two commits it records, come from the CI package's manifest.json
 # (--manifest-json) or from --id/--bit-commit/--app-commit. Output: <out>/trx64-<id>/
-#   trx64_update_<commit>_<YYYYMMDD>.cfw/.ue2  SHA256SUMS   (+ trxmon.u2a with --u2a)
+#   trx64_update_<commit>_<YYYYMMDD>.cfw/.ue2  SHA256SUMS
 # <commit> = the first 8 characters of the TRX64 commit (the id's last part), <YYYYMMDD> = the build date.
 # --emu-test builds an updater that also accepts ue2emu's S25FL128L flash, into
 # <out>/trx64-<id>-EMUTEST/; such a package must never reach a real board.
@@ -21,7 +21,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 APP_REPO="$ROOT/vendor/gideon"
 OUT="$ROOT/dist"
 IMAGE="u64-build-env"
-ID="" BITC="" APPC="" MJSON="" U2A="" NATIVE=0
+ID="" BITC="" APPC="" MJSON="" NATIVE=0
 
 usage() { sed -n '2,12p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
@@ -32,7 +32,6 @@ while [ $# -gt 0 ]; do
         --app-commit) APPC="$2"; shift 2;;
         --out) OUT="$2"; shift 2;;
         --app-repo) APP_REPO="$2"; shift 2;;
-        --u2a) U2A="$2"; shift 2;;
         --emu-test) EMUTEST=1; shift;;
         --native) NATIVE=1; shift;;
         -h|--help) usage;;
@@ -100,13 +99,12 @@ mkdir -p "$DEST"
 NAME="${TRX_UPDATE_NAME:-trx64_update_${ID##*-}_$(date +%Y%m%d)}"
 cp "$RES/update.cfw" "$DEST/$NAME.cfw"
 cp "$RES/update.app" "$DEST/$NAME.ue2"
-[ -n "$U2A" ] && cp "$U2A" "$DEST/trxmon.u2a"
 
 echo ">>> checking the packages"
 python3 "$HERE/trx_pkg_check.py" --bitstream "$WORK/trx_50t.bit" --app "$WORK/ultimate.app" "$DEST/$NAME.cfw" "$DEST/$NAME.ue2"
 
 SHA="shasum -a 256"; command -v shasum >/dev/null || SHA=sha256sum
-( cd "$DEST" && $SHA "$NAME.cfw" "$NAME.ue2" $( [ -n "$U2A" ] && echo trxmon.u2a ) > SHA256SUMS )
+( cd "$DEST" && $SHA "$NAME.cfw" "$NAME.ue2" > SHA256SUMS )
 echo ">>> $DEST"
 ls -l "$DEST"
 cat "$DEST/SHA256SUMS"

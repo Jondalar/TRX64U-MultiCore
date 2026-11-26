@@ -1,0 +1,1490 @@
+# TOML A of the host bitstream (T239.3 V-1, D30, D34, D35): the capabilities the host's own gateware decodes at the I/O bus, one block per
+# register range with its own driver. Checked against the RTL of host/ by
+#   python3 -I tools/rtl_check.py check --design host --list build.tcl --list gideon_vhdl.tcl --toml-a coreapp/gateware/host.toml --maps app/sdkpkg/maps
+# (host/ is the design: ultimate_sys.vhd, top.v and the modules they instantiate, with the release's defines: none.)
+# owner = "base": the block is decoded in host/, and every property's dir is what the RTL does at its bytes. owner = "core": the host decodes the
+# window and hands it to layer 2 (the cw_*, dma_*, drv_*, gcr_io_* and sidcv_* ports of ultimate_sys); rtl_check proves that every byte of it
+# reaches a core port, and its properties (a map) are the core's contract, checked in the core's own design, not here.
+# The address of a base block is iobase + its offset in ultimate_sys.vhd's decode process; the page registers (0x10040000, 0x10100300,
+# 0x10100400, 0x10180000, 0x10181800) are bytes of the page RAM: every byte writes and reads back, the dir here is what the registers do.
+# Not in this record: the UCI window 0x10044000 (cmd_if: it acks and answers 0; the UCI is the core's), the UDP region 0x10190000 (r_udp names it,
+# nothing decodes it) and the resampler at 0x10100580 (no decode). The ITU, console UART, USB, Ethernet and flash windows are here (V-1c: rtl_check models Gideon's
+# io_bus_splitter and a request that flash_gate holds).
+# The overlay palette (0x10145000 + 4 * n, bytes R, G, B of 16 entries, the byte between them undecoded) is three runs of 16 elements with the stride 4, one per colour byte.
+# A property whose read and write registers differ is two properties
+# (irq_mask / status, tx_len / rx_len).
+# The standard block (ID, build) is trx_io at 0x101A0000, which lives in layer 2: it is the core's block here (core_trx_io), and the host's TOML A names it as its
+# identity (D39). The readers accept a core block as the identity; its registers are the running core's, read from that core's own record.
+[identity]
+id = "HOST"
+block = "core_trx_io"
+
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "cart_regs"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10040000
+size = 0x100
+map = "c64cart_regs"
+
+
+[[block]]
+name = "c64_debug"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10181800
+size = 0x10
+  [[block.property]]
+  name = "debug"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+
+[[block]]
+name = "c64_video"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180000
+size = 0x2
+  [[block.property]]
+  name = "scan_lines"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "video_format"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "c64_turbo_en"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180002
+size = 0x1
+  [[block.property]]
+  name = "turbo_en"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "c64_dma_mode"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180003
+size = 0x1
+  [[block.property]]
+  name = "memonly"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "c64_sid_base"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1018000A
+size = 0x6
+  [[block.property]]
+  name = "emusid1_base"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid2_base"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid1_mask"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid2_mask"
+  offset = 0x5
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "c64_sid_cfg"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180020
+size = 0xA
+  [[block.property]]
+  name = "emusid1_waves"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid2_waves"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid1_res"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid2_res"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid1_digi"
+  offset = 0x7
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid2_digi"
+  offset = 0x8
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "emusid_split"
+  offset = 0x9
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "c64_core_version"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180010
+size = 0x1
+  [[block.property]]
+  name = "core_version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+
+
+[[block]]
+name = "c64_bus"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1018002B
+size = 0x2
+  [[block.property]]
+  name = "bus_internal"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "bus_external"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "c64_turbo_speed"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1018002D
+size = 0x2
+  [[block.property]]
+  name = "speed_prefer"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "speed_update"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "c64_joy"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180030
+size = 0x2
+  [[block.property]]
+  name = "joy1_swout"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "joy2_swout"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "matrix_keyb"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100300
+size = 0x8
+  [[block.property]]
+  name = "row0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row2"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row3"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row4"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row5"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row6"
+  offset = 0x6
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "row7"
+  offset = 0x7
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "app_ctl"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100308
+size = 0x3
+  [[block.property]]
+  name = "ctl0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "ctl1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "ctl2"
+  offset = 0x2
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "hdmi"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100400
+size = 0x1
+  [[block.property]]
+  name = "hdmi_reg"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "hdmi_pll"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100404
+size = 0x1
+  [[block.property]]
+  name = "pll_reset"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "u64_sys"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100401
+size = 0x3
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "restore"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "cart_detect"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+
+[[block]]
+name = "keyb_joy"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100406
+size = 0x1
+  [[block.property]]
+  name = "keyb_joy"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+
+[[block]]
+name = "keyb_scan"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1010040A
+size = 0x2
+  [[block.property]]
+  name = "keyb_col"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "keyb_row"
+  offset = 0x1
+  width = 8
+  dir = "r"
+
+
+[[block]]
+name = "case_led"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1010040E
+size = 0x1
+  [[block.property]]
+  name = "select"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "eth_stream"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1010040F
+size = 0x1
+  [[block.property]]
+  name = "ena"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+
+[[block]]
+name = "speaker_mixer_a"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100540
+size = 0x2
+  [[block.property]]
+  name = "gain0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "gain1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "speaker_mixer_b"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100544
+size = 0x2
+  [[block.property]]
+  name = "gain2"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "gain3"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "audio_master"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100550
+size = 0x2
+  [[block.property]]
+  name = "volume"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "tone"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "hotkey_mask"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100560
+size = 0xB
+  [[block.property]]
+  name = "mod_a"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "mod_b"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "mask_lo"
+  offset = 0x2
+  width = 32
+  dir = "w"
+
+  [[block.property]]
+  name = "mask_mid"
+  offset = 0x6
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "mask_ext"
+  offset = 0xA
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "bling_rx"
+module = "bling_io"
+owner = "base"
+address = 0x10100800
+size = 0x4
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "get"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "flags"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+
+
+[[block]]
+name = "hw_i2c"
+module = "app_i2c"
+owner = "base"
+address = 0x10100700
+size = 0x9
+
+
+[[block]]
+name = "audio_mixer"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100500
+size = 0x6
+  [[block.property]]
+  name = "main_r_sid1"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "main_l_sid1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sid2_r"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sid2_l"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sock1_r"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sock1_l"
+  offset = 0x5
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "audio_mixer_smp"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10100508
+size = 0x4
+  [[block.property]]
+  name = "smp_r"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "smp_l"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sid3_r"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sid3_l"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "icap_id"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060600
+size = 0x1
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 8
+  dir = "r"
+    [[block.property.state]]
+    name = "loader"
+    value = 0x7A
+
+[[block]]
+name = "icap_data"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060610
+size = 0x1
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "icap_enable"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060614
+size = 0x1
+  [[block.property]]
+  name = "enable"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "on"
+    shift = 0
+    bits = 1
+      [[block.property.field.state]]
+      name = "off"
+      value = 0
+      [[block.property.field.state]]
+      name = "on"
+      value = 1
+
+[[block]]
+name = "icap_count"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060618
+size = 0x4
+  [[block.property]]
+  name = "count0"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "count1"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "count2"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "count3"
+  offset = 0x3
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "partition"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060620
+size = 0x2
+  [[block.property]]
+  name = "decouple"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "request"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "effective"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "release"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "port"
+    shift = 0
+    bits = 1
+
+[[block]]
+name = "core_eeprom"
+module = "trx_io"
+owner = "core"
+address = 0x1004C000
+size = 0x1000
+
+[[block]]
+name = "core_sampler"
+module = "trx_io"
+owner = "core"
+address = 0x10048000
+size = 0x100
+
+[[block]]
+name = "core_trx_io"
+module = "trx_io"
+owner = "core"
+address = 0x101A0000
+size = 0x10000
+
+[[block]]
+name = "dma"
+module = "dma_win"
+owner = "core"
+address = 0x10050000
+size = 0x10000
+
+[[block]]
+name = "rom_window"
+module = "dma_win"
+owner = "core"
+address = 0x10188000
+size = 0x8000
+
+[[block]]
+name = "drive_a"
+module = "drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x4000
+map = "cbm1541"
+
+[[block]]
+name = "gcr_coder"
+module = "drive_l2"
+owner = "core"
+address = 0x10060500
+size = 0x10
+map = "gcr_coder"
+
+[[block]]
+name = "sid_curves"
+module = "sid_filter"
+owner = "core"
+address = 0x10185000
+size = 0x1000
+
+[[block]]
+name = "u2p_i2c"
+module = "u2p_io"
+owner = "base"
+address = 0x10100008
+size = 0x2
+  [[block.property]]
+  name = "scl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "sda"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "u2p_mdio_in"
+module = "u2p_io"
+owner = "base"
+address = 0x10100006
+size = 0x1
+  [[block.property]]
+  name = "get"
+  offset = 0x0
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "u2p_mdio"
+module = "u2p_io"
+owner = "base"
+address = 0x1010000A
+size = 0x2
+  [[block.property]]
+  name = "mdc"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "data"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "u2p_usb"
+module = "u2p_io"
+owner = "base"
+address = 0x1010000D
+size = 0x3
+  [[block.property]]
+  name = "hub_reset"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "ulpi_reset"
+  offset = 0x2
+  width = 8
+  dir = "w"
+
+
+[[block]]
+name = "overlay_geometry"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10140002
+size = 0x4
+  [[block.property]]
+  name = "char_width"
+  offset = 0x0
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "width"
+    shift = 0
+    bits = 4
+  [[block.property]]
+  name = "char_height"
+  offset = 0x1
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "height"
+    shift = 0
+    bits = 5
+    [[block.property.field]]
+    name = "big"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "stretch"
+    shift = 7
+    bits = 1
+  [[block.property]]
+  name = "chars_per_line"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "lines"
+  offset = 0x3
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "lines"
+    shift = 0
+    bits = 6
+
+[[block]]
+name = "overlay_pointer"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1014000A
+size = 0x2
+  [[block.property]]
+  name = "pointer_hi"
+  offset = 0x0
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "pointer"
+    shift = 0
+    bits = 7
+  [[block.property]]
+  name = "pointer_lo"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_control"
+module = "ultimate_sys"
+owner = "base"
+address = 0x1014000D
+size = 0x1
+  [[block.property]]
+  name = "control"
+  offset = 0x0
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "text_row"
+    shift = 0
+    bits = 4
+    [[block.property.field]]
+    name = "own"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "on"
+    shift = 7
+    bits = 1
+
+[[block]]
+name = "overlay_screen"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10141000
+size = 0x1000
+  [[block.property]]
+  name = "first"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "last"
+  offset = 0xFFF
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "overlay_colour"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10142000
+size = 0x1000
+  [[block.property]]
+  name = "first"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "last"
+  offset = 0xFFF
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "overlay_palette"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10145000
+size = 0x40
+  [[block.property]]
+  name = "entry_r"
+  offset = 0x0
+  width = 8
+  count = 16
+  stride = 4
+  dir = "w"
+  [[block.property]]
+  name = "entry_g"
+  offset = 0x1
+  width = 8
+  count = 16
+  stride = 4
+  dir = "w"
+  [[block.property]]
+  name = "entry_b"
+  offset = 0x2
+  width = 8
+  count = 16
+  stride = 4
+  dir = "w"
+
+[[block]]
+name = "overlay_mode_request"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10144F00
+size = 0x1
+  [[block.property]]
+  name = "mode"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "overlay_mode_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10144F04
+size = 0x6
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "version"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "mode"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "write_count"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ack_count"
+  offset = 0x5
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "c64_palette"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10180800
+size = 0x40
+  [[block.property]]
+  name = "entry"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "iec_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10028000
+size = 0x3
+  [[block.property]]
+  name = "version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo0"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo1"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "wifi_uart"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060900
+size = 0x10
+  [[block.property]]
+  name = "divisor_l"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "divisor_h"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_mask"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "flowctrl"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "tx_addr"
+  offset = 0x4
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "tx_len"
+  offset = 0x8
+  width = 16
+  dir = "w"
+  [[block.property]]
+  name = "rx_len"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "tx_push"
+  offset = 0xA
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_get"
+  offset = 0xB
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_addr"
+  offset = 0xC
+  width = 32
+  dir = "w"
+
+[[block]]
+name = "sd_spi"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10060000
+size = 0x10
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rate"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "select"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "crc"
+  offset = 0xC
+  width = 8
+  dir = "rw"
+
+# ---- V-1c: the windows behind Gideon's io_bus_splitter (rtl_check models the splitter: port i is selected by the address bits range_hi:range_lo = i)
+# ITU 0x10000000: the splitter has the ports 0 (irq, timer, capabilities), 1 (the console UART), 2 (the millisecond timer, busy flags), range bits 5:4. g_edge_write is false in
+# the host, so the edge register reads only.
+
+[[block]]
+name = "itu"
+module = "itu"
+owner = "base"
+address = 0x10000000
+size = 0x10
+  [[block.property]]
+  name = "irq_global"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_enable_set"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_disable"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_edge"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "irq_clear"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_active"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "timer"
+  offset = 0x6
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_en"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_hi"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_timer_lo"
+  offset = 0x9
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "buttons"
+  offset = 0xA
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fpga_version"
+  offset = 0xB
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities0"
+  offset = 0xC
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities1"
+  offset = 0xD
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities2"
+  offset = 0xE
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "capabilities3"
+  offset = 0xF
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "itu_uart"
+module = "uart_peripheral_io"
+owner = "base"
+address = 0x10000010
+size = 0x4
+  [[block.property]]
+  name = "data"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "get"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "flags"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "imask"
+  offset = 0x3
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "itu_ms"
+module = "itu"
+owner = "base"
+address = 0x10000020
+size = 0x10
+  [[block.property]]
+  name = "ms_timer_hi"
+  offset = 0x2
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ms_timer_lo"
+  offset = 0x3
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "usb_busy"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sd_busy"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "misc_io"
+  offset = 0x6
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "irq_en_high"
+  offset = 0x7
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_act_high"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "printer_busy"
+  offset = 0x9
+  width = 8
+  dir = "w"
+
+# USB 0x10080000 (usb_host_nano, nano.vhd's splitter bit 11): the nano CPU's program RAM (2 KB, byte port) and the register at 0x800 whose any write sets the core's reset to not data bit 0 (it never reads back).
+
+[[block]]
+name = "usb_code"
+module = "nano"
+owner = "base"
+address = 0x10080000
+size = 0x800
+  [[block.property]]
+  name = "code"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  count = 2048
+
+[[block]]
+name = "usb_ctrl"
+module = "nano"
+owner = "base"
+address = 0x10080800
+size = 0x1
+  [[block.property]]
+  name = "core_run"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+# Ethernet 0x10060800 (ethernet_interface.vhd, splitter bits 5:4: 0 eth_filter, 1 eth_transmit, 2 free_queue). Left out: the transmit busy flag at +0x1A (a flag the
+# write of +0x18 sets and the done pulse clears; rtl_check takes a flag with only literal assignments at its initial value, so its read is not provable here).
+
+[[block]]
+name = "ethernet"
+module = "ethernet_interface"
+owner = "base"
+address = 0x10060800
+size = 0x30
+  [[block.property]]
+  name = "mac"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  count = 6
+  [[block.property]]
+  name = "promiscuous"
+  offset = 0x7
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rx_enable"
+  offset = 0x8
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "tx_addr"
+  offset = 0x10
+  width = 32
+  dir = "w"
+  [[block.property]]
+  name = "tx_length"
+  offset = 0x14
+  width = 16
+  dir = "w"
+  [[block.property]]
+  name = "tx_start"
+  offset = 0x18
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "tx_irq_ack"
+  offset = 0x19
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b1"
+  offset = 0x21
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b2"
+  offset = 0x22
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_addr_b3"
+  offset = 0x23
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_insert"
+  offset = 0x24
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "fq_pop_id"
+  offset = 0x28
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fq_pop_size"
+  offset = 0x2A
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fq_reset"
+  offset = 0x2E
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "fq_used_valid"
+  offset = 0x2F
+  width = 8
+  dir = "rw"
+
+# ---- V-1c: the configuration flash window 0x10060200..0x100602FF. flash_gate.vhd holds each access in p_valid / p_read / p_addr / p_data and decodes it one clock later (rtl_check's held request).
+# Offsets 0x00-0x0F are the SPI block's (spi_peripheral_io: data, rate, control, crc) passed through the gate; 0x10-0x17 are the gate's own registers (aliases every 32 bytes, not named here):
+# status (a write of 1 in bit 0 clears the sticky bit), blocked count, blocked opcode, blocked address (3 bytes), allowed count, lock bits.
+[[block]]
+name = "flash_gate"
+module = "flash_gate"
+owner = "base"
+address = 0x10060200
+size = 0x18
+  [[block.property]]
+  name = "spi_data"
+  offset = 0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_rate"
+  offset = 4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_ctrl"
+  offset = 8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "spi_crc"
+  offset = 12
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "blk_cnt"
+  offset = 0x11
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_op"
+  offset = 0x12
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_hi"
+  offset = 0x13
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_mid"
+  offset = 0x14
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "blk_addr_lo"
+  offset = 0x15
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "ok_cnt"
+  offset = 0x16
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "lock"
+  offset = 0x17
+  width = 8
+  dir = "r"

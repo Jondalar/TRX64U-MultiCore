@@ -1,0 +1,135 @@
+# The ZX Spectrum Next's data description (T239.3 D17): what cores/zxnext/app/lib/zxnext.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into
+# the description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
+# operations of register_ops (including the service: the card, the clock, the default image). The core has no ROM: the Next's boot ROM is in its
+# source and the operating system is on the SD image.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/zxnext/trx/zxn_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property", a reset
+# value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20). The sector media's registers (mount_reg, feat_reg, mbox_*) are numbers: descrec resolves names in reg, reg_* and fb_* keys only.
+toml_a = "gateware.toml"
+
+[core]
+id = "ZXN_"
+name = "ZX Spectrum Next"
+title = "ZX Spectrum Next"
+short_title = "NEXT"
+folder = "zxnext"
+store = "ZX Spectrum Next Settings"
+min_contract = 1
+reset_ms = 20
+service_op = "zxnext.service"
+service_period_ms = 2
+caps = ["sdcard", "mouse"]
+
+# 640 x 512 at scale 2 is 1280 x 1024, centred on 1920 x 1080: a Next dot is half as wide as a line is tall, every line is written twice
+# fb_base is the DDR2 window (0x01000000) + 0xD00000: four buffers 1 MiB apart
+[video]
+w = 640
+h = 512
+scale = 2
+x0 = 320
+y0 = 28
+fb_base = "zxn_video.fb_base.reset"
+fb_stride = "zxn_video.fb_stride.reset"
+nbuf = 4
+reg_latest = "zxn_video.fb_latest"
+reg_seq = "zxn_video.frame_seq"
+reg_fb_base = "zxn_video.fb_base"
+reg_fb_stride = "zxn_video.fb_stride"
+
+[freeze]
+reg_status = "zxn_machine.status"
+mask = 0x02
+timeout_ms = 200
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "zxnext.set_joy"
+
+[[core_setting]]
+key = "Frame lock to 50 Hz"
+values = ["On", "Off"]                 # the value is the LOCK register's bit: 0 = locked
+apply = "zxnext.set_lock"
+
+# the board issue NextReg 0x0F reports; Auto takes the newest the TBBLUE.FW on the SD image accepts
+[[core_setting]]
+key = "Board issue"
+values = ["Auto", "Issue 2", "Issue 4", "Issue 5"]
+when = "reset"
+apply = "zxnext.set_board"
+
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Eject the SD image"
+op = "sectors.eject"
+bind = [ { arg = "unit", int = 0 } ]
+
+[[task]]
+group = "machine"
+label = "F3: 50 / 60 Hz"
+op = "zxnext.fkey"
+bind = [ { arg = "key", int = 2 } ]
+
+[[task]]
+group = "machine"
+label = "F8: CPU speed"
+op = "zxnext.fkey"
+bind = [ { arg = "key", int = 7 } ]
+
+[[task]]
+label = "NMI: Multiface (M1 button)"
+op = "zxnext.nmi_m1"
+closes_menu = true
+
+[[media]]
+name = "SD"
+state = "zxnext.sd.image"
+eject_op = "sectors.eject"
+eject_bind = [ { arg = "unit", int = 0 } ]
+exts = ".img"
+mount = "Mount SD image"
+
+[[filetype]]
+ext = ".img"
+  [[filetype.action]]
+  label = "Mount SD image and reset"
+  op = "zxnext.mount_reset"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount SD image"
+  op = "sectors.mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 } ]
+
+# hotkeys: C= + CTRL as the modifier (the keyboard computers where CTRL is a typing key); keys as hotkeys.h
+[hotkeys]
+mod = [61, 58]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the SD card, served block by block through the sector mailbox; stage_off is the staging sector in the DDR2 window
+[sector_media]
+prefix = "SD"
+nunits = 1
+mount_reg = 0x180
+mount_step = 8
+feat_reg = 0x00C
+feat_sectors = 0x01
+mbox_status = 0x1A0
+mbox_lba = 0x1A4
+mbox_done = 0x1A8
+stage_off = 0x200000
+idle_sync_ms = 1000
+done_tag_mask = 0xF0
+
+[mouse]
+kind = "counters"
+reg_dx = "zxn_mouse.mouse_dx"
+reg_dy = "zxn_mouse.mouse_dy"
+reg_btn = "zxn_mouse.mouse_btn"
+clamp = 4000
+step = 127
+interval_ms = 2

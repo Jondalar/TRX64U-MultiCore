@@ -173,9 +173,9 @@ const char *contract_reason(uint8_t kind)
 {
     switch (kind) {
     case CK_NO_SANDBOX: return "not on this application: use a local TRX64 sandbox";
-    case CK_NO_RING: return "needs the Timewarp ring (T20), which this application does not drive";
-    case CK_NO_TRACE: return "needs the trace engine, which is not in this application";
-    case CK_NO_DEBUG: return "the debugger and the monitor are an application of their own (trxmon), not this one";
+    case CK_NO_RING: return "needs the Timewarp ring (T20): no library of this core registers an operation for it";
+    case CK_NO_TRACE: return "needs the trace engine: no library of this core registers an operation for it";
+    case CK_NO_DEBUG: return "the debugger and the monitor are a library's or a sub-app's: no library of this core registers an operation for it";
     case CK_NO_PACING: return "the machine runs in real time; it has no pacing, ticks or frame stepping";
     case CK_NO_INPUT: return "no operation of this core presses keys or moves a joystick";
     case CK_NO_MEDIA: return "files and media are the menu's browser (F3) and the drive library's operations (drive.*)";
@@ -247,18 +247,6 @@ struct Args {
     }
 };
 
-// The first of "a|b" that some contributor registered; null if none.
-const char *pick(CoreCtx *c, const char *list, char *buf, int cap)
-{
-    snprintf(buf, cap, "%s", list);
-    for (char *t = strtok(buf, "|"); t; t = strtok(0, "|")) {
-        if (ops_of(c)->find_op(t)) {
-            return t;
-        }
-    }
-    return 0;
-}
-
 int missing(const JsonRpcReq &r, const char *method, const char *ops, char *out, int cap)
 {
     char m[200];
@@ -307,7 +295,7 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         return error(r, -32601, msg, out, cap);
     }
     OpResult rr;
-    char buf[96], why[120];
+    char why[120];
     switch (row->kind) {
     case CK_PING: {
         json_put(res, sizeof(res), &rp, "{\"runtime_version\":\"trx64-runtime/2\",\"version\":");
@@ -455,10 +443,10 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         if (!path) {
             return error(r, -32602, r.params.get("bytes_b64") ? "bytes_b64: this application starts a file on a stick; give prg_path" : "prg_path is required", out, cap);
         }
-        const char *list = row->kind == CK_LOAD ? "prg.load|c64.load_prg" : "prg.run|c64.run_prg";
-        const char *op = pick(c, list, buf, sizeof(buf));
-        if (!op) {
-            return missing(r, m, list, out, cap);
+        const char *list = row->kind == CK_LOAD ? "prg.load" : "prg.run";
+        const char *op = list;
+        if (!ops_of(c)->find_op(op)) {
+            return missing(r, m, op, out, cap);
         }
         Args args;
         args.str("path", path);

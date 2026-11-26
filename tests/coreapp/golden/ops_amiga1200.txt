@@ -5,6 +5,7 @@ op	machine.warm_reset
 op	machine.cold_reset
 op	machine.reload_roms
 op	machine.restart
+op	machine.put_builtin_rom	put_op:string:0:0:63:
 op	window.mount	path:path:0:0:519:	slot:int:0:3:0:
 op	window.eject	slot:int:0:3:0:
 op	sectors.mount	path:path:0:0:519:	unit:int:0:1:0:
@@ -28,6 +29,12 @@ op	volume.change	value:int:-2:2:0:
 op	tone.apply	value:int:0:2:0:
 op	hotkeys.apply	value:int:0:65:0:
 op	home.apply	value:int:-2000:2000:0:
+op	base.joystick	value:int:0:16:0:
+op	base.mouse_mode	value:int:0:16:0:
+op	base.mouse_sens	value:int:0:16:0:
+op	base.mouse_accel	value:int:0:16:0:
+op	base.wheel_sens	value:int:0:16:0:
+op	base.wheel_dir	value:int:0:16:0:
 op	settings.set	key:string:0:0:63:	value:string:0:0:63:
 op	settings.get	key:string:0:0:63:
 op	settings.reset_to_host
@@ -39,9 +46,9 @@ op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
-op	update.run_record	path:path:0:0:519:
 op	writeback.mode	value:int:0:2:0:
 op	writeback.poll
+op	writeback.flush
 op	writeback.open
 op	writeback.answer	value:int:0:1:0:
 op	writeback.leave

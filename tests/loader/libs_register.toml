@@ -1,0 +1,40 @@
+# TOML B of the register test (tests/loader/run.sh, test_register.cc): five libraries linked with `register` (a library from outside this repository, LibLoader::link), over
+# the real generator (tools/libtab.py table): the export slots, the order libtab_link calls them in, and the heap figures the base holds them to.
+#   regtwo     needs regone, though it stands first in the file: libtab_link has to call regone first; exports "tworing" and reads regone's "ring" while it registers
+#   regone     registers an operation and a state value, exports "ring"; the test hands it a menu record
+#   nodeliver  declares the export "lost" and does not return it: refused
+#   bigkeep    keeps more heap than the host has room for: refused before lib_register runs
+#   peaky      takes more heap than its peak while it registers: refused
+[app]
+name = "register_test"
+
+[[library]]
+name = "regtwo"
+sources = ["regtwo.cc"]
+register = "regtwo_register"
+needs = ["regone"]
+exports = [{ name = "tworing", major = 1 }]
+
+[[library]]
+name = "regone"
+sources = ["regone.cc"]
+register = "regone_register"
+exports = [{ name = "ring", major = 1 }]
+
+[[library]]
+name = "nodeliver"
+sources = ["nodeliver.cc"]
+register = "nodeliver_register"
+exports = [{ name = "lost", major = 1 }]
+
+[[library]]
+name = "bigkeep"
+sources = ["bigkeep.cc"]
+register = "bigkeep_register"
+heap_keep = 5000
+
+[[library]]
+name = "peaky"
+sources = ["peaky.cc"]
+register = "peaky_register"
+heap_peak = 100

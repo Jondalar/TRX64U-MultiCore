@@ -9,33 +9,92 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#include "c64_rig.h"
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp) with its core only
+#endif
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
+#define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
+#endif
+#if !defined(MME_OWN_APP) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
+#define MME_GAME 1             // a core whose game is the cartridge (the shared app's SNES, the NES's and the Neo Geo's apps): game_case, game_empty_set
+#endif
+#include "c64_model.h"
+#include "boot.h"
+#include "cores.h"
+#include "settings.h"
+#include "ops_glue.h"
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "c64_cart.h"
+#endif
+#ifndef MME_NO_DRIVE
 #include "drive_model.h"
 #include "disk_build.h"
+#endif
 #include "menutree.h"
 #include "mediamounts.h"
 #include "engines.h"
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "apple2_disk.h"
 #include "apple2_regs.h"
-#include "atari800_regs.h"
-#include "nes_regs.h"
-#include "neogeo_regs.h"
 #include "c64_regs.h"
+#endif
+#ifdef TEST_APP_C264
 #include "c264_regs.h"
+extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
+#endif
+#ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
+#include "atari800_regs.h"
+#endif
+#ifdef TEST_APP_NES
+#include "nes_regs.h"
+#endif
+#ifdef TEST_APP_NEOGEO
+#include "neogeo_regs.h"
+#endif
+#ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
+#endif
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc,
-                                       &c128_desc, &amiga_desc, &amiga1200_desc, 0 };
+#ifdef TEST_APP_VC20
+const CoreDesc *const core_table[] = { &vc20_desc, 0 };
+#elif defined(TEST_APP_C264)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_ZX)
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#elif defined(TEST_APP_CPC)
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#elif defined(TEST_APP_C128)
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_ATARI800)
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#elif defined(TEST_APP_NEOGEO)
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc,
+                                       0 };
+#endif
 
 typedef std::vector<uint8_t> Bytes;
 
 // ---- the machines ------------------------------------------------------------------------------------------------------------------------
+#ifdef MME_NO_DRIVE
+struct GIo : FakeIo { };                              // the Spectrum, the CPC and the NES have no drive behind a window
+#else
 struct GIo : FakeIo {                                    // a register file, the arrays and a drive behind the drive window
     DriveModel dm;
     DRIVE_IO_FORWARD(dm)
 };
+#endif
 
+#ifdef TEST_APP_NEOGEO
 struct NeoIo : FakeIo {                                  // the Neo Geo's register block with its copy engine (tests/coreapp/test_neogeo.cc)
     NeoIo() { ddr.assign(0x07000000, 0); }
     void ddr_write(uint32_t off, const void *p, uint32_t n) override { if ((uint64_t)off + n <= 0x03000000ull) memcpy(&ddr[off], p, n); }
@@ -57,22 +116,36 @@ struct NeoIo : FakeIo {                                  // the Neo Geo's regist
         regs[NEO_MV_DONE]++;
     }
 };
+#endif
 
-struct C64DIo : C64Model {                               // the C64 with the drive window
-    DriveModel dm;
-    bool drv_present() { return dm.present; }
-    uint8_t drv_rd(uint32_t off) { return dm.rd(off); }
-    void drv_wr(uint32_t off, uint8_t v) { dm.wr(off, v); }
-    uint8_t *drv_buffer(uint32_t bytes, uint32_t *phys) { return dm.buffer(bytes, phys); }
-    void ddr_abs_write(uint32_t addr, const void *p, uint32_t n)
-    {
-        if (addr >= 0x00EA8000u && addr < 0x00F00000u) dm.abs_write(addr, p, n); else C64Model::ddr_abs_write(addr, p, n);
-    }
-    void ddr_abs_read(uint32_t addr, void *p, uint32_t n)
-    {
-        if (addr >= 0x00EA8000u && addr < 0x00F00000u) dm.abs_read(addr, p, n); else C64Model::ddr_abs_read(addr, p, n);
-    }
-};
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+// The cartridge port of a C64 core (T239.3 P1-8: the C64 core is TRX64-Ultimate's; this stub core has the one slot "Cartridge" the library c64_cart.cc serves, on the C64 model): the reset's hold and
+// release, the end of the SID player's cartridge with it, and the slot's three calls into the library.
+static int cart_init(CoreCtx *c, char *, int) { c->io->mode_reset(true); c64_cart_player_end(c); return 0; }
+static int cart_release(CoreCtx *c, char *, int) { c->io->mode_reset(false); return 0; }
+static const char *const cart_slot_names[] = { "Cartridge" };
+static const char *cart_slot_spec(CoreCtx *, int) { return c64_cart_active() && c64_cart_path()[0] ? c64_cart_path() : 0; }
+static int cart_slot_mount(CoreCtx *c, int, const char *spec, char *msg, int msglen) { return c64_cart_run(c, spec, msg, msglen) ? 1 : 0; }
+static int cart_slot_eject(CoreCtx *c, int, char *msg, int msglen) { return c64_cart_remove(c, msg, msglen) ? 1 : 0; }
+static const MountSlots cart_slots = { 1, cart_slot_names, cart_slot_spec, cart_slot_mount, cart_slot_eject };
+static CoreDesc make_cart_core()
+{
+    CoreDesc d;
+    memset(&d, 0, sizeof(d));
+    strcpy(d.id, "CRT_");
+    d.cor_name = "Cartridge Port";
+    d.title = "Cartridge Port";
+    d.short_title = "CRT";
+    d.folder = "cartport";
+    d.store = "cartport";
+    d.init = cart_init;
+    d.release = cart_release;
+    d.reset_ms = 1;
+    d.mount_slots = &cart_slots;
+    return d;
+}
+static CoreDesc g_cart_core = make_cart_core();
+#endif
 
 // ---- what a core's profile says --------------------------------------------------------------------------------------------------------
 struct Run;
@@ -88,7 +161,7 @@ struct Watch { std::function<uint32_t(CoreIo *)> read; uint32_t want; const char
 struct Prof {
     std::string name, cfg;
     const CoreDesc *base;
-    bool c64 = false;
+    bool cart = false;                                   // the cartridge port of the C64 library: its state lives in the application, so a run that ends removes it
     bool game = false;                                   // the cartridge is the program: without one the start waits for it
     std::function<CoreIo *()> make_io;
     std::function<void(FakeFs &)> world;
@@ -142,22 +215,13 @@ struct Run {
     Setting items[SETTINGS_MAX];
     CoreCtx c;
     Settings *st = 0;
-    RigProbe probe;
-    BoardProfile board;
     Ui ui;
     Run(FakeFs &f, const Prof &prof, bool fake_hooks = false) : fs(f), p(prof)
     {
         io.reset(p.make_io());
         memset(&c, 0, sizeof(c));
-        if (p.c64) {
-            desc = *trx64u::desc();
-            c.merge = trx64u::merge();
-            board = board_detect(&probe);
-            c.board = &board;
-        } else {
-            const char *why = persist_extend(p.base, &desc, items);
-            if (why) { printf("FAIL persist_extend: %s\n", why); g_fails++; }
-        }
+        const char *why = persist_extend(p.base, &desc, items);
+        if (why) { printf("FAIL persist_extend: %s\n", why); g_fails++; }
         desc.nroms = 0;
         desc.romset = 0;
         desc.cold_start = 0;
@@ -185,12 +249,14 @@ struct Run {
     }
     ~Run()
     {
-        if (p.c64) {                                      // the cartridge port of the C64 keeps its state in the application: a start again has none
+#ifndef MME_OWN_APP
+        if (p.cart) {                                     // the cartridge port of the C64 keeps its state in the application: a start again has none
             char m[160];
             c.mount_changed = 0;
             c.media_restoring = true;
             c64_cart_remove(&c, m, sizeof(m));
         }
+#endif
         delete st;
     }
     BootResult boot() { return boot_start(&c, &ui); }
@@ -227,6 +293,7 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
+#ifdef TEST_APP_ATARI800
 static Bytes atr(int sectors, uint32_t seed)
 {
     Bytes v(16, 0);
@@ -236,7 +303,11 @@ static Bytes atr(int sectors, uint32_t seed)
     v.insert(v.end(), d.begin(), d.end());
     return v;
 }
+#endif
+#ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
+#endif
+#ifdef TEST_APP_CPC          // the CPC's disk image
 static Bytes dsk(uint32_t seed)
 {
     const char *magic = "MV - CPCEMU Disk-File\r\nDisk-Info\r\n";
@@ -246,12 +317,16 @@ static Bytes dsk(uint32_t seed)
     memcpy(&v[512], d.data(), 512);
     return v;
 }
+#endif
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Bytes d64(const char *name)
 {
     Disk d(false);
     (void)name;
     return d.img;
 }
+#endif
+#ifdef TEST_APP_NES          // the NES's game file
 static Bytes nes_file(uint32_t seed)
 {
     Bytes v(16, 0);
@@ -261,6 +336,8 @@ static Bytes nes_file(uint32_t seed)
     v.insert(v.end(), d.begin(), d.end());
     return v;
 }
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static Bytes snes_file(uint32_t seed)
 {
     Bytes v(0x80000);
@@ -274,6 +351,8 @@ static Bytes snes_file(uint32_t seed)
     h[0x3C] = 0x00; h[0x3D] = 0x80;
     return v;
 }
+#endif
+#ifdef TEST_APP_NEOGEO          // the Neo Geo's games: a .neo file and a ROM set folder with its romsets.xml
 static Bytes neo_file(uint32_t seed)
 {
     Bytes P = patt(seed, 0x3000), S = patt(seed + 1, 0x2000), M = patt(seed + 2, 0x1000), V1 = patt(seed + 3, 0x4000), V2 = patt(seed + 4, 0x2000), C = patt(seed + 5, 0x4000);
@@ -295,6 +374,8 @@ static const char *NEO_XML =
     "    <file name=\"m1.m1\" index=\"9\"/>\n"
     "    <file name=\"v1.v1\" index=\"16\"/>\n"
     "  </romset>\n</romsets>\n";
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 static void crt_chip(Bytes &b, uint16_t load, uint16_t size, uint8_t fill)
 {
     const char *sig = "CHIP";
@@ -318,8 +399,10 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
     return b;
 }
 
+#endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 
 static Case apple_drive(int d)
 {
@@ -342,6 +425,8 @@ static Case apple_unit(int u)
     k.eject = [u](Run &r, char *m, int n) { return mount_op(r, "apple2.hdd_eject", { in_int("unit", u) }, m, n); };
     return k;
 }
+#endif
+#ifdef TEST_APP_ATARI800
 static Case atari_drive(int d)
 {
     Case k;
@@ -352,6 +437,8 @@ static Case atari_drive(int d)
     k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "atari800.eject", { in_int("drive", d) }, m, n); };
     return k;
 }
+#endif
+#ifdef TEST_APP_CPC          // the CPC's two drives
 static Case cpc_drive(int d)
 {
     Case k;
@@ -363,6 +450,8 @@ static Case cpc_drive(int d)
     k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "cpc.eject", { in_int("drive", d) }, m, n); };
     return k;
 }
+#endif
+#ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's and the CPC's apps'
 static Case tape_case(const char *pfx, const char *ext)
 {
     Case k;
@@ -375,6 +464,8 @@ static Case tape_case(const char *pfx, const char *ext)
     k.eject = [ej](Run &r, char *m, int n) { return mount_op(r, ej.c_str(), {}, m, n); };
     return k;
 }
+#endif
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Case cbm_drive()
 {
     Case k;
@@ -386,6 +477,8 @@ static Case cbm_drive()
     k.eject = [](Run &r, char *m, int n) { return mount_op(r, "drive.eject", { in_str("slot", "iec:drive_a") }, m, n); };
     return k;
 }
+#endif
+#ifdef MME_GAME
 static Case game_case(const char *run_op, const char *a, const char *b)
 {
     Case k;
@@ -397,10 +490,12 @@ static Case game_case(const char *run_op, const char *a, const char *b)
     k.mount = [op](Run &r, const std::string &path, char *m, int n) { return mount_op(r, op.c_str(), { in_str("path", path.c_str()) }, m, n); };
     return k;                                            // no eject operation: the slot's own
 }
+#endif
 
 static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
     {   // ---- Apple IIe: two floppies and two slot 7 volumes
         Prof p;
         p.name = "apple2"; p.cfg = "/usb0/cores/apple2/apple2.cfg"; p.base = &apple2_desc;
@@ -414,6 +509,8 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_ATARI800
     {   // ---- Atari 800 XL: D1-D4 and the cartridge
         Prof p;
         p.name = "atari800"; p.cfg = "/usb0/cores/atari800/atari800.cfg"; p.base = &atari800_desc;
@@ -438,6 +535,8 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(A8_CART1); }, 0x01, "the 8 KB cartridge's type written while the core is held" } };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_CPC
     {   // ---- Amstrad CPC: A, B, the tape
         Prof p;
         p.name = "cpc"; p.cfg = "/usb0/cores/cpc/cpc.cfg"; p.base = &cpc_desc;
@@ -451,6 +550,19 @@ static std::vector<Prof> profiles()
         p.cases = { cpc_drive(0), cpc_drive(1), tape_case("cpc", "cdt") };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_NES
+    {   // ---- NES: the game is the cartridge
+        Prof p;
+        p.name = "nes"; p.cfg = "/usb0/cores/nes/nes.cfg"; p.base = &nes_desc; p.game = true;
+        p.make_io = [] { return (CoreIo *)new GIo; };
+        p.world = [](FakeFs &fs) { fs.put("/usb0/a.nes", nes_file(1)); fs.put("/usb0/b.nes", nes_file(2)); };
+        p.cases = { game_case("nes.run", "/usb0/a.nes", "/usb0/b.nes") };
+        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(NES_INES + 4); }, 1, "the iNES header in the core before the release" } };
+        v.push_back(p);
+    }
+#endif
+#ifdef TEST_APP_ZX
     {   // ---- ZX Spectrum: the tape
         Prof p;
         p.name = "zx"; p.cfg = "/usb0/cores/zx/zx.cfg"; p.base = &zx_desc;
@@ -459,10 +571,27 @@ static std::vector<Prof> profiles()
         p.cases = { tape_case("zx", "tzx") };
         v.push_back(p);
     }
-    for (int k = 0; k < 3; k++) {   // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
+#endif
+#if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
+#ifdef TEST_APP_VC20
+    for (int k = 0; k < 1; k++) {
+#elif defined(TEST_APP_C264)
+    for (int k = 2; k < 3; k++) {
+#elif defined(TEST_APP_C128)
+    for (int k = 1; k < 2; k++) {
+#endif
+    // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
         Prof p;
-        const CoreDesc *d = k == 0 ? &vc20_desc : k == 1 ? &c128_desc : &c264_desc;
-        p.name = k == 0 ? "vc20" : k == 1 ? "c128" : "c264";
+#ifdef TEST_APP_VC20
+        const CoreDesc *d = &vc20_desc;
+        p.name = "vc20";
+#elif defined(TEST_APP_C264)
+        const CoreDesc *d = &c264_desc;
+        p.name = "c264";
+#elif defined(TEST_APP_C128)
+        const CoreDesc *d = &c128_desc;
+        p.name = "c128";
+#endif
         p.cfg = std::string("/usb0/cores/") + p.name + "/" + p.name + ".cfg";
         p.base = d;
         p.make_io = [] { return (CoreIo *)new GIo; };
@@ -472,6 +601,7 @@ static std::vector<Prof> profiles()
         };
         p.cases = { cbm_drive() };
         if (k == 2) {
+#ifdef TEST_APP_C264                   // the 264's cartridge image: its app's
             Case cart;
             cart.key = "Mount Cartridge";
             cart.a = "/usb0/a.bin";
@@ -480,37 +610,29 @@ static std::vector<Prof> profiles()
             cart.eject = [](Run &r, char *m, int n) { return mount_op(r, "c264.cart_eject", {}, m, n); };
             p.cases.push_back(cart);
             p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(C264_CART); }, 1, "the 16 KB cartridge image's bit set in the core before the release" } };
+#endif
         }
         v.push_back(p);
     }
-    {   // ---- C64: the drive library's Drive A and the cartridge port
+#endif
+#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+    {   // ---- the cartridge port of the C64 library (c64_cart.cc), on the C64 model
         Prof p;
-        p.name = "c64"; p.cfg = "/usb0/cores/trx64u/trx64u.cfg"; p.base = &c64_desc; p.c64 = true;
-        p.make_io = [] { return (CoreIo *)new C64DIo; };
-        p.world = [](FakeFs &fs) {
-            fs.put("/usb0/a.d64", d64("A")); fs.put("/usb0/b.d64", d64("B"));
-            fs.put("/usb0/a.crt", crt8(0x10)); fs.put("/usb0/b.crt", crt8(0x20));
-        };
-        p.cases = { cbm_drive() };
+        p.name = "c64cart"; p.cfg = "/usb0/cores/cartport/cartport.cfg"; p.base = &g_cart_core; p.cart = true;
+        p.make_io = [] { return (CoreIo *)new C64Model; };
+        p.world = [](FakeFs &fs) { fs.put("/usb0/a.crt", crt8(0x10)); fs.put("/usb0/b.crt", crt8(0x20)); };
         Case cart;
         cart.key = "Mount Cartridge";
         cart.drops = true;
         cart.a = "/usb0/a.crt";
         cart.b = "/usb0/b.crt";
-        cart.mount = [](Run &r, const std::string &path, char *m, int n) { ((C64DIo *)r.io.get())->stop(true); int rc = mount_op(r, "c64.run_crt", { in_str("path", path.c_str()) }, m, n); ((C64DIo *)r.io.get())->stop(false); return rc; };
-        cart.eject = [](Run &r, char *m, int n) { ((C64DIo *)r.io.get())->stop(true); int rc = mount_op(r, "c64.remove_cart", {}, m, n); ((C64DIo *)r.io.get())->stop(false); return rc; };
+        cart.mount = [](Run &r, const std::string &path, char *m, int n) { ((C64Model *)r.io.get())->stop(true); int rc = r.c.desc->mount_slots->mount(&r.c, 0, path.c_str(), m, n); ((C64Model *)r.io.get())->stop(false); return rc; };
+        cart.eject = [](Run &r, char *m, int n) { ((C64Model *)r.io.get())->stop(true); int rc = r.c.desc->mount_slots->eject(&r.c, 0, m, n); ((C64Model *)r.io.get())->stop(false); return rc; };
         p.cases.push_back(cart);
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->cart_rd(C64_CARTREG_TYPE); }, 0x41, "the cartridge type set before the release" } };
         v.push_back(p);
     }
-    {   // ---- NES, SNES, Neo Geo: the game is the cartridge
-        Prof p;
-        p.name = "nes"; p.cfg = "/usb0/cores/nes/nes.cfg"; p.base = &nes_desc; p.game = true;
-        p.make_io = [] { return (CoreIo *)new GIo; };
-        p.world = [](FakeFs &fs) { fs.put("/usb0/a.nes", nes_file(1)); fs.put("/usb0/b.nes", nes_file(2)); };
-        p.cases = { game_case("nes.run", "/usb0/a.nes", "/usb0/b.nes") };
-        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(NES_INES + 4); }, 1, "the iNES header in the core before the release" } };
-        v.push_back(p);
+    {   // ---- SNES: the game is the cartridge (the NES's and the Neo Geo's: the units nes_mounts and neogeo_mounts)
         Prof s;
         s.name = "snes"; s.cfg = "/usb0/cores/snes/snes.cfg"; s.base = &snes_desc; s.game = true;
         s.make_io = [] { return (CoreIo *)new GIo; };
@@ -518,6 +640,10 @@ static std::vector<Prof> profiles()
         s.prep = [](Run &r) { snprintf(r.c.cor_path, sizeof(r.c.cor_path), "/usb0/cores/snes/snes.cor"); };
         s.cases = { game_case("snes.run", "/usb0/a.sfc", "/usb0/b.sfc") };
         v.push_back(s);
+    }
+#endif
+#ifdef TEST_APP_NEOGEO
+    {   // ---- the Neo Geo: the game is the cartridge (a .neo file or a ROM set folder)
         Prof n;
         n.name = "neogeo"; n.cfg = "/usb0/cores/neogeo/neogeo.cfg"; n.base = &neogeo_desc; n.game = true;
         n.make_io = [] { return (CoreIo *)new NeoIo; };
@@ -526,6 +652,7 @@ static std::vector<Prof> profiles()
         n.cases = { game_case("neogeo.run", "/usb0/a.neo", "/usb0/b.neo") };
         v.push_back(n);
     }
+#endif
     return v;
 }
 
@@ -553,8 +680,7 @@ static void menu_rows(const Prof &p)
     bool persist = false;
     for (int i = 0; i < r.desc.nsettings; i++) persist |= persist_is_generic(r.desc.settings[i]);
     CHECK(persist);                                                          // the item is a setting of the core
-    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6) in every core, the C64's record included (T228 D10: the application's own items
-    // follow the record's settings, as the board builds them); its label is its key
+    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6) in every core (the application's own items follow the core's settings, as the board builds them); its label is its key
     CHECK(tree_has(t, "F7", EK_SETTING, PERSIST_KEY));
     CHECK(!tree_has(t, "F6", EK_SETTING, PERSIST_KEY) && !tree_has(t, "F8", EK_SETTING, PERSIST_KEY));
     // T205 D1: the configs are on Home (the Summary tab is gone), in every core
@@ -818,6 +944,7 @@ static const Prof &prof(const std::vector<Prof> &v, const char *name)
 }
 
 // the Atari's .xex boot disk lives in D1 under its own word; an ATR mounted over it takes it away again
+#ifdef TEST_APP_ATARI800
 static void atari_xex(const Prof &p)
 {
     char msg[240];
@@ -844,7 +971,33 @@ static void atari_xex(const Prof &p)
     printf("Atari: the .xex boot disk is stored as \"xex <path>\" and restored into D1\n");
 }
 
+// SvcCtx::mount_notify marks a slot (CoreCtx::mounts_dirty[i] = engine slot i); the pass stores it once the start has mounted what the .cfg stores
+static void notify_pass(const Prof &p)
+{
+    char msg[240];
+    FakeFs fs;
+    p.world(fs);
+    Run a(fs, p);
+    a.set(PERSIST_KEY, "Yes");
+    a.c.mount_changed = 0;                                                       // a change that no engine call reports: only the mark does
+    a.boot();
+    CHECK_EQ(p.cases[0].mount(a, "/usb0/a0.atr", msg, sizeof(msg)), 0);
+    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));
+    mounts_pass(&a.c);
+    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));                               // nothing marked: nothing stored
+    a.c.mounts_ready = false;
+    a.c.mounts_dirty[0] = 1;
+    mounts_pass(&a.c);
+    CHECK(a.c.mounts_dirty[0] == 1 && !has(a.cfg(), "Mount D1=/usb0/a0.atr"));     // the start is not done: the mark waits
+    a.c.mounts_ready = true;
+    mounts_pass(&a.c);
+    CHECK(a.c.mounts_dirty[0] == 0 && has(a.cfg(), "Mount D1=/usb0/a0.atr"));
+    printf("Atari: a slot marked by mount_notify is stored on the next pass\n");
+}
+
 // the drive library's disk is read/write, read only or unlinked: the word in front of the path
+#endif
+#ifndef MME_NO_DRIVE          // the Spectrum's app has no drive
 static void drive_modes(const Prof &p)
 {
     char msg[240];
@@ -873,8 +1026,10 @@ static void drive_modes(const Prof &p)
     }
     printf("%s: read only and unlinked disks come back in their mode\n", p.name.c_str());
 }
+#endif
 
 // the CPC 464 has no drive: stored disks stay unmounted with a note, the tape comes back
+#ifdef TEST_APP_CPC
 static void cpc_464(const Prof &p)
 {
     char msg[240];
@@ -901,6 +1056,8 @@ static void cpc_464(const Prof &p)
     printf("cpc: a 464 restores the tape and leaves A and B empty with a note\n");
 }
 
+#endif
+#ifdef TEST_APP_C264
 // the C264 cartridge is a Plus/4 thing: restoring one sets the model, applied before the release
 static void c264_model(const Prof &p)
 {
@@ -925,6 +1082,8 @@ static void c264_model(const Prof &p)
     printf("c264: the restored cartridge sets the Plus/4 model\n");
 }
 
+#endif
+#ifdef TEST_APP_NEOGEO
 // a Neo Geo ROM set: a folder and the set's name, restored through the same operation
 static void neo_folder(const Prof &p)
 {
@@ -955,7 +1114,8 @@ static void neo_folder(const Prof &p)
     }
     printf("neogeo: a ROM set folder is stored as \"folder <folder>/<set>\" and restored\n");
 }
-
+#endif
+#ifdef MME_GAME
 // a game core's set that leaves the cartridge empty: nothing to run, no reset, the message says so
 static void game_empty_set(const Prof &p)
 {
@@ -981,6 +1141,7 @@ static void game_empty_set(const Prof &p)
     printf("%s: a set with no cartridge leaves the core waiting for a program\n", p.name.c_str());
 }
 
+#endif
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
@@ -992,15 +1153,29 @@ int main()
         s3_missing(p);
         s8_sets(p);
         s8_writeback(p);
+#ifdef MME_GAME
         if (p.game) game_empty_set(p);
+#endif
     }
-    atari_xex(prof(profs, "atari800"));
+#ifdef TEST_APP_VC20
     drive_modes(prof(profs, "vc20"));
-    drive_modes(prof(profs, "c128"));
+#elif defined(TEST_APP_C264)
     drive_modes(prof(profs, "c264"));
-    drive_modes(prof(profs, "c64"));
-    cpc_464(prof(profs, "cpc"));
     c264_model(prof(profs, "c264"));
+#elif defined(TEST_APP_ZX)
+                                                       // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
+#elif defined(TEST_APP_CPC)
+    cpc_464(prof(profs, "cpc"));
+#elif defined(TEST_APP_C128)
+    drive_modes(prof(profs, "c128"));
+#elif defined(TEST_APP_NEOGEO)
     neo_folder(prof(profs, "neogeo"));
+#elif defined(TEST_APP_NES)
+                                                       // the NES's profile has the cartridge only: the sets of S2 to S8 above and the empty set are its checks
+#elif defined(TEST_APP_ATARI800)
+    atari_xex(prof(profs, "atari800"));
+    notify_pass(prof(profs, "atari800"));
+#else
+#endif
     DONE("test_media_mounts_engines");
 }

@@ -1,0 +1,23 @@
+# A fixture TOML A for tests/rtl_check/mini8 (T239.3 review 5 (mb): strobe at +0x20 is written through a process variable inside the arm of the address: the check agrees).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "b"
+module = "mb"
+owner = "base"
+address = 0x10000020
+size = 0x22
+
+  [[block.property]]
+  name = "r"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "strobe"
+  offset = 0x20
+  width = 8
+  dir = "w"

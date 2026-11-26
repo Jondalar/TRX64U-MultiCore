@@ -4,17 +4,22 @@ wrong host key refused (T84 D5b).
 
   python3 tools/test_cor_pack.py        (also collected by python3 -m pytest tools/test_cor_pack.py)
 """
+import atexit
+import contextlib
+import io
 import os
 import hashlib
 import json
 import struct
 import sys
 import subprocess
+import shutil
 import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cor_pack as C  # noqa: E402
+import descrec  # noqa: E402
 
 
 def bit_file(words=300):
@@ -189,6 +194,59 @@ class ShortTest(unittest.TestCase):
             C.parse(bad, C.CONTRACT)
 
 
+class BuildWordTest(unittest.TestCase):
+    """T239.3 P1-4 (D30 condition 2, D31): cor_pack writes the bitstream's AXSS word as the build of TOML A's identity; the service compares ID and build with the standard block at start
+    (tests/coreapp/test_identity.cc is the reader's side)."""
+    TOML = ('[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\n%sblock = "ident"\n'
+            '[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n'
+            '[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n'
+            '[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n')
+    AXSS = 0x553525D3
+
+    def desc(self, build=""):
+        return descrec.compile_text(self.TOML % build)
+
+    def large(self, desc, **kw):
+        return C.pack_large(cid="tsta", name="Tsta", version="1", bit=full_bit(**kw), app=APP, desc=desc)
+
+    def test_the_bitstreams_axss_word_is_the_build_of_the_record(self):
+        src = self.desc()
+        self.assertIsNone(descrec.identity_build(src))
+        blob = self.large(src)
+        m, recs = C.parse(blob)
+        self.assertEqual(descrec.identity_build(recs[C.T_DESC]), self.AXSS)
+        d = descrec.parse_desc(recs[C.T_DESC])
+        self.assertEqual(d["identity"], {"id": "TSTA", "block": "ident", "build": self.AXSS})
+        self.assertEqual(len(recs[C.T_DESC]), len(src))                                  # the flag and the word only
+        self.assertEqual(descrec.compile_desc(descrec.decoded_to_doc(d)), recs[C.T_DESC])  # the stamped bytes are what the compiler makes of that identity
+
+    def test_a_source_with_the_same_build_passes_and_another_is_refused(self):
+        self.large(self.desc("build = 0x%08X\n" % self.AXSS))
+        with self.assertRaises(C.CorError):
+            self.large(self.desc("build = 0x12345678\n"))
+
+    def test_a_bitstream_without_an_axss_word_is_refused(self):
+        with self.assertRaises(C.CorError):
+            self.large(self.desc(), axss=None)
+
+    def test_a_record_that_is_no_toml_a_is_left_alone(self):
+        self.assertIsNone(C.stamp_desc(None, 1, "x"))
+        menu = descrec.compile_text('[core]\nid = "TSTA"\nname = "Tsta"\ntitle = "Tsta"\nshort_title = "Tsta"\nfolder = "tsta"\nstore = "tsta"\n')
+        self.assertEqual(C.stamp_desc(menu, 1, "x"), menu)
+        self.assertEqual(C.stamp_desc(menu, None, "x"), menu)
+
+    def test_check_refuses_a_record_of_another_bitstream(self):
+        blob = self.large(self.desc())
+        _, recs = C.parse(blob)
+        other = dict(recs)
+        other[C.T_DESC] = descrec.stamp_build(self.desc(), 0xDEADBEEF)
+        with self.assertRaises(C.CorError):
+            C.check_build(other, self.AXSS, "the bitstream")
+        with self.assertRaises(C.CorError):
+            C.check_build({C.T_DESC: self.desc()}, self.AXSS, "the bitstream")      # never stamped
+        C.check_build(recs, self.AXSS, "the bitstream")
+
+
 class OriginTest(unittest.TestCase):
     """T137 D1/D2: `origin` and the flash fields of a backup."""
 
@@ -334,8 +392,32 @@ LARGE_GOLDEN = "311d02a9c4df134d91ef859fe427b234560ffb56b1269188671588b26c0f4bb5
 DESC_TOML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "coreapp", "golden", "desc_test.toml")
 
 
-def u2a(name="alpha", fmt=3, hsz=104, magic=b"U2AP"):
-    return magic + struct.pack("<HH", hsz, fmt) + bytes(max(0, hsz - 8)) + bytes(64)
+POLL1 = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P1"\nop = "p1.go"\n[poll]\nop = "p1.go"\nperiod_ms = 10\n'
+POLL2 = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P2"\nop = "p2.go"\n[poll]\nop = "p2.go"\nperiod_ms = 20\n'
+GAMMA = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n'
+
+
+def toml_b_file(libs, extra=""):
+    """A TOML B in a temp dir (base 4.0): libs = [(name, [(export, major)], menu TOML text or None)]. A library with a menu links with `register` (a menu is for those); its exports
+    then name no table. Returns the path; the menu files lie beside it."""
+    d = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, d, True)
+    out = '[app]\nname = "t"\n' + extra
+    for name, exports, menu in libs:
+        out += '[[library]]\nname = "%s"\nsources = ["%s.cc"]\n' % (name, name)
+        if menu is not None:
+            out += 'register = "%s_register"\nmenu = "%s.toml"\n' % (name, name)
+            open(os.path.join(d, name + ".toml"), "w").write(menu)
+        if exports:
+            out += "exports = [%s]\n" % ", ".join('{ name = "%s", major = %d%s }' % (n, mj, "" if menu is not None else ', table = "%s_table"' % n) for n, mj in exports)
+    path = os.path.join(d, "b.toml")
+    open(path, "w").write(out)
+    return path
+
+
+def blibs(libs):
+    """What the packer is given for a core's app: toml_b_libs of that TOML B."""
+    return C.toml_b_libs(toml_b_file(libs))
 
 
 def desc_record():
@@ -381,13 +463,29 @@ class RecordsTest(unittest.TestCase):
             b = Mn.pack_large("amiga1200", "A", "1", full_bit(), APP, icon)
             self.assertEqual(a, b)
 
+    def test_a_description_with_the_cores_data_sections(self):
+        # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
+        import descrec
+        vc20 = os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")
+        with open(vc20) as f:
+            desc = descrec.compile_text(f.read(), vc20)
+        blob, _ = make(desc=desc)
+        m, r = C.parse(blob, C.CONTRACT)
+        self.assertEqual(r[C.T_DESC], desc)
+        C.check_optional(m, r)
+        self.assertTrue(descrec.parse_desc(r[C.T_DESC])["sections"])
+        with self.assertRaisesRegex(C.CorError, "core section names"):
+            make(desc=desc, name="Another Machine")
+        blob, _ = make(desc=desc, libs=blibs([("alpha", [], GAMMA)]))                # the libraries' menus are merged in: the sections stay
+        self.assertTrue(descrec.parse_desc(C.parse(blob, C.CONTRACT)[1][C.T_DESC])["sections"])
+
     def test_round_trip_both_kinds(self):
         desc = desc_record()
-        libs = [u2a(), u2a() + b"xy"]
+        libs = blibs([("poller", [], POLL1), ("poller2", [], POLL2)])                # menus with a poll stay for the run time: record 7 holds them
         blob, _ = make(icon=ICON, desc=desc, libs=libs)
         m, r = C.parse(blob, C.CONTRACT)
         self.assertEqual(r[C.T_DESC], desc)
-        self.assertEqual(C.parse_libs(r[C.T_LIBS]), libs)               # the odd length survives its padding
+        self.assertEqual(C.parse_libs(r[C.T_LIBS]), [(n, mb) for n, _, mb in libs])
         self.assertEqual((m["records"], m["desc_size"], m["libs_count"]), (1, len(desc), 2))
         self.assertEqual([t for t in sorted(r)], [1, 2, 3, 4, 6, 7])
         big = make_large(desc=desc, libs=libs[:1])
@@ -399,12 +497,13 @@ class RecordsTest(unittest.TestCase):
         self.assertNotIn(C.T_LIBS, r)
         self.assertNotIn("libs_size", m)
         m, r = C.parse(make(libs=libs)[0])
+        self.assertEqual([n for n, _ in C.parse_libs(r[C.T_LIBS])], ["poller", "poller2"])
         self.assertNotIn(C.T_DESC, r)
         self.assertNotIn("desc_size", m)
 
     def test_the_records_follow_the_icon_and_precede_nothing(self):
         # the order the reader of the board requires: increasing types, the manifest first
-        blob, _ = make(icon=ICON, desc=desc_record(), libs=[u2a()])
+        blob, _ = make(icon=ICON, desc=desc_record(), libs=blibs([("poller", [], POLL1)]))
         types, p = [], 12
         while p < len(blob):
             t, n = struct.unpack_from("<II", blob, p)
@@ -413,7 +512,7 @@ class RecordsTest(unittest.TestCase):
         self.assertEqual(types, [1, 2, 3, 4, 6, 7])
 
     def test_damaged_records_refused(self):
-        blob, _ = make(desc=desc_record(), libs=[u2a()])
+        blob, _ = make(desc=desc_record(), libs=blibs([("poller", [], POLL1)]))
         for t in (C.T_DESC, C.T_LIBS):
             off, p = None, 12
             while p < len(blob):
@@ -429,7 +528,7 @@ class RecordsTest(unittest.TestCase):
 
     def test_manifest_and_records_must_agree(self):
         desc = desc_record()
-        blob, _ = make(desc=desc, libs=[u2a()])
+        blob, _ = make(desc=desc, libs=blibs([("poller", [], POLL1)]))
         m, r = C.parse(blob)
 
         def rebuild(mm, drop=(), keep_desc=True):
@@ -461,23 +560,67 @@ class RecordsTest(unittest.TestCase):
         with self.assertRaises(C.CorError):
             make(desc=desc_record()[:-1])
 
-    def test_libraries_must_be_u2a_of_format_3(self):
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(magic=b"XXXX")])
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(fmt=2)])
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(hsz=64)])
-        with self.assertRaises(C.CorError):
-            make(libs=[b"U2AP"])
-        with self.assertRaises(C.CorError):
-            C.pack_libs([])
-        # a library set that lies: a count that is not what follows, a length past the end, bytes behind the last
-        good = C.pack_libs([u2a()])
-        for bad in (good[:8] + struct.pack("<I", 2) + good[12:], good[:12] + struct.pack("<I", 9999) + good[16:], good + b"\0\0\0\0", good[:-1],
-                    b"TRXM" + good[4:], good[:4] + struct.pack("<I", 2) + good[8:]):
+    def test_record_7_is_version_2_menu_records_and_nothing_else_is_read(self):
+        menu = descrec.compile_text(POLL1)
+        good = C.pack_libs([("poller", menu)])
+        self.assertEqual(good[:4], b"TRXL")
+        self.assertEqual(struct.unpack_from("<II", good, 4), (2, 1))
+        self.assertEqual(C.parse_libs(good), [("poller", menu)])
+        for bad_pack in ([], [("Poller", menu)], [("", menu)], [("x" * 16, menu)], [("poller", b"")], [("p", menu), ("p", menu)]):
+            with self.assertRaises(C.CorError):
+                C.pack_libs(bad_pack)
+        # version 1 held library files: refused, naming the reason (base 4.0 loads no library file)
+        with self.assertRaisesRegex(C.CorError, "loads no library file"):
+            C.parse_libs(good[:4] + struct.pack("<I", 1) + good[8:])
+        # a library set that lies: a count that is not what follows, a length past the end, bytes behind the last, a wrong magic or version, a record that is no menu record
+        for bad in (good[:8] + struct.pack("<I", 2) + good[12:], good[:28] + struct.pack("<I", 9999) + good[32:], good + b"\0\0\0\0", good[:-1],
+                    b"TRXM" + good[4:], good[:4] + struct.pack("<I", 3) + good[8:], good[:32] + b"\xFF" * len(menu) + good[32 + len(menu):]):
             with self.assertRaises(C.CorError):
                 C.parse_libs(bad)
+
+    def test_a_core_whose_code_is_a_library_needs_that_library_with_the_export_corehooks(self):
+        # T239.3 base 3.3 (core_hooks.h), base 4.0: [core] hooks = "<library>" names the library whose export corehooks=1 is the core's code. The packer refuses a bundle whose TOML B
+        # (--sizes) does not link that library, or links it without the export corehooks at major 1; without a TOML B a core that names hooks is refused.
+        desc = descrec.compile_text('[core]\nid = "VC20"\nname = "VIC-20"\ntitle = "V"\nshort_title = "V"\nfolder = "vic"\nstore = "V"\nhooks = "cmodel"\n')
+        good = blibs([("other", [], None), ("cmodel", [("corehooks", 1)], None)])
+        blob, _ = make(desc=desc, libs=good)
+        m, r = C.parse(blob, C.CONTRACT)
+        C.check_optional(m, r)                                                    # a made file passes its own check
+        self.assertEqual(descrec.parse_desc(r[C.T_DESC])["core"]["hooks"], "cmodel")
+        C.pack_large("amiga1200", "VIC-20", "1", full_bit(), APP, ICON, desc=desc, libs=good)                     # the large kind has the same records
+        make(desc=desc, libs=blibs([("cmodel", [("corehooks", 1), ("ring", 2)], None)]))
+        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*--sizes'):
+            make(desc=desc)                                                       # no TOML B at all
+        with self.assertRaisesRegex(C.CorError, r'names the hooks library "cmodel".*does not link \(other\)'):
+            make(desc=desc, libs=blibs([("other", [("corehooks", 1)], None)]))    # the export is there, in another library
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*nothing"):
+            make(desc=desc, libs=blibs([("cmodel", [], None)]))                   # the library exports nothing
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*corehooks=2"):
+            make(desc=desc, libs=blibs([("cmodel", [("corehooks", 2)], None)]))   # exact major 1
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*ring=1"):
+            make(desc=desc, libs=blibs([("cmodel", [("ring", 1)], None)]))
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1"):
+            make_large(name="VIC-20", desc=desc, libs=blibs([("cmodel", [], None)]))
+        blob, _ = make(desc=desc_record(), libs=blibs([("cmodel", [], None)]))    # a core that names no library is as before
+        C.check_optional(*C.parse(blob, C.CONTRACT))
+        # check_hooks directly: no description, or one without hooks, passes with any TOML B or none
+        C.check_hooks(None, None)
+        C.check_hooks(desc_record(), None)
+        with self.assertRaises(C.CorError):
+            C.check_hooks(desc, None)
+        # the command line: hooks without --sizes are refused, with a TOML B that links the library they pass
+        bit, _ = bit_file()
+        with tempfile.TemporaryDirectory() as d:
+            p, a, o, dt = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "hooks.toml"))
+            open(p, "wb").write(bit)
+            open(a, "wb").write(APP)
+            open(dt, "w").write('[core]\nid = "VC20"\nname = "T"\ntitle = "V"\nshort_title = "V"\nfolder = "vic"\nstore = "V"\nhooks = "cmodel"\n')
+            args = ["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2", "--desc", dt]
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(C.main(args), 1)
+            self.assertFalse(os.path.exists(o))
+            self.assertEqual(C.main(args + ["--sizes", toml_b_file([("cmodel", [("corehooks", 1)], None)])]), 0)
+            self.assertEqual(C.main(["check", o]), 0)
 
     def test_a_record_twice_or_out_of_order_refused(self):
         blob, _ = make(desc=desc_record())
@@ -492,16 +635,16 @@ class RecordsTest(unittest.TestCase):
     def test_cli(self):
         bit, _ = bit_file()
         with tempfile.TemporaryDirectory() as d:
-            p, a, o, l1, l2 = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "l1.u2a", "l2.u2a"))
+            p, a, o = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor"))
             open(p, "wb").write(bit)
             open(a, "wb").write(APP)
-            open(l1, "wb").write(u2a())
-            open(l2, "wb").write(u2a() + b"abcd")
+            tb = toml_b_file([("poller", [], POLL1), ("poller2", [], POLL2)])                # the TOML B of the core's app: two libraries with a menu that stays for the run time
             self.assertEqual(C.main(["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2",
-                                      "--desc", DESC_TOML, "--lib", l1, "--lib", l2]), 0)
+                                      "--desc", DESC_TOML, "--sizes", tb]), 0)
             self.assertEqual(C.main(["check", o]), 0)
             m, r = C.parse(open(o, "rb").read())
             self.assertEqual(m["libs_count"], 2)
+            self.assertEqual([n for n, _ in C.parse_libs(r[C.T_LIBS])], ["poller", "poller2"])
             self.assertEqual(r[C.T_DESC], desc_record())
             # a description with a typo is refused with the file named, and nothing is written
             bad = os.path.join(d, "bad.toml")
@@ -513,47 +656,113 @@ class RecordsTest(unittest.TestCase):
             b = os.path.join(d, "x.bit")
             open(b, "wb").write(full_bit())
             self.assertEqual(C.main(["pack-large", "-o", o + "3", "--id", "x", "--name", "A", "--version", "1", "--bit", b, "--app", a,
-                                      "--desc", DESC_TOML, "--lib", l1]), 0)
+                                      "--desc", DESC_TOML, "--sizes", tb]), 0)
             self.assertEqual(C.main(["check", o + "3"]), 0)
 
-
-def lib_with_menu(name, menu):
-    """A format-3 library file with a menu record (tests/coreapp/gen_bundle.py u2a())."""
-    off = 104 + 64
-    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 3, 3, 1, 1, 2, 0, 1, name.encode(), 1 << 16, b"", 104, 64, 16, 16, 0, 0xFFFFFFFF,
-                    off, 0, 104, 0, 0, off)
-    return h + bytes(64) + menu
+    def test_desc_more_than_once_compiles_the_files_into_one_record(self):
+        """T239.3 base 3.3: a core's menu.toml (menu, key table) and desc.toml (core data, windows) are one record 6; a table or key in both files is refused naming both."""
+        menu = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true } ]\n[[task]]\nlabel = "Dump"\nop = "ring.dump"\njob = true\n'
+        desc = ('[core]\nid = "VC20"\nname = "T"\ntitle = "T"\nshort_title = "T"\nfolder = "t"\nstore = "t"\n'
+                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000600\nsize = 0x14\n')
+        bit, _ = bit_file()
+        with tempfile.TemporaryDirectory() as d:
+            p, a, o, m_, d_ = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "menu.toml", "desc.toml"))
+            open(p, "wb").write(bit)
+            open(a, "wb").write(APP)
+            open(m_, "w").write(menu)
+            open(d_, "w").write(desc)
+            args = ["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2"]
+            self.assertEqual(C.main(args + ["--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.main(["check", o]), 0)
+            m, r = C.parse(open(o, "rb").read())
+            rec = descrec.parse_desc(r[C.T_DESC])
+            self.assertEqual((rec["core"]["name"], len(rec["key"]), rec["window"][0]["name"], rec["task"][0]["job"]), ("T", 1, "audio_mixer", True))
+            self.assertEqual(r[C.T_DESC], descrec.compile_files([("a", menu), ("b", desc)]))
+            self.assertEqual(r[C.T_DESC], descrec.compile_desc({**descrec.toml_loads(menu), **descrec.toml_loads(desc)}))
+            # the order of the files does not change the record
+            o2 = o + "2"
+            self.assertEqual(C.main(["pack", "-o", o2, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2", "--desc", d_, "--desc", m_]), 0)
+            self.assertEqual(C.parse(open(o2, "rb").read())[1][C.T_DESC], r[C.T_DESC])
+            # one file is what it always was
+            only = os.path.join(d, "only.toml")
+            open(only, "w").write(menu)
+            o3 = o + "3"
+            self.assertEqual(C.main(args[:2] + [o3] + args[3:] + ["--desc", only]), 0)
+            self.assertEqual(C.parse(open(o3, "rb").read())[1][C.T_DESC], descrec.compile_text(menu))
+            # a table in both files: refused, both files named, nothing written
+            twice = os.path.join(d, "twice.toml")
+            open(twice, "w").write(menu)
+            o4 = o + "4"
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                self.assertEqual(C.main(args[:2] + [o4] + args[3:] + ["--desc", m_, "--desc", twice]), 1)
+            self.assertIn("menu.toml", buf.getvalue())
+            self.assertIn("twice.toml", buf.getvalue())
+            self.assertIn("'key'", buf.getvalue())
+            self.assertFalse(os.path.exists(o4))
+            # the large form takes it too
+            b = os.path.join(d, "x.bit")
+            open(b, "wb").write(full_bit())
+            self.assertEqual(C.main(["pack-large", "-o", o + "5", "--id", "x", "--name", "T", "--version", "1", "--bit", b, "--app", a, "--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.parse(open(o + "5", "rb").read())[1][C.T_DESC], r[C.T_DESC])
 
 
 class MergedMenusTest(unittest.TestCase):
-    """T104.2 D10: the libraries' menus are merged into the description when it is packed, and the record names them."""
+    """T104.2 D10, base 4.0: the menus of the libraries the core's app links (TOML B `menu`) are merged into the description when it is packed, and the record names them."""
 
     def setUp(self):
-        import descrec
         self.d = descrec
-        self.menu = descrec.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n')
 
     def test_the_menu_is_in_record_6_and_the_library_is_named(self):
-        blob, _ = make(desc=desc_record(), libs=[lib_with_menu("gamma", self.menu)])
+        blob, _ = make(desc=desc_record(), libs=blibs([("gamma", [], GAMMA)]))
         m, r = C.parse(blob)
         rec = self.d.parse_desc(r[C.T_DESC])
         self.assertEqual(rec["merged"], ["gamma"])
         self.assertIn("Gamma", [n["label"] for n in rec["node"]])
         self.assertEqual(m["desc_size"], len(r[C.T_DESC]))
+        self.assertNotIn(C.T_LIBS, r)                                   # merged: nothing is left for the run time
 
     def test_no_description_still_gets_one_for_a_library_with_a_menu(self):
-        blob, _ = make(libs=[lib_with_menu("gamma", self.menu)])
+        blob, _ = make(libs=blibs([("gamma", [], GAMMA)]))
         m, r = C.parse(blob)
         self.assertEqual(self.d.parse_desc(r[C.T_DESC])["merged"], ["gamma"])
 
     def test_a_library_without_a_menu_leaves_the_description_as_it_was(self):
-        blob, _ = make(desc=desc_record(), libs=[u2a()])
+        blob, _ = make(desc=desc_record(), libs=blibs([("alpha", [], None)]))
         self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
+        self.assertNotIn(C.T_LIBS, C.parse(blob)[1])
 
     def test_a_library_with_a_poll_keeps_its_menu_for_the_run_time(self):
-        poll = self.d.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
-        blob, _ = make(desc=desc_record(), libs=[lib_with_menu("poller", poll)])
-        self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
+        libs = blibs([("poller", [], POLL1)])
+        blob, _ = make(desc=desc_record(), libs=libs)
+        m, r = C.parse(blob)
+        self.assertEqual(r[C.T_DESC], desc_record())
+        self.assertEqual(C.parse_libs(r[C.T_LIBS]), [("poller", libs[0][2])])
+        self.assertEqual(m["libs_count"], 1)
+
+    def test_merge_menus_returns_the_description_and_the_menus_that_stay(self):
+        poll = descrec.compile_text(POLL1)
+        gamma = descrec.compile_text(GAMMA)
+        desc, kept = C.merge_menus(desc_record(), [("gamma", gamma), ("poller", poll)])
+        self.assertEqual(descrec.parse_desc(desc)["merged"], ["gamma"])
+        self.assertEqual(kept, [("poller", poll)])
+        self.assertEqual(C.merge_menus(desc_record(), []), (desc_record(), []))
+
+    def test_a_menu_that_is_a_cores_description_is_refused(self):
+        for text, why in (('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0x14\n', "windows"), ('hide = ["F7/settings"]\n', "hides or renames"),
+                          ('[[area]]\nname = "X"\n', "route")):
+            with self.assertRaisesRegex(C.CorError, why):
+                blibs([("bad", [], text)])
+
+    def test_a_menu_that_is_missing_or_without_register_is_refused(self):
+        path = toml_b_file([("gamma", [], GAMMA)])
+        os.remove(os.path.join(os.path.dirname(path), "gamma.toml"))
+        with self.assertRaisesRegex(C.CorError, "gamma"):
+            C.toml_b_libs(path)
+        p2 = toml_b_file([("alpha", [], None)])
+        open(p2, "a").write('[[library]]\nname = "m"\nsources = ["m.cc"]\nmenu = "m.toml"\n')
+        with self.assertRaisesRegex(C.CorError, "register"):
+            C.toml_b_libs(p2)
 
 
 class FilesTest(unittest.TestCase):
@@ -592,11 +801,303 @@ class FilesTest(unittest.TestCase):
             with self.assertRaises(C.CorError):                             # an earlier version of a file the core does not install
                 C.collect_files(d + "/sd", d + "/old")
 
-    def test_the_diag_core_carries_its_tests_and_only_it(self):
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores")
-        files = C.collect_files(os.path.join(root, "diag", "sd"), os.path.join(root, "diag", "superseded"))
-        self.assertIn("tests/cd32.toml", [f[0] for f in files])
-        self.assertTrue(all(o for f in files if f[0] in ("tests/cd32.toml", "tests/stick2.toml") for o in [f[2]]))
+    def test_the_diag_core_carries_no_record_8(self):
+        """T260 D6: the diag core's tests and presets are a folder of its lane's delivery (cores/diag/sd), no record of its .cor: its descriptors name no install folder."""
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "diag")
+        t = open(os.path.join(root, "mono", "core.toml")).read()
+        self.assertNotIn("install_dir", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertNotIn("install_old", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertTrue(os.path.isfile(os.path.join(root, "sd", "tests", "cd32.toml")))
+        self.assertFalse(os.path.exists(os.path.join(root, "superseded")))
+
+
+def heap_app(heap=0x7A0000, image_end=0x400000, region_end=0xE90000, reserve=0x20000, extra=b"\x5a" * 64):
+    """An application image that carries the TRXHEAP record (coreapp/src/heapcfg.c)."""
+    return APP + C.HEAP_MAGIC + struct.pack("<4I", heap, image_end, region_end, reserve) + extra
+
+
+class HeapTest(unittest.TestCase):
+    """T239.3 D15: the packer writes the core's heap into its copy of the app and refuses an image that does not fit."""
+
+    def test_the_heap_command_checks_the_app_alone(self):
+        """T239.5: `cor_pack.py heap` is the check of `pack` on the app alone (step 7 of a core lane): it reports the figures and refuses what pack refuses."""
+        d = tempfile.mkdtemp()
+        ok, big = os.path.join(d, "ok.bin"), os.path.join(d, "big.bin")
+        open(ok, "wb").write(heap_app())
+        open(big, "wb").write(heap_app(image_end=0xE80000))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(C.main(["heap", ok, "--core", "t"]), 0)
+        self.assertIn("heap (t)", out.getvalue())
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(C.main(["heap", big, "--core", "t"]), 1)
+
+    def words(self, app):
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        return struct.unpack_from("<4I", app, o)
+
+    def test_fill_sets_only_the_heap_word(self):
+        app = heap_app()
+        out = C.app_heap(app, 0x950000, "vic20")
+        self.assertEqual(self.words(out), (0x950000, 0x400000, 0xE90000, 0x20000))
+        self.assertEqual(len(out), len(app))
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        self.assertEqual(out[:o], app[:o])
+        self.assertEqual(out[o + 4:], app[o + 4:])
+
+    def test_no_heap_keeps_the_default(self):
+        app = heap_app()
+        self.assertEqual(C.app_heap(app, None, "vic20"), app)
+        self.assertEqual(C.app_heap(APP, None, "trx64g"), APP)            # an app without the record (Gideon's) is left alone
+
+    def test_pack_and_pack_large_carry_the_filled_copy(self):
+        blob, _ = make(app=heap_app(), heap=0x600000)
+        self.assertEqual(self.words(C.parse(blob, C.CONTRACT)[1][C.T_APP])[0], 0x600000)
+        blob, _ = make(app=heap_app())
+        self.assertEqual(self.words(C.parse(blob, C.CONTRACT)[1][C.T_APP])[0], 0x7A0000)
+
+    def test_refusal_names_core_figure_and_limit(self):
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(), 0xB00000, "vic20")
+        msg = str(e.exception)
+        self.assertIn("vic20", msg)
+        self.assertIn("0xb00000", msg)
+        self.assertIn("0xe90000", msg)
+        with self.assertRaises(C.CorError) as e:
+            make(app=heap_app(), heap=0xB00000)                           # through pack as well
+        self.assertIn("0xe90000", str(e.exception))
+
+    def test_default_that_does_not_fit_is_refused_too(self):
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app(image_end=0xA00000), None, "big")
+
+    def test_exact_fit_passes_one_more_does_not(self):
+        C.app_heap(heap_app(), 0xE90000 - 0x20000 - 0x400000, "x")
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app(), 0xE90000 - 0x20000 - 0x400000 + 16, "x")
+
+    def test_heap_without_record_or_with_two_is_refused(self):
+        with self.assertRaises(C.CorError):
+            C.app_heap(APP, 0x100000, "x")
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app() + heap_app(), 0x100000, "x")
+        for bad in (0x1000, 0x100008 + 1):
+            with self.assertRaises(C.CorError):
+                C.app_heap(heap_app(), bad, "x")
+
+
+class HeapLeftTest(unittest.TestCase):
+    """T239.3 P4-1: heap word 0 is the region left behind the image and the stack reserve; the report has the figures and the libraries' heap needs."""
+
+    def words(self, app):
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        return struct.unpack_from("<4I", app, o)
+
+    def test_zero_is_the_region_left_and_the_word_stays_zero(self):
+        rep = []
+        app = heap_app(heap=0x7A0000, image_end=0x400004)
+        out = C.app_heap(app, 0, "trx64u", report=rep)
+        self.assertEqual(self.words(out)[0], 0)
+        left = 0xE90000 - 0x20000 - 0x400010                    # the end of the image aligned up to 16
+        self.assertIn("heap 0x%x = %d bytes (word 0: the region left)" % (left, left), rep[0])
+
+    def test_zero_fits_exactly_by_definition(self):
+        C.app_heap(heap_app(image_end=0x400010), 0, "x")
+        C.app_heap(heap_app(image_end=0x400001), 0, "x")
+
+    def test_zero_with_nothing_left_is_refused(self):
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(image_end=0xE70000 - 0x8000), 0, "tiny")
+        self.assertIn("tiny", str(e.exception))
+        self.assertIn("region left", str(e.exception))
+
+    def test_libraries_keeping_more_than_the_heap_fail_the_build(self):
+        needs = [("a", 0x300000, 0x400000), ("b", 0x300000, None)]
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(), 0x500000, "vic20", needs)
+        msg = str(e.exception)
+        for part in ("vic20", "a 3145728", "b 3145728", "5242880", "1048576 too much"):
+            self.assertIn(part, msg)
+
+    def test_report_lists_each_library_and_the_sum(self):
+        rep = []
+        C.app_heap(heap_app(), 0x500000, "vic20", [("ring", 4096, 65536), ("online", None, None)], rep)
+        self.assertTrue(any("library ring keeps 4096, peak 65536" in l for l in rep))
+        self.assertTrue(any("library online keeps n/a, peak n/a" in l for l in rep))
+        self.assertTrue(any("libraries keep 4096 of 5242880 bytes" in l for l in rep))
+
+    def test_needs_of_the_toml_b(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "b.toml")
+            open(f, "w").write('[[library]]\nname = "ring"\nsources = ["ring.cc"]\nheap_keep = 100\nheap_peak = 200\n\n[[library]]\nname = "x"\nsources = ["x.cc"]\n')
+            self.assertEqual(C.toml_b_heap_needs(f), [("ring", 100, 200), ("x", None, None)])
+
+    def test_pack_large_reports_through_the_list(self):
+        rep = []
+        blob = make_large(app=heap_app(), heap=0, heap_needs=[("ring", 10, 20)], report=rep)
+        self.assertEqual(self.words(C.parse(blob)[1][C.T_APP])[0], 0)
+        self.assertEqual(len(rep), 3)
+
+
+class PackersCarryTheDescriptionTest(unittest.TestCase):
+    """T239.3 D17 part 2, D25: the packers put cores/<id>/app/desc.toml into record 6 of the .cor when the core's cores/<id>/app/sdk.toml says desc_record = true
+    (the VIC-20); a core with the file and the switch off carries no record; the bundle checks it."""
+
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+    def desc(self):
+        import descrec
+        fn = os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")
+        with open(fn) as f:
+            return descrec.compile_text(f.read(), fn)
+
+    def test_pack_cores_mc_carries_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, "vc20_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "vc20.app"), "wb").write(heap_app())          # V-4: the VIC-20's own app carries the heap record; its heap is word 0
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            m, rec = C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())
+            self.assertEqual(rec[C.T_DESC], self.desc())
+            self.assertEqual(m["name"], "VIC-20")
+
+    def pack_one(self, core, app):
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, core + "_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, core + ".app"), "wb").write(app)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", core], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            return r.stdout, C.parse(open(os.path.join(out, core + ".cor"), "rb").read())
+
+    def test_pack_cores_mc_links_the_shared_toml_b(self):
+        # P4-1: a core without an app of its own is packed against the shared app's TOML B; it has no [sizes], so a record 6 is compiled against the defaults, and the heap needs are reported
+        import libtab
+        self.assertNotIn("sizes", descrec.toml_loads(open(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")).read()))
+        self.assertTrue(libtab.load(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")))
+        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
+        import core_toml
+        self.assertEqual(core_toml.sdk_table("apple2").get("desc", ""), "")
+        stdout, _ = self.pack_one("apple2", heap_app())
+        self.assertIn("heap (", stdout)
+        self.assertRegex(stdout, r"library c64cart keeps")
+
+    def test_pack_cores_mc_links_the_cores_own_toml_b(self):
+        # V-4 (P4-1): the VIC-20 has an app of its own: it is packed against cores/vc20/app/sdk.toml, so the libraries reported are the ones that file names (not the shared app's), and
+        # its heap is word 0, the region left behind its image (core.toml sets none)
+        stdout, (m, rec) = self.pack_one("vc20", heap_app())
+        self.assertRegex(stdout, r"library cbm1541 keeps")
+        self.assertNotRegex(stdout, r"library (c64cart|uci|sid|online|dma) keeps")
+        self.assertIn("(word 0: the region left)", stdout)
+        self.assertEqual(rec[C.T_DESC], self.desc())
+
+    def test_pack_cores_mc_switch_off_carries_no_record(self):
+        # D25: the Apple IIe has cores/apple2/app/desc.toml and no app/sdk.toml with desc_record: no record 6, the app runs on its compiled-in descriptor (the Amiga 500, the case's core until T239.5 D15, has its own app now)
+        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
+        import core_toml
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "apple2", "app", "desc.toml")))
+        self.assertNotEqual(core_toml.sdk_table("apple2").get("desc_record"), True)
+        self.assertIs(core_toml.sdk_table("vc20").get("desc_record"), True)
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, "apple2_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "apple2.app"), "wb").write(APP)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "apple2"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "apple2.cor"), "rb").read())[1])
+
+    def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
+        import descrec
+        with tempfile.TemporaryDirectory() as d:
+            bit, app, out = (os.path.join(d, x) for x in ("a.bit", "app.bin", "out"))
+            open(bit, "wb").write(full_bit())
+            open(app, "wb").write(APP)
+            cmd = [os.path.join(self.ROOT, "tools", "pack_large_cor.sh"), "--id", "vc20", "--name", "VIC-20", "--version", "0.1", "--bit", bit, "--app-bin", app, "--out", out]
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
+            # a menu.toml (key table, a window) given with --desc is packed with the core's desc.toml as ONE record 6
+            menu = os.path.join(d, "menu.toml")
+            open(menu, "w").write('key = [\n  { layout = "terminal", key = "f10", do = "decline" },\n]\n[[window]]\nname = "speaker_enable"\naddress = 0xA000000C\nsize = 1\n')
+            r = subprocess.run(cmd + ["--desc", menu], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            texts = [(f, open(f).read()) for f in (menu, os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml"))]
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files(texts))
+            # a table in both files is refused
+            r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            # D25: a core with cores/<id>/app/desc.toml and the switch off carries no record. Every core with a desc.toml has moved or will move, so the case is built on a tree of its own
+            # (CI_DATA_ROOT, which core_toml.py reads the cores from): the C128's desc.toml and no sdk.toml beside it
+            sw = os.path.join(d, "switch_off")
+            os.makedirs(os.path.join(sw, "cores", "c128", "app"))
+            shutil.copy(os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml"), os.path.join(sw, "cores", "c128", "app", "desc.toml"))
+            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True, env=dict(os.environ, CI_DATA_ROOT=sw))
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1])
+            # the C128's own app has the switch on: its desc.toml is record 6 (under its own name, a manifest that names it)
+            c128 = os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["c128", "--name", "Commodore 128"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(c128, open(c128).read())]))
+            # T213.3: the Amiga 1200, a large core with an app of its own, has the switch on: its desc.toml is record 6 (under its own name)
+            a12 = os.path.join(self.ROOT, "cores", "amiga1200", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["amiga1200", "--name", "Amiga 1200 (AGA, 68020)"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "amiga1200.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(a12, open(a12).read())]))
+            # T239.5 D15: the Amiga 500, a large core with an app of its own since its move, has the switch on: its desc.toml (its registers named through its TOML A) is record 6
+            a500 = os.path.join(self.ROOT, "cores", "amiga", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["amiga", "--name", "Amiga (OCS/ECS, 68000)"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "amiga.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(a500, open(a500).read())]))
+            # a core without cores/<id>/app/desc.toml carries no record
+            r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "nodesc.cor"), "rb").read())[1])
+
+
+class CoreTomlHeapTest(unittest.TestCase):
+    """T239.3 D15: the `heap` key of core.toml."""
+
+    def test_hex_and_decimal_and_range(self):
+        import core_toml as T
+        with tempfile.TemporaryDirectory() as d:
+            f = d + "/c.toml"
+            open(f, "w").write('id = "x"\nheap = 0x950000\norder = 07\n')
+            self.assertEqual(T.parse(f)["heap"], 0x950000)
+            self.assertEqual(T.parse(f)["order"], 7)
+        self.assertIn("heap", T.SCHEMA)
+        self.assertEqual(T.SCHEMA["heap"], ("int", False))
+
+    def test_check_refuses_a_bad_heap(self):
+        import core_toml as T
+        saved = T.ROOT, T.CORES
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(d + "/cores/x"); os.makedirs(d + "/contract")
+            open(d + "/contract/VERSION", "w").write(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "contract", "VERSION")).read())
+            base = 'id = "x"\nname = "X"\nversion = "0.1.0"\ncontract = %s\napp = "blueprint"\norder = 1\nexperimental = true\nsources = ["cores/x"]\n' % open(d + "/contract/VERSION").read().strip()
+            try:
+                T.ROOT, T.CORES = d, d + "/cores"
+                res = {}
+                for heap in ("0x950000", "0x1000", "0x7A0001", "0xF00000"):
+                    open(d + "/cores/x/core.toml", "w").write(base + "heap = %s\n" % heap)
+                    import io, contextlib
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        res[heap] = T.check()
+                self.assertEqual(res, {"0x950000": 0, "0x1000": 1, "0x7A0001": 1, "0xF00000": 1})
+            finally:
+                T.ROOT, T.CORES = saved
 
 
 if __name__ == "__main__":

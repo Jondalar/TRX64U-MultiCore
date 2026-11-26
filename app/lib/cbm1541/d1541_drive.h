@@ -30,8 +30,6 @@
 #define DR_DISKCHANGE  12
 #define DR_DRIVETYPE   13
 #define DR_DIRTY       0x0800        // read: b7 any track written, b0 this track; write b7: clear "any", else clear this track
-#define DR_PARAM       0x1000        // two 32 bit words per half track: DDR2 address; (length - 1) | bit time << 16. Side 1 at +0x400.
-#define DR_WD177X      0x1800
 
 #define DR_STAT_MOTOR     0x01
 #define DR_STAT_WRITING   0x02

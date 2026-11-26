@@ -3,6 +3,7 @@
 #include "edid.h"
 #include "trxcanvas.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define DDR_WINDOW_BYTES 0x1000000u
 
@@ -91,6 +92,11 @@ void Video::set_smoothing(bool on)
     }
 }
 
+void Video::set_vic_scale(int m)
+{
+    vic_mode_ = (m >= 0 && m < VID_SCALE_COUNT) ? m : -1;
+}
+
 void Video::set_scale_mode(int m)
 {
     if (!gw_ || m < 0 || m >= VID_SCALE_COUNT || m == scale_mode_) {
@@ -105,25 +111,37 @@ void Video::set_scale_mode(int m)
 // The menu canvas (trxcanvas.h, T164 D10a) is shown at a whole-number factor only, never fractional and never stretched (Alex, 2026-10-30):
 // 960 x 540 at max(1, active height / 540) in a mode 960 or more wide, the mode's own size at 1 below that (the compact layout). Centred in the
 // mode's active area, the rest black. The canvas is told to the port first (the display is laid out for it), then its place in the output.
-void video_place_menu(PxPort *px, int hdmi, int sys)
+// The canvas the menu has in a mode, and its place in the mode's active area (what video_place_menu tells the port).
+// T222: the row the gateware with the VIC scaler really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
+static void vic_row(int *hdmi, int *sys)
 {
-    if (hdmi >= 0 && video_gateware_vic_scale()) {  // T222: the row the gateware really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
-        if (hdmi > VID_HDMI_800x600) {
-            hdmi = VID_HDMI_800x600;
-        }
-        if (hdmi == VID_HDMI_800x600 && sys != VID_SYS_NTSC60) {
-            hdmi = VID_HDMI_480_576;
-        }
-        if (sys == VID_SYS_PAL60) {
-            sys = VID_SYS_NTSC60;
-        }
+    if (*hdmi > VID_HDMI_800x600) {
+        *hdmi = VID_HDMI_800x600;
+    }
+    if (*hdmi == VID_HDMI_800x600 && *sys != VID_SYS_NTSC60) {
+        *hdmi = VID_HDMI_480_576;
+    }
+    if (*sys == VID_SYS_PAL60) {
+        *sys = VID_SYS_NTSC60;
+    }
+}
+
+static TrxCanvas menu_canvas_of(int hdmi, int sys)
+{
+    if (hdmi >= 0 && video_gateware_vic_scale()) {
+        vic_row(&hdmi, &sys);
     }
     int fw = 0, fh = 0;
     video_active_size(hdmi, sys, &fw, &fh);
     if (fw <= 0 || fh <= 0) {
         video_active_size(VID_HDMI_1080P, sys, &fw, &fh);
     }
-    TrxCanvas c = trx_canvas_for(fw, fh);
+    return trx_canvas_for(fw, fh);
+}
+
+void video_place_menu(PxPort *px, int hdmi, int sys)
+{
+    const TrxCanvas c = menu_canvas_of(hdmi, sys);
     px->menu_canvas(c.w, c.h);
     px->menu_place(c.x0, c.y0, c.w * c.factor, c.h * c.factor);
 }
@@ -311,6 +329,192 @@ bool Video::poll()
     front_ = d_.fb_base + (uint32_t)(l & 3) * d_.fb_stride;
     if (on_) {
         px_->w32(PX_BACK, front_);
+    }
+    return true;
+}
+
+
+// ---- T256: the picture of the machine that stopped -------------------------------------------------------------------------------------------------------------------------
+// The host's still capture (host/pix_layer.v): the VIC's pixels of the window the scaler shows (400 x 270, 400 x 240 in the 60 Hz modes), two to a byte, the first in the low nibble, into
+// slot 0 or 1 at STILL_BASE (+ 64 KB). STILL_STATUS: b0 a frame was captured, b1 the slot of the last complete frame, b2 that frame is 60 Hz, b31:8 the frame count.
+#define STILL_CTRL    0x6060
+#define STILL_BASE    0x6064
+#define STILL_STATUS  0x6068
+#define STILL_SLOT    0x10000
+#define STILL_W       400
+
+void Video::still_start()
+{
+    if (!own_picture() || still_slots_ || !px_) {
+        return;
+    }
+    still_raw_ = (uint8_t *)malloc(2 * STILL_SLOT + 16);
+    if (!still_raw_) {
+        return;
+    }
+    still_slots_ = (uint8_t *)(((uintptr_t)still_raw_ + 15) & ~(uintptr_t)15);
+    px_->w32(STILL_BASE, (uint32_t)(uintptr_t)still_slots_);
+    px_->w32(STILL_CTRL, 1);
+}
+
+static int floor_div(int a, int b)
+{
+    return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
+
+// The whole shown picture as write_set puts it on the output (the position and the output size it writes), in output pixels of the active area; the menu's canvas lies in the same area
+// (menu_canvas_of), so the rectangle on the canvas is the output rectangle minus the canvas's corner, over the whole factor the canvas is shown with.
+bool Video::picture_rect(int *x, int *y, int *w, int *h) const
+{
+    int ox, oy, ow, oh;
+    int canvas_mode = mode_ >= 0 && gw_ ? mode_ : VID_HDMI_1080P;
+    if (own_picture()) {
+        // A C64-type core on the gateware with the VIC scaler: the window of 400 x 270 VIC pixels (400 x 240 in the 60 Hz family) in the mode's active area, laid out by the Scale the person set
+        // (set_vic_scale, the register at 0x4F01) as video_layout_scaled lays out any picture; the row is the one the gateware runs.
+        if (vic_mode_ < 0 || !gw_ || mode_ < 0) {
+            return false;
+        }
+        int hdmi = mode_, sys = sys_;
+        vic_row(&hdmi, &sys);
+        const int fam = msys_ >= 0 ? msys_ : sys_;
+        const int rows = (fam == VID_SYS_NTSC60 || fam == VID_SYS_PAL60) ? 240 : 270;
+        video_layout_scaled(STILL_W, rows, hdmi, sys, vic_mode_, 0, 0, &ow, &oh, &ox, &oy);
+        canvas_mode = mode_;
+    } else if (!ready_ || !vw_ || !vh_ || !d_.w || !d_.h) {
+        return false;
+    } else if (gw_) {
+        ox = d_.x0 + (int32_t)((d_.w - vw_) / 2 * ow_ / d_.w);
+        oy = d_.y0 + (int32_t)((d_.h - vh_) / 2 * oh_ / d_.h);
+        ow = (int)(vw_ * ow_ / d_.w);
+        oh = (int)(vh_ * oh_ / d_.h);
+    } else {
+        const int s = d_.scale ? d_.scale : 1;
+        ox = d_.x0 + (int32_t)((d_.w - vw_) / 2) * s;
+        oy = d_.y0 + (int32_t)((d_.h - vh_) / 2) * s;
+        ow = (int)vw_ * s;
+        oh = (int)vh_ * s;
+    }
+    const TrxCanvas c = menu_canvas_of(canvas_mode, sys_);     // without the gateware the frame is 1080p and the menu stays where video_menu_start put it
+    const int f = c.factor < 1 ? 1 : c.factor;
+    *x = floor_div(ox - c.x0, f);
+    *y = floor_div(oy - c.y0, f);
+    *w = (ow + f / 2) / f;
+    *h = (oh + f / 2) / f;
+    return *w > 0 && *h > 0;
+}
+
+static const uint16_t g_colodore[16] = {         // the C64 palette of the capture as RGB565 when no source says the person's (Colodore: 000000 FFFFFF 813338 75CEC8 8E3C97 56AC4D 2E2C9B EDF171 8E5029 553800 C46C71 4A4A4A 7B7B7B A9FF9F 706DEB B2B2B2)
+    0x0000, 0xFFFF, 0x8187, 0x7679, 0x89F2, 0x5569, 0x2973, 0xEF8E,
+    0x8A85, 0x51C0, 0xC36E, 0x4A49, 0x7BCF, 0xAFF3, 0x737D, 0xB596
+};
+
+static Video::StillPalette g_still_palette = nullptr;
+
+void Video::set_still_palette(StillPalette f)
+{
+    g_still_palette = f;
+}
+
+// The colours of the capture's 4 bit values on the screen: a library's source, else the person's palette (the one the scaler shows), else Colodore.
+static void still_colours(uint16_t out[16], Video::StillPalette lib)
+{
+    uint8_t rgb[16][3];
+    if ((lib && lib(rgb)) || (g_still_palette && g_still_palette(rgb))) {
+        for (int i = 0; i < 16; i++) {
+            out[i] = (uint16_t)(((rgb[i][0] & 0xF8) << 8) | ((rgb[i][1] & 0xFC) << 3) | (rgb[i][2] >> 3));
+        }
+        return;
+    }
+    memcpy(out, g_colodore, sizeof(g_colodore));
+}
+
+// The column of the source for each output column, made once per grab: the division is not made per pixel. The widest canvas is 960 (trx_canvas_for; OVL_CANVAS_W), a grab is never wider.
+#define GRAB_MAX_W 960
+static uint16_t g_grab_col[GRAB_MAX_W];
+
+static void grab_columns(int w, int ox, int fw, int span)
+{
+    for (int x = 0; x < w; x++) {
+        g_grab_col[x] = (uint16_t)((uint32_t)(ox + x) * (uint32_t)span / (uint32_t)fw);
+    }
+}
+
+bool Video::grab(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride, StillPalette pal)
+{
+    if (!dst || w < 1 || h < 1 || w > GRAB_MAX_W) {
+        return false;
+    }
+    if (stride < w) {
+        stride = w;
+    }
+    if (fw < 1 || fh < 1) {
+        fw = w;
+        fh = h;
+        ox = oy = 0;
+    }
+    if (own_picture()) {
+        if (!still_slots_ || !px_) {
+            return false;
+        }
+        static uint8_t cap[STILL_W * 270 / 2];
+        uint16_t col[16];
+        still_colours(col, pal);
+        for (int tries = 0; tries < 3; tries++) {
+            const uint32_t st = px_->r32(STILL_STATUS);
+            if (!(st & 1)) {
+                return false;
+            }
+            const int rows = (st & 4) ? 240 : 270;
+            memcpy(cap, still_slots_ + ((st & 2) ? STILL_SLOT : 0), (size_t)(STILL_W * rows / 2));
+            if ((px_->r32(STILL_STATUS) >> 8) != (st >> 8)) {
+                continue;                                  // the capture moved on while the slot was read: again
+            }
+            grab_columns(w, ox, fw, STILL_W);
+            for (int y = 0; y < h; y++) {
+                uint16_t *row = dst + (size_t)y * stride;
+                if (y > 0 && (oy + y) * rows / fh == (oy + y - 1) * rows / fh) {
+                    memcpy(row, row - stride, (size_t)w * 2);   // the same VIC line: a copy of the line above
+                    continue;
+                }
+                const uint8_t *src = cap + (size_t)((oy + y) * rows / fh) * (STILL_W / 2);
+                for (int x = 0; x < w; x++) {
+                    const int vx = g_grab_col[x];
+                    const uint8_t b = src[vx >> 1];
+                    row[x] = col[(vx & 1) ? (b >> 4) : (b & 15)];
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+    const uint32_t pb = d_.pixel_bytes();
+    if (!ready_ || !front_ || !vw_ || !vh_ || d_.pxfmt == 3 || !io_ || vw_ * pb > 8192) {
+        return false;
+    }
+    static uint8_t line[8192];
+    uint32_t last = 0xFFFFFFFFu;
+    grab_columns(w, ox, fw, (int)vw_);
+    for (int y = 0; y < h; y++) {
+        const uint32_t sy = (uint32_t)(oy + y) * vh_ / (uint32_t)fh;
+        uint16_t *row = dst + (size_t)y * stride;
+        if (sy == last) {
+            memcpy(row, row - stride, (size_t)w * 2);       // the same source line as the row above (y > 0 here: last starts at an impossible value): the same pixels
+            continue;
+        }
+        io_->ddr_abs_read(front_ + sy * d_.w * pb, line, vw_ * pb);
+        last = sy;
+        if (pb == 2) {
+            for (int x = 0; x < w; x++) {
+                const uint32_t sx = g_grab_col[x];
+                row[x] = (uint16_t)(line[2 * sx] | (line[2 * sx + 1] << 8));
+            }
+        } else {
+            for (int x = 0; x < w; x++) {
+                const uint32_t sx = g_grab_col[x];
+                const uint32_t v = (uint32_t)line[4 * sx] | ((uint32_t)line[4 * sx + 1] << 8) | ((uint32_t)line[4 * sx + 2] << 16);   // {x, R, G, B} little endian: B, G, R
+                row[x] = (uint16_t)(((v & 0xF80000) >> 8) | ((v & 0x00FC00) >> 5) | ((v & 0x0000F8) >> 3));
+            }
+        }
     }
     return true;
 }

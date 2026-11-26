@@ -1,0 +1,195 @@
+# The Neo Geo's data description (T239.3 D17): the tables of its descriptor, compiled by tools/descrec.py into the description record of the .cor
+# (record 6, layout in coreapp/src/descrec.h). What the record cannot hold is code and stays in the core's C++: init, release, the operations of
+# register_ops, the media write-back and the three functions of the mount slot. The DDR2 window starts at 0x01000000.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/neogeo/trx/neo_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property"; tools/descrec.py
+# makes the numbers of them (api.md 6.14.20). The two pad registers of [pad] (regs) stay numbers: descrec resolves names in reg, reg_* , fb_base and fb_stride only. The frame buffer base and stride are the
+# application's choice (four buffers 256 KB apart, set at the start), not the reset value of the RTL.
+toml_a = "gateware.toml"
+machine_info = "System type,BIOS"
+
+[core]
+id = "NEO_"
+name = "SNK Neo Geo"
+title = "SNK Neo Geo"
+short_title = "NEO GEO"
+folder = "neogeo"
+store = "Neo Geo Settings"
+min_contract = 1
+reset_ms = 20
+service_op = "neogeo.service"
+service_period_ms = 16
+needs_program = "Choose a .neo file in Library (F3), or Load a ROM set from a folder"
+program_ext = ".neo"
+no_tone = true                         # the flat build has no tone filter
+caps = ["cartridge", "pad"]
+
+# 320 x 224 shown 3 x 3 (960 x 672), centred on 1920 x 1080; four frame buffers 256 KB apart in the DDR2 window
+[video]
+w = 320
+h = 224
+scale = 3
+x0 = 480
+y0 = 204
+fb_base = 0x01200000
+fb_stride = 0x00040000
+nbuf = 4
+reg_latest = "neo_video.fb_latest"
+reg_seq = "neo_video.frame_seq"
+reg_fb_base = "neo_video.fb_base"
+reg_fb_stride = "neo_video.fb_stride"
+
+[freeze]
+reg_status = "neo_machine.status"
+mask = 0x02
+timeout_ms = 200
+
+# the CTRL + RESTORE hotkey map of the consoles: no key of the keyboard is the machine's
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the slot of the cartridge; its three functions (spec, mount, eject) are the core's code
+[mount]
+names = ["Cartridge"]
+
+# ---- the user's files in the core's roms folder; `set` is the bit of the BIOS the file is (1 MVS, 2 AES, 4 Universe)
+[[rom]]
+role = "MVS system ROM"
+names = ["sp-s2.sp1", "sp-s1.sp1"]
+sizes = [131072]
+set = 1
+put_op = "neogeo.put_bios_mvs"
+
+[[rom]]
+role = "AES system ROM"
+names = ["neo-epo.sp1", "neo-po.sp1"]
+sizes = [131072]
+set = 2
+put_op = "neogeo.put_bios_aes"
+
+[[rom]]
+role = "Universe BIOS"
+names = ["uni-bios.rom"]
+sizes = [131072]
+set = 4
+put_op = "neogeo.put_bios_uni"
+
+[[rom]]
+role = "Zoom table (LO ROM)"
+names = ["000-lo.lo"]
+sizes = [65536, 131072]
+required = true
+put_op = "neogeo.put_lo"
+
+[[rom]]
+role = "Board fix ROM"
+names = ["sfix.sfix"]
+sizes = [131072]
+required = true
+put_op = "neogeo.put_sfix"
+
+# ---- settings: bits of the register block (the byte is the OR of what its settings contribute)
+[[core_setting]]
+key = "System type"
+values = ["Console (AES)", "Arcade (MVS)"]
+when = "reset"
+reg_bind = { reg = "neo_machine.system", shift = 0, mask = 1 }
+
+[[core_setting]]
+key = "BIOS"
+values = ["Universe BIOS", "Original BIOS"]
+when = "reset"
+apply = "neogeo.set_bios"
+
+[[core_setting]]
+key = "Video mode"
+values = ["NTSC", "PAL"]
+when = "reset"
+reg_bind = { reg = "neo_machine.system", shift = 1, mask = 1 }
+
+[[core_setting]]
+key = "Memory card"
+values = ["Plugged", "Unplugged"]
+when = "reset"
+reg_bind = { reg = "neo_machine.system", shift = 2, mask = 1 }
+
+[[core_setting]]
+key = "[DIP] Settings menu"
+values = ["Off", "On"]
+reg_bind = { reg = "neo_machine.dip", shift = 0, mask = 1 }
+
+[[core_setting]]
+key = "[DIP] Free play"
+values = ["Off", "On"]
+reg_bind = { reg = "neo_machine.dip", shift = 1, mask = 1 }
+
+[[core_setting]]
+key = "[DIP] Freeze"
+values = ["Off", "On"]
+reg_bind = { reg = "neo_machine.dip", shift = 2, mask = 1 }
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+reg_bind = { reg = "neo_machine.joy", shift = 0, mask = 1 }
+
+[[core_setting]]
+key = "Pad map"
+values = ["Default", "Custom"]
+apply = "pad.set_map"
+
+# ---- the USB pads (T156): the register of each player is the machine's joystick word. The default map is the MiSTer core's positional one:
+# A = the pad's bottom button, B = right, C = left, D = top, Coin = L
+[pad]
+output = "registers"
+regs = [0x0F0, 0x0F2]
+buttons = ["Right", "Left", "Down", "Up", "A", "B", "C", "D", "Start", "Select", "Coin"]
+default = ["right", "left", "down", "up", "face_bottom", "face_right", "face_left", "face_top", "start", "select", "l"]
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Load a ROM set from a folder"
+op = "neogeo.run_dir"
+bind = [ { arg = "path", text = true } ]
+closes_menu = true
+ask = "Set name (romsets.xml)"
+ask_state = "neogeo.set.offer"
+pick_dir = true
+pick_label = "Use this folder"
+
+[[task]]
+label = "Save the memory card and backup RAM now"
+op = "neogeo.save_now"
+
+[[task]]
+label = "Map buttons, pad 1"
+op = "menu.pad_map_1"
+group = "input"
+
+[[task]]
+label = "Map buttons, pad 2"
+op = "menu.pad_map_2"
+group = "input"
+
+# ---- media and file types
+[[media]]
+name = "Cartridge"
+state = "neogeo.cartridge.image"
+exts = ".neo"
+mount = "Run"
+empty_tasks = "Load a ROM set from a folder"
+mounted_tasks = "Load a ROM set from a folder,Save the memory card and backup RAM now"
+
+[[filetype]]
+ext = ".neo"
+  [[filetype.action]]
+  label = "Run"
+  op = "neogeo.run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true

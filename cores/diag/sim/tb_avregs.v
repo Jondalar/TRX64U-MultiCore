@@ -4,11 +4,11 @@
 // trim while it runs: line and frame length of all four standards, the subcarrier constants, the six group orders against the encoder words, the eight bit orders, the trim in 31 Hz steps.
 `timescale 1ns / 1ps
 module unit (input clk, input we, input re, input [11:0] a, input [7:0] d, output [7:0] q, output [7:0] ga, gb, gc);
-    wire [81:0] cfg;
+    wire [92:0] cfg;
     wire ack, irq;
     diag_regs r (.clk(clk), .we(we), .re(re), .addr({5'd0, a}), .wdata(d), .rdata(q), .ack(ack), .irq(irq), .build(32'd0), .px_we(), .px_re(), .px_rdata(8'd0),
-        .ev_vsync(1'b0), .ev_flip(1'b0), .ev_eng(1'b0), .run(), .abort(), .go(), .fifo_clr(), .st_we(), .st_addr(), .st_wdata(), .status(5'd0), .pc(8'd0),
-        .fifo_q(32'd0), .fifo_level(10'd0), .fifo_rd(), .live(14'd0), .drv_low(10'd0), .av_cfg(cfg));
+        .ev_vsync(1'b0), .ev_flip(1'b0), .ev_eng(1'b0), .run(), .abort(), .go(), .fifo_clr(), .st_we(), .st_addr(), .st_wdata(), .status(8'd0), .pc(8'd0), .ref_pc(8'd0), .ref_cnt(8'd0),
+        .fifo_q(32'd0), .fifo_level(10'd0), .fifo_rd(), .live(128'd0), .drv_en(128'd0), .guard_now(1'b0), .cap_rst(), .e_we(1'b0), .e_off(12'd0), .e_wd(8'd0), .e_wack(), .cap_sel(), .cap_st(8'd0), .cap_count(32'd0), .cap_lost(32'd0), .cap_lines(32'd0), .rd_start(), .rd_line_ix(), .rd_valid_i(1'b0), .rd_data(128'd0), .av_cfg(cfg));
     diag_avout o (.clk(clk), .av_cfg(cfg), .ga(ga), .gb(gb), .gc(gc));
 endmodule
 
@@ -127,7 +127,7 @@ module tb_avregs;
         rdb(0, 12'h05A); check(rv == 8'd0, "SYNC resets to 0");
         rdb(0, 12'h05B); check(rv == 8'd77, "BLANK resets to 77");
         rdb(0, 12'h05C); check(rv == 8'd11, "WHITE resets to 11");
-        rdb(0, 12'h006); check(rv == 8'h07, "DCAPS has the A/V bit");
+        rdb(0, 12'h006); check(rv == 8'h1F && rv[2], "DCAPS has the A/V bit (bit 2; T260: bits 3 and 4 are the pin bank and the capture)");
         // live writes, no reset
         wr(10'b0000000010, 12'h053, 8'd0);
         wr(10'b0000000100, 12'h058, 8'd16);

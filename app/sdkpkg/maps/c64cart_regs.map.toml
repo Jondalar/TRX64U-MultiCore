@@ -1,0 +1,89 @@
+# The cartridge port block: the C64's control page at 0x10040000 (hw.cc cart_wr: C64_CARTREGS_BASE + reg; coreapp/cores/c64_cart.cc). Offsets are bytes from the block's address.
+# Every register of the page that a gateware of ours decodes is here, with the directions the RTL has (rtl_check agrees with ultimate_sys.vhd of host/ and of c64_basic on all of them);
+# a TOML A takes the properties its own gateware has and names no other.
+map = "c64cart_regs"
+
+[[property]]
+name = "mode"
+offset = 0x00
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "normal"
+  value = 0
+  [[property.state]]
+  name = "ultimax"
+  value = 2
+  [[property.state]]
+  name = "reset"
+  value = 4
+  [[property.state]]
+  name = "unreset"
+  value = 8
+[[property]]
+name = "stop"
+offset = 0x01
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "run"
+  value = 0
+  [[property.state]]
+  name = "stopped"
+  value = 1
+  [[property.field]]
+  name = "has_stopped"
+  shift = 1
+  bits = 1
+[[property]]
+name = "stop_mode"
+offset = 0x02
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "force"
+  value = 2
+[[property]]
+name = "clock_detect"
+offset = 0x03
+width = 8
+dir = "r"
+  [[property.field]]
+  name = "reset_seen"
+  shift = 4
+  bits = 1
+[[property]]
+name = "type"
+offset = 0x05
+width = 8
+dir = "rw"
+[[property]]
+name = "reu"
+offset = 0x08
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1
+[[property]]
+name = "reu_size"
+offset = 0x09
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "mb16"
+  value = 7
+[[property]]
+name = "sampler"
+offset = 0x0E
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1

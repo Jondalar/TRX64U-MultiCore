@@ -1,9 +1,10 @@
-// T104 5.2 `mouse_sink`: a USB mouse delivered to the core as deltas. The numbers are the reference's (amiga.cc mouse): the accumulator is clamped
+// T104 5.2 `mouse_sink`: a USB mouse delivered to the core as deltas. The numbers are the reference's (the Amiga's mouse spec, cores/amiga/app/lib/amiga.cc): the accumulator is clamped
 // to +-4000, one pair per 2 ms of at most +-127 each with the remainder kept, the buttons only when they change, DX before DY (the DY write
 // sends the pair).
 #include "check.h"
 #include "amiga_model.h"
 #include "engines.h"
+#include "mousesink.h"
 
 static int count(const AmigaIo &io, uint32_t reg)
 {

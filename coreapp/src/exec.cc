@@ -82,8 +82,8 @@ int Executor::call(const char *name, const OpIn *in, int nin, OpResult *r)
     if (r->code != OPE_OK) {
         return r->code;                                          // refused here: the handler never runs
     }
-    if (task_ && os_->self() == task_) {
-        return reg_->run(c_, d, a, r);                            // the executor's own task, the lock is held already
+    if ((task_ && os_->self() == task_) || lock_->mine()) {
+        return reg_->run(c_, d, a, r);                            // the executor's own task, or a task that holds the core lock (the start hook, a poll): queued, it would wait for itself
     }
     if (!running_ || !task_) {
         lock_->lock();

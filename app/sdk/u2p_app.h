@@ -1,6 +1,6 @@
 /*
  * u2p_app.h - the application ABI 2 of the TRX64 line, as the four applications of T104.3 (unzip, softboot, trex_crt, trxmon) were written against it,
- * carried on the service tables of ABI 3 (coreapp/src/svctab.h).
+ * carried on the service tables of the base API, major 4 (coreapp/src/svctab.h). Base 4.0 dropped the tables trx and c64 (T239.3 P2-6, D57).
  *
  * PROVENANCE: the names and the layout of the tables are those of vendor/gideon/software/app_loader/app_api.h (the TRX64 line's application ABI 2.1,
  * GPL-3.0). Changed: only the calls the four applications make are here; every one is implemented over the service tables in u2p_compat.c; the
@@ -128,23 +128,10 @@ typedef struct u2p_media_api_s {
     int (*reset)(void);
 } u2p_media_api_t;
 
-/* The ABI 2 names of the tables the debugger reads: the ring and the network are the service tables themselves; the debug block's table has the layout the monitor's
-   hardware layer (hw_trx.c) was written against. */
-typedef SvcRing u2p_ring_api_t;
+/* The ABI 2 name of the network table: the service table itself. Base 4.0 has no debug block table (u2p_trx_api_t), no ring table and no C64 bus table (SvcC64):
+   an application that used them reaches the core's blocks through `root` (root->io, the core's driver table) and its libraries' exports through its needs entries
+   (root->lib->need, libslot.h). media.reset is the operation "machine.warm_reset" (u2p_compat.c), what SvcTrx::reset_c64 called. */
 typedef SvcNet u2p_net_api_t;
-typedef struct u2p_trx_api_s {
-    uint32_t size;
-    volatile uint8_t *regs;
-    uint32_t caps;
-    int (*acquire)(uint32_t flags);
-    void (*release)(void);
-    void (*announce)(uint16_t rpc_port);
-    int (*detach)(void (*fn)(void *arg), void *arg);       /* not on this base: a resident application is a task of its own */
-    const u2p_ring_api_t *ring;
-    int (*video)(u2p_video_t *v);
-    int (*stop_requested)(void);
-    int (*ui_request)(void (*fn)(void *arg), void *arg);   /* not on this base: the screens are the base's */
-} u2p_trx_api_t;
 
 typedef struct u2p_api_s {
     uint32_t size;
@@ -154,11 +141,10 @@ typedef struct u2p_api_s {
     const u2p_fs_api_t *fs;
     const u2p_media_api_t *media;
     const u2p_net_api_t *net;
-    const u2p_trx_api_t *trx;
     const SvcJob *job;
-    const SvcC64 *c64;
     const char *firmware_git;
     const char *firmware_version;
+    const LibApi *root;                   /* base 4.0: the root the base gave app_main, for the groups ABI 2 has no table for (io, ops, lib, ctx, ...) */
 } u2p_api_t;
 
 /* Builds the tables of ABI 2 over the root the base gave (LibApi, svctab.h); once, first thing in app_main. */

@@ -9,6 +9,8 @@
 #include "cores.h"
 #include "c128_regs.h"
 
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+
 struct P { int hdmi, sys, mode; uint32_t ow, oh, x0, y0; };
 
 int main()

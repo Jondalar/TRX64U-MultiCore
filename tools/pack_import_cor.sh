@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
-# Pack the large .cor of a core whose bitstream is built in another repository (release/imports/<id>.pin; T104.2: trx64g).
+# Pack the large .cor of a core whose bitstream is built in another repository (a pin in the BIT form; T104.2). Since T239.3 D46 TRX64-Ultimate's CI packs
+# trx64g.cor with this script and tools/pack_large_cor.sh (copied with provenance); this repository runs it only in tools/test_pack_import_cor.sh, and its
+# pins name both finished files by sha256 (release/imports/*.pin, ci/imports.py).
 #
 #   tools/pack_import_cor.sh --pin release/imports/<id>.pin --out dir [--app-bin coreapp.bin | (pin has APP_FILE)] [--bit <local file>]
 #                            [--app-file <local .app>] [--app-commit <sha>] [--manifest <local manifest.json>]
 #
-# A pin with DESC (the menu.toml) and OPS (the application's export) carries the core's menu as record 6 of the .cor, compiled and checked by tools/descrec.py.
+# A pin with DESC (the menu.toml, and the desc.toml after it, separated by a blank: one record 6) and OPS (the application's export) carries the core's menu as record 6 of the .cor, compiled and checked by tools/descrec.py.
 #
-# A pin without APP_FILE is packed with --app-bin (our generic application, trx64u); a pin with APP_FILE takes that .app of the same package
+# A pin without APP_FILE is packed with --app-bin; a pin with APP_FILE takes that .app of the same package
 # (Gideon's application, trx64g), SHA-256 checked against APP_SHA256, its 12-byte record header stripped.
 #
 # Without --bit the bitstream is downloaded from the generic package trx64-ultimate (FW_PKG)/<PKG_VERSION> of the same Gitea owner (needs
 # GITHUB_SERVER_URL, GITHUB_REPOSITORY and PACKAGE_TOKEN, as the rest of the pipeline). Either way its SHA-256 has to be the pin's:
 # a different file is refused and nothing is packed. The packing itself is tools/pack_large_cor.sh (IDCODE, sync word, map and hashes are
 # checked there and again by `cor_pack.py check`).
+#
+# HEAP= (T239.3 D15): the heap in bytes of a core that has no core.toml here; tools/cor_pack.py writes it into the heap word of the application and
+# refuses an image that does not fit. A pin without it keeps the image's own default; an application without the word (trx64g) is untouched.
 #
 # SEMVER= (T230 P-1): `x.y.z` (PKG_VERSION is a release) or `x.y.z-dev+<sha8>` (<sha8> = the one of PKG_VERSION); anything else is refused. The package's
 # manifest.json (downloaded with the bitstream, or --manifest) has "version" from TRX64-Ultimate's APPL_VERSION_NUMBER: when present, the x.y.z of
@@ -35,7 +40,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -f "$PIN" ] && [ -n "$OUT" ] || { sed -n '2,10p' "$0" >&2; exit 2; }
-ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS="" FILES=""
+ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS="" FILES="" HEAP=""
 # shellcheck disable=SC1090
 . "$PIN"
 # T221 D15 / T230 P-1: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one shows the commit.
@@ -82,6 +87,10 @@ fi
 cp "$BIT" "$W/${ID}_mono.bit"
 # the menu of a core of ours (T104.2 D10): record 6, every name and binding checked against what the application exports; a menu without the check is no menu
 rel() { case "$1" in /*) echo "$1";; *) echo "$ROOT/$1";; esac; }
-[ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$DESC")" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
-"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
+DESC_ARGS=()
+for f in $DESC; do [ -f "$(rel "$f")" ] || { echo "$PIN: DESC names $f, which does not exist" >&2; exit 2; }; DESC_ARGS+=(--desc "$(rel "$f")"); done
+[ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
+# the heap goes in only where the pin brings its own application
+HEAP_ARG=""; [ -z "$APP_FILE" ] || HEAP_ARG="$HEAP"
+"$HERE/pack_large_cor.sh" ${DESC_ARGS[@]+"${DESC_ARGS[@]}"} ${OPS:+--ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} ${HEAP_ARG:+--heap "$HEAP_ARG"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
     --icon "$ROOT/$ICON" --bit-commit "${PKG_VERSION##*-}" ${APPC:+--app-commit "$APPC"} --out "$OUT"

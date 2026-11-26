@@ -1,5 +1,5 @@
 #include "d1541_fs.h"
-#include "d1541_gcr.h"
+#include "d64_geom.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>

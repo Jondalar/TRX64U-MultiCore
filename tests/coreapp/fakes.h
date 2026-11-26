@@ -34,6 +34,11 @@ public:
     int read_budget = -1;                                  // file reads that still succeed (-1: unlimited): a stick pulled mid-copy
     int syncs = 0;                                         // CoreFile::sync() calls over all files
     bool sync_fails = false;
+    std::string loading_path;                              // open() of this path answers "still loading" (null, file_loading true) the next loading_n times, then gives the file
+    int loading_n = 0, loading_opens = 0;
+    bool fl_ = false;
+    bool file_loading(bool take) { bool r = fl_; if (take) fl_ = false; return r; }
+    const char *open_note() const { return "Downloading the file: open it again in a moment"; }
     int open_files = 0;                                    // files open() gave and close() has not taken back
     int fail_loads = 0;                                    // the next N loads fail (the stick is pulled between list and read)
     bool extend_writes = true;                             // CoreFile::write at the end of a file makes it longer (FAT does; the chunked writer needs it)
@@ -62,6 +67,7 @@ public:
         return true;
     }
 
+    std::set<std::string> size_unknown;                    // lower case paths whose listing says FS_SIZE_UNKNOWN (T262 D4 finding 14)
     void put(const std::string &path, const std::vector<uint8_t> &data) { files[lower(path)] = data; names[lower(path)] = path; }
     void put_text(const std::string &path, const std::string &text) { put(path, std::vector<uint8_t>(text.begin(), text.end())); }
     void put_size(const std::string &path, size_t n, uint8_t fill = 0xA5) { put(path, std::vector<uint8_t>(n, fill)); }
@@ -79,11 +85,34 @@ public:
         *out = it->second;
         return true;
     }
+    // T239.3 D41: a folder that a background job fetches (the Online results). list() of slow_dir fails the next slow_n times and says loading(); then, when slow_why is set, once more with that
+    // reason and not loading(); then it lists as any folder does.
+    std::string slow_dir, slow_why;
+    int slow_n = 0, slow_asked = 0;
+    bool loading() const override { return slow_loading_; }
+    const char *why() const override { return why_.c_str(); }
+    bool slow_loading_ = false;
+    std::string why_;
     int list(const char *dir, FsEntry *out, int max)
     {
         lists++;
+        slow_loading_ = false;
+        why_.clear();
         if (gone) {
             return -1;
+        }
+        if (!slow_dir.empty() && lower(dir) == lower(slow_dir)) {
+            slow_asked++;
+            if (slow_n > 0) {
+                slow_n--;
+                slow_loading_ = true;
+                return -1;
+            }
+            if (!slow_why.empty()) {
+                why_ = slow_why;
+                slow_why.clear();
+                return -1;
+            }
         }
         std::string d = lower(dir);
         while (d.size() > 1 && d.back() == '/') {
@@ -104,7 +133,7 @@ public:
             memset(&e, 0, sizeof(e));
             if (slash == std::string::npos) {
                 strncpy(e.name, rest.c_str(), sizeof(e.name) - 1);
-                e.size = kv.second.size();
+                e.size = size_unknown.count(kv.first) ? FS_SIZE_UNKNOWN : kv.second.size();
             } else {
                 strncpy(e.name, rest.substr(0, slash).c_str(), sizeof(e.name) - 1);
                 e.dir = true;
@@ -315,6 +344,12 @@ public:
 inline CoreFile *FakeFs::open(const char *path, bool rw)
 {
     std::string k = lower(path);
+    if (loading_n > 0 && !loading_path.empty() && lower(loading_path.c_str()) == k) {
+        loading_n--;
+        loading_opens++;
+        fl_ = true;
+        return 0;
+    }
     if (gone || !files.count(k)) return 0;
     open_files++;
     return new FakeFile(this, k, rw && !read_only);

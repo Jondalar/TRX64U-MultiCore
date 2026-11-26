@@ -1,4 +1,4 @@
-// T141 `rawkeys`: a USB keyboard delivered to the Amiga 500 and 1200 as raw key events (coreapp/src/rawkeys.cc, the table coreapp/cores/amiga_keys.h).
+// T141 `rawkeys`: a USB keyboard delivered to the Amiga 500 and 1200 as raw key events (coreapp/src/rawkeys.cc, the table cores/amiga/app/lib/amiga_keys.h).
 // S3: every key the Amiga has comes out as its raw code, the release once with bit 7. S4: each key once, the menu keys never reach the machine,
 // while the menu is open USB keys go nowhere, and the register's room is respected. The expected codes below are written out from the Amiga
 // Hardware Reference Manual's keyboard table, not read from amiga_keys.h.
@@ -66,6 +66,7 @@ static void settle(AmigaRig &r)
 
 int main()
 {
+#ifdef TEST_APP_A1200
     FakeFs fs;
     AmigaRig r(&fs, &amiga1200_desc);
     engines_of(&r.c);                                    // the record is made known
@@ -292,12 +293,16 @@ int main()
         CHECK(same(since(io, n0), { 0x20 }));            // the release of a key the reset forgot is not sent
     }
 
+#endif
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the Amiga 500 shares the queue (gateware: the shared amiga_input.v): the same record, the same events
     {
         FakeFs fs2;
         AmigaRig a(&fs2, &amiga_desc);
         CHECK(amiga_desc.rawkeys != 0);
+#ifdef TEST_APP_A1200
         CHECK(amiga1200_desc.rawkeys != 0);
+#endif
         rawkeys_configure(0);
         engines_of(&a.c);
         report(0, 0x04);
@@ -310,5 +315,6 @@ int main()
         for (uint32_t reg : a.io.rdlog) rd = rd || reg == AM_RAWKEY;
         CHECK(rd);
     }
+#endif
     DONE("rawkeys");
 }

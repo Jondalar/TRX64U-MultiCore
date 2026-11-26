@@ -1,0 +1,365 @@
+# The SDK's base UI TOML (T239.3 D32): the rows the application adds to every core and where each stands in the menu. A row is whole here: its label, key, kind, values and default (and its
+# pick, for a list that changes at run time, as a core's row names it), as a row of a core's UI TOML is otherwise; a place gives it its tab, its group and its order.
+# tools/gen_base_ui.py compiles the file with tools/descrec.py (sections 4, 23, 24 and 25, the records a core's UI TOML carries) into coreapp/src/base_ui.inc (routes, places and elements, menutree.cc) and
+# coreapp/src/base_rows.inc (the rows, menubuild.cc); tools/gen_base_ui.py --check (the lint stage) is red when an .inc is not what this file compiles to. What a row cannot say stays code, in
+# picture.cc, volume.cc, tone.cc, mediamounts.cc, home.cc, hotkeys.cc and baseset.cc: whether a core gets the row, the default a core's own map or the gateware sets, the values of a list that changes at run time, the
+# condition that depends on another row, and the operations. The menu simulator and the board build the same menu from this file.
+#
+# A core's UI TOML (menu.toml) puts a base row elsewhere with a [[place]] of the same operation (and key): it names the route, the group or the order it changes and leaves
+# the rest as it is here; a [[group_route]] of its own adds a block in a tab of its own route. The order numbers follow the order in which menubuild.cc adds the rows.
+
+# ---- the blocks: the tab of an area and the heading of the group (menutree.cc routes a row by the place it names)
+[[group_route]]
+group = "video"
+area = "F5"
+tab = "video"
+heading = "Video"
+
+[[group_route]]
+group = "audio"
+area = "F5"
+tab = "audio"
+heading = "Audio"
+
+# the app's settings stand on F7 (APP), not in the machine's F5 (T212 D1/D6); the hotkeys are one row that opens a page of them
+[[group_route]]
+group = "hotkeys"
+area = "F7"
+tab = "settings"
+heading = "Hotkeys"
+label = "Hotkeys"
+page = true
+
+[[group_route]]
+group = "appinput"
+area = "F7"
+tab = "settings"
+heading = "Input"
+
+[[group_route]]
+group = "storage"
+area = "F7"
+tab = "settings"
+heading = "Storage"
+
+[[group_route]]
+group = "menu"
+area = "F7"
+tab = "settings"
+heading = "Menu"
+
+# ---- the rows. Picture, Scale, Smoothing and Frame follow (picture.cc): the operations are the application's own, the key tells the rows apart
+[[place]]
+op = "picture.apply"
+key = "Picture"
+route = "video"
+group = "video"
+order = 10
+
+[[place]]
+op = "scale.apply"
+key = "Scale"
+route = "video"
+group = "video"
+order = 20
+
+[[place]]
+op = "smooth.apply"
+key = "Smoothing"
+route = "video"
+group = "video"
+order = 30
+
+[[place]]
+op = "follow.apply"
+key = "Frame follow"
+route = "video"
+group = "video"
+order = 40
+
+# Volume (volume.cc) and Tone (tone.cc)
+[[place]]
+op = "volume.apply"
+route = "audio"
+group = "audio"
+order = 50
+
+[[place]]
+op = "tone.apply"
+route = "audio"
+group = "audio"
+order = 60
+
+# Persist medium mounts (mediamounts.cc), Home directory, Enter home on startup and Menu opens at (home.cc)
+[[place]]
+op = "media.persist_apply"
+route = "storage"
+group = "storage"
+order = 70
+
+[[place]]
+op = "home.apply"
+key = "Enter Home on Startup"
+route = "storage"
+group = "storage"
+order = 80
+
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+route = "storage"
+group = "storage"
+order = 90
+
+[[place]]
+op = "home.apply"
+key = "Menu opens at"
+route = "menu"
+group = "system"
+order = 100
+
+# the hotkey map (hotkeys.cc): the modifier and one key per action and task, all on the Hotkeys page
+[[place]]
+op = "hotkeys.apply"
+route = "hotkeys"
+group = "input"
+order = 110
+
+# the joystick and the mouse of the generic application (baseset.cc)
+[[place]]
+op = "base.joystick"
+route = "appinput"
+group = "app"
+order = 160
+
+[[place]]
+op = "base.mouse_mode"
+route = "appinput"
+group = "app"
+order = 170
+
+[[place]]
+op = "base.mouse_sens"
+route = "appinput"
+group = "app"
+order = 180
+
+[[place]]
+op = "base.mouse_accel"
+route = "appinput"
+group = "app"
+order = 190
+
+[[place]]
+op = "base.wheel_sens"
+route = "appinput"
+group = "app"
+order = 200
+
+[[place]]
+op = "base.wheel_dir"
+route = "appinput"
+group = "app"
+order = 210
+
+# ---- the rows: label, key, kind, values and default of every row the application adds to every core (T239.3 D32, P2-4 and its QC entry). They are the rows of a core's UI TOML ([[core_setting]],
+# the same keys, tools/descrec.py) with one difference that belongs to the application: a row may take the key and the operation of Picture, Scale, Smoothing and Frame follow. A list that changes at run time names its `pick`; the values of such a row are what it shows until the list has filled it; the lists are what the application serves: "video.modes" the resolutions the screen takes,
+# "hotkeys.modifiers" and "hotkeys.keys" the names of the keys the core's keyboard has. tools/gen_base_ui.py compiles the rows into coreapp/src/base_rows.inc; the extend functions of
+# menubuild.cc take a row from there (menu_base_row) and keep only what a row cannot say: whether the core gets the row at all, a default that the core's own map or the gateware sets,
+# the values of a list that changes at run time, the condition of a row that depends on another row. The group a row stands in is its place's (above), not the row's; a place finds its row by operation and key.
+[lists]
+volume_steps = ["0%", "5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "55%", "60%", "65%", "70%", "75%", "80%", "85%", "90%", "95%", "100%", "105%", "110%", "115%", "120%", "125%", "130%", "135%", "140%", "145%", "150%", "155%", "160%", "165%", "170%", "175%", "180%", "185%", "190%", "195%", "200%"]
+hotkey_keys = ["Off", "DEL", "RETURN", "CRSR RIGHT", "F7", "F1", "F3", "F5", "CRSR DOWN", "3", "W", "A", "4", "Z", "S", "E", "L SHIFT", "5", "R", "D", "6", "C", "F", "T", "X", "7", "Y", "G", "8", "B", "H", "U", "V", "9", "I", "J", "0", "M", "K", "O", "N", "+", "P", "L", "-", ".", ":", "@", ",", "POUND", "*", ";", "HOME", "R SHIFT", "=", "UP ARROW", "/", "1", "LEFT ARROW", "CTRL", "2", "SPACE", "C=", "Q", "RUN/STOP", "RESTORE"]
+hotkey_modifiers = ["Off", "CTRL", "C=", "C= + CTRL", "C= + L SHIFT", "C= + RUN/STOP", "CTRL + L SHIFT", "CTRL + RUN/STOP"]
+
+# Picture (picture.cc): the resolutions come from the screen's EDID, the machine's family and the gateware, so the row names its pick. Scale, Smoothing and Frame follow are the rows
+# of a core on a gateware that has the register; the default of Scale on the VIC path is Fit (picture_extend)
+[[core_setting]]
+key = "Picture"
+values = ["Auto"]
+pick = "video.modes"
+apply = "picture.apply"
+
+[[core_setting]]
+key = "Scale"
+values = ["Integer", "Fit", "Fill"]
+default = "Integer"
+apply = "scale.apply"
+
+[[core_setting]]
+key = "Smoothing"
+values = ["Off", "On"]
+default = "Off"
+apply = "smooth.apply"
+
+[[core_setting]]
+key = "Frame follow"
+values = ["Off", "On"]
+default = "Off"
+apply = "follow.apply"
+
+# Volume (volume.cc, T160 D1): 0 % .. 200 % in steps of 5 %, 100 % is unity
+[[core_setting]]
+key = "Volume"
+list = "volume_steps"
+default = "100%"
+apply = "volume.apply"
+
+# Tone (tone.cc, T189): the register's values 0, 1, 2
+[[core_setting]]
+key = "Tone"
+values = ["Flat", "Bass boost", "Treble boost"]
+default = "Flat"
+apply = "tone.apply"
+
+# Persist medium mounts (mediamounts.cc, T180 D2): off by default, it has to be set actively
+[[core_setting]]
+key = "Persist medium mounts"
+values = ["No", "Yes"]
+default = "No"
+apply = "media.persist_apply"
+
+# Enter home on startup, Home directory and Menu opens at (home.cc, T180 D10, T192.3 D30); the host's Disabled / Enabled of its start-in-home setting is translated by Settings::load
+[[core_setting]]
+key = "Enter Home on Startup"
+label = "Enter home on startup"
+values = ["No", "Yes"]
+default = "No"
+apply = "home.apply"
+
+[[core_setting]]
+key = "Home Directory"
+label = "Home directory"
+text = true
+maxlen = 60
+default = ""
+apply = "home.apply"
+
+[[core_setting]]
+key = "Menu opens at"
+values = ["Home (F1)", "Last screen"]
+default = "Home (F1)"
+apply = "home.apply"
+
+# the hotkey map (hotkeys.cc, T181 D3): the modifier and one key per action. The default of a row is the core's map (its [hotkeys]), the names of the keys are the C64's keycaps, and a core
+# whose keyboard is a PC's (HkSpec::pc_keys) gets the three keys it presses named for it by the list. The row of a core's own function and the rows of its hotkey tasks are the core's.
+[[core_setting]]
+key = "Hotkey modifier"
+label = "Modifier"
+list = "hotkey_modifiers"
+default = "Off"
+pick = "hotkeys.modifiers"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey menu"
+label = "Menu open / close"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey volume up"
+label = "Volume up"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey volume down"
+label = "Volume down"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey reset"
+label = "Reset"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey swap joystick"
+label = "Swap joystick ports"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+[[core_setting]]
+key = "Hotkey picture mode"
+label = "Picture mode"
+list = "hotkey_keys"
+default = "Off"
+pick = "hotkeys.keys"
+apply = "hotkeys.apply"
+
+# the joystick and the mouse of the generic application (baseset.cc): a core gets the joystick and mouse rows when it names the capability, the two cursor rows only while Mouse Mode says cursor keys
+[[core_setting]]
+key = "Joystick Input"
+label = "Joystick input"
+values = ["Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"]
+default = "Normal"
+apply = "base.joystick"
+
+[[core_setting]]
+key = "Mouse Mode"
+label = "Mouse as"
+values = ["Cursor keys", "Wheel: cursor keys", "Wheel: joystick"]
+default = "Cursor keys"
+apply = "base.mouse_mode"
+
+[[core_setting]]
+key = "Mouse Sensitivity"
+label = "Mouse cursor sensitivity"
+range = [1, 16]
+default = 8
+show_state = "set.Mouse_Mode==Cursor keys"
+apply = "base.mouse_sens"
+
+[[core_setting]]
+key = "Mouse Acceleration"
+label = "Mouse cursor acceleration"
+values = ["Off", "Adaptive"]
+default = "Off"
+show_state = "set.Mouse_Mode==Cursor keys"
+apply = "base.mouse_accel"
+
+[[core_setting]]
+key = "Mouse Wheel Sensitivity"
+label = "Mouse wheel sensitivity"
+range = [1, 16]
+default = 8
+apply = "base.wheel_sens"
+
+[[core_setting]]
+key = "Mouse Wheel Direction"
+label = "Mouse wheel direction"
+values = ["Normal", "Reversed"]
+default = "Normal"
+apply = "base.wheel_dir"
+
+# ---- the elements of the overlay service (T256 D8, D9, D10): what the base itself puts over the machine's picture, and the still every core's libraries may fill. Places in canvas pixels
+# (960 x 540). A core's UI TOML adds the elements of its libraries with [[element]] and places a base element again by naming it (a core's PAUSED tag, for example).
+# the still: the picture of the stopped machine, under the open menu and under the elements while the machine stands. The base takes it when the machine stops; a library may show its own
+# surface as the still (Timewarp's frame). The whole canvas.
+[[element]]
+name = "still"
+anchor = "top_left"
+w = 960
+h = 540
+still = true
+
+# the PAUSED tag (D5: it says only "PAUSED"), the base's first user of the service: top right, 14 pixels from the edge
+[[element]]
+name = "paused"
+anchor = "top_right"
+dx = -14
+dy = 14
+w = 126
+h = 30

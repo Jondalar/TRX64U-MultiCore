@@ -4,7 +4,7 @@
 #include "file_info.h"
 #include "indexed_list.h"
 #include "filesystem_fat.h"
-#include "fastseek.h"
+#include "fastseek_api.h"
 #include "file_device.h"
 #include <stdio.h>
 #include <string.h>
@@ -18,6 +18,8 @@ bool fm_path_writable(const char *path);
 namespace {
 
 #if FF_USE_FASTSEEK
+static const FastSeekApi *g_fastseek;
+
 // A FatFs file of the Ultimate file system is a FileFAT; a file inside a mounted image, on FTP or the like is another class and has no FIL.
 // There is no RTTI, so the class is told by the vtable pointer of a FileFAT that is only ever constructed here: a File of any other class
 // cannot match, the worst case is a FileFAT that is not recognised (and stays on the slow path).
@@ -32,12 +34,12 @@ class FmFile : public CoreFile {
     File *f;
     bool rw;
 #if FF_USE_FASTSEEK
-    FastSeek seekmap;           // the cluster link map of the open file (T104 5.16)
+    void *seekmap;              // the cluster link map policy of the open file (T104 5.16), made by the fast seek library; null: none
     bool fat;                   // f is a FileFAT
     void access(uint64_t off, uint32_t len, bool write)
     {
-        if (fat) {
-            seekmap.access(static_cast<FileFAT *>(f)->getFIL(), off, len, write, f->get_path());
+        if (fat && seekmap) {
+            g_fastseek->access(seekmap, static_cast<FileFAT *>(f)->getFIL(), off, len, write, f->get_path());
         }
     }
 #else
@@ -48,8 +50,17 @@ public:
     {
 #if FF_USE_FASTSEEK
         fat = is_fat_file(file);
+        seekmap = fat && g_fastseek ? g_fastseek->make() : 0;
 #endif
     }
+#if FF_USE_FASTSEEK
+    ~FmFile()
+    {
+        if (seekmap) {
+            g_fastseek->destroy(seekmap);
+        }
+    }
+#endif
     uint64_t size() { return f->get_size(); }
     bool writable() { return rw; }
     bool read(uint64_t off, void *buf, uint32_t len)
@@ -184,9 +195,6 @@ public:
         if (fs_write_refused(path)) {
             return false;
         }
-        if (!strncasecmp(path, BOARD_MONOLITH_CFG_DIR "/", sizeof(BOARD_MONOLITH_CFG_DIR))) {   // the monolith's two files: the directory may not exist yet (FR_EXIST is fine)
-            FileManager :: getFileManager()->create_dir(BOARD_MONOLITH_CFG_DIR);
-        }
         char dir[FS_PATH_MAX];
         const char *slash = strrchr(path, '/');
         if (!slash || slash == path || (size_t)(slash - path) >= sizeof(dir)) {
@@ -194,6 +202,9 @@ public:
         }
         memcpy(dir, path, slash - path);
         dir[slash - path] = 0;
+        if (fs_path_is_flash(path) && fs_flash_exception(path) && strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {   // the standalone core's two files: the directory may not exist yet (FR_EXIST is fine)
+            FileManager :: getFileManager()->create_dir(dir);
+        }
         uint32_t tr = 0;
         FRESULT r = FileManager :: getFileManager()->save_file(true, dir, slash + 1, (const uint8_t *)buf, len, &tr);
         return r == FR_OK && tr == len;
@@ -263,6 +274,15 @@ public:
     }
 };
 
+}
+
+void fm_fs_set_fastseek(const FastSeekApi *api)
+{
+#if FF_USE_FASTSEEK
+    g_fastseek = api;
+#else
+    (void)api;
+#endif
 }
 
 CoreFs *fm_fs(void)

@@ -1,0 +1,34 @@
+# TOML B of the exports test (tests/loader/run.sh): the five libraries whose tables test_exports.cc reads, over the recording model of the code behind them (exports_stub.cc). Base 4.0: each
+# library lists its table under `exports` (libslot.h); the entries are the ones of coreapp/libs/shared.toml that the test needs: `bind` (the context the table's members use) and `core` (c64cart: does the
+# running core have the port). The entries that name functions of the board code the test does not link are left out.
+[app]
+name = "exports_test"
+
+[[library]]
+name = "c64cart"
+sources = ["c64_cart.cc", "c64cart_exports.cc"]
+bind = "c64cart_bind"
+core = "c64cart_lib_core"
+exports = [{ name = "c64cart", major = 1, table = "c64cart_table" }]
+
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "cbm1541_exports.cc"]
+bind = "cbm1541_bind"
+exports = [{ name = "cbm1541", major = 1, table = "cbm1541_table" }]
+
+[[library]]
+name = "sid"
+sources = ["sidfile.cc", "sid_exports.cc"]
+exports = [{ name = "sid", major = 1, table = "sid_table" }]
+
+[[library]]
+name = "tempdisk"
+sources = ["tempdisk.cc", "tempdisk_exports.cc"]
+exports = [{ name = "tempdisk", major = 1, table = "tempdisk_table" }]
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]

@@ -1,0 +1,23 @@
+# A fixture TOML A for tests/rtl_check/mini8 (T239.3 review 8 (mix)): reads at 0x2F and 0x3F through an index outside the vector; never a pass.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "ix"
+module = "mix"
+owner = "base"
+address = 0x1000002F
+size = 0x11
+
+  [[block.property]]
+  name = "lo"
+  offset = 0x0
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "hi"
+  offset = 0x10
+  width = 8
+  dir = "r"

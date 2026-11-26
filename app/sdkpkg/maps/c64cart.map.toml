@@ -1,0 +1,149 @@
+# The map of the cartridge page of trx_io (coreapp/cores/c64_regs.h C64_CART_*, used by coreapp/cores/c64_cart.cc): offsets are bytes from the block's address
+# (the block of that register range, D34). The descriptor at +0x40 is a run of 43 byte registers (trx_io.v: off 0x040 .. 0x06A), the property "desc"; the block is at least 0x6B bytes.
+map = "c64cart"
+
+[[property]]
+name = "fl_enable"
+offset = 0x00
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1
+
+[[property]]
+name = "fl_magic1"
+offset = 0x04
+width = 16
+dir = "w"
+
+[[property]]
+name = "fl_magic2"
+offset = 0x08
+width = 16
+dir = "w"
+
+[[property]]
+name = "fl_mask"
+offset = 0x0C
+width = 16
+dir = "w"
+
+[[property]]
+name = "fl_id_mfr"
+offset = 0x10
+width = 8
+dir = "w"
+
+[[property]]
+name = "fl_id_dev"
+offset = 0x11
+width = 8
+dir = "w"
+
+[[property]]
+name = "fl_id_ofs"
+offset = 0x12
+width = 8
+dir = "w"
+
+[[property]]
+name = "evt"
+offset = 0x20
+width = 32
+dir = "r"
+  [[property.field]]
+  name = "data"
+  shift = 0
+  bits = 8
+  [[property.field]]
+  name = "chip_addr"
+  shift = 8
+  bits = 21
+  [[property.field]]
+  name = "chip"
+  shift = 29
+  bits = 1
+  [[property.field]]
+  name = "op"
+  shift = 30
+  bits = 2
+    [[property.field.state]]
+    name = "program"
+    value = 1
+    [[property.field.state]]
+    name = "sector_erase"
+    value = 2
+    [[property.field.state]]
+    name = "chip_erase"
+    value = 3
+
+[[property]]
+name = "evt_hi"
+offset = 0x24
+width = 8
+dir = "r"
+  [[property.field]]
+  name = "chip_addr_hi"
+  shift = 0
+  bits = 2
+
+[[property]]
+name = "cmd"
+offset = 0x28
+width = 8
+dir = "w"
+  [[property.field]]
+  name = "ack"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "inval"
+  shift = 1
+  bits = 1
+
+[[property]]
+name = "wr_count"
+offset = 0x2C
+width = 16
+dir = "r"
+
+[[property]]
+name = "rom_sel"
+offset = 0x30
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "source"
+  shift = 0
+  bits = 2
+    [[property.field.state]]
+    name = "cart_rom_start"
+    value = 0
+    [[property.field.state]]
+    name = "expansion_port_block"
+    value = 1
+
+[[property]]
+name = "xport_caps"
+offset = 0x38
+width = 8
+dir = "r"
+  [[property.field]]
+  name = "image_8mb"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "ef3_banking"
+  shift = 1
+  bits = 1
+
+[[property]]
+name = "desc"
+offset = 0x40
+width = 8
+count = 43
+dir = "w"

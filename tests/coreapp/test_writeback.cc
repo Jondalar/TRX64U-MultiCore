@@ -211,6 +211,23 @@ int main()
         delete r;
     }
 
+    // ---- D50/D51 (review): the real c64_cart.cc drops the cartridge's cached lines (cmd.inval) after an image write and in c64_cart_drop_cache, and an image write is no change to write back
+    {
+        Rig *r = ef_rig(4);
+        uint8_t b[16];
+        memset(b, 0x5A, sizeof(b));
+        r->m.p4[C64_CART_CMD] = 0;
+        c64_cart_image_write(&r->c, 0x100, b, sizeof(b));
+        CHECK_EQ(r->m.p4_get(C64_CART_CMD), C64_CART_CMD_INVAL);
+        CHECK_EQ(r->img(0x100), 0x5A);                              // the bytes went to the image
+        CHECK(!wb_pending());                                       // a restore is not a change
+        r->m.p4[C64_CART_CMD] = 0;
+        c64_cart_drop_cache(&r->c);
+        CHECK_EQ(r->m.p4_get(C64_CART_CMD), C64_CART_CMD_INVAL);
+        CHECK(!wb_pending());
+        delete r;
+    }
+
     // ---- S1: EasyFlash save on Auto
     {
         Rig *r = ef_rig(4);
@@ -630,15 +647,15 @@ int main()
         struct Src { static int read(void *u, uint32_t off, void *buf, uint32_t n) { memcpy(buf, (uint8_t *)u + off, n); return 0; } };
         WbRaw raw = { Src::read, ram.data(), (uint32_t)ram.size() };
         r->c.cor_path[0] = 0;
-        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/nes.cor");
+        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/dummycon.cor");
         char path[260];
-        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path)));
-        CHECK_STR(path, "/SD/cores/nes/saves/Zelda II.sav");                   // Q2, T148 D5
+        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path)));
+        CHECK_STR(path, "/SD/cores/dummycon/saves/Zelda II.sav");                   // Q2, T148 D5
         r->c.cor_path[0] = 0;
-        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path)));
+        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path)));
         CHECK_STR(path, "/SD/games/Zelda II.sav");                             // no core folder: beside the game
-        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/nes.cor");
-        wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path));
+        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/dummycon.cor");
+        wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path));
         WbMedium m;
         memset(&m, 0, sizeof(m));
         snprintf(m.path, sizeof(m.path), "%s", path);

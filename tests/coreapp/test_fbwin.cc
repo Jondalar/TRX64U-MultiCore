@@ -7,6 +7,7 @@
 #include "engines.h"
 #include "video.h"
 
+#ifdef TEST_APP_A1200                   // the A1200 is the app of its own (a12app)
 static const FbWinSpec &spec() { return *amiga1200_desc.fbwin; }
 
 static FbWin compute(uint32_t hs, uint32_t he, uint32_t vs, uint32_t ve, bool *ok = 0)
@@ -16,6 +17,7 @@ static FbWin compute(uint32_t hs, uint32_t he, uint32_t vs, uint32_t ve, bool *o
     if (ok) *ok = r;
     return w;
 }
+#endif
 
 static void set_diw(AmigaIo &io, uint32_t hs, uint32_t he, uint32_t vs, uint32_t ve)
 {
@@ -52,6 +54,7 @@ static void run(AmigaRig &r, int polls, int ms_per_poll = 20, bool frames = true
 
 int main()
 {
+#ifdef TEST_APP_A1200
     // ---- the compute step
     {
         bool ok;
@@ -259,6 +262,8 @@ int main()
         run(r, 20, 100);
         CHECK_EQ(r.io.log.size(), 0u);
     }
+#endif
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // ---- the Amiga 500 has no record
     {
         FakeFs fs;
@@ -270,5 +275,6 @@ int main()
         run(r, 20, 100);
         CHECK_EQ(r.io.log.size(), 0u);
     }
+#endif
     DONE("fbwin");
 }

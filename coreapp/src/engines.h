@@ -15,7 +15,7 @@
 #include "romset.h"
 #include "winslot.h"
 #include "sectors.h"
-#include "mousesink.h"
+#include "mouse_api.h"
 #include "rawkeys.h"
 #include "fbwin.h"
 #include "ledload.h"

@@ -1,0 +1,89 @@
+# A fixture TOML A for the miniature design of tests/rtl_check/mini (T239.3 P1-3): one VHDL module that decodes a request and a Verilog module behind a strobe.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "ctl"
+module = "ctl"
+owner = "base"
+address = 0x10000000
+size = 0x2
+
+  [[block.property]]
+  name = "ctl"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "tag"
+  offset = 0x0
+  width = 8
+  count = 2
+  dir = "r"
+
+[[block]]
+name = "dev"
+module = "dev"
+owner = "base"
+address = 0x10000110
+size = 0x2
+
+  [[block.property]]
+  name = "a"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "id"
+  offset = 0x1
+  width = 8
+  dir = "r"
+
+# a concatenation target ({bh, bl} <= wdata), a Verilog for loop with < (two registers) and a generate branch that only the instance's parameter G = 1 (the default is 0) opens
+[[block]]
+name = "dev_ext"
+module = "dev"
+owner = "base"
+address = 0x10000112
+size = 0x1
+
+  [[block.property]]
+  name = "pair"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "dev_loop"
+module = "dev"
+owner = "base"
+address = 0x10000114
+size = 0x2
+
+  [[block.property]]
+  name = "m0"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "m1"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "dev_gen"
+module = "dev"
+owner = "base"
+address = 0x10000118
+size = 0x1
+
+  [[block.property]]
+  name = "g"
+  offset = 0x0
+  width = 8
+  dir = "rw"

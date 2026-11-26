@@ -1,4 +1,8 @@
 #include "libboard.h"
+#include "libexports.h"
+#include "mediamounts.h"
+#include "libtab.h"
+#include "menuflows.h"
 #include "ops_glue.h"
 #include "romfind.h"
 #include "libguard.h"
@@ -6,8 +10,17 @@
 #include "u64.h"
 #include "usb_base.h"
 #include "usb_hub.h"
+#include "gitinfo.h"
+#include "regset.h"
+#include "rest.h"
+#include "hw.h"
+#include "itu.h"
+#include "product.h"
+#include "picture.h"
+#include "i2c_drv.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -29,10 +42,13 @@ __asm__(".pushsection .text.lib_icache_sweep, \"ax\", @progbits\n"
 
 namespace {
 
+extern "C" void SetVideoPll(t_video_mode mode, int ppm);
+extern "C" void ResetHdmiPll(void);
+
 class BoardLibHost : public DescLibHost {
 public:
-    explicit BoardLibHost(const CoreDesc *d) : DescLibHost(d) { }
-    // FreeRTOS' heap (heap_4) hands out 16-byte aligned blocks; the loader asks for size + alignment and aligns inside, so a 4096 alignment works too
+    explicit BoardLibHost(const CoreDesc *d) : DescLibHost(d) { memset(ts_, 0, sizeof(ts_)); }
+    // FreeRTOS' heap (heap_5) hands out 16-byte aligned blocks; the loader asks for size + alignment and aligns inside, so a 4096 alignment works too
     void *alloc(uint32_t n) { return pvPortMalloc(n); }
     void release(void *p) { vPortFree(p); }
     uint32_t addr_of(const void *p) { return (uint32_t)(uintptr_t)p; }          // no MMU: the CPU sees the byte where it is
@@ -52,6 +68,88 @@ public:
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
     void enter() { portENTER_CRITICAL(); }
     void leave() { portEXIT_CRITICAL(); }
+    // base 3.3 (svc_sync.h, svc_sys.h, svc_board.h). A mutex is a FreeRTOS one with priority inheritance; the lock waits the ticks of timeout_ms rounded up to the 5 ms tick.
+    void *mutex_new() { return (void *)xSemaphoreCreateMutex(); }
+    bool mutex_lock(void *m, uint32_t timeout_ms)
+    {
+        TickType_t t = timeout_ms == 0xFFFFFFFFu ? portMAX_DELAY : (timeout_ms == 0 ? 0 : pdMS_TO_TICKS(timeout_ms) + 1);
+        return m && xSemaphoreTake((SemaphoreHandle_t)m, t) == pdTRUE;
+    }
+    void mutex_unlock(void *m) { if (m) { xSemaphoreGive((SemaphoreHandle_t)m); } }
+    void mutex_free(void *m) { if (m) { vSemaphoreDelete((SemaphoreHandle_t)m); } }
+    uint16_t ms_timer() { return getMsTimer(); }
+    const char *app_version() { return APP_VERSION_STRING; }
+    const char *app_git() { return APP_VERSION_HASH; }
+    void yield() { taskYIELD(); }
+    uint32_t fpga_caps() { return getFpgaCapabilities(); }
+    bool is_commodore() { return isCommodoreBoard(); }
+    int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms) { return hw_esp32_rpc(cmd, args, nargs, reply, maxreply, timeout_ms); }
+    void video_set_system(CoreCtx *c, int sys) { if (c) { picture_set_system(c, sys); } }
+    void video_set_pll(int sys, int ppm)
+    {
+        SetVideoPll((t_video_mode)sys, ppm);
+        ResetHdmiPll();
+    }
+    // The SID sockets' expander (0x40 on the 1.8 V channel), under the bus lock the keyboard scan shares.
+    int sid_i2c_open()
+    {
+        if (!i2c) {
+            return 0;
+        }
+        if (!i2c->i2c_lock("SID Configuration")) {
+            return -1;
+        }
+        i2c->set_channel(I2C_CHANNEL_1V8);
+        return 1;
+    }
+    void sid_i2c_write(uint8_t reg, uint8_t v) { i2c->i2c_write_byte(0x40, reg, v); }
+    void sid_i2c_close() { i2c->i2c_unlock(); }
+    // The owner of the handler a task runs (libload.h): kept by task, as the build has no thread-local storage. A task that is in no handler has no entry.
+    // A table that is full drops the new entry: the task's allocations then go to the application that is open, as before the scope existed.
+    int task_scope()
+    {
+        void *t = (void *)xTaskGetCurrentTaskHandle();
+        int v = -1;
+        portENTER_CRITICAL();
+        for (int i = 0; i < SCOPE_TASKS; i++) {
+            if (ts_[i].task == t) {
+                v = ts_[i].slot;
+                break;
+            }
+        }
+        portEXIT_CRITICAL();
+        return v;
+    }
+    void set_task_scope(int slot)
+    {
+        void *t = (void *)xTaskGetCurrentTaskHandle();
+        portENTER_CRITICAL();
+        int at = -1, free_at = -1;
+        for (int i = 0; i < SCOPE_TASKS; i++) {
+            if (ts_[i].task == t) {
+                at = i;
+                break;
+            }
+            if (!ts_[i].task && free_at < 0) {
+                free_at = i;
+            }
+        }
+        if (slot < 0) {
+            if (at >= 0) {
+                ts_[at].task = 0;
+            }
+        } else if (at >= 0) {
+            ts_[at].slot = slot;
+        } else if (free_at >= 0) {
+            ts_[free_at].task = t;
+            ts_[free_at].slot = slot;
+        }
+        portEXIT_CRITICAL();
+    }
+
+private:
+    enum { SCOPE_TASKS = 24 };
+    struct { void *task; int slot; } ts_[SCOPE_TASKS];
 };
 
 class ConsoleLog : public LibLog {
@@ -233,13 +331,22 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     }
     done = true;
     // The host and the loader come first and always: the applications of the core's folder (apphost.h) load through the same loader whether or not the
-    // libraries are loaded this time (a skipped start loads none of them, T104.1 D12).
+    // linked libraries register this time (a skipped start registers none of them, T104.1 D12).
     static BoardLibHost host(c->desc);
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
+    loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
+    loader.set_media_source(mounts_unit_source);                // ctx.media_source for the window drives and the sector units
+    loader.set_windows(bundle ? bundle->desc : 0);              // io.window: the register windows of the core's description record (section 19)
+    loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
+    libexports_register(loader, c);                             // base 3.3 (libexports.cc): the bind entry of every library TOML B names (libtab.h)
+    loader.set_settings_apply(regset_apply_setting);
+    loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);
+    menu_set_export_finder(LibLoader::find_export);              // the terminal layout finds its text grid by the name of its `grid` parameter, among the linked exports (libslot.h)
     // The rescue from a crashing library (libguard.h): decided before anything of the stick is touched, and before the wait for it.
-    static LibGuard g(c->fs, c->board && c->board->boot_cfg ? c->board->boot_cfg : FS_FLASH_BOOT_MULTICORE);
+    // The monolith with no valid core id has no boot.cfg and no flash exception (api.md 4.4.3): its guard counts in memory, it never falls back to the host's file.
+    static LibGuard g(c->fs, !c->board || c->board->kind == BOARD_MULTICORE ? FS_FLASH_BOOT_MULTICORE : c->board->boot_cfg);
     guard = &g;
     LibGuardPlan plan;
     g.begin(commodore_key_held(c->io), &plan);
@@ -270,7 +377,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     void (*arm_cb)(void *) = [](void *x) {
         Arm *a = (Arm *)x;
         if (a->done) {
-            return;                                                   // the guard arms before the first library of the bundle or the stick, once
+            return;                                                   // the guard arms before the first linked library registers, once
         }
         a->done = true;
         a->g->arm(a->p);
@@ -280,43 +387,14 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
             a->rep->title = "Crash guard";
         }
     };
-    // The bundle's own libraries first (T104.1 D12, Q5): the copy the core was tested with wins over a stick's of the same name.
-    LibScanResult cres;
-    memset(&cres, 0, sizeof(cres));
-    if (bundle && bundle->probed && bundle->ci.size[COR_PART_LIBS]) {
-        lib_load_cor(&loader, c->fs, c->cor_path, bundle->ci.off[COR_PART_LIBS], bundle->ci.size[COR_PART_LIBS], &log, &cres, arm_cb, &arm);
-    }
-    lib_load_folder(&loader, c->fs, lib_roots, LIB_FOLDER, &log, &res, arm_cb, &arm);
-    if (cres.loaded || cres.refused) {
-        // one result for the screen and the Home line: the bundle's refusals first
-        LibScanResult all = res;
-        all.loaded += cres.loaded;
-        all.refused += cres.refused;
-        all.nkept = 0;
-        for (int i = 0; i < cres.nkept && all.nkept < LIB_REFUSALS_KEPT; i++) {
-            memcpy(all.kept[all.nkept++], cres.kept[i], LIB_ERR_MAX);
-        }
-        for (int i = 0; i < res.nkept && all.nkept < LIB_REFUSALS_KEPT; i++) {
-            memcpy(all.kept[all.nkept++], res.kept[i], LIB_ERR_MAX);
-        }
-        if (all.refused) {
-            snprintf(all.summary, sizeof(all.summary), "%d loaded, %d refused", all.loaded, all.refused);
-        } else {
-            snprintf(all.summary, sizeof(all.summary), "%d loaded", all.loaded);
-        }
-        res = all;
-    }
-    printf("[lib] %d loaded, %d refused; resident %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.resident_bytes(),
-           (unsigned)free_before, (unsigned)xPortGetFreeHeapSize());
-    // The board test of the library build path (docs/specs/T104.1 5.5): app/lib/testlib registers test.echo and test.version, and the only way
-    // to see its RISC-V code run before a menu or the REST door can call it is to call it here. Present only when that file is on the stick.
-    if (ops_of(c)->find_op("test.echo")) {
-        OpResult out;
-        OpIn in = in_str("text", "ping");
-        int rc = ops_call(c, "test.echo", &in, 1, &out);
-        const char *ver = ops_state(c, "test.version");
-        printf("[lib] self-test: test.echo(\"ping\") -> rc %d \"%s\"; test.version -> \"%s\"\n", rc, out.msg, ver ? ver : "(none)");
-    }
+    // Base 4.0 (T239.3 D58): no library file is loaded. The libraries linked with `register` register here, in the order of their needs, each with the menu record the
+    // bundle carries for it (record 7 version 2), under the crash guard.
+    lib_link_cor(&loader, c->fs, c->cor_path, bundle && bundle->probed ? bundle->ci.off[COR_PART_LIBS] : 0, bundle && bundle->probed ? bundle->ci.size[COR_PART_LIBS] : 0,
+                 libtab_link, &log, &res, arm_cb, &arm);
+    // accounts: everything the heap gave the linked libraries and has not got back (their blocks with headers, files, menu records); the heap free drops by about
+    // that much plus the block headers of the heap itself (S14)
+    printf("[lib] %d linked, %d refused; accounts %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.held_total(), (unsigned)free_before,
+           (unsigned)xPortGetFreeHeapSize());
     snprintf(summary, sizeof(summary), "%s", res.summary);
     rep->loaded = res.loaded;
     rep->refused = res.refused;

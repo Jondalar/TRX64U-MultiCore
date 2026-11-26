@@ -1,7 +1,7 @@
 // Starting a core from a .cor bundle (T84 D6): verify and stage everything first, then cut the old core
 // off, stream the partial bitstream through the ICAP (layer 1, T79.1 section 7), and softboot the bundle's
 // application: copy it to its load address and jump. The application releases the decouple and resets
-// its core. Same sequence as apps/coreload (t79-coreload) followed by apps/softboot's copy_and_jump.
+// its core.
 #ifndef HOST_COREBOOT_H
 #define HOST_COREBOOT_H
 

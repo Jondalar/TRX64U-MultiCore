@@ -47,6 +47,11 @@ static bool absent_for_sure(CoreFs *fs, const char *path)
 // failing stat() is "absent" only when the folder lists and the name is not in it; otherwise the file is unknown (false).
 bool LibGuard::read(int *v, bool *exists)
 {
+    if (!path_[0]) {                     // a standalone core with no valid id has no file: the counter lives in memory
+        *exists = false;
+        *v = stored_;
+        return true;
+    }
     uint64_t size;
     bool dir;
     *exists = fs_->stat(path_, &size, &dir) && !dir;
@@ -66,6 +71,10 @@ bool LibGuard::read(int *v, bool *exists)
 // Replaces only lib_attempt: the rest of the file goes through BootCfg as the host itself would write it (read() parsed it into g_cfg).
 bool LibGuard::write(int v)
 {
+    if (!path_[0]) {
+        stored_ = v;
+        return true;
+    }
     g_cfg.lib_attempt = v;
     int n = bootcfg_format(&g_cfg, g_text, sizeof(g_text));
     if (n < 0 || !fs_->save(path_, g_text, (uint32_t)n)) {

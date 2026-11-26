@@ -1,6 +1,6 @@
 // "Start at this address" for the C64 (T104.2 D6): the CPU's program counter set directly, so a program that was loaded over the zero
-// page, the stack or the keyboard buffer - which a typed SYS needs intact - runs all the same. It is the path the monitor app uses
-// (TRX64-Ultimate software/ultimate-app/apps/trxmon: hw_trx.c hw_cpu_write, T21 5.1.1): the debug block stops the machine on an
+// page, the stack or the keyboard buffer - which a typed SYS needs intact - runs all the same. It is the path a debugger takes
+// (TRX64-Ultimate's monitor, hw_cpu_write, T21 5.1.1): the debug block stops the machine on an
 // instruction boundary, the CPU's flip-flops are staged through the state bus with PC and the fetched opcode replaced, and they load
 // at the next edge the gate lets through. It needs CAPS2 b2; without it the caller types SYS.
 //

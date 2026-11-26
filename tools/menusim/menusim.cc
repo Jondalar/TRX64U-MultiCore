@@ -5,6 +5,8 @@
 //
 //   tools/menusim/run.sh <core> [--mode M] [--toml FILE] [--ops FILE] [--stick FILE] [--scale N]    window
 //   tools/menusim/run.sh <core> --keys F3,DOWN,RETURN --shot out.png [--mode M] ...                  headless: the keys, one PNG, end
+//   tools/menusim/run.sh <core> --keys K1,K2,... --stats FILE [--mode M]                              headless: one line of figures per key (speed.sh)
+//   tools/menusim/run.sh <core> --keys K1,K2,... --shots DIR [--mode M]                              headless: the picture after every key (tools/menusim/same_pictures.sh)
 //                                       (in the list FIND:<text> moves the selection to the first row whose label starts with the text, SEL:<n> to row n)
 //
 // Keys in the window: cursor keys, RETURN, ESC, BACKSPACE, TAB, HOME, END, PAGE UP/DOWN, DEL, SPACE, letters and digits, F1-F8 (shift+F1 = F2 as
@@ -39,32 +41,54 @@
 #include <strings.h>
 #include <string>
 #include <vector>
+#include <chrono>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
 #include "table.cc"                                           // the board's own core table, as the render bench takes it
+#include "own_cores.h"                                       // the cores with an app of their own (tools/menusim/run.sh): their descriptor is the library's, T239.3 V-4b
 #include "menu_rig.h"
 
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
-    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0;
+    const char *core = 0, *desc = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0, *stats = 0, *shots = 0;
+    const char *loading = 0;                                                         // T239.3 D41: --loading DIR[,N], a folder a job still fetches: its list fails N times (default 1000) and says loading
+    bool paused = false, stopped = false, elements = false;                         // T256: the PAUSED tag over the still; the places of the elements of the UI TOML
+    bool picture = false;                                                            // T256: --picture X,Y,W,H, the running picture of a frame-buffer core on the canvas (the still has its geometry)
+    int pic[4] = { 0, 0, 0, 0 };
     int scale = 0;
 };
 static Opts o;
 
 static void usage(void)
 {
-    fprintf(stderr, "menusim <core> [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
-                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--say TEXT] [--message TITLE TEXT]\n");
+    fprintf(stderr, "menusim <core>|--desc FILE [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
+                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--stats FILE] [--shots DIR] [--say TEXT] [--message TITLE TEXT]\n"
+                    "        [--paused] [--stopped] [--elements] [--picture X,Y,W,H] [--loading DIR[,N[,REASON]]]\n"
+                    "        keys also: FIND:text SEL:n GOTO:F3/tab (the main loop's goto_screen to a place) LIBDIR:/path (lib.show: the Library opens there) PUMP:n (n passes of the menu's clock)\n");
     exit(2);
 }
 
+// T239.3 P3-2 (D32): a core that is in no table - the SDK's - is its TOML: --desc FILE is the description (core sections and menu tables). It is compiled by the tree's tools/descrec.py, the
+// descriptor is made of it as the service does for a core's .cor (descrec_core), and the same file is the menu TOML. The core's code (its control hooks) is not here: the menu shows the core's
+// operations as the TOML names them and a hook does nothing.
+static const CoreDesc *g_src;
+static CoreDesc g_desc_core;
+static DescRecord *g_desc_rec;
+static std::vector<uint8_t> g_desc_bytes;
+static std::string g_desc_id;
 static bool same(const char *a, const char *b) { return a && b && !strcasecmp(a, b); }
 
 static const CoreDesc *find_core(const char *name)
 {
     for (int i = 0; core_table[i]; i++) {
         const CoreDesc *d = core_table[i];
+        if (same(d->core_id, name) || same(d->cor_name, name) || same(d->folder, name)) {
+            return d;
+        }
+    }
+    for (int i = 0; own_cores[i]; i++) {
+        const CoreDesc *d = own_cores[i];
         if (same(d->core_id, name) || same(d->cor_name, name) || same(d->folder, name)) {
             return d;
         }
@@ -85,6 +109,22 @@ static Mode mode;
 static int frame_w, frame_h;
 
 // ---- the menu: the core's descriptor, or its descriptor with the menu record merged in ---------------------------------------------
+static bool compile_toml(std::vector<uint8_t> *rec, std::string *why);
+static bool core_from_desc(std::string *why)
+{
+    o.toml = o.desc;
+    if (!compile_toml(&g_desc_bytes, why)) { return false; }
+    g_desc_rec = new DescRecord();
+    char w[200];
+    if (descrec_parse(g_desc_bytes.data(), (uint32_t)g_desc_bytes.size(), g_desc_rec, w, sizeof(w)) != 0) { *why = w; return false; }
+    if (!g_desc_rec->has_core) { *why = "the description has no core section ([core]): it describes a menu, not a core"; return false; }
+    DescCode code = DescCode();
+    if (descrec_core(g_desc_rec, &code, &g_desc_core, w, sizeof(w)) != 0) { *why = w; return false; }
+    g_desc_id = g_desc_core.core_id ? g_desc_core.core_id : g_desc_core.folder ? g_desc_core.folder : "core";
+    o.core = g_desc_id.c_str();
+    g_src = &g_desc_core;
+    return true;
+}
 struct Menu {
     const CoreDesc *open;                 // what ui_open() gets: the core's own descriptor
     CoreDesc *desc;                       // what the menu runs on
@@ -181,8 +221,73 @@ static void fill_stick(Rig *r)
     for (auto &f : dflt) { r->fs.put_size(f.p, f.n); }
 }
 
+// ---- the stats mode (--stats FILE) -----------------------------------------------------------------
+// One line per key press, taken after the UI has settled: the pixels the display's flush callback received (the sum of the areas, as the board's
+// software renderer has to draw them), the flush calls, the objects of the screen that lie in those areas (LVGL does not count what it draws; this is
+// every visible object whose box meets a flushed area, the objects the renderer has to consider), the path ui.cc took (a selection restyle, a retext in
+// place, or the pane built again), the times, and what the rig counts: file lists and writes. Only the flush callback is
+// wrapped; the application is not touched. The settle loop runs at least two and up to 20 more LVGL passes after a key, and each pass reads the rig's clock (which steps
+// 50 ms per read in the headless mode), so the simulated time runs further per key than in a --keys/--shot run: anything timed (a toast's timeout, an
+// animation) can differ between a --stats/--shots run and a run without them. Two trees run with the same press() are compared fairly.
+static lv_display_flush_cb_t g_flush_orig;
+static long g_fl_px;
+static int g_fl_calls;
+static std::vector<lv_area_t> g_fl_areas;
+static long long g_us_ui, g_us_lv;                            // inside give_key: MenuCtl::key + ui_menu_render, and the LVGL passes
+
+static long long now_us(void)
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+static void stats_flush(lv_display_t *d, const lv_area_t *a, uint8_t *px)
+{
+    g_fl_px += (long)lv_area_get_width(a) * lv_area_get_height(a);
+    g_fl_calls++;
+    g_fl_areas.push_back(*a);
+    g_flush_orig(d, a, px);
+}
+
+static void stats_hook(void)
+{
+    lv_display_t *d = lv_display_get_default();
+    g_flush_orig = d->flush_cb;
+    lv_display_set_flush_cb(d, stats_flush);
+}
+
+static int objs_in_areas(lv_obj_t *obj)
+{
+    int n = 0;
+    if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) { return 0; }
+    lv_area_t c;
+    lv_obj_get_coords(obj, &c);
+    for (const lv_area_t &a : g_fl_areas) {
+        if (a.x1 <= c.x2 && c.x1 <= a.x2 && a.y1 <= c.y2 && c.y1 <= a.y2) { n++; break; }
+    }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(obj); i++) { n += objs_in_areas(lv_obj_get_child(obj, i)); }
+    return n;
+}
+
+struct Sum { int n = 0; long long px = 0, px_max = 0, calls = 0, us = 0, us_max = 0, objs = 0, finds = 0, cmps = 0, lin = 0; };
+static Sum s_all, s_move;
+static FILE *s_out;
+
+static void sum_add(Sum *s, long px, int calls, int objs, long long us, const Settings::FindStats &f)
+{
+    s->n++; s->px += px; s->calls += calls; s->objs += objs; s->us += us;
+    s->finds += f.calls; s->cmps += f.compares; s->lin += f.linear;
+    if (px > s->px_max) { s->px_max = px; }
+    if (us > s->us_max) { s->us_max = us; }
+}
+
+static void sum_line(const char *tag, const Sum &s)
+{
+    int n = s.n ? s.n : 1;
+    fprintf(s_out, "%s keys=%d px_sum=%lld px_mean=%lld px_max=%lld calls_sum=%lld calls_mean=%.1f objs_mean=%lld us_sum=%lld us_mean=%lld us_max=%lld finds_mean=%.1f cmps_mean=%.1f lin_mean=%.1f\n",
+            tag, s.n, s.px, s.px / n, s.px_max, s.calls, (double)s.calls / n, s.objs / n, s.us, s.us / n, s.us_max, (double)s.finds / n, (double)s.cmps / n, (double)s.lin / n);
+}
+
 // ---- the session -----------------------------------------------------------------------------------
-static const CoreDesc *g_src;
 static Menu g_menu;
 static Rig *g_rig;
 static bool g_open = true;                                    // the menu is up
@@ -202,6 +307,7 @@ static void give_key(int k, bool log)
         }
         return;
     }
+    long long t0 = now_us();
     MenuCtl::Result r = g_rig->m->key(k);
     if (r == MenuCtl::R_CLOSE && !g_rig->c.desc->menu_first) {
         g_open = false;
@@ -210,7 +316,10 @@ static void give_key(int k, bool log)
         return;
     }
     ui_menu_render(*g_rig->m);
+    long long t1 = now_us();
     lv_timer_handler();                                       // LVGL runs between two keys, as on the board (and in the bench's steps)
+    g_us_ui += t1 - t0;
+    g_us_lv += now_us() - t1;
     if (log) {
         printf("key %s -> area %d tab %d \"%s\" row %d\n", sim_key_name(k), g_rig->m->area(), g_rig->m->tab(), g_rig->m->title(), g_rig->m->selected());
     }
@@ -228,6 +337,66 @@ static int find_row(const char *text)
     return -1;
 }
 
+// --shots DIR: the picture as the display holds it after a key press has settled - the frame buffer the flush callbacks left, NOT drawn again, so a
+// pixel the menu forgot to repaint shows. One PNG per key press (NNN-KEY.png), written by main's loop after the press.
+static void place(int *x, int *y, int *w, int *h);
+static void shot_now(const char *dir, int n, const char *key)
+{
+    int x, y, w, h;
+    place(&x, &y, &w, &h);
+    unsigned char *rgb = (unsigned char *)malloc((size_t)frame_w * frame_h * 3);
+    rig_compose(rgb, frame_w, frame_h, x, y, w, h);
+    char path[1024], k[40];
+    snprintf(k, sizeof(k), "%s", key);
+    for (char *c = k; *c; c++) { if (*c == ':' || *c == '/') { *c = '_'; } }
+    snprintf(path, sizeof(path), "%s/%03d-%s.png", dir, n, k);
+    png_rgb(path, rgb, frame_w, frame_h);
+    free(rgb);
+}
+
+// One key press of the headless run, as the --keys loop gives it: the key, the application's ticks, the LVGL pass. With --stats the UI is then let
+// settle (LVGL passes until one flushes nothing) and the line of figures is written.
+static int g_press_n;
+static void press(int code, bool log, const char *name)
+{
+    if (!s_out && !o.shots) {
+        give_key(code, log);
+        for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
+        lv_timer_handler();
+        return;
+    }
+    g_fl_px = 0; g_fl_calls = 0; g_fl_areas.clear(); g_us_ui = g_us_lv = 0;
+    int ls0 = g_rig->fs.lists, wr0 = g_rig->fs.writes;
+    const Settings::FindStats fs0 = Settings::find_stats();
+    uint32_t ch0 = ui_cheap_moves(), ip0 = ui_inplace_moves();
+    long long t0 = now_us();
+    give_key(code, log);
+    for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
+    for (int i = 0, quiet = 0; i < 20 && quiet < 2; i++) {
+        int c0 = g_fl_calls;
+        long long t = now_us();
+        lv_timer_handler();
+        g_us_lv += now_us() - t;
+        quiet = g_fl_calls == c0 ? quiet + 1 : 0;
+    }
+    long long us = now_us() - t0;
+    int objs = objs_in_areas(lv_screen_active()) + objs_in_areas(lv_display_get_layer_top(lv_display_get_default())) +
+               objs_in_areas(lv_display_get_layer_sys(lv_display_get_default()));
+    const char *path = !g_open ? "closed" : ui_cheap_moves() != ch0 ? "cheap" : ui_inplace_moves() != ip0 ? "inplace" : g_fl_px ? "build" : "none";
+    ++g_press_n;
+    const Settings::FindStats fs1 = Settings::find_stats();
+    const Settings::FindStats fd = { fs1.calls - fs0.calls, fs1.compares - fs0.compares, fs1.linear - fs0.linear };     // Settings::find in this key: calls, key comparisons, what the linear scan would have compared
+    if (s_out) {
+        fprintf(s_out, "KEY n=%d key=%s path=%s px=%ld calls=%d objs=%d us=%lld ui_us=%lld lv_us=%lld fs_lists=%d fs_writes=%d finds=%u cmps=%u lin=%u\n", g_press_n, name, path,
+                g_fl_px, g_fl_calls, objs, us, g_us_ui, g_us_lv, g_rig->fs.lists - ls0, g_rig->fs.writes - wr0, fd.calls, fd.compares, fd.linear);
+    }
+    if (o.shots) { shot_now(o.shots, g_press_n, name); }
+    if (s_out) {
+        sum_add(&s_all, g_fl_px, g_fl_calls, objs, us, fd);
+        if (code == KEY_UP || code == KEY_DOWN) { sum_add(&s_move, g_fl_px, g_fl_calls, objs, us, fd); }
+    }
+}
+
 // A new rig on the current menu, placed for the mode as run.cc places it (ui_open, then video_place_menu), and the keys of the session played again.
 static void start_rig(bool replay)
 {
@@ -237,6 +406,14 @@ static void start_rig(bool replay)
     g_rig->c.started = true;
     g_rig->c.program_loaded = true;
     fill_stick(g_rig);
+    if (o.loading) {
+        std::string d = o.loading, why;                           // DIR[,N[,REASON]]
+        size_t c1 = d.find(','), c2 = c1 == std::string::npos ? c1 : d.find(',', c1 + 1);
+        if (c2 != std::string::npos) { why = d.substr(c2 + 1); }
+        g_rig->fs.slow_n = c1 == std::string::npos ? 1000 : atoi(d.c_str() + c1 + 1);
+        g_rig->fs.slow_why = why;
+        g_rig->fs.slow_dir = d.substr(0, c1);
+    }
     video_place_menu(&g_rig->px, mode.hdmi, mode.sys);
     g_open = true;
     ui_menu_visible(true);
@@ -265,6 +442,44 @@ static void shot(const char *path)
     place(&x, &y, &w, &h);
     png_out(path, frame_w, frame_h, x, y, w, h);
 }
+
+// ---- T256: the overlay service in the simulator ------------------------------------------------------------------------------------
+// The still of a stopped C64-type machine is made up here (the VIC colours in bands, as a picture to see the menu and the elements over); the menu key calls do nothing.
+struct SimOverlayHost : OverlayHost {
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    bool grab_still(uint16_t *dst, int w, int h, int fw, int fh, int ox, int oy, int stride = 0, OvPalette lib = 0)
+    {
+        (void)lib;
+        if (stride < w) {
+            stride = w;
+        }
+        static const uint16_t pal[8] = { 0x2933, 0x5569, 0x7679, 0xEF8E, 0x8A85, 0xC36E, 0x737D, 0x4A49 };
+        if (fw < 1 || fh < 1) {
+            fw = w;
+            fh = h;
+            ox = oy = 0;
+        }
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                const int px = (ox + x) * 960 / fw, py = (oy + y) * 540 / fh;             // the same checks whatever the size the picture is fitted to
+                dst[y * stride + x] = ((px / 40 + py / 40) & 1) ? pal[(py / 68) & 7] : pal[((py / 68) + 3) & 7];
+            }
+        }
+        return true;
+    }
+    bool picture_rect(int, int, OvRect *r)
+    {
+        if (!o.picture) {
+            return false;
+        }
+        *r = OvRect{ o.pic[0], o.pic[1], o.pic[2], o.pic[3] };
+        return true;
+    }
+    void menu_hide() { }
+    void menu_show() { }
+    void canvas(int *w, int *h) { *w = ui_canvas_w(); *h = ui_canvas_h(); }
+};
 
 // ---- reload ----------------------------------------------------------------------------------------
 static void reload(void)
@@ -327,26 +542,41 @@ int main(int argc, char **argv)
         if (a == "--mode") { o.mode = val(); }
         else if (a == "--keys") { o.keys = val(); }
         else if (a == "--shot") { o.shot = val(); }
+        else if (a == "--stats") { o.stats = val(); }
+        else if (a == "--shots") { o.shots = val(); }
         else if (a == "--toml") { o.toml = val(); }
+        else if (a == "--desc") { o.desc = val(); }
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
         else if (a == "--say") { o.say = val(); }
+        else if (a == "--loading") { o.loading = val(); }
+        else if (a == "--paused") { o.paused = true; }
+        else if (a == "--stopped") { o.stopped = true; }
+        else if (a == "--elements") { o.elements = true; }
+        else if (a == "--picture") { if (sscanf(val(), "%d,%d,%d,%d", &o.pic[0], &o.pic[1], &o.pic[2], &o.pic[3]) != 4) usage(); o.picture = true; }
         else if (a == "--message") { o.msg_title = val(); o.msg_text = val(); }
         else if (a == "--root") { o.root = val(); }
         else if (a == "--scale") { o.scale = atoi(val()); }
         else if (a == "--list") {
             for (int k = 0; core_table[k]; k++) { printf("%-12s %s\n", core_table[k]->core_id ? core_table[k]->core_id : core_table[k]->folder, core_table[k]->title); }
+            for (int k = 0; own_cores[k]; k++) { printf("%-12s %s\n", own_cores[k]->core_id ? own_cores[k]->core_id : own_cores[k]->folder, own_cores[k]->title); }
             return 0;
         }
         else if (a[0] == '-') { usage(); }
         else if (!o.core) { o.core = argv[i]; }
         else { usage(); }
     }
-    if (!o.core) { usage(); }
-    g_src = find_core(o.core);
+    if (!o.core && !o.desc) { usage(); }
+    if (o.desc) {
+        std::string why_desc;
+        if (!core_from_desc(&why_desc)) { fprintf(stderr, "menusim: %s: %s\n", o.desc, why_desc.c_str()); return 1; }
+    } else {
+        g_src = find_core(o.core);
+    }
     if (!g_src) {
         fprintf(stderr, "menusim: no core \"%s\"; the core table has:", o.core);
         for (int i = 0; core_table[i]; i++) { fprintf(stderr, " %s", core_table[i]->core_id ? core_table[i]->core_id : core_table[i]->folder); }
+        for (int i = 0; own_cores[i]; i++) { fprintf(stderr, " %s", own_cores[i]->core_id ? own_cores[i]->core_id : own_cores[i]->folder); }
         fprintf(stderr, "\n");
         return 2;
     }
@@ -356,7 +586,7 @@ int main(int argc, char **argv)
     video_active_size(mode.hdmi, mode.sys, &frame_w, &frame_h);
     // the menu TOML: --toml, else coreapp/cores/<core>/menu.toml of the tree; its ops list: --ops, else tests/coreapp/golden/ops_<core>.txt
     static std::string toml_s, ops_s;
-    if (!o.toml) {
+    if (!o.toml && !o.desc) {
         toml_s = std::string(o.root) + "/coreapp/cores/" + o.core + "/menu.toml";
         if (exists(toml_s)) { o.toml = toml_s.c_str(); }
     }
@@ -364,7 +594,7 @@ int main(int argc, char **argv)
         ops_s = std::string(o.root) + "/tests/coreapp/golden/ops_" + o.core + ".txt";
         if (exists(ops_s)) { o.ops = ops_s.c_str(); }
     }
-    if (!o.keys && !o.shot) { rig_tick = sim_wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
+    if (!o.keys && !o.shot && !o.stats && !o.shots) { rig_tick = sim_wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
     rig_on_frame = sim_on_frame;
 
     std::string why;
@@ -382,7 +612,19 @@ int main(int argc, char **argv)
         place(&x, &y, &w, &h);
         printf("canvas %dx%d at %d,%d shown %dx%d (frame %dx%d)\n", cvw, cvh, x, y, w, h, frame_w, frame_h);
     }
-    if (o.keys || o.shot) {
+    if (o.stats || o.shots) {
+        if (o.stats) {
+            s_out = fopen(o.stats, "w");
+            if (!s_out) { fprintf(stderr, "menusim: cannot write %s\n", o.stats); return 2; }
+        }
+        stats_hook();
+        for (int i = 0, quiet = 0; i < 20 && quiet < 2; i++) {          // the first frame (start_rig invalidates the whole screen) is not the first key's
+            int c0 = g_fl_calls;
+            lv_timer_handler();
+            quiet = g_fl_calls == c0 ? quiet + 1 : 0;
+        }
+    }
+    if (o.keys || o.shot || o.stats || o.shots) {
         for (const std::string &k : sim_split_keys(o.keys)) {
             if (!k.compare(0, 5, "FIND:") || !k.compare(0, 4, "SEL:")) {   // the selection to a row by UP and DOWN: the first whose label starts with the text, or row n
                 bool find = !k.compare(0, 5, "FIND:");
@@ -391,18 +633,47 @@ int main(int argc, char **argv)
                 for (int guard = 0; guard < 200 && g_rig->m->selected() != row; guard++) {
                     int code = g_rig->m->selected() > row ? KEY_UP : KEY_DOWN;
                     g_keys.push_back(code);
-                    give_key(code, false);
+                    press(code, false, code == KEY_UP ? "UP" : "DOWN");
                 }
                 ui_menu_render(*g_rig->m);
                 printf("%s -> row %d\n", k.c_str(), g_rig->m->selected());
                 continue;
             }
+            if (!k.compare(0, 5, "GOTO:")) {                    // T256 D13: what the main loop does for goto_screen("F3/tab"): the menu goes to the place (menuctl goto_spec)
+                bool ok = g_rig->m->goto_spec(k.c_str() + 5);
+                for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
+                ui_menu_render(*g_rig->m);
+                lv_timer_handler();
+                printf("%s -> %s\n", k.c_str(), ok ? "went" : "no such place");
+                continue;
+            }
+            if (!k.compare(0, 5, "PUMP:")) {                    // n passes of the controller's own clock (the run loop's pass: the relist of the Library, a job's chunk); each pass lets the rig's clock run 100 ms first
+                for (int i = 0, n = atoi(k.c_str() + 5); i < n; i++) { g_rig->c.io->delay_ms(100); if (g_rig->m->pump(true)) { ui_menu_render(*g_rig->m); } }
+                ui_menu_render(*g_rig->m);
+                lv_timer_handler();
+                continue;
+            }
+            if (!k.compare(0, 7, "LIBDIR:")) {                  // what the operation lib.show leaves for the Library: the folder it opens on at the next goto
+                snprintf(g_rig->c.lib.want_dir, sizeof(g_rig->c.lib.want_dir), "%s", k.c_str() + 7);
+                continue;
+            }
             int code = sim_key_of(k.c_str());
             if (code < 0) { fprintf(stderr, "menusim: unknown key %s\n", k.c_str()); return 2; }
             g_keys.push_back(code);
-            give_key(code, true);
-            for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
+            press(code, true, k.c_str());
+        }
+        if (s_out) {
+            fprintf(s_out, "# core=%s mode=%s canvas=%dx%d\n", o.core, mode.name, cvw, cvh);
+            sum_line("SUMMARY", s_all);
+            sum_line("MOVES", s_move);
+            fclose(s_out);
+        }
+        if (o.shots) {                                            // the same page drawn again whole: what the key presses left must equal it
+            if (g_open) { ui_menu_render(*g_rig->m); }
             lv_timer_handler();
+            lv_obj_invalidate(lv_screen_active());
+            lv_timer_handler();
+            shot_now(o.shots, 999, "redraw");
         }
         if (o.say) {                                              // the status line as an error of a start leaves it (MenuCtl::set_status, bad)
             g_rig->m->say(o.say, true);
@@ -411,6 +682,44 @@ int main(int argc, char **argv)
         if (o.msg_title) {                                        // the message pane of the application (ui_message), as run.cc raises it
             g_open = false;
             ui_message(o.msg_title, o.msg_text, true);
+        }
+        if (o.paused || o.stopped || o.elements) {                             // T256 D8: the elements as the merged UI TOML places them (the base's and the core's)
+            static UiElements table;
+            char why[160];
+            ovl_merge(menu_elem_base(), g_menu.mm && g_menu.mm->has_elem ? &g_menu.mm->elem_store : 0, &table, why, sizeof(why));
+            static SimOverlayHost host;
+            ui_overlay_start(&host, &table, true);
+            if (o.stopped) {                                      // the menu open on the stopped machine: the still under it, the menu blended over it in software (D10)
+                ui_overlay_frozen(true);
+                ui_show();
+            } else {
+                g_open = false;
+                ui_menu_visible(false);
+                ui_hide();
+            }
+            if (o.paused) {
+                ui_paused_tag(true);                              // the machine stands: the still, and the tag, a base element shown through the service
+            }
+            if (o.elements) {                                     // every element's rectangle and name, on LVGL's top layer
+                lv_obj_t *top = lv_display_get_layer_top(lv_display_get_default());
+                for (int i = 0; i < table.n; i++) {
+                    if (ovl_row_check(table.rows[i])) { continue; }
+                    const OvRect r = ovl_place_on(table.rows[i], ui_canvas_w(), ui_canvas_h());          // on the canvas of this video mode
+                    lv_obj_t *b = lv_obj_create(top);
+                    lv_obj_remove_style_all(b);
+                    lv_obj_set_pos(b, r.x, r.y);
+                    lv_obj_set_size(b, r.w, r.h);
+                    lv_obj_set_style_border_width(b, 2, 0);
+                    lv_obj_set_style_border_color(b, lv_color_hex(table.rows[i].still ? 0x00FFFF : 0xFFFF00), 0);
+                    lv_obj_set_style_border_opa(b, LV_OPA_COVER, 0);
+                    lv_obj_t *l = lv_label_create(top);
+                    lv_label_set_text_fmt(l, "%s %dx%d%s", table.rows[i].name, r.w, r.h, table.rows[i].still ? " (still)" : "");
+                    lv_obj_set_style_text_color(l, lv_color_hex(0xFFFF00), 0);
+                    lv_obj_set_style_bg_color(l, lv_color_hex(0x000000), 0);
+                    lv_obj_set_style_bg_opa(l, LV_OPA_70, 0);
+                    lv_obj_set_pos(l, table.rows[i].still ? r.x + 10 : r.x, table.rows[i].still ? r.y + 10 : r.y + r.h + 2);
+                }
+            }
         }
         if (o.shot) { shot(o.shot); }
         return 0;

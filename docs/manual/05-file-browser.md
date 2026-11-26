@@ -285,7 +285,7 @@ what is left: `Nothing was written. The medium is as it was.`, `The medium is bl
 
 ## 5.10 Unzip (Z)
 
-5.10.1 **Z** on a `.zip` file runs the application `unzip.u2a` (the folder `cores/apps` of the medium of the file, else `/SD/cores/apps`; it needs `miniz.u2a` beside it). The panel of a `.zip` shows its size and `Zip archive. Z unpacks it into this folder or into a folder named after it.`
+5.10.1 **Z** on a `.zip` file runs the application `unzip.u2a` (the folder `cores/apps` of the medium of the file, else `/SD/cores/apps`). The panel of a `.zip` shows its size and `Zip archive. Z unpacks it into this folder or into a folder named after it.`
 
 5.10.2 The page `Unzip <file>` asks:
 

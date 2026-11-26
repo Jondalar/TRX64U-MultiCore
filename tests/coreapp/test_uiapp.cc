@@ -14,7 +14,7 @@
 #include "rpc.h"
 #include "uiapp.h"
 #include "uic.h"
-#include "monsrv.h"
+extern const CoreDesc amiga_desc;               // T239.5 D13: this file's cases are the Amiga 500's, built as its app (run.sh amigaapp, cores/amiga/app/lib)
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }
@@ -145,7 +145,7 @@ int main()
     setvbuf(stdout, 0, _IONBF, 0);
     FakeIo io; FakeFs fs; CoreCtx c;
     memset(&c, 0, sizeof(c));
-    c.desc = &amiga1200_desc; c.io = &io; c.fs = &fs;
+    c.desc = &amiga_desc; c.io = &io; c.fs = &fs;
     snprintf(c.cor_path, sizeof(c.cor_path), "/sd/cores/amiga1200.cor");
     Settings st(c.desc->settings, c.desc->nsettings, c.desc->store, &fs, "/sd/cores/amiga1200/amiga1200.cfg", 0);
     st.load();
@@ -158,7 +158,7 @@ int main()
     env.dialog_key_intent = env_dlg_intent; env.dialog_apply = env_dlg_apply; env.dialog_view = env_dlg_view; env.picture_left_s = env_pic_left;
     // D31 (Alex, 2026-11-10): every core of the generic application gets the service (token, /v1/ui/state, asking); before D31 only the Amiga 1200 and the TRX64U
     {
-        static CoreDesc other = amiga1200_desc;
+        static CoreDesc other = amiga_desc;
         const char *names[] = { "C64 reference", "C64 SCPU", "VC-20 (PAL)", "NES" };
         for (const char *nm : names) {
             other.cor_name = nm;
@@ -199,7 +199,7 @@ int main()
         }
         // the run loop holds a merged COPY of the Amiga descriptor: it is the same core by name, so it gets the service
         {
-            static CoreDesc merged = amiga1200_desc;
+            static CoreDesc merged = amiga_desc;
             CoreCtx mc = c;
             mc.desc = &merged;
             g_ui = true;
@@ -652,16 +652,6 @@ int main()
         CHECK(n > 0 && strstr(out, "asks for a confirmation first") != 0);
         rpc_close(rs);
         delete rs;
-    }
-
-    // T192 review 1 and 2: the monitor socket refuses every restore/goto of the ring state while the service is up, and an id or method is escaped in the error
-    CHECK(monsrv_gated("checkpoint/restore") && monsrv_gated("transport/goto") && monsrv_gated("mark/goto") && monsrv_gated("runtime/reverse_step"));
-    CHECK(monsrv_gated("monitor/exec") && monsrv_gated("media/mount") && monsrv_gated("sandbox/run"));
-    CHECK(!monsrv_gated("ping") && !monsrv_gated("transport/status") && !monsrv_gated("mark/list") && !monsrv_gated("checkpoint/list"));
-    {
-        char o[64];
-        monsrv_json_esc("a\"b\\c\nd", o, sizeof(o));
-        CHECK_STR(o, "a\\\"b\\\\c\\u000ad");
     }
 
     // ---- the token file deleted: the next login is a new token, the old one is dead (S17) ---------------------------------------------------------------------------------------------

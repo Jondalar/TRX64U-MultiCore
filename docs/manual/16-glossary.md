@@ -15,7 +15,7 @@
 | Partial core | A `.cor` that holds a partial bitstream. The host loads it under the running host. It fits only the host it was routed against |
 | Large core | A `.cor` that holds a full bitstream and its application. The host starts it like a full firmware (no question, 13.5.2). It carries its own copy of the host |
 | Null core | The empty core in the flash image: host and no machine |
-| `.u2a` | An application file that a core or the File Browser starts: `unzip.u2a` and `miniz.u2a`. They lie in `cores/apps` (2.7.1) |
+| `.u2a` | An application file that a core or the File Browser starts: `unzip.u2a`. They lie in `cores/apps` (2.7.1) |
 | Config | A named copy of the settings of one core and of its mounted media, a file in `cores/<name>/configs/` (2.7.1) |
 | Common application | The one application that runs most cores: file browser, settings, menu |
 | `boot.cfg` | The boot menu, stored in `/Flash` |

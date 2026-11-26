@@ -1,0 +1,109 @@
+# The NES's data description (T239.3 D17): what cores/nes/app/lib/nes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description
+# record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record cannot hold is
+# code, and stays in the core's C++: init, release, the operations of register_ops (.nes parsing included) and the three functions of the mount slot.
+# The gateware's facts are in the core's TOML A, gateware.toml (cores/nes/trx/nes_regs.v checked by tools/rtl_check.py): a register is written as the name of its property, "block.property", a reset
+# value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
+machine_info = "Console type"
+
+[core]
+id = "NES_"
+name = "Nintendo Entertainment System"
+title = "Nintendo Entertainment System"
+short_title = "NES"
+folder = "nes"
+store = "NES Settings"
+min_contract = 1
+reset_ms = 5
+service_op = "pad.poll"                # the USB pads: the generic pad service writes the pad registers
+service_period_ms = 16
+needs_program = "Choose a .nes file in Library (F3)"
+program_ext = ".nes"
+caps = ["cartridge", "pad"]            # a cartridge and nothing a drive library could serve
+
+# 256 x 224 shown 3 x 3 (768 x 672), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE (the DDR2 window at 0x01000000 + NES_W_FB)
+[video]
+w = 256
+h = 224
+scale = 3
+x0 = 576
+y0 = 204
+fb_base = "nes_video.fb_base.reset"
+fb_stride = "nes_video.fb_stride.reset"
+nbuf = 4
+reg_latest = "nes_video.fb_latest"
+reg_seq = "nes_video.frame_seq"
+reg_fb_base = "nes_video.fb_base"
+reg_fb_stride = "nes_video.fb_stride"
+
+[freeze]
+reg_status = "nes_machine.status"
+mask = 0x02
+timeout_ms = 200
+
+# ---- settings (the NES has no ROMs: the cartridge image is the program)
+[[core_setting]]
+key = "Console type"
+values = ["NTSC", "PAL", "Dendy"]
+when = "reset"
+apply = "nes.set_system"
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "nes.set_joy"
+
+[[core_setting]]
+key = "Pad map"
+values = ["Default", "Custom"]
+apply = "pad.set_map"
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+group = "input"
+label = "Map buttons, pad 1"
+op = "menu.pad_map_1"
+
+[[task]]
+group = "input"
+label = "Map buttons, pad 2"
+op = "menu.pad_map_2"
+
+# ---- media slot and file type
+[[media]]
+name = "Cartridge"
+state = "nes.cartridge.image"
+exts = ".nes"
+mount = "Run"
+
+[[filetype]]
+ext = ".nes"
+  [[filetype.action]]
+  label = "Run"
+  op = "nes.run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# ---- the USB pads (T156): bit n of the 16 bit register of each player is buttons[n], the controller's own order; the default map is the position of the SNES
+# layout's A (right) and B (bottom)
+[pad]
+output = "registers"
+regs = [0x0F8, 0x0FA]
+buttons = ["A", "B", "Select", "Start", "Up", "Down", "Left", "Right"]
+default = ["face_right", "face_bottom", "select", "start", "up", "down", "left", "right"]
+
+# ---- hotkeys (hk_defaults.h hk_console, the copy in cores/nes/app/lib): the consoles take no key of the keyboard, so the C64's map does not collide with anything. Keys as hotkeys.h:
+# 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the slot of the core's own media engine; its three functions (spec, mount, eject) are code
+[mount]
+names = ["Cartridge"]

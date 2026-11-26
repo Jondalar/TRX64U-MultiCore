@@ -118,7 +118,8 @@ struct OpDef {
     const char *name;
     const char *owner;                    // the contributor that registered it
     const ArgSpec *args;
-    int nargs;
+    int16_t nargs;
+    int8_t scope;                         // base-internal: the loaded image whose code the handler is (-1: the core's own), see opscope.h
     op_fn fn;
 };
 
@@ -133,7 +134,9 @@ struct StateDef {
     state_fn get;
     uint32_t rev;                         // counts the changes seen by state()
     uint32_t hash;
+    uint16_t nh;                          // the low half of the name's hash: a lookup compares it before the text (it fills the padding after `seen`: no RAM)
     bool seen;
+    int8_t scope;                         // as OpDef::scope
 };
 
 typedef void (*event_fn)(void *user, const char *name, const OpArgs &payload);
@@ -148,9 +151,17 @@ struct EventDef {
     int nsubs;
 };
 
-#define OPS_MAX 400                       // T228 review: trx64u's record and an application's own (TREX CRT: about 30 ops, 41 states) did not fit
-#define STATES_MAX 320                    // in 300 / 200; 20 bytes an entry on RV32, so the two cost 4.4 KB more of static RAM
+// The registry's maxima are the defaults of the shared app. An app linked from the SDK takes its own from the [sizes] table of its TOML B (tools/app_build.py writes them as
+// appsizes.h, which every object that includes this header is compiled with: the registry's arrays are part of the class).
+#ifndef OPS_MAX
+#define OPS_MAX 400
+#endif
+#ifndef STATES_MAX
+#define STATES_MAX 320
+#endif
+#ifndef EVENTS_MAX
 #define EVENTS_MAX 8
+#endif
 
 // What the registry held at one moment: a loader takes one before a library registers and gives it back when the library fails, so a
 // refused library leaves no name behind (T104.1 D10.3). Only valid while nothing was registered after it by someone else.
@@ -158,13 +169,17 @@ struct RegMark {
     int nops, nstates, nevents;
 };
 
+// Who is running (opscope.h): the registry tells the loader whose code an operation or a state getter is, so what it takes from api->mem goes to that library's account.
+class OpScope;
+class LibLoader;
+
 class OpRegistry {
 public:
     OpRegistry();
 
     // The contributor whose registrations follow. A name has one owner: the first registration wins, a second is refused and
     // error() names both.
-    void contributor(const char *name) { owner_ = name; }
+    void contributor(const char *name) { owner_ = name; owner_scope_ = -1; }
     int add_op(const char *name, const ArgSpec *args, int nargs, op_fn fn);
     int add_state(const char *name, state_fn get);
     int add_event(const char *name, const ArgSpec *payload);       // payload may be null
@@ -178,6 +193,8 @@ public:
     const StateDef *state_at(int i) const { return i >= 0 && i < nstates_ ? &states_[i] : 0; }
     const EventDef *event_at(int i) const { return i >= 0 && i < nevents_ ? &events_[i] : 0; }
     int nops() const { return nops_; }
+    // Counts every change of the operation list (add_op, drop_owner, rollback): an OpDef pointer found at one count is good while the count is the same.
+    uint32_t generation() const { return gen_; }
     int nstates() const { return nstates_; }
     int nevents() const { return nevents_; }
     RegMark mark() const;
@@ -202,11 +219,18 @@ public:
     int emit(const char *name, const OpIn *payload);                // returns the number of subscribers called, or an OpErr
 
 private:
+    friend class LibLoader;               // the loader of images is the one that scopes handlers (opscope.h); the SDK sees none of it
+    void set_scope(OpScope *s) { scope_ = s; }
+    OpScope *scope() const { return scope_; }
+    void contributor_in(const char *name, int slot) { owner_ = name; owner_scope_ = (int8_t)slot; }
     const char *owner_;
+    int8_t owner_scope_;
+    OpScope *scope_;
     OpDef ops_[OPS_MAX];
     StateDef states_[STATES_MAX];
     EventDef events_[EVENTS_MAX];
     int nops_, nstates_, nevents_;
+    uint32_t gen_;
     char err_[200];
 
     bool name_ok(const char *name);

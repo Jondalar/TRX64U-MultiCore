@@ -11,7 +11,26 @@ Two ways of getting position-independent words are understood:
 
 Everything else that would need a fix-up at run time is refused by name: absolute HI20/LO12 pairs, GOT and PLT entries, TLS, 64-bit.
 
+T239.3 D19: the loader runs no constructor and no destructor, so an image with a non-empty .init_array, .fini_array, .ctors or .dtors, or with an undefined
+__cxa_atexit or atexit, is refused; the message names the section or symbol and, where the relocations tell it, the function and the object.
+The check runs on the linked image and, in front of the link, on the objects: a global object with a destructor leaves __cxa_atexit undefined, and ld would stop on
+that before a packer ran, so lib.mk and app.mk run `u2a_pack.py --check-objects a.o b.o ...` first.
+
     u2a_pack.py image.elf -o x.u2a --kind lib --name cbm1541 --version 1 --needs base>=3.1 --capability drive_a
+    u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap_keep=2048 --budget heap_peak=4096 --budget ops=3 --budget settings=2
+
+--budget KEY=VALUE (repeatable) declares the budget of the file (coreapp/src/libfmt.h U2a3Budget): image (payload + bss, bytes), heap_keep (the bytes it holds through api->mem when idle: the
+loader refuses the file when the image and this figure do not fit the room of the heap), heap_peak (the most it holds at once through api->mem: a ceiling), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
+own and the limit is the platform's. The packer refuses an image over its own budget; the loader refuses a library over any figure at load. A file with a
+budget needs base >= 3.2: the packer adds that dependency, or raises a lower one.
+
+    u2a_pack.py image.elf -o x.u2a --kind lib --name ringlib --export ring=1 --export trx=1
+
+--export NAME=MAJOR (repeatable, at most 8) lists a name the library exports (coreapp/src/libapi.h LibExportDecl) with the major of the layout of its table. The file carries the list
+(coreapp/src/libfmt.h U2A3_FLAG_EXPORTS), so the loader of a folder puts the library in front of whatever needs that name, and refuses the library when lib_register does not
+return every name listed. A file with a list needs base >= 3.2: the packer adds that dependency, or raises a lower one.
+
+    u2a_pack.py --check-objects a.o b.o              # only the D19 check, on relocatable objects (before the link)
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
 """
 import argparse
@@ -28,9 +47,15 @@ NEED_SIZE = 20
 NONE = 0xFFFFFFFF
 NAME_MAX = 16
 IMAGE_MAX = 0x100000
+FLAG_MENU, FLAG_BUDGET, FLAG_EXPORTS = 1, 2, 4
+EXPORTS_MAX = 8
+BUDGET_NONE = 0xFFFFFFFF
+BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
+NEEDS_MAX = 8                      # U2A3_NEEDS_MAX of coreapp/src/libfmt.h: the dependencies a file may name
+BASE_32 = (3 << 16) | 2            # the base API that reads a budget record and a list of exported names (3.2): a file that has one needs it
 
 EM_RISCV = 243
-ET_EXEC, ET_DYN = 2, 3
+ET_REL, ET_EXEC, ET_DYN = 1, 2, 3
 PT_LOAD = 1
 SHT_SYMTAB, SHT_RELA, SHT_DYNSYM = 2, 4, 11
 SHF_ALLOC = 2
@@ -54,7 +79,7 @@ def rname(t):
 
 
 class Elf:
-    def __init__(self, data):
+    def __init__(self, data, relocatable=False):
         self.d = data
         if data[:4] != b"\x7fELF" or data[4] != 1 or data[5] != 1:
             raise PackError("not a little-endian ELF32 file")
@@ -62,8 +87,8 @@ class Elf:
          self.shnum, self.shstrndx) = struct.unpack_from("<HHIIIIIHHHHHH", data, 16)
         if machine != EM_RISCV:
             raise PackError("not a RISC-V ELF (machine %d)" % machine)
-        if self.type not in (ET_EXEC, ET_DYN):
-            raise PackError("neither ET_EXEC nor ET_DYN (type %d)" % self.type)
+        if self.type not in ((ET_REL,) if relocatable else (ET_EXEC, ET_DYN)):
+            raise PackError(("not a relocatable object (type %d)" if relocatable else "neither ET_EXEC nor ET_DYN (type %d)") % self.type)
         self.segments = []
         for i in range(self.phnum):
             p_type, off, vaddr, _pa, filesz, memsz, _fl, _al = struct.unpack_from("<IIIIIIII", data, self.phoff + i * self.phentsize)
@@ -93,6 +118,18 @@ class Elf:
                         out.setdefault(self.cstr(strtab + name), value)
         return out
 
+    def symtab(self):
+        """Every symbol of the static symbol table in table order: (name, value, size, bind, type, shndx). Empty without one."""
+        out = []
+        for s in self.sections:
+            if s["type"] == SHT_SYMTAB:
+                strtab = self.sections[s["link"]]["off"]
+                for k in range(s["size"] // 16):
+                    name, value, size, info, _other, shndx = struct.unpack_from("<IIIBBH", self.d, s["off"] + k * 16)
+                    out.append((self.cstr(strtab + name) if name else "", value, size, info >> 4, info & 15, shndx))
+                break
+        return out
+
     def relocs(self, sec):
         for k in range(sec["size"] // 12):
             off, info, add = struct.unpack_from("<IIi", self.d, sec["off"] + k * 12)
@@ -120,6 +157,63 @@ def build_image(elf, link_base):
     if len(img) == 0 or len(img) + bss > IMAGE_MAX:
         raise PackError("the image is empty or larger than %d bytes" % IMAGE_MAX)
     return img, bss
+
+
+# D19 (T239.3): the loader runs no constructor and no destructor. What would hold one is refused here, by name.
+CTOR_SECTIONS = (".preinit_array", ".init_array", ".fini_array", ".ctors", ".dtors")
+ATEXIT_SYMBOLS = ("__cxa_atexit", "atexit")
+STT_FUNC, STT_FILE, STB_LOCAL = 2, 4, 0
+D19 = "the loader runs no constructor or destructor (D19): initialise in lib_register and release in the operation or the library's own call that ends the work; a global object with a constructor or a destructor is not allowed"
+
+
+def _object_of(syms, idx):
+    """The object file a LOCAL symbol came from: the STT_FILE symbol in front of it in the table (locals are grouped per file). None for a global one."""
+    if idx <= 0 or idx >= len(syms) or syms[idx][3] != STB_LOCAL:
+        return None
+    for k in range(idx - 1, 0, -1):
+        if syms[k][4] == STT_FILE:
+            return syms[k][0] or None
+        if syms[k][3] != STB_LOCAL:
+            return None
+    return None
+
+
+def _relocs_into(elf, sec_index):
+    """The relocations (offset, symbol index) whose target is the section with this index (an --emit-relocs section, sh_info)."""
+    for sec in elf.sections:
+        if sec["type"] == SHT_RELA and sec["info"] == sec_index:
+            for off, _typ, symi, _add in elf.relocs(sec):
+                yield off, symi
+
+
+def refuse_constructors(elf):
+    """D19: a non-empty .init_array, .fini_array, .ctors or .dtors, or an undefined atexit / __cxa_atexit, is an error that names the section or symbol
+    and, where a relocation tells, the function and the object it comes from."""
+    syms = elf.symtab()
+    # a destructor in front: it brings an .init_array as well, and the call to __cxa_atexit is what says "destructor"
+    for idx, sym in enumerate(syms):
+        if sym[5] == SHN_UNDEF and sym[0] in ATEXIT_SYMBOLS:
+            where = ""
+            for i, s in enumerate(elf.sections):
+                for off, symi in _relocs_into(elf, i):
+                    if symi != idx or where:
+                        continue
+                    for k, f in enumerate(syms):
+                        if f[4] == STT_FUNC and f[5] == i and f[1] <= off < f[1] + max(f[2], 1) and f[0]:
+                            obj = _object_of(syms, k)
+                            where = " (called from %s%s)" % (f[0], " in " + obj if obj else "")
+                            break
+            raise PackError("the image refers to %s%s, which registers a destructor to run at exit: %s" % (sym[0], where, D19))
+    for i, s in enumerate(elf.sections):
+        base = s.get("name", "")
+        if s["size"] and any(base == n or base.startswith(n + ".") for n in CTOR_SECTIONS):
+            who = ""
+            for _off, symi in _relocs_into(elf, i):
+                if symi < len(syms) and syms[symi][0]:
+                    obj = _object_of(syms, symi)
+                    who = " (it holds %s%s)" % (syms[symi][0], " from " + obj if obj else "")
+                    break
+            raise PackError("the image has a non-empty %s%s, %d bytes: %s" % (base, who, s["size"], D19))
 
 
 def collect(elf, img, bss, link_base):
@@ -188,6 +282,63 @@ def parse_need(text):
     raise PackError("a dependency reads name>=version, got %r" % text)
 
 
+def parse_budget(items):
+    """{key: value} from ['image=8192', 'ops=3', ...]; a key twice, an unknown key, or a value that is no number from 0 to 0xFFFFFFFE is an error."""
+    out = {}
+    for it in items:
+        k, eq, v = it.partition("=")
+        k = k.strip()
+        if not eq or k not in BUDGET_KEYS:
+            raise PackError("a budget reads key=number with the key one of %s, got %r" % (", ".join(BUDGET_KEYS), it))
+        if k in out:
+            raise PackError("the budget names %s twice" % k)
+        try:
+            n = int(v.strip(), 0)
+        except ValueError:
+            raise PackError("the budget %s is no number: %r" % (k, v))
+        if not 0 <= n < BUDGET_NONE:
+            raise PackError("the budget %s=%d is outside 0 .. %d" % (k, n, BUDGET_NONE - 1))
+        out[k] = n
+    if "heap_keep" in out and "heap_peak" in out and out["heap_keep"] > out["heap_peak"]:
+        raise PackError("the budget keeps %d bytes of heap and allows a peak of %d" % (out["heap_keep"], out["heap_peak"]))
+    return out
+
+
+def budget_blob(budget):
+    """The record behind the header: its size, then the figures in the order of BUDGET_KEYS (a key left out: no figure)."""
+    words = [budget.get(k, BUDGET_NONE) for k in BUDGET_KEYS]
+    return struct.pack("<I%dI" % len(words), 4 + 4 * len(words), *words)
+
+
+def parse_export(text):
+    """(name, major) from 'ring=1' or 'ring>=1': the name a library exports and the major of the layout of that table."""
+    for op in (">=", "="):
+        if op in text:
+            n, v = text.split(op, 1)
+            break
+    else:
+        raise PackError("an export reads name=major, got %r" % text)
+    try:
+        major = int(v.strip(), 0)
+    except ValueError:
+        raise PackError("the major of the export %r is no number: %r" % (n.strip(), v))
+    if not 1 <= major <= 0xFFFF:
+        raise PackError("the major of the export %r is outside 1 .. 65535" % n.strip())
+    return n.strip(), major
+
+
+def exports_blob(exports):
+    """The record behind the budget: the count, then name and major of each (libfmt.h U2a3ExportName)."""
+    if not 1 <= len(exports) <= EXPORTS_MAX:
+        raise PackError("a library exports one to %d names, got %d" % (EXPORTS_MAX, len(exports)))
+    seen = set()
+    for n, m in exports:
+        if (n, m) in seen:
+            raise PackError("the export %s=%d is listed twice" % (n, m))
+        seen.add((n, m))
+    return struct.pack("<I", len(exports)) + b"".join(field(n, "export name") + struct.pack("<I", m) for n, m in exports)
+
+
 def field(text, what, may_be_empty=False):
     b = text.encode("ascii")
     ok = all(c in b"abcdefghijklmnopqrstuvwxyz0123456789_" for c in b)
@@ -197,8 +348,9 @@ def field(text, what, may_be_empty=False):
 
 
 def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None, align=16, link_base=0, manifest=b"",
-         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b""):
+         register_sym="lib_register", main_sym="app_main", abi=(4, 4), menu=b"", budget=None, exports=None):
     elf = Elf(elf_bytes)
+    refuse_constructors(elf)          # in front of build_image: an orphan .init_array behind .bss would fail there first, without the D19 message
     img, bss = build_image(elf, link_base)
     table = collect(elf, img, bss, link_base)
     syms = elf.symbols()
@@ -223,8 +375,26 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
         if main == NONE:
             raise PackError("an app needs an app_main symbol")
         residence = residence or "transient"          # an app with screens (T104.3 D0) has lib_register too: it registers what they bind to while it is open
-    if len(needs) > 4:
-        raise PackError("at most 4 dependencies")
+    budget_bytes = b""
+    if budget:
+        if "image" in budget and len(img) + bss > budget["image"]:
+            raise PackError("the image is %d bytes with its bss, over its declared budget of %d bytes" % (len(img) + bss, budget["image"]))
+        budget_bytes = budget_blob(budget)
+    exports_bytes = b""
+    if exports:
+        if kind != "lib":
+            raise PackError("only a library exports a table")
+        exports_bytes = exports_blob(exports)
+    if budget or exports:
+        needs = list(needs)
+        for i, (n, v) in enumerate(needs):
+            if n == "base":
+                needs[i] = (n, max(v, BASE_32))
+                break
+        else:
+            needs.append(("base", BASE_32))
+    if len(needs) > NEEDS_MAX:
+        raise PackError("at most %d dependencies (U2A3_NEEDS_MAX)" % NEEDS_MAX)
     if align < 4 or align > 4096 or align & (align - 1):
         raise PackError("alignment: a power of two from 4 to 4096")
 
@@ -234,7 +404,7 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
     needs_blob = b"".join(field(n, "dependency name") + struct.pack("<I", v) for n, v in needs)
     img_blob = pad4(bytes(img))
     reloc_blob = b"".join(struct.pack("<I", o) for o in table)
-    needs_off = HEADER_SIZE
+    needs_off = HEADER_SIZE + len(budget_bytes) + len(exports_bytes)
     payload_off = needs_off + len(needs_blob)
     reloc_off = payload_off + len(img_blob)
     manifest_off = reloc_off + len(reloc_blob) if manifest else 0
@@ -245,16 +415,17 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
         menu_pad = b"\0" * (-end % 4)
         menu_off = end + len(menu_pad)
     hdr = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", MAGIC, HEADER_SIZE, 3, abi[0], abi[1],
-                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), 1 if menu else 0,
+                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), (FLAG_MENU if menu else 0) | (FLAG_BUDGET if budget else 0) | (FLAG_EXPORTS if exports else 0),
                       field(name, "name"), version, field(capability, "capability", True),
                       payload_off, len(img), bss, align, reg, main, reloc_off, len(table), needs_off, manifest_off, len(manifest), menu_off)
     assert len(hdr) == HEADER_SIZE, len(hdr)
-    return hdr + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
+    return hdr + budget_bytes + exports_bytes + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("elf")
+    ap.add_argument("elf", nargs="+", help="the linked image (with --check-objects: the relocatable objects)")
+    ap.add_argument("--check-objects", action="store_true", help="only the D19 check (no constructor, no destructor) on the objects given; for the build, before ld")
     ap.add_argument("-o", "--out")
     ap.add_argument("--dump-image", help="write only the flat image (linked at 0 form) here")
     ap.add_argument("--raw-image", help="write the flat image exactly as linked (for a test that compares two link bases)")
@@ -267,14 +438,28 @@ def main(argv=None):
     ap.add_argument("--align", type=int, default=16)
     ap.add_argument("--link-base", type=lambda s: int(s, 0), default=0)
     ap.add_argument("--manifest", help="JSON manifest of an app, carried unchanged")
+    ap.add_argument("--budget", action="append", default=[], metavar="KEY=N", help="declare a figure of the budget: image, heap_keep, heap_peak, ops, states, events, nodes, file_actions, settings, tabs, polls")
+    ap.add_argument("--export", action="append", default=[], metavar="NAME=MAJOR", help="a name the library exports (LibRecord export_list) with the major of its table; the file lists it so that a folder is loaded in order (T239.3 D20)")
     ap.add_argument("--menu", help="the nodes, file actions, settings, tabs and poll of this file as TOML (tools/descrec.py): carried as a menu record")
     a = ap.parse_args(argv)
     try:
+        if a.check_objects:
+            for o in a.elf:
+                try:
+                    refuse_constructors(Elf(open(o, "rb").read(), relocatable=True))
+                except PackError as e:
+                    raise PackError("%s: %s" % (o, e))
+            return 0
+        if len(a.elf) != 1:
+            ap.error("one ELF image (several files only with --check-objects)")
+        a.elf = a.elf[0]
         data = open(a.elf, "rb").read()
         manifest = open(a.manifest, "rb").read() + b"\0" if a.manifest else b""
         menu = b""
         if a.menu:
             doc = descrec.toml_loads(open(a.menu).read())
+            if "window" in doc or ("key" in doc and a.kind == "app"):
+                raise PackError("a menu record has no windows, and an application's has no key table; those are a core's description (base 3.3: the core's menu.toml and desc.toml). A library's record may carry [[key]] rows (base 3.6)")
             if "hide" in doc or "rename" in doc or ("area" in doc and (a.kind != "app" or any(ar.get("key") != "APP" for ar in doc["area"]))):
                 raise PackError("a menu record gives no route of the core's and hides or renames nothing; that is a core's description (an application's own screens are the area APP)")
             menu = descrec.compile_desc(doc)
@@ -285,6 +470,7 @@ def main(argv=None):
                 return 0
         if a.dump_image and not a.out:
             elf = Elf(data)
+            refuse_constructors(elf)
             img, bss = build_image(elf, a.link_base)
             collect(elf, img, bss, a.link_base)
             open(a.dump_image, "wb").write(bytes(img))
@@ -292,7 +478,7 @@ def main(argv=None):
         if not a.name or not a.out:
             ap.error("--name and -o are required")
         blob, img, table = pack(data, a.kind, a.name, parse_version(a.version), [parse_need(n) for n in a.needs], a.capability,
-                                a.residence, a.align, a.link_base, manifest, menu=menu)
+                                a.residence, a.align, a.link_base, manifest, menu=menu, budget=parse_budget(a.budget) or None, exports=[parse_export(x) for x in a.export] or None)
         open(a.out, "wb").write(blob)
         if a.dump_image:
             open(a.dump_image, "wb").write(img)

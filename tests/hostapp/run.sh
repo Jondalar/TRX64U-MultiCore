@@ -2,6 +2,7 @@
 # Boot app host tests (T84): the .cor reader and SHA-256 of host-app against cor_pack.py bundles.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 HS="$ROOT/host-app/software"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
@@ -84,16 +85,21 @@ import descrec
 import test_cor_pack as TC
 t = sys.argv[1]
 desc = descrec.compile_text(open("tests/coreapp/golden/desc_test.toml").read())
-lib1, lib2 = TC.u2a(), TC.u2a() + bytes(9000)                # a library record much larger than the partial and the application
+# base 4.0 (T239.3 D58): record 7 holds the menu records of the libraries linked with `register`, from the core's TOML B; a poll keeps a menu out of the merge into record 6,
+# so both stay in record 7, the second much larger than the partial and the application
+_menu = open("tests/loader/menu_lib.toml").read().replace('op = "test.poll"', 'op = "beta.poll"')
+_big = _menu + "".join('\n[[node]]\nanchor = "F5/lib"\nkind = "op"\nlabel = "Pulse number %d of the big record"\nop = "test.echo"\norder = %d\n' % (i, i + 2) for i in range(120))
+libs = TC.blibs([("alpha", [], '[poll]\nop = "alpha.poll"\nperiod_ms = 10\n'), ("beta", [], _big)])
+lib1 = TC.blibs([("alpha", [], '[poll]\nop = "alpha.poll"\nperiod_ms = 10\n')])
 bit, _ = TC.bit_file()
 app = bytes((i * 5) & 0xFF for i in range(512))
 kw = dict(name="VIC-20 rec", version="0.1", partial=bit, app=app, load=0x30000, entry=0x30000, host_key="820eded2")
 open(t + "/old.cor", "wb").write(C.pack(**kw))
-open(t + "/rec.cor", "wb").write(C.pack(desc=desc, libs=[lib1, lib2], **kw))
+open(t + "/rec.cor", "wb").write(C.pack(desc=desc, libs=libs, **kw))
 open(t + "/desc.bin", "wb").write(desc)
-open(t + "/libs.bin", "wb").write(C.pack_libs([lib1, lib2]))
-open(t + "/libsonly.cor", "wb").write(C.pack(libs=[lib1], **kw))
-open(t + "/recl.cor", "wb").write(C.pack_large("amiga1200", "Amiga 1200", "0.3.0", TC.full_bit(frames=500), app, desc=desc, libs=[lib1]))
+open(t + "/libs.bin", "wb").write(C.pack_libs([(n, b) for n, _, b in libs]))
+open(t + "/libsonly.cor", "wb").write(C.pack(libs=lib1, **kw))
+open(t + "/recl.cor", "wb").write(C.pack_large("amiga1200", "Amiga 1200", "0.3.0", TC.full_bit(frames=500), app, desc=desc, libs=lib1))
 m, r = C.parse(open(t + "/rec.cor", "rb").read())
 def rebuild(mm, drop=()):
     body = C.rec(1, json.dumps(mm, sort_keys=True, separators=(",", ":")).encode())
@@ -491,10 +497,21 @@ cc_block test_flashwrite t_test_flashwrite
 
 # T148 S6: the "Cores and ROMs" scan and the removal of what belongs to no core, over a RAM disk. Controls only for what protects saves and the flash medium.
 CMT="$ROOT/tests/hostapp/test_coremaint.cc"
-CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$T/sha256.o")
+CMX=("$H/fileops.cc" "$H/bootcfg.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/overlay.cc" "$T/sha256.o")
+# T239.3 P1-6: the records the host reads a core's ROM needs from (record 6): trx64u's four ROMs, and the Amiga's ROM set
+mkdir -p "$T/cmrec"
+python3 -I - "$ROOT" "$T/cmrec" <<'PY'
+import sys
+root, out = sys.argv[1:3]
+sys.path.insert(0, root + "/tools")
+import descrec
+open(out + "/roms4.bin", "wb").write(descrec.compile_text(open(root + "/tests/hostapp/golden/roms_record.toml").read()))
+am = root + "/cores/amiga/app/desc.toml"   # T239.5: the Amiga's description names its TOML A (toml_a), found beside it
+open(out + "/romset.bin", "wb").write(descrec.compile_text(open(am).read(), am))
+PY
 t_test_coremaint() {
-  c++ -std=gnu++11 -Wall -I"$H" -o "$T/test_coremaint" "$CMT" "$H/coremaint.cc" "${CMX[@]}" 2>&1
-  "$T/test_coremaint"
+  c++ -std=gnu++11 -Wall -I"$H" -I"$ROOT/coreapp/src" -I"$ROOT/uicore" -o "$T/test_coremaint" "$CMT" "$H/coremaint.cc" "${CMX[@]}" 2>&1
+  "$T/test_coremaint" "$T/cmrec/roms4.bin" "$T/cmrec/romset.bin"
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
 cc_block test_coremaint t_test_coremaint
@@ -504,7 +521,7 @@ _cm_control() {   # name, sed expression
   cp "$H/romreq_table.inc" "$H"/*.h "$T/cm_$name/"
   sed -e "$expr" "$H/coremaint.cc" > "$T/cm_$name/coremaint.cc"
   cmp -s "$T/cm_$name/coremaint.cc" "$H/coremaint.cc" && { echo "CONTROL $name: the sed changed nothing" >&2; exit 1; }
-  c++ -std=gnu++11 -w -I"$T/cm_$name" -I"$H" -o "$T/cm_$name/t" "$CMT" "$T/cm_$name/coremaint.cc" "${CMX[@]}" 2>&1
+  c++ -std=gnu++11 -w -I"$T/cm_$name" -I"$H" -I"$ROOT/coreapp/src" -I"$ROOT/uicore" -o "$T/cm_$name/t" "$CMT" "$T/cm_$name/coremaint.cc" "${CMX[@]}" 2>&1
   if "$T/cm_$name/t" > "$T/cm_$name/log" 2>&1; then
     echo "CONTROL $name: the test PASSED against the mutant" >&2; exit 1
   fi

@@ -7,6 +7,7 @@
 #   tests/loader/run.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 SRC="$ROOT/coreapp/src"
 TST="$ROOT/tests/loader"
 T="$(mktemp -d)"
@@ -17,11 +18,26 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -fno-exceptions"
 PASS=0
 
-# the real RISC-V image: the fixture ELF packed as the build path packs it, and the same objects as linked for the address they land at
+# the real RISC-V image: the fixture ELF packed as the build path packs it (the packer's kind is lib and its API is 4: base 4.0 loads no library file, so test_libload.cc reads these files as
+# applications - the kind byte patched - for the real relocation; and one real lib file proves the refusal), and the same objects as linked for the address they land at
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.u2a" --name testlib --version 1 --needs 'base>=3.0' > /dev/null
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at1000.elf" --link-base 0x1000 --raw-image "$T/testlib.at1000.raw" > /dev/null
 
-# T104.1: the menu records of a library file (libmenu.h), compiled by the real tool; one with a route and one that hides are the refusals
+# T239.3 S13: the budget the packer writes (--budget) and the loader enforces: one file that fits (the packer adds `base>=3.2`), one that declares no operation,
+# and the packer's own refusal of an image over its figure
+python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.budget.u2a" --name testlib --version 1 --needs 'base>=3.0' \
+  --budget image=4096 --budget heap_keep=0 --budget heap_peak=0 --budget ops=1 --budget states=1 > /dev/null
+python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.ops0.u2a" --name testlib --version 1 --budget ops=0 > /dev/null
+if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.big.u2a" --name testlib --version 1 --budget image=8 > /dev/null 2> "$T/pack.err"; then
+  echo "u2a_pack accepted an image over its declared budget" >&2; exit 1
+fi
+grep -q "over its declared budget of 8 bytes" "$T/pack.err" || { echo "u2a_pack refused, but not with the budget sentence: $(cat "$T/pack.err")" >&2; exit 1; }
+if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.bad.u2a" --name testlib --version 1 --budget colour=3 > /dev/null 2> "$T/pack.err"; then
+  echo "u2a_pack accepted a budget key it does not know" >&2; exit 1
+fi
+[ ! -e "$T/testlib.big.u2a" ] && [ ! -e "$T/testlib.bad.u2a" ] || { echo "u2a_pack left a file behind after a refusal" >&2; exit 1; }
+
+# T104.1: the menu records of a library or an application (libmenu.h), compiled by the real tool; one with a route and one that hides are the refusals
 python3 "$ROOT/tools/descrec.py" compile "$TST/menu_lib.toml" "$T/menu_lib.bin"
 python3 - "$T" "$TST" <<'PY'
 import sys
@@ -31,18 +47,22 @@ t = sys.argv[1]
 base = '[[area]]\nkey = "F5"\n  [[area.tab]]\n  id = "a"\n  name = "A"\n  widget = "nodes"\n'
 open(t + "/menu_route.bin", "wb").write(descrec.compile_text(base))
 open(t + "/menu_hide.bin", "wb").write(descrec.compile_text('hide = ["x"]\n'))
+open(t + "/windows.bin", "wb").write(descrec.compile_text('[[window]]\nname = "video"\naddress = 0xA0000A00\nsize = 0x14\n[[window]]\nname = "mixer_2"\naddress = 0xA0000600\nsize = 0x100\n[[window]]\nname = "iowin"\naddress = 0x04000040\nsize = 0x10\n[[window]]\nname = "boardwin"\naddress = 0x10100900\nsize = 0x10\n'))
+open(t + "/menu_keys.bin", "wb").write(descrec.compile_text('[[key]]\nnode = "lib"\nkey = "x"\nop = "test.echo"\nlegend = "Echo"\n[[key]]\nlayout = "list"\ncodes = [48, 57]\ndo = "decline"\n'))
+open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.tick"\nperiod_ms = 10\n'))
 PY
 
 loader_args() {   # loader_args SRCDIR: the compiler flags LA and the files LF of the test, for the product in SRCDIR
-  LA=($FLAGS "-DFIXDIR=\"$T\"" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp")
-  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$ROOT/app/lib/testlib/testlib.cc")
+  LA=($FLAGS "-DFIXDIR=\"$T\"" -I"$ROOT/tests/loader/netfsstub" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video" -I"$ROOT/app/edit")
+  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
+      "$1/libsvc.cc" "$1/netfs.cc" "$1/apphost.cc" "$TST/apphost_stubs.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder; apphost.cc (the base's job table) over stubs of the screens
 }
 build() {   # build OUT SRCDIR
   loader_args "$2"
   $CXX "${LA[@]}" -o "$1" "${LF[@]}"
 }
 # the fixtures the generators above left in $T and the test reads through FIXDIR: named, so that they are part of every unit's key (T100 D14)
-CC_EXTRA="$T/testlib.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin"
+CC_EXTRA="$T/testlib.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin $T/menu_keys.bin $T/windows.bin $TST/test_online.inc $TST/libs_register.toml $TST/libs_exports.toml $TST/netfsstub/FreeRTOS.h $TST/netfsstub/task.h"
 run() {
   local key t0=$SECONDS; loader_args "$SRC"; key="$(cc_key loader "test libload" -- "${LA[@]}" -- "${LF[@]}")"
   if cc_cached libload "$key" test; then PASS=$((PASS + 1)); return 0; fi
@@ -71,7 +91,46 @@ control_job() {   # control NAME FILE 'sed-expr'; T100 D12: JOBS at a time (test
 }
 control() { cc_no_controls && return 0; pjob_spawn control_job "$@"; }
 
+exports_args() {   # exports_args SRCDIR: the test of the base's own tables (T239.3 base 3.3, libexports.cc) over the recording model of the code behind them
+  loader_args "$1"
+  LF=("$TST/test_exports.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
+      "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libexports.cc" "$1/libtab.cc" "$T/lib/libtab_table.cc" "$1/c64cart_exports.cc" "$1/cbm1541_exports.cc" "$1/sid_exports.cc"
+      "$1/tempdisk_exports.cc" "$1/cbmprg_exports.cc" "$1/sidfile.cc" "$TST/exports_stub.cc" "$ROOT/app/loaders/cbm_prg.cc")
+  python3 "$ROOT/tools/libtab.py" table "$TST/libs_exports.toml" "$T/lib"                                          # the library table of the test's TOML B (T239.3 P3-1)
+  python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"   # the driver table the shared app is linked with (T239.3 D31)
+  LA+=(-DDRV_PTR_HEADER='"drv_fake.h"' -I"$T/drv" -I"$T/lib" -I"$ROOT/tests" -I"$ROOT/coreapp/cores" -I"$ROOT/app/lib/cbm1541" -I"$ROOT/app/loaders")
+}
+run_exports() {
+  local key t0=$SECONDS; exports_args "$SRC"; key="$(cc_key loader "test exports" -- "${LA[@]}" -- "${LF[@]}")"
+  if cc_cached libexports "$key" test; then PASS=$((PASS + 1)); return 0; fi
+  $CXX "${LA[@]}" -o "$T/libexports" "${LF[@]}"
+  cc_exec "$T/rl_libexports" "$T/libexports"
+  echo "test libexports: PASS $((SECONDS - t0))s"
+  cc_store libexports "$key" "$T/rl_libexports" test
+  PASS=$((PASS + 1))
+}
+
+register_args() {   # register_args SRCDIR: the test of the libraries linked with `register` (LibLoader::link, libtab_link) over the table the generator makes from libs_register.toml
+  loader_args "$1"
+  LF=("$TST/test_register.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/overlay.cc" "$1/ops.cc" "$1/service.cc" "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc"
+      "$ROOT/tests/coreapp/sha256_cc.cc" "$1/libtab.cc" "$T/libreg/libtab_table.cc")
+  python3 "$ROOT/tools/libtab.py" table "$TST/libs_register.toml" "$T/libreg"
+  python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps"
+  LA+=(-DDRV_PTR_HEADER='"drv_fake.h"' -I"$T/libreg" -I"$T/drv" -I"$ROOT/tests" -I"$ROOT/coreapp/cores" -I"$ROOT/app/lib/cbm1541" -I"$ROOT/app/loaders")
+}
+run_register() {
+  local key t0=$SECONDS; register_args "$SRC"; key="$(cc_key loader "test register" -- "${LA[@]}" -- "${LF[@]}")"
+  if cc_cached libregister "$key" test; then PASS=$((PASS + 1)); return 0; fi
+  $CXX "${LA[@]}" -o "$T/libregister" "${LF[@]}"
+  cc_exec "$T/rl_libregister" "$T/libregister"
+  echo "test libregister: PASS $((SECONDS - t0))s"
+  cc_store libregister "$key" "$T/rl_libregister" test
+  PASS=$((PASS + 1))
+}
+
 run
+run_exports
+run_register
 control fs_flash_save libload.cc 's/return fs \&\& path \&\& !fs_write_refused(path) \&\& fs->save(path, buf, len);/return fs \&\& path \&\& fs->save(path, buf, len);/'
 control fs_flash_rename libload.cc 's/!fs_write_refused(from) \&\& !fs_write_refused(to) \&\& fs->rename/!fs_write_refused(from) \&\& fs->rename/'
 control fs_flash_open libload.cc 's/h->f = fs->open(path, rw \&\& !fs_write_refused(path));/h->f = fs->open(path, rw);/'

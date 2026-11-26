@@ -20,8 +20,7 @@ enum MenuStage {
     KS_SHEET,           // the sheet of a file's actions: a letter runs its item
     KS_APP,             // an application's screens: its own keys before the core's grammar
     KS_APP_TERM,        // an application's terminal: every key is the application's
-    KS_MONITOR,         // the monitor: every key is trxmon's
-    KS_TIMELINE,        // Timewarp: its keys call the tw.* operations
+    KS_CORE,            // the key table of the core's own record (descrec.h section 18, MenuMerge::keys): the rows of the core's own key table, in the record's order
     KS_BUSY,            // a file is being written: ESC drops it, nothing else counts
     KS_PICK,            // the folder / file picker: its raw handler (not in the table)
     KS_ENTRY,           // the text field and the address prompt: their raw handler (not in the table)
@@ -94,6 +93,15 @@ struct KeyRow {
     const char *when;   // a state name: the row counts only while that state has text ("!name": while it has none)
 };
 
+// A row of the core's key table (T239.3 base 3.3, descrec.h section 18): the KeyRow (its stage is KS_CORE, lo -1: any key) and where it applies - `layout` names the layout of the
+// tab that is shown (menuctl.cc layout_is), `node` the id of the shown tab; exactly one is set. Both point into the record.
+struct CoreKey {
+    const char *layout;
+    const char *node;
+    KeyRow row;
+    const char *legend;   // T262 P6: the label the foot legend names this key by (descrec.h section 18, the legend table behind the rows); null: the row is not in the legend
+};
+
 // The row number `*cursor` onwards of the stage whose range holds `k`, or null. `when_ok(user, name)` asks a state.
 const KeyRow *menu_keymap_next(int stage, int k, int *cursor, bool (*when_ok)(void *user, const char *name), void *user);
 // The table as a whole (tests, the gate): rows and count.
@@ -103,8 +111,6 @@ int menu_intent_by_name(const char *name);
 bool menu_stage_swallows(int stage);                  // a live stage in which no row took the key ends the walk: nothing happens
 // The key of the first row with this intent and argument (an area by its number, a tab by its digit), -1 when none: a remote intent by name needs it.
 int menu_keymap_key_of(int intent, int arg);
-// T228 R21, FW UserInterface::keymapper (userinterface.cc:1081-1093): the navigation style WASD Cursors - w, a, s, d are Up, Left, Down, Right; any other key stays.
-int menu_keymap_wasd(int k);
 
 // One translated key: what a producer sends. `stage`/`row` say where the table walk stands; a row that declines continues from the next one.
 struct MenuIntent {

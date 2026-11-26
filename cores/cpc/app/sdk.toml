@@ -1,0 +1,39 @@
+# TOML B of the CPC's app (T239.3 D55, T239.5 D16): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in
+# its link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The
+# base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "cpc"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library cpc below defines it); the core table of this app holds this core only
+desc = "cpc_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A that the shared drivers (hw.cc) name: the host's mode register
+# (cart_regs), the five ICAP blocks of the loader, the partition block and the host's master volume and tone (audio_master). The core has no drive block of the host's kind (its FDC is the core's
+# own `disk` block), no cartridge, no ring and no DMA window block, so board.cc runs no cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the ROM handling, the tape slot, the register map), the DSK drives with their write-back, the default hotkeys and the tape deck with
+# its pulse converter (copies of the files the PET app still shares, T239.5 D16). Its files are in cores/cpc/app/lib. needs: the blank-file and blank-disk creation of the shared SDK libraries.
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: cpcapp): unit = 2 unit tests, service = 8 mock bitstream -> service, ui = 9 service -> UI,
+# api = 10 service -> API (the CPC's cases of the shared tests, TEST_APP_CPC)
+[[library]]
+name = "cpc"
+sources = ["cpc.cc", "cpc_disk.cc", "tape_deck.cc", "tape_pulses.cc"]
+headers = ["cpc_disk.h", "cpc_regs.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
+needs = ["newfile", "newdisk"]
+tests = { unit = ["cpc", "cpc_menu", "tape_cpc"], service = ["cpc_descgen", "cpc_mounts", "cpc_romreq", "cpc_newdisk"], ui = ["cpc_desc", "cpc_hotkeys", "cpc_ledcores", "cpc_joyswap", "cpc_createflow", "cpc_keywalk"], api = ["cpc_memops", "cpc_uicover"] }
+
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]

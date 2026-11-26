@@ -7,7 +7,9 @@
 #include <stdint.h>
 #include "ctx.h"
 
-#define CORE_REPORT_MAX 28672               // the text: the sections (about 9 KB with the TRX64U's 216 settings, T228 R21) and the log (D2: at most 16 KB)
+#ifndef CORE_REPORT_MAX                     // the text: the sections and the log (D2: at most 16 KB); [sizes] report_bytes of the app's TOML B (tools/app_build.py) replaces the default
+#define CORE_REPORT_MAX 28672
+#endif
 #define CORE_REPORT_DIR "/sd/report"
 
 // Builds the text into out[0..cap). Returns its length. `log` is the application's log, in order (the last lines are taken).

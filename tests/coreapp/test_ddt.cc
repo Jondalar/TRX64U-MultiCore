@@ -10,6 +10,7 @@
 #include "cores.h"
 #include "ddt_regs.h"
 #include "ops_glue.h"
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 
 static std::string slurp(const std::string &rel)
 {

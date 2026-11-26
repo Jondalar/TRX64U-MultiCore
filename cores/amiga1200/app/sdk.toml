@@ -1,0 +1,90 @@
+# TOML B of the Amiga 1200's app (T213.3 P1, D1 "A."; as the VIC-20's, T239.3 V-4): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh);
+# nothing else is in its link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the
+# link map). The base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the
+# switch: a core whose TOML B names [app] desc has moved to its own app).
+[app]
+name = "amiga1200"
+# the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library amiga1200 below defines it); the core table of this app holds this core only
+desc = "amiga1200_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the A1200's flat design carries a copy of the host,
+# cores/amiga1200/mono/host) that the shared drivers (hw.cc) name: the host's mode register (cart_regs: am_init and am_release hold and release the machine through it), the ICAP blocks of the
+# loader and the partition control (the way back to the host is the IPROG of hw_return_to_host, and the release of the expansion port is hw_release_expansion_port, as in the shared app, which links
+# the block icap and partition for this core today), and audio_master (the host's master volume and tone: the rows Volume and Tone). No block iec_status, drive_a, c64cart, c64_debug, dma or cmd_if is
+# named: the A1200 has no IEC bus, no 1541, no cartridge, no ring, no DMA window and no command interface, so board.cc runs none of their probes in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the poll and the pad operations, the register map). Its files are in cores/amiga1200/app/lib: amiga1200.cc is the A1200's record, as
+# cores/amiga/app/lib/amiga.cc is the A500's (the Amiga 500's own app, T239.5 D15).
+[[library]]
+name = "amiga1200"
+sources = ["amiga1200.cc"]
+headers = ["amiga1200_regs.h", "amiga1200_keys.h"]
+# newdisk: amiga1200.cc calls newdisk_register (the task Create blank ADF); pad: pad2_apply calls pad_ensure and pad_set_target (the gamepad as game port 2)
+needs = ["newdisk", "pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: a12app, the group amiga1200): unit = 2 unit tests (the descriptor
+# against the model of its register block: a12 its register use against the decode of its gateware, a12_fbwin the picture window, a12_rawkeys the key queue, a12_ledload the LED
+# selector), service = 8 mock bitstream -> service (the data description and the host's ROM table), ui = 9 service -> UI, api = 10 service -> API: its operations through the service
+# call the REST and RPC transports make (svc_call; the A1200's cases of the shared tests, TEST_APP_A1200)
+tests = { unit = ["a12", "a12_fbwin", "a12_rawkeys", "a12_ledload", "a12_regset", "a12_joyswap"], service = ["a12_descgen", "a12_descsec", "a12_romreq", "a12_romset"], ui = ["a12_desc", "a12_hotkeys", "a12_createflow", "a12_ledcores", "a12_base", "a12_mousescale", "a12_scale"], api = ["a12_memops"] }
+
+# "Create blank ADF" (the task of the descriptor, disk.create): the same sources as the shared app's library, S12. The capability "floppy" of the descriptor registers it too.
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]
+
+# The shared rule of a new file's folder and name (T122 D2): newdisk makes the blank ADF's path with it
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+# The USB gamepads (the descriptor's pad spec, caps "pad"): the pad service with its maps and mapping wizard (the Input tab's Map port 2 buttons), the HID descriptor reader and the XInput driver. The
+# same sources as the shared app's library, S12 (its table "pad" is what engines.cc and ops_glue.cc call)
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+exports = [{ name = "pad", major = 1, table = "pad_table" }]
+init = "pad_lib_init"
+core = "pad_lib_core"
+
+# The USB mouse (the descriptor's MouseSinkSpec, caps "mouse"): engines.cc and baseset.cc call its table "mouse" (the mouse sink, Mouse Sensitivity and Mouse Acceleration)
+[[library]]
+name = "mouse"
+sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
+headers = ["mousesink.h", "mouse_api.h"]
+exports = [{ name = "mouse", major = 1, table = "mouse_table" }]
+init = "mouse_lib_init"
+# T239.5 D4: the mouse library's report stream into the Amiga's counters (the A1200's record)
+tests = { unit = ["a12_mouselib"] }
+
+# A folder of a medium as an Amiga hard disk (the tasks Mount folder as HD0 and HD1, sectors.mount_folder, T128)
+[[library]]
+name = "folderhd"
+sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
+headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
+bind = "folderhd_bind"
+# T239.5 D4: the folder as an Amiga hard disk (the FFS volume writer and its mailbox) on the A1200's record
+tests = { unit = ["a12_folderhd"] }
+
+# The cluster link map of an open FatFs file: the file manager's CoreFs seeks through it in a large HDF image (T104 5.16)
+[[library]]
+name = "fastseek"
+sources = ["fastseek.cc", "fastseek_exports.cc"]
+headers = ["fastseek.h", "fastseek_api.h"]
+bind = "fastseek_bind"
+
+# The FTP medium's client for the Library's FTP folder (netfs.cc, T104.2): the A1200 mounts an ADF or an HDF from an FTP host as it does today
+[[library]]
+name = "ftp"
+sources = ["ftp_client.cc", "ftp_exports.cc"]
+headers = ["ftp_client.h", "ftp_api.h"]
+bind = "ftp_bind"

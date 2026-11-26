@@ -1,4 +1,4 @@
-// The decisions of the SID socket detection, apart from the registers (u64cfg.cc reads and writes them): what the OSC3 read-outs say and what a changed
+// The decisions of the SID socket detection, apart from the registers (the file that reads and writes them is a core's, not the base's): what the OSC3 read-outs say and what a changed
 // type does to the socket's settings. FW u64/u64_config.cc: S_SidDetector (the consistency check), U64SidSockets::detect (the type change).
 #ifndef COREAPP_SID_DECIDE_H
 #define COREAPP_SID_DECIDE_H

@@ -150,7 +150,6 @@ void dest_refresh(MenuCtl *m)
     add("machine.restart", "Restart the core?");
     add("machine.cold_reset", "Reset the machine (cold)?");
     add("machine.warm_reset", "Reset the machine (warm)?");
-    add("update.run_record", "Run the update?");
     const MenuTree &t = m->tree();
     for (int i = 0; i < t.nnodes; i++) {
         char q[96];
@@ -500,9 +499,9 @@ public:
         w.kb("menu_open", open);
         if (dialog_up()) {                                  // an application's dialog (appdlg.h): what it shows and which row is selected; its keys are intents of the same kind (D23)
             const DlgView *v = g_env.dialog_view(g_env.user);
-            static const char *const kinds[] = { "none", "message", "buttons", "choose", "text", "pick_file", "pick_folder" };
+            static const char *const kinds[] = { "none", "message", "buttons", "choose", "text", "pick_file", "pick_folder", "edit" };
             w.kopen("appdlg", '{');
-            w.ks("kind", v->kind >= 0 && v->kind <= DK_PICK_FOLDER ? kinds[v->kind] : "?");
+            w.ks("kind", v->kind >= 0 && v->kind <= DK_EDIT ? kinds[v->kind] : "?");
             w.ks("title", v->title);
             w.ks("text", v->text);
             if (v->kind == DK_TEXT || v->kind == DK_PICK_FILE || v->kind == DK_PICK_FOLDER) w.ks("input", v->input);
@@ -518,6 +517,7 @@ public:
                 w.sep();
                 w.open('{');
                 w.ks("text", v->row[i]);
+                if (v->row_val[i]) w.ks("value", v->row_val[i]);
                 if (v->row_dir[i]) w.kb("dir", true);
                 w.kb("selected", v->first + i == v->sel);
                 w.close('}');

@@ -24,13 +24,14 @@ namespace {
 #define ZIP_APP "unzip"
 #define ZIP_SHARED "/SD/cores/apps"            // APP_SHARED_FOLDER on the card: where the package puts the applications
 
-// What stays between two unzips: a library that was loaded stays in the heap (libraries are resident), so the loader must too.
+// What stays between two unzips: the loader, the registry and the index (made once; unzip.u2a carries its own miniz, T239.3 D60).
 struct ZipRig {
     OpRegistry reg;
     LibLoader ld;
     AppIndex idx;
     CoreCtx ctx;
-    ZipRig(LibHost *h, CoreFs *fs) : ld(h, &reg)
+    // the base's own minor (U2A_BASE_MINOR): this loader never calls add_services, so api->sync, settings, ctx, io and board are null; the image it runs (unzip.u2a) needs the base only
+    ZipRig(LibHost *h, CoreFs *fs) : ld(h, &reg, U2A_BASE_MINOR)
     {
         memset(&ctx, 0, sizeof(ctx));
         ctx.fs = fs;
@@ -294,12 +295,12 @@ bool ZipJob::run()
     ent = rig_->idx.find(ZIP_APP);
     {
         if (!ent) {
-            refuse("Unzip is not installed.", "Copy unzip.u2a and miniz.u2a from the release\ninto the folder cores/apps on the SD card.");
+            refuse("Unzip is not installed.", "Copy unzip.u2a from the release\ninto the folder cores/apps on the SD card.");
             HJ_WAIT_KEY(k);
             return finish(false);
         }
         if (rig_->ld.handle_of(ZIP_APP) < 0 && !rig_->idx.fits(*ent, rig_->ld.room(), &rig_->ld)) {
-            refuse("There is not enough memory for Unzip.", "Or a library it needs (miniz.u2a) is missing from the folder.");
+            refuse("There is not enough memory for Unzip.", "It needs more of the heap than is free now.");
             HJ_WAIT_KEY(k);
             return finish(false);
         }
@@ -344,7 +345,7 @@ bool ZipJob::run()
         const AppEntry *e = ent;
         handle = rig_->ld.handle_of(ZIP_APP);
         if (handle < 0) {
-            bool ok = rig_->idx.load_needs(zenv.fs, &rig_->ld, *e, err, sizeof(err));
+            bool ok = rig_->idx.needs_linked(*e, err, sizeof(err));
             CoreFile *f = ok ? zenv.fs->open(e->path, false) : 0;
             if (f) {
                 CoreFileSource src(f);

@@ -22,8 +22,8 @@ const RestAlias rest_aliases[] = {
     { "GET", "/v1/machine:readmem", "machine.read_mem", 0, 0 },
     { "PUT", "/v1/machine:writemem", "machine.write_mem", 0, 0 },
     { "POST", "/v1/machine:writemem", "machine.write_mem", 0, 0 },
-    { "PUT", "/v1/runners:run_prg", "prg.run|c64.run_prg", "file", "path" },
-    { "PUT", "/v1/runners:load_prg", "prg.load|c64.load_prg", "file", "path" },
+    { "PUT", "/v1/runners:run_prg", "prg.run", "file", "path" },
+    { "PUT", "/v1/runners:load_prg", "prg.load", "file", "path" },
     { "GET", "/v1/configs/{_}/{key}", "settings.get", 0, 0 },
     { "PUT", "/v1/configs/{_}/{key}", "settings.set", 0, 0 },
     { "PUT", "/v1/configs:reset_to_default", "settings.reset_to_host", 0, 0 },
@@ -383,18 +383,9 @@ static int alias_reply(char *out, int cap, const OpResult &r)
 
 static int serve_alias(CoreCtx *c, const HttpReq &q, JsonObj *o, const RestAlias *al, char *out, int cap)
 {
-    OpRegistry *reg = ops_of(c);
-    char names[96];
-    snprintf(names, sizeof(names), "%s", al->ops);
-    const char *op = 0;
-    for (char *tok = strtok(names, "|"); tok; tok = strtok(0, "|")) {
-        if (reg->find_op(tok)) {
-            op = tok;
-            break;
-        }
-    }
+    const char *op = al->ops;
     OpResult r;
-    if (!op) {
+    if (!ops_of(c)->find_op(op)) {
         svc_fail(&r, OPE_UNSUPPORTED, "%s needs the operation %s, which this core did not register", q.path, al->ops);
         return alias_reply(out, cap, r);
     }

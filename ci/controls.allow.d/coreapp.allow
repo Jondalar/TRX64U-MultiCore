@@ -1,4 +1,4 @@
-tests/coreapp/run.sh : noflash_.*|board_bootcfg|board_cfg_dir|cart_flash_banks   # flash - nothing but the one config path may be written to /flash; boot config and bank geometry of the flash
+tests/coreapp/run.sh : noflash_.*|board_bootcfg|board_cfg_dir|cart_flash_banks   # flash - nothing but the standalone core's two registered files (<folder>.cfg, boot.cfg) and the host's boot.cfg may be written to /flash; boot config and bank geometry of the flash
 tests/coreapp/run.sh : wb_.*|longnames_side   # flash - write-back of a cartridge's flash writes (EF3/S6 program, erase, EEPROM) to the .crt and the .bak side file
 tests/coreapp/run.sh : mwb_.*|wbm_.*   # persistence - media write-back before reset, eject, replace and return to the host
 tests/coreapp/run.sh : set_writes_all|set_loses_value|set_reset_keeps|set_case|scale_store|pad_cfgkeys|pad_wiz_not_saved|pad_wiz_saved_lie|rs_setop|home_not_stored   # persistence - settings written to the .cfg and read back
@@ -14,7 +14,8 @@ tests/coreapp/run.sh : fh_nopatch|fh_consistent|fh_nofold|fh_rename|fh_delete|fh
 tests/coreapp/run.sh : board_migrate_overwrite|board_migrate_move|board_cfg_path|board_cfg_named_by_store|cf_start_cfg|handover_cfgext|cf_cfg_keep_old|cf_cfg_overwrite|cf_cfg_noverify|cf_copy_noverify|cf_copy_keepbad|cf_no_saves|cf_overwrite   # persistence - the config file and saves moved and copied into the core folder
 tests/coreapp/run.sh : guard_.*   # persistence - the library-load guard marker written and cleared on the volume
 tests/coreapp/run.sh : drv_exists|drv_bare|nd_exists|nd_bare|cf_remove|cf_chunk   # persistence - creating a new disk image file: no overwrite, no half file left
-tests/coreapp/run.sh : diagtest_overwrite|diagtest_halffile|diagtest_superseded   # persistence - the diag test's file writing: no overwrite (not even by the installer of record 8), no half file
+tests/coreapp/run.sh : diagtest_halffile   # persistence - the diag test's file writing: no half file
+tests/coreapp/run.sh : instfiles_overwrite|instfiles_superseded   # persistence - the files of record 8 on the card: never over one that is there, an unedited earlier version replaced
 tests/coreapp/run.sh : cr_overwrite|cr_no_folder   # persistence - the core report file written to the USB stick
 tests/loader/run.sh : fs_flash_save|fs_flash_rename|fs_flash_open   # flash - an application may not write, rename or open for writing in /flash
 tests/coreapp/run.sh : cfg_save_inplace|cfg_save_no_swap|cfg_load_rebind|cfg_no_recovery   # persistence - T198 config files: save via temp + swap, load rebinds the settings file, recovery after a power loss

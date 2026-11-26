@@ -1,16 +1,23 @@
-# three prompts; the data line high with nothing held, low with red held, high again: the sample before the first clock and the nine after it
+# three prompts; the data line (PADDLE_CMP3) high with nothing held, low with red held, the pin 5 line (PADDLE_CMP2) low throughout; every one of the six DIS / ADJ settings sees the same, so every setting passes "reads" and "ok", and the ID eval (data low on read 8) fails on all of them: the model's data line is constant within a phase
 meta.status = "done"
 prompt.none = "OK"
 prompt.red = "OK"
 prompt.off = "OK"
-slot.n0_rel.cmp = [8]
-slot.r0_rel.cmp = [0]
-slot.n_d1.cmp = [8, 8, 8, 8, 8, 8, 8, 8, 8]
-slot.r_d1.cmp = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-slot.n0_d1a1.cmp = [8]
-eval.d1_pin5 ~ PASS
-eval.d1_idle ~ PASS
-eval.d1_reads ~ PASS
-eval.d1_ok ~ PASS
-eval.d1_id ~ FAIL
+slot.n0_d0.pins = ["PADDLE_CMP2"]
+slot.n0_d0.levels = ["0"]
+slot.n_d0.levels = ["1", "1", "1", "1", "1", "1", "1", "1", "1"]
+slot.r_d0.levels = ["0", "0", "0", "0", "0", "0", "0", "0", "0"]
+slot.n_d1a1.levels = ["1", "1", "1", "1", "1", "1", "1", "1", "1"]
+slot.r_d1a1.levels = ["0", "0", "0", "0", "0", "0", "0", "0", "0"]
+slot.n0_rel.ts = [500003]
+slot.n0_d0.ts = [500007]
+eval.d0_pin5 ~ PASS
+eval.d0_idle ~ PASS
+eval.d0_reads ~ PASS
+eval.d0_ok ~ PASS
+eval.d0_id ~ FAIL
+eval.d1a1_pin5 ~ PASS
+eval.d1a1_idle ~ PASS
+eval.d1a1_reads ~ PASS
 eval.d1a1_ok ~ PASS
+eval.d1a1_id ~ FAIL

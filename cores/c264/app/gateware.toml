@@ -1,0 +1,331 @@
+# TOML A of the Commodore 264 core (T239.3 D55, T239.5 D15): the gateware's registers as capabilities, written from what cores/c264/rtl/trx/c264_regs.v decodes (tools/rtl_check.py proves it against the
+# RTL, code to code: tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF
+# to the core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6
+# (0x101A6000-0x101A6FFF) is decoded by c264_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The 1541 block (0x10020000) belongs to
+# drive_l2 behind the drv_io_* ports of layer2_c264.v (second --bus of the check, below): the registers drive_l2 decodes, no WD177x. The blocks of the core are named c264_*.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "C264"
+block = "ident"
+
+# 000-00B: the ID "C264" (byte 0 first; a build with ID_TRX2 = 1 answers "TRX2"), the caps bytes (0xC0: page 6 and the RGB565 pixel layer, the host's; caps2 0x02: BUILD is there) and the build word (USR_ACCESS)
+[[block]]
+name = "ident"
+module = "c264_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x0C
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b5 a frame of the machine is complete, b6 the host's video frame start, b7 page flip done
+[[block]]
+name = "c264_irq"
+module = "c264_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x08
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "c264_ddr_cal"
+module = "c264_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x08
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0-0AD: the machine. ctrl b0 reset hold, b1 halt (Freeze); model b0 0 C16 / C116, 1 Plus/4, ram_size b0 0 16 KB mirrored, 1 64 KB, joy_swap b0 swaps the host's two joystick ports (all three taken at the
+# core's next reset); status b0 in reset, b1 held (Freeze), b2 the TED's PAL flag; frames the frame counter (low 16 bits); cpuaddr the CPU's address bus (a sample)
+[[block]]
+name = "c264_machine"
+module = "c264_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x0E
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "model"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ram_size"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy_swap"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "pal"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0xC
+  width = 16
+  dir = "r"
+
+# 0B0-0B2: rom_sel b2:0 the array behind the 16 KB aperture (0 KERNAL, 1 BASIC, 2 function low, 3 function high, 4 cartridge low, 5 cartridge high); cart b0 a cartridge low image is loaded, b1 a high image;
+# tape_pin b0 MOTOR pin driven, b1 WRITE pin driven, b4 READ / SENSE pins are the machine's inputs (reset 0: every pin released)
+[[block]]
+name = "c264_media"
+module = "c264_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x03
+  [[block.property]]
+  name = "rom_sel"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "cart"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "tape_pin"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the
+# reset values of base_r and stride_r in c264_regs.v (four buffers of 384 x 288 RGB565, 1 MB apart)
+[[block]]
+name = "c264_video"
+module = "c264_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0x0C
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0x10020000: the 1541 drive A of the partial (drive_l2.vhd behind drv_io_*, wired straight to the top's ports in layer2_c264.v): the registers of the shipped map cbm1541 that this RTL has, and the two runs of the parameter RAM (2 KB, 11 address bits:
+# per half track two words, the DDR2 address of the track and its length - 1 | bit time << 16, 128 half tracks per side, side 1 at +0x400, so the words interleave: the stride 8)
+[[block]]
+name = "drive_a"
+module = "drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "dark"
+    value = 0
+    [[block.property.state]]
+    name = "light"
+    value = 1
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+    [[block.property.state]]
+    name = "no"
+    value = 0
+    [[block.property.state]]
+    name = "yes"
+    value = 1
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "motor"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "writing"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "writebusy"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  count = 128
+  dir = "rw"
+    [[block.property.field]]
+    name = "any"
+    shift = 7
+    bits = 1
+    [[block.property.field]]
+    name = "this"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "param_addr"
+  offset = 0x1000
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+  [[block.property]]
+  name = "param_len"
+  offset = 0x1004
+  width = 32
+  count = 256
+  stride = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "length_m1"
+    shift = 0
+    bits = 16
+    [[block.property.field]]
+    name = "bit_time"
+    shift = 16
+    bits = 16

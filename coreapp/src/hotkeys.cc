@@ -1,9 +1,11 @@
 #include "hotkeys.h"
+#include "baseset.h"
+#include "menubuild.h"
 #include "ops.h"
 #include "ops_glue.h"
 #include "io.h"
 #include "settings.h"
-#include "padkeys.h"
+#include "padkeys_api.h"
 #include <string.h>
 #include <stdio.h>
 #include <strings.h>
@@ -25,11 +27,10 @@ static const char *const g_keys[HK_NKEYS] = {
 #define K_CBM 61
 #define K_STOP 63
 
-// the value labels of an action key item: "Off", then the 65 keys
-static const char *g_vals[HK_NKEYS + 1];
+// The value labels of an action key item - "Off", then the 65 keys - are the base UI TOML's row (coreapp/base_ui.toml, the list hotkey_keys; pick "hotkeys.keys"), the C64's keycaps. T187 gate 1 (R6): a core
+// that is not a C64 family keyboard names the three keys the person presses on a USB keyboard that make C=, RUN/STOP and RESTORE (keyboard_usb.cc: a GUI key, ESC, F12), not the C64's keycaps:
+// that list is the pick's.
 static bool g_vals_made;
-// T187 gate 1 (R6): a core that is not a C64 family keyboard names the three keys the person presses on a USB keyboard that make C=, RUN/STOP and RESTORE
-// (keyboard_usb.cc: a GUI key, ESC, F12), not the C64's keycaps.
 static const char *g_pc_vals[HK_NKEYS + 1];
 static const char *pc_name(int i)
 {
@@ -40,9 +41,8 @@ static void make_vals()
     if (g_vals_made) {
         return;
     }
-    g_vals[0] = g_pc_vals[0] = "Off";
+    g_pc_vals[0] = "Off";
     for (int i = 0; i < HK_NKEYS; i++) {
-        g_vals[i + 1] = g_keys[i];
         g_pc_vals[i + 1] = pc_name(i);
     }
     g_vals_made = true;
@@ -66,7 +66,6 @@ static const Preset g_pre[] = {
     { "CTRL + RUN/STOP", K_CTRL, K_STOP },
 };
 #define NPRE ((int)(sizeof(g_pre) / sizeof(g_pre[0])))
-static const char *g_pre_names[NPRE];
 static const char *g_pc_pre_names[NPRE];
 static char g_pc_pre_buf[NPRE][24];
 static bool g_pc_pre_made;
@@ -310,25 +309,22 @@ void hk_usb_report_filter(const uint8_t in[8], uint8_t out[8])
 }
 
 // ---- the settings ------------------------------------------------------------------------------------------------------------------------
-#define HKL(s) s                                    // the page that lists them is called Hotkeys (T187 R6): no prefix
-#define HK_MOD_LABEL "Modifier"
+// The keys of the six fixed action items by the action's bit; the item's label and values are its row of the base UI TOML (the page that lists them is called Hotkeys, T187 R6: no prefix on a label).
 struct ItemDef { const char *key, *label; };
-static const ItemDef g_items[HK_NACT] = {
-    { "Hotkey menu", HKL("Menu open / close") },
-    { "Hotkey volume up", HKL("Volume up") },
-    { "Hotkey volume down", HKL("Volume down") },
-    { "Hotkey reset", HKL("Reset") },
-    { "Hotkey swap joystick", HKL("Swap joystick ports") },
-    { "Hotkey picture mode", HKL("Picture mode") },
-    { 0, 0 },                                              // HKA_CORE: named by the descriptor's HkSpec
-};
+static const char *const g_item_keys[HK_NACT] = { "Hotkey menu", "Hotkey volume up", "Hotkey volume down", "Hotkey reset", "Hotkey swap joystick", "Hotkey picture mode", 0 };   // HKA_CORE: named by the descriptor's HkSpec
+static const BaseRow *item_row(int a)
+{
+    return a >= 0 && a < HKA_CORE ? menu_base_row(HK_OP, g_item_keys[a]) : 0;
+}
 static ItemDef item_of(const HkSpec *sp, int a)
 {
     if (a == HKA_CORE) {
         ItemDef d = { sp ? sp->core_key : 0, sp ? sp->core_label : 0 };
         return d;
     }
-    return g_items[a];
+    const BaseRow *r = item_row(a);
+    ItemDef d = { g_item_keys[a], r && r->label ? r->label : g_item_keys[a] };
+    return d;
 }
 static int n_items(const HkSpec *sp)
 {
@@ -448,10 +444,17 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     if (d->nsettings + 1 + n_items(sp) > SETTINGS_MAX) {
         return "settings: no room for the Hotkey items the application adds";
     }
-    make_vals();
-    for (int i = 0; i < NPRE; i++) {
-        g_pre_names[i] = g_pre[i].name;
+    const BaseRow *mrow = menu_base_row(HK_OP, HK_KEY_MOD), *krow = item_row(HKA_MENU);
+    if (!mrow || !krow || mrow->nvalues != NPRE || krow->nvalues != HK_NKEYS + 1 || !mrow->pick || strcmp(mrow->pick, "hotkeys.modifiers") ||
+        !krow->pick || strcmp(krow->pick, "hotkeys.keys")) {
+        return "settings: the base UI TOML has no hotkey rows that fit the map";
     }
+    for (int a = 0; a < HKA_CORE; a++) {
+        if (!item_row(a) || item_row(a)->nvalues != HK_NKEYS + 1) {
+            return "settings: the base UI TOML has no hotkey rows that fit the map";
+        }
+    }
+    make_vals();
     make_pc_pre();
     const bool pc = sp->pc_keys;
     if (store != d->settings) {
@@ -461,22 +464,15 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     }
     int n = d->nsettings;
     Setting &m = store[n++];
-    m = Setting();
-    m.key = HK_KEY_MOD;
-    m.label = HK_MOD_LABEL;
-    m.values = pc ? g_pc_pre_names : g_pre_names;
-    m.nvalues = NPRE;
-    m.def = preset_of(sp->def);
-    m.when = WHEN_LIVE;
-    m.apply = HK_OP;
-    m.group = "input";
+    menu_base_setting(m, *mrow);
+    m.values = pc ? g_pc_pre_names : mrow->values;          // the pick "hotkeys.modifiers"
+    m.def = preset_of(sp->def);                             // the core's map
     for (int a = 0; a < n_items(sp); a++) {
         Setting &s = store[n++];
-        s = Setting();
+        menu_base_setting(s, a == HKA_CORE ? *krow : *item_row(a));     // the core's own function has the shape of the others, named by its HkSpec
         s.key = item_of(sp, a).key;
         s.label = item_of(sp, a).label;
-        s.values = pc ? g_pc_vals : g_vals;
-        s.nvalues = HK_NKEYS + 1;
+        s.values = pc ? g_pc_vals : krow->values;           // the pick "hotkeys.keys"
         s.def = val_of_key(sp->def.act[a]);
         if (a == HKA_SWAP) {                               // R20: the swap hotkey is offered only while the core has the setting it toggles (menu condition "set.<key>")
             const char *sk = sp->swap_key ? sp->swap_key : "Joystick ports";
@@ -484,6 +480,7 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             for (int i = 0; i < d->nsettings; i++) {
                 has = has || !strcasecmp(d->settings[i].key, sk);
             }
+            has = has || baseset_adds(d, sk);                  // the application's "Joystick Input" is added after this item (menubuild.cc)
             static char cond[96];
             snprintf(cond, sizeof(cond), "set.%s", sk);
             for (char *p = cond; *p; p++) {
@@ -494,9 +491,6 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
                 s.def = 0;                                 // no key: the J combination reaches the C64 as it is
             }
         }
-        s.when = WHEN_LIVE;
-        s.apply = HK_OP;
-        s.group = "input";
     }
     out->settings = store;
     out->nsettings = n;
@@ -532,6 +526,10 @@ const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
             store[i] = d->settings[i];
         }
     }
+    const BaseRow *krow = item_row(HKA_MENU);
+    if (!krow || krow->nvalues != HK_NKEYS + 1 || !krow->pick || strcmp(krow->pick, "hotkeys.keys")) {
+        return "settings: the base UI TOML has no hotkey rows that fit the map";
+    }
     make_vals();
     make_pc_pre();
     const bool pc = spec_of(d)->pc_keys;
@@ -541,15 +539,11 @@ const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
             continue;
         }
         Setting &s = store[n++];
-        s = Setting();
+        menu_base_setting(s, *krow);                       // a task's item has the shape of the action items, named by the task
         s.key = ti[j]->key;
         s.label = ti[j]->label;
-        s.values = pc ? g_pc_vals : g_vals;
-        s.nvalues = HK_NKEYS + 1;
+        s.values = pc ? g_pc_vals : krow->values;
         s.def = val_of_key(task_default(d, idx, j));
-        s.when = WHEN_LIVE;
-        s.apply = HK_OP;
-        s.group = "input";
     }
     d->settings = store;
     d->nsettings = n;
@@ -890,7 +884,7 @@ bool hk_learn_is_modifier(const CoreCtx *c, int set)
 
 bool hk_learn_item(const CoreCtx *c, int set)
 {
-    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0 || (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set]));   // T232: the pad-key rows learn the same way
+    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0 || (set >= 0 && set < c->desc->nsettings && padkeys_is_row(c->desc->settings[set]));   // T232: the pad-key rows learn the same way
 }
 
 int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
@@ -911,12 +905,14 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
         snprintf(line, n, "No key");
         return -1;
     }
-    if (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
+    if (set >= 0 && set < c->desc->nsettings && padkeys_is_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
         if (got.restore) {                                  // RESTORE has no matrix place, so it is no entry of the list (it said "No key" before)
-            snprintf(line, n, "%s", PADKEY_NOT_AVAILABLE);
+            const PadkeysApi *pk = padkeys_api();
+            snprintf(line, n, "%s", pk ? pk->not_available : "");
             return -1;
         }
-        return padkey_learn_value(got.k, line, n);
+        const PadkeysApi *pk = padkeys_api();
+        return pk ? pk->learn_value(got.k, line, n) : -1;
     }
     if (hk_learn_is_modifier(c, set)) {
         for (int p = 1; p < NPRE; p++) {

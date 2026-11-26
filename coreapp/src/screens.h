@@ -31,5 +31,6 @@ void screens_forget(void);
 
 // How often a key was served without building the pane (the bench's number).
 uint32_t screens_cheap_moves(void);
+uint32_t screens_inplace_writes(void);                // T262 P9: renders that wrote the words of the rows in place instead of building the pane
 
 #endif

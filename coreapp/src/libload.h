@@ -8,7 +8,9 @@
 #include <stdint.h>
 #include "libfmt.h"
 #include "libapi.h"
+#include "libpoll.h"
 #include "ops.h"
+#include "opscope.h"
 
 // Where a file comes from: the flash, a stick, or a record of the .cor already in memory.
 class LibSource {
@@ -46,12 +48,63 @@ public:
         return LIB_HOST_CANNOT_RUN;
     }
     virtual uint32_t room() { return 0xFFFFFFFFu; }
+    // Whose handler the calling task runs (the slot of an image, -1 none): one value per task, so that a handler on one task does not move the account of
+    // another. A host with tasks keeps it by task; the default keeps one value for the host, which is right for one task.
+    virtual int task_scope() { return task_scope_; }
+    virtual void set_task_scope(int slot) { task_scope_ = slot; }
     virtual uint32_t now_ms() { return 0; }
     virtual void delay_ms(uint32_t ms) { (void)ms; }
     // The lists of an application's blocks and files are touched by its tasks and the base's: a host with tasks gives a critical section.
     virtual void enter() { }
     virtual void leave() { }
+    // ---- base 3.3 (svc_sync.h, svc_sys.h, svc_board.h): what the machine gives a library beyond the heap. The defaults serve a host with one task and no board:
+    // a mutex is one flag in a block of the heap (a second lock waits for nothing and times out), the rest answers "not there".
+    virtual void *mutex_new()
+    {
+        uint8_t *p = (uint8_t *)alloc(16);
+        if (p) {
+            *p = 0;
+        }
+        return p;
+    }
+    // timeout_ms 0 tries once, SYNC_FOREVER (0xFFFFFFFF) waits without a limit, any other value waits that long (the board rounds up to its tick)
+    virtual bool mutex_lock(void *m, uint32_t timeout_ms)
+    {
+        (void)timeout_ms;
+        uint8_t *p = (uint8_t *)m;
+        if (!p || *p) {
+            return false;
+        }
+        *p = 1;
+        return true;
+    }
+    virtual void mutex_unlock(void *m) { if (m) { *(uint8_t *)m = 0; } }
+    virtual void mutex_free(void *m) { if (m) { release(m); } }
+    virtual uint16_t ms_timer() { return (uint16_t)now_ms(); }            // the 1 ms hardware counter of the ITU, 16 bit
+    virtual const char *app_version() { return ""; }                      // the version text of the application image, and its short git hash (gitinfo.h)
+    virtual const char *app_git() { return ""; }
+    virtual void yield() { }
+    virtual uint32_t fpga_caps() { return 0; }                            // the ITU capability register
+    virtual bool is_commodore() { return false; }
+    virtual int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms)
+    {
+        (void)cmd; (void)args; (void)nargs; (void)reply; (void)maxreply; (void)timeout_ms;
+        return -3;                                                        // no link
+    }
+    virtual void video_set_system(struct CoreCtx *c, int sys) { (void)c; (void)sys; }
+    virtual void video_set_pll(int sys, int ppm) { (void)sys; (void)ppm; }
+    // The SID sockets' expander (0x40 on the 1.8 V channel): open takes the bus lock "SID Configuration" and picks the channel (1: open; 0: the board has no bus,
+    // so no expander; -1: the lock was not taken in time), write is one register, close gives the lock back (after a 1 only).
+    virtual int sid_i2c_open() { return 0; }
+    virtual void sid_i2c_write(uint8_t reg, uint8_t v) { (void)reg; (void)v; }
+    virtual void sid_i2c_close() { }
     enum { LIB_HOST_CANNOT_RUN = -0x7FFF };
+
+protected:
+    LibHost() : task_scope_(-1) { }
+
+private:
+    int task_scope_;
 };
 
 enum LibRc {
@@ -64,13 +117,24 @@ enum LibRc {
     LIB_DUPLICATE = -6,         // something of that name is loaded already
     LIB_REGISTER = -7,          // lib_register failed or what it registered was refused
     LIB_STATE = -8,             // finish() of a resident image, or of a handle that is not loaded
-    LIB_NOT_APP = -9            // run() of an image that has no app_main, or a host that cannot run one
+    LIB_NOT_APP = -9,           // run() of an image that has no app_main, or a host that cannot run one
+    LIB_BUDGET = -10            // the image, the heap or the registrations are over the budget the file declares, or over the limit of a table (T239.3 S13)
 };
 
 #define LIB_MAX 12              // images loaded at once
+#define LIB_NET_MAX 16          // sockets of api->net held at once (the base's own table is as big)
+#define LIB_JOB_MAX 8           // jobs of api->job held at once, ended ones not yet joined included (the base has 4 slots)
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
+struct CoreCtx;
+class CoreIo;
+// One mutex of api->sync (svc_sync.h): the host's own object and the place in the account of the library that made it.
+struct SvcMutex {
+    void *h;
+    SvcMutex *next, *prev;
+    int32_t owner;
+};
 struct LibInfo {
     char name[U2A3_NAME_MAX];
     uint32_t version;
@@ -82,9 +146,14 @@ struct LibInfo {
     uint8_t *menu_bytes;
 };
 
-class LibLoader {
+// The names and majors a file exports (header flag U2A3_FLAG_EXPORTS), at most U2A3_EXPORTS_MAX into `out`: how many (0: none), -1 when the record is malformed. Needs only the header,
+// so the order of a folder (libscan.cc) and the list of the apps folder (appindex.cc) know what a file provides before it is loaded.
+int lib_read_exports(LibSource *src, const U2a3Header &h, U2a3ExportName *out);
+
+class LibLoader : private OpScope {
 public:
-    // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). The tests lower it.
+    // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). A loader that does not call add_services has the five groups of base 3.3 null
+    // and passes 2 (base 3.2), so that an image which needs base>=3.3 is refused; the host application's zip reader does. The tests lower it too.
     LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor = U2A_BASE_MINOR);
     ~LibLoader();
 
@@ -101,43 +170,114 @@ public:
     int run(int handle, const char *action, const char *file, char *reply, int replylen, int *app_rc, char *err, int errlen, bool keep = false);
     // A transient application kept open by run(): frees it. Its registrations go with it (the registry's drop_owner).
     int release(int handle, char *err, int errlen);
-    // T197 D8: how many loaded images need this one (a library): load() takes a use on every library the image needs and discard() gives it
-    // back, so a resident application, or a library imported by a loaded library, keeps its library; a library with none may be evicted.
+    // T197 D8: how many loaded images need this one (a linked library): load() takes a use on every library the image needs and discard() gives it back. A linked library
+    // is never unloaded (base 4.0, D58: its code is part of the app), so the count only tells who needs it.
     void use(int handle);
     void unuse(int handle);
     int uses(int handle) const;
-    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
-    int unload(int handle, char *err, int errlen);
 
-    // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED.
-    void set_ctx(CoreCtx *c) { ctx_ = c; }
+    // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
+    // poll ends when the image is released. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
+    // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
+    void set_poll_sink(LibPollSink *s) { polls_ = s; }
+    // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (a release, a load that fails after the image was
+    // placed): what the base kept of that image (a table the image's code gave it) is let go there. Null: nobody is told.
+    void set_discard_notify(void (*fn)(int handle, uint32_t image_addr, uint32_t image_size)) { discard_notify_ = fn; }
+
+    // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED. It is also the core that the groups settings, ctx, io
+    // and board of base 3.3 act on; api->io is null for a context without a register window (no io, or a core with no machine: CoreDesc::menu_first).
+    void set_ctx(CoreCtx *c);
+    // T256: the overlay service the group api->overlay calls. A released image's elements go with it (discard). Null: the group answers OVL_E_NOSERVICE.
+    void set_overlay(class OverlaySvc *o) { overlay_svc_ = o; }
+    // T239.3 D51: the write-back service the group api->wb calls. A released image's medium goes with it (discard: written first when the setting is Auto). Null: the group answers SVCWB_E_NOSERVICE.
+    void set_wb(class WbLibSvc *w) { wb_svc_ = w; }
+    // Base 3.3 (libsvc.cc, svc_*.h): fills the groups sync, settings, ctx, io and board of api. The core application calls it once, when it makes the loader (libboard.cc), and links
+    // libsvc.cc; a loader of another application (the host's zip reader) does not, and its api has those five groups null. The members 3.3 added to api->sys and api->fs are in every loader.
+    void add_services();
+    // How a setting's value is put into the core (SvcSettings::apply): the application hands over regset_apply_setting (regset.h). Null: apply does nothing.
+    void set_settings_apply(void (*fn)(CoreCtx *, int)) { apply_ = fn; }
+    // The state "net.gated" (svc_settings.h): true while the REST token gate is on. Null: never gated.
+    void set_gate_probe(bool (*fn)(void)) { gated_ = fn; }
     // The groups the base fills in itself (appsvc.cc): dialogs, jobs, the debug block, the network. Null: the application finds a null pointer.
     void set_dlg(const SvcDlg *t) { api_.dlg = t; }
-    void set_job(const SvcJob *t) { api_.job = t; }
-    void set_trx(const SvcTrx *t) { api_.trx = t; }
-    void set_net(const SvcNet *t) { api_.net = t; }
-    void set_c64(const SvcC64 *t) { api_.c64 = t; }
+    // job and net (base 3.3, S14): in a loader that has the services (add_services) a library and an application get the loader's own tables, which put every socket and every job on
+    // the account of the image whose code asked and call the table given here; one of them given before or after add_services is the same, and with none given the calls fail (a socket
+    // -7, a job null). A loader without the services hands the table on as it is.
+    void set_job(const SvcJob *t) { base_job_ = t; api_.job = services_ ? &job_ : t; }
+    void set_net(const SvcNet *t) { base_net_ = t; api_.net = services_ ? &net_ : t; }
+    // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
+    void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
+    // Base 4.0 (libslot.h): the export `name` at exactly the major of min_version among the exports of the libraries the app is linked with (g_libslot), and its size; for the code
+    // of the base that serves a table by name (the terminal layout's grid, netfs's "online"). Null: the app has no such export, or its table is null on this core.
+    static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size);
+    // Base 4.0 (T239.3 D58, libtab.h libtab_link): a library linked into the app through its TOML B with `register` (a library from outside this repository). `reg` is its
+    // lib_register, `int reg(const LibApi *, LibRecord *)`, called here as the loader called a file's: the library gets a slot of kind lib with no image, and its record goes
+    // through the checks of a loaded file (the record layout, the counts, the exports, the budget, the registry, the poll); the exports it declares in the TOML B with no
+    // `table` (LibSlot::at_start) have to be in its export_list, and are written into g_libslot_bound; an export in its export_list that its TOML B does not declare for it
+    // refuses the library. heap_keep and heap_peak are its TOML B budget (U2A3_BUDGET_NONE: none),
+    // held as a file's: heap_keep against the room of the heap, heap_peak as the most its account holds at once. `menu` and `menu_bytes` are its menu record (libmenu.h; null:
+    // none), which the loader owns from the call on. LIB_OK, or a refusal with the library's name in err (nothing of it stays registered).
+    int link(const char *name, int (*reg)(const LibApi *, LibRecord *), uint32_t heap_keep, uint32_t heap_peak, DescRecord *menu, uint8_t *menu_bytes, char *err, int errlen);
+    // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
+    // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
+    void set_board_io(CoreIo *io) { board_io_ = io; }
+    // ctx.media_source for the slots the base mounts itself, a window drive ("DF0") or a sector unit ("HD0"), which the loader cannot see (their engines are the base's, mediamounts.cc):
+    // `fn` answers 1 with the spec in buf, 0 for a slot of that name that is empty (buf ""), -1 for a name that is none of them. Null: none (the engine's own slots and the descriptor's
+    // media slots are answered as before).
+    void set_media_source(int (*fn)(CoreCtx *, const char *, char *, int)) { media_src_ = fn; }
+    // The description record of the running core's bundle (bundle.h): io.window hands out the register windows of its section 19 and the blocks of its TOML A (version 7) by name (descrec_window). Null: the core has none, and
+    // io.window answers null for every name. The record must stay valid as long as the loader runs (libboard.cc passes the description of the static BundleExtras of the start).
+    void set_windows(const DescRecord *rec) { windows_rec_ = rec; }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
     // Whose account the allocations and files of api->mem / api->fs go to from now on: the application whose tasks run (-1: nobody's). run() sets it
-    // for the call; the base sets it for as long as an application's screens or jobs are up.
+    // for the call; the base sets it for as long as an application's screens or jobs are up. That value is the one of every task. A handler of a loaded
+    // image the registry runs (OpScope, enter/leave below) has the image as its owner for the calling task only, and the task's owner comes first.
     void set_current(int handle) { cur_ = handle; }
-    int current() const { return cur_; }
+    int current() const { return owner(); }
 
-    // Blocks handed out by api->mem: to the application that runs (or registers) now, else to nobody (never given back by the loader).
+    // Blocks handed out by api->mem: to the image whose code runs now (it registers, one of its handlers runs, or it is the application that is open), else
+    // to nobody (never given back by the loader).
     int account_blocks(int handle) const;     // handle -1: the blocks of nobody
     uint32_t account_bytes(int handle) const;
     int account_files(int handle) const;      // files opened through api->fs and not closed yet
+    int account_sockets(int handle) const;    // sockets of api->net not closed yet (base 3.3)
+    int account_jobs(int handle) const;       // jobs of api->job started and not joined yet (a job that has ended counts until it is joined or its slot is used again)
+    // What one image holds of the machine (S14); the base calls these when an application ends (apphost.cc) and discard() calls them when an image goes. Nothing of any other image is touched.
+    void close_sockets(int handle);           // closes the sockets of the account
+    void cancel_jobs(int handle);             // asks the jobs of the account to stop (set_job_cancel)
+    bool jobs_running(int handle) const;      // does one of them run
+    void reap_jobs(int handle);               // joins the jobs of the account that have ended, so their slots are free
+    bool stop_jobs(int handle);               // cancel, wait up to 5 s, reap; false: one still runs
+    // Runs the code of an image as its owner: for the calls whose code lies in no loaded image (the base, a core hook it makes), the calling task takes everything api->mem, fs, sync, net and
+    // job give from here to the end of the object on the account of `handle`; a call made by code inside a loaded image is always on that image's account (owner_at). The base puts one around a call into a core hook or an export table that it makes itself; no-op for a handle that is not loaded.
+    class Scope {
+    public:
+        Scope(LibLoader *l, int handle);
+        ~Scope();
+    private:
+        LibLoader *l_;
+        int prev_;
+        bool on_;
+    };
 
     // Where a library's api->log goes (nothing, until this is called).
     void set_log(void (*fn)(const char *text));
 
     const LibInfo *info(int handle) const;
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
+    // The slot of the linked library (LibLoader::link) that exports `name` at exactly the major of `min_version` (LibExportDecl) - a `needs` entry of a sub-app binds to its
+    // table. -1: none (also for an export of a library linked without `register`, which has no slot: libtab_export answers those).
+    int handle_providing(const char *name, uint32_t min_version) const;
     int count() const { return count_; }
-    uint32_t resident_bytes() const;      // heap held by images that stay, what Q7's budget counts
-    // Always false since 2026-10-26: everything a record declares is served (the menu merge, contrib.h; the poll task, run.cc).
+    uint32_t resident_bytes() const;      // heap held by the images that stay (image and bss), what Q7's budget counts
+    // The whole account of one image (T239.3 S14): everything the heap gave for it and has not got back - the image with its bss and alignment, the blocks of api->mem
+    // with their headers, the handles of api->fs, the menu record the file carries. handle -1: what nobody's account holds. Unloading or releasing the image returns
+    // all of it; the heap free before the load is the heap free after.
+    uint32_t held_bytes(int handle) const;
+    uint32_t held_total() const;          // the accounts of every loaded image and of nobody together
+    // Always false: everything a record declares is served (the menu merge, contrib.h; the poll, set_poll_sink above).
     static bool unserved_text(const char *name, const LibRecord &rec, char *out, int outlen);
     int unserved_count() const;           // always 0 (see above)
 
@@ -148,12 +288,22 @@ private:
         int uses;                         // loaded images that need it (T197 D8)
         int dep[U2A3_NEEDS_MAX];          // the slots this image counted as used when it loaded; unuse()d when it goes
         int ndep;
+        const void *need_tab[U2A3_NEEDS_MAX];   // per `needs` entry of the file, in its order: the table the provider exports (SvcLib::need), null where there is none
+        uint32_t need_size[U2A3_NEEDS_MAX];
+        int nneed;
         void *raw;                        // what the heap gave; the image lies in it, aligned
+        uint32_t raw_size;                // the bytes asked for it (image, bss, alignment)
+        uint32_t menu_cost;               // the bytes of the menu record (the record and its bytes, from the heap by new)
+        uint32_t heap_limit;              // the declared heap peak (U2A3_BUDGET_NONE: none): the most api->mem holds for this image at once
+        uint32_t blk_bytes;               // what its blocks hold now (the sizes asked for), the figure the limit is held against
+        bool heap_denied;                 // an allocation was refused for the limit; the first one is told (heap_want, heap_had)
+        uint32_t heap_want, heap_had;
     };
     LibHost *host_;
     OpRegistry *reg_;
     uint16_t base_minor_;
     LibApi api_;
+    LibPollSink *polls_;
     Slot slot_[LIB_MAX];
     int count_;
 
@@ -163,7 +313,8 @@ private:
         int32_t owner;                    // the slot, or -1
     } __attribute__((aligned(16)));
     Blk *acct_[LIB_MAX + 1];              // the lists: one per slot, the last one is nobody's
-    int cur_;                             // the slot whose code runs now, -1 none
+    void (*discard_notify_)(int handle, uint32_t image_addr, uint32_t image_size);
+    int cur_;                             // the slot of the application that is open (and of an image's lib_register or app_main as run() calls it), -1 none
     CoreCtx *ctx_;
     SvcSys sys_;
     SvcMem mem_;
@@ -171,13 +322,41 @@ private:
     SvcLib lib_;
     SvcFs fs_;
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
+    // base 3.3 (libsvc.cc): the groups the base fills for every library and application
+    SvcSync sync_;
+    SvcSettings settings_;
+    SvcCtx ctxtab_;
+    SvcIo io_;
+    SvcBoard board_;
+    SvcOverlay overlay_;                  // base 3.3, T256: api->overlay; the service behind it is the base's (set_overlay)
+    class OverlaySvc *overlay_svc_;
+    SvcWb wb_;                            // base 3.4, D51: api->wb; the service behind it is the base's (set_wb)
+    class WbLibSvc *wb_svc_;
+    SvcMutex *mus_[LIB_MAX + 1];          // the mutexes of api->sync, one list per slot as acct_
+    void (*apply_)(CoreCtx *, int);
+    bool (*gated_)(void);
+    uint8_t sid_ctrl_;                    // the control byte of the two SID sockets (board.sid_socket)
+    friend struct LibSvc;
+    bool services_;                       // add_services ran
+    const char *(*extra_state_)(CoreCtx *, const char *);   // libsvc.cc: "set.<key>" and "net.gated", before the registry
+    void free_mutexes(int si);
+    uint32_t mutex_bytes(int a) const;
 
+    // OpScope (opscope.h): the registry runs a library's handler; its allocations are that library's from here to leave()
+    int enter(int slot) override;
+    void leave(int prev) override { host_->set_task_scope(prev); }
+    int owner() const;                    // the account of the calling task: its handler's image, else cur_
+    int owner_at(const void *ra) const;   // the account of a service call made from the code at `ra`: the image that holds it, else owner()
+    void *alloc_for(int owner, uint32_t n);
+    bool over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const;
+    int take_record(int si, const char *name, int rc, const LibRecord &rec, const U2a3Budget &bud, const U2a3ExportName *fexp, int nfexp, const LibRecord *menu,
+                    char *err, int errlen);
     static void *svc_malloc(uint32_t n);
     static void svc_free(void *p);
     static void *svc_realloc(void *p, uint32_t n);
     static int svc_call(const char *name, const OpIn *in, int nin, OpResult *r);
     static const char *svc_state(const char *name, uint32_t *rev);
-    static const void *svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size);
+    static const void *svc_lib_need(uint32_t n, uint32_t *table_size);
     static void svc_log(const char *text);
     static uint32_t svc_ms(void);
     static void svc_sleep(uint32_t ms);
@@ -191,6 +370,13 @@ private:
     static bool svc_fsync(SvcFile *f);
     static void svc_close(SvcFile *f);
     static int svc_list(const char *dir, SvcFsEntry *out, int max);
+    static int svc_list_long(const char *dir, SvcFsEntryLong *out, int max);
+    static uint16_t svc_ms_timer(void);
+    static void svc_yield(void);
+    static void svc_delay_us(uint32_t us);
+    static bool svc_wall_time(uint8_t t[6]);
+    static const char *svc_app_version(void);
+    static const char *svc_app_git(void);
     static bool svc_stat(const char *path, uint64_t *size, bool *dir);
     static int svc_load(const char *path, void *buf, uint32_t max);
     static bool svc_save(const char *path, const void *buf, uint32_t len);
@@ -198,12 +384,45 @@ private:
     static bool svc_mkdir(const char *path);
     static bool svc_rename(const char *from, const char *to);
     static CoreFs *fs_of();               // the core's CoreFs, null without a context
+    static LibLoader *self();             // the one loader of the application (the service functions carry no context)
     void free_account(int si);
     Blk **list_of(int owner) { return &acct_[owner < 0 ? LIB_MAX : owner]; }
 
+    void retire(const Slot &s);           // the library goes: its poll ends, then its operations, state values and events
     void discard(int si);                 // gives the image of a slot back and empties it
     int fail(int rc, char *err, int errlen, const char *fmt, ...);
     const Slot *find(const char *name) const;
+    // The loaded library that exports `name` at exactly the major of min_version (*ex is that entry); *other is the highest major of the name that is a different one, 0 when none
+    // (a refusal can say "2.0 is loaded"). Null: no library exports it at that major.
+    const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *other) const;
+    const Slot *exporter_of(const char *name) const;          // a loaded library that exports the name at any major
+    bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
+
+    // sockets and jobs (S14): what api->net and api->job handed out, with the account. Fixed tables: the base's own tables are as small (16 sockets, 4 jobs).
+    struct NetRec {
+        int h;
+        int32_t owner;
+        bool used;
+    };
+    struct JobRec {
+        struct SvcJobH *h;                // null while the base has not returned it
+        int32_t owner;
+        bool used;
+        int (*fn)(struct SvcJobH *, void *);
+        void *user;
+    };
+    NetRec nets_[LIB_NET_MAX];
+    JobRec jobs_[LIB_JOB_MAX];
+    SvcNet net_;
+    SvcJob job_;
+    const SvcNet *base_net_;
+    const SvcJob *base_job_;
+    void (*job_cancel_)(struct SvcJobH *);
+    CoreIo *board_io_;
+    enum { ANNOUNCE_NONE = -2 };
+    int announce_owner_;                  // the account that announced the runtime service's port (SvcNet::announce), ANNOUNCE_NONE: no port; -1: code of no image
+    const DescRecord *windows_rec_;
+    int (*media_src_)(CoreCtx *, const char *, char *, int);
 };
 
 #endif

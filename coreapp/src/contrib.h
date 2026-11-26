@@ -21,6 +21,8 @@
 #include "settings.h"
 #include "libapi.h"
 #include "menutree.h"
+#include "overlay.h"
+#include "menuintent.h"
 
 enum ContribRank { CR_DESC = 0, CR_LIB = 1, CR_APP = 2 };
 
@@ -63,17 +65,42 @@ struct Overrides {
 
 const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 added the Settings area
 
-// ---- the result -------------------------------------------------------------------------------------------------------------
+// ---- the result: the maxima are defaults; an app linked from the SDK sets them in the [sizes] table of its TOML B (tools/app_build.py) ----
+#ifndef CONTRIB_SETTINGS_MAX
 #define CONTRIB_SETTINGS_MAX 16           // settings contributed by all together
+#endif
+#ifndef CONTRIB_VALUES_MAX
 #define CONTRIB_VALUES_MAX 16             // values of one contributed setting (a range wider than this is refused)
-#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES = 32; the TRX64U has 24 since T228 R21) and the new ones
+#endif
+#ifndef CONTRIB_FILETYPES_MAX
+#define CONTRIB_FILETYPES_MAX 40          // extensions in the merged descriptor: its own (a record holds DR_FTYPES of them; the TRX64U has 24 since T228 R21) and the new ones
+#endif
+#ifndef CONTRIB_ACTIONS_MAX
 #define CONTRIB_ACTIONS_MAX 96            // actions over all of those
+#endif
+#ifndef CONTRIB_POOL_MAX
 #define CONTRIB_POOL_MAX 1024             // characters of the labels made for contributed range settings
+#endif
+#ifndef CONTRIB_ERR_MAX
 #define CONTRIB_ERR_MAX 24
+#endif
+#ifndef CONTRIB_POLLS_MAX
 #define CONTRIB_POLLS_MAX 12
+#endif
+#ifndef CONTRIB_SLOTPOOL
 #define CONTRIB_SLOTPOOL 3072             // characters of the strings made by $slot expansion
+#endif
+#ifndef CONTRIB_BINDPOOL
 #define CONTRIB_BINDPOOL 64
+#endif
 #define CONTRIB_ERR_LEN 200
+#ifndef CONTRIB_SEARCH_MAX
+#define CONTRIB_SEARCH_MAX 6              // library sources of the F3 search
+#endif
+#ifndef CONTRIB_KEYS_MAX
+#define CONTRIB_KEYS_MAX 32               // key rows of all libraries together (T262 D4)
+#endif
+#define CONTRIB_SEARCH_FIELDS 4           // fields (beside the name) of one source
 
 struct MergedNode {
     MenuNode n;
@@ -91,6 +118,7 @@ struct ContribPoll {
     const char *owner;
     const char *op;
     uint16_t period_ms;
+    bool when_frozen;                 // the declaration of the record (LibPollDecl); the menu record has no such field, so false there
 };
 
 struct MenuMerge {
@@ -106,6 +134,9 @@ struct MenuMerge {
     int bind_used;
     MergedNode nodes[MENU_NODES_MAX];
     int nnodes;
+    // T262 P5: the library sources of the F3 search: nodes of kind list that stand in the tab "search" with ui `search` (api.md 6.20). They take no place in the tab, the menu reads them.
+    MergedNode srcs[CONTRIB_SEARCH_MAX];
+    int nsrcs;
     // for each setting of the merged descriptor: the group it names, null for the descriptor's own and for an ungrouped contribution
     const char *setting_group[SETTINGS_MAX];
     int ncontributed_settings;
@@ -120,6 +151,22 @@ struct MenuMerge {
     FileType filetypes[CONTRIB_FILETYPES_MAX];
     FileAction actions[CONTRIB_ACTIONS_MAX];
     int nactions;
+    // T239.3 base 3.3: the key table of the core's description (descrec.h section 18; the rows live in the record, which outlives this). contrib_merge clears it; the caller that has the
+    // description sets it (bundle_merge, the tests' record menu: tests/coreapp/record_menu.h).
+    const CoreKey *keys;
+    int nkeys;
+    // T262 D4 finding 11: the key rows of the menu records of the loaded libraries (descrec.h section 18 in a library's record), pointers into those records, which live while the
+    // library is loaded. They are tried after the core's own, in the order the libraries loaded (contrib_add_keys; bundle_merge calls it).
+    const CoreKey *libkeys[CONTRIB_KEYS_MAX];
+    int nlibkeys;
+    int nkeys_all() const { return nkeys + nlibkeys; }
+    const CoreKey &key_at(int i) const { return i < nkeys ? keys[i] : *libkeys[i - nkeys]; }
+    // T239.3 D32: where the application's rows stand: the base's table with the core's routes and places over it (menu_place_merge), in place_store, when has_place (false after contrib_merge: the base's table alone). A struct, not a pointer into itself: a MenuMerge may be copied.
+    bool has_place;
+    UiPlace place_store;
+    // T256 D8: the elements of the overlay service: the base's table with the core's over it (ovl_merge), in elem_store, when has_elem (false after contrib_merge: the base's table stands)
+    bool has_elem;
+    UiElements elem_store;
 };
 
 // Merges the contributions into `d`. `reg` (optional) is asked whether the operations and states the contributions name exist and whether
@@ -128,6 +175,9 @@ struct MenuMerge {
 // Returns the number of contributions refused (also in mm->err).
 int contrib_merge(const CoreDesc *d, const Skeleton *skel, const Overrides *ov, const Contributor *c, int nc, const OpRegistry *reg, CoreDesc *out,
                   MenuMerge *mm);
+
+// Adds the key rows of one library's menu record to the table of `mm` (after the core's). Rows beyond CONTRIB_KEYS_MAX are refused and told in mm->err. Returns the rows added.
+int contrib_add_keys(MenuMerge *mm, const char *owner, const CoreKey *rows, int n);
 
 // The slots a core has (Alex 2026-10-26, D15): its capabilities named drive_<x>. A declaration that has `$slot` in a label, anchor, key, group, operation,
 // state, condition, id or text binding is made once for each of them, with `$slot` replaced by the slot's name ("drive_a"); a core with none gets none.

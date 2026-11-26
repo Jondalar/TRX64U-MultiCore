@@ -1,8 +1,8 @@
 // T197 P3 / S3: Unzip in the host's File Browser, through the same functions the board runs (host_core_flow_zip.cc: hc_zip_job over the loader of coreapp/src). What is real: the job and
-// its pages, AppIndex over the folders of the card, the LibLoader that loads miniz.u2a and unzip.u2a (fixture images made by the real packer, tests/coreapp/gen_unzip.py), the code of
-// apps/unzip and apps/miniz (the Mac build of the same sources runs where the board jumps into the image). What is not: RISC-V instructions, the FileManager (a map of byte vectors).
+// its pages, AppIndex over the folders of the card, the LibLoader that loads unzip.u2a (a fixture image made by the real packer, tests/coreapp/gen_unzip.py) and binds its need (the base) through
+// hostlibslot.cc, the code of apps/unzip and apps/miniz (the image carries its own miniz, T239.3 D60; the Mac build of the same sources runs where the board jumps into the image). What is not: RISC-V instructions, the FileManager (a map of byte vectors).
 //
-//   test_hostzip FIXDIR      (FIXDIR: unzip.u2a, miniz.u2a, t.zip, manifest.txt and files/ - run_hostzip.sh makes them)
+//   test_hostzip FIXDIR      (FIXDIR: unzip.u2a, t.zip, manifest.txt and files/ - run_hostzip.sh makes them)
 #include <string>
 #include <vector>
 #include <deque>
@@ -16,7 +16,6 @@
 #include "keyboard.h"
 
 extern "C" int app_main(const LibApi *api, AppCtx *ctx);               // apps/unzip/glue.cc, compiled for the Mac
-extern "C" int lib_register(const LibApi *api, LibRecord *out);        // apps/miniz/miniz_lib.cc
 
 typedef std::vector<uint8_t> Bytes;
 static Bytes slurp(const std::string &p)
@@ -43,7 +42,7 @@ struct Host : LibHost {
     void sync_code(void *, uint32_t) override { }
     bool has_capability(const char *) override { return false; }
     const char *core_name() override { return "host"; }
-    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override { return !strcmp(e.name, "miniz") ? lib_register(api, rec) : 0; }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }
     int call_main(const Entry &, const LibApi *api, AppCtx *ctx) override { return app_main(api, ctx); }
     uint32_t room() override { return room_; }
 };
@@ -122,8 +121,8 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);
     CHECK(argc == 2);
     std::string dir = argv[1];
-    Bytes u1 = slurp(dir + "/unzip.u2a"), zip = slurp(dir + "/t.zip"), mz = slurp(dir + "/miniz.u2a");
-    CHECK(u1.size() > 100 && zip.size() > 100 && mz.size() > 100);
+    Bytes u1 = slurp(dir + "/unzip.u2a"), zip = slurp(dir + "/t.zip");
+    CHECK(u1.size() > 100 && zip.size() > 100);
     std::vector<std::string> names;
     {
         std::ifstream m((dir + "/manifest.txt").c_str());
@@ -136,7 +135,6 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
         fs.put("/sd/games/t.zip", zip);
         Host host;
         Rig r;
@@ -167,11 +165,10 @@ int main(int argc, char **argv)
         hc_zip_rig_free(z);
     }
 
-    // ---- S3 b: "here", on a second zip in the same run of the rig (the library is loaded already: nothing is loaded twice)
+    // ---- S3 b: "here", twice in the same run of the rig (nothing stays loaded between the two)
     {
         FakeFs fs;
         fs.put("/usb0/cores/apps/unzip.u2a", u1);                         // the zip's own medium holds the applications
-        fs.put("/sd/cores/apps/miniz.u2a", mz);                           // the library on the card
         fs.put("/usb0/z/t.zip", zip);
         Host host;
         Rig r;
@@ -182,12 +179,12 @@ int main(int argc, char **argv)
         CHECK(run_job(z, "/USB0/z/t.zip"));
         CHECK(fs.files.find(lowered("/usb0/z/" + names[0])) != fs.files.end());
         CHECK(fs.files.find("/usb0/z/t/readme.txt") == fs.files.end());
-        // again: the loader holds miniz
+        // again
         size_t live = host.live.size();
         r.keys.push_back('h');
         r.keys.push_back(KEY_RETURN);
         CHECK(run_job(z, "/USB0/z/t.zip"));
-        CHECK_EQ(host.live.size(), live);                                 // the application came and went; the library stayed, no second copy
+        CHECK_EQ(host.live.size(), live);                                 // the application came and went, nothing stays in the heap
         hc_zip_rig_free(z);
     }
 
@@ -195,7 +192,6 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
         fs.put("/sd/games/t.zip", zip);
         Host host;
         Rig r;
@@ -214,7 +210,6 @@ int main(int argc, char **argv)
         // ESC in the list: nothing is extracted
         FakeFs fs2;
         fs2.put("/sd/cores/apps/unzip.u2a", u1);
-        fs2.put("/sd/cores/apps/miniz.u2a", mz);
         fs2.put("/sd/games/t.zip", zip);
         HcZipEnv z2 = { &e, &fs2, &host, 0 };
         size_t files0 = fs2.files.size();
@@ -230,7 +225,6 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
         fs.put("/sd/games/t.zip", zip);
         Host host;
         Rig r;
@@ -240,20 +234,19 @@ int main(int argc, char **argv)
         int runs0 = hc_zip_runs();
         CHECK(!run_job(z, "/SD/games/t.zip"));
         CHECK_EQ(hc_zip_runs(), runs0);
-        CHECK_EQ(fs.files.size(), 3u);
+        CHECK_EQ(fs.files.size(), 2u);                                   // unzip.u2a and the zip: nothing written
         CHECK(r.note.find("Nothing was changed") != std::string::npos);
         hc_zip_rig_free(z);
     }
 
-    // ---- S3 e: the refusals are pages that say why, before anything is written: no application, no library, a heap too small
+    // ---- S3 e: the refusals are pages that say why, before anything is written: no application, a heap too small
     {
-        for (int pass = 0; pass < 3; pass++) {
+        for (int pass = 0; pass < 2; pass++) {
             FakeFs fs;
             if (pass != 0) fs.put("/sd/cores/apps/unzip.u2a", u1);
-            if (pass == 2) fs.put("/sd/cores/apps/miniz.u2a", mz);
             fs.put("/sd/games/t.zip", zip);
             Host host;
-            if (pass == 2) host.room_ = 1000;
+            if (pass == 1) host.room_ = 1000;
             Rig r;
             HcFlowEnv e = make_env(&r);
             HcZipEnv z = { &e, &fs, &host, 0 };
@@ -263,8 +256,8 @@ int main(int argc, char **argv)
             CHECK_EQ(fs.files.size(), before);
             CHECK(r.pages.size() >= 1 && r.pages[0].find("Cannot unzip t.zip") == 0);
             printf("refusal %d: %s\n", pass, r.pages.empty() ? "" : r.pages[0].c_str());
-            if (pass == 0) CHECK(any_page(r, "Unzip is not installed."));
-            else CHECK(any_page(r, "not enough memory"));
+            if (pass == 0) CHECK(any_page(r, "Unzip is not installed.") && any_page(r, "Copy unzip.u2a from the release"));
+            else CHECK(any_page(r, "not enough memory") && any_page(r, "It needs more of the heap than is free now."));
             hc_zip_rig_free(z);
         }
     }
@@ -272,7 +265,6 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
         fs.put("/sd/games/bad.zip", Bytes(500, 0x41));
         Host host;
         Rig r;
@@ -283,7 +275,7 @@ int main(int argc, char **argv)
         r.keys.push_back(KEY_RETURN);                                     // the page that says it did not finish
         CHECK(!run_job(z, "/SD/games/bad.zip"));
         CHECK(any_page(r, "Cannot read this file as a ZIP") && any_page(r, "Unzip did not finish"));
-        CHECK_EQ(fs.files.size(), 3u);
+        CHECK_EQ(fs.files.size(), 2u);                                   // unzip.u2a and the file: nothing written
         hc_zip_rig_free(z);
     }
     DONE("test_hostzip");

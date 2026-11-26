@@ -58,7 +58,7 @@ struct Env {
     FakeFs *fs;
     AmigaRig *r;
     bool own;
-    explicit Env(FakeFs *f, const CoreDesc *d = &amiga1200_desc, bool sectors = true) : fs(f), own(false)
+    explicit Env(FakeFs *f, const CoreDesc *d = &AM_REC, bool sectors = true) : fs(f), own(false)
     {
         r = new AmigaRig(f, d);
         r->io.regs[AM_FEAT] = sectors ? 0x01 : 0x00;
@@ -165,6 +165,7 @@ static void s1_mount()
     CHECK_EQ(nano_lba(n, n.cyl - 1, n.heads - 1, n.sec), sectors - 1);
     uint8_t last[512];
     CHECK(dev.read(sectors - 1, last));
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 counts bytes
     {
         FakeFs fs2;
@@ -181,6 +182,7 @@ static void s1_mount()
         CHECK_EQ(e2.mount(1, "/usb0/hd", "3", msg, sizeof(msg)), 0);       // 3 GB are
         CHECK(size_reg(*e2.r, 1) < 0xFFFFFFFFu);
     }
+#endif
 }
 
 
@@ -200,12 +202,14 @@ static void s2_valid_volume()
     for (auto &en : rd.ents) (en.dir ? dirs : files)++;
     CHECK_EQ(files, 40);
     CHECK_EQ(dirs, 3);                                       // C, S, Empty
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 core sees the same volume
     FakeFs fs2;
     make_tree(fs2, "/usb0/hd");
     Env e2(&fs2, &amiga_desc, false);
     CHECK_EQ(e2.mount(0, "/usb0/hd", "1", msg, sizeof(msg)), 0);
     CHECK_EQ(verify_volume(e2, 0, fs2, "/usb0/hd", "S2/A500"), 0);
+#endif
     maybe_dump(e, 0, "s2");
 }
 
@@ -867,6 +871,23 @@ static void s8_limits()
         Reader rd(dev);
         CHECK(rd.check_all());
         CHECK(rd.find("small.txt") && !rd.find("huge.bin") && rd.ents.size() == 1);
+    }
+    // finding 4: a file whose size the file system does not name is left out, named in the report as such (not as a file of 4 GiB), and counted as skipped
+    {
+        FakeFs fs;
+        put_dated(fs, "/usb0/h/small.txt", pat(1, 100));
+        put_dated(fs, "/usb0/h/unk.bin", pat(2, 100));
+        fs.size_unknown.insert("/usb0/h/unk.bin");
+        Env e(&fs);
+        CHECK_EQ(e.mount(0, "/usb0/h", "1", msg, sizeof(msg)), 0);
+        const char *rep = e.disk(0)->report();
+        CHECK(strstr(rep, "unk.bin") != 0 && strstr(rep, "unknown size") != 0 && strstr(rep, "4 GiB or more") == 0);
+        CHECK_EQ(e.disk(0)->stats().skipped, 1);
+        Dev dev(*e.r, 0);
+        Reader rd(dev);
+        CHECK(rd.check_all());
+        CHECK(rd.find("small.txt") && !rd.find("unk.bin") && rd.ents.size() == 1);
+        printf("S8x: a file of unknown size is left out and reported\n");
     }
     // the overlay: more metadata than the heap cap is kept, in the scratch file, and nothing is lost
     {

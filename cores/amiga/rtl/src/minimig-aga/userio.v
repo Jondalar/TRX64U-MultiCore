@@ -40,8 +40,8 @@ module userio
 	input             _fire0_dat,
 	input             _fire1_dat,
 	input             cd32pad2_en, // T225: port 2 is a CD32 pad (the USB pad standing in for it): the CD32 shift register answers pin 5 / pin 6
-	input      [15:0] _joy1,      // joystick 1 in (default mouse port)
-	input      [15:0] _joy2,      // joystick 2 in (default joystick port)
+	input      [15:0] _joy1,      // joystick 1 in (joy_swap is 0 below: the Amiga's port 2, the joystick port; #125)
+	input      [15:0] _joy2,      // joystick 2 in (joy_swap is 0 below: the Amiga's port 1, the mouse port)
 	input      [15:0] joy_ana1,
 	input      [15:0] joy_ana2,
 	input       [2:0] mouse_btn,

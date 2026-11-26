@@ -4,13 +4,14 @@
 #define COREAPP_FSIF_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
 // T93 S14, D11 of T84: on the MultiCore host a core application never writes the flash. The board's CoreFs refuses every write, delete
 // and read-write open under /flash (any case, "/flash" itself or "/flash/..."), so a .cfg beside a .cor that lies in the flash stays in
-// memory - except the files below. T228 R21: on the monolith board profile the flash drive is writable as in TRX64-Ultimate's firmware
+// memory - except the files of fs_flash_exception below. T228 R21: on the monolith board profile the flash drive is writable as in TRX64-Ultimate's firmware
 // (its FLASH_ID_FLASHDRIVE window, vendor blockdev_flash.cc, is the only part of the chip the block device can reach); the startup sets
 // fs_flash_rw() from the board profile and fs_write_refused then lets /flash through.
 static inline bool fs_path_is_flash(const char *path)
@@ -18,19 +19,55 @@ static inline bool fs_path_is_flash(const char *path)
     return !strncasecmp(path, "/flash", 6) && (path[6] == 0 || path[6] == '/');
 }
 
-// T104.2 Q1 (Alex, 2026-10-18: "1 /flash/trx64u/c64.cfg"): the exception. On the monolith there is no .cor and so no .cfg beside
-// it; the C64's settings live in the internal flash drive, in this file and nowhere else. Gideon's own config sectors (0xFF0000) are not
-// touched, so his firmware stays a clean way back. The comparison is the whole path, case-insensitive like FAT: a sibling, a
-// subdirectory or any other file under /flash is still refused.
-// T104.1 5.5 (Alex, 2026-10-18, the rescue from a crashing library): the boot-attempt counter is a key in one file per profile - on the
-// monolith the second file of /flash/trx64u, on the MultiCore host the host's own boot menu file (host-app bootcfg.h BOOTCFG_PATH). Those
-// two paths are the rest of the exception; every other path under /flash is refused.
-#define FS_FLASH_CFG_PATH "/flash/trx64u/c64.cfg"
-#define FS_FLASH_BOOT_MONOLITH "/flash/trx64u/boot.cfg"
+// The exception (T104.2 Q1, T104.1 5.5, T239.3 P1-5): a standalone installation has no .cor and so no .cfg beside it; the core's settings
+// file and the boot-attempt counter (libguard.h) live in the internal flash drive, in /flash/<core id>/<folder>.cfg and /flash/<core id>/boot.cfg,
+// the core id from the core's description record (board_set_core, board.cc, registers the two). Gideon's own config sectors (0xFF0000) are not
+// touched, so his firmware stays a clean way back. The comparison is the whole path, case-insensitive like FAT: a sibling, a subdirectory or any
+// other file under /flash is still refused. The MultiCore host's own boot menu file (host-app bootcfg.h BOOTCFG_PATH) is the fixed rest.
 #define FS_FLASH_BOOT_MULTICORE "/Flash/boot.cfg"
+#define FS_FLASH_EXC_MAX 2
+#define FS_FLASH_EXC_LEN 96
+struct FsFlashExceptions {
+    char path[FS_FLASH_EXC_MAX][FS_FLASH_EXC_LEN];
+};
+inline FsFlashExceptions &fs_flash_exceptions()
+{
+    static FsFlashExceptions v;      // one object across translation units, like fs_flash_rw()
+    return v;
+}
+// Replaces the registered paths; a null or empty entry registers nothing. False when a path does not fit or lies outside /flash/<dir>/.
+static inline bool fs_flash_set_exceptions(const char *a, const char *b)
+{
+    FsFlashExceptions &e = fs_flash_exceptions();
+    const char *in[FS_FLASH_EXC_MAX] = { a, b };
+    bool ok = true;
+    for (int i = 0; i < FS_FLASH_EXC_MAX; i++) {
+        e.path[i][0] = 0;
+        if (!in[i] || !in[i][0]) {
+            continue;
+        }
+        bool fits = fs_path_is_flash(in[i]) && in[i][6] == '/' && in[i][7] && strlen(in[i]) < FS_FLASH_EXC_LEN;
+        const char *slash = fits ? strchr(in[i] + 7, '/') : 0;      // "/flash/", a directory, the file: no deeper, no file in /flash itself
+        if (!slash || !slash[1] || strchr(slash + 1, '/')) {
+            ok = false;
+            continue;
+        }
+        strcpy(e.path[i], in[i]);
+    }
+    return ok;
+}
 static inline bool fs_flash_exception(const char *path)
 {
-    return !strcasecmp(path, FS_FLASH_CFG_PATH) || !strcasecmp(path, FS_FLASH_BOOT_MONOLITH) || !strcasecmp(path, FS_FLASH_BOOT_MULTICORE);
+    if (!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {
+        return true;
+    }
+    FsFlashExceptions &e = fs_flash_exceptions();
+    for (int i = 0; i < FS_FLASH_EXC_MAX; i++) {
+        if (e.path[i][0] && !strcasecmp(path, e.path[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // One flag for the whole app (a function-local static of an extern inline function is one object across translation units).
@@ -52,6 +89,24 @@ static inline bool fs_write_refused(const char *path)
 static inline uint32_t fs_size32(uint64_t size)
 {
     return size > 0xFFFFFFFFull ? 0xFFFFFFFFu : (uint32_t)size;
+}
+
+// FsEntry::size of a file whose size the file system does not know (a listing that names no size, T262 D4 finding 14): the base's file list shows "-" for it, not "0 KB".
+// A real size is never this value; a file system that never says it behaves as before. list_short and svc_list carry the 64 bit size unchanged, so they report this value as it is.
+#define FS_SIZE_UNKNOWN 0xFFFFFFFFFFFFFFFFull
+static inline bool fs_size_known(uint64_t size)
+{
+    return size != FS_SIZE_UNKNOWN;
+}
+// The right column of a file row: "3 KB", or "-" when the size is unknown. Returns out.
+static inline char *fs_size_kb(char *out, size_t n, uint64_t size)
+{
+    if (fs_size_known(size)) {
+        snprintf(out, n, "%u KB", (unsigned)((size + 1023) >> 10));
+    } else {
+        snprintf(out, n, "-");
+    }
+    return out;
 }
 
 // FsEntry::attr (T128 section 3 D4): what the folder disk needs of a host entry beyond its name.
@@ -143,6 +198,18 @@ public:
     virtual ~CoreFs() { }
     // Entries of a directory ("/" lists the mounted media); -1 when it cannot be read. At most max entries.
     virtual int list(const char *dir, FsEntry *out, int max) = 0;
+    // T239.3 D41 (L-3c): the wait seam of a folder. After a list() that returned -1: true when the medium is still fetching the content in the background (a job) and a later list() will find it - the Library
+    // shows "Loading" and reads the folder again soon, instead of treating the folder as unreadable; why() is then not asked. After a list() that succeeded, or on a medium with no such fetch: false.
+    virtual bool loading() const { return false; }
+    // After a list() that returned -1 and is not loading(): the medium's reason, one sentence, for the Library's status row; empty when it has none (the folder just cannot be read).
+    virtual const char *why() const { return ""; }
+    // T239.3 D41 (review): the wait seam of a file. open() never waits. After an open() that returned null: true when the medium is still fetching exactly this file in the background (a job); the caller
+    // keeps its action pending, shows open_note() and opens again soon. `take` clears the answer (ask it so before an action: a stale answer is no answer). Any other failure, and every medium that has no such fetch: false.
+    // The answer is one slot for every task: the menu and a copy run on the app's task one after the other, an RPC session on its own; an open of another task between an
+    // open and its question replaces the answer, so the RPC loop (rpc.cc) may stop waiting early (the client gets the fetch's error and asks again) or wait for the
+    // other task's file (120 s at most). A known limit (review of 2026-11-24).
+    virtual bool file_loading(bool take) { (void)take; return false; }
+    virtual const char *open_note() const { return ""; }
     // The same listing in FsEntryShort: 72 bytes an entry instead of 272. The default lists through list() into a buffer of `max` whole entries and
     // shortens (-1 when there is no room for it); a medium that has the entries at hand (the board's FileManager) overrides it and needs no such buffer.
     virtual int list_short(const char *dir, FsEntryShort *out, int max)

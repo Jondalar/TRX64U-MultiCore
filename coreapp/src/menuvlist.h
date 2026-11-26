@@ -16,6 +16,9 @@ struct MenuVList {
     int nacts;
 };
 
+// A library gives its list when it is bound (libtab.h `bind`); the controller names no format and no library. False: the table is full.
+bool menu_vlist_add(const MenuVList *l);
+
 // The provider for a file action's operation, null when it opens none.
 const MenuVList *menu_vlist(const char *op);
 

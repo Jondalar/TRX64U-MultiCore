@@ -67,8 +67,8 @@ def _big(stick, ext):
             f.write(HELLO_PRG)
 
 
-def make_stick(stick, roms_dir, core="trx64u"):
-    """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
+def make_stick(stick, roms_dir, core="amiga1200", ovtest=False):
+    """The USB stick of the test machine of a core (the cores of emu.CORES): games/ with the media the core's features use, its core folder."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
     if core in ("amiga1200", "vc20", "c128", "atari800", "pet", "c64scpu", "cpc"):
@@ -107,6 +107,8 @@ def make_stick(stick, roms_dir, core="trx64u"):
                 with open(os.path.join(stick, "games", n), "wb") as f:
                     f.write(b"MV - CPCEMU Disk-File\r\nDisk-Info\r\n".ljust(256, b"\0") + bytes(40000))
         _big(stick, "adf")
+        if ovtest:
+            make_ovtest_cor(stick, core)
         return
     if core == "snes":
         # a core with no drives: one synthetic 1 MiB LoROM image (header at 0x7FC0: title, LoROM mode, 1 MiB, complement + checksum, reset vector), nothing third-party
@@ -127,8 +129,8 @@ def make_stick(stick, roms_dir, core="trx64u"):
             with open(os.path.join(stick, "cores", "neogeo", "roms", n), "wb") as f:
                 f.write(bytes(b))
         return
-    if core == "diag":                               # T196 S7: the diag core has a folder and nothing else (it writes its example tests there)
-        os.makedirs(os.path.join(stick, "cores", "diag"))
+    if core == "diag":                               # T260 D6: the diag core's tests, panels and presets are the folder cores/diag/sd of the repository, copied to the card as a tester does by FTP
+        shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "cores", "diag", "sd"), os.path.join(stick, "cores", "diag"))
         return
     if core == "nes":
         # a core with no drives and no ROM set: the core folder holds nothing, the games folder one cartridge image (iNES header, 16 KiB PRG, 8 KiB CHR of zeros)
@@ -136,16 +138,45 @@ def make_stick(stick, roms_dir, core="trx64u"):
         with open(os.path.join(stick, "games", "blank.nes"), "wb") as f:
             f.write(b"NES\x1a\x01\x01" + bytes(10) + bytes(16384 + 8192))
         return
-    os.makedirs(os.path.join(stick, "roms", "c64"))
-    _big(stick, "d64")
-    with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
-        f.write(make_d64("ALPHA", "HELLO", HELLO_PRG))
-    with open(os.path.join(stick, "games", "beta.d64"), "wb") as f:
-        f.write(make_d64("BETA", "WORLD", HELLO_PRG))
-    with open(os.path.join(stick, "games", "hello.prg"), "wb") as f:
-        f.write(HELLO_PRG)
-    for dst, src in (("basic.bin", "basic.901226-01.bin"), ("kernal.bin", "kernal.901227-03.bin"), ("chars.bin", "characters.901225-01.bin")):
-        shutil.copy(os.path.join(roms_dir, src), os.path.join(stick, "roms", "c64", dst))
+    raise ValueError("no test stick for the core \"%s\"" % core)
+
+
+# T256: the overlay features (S3, S5, S10) run the SDK's example app linked with the test library (T239.5 D19: the SDK lane only; base 4.0 loads no library file, T239.3 D58: tests/ui/ovtest/build.sh links it
+# through the example's TOML B; emu.py runs that image, ovtest_app) on the machine of the emulator profile named by the feature (vc20) and a .cor that carries the UI TOML of the test element (tests/ui/ovtest/ovtest.toml). The .cor is made by the real
+# packer on a stand-in bitstream (the tests of the packer's readers do the same: tests/coreapp/gen_bundle.py); the application reads the description from it at the hand-over path of
+# the core's profile. The names are the core names the profiles hand over (cores/<core>/app/ue2emu.toml, `core`).
+OVTEST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ovtest")
+OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU"}
+
+
+def ovtest_app(core=None):
+    """The image of the test app: the SDK example's app with the test library linked (tests/ui/ovtest/build.sh), or OVTEST_APP. `core` is the profile's name and does not change the image."""
+    return os.environ.get("OVTEST_APP", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "example_ovtest.app"))
+
+
+def _stand_in_bit():
+    import struct
+    import cor_pack
+    hdr = cor_pack.BIT_MAGIC
+    for key in b"abcd":
+        txt = b"x" * 5 + b"\0"
+        hdr += bytes([key]) + struct.pack(">H", len(txt)) + txt
+    data = b"\xFF" * 8 + cor_pack.SYNC + bytes(range(256)) * 4
+    return hdr + b"e" + struct.pack(">I", len(data)) + data
+
+
+def make_ovtest_cor(stick, core):
+    """stick/cores/<core>.cor: the description of tests/ui/ovtest/ovtest.toml (the library is in the app the emulator runs, not in the .cor)."""
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools"))
+    import cor_pack
+    import descrec
+    desc = descrec.compile_text(open(os.path.join(OVTEST_DIR, "ovtest.toml")).read())
+    blob = cor_pack.pack(name=OVTEST_NAMES[core], desc=desc, version="0.1", partial=_stand_in_bit(), app=bytes(0x60 for _ in range(64)),
+                         load=0x30000, entry=0x30000, host_key="820eded2")
+    os.makedirs(os.path.join(stick, "cores"), exist_ok=True)
+    with open(os.path.join(stick, "cores", core + ".cor"), "wb") as f:
+        f.write(blob)
 
 
 def make_sd_dir(sd):

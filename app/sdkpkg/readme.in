@@ -1,0 +1,269 @@
+# TRX64 SDK @SDK_VERSION@
+
+This package builds the app of a core linked from its TOML A and TOML B (the libraries of the core are linked into it), the menu record of a library, an application for the generic core application, and a `.cor` bundle that carries them.
+It needs nothing from the TRX64 repository.
+
+The document [`api.md`](api.md) is the contract of the interface a library and an application use. Base API 4.0 loads no library file: a library is linked into the app of the core through its TOML B (see "Link a library").
+
+The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `lib/libtrxbase.a`.
+It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The version of the base API").
+
+## Contents
+
+| Folder | Content |
+|---|---|
+| `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
+| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes (`svctab.h`, `ops.h`, `fsif.h`, the call tables of base 3.3 `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h`, `svc_fs.h`, `svc_sys.h`; of base 3.4: `svc_wb.h`), `libfmt.h`, `libslot.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`, `textgrid.h`, `core_hooks.h`, `coredlg.h` and the export tables of the shared libraries (`c64cart_api.h`, `cbm1541_api.h`, `cbmprg_api.h`, `sid_api.h`, `tempdisk_api.h`, `mouse_api.h`, `pad_api.h`, `padkeys_api.h`). Their hash, comments and white space taken out, is `api_headers_sha256` in `VERSION`. |
+| `mk/` | `lib.mk` (an image of kind lib, which base 4.0 refuses, or an application with `LIB_KIND = app`), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package), `appflags.mk` and `appbuild.mk` (the app of a core, run by `tools/app_build.py build`). Both build with tail calls off, so a call into the base carries the return address of the image that makes it (the account of an allocation, a socket or a job). |
+| `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
+| `test/` | `drv_fake.h`, the register fake of a native test (`api.md` 6.17.7): built with `-DDRV_PTR_HEADER='"drv_fake.h"'`, every register access of the generated driver table lands in one array the test defines. |
+| `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle), `rtl_check.py` (TOML A against the RTL of your design, and the lint for literal I/O addresses in C/C++), `app_build.py` (the app of a core: its sizes, tables, link) and `libtab.py` (the library table of a TOML B). |
+| `lib/`, `base/` | The base of the core application as archives and sources, and the shared libraries as sources. See "The app of a core". There is no app image. |
+| `libs/`, `gateware/` | `shared.toml` of each: the TOML B (the catalog of the shared libraries) and the TOML A of the shared app, the references a core's own start from. |
+| `menusim/`, `bin/menusim` | The menu simulator and the tree it builds from. See "The menu simulator". |
+| `licenses/` | The licence texts of the third-party code the base links. `NOTICE` names it. |
+| `handover/uci/` | Gideon's UCI server core (`command_intf.cc`, `network_target.cc` and their headers), handed to TRX64-Ultimate once with its `PROVENANCE` and licence (SDK 0.4.6). Nothing in the SDK links it; the base has no UCI code. |
+| `example/` | A library of two source files with a menu TOML and a host test, linked into the example core's app, and the example core's own TOML A (`example/gateware/`), TOML B and description (`example/app/`). |
+
+## Requirements
+
+- A RISC-V GCC for 32 bit with the newlib headers, for example `riscv32-unknown-elf-gcc` as in the TRX64 build image, GNU make and Python 3.
+  The public headers (`fsif.h`, reached through `ops.h` and `libapi.h`) include `<stdlib.h>`, `<string.h>` and `<strings.h>`. A compiler without
+  a C library, such as the Homebrew `riscv64-elf-gcc` (rv32 multilib, no newlib headers), stops at `stdlib.h: No such file or directory`.
+- A host C++ compiler, for the example's test only.
+- Pillow (`pip install pillow`), only when `cor_pack.py --icon` gets a `.png`. The other tools use Python's own modules.
+
+Set `RV_PREFIX` to the compiler's prefix, for example `RV_PREFIX=riscv32-unknown-elf-`.
+
+## Link a library
+
+Base API 4.0 loads no library file at run time. A `.u2a` file of kind lib is refused ("is a library file: base 4.0 loads no library file; a library is linked into the core's app through its TOML B"), and record 7 of a `.cor` holds menu records, not files. A library is linked into the app of the core: a `[[library]]` table of the app's TOML B names it.
+
+```toml
+[[library]]
+name = "mylib"
+sources = ["mylib.cc", "helper.cc"]
+headers = ["helper.h"]
+register = "mylib_register"
+menu = "menu.toml"
+exports = [{ name = "mytable", major = 1 }]
+heap_keep = 2048
+heap_peak = 4096
+```
+
+- `sources` and `headers` are files found in the `--src` directories. They are compiled into the app.
+- `register = "fn"` names `int fn(const LibApi *, LibRecord *)`. It is the old `lib_register`: the base calls it at start and takes the operations, state values, events, poll, export list, core hooks and budget from the record, with the checks and refusals it applied to a file.
+- `menu = "path"` is the menu record of the library (a TOML relative to the TOML B). `cor_pack` compiles it and merges it into the description of the core, or puts it into record 7 (version 2) of the `.cor`; the base hands it to the registration of that library.
+- `exports = [{ name, major, table }]` lists the tables the library exports. `table` names a function `const void *fn(void)` that returns the table with its `size` first. A library with `register` may leave `table` out and deliver the table in `LibRecord.export_list`; the base refuses the library when a declared export is not delivered, and when it delivers one its TOML B does not declare.
+- `heap_keep` and `heap_peak` are the figures of the budget (below), checked as for a file.
+- `needs` names the other libraries of the TOML B that this one calls. The libraries with `register` are registered in the order of their `needs`; a cycle is refused by `tools/libtab.py`.
+
+`libtab.py` makes the slot table from the TOML B (`include/libslot.h`, `libslots.h`). Code in the app takes a table of another library with `lib_slot(LIBSLOT_<name>, &size)`. A sub-app (a `.u2a` file of kind app) lists the export in its `needs` and takes the table with `api->lib->need(n, &size)`; the loader binds each entry to the linked export of that name at exactly that major. `api.md` section 2.4 has the contract.
+
+An application is still a `.u2a` file: `mk/app.mk` builds it and `tools/u2a_pack.py` packs it. `LIB_NEEDS` / `APP_NEEDS` name `base>=4.0`; a file built for base API 3 is refused.
+
+## Declare a budget
+
+A library or an application may declare what it takes. A file puts `APP_BUDGET` (`LIB_BUDGET` for `lib.mk`) in the Makefile, a list of `key=number` words; a linked library declares `heap_keep` and `heap_peak` in its `[[library]]`:
+
+```make
+APP_BUDGET = image=8192 heap_keep=2048 heap_peak=4096 ops=3 states=1 settings=2 tabs=1
+```
+
+The keys are `image` (code, data and bss, bytes), `heap_keep` (the bytes the image holds through `api->mem` when it is idle: the loader refuses it when the image and this figure do not fit the room of the heap), `heap_peak` (the most it holds at once: a ceiling), `ops`, `states`, `events`, `nodes`, `file_actions`, `settings`,
+`tabs` and `polls` (what `lib_register` and the menu record bring). A key left out has no figure of its own, and the limit is the platform's: 1 MiB for the image,
+the heap of the core, the room left in the tables. A file without a budget loads as before.
+
+The packer refuses an image over its own `image` figure. The loader refuses a file that is over any figure, or over the room left in a table, with a sentence that
+names the image, the figure and the limit, for example `Library "mylib" is refused: it brings 7 operations, over its declared budget of 5.` Nothing of it stays: no
+registration, no memory. A file with a budget needs base 3.2; the packer adds `base>=3.2` to its dependencies. Every block a library takes from `api->mem`, also in its
+operations later, is on its own account. The loader refuses a linked library with `register` over its `heap_keep` or `heap_peak` in the same way. `api.md` section 8 has the contract.
+
+## Constructors and exports
+
+The loader runs no constructor and no destructor (D19). The packer refuses an image that holds one (a non-empty `.init_array`, `.fini_array`, `.ctors` or `.dtors`, or `__cxa_atexit`,
+`atexit`) and names the section or symbol, so a global object with a constructor does not build into a file: set the state up in `lib_register`.
+
+A library offers call tables under names: `exports` in its `[[library]]` (a file: `LibRecord.export_list`, `APP_EXPORTS` in `app.mk`). What needs one lists it in `needs` (`ring>=1`), whatever the providing library is called, and takes it with `api->lib->need(n, &size)` (a file) or `lib_slot(LIBSLOT_ring, &size)` (linked code). `api->lib->find` is gone, and so are `api->trx`, `api->trx->ring`, `api->c64` and the table `c64` (`include/c64_api.h`): the core's own libraries and its driver table give the debug block, `api->net->announce` gives the port the runtime service listens on, the operation `machine.warm_reset` resets the machine, and `api->io->ram_read` and `ram_write` read and write the memory of the C64. The tables of the shared libraries that the base keeps (`c64cart`, `cbm1541`, `sid`, `tempdisk`, `cbmprg`, `mouse`, `pad`, `padkeys`; `uci` is not among them, `api.md` 9.5.5) are slots of the app, and so is the text grid that a `terminal` node names with its `grid` parameter: `api.md` sections 9.5 and 9.6 have them. `api.md` section 9 has the contract. `api->lib->need(n, &size)` returns the table of entry `n` of the `needs` list, numbered from 0 in the order of `LIB_NEEDS` (`api.md` 4.10.3).
+
+## Core hooks and the settings of the base
+
+A library that is the code of a core exports the table `CoreHooks` (`include/core_hooks.h`) as `corehooks`, major 1 (`exports = [{ name = "corehooks", major = 1 }]`). Besides the hooks of the core description it has `start`
+(once, before the first poll), `menu_closed` (when the menu closes) and `base_setting_changed` (after a setting of the base changes, and once per such setting after `start`). A member that is null
+is a call the base makes itself. The library that is the whole code of a core is named in the core's API TOML (`hooks = "<library name>"` in `[core]`; `cor_pack` refuses a core whose TOML B does not link that library with the export `corehooks` at major 1): the base then calls `init`, `release`, `warm_reset`, `cold_start`, `media_flush` and `media_pending` where it calls the members of the core description, and serves the `[mount]` slots through `slot_spec`, `slot_mount` and `slot_eject` (`api.md` 9.7.9 to 9.7.11). No library is unloaded to make room for an application. The base owns six settings (`Joystick Input` and the five USB mouse settings): a library reads them by key and must not declare them; a descriptor that does is refused. `api.md` sections 4.13.19 and 9.5 have the contract.
+
+## The version of the base API
+
+This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of
+`base/version.toml` (the base of this package), and the `base_api` line of `VERSION`. A file says in `LIB_NEEDS` (`APP_NEEDS`)
+(`base>=@ABI_MAJOR@.@ABI_MINOR@`) which base API it needs; the loader refuses a file that needs a newer base, with a message that names both versions
+("needs base 4.1, this base is 4.0"), and a file built for another major (a file of major 3 is refused: build it again against this package).
+
+The public headers of this package are the files of `include/`. Their content hash, comments and blanks left out, starts with `@API_HASH@`.
+In the source repository a lock file holds that hash for every version, and the lint is red when the headers of a released version change. There is one base minor per SDK release: what is added before the release stays under the coming minor (SDK 0.2.0 is base 3.2).
+
+- **Minor** (`@ABI_MAJOR@.x`): an addition that a library built before it can ignore. A new call table at the end of `LibApi`, a new function at the
+  end of a call table (every table carries its size), a new value of an enum.
+- **Major** (`x.0`): anything else. A field that moves, changes size or goes, a changed meaning, a change of `LibRecord` or of a `Lib*Decl`
+  (the loader compares the size of the record), a change of the `.u2a` format. Base 4.0 is such a major (see "What is new in 0.6.0").
+
+A library that declares a poll (`LibRecord::poll`, or `[poll]` in its menu record, not both: an operation without arguments and a period in milliseconds) is
+polled by the core application from the moment it has registered until the end of the run or, for an application, until it is released (base 3.2). The poll never runs while the
+menu has stopped the machine. A poll the core application cannot serve (no such operation, an operation that takes arguments, a period of 0, no free slot)
+refuses an application that loads after the core has started. A library registered at start stays: its poll is dropped and the log says why.
+
+## Build a menu record
+
+The menu of a library is a TOML file. `descrec.py` lists every key.
+
+- `menu = "menu.toml"` in the `[[library]]` of the TOML B names the record of a linked library (`APP_MENU = menu.toml` puts the record of an application into its `.u2a`).
+- `python3 tools/descrec.py compile menu.toml menu.bin` makes the record alone. `python3 tools/descrec.py dump menu.bin` reads it back.
+
+## Build a `.cor`
+
+A `.cor` is one container: the core's bitstream, the application image, the menu record and the menu records of the linked libraries (record 7, version 2). `cor_pack.py` writes two kinds.
+
+A core that does not fit the host's partition is one full bitstream (a large or monolithic core):
+
+```
+python3 tools/cor_pack.py pack-large -o mycore.cor --id mycore --name "My Core" --version 1.0.0 \
+    --bit core.bit --app app.bin --desc menu.toml --sizes toml_b.toml
+```
+
+A core that runs in the host's partition is a partial bitstream routed against one host:
+
+```
+python3 tools/cor_pack.py pack -o mycore.cor --name "My Core" --version 1.0.0 \
+    --partial core.bit --app app.bin --host-key <host key> --sizes toml_b.toml \
+    --desc menu.toml
+```
+
+This package does not make that partial bitstream or the host key: both come from routing the core against the host's checkpoint and floorplan, which
+are in the TRX64U-MultiCore repository and not in this package. `python3 tools/cor_pack.py hostkey host.bit` prints the key of a host bitstream.
+Until the host's routing inputs are published, a partial core cannot be built from the package alone; `pack` is here for the cores built in that repository.
+
+The menu record of each `[[library]]` with `menu` is read from the TOML B of `--sizes`; `--lib` is gone. Both commands take `--heap <bytes>` (the heap of the core application for this core), `--icon`, `--short` and `--files`.
+`--ops <list>` checks every operation name and binding of `--desc` against a list of what the application exports; the tool that writes that list
+is not in this package yet (see below). `python3 tools/cor_pack.py check mycore.cor` checks the bundle. For the other options read the head of
+`tools/cor_pack.py`.
+
+## The app of a core
+
+There is no app image in this package. A core's app is linked from the package with the core's TOML A (its gateware, one block per register range) and its TOML B (what the
+app is linked with and how large its maxima are), and the library table and the driver table are made when it is linked: no library is loaded at run time and no name is looked
+up (T239.3 D31, D58).
+
+```
+python3 tools/app_build.py build --sdk . --toml-a mycore/toml_a.toml --maps mycore --toml-b mycore/toml_b.toml --out out --src mycore --record out/desc.bin
+```
+
+`--maps` adds the register maps of the core's own blocks (`<name>.map.toml`) to the package's `maps/`. A core that is described by its record names no `desc` symbol: the core table of its app is empty and the start makes the descriptor from the record of the `.cor`; the code of that core is the library its record names (`hooks = "<library>"`, api.md 9.7). `example/` is such a core: its own TOML A (`example/gateware/`), TOML B and description (`example/app/`) and the library `example` that is its code (a `[[library]]` of its TOML B, linked into the app; the base loads no library file).
+
+The TOML B has `[app]` (`desc`: the symbol of the descriptor of a core that is compiled into the app, none for a core described by its record, `base_sources`: files of the package's `coreapp/cores` that hold it, `sources`: the core's own files, found in the
+`--src` directories), the libraries (`[[library]]`, as `libs/shared.toml`: sources found in the package's `base/src` or in `--src`) and `[sizes]`. The record is compiled against the same
+`[sizes]` (`descrec.py compile ... --sizes toml_b.toml`, `cor_pack.py pack ... --sizes toml_b.toml`), so the compiler and the app refuse the same record.
+
+A core whose TOML A holds only its own blocks (the gateware window the host hands to layer 2) names, in `[app]`, `toml_a` (its TOML A, a file beside the TOML B: `--toml-a` may then be left out) and
+`base_blocks` (the blocks of the package's `gateware/shared.toml`, or of `--base-toml-a`, that the shared drivers of the base name: the host's mode register, the drive window, the ICAP
+loader). The app is linked against the core's blocks and those, and no other (`tools/descrec.py` `merge_toml_a`): the driver table, the linker fragment and `out/blocks.txt` hold them. A core of
+this repository's tree builds its app so with `tools/sdk_core_app.sh <package> <core id> <out dir>`, which also checks the link map (`tools/libtab.py mapcheck`): the sources of the libraries
+the TOML B names are in it, those of no other library and of no other core's code are.
+
+`[sizes]` names the maxima of the registry (`ops`, `states`, `events`), of the contributions the libraries make to the menu (`contrib_*`), of the bug report (`report_bytes`) and of the
+menu record (`record_bytes`, `rec_*`). A key that is left out keeps the default of the headers; `python3 tools/app_build.py table` lists them. A maximum is part of the layout
+of every object that includes `ops.h`, `descrec.h`, `contrib.h` or `corereport.h`, so the package carries the sources of those objects (`base/`, listed in `base/SIZED.txt`) and compiles them
+for the core; the objects of every other source are in `lib/libtrxbase.a`, with `liblwip.a`, `liblvgl.a` and the start-up objects.
+
+The example core is `example/app/`: `make app` in `example/` links it. The TOML A is `gateware/shared.toml`, the reference.
+
+## The menu simulator
+
+`bin/menusim --desc example/app/desc.toml` opens the menu of a core on this machine, in a window, from its description: the identity (`[core]`), the tabs, the nodes, the settings and
+their places. Change the TOML and press Cmd+R (Ctrl+R elsewhere): the menu is built again and the page stays. The place of every row (tab, group, order) is in the TOML, the base's own
+rows included (`menusim/coreapp/base_ui.toml`). `--keys F3,DOWN,RETURN --shot out.png` runs headless and writes a picture. It needs a C++ compiler, python3 and SDL2 (`brew install sdl2`); the
+first start compiles the application's sources natively (a few minutes), the next start only what changed. The core's own code is not in the simulator: a hook does nothing, and an
+operation shows its row without running. The real app is checked in the emulator.
+
+## The example
+
+```
+cd example
+make menu
+make test
+make app
+```
+
+The library (`example.cc`, `greet.cc`) is no file: the `[[library]]` block of `app/toml_b.toml` (`register = "example_register"`, `menu = "../menu.toml"`, export `corehooks`) links it into the app. `make menu` writes `example.menu.bin`. `make app` links the example core's app (see above).
+`make test` builds `example.cc` and `greet.cc` with the host compiler, registers the library against a fake `LibApi` and calls its operation.
+
+## Not in this package yet
+
+- The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
+- The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
+- A test rig for descriptor hooks and operations against a model of a core.
+
+## What is new in 0.5.0 (base API 3.5, T262)
+
+This release lets a library build lists, choices and tabs at run time with the menu's own tools, and removes three defects of the menu. A library built against 0.4.x loads and runs
+unchanged: everything below is a new member at the end of a table, a new value of an enum, or a new key of a text (`api.md` 1.2.9).
+
+- **Rows at run time (P1).** A node of kind `list` shows the rows of a state, one line each (value, label, right column, tone, up to three lines the row says about itself), and calls an
+  operation with the index of the row the person takes; a last row that starts with `+` asks the library for more by the operation named in the node's `more`. No node is declared for a row.
+  `api.md` 6.19 and `LN_LIST` (6.5).
+- **Choices (P2).** `api->ctx->ask_list` (4.14.14) and the node key `pick = "@state"` (6.7.3, 6.19.3) open the base's list of choices for a library. The list has no fixed number of rows
+  (it was 40): it is sized by its text, bounded by the memory budget.
+- **Tabs that come and go (P3).** `show = "@state"` on a tab of a menu record: the tab is on the strip while the state has a value (6.11.7).
+- **A busy caption for a job (P4).** The node key `busy` names the words a node's job shows, and a percentage shows only once the operation reports one (6.7.3). This also changes the job nodes of libraries built against 0.4.x: a job that never reports progress shows its words alone, no longer `0%` with an empty bar.
+- **A source of the F3 search (P5).** A node of kind `list` at `F3/search` with `search`, `find` and `fields` makes a library a source: the search of the Library gets one form with a Source
+  row, the fields of the source, and the results open as a list (6.20).
+- **The key legend (P6).** `legend = "Label"` on a row of the key table puts the key into the foot legend of its tab (6.18.3).
+- **Defects (P7, P8, P9).** A Run that waited for its fetch closes the menu. When the focused row of a screen hides, the focus goes to the next row that takes it. A value that changed on a
+  screen is written into its row in place, so a RETURN on an operation row no longer builds the pane again (about 365,000 pixels became about 50,000 per RETURN) and no key is lost meanwhile.
+
+## What is new in 0.5.1 (base API 3.6, T262 D4)
+
+One round of fixes for the defects TRX64-Ultimate found in 0.5.0. The base API is 3.6 (3.5 is released with SDK 0.5.0 and stays as it was). A library built against 3.4 or 3.5 loads as before; where a fix changes what a screen shows, the line says so.
+
+- **hw.cc without `cart_regs`.** An app whose TOML A has no block `cart_regs` compiles: no cartridge-port registers, `stop` and `mode_reset` do nothing (`api.md` 6.17.5.9).
+- **A list node's count and a greyed row.** The count of a `list` node leaves out the `+` row and the `!` notes; the tone `disabled` greys a whole list row (`api.md` 6.19).
+- **`ask` per use.** `ask_max` (1 to 255, default 24) and `ask_any` (every printable character) make `ask` a free text; without them it is the name of a file as before. A text prompt that an operation asks for (`ops_ask_text`) keeps the file-name rule as before and takes every printable character only when it asks with `any`.
+- **Key rows in a library's menu record (`api.md` 6.18.5).** A library's `--menu` TOML may carry `[[key]]` rows (key or codes, op, label `legend`, `when`, as a core's `menu.toml`). While the library is loaded the menu merges them behind the core's rows; windows stay a core's. A library whose record has only key rows is never unloaded to make room for an application (the key table points into its record).
+- **`browse_at` and `browse_sheet` (`api->ctx`, `api.md` 4.14.15, 4.14.16).** One opens Browse on the folder of a path with the cursor on its file (not on `..`), the other also opens the file's action sheet, as RETURN does. Base 3.6; a library checks `SVC_HAS(api->ctx, browse_at)`. The folder (up to 199 characters) and the name (up to 255) are each measured alone; a long path is not refused for its total.
+- **A file whose size is unknown (`SVCFS_SIZE_UNKNOWN`, `api.md` 4.4.24.6).** A file system lists such a file with the size `SVCFS_SIZE_UNKNOWN`; the file list shows `-` instead of `0 KB`. A size that is known shows as before. A folder as a disk (the folder-disk mount) leaves such a file out and names it in its report ("of unknown size"), apart from the files of 4 GiB or more.
+- **A form keeps no empty space.** When rows hide under a window that had scrolled, the window moves up until it is full, also while the selection stands on a button outside the list.
+- **`goto_screen` redraws.** A `goto_screen` called by an operation the menu runs (a row, a key, a list row) draws the new screen at once; the next key no longer acts on it unseen.
+- **The search tab with a source.** RETURN on the idle Search tab asks for a name as it does without a source; the form is `/`. The idle tab shows the text the form holds, and its side panel no longer says "No media found." (`api.md` 6.20.2).
+- **`<-` from search results.** It goes back to the search form with the results kept; a row `Results` of the form opens them again (`api.md` 6.20.2).
+- **A job keeps its form.** A node's job that started on a screen leaves the screen standing: the job's row carries the words (`busy`) and the percentage, the other rows stay. On a page of one row the words are the row's, the title is the tab's when it would repeat them (`api.md` 6.7.3).
+- **The list page keeps its rows.** A key on the page of a `list` node (a move, a RETURN, a status line, rows that changed) writes the rows, the foot and the side panel in place; the page is built again only when its shape changes (about 365,000 pixels became 7,000 to 110,000 per key). The idle Search tab of the F3 Library no longer reads the folder it does not show (it held the tab blank for as long as the folder took).
+
+## What is new in 0.5.2 (base API 3.6, T262 D5)
+
+A patch on 0.5.1: the base API stays 3.6, no header changes.
+
+- **browse_at and browse_sheet from a list row and an ask_list answer.** The calls took the menu to the browser only from a node row's operation; from the operation of a `list` row or of an `ask_list` answer they did nothing and the request stayed pending until a later row. They now work there (`api.md` 4.14.15, 4.14.16).
+- **A long folder path in the Library's header no longer wraps into the first row.** The header of the browser is one line: a path that does not fit is cut in the middle with an ellipsis, so its start and its last folder stay visible.
+
+## What is new in 0.6.0 (base API 4.0, T239.3 P2-6)
+
+Base API 4.0 is a new major. A library or an application of major 3 is refused: build it again against this package (`api.md` 1.2.10).
+
+- **Removed (D57).** `api->trx` with `SvcRing`, `api->c64`, `api->lib->find`, the members `LibRecord.exports` and `exports_size`, and the base's own export `c64` (`C64Api`, `include/c64_api.h`). There is no fallback. The core's own libraries and its driver table give what they gave; the port the runtime service listens on is `api->net->announce` (`api.md` 4.8.15); the memory of the C64 is `api->io->ram_read` and `ram_write`.
+- **No library file at run time (D58).** A `.u2a` of kind lib is refused. Record 7 of a `.cor` holds menu records (version 2), not files. The folder `<root>/trx/lib` is not read.
+- **Libraries linked through the TOML B.** A `[[library]]` has `exports = [{ name, major, table }]`, `register = "fn"` (`int fn(const LibApi *, LibRecord *)`, called at start where `lib_register` of a file ran), `menu = "path"` (its menu record), `heap_keep` and `heap_peak` (checked as the budget of a file) and `needs` (the order of registration; a cycle is refused). The slot table `include/libslot.h` (`lib_slot(LIBSLOT_<name>, &size)`) and `api->lib->need` of a sub-app reach the exports (`api.md` 2.4, 4.10).
+- **The example library is linked.** `example/` has no `example.u2a`: `app/toml_b.toml` links `example.cc` and `greet.cc` with `register = "example_register"` and `menu = "../menu.toml"`. `make menu` writes the menu record, `make app` links the example core's app.
+- **Unzip carries miniz (D60).** The sub-app Unzip is linked with the zip code of miniz and needs `base>=4.0` only; no core's app and not the host application links miniz. A core's app starts `unzip.u2a` for the action and frees it afterwards.
+- **Record 7, version 2.** `cor_pack.py` takes the menu records of the libraries from the TOML B of `--sizes`; `--lib` is gone.
+- **`CART_APP_NEED`** (`cart_port`) is offered where the TOML A of the core has the block `c64cart`.
+- **`u2p_compat`.** The adapter of the older interface has no `trx` and no `c64` table, and `media.reset` calls the operation `machine.warm_reset`.
+- **The dialogs of a core's own application (`CoreDialogs`, `api.md` 9.8, T260, T239.3 D54).** The code of a core that has an application of its own reaches the person through `CoreCtx::dialogs`:
+  a task of its own (`spawn`), a question (`ask`, `ask_live`), a choice (`choose`), a message (`notice`), a file picker (`pick`), the clock stamp (`stamp`) and the joystick ports as
+  menu keys (`joystick_menu`). New in the class: `text`, a line the person types, and `edit_list`, a list of rows of label and value that the person edits (UP/DOWN select, LEFT/RIGHT
+  and RETURN call back on the menu task, RETURN on an action row closes the list and answers the row, ESC closes it): the dialog of a panel of registers that comes from a file at run
+  time. A test builds its own class derived from `CoreDialogs` and scripts the answers (`api.md` 9.8.13).
+
+
+## Licence
+
+GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own
+licences: the texts are in `licenses/`, and `NOTICE` names them, the source commit and the origin of the interface headers.

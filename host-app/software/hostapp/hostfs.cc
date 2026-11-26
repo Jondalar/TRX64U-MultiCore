@@ -4,6 +4,8 @@
 #include "file_info.h"
 #include "indexed_list.h"
 #include "path.h"
+#include "descrec.h"
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
@@ -268,6 +270,26 @@ public:
         }
         snprintf(name, n, "%s", ci.name);
         return ci.name[0] != 0;
+    }
+    // Record 6 of the .cor, read whole (at most DESCREC_MAX_SIZE) and handed to cm_rows_from_record; false when there is none.
+    bool core_roms(const char *cor_path, CmRows *out)
+    {
+        FileSource src(cor_path);
+        if (!src.ok()) {
+            return false;
+        }
+        CorInfo ci;
+        cor_result_t r = cor_probe(src, ci);
+        if ((r != COR_OK && r != COR_ERR_LARGE && r != COR_ERR_CONTRACT && r != COR_ERR_HOST) || ci.size[COR_PART_DESC] == 0 || ci.size[COR_PART_DESC] > DESCREC_MAX_SIZE) {
+            return false;
+        }
+        uint8_t *rec = (uint8_t *)malloc(ci.size[COR_PART_DESC]);
+        if (!rec) {
+            return false;
+        }
+        bool ok = src.read(ci.off[COR_PART_DESC], rec, ci.size[COR_PART_DESC]) && cm_rows_from_record(rec, ci.size[COR_PART_DESC], out);
+        free(rec);
+        return ok;
     }
 };
 }

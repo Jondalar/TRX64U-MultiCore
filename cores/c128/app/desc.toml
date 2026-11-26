@@ -1,0 +1,434 @@
+# The Commodore 128's data description (T239.3 D17): what cores/c128/app/lib/c128.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the
+# core's C++: init, release, the operations of register_ops, the USB keyboard's held-key function (rawkeys) and the drive's media functions.
+# The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
+machine_info = "40/80 DISPLAY"
+
+[restart]
+clear_ram = 65536                      # RAM block 0, what the RAM window reaches (block 1 and the VDC's RAM it does not)
+
+[core]
+id = "C128"
+name = "Commodore 128"
+title = "Commodore 128"
+short_title = "C128"
+folder = "c128"
+store = "C128 Settings"
+min_contract = 1
+reset_ms = 50
+service_op = "c128.service"
+service_period_ms = 20
+type_op = "c128.type_script"           # Run Disk: reset, type LOAD"*",8,1 and RUN at READY
+run_op = "c128.run_prg"                # Load + run, and Mount & Run of a file inside a disk image
+caps = ["iec", "drive_a"]
+
+# the VDC's picture: 640 x 480 is the largest (woven interlace), shown 2 x 2 centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+[video]
+w = 640
+h = 480
+scale = 2
+x0 = 320
+y0 = 60
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
+nbuf = 3
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
+
+[freeze]
+reg_status = "machine.status"
+mask = 0x08
+timeout_ms = 200
+
+# the VIC-IIe's picture: the gateware's capture of the VIC's window (400 x 270, 240 rows in the 60 Hz family), pixel format 3, no buffers
+[alt_video]
+w = 400
+h = 270
+scale = 1
+x0 = 760
+y0 = 405
+fb_base = 0
+fb_stride = 0
+nbuf = 0
+reg_latest = 0
+reg_seq = 0
+reg_fb_base = 0
+reg_fb_stride = 0
+pxfmt = 3
+h60 = 240
+
+# the USB keyboard as held keys: the core's code gets the usages that are down (its extra matrix columns), no key queue and no tables
+[rawkeys]
+held = true
+caps_usage = 255
+
+# CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode, + D flips the picture 40 / 80. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 18]
+own_keys = [56, 59, 8, 11, 16, 19, 24, 27, 32, 35]          # the digit keys: CTRL + 1..8 are the colours and CTRL + 9 / 0 reverse on / off
+core_op = "c128.toggle_picture"
+core_key = "Hotkey picture 40/80"
+core_label = "Picture 40 / 80"
+
+# the slot of the core's own media engine (the drive library); its three functions are code
+[mount]
+names = ["Drive A"]
+
+# ---- ROMs. The system image is the one file the machine needs; the drive ROMs are optional and the 1541's is shared with the C64 side
+[[rom]]
+role = "C128 system ROM image"
+names = ["boot0.rom", "c128.rom", "c128-system.rom", "c128_system.rom"]
+sizes = [73728]
+required = true
+put_op = "c128.put_rom"
+
+[[rom]]
+role = "1541 drive"
+names = ["1541.rom", "1541.bin", "1541-ii.bin", "1541-ii.rom", "1541ii.rom", "1541c.rom", "dos1541.rom", "dos1541-325302-01+901229-05.bin"]
+sizes = [16384, 32768]
+shared = true
+put_op = "c128.put_drive_rom"
+
+[[rom]]
+role = "1581 drive"
+names = ["1581.rom", "1581.bin", "dos1581.rom"]
+sizes = [32768]
+put_op = "c128.put_drive_rom1581"
+
+# ---- settings
+[[core_setting]]
+key = "40/80 DISPLAY (at next reset)"
+label = "40/80 DISPLAY"
+values = ["40 columns", "80 columns"]
+when = "reset"
+apply = "c128.set_d4080"
+
+# the picture shown at the start and after a Reset: 0 = 40 columns (VIC-IIe), 1 = 80 columns (VDC) = MON_SEL b0
+[[core_setting]]
+key = "Picture shown"
+values = ["40 columns (VIC-IIe)", "80 columns (VDC)"]
+apply = "c128.set_monitor"
+
+[[core_setting]]
+key = "Auto switch"
+values = ["Off", "On"]
+default = 1
+apply = "c128.set_auto"
+
+[[core_setting]]
+key = "Auto switch time"
+values = ["0.5 s", "1 s", "2 s", "3 s"]
+default = 1
+apply = "c128.set_auto_time"
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "c128.set_joy"
+
+[[core_setting]]
+key = "Datasette port"
+values = ["Off (file only)", "External datasette"]
+apply = "c128.set_dset"
+
+[[core_setting]]
+key = "System Mode"
+values = ["PAL", "NTSC", "PAL-60", "NTSC-50"]
+apply = "c128.set_sysmode"
+
+[[core_setting]]
+key = "ROM set"
+values = ["Standard", "JiffyDOS"]
+when = "reset"
+apply = "c128.set_romset"
+
+# T185 D4: the four JiffyDOS kit files, each chosen in a file selector (kind 3: the text is the file's path, none selected by default; `apply` checks and keeps it,
+# a reset never applies it)
+[[core_setting]]
+key = "JiffyDOS C128 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_c128"
+
+[[core_setting]]
+key = "JiffyDOS C64 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_c64"
+
+[[core_setting]]
+key = "JiffyDOS 1541 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_1541"
+
+[[core_setting]]
+key = "JiffyDOS 1581 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_1581"
+
+# drive A (cbm1541_desc.h CBM1541_SETTINGS): the names and the defaults are Gideon's (c1541.cc:46-62): drive on, bus ID 8, no extra RAM, 100 ms swap delay
+[[core_setting]]
+key = "Drive"
+values = ["Disabled", "Enabled"]
+default = 1
+apply = "drive.set_power"
+
+[[core_setting]]
+key = "Drive Bus ID"
+values = ["8", "9", "10", "11"]
+apply = "drive.set_bus_id"
+
+[[core_setting]]
+key = "Extra RAM"
+values = ["Disabled", "Enabled"]
+apply = "drive.set_ram"
+
+[[core_setting]]
+key = "Disk swap delay"
+values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "900 ms", "1000 ms"]
+apply = "drive.set_swap_delay"
+
+[[core_setting]]
+key = "LED Load Indicator"
+values = ["On", "Off"]
+apply = "led.load"
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Reset Drive"
+op = "drive.reset"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+
+[[task]]
+label = "Create blank D64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "d64" }, { arg = "name", str = "" } ]
+ask = "Name of the new D64"
+ask_state = "drive.suggest.d64"
+pick_dir = true
+
+[[task]]
+label = "Create blank G64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "g64" }, { arg = "name", str = "" } ]
+ask = "Name of the new G64"
+ask_state = "drive.suggest.g64"
+pick_dir = true
+
+[[task]]
+label = "Save Disk as D64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "d64" } ]
+ask = "Save as D64, name"
+ask_state = "drive.suggest.save_d64"
+
+[[task]]
+label = "Save Disk as G64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]
+ask = "Save as G64, name"
+ask_state = "drive.suggest.save_g64"
+
+[[task]]
+label = "Create blank D81"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "d81" }, { arg = "name", str = "" } ]
+ask = "Name of the new D81"
+ask_state = "drive.suggest.d81"
+pick_dir = true
+
+# ---- media slots
+[[media]]
+name = "Drive A:"
+state = "drive.drive_a.image"
+eject_op = "drive.eject"
+eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+exts = ".d64,.g64,.d81"
+mount = "Mount Disk"
+empty_tasks = "Create blank D64,Create blank G64,Create blank D81"
+mounted_tasks = "Save Disk as D64,Save Disk as G64,Reset Drive"
+
+# ---- file types
+# T185 D4: the JiffyDOS kit files are chosen here or in the settings; the file is checked when chosen and refused with the reason
+[[filetype]]
+ext = ".rom"
+  [[filetype.action]]
+  label = "Load as system ROM image (72 KiB)"
+  op = "c128.load_rom"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Set as 1541 ROM"
+  op = "c128.set_drive_rom"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS C128 ROM"
+  op = "c128.use_jiffy_c128"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS C64 ROM"
+  op = "c128.use_jiffy_c64"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS 1541 ROM"
+  op = "c128.use_jiffy_1541"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS 1581 ROM"
+  op = "c128.use_jiffy_1581"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".bin"
+  [[filetype.action]]
+  label = "Use as JiffyDOS C128 ROM"
+  op = "c128.use_jiffy_c128"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS C64 ROM"
+  op = "c128.use_jiffy_c64"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS 1541 ROM"
+  op = "c128.use_jiffy_1541"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Use as JiffyDOS 1581 ROM"
+  op = "c128.use_jiffy_1581"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".prg"
+  [[filetype.action]]
+  label = "Load"
+  op = "c128.load_prg"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load + run"
+  op = "c128.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".p00"
+  [[filetype.action]]
+  label = "Load"
+  op = "c128.load_prg"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load + run"
+  op = "c128.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# a disk image is a folder for the browser: `inner` are the actions of the PRGs inside it
+[[filetype]]
+ext = ".d64"
+inner_ext = ".prg"
+  [[filetype.action]]
+  label = "Mount Disk"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Browse Disk"
+  op = "menu.browse"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.inner]]
+  label = "Mount & Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "dma" } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Real Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "load" } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".g64"
+  [[filetype.action]]
+  label = "Mount Disk"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+
+# the 1581: .d81 mounts read-write or read only, no unlinked mount
+[[filetype]]
+ext = ".d81"
+inner_ext = ".prg"
+  [[filetype.action]]
+  label = "Mount Disk"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Browse Disk"
+  op = "menu.browse"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.inner]]
+  label = "Mount & Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "dma" } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Real Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "load" } ]
+  closes_menu = true

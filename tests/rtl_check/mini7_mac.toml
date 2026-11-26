@@ -1,0 +1,17 @@
+# A fixture TOML A for tests/rtl_check/mini7, top top7mac (T239.3, the SNES core's snes_core.v): the register of m7mem, the instance whose module is a `define of m7mac.v.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "mac"
+module = "m7mac"
+owner = "base"
+address = 0x10000010
+size = 0x1
+
+  [[block.property]]
+  name = "r"
+  offset = 0x0
+  width = 8
+  dir = "rw"

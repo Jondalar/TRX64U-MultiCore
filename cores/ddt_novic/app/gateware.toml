@@ -1,0 +1,188 @@
+# TOML A of the ddt_novic core (T239.3 D55, T239.5 D16): the gateware's registers as capabilities. The emitter (tools/rtl_check.py emit) wrote the first form from the RTL; the names, the
+# blocks and the fields are from cores/ddt_mandel/trx/ddt_regs.v (the register block both DDT cores share, one parameter set per core: ID, GEOM_LINES, PIX_W). tools/rtl_check.py check
+# proves every property against the RTL (the core window: the five cw_* ports of the instance in layer2_ddt_novic.v; the host decodes 0x101A0000-0x101AFFFF to them, so the app's
+# register offset is the address minus 0x101A0000).
+# Not described: page 6 (0x101A6000-0x101A6FFF) is forwarded by ddt_regs to the host's pixel layer (px_we, px_re, px_rdata); the core's own code does not use it and the host's TOML A
+# owns that layer. Everything else in the window reads 0.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "DDTN"
+block = "ident"
+
+# 000-00B: the ID "DDTN" (byte 0 first, the parameter ID of ddt_regs), the caps bytes, the layer-2 contract the core was written for, and the build word (the host's USR_ACCESS)
+[[block]]
+name = "ident"
+module = "ddt_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b7 page flip done (px_ev_flip), b6 video frame start (px_ev_vsync)
+[[block]]
+name = "irq"
+module = "ddt_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "ddr_cal"
+module = "ddt_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 035-038: the picture's geometry, the parameters GEOM_LINES and PIX_W of ddt_regs (ddt_novic: 200 lines of 352 pixels). ddt_regs answers GEOM_LINES as a 16 bit value at 035-036; with 200 lines its
+# upper byte (036) is constant 0, which the RTL has no read of, so the property is the one byte that the RTL reads
+[[block]]
+name = "geom"
+module = "ddt_regs"
+owner = "base"
+address = 0x101A0035
+size = 0x4
+  [[block.property]]
+  name = "lines"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "pix_w"
+  offset = 0x2
+  width = 16
+  dir = "r"
+
+# 0A0-0AB: the machine. ctrl b0 holds the core in reset, b1 halts it (Freeze); status b0 in reset, b1 held; frames is the core's own 32 bit word (ddt_novic: the frame counter)
+[[block]]
+name = "machine"
+module = "ddt_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xC
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_base and fb_stride have the reset values of fbb_r and fbs_r in ddt_regs.v: the host's REU block, four buffers one megabyte apart
+[[block]]
+name = "video"
+module = "ddt_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000

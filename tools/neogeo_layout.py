@@ -4,7 +4,7 @@
   mister  the bytes MiSTer's loader (Main_MiSTer support/neogeo/neogeo_loader.cpp, GPL v3) puts into the core's memory: the layout the core
           (rtl/neogeo.sv, sdram_mux.sv, zmc2_dot.v) was written for. Transcribed from the code (spr_convert_skp / spr_convert_dbl / fix_convert / spr_bswap,
           load_crom_to_mem, load_rom_to_mem), not from its comments.
-  app     what coreapp/cores/neoset.cc wrote BEFORE the fix of 2026-10-29 (neo_load, neo_fix_rearrange; the NK_C / NK_CNEO / NK_CRAW / NK_S / NK_P paths, copied here): the layout of
+  app     what cores/neogeo/app/lib/neoset.cc wrote BEFORE the fix of 2026-10-29 (neo_load, neo_fix_rearrange; the NK_C / NK_CNEO / NK_CRAW / NK_S / NK_P paths, copied here): the layout of
           the board run of new2. Since the fix neoset.cc writes the mister layout; `app` is kept to tell what is on a board that still has the old one.
 
 The DDR2 placement is the application's (neoset.cc neo_plan, neogeo_regs.h): rom_base = 0x01000000 + 0x300000, system ROM at +0, board fix ROM at +0x20000,

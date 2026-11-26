@@ -1,0 +1,75 @@
+# The machine and picture blocks of the overlay test's TOML A (T256 S5, T239.5 D19): the SDK example's TOML A has no picture, so build.sh appends these two blocks (the VIC-20's, as cores/vc20/app/gateware.toml
+# names them; the emulator profile cores/vc20/app/ue2emu.toml puts its registers at these offsets) to a copy of gateware/example.toml, and video_desc.toml to a copy of the example's desc.toml.
+
+[[block]]
+name = "machine"
+module = "vc20_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x10
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "status"
+  offset = 0x04
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+
+[[block]]
+name = "video"
+module = "vc20_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0x0C
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x02
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x04
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x08
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0x10020000: the 1541 drive A of the partial (drive_l2.vhd behind drv_io_*): the registers of the shipped map cbm1541 that this RTL has, and the two runs of the parameter RAM (2 KB, 11 address bits:

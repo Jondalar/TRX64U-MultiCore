@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include "desc.h"
 #include "ctx.h"
+#include "libtab.h"
+#include "padkeys_api.h"
 
 #define HK_NONE 0xFF
 #define HK_RESTORE 64
@@ -172,5 +174,19 @@ struct HkLoop {
     uint32_t poll(CoreCtx *c);
     bool perform(CoreCtx *c, uint32_t fired, char *line, int n);
 };
+
+// The generic side of the table "padkeys" (padkeys_api.h): found through libtab_export, so the header the SDK ships does not need libtab.h.
+static inline const PadkeysApi *padkeys_api(void)
+{
+    const PadkeysApi *a = (const PadkeysApi *)libtab_export(PADKEYS_API_NAME, 1);
+    return a && a->size >= sizeof(PadkeysApi) ? a : 0;
+}
+
+// The generic side: false (not a pad-key row) in an app without the library.
+static inline bool padkeys_is_row(const Setting &s)
+{
+    const PadkeysApi *a = padkeys_api();
+    return a && a->row(&s);
+}
 
 #endif
