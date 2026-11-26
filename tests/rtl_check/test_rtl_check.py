@@ -33,7 +33,8 @@
       `when others` is no write of the byte; a value that merges the address with another value (a conditional signal, `sel <= addr when mode = '1' else x"00"`) is
       refused where a decision on it is open; an always @* reg of a blocking assignment and a VHDL variable are read on their path; a plain case item with ? bits and
       a casez are refused. Each block fails on ghost alone (r agrees) or is refused.
-  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
+  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed. One finding: sd_spi.crc,
+     a strobe of the SPI's state writing a clock after the request, which the check does not follow (no write proved, no pass).
   5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
      same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
@@ -250,9 +251,12 @@ must(rc == 0 and "17 block(s), 54 properties agree" in out, "amiga1200: 17 block
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
-     "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
-     "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
+crc = "rtl_check: block sd_spi, property crc (dir rw): byte +0xC (0x1006000C) has no write in the RTL"
+must(rc == 1 and [l for l in out.splitlines() if l.startswith("rtl_check: ")] == [crc, "rtl_check: 1 finding(s)"] and "clean room" not in out,
+     "host: coreapp/gateware/host.toml against the RTL of host/: one finding, sd_spi.crc has no write (spi_peripheral_io.vhd clears the CRC in its state writing, a "
+     "clock after the request, by the address alone: `when \"11\" => clear_crc <= '1'`; the request's own clock only moves the state, `state <= writing` for every byte "
+     "of the window, which selects no byte by name; the check proves no write there and says so). The rest agrees (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows (wifi_uart.tx_push and rx_get: strobes in arms of io_req.address, which wifi_req <= io_req copies field by field), the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
 # D55: emit. The header reader: names by offset, a bit mask after a register with a larger offset is no register, a function-like macro is evaluated.
 import tempfile

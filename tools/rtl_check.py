@@ -4211,8 +4211,8 @@ class Ev:
         condition; "neg" otherwise."""
         out = []
         for e in effs:
-            if e.key != name or "q" not in e.taint:
-                continue
+            if e.key != name or "q" not in (e.taint | e.rt):
+                continue                         # e.rt: the field of a record copy (`wifi_req <= io_req`) has the taint of its own right side
             rc = self.aclass(e.ctx, e.rhs, vt, sc, cur, seen)
             if rc == "val":
                 out.append("val")
