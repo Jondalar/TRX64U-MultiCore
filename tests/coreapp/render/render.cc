@@ -2860,7 +2860,7 @@ int main(int argc, char **argv)
         for (size_t k = 0; k < 960 * 540; k++) first += prev[k] != fb[k];
         CHECK(first > 20000);
         memcpy(prev, fb, sizeof(prev));
-        const char *labels[4] = { "Reading the settings", "Setting the picture", "Libraries on the stick", "ROM files, then the core" };
+        const char *labels[4] = { "Reading the settings", "Setting the picture", "Starting the libraries", "ROM files, then the core" };
         for (int i = 0; i < 4; i++) {
             ui_splash_step(i, labels[i]);
             unsigned d = 0;

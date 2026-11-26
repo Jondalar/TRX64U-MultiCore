@@ -68,10 +68,9 @@ typedef char u2a3_budget_size_check[(sizeof(U2a3Budget) == U2A3_BUDGET_SIZE) ? 1
 #define U2A3_BUDGET_MAX 256U            /* a record of more bytes is not a budget */
 
 /* The names a library exports (T239.3 D20, base 3.2): header flag U2A3_FLAG_EXPORTS says a list stands directly behind the budget record (behind the header when there is
- * none): a count, then that many entries of the size of a need. It is the static form of LibRecord's export list (libapi.h LibExportDecl): the order in which a folder of
- * libraries is loaded reads it before any image runs, so a library that needs "ring" is loaded after the one that exports it, whatever that one is called. The loader refuses
- * a library whose lib_register does not return every name and major the file lists. A library may export more in its record than the file lists; those are bound
- * to the needs entries of a file loaded after it (base 4.0: no `find`) but do not take part in the order. */
+ * none): a count, then that many entries of the size of a need. It is the static form of LibRecord's export list (libapi.h LibExportDecl). The loader refuses
+ * a library whose lib_register does not return every name and major the file lists. A library may export more in its record than the file lists. Base 4.0 loads no folder
+ * of libraries, so no load order is read from it: the order in which linked libraries start is the one of their `needs` in the TOML B (tools/libtab.py link_order). */
 #define U2A3_FLAG_EXPORTS 4U
 #define U2A3_EXPORTS_MAX 8
 struct U2a3ExportName {

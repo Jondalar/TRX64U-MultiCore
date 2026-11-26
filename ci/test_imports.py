@@ -237,7 +237,7 @@ class ImportsTest(unittest.TestCase):
             with self.assertRaises(I.ImportError_, msg=badlist):
                 I.names(self.root)
         # reserved names, a size that is no ASCII digits, the same name in two pins
-        for badlist in ("unzip.u2a:%s:5" % ("1" * 64), "miniz.u2a:%s:5" % ("1" * 64), "testlib.u2a:%s:5" % ("1" * 64), "a.u2a:%s:\u0665" % ("1" * 64), "a.u2a:%s:+5" % ("1" * 64)):
+        for badlist in ("unzip.u2a:%s:5" % ("1" * 64), "a.u2a:%s:\u0665" % ("1" * 64), "a.u2a:%s:+5" % ("1" * 64)):
             self.write("release/imports/g.pin", head + 'U2A="%s"\n' % badlist)
             with self.assertRaises(I.ImportError_, msg=badlist):
                 I.names(self.root)

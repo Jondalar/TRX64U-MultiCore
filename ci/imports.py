@@ -50,7 +50,7 @@ CODE = ("ci/imports.py", "ci/pkg.env", "ci/version.sh", "tools/pack_import_cor.s
 ENTRY = re.compile(r"^imp-([A-Za-z0-9_]+)-([0-9a-f]{16})$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
 U2A_NAME = re.compile(r"^[a-z0-9_]+\.u2a$")
-U2A_RESERVED = ("unzip.u2a", "miniz.u2a", "testlib.u2a")     # made by this repository's own build: a pin may not list them
+U2A_RESERVED = ("unzip.u2a",)     # made by this repository's own build: a pin may not list it
 NAME_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$")
 MAX_FETCH = 64 * 1024 * 1024
 

@@ -100,19 +100,6 @@ class ReleaseBundleTest(unittest.TestCase):
         self.assertRegex(txt, r"[0-9a-f]{64}  unzip\.u2a")
         self.assertIn("unzip.u2a", open(os.path.join(d, "SHA256SUMS")).read())
 
-    def test_miniz_ships_beside_unzip(self):
-        # T197 P5: the zip library rides along with unzip.u2a and the install text names it
-        for n in ("unzip.u2a", "miniz.u2a"):
-            open(os.path.join(self.d, n), "wb").write(n.encode())
-        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--u2a", os.path.join(self.d, "unzip.u2a"), "--u2a", os.path.join(self.d, "miniz.u2a"))
-        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
-        d = os.path.join(self.out, "trx64mc-main-deadbeef")
-        self.assertEqual(open(os.path.join(d, "miniz.u2a"), "rb").read(), b"miniz.u2a")
-        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
-        self.assertIn("miniz.u2a            the zip library", txt)
-        self.assertIn("Unzip needs the zip library `miniz.u2a`", txt)
-        self.assertRegex(txt, r"[0-9a-f]{64}  miniz\.u2a")
-
     def test_no_u2a_no_unzip_text(self):
         # the control: without --u2a the bundle says nothing about Unzip, so the line above comes from the file and not from the template
         r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2)

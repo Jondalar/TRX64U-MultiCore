@@ -167,9 +167,9 @@ struct LibTabDecl {
 // One table of a file under a name (base 3.2): a file may export several, and what needs a table names the export and its major, not the library that provides it.
 // `table` is a table of function pointers in the image (or a block the file keeps), `size` its size in bytes (at least 4; the table starts with a uint32_t `size` of
 // its own, and a caller checks it before it uses a member). Within a major the table is only appended to. The name is 1 to 15 characters of [a-z0-9_] and is not the
-// name of an export of the same major of the app (libslot.h) or of another loaded file; the major is at least 1. The same names, with their majors, stand in the file
-// (U2A3_FLAG_EXPORTS, libfmt.h), which is what orders the load of a folder. Base 4.0: the loader binds an export to the needs entries of the files that need it when
-// they load (SvcLib::need); the base reads a sub-app's export by its name (the file manager's "online", online_api.h). No call of LibApi finds it by name.
+// name of an export of the same major of another library of the app (libslot.h); the major is at least 1. The same names, with their majors, stand in a file
+// (U2A3_FLAG_EXPORTS, libfmt.h). Base 4.0: the loader binds an export to the needs entries of the images that need it when they load (SvcLib::need); the base itself reads an
+// export of a linked library by its name (LibLoader::find_export: the file manager's "online", online_api.h). No call of LibApi finds it by name.
 struct LibExportDecl {
     const char *name;
     uint32_t major;

@@ -81,7 +81,7 @@ def main():
 
         # the minor raised and no lock for it: red, naming the lock to add
         edit(t, sdk_api.LIBFMT, lambda s: re.sub(r"(#define U2A_BASE_MINOR )(\d+)", lambda m: m.group(1) + str(int(m.group(2)) + 1), s, 1))
-        edit(t, sdk_api.VERSION_TOML, lambda s: re.sub(r'base_api = "3\.\d+"', 'base_api = "3.%d"' % (int(ver.split(".")[1]) + 1), s))
+        edit(t, sdk_api.VERSION_TOML, lambda s: re.sub(r'base_api = "\d+\.\d+"', 'base_api = "%s.%d"' % (ver.split(".")[0], int(ver.split(".")[1]) + 1), s))
         p = sdk_api.problems(t)
         check(len(p) == 1 and "add the lock of this version" in p[0], "a new version with no lock is red: %s" % p)
 

@@ -718,7 +718,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static BundleExtras bundle;
     {
         LibBootReport lr;
-        cs_step(2, "Libraries on the stick");
+        cs_step(2, "Starting the libraries");
         bundle_read(&ctx, &bundle);                // the bundle's description (record 6) and where its libraries (record 7) lie
         if (bundle.why[0]) {
             printf("[core] %s\n", bundle.why);
