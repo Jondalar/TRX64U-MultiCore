@@ -7,7 +7,5 @@ module top7fn (
     input wire [7:0] cw_wdata,
     output wire [7:0] cw_rdata
 );
-    wire [31:0] bstamp;
-    wire [63:0] st;
-    m7fn regs (.clk(clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .build(bstamp), .stat(st));
+    m7fn regs (.clk(clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata));
 endmodule

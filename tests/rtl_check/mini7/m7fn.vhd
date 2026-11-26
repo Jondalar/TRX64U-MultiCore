@@ -1,4 +1,5 @@
--- tests/rtl_check/mini7 (T239.3, apple2's a2_regs.vhd): a function declared in a process (b4), called with a port, with a register and with a slice of a port.
+-- tests/rtl_check/mini7 (T239.3, apple2's a2_regs.vhd): a function declared in a process (b4), called with a constant vector, with a register and with a slice of a
+-- constant vector. Only byte 2 of bld and the high word of st64 are not 0: a wrong byte (an index, a slice renumbered) reads a 0, which is no read.
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -10,17 +11,19 @@ entity m7fn is
     re    : in  std_logic;
     addr  : in  std_logic_vector(7 downto 0);
     wdata : in  std_logic_vector(7 downto 0);
-    rdata : out std_logic_vector(7 downto 0);
-    build : in  std_logic_vector(31 downto 0);
-    stat  : in  std_logic_vector(63 downto 0)
+    rdata : out std_logic_vector(7 downto 0)
   );
 end entity;
 
 architecture rtl of m7fn is
   signal base_r : std_logic_vector(31 downto 0) := (others => '0');
   signal q      : std_logic_vector(7 downto 0) := (others => '0');
+  signal bld    : std_logic_vector(31 downto 0);
+  signal st64   : std_logic_vector(63 downto 0);
 begin
   rdata <= q;
+  bld   <= x"00D40000";
+  st64  <= x"11223344" & x"00000000";
 
   process (clk)
     variable o : integer;
@@ -49,9 +52,9 @@ begin
           when 16#01# => q <= x"37";
           when 16#02# => q <= x"46";
           when 16#03# => q <= x"4E";
-          when 16#08# to 16#0B# => q <= b4(build, o - 16#08#);
+          when 16#08# to 16#0B# => q <= b4(bld, o - 16#08#);
           when 16#10# to 16#13# => q <= b4(base_r, o - 16#10#);
-          when 16#14# to 16#17# => q <= b4(stat(63 downto 32), o - 16#14#);
+          when 16#14# to 16#17# => q <= b4(st64(63 downto 32), o - 16#14#);
           when others => null;
         end case;
       end if;

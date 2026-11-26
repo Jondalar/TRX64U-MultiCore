@@ -14,11 +14,13 @@ check
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
-  read does not run (a strobe register that ignores the data byte; the write flag alone is no write; a process variable is a write only when it takes the data:
-  a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag is not, the signal that takes its value is); a read is a response whose data does not come from the literal 0 alone, or
-  whose 0 a case arm that the request's address selects for sure assigns as a constant (a decoded register that reads 0: command_protocol.vhd's command_start; the 0 of an
-  address that no arm selects, `when others`, `default` or an assignment before the case, stays no read, and a copy under such an arm, a mux of the answers, is followed to
-  where it comes from). A module is followed
+  read does not run (a strobe register that ignores the data byte; the write flag alone is no write; a process variable outside the case arms of the address is a write
+  only when it takes the data: a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag is not, the signal that takes its value is; inside such an arm the
+  variable can be the register); a read is a response whose data does not come from the literal 0 alone, or
+  whose 0 a case arm that the request's address (not the write or read flag) selects for sure assigns to the whole name as a constant, in the last decision on the address
+  (no case or if on the address inside the arm): a decoded register that reads 0, command_protocol.vhd's command_start. The 0 of an address that no arm selects (`when
+  others`, `default`, an assignment before the case), of an outer arm before its inner decision, of an inner `when others` or `else`, or written to a part of the name
+  stays no read; a copy under such an arm, a mux of the answers, is followed to where it comes from. A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
   A block with owner = "core" is checked like a block of the base (D43): decoded, every property written and read as its dir says. Where the RTL hands its bytes to the core, over a port of the
   groups CORE_PORTS (the host: a strobe port that is 1 for the address, or a register driven under the address; a data port of the same group must carry the request's data), the block is
@@ -26,7 +28,8 @@ check
   in the core's own design. A design that holds layer 2 as well (c64_basic) decodes them itself.
   `--own-core` and `--core-in-design` (the options of 0.4.5 that chose this per run) are still accepted and change nothing.
   `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined, but for a `define of the same Verilog file
-  above it (in a branch that is on). Such a `define without arguments is replaced by its text where `NAME is used (snes_core.v: the module of an instance). A VHDL
+  above it (in a branch that is on). Such a `define without arguments is replaced by its text where `NAME is used (snes_core.v: the module of an instance; in the top
+  file too, where an instance whose module is a macro the file does not define is refused). A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
   another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
   unknown (X) (the parameter lists of the top-level Verilog file are read for it).
@@ -49,7 +52,9 @@ check
   A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
   A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
   A function declared in a process (a2_regs.vhd: b4; in-parameters, local variables `downto 0` assigned in its body, one return at its end) is replaced by its return expression
-  at its calls, each local by what was assigned to it, each formal by the argument (an argument whose range is not `downto 0` is refused).
+  at its calls, each local by what was assigned to it, each formal by the argument. Refused: an argument that is a name of neither a scalar nor a vector declared
+  `downto 0` (a subtype name, an ascending vector), a slice of the body outside its argument (when the byte is asked for), a name declared twice (an overload), a call of
+  the function in its own body, a local read before the body assigns it.
   The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
   A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
   assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
@@ -258,6 +263,8 @@ def v_slice(a, hi, lo):
     n = hi - lo + 1
     if n < 1:
         raise Unsupported("empty slice")
+    if lo < 0:
+        raise Unsupported("a slice below bit 0 of its vector (bits %d..%d)" % (hi, lo))
     return V(a.v >> lo, a.x >> lo, n)
 
 
@@ -1096,10 +1103,14 @@ class VhdlParser(P):
     def function(self, m):
         """A function declared in a process (a2_regs.vhd: b4): in-parameters, local variables, a body of assignments to the locals and one return at its end. A call is replaced
         by the return expression (func_call), each local by the expression last assigned to it and each formal by the argument. A local vector is declared `downto 0`: the
-        assignment renumbers the argument's bits from 0, which the replacement keeps only for an argument whose own range ends at 0 (func_call refuses another)."""
+        assignment renumbers the argument's bits from 0, which the replacement keeps only for an argument whose own range ends at 0 (func_call refuses another). A slice
+        of a local or a formal is marked (a fifth element "f"): its bits must lie inside the argument (Ev.ev), or the call is refused. Refused: a name declared twice
+        (an overload: which body a call takes depends on the argument's type), a call of the function in its own body, and a local read before the body assigns it."""
         self.acc("pure") or self.acc("impure")
         self.eat("function")
         name = self.eat()[1]
+        if name in self.funcs:
+            raise self.err("a function %s declared twice in the process (an overload)" % name)
         formals = []
         if self.acc("("):
             while True:
@@ -1143,31 +1154,40 @@ class VhdlParser(P):
         self.eat("begin")
         saved, env = self.pvars, {}
         self.pvars = dict({f: Decl(f, "var", Ty("formal")) for f in formals}, **locs)     # the names of the body as the slice parser looks them up (asc_high)
+        self.funcs[name] = None           # a call of it in its own body: primary sees the name and func_call refuses the recursion
+
+        def body_expr():
+            e = mark_fslices(self.expr(), set(formals) | set(locs))
+            used = set()
+            ids_of(e, used)
+            if used & (set(locs) - set(env)):       # read before the body assigns it: neither its value nor a signal of the architecture with the same name
+                raise self.err("a function variable read before it is assigned")
+            return subst(e, env)
         try:
             while self.txt() != "return":
                 lhs = self.target()
                 if lhs[0] != "id" or lhs[1] not in locs or not self.acc(":="):
                     raise self.err("a function body other than assignments to its variables and one return")
-                env[lhs[1]] = subst(self.expr(), env)
+                env[lhs[1]] = body_expr()
                 self.eat(";")
             self.eat("return")
-            ret = subst(self.expr(), env)
+            ret = body_expr()
             self.eat(";")
         finally:
             self.pvars = saved
+            del self.funcs[name]
         self.eat("end")
         self.acc("function")
         if self.txt() != ";":
             self.eat()
         self.eat(";")
-        used = set()
-        ids_of(ret, used)
-        if used & (set(locs) - set(env)):
-            raise self.err("a function variable read before it is assigned")
         self.funcs[name] = (formals, ret)
 
     def func_call(self, name):
-        """f(a, b) of a function declared in the process: its return expression with the arguments put in (see function)."""
+        """f(a, b) of a function declared in the process: its return expression with the arguments put in (see function). An argument that is a name must be a scalar or a
+        vector declared with its own range `downto 0` (a subtype name, an unconstrained or an ascending vector is refused: the body renumbers it from 0)."""
+        if self.funcs[name] is None:
+            raise self.err("a recursive call of %s" % name)
         formals, ret = self.funcs[name]
         self.eat("(")
         args = [self.expr()]
@@ -1180,8 +1200,12 @@ class VhdlParser(P):
             while a[0] == "paren":
                 a = a[1]
             d = (self.pvars.get(a[1]) or (self.cur.decls.get(a[1]) if self.cur is not None else None)) if a[0] == "id" else None
-            if d is not None and d.ty is not None and d.ty.hi is not None and (d.ty.asc or d.ty.lo[0] != "n" or not d.ty.lo[1].known() or d.ty.lo[1].v != 0):
-                raise self.err("a call of %s with %s, a vector whose range is not `downto 0`" % (name, a[1]))
+            if d is None or d.ty is None:
+                continue
+            if d.ty.hi is None and d.ty.name.lower() in TYPE_SCALARS:
+                continue
+            if d.ty.hi is None or d.ty.asc or d.ty.lo[0] != "n" or not d.ty.lo[1].known() or d.ty.lo[1].v != 0:
+                raise self.err("a call of %s with %s, which is no scalar and no vector declared `downto 0`" % (name, a[1]))
         return ("paren", subst(ret, dict(zip(formals, args))))
 
     def process(self, m, where):
@@ -2272,13 +2296,51 @@ def pp_ifdef(text):
     return "\n".join(out)
 
 
+def pp_macros(text, fname):
+    """The object-like `define of a Verilog text (its lines that pp_ifdef left on) put in where they are used, as lex does: the scan of the top file (top_instances)
+    then reads an instance whose module is a macro (`CORE_MOD core (...)`). An instance whose module is a macro the file does not define without arguments is refused:
+    the scan would skip it."""
+    macros, out = {}, []
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        dm = re.match(r"\s*`(define|undef)[ \t]+([A-Za-z_]\w*)(\()?(.*)$", ln)
+        if dm:
+            body, n = dm.group(4), 1
+            while body.rstrip().endswith("\\") and i + n < len(lines):
+                body = body.rstrip()[:-1] + " " + lines[i + n]
+                n += 1
+            if dm.group(1) == "undef":
+                macros.pop(dm.group(2), None)
+            else:
+                macros[dm.group(2)] = None if dm.group(3) else body.strip()
+            out += [""] * n
+            i += n
+            continue
+        for _ in range(16):
+            new = re.sub(r"`([A-Za-z_]\w*)", lambda mm: macros[mm.group(1)] if macros.get(mm.group(1)) is not None else mm.group(0), ln)
+            if new == ln:
+                break
+            ln = new
+        else:
+            raise Unsupported("%s: a macro that names itself" % fname)
+        out.append(ln)
+        i += 1
+    text = "\n".join(out)
+    bad = re.search(r"`([A-Za-z_]\w*)\s*(?:#\s*\(|[A-Za-z_]\w*\s*\(\s*\.)", text)
+    if bad:
+        raise Unsupported("%s: an instance whose module is the macro `%s, which the file does not define (without arguments)" % (fname, bad.group(1)))
+    return text
+
+
 def top_instances(design, topname, extra_names):
     """The instantiations of the top-level Verilog file, read by a scan (the file is huge and not decoded): module, label, {formal: expr}."""
     f = design.index.get(topname)
     if f is None:
         raise CheckError("no top module %s in the source list" % topname)
     text = read_source(f)
-    text = pp_ifdef(re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S))
+    text = pp_macros(pp_ifdef(re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S)), f)
     m = Mod(topname, "vlog", f)
     for dm in re.finditer(r"\b(?:wire|reg)\s*(?:\[\s*(\d+)\s*:\s*(\d+)\s*\])?\s*([\w\s,]+?)\s*(?:=|;)", text):
         w = int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1
@@ -2449,6 +2511,18 @@ def walk_assigned(stmts, out):
                 walk_assigned(b, out)
         elif k == "for":
             walk_assigned(s[5], out)
+
+
+def mark_fslices(e, names):
+    """A slice of one of names (a local or a formal of a process function) with a fifth element "f": Ev.ev refuses it when its bits do not lie inside the argument
+    put in for the name (b4(build, 4) on a 32-bit build reads no byte of it; it is no 0)."""
+    if isinstance(e, tuple):
+        if e and e[0] == "sl" and len(e) == 4 and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in names:
+            return ("sl",) + tuple(mark_fslices(x, names) for x in e[1:]) + ("f",)
+        return tuple(mark_fslices(x, names) for x in e)
+    if isinstance(e, list):
+        return [mark_fslices(x, names) for x in e]
+    return e
 
 
 def ids_of(e, out):
@@ -2997,6 +3071,15 @@ class Ev:
                 # a slice whose position is state (a byte lane picked by a register): its value is unknown, whatever the register is
                 return V(0, mask(64), None)
             lo0 = self.lowbound(ctx, e[1])
+            if len(e) > 4:              # a slice in a process function (mark_fslices): inside its argument, or refused
+                w = a.w
+                if w is None and e[1][0] == "id":
+                    try:
+                        w = self.width(ctx, e[1][1])
+                    except Unsupported:
+                        w = None
+                if lo < lo0 or (w is not None and hi - lo0 >= w):
+                    raise Unsupported("%s: a process function reads bits %d..%d of an argument of %s bits" % (ctx.mod.fname, hi, lo, w))
             return v_slice(a, hi - lo0, lo - lo0)
         if k == "psl":
             a = self.ev(ctx, e[1], sc)
@@ -3482,7 +3565,7 @@ class Ev:
             sel = self.ev(ctx, s[1], sc)
             self.no_pipeline(ctx, s[1], sel)
             ts = self.taint(ctx, s[1], r.vt)
-            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, "a" in ts)
+            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, "q" in ts)      # q: the address (a is on the write and read flags too)
         if k == "for":
             a, b = self.const_int(ctx, s[2], sc), self.const_int(ctx, s[3], sc)
             rng = range(a, b + 1) if s[4] == "to" else range(a, b - 1, -1)
@@ -3567,8 +3650,9 @@ class Ev:
         st.update(self.merge_store(s1, s2))
 
     def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc, asel=False):
-        """asel: the selector carries the request's address. An arm with choices that it selects for sure is a decode of the address: its assignments are marked (Run.dec), so that
-        a response it sets to the constant 0 is a read (zero_alt), unlike the 0 of an address no arm selects (`when others`, `default`, an assignment before the case)."""
+        """asel: the selector carries the request's address (taint q). An arm with choices that it selects for sure and with no further decision on the address inside
+        (addr_leaf) is the decode of one register: its assignments are marked (Run.dec), so that a response it sets to the constant 0 is a read (zero_alt), unlike the 0 of an
+        address no arm selects (`when others`, `default`, an assignment before the case) or the 0 an outer arm writes before an inner case or if on the address decides."""
         if not arms:
             return
         ch, body = arms[0]
@@ -3578,21 +3662,45 @@ class Ev:
             ms = [self.choice_match(ctx, sel, c, sc) for c in ch]
             m = 1 if 1 in ms else (0 if all(x == 0 for x in ms) else None)
         pa = pt | {"m"} if ch is not None and m != 0 and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
-        if m == 1:
-            dec = asel and ch is not None
-            r.dec += dec
-            try:
-                return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
-            finally:
-                r.dec -= dec
         if m == 0:
             return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc, asel)
-        s1 = dict(st)
-        self.exec_list(ctx, p, body, s1, False, pa, r, sc)
+        old = r.dec
+        if asel:
+            r.dec = 1 if m == 1 and ch is not None and self.addr_leaf(ctx, p, body, r) else 0
+        try:
+            if m == 1:
+                return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
+            s1 = dict(st)
+            self.exec_list(ctx, p, body, s1, False, pa, r, sc)
+        finally:
+            r.dec = old
         s2 = dict(st)
         self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc, asel)
         st.clear()
         st.update(self.merge_store(s1, s2))
+
+    def addr_leaf(self, ctx, p, stmts, r):
+        """No case or if inside the statements decides on the request's address (taint q; a process variable this run has not assigned yet counts as the address): the
+        arm that holds them is the last decision on the address."""
+        for s in stmts:
+            k = s[0]
+            conds, subs = [], []
+            if k == "case":
+                conds, subs = [s[1]], [b for _, b in s[2]]
+            elif k == "if":
+                conds, subs = [c for c, _ in s[1]], [b for _, b in s[1]] + [s[2]]
+            elif k == "blk":
+                subs = [s[1]]
+            elif k == "for":
+                subs = [s[5]]
+            for c in conds:
+                names = set()
+                ids_of(c, names)
+                if "q" in self.taint(ctx, c, r.vt) or any(n in p.vars and n not in r.vt for n in names):
+                    return False
+            if not all(self.addr_leaf(ctx, p, b, r) for b in subs):
+                return False
+        return True
 
     def choice_match(self, ctx, sel, c, sc):
         if c[0] == "rng":
@@ -3637,11 +3745,11 @@ class Ev:
             nv = allx(w)
         if not certain:
             nv = v_merge(curv, nv)
-        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap, r.dec > 0),))
+        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap, None),))      # a part of the name: never a decoded 0 (zero_alt), the other bits come from elsewhere
 
     def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
         r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
-        alt = (rhs, ctx, nv, snap, r.dec > 0)      # the assignment's right side, module, value, the process variables, and whether a case arm of the address runs it
+        alt = (rhs, ctx, nv, snap, r.dec > 0)      # the assignment's right side, module, value, the process variables, and whether the last case arm of the address runs it (None: a part of the name)
         old = st.get(key)
         if certain or old is None:
             st[key] = Ent(nv if certain else allx(nv.w or 1), (alt,))
@@ -3759,8 +3867,10 @@ class Ev:
         """One assignment of a process (an entry of Ent.alts) whose value is 0: the 0 is decoded when the assignment lies in a case arm that the request's address selects for
         sure (Run.dec) and its right side is a constant (no signal, port or process variable: the arm answers it itself), or when the right side copies a 0 that is decoded
         where it comes from. A copy under such an arm decodes only the way to the answer (ultimate_sys.vhd: `when r_uci => io_resp <= uci_resp` selects the UCI's region, not
-        its register): it is followed to its source."""
+        its register): it is followed to its source. An assignment to a part of the name (dec None) decodes nothing: the other bits come from elsewhere."""
         rhs, actx, nv, snap, dec = alt
+        if dec is None:
+            return False
         names = set()
         ids_of(rhs, names)
         if not any((n.partition(".")[0] in actx.mod.decls and n not in actx.mod.consts) or (snap and n in snap) for n in names):
@@ -3771,7 +3881,8 @@ class Ev:
         """True when the constant 0 that name holds comes, over copies only, from a case arm that the request's address selects and that answers the constant itself (zero_alt):
         a decoded read that answers 0 (command_protocol.vhd: command_start is c_cmd_if_command_buffer_addr(10 downto 3), the constant 0). The 0 of an address that no arm
         selects (a default assignment, the other branch of a mux, a mask) does not come from such an arm. The copies: an instance port, a continuous assignment of a name, a
-        slice, a conversion, an OR of answers, the branch a known condition takes (both when it is open), the splitter's answer, the synchronizer, a process's assignment."""
+        slice, a conversion, an OR of answers, the branch a known condition takes (both when it is open), the splitter's answer, the synchronizer, a process's assignment.
+        Only assignments to the whole name count (a slice of the name is decoded only when the whole name is)."""
         k = (id(ctx), name)
         if k in seen:
             return False
@@ -3802,8 +3913,8 @@ class Ev:
             keys.append(keys[-1].rsplit(".", 1)[0])
         for key in keys:
             for d in ctx.drv.get(key, []):
-                if d[0] == "ca":
-                    hit = self.zero_expr(ctx, d[2], seen) if key == name else (d[2][0] == "id" and self.zero_decoded(ctx, d[2][1] + name[len(key):], seen))
+                if d[0] == "ca":       # only an assignment to the whole name (d[1] the target): a part's 0 says nothing of the other bits
+                    hit = d[1][0] == "id" and (self.zero_expr(ctx, d[2], seen) if key == name else (d[2][0] == "id" and self.zero_decoded(ctx, d[2][1] + name[len(key):], seen)))
                 elif d[0] == "proc":
                     ent = self.run(ctx, d[1]).store.get(name)
                     hit = ent is not None and any(self.zero_alt(a, seen) for a in ent.alts)
@@ -4067,13 +4178,13 @@ class Ev:
     def is_write(self, ctx, e, pvars=()):
         """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
         names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
-        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) is a write only when it takes the data: the guard rule does not
-        hold for it (a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag holds the address for every byte of the page); a signal that takes
-        the variable's value carries its taint (Run.vt), and that assignment is the write."""
+        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) outside every case arm that the address selects (taint m) is a write only
+        when it takes the data: a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag holds the address for every byte of the page; a signal that takes the
+        variable's value carries its taint (Run.vt), and that assignment is the write. Inside such an arm the variable can be the register (`when x"40" => pend := '1'`)."""
         if self.is_response(ctx, e.key):
             return False
-        if e.key in pvars:
-            return "d" in e.taint
+        if e.key in pvars and not (e.taint & {"d", "m"}):
+            return False
         return "d" in e.taint or (({"q", "w"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):

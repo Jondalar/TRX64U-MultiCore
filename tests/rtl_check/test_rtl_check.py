@@ -18,8 +18,14 @@
   2f. the miniature design tests/rtl_check/mini6 (V-1f): a unit two modules behind the handshake (an instance inside the module that the continuous assignments feed), a genvar select, a write that
       clears a register whatever the data is, a register written under an address compare while another expression names the data behind a different compare.
   2g. the miniature design tests/rtl_check/mini7, one top per construct, the request on the top's own ports (the cores' way): a function declared in a process (apple2's
-      a2_regs.vhd), a write branch that assigns the address to a process variable under the write flag (a2_regs.vhd), an instance whose module is a `define of its file
-      (the SNES core's snes_core.v), and a register whose decoded read answers the constant 0 (c64_basic's command_protocol.vhd, command_start).
+      a2_regs.vhd; its arguments are 0 but at the right bytes), a write branch that assigns the address to a process variable under the write flag (a2_regs.vhd; emit finds
+      the standard block read-only), an instance whose module is a `define of its file and an `ifdef / `elsif / `undef on the file's own `define (the SNES core's
+      snes_core.v), the module of a top file's instance from a `define of the top file, and a register whose decoded read answers the constant 0 (c64_basic's
+      command_protocol.vhd, command_start).
+  2h. the miniature design tests/rtl_check/mini8 (the review of T239.3's reader): each pattern that passed a wrong TOML A or crashed is refused (a finding or a pattern the
+      check does not know): the 0 of an arm on the access type, of an outer arm before its inner decision, of an inner `when others` or `else`, of the other half of a vector;
+      an overloaded, a recursive process function, a function local read before it is assigned, an argument declared with a subtype name, a byte outside the argument,
+      a top file's instance whose module is an undefined macro. A process variable written in the arm of the address is a write (the TOML A that says so agrees).
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
      same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
@@ -105,17 +111,58 @@ def mini7(top, toml):
 
 rc, out = mini7("top7fn", "mini7_fn.toml")
 must(rc == 0 and "1 block(s), 4 properties agree" in out,
-     "mini7 (apple2's a2_regs.vhd): a function declared in a process (a local `downto 0` that takes the argument, one return), called with a port, with a register and with a slice "
-     "of a port, is read: build, base and stat_hi are read through it", out)
-rc, out = mini7("top7var", "mini7_var.toml")
-must(rc == 0 and "1 block(s), 2 properties agree" in out,
-     "mini7 (apple2's a2_regs.vhd): an assignment of the address to a process variable under the write flag is no write: only the register that takes the data is written", out)
+     "mini7 (apple2's a2_regs.vhd): a function declared in a process (a local `downto 0` that takes the argument, one return), called with a constant vector, with a register and "
+     "with a slice of a constant vector, reads the right byte: build2 (byte 2 of 0x00D40000), base and stat_hi (the high word of a 64-bit vector whose low word is 0) are read", out)
+import tempfile
+with tempfile.TemporaryDirectory() as td7:
+    out7 = os.path.join(td7, "m7var.toml")
+    rc, out = run("emit", "--design", os.path.join(HERE, "mini7"), "--top", "top7var",
+                  "--bus", "top7var:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100", "--core", "m7v",
+                  "--scan", "0:0x40", "-j", "1", "--toml-a-out", out7, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+    text = open(out7).read() if os.path.exists(out7) else ""
+must(rc == 0 and "agree with the RTL" in out and "[identity]" in text and text.count('dir = "rw"') == 1,
+     "mini7 (apple2's a2_regs.vhd): an assignment of the address to a process variable under the write flag is no write: emit finds the standard block and 0x31 read-only, "
+     "only the register at 0x30 is written", out + text)
 rc, out = mini7("top7mac", "mini7_mac.toml")
 must(rc == 0 and "1 block(s), 1 property agree" in out,
-     "mini7 (the SNES core's snes_core.v): the instance whose module is a `define of its file (under `ifndef, the ports in the next lines) is followed: its register is written and read", out)
+     "mini7 (the SNES core's snes_core.v): the instance whose module is a `define of its file (under `ifndef, the ports in the next lines) is followed, and `ifdef / `elsif / "
+     "`undef decide on the file's own `define: its register is written and read", out)
+rc, out = mini7("top7tmac", "mini7_mac.toml")
+must(rc == 0 and "1 block(s), 1 property agree" in out,
+     "mini7: the top file's instance whose module is a `define of the top file is followed: the register behind it is written and read", out)
 rc, out = mini7("top7zero", "mini7_zero.toml")
 must(rc == 0 and "1 block(s), 2 properties agree" in out,
      "mini7 (c64_basic's command_protocol.vhd, command_start): the register whose case arm answers the constant 0 is read", out)
+
+
+
+def mini8(top, toml):
+    return run("check", "--design", os.path.join(HERE, "mini8"), "--toml-a", os.path.join(HERE, toml), "--top", top,
+               "--bus", top + ":write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100")
+
+
+def refused(rc, out):
+    """A finding or a pattern the check does not know; never a pass, never a crash."""
+    return rc == 1 and "Traceback" not in out and "agree with the RTL" not in out and ("finding(s)" in out or "an RTL pattern I do not know" in out)
+
+
+for top, toml, what in (("topd", "mini8_d.toml", "review 1: the 0 an arm on the access type (case {re, we}) answers is no decoded read"),
+                        ("topd2", "mini8_d2.toml", "review 1: the default 0 before an if on the address is no decoded read"),
+                        ("topa1", "mini8_a1.toml", "review 2: the 0 an outer arm of the address writes before its inner case decides is no decoded read"),
+                        ("topa2", "mini8_a2.toml", "review 2: the 0 of an inner `when others` of a nested decode is no decoded read"),
+                        ("topa3", "mini8_a3.toml", "review 2: the 0 of the else of an if on the address inside an outer arm is no decoded read"),
+                        ("topc", "mini8_c.toml", "review 3: an arm that writes 0 to the other half of a vector decodes no byte of the half the answer reads"),
+                        ("topf1", "mini8_f1.toml", "review 4: two process functions of one name (an overload) are refused"),
+                        ("topf2", "mini8_f2.toml", "review 7: a function local read before it is assigned is refused (it does not read the architecture's signal of that name)"),
+                        ("topf3", "mini8_f3.toml", "review 7: a process function that calls itself is refused"),
+                        ("top8sub", "mini8_sub.toml", "review 6: a function argument declared with a subtype name is refused, not a crash"),
+                        ("top8fn", "mini8_fn.toml", "review 7: a function slice outside its argument (bytes 4..7 of 32 bits) is refused, not a 0"),
+                        ("top8nomac", "mini8_nomac.toml", "review 7: a top file's instance whose module is a macro the file does not define is refused, not skipped")):
+    rc, out = mini8(top, toml)
+    must(refused(rc, out), "mini8 (%s): %s" % (top, what), out)
+rc, out = mini8("topb", "mini8_b.toml")
+must(rc == 0 and "1 block(s), 2 properties agree" in out,
+     "mini8 (review 5): a process variable set in the case arm of the address under the write flag (`when x\"40\" => pend := '1'`) is a write: the strobe agrees", out)
 
 ult_commit = "975aa59b"
 tomla = subprocess.run(["git", "-C", ult, "show", ult_commit + ":software/trx64u/gateware/c64_basic.toml"], capture_output=True, text=True) if os.path.isdir(dsg) else None
