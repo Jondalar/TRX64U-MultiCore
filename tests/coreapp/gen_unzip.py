@@ -3,8 +3,8 @@
 
   unzip.u2a, unzip2.u2a   the loader's fixture ELF (tests/loader/fixtures) with its entry renamed to app_main, packed by tools/u2a_pack.py with the
                           real apps/unzip/app.toml as the menu record, versions 1 and 2 (the image is not run: the test runs the Mac build of the sources)
-  ziplist.u2a, plain.u2a, ringapp.u2a   applications of the same fixture (needs miniz, needs the base only, needs "ring" which no slot of the test has)
-  libfile.u2a             one file of kind lib: the apps folder refuses it (base 4.0 loads no library file); miniz itself is linked into the test, no file
+  plain.u2a, ringapp.u2a  applications of the same fixture (needs the base only, needs "ring" which no slot of the test has)
+  libfile.u2a             one file of kind lib: the apps folder refuses it (base 4.0 loads no library file)
   t.zip, manifest.txt, files/<name>   a zip of synthetic files (deflated and stored, a folder, a nested folder, names of 100, 200 and 255 characters)
                           and the files it must give back
 
@@ -22,14 +22,12 @@ elf = open(os.path.join(root, "tests/loader/fixtures/testlib.at0.elf"), "rb").re
 assert elf.count(b"lib_register\0") == 1
 open(os.path.join(out, "testlib_fix.elf"), "wb").write(elf)
 open(os.path.join(out, "fix.elf"), "wb").write(elf.replace(b"lib_register\0", b"app_main\0\0\0\0\0"))
-needs = ["--needs", "base>=4.0", "--needs", "miniz>=1.0"]      # as apps/unzip/Makefile (APP_NEEDS)
+needs = ["--needs", "base>=4.0"]      # as apps/unzip/Makefile (APP_NEEDS; the image carries its own miniz, T239.3 D60)
 for name, ver in (("unzip.u2a", "1"), ("unzip2.u2a", "2")):
     subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, name),
                            "--kind", "app", "--residence", "transient", "--name", "unzip", "--version", ver] + needs +
                           ["--menu", os.path.join(root, "apps/unzip/app.toml")], stdout=subprocess.DEVNULL)
-# a second application on the linked library miniz (S2), and an application that needs nothing but the base (the room check)
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ziplist.u2a"),
-                       "--kind", "app", "--residence", "transient", "--name", "ziplist", "--version", "1"] + needs, stdout=subprocess.DEVNULL)
+# an application that needs nothing but the base (the room check)
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "plain.u2a"),
                        "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=4.0"], stdout=subprocess.DEVNULL)
 # an application whose need no slot of the test answers ("ring"): not available, never loaded

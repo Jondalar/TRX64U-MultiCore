@@ -24,7 +24,7 @@ namespace {
 #define ZIP_APP "unzip"
 #define ZIP_SHARED "/SD/cores/apps"            // APP_SHARED_FOLDER on the card: where the package puts the applications
 
-// What stays between two unzips: the loader, the registry and the index (made once; miniz is linked into the host app, hostlibslot.cc).
+// What stays between two unzips: the loader, the registry and the index (made once; unzip.u2a carries its own miniz, T239.3 D60).
 struct ZipRig {
     OpRegistry reg;
     LibLoader ld;
@@ -345,7 +345,7 @@ bool ZipJob::run()
         const AppEntry *e = ent;
         handle = rig_->ld.handle_of(ZIP_APP);
         if (handle < 0) {
-            bool ok = rig_->idx.needs_linked(*e, err, sizeof(err));        // miniz is linked into the host app (hostlibslot.cc), no library file is loaded
+            bool ok = rig_->idx.needs_linked(*e, err, sizeof(err));
             CoreFile *f = ok ? zenv.fs->open(e->path, false) : 0;
             if (f) {
                 CoreFileSource src(f);

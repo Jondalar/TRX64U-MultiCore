@@ -46,7 +46,7 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
 KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak", "tests", "exports", "menu"} | set(ENTRIES)
 EXPORT_NAME = re.compile(r"^[a-z0-9_]{1,15}$")
 TEST_KINDS = ("unit", "service", "ui", "api")   # T239.5 D4, D8: the steps 2, 8, 9 and 10 of a core lane
-SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541", "apps/miniz", "apps/miniz/src")
+SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541")
 GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 FILE = re.compile(r"^[A-Za-z0-9_]+\.(cc|c|h)$")
@@ -265,7 +265,7 @@ def slots_text(libs, source="TOML B"):
 
 
 def mk_text(libs):
-    """libtab.mk: the C++ sources (LIB_SRCS_CC) and the C sources (LIB_SRCS_C, miniz) of the libraries, for the two compile rules of the build."""
+    """libtab.mk: the C++ sources (LIB_SRCS_CC) and the C sources (LIB_SRCS_C) of the libraries, for the two compile rules of the build."""
     srcs = [f for lib in libs for f in lib["sources"]]
     return "LIB_SRCS_CC = %s\nLIB_SRCS_C = %s\n" % (" ".join(f for f in srcs if not f.endswith(".c")), " ".join(f for f in srcs if f.endswith(".c")))
 

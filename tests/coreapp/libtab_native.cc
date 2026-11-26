@@ -12,7 +12,6 @@ __attribute__((weak)) const void *cbmprg_table(void) { return 0; }
 __attribute__((weak)) const void *mouse_table(void) { return 0; }
 __attribute__((weak)) const void *pad_table(void) { return 0; }
 __attribute__((weak)) const void *padkeys_table(void) { return 0; }
-__attribute__((weak)) const void *miniz_table(void) { return 0; }
 
 __attribute__((weak)) extern const LibEntry g_libtab[] = {
     { "mouse", 0, 0, 0, 0, 0, 0, 0, 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE },
@@ -23,7 +22,7 @@ __attribute__((weak)) extern const unsigned g_libtab_n = 3;
 __attribute__((weak)) extern const unsigned g_libtab_link_order[] = { 0 };
 __attribute__((weak)) extern const unsigned g_libtab_link_n = 0;
 
-__attribute__((weak)) const void *g_libslot_bound[9];
+__attribute__((weak)) const void *g_libslot_bound[8];
 __attribute__((weak)) extern const LibSlot g_libslot[] = {
     { "c64cart", "c64cart", 1, c64cart_table, 0 },
     { "cbm1541", "cbm1541", 1, cbm1541_table, 0 },
@@ -33,6 +32,5 @@ __attribute__((weak)) extern const LibSlot g_libslot[] = {
     { "mouse", "mouse", 1, mouse_table, 0 },
     { "pad", "pad", 1, pad_table, 0 },
     { "padkeys", "padkeys", 1, padkeys_table, 0 },
-    { "miniz", "miniz", 1, miniz_table, 0 },
 };
-__attribute__((weak)) extern const unsigned g_libslot_n = 9;
+__attribute__((weak)) extern const unsigned g_libslot_n = 8;

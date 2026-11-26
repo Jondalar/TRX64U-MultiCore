@@ -1,6 +1,6 @@
-/* The call table of the library "miniz" (T197 P1; a TOML B library since base 4.0): what an application gets from api->lib->need(n, &size) for its needs entry "miniz>=1.0" and calls through. It is a plain table of
- * function pointers, so the application carries no miniz code, only this header and miniz's own headers for the types (mz_zip_archive and friends).
- * The table is append-only: `size` says how much of it the library has, an application checks the field it uses against it (ZIPLIB_HAS). */
+/* The call table of miniz's zip reader (T197 P1): what miniz_lib.cc returns and unzip.c calls through (the image of unzip.u2a carries both, T239.3 D60). It is a plain table of
+ * function pointers, so unzip.c itself carries no miniz code, only this header and miniz's own headers for the types (mz_zip_archive and friends).
+ * The table is append-only: `size` says how much of it there is, a caller checks the field it uses against it (ZIPLIB_HAS). */
 #ifndef APPS_MINIZ_ZIP_LIB_H
 #define APPS_MINIZ_ZIP_LIB_H
 

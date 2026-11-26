@@ -296,7 +296,6 @@ endif
 SRCS_CC += $(LIB_SRCS_CC) libtab.cc libtab_table.cc
 SRCS_C  += $(LIB_SRCS_C)
 VPATH += $(LIB_DIR)
-VPATH += $(PATH_SW)/../../apps/miniz $(PATH_SW)/../../apps/miniz/src   # the library miniz (shared.toml, base 4.0): its sources and headers
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S

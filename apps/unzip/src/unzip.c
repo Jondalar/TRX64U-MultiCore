@@ -17,7 +17,7 @@
 #include "u2p_app.h"
 #include "zip_lib.h"
 
-/* The zip code is the library "miniz" (T197): the entry (glue.cc) looks its table up and hands it over; nothing of miniz is linked into this file. */
+/* The zip code is miniz's call table (zip_lib.h): the entry (glue.cc) hands it over; miniz is compiled into the image beside this file (Makefile, T239.3 D60), not into this file. */
 static const ZipLib *zl;
 #define mz_zip_reader_init zl->reader_init
 #define mz_zip_reader_end zl->reader_end

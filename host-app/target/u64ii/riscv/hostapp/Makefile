@@ -36,10 +36,7 @@ SRCS_C   =	itu.c \
 			do_ctors.c \
 			malloc_lock.c \
 			sha256.c \
-			gitinfo.c \
-			miniz.c \
-			miniz_tinfl.c \
-			miniz_zip.c
+			gitinfo.c
 
 SRCS_CC	 =  u64ii_init.cc \
 			color_timings.cc \
@@ -176,7 +173,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			host_core_flow_zip.cc \
 			hostzip_board.cc \
 			hostlibslot.cc \
-			miniz_lib.cc \
 			appindex.cc \
 			libload.cc \
 			libscan.cc \
@@ -218,8 +214,6 @@ VPATH +=	$(PATH_SW)/u64ctrl/main
 VPATH +=	$(PATH_SW)/../../coreapp/src
 VPATH +=	$(PATH_SW)/../../uicore
 VPATH +=	$(PATH_SW)/../../app/view
-VPATH +=	$(PATH_SW)/../../apps/miniz
-VPATH +=	$(PATH_SW)/../../apps/miniz/src
 VPATH +=	$(PATH_SW)/../../app/edit
 VPATH +=	$(PATH_SW)/../../app/video
 VPATH +=	$(PATH_SW)/lvgl_port

@@ -1,6 +1,6 @@
 // T197 P3 / S3: Unzip in the host's File Browser, through the same functions the board runs (host_core_flow_zip.cc: hc_zip_job over the loader of coreapp/src). What is real: the job and
-// its pages, AppIndex over the folders of the card, the LibLoader that loads unzip.u2a (a fixture image made by the real packer, tests/coreapp/gen_unzip.py) and binds its need miniz>=1.0 to the
-// slot of hostlibslot.cc, the code of apps/unzip and apps/miniz (miniz is linked into the host app, no library file is loaded; the Mac build of the same sources runs where the board jumps into the image). What is not: RISC-V instructions, the FileManager (a map of byte vectors).
+// its pages, AppIndex over the folders of the card, the LibLoader that loads unzip.u2a (a fixture image made by the real packer, tests/coreapp/gen_unzip.py) and binds its need (the base) through
+// hostlibslot.cc, the code of apps/unzip and apps/miniz (the image carries its own miniz, T239.3 D60; the Mac build of the same sources runs where the board jumps into the image). What is not: RISC-V instructions, the FileManager (a map of byte vectors).
 //
 //   test_hostzip FIXDIR      (FIXDIR: unzip.u2a, t.zip, manifest.txt and files/ - run_hostzip.sh makes them)
 #include <string>

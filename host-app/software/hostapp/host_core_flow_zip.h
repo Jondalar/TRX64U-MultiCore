@@ -1,5 +1,5 @@
 // Unzip in the File Browser (T197 P3): a .zip is unpacked by the same unzip.u2a the cores run (apps/unzip), loaded from <medium>/cores/apps and "/SD/cores/apps" by the loader
-// of coreapp/src (appindex, libload); its library miniz is linked into the host app (hostlibslot.cc, base 4.0: no library file is loaded). The flow is a job like the others
+// of coreapp/src (appindex, libload); the image carries its own miniz (T239.3 D60) and needs the base only. The flow is a job like the others
 // (host_core_job.h): it finds the application, asks which of the three actions, loads the application, runs it and shows how it ended. What the application asks while it works
 // (message, choose, the bar) is drawn as pages of this flow. No LVGL, no FreeRTOS: the machine behind the loader (heap, instruction cache, the call into the image) and the files
 // are the environment's.

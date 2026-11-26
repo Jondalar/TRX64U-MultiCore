@@ -6,7 +6,7 @@
 #   APP_EXPORTS = ring=1 trx=1                                 (APP_KIND = lib) the names the library exports, as LIB_EXPORTS of lib.mk
 #   APP_BUDGET = image=65536 heap_peak=1048576 ops=4          the budget of the file, as LIB_BUDGET of lib.mk (the loader refuses what is over it)
 #   APP_REG = 1               an application with screens: it has lib_register, the operations and state values they bind to
-#   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
+#   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc; vpath %.c <dir> finds sources of another folder (apps/unzip/Makefile)
 #   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)
 #
 # Tail calls are off (-fno-optimize-sibling-calls), as in lib.mk: a call into api->mem, fs, net or job must carry the return address of this image (owner_at, api.md 4.2.2.2).

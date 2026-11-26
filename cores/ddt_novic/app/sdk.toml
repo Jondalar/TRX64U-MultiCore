@@ -24,11 +24,3 @@ headers = ["ddt_regs.h"]
 # and the start sequence), service = 8 mock bitstream -> service (the record and the compiled-in descriptor compared), ui = 9 service -> UI (ddt_keywalk every key of its menu against its
 # golden), api = 10 service -> API (the memory operations through the service call the REST and RPC transports make; ddt_uicover its declaration over the API)
 tests = { unit = ["ddt"], service = ["ddt_descgen"], ui = ["ddt_desc", "ddt_hotkeys", "ddt_keywalk"], api = ["ddt_memops", "ddt_uicover"] }
-
-# Unzip (apps/unzip: the actions on a .zip in the File Browser) takes the zip library through its needs entry `miniz>=1.0`. Base 4.0 loads no library file (T239.3 D58), so this app
-# links it as the shared app does (coreapp/libs/shared.toml, the same sources and entries); without it the app refuses unzip's need.
-[[library]]
-name = "miniz"
-sources = ["miniz_lib.cc", "miniz.c", "miniz_tinfl.c", "miniz_zip.c"]
-headers = ["zip_lib.h"]
-exports = [{ name = "miniz", major = 1, table = "miniz_table" }]

@@ -102,7 +102,6 @@ class SharedApp(unittest.TestCase):
         self.assertIn('{ "pad", 0, 0, 0, pad_lib_init, 0, 0, pad_lib_core, 0, %s },' % N, t)
         self.assertIn('{ "padkeys", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
         self.assertIn('{ "resample", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
-        self.assertIn('{ "miniz", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
         self.assertIn("const void *mouse_table(void);", t)                              # the table function of an export is declared once
         self.assertIn("void pad_lib_core(CoreCtx *, const CoreDesc *, const DescRecord *);", t)
         self.assertIn("void tempdisk_lib_init(const BoardProfile &);", t)
@@ -171,9 +170,8 @@ class SharedApp(unittest.TestCase):
         mk = L.mk_text(L.load(p)).split("\n")
         self.assertEqual(mk[0], "LIB_SRCS_CC = a.cc b.cc")
         self.assertEqual(mk[1], "LIB_SRCS_C = a1.c b.c")
-        shared = dict(l.split(" = ", 1) for l in L.mk_text(L.load(SHARED)).strip().split("\n"))
-        self.assertIn("miniz.c", shared["LIB_SRCS_C"].split())                          # miniz is plain C
-        self.assertIn("miniz_lib.cc", shared["LIB_SRCS_CC"].split())
+        shared = dict((l.split("=", 1)[0].strip(), l.split("=", 1)[1]) for l in L.mk_text(L.load(SHARED)).strip().split("\n"))
+        self.assertEqual(shared["LIB_SRCS_C"].split(), [])                              # D60: the zip code is the sub-app unzip's; the shared app has no C source
         self.assertNotIn(".c ", shared["LIB_SRCS_CC"] + " ")
 
     def test_the_four_libraries_of_l_1_are_listed_with_their_headers(self):
@@ -263,7 +261,7 @@ class Vic20App(unittest.TestCase):
 
     def test_the_toml_b_loads_and_its_files_exist(self):
         libs = L.load(VC20_B)
-        self.assertEqual([lib["name"] for lib in libs], ["vc20", "cbm1541", "cbmrun", "cbmprg", "newfile", "miniz"])   # newfile: cbm1541 needs it (L-2, S12); miniz: unzip's need (D58)
+        self.assertEqual([lib["name"] for lib in libs], ["vc20", "cbm1541", "cbmrun", "cbmprg", "newfile"])   # newfile: cbm1541 needs it (L-2, S12)
         own = os.path.join(ROOT, "cores", "vc20", "app", "lib")
         for lib in libs:
             for f in lib["sources"] + lib.get("headers", []):
@@ -284,12 +282,12 @@ class Vic20App(unittest.TestCase):
         # S12: the same sources and entries as the shared app's, which trx64u's own image links
         self.assertEqual(L.samelib(L.load(SHARED), L.load(VC20_B), "cbm1541"), [])
 
-    def test_every_own_app_links_the_zip_library_of_the_shared_app(self):
-        # T239.3 D58 (base 4.0 loads no library file): Unzip stays in every core with an app of its own; unzip's need miniz>=1.0 is met by the library its TOML B links
+    def test_no_own_app_links_the_zip_library(self):
+        # T239.3 D60: Unzip is a sub-app that carries miniz; no TOML B (shared or a core's own) lists a library "miniz"
         own = sorted(d for d in os.listdir(os.path.join(ROOT, "cores")) if os.path.isfile(os.path.join(ROOT, "cores", d, "app", "sdk.toml")))
         self.assertGreater(len(own), 1)
-        for core in own:
-            self.assertEqual(L.samelib(L.load(SHARED), L.load(os.path.join(ROOT, "cores", core, "app", "sdk.toml")), "miniz"), [], core)
+        for toml in [SHARED] + [os.path.join(ROOT, "cores", core, "app", "sdk.toml") for core in own]:
+            self.assertNotIn("miniz", [lib["name"] for lib in L.load(toml)], toml)
 
     def test_a_link_map_with_what_the_toml_b_names_passes(self):
         libs = L.load(VC20_B)

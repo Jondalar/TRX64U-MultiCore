@@ -85,7 +85,6 @@ const void *cbmprg_table(void);
 const void *mouse_table(void);
 const void *pad_table(void);
 const void *padkeys_table(void);
-const void *miniz_table(void);
 static const void *hooks_m1(void) { return g_linked && g_table_major == 1 ? &g_table : 0; }
 static const void *hooks_m2(void) { return g_linked && g_table_major == 2 ? &g_table : 0; }
 const LibSlot g_libslot[] = {
@@ -97,12 +96,11 @@ const LibSlot g_libslot[] = {
     { "mouse", "mouse", 1, mouse_table, 0 },
     { "pad", "pad", 1, pad_table, 0 },
     { "padkeys", "padkeys", 1, padkeys_table, 0 },
-    { "miniz", "miniz", 1, miniz_table, 0 },
     { "hooklib", "corehooks", 1, hooks_m1, 0 },
     { "hooklib2", "corehooks", 2, hooks_m2, 0 },
 };
-const unsigned g_libslot_n = 11;
-const void *g_libslot_bound[11];
+const unsigned g_libslot_n = 10;
+const void *g_libslot_bound[10];
 static void attach(bool linked)
 {
     g_linked = linked;

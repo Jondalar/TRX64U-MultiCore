@@ -4,7 +4,7 @@
 #   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every blueprint core,
 #                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants; a core with a TOML B of its own
 #                 (cores/<id>/app/sdk.toml, SDK_OWN_APPS) gets no copy but its app linked from the SDK package (tools/sdk_core_app.sh), under the same name
-#   apps/miniz      no file (base 4.0, T239.3 D58): the zip library is linked into the core app through TOML B; unzip.u2a lists it in its needs
+#   apps/miniz      no file of its own (T239.3 D60): the zip code is compiled into unzip.u2a (apps/unzip/Makefile); no core app and not the host app links it
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
 #   (trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features: TRX64-Ultimate builds them itself, T261 D6; their sources are not in this repository)
@@ -185,7 +185,7 @@ else
   if part sdk; then
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
-  # T197 P1, base 4.0 (T239.3 D58): the zip code is the TOML B library miniz (apps/miniz, linked into the core app); unzip.u2a lists it in its needs and carries none of it.
+  # T239.3 D60: unzip.u2a carries the zip code of miniz (apps/miniz, linked into its image) and needs the base only.
   echo "=== trxapps: unzip.u2a $(wc -c < "$out/unzip.u2a") bytes"
   fi
   if [ -z "$only" ]; then

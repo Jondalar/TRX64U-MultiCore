@@ -1,11 +1,10 @@
 // T180 D9 (#43): "Unzip here" in every core. One copy of unzip.u2a in "<dir of the .cor>/apps" (APP_SHARED_FOLDER) serves every core; a core's own
 // "<core folder>/apps" wins on an equal name. What is real here: AppIndex::folders / scan over the FakeFs, the menu record of the file (packed by
 // tools/u2a_pack.py from apps/unzip/app.toml), the merge into the core's file types, the LibLoader that loads the file and binds its needs to the slot table, and the
-// code of the application (apps/unzip/src, glue.cc, app/sdk/u2p_compat.c) compiled for the Mac. miniz is linked into this test (apps/miniz/miniz_lib.cc: the real
-// miniz_table replaces the weak one of libtab_native.cc), as the board's app links it through the TOML B (base 4.0, D58: no library file is loaded). What is not: that RISC-V instructions run - the image the
+// code of the application (apps/unzip/src, glue.cc, app/sdk/u2p_compat.c) compiled for the Mac, with miniz (apps/miniz), as the image of unzip.u2a carries it (T239.3 D60: the sub-app has its own miniz, no core app links one). What is not: that RISC-V instructions run - the image the
 // loader places is a fixture whose app_main is not called, LibHost::call_main runs the Mac build of the same sources (tests/loader does the same for libraries).
 //
-//   test_unzip FIXDIR      (FIXDIR: unzip.u2a, unzip2.u2a, ziplist.u2a, plain.u2a, ringapp.u2a, libfile.u2a, t.zip, manifest.txt and files/ - tests/coreapp/run.sh makes them)
+//   test_unzip FIXDIR      (FIXDIR: unzip.u2a, unzip2.u2a, plain.u2a, ringapp.u2a, libfile.u2a, t.zip, manifest.txt and files/ - tests/coreapp/run.sh makes them)
 #include <string>
 #include <map>
 #include <vector>
@@ -23,44 +22,6 @@
 
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };
 extern "C" int app_main(const LibApi *api, AppCtx *ctx);               // apps/unzip/glue.cc, compiled for the Mac
-#include "zip_lib.h"
-
-// S2: a second application on the library. It carries no miniz: its only zip code is the table it is handed. Mac build of this function; the board image of the
-// same shape is what the size check in ci/trxapps.sh looks at.
-static std::string g_listing;
-static const LibApi *g_zl_api;
-static SvcFile *g_zl_file;
-static size_t zl_rd(void *, mz_uint64 off, void *buf, size_t n)
-{
-    return g_zl_api->fs->read(g_zl_file, off, buf, (uint32_t)n) ? n : 0;
-}
-static void *zl_alloc(void *, size_t a, size_t b) { return g_zl_api->mem->malloc((uint32_t)(a * b)); }
-static void zl_free(void *, void *p) { g_zl_api->mem->free(p); }
-static void *zl_realloc(void *, void *p, size_t a, size_t b) { return g_zl_api->mem->realloc(p, (uint32_t)(a * b)); }
-static int ziplist_main(const LibApi *api, AppCtx *ctx)
-{
-    uint32_t sz = 0;
-    const ZipLib *zt = api->lib ? (const ZipLib *)api->lib->need(1, &sz) : 0;       // entry 1 of the file's needs: "base" is entry 0, "miniz" entry 1
-    if (!zt || !ZIPLIB_HAS(zt, file_stat)) return 2;
-    g_zl_api = api;
-    g_zl_file = api->fs->open(ctx->file, false);
-    if (!g_zl_file) return 3;
-    mz_zip_archive z;
-    memset(&z, 0, sizeof(z));
-    z.m_pAlloc = zl_alloc; z.m_pFree = zl_free; z.m_pRealloc = zl_realloc; z.m_pRead = zl_rd;
-    int rc = 4;
-    if (zt->reader_init(&z, api->fs->fsize(g_zl_file), 0)) {
-        g_listing.clear();
-        for (mz_uint i = 0; i < zt->get_num_files(&z); i++) {
-            mz_zip_archive_file_stat st;
-            if (zt->file_stat(&z, i, &st)) { g_listing += st.m_filename; g_listing += "\n"; }
-        }
-        zt->reader_end(&z);
-        rc = 0;
-    }
-    api->fs->close(g_zl_file);
-    return rc;
-}
 
 typedef std::vector<uint8_t> Bytes;
 static Bytes slurp(const std::string &p)
@@ -90,7 +51,7 @@ struct Host : DescLibHost {
     uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
     void sync_code(void *, uint32_t) override { }
     int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }   // no library file is loaded (D58)
-    int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return !strcmp(e.name, "ziplist") ? ziplist_main(api, ctx) : app_main(api, ctx); }
+    int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return app_main(api, ctx); }
 };
 
 // a heap with a size: the loader window as the board has it (room() = what is left); a load that does not fit gets null
@@ -131,8 +92,8 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);
     CHECK(argc == 2);
     std::string dir = argv[1];
-    Bytes u1 = slurp(dir + "/unzip.u2a"), u2 = slurp(dir + "/unzip2.u2a"), zip = slurp(dir + "/t.zip"), zl = slurp(dir + "/ziplist.u2a");
-    CHECK(u1.size() > 100 && u2.size() > 100 && zip.size() > 100 && zl.size() > 100);
+    Bytes u1 = slurp(dir + "/unzip.u2a"), u2 = slurp(dir + "/unzip2.u2a"), zip = slurp(dir + "/t.zip");
+    CHECK(u1.size() > 100 && u2.size() > 100 && zip.size() > 100);
     std::vector<std::string> names;
     {
         std::ifstream m((dir + "/manifest.txt").c_str());
@@ -147,7 +108,6 @@ int main(int argc, char **argv)
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
         fs.put("/sd/cores/apps/libfile.u2a", slurp(dir + "/libfile.u2a"));
-        fs.put("/sd/cores/apps/ziplist.u2a", zl);
         fs.put("/sd/games/t.zip", zip);
         CoreCtx c;
         ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
@@ -160,7 +120,7 @@ int main(int argc, char **argv)
         Log log;
         AppIndex idx;
         idx.scan(&fs, folders, nf, &log);
-        CHECK_EQ(idx.count(), 2);                                       // unzip and ziplist; the library file is no application and is not listed (D58)
+        CHECK_EQ(idx.count(), 1);                                       // unzip; the library file is no application and is not listed (D58)
         CHECK(idx.find("libfile") == 0);
         bool d58 = false;
         for (size_t i = 0; i < log.lines.size(); i++) {
@@ -169,14 +129,14 @@ int main(int argc, char **argv)
         CHECK(d58);
         const AppEntry *e = idx.find("unzip");
         CHECK(e != 0);
-        if (e) { CHECK_STR(e->path, "/sd/cores/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(1, 0)); CHECK_EQ(e->nneeds, 1); }
+        if (e) { CHECK_STR(e->path, "/sd/cores/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(1, 0)); CHECK_EQ(e->nneeds, 0); }   // the base is no entry of needs; unzip needs nothing else (D60)
 
         // the file types: ".zip" gets the three actions of apps/unzip/app.toml
         OpRegistry *reg = ops_of(&c);
         ops_register_base(*reg);
         Host host(&testcore::desc);
         LibLoader ld(&host, reg);
-        // miniz is linked into this test: the need of unzip is answered by its slot, with no library loaded
+        // unzip needs the base only: nothing to link, nothing to load
         CHECK(e && idx.available(*e, &ld));
         {
             char err[LIB_ERR_MAX] = "";
@@ -243,7 +203,7 @@ int main(int argc, char **argv)
             char err[240];
             CHECK(idx.prepare_open(&fs, &ld, *e, err, sizeof(err)));     // what AppHost::open_now does first: the room, then the needs; nothing is loaded
             CHECK_EQ(ld.count(), 0);
-            int rc = ld.load(&src, &h, err, sizeof(err));                // the need binds to the slot of miniz
+            int rc = ld.load(&src, &h, err, sizeof(err));                // the need is the base
             fs.close(cf);
             if (rc != LIB_OK) printf("load: %d %s\n", rc, err);
             CHECK_EQ(rc, LIB_OK);
@@ -281,23 +241,6 @@ int main(int argc, char **argv)
             CHECK_EQ(fs.open_files, 0);                                   // every file the application opened is closed again
             ld.release(h, err, sizeof(err));
             CHECK_EQ(ld.count(), 0);                                      // a transient application is gone; no library was ever loaded
-
-            // S2: a second application on the same linked library lists the entries through the table; it holds no miniz of its own
-            const AppEntry *ze = idx.find("ziplist");
-            CHECK(ze != 0);
-            if (ze) {
-                CHECK(idx.prepare_open(&fs, &ld, *ze, err, sizeof(err)));
-                CoreFile *zf = fs.open(ze->path, false);
-                CoreFileSource zsrc(zf);
-                int zh = -1;
-                CHECK_EQ(ld.load(&zsrc, &zh, err, sizeof(err)), LIB_OK);
-                fs.close(zf);
-                g_listing.clear();
-                CHECK_EQ(ld.run(zh, "", "/sd/games/t.zip", reply, sizeof(reply), &app_rc, err, sizeof(err)), LIB_OK);
-                CHECK_EQ(app_rc, 0);
-                for (size_t i = 0; i < names.size(); i++) CHECK(g_listing.find(names[i] + "\n") != std::string::npos);
-                CHECK_EQ(fs.open_files, 0);
-            }
         }
     }
 

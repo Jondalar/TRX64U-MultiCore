@@ -111,7 +111,7 @@ NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its 
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
-MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
+MZ_APP="$ROOT/apps/miniz"   # T197: the zip code, one source for the board image of unzip.u2a (T239.3 D60) and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
 find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
@@ -823,7 +823,7 @@ PASS=$((PASS + 1))
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; BASEL_NOSTUB="${BASEL/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
 UZSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $BASEL_NOSTUB $C64"
-CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/ziplist.u2a $UZ/plain.u2a $UZ/ringapp.u2a $UZ/libfile.u2a $UZ/t.zip $UZ/manifest.txt"
+CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/plain.u2a $UZ/ringapp.u2a $UZ/libfile.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
 

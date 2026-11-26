@@ -42,7 +42,7 @@ TRX64 (`trx64u.cor`) uses the same five areas with more rows and tabs (11.2.1). 
 
 11.1.5 **The file sheet.** **RETURN** on a file opens its sheet: the actions of its file type (they are listed per core below), then the actions of every file, each with a letter that runs it: `View` (**T**), `Hex View` (**H**), `Copy to...` (**C**), `Move to...` (**V**), `Copy to clipboard` (**Y**), `Cut to clipboard` (**X**), `Rename` (**N**), `Delete` (**D**). The folder rows have their own sheet (**RIGHT** on a folder): `Open`, `Create folder here`, `Paste here`, `Mark all`, `Mark none`, `Set as home folder`. **CTRL** + **A** marks all, **CTRL** + **N** none, **CTRL** + **C** and **CTRL** + **V** copy and paste. In the Library the bare **+** and **-** page the list. With `Enter home on startup` (11.1.10) the Library opens on the home directory.
 
-11.1.6 **Zip files.** A `.zip` in the Library offers `Unzip to folder`, `Unzip here` and `Extract one file`. They are done by the application `unzip.u2a`, which the release carries with the library `miniz.u2a` in `cores/apps/` beside the `.cor` files (the updater copies both). A core finds the applications of that folder at every start.
+11.1.6 **Zip files.** A `.zip` in the Library offers `Unzip to folder`, `Unzip here` and `Extract one file`. They are done by the application `unzip.u2a`, which the release carries in `cores/apps/` beside the `.cor` files (the updater copies it; it holds the zip code itself). A core finds the applications of that folder at every start.
 
 11.1.7 **ROMs.** A core that misses a required ROM stays held and says so on the screen after about 10 seconds. The
 core looks again twice a second, so you can plug the stick in late. A file of the wrong size is reported at once with

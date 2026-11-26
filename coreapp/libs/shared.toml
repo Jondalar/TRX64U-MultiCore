@@ -7,8 +7,8 @@
 #   register      a library from outside this repository: `int fn(const LibApi *, LibRecord *)`, called at start (base 4.0, libload.h LibLoader::link); menu: its menu record
 # `exports` (base 4.0, libslot.h) lists the tables a library exports, { name, major, table }: `table` is the library's `const void *fn(void)`; linked code takes a table with
 # lib_slot(LIBSLOT_<name>), a sub-app with its needs entry, the generic code by name (libtab_export). `needs` names the libraries this one calls; the build refuses a library whose need
-# is not in the file, and a source that takes the slot of a library its needs do not list. `sources` and `headers` are file names, found in coreapp/src, coreapp/cores, app/loaders,
-# app/lib/cbm1541, apps/miniz or apps/miniz/src.
+# is not in the file, and a source that takes the slot of a library its needs do not list. `sources` and `headers` are file names, found in coreapp/src, coreapp/cores, app/loaders
+# or app/lib/cbm1541.
 
 [app]
 name = "shared"
@@ -139,11 +139,3 @@ exports = [{ name = "padkeys", major = 1, table = "padkeys_table" }]
 name = "resample"
 sources = ["u64_resample.cc"]
 headers = ["u64_resample.h"]
-
-# The zip reader and inflate of miniz (T197; base 4.0: no .u2a, D58): the call table of zip_lib.h, which the sub-app unzip takes through its needs entry `miniz>=1.0` (api->lib->need).
-# Unzip is offered where this library is linked (an app without it refuses unzip's need).
-[[library]]
-name = "miniz"
-sources = ["miniz_lib.cc", "miniz.c", "miniz_tinfl.c", "miniz_zip.c"]
-headers = ["zip_lib.h"]
-exports = [{ name = "miniz", major = 1, table = "miniz_table" }]

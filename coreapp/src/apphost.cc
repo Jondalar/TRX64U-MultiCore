@@ -196,7 +196,7 @@ void AppHost::open_now()
     int h = ld_->handle_of(e->name);
     if (h < 0) {
         char derr[LIB_ERR_MAX] = "";
-        lock_->lock();                                  // the libraries it needs (T197: miniz), from the same folders; they stay loaded; the loader counts them as used by every image that needs them
+        lock_->lock();                                  // the room for the image and its working memory, and the linked libraries its needs name
         bool deps = idx_->prepare_open(c_->fs, ld_, *e, derr, sizeof(derr));
         lock_->unlock();
         if (!deps) {

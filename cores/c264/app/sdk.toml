@@ -60,11 +60,3 @@ exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
 name = "newfile"
 sources = ["newfile.cc"]
 headers = ["newfile.h"]
-
-# Unzip (apps/unzip: the actions on a .zip in the File Browser) takes the zip library through its needs entry `miniz>=1.0`. Base 4.0 loads no library file (T239.3 D58), so this app
-# links it as the shared app does (coreapp/libs/shared.toml, the same sources and entries); without it the app refuses unzip's need.
-[[library]]
-name = "miniz"
-sources = ["miniz_lib.cc", "miniz.c", "miniz_tinfl.c", "miniz_zip.c"]
-headers = ["zip_lib.h"]
-exports = [{ name = "miniz", major = 1, table = "miniz_table" }]

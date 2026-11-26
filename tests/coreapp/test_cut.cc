@@ -42,7 +42,6 @@ const void *cbmprg_table(void);
 const void *mouse_table(void);
 const void *pad_table(void);
 const void *padkeys_table(void);
-const void *miniz_table(void);
 static const void *slot_textgrid(void) { return &g_mg_table; }
 const LibSlot g_libslot[] = {
     { "c64cart", "c64cart", 1, c64cart_table, 0 },
@@ -53,11 +52,10 @@ const LibSlot g_libslot[] = {
     { "mouse", "mouse", 1, mouse_table, 0 },
     { "pad", "pad", 1, pad_table, 0 },
     { "padkeys", "padkeys", 1, padkeys_table, 0 },
-    { "miniz", "miniz", 1, miniz_table, 0 },
     { "gridlib", "textgrid", 1, slot_textgrid, 0 },
 };
-const unsigned g_libslot_n = 10;
-const void *g_libslot_bound[10];
+const unsigned g_libslot_n = 9;
+const void *g_libslot_bound[9];
 #endif
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
