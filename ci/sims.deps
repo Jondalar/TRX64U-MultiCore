@@ -30,7 +30,7 @@
 @ddr2 = host/ddr2_lean.v host/cal_seq.v designs/ddr2_test/sim/xilinx_models.v designs/ddr2_test/sim/ddr2_model.v designs/ddr2_test/sim/run.sh
 
 trx_io: host/sim/trx_io cores/common/trx_io.v cores/common/trx_sys.v
-cart_unit: host/sim/cart_unit cores/c64ref/cart_slot_c64ref.v host/cart_fill.v cores/common/trx_io.v
+cart_unit: host/sim/cart_unit cores/c64u/cart_slot_c64u.v host/cart_fill.v cores/common/trx_io.v
 host_hdmi_timing: host/sim/hdmi_timing host/hdmi_timing.v host/hdmi_modes.vh
 host_modepath: host/sim/modepath host/mode_req.v host/cdce_mode.v host/hdmi_timing.v host/hdmi_modes.vh
   tools/gen_cart_descriptors.py tools/cart_descriptors

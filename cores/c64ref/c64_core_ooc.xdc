@@ -9,7 +9,3 @@ create_clock -name sid_cv_clk -period 10.000 [get_ports sid_cv_clk]
 set_clock_groups -asynchronous -group {sys_clk sys_gclk sid2x} -group sid_cv_clk
 create_clock -name snd_clk -period 81.375 [get_ports snd_clk]
 set_clock_groups -asynchronous -group {sys_clk sys_gclk sid2x} -group snd_clk
-create_clock -name cart_wclk -period 13.333 [get_ports cart_wclk]
-set_clock_groups -asynchronous -group {sys_clk sys_gclk sid2x} -group cart_wclk
-create_clock -name cart_ee_clk -period 10.000 [get_ports cart_ee_clk]
-set_clock_groups -asynchronous -group {sys_clk sys_gclk sid2x} -group cart_ee_clk

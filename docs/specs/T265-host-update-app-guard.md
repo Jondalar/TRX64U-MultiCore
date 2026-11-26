@@ -161,5 +161,45 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   untouched), constants per D5, csync on SYNCn, FB high. Estimate about 560 LUT, 2 RAMB36, 0 DSP; pb_l1 from 76.3 % to about 79.5 % of
   17,400 LUT. The register lives in `host/mode_req.v` (host-owned, survives a core swap); standard 0 = follow the core's raster.
   No contract port changes (247 ports, VERSION 2).
+- **D12 cut list (c64ref; numbers are the hierarchical report of the host run 45814821390 before the cut: pb_l2 8,943 LUT / 7,595 FF / 27 BRAM tiles / 1 DSP).**
+  Kept: the machine and its video and audio out. Removed: everything around it. LUT / FF / RAMB36:
+
+  | module (instance) | LUT | FF | RAMB36 | |
+  |---|---|---|---|---|
+  | `c64_core_c64ref` > `c64_top`: VIC-II (`video_kawari_0`) | 1,992 | 1,472 | 0 | kept |
+  | CPU 6510 (`cpu6510_0`) | 700 | 252 | 0 | kept |
+  | CIA 1 and 2 (`c64_redip_cia_0/1`) | 758 | 650 | 0 | kept |
+  | `mem` (C64 RAM, ROMs, colour RAM) | 53 | 64 | 24 | kept |
+  | `turbo` (NO_TURBO), `bus_arbiter`, `c64_top` glue | 86 + 74 + 79 | 86 + 43 + 98 | 0 | kept (inside `c64_top`) |
+  | SID | 0 | 0 | 0 | the stand-in of T107 D9 (silence) is all c64ref has had since; it stays |
+  | cartridge model, flash, EEPROM, AR (`cart`) | 890 | 793 | 0 | removed |
+  | `slot` (expansion port) | 141 | 213 | 0 | removed |
+  | `cfill` (cartridge image fill) | 229 | 156 | 0 | removed |
+  | 1541 drive `drva` (6502, 2 VIA, CIA, WD177x, floppy; 1 RAMB18) | 2,339 | 1,494 | 0 | removed |
+  | `gcr` codec | 80 | 49 | 0 | removed |
+  | `uci` (command interface) | 165 | 206 | 0 | removed |
+  | `cwio` (register window) | 450 | 668 | 0 | removed |
+  | `csys` | 191 | 271 | 0 | removed |
+  | `win` (DMA window), `iec` bus, `sock_audio` | 20 + 14 + 119 | 46 + 28 + 317 | 0 | removed |
+  | layer 2's own glue and the `c64ref_keep` LUT1s | about 525 + 120 | 2 | 0 | removed; the keeps that guard constants of the machine stay (audio 48, sid levels 8) |
+
+  What the cut leaves at the 247-port header (unchanged, `tools/contract_ports.py --check`): the ports of removed blocks are driven
+  by `c64ref_tie_ff` flops (one DONT_TOUCH FDRE per bit) at the idle value of the decoupler in `host/top.v`: 0 for IEC_*_O, SLOT_PHI2,
+  SLOT_DOTCLK, slot_rst_o, sid_sock_addr, cw_*, px_*, dma_*, drv_*, gcr_*, win_*, gate_frz, tx_view, cart_active, reu_*,
+  paddle_dis_en and the ui_clk DDR2 client `c_*`; 1 for SLOT_*n/BA/DIR lines, slot_a, slot_d_o, slot_d_t, slot_rw, slot_ahi_t, sid_sock*_n
+  and drive_leds_n. The inputs of removed blocks have no load. `drv_clk_o` and `drv_data_o` were undriven before and stay so.
+
+  **Built (2026-11-26).** `c64_core_c64ref` keeps `c64_top_c64ref` and `mem`; the cartridge model, expansion port, UCI inputs, REU, DMA
+  window, turbo registers and sockets are constants inside it, its ports shrank to the machine's. `layer2_c64ref.v` instantiates
+  the core and the tie flops (754 + 41 + 176 FDRE) and nothing else; the files `c64ref_io`, `c64ref_sys`, `cart_fill`, `cart_slot`,
+  `slot_port`, `dma_win`, `iec_bus`, `sid_sock_audio`, `c64ref_cw.vh` and the whole `gideon/` copy (drive, GCR, UCI) are deleted;
+  the xdc lost the two cart clocks, `core_sources.tcl` the VHDL read, `core.toml` the 1541 ROM name. Shared files untouched.
+  Three readers of removed paths fixed minimally: `host/sim/cart_unit` (run.sh, tb) and `ci/sims.deps` now read
+  `cores/c64u/cart_slot_c64u.v` (the same module, checked by diff modulo the name); `ci/test_layers_flow.sh` takes
+  `c64_turbo_c64ref.v` as its fixture file where it took `dma_win_c64ref.v`. `contract/host_pin.txt` updated (c64ref is a pinned
+  part of the static). Expected pb_l2 logic after: VIC 1,992 + CPU 700 + CIA 758 + mem 53 + glue 239 + 56 keep LUT1 = about 3,800
+  LUT (computed from the report's module numbers, not synthesised: yosys has no VHDL front end for the CPU), flops 7,595 - 4,243 + 971 tie
+  flops = about 4,320, 24 RAMB36 (the drive's RAMB18 and the cartridge cache go). Checked with yosys: `hierarchy -check`, no implicit nets, widths clean for
+  `layer2` (core as black box) and for `c64_core_c64ref` (top and mem as black boxes).
 
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
