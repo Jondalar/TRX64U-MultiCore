@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # T239.1 D23, step 17: ci/emu_kit.sh makes the kit with a fake ue2emu (local ROM folder, no network); a ROM folder that is not the pinned one and a missing input are refused.
 # T239.5 D13: the profile is the core's own (cores/vc20/app/ue2emu.toml) with the symbols line in front, named after the .cor's manifest (a DFX core: its name).
+# T239.5 D18: without --firmware, --cor and --core the kit is the checked ROM folder alone (a core lane's round), and the emulator does not run; half of them is refused.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
@@ -10,6 +11,7 @@ cat > "$W/bin/ue2emu" <<'EOS'
 #!/usr/bin/env bash
 # the kit's run line: the machine of tests/hostapp/emu_host.sh (--board c64u --trx-io=on, no --caps), the C64 ROMs before boot, a script
 a=" $* "
+[ -z "${FAKE_CALLS:-}" ] || echo "$*" >> "$FAKE_CALLS"
 case "$a" in *" --caps "*) echo "the kit sets --caps: $*" >&2; exit 3 ;; esac
 for w in " run " " --board c64u " " --trx-io=on " " --c64-roms "; do case "$a" in *"$w"*) ;; *) echo "bad ue2emu line, no$w: $*" >&2; exit 3 ;; esac; done
 fw="" fl="" roms="" ctl=""
@@ -53,6 +55,16 @@ rm "$W/roms/sub/pipe.bin"
 mkdir "$W/roms/sub/empty.d"
 if run; then fail "a ROM folder with an empty folder was accepted"; fi
 rmdir "$W/roms/sub/empty.d"; run || { cat "$W/out"; fail "the pinned folder was refused after the .git, FIFO and empty-folder plants"; }
+romsonly() { PATH="$W/bin:$PATH" UE2EMU_BIN="$W/bin/ue2emu" FAKE_CALLS="$W/calls" ci/emu_kit.sh "$W/kit2" "$@" --roms "$W/roms" --roms-tree "$tree" > "$W/out" 2>&1; }
+rm -rf "$W/kit2"; : > "$W/calls"
+romsonly || { cat "$W/out"; fail "the ROM-only kit was not made"; }
+[ -f "$W/kit2/roms/kernal.bin" ] && [ ! -e "$W/kit2/flash.bin" ] && [ ! -e "$W/kit2/profiles" ] && [ ! -e "$W/kit2/cors" ] || fail "the ROM-only kit is not the ROM folder alone"
+[ ! -s "$W/calls" ] || fail "the ROM-only kit ran the emulator"
+printf 'planted\n' > "$W/roms/extra.bin"
+if romsonly; then fail "the ROM-only kit accepted a ROM folder that is not the pinned one"; fi
+rm "$W/roms/extra.bin"
+if romsonly --firmware "$W/hostapp_emu.elf"; then fail "--firmware without --cor and --core was accepted"; fi
+if romsonly --cor "$W/vc20.cor" --core vc20; then fail "--cor and --core without --firmware were accepted"; fi
 rm "$W/hostapp_emu.elf"
 if run; then fail "a missing host image was accepted"; fi
 echo "emulator kit: ok"

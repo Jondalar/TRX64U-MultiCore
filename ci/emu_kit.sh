@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # T239.1 D23: the kit the emulator suites need, made in the run from public sources and the core's own files (the repository must not hold ROMs). A directory:
-#   KIT/roms             roms/ of GideonZ/1541ultimate at the commit pinned below (git checks every byte through the commit id)
+#   KIT/roms             roms/ of GideonZ/1541ultimate at the commit pinned below (git checks every byte through the commit id). Alone (no --firmware, --cor,
+#                        --core) the kit is this folder only: what a core lane's round needs (tests/coreapp/emu/core_round.sh, UE2EMU_ROMS=KIT/roms)
+#   the host round's parts (tests/hostapp/emu_host.sh, the host menu lane), with --firmware, --cor and --core:
 #   KIT/flash.bin        an erased flash in which the emulator formats /flash and writes the C64 ROMs of KIT/roms before boot (ue2emu run --c64-roms),
 #                        on the machine of tests/hostapp/emu_host.sh (--board c64u --trx-io=on, no --caps: the capability word picks the /flash layout).
 #                        No updater: the scenarios load the apps as ELF and read neither bitstream nor application from the flash, and ue2emu's install
@@ -9,19 +11,19 @@
 #                        it up: the manifest's id (a large core), else its name (a DFX core, VIC-20.toml) (T239.5 D13: tools/ue2emu_core.py profile)
 #   KIT/cors/<core>.cor  this run's .cor of the core (the host finds a partial by its SHA-256 and a large core by its bitstream's, so any .cor of the same core serves)
 #
-#   ci/emu_kit.sh KIT --firmware <hostapp_emu.elf> --cor <core.cor> --core <core> [--roms DIR] [--roms-tree ID]
-#     --core: the core's name (cores/<core>); the .cor must be that core's
+#   ci/emu_kit.sh KIT [--firmware <hostapp_emu.elf> --cor <core.cor> --core <core>] [--roms DIR] [--roms-tree ID]
+#     --firmware, --cor, --core: all three or none; --core: the core's name (cores/<core>), the .cor must be that core's
 #     --roms DIR: use a restored copy of the ROM folder instead of fetching it (actions/cache of the workflow, keyed by the commit pinned below; the folder is
 #                 checked against the git tree id of roms/ at that commit, so a cache entry that holds anything else is refused)
 #     --roms-tree ID: tests only: another tree id
-# env: UE2EMU_BIN or `ue2emu` on PATH (ci/ue2emu.sh). The emulator is the one of the emu image (ci/emu/Dockerfile).
+# env (the host round's parts): UE2EMU_BIN or `ue2emu` on PATH (ci/ue2emu.sh). The emulator is the one of the emu image (ci/emu/Dockerfile).
 # The run's script quits at once, so the flash holds what the emulator wrote before boot.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GIDEON_REPO="https://github.com/GideonZ/1541ultimate.git"
 GIDEON_COMMIT="700c7f2fab0b7d52da418d21f0c2e65e99725805"
 GIDEON_ROMS_TREE="e308506696d7507486b7b0981eeacc4ae5bfe373"     # git tree id of roms/ at that commit (gh api repos/GideonZ/1541ultimate/git/trees/<commit>)
-kit="${1:?usage: ci/emu_kit.sh KIT --firmware FILE.elf --cor FILE.cor --core CORE [--roms DIR]}"; shift
+kit="${1:?usage: ci/emu_kit.sh KIT [--firmware FILE.elf --cor FILE.cor --core CORE] [--roms DIR]}"; shift
 fw="" cor="" core="" roms="" roms_tree="$GIDEON_ROMS_TREE"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -29,10 +31,16 @@ while [ $# -gt 0 ]; do
     *) echo "emu_kit: unknown argument $1" >&2; exit 2 ;;
   esac
 done
-[ -f "$fw" ] && [ -f "$cor" ] || { echo "emu_kit: --firmware and --cor must name existing files (this run's hostapp_emu.elf and the core's .cor)" >&2; exit 1; }
-[ -n "$core" ] || { echo "emu_kit: --core names the core of the .cor" >&2; exit 2; }
-mkdir -p "$kit/profiles" "$kit/cors"
-prof_out="$(python3 -I "$HERE/../tools/ue2emu_core.py" profile "$core" "$cor" "$kit/profiles")" || { echo "emu_kit: no profile of the core $core (the reason above)" >&2; exit 1; }
+host=yes
+if [ -z "$fw$cor$core" ]; then
+  host=""
+else
+  [ -f "$fw" ] && [ -f "$cor" ] || { echo "emu_kit: --firmware and --cor must name existing files (this run's hostapp_emu.elf and the core's .cor)" >&2; exit 1; }
+  [ -n "$core" ] || { echo "emu_kit: --core names the core of the .cor" >&2; exit 2; }
+  mkdir -p "$kit/profiles" "$kit/cors"
+  prof_out="$(python3 -I "$HERE/../tools/ue2emu_core.py" profile "$core" "$cor" "$kit/profiles")" || { echo "emu_kit: no profile of the core $core (the reason above)" >&2; exit 1; }
+fi
+mkdir -p "$kit"
 rm -rf "$kit/roms"
 if [ -n "$roms" ]; then
   [ -d "$roms" ] || { echo "emu_kit: --roms $roms is no directory" >&2; exit 1; }
@@ -60,6 +68,10 @@ tree_of() {
 }
 [ "$(tree_of "$kit/roms")" = "$roms_tree" ] || { echo "emu_kit: the ROM folder is not the roms/ of $GIDEON_COMMIT (tree id $roms_tree)" >&2; exit 1; }
 [ -n "$(ls -A "$kit/roms")" ] || { echo "emu_kit: the ROM folder is empty" >&2; exit 1; }
+if [ -z "$host" ]; then
+  echo "emu_kit: $kit holds roms ($(find "$kit/roms" -type f | wc -l | tr -d ' ') files)"
+  exit 0
+fi
 cp "$cor" "$kit/cors/$core.cor"
 rm -f "$kit/flash.bin"
 printf 'quit\n' > "$kit/.flash.ctl"
