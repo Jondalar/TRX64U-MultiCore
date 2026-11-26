@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1-D5 decided; Q5-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4 VRAM DDR2; D5 picture B/C; Q5-12 open
+https://github.com/NebulaSleuth/VIC-X/". D1-D6 decided; Q6-Q12 open; nothing built.
+Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4 VRAM DDR2; D5 picture B/C; D6 turbo first
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -215,6 +215,9 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   towards b or c"). VIC-X's video interface was made for the MiSTer's C64 core; ours differs. The first build measures both: B's block RAM
   and the depth proof of `tools/hdmi_modes.py check` for the shorter ring, C's DDR2 bandwidth beside VRAM, XRAM and the C64's RAM; the
   result goes to Alex before the choice is built.
+- **D6 (Alex, 2026-11-26): turbo first, as on the MiSTer.** Asked Q5 (a window access holds the CPU until the DDR2 answers, turbo off
+  while VIC-X is unlocked, or turbo first with VIC-X taking what is left): "C". The turbo keeps its priority; VIC-X's XRAM windows and DMA
+  take the memory cycles the turbo leaves (`hdl/README.md:205-206`).
 
 **Open questions for Alex** (one at a time):
 
@@ -255,7 +258,7 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   B: fewer lines in a wider ring; the depth is proven by `tools/hdmi_modes.py check` (`vic_scaler.v:30-32`), so the proof changes.
   C: a DDR2 frame buffer through the pixel layer, as the VC-20 and the ZX draw (T119).
   The UDP video stream (`top.v:1176`) needs the same answer.
-- **Q5 XRAM windows and turbo.**
+- **Q5 XRAM windows and turbo.** Answered: D6 (C).
   A: a window access holds the CPU until DDR2 answers; turbo stays on.
   B: turbo off while VIC-X is unlocked.
   C: as on the MiSTer: turbo first, VIC-X takes what is left (`hdl/README.md:205-206`).
