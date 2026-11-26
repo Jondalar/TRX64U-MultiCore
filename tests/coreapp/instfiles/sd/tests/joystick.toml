@@ -1,0 +1,8 @@
+# The tests that need only joysticks, one after the other.
+kind = "suite"
+
+[suite]
+name = "Joystick ports"
+id = "joystick"
+tests = ["pins.toml", "stick2.toml"]
+stop_on_fail = false

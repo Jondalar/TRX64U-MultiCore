@@ -154,8 +154,8 @@ _OWNERS = {}
 
 def owners():
     if not _OWNERS:
-        for c in table_cores() + ["portdiag"]:
-            _OWNERS[c] = set(closure(c)[0]) if c != "portdiag" else set()
+        for c in table_cores():
+            _OWNERS[c] = set(closure(c)[0])
     return _OWNERS
 
 
@@ -203,7 +203,7 @@ def sdk_toml(inf):
          "[app]", 'name = "%s"' % c, "desc_record = true", 'desc = "%s_desc"' % c,
          '# TOML A: the core\'s own (gateware.toml: emitted from the RTL, tools/rtl_check.py emit; TODO the names and blocks) and the blocks of the host\'s TOML A that the shared drivers (hw.cc) name',
          'toml_a = "gateware.toml"', 'base_toml_a = "host.toml"', "base_blocks = %s" % toml_val(BASE_BLOCKS + (["iec_status"] if "cbm1541" in inf["libs"] else [])),
-         'base_sources = ["portdiag.cc"]', "",
+         "",
          "[[library]]", 'name = "%s"' % c, "sources = %s" % toml_val(own_cc), "headers = %s" % toml_val(hdr)]
     if inf["libs"]:
         L.append("needs = %s" % toml_val(inf["libs"]))

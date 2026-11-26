@@ -54,6 +54,9 @@ const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #elif defined(TEST_APP_PET)                     // the PET's app (run.sh petapp, the unit pet_uicover): its table is its core only
 extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
 const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#elif defined(TEST_APP_DIAG)                    // the diag core's app (run.sh diagapp, the unit diag_uicover): its table is its core only
+extern const CoreDesc portdiag_desc;            // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_DDT)                     // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_uicover): its table is its core only
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };

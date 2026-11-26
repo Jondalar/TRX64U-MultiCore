@@ -750,11 +750,14 @@ class FilesTest(unittest.TestCase):
             with self.assertRaises(C.CorError):                             # an earlier version of a file the core does not install
                 C.collect_files(d + "/sd", d + "/old")
 
-    def test_the_diag_core_carries_its_tests_and_only_it(self):
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores")
-        files = C.collect_files(os.path.join(root, "diag", "sd"), os.path.join(root, "diag", "superseded"))
-        self.assertIn("tests/cd32.toml", [f[0] for f in files])
-        self.assertTrue(all(o for f in files if f[0] in ("tests/cd32.toml", "tests/stick2.toml") for o in [f[2]]))
+    def test_the_diag_core_carries_no_record_8(self):
+        """T260 D6: the diag core's tests and presets are a folder of its lane's delivery (cores/diag/sd), no record of its .cor: its descriptors name no install folder."""
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "diag")
+        t = open(os.path.join(root, "mono", "core.toml")).read()
+        self.assertNotIn("install_dir", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertNotIn("install_old", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertTrue(os.path.isfile(os.path.join(root, "sd", "tests", "cd32.toml")))
+        self.assertFalse(os.path.exists(os.path.join(root, "superseded")))
 
 
 def heap_app(heap=0x7A0000, image_end=0x400000, region_end=0xE90000, reserve=0x20000, extra=b"\x5a" * 64):

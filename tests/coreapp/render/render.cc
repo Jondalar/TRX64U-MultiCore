@@ -23,10 +23,7 @@
 #include "trxview.h"
 #include "keyboard.h"
 #include "record_menu.h"
-#include "portdiag.h"
 #include "ops_glue.h"
-#include "diagtest.h"
-#include "diag_engine.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -35,13 +32,22 @@
 #include <vector>
 #include <zlib.h>
 
+#ifdef RENDER_APP_DIAG
+// T239.5 D13, T260 P7: the diag core is a build of its own (RENDER_APP_DIAG). The diag app's driver table comes first (render/run.sh: RENDER_OWN_DRVTAB, the table of its own TOML A),
+// so the engine model (diag_engine.h: it serves the pin table the live page reads its pins from by name) and the app's headers name the registers through it: the runner
+// (diagtest.h) and the panels (panel.h) are linked in this build
+#include RENDER_OWN_DRVTAB
+#include "diag_engine.h"
+#include "diag_examples.h"
+#include "diagtest.h"
+#include "portdiag.h"
+#endif
 #include "picture.h"
 #include "volume.h"
 #include "videomode.h"
 #include "menubuild.h"
 #include "screens.h"
 #include "cores.h"
-#include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 #include "own_cores.h"                                        // T213.3 (T239.5 D13): the cores with an app of their own (tests/coreapp/srclist.sh), not in that table
 // T239.5 D13: the shared bench (no RENDER_OWN_APP) walks the board's table and the cores with an app of their own that stay in it; a core that moved to its own app is a
@@ -70,8 +76,9 @@ static int n_every(bool hotkeys_only)                         // how many cores 
     for (const CoreDesc *const *pc = every_core(); *pc; pc++) { n += !hotkeys_only || (*pc)->hotkeys; }
     return n;
 }
-// the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, tests/coreapp/render/run.sh: the S1, UX, chrome and hotkey learn lines of
-// each build); the twelve builds together give what the one bench gave before the split (UX chrome: 321 tab strips, 417 legends, 2085 rail items, 45 pages, 306 page rows, 222 key names)
+// the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, the diag build and the shared bench without diag 2026-11-26, tests/coreapp/render/run.sh: the S1, UX, chrome and hotkey learn lines of
+// each build); the thirteen builds together walk every core the one bench walked before the split (then UX chrome: 321 tab strips, 417 legends, 2085 rail items, 45 pages,
+// 306 page rows, 222 key names; the diag core's walk is shorter since T260: its A/V settings pages became a panel file)
 struct Floors { int s1lists, s1states, s1two, s1marked, s1legends, uxhot, uxcmp, uxvals, ucn_strip, ucn_leg, ucn_rail, ucn_pages, ucn_hk, ucn_pcnames, hkl_cores; };
 #if defined(RENDER_APP_ATARI800)
 static const Floors FLOOR = { 15, 327, 0, 114, 57, 1, 12, 21, 18, 24, 120, 3, 21, 21, 2 };
@@ -95,8 +102,10 @@ static const Floors FLOOR = { 15, 327, 0, 114, 57, 1, 12, 21, 18, 24, 120, 3, 21
 static const Floors FLOOR = { 18, 426, 0, 252, 63, 1, 11, 53, 21, 27, 135, 3, 18, 18, 2 };
 #elif defined(RENDER_APP_C128)
 static const Floors FLOOR = { 15, 399, 516, 258, 129, 1, 13, 33, 18, 24, 120, 3, 24, 0, 2 };
+#elif defined(RENDER_APP_DIAG)
+static const Floors FLOOR = { 9, 207, 0, 0, 0, 0, 3, 16, 15, 18, 90, 0, 0, 0, 0 };
 #else
-static const Floors FLOOR = { 90, 2112, 0, 1092, 219, 5, 59, 149, 114, 147, 735, 15, 99, 60, 10 };   // the shared bench: the board's table (4) and the VIC-20 and the A1200
+static const Floors FLOOR = { 78, 1770, 0, 1092, 219, 5, 56, 117, 96, 126, 630, 15, 99, 60, 10 };   // the shared bench: the board's table (3) and the VIC-20 and the A1200
 #endif
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
@@ -983,7 +992,8 @@ static void c128_kit_menu(const char *out)
 }
 #endif
 
-// T175: the diag core's pages - the live port rows (idle page), the browser over the tests folder, a prompt of a test and the result of a run
+#ifdef RENDER_APP_DIAG
+// T175: the diag core's pages - the live port rows (idle page), the browser over the tests folder, a prompt of a test, the result of a run and a panel
 static void diag_pages(const char *out, int cw, int ch, const char *tag)
 {
     char p[512];
@@ -993,15 +1003,17 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
         if (cw == 960) { png(p, 2); } else { png_out(p, cw, ch, 0, 0, cw, ch); }
     };
     Rig r(&portdiag_desc, "/usb0/cores/diag/diag.cfg");
+    static Engine eng;                                           // T260: the model of engine v2 serves the pin table; the rows read the snapshot by the pins' names
+    eng.forced_low = 0;
+    eng.cmp_now = 0;
+    r.c.io = &eng;
     r.c.started = true;
     r.c.program_loaded = true;
     diag_install_examples(&r.fs, "/usb0/cores/diag");
     ui_open(&portdiag_desc);
     r.m->open();
     r.m->key(KEY_F1);                                            // T205 D1: the port lines (media rows) are on Home
-    // idle: nothing pressed - then the fire button of port 2 and the second comparator
-    r.io.regs[PD_LIVE] = 0xFF;
-    r.io.regs[PD_LIVE + 1] = 0x03;
+    // idle: nothing pressed - then up and the fire button of port 2 and the first comparator
     ui_menu_render(*r.m);
     lv_timer_handler();
     char l[100], rt[100]; bool a;
@@ -1011,8 +1023,8 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
     r.m->row(p2, l, 100, rt, 100, &a);
     CHECK(!strcmp(l, "Port 2") && strstr(rt, "F1"));
     shot("idle");
-    r.io.regs[PD_LIVE] = 0xDF;                                  // port 2 up (bit 5) low
-    r.io.regs[PD_LIVE + 1] = 0x05;                              // port 2 fire (bit 9) low, comparator 0 (bit 10) high
+    eng.forced_low = 0x220;                                      // KBJOY_2_JOY0 (up) and KBJOY_2_JOY4 (fire) low
+    eng.cmp_now = 1;                                             // PADDLE_CMP0 high
     ui_menu_render(*r.m);
     lv_timer_handler();
     r.m->row(p2, l, 100, rt, 100, &a);
@@ -1020,32 +1032,6 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
     r.m->row(p2 + 1, l, 100, rt, 100, &a);
     CHECK(!strcmp(rt, "1  0  0  0"));
     shot("idle-pressed");
-    // T201: the A/V page (tab 2 of the core's area): the 18 rows of the test picture's encoder, live. A page of its own, opened the way the other settings pages are
-    {
-        Rig v(&portdiag_desc, "/usb0/cores/diag/diag.cfg");
-        v.c.started = true;
-        v.c.program_loaded = true;
-        ui_open(&portdiag_desc);
-        v.m->open();
-        v.m->key(KEY_F5);
-        v.m->key('1');
-        ui_menu_render(*v.m);
-        lv_timer_handler();
-        lv_obj_invalidate(lv_screen_active());                 // the whole page into the picture, not only what the last call changed
-        ui_menu_render(*v.m);
-        lv_timer_handler();
-        CHECK(v.m->rows() == DT_AV_N);
-        v.m->row(0, l, 100, rt, 100, &a);
-        CHECK(!strcmp(l, "Standard") && strstr(rt, "PAL 50 Hz"));
-        shot("av");
-        for (int k = 0; k < DT_AV_N - 1; k++) { v.m->key(KEY_DOWN); }       // the selection on the last row (Lines 60 Hz): the page scrolls to the sync rows
-        ui_menu_render(*v.m);
-        lv_timer_handler();
-        lv_obj_invalidate(lv_screen_active());
-        ui_menu_render(*v.m);
-        lv_timer_handler();
-        shot("avsync");
-    }
     ui_open(&portdiag_desc);
     // the picker: the Library on the folder of the tests
     r.m->key(KEY_F3);
@@ -1087,37 +1073,48 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
         CHECK(strstr(r.m->title(), "tests") != 0);
     }
     shot("picker");
-    // a prompt and a result: the real runner against the engine model; the dialogs on the real card
+    // a prompt, a result and a panel: stick2.toml run by the real runner (diag_run_file) against the engine model, panels/avout.toml opened by the real panel code
+    // (panel_run); the dialogs on the real card
     {
         static HostOs dos;
         AppDlg dlg(&dos, &r.fs);
-        Engine eng;
-        FakeFs fs;
-        diag_install_examples(&fs, "/SD/cores/diag");
+        // stick2.toml on a card of its own: the third prompt (button 2) as the app asks it (portdiag_prompt_text, its timeout_s), the result as the runner shows it
+        static Engine *reng;
+        static uint32_t rms;
+        Engine e2;
+        FakeFs rfs;
+        reng = &e2;
+        rms = 0;
+        diag_install_examples(&rfs, "/SD/cores/diag");
         struct Cap : DiagUi {
-            Engine *e; char pt[100], px[400], rt[100], rx[400]; int seen = 0;
-            int prompt(const char *t, const char *x, int idx, int total, int) override
+            Engine *e;
+            char pt[100], px[400], rt[100], rx[400];
+            int pto = -1, seen = 0;
+            int prompt(const char *t, const char *x, int idx, int total, int timeout_s) override
             {
-                if (idx == 3) { portdiag_prompt_text(t, x, idx, total, pt, sizeof(pt), px, sizeof(px)); }
-                e->forced_low = idx == 2 ? 0x200 : 0;           // button 1: pin 6
+                if (idx == 3) { portdiag_prompt_text(t, x, idx, total, pt, sizeof(pt), px, sizeof(px)); pto = timeout_s; }
+                e->forced_low = idx == 2 ? 0x200 : 0;           // button 1: KBJOY_2_JOY4 (pin 6) low
                 e->cmp_now = idx == 3 ? 4 : 0;                  // button 2: comparator 2
                 return DUI_CONTINUE;
             }
             void progress(const char *) override { }
             void show(const char *t, const char *x) override { snprintf(rt, sizeof(rt), "%s", t); snprintf(rx, sizeof(rx), "%s", x); seen++; }
         } cap;
-        cap.e = &eng;
+        cap.e = &e2;
         DiagEnv env;
         memset(&env, 0, sizeof(env));
-        env.io = &eng; env.fs = &fs; env.ui = &cap;
-        env.now_ms = [] { static uint32_t t; return t += 1; };
-        env.delay_ms = [](uint32_t) { };
+        env.io = &e2;
+        env.fs = &rfs;
+        env.ui = &cap;
+        env.now_ms = [] { return rms; };
+        env.delay_ms = [](uint32_t n) { rms += n; reng->settle(); };
         env.stamp = [](char o[16]) { strcpy(o, "20261102-143015"); return true; };
         env.core_version = "0.1.0";
         env.folder = "/SD/cores/diag";
         DiagOutcome oc;
         CHECK(diag_run_file(&env, "/SD/cores/diag/tests/stick2.toml", &oc) == 0);
-        CHECK(cap.seen == 1 && strstr(cap.rx, "passed"));
+        CHECK(cap.seen == 1 && cap.pto > 0 && oc.nfail == 0 && oc.npass > 0);
+        const char *pt = cap.pt, *px = cap.px, *rt = cap.rt, *rx = cap.rx;
         char qt[96], qx[400];
         portdiag_question_text("A/V output walk", "Does the picture stand still (no rolling, no jumping)?", 3, 36, qt, sizeof(qt), qx, sizeof(qx));
         char ct[96], cx[400];                                  // T201 v2: the colour question is a choice
@@ -1125,21 +1122,55 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
         snprintf(cx, sizeof(cx), "%s", "Which colour is the bar right of the white one?");
         static const char *const cch[] = { "yellow", "blue", "other" };
         int picked = -9;
-        for (int which = 0; which < 4; which++) {
+        // T260 P5: the panel the app opens (CoreDialogs::edit_list): panels/avout.toml from the card, its registers resolved by name as the app does (portdiag_reg_by_name), the rows
+        // built by panel_run from the registers (the engine model holds them, at the panel's defaults); RIGHT on the first row steps it as the person does
+        static Panel pan;
+        static char ptext[8192];
+        int pn = r.fs.load("/usb0/cores/diag/panels/avout.toml", ptext, sizeof(ptext) - 1);
+        CHECK(pn > 0);
+        ptext[pn > 0 ? pn : 0] = 0;
+        char perr[160] = "";
+        CHECK(panel_parse(ptext, (uint32_t)(pn > 0 ? pn : 0), &pan, portdiag_reg_by_name, perr, sizeof(perr)) == 0);
+        if (perr[0]) { printf("  avout.toml (%s): %s\n", tag, perr); }
+        panel_defaults(&r.c, pan);
+        int p0 = panel_name_idx(pan.row[0], panel_get(&r.c, pan.row[0]));
+        CHECK(!pan.row[0].action[0] && pan.row[0].n > 1 && p0 >= 0);
+        const char *p0next = pan.row[0].names[(p0 + 1) % pan.row[0].n];
+        struct ListDlg : CoreDialogs {                         // the list on the app's dialogs, as run.cc hands them to a core's code
+            AppDlg *d;
+            bool spawn(void (*)(void *), void *) override { return false; }
+            int ask(const char *, const char *, int) override { return -1; }
+            int choose(const char *, const char *, const char *const *, int, int) override { return -1; }
+            void notice(const char *t, const char *x) override { d->message(t, x); }
+            bool pick(const char *, char *, int) override { return false; }
+            bool stamp(char[16]) override { return false; }
+            int edit_list(const char *t, const char *x, DlgRow *rows, int n, int sel, void (*cb)(void *, int, int), void *ud) override
+            {
+                return d->edit_list(t, x, rows, n, sel, cb, ud);
+            }
+        } ldlg;
+        ldlg.d = &dlg;
+        for (int which = 0; which < 5; which++) {
             std::thread worker([&] {
+                if (which == 4) { panel_run(&r.c, &ldlg, pan, "/usb0/cores/diag"); return; }
                 if (which == 3) { picked = dlg.choose_timed(ct, cx, cch, 3, 30); return; }
-                if (which == 0) { dlg.buttons_timed(cap.pt, cap.px, SVC_BUTTON_YES | SVC_BUTTON_NO, 30); }      // stick2's prompts carry timeout_s = 30
+                if (which == 0) { dlg.buttons_timed(pt, px, SVC_BUTTON_YES | SVC_BUTTON_NO, cap.pto); }   // the prompt with stick2's own timeout_s
                 else if (which == 2) { dlg.buttons_timed(qt, qx, SVC_BUTTON_YES | SVC_BUTTON_NO, 30); }          // T201: a question of avout.toml (timeout_s = 30)
-                else { dlg.message(cap.rt, cap.rx); }
+                else { dlg.message(rt, rx); }
             });
             for (int i = 0; i < 3000 && !dlg.open(); i++) { dlg.service(); std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
             CHECK(dlg.open());
-            CHECK(dlg.view().remaining_s == (which == 0 ? 30 : which == 2 ? 30 : which == 3 ? 30 : 0));
+            CHECK(dlg.view().remaining_s == (which == 0 ? cap.pto : which == 2 ? 30 : which == 3 ? 30 : 0));
             ui_dialog_render(dlg);
             lv_timer_handler();
-            shot(which == 0 ? "prompt" : which == 2 ? "avquestion" : which == 3 ? "avchoice" : "result");
+            shot(which == 0 ? "prompt" : which == 2 ? "avquestion" : which == 3 ? "avchoice" : which == 4 ? "panel" : "result");
             if (which == 3) { dlg.take_key(KEY_DOWN); }       // blue
-            dlg.take_key(which == 0 || which == 2 ? 'y' : KEY_RETURN);
+            if (which == 4) {
+                CHECK(dlg.view().nitems == pan.nrows);
+                dlg.take_key(KEY_RIGHT);
+                CHECK(!strcmp(dlg.view().row_val[0], p0next));
+            }
+            dlg.take_key(which == 0 || which == 2 ? 'y' : which == 4 ? KEY_ESCAPE : KEY_RETURN);
             worker.join();
             dlg.service();
             ui_dialog_render(dlg);
@@ -1148,6 +1179,7 @@ static void diag_pages(const char *out, int cw, int ch, const char *tag)
         CHECK(picked == 1);
     }
 }
+#endif
 
 
 // ---- T187 S1: the list rules (review T1, T2, T6, T7) ----------------------------------------------------------------------------------
@@ -3334,7 +3366,7 @@ int main(int argc, char **argv)
 #ifdef RENDER_APP_C128
     c128_kit_menu(out);
 #endif
-#ifndef RENDER_OWN_APP
+#ifdef RENDER_APP_DIAG
     diag_pages(out, 960, 540, "");
     diag_pages(out, 720, 576, "-576p");
 #endif

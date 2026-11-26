@@ -52,6 +52,9 @@ extern const CoreDesc cpc_desc;                 // cores.h lists the shared app'
 #ifdef TEST_APP_ZX
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #endif
+#ifdef TEST_APP_DIAG
+extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -80,10 +83,12 @@ const CoreDesc *const core_table[] = { &nes_desc, 0 };
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_ZXNEXT)          // the ZX Spectrum Next's app is its own build (run.sh zxnextapp) with its core only
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#elif defined(TEST_APP_DIAG)            // the diag core's app is its own build (run.sh diagapp) with its core only
+const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp) with its core only
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &c64scpu_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &c64scpu_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -260,6 +265,10 @@ int main(int, char **argv)
         static const Mi want[1] = { { "", "" } };                          // the Next has no model or memory setting, so no machine line: nothing to find (the count below is skipped)
         static const char *const none[] = { "ZX Spectrum Next" };
         const int n_none = 1;
+#elif defined(TEST_APP_DIAG)
+        static const Mi want[1] = { { "", "" } };                          // the diag core has no setting, so no machine line: nothing to find (the count below is skipped)
+        static const char *const none[] = { "Port Diagnostics" };
+        const int n_none = 1;
 #elif defined(TEST_APP_NEOGEO)
         static const Mi want[] = { { "SNK Neo Geo", "System type,BIOS" } };
         static const char *const none[1] = { 0 };
@@ -293,7 +302,7 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
-#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT)
+#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_DIAG)
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
 #endif
         CHECK_EQ(nones, n_none);
@@ -372,6 +381,8 @@ int main(int, char **argv)
         CHECK(seen_cbm == 2 && seen_other == 0);                     // the walk saw the 264's two drive image types (.d64, .g64); its .prg, .p00, .bin and .rom mount nothing
 #elif defined(TEST_APP_ZXNEXT)
         CHECK(seen_cbm == 0 && seen_other == 1);                     // the walk saw the Next's SD card image (.img: Mount SD image and reset), no CBM image
+#elif defined(TEST_APP_DIAG)
+        CHECK(seen_cbm == 0 && seen_other == 0);                    // the diag core has no file type
 #elif defined(TEST_APP_NEOGEO)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the Neo Geo's .neo is run, not mounted: no image the walk counts
 #else
@@ -507,10 +518,12 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_ZXNEXT)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_DIAG)
+        CHECK(n205 == 1);
 #elif defined(TEST_APP_NEOGEO)
         CHECK(n205 == 1);
 #else
-        CHECK(n205 == 5);                                          // T239.5 D13: the shared table (apple2, snes, c64scpu, portdiag, the made-up core); each moved core's row is its app's unit
+        CHECK(n205 == 4);                                          // T239.5 D13: the shared table (apple2, snes, c64scpu, the made-up core); each moved core's row is its app's unit
 #endif
         printf("T205: %d cores walked\n", n205);
     }
@@ -542,6 +555,8 @@ int main(int, char **argv)
         static const char *const own[] = { "C264" };                         // the drive library's write-back (the drive window is the core's own block drive_a)
 #elif defined(TEST_APP_ZXNEXT)
         static const char *const own[] = { 0 };                              // the Next's SD image is written through the sector mailbox as the card asks: no flush of its own to hand over
+#elif defined(TEST_APP_DIAG)
+        static const char *const own[] = { 0 };                              // the diag core has no medium
 #elif defined(TEST_APP_NEOGEO)
         static const char *const own[] = { "NEO_" };                         // the backup RAM's and the memory card's save
 #else
@@ -570,7 +585,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -579,8 +594,6 @@ int main(int, char **argv)
     d = testcore::desc; d.video.scale = 4; CHECK(desc_check(&d) && strstr(desc_check(&d), "scale"));
     d = testcore::desc; d.video.x0 = 1500; CHECK(desc_check(&d) && strstr(desc_check(&d), "fit"));
     d = testcore::desc; d.freeze.mask = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze"));
-    { CoreDesc d = portdiag_desc; d.menu_first = false; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }      // T175: only a core with no machine may have no PAUSED bit
-    { CoreDesc d = portdiag_desc; CHECK(!desc_check(&d)); d.freeze.timeout_ms = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }
     static const Setting bad_def[1] = { { "X", testcore::av, 2, 5, WHEN_LIVE, "test.set_a" } };
     d = testcore::desc; d.settings = bad_def; d.nsettings = 1; CHECK(desc_check(&d) && strstr(desc_check(&d), "default"));
     static const RomSpec bad_rom[1] = { { "R", { "R.ROM", 0 }, { 0 }, true, 0, "test.put" } };
@@ -839,6 +852,14 @@ int main(int, char **argv)
     CHECK(!desc_has_capability(&atari800_desc, "drive_a") && !desc_has_capability(&atari800_desc, "iec"));    // no Commodore drive on an Atari
     CHECK(!desc_has_capability(&atari800_desc, "si") && !desc_has_capability(&atari800_desc, "sio2"));         // whole names, not prefixes
     }
+#elif defined(TEST_APP_DIAG)
+    // T175: a core with no machine and no picture (the diag core): only such a core may have no PAUSED bit, and its freeze waits for nothing
+    CHECK(!desc_check(&portdiag_desc));
+    { CoreDesc d = portdiag_desc; d.menu_first = false; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }
+    { CoreDesc d = portdiag_desc; CHECK(!desc_check(&d)); d.freeze.timeout_ms = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }
+    CHECK(portdiag_desc.menu_first);
+    CHECK_EQ((int)portdiag_desc.video.w, 0);
+    CHECK_STR(portdiag_desc.core_id, "diag");
 #elif defined(TEST_APP_NEOGEO)
     // T212 D8: the pad maps stand in F5 Input (the SNES's and the NES's: the shared unit desc)
     CHECK(task_place(&neogeo_desc, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
@@ -1093,11 +1114,12 @@ int main(int, char **argv)
     golden(&amiga_desc, "amiga");
 #elif defined(TEST_APP_ATARI800)
     golden(&atari800_desc, "atari800");
+#elif defined(TEST_APP_DIAG)
+    golden(&portdiag_desc, "portdiag");
 #else
     golden(&apple2_desc, "apple2");
     golden(&snes_desc, "snes");
     golden(&c64scpu_desc, "c64scpu");
-    golden(&portdiag_desc, "portdiag");
     golden(&testcore::desc, "test");
 #endif
 
@@ -1155,7 +1177,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

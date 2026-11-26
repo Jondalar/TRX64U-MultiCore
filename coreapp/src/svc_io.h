@@ -1,6 +1,7 @@
 // Base 3.3, group `io` (T239.3 section 5; boundary rows 4.5, 8.2, 11.4): the base's own hardware abstraction, CoreIo (io.h), handed to libraries. Each member is a window of
 // the running core's hardware with offsets relative to that window. This header names no register of any core: the registers are the core's own, named in its API TOML (D8)
-// and in the constants header of the library that uses them. It joins LibApi as `const SvcIo *io`; the group is null on a core without a register window (the diag core).
+// and in the constants header of the library that uses them. It joins LibApi as `const SvcIo *io`; the group is null without the services, without a core context that
+// has a CoreIo, and on a core whose descriptor sets menu_first (a core with no machine, desc.h): LibLoader::set_ctx.
 //
 // Contracts of the whole group:
 //   - No call takes a CoreCtx.

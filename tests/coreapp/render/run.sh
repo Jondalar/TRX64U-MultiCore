@@ -7,7 +7,7 @@
 set -euo pipefail
 # T239.5 D13: the cores that moved to an app of their own are render builds of their own (RENDER_OWN_APP, RENDER_APP_<CORE>: render.cc takes that core's cases only, its walks
 # visit that core alone; srclist.sh compiles its library against its own driver table and no other core's). The shared bench builds none of them; each runs in its core's lane.
-RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128"
+RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128 diag"
 if [ "${1:-}" = --own ]; then echo "$RENDER_OWN"; exit 0; fi
 R="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$R/../../.." && pwd)"
@@ -16,9 +16,6 @@ HA="$ROOT/host-app/software/hostapp"
 L="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl"   # ULTIMATE_SW points at another copy
 OUT="${1:-/tmp/coreapp-render}"; mkdir -p "$OUT"
 B="$(mktemp -d)"; T="$B"; CXX="${CXX:-c++}"
-# the diag core's example tests are record 8 of diag.cor (T175): the real packer makes the record, the application's installer writes it (tests/coreapp/diag_examples.h)
-python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$B/diag_files.rec" > /dev/null
-export DIAG_FILES_REC="$B/diag_files.rec"
 # the record of a core with a Timewarp page and a Monitor page (golden/desc_cut.toml, T239.3 P1-8), compiled by the real tool; render.cc reads it over the NES (argv[2], the NES's build)
 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1] + "/tools"); import descrec; open(sys.argv[3], "wb").write(descrec.compile_text(open(sys.argv[2]).read()))' "$ROOT" "$ROOT/tests/coreapp/golden/desc_cut.toml" "$B/desc_cut.bin"
 # T100 D14: the render is a unit (tests/ctlcache.sh): what a unit read - every source and header the compile opens, LVGL's headers,
@@ -50,7 +47,9 @@ t_render() { build "$B/render_$RNAME" "$RDEFS ${CHEAP_DEBUG:-}"; "$B/render_$RNA
 render_one() {   # render_one shared|<core>: one build as a unit (the shared bench keeps its unit name render_coreapp)
   RNAME="$1"; RDEFS=""
   srcs_of "$1" || exit 1
-  [ "$1" = shared ] || RDEFS="-DRENDER_OWN_APP=1 -DRENDER_APP_$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')=1 -DRENDER_APP_NAME=\"$1\""
+  # an own build's render.cc may name its core's registers: RENDER_OWN_DRVTAB is the driver table of that core's own TOML A (srclist.sh made it), for render.cc to include
+  # by path before anything else (the shared sources of the same command line keep the shared table of -I"$B/drv"); its library's headers are found last (-idirafter)
+  [ "$1" = shared ] || RDEFS="-DRENDER_OWN_APP=1 -DRENDER_APP_$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')=1 -DRENDER_APP_NAME=\"$1\" -DRENDER_OWN_DRVTAB=\"$OWN_DIR/$1/drv/drvtab.h\" -idirafter $ROOT/cores/$1/app/lib"
   CC_KEYEXTRA="lvgl=$LK srcs=$SRCS incs=$CORE_INCS defs=$RDEFS cheap=${CHEAP_DEBUG:-}"
   [ "$1" != nes ] || CC_KEYEXTRA="$CC_KEYEXTRA cut=$(shasum -a 256 "$B/desc_cut.bin" | cut -c1-16)"
   if [ "$1" = shared ]; then cc_block render_coreapp t_render build need_objs; else cc_block "render_coreapp_$1" t_render build need_objs; fi

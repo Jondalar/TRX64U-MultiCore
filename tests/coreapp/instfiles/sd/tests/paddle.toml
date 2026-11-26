@@ -1,0 +1,255 @@
+# Paddle charge time per potentiometer line (X1, Y1, X2, Y2). Paddles in both ports; each end is measured per comparator bit.
+# PADDLE_DIS high discharges the pot capacitors (T47 hypothesis H), so each measurement discharges (dis = 1), waits, lets go (dis = 0) and times the comparator.
+# The comparator-to-pot mapping is a hypothesis (T47): this test measures it. The numbers in the evals are first guesses.
+kind = "test"
+
+[test]
+name = "Paddle charge time"
+id = "paddle"
+version = 1
+needs = ["paddle"]
+
+[[prompt]]
+id = "left"
+text = "Plug paddles into port 1 and port 2 and turn all of them fully to the LEFT. Then press RETURN."
+timeout_s = 120
+
+[[prompt]]
+id = "right"
+text = "Turn all paddles fully to the RIGHT. Then press RETURN."
+timeout_s = 120
+
+[[step]]
+op = "wait_user"
+prompt = "left"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [0]
+timeout_us = 40000
+into = "t_left_x1"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [1]
+timeout_us = 40000
+into = "t_left_y1"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [2]
+timeout_us = 40000
+into = "t_left_x2"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [3]
+timeout_us = 40000
+into = "t_left_y2"
+
+[[step]]
+op = "wait_user"
+prompt = "right"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [0]
+timeout_us = 40000
+into = "t_right_x1"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [1]
+timeout_us = 40000
+into = "t_right_y1"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [2]
+timeout_us = 40000
+into = "t_right_x2"
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait"
+us = 2000
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "time_to_flip"
+cmp = [3]
+timeout_us = 40000
+into = "t_right_y2"
+
+[[eval]]
+id = "left_x1"
+value = "t_left_x1"
+min_us = 30
+max_us = 30000
+verdict = "x1 left end: the comparator flips"
+fail = "x1 left end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "left_y1"
+value = "t_left_y1"
+min_us = 30
+max_us = 30000
+verdict = "y1 left end: the comparator flips"
+fail = "y1 left end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "left_x2"
+value = "t_left_x2"
+min_us = 30
+max_us = 30000
+verdict = "x2 left end: the comparator flips"
+fail = "x2 left end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "left_y2"
+value = "t_left_y2"
+min_us = 30
+max_us = 30000
+verdict = "y2 left end: the comparator flips"
+fail = "y2 left end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "right_x1"
+value = "t_right_x1"
+min_us = 30
+max_us = 30000
+verdict = "x1 right end: the comparator flips"
+fail = "x1 right end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "right_y1"
+value = "t_right_y1"
+min_us = 30
+max_us = 30000
+verdict = "y1 right end: the comparator flips"
+fail = "y1 right end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "right_x2"
+value = "t_right_x2"
+min_us = 30
+max_us = 30000
+verdict = "x2 right end: the comparator flips"
+fail = "x2 right end: charge time outside 30 .. 30000 us"
+
+[[eval]]
+id = "right_y2"
+value = "t_right_y2"
+min_us = 30
+max_us = 30000
+verdict = "y2 right end: the comparator flips"
+fail = "y2 right end: charge time outside 30 .. 30000 us"
+
+[result]
+format = "toml"

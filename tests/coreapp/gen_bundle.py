@@ -5,8 +5,8 @@ board are tested against what the tools write (T104.1 D9, D12).
     gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
                               merged.cor (the description with the menu of the library gamma merged in), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
-                              diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
-                              nofiles.cor (the same core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
+                              instfiles.cor (a fixture core with record 8: tests/coreapp/instfiles/sd, earlier versions from tests/coreapp/instfiles/old),
+                              nofiles.cor (the same fixture core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
                               data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
                               desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17), desc_keys.bin (base 3.3: key rows, windows, job tasks), desc_toml_a.bin (P1-1: TOML A, record version 7), desc_places.bin (D32: routes and places)
 """
@@ -80,11 +80,12 @@ def main(out):
     data = b"\xFF" * 8 + sync + idcode + struct.pack(">I", 0x20000000) * 20
     bit = data + bytes(-len(data) % 4)
     open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=[alpha]))
-    # T175: the Port Diagnostics core carries its example tests as record 8 (cores/diag/core.toml install_dir / install_old)
-    diag = os.path.join(here, "..", "..", "cores", "diag")
-    files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
-    open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
-    open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
+    # T175, T260 D6: record 8 (the files a core installs on the card, coreapp/src/instfiles.cc) on a fixture core "instfiles": tests/coreapp/instfiles/sd (the files) and old (earlier shipped texts). No core
+    # of the table carries record 8 (T260 D6: the diag core's tests and presets are a folder of its lane's delivery)
+    fx = os.path.join(here, "instfiles")
+    files = C.collect_files(os.path.join(fx, "sd"), os.path.join(fx, "old"))
+    open(os.path.join(out, "instfiles.cor"), "wb").write(C.pack_large("instfiles", "Install Files", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
+    open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("instfiles", "Install Files", "0.1", bit, bytes(0x60 for _ in range(64))))
     # record 8 that installs a sub-app into the core's own apps folder (tests/coreapp/test_firststart.cc)
     open(os.path.join(out, "subapp.cor"), "wb").write(C.pack_large("subapp", "Sub App Core", "0.1", bit, bytes(0x60 for _ in range(64)), files=[("apps/probe.u2a", u2a("probe", kind=2), [])]))
     # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them

@@ -42,6 +42,9 @@ extern const CoreDesc cpc_desc;                 // cores.h lists the shared app'
 #ifdef TEST_APP_ZX
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #endif
+#ifdef TEST_APP_DIAG
+extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -82,7 +85,16 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#ifdef TEST_APP_DIAG
+    // ---- a core without the setting (the diag core: T239.5 D13, its app's unit diag_hotkeys): the line says so, nothing changes
+    {
+        char line[64];
+        Rig z(&portdiag_desc, false);
+        CHECK(!hk_swap_joystick(&z.c, line, sizeof(line))); CHECK(strstr(line, "No joystick swap"));
+        CHECK(!hk_step_volume(&z.c, 1, line, sizeof(line)) || true);
+    }
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -182,14 +194,7 @@ int main()
         g.io.key(KJ, false); g.io.key(CTRL, false);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
-    // ---- a core without the setting: the line says so, nothing changes
-    {
-        char line[64];
-        Rig z(&portdiag_desc, false);
-        CHECK(!hk_swap_joystick(&z.c, line, sizeof(line))); CHECK(strstr(line, "No joystick swap"));
-        CHECK(!hk_step_volume(&z.c, 1, line, sizeof(line)) || true);
-    }
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)
     // ---- the action key goes down before the modifier completes: it fires once, when the modifier is complete
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -235,7 +240,7 @@ int main()
         uint32_t all = 0; first_fire(g, lp, 0, 100, &all); CHECK_EQ(all, 0u);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -304,11 +309,12 @@ int main()
         const Row rows[] = { { &zxnext_desc, "zxnext", true } };
 #elif defined(TEST_APP_NEOGEO)
         const Row rows[] = { { &neogeo_desc, "neogeo", true } };
+#elif defined(TEST_APP_DIAG)
+        const Row rows[] = { { &portdiag_desc, "portdiag", false } };
 #else
         const Row rows[] = { { &c64scpu_desc, "c64scpu", true },
                              { &apple2_desc, "apple2", true },
-                             { &snes_desc, "snes", true },
-                             { &portdiag_desc, "portdiag", false } };
+                             { &snes_desc, "snes", true } };
 #endif
         for (const Row &r : rows) {
             CHECK_EQ(r.d->hotkeys != 0, r.has);
