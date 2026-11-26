@@ -6,7 +6,7 @@
 #       --bit-commit <sha> --app-commit <sha> --cor <file> [--cor <file> ...] [--out <dir>] [--name <base>]
 #       [--update <file.cfw> --update-ue2 <file.ue2>]   the update file the pipeline already built
 #       [--u2a <file.u2a> ...]                          applications every core reads from /cores/apps/ (T180 D9: unzip.u2a)
-#       [--sd <dir>]                                    the package's SD/ tree (files the core lanes deliver for the card, SD/cores/<id>/...): packed as SD.zip
+#       [--sd <dir>]                                    the package's SD/ tree (files the core lanes deliver for the card, SD/cores/<id>/...): packed as SD.zip (entries cores/<id>/..., without the SD/ level)
 #       [--release]                                     the bundle of a release (T239.5 D21): every core whose TOML B says [app] release = false (tools/core_toml.py
 #                                                       pre-release-only) is left out - its .cor and its SD/cores/<id>/ folder; without it they stay
 #       [--txu <file.txu>]                              the host's own update (T152) for boards already on a MultiCore host
@@ -87,7 +87,7 @@ for c in "${CORS[@]}"; do
     cp "$c" "$D/$(basename "$c")"
 done
 
-# T239.5 D21: the SD/ tree of the package as one SD.zip (a pre-release holds flat files only; unzipped at the root of the card it puts SD/cores/<id>/ in place), without the folder of a core left out above
+# T239.5 D21: the SD/ tree of the package as one SD.zip (a pre-release holds flat files only; the entries are cores/<id>/..., unzipped at the root of the medium whose cores/ folder holds the .cor it puts cores/<id>/ beside it), without the folder of a core left out above
 if [ -n "$SD" ] && [ -d "$SD" ]; then
     python3 - "$SD" "$D/SD.zip" "$NOREL" <<'PY'
 import os, sys, zipfile
@@ -103,7 +103,7 @@ for d, _, fs in os.walk(sd):
 if files:
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for rel in sorted(files):
-            zi = zipfile.ZipInfo("SD/" + rel, date_time=(2026, 1, 1, 0, 0, 0))
+            zi = zipfile.ZipInfo(rel, date_time=(2026, 1, 1, 0, 0, 0))
             zi.compress_type = zipfile.ZIP_DEFLATED
             zi.external_attr = 0o644 << 16
             z.writestr(zi, open(os.path.join(sd, rel), "rb").read())

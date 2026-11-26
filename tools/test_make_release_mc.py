@@ -133,8 +133,8 @@ class ReleaseBundleTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr[-2000:])
         d = os.path.join(self.out, "trx64mc-main-deadbeef")
         self.assertTrue(os.path.exists(os.path.join(d, "diag.cor")))
-        self.assertIn("SD/cores/diag/tests/avprobe.toml", self._sd_names(d))
-        self.assertIn("SD/cores/vc20/extra/x.toml", self._sd_names(d))
+        self.assertIn("cores/diag/tests/avprobe.toml", self._sd_names(d))
+        self.assertIn("cores/vc20/extra/x.toml", self._sd_names(d))
         txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
         self.assertIn("SD.zip", txt)
         self.assertNotIn("by FTP", txt.split("Port Diagnostics", 1)[-1][:3000])
@@ -146,9 +146,17 @@ class ReleaseBundleTest(unittest.TestCase):
         d = os.path.join(self.out, "trx64mc-main-deadbeef")
         self.assertFalse(os.path.exists(os.path.join(d, "diag.cor")))
         self.assertTrue(os.path.exists(os.path.join(d, "vc20.cor")))                 # another core is unchanged
-        self.assertEqual(self._sd_names(d), ["SD/cores/vc20/extra/x.toml"])         # the other core's SD files stay, diag's go
+        self.assertEqual(self._sd_names(d), ["cores/vc20/extra/x.toml"])         # the other core's SD files stay, diag's go
         self.assertNotIn("avprobe", open(os.path.join(d, "SHA256SUMS")).read())
         self.assertNotIn("diag.cor", open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read())
+
+    def test_only_a_core_with_the_sd_key_delivers_a_folder(self):
+        # the lane delivers cores/<id>/<[app] sd> only when the key is set: the A1200's sd/ holds the SD controller's RTL
+        def sdk(c):
+            return subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "core_toml.py"), "sdk", c, "sd"], capture_output=True, text=True).stdout.strip()
+        self.assertEqual(sdk("diag"), "sd")
+        self.assertTrue(os.path.isdir(os.path.join(ROOT, "cores", "amiga1200", "sd")))
+        self.assertEqual(sdk("amiga1200"), "")
 
     def test_release_bundle_without_any_sd_file_has_no_sd_zip(self):
         diag, sd = self._diag_inputs()

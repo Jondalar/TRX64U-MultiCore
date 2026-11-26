@@ -315,8 +315,7 @@ names = sorted(os.listdir(out))
 for f in list(names):
     if os.path.isdir(os.path.join(out, f)):       # T239.5 D21: SD/ (the lanes' SD files): every file of it by its path below the package
         names.remove(f)
-        names += sorted(os.path.join(d, x) for d, _, xs in os.walk(os.path.join(out, f)) for x in xs)
-names = [os.path.relpath(n, out) if os.path.isabs(n) else n for n in names]
+        names += sorted(os.path.relpath(os.path.join(d, x), out) for d, _, xs in os.walk(os.path.join(out, f)) for x in xs)
 for f in names:
     if (f.endswith(".txt") and f.startswith("wns.")) or f in ("layers.json", "trxapps_commit"):
         continue

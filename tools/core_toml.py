@@ -94,7 +94,7 @@ SCHEMA = {
 # core.toml (cores/<id> is). In [app]: desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
 # (coreapp/src/bundle.cc). Absent file, absent key or false: the file rests in the tree (test_descgen keeps it equal to the C tables), the .cor carries no record and the core runs on
 # its compiled-in descriptor. True needs the file.
-SDK_SCHEMA = {"release": "bool", "desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
+SDK_SCHEMA = {"release": "bool", "sd": "str", "desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
 SDK_TABLES = ("app", "library", "sizes")
 HEAP_DEFAULT = 0x7A0000
 HEAP_MIN = 0x10000

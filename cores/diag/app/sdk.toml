@@ -8,6 +8,8 @@ name = "diag"
 desc_record = true
 # T239.5 D21: a core for us, not for the user: every package and pre-release carries diag.cor and SD/cores/diag/, the release bundle (tools/make_release_mc.sh --release) neither
 release = false
+# the folder of cores/diag (next to app/) whose files the lane delivers for the SD card (ci/lane.sh deliver: SD/cores/diag/ of the package); only a core that sets this delivers any
+sd = "sd"
 # the symbol of the core's descriptor (the library diag below defines it); the core table of this app holds this core only
 desc = "portdiag_desc"
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml) that the shared drivers (hw.cc) name: the host's mode

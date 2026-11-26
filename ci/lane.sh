@@ -189,8 +189,13 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
       d="$HANDOFF/deliver-$id"; rm -rf "$d"; mkdir -p "$d/docs"
       cp "$out/cor/$id.cor" "$out/stamped/$id.elf" "$d/"
       [ ! -f "$ROOT/cores/$id/rtl/NOTICE" ] || cp "$ROOT/cores/$id/rtl/NOTICE" "$d/docs/NOTICE-$id"
-      # T260 D6: the core's files for the SD card (cores/<id>/sd: tests, presets, panels) are a folder of the delivery, no record of the .cor: SD/cores/<id>/ here is /SD/cores/<id>/ on the card
-      if [ -d "$ROOT/cores/$id/sd" ]; then mkdir -p "$d/SD/cores/$id"; cp -R "$ROOT/cores/$id/sd/." "$d/SD/cores/$id/"; fi
+      # T260 D6: the core's files for the SD card are a folder of the delivery, no record of the .cor: only a core whose TOML B sets [app] sd = "<folder>" delivers it (cores/<id>/<folder>),
+      # as SD/cores/<id>/ here; any other folder of the core (RTL, constraints) is never taken
+      sdf="$(python3 -I "$ROOT/tools/core_toml.py" sdk "$id" sd)"
+      if [ -n "$sdf" ]; then
+        [ -d "$ROOT/cores/$id/$sdf" ] || die "$id: [app] sd = \"$sdf\", but cores/$id/$sdf is no folder"
+        mkdir -p "$d/SD/cores/$id"; cp -R "$ROOT/cores/$id/$sdf/." "$d/SD/cores/$id/"
+      fi
       cp "$ROOT/docs/manual/11-cores.md" "$ROOT/docs/manual/12-roms.md" "$d/docs/"
       (cd "$d" && sha256sum "$id.cor" "$id.elf" $( [ ! -d SD ] || find SD -type f | sort ) | tee SHA256SUMS) ;;
     *) die "a core lane has no step $step" ;;

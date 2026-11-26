@@ -7,7 +7,7 @@ would overwrite it when copied over a medium, or put a file of ours where a pers
   - a folder beside a .cor of the same name (<name>.cor and <name>/),
   - a <name>.cfg beside its .cor (the settings are written by the core, not shipped).
 The top-level folder SD/ is exempt (T239.5 D21): it is the files a core lane delivers for the SD card (SD/cores/<id>/tests, presets, panels), never a core's settings,
-ROMs or saves; a whole package carries it, the release bundle none (tools/make_release_mc.sh packs it as SD.zip into a pre-release only).
+ROMs or saves; a whole package carries it; tools/make_release_mc.sh packs it as SD.zip (entries cores/<id>/...) into a pre-release and a release bundle, minus the cores with release = false.
 
   python3 tools/check_package_layout.py <directory | .zip> [...]     exit 1 and the names when a package holds one
   python3 tools/check_package_layout.py selftest
@@ -73,8 +73,8 @@ def selftest():
     bad = [(["cores/apple2/roms/apple2e.rom", "cores/apple2.cor"], "cores/apple2/roms/apple2e.rom"),     # a core folder under cores/
            (["vc20.cor", "vc20/", "vc20/vc20.cfg"], "vc20/"),                                          # a folder beside its .cor
            (["pkg/vc20.cor", "pkg/vc20.cfg"], "pkg/vc20.cfg"),                                         # the settings beside the .cor
-           (["pkg/CORES/x/"], "pkg/CORES/x/"),
-           (["top/SD/cores/x/a.toml"], "top/SD/cores/x/a.toml")]                                       # SD/ is exempt at the top of a package only                                                         # the case of "cores" does not matter
+           (["pkg/CORES/x/"], "pkg/CORES/x/"),                                                            # the case of "cores" does not matter
+           (["top/SD/cores/x/a.toml"], "top/SD/cores/x/a.toml")]                                       # SD/ is exempt at the top of a package only
     rc = 0
     for names in ok:
         v = violations(names)

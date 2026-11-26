@@ -262,7 +262,7 @@ PARAS = {
     ],
     "diag": [
         "Needs no ROM file. The core has no machine: it measures the joystick and paddle ports from test files (`.toml`, in `cores/diag/tests/` on the stick or the card).",
-        "The tests, panels and presets are not in `diag.cor`: they are in `SD.zip` of this pre-release (the folder `SD/cores/diag/` of the CI package). Unzip it at the root of the SD card or the stick, so that `tests/`, `panels/` and `presets/` land in `/SD/cores/diag/`.",
+        "The tests, panels and presets are not in `diag.cor`: they are in `SD.zip` of this pre-release (the folder `SD/cores/diag/` of the CI package). Unzip it at the root of the medium whose `cores/` folder holds `diag.cor` (the SD card or the stick): the entries are `cores/diag/...`, so `tests/`, `panels/` and `presets/` land in `cores/diag/` beside the core, where it looks for them.",
         "A new test is one more `.toml` file in `cores/diag/tests/`; it needs no new build.",
         "A test says what to plug in, what to press and what to measure; the result is written next to it in `cores/diag/results/` as a `.toml` and a readable `.txt`.",
     ],
@@ -389,7 +389,9 @@ def render(a, cors, bit_len, alen, dest):
     for f in u2as:
         w("| `%s` | an application for every core: **Unzip here** on a `.zip` in the F3 browser (section 4) |" % f)
     if os.path.exists(os.path.join(a.cor_dir, "SD.zip")):   # T239.5 D21: the files the core lanes deliver for the card (diag's tests, presets, panels)
-        w("| `SD.zip` | the files cores deliver for the SD card, `SD/cores/<core>/...` (the tests, presets and panels of the diag core): unzip it at the root of the card |")
+        import zipfile
+        sdc = sorted({e.split("/")[1] for e in zipfile.ZipFile(os.path.join(a.cor_dir, "SD.zip")).namelist() if e.startswith("cores/") and e.count("/") >= 2})
+        w("| `SD.zip` | the files of the cores %s for the SD card, entries `cores/<core>/...`: unzip it at the root of the medium whose `cores/` folder holds the `.cor` files |" % ", ".join("`%s`" % c for c in sdc))
     w("| `SHA256SUMS` | checksum of every file above |")
     w("")
     w("The installer writes two things, nothing else in the flash changes:")
