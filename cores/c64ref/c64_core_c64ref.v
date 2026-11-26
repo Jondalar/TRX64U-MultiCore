@@ -90,7 +90,8 @@ module c64_core_c64ref #(
     wire  [7:0] io_dout = 8'd0;
     wire       cram_we = 1'b0;
     wire  [3:0] cram_wdata = 4'd0;
-    wire       tape_read = 1'b1, tape_sense_n = 1'b1, tape_motor_n, tape_write;
+    wire       tape_read = 1'b1, tape_sense_n = 1'b1;
+    wire       tape_motor_n, tape_write;
     wire [31:0] turbo_stat, turbo_w1, turbo_w2;
     wire [23:0] reu_cmd_addr;
     wire        reu_cmd_we, reu_cmd_valid;

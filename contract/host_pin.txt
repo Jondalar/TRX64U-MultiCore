@@ -1,7 +1,7 @@
 # T94 D13: the host's own content, pinned. tools/host_pin.sh --update after an approved
 # host change (host:, shared: and the reference core of host/layers.txt); the lint
 # stage checks it. The ids are hashed from the working tree, staged or not.
-ec6c03cba9d3a72200413b5b563afa72c8940425 cores/c64ref/c64_core_c64ref.v
+0abed5e912919dd9c52ac5e823477235c7acf0e4 cores/c64ref/c64_core_c64ref.v
 e5a249dbff0f504fb90e6b46d65b6167bbf7e743 cores/c64ref/c64_core_ooc.xdc
 13187dfc0fc550820bc4aa329d596cef50761a72 cores/c64ref/c64_mem_c64ref.v
 76a2fc1536909c939cb432862cfc976c638a7313 cores/c64ref/c64_top_c64ref.v
