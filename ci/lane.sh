@@ -105,14 +105,12 @@ core:?*)
       fi
       printf '%s\n' "gateware=$gw" "toml_a=$ta" "app=$ap" > "$out/changed"
       say "the gateware: $gw, its TOML A: $ta, its app: $ap (base ${base:-none})" ;;
-    # 4: has the gateware changed, is the TOML A complete (against the RTL: tools/rtl_check.py through tests/rtl_check, which holds each moved core's case with its
-    # design parameters - the VIC-20's partial is case 3, the A1200's flat design its own case - and runs every case, the host's and the fixtures' too), does the app change with it
+    # 4: has the gateware changed, does the app change with it. The TOML A against the RTL is not run here: tests/rtl_check runs once per push in the lint's tree
+    # group (T264 S3: tools/rtl_check.py is an optional tool); T264's list compare takes this place.
     compare)
       [ -f "$out/changed" ] || die "no result of the step changed"
       gw="$(sed -n 's/^gateware=//p' "$out/changed")"; ta="$(sed -n 's/^toml_a=//p' "$out/changed")"
-      say "the TOML A against the RTL"
-      python3 -I "$ROOT/tests/rtl_check/test_rtl_check.py"
-      if [ "$gw" = yes ] && [ "$ta" = no ]; then say "the gateware changed and its TOML A did not: the app is the same (the TOML A holds against the new RTL, above)"; fi
+      if [ "$gw" = yes ] && [ "$ta" = no ]; then say "the gateware changed and its TOML A did not: the app is the same"; fi
       if [ "$ta" = yes ]; then say "the TOML A changed: the app is built again against it (steps 5 and 6)"; fi ;;
     # 5: what must be in the app: the driver table and the I/O fragment of the TOML A (with the base blocks the TOML B names), the library table of the TOML B,
     # generated from the SDK package and not linked
