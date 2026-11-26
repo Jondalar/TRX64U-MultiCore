@@ -311,4 +311,14 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   every mode); `hdmi_out` expected status version 1. `flash_boot` ran into its 900 s limit: on the builder in the sim image it takes
   1,484 s, 27 cases, 158 ok, 0 FAIL, ALL PASS, among them the 11 guard cases (S1, S2 with its control ROM, S6, the 100T distances; the
   guard adds 1.9 % to a 64 KiB boot: 72,903 us against 71,519 us); its limit is now 3,600 s.
+- **Board, 2026-11-26 (S7 for the host menu, Alex's photo):** the host menu on Alex's Sony over the SCART RGB cable, colours right, and on
+  HDMI at the same time. Host `35da0749` (c64ref restored, D13; WNS +0.174 ns, pb_l1 13,735 of 17,400 LUT under floorplan B) with
+  the null core (WNS +0.200 ns), both built by hand on the builder from this branch (`ci/bitstream.sh c64u --lane host` and
+  `--lane core:null` in `vivado-env:2024.1` with `--env-file ci/vivado.env`), loaded into SRAM over JTAG, `hostapp.app` of this branch
+  started by `tools/trxdbg.sh boot staged` with the menu marker set in DDR2 (`handover.h` 0x03EFF000 + 0xFF8, "MENU" and its
+  complement), so the board did not boot on to its default entry. Nothing written to flash. Seen on the way: `c64ref_full.bit` alone
+  shows no menu (c64ref's IO block answers "C64U", the host app takes the pixel layer only from a core that answers "TRX2",
+  `trx_io.cc` `trx_io_caps`); without `ci/vivado.env` the floorplan is A and the host does not place (pb_l1 105 %). Known flaw,
+  left as is (Alex: "Das ist mir total egal"): the right edge of the canvas is cut on RGB, with black beside it on the screen. Open:
+  S7 with a DFX core (VC-20) - the DFX cores are not yet built against this host.
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
