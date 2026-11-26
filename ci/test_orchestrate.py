@@ -24,9 +24,11 @@ def kv_of(out):
     return dict(l.split("=", 1) for l in out.strip().splitlines() if "=" in l)
 
 
-def dispatch(plan_path, *a):
-    """ci/dispatch.py over a plan: its $GITHUB_OUTPUT lines as a dict (the JSON values decoded)."""
-    env = {k: v for k, v in os.environ.items() if k != "GITHUB_STEP_SUMMARY"}
+def dispatch(plan_path, *a, base_cor=None):
+    """ci/dispatch.py over a plan: its $GITHUB_OUTPUT lines as a dict (the JSON values decoded); base_cor: the directory of the base's .cor (D24)"""
+    env = {k: v for k, v in os.environ.items() if k not in ("GITHUB_STEP_SUMMARY", "CI_BASE_COR")}
+    if base_cor:
+        env["CI_BASE_COR"] = base_cor
     r = subprocess.run([sys.executable, os.path.join(HERE, "dispatch.py"), plan_path, "--tier", "0", *a], capture_output=True, text=True, cwd=ROOT, env=env)
     kv = kv_of(r.stdout)
     return r.returncode, {k: v if v in ("true", "false") or k in ("sims_tier", "host_emu_core") else json.loads(v) for k, v in kv.items()}, r.stdout + r.stderr
@@ -133,6 +135,23 @@ with tempfile.TemporaryDirectory() as td:
     cp = mk("core_only.json", core_only)
     rc2, d, dout = dispatch(cp)
     want("a core lane of another core: no host menu lane", rc2 == 0 and other in d["cores"] and "vc20" not in d["cores"] and d["host"] == "false", dout)
+    # T239.5 D24: a package run (scope full) starts the lane the plan touches and a lane whose .cor the base's package lacks; the others come from that package
+    def full_core(p):
+        core_only(p)
+        p["scope"] = "full"
+    fp = mk("full_core.json", full_core)
+    bdir = os.path.join(td, "base-cor")
+    os.makedirs(bdir, exist_ok=True)
+    missing = next(c for c in own if c != other)
+    for c in own:
+        if c != missing:
+            open(os.path.join(bdir, c + ".cor"), "wb").write(b"x")
+    rc2, d, dout = dispatch(fp, base_cor=bdir)
+    want("D24 package run: the touched lane and the one missing in the base's package run, nothing else",
+         rc2 == 0 and d["package"] == "true" and sorted(d["cores"]) == sorted({other, missing}) and sorted(d["from_base"]) == sorted(set(own) - {other, missing}), dout)
+    want("D24 package run: lint legs only for the lanes that run", rc2 == 0 and sorted(g for g in d["lint_groups"] if g.startswith("core:")) == sorted("core:" + c for c in {other, missing}), dout)
+    rc2, d, dout = dispatch(fp)
+    want("D24 package run without the base's package: every lane runs", rc2 == 0 and sorted(d["cores"]) == sorted(own) and d["from_base"] == [], dout)
 
     # T239.5 D13: --matrix no: the work order names the cor legs only, no core with an app of its own
     rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no", "--matrix", "no")

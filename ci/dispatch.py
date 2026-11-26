@@ -19,8 +19,8 @@ Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1): no l
       prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, lane_targets (host, core:<id> or large:<id>: the bitstream targets of this run's lanes), cor_legs (the
       targets of the cor jobs), order_targets (the work order's targets: ci/orchestrate.py order_cors), sim_owners (JSON lists), sims_tier, host_emu_core (the core the host
       menu lane's emulator test runs), and sdk, host, package, host_bits, update, apptests (true or false; host_bits: the matrix job host-bits builds and keeps the host
-      gateware, T265 P5; update: the update files are built; apptests: the job apptests runs); and appends the matrix of this run (lanes from top to bottom, the steps
-      from left to right) to $GITHUB_STEP_SUMMARY when set
+      gateware, T265 P5; update: the update files are built; apptests: the job apptests runs); and appends tables 1 and 2 of the run's summary (T239.5 D23: what changed,
+      where this run goes; env CI_TESTS false = a run without tests) to $GITHUB_STEP_SUMMARY when set
 """
 import json
 import os
@@ -31,10 +31,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import orchestrate as O  # noqa: E402
-
-STEPS = ["Lint", "Unit tests", "What has changed?", "Comparison", "What must be in it", "Build", "Complete and fits", "Tests: mock bitstream -> service",
-         "Tests: service -> UI", "Tests: service -> API", "Package", "Emulator tests", "Deliver"]
-
 
 def moved_cores():
     """(name, kind) of the cores that moved to the SDK: kind dfx (a partial on the host bitstream) or large (its own flat bitstream)."""
@@ -54,25 +50,60 @@ def sim_owners(plan, tier):
     return sorted(O.sim_benches(plan, tier)) if tier > 0 else []
 
 
-def matrix(lanes, owners, sdk, host, package, host_bits=True):
-    """The rows of this run: (lane, {step number: what runs there})."""
-    sims = lambda o: "sims" if o in owners else "sims on demand"
-    off = {6: "not touched"}
-    rows = [("Every push", {1: "tree checks", 3: "dispatcher"}),
-            ("SDK", {1: "lint", 2: "unit tests", 6: "build", 7: "test", 11: "package", 13: "deploy"} if sdk else off)]
-    if host_bits:
-        rows.append(("Bitstream host", {2: sims("host"), 3: "key", 6: "Vivado (builder)", 7: "report", 11: "keep", 13: "to the lanes"}))
+ON, OFF = "\U0001F7E2", "\u26AA"      # T239.5 D23: green = changed / runs, white = unchanged / not in this run
+
+
+def overview(plan, lanes, run, owners, sdk, host, package, host_bits, cor_legs, docs, tests):
+    """T239.5 D23: tables 1 (what changed) and 2 (where this run goes) of the run's summary; the summary job adds table 3 (the result)."""
+    mark = lambda b: ON if b else OFF
+    apps = plan.get("apps") or {}
+    named = set(plan.get("dfx", [])) | set(plan.get("large", []))
+    started = {c for c, _ in run}
+    out = ["## This run (T239.5 D23)", "",
+           "Branch %s, base %s, %s changed code files%s." % (plan.get("branch"), ((plan.get("base") or {}).get("commit") or "none")[:8],
+                                                            plan.get("changed"), ", documentation only" if docs else ""), "",
+           "### 1 What changed", "", "| | part | |", "|---|---|---|",
+           "| %s | host gateware | |" % mark(plan.get("host")),
+           "| %s | aux designs (ddr2_test, hdmi_test) | |" % mark(plan.get("aux")),
+           "| %s | host menu app | |" % mark(apps.get("host")),
+           "| %s | core app (every core's .cor carries it) | |" % mark(apps.get("core")),
+           "| %s | application tests | every core lane runs when they change |" % mark(plan.get("tests"))]
     for c, k in lanes:
-        rows.append(("Bitstream " + c, {2: sims(target(c, k)), 3: "key", 6: "Vivado flat (builder)" if k == "large" else "Vivado (builder)", 7: "report",
-                                        11: "keep", 13: "to the lanes"}))
-    rows.append(("Host menu", {1: "lint", 2: "unit tests", 6: "build", 12: "emulator", 13: "deliver"} if host else off))
+        why = "its own sources" if c in named else ""
+        if not why and c in started:
+            if plan.get("all"):
+                why = "no base: everything"
+            elif plan.get("tests"):
+                why = "the application tests changed"
+            elif apps.get("core"):
+                why = "the core app changed"
+            elif k == "dfx" and plan.get("host"):
+                why = "the host changed (its partial is placed on it)"
+            elif apps.get("host") and c == O.HOST_EMU_CORE:
+                why = "the host menu's emulator test runs with its .cor"
+            elif c not in named and not any(c in (plan.get("lanes") or {}).get(x, []) for x in ("dfx", "large")):
+                why = "its .cor is not in the base's package (D24)"
+        out.append("| %s | %s (%s) | %s |" % (mark(c in named or c in started), c, k, why))
+    out += ["", "### 2 Where this run goes", "",
+            "| lane | lint | tests | build | bitstream | emulator | package |", "|---|---|---|---|---|---|---|"]
+    t = lambda b: mark(b and tests)
+    out.append("| tree checks, key tests | %s | %s | | | | |" % (t(not docs), t(not docs)))
+    out.append("| SDK | %s | %s | %s | | %s | %s |" % (t(sdk), t(sdk), mark(sdk), t(sdk), mark(sdk)))
+    out.append("| host menu | %s | %s | %s | | %s | %s |" % (t(host), t(host), mark(host), t(host), mark(host)))
+    out.append("| host gateware | | %s | | %s | | |" % (t(host_bits and "host" in owners), mark(host_bits)))
     for c, k in lanes:
-        cells = {i + 1: s.lower() for i, s in enumerate(STEPS)}
-        cells[1] = "lint"
-        rows.append((c + (" (large)" if k == "large" else ""), cells))
-    if package:
-        rows.append(("Whole package (D14)", {11: "collect (every lane's bitstreams), package (every .cor)", 13: "deliver (the artifact package)"}))
-    return rows
+        r = c in started
+        note = "" if r else (" from the base's package (D24)" if package else "")
+        out.append("| %s | %s | %s | %s | %s | %s | %s%s |" % (c, t(r), t(r), mark(r), mark(r), t(r), mark(r), note))
+    if cor_legs:
+        out.append("| .cor without a lane: %s | | | %s | | | %s |" % (" ".join(cor_legs), ON, ON))
+    out.append("| whole package | | | | | | %s |" % mark(package))
+    sims = [o for o in owners if o != "host"]
+    if sims:
+        out.append("| benches of %s | | %s | | | | |" % (" ".join(sims), t(True)))
+    if not tests:
+        out += ["", "No tests on this run (a push to main or a v* tag, T239.1 D51)."]
+    return "\n".join(out)
 
 
 def touched(plan, lanes):
@@ -110,6 +141,11 @@ def main(argv):
         run, sdk, host = [], False, False
     elif package:
         run, sdk, host = lanes, True, True
+        # T239.5 D24: a lane the plan does not start runs only when the base's package has no .cor of it (ci/base_cor.py filled CI_BASE_COR)
+        base = os.environ.get("CI_BASE_COR", "")
+        if base and os.path.isdir(base):
+            started = {c for c, _ in touched(plan, lanes)[0]}
+            run = [(c, k) for c, k in lanes if c in started or not os.path.isfile(os.path.join(base, c + ".cor"))]
     else:
         run, sdk, host = touched(plan, lanes)
         sdk = sdk or bool(cor_legs)           # the cor jobs take the shared image of the SDK lane
@@ -121,7 +157,8 @@ def main(argv):
     if host_bits:
         targets = ["host"] + targets
     owners = [] if docs else sim_owners(plan, tier)
-    out = {"cores": cores, "lint_groups": [] if docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
+    from_base = [c for c, _ in lanes if package and c not in cores]
+    out = {"from_base": from_base, "cores": cores, "lint_groups": [] if docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
            "lane_targets": targets, "cor_legs": cor_legs, "order_targets": [] if docs else O.order_cors(plan, True), "sim_owners": owners}
     for k, v in out.items():
         print("%s=%s" % (k, json.dumps(v, separators=(",", ":"))))
@@ -132,19 +169,9 @@ def main(argv):
         print("%s=%s" % (k, "true" if v else "false"))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
-        how = ("the whole package is made" if package else "no package on this push (scope %s); the lanes this push touched: %s" % (plan.get("scope"), " ".join(cores) or "none"))
-        if cor_legs:
-            how += "; .cor of the cores without a lane: " + " ".join(cor_legs)
-        if docs:
-            how = "documentation only (D2.1): no lane, no lint leg, no package"
-        lines = ["### The matrix of this push (T239.5)", "",
-                 "Changed: %s code files, branch %s, base %s" % (plan.get("changed"), plan.get("branch"), (plan.get("base") or {}).get("commit") or "none"), "",
-                 how, "",
-                 "| lane | " + " | ".join("%d %s" % (i + 1, s) for i, s in enumerate(STEPS)) + " |", "|---" * (len(STEPS) + 1) + "|"]
-        for lane, cells in matrix(run, owners, sdk, host, package, host_bits):
-            lines.append("| %s | " % lane + " | ".join(cells.get(i + 1, "") for i in range(len(STEPS))) + " |")
         with open(summary, "a") as fh:
-            fh.write("\n".join(lines) + "\n")
+            fh.write(overview(plan, lanes, run, owners, sdk, host, package, host_bits, cor_legs, docs,
+                              os.environ.get("CI_TESTS", "true") != "false") + "\n")
     return 0
 
 

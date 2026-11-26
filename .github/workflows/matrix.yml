@@ -52,6 +52,7 @@ jobs:
       sims_tier: ${{ steps.dispatch.outputs.sims_tier }}
       host_bits: ${{ steps.dispatch.outputs.host_bits }}
       missing: ${{ steps.order.outputs.missing }}
+      from_base: ${{ steps.dispatch.outputs.from_base }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
         with:
@@ -80,6 +81,8 @@ jobs:
       - name: Dispatcher (the lanes and steps of this push)
         id: dispatch
         env:
+          GH_TOKEN: ${{ github.token }}     # T239.5 D24: ci/base_cor.py reads the base's run and its package
+          CI_TESTS: ${{ inputs.tests }}     # D23: the overview marks the test cells of a run without tests
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
           UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
         run: |
@@ -89,9 +92,23 @@ jobs:
           update="$(ci/select.sh update)"
           # the plan carries the tier of this run: a sims leg (ci/child.sh sim) reads it from the plan artifact
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
+          # T239.5 D24: a run that makes the whole package takes the .cor of the core lanes it does not start from the base's package
+          # (ci/base_cor.py); the dispatcher starts a lane the plan does not touch only when that package has no .cor of it
+          if python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); sys.exit(0 if not p.get("docs_only") and (p.get("scope", "full") == "full" or sys.argv[2] == "yes") else 1)' \
+               "$CI_HANDOFF/plan.json" "$update"; then
+            base="$(python3 -c 'import json, sys; print((json.load(open(sys.argv[1])).get("base") or {}).get("commit") or "none")' "$CI_HANDOFF/plan.json")"
+            python3 -I ci/base_cor.py "$base" "$CI_HANDOFF/base-cor" $(python3 -I tools/core_toml.py lanes | awk '{print $1}')
+            export CI_BASE_COR="$CI_HANDOFF/base-cor"
+          fi
           # into a file first: a failing dispatcher fails this step (a pipe into tee would hide its exit code)
           python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" > "$CI_HANDOFF/dispatch.out"
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
+          # D24: the hand-over keeps only the .cor of the lanes this run does not start
+          if [ -d "$CI_HANDOFF/base-cor" ]; then
+            for c in $(sed -n 's/^cores=//p' "$CI_HANDOFF/dispatch.out" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)))'); do
+              rm -rf "$CI_HANDOFF/base-cor/$c.cor" "$CI_HANDOFF/base-cor/SD/cores/$c"
+            done
+          fi
           cat "$CI_HANDOFF/dispatch.out"
       # D14: the whole package needs every entry (ci/order.py: a package child needs them all); a documentation-only plan makes no package and starts no lane,
       # so its work order is empty. T265 P5: this job writes the work order on every run. The targets: every entry where a package is made, else the cor legs' cores,
@@ -115,6 +132,14 @@ jobs:
         with:
           name: work-order
           path: ${{ env.CI_TEMP }}/handoff/work-order.json
+          retention-days: 3
+          if-no-files-found: error
+      - name: The base's .cor for the package (T239.5 D24)
+        if: ${{ steps.dispatch.outputs.from_base != '[]' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: base-cor
+          path: ${{ env.CI_TEMP }}/handoff/base-cor
           retention-days: 3
           if-no-files-found: error
       - name: The first red job ends the run (T239.5 D25)
@@ -1005,7 +1030,7 @@ jobs:
       actions: write
     name: "Whole package: 11 package (every .cor), 13 deliver"
     needs: [dispatch, host-bits, collect, sdk, host, core]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.host-bits.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.host-bits.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && (needs.core.result == 'success' || (needs.core.result == 'skipped' && needs.dispatch.outputs.cores == '[]')) }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -1046,10 +1071,17 @@ jobs:
         with:
           name: host
           path: ${{ env.CI_TEMP }}/handoff/host
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+      - if: ${{ needs.dispatch.outputs.cores != '[]' }}     # T239.5 D24: a package run may start no core lane
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         with:
           pattern: deliver-*
           path: ${{ env.CI_TEMP }}/handoff/lanes
+      - name: The base's .cor of the lanes this run did not start (T239.5 D24)
+        if: ${{ needs.dispatch.outputs.from_base != '[]' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: base-cor
+          path: ${{ env.CI_TEMP }}/handoff/base-cor
       - name: 11 Package (ci/package.sh over the lanes' results)
         run: ci/lane.sh package package
       - name: 13 Deliver (the artifact package)
@@ -1165,7 +1197,14 @@ jobs:
           python3 - <<'PY'
           import json, os, sys
           needs = json.loads(os.environ["NEEDS"])
-          lines = ["| job | result |", "|---|---|"] + ["| %s | %s |" % (k, v.get("result")) for k, v in needs.items()]
+          # T239.5 D23: table 3, what was done (tables 1 and 2 are the dispatcher's, above)
+          name = {"dispatch": "dispatcher", "approve": "approval of the builder's work", "lint": "lint", "keys": "key tests", "apptests": "application tests",
+                  "sdk": "SDK lane", "sdk-release": "SDK release", "host": "host menu lane", "sims": "benches", "host-bits": "host gateware (builder)",
+                  "bits": "core bitstreams (builder)", "cor": ".cor without a lane", "core": "core lanes", "emu": "emulator tests of the cores",
+                  "host-emu": "emulator test of the host menu", "ovtest-emu": "emulator test of the overlay service", "collect": "package: collect the bitstreams",
+                  "package": "package", "update": "update files", "prerelease": "pre-release"}
+          sym = {"success": "\u2705", "failure": "\u274C", "cancelled": "\U0001F6AB cancelled (the first red job ends the run, D25)", "skipped": "\u26AA not in this run"}
+          lines = ["### 3 What was done", "", "| | job |", "|---|---|"] + ["| %s | %s |" % (sym.get(v.get("result"), v.get("result")), name.get(k, k)) for k, v in needs.items()]
           open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
           print("\n".join(lines))
           bad = [k for k, v in needs.items() if v.get("result") in ("failure", "cancelled")]

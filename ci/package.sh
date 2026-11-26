@@ -231,7 +231,9 @@ if [ -n "$lane_cor" ]; then
   cv="$(cat "$ROOT/contract/VERSION")"
   while read -r c kind; do
     [ -n "$c" ] || continue
-    f="$lane_cor/deliver-$c/$c.cor"
+    f="$lane_cor/deliver-$c/$c.cor" src="from its matrix lane"
+    # T239.5 D24: a lane this run did not start (the plan does not touch it): its .cor of the base's package (ci/base_cor.py, the artifact base-cor), checked as a lane's
+    if [ ! -s "$f" ] && [ -s "$HANDOFF/base-cor/$c.cor" ]; then f="$HANDOFF/base-cor/$c.cor" src="from the base's package ($(cut -c1-60 "$HANDOFF/base-cor/FROM" 2>/dev/null))"; fi
     if [ ! -s "$f" ]; then mark_red package "cor-$c" "the lane core:$c delivered no $c.cor ($f)"; continue; fi
     chk=()
     if [ "$kind" = dfx ]; then
@@ -240,7 +242,12 @@ if [ -n "$lane_cor" ]; then
     fi
     if python3 "$ROOT/tools/cor_pack.py" check ${chk[@]+"${chk[@]}"} "$f" > /dev/null; then
       cp "$f" "$out/$c.cor"
-      echo "=== $c.cor ($kind): from its matrix lane, $(wc -c < "$f") bytes, checked ${chk[*]:-as a flat .cor}"
+      echo "=== $c.cor ($kind): $src, $(wc -c < "$f") bytes, checked ${chk[*]:-as a flat .cor}"
+      # D24: the SD files of a core taken from the base's package come from there too (a lane that ran delivers its own below)
+      if [ "$f" = "$HANDOFF/base-cor/$c.cor" ] && [ -d "$HANDOFF/base-cor/SD/cores/$c" ]; then
+        mkdir -p "$out/SD/cores"; cp -R "$HANDOFF/base-cor/SD/cores/$c" "$out/SD/cores/"
+        echo "=== SD/cores/$c/ from the base's package: $(find "$HANDOFF/base-cor/SD/cores/$c" -type f | wc -l | tr -d ' ') files"
+      fi
     else
       mark_red package "cor-$c" "$c.cor of the lane core:$c fails tools/cor_pack.py check ${chk[*]:-(a flat .cor)}"
     fi

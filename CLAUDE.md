@@ -60,7 +60,9 @@ No code for a change that has no spec section to point at; a one-line fix points
   commit the builder does not trust by itself (D14); environment `builds` (jobs prerelease, sdk-release) is the publish. Only a push to `main` or a `v*` tag publishes a pre-release
   `<branch>-<sha8>` in the builds repository (the release bundle, T239.1 D1, D42). A push to `main` or a `v*` tag runs no test job (T239.1 D51: lint, keys,
   apptests, sims, emulator tests are left out; integration has tested that content): it builds, packs and publishes. A pull request from a fork runs the matrix as a
-  push does (a pull request from a branch of this repository is the push's run). Pushes queue; none is cancelled. A push that changes only `**.md`, `docs/**` or
+  push does (a pull request from a branch of this repository is the push's run). Pushes queue; none is cancelled. The first red job cancels the rest of its run
+  (T239.5 D25); the summary page still gets its three tables (D23: what changed, where the run goes, what was done). A core the plan does not touch gets no
+  job, a package run included: the package takes its .cor from the base's last package (D24, `ci/base_cor.py`). A push that changes only `**.md`, `docs/**` or
   `.claude/**` starts no run. Everything unchanged comes from the content-keyed cache. The Gitea workflows of the old home stay in `.gitea/workflows/` and run only by
   hand (T239.1 D45).
 - Only the coordinating session pushes code that builds, and only when no CI run is in progress or waiting. Agents commit locally and
