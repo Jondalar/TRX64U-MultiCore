@@ -141,8 +141,9 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   check. `-DTRX_GUARD=0` compiles the decision out (bench negative control, `host/sim/flash_boot/bootrom_noguard_pkg.vhd`);
   `linker.ld` asserts 1 KiB of stack below .bss. Size, measured with riscv64-elf-gcc 16.2 `-march=rv32i_zicsr` (not the build
   image's compiler, which gives 2,892 for the old source where this gives 2,941): old 2,941 bytes, with the guard 4,172
-  (+1,231), without 3,225; .bss 1,056 (CRC table); stack room 8,192 - 4,172 - 1,056 = 2,964 bytes. Not yet regenerated:
-  `host/bootrom_pkg.vhd` and `bootrom_noguard_pkg.vhd` come from `tools/build_bootrom.sh` (container build image).
+  (+1,231), without 3,225; .bss 1,056 (CRC table); stack room 8,192 - 4,172 - 1,056 = 2,964 bytes. Regenerated with
+  `tools/build_bootrom.sh` (container image `u64-build-env`, the compiler of record): `bootrom.bin` 4,116 bytes with the guard,
+  `noguard.bin` 3,181 bytes (`host/bootrom_pkg.vhd`, `host/sim/flash_boot/bootrom_noguard_pkg.vhd`, a1a7ec8bf).
   Bench `host/sim/flash_boot` (not run here, no GHDL): new cases guard_match, guard_foreign_crc (S2), guard_off (S2 control, ROM built
   with `-DTRX_GUARD=0`, analysed into `build/noguard`), guard_foreign_len (fewer than 3,000 bytes read), guard_empty_app, guard_bad_chk,
   guard_no_recovery, guard_rec_badcrc, guard_jtag_request, guard_100t, guard_time (64 KiB, at most 1.5 x the unguarded time); match_after
