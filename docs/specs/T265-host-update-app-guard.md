@@ -97,6 +97,11 @@ Parts:
   estimate): about 870 LUT, 510 FF, 14 DSP48. Alex: "But then we must have Rick's measurement for NTSC" - the NTSC constants come
   from Rick's values (T259 D3) before they are fixed.
 - The order of writes for P3: application, recovery copy, record last.
+- **D8 (Alex, 2026-11-26, on the host's timing margin: "Dann streichen wir weiter am c64ref"):** the reference core c64ref (build_only,
+  routed with the host) is slimmed further to give the host route room for P1 and P4. Measured before: the host's worst path in run
+  45814821390 (`null.timing.rpt`) is 0.109 ns, `ult/i_cpu/i_dmem/addr_i_reg[8]` to `hout/ovl/scr_reg/WEA[0]` (cpu_mmcm, 10 ns), 7 logic
+  levels, 81 % of the delay is route: a placement/congestion path in the host's static part, not in c64ref. What c64ref loses is read
+  from its utilization report and kept to what the partition contract and the reference role need.
 - **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
   that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den
