@@ -133,11 +133,11 @@ else
   ! part sdk || NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
 
   # T239.3 P2-6 (S8): the core application built for the other cores holds no trx64u symbol. The set is the code set P2-6 deleted (ring, ringfile, ringops, monitor, monsrv, u64cfg, trxmon's tm_*,
-  # trx64u_ops), and the names TRX64-Ultimate's libraries define when they are linked into one image with the base (plat_*, srv_*); nm without -C, so only unmangled (C) names match and a C++ member such as MenuCtl::ring_listed does not; nm over the
+  # trx64u_ops), and the names TRX64-Ultimate's libraries define when they are linked into one image with the base (plat_*, srv_*); nm without -C and global symbols only, so only unmangled (C) names match, not a static and a C++ member such as MenuCtl::ring_listed does not; nm over the
   # shared image's ELF here, over the base archive of the SDK (libtrxbase.a, after make sdkbase) and over every linked core app's ELF below (nm_trx64u).
   nm_trx64u() {
     local bad
-    bad="$(riscv32-unknown-elf-nm "$1" | awk '$2 ~ /^[TtDdBbRrWwVv]$/ { if ($3 ~ /^(ring_|trx_ring|mon_|monsrv_|u64cfg_|tm_|trx64u_|plat_|srv_)/) print $3 }' | sort -u | head -20)"
+    bad="$(riscv32-unknown-elf-nm "$1" | awk '$2 ~ /^[TDBRWV]$/ { if ($3 ~ /^(ring_|trx_ring|mon_|monsrv_|u64cfg_|tm_|trx64u_|plat_|srv_)/) print $3 }' | sort -u | head -20)"
     [ -z "$bad" ] || { echo "trxapps: $1 holds trx64u symbols (S8, T239.3 P2-6):" >&2; echo "$bad" >&2; exit 1; }
   }
   ! part sdk || nm_trx64u "$H/u64ii/riscv/coreapp/result/coreapp.elf"
