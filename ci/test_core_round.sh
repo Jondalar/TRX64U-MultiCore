@@ -50,6 +50,8 @@ PY
 mk vc20 '{"name": "VIC-20"}'
 mk ddt '{"name": "DDT Look Ma, No VIC"}'
 mk nes '{"kind": "large", "id": "nes", "name": "Nintendo Entertainment System"}'
+mk pet '{"name": "Commodore PET"}'
+mk diag '{"name": "Port Diagnostics"}'
 mk other '{"name": "VIC-20"}' other
 mk size '{"name": "VIC-20"}' size
 
@@ -78,7 +80,7 @@ up="[t+2590 ms] phase boot_start returned (running)"
 say "$id" "$up" "[core] menu open 709 ms after the request" "[core] menu closed, machine running 12 ms after the close key"
 round vc20 vc20 || { cat "$W/out"; fail "the VIC-20's round did not pass"; }
 grep -q '^PASS vc20 alone: VC20 identified (VIC-20), started, the hotkey ctrl+RESTORE opened the menu and closed it' "$W/out" || { cat "$W/out"; fail "no PASS line"; }
-[ "$(cat "$W/fake/prof")" = "$PWD/cores/vc20/app/ue2emu.toml" ] || fail "the round does not run the core's profile"
+[ "$(basename "$(cat "$W/fake/prof")")" = ue2emu.toml ] || fail "the round does not run a profile"
 cmp -s "$W/fake/fw.elf" "$W/fw.elf" || fail "the firmware is not the .cor's app in its ELF"
 grep -qx './cores/vc20.cor' "$W/fake/stick" && grep -qx './cores/vc20/roms/basic.bin' "$W/fake/stick" || { cat "$W/fake/stick"; fail "the stick lacks the .cor or a ROM stand-in"; }
 [ "$(grep -c '^hold ctrl$' "$W/fake/ctl")" = 2 ] && [ "$(grep -c '^restore$' "$W/fake/ctl")" = 2 ] || { cat "$W/fake/ctl"; fail "the hotkey is not pressed twice"; }
@@ -91,16 +93,44 @@ grep -q '^FAIL vc20 alone: the hotkey ctrl+RESTORE did not close the menu' "$W/o
 say "[t+340 ms] phase core identified: [core] PET1 Commodore PET, cor /Usb0/cores/pet.cor" "$up" "[core] menu open 1 ms" "[core] menu closed, 1 ms"
 if round vc20 vc20; then fail "another core's identification passed"; fi
 grep -q '^FAIL vc20 alone: the core app did not identify VC20 (.*PET1 Commodore PET' "$W/out" || { cat "$W/out"; fail "the wrong identification is not named"; }
-say "$id" "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin" \
-    '    1: expect-console "phase boot_start returned (running)": not in the console output within 120000 ms emulated'
-# D20: a core held on its ROM page ends its round there - identified, then the app's own ROM page line, and the picture of the page
-round vc20 vc20 || { cat "$W/out"; fail "a core held on its ROM page did not pass"; }
-grep -q '^PASS vc20 alone: .* waits on its ROM page: .*wrong content: kernal.bin' "$W/out" && [ -s "$W/o/core-rompage.png" ] || { cat "$W/out"; fail "no PASS line or no picture of the ROM page"; }
+# D20: a core whose profile says [round] ends = "rompage" (the PET's) ends on its ROM page: identified, then the app's own ROM page line, and the picture
+idp="[t+340 ms] phase core identified: [core] PET1 Commodore PET, cor /Usb0/cores/pet.cor"
+say "$idp" "[coreapp] ROM files: ROM files of the PET in cores/pet/roms:" "wrong content: kernal.bin"
+round pet pet || { cat "$W/out"; fail "a core held on its ROM page did not pass"; }
+grep -q '^PASS pet alone: .* waits on its ROM page as its profile says: .*wrong content: kernal.bin' "$W/out" && [ -s "$W/o/core-rompage.png" ] || { cat "$W/out"; fail "no PASS line or no picture of the ROM page"; }
+! grep -q '^\[round\]' "$W/fake/prof" || fail "the emulator got the [round] section"
+# the same console of a core that does not declare it is no pass: its start did not come
+say "$id" "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin"
+if round vc20 vc20; then fail "a core that did not declare the ROM page ending passed on it"; fi
+grep -q '^FAIL vc20 alone: the core did not start' "$W/out" || { cat "$W/out"; fail "the missing start is not named"; }
 # a ROM page without the identification before it, or after the core started, is no proof
-say "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin"
-if round vc20 vc20; then fail "a ROM page without the core's identification passed"; fi
-say "$id" "phase boot_start returned (running)" "[coreapp] ROM files: x"
-if round vc20 vc20; then fail "a ROM page behind the core's start passed as a held core"; fi
+say "[coreapp] ROM files: ROM files of the PET in cores/pet/roms:" "wrong content: kernal.bin"
+if round pet pet; then fail "a ROM page without the core's identification passed"; fi
+say "$idp" "phase boot_start returned (running)" "[coreapp] ROM files: x"
+if round pet pet; then fail "a ROM page behind the core's start passed as a held core"; fi
+# a core that started, with one menu open and one close; a second open (the menu opening by itself) is no pass
+say "$id" "$up" "[core] menu open 1 ms" "[core] menu closed, 1 ms" "[core] menu open 5 ms"
+if round vc20 vc20; then fail "a menu that opened twice passed"; fi
+grep -q '^FAIL vc20 alone: a running core.s round shows one menu open' "$W/out" || { cat "$W/out"; fail "the second open is not named"; }
+# a refused identity is no start: the accepted line passes, any other identity line or "The core stays held" fails
+idn="phase core identified: [core] NES_ Nintendo Entertainment System, cor x"; wp="phase boot_start returned (waiting for a program)"
+say "$idn" "[core] identity: NES_ build 0000002A, as the description says" "$wp" "[core] menu open 1 ms"
+round nes nes || { cat "$W/out"; fail "an accepted identity failed the round"; }
+say "$idn" "[core] identity: the bitstream is not the one of the record" "$wp" "[core] menu open 1 ms"
+if round nes nes; then fail "a refused identity passed as a core that waits for a program"; fi
+grep -q '^FAIL nes alone: the identity of the core was refused' "$W/out" || { cat "$W/out"; fail "the refused identity is not named"; }
+say "$idn" "[core] identity: NES_ build 1, as the description says" "[core] identity: another" "$wp" "[core] menu open 1 ms"
+if round nes nes; then fail "a refused identity behind an accepted line passed"; fi
+say "$idn" "$wp" "The core stays held" "[core] menu open 1 ms"
+if round nes nes; then fail "a held core passed"; fi
+# a menu_first core (diag): its menu is its screen; no key, no close
+idd="phase core identified: [core] DIAG Port Diagnostics, cor x"
+say "$idd" "$up" "[core] menu open 1 ms"
+round diag diag || { cat "$W/out"; fail "the menu_first core's round did not pass"; }
+grep -q '^PASS diag alone: DIAG identified (Port Diagnostics), its menu is its screen and open' "$W/out" || { cat "$W/out"; fail "no PASS line of a menu_first core"; }
+! grep -q -E '^(hold|restore|rocker)' "$W/fake/ctl" || fail "the round of a menu_first core presses a menu key"
+say "$idd" "$up"
+if round diag diag; then fail "a menu_first core passed without its menu"; fi
 # the emulator's report of the control line that failed quotes the line's text: it is no step
 say "$id" "$up" "[core] menu open 709 ms after the request" '    1: expect-console "[core] menu closed": not in the console output within 30000 ms emulated'
 if round vc20 vc20; then fail "the emulator's report of the missing close passed as the close"; fi

@@ -14,3 +14,6 @@ core = "Commodore PET"
 id = "pet"
 path = "/Usb0/cores/pet.cor"
 video = "1080p"
+
+[round]
+ends = "rompage"          # the app waits on its ROM page: the files it checks are not the zero-filled stand-ins (step 12 ends there, tests/coreapp/emu/core_round.sh)

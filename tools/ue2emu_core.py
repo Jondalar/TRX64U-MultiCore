@@ -18,7 +18,7 @@ emulator). The rest comes from the core's .cor (its manifest and its app) and it
   tools/ue2emu_core.py direct <core> <cor>          the core's app started alone (--core with the profile, no host) as shell assignments: prof (the profile's path),
                                                     ident and hold (as for facts), start (running: the machine runs once the ROMs are in; program: the core waits for a
                                                     program, its menu opens by itself and stays open until one runs; menu_first: the menu is its screen and does not
-                                                    close), stick_cor (the .cor's path on the USB stick, from the profile's [handover] path /Usb0/...), rom_dir (the
+                                                    close; rompage: the profile's [round] ends = "rompage", the round ends on the app's ROM page), stick_cor (the .cor's path on the USB stick, from the profile's [handover] path /Usb0/...), rom_dir (the
                                                     .cor's core folder's roms/ on the stick, where the app looks for ROM files). Refused: a .cor that is not the
                                                     core's, a hand-over that names another core than the .cor's manifest or a .cor that is not on the stick.
   tools/ue2emu_core.py firmware <cor> <elf> <out>   <out>: the ELF of the app's link with the bytes of the .cor's app record in its loaded segments, so the emulator
@@ -95,7 +95,7 @@ def profile(core, cor, out):
     name = key_of(checked(core, cor)) + ".toml"
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, name), "w") as f:
-        f.write('symbols = "coreapp.elf"\n' + text)
+        f.write('symbols = "coreapp.elf"\n' + strip_round(text))
     print(name)
 
 
@@ -135,6 +135,22 @@ def assignments(out):
         print("%s=%s" % (k, shlex.quote(v)))
 
 
+def round_of(text, where):
+    """the profile's [round] ends = "rompage": the core's round ends on its ROM page (the files it checks are not the stand-ins); "" without the section"""
+    sec = re.search(r"^\[round\][ \t]*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
+    if not sec:
+        return ""
+    ends = descrec.toml_loads(sec.group(1)).get("ends")
+    if ends != "rompage":
+        raise Error("%s: [round] ends = %r is none of \"rompage\"" % (os.path.relpath(where, ROOT), ends))
+    return ends
+
+
+def strip_round(text):
+    """the profile without its [round] section: the section is for the round's script, not for the emulator"""
+    return re.sub(r"^\[round\][ \t]*$.*?(?=^\[|\Z)", "", text, flags=re.M | re.S)
+
+
 def direct(core, cor):
     m = checked(core, cor)
     prof = os.path.join(ROOT, "cores", core, "app", "ue2emu.toml")
@@ -154,6 +170,9 @@ def direct(core, cor):
     d = desc_of(core)
     c = d.get("core", {})
     start = "menu_first" if c.get("menu_first") else "program" if c.get("needs_program") else "running"
+    ends = round_of(text, prof)
+    if ends:
+        start = ends
     assignments({"prof": prof, "ident": ident_of(text, prof, d), "hold": hold_of(core, d), "start": start, "stick_cor": stick_cor,
                  "rom_dir": stick_cor[:-len(".cor")] + "/roms"})
 
