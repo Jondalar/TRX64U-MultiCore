@@ -139,8 +139,10 @@ def order_cors(plan, matrix=True):
     legs = [t for t in named if t.split(":", 1)[1] not in own]
     if not matrix:
         return legs
+    # T265 P5: the matrix owns the work order and builds the host gateware: the target host when the plan changes the host or aux designs
+    host = ["host"] if plan.get("host") or plan.get("aux") else []
     lanes = [(c, "large" if c in uni.get("large", []) else "dfx") for c in own]
-    return legs + [lane_target(c, k) for c, k in matrix_lanes(plan, lanes)]
+    return host + legs + [lane_target(c, k) for c, k in matrix_lanes(plan, lanes)]
 
 
 def nid(child, target):

@@ -102,10 +102,19 @@ with tempfile.TemporaryDirectory() as td:
     rc, out, _ = run("outputs", hp, "--tier", "0", "--update", "no")
     order = json.loads(kv_of(out)["order_targets"])
     rc2, d, dout = dispatch(hp, "--beside")
+    d_host, dout_host = d, dout
     want("host+tests branch: the dispatcher starts every own-app core lane", rc2 == 0 and own and sorted(d["cores"]) == sorted(own) and d["package"] == "false",
          dout)
     want("host+tests branch: order_targets name every lane the dispatcher starts", rc == 0 and set(d.get("cor_targets", [])) <= set(order)
-         and sorted(t for t in order if t.split(":", 1)[1] in own) == want_own, out + dout)
+         and sorted(t for t in order if ":" in t and t.split(":", 1)[1] in own) == want_own, out + dout)
+
+    # T265 P5: the matrix owns the work order: a plan that changes host/ names the target host (first), and the dispatcher's job host-bits runs; a pull request or t239.1
+    # (--matrix no) names no host; a host-app-only or core-only push builds no host gateware
+    want("host gateware change: order_targets start with host", order[:1] == ["host"], str(order))
+    want("host gateware change: dispatcher host_bits, cor_targets start with host, order_targets the same as the old plan's with matrix",
+         d_host.get("host_bits") == "true" and d_host["cor_targets"][:1] == ["host"] and d_host.get("order_targets") == order, dout_host)
+    rc, out, _ = run("outputs", hp, "--tier", "0", "--update", "no", "--matrix", "no")
+    want("pull request, host gateware change: no host target", "host" not in json.loads(kv_of(out)["order_targets"]), out)
 
     # T239.5 S6, D15: a push that changes only the host app starts the host menu lane and, with it, the vc20 lane (the host lane's emulator test runs the
     # host with vc20's .cor); the work order names vc20's bitstream, no other core lane starts
@@ -116,6 +125,7 @@ with tempfile.TemporaryDirectory() as td:
     ap = mk("host_app.json", host_app)
     rc2, d, dout = dispatch(ap, "--beside")
     want("host app only: the dispatcher starts the vc20 lane and nothing else of the cores", rc2 == 0 and d["cores"] == ["vc20"] and d["host"] == "true", dout)
+    want("host app only: no host gateware job, no host target", d["host_bits"] == "false" and "host" not in d["cor_targets"] and "host" not in d["order_targets"], dout)
     rc, out, _ = run("outputs", ap, "--tier", "0", "--update", "no")
     want("host app only: the work order names vc20's bitstream", rc == 0 and "core:vc20" in json.loads(kv_of(out)["order_targets"]), out)
 
@@ -136,7 +146,7 @@ with tempfile.TemporaryDirectory() as td:
     want("pull request: order_targets = the cor legs (core:apple2), no own-app core", json.loads(kv["order_targets"]) == ["core:apple2"]
          and json.loads(kv["order_targets"]) == json.loads(kv["cor_targets"]), out)
     rc, out, _ = run("outputs", hp, "--tier", "0", "--update", "no", "--matrix", "no")
-    want("pull request, host+tests: no own-app entry ordered", not any(t.split(":", 1)[1] in own for t in json.loads(kv_of(out)["order_targets"])), out)
+    want("pull request, host+tests: no own-app entry ordered", not any(":" in t and t.split(":", 1)[1] in own for t in json.loads(kv_of(out)["order_targets"])), out)
     rc, out, err = run("outputs", hp, "--tier", "0", "--matrix", "maybe")
     want("--matrix takes yes or no only", rc != 0, out + err)
 
@@ -152,6 +162,7 @@ with tempfile.TemporaryDirectory() as td:
     want("docs only: order_targets empty", json.loads(kv_of(out)["order_targets"]) == [], out)
     rc, d, dout = dispatch(fp)
     want("full alone (not docs only): every lane and the package", rc == 0 and sorted(d["cores"]) == sorted(own) and d["package"] == "true", dout)
+    want("full alone: the package carries the host gateware (host_bits)", d["host_bits"] == "true" and d["cor_targets"][:1] == ["host"], dout)
 
     # the sims tier travels in the plan
     run("stamp", fp, "--tier", "2")
