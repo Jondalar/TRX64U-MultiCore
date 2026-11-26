@@ -711,6 +711,9 @@ run contrib test_contrib.cc $CONSRC
 BUNSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc handover.cc $PICSRC"   # handover.cc: bundle.cc reads the hand-over (T239.3 D17)
 CARGS="$BUN" RARGS="$BUN"
 run bundle test_bundle.cc $BUNSRC
+# persistence, the record-8 installer (instfiles.cc): never over a file that is there (the person may have edited it), but over an unedited earlier version
+control instfiles_overwrite instfiles.cc 's/if (fs->stat(path, \&sz, \&dir) \&\& (dir || /if (false \&\& (dir || /' test_bundle.cc $BUNSRC
+control instfiles_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, path, sz, olds, nold))/(true)/' test_bundle.cc $BUNSRC
 run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX64-Ultimate finding: a sub-app that record 8 installs is listed at the first start
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section

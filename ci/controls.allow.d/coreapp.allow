@@ -15,6 +15,7 @@ tests/coreapp/run.sh : board_migrate_overwrite|board_migrate_move|board_cfg_path
 tests/coreapp/run.sh : guard_.*   # persistence - the library-load guard marker written and cleared on the volume
 tests/coreapp/run.sh : drv_exists|drv_bare|nd_exists|nd_bare|cf_remove|cf_chunk   # persistence - creating a new disk image file: no overwrite, no half file left
 tests/coreapp/run.sh : diagtest_halffile   # persistence - the diag test's file writing: no half file
+tests/coreapp/run.sh : instfiles_overwrite|instfiles_superseded   # persistence - the files of record 8 on the card: never over one that is there, an unedited earlier version replaced
 tests/coreapp/run.sh : cr_overwrite|cr_no_folder   # persistence - the core report file written to the USB stick
 tests/loader/run.sh : fs_flash_save|fs_flash_rename|fs_flash_open   # flash - an application may not write, rename or open for writing in /flash
 tests/coreapp/run.sh : cfg_save_inplace|cfg_save_no_swap|cfg_load_rebind|cfg_no_recovery   # persistence - T198 config files: save via temp + swap, load rebinds the settings file, recovery after a power loss
