@@ -46,7 +46,7 @@ if grep -l -F -e "$ROOT/coreapp/" -e "$ROOT/app/" -e "$ROOT/uicore/" "$W"/out/ob
 python3 -I "$P/tools/libtab.py" mapcheck "$app/sdk.toml" "$W/out/app.map" "$ROOT" || fail "the link map of $core holds more or less than its TOML B names"
 cp "$W/out/app.bin" "$out/$core.app"
 cp "$W/out/app.map" "$out/$core.map"
-# T239.5 (the emulator step of a core lane): the ELF of the link, whose symbols ue2emu reads for the app (tests/hostapp/emu_host.sh)
+# T239.5 (the emulator step of a core lane): the ELF of the link, whose symbols ue2emu reads for the app (tests/coreapp/emu/core_round.sh)
 [ -s "$W/out/app.elf" ] || fail "app.elf missing"
 cp "$W/out/app.elf" "$out/$core.elf"
 blocks="$(tr '\n' ' ' < "$W/out/blocks.txt" 2>/dev/null || true)"
