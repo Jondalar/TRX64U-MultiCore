@@ -1,5 +1,5 @@
 # The test library of the overlay features (T256 S3, S5, S10) as a library of a TOML B (base 4.0, T239.3 D58: the base loads no library file). build.sh appends this entry to a copy
-# of the test core's TOML B (cores/<core>/app/sdk.toml) and links that core's app with it; the base calls ovtest_register at start (LibLoader::link) and takes its operations and its state.
+# of the SDK example's TOML B (example/app/toml_b.toml of the package) and links the example's app with it (SDK lane only, T239.5 D19); the base calls ovtest_register at start (LibLoader::link) and takes its operations and its state.
 [[library]]
 name = "ovtest"
 sources = ["ovtest.cc"]

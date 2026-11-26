@@ -51,7 +51,7 @@ class EmuError(Exception):
 
 class Emu:
     def __init__(self, log=None, core="amiga1200"):
-        core, _, flags = core.partition("+")  # T256: "vc20+ovtest" is the core with the .cor of the overlay test library (tests/ui/ovtest, fixtures.make_ovtest_cor)
+        core, _, flags = core.partition("+")  # T256, T239.5 D19: "vc20+ovtest" is the vc20 profile with the SDK example's app linked with the overlay test library and the .cor of its element (tests/ui/ovtest, fixtures.make_ovtest_cor)
         self.ovtest = "ovtest" in flags.split("+")
         self.core = core                     # "amiga1200" or "nes" ... (the profiles of tests/coreapp/emu/profiles)
         self.token = None
@@ -63,7 +63,7 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = fixtures.ovtest_app(self.core) if self.ovtest else app_of(self.core)     # T256, base 4.0: the test library is linked into the app (tests/ui/ovtest/build.sh)
+        app = fixtures.ovtest_app(self.core) if self.ovtest else app_of(self.core)     # T256, D19: the test library is linked into the SDK example's app (tests/ui/ovtest/build.sh)
         if self.core not in CORES:
             raise EmuError("no profile for the core \"%s\" (tests/coreapp/emu/profiles, emu.CORES)" % self.core)
         if not os.path.exists(app):

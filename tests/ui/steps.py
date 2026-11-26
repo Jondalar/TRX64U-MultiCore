@@ -845,7 +845,7 @@ def picture_not_tag_of(c, name, tagpic):
         raise AssertionFailed("%d of the %d pixels of the tag's text are bright in %s too: the tag is drawn over the open menu" % (same, len(text), name))
 
 
-# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the core runs the app it is linked into (`# core: vc20+ovtest`) ------------------
+# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the emulator runs the SDK example's app it is linked into, on the profile vc20 (`# core: vc20+ovtest`) ------------------
 def _lib_op(c, name):
     """The test library's operation over REST. A 404 is an app that did not link the library: the log of the emulator says why."""
     import urllib.error
