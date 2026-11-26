@@ -43,6 +43,7 @@ host:
 # ci/layers_check.sh fails when a file there calls a command that changes the design.
 host/app_i2c.v
 host/app_input.v
+host/av_rgb.v
 host/bling_io.v
 host/bling_keyboard.v
 host/bootrom

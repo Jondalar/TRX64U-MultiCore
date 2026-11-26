@@ -112,7 +112,10 @@ module top #(
     output wire [0:0]  ddr2_ck_p, ddr2_ck_n, ddr2_cke, ddr2_cs_n, ddr2_odt,
     output wire [1:0]  ddr2_dm,
     output wire        BLING_LED,           // keyboard LEDs, WS2812 chain
-    output wire        LED_DATA, LED_CLOCK  // case LED strip, WS2812 or APA102
+    output wire        LED_DATA, LED_CLOCK, // case LED strip, WS2812 or APA102
+    // T265 P4: the A/V port's THS8136 DAC, RGB out of the host (hdmi_out's av_rgb). Three 8 bit words, MSB first, names map (T259 5)
+    output wire [9:2]  AVID_R, AVID_G, AVID_B,
+    output wire        AVID_CLK, AVID_SYNCn, AVID_FB
 );
     // T79 effective decouple (sys_clk): the JTAG bit (dc_jtag, declared below) or the app's request
     // (ultimate_sys 0x10060620 bit 0, cpu_clk, 2-FF synchronised). Every user below uses this one.
@@ -1417,11 +1420,15 @@ module top #(
         .tx_rdata(tx_rdata), .c64_halted(c64_halted), .tx_view(tx_view),
         .tx_req(tx_req), .tx_paddr(tx_paddr), .tx_rom(tx_rom), .tx_go(tx_go), .ram_rdata(ram_rdata),
         .tx_cram_addr(tx_cram_addr), .cram_grant(!win_cram_use), .cram_rdata(cram_rdata),
+        .av_r(AVID_R), .av_g(AVID_G), .av_b(AVID_B), .av_syn_n(AVID_SYNCn), .av_fb(AVID_FB),
         .pix_color(pix_color), .pix_x(pix_x), .pix_y(pix_y), .v60(v60), .scanlines(scanlines),
         .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata), .x_text(x_text),
         .snd_hold(snd_hold), .snd_tgl(snd_tgl),
         .gt_ready(gt_ready), .video_locked_s(video_locked_s), .hdmi_meas(hdmi_meas_s)
     );
+    // T265 P4: the DAC takes the words on its CLK, the inverted sys_clk, half a clock after they change (the words are IOB flops in sys_clk)
+    ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
+        .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));
 
     // ---- analog audio: the same SID samples to the codec over I2S -------------
     wire i2s_bclk, i2s_lrck, i2s_data, i2s_spk;

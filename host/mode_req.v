@@ -4,11 +4,14 @@
 //                 its family: the family part of the request is replaced by fam_v60 (mode_ctl cdce_v60, the System Mode) and only a locked
 //                 row (hm_locked, the 1080p rows) is accepted. A frame-buffer core (c64_type = 0) gets the request as it is.
 //   read  0x4F04  magic 0x48
-//         0x4F05  version 1
+//         0x4F05  version 2 (1 = no A/V register)
 //         0x4F06  {last request refused, 0, 0, c64_type, row in use is locked, running, pix_locked, gt_ready}
 //         0x4F07  the mode hdmi_timing runs (mode_q), 0..11
 //         0x4F08  requests written (clk_sys count)
 //         0x4F09  requests processed (clk50 count, crossed as 8 bits, so one read may be torn; equal to 0x4F08 = the refused bit is current)
+//   write/read 0x4F0A  A/V port (T265 P4): b1:0 mode (0 off, 1 RGB, 2 and 3 reserved: they read back and switch the output off), b3:2 standard
+//                  (0 follows the core's measured raster, 1 = 50 Hz, 2 = 60 Hz, 3 = as 0), b7:4 read 0. Reset value 0x01 (RGB on, T265 D9). It is
+//                  held in clk_sys, is not routed through the core and keeps its value across a core start or swap (av_mode / av_std).
 // An accepted request (and any change of the effective row, e.g. the family bit) holds vm_rst for 8 clk50 clocks: cdce_mode starts its two
 // writes again, the transmitters follow (top.v), the pixel clock moves, mmcm_pix relocks and hdmi_timing takes mode_pix while its reset is high.
 // The connections to the overlay window are the write decode here and the read mux (rhit / rdata over overlay.v's rdata, one clk_sys after
@@ -30,7 +33,9 @@ module mode_req (
     input  wire        gt_ready,           // any clock
     input  wire        pix_locked,         // any clock
     input  wire        running,            // hdmi_timing.running (clk_pix)
-    input  wire [3:0]  mode_q              // hdmi_timing.mode_q (clk_pix)
+    input  wire [3:0]  mode_q,              // hdmi_timing.mode_q (clk_pix)
+    output wire [1:0]  av_mode,             // clk_sys: A/V port mode (0 off, 1 RGB)
+    output wire [1:0]  av_std               // clk_sys: A/V standard (0 follow the core, 1 = 50 Hz, 2 = 60 Hz)
 );
 `include "hdmi_modes.vh"
     // ---- clk_sys: the write
@@ -39,6 +44,10 @@ module mode_req (
     reg  [7:0] wr_cnt = 8'd0;
     always @(posedge clk_sys)
         if (we && addr == 15'h4F00) begin req_val <= wdata; req_tgl <= ~req_tgl; wr_cnt <= wr_cnt + 8'd1; end
+    reg  [3:0] av_reg = 4'b0001;          // T265 D9: RGB on at power-on
+    always @(posedge clk_sys) if (we && addr == 15'h4F0A) av_reg <= wdata[3:0];
+    assign av_mode = av_reg[1:0];
+    assign av_std  = av_reg[3:2];
 
     // ---- clk50: take, check, hold
     (* ASYNC_REG = "TRUE" *) reg [2:0] tgl_s = 3'b000;
@@ -78,13 +87,14 @@ module mode_req (
         mq_a <= mode_q; mq_b <= mq_a;
         ack_a <= ack_cnt; ack_b <= ack_a;
         ref_a <= refused; ref_b <= ref_a;
-        rhit <= addr[14:4] == 11'h4F0 && addr[3:0] >= 4'd4 && addr[3:0] <= 4'd9;
+        rhit <= addr[14:4] == 11'h4F0 && addr[3:0] >= 4'd4 && addr[3:0] <= 4'd10;
         case (addr[3:0])
         4'd4: rdata <= 8'h48;
-        4'd5: rdata <= 8'd1;
+        4'd5: rdata <= 8'd2;
         4'd6: rdata <= {ref_b, 2'b00, c64_type, hm_locked(mq_b), ru_s[2], pl_s[2], gt_s[2]};
         4'd7: rdata <= {4'd0, mq_b};
         4'd8: rdata <= wr_cnt;
+        4'd10: rdata <= {4'd0, av_reg};
         default: rdata <= ack_b;
         endcase
     end
