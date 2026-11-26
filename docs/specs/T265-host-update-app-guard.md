@@ -143,6 +143,11 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   image's compiler, which gives 2,892 for the old source where this gives 2,941): old 2,941 bytes, with the guard 4,172
   (+1,231), without 3,225; .bss 1,056 (CRC table); stack room 8,192 - 4,172 - 1,056 = 2,964 bytes. Not yet regenerated:
   `host/bootrom_pkg.vhd` and `bootrom_noguard_pkg.vhd` come from `tools/build_bootrom.sh` (container build image).
+  Bench `host/sim/flash_boot` (not run here, no GHDL): new cases guard_match, guard_foreign_crc (S2), guard_off (S2 control, ROM built
+  with `-DTRX_GUARD=0`, analysed into `build/noguard`), guard_foreign_len (fewer than 3,000 bytes read), guard_empty_app, guard_bad_chk,
+  guard_no_recovery, guard_rec_badcrc, guard_jtag_request, guard_100t, guard_time (64 KiB, at most 1.5 x the unguarded time); match_after
+  checks verdict 0 and the reported CRC (no record = as today, S6); jtag_magic checks the stale blocks are cleared. The testbench dumps
+  0xFF60-0xFF9F as a GUARD line.
 - **P2:** the recovery program reuses the host app's drivers (USB with the hub over I2C, SD, FatFs with long names, read-only);
   estimate 110-160 KB of 258,048 bytes. It needs no clock synthesizer or HDMI: CPU and USB clocks come from the 50 MHz PHY clock.
   It never calls `init_flash_disk()` (that formats on a failed probe, `blockdev_flash.cc:177`). Order: flash copy, SD, USB; it keeps
