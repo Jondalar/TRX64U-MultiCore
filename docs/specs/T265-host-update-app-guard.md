@@ -119,6 +119,29 @@ Parts:
 
 ## §5 Decisions taken while building
 
-(not started)
+Designs (2026-11-26, read-only analyses with file:line, in the coordinator's scratchpad; their decisions are copied here):
+
+- **P5:** no GitHub job runs Vivado; the builder builds what the run's `work-order` names, and today the old `plan` job writes it and
+  names the host only when a package or update is made (`ci/order.py:80-92`). Built: a `host` target in `ci/order.py` and
+  `ci/fetch_bits.py`, a matrix job `host-bits` that the DFX lanes wait for, the work order written by the matrix; the old pipeline
+  writes it only for pull requests and `t239.1` (Alex: "nicht mehr im alten"). The DFX lanes wait for `host-bits` explicitly.
+- **P1:** the boot ROM uses 2,892 of 8,192 bytes (`host/bootrom_pkg.vhd`); CRC-32, record check and the jump to the recovery add about
+  1.6 KiB. The length is compared first. A JTAG request boot skips the guard. The result block 0xFFC0 is cleared before the JTAG
+  path; guard and recovery results go to 0xFF80 / 0xFF60. On a 100T the record and the recovery sit below the app at the same
+  distances (app 0x3C0000).
+- **P2:** the recovery program reuses the host app's drivers (USB with the hub over I2C, SD, FatFs with long names, read-only);
+  estimate 110-160 KB of 258,048 bytes. It needs no clock synthesizer or HDMI: CPU and USB clocks come from the 50 MHz PHY clock.
+  It never calls `init_flash_disk()` (that formats on a failed probe, `blockdev_flash.cc:177`). Order: flash copy, SD, USB; it keeps
+  looking while nothing is found. A flash copy whose CRC differs from the record is accepted (a power cut between copy and record);
+  the started application checks host key and interface itself.
+- **P3:** the host application writes the recovery program, the copy and the record itself (no third `.txu` part, no installer
+  change). `FW_BIT_SLOT` (`flashfw.h:16`), `txu_pack.py:33` and `trx_pkg.py:24` go from 0x220000 to 0x1E0000, or `clear_tail` erases
+  the recovery on every host write. When a new copy cannot be written, the old copy is deleted before the record. Flash drive: about
+  7.8 MB free in the worst case of the host's own files; the app checks the free space and says so.
+- **P4:** the DFX host has no 15 kHz picture: cores write RGB565 frames to DDR2 and put a black dummy raster on `pix_*`. New
+  `host/av_rgb.v` scans the pixel layer's shown buffer out at 15 kHz (own raster, a second reader inside `pix_layer`, `mig_arb`
+  untouched), constants per D5, csync on SYNCn, FB high. Estimate about 560 LUT, 2 RAMB36, 0 DSP; pb_l1 from 76.3 % to about 79.5 % of
+  17,400 LUT. The register lives in `host/mode_req.v` (host-owned, survives a core swap); standard 0 = follow the core's raster.
+  No contract port changes (247 ports, VERSION 2).
 
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
