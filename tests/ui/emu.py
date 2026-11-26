@@ -63,11 +63,11 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = app_of(self.core)
+        app = fixtures.ovtest_app(self.core) if self.ovtest else app_of(self.core)     # T256, base 4.0: the test library is linked into the app (tests/ui/ovtest/build.sh)
         if self.core not in CORES:
             raise EmuError("no profile for the core \"%s\" (tests/coreapp/emu/profiles, emu.CORES)" % self.core)
         if not os.path.exists(app):
-            raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
+            raise EmuError("no core app image %s (%s)" % (app, "tests/ui/ovtest/build.sh, or OVTEST_APP=" if self.ovtest else "tools/dev.sh riscv builds both"))
         for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the core app image (COREAPP, or COREAPP_%s for a core with an app of its own)" % self.core)):
             if not os.path.exists(need):
                 raise EmuError("%s not found: %s" % (what, need))

@@ -141,12 +141,17 @@ def make_stick(stick, roms_dir, core="amiga1200", ovtest=False):
     raise ValueError("no test stick for the core \"%s\"" % core)
 
 
-# T256: the core the overlay features run on (S3, S5, S10) is the same core with a .cor that carries the test library and the UI TOML of the test element (tests/ui/ovtest/). The .cor is
-# made by the real packer on a stand-in bitstream (the tests of the packer's readers do the same: tests/coreapp/gen_bundle.py); the application reads the description and the library
-# from it at the hand-over path of the core's profile. The names are the core names the profiles hand over (tests/coreapp/emu/profiles/*.toml, `core`).
+# T256: the core the overlay features run on (S3, S5, S10) is the core's app linked with the test library (base 4.0 loads no library file, T239.3 D58: tests/ui/ovtest/build.sh links it
+# through the core's TOML B; emu.py runs that image, ovtest_app) and a .cor that carries the UI TOML of the test element (tests/ui/ovtest/ovtest.toml). The .cor is made by the real
+# packer on a stand-in bitstream (the tests of the packer's readers do the same: tests/coreapp/gen_bundle.py); the application reads the description from it at the hand-over path of
+# the core's profile. The names are the core names the profiles hand over (tests/coreapp/emu/profiles/*.toml, `core`).
 OVTEST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ovtest")
-OVTEST_U2A = os.environ.get("OVTEST_U2A", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "ovtest.u2a"))
 OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU"}
+
+
+def ovtest_app(core):
+    """The image of the test core: the core's app with the test library linked (tests/ui/ovtest/build.sh), or OVTEST_APP."""
+    return os.environ.get("OVTEST_APP", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", core + "_ovtest.app"))
 
 
 def _stand_in_bit():
@@ -161,15 +166,13 @@ def _stand_in_bit():
 
 
 def make_ovtest_cor(stick, core):
-    """stick/cores/<core>.cor: the description of tests/ui/ovtest/ovtest.toml and the library ovtest.u2a (built by tests/ui/ovtest/build.sh)."""
+    """stick/cores/<core>.cor: the description of tests/ui/ovtest/ovtest.toml (the library is in the app the emulator runs, not in the .cor)."""
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools"))
     import cor_pack
     import descrec
-    if not os.path.exists(OVTEST_U2A):
-        raise RuntimeError("no test library %s (tests/ui/ovtest/build.sh, or OVTEST_U2A=)" % OVTEST_U2A)
     desc = descrec.compile_text(open(os.path.join(OVTEST_DIR, "ovtest.toml")).read())
-    blob = cor_pack.pack(name=OVTEST_NAMES[core], desc=desc, libs=[open(OVTEST_U2A, "rb").read()], version="0.1", partial=_stand_in_bit(), app=bytes(0x60 for _ in range(64)),
+    blob = cor_pack.pack(name=OVTEST_NAMES[core], desc=desc, version="0.1", partial=_stand_in_bit(), app=bytes(0x60 for _ in range(64)),
                          load=0x30000, entry=0x30000, host_key="820eded2")
     os.makedirs(os.path.join(stick, "cores"), exist_ok=True)
     with open(os.path.join(stick, "cores", core + ".cor"), "wb") as f:

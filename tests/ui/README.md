@@ -33,8 +33,8 @@ so a setting a scenario changes lives only inside its feature. Inside a feature 
 | `runner.py` | the Gherkin subset: `Feature`, `Background`, `Scenario`, `Given/When/Then/And/But`, comments; `--keep-going`, `--only` |
 | `steps.py` | the steps (a regular expression and a function each) and `Ctx` (the state, key presses that wait for the menu to take them) |
 | `emu.py` | starts ue2emu, speaks the control port (`key`, `wait`, `png`, `button`), reads the state over REST |
-| `fixtures.py` | the stick of the test machine; `make_ovtest_cor` packs the overlay test library into the `.cor` of a core whose feature says `# core: vc20+ovtest` |
-| `ovtest/` | the test library of the overlay service (T256): `ovtest.cc`, its UI TOML `ovtest.toml` (the element), `build.sh` (RISC-V, tests/ui/build/ovtest.u2a); feature `features_cores/overlay_vc20.feature` |
+| `fixtures.py` | the stick of the test machine; `make_ovtest_cor` packs the UI TOML of the overlay test element into the `.cor` of a core whose feature says `# core: vc20+ovtest` |
+| `ovtest/` | the test library of the overlay service (T256): `ovtest.cc`, its UI TOML `ovtest.toml` (the element), `library.toml` (its TOML B entry, a register library: base 4.0 loads no library file), `build.sh <sdk.tar.gz> [core]` (RISC-V: the core's app linked with it, tests/ui/build/<core>_ovtest.app, the image a `+ovtest` feature runs; `OVTEST_APP=` names another); feature `features_cores/overlay_vc20.feature` |
 
 ## Writing a step
 

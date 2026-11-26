@@ -845,14 +845,14 @@ def picture_not_tag_of(c, name, tagpic):
         raise AssertionFailed("%d of the %d pixels of the tag's text are bright in %s too: the tag is drawn over the open menu" % (same, len(text), name))
 
 
-# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the core runs from a .cor that carries it (`# core: vc20+ovtest`) -----------------
+# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the core runs the app it is linked into (`# core: vc20+ovtest`) ------------------
 def _lib_op(c, name):
-    """The test library's operation over REST. A 404 is a core that did not load the library: the log of the emulator says why."""
+    """The test library's operation over REST. A 404 is an app that did not link the library: the log of the emulator says why."""
     import urllib.error
     try:
         return c.emu.op("ovtest." + name)
     except urllib.error.HTTPError as e:
-        raise StepError("ovtest.%s answered %s %s: the library is not loaded (the emulator log, [lib] and [menu] lines) or the call was refused" % (name, e.code, e.read().decode("utf-8", "replace")[:200]))
+        raise StepError("ovtest.%s answered %s %s: the library is not linked (the emulator log, [lib] lines; tests/ui/ovtest/build.sh) or the call was refused" % (name, e.code, e.read().decode("utf-8", "replace")[:200]))
 
 
 @step(r'the test library shows its element')
