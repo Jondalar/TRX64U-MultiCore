@@ -33,7 +33,7 @@ bench did not invalidate the screen, and the previous core's F5 label in the sid
 - Build the image: `tools/dev.sh riscv --branch <b>` (core app `.ci/dev/<b>/coreapp.app`, host app via `tools/dev.sh emu`).
 - Core app: a `.feature` under `tests/ui/features*/` (first line `# core: <profile>`), steps `I press ...` and
   `I save the picture "<name>"` -> `tests/ui/out/<name>.png`; run `COREAPP=<image> tests/ui/run.sh <feature>`. A core without a
-  profile in `tests/coreapp/emu/profiles/` gets one first (tests only). Host app: `tests/hostapp/emu_host.sh` (via `tools/dev.sh emu`).
+  profile `cores/<core>/app/ue2emu.toml` gets one first. Host app: `tests/hostapp/emu_host.sh` (via `tools/dev.sh emu`).
 - Walk to the screen with the keys a person presses (no test-only setup). Take at least: the screen with the change, the longest
   list of every core that gets the change (A1200, C64/trx64u, C128, VC-20, Atari), the last row selected, a toast over a list, the
   longest real file/entry name (31+ characters), 480p and 1080p where the emulator offers the mode (say so when it does not).
@@ -112,7 +112,7 @@ A render test that asserts R1 and R2 (selection inside the view, no overlapping 
 - ue2emu S45 (C64U_emu, 11-11) follows the host's hdmi_modes: `--handover video=ntsc60:480p` / `pal50:720p`, `--screen
   576p50|480p60|720p50|720p60|1080p50|1080p60|...`; the saved PNG has the frame size; `monitor trx` works with `--c64 none`.
   `tests/ui` takes the mode from `UI_VIDEO` (default 720p). Show 480p, 720p and 1080p for every reviewed screen.
-- Profiles for vc20, c128, atari800 exist since T205 (`tests/coreapp/emu/profiles/`), features in `tests/ui/features_cores/`.
+- Every core lane has a profile `cores/<core>/app/ue2emu.toml` (T239.5 D13: step 12 of the matrix reads it too), features in `tests/ui/features_cores/`.
 - ue2emu: trx64u runs plain TRX64-Ultimate mode (fixed 1080p frame, canvas 1x); scaled 480p/720p pictures come from core profiles only
   (reported to C64U_emu 11-12).
 - A list-style change (T209) must not change the boot menu; the boot menu keeps its logo rows, as big as they need to be: 32 px logo, 38 px row, never shrunk to fit a mode - at 480p the row count gives (Alex 11-12); the boot menu shows no path; the editor row is the old menu row without the logo (D8).

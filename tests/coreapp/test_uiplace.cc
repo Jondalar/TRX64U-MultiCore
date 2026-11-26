@@ -18,6 +18,10 @@
 #include "menutree.h"
 #include "contrib.h"
 #include "volume.h"
+#ifndef TEST_APP_NES
+#error "test_uiplace adds the base rows to the record of the NES: it is a unit of the NES app (run.sh nesapp, nes_uiplace)"
+#endif
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #include "tone.h"
 #include "home.h"
 #include "baseset.h"

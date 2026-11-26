@@ -4,22 +4,10 @@
 
 #include "desc.h"
 
-extern const CoreDesc atari800_desc;
-extern const CoreDesc nes_desc;
 extern const CoreDesc apple2_desc;
-extern const CoreDesc zx_desc;
-extern const CoreDesc cpc_desc;
 extern const CoreDesc vc20_desc;
-extern const CoreDesc c264_desc;
-extern const CoreDesc pet_desc;
-extern const CoreDesc c128_desc;
 extern const CoreDesc c64scpu_desc;
-extern const CoreDesc zxnext_desc;
 extern const CoreDesc snes_desc;
-extern const CoreDesc neogeo_desc;
-extern const CoreDesc amiga_desc;
 extern const CoreDesc amiga1200_desc;
-extern const CoreDesc ddt_novic_desc;
-extern const CoreDesc portdiag_desc;
 
 #endif

@@ -7,8 +7,8 @@
 
 static bool put_dummy(CoreCtx *, const uint8_t *, uint32_t, char *, int) { return 0; }
 static const RomSpec specs[2] = {
-    { "XL OS", { "ATARIXL.ROM", 0 },               { 16384, 0 }, true,  0, 0 },
-    { "BASIC", { "BASIC.ROM", "ATARIBAS.ROM", 0 }, { 8192, 0 },  true,  0, 0 },
+    { "XL OS", { "DUMMYXL.ROM", 0 },               { 16384, 0 }, true,  0, 0 },
+    { "BASIC", { "BASIC.ROM", "DUMMYBAS.ROM", 0 }, { 8192, 0 },  true,  0, 0 },
 };
 
 int main()
@@ -18,46 +18,46 @@ int main()
     char sum[300];
 
     // nothing anywhere: the message names the file and every root searched
-    RomStatus st = rom_scan(&fs, "atari800", specs, 2, res, sum, sizeof(sum));
+    RomStatus st = rom_scan(&fs, "dummy800", specs, 2, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_MISSING);
-    CHECK(strstr(sum, "ATARIXL.ROM") != 0);
+    CHECK(strstr(sum, "DUMMYXL.ROM") != 0);
     for (int r = 0; rom_roots[r]; r++) {
-        std::string root = std::string(rom_roots[r]) + "/roms/atari800";
+        std::string root = std::string(rom_roots[r]) + "/roms/dummy800";
         CHECK(strstr(sum, root.c_str()) != 0);
     }
 
     // only a USB stick has them, in odd case; BASIC under its second name
-    fs.put_size("/USB1/ROMS/Atari800/AtariXL.rom", 16384, 1);
-    fs.put_size("/usb1/roms/atari800/ataribas.ROM", 8192, 2);
-    st = rom_scan(&fs, "atari800", specs, 2, res, sum, sizeof(sum));
+    fs.put_size("/USB1/ROMS/Dummy800/DummyXL.rom", 16384, 1);
+    fs.put_size("/usb1/roms/dummy800/dummybas.ROM", 8192, 2);
+    st = rom_scan(&fs, "dummy800", specs, 2, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_FOUND);
     CHECK_STR(sum, "");
-    CHECK_STR(res[0].hit.dir, "/usb1/roms/atari800");
-    CHECK_STR(res[1].hit.name, "ataribas.ROM");
+    CHECK_STR(res[0].hit.dir, "/usb1/roms/dummy800");
+    CHECK_STR(res[1].hit.name, "dummybas.ROM");
     CHECK_EQ(res[0].hit.size, 16384);
 
     // the flash comes before the stick, the stick before the card
-    fs.put_size("/sd/roms/atari800/atarixl.rom", 16384, 3);
-    fs.put_size("/flash/roms/atari800/BASIC.ROM", 8192, 4);
-    rom_scan(&fs, "atari800", specs, 2, res, sum, sizeof(sum));
-    CHECK_STR(res[0].hit.dir, "/usb1/roms/atari800");     // usb1 before sd
-    CHECK_STR(res[1].hit.dir, "/flash/roms/atari800");    // flash before usb1
+    fs.put_size("/sd/roms/dummy800/dummyxl.rom", 16384, 3);
+    fs.put_size("/flash/roms/dummy800/BASIC.ROM", 8192, 4);
+    rom_scan(&fs, "dummy800", specs, 2, res, sum, sizeof(sum));
+    CHECK_STR(res[0].hit.dir, "/usb1/roms/dummy800");     // usb1 before sd
+    CHECK_STR(res[1].hit.dir, "/flash/roms/dummy800");    // flash before usb1
     CHECK_STR(res[1].hit.name, "BASIC.ROM");              // and a file of the first name beats the second name in the same root
 
     // a file of the right name and the wrong size is refused by name and size, with the sizes expected
     FakeFs fs2;
-    fs2.put_size("/usb0/roms/atari800/atarixl.rom", 8192);
-    fs2.put_size("/usb0/roms/atari800/basic.rom", 8192);
-    st = rom_scan(&fs2, "atari800", specs, 2, res, sum, sizeof(sum));
+    fs2.put_size("/usb0/roms/dummy800/dummyxl.rom", 8192);
+    fs2.put_size("/usb0/roms/dummy800/basic.rom", 8192);
+    st = rom_scan(&fs2, "dummy800", specs, 2, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_WRONG_SIZE);
-    CHECK(strstr(sum, "atarixl.rom") != 0 && strstr(sum, "8192 bytes") != 0 && strstr(sum, "16384") != 0);
+    CHECK(strstr(sum, "dummyxl.rom") != 0 && strstr(sum, "8192 bytes") != 0 && strstr(sum, "16384") != 0);
     CHECK_EQ(res[0].status, ROM_WRONG_SIZE);
     CHECK_EQ(res[1].status, ROM_FOUND);
     // ... but a right file in a later root wins over a wrong one in an earlier root
-    fs2.put_size("/sd/roms/atari800/atarixl.rom", 16384);
-    st = rom_scan(&fs2, "atari800", specs, 2, res, sum, sizeof(sum));
+    fs2.put_size("/sd/roms/dummy800/dummyxl.rom", 16384);
+    st = rom_scan(&fs2, "dummy800", specs, 2, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_FOUND);
-    CHECK_STR(res[0].hit.dir, "/sd/roms/atari800");
+    CHECK_STR(res[0].hit.dir, "/sd/roms/dummy800");
 
     // a content check refuses a file of the right size
     static const RomSpec chk[1] = { { "Checked", { "A.ROM", 0 }, { 4, 0 }, true, [](const uint8_t *d, uint32_t) { return d[0] == 0x42; }, 0 } };
@@ -105,10 +105,10 @@ int main()
     FakeFs fs5;
     for (int pass = 1; pass <= 40; pass++) {
         if (pass == 25) {
-            fs5.put_size("/usb0/roms/atari800/atarixl.rom", 16384);
-            fs5.put_size("/usb0/roms/atari800/basic.rom", 8192);
+            fs5.put_size("/usb0/roms/dummy800/dummyxl.rom", 16384);
+            fs5.put_size("/usb0/roms/dummy800/basic.rom", 8192);
         }
-        st = rom_scan(&fs5, "atari800", specs, 2, res, sum, sizeof(sum));
+        st = rom_scan(&fs5, "dummy800", specs, 2, res, sum, sizeof(sum));
         if (st == ROM_FOUND) {
             CHECK_EQ(pass, 25);                      // found at the first pass after the stick went in
             CHECK(!w.step(st, sum));
@@ -124,12 +124,12 @@ int main()
     CHECK(!w.told());                               // reset by the found pass
     // a wrong file is told at once, and again when the text changes
     RomWait w2;
-    CHECK(w2.step(ROM_WRONG_SIZE, "atarixl.rom is 10 bytes"));
-    CHECK(!w2.step(ROM_WRONG_SIZE, "atarixl.rom is 10 bytes"));
-    CHECK(w2.step(ROM_WRONG_SIZE, "atarixl.rom is 20 bytes"));
+    CHECK(w2.step(ROM_WRONG_SIZE, "dummyxl.rom is 10 bytes"));
+    CHECK(!w2.step(ROM_WRONG_SIZE, "dummyxl.rom is 10 bytes"));
+    CHECK(w2.step(ROM_WRONG_SIZE, "dummyxl.rom is 20 bytes"));
     // the medium pulled mid-session: the listing fails, the ROM is missing again
     fs5.gone = true;
-    CHECK_EQ(rom_scan(&fs5, "atari800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);
+    CHECK_EQ(rom_scan(&fs5, "dummy800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);
 
     // ROM sets (T91, T92): a machine with variants starts when ONE set is complete; a set that is only partly there does not count
     static const RomSpec sets[5] = {
@@ -199,41 +199,41 @@ int main()
     CHECK(rom_own_dir("/USB1/cores/apple2/apple2.cor", own, sizeof(own)));
     CHECK_STR(own, "/USB1/cores/apple2/apple2/roms");
     FakeFs fa;
-    fa.put_size("/USB1/cores/apple2/apple2/roms/atarixl.rom", 16384, 7);
+    fa.put_size("/USB1/cores/apple2/apple2/roms/dummyxl.rom", 16384, 7);
     fa.put_size("/USB1/cores/apple2/apple2/roms/basic.rom", 8192, 7);
-    st = rom_scan(&fa, "atari800", specs, 2, res, sum, sizeof(sum), 0, own);
+    st = rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum), 0, own);
     CHECK_EQ(st, ROM_FOUND);
     CHECK_STR(res[0].hit.dir, "/USB1/cores/apple2/apple2/roms");
-    CHECK_EQ(rom_scan(&fa, "atari800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);      // without the folder named, the same files are not found
-    fa.put_size("/usb0/roms/atari800/atarixl.rom", 16384, 1);
-    fa.put_size("/board/atarixl.rom", 16384, 3);
-    st = rom_scan(&fa, "atari800", specs, 2, res, sum, sizeof(sum), "/board", own);
+    CHECK_EQ(rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);      // without the folder named, the same files are not found
+    fa.put_size("/usb0/roms/dummy800/dummyxl.rom", 16384, 1);
+    fa.put_size("/board/dummyxl.rom", 16384, 3);
+    st = rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum), "/board", own);
     CHECK_STR(res[0].hit.dir, "/USB1/cores/apple2/apple2/roms");
     // the old places are not read: a file there does not make a core run
     FakeFs fb;
-    fb.put_size("/usb1/roms/atari800/atarixl.rom", 16384);
-    fb.put_size("/usb1/roms/atari800/basic.rom", 8192);
-    fb.put_size("/board/atarixl.rom", 16384);
-    CHECK_EQ(rom_scan(&fb, "atari800", specs, 2, res, sum, sizeof(sum), "/board", own), ROM_MISSING);
+    fb.put_size("/usb1/roms/dummy800/dummyxl.rom", 16384);
+    fb.put_size("/usb1/roms/dummy800/basic.rom", 8192);
+    fb.put_size("/board/dummyxl.rom", 16384);
+    CHECK_EQ(rom_scan(&fb, "dummy800", specs, 2, res, sum, sizeof(sum), "/board", own), ROM_MISSING);
     CHECK_EQ(res[0].status, ROM_MISSING);
     // a wrong-size file in the folder is told with the folder, even when a right file lies in an old place
     FakeFs fc;
-    fc.put_size("/USB1/cores/apple2/apple2/roms/atarixl.rom", 100);
-    fc.put_size("/sd/roms/atari800/atarixl.rom", 16384);
-    fc.put_size("/sd/roms/atari800/basic.rom", 8192);
-    CHECK_EQ(rom_scan(&fc, "atari800", specs, 2, res, sum, sizeof(sum), 0, own), ROM_WRONG_SIZE);
+    fc.put_size("/USB1/cores/apple2/apple2/roms/dummyxl.rom", 100);
+    fc.put_size("/sd/roms/dummy800/dummyxl.rom", 16384);
+    fc.put_size("/sd/roms/dummy800/basic.rom", 8192);
+    CHECK_EQ(rom_scan(&fc, "dummy800", specs, 2, res, sum, sizeof(sum), 0, own), ROM_WRONG_SIZE);
     CHECK(strstr(sum, "/USB1/cores/apple2/apple2/roms") != 0 && strstr(sum, "100 bytes") != 0 && !strstr(sum, "/sd/roms"));
     // a shared (device) ROM is not looked for in <root>/roms either
     static const RomSpec drv[1] = { { "Drive", { "d1541.rom", 0 }, { 4, 0 }, true, 0, 0, 0, 1 } };
     FakeFs ff;
     ff.put_size("/usb0/roms/d1541.rom", 4, 1);
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, 0), ROM_FOUND);      // the old search (no .cor path) still reads it
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, 0), ROM_FOUND);      // the old search (no .cor path) still reads it
     CHECK_STR(res[0].hit.dir, "/usb0/roms");
-    CHECK(rom_own_dir("/USB1/cores/c264/c264.cor", own, sizeof(own)));
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_MISSING);
-    ff.put_size("/USB1/cores/c264/c264/roms/d1541.rom", 4, 2);
-    CHECK_EQ(rom_scan(&ff, "c264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_FOUND);
-    CHECK_STR(res[0].hit.dir, "/USB1/cores/c264/c264/roms");
+    CHECK(rom_own_dir("/USB1/cores/dummy264/dummy264.cor", own, sizeof(own)));
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_MISSING);
+    ff.put_size("/USB1/cores/dummy264/dummy264/roms/d1541.rom", 4, 2);
+    CHECK_EQ(rom_scan(&ff, "dummy264", drv, 1, res, sum, sizeof(sum), 0, own), ROM_FOUND);
+    CHECK_STR(res[0].hit.dir, "/USB1/cores/dummy264/dummy264/roms");
     // the path: no .cor, relative, no medium, too long for the buffer
     CHECK(!rom_own_dir("/x.cor", own, sizeof(own)));
     CHECK_STR(own, "");

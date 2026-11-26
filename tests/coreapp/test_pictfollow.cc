@@ -59,7 +59,13 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
     return true;
 }
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+#ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_pictfollow) has its own core only
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)              // the NES's app (run.sh nesapp, the unit nes_pictfollow) has its own core only
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#endif
 
 // ---- synthetic EDIDs -------------------------------------------------------------------------------------------------------------------
 static void fix_sum(uint8_t *b)
@@ -212,6 +218,18 @@ struct Rig {
 };
 
 // ---- S10 / T235 S1, S2, S4: every row is offered, the screen's rows are marked -------------------------------------------------------------
+#ifdef TEST_APP_ATARI800
+// S10 on the Atari: every frame-buffer core, not only one - the same list as the NES's (the shared unit's s10_lists)
+static void s10_atari()
+{
+    // every frame-buffer core, not only one: the same list in the Atari
+    tv50_no1080();
+    { Rig r(&atari800_desc);
+      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
+      CHECK_STR(named_rows(r.ext).c_str(), "0,1");
+    }
+}
+#elif defined(TEST_APP_NES)
 static void s10_lists()
 {
     tv50();
@@ -297,12 +315,6 @@ static void s10_lists()
       picmodes_info(&pm, info, sizeof(info));
       CHECK(strstr(info, "did not name its modes") == 0 && strstr(info, "* =") != 0);
     }
-    // every frame-buffer core, not only one: the same list in the Atari
-    tv50_no1080();
-    { Rig r(&atari800_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "0,1");
-    }
     // a stored choice the screen does not name is a value of the list (D1): it is taken
     tv50();
     { Rig a(&nes_desc);
@@ -324,9 +336,11 @@ static void s10_lists()
 }
 
 // ---- S12: default and override -----------------------------------------------------------------------------------------------------------
+#endif
 static void s12_precedence()
 {
     tv50();                                                                              // rows 0 1 2 8
+#ifdef TEST_APP_ATARI800
     // the host handed over 720p; the core has no choice: Auto is the host's default
     { Rig r(&atari800_desc);
       g_gw_row = 1;
@@ -342,12 +356,15 @@ static void s12_precedence()
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_1080P);
       CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
     }
+#elif defined(TEST_APP_NES)
     // the host's default is a mode the screen does not name: the best fitting one (1080p50), and not the core's wish for 720p
     { Rig r(&nes_desc);                                                                  // the NES alone would ask for 720p (ADR-0057)
       g_gw_row = 0;
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1024x768), VID_HDMI_1080P);
       CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
     }
+#endif
+#ifdef TEST_APP_ATARI800
     // the core's own choice is not named by the screen (T235): it is still the choice
     { Rig a(&atari800_desc);
       CHECK(a.st->set(a.pic(), 5));
@@ -368,7 +385,9 @@ static void s12_precedence()
       CHECK_EQ(r.vid->mode(), VID_HDMI_720P);
       CHECK_EQ(g_gw_row, 1);
     }
+#endif
 }
+#ifdef TEST_APP_ATARI800                // S11, Q7, the start, D10c, D5, T235: on the Atari's descriptor
 
 // ---- S11: the screen changes ---------------------------------------------------------------------------------------------------------------
 static void s11_follow()
@@ -729,9 +748,12 @@ static void t235_unnamed_pick()
     }
 }
 
+#endif
+
 int main()
 {
-    s10_lists();
+#ifdef TEST_APP_ATARI800
+    s10_atari();
     s12_precedence();
     s11_follow();
     s11_remap();
@@ -740,5 +762,9 @@ int main()
     d10c_host_auto();
     d5_page_rebuild();
     t235_unnamed_pick();
+#elif defined(TEST_APP_NES)
+    s10_lists();
+    s12_precedence();
+#endif
     DONE("pictfollow");
 }

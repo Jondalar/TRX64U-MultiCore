@@ -1,11 +1,6 @@
 # T239.3 S6: the target of every file of the D24 ledger (tools/d24_ledger.txt), read from the code. tools/check_d24.py reads it: a ledger file without a line here is red.
 # Line: <path> <target> <reason: a few words>. Targets: data (tables that are TOML, register maps: D8), core-library (one core's own code: hooks and its formats, D9),
 # shared-library (code several cores use, kept here: D10, D12), ultimate-repo (only the D12 list), generic-module (code that belongs to the generic app for every core).
-coreapp/cores/6502/xexboot.asm core-library Atari XEX boot stub
-coreapp/cores/6502/xexboot_bin.h core-library Atari XEX boot stub, generated
-coreapp/cores/amiga.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/amiga_keys.h data key table, rawkeys in TOML
-coreapp/cores/amiga_regs.h data register map (D8)
 coreapp/cores/apple2.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/apple2_disk.cc core-library the core's own file format or engine (D9)
 coreapp/cores/apple2_disk.h core-library the core's own file format or engine (D9)
@@ -15,25 +10,6 @@ coreapp/cores/apple2_nib.h core-library the core's own file format or engine (D9
 coreapp/cores/apple2_regs.h data register map (D8)
 coreapp/cores/apple2_woz.cc core-library the core's own file format or engine (D9)
 coreapp/cores/apple2_woz.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari800.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/atari800_regs.h data register map (D8)
-coreapp/cores/atari_atr.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_atr.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_cart.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_cart.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_media.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_media.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_sio.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_sio.h core-library the core's own file format or engine (D9)
-coreapp/cores/atari_xex.cc core-library the core's own file format or engine (D9)
-coreapp/cores/atari_xex.h core-library the core's own file format or engine (D9)
-coreapp/cores/c128.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/c128_keys.h core-library C128 extra keys code
-coreapp/cores/c128_prg.h core-library C128 program start
-coreapp/cores/c128_regs.h data register map (D8)
-coreapp/cores/c264.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/c264_regs.h data register map (D8)
 coreapp/cores/c64_cart.cc shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart.h shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart_desc.h shared-library cartridge library's types
@@ -49,47 +25,14 @@ coreapp/cores/cbm1541_desc.h shared-library drive library's pieces, own record P
 coreapp/cores/cbm_run.cc shared-library Run PRG of five cores
 coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
-coreapp/cores/cpc.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/cpc_disk.cc core-library the core's own file format or engine (D9)
-coreapp/cores/cpc_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/cpc_regs.h data register map (D8)
-coreapp/cores/ddt_novic.cc core-library hooks and tables; no desc.toml yet (D9)
-coreapp/cores/ddt_regs.h data register map (D8)
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
 coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
-coreapp/cores/ines.cc core-library the core's own file format or engine (D9)
-coreapp/cores/ines.h core-library the core's own file format or engine (D9)
-coreapp/cores/neogeo.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/neogeo_regs.h data register map (D8)
-coreapp/cores/neoset.cc core-library the core's own file format or engine (D9)
-coreapp/cores/neoset.h core-library the core's own file format or engine (D9)
-coreapp/cores/nes.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/nes_regs.h data register map (D8)
-coreapp/cores/pet.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/pet_models.h core-library PET models, ROM CRCs, PRG numbers
-coreapp/cores/pet_regs.h data register map (D8)
-coreapp/cores/portdiag.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/portdiag.h core-library the core's own file format or engine (D9)
-coreapp/cores/portdiag_regs.h data register map (D8)
 coreapp/cores/snes.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/snes_regs.h data register map (D8)
 coreapp/cores/snes_rom.cc core-library the core's own file format or engine (D9)
 coreapp/cores/snes_rom.h core-library the core's own file format or engine (D9)
-coreapp/cores/tape_deck.cc shared-library tape deck of zx, cpc, pet
-coreapp/cores/tape_deck.h shared-library tape deck of zx, cpc, pet
-coreapp/cores/tape_pulses.cc shared-library tape pulses of zx, cpc, pet
-coreapp/cores/tape_pulses.h shared-library tape pulses of zx, cpc, pet
-coreapp/cores/zx.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/zx_regs.h data register map (D8)
-coreapp/cores/zx_snap.cc core-library the core's own file format or engine (D9)
-coreapp/cores/zx_snap.h core-library the core's own file format or engine (D9)
-coreapp/cores/zxnext.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/zxnext_fw.h core-library Next firmware board ids
-coreapp/cores/zxnext_regs.h data register map (D8)
 coreapp/src/amiga_ffs.cc core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/amiga_ffs.h core-library Amiga FFS format, Amiga only (D9)
-coreapp/src/diagtest.cc core-library the diag core's test runner
-coreapp/src/diagtest.h core-library the diag core's test runner
 coreapp/src/monitor.cc ultimate-repo bus monitor (D12)
 coreapp/src/monitor.h ultimate-repo bus monitor (D12)
 coreapp/src/monsrv.cc ultimate-repo monitor server (D12)

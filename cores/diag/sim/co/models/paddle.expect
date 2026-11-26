@@ -1,12 +1,14 @@
-# the charge times the model gives (K clocks, the TTF reports exactly K for a comparator that flips K clocks after PADDLE_DIS is let go)
+# the charge times the model gives: the comparator flips K clocks after PADDLE_DIS stopped being driven high; the engine's TIME_TO_EDGE starts counting 2 clocks after that release took effect (measured on the RTL: K - 2 for all eight, K = 5000 6000 7000 8000, 200000 250000 300000 350000)
 meta.status = "done"
-slot.t_left_x1.values = [5000]
-slot.t_left_y1.values = [6000]
-slot.t_left_x2.values = [7000]
-slot.t_left_y2.values = [8000]
-slot.t_right_x1.values = [200000]
-slot.t_right_y1.values = [250000]
-slot.t_right_x2.values = [300000]
-slot.t_right_y2.values = [350000]
+slot.t_left_x1.values = [4998]
+slot.t_left_y1.values = [5998]
+slot.t_left_x2.values = [6998]
+slot.t_left_y2.values = [7998]
+slot.t_right_x1.values = [199998]
+slot.t_right_y1.values = [249998]
+slot.t_right_x2.values = [299998]
+slot.t_right_y2.values = [349998]
 prompt.left = "OK"
 prompt.right = "OK"
+eval.left_x1 ~ PASS
+eval.right_y2 ~ PASS

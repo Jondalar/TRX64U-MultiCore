@@ -10,6 +10,7 @@
 #include "keyboard.h"
 #include "writeback.h"
 #include "ops_glue.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 struct Host : MenuHost {
     void info(int, char *out, int n) { snprintf(out, n, "-"); }

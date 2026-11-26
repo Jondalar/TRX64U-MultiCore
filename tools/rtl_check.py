@@ -78,6 +78,8 @@ check
   --bus MODULE:... with MODULE the top module itself (--top): the ports of the top module are the request; a register stage of the top file (`always @(posedge clk) q <= expr;`) holds it one clock, the reset
   released. --window BASE:SIZE:full puts the whole address on the address port. --bus and --window may be repeated: a block goes to the bus whose window holds it.
   RTL_CHECK_TRACE=1 raises the error with its traceback.
+  A field of an element of a record array (`step => m(1).step`, an actual of a port map) parses as a node of its own that no evaluator follows; as an output target it names the signal and the field. A record signal assigned from an
+  expression (mm <= m(1) when ... else m(0)) has every field unknown where a module reads it (an input of an instance that is no part of the request's path), it is no longer an error.
   A Verilog generate-for (`genvar g; generate for (g = A; g < B; g = g + 1) begin : name ... end endgenerate`) is unrolled when the module is parsed: each pass declares its names as
   (name, index, declared name) and the rest of the module reads them as name[index].declared; the genvar is its value inside the block. A Verilog function of the form
   `function [r] f (input [r] a, ...); f = expression; endfunction` is replaced by its expression at every call. Another function is skipped as before.
@@ -521,6 +523,9 @@ def base_name(lhs):
         return lhs[1], ""
     if lhs[0] in ("sl", "ix", "call", "psl"):
         return base_name(lhs[1])
+    if lhs[0] == "field":                          # m(1).step: the signal m, the field named
+        b, sfx = base_name(lhs[1])
+        return b, sfx + "." + lhs[2]
     raise Unsupported("an assignment target of kind %s" % lhs[0])
 
 
@@ -1527,6 +1532,9 @@ class VhdlParser(P):
                 e = self.aliases[name] if name in self.aliases else ("id", name)
             while self.txt() == "(":
                 e = self.suffix(e)
+                while self.txt() == "." and self.pk(1)[0] == "id":      # a field of an indexed record (m(1).step): a node of its own, which no evaluator follows
+                    self.eat()
+                    e = ("field", e, self.eat()[1])
             if self.txt() == "'":
                 self.eat()
                 attr = self.eat()[1]
@@ -2974,7 +2982,7 @@ class Ev:
                         if key != name and rhs[0] == "id":
                             return self.val(ctx, rhs[1] + name[len(key):])
                         if key != name:
-                            raise Unsupported("a record assigned from an expression: %s" % key)
+                            return allx(w)         # a record assigned from an expression (mm <= m(1) when ... else m(0): a record array's element): not followed, every field unknown
                     else:
                         cur = self.overlay(ctx, cur if cur is not None else allx(w), lhs, self.ev(ctx, rhs))
                 elif d[0] == "proc":

@@ -93,7 +93,7 @@ typedef struct SvcSettings {
 //   "Mouse Wheel Sensitivity"         range 1 .. 16, default 8 (position 7).
 //   "Mouse Wheel Direction"           "Normal", "Reversed"; default 0.
 // The base declares Mouse Sensitivity and Mouse Acceleration for every core with a mouse (coreapp/src/baseset.cc), and a menu TOML can hide any of the six by key ("hide"). The menu's look (transparency, colour scheme, filename squeeze, navigation style) is no setting of the base (T239.3 D56). trx64u declared them in its menu TOML (all five) and no longer does. The Amiga cores keep their own Mouse Sensitivity and Mouse Acceleration in
-// cores/amiga.cc (the operations mouse.sens / mouse.accel, mousesink.h): a key the descriptor declares itself is not added again, so the Amiga's F5 Input tab is as before 3.3 (T239.3 D25);
+// the Amiga cores' libraries (cores/amiga/app/lib/amiga.cc, cores/amiga1200/app/lib/amiga1200.cc: the operations mouse.sens / mouse.accel, mousesink.h): a key the descriptor declares itself is not added again, so the Amiga's F5 Input tab is as before 3.3 (T239.3 D25);
 // desc_check refuses any other descriptor that declares one of the six.
 
 #ifdef __cplusplus

@@ -7,12 +7,14 @@
 #include "check.h"
 #include "fakes.h"
 #include "romfind.h"
+#ifdef TEST_APP_ATARI800                // the Atari's ATR reader: its app (run.sh a8app, the unit a8_fs64)
 #include "atari_atr.h"
+#endif
 
 #include "sparsefs.h"
 
 static const RomSpec specs[1] = {
-    { "XL OS", { "ATARIXL.ROM", 0 }, { 16384, 0 }, true, 0, 0 },
+    { "XL OS", { "DUMMYXL.ROM", 0 }, { 16384, 0 }, true, 0, 0 },
 };
 
 int main()
@@ -53,18 +55,19 @@ int main()
 
     // a ROM of 4 GiB + 16384 bytes is not the ROM of 16384 bytes
     SparseFs rf;
-    rf.put_big("/usb0/roms/atari800/atarixl.rom", FOUR_GIB + 16384);
+    rf.put_big("/usb0/roms/dummy800/dummyxl.rom", FOUR_GIB + 16384);
     RomResult res[1];
     char sum[300];
-    RomStatus st = rom_scan(&rf, "atari800", specs, 1, res, sum, sizeof(sum));
+    RomStatus st = rom_scan(&rf, "dummy800", specs, 1, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_WRONG_SIZE);
-    CHECK(strstr(sum, "atarixl.rom") != 0);
+    CHECK(strstr(sum, "dummyxl.rom") != 0);
     // ... and the file of the right size is still found
-    rf.put_size("/sd/roms/atari800/atarixl.rom", 16384, 7);
-    st = rom_scan(&rf, "atari800", specs, 1, res, sum, sizeof(sum));
+    rf.put_size("/sd/roms/dummy800/dummyxl.rom", 16384, 7);
+    st = rom_scan(&rf, "dummy800", specs, 1, res, sum, sizeof(sum));
     CHECK_EQ(st, ROM_FOUND);
     CHECK_EQ(res[0].hit.size, 16384);
 
+#ifdef TEST_APP_ATARI800
     // an XFD is 184320 bytes; a file of 4 GiB + 184320 bytes is not one
     SparseFs af;
     af.put_big("/usb0/huge.xfd", FOUR_GIB + 184320);
@@ -77,6 +80,7 @@ int main()
     CHECK(d != 0);
     CHECK_EQ(d ? d->sectors() : 0, 720);
     delete d;
+#endif
 
     DONE("fs64");
 }

@@ -598,6 +598,30 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_vc20.txt").c_str());      // a core that has an app of its own: this unit is built like that app
 #elif defined(TEST_APP_A1200)
     std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
+#elif defined(TEST_APP_ATARI800)
+    std::ifstream idx((dir + "/index_app_atari800.txt").c_str());
+#elif defined(TEST_APP_NES)
+    std::ifstream idx((dir + "/index_app_nes.txt").c_str());
+#elif defined(TEST_APP_C264)
+    std::ifstream idx((dir + "/index_app_c264.txt").c_str());
+#elif defined(TEST_APP_ZXNEXT)
+    std::ifstream idx((dir + "/index_app_zxnext.txt").c_str());
+#elif defined(TEST_APP_NEOGEO)
+    std::ifstream idx((dir + "/index_app_neogeo.txt").c_str());
+#elif defined(TEST_APP_AMIGA)
+    std::ifstream idx((dir + "/index_app_amiga.txt").c_str());
+#elif defined(TEST_APP_DIAG)
+    std::ifstream idx((dir + "/index_app_diag.txt").c_str());
+#elif defined(TEST_APP_DDT)
+    std::ifstream idx((dir + "/index_app_ddt_novic.txt").c_str());
+#elif defined(TEST_APP_ZX)
+    std::ifstream idx((dir + "/index_app_zx.txt").c_str());
+#elif defined(TEST_APP_CPC)
+    std::ifstream idx((dir + "/index_app_cpc.txt").c_str());
+#elif defined(TEST_APP_PET)
+    std::ifstream idx((dir + "/index_app_pet.txt").c_str());
+#elif defined(TEST_APP_C128)
+    std::ifstream idx((dir + "/index_app_c128.txt").c_str());
 #else
     std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
 #endif

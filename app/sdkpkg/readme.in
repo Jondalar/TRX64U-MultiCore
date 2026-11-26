@@ -240,6 +240,16 @@ A patch on 0.5.1: the base API stays 3.6, no header changes.
 - **browse_at and browse_sheet from a list row and an ask_list answer.** The calls took the menu to the browser only from a node row's operation; from the operation of a `list` row or of an `ask_list` answer they did nothing and the request stayed pending until a later row. They now work there (`api.md` 4.14.15, 4.14.16).
 - **A long folder path in the Library's header no longer wraps into the first row.** The header of the browser is one line: a path that does not fit is cut in the middle with an ellipsis, so its start and its last folder stay visible.
 
+## What is new in 0.5.3 (base API 3.7, T260, T239.3 D54)
+
+The base API is 3.7 (3.6 is released with SDK 0.5.1 and 0.5.2 and stays as it was). A library built against 3.4 to 3.6 loads and runs unchanged.
+
+- **The dialogs of a core's own application (`CoreDialogs`, `api.md` 9.8).** The code of a core that has an application of its own reaches the person through `CoreCtx::dialogs`:
+  a task of its own (`spawn`), a question (`ask`, `ask_live`), a choice (`choose`), a message (`notice`), a file picker (`pick`), the clock stamp (`stamp`) and the joystick ports as
+  menu keys (`joystick_menu`). New in the class: `text`, a line the person types, and `edit_list`, a list of rows of label and value that the person edits (UP/DOWN select, LEFT/RIGHT
+  and RETURN call back on the menu task, RETURN on an action row closes the list and answers the row, ESC closes it): the dialog of a panel of registers that comes from a file at run
+  time. A test builds its own class derived from `CoreDialogs` and scripts the answers (`api.md` 9.8.13).
+
 ## Licence
 
 GNU General Public License, version 3 or later: `LICENSE`. `lib/` and `base/` also link and carry FreeRTOS, lwIP, LVGL and FatFs under their own

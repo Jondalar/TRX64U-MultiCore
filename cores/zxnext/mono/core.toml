@@ -6,7 +6,7 @@ id           = "zxnext"
 name         = "ZX Spectrum Next"
 version      = "0.0.1"
 contract     = 2
-app          = "blueprint"     # the T104 generic application (coreapp/cores/zxnext.cc)
+app          = "blueprint"     # the generic core application; the Next's record is zxnext_desc: its own app cores/zxnext/app (T239.5 D15), not the shared one (cores/zxnext/app/lib/zxnext.cc)
 delivery     = "cfw"           # a LARGE core since 2026-10-28 (run 1013: it did not route in layer 2, "4 signals failed to route due to routing congestion", 10,130 LUT;
                                # Alex 2026-10-27: "VC20 usw - was nicht mehr DFX sein kann wird large Core. Einfach bauen.", translated: "VC20 etc. - whatever can no longer
                                # be DFX becomes a large core. Just build."): this file is the only descriptor, no DFX lane; cores/zxnext/mono/build_mono.tcl, lane large-zxnext

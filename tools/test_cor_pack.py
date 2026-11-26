@@ -12,6 +12,7 @@ import json
 import struct
 import sys
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -749,11 +750,14 @@ class FilesTest(unittest.TestCase):
             with self.assertRaises(C.CorError):                             # an earlier version of a file the core does not install
                 C.collect_files(d + "/sd", d + "/old")
 
-    def test_the_diag_core_carries_its_tests_and_only_it(self):
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores")
-        files = C.collect_files(os.path.join(root, "diag", "sd"), os.path.join(root, "diag", "superseded"))
-        self.assertIn("tests/cd32.toml", [f[0] for f in files])
-        self.assertTrue(all(o for f in files if f[0] in ("tests/cd32.toml", "tests/stick2.toml") for o in [f[2]]))
+    def test_the_diag_core_carries_no_record_8(self):
+        """T260 D6: the diag core's tests and presets are a folder of its lane's delivery (cores/diag/sd), no record of its .cor: its descriptors name no install folder."""
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "diag")
+        t = open(os.path.join(root, "mono", "core.toml")).read()
+        self.assertNotIn("install_dir", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertNotIn("install_old", [l.split("=")[0].strip() for l in t.splitlines()])
+        self.assertTrue(os.path.isfile(os.path.join(root, "sd", "tests", "cd32.toml")))
+        self.assertFalse(os.path.exists(os.path.join(root, "superseded")))
 
 
 def heap_app(heap=0x7A0000, image_end=0x400000, region_end=0xE90000, reserve=0x20000, extra=b"\x5a" * 64):
@@ -930,8 +934,8 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
         self.assertTrue(libtab.load(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")))
         sys.path.insert(0, os.path.join(self.ROOT, "tools"))
         import core_toml
-        self.assertEqual(core_toml.sdk_table("amiga").get("desc", ""), "")
-        stdout, _ = self.pack_one("amiga", heap_app())
+        self.assertEqual(core_toml.sdk_table("apple2").get("desc", ""), "")
+        stdout, _ = self.pack_one("apple2", heap_app())
         self.assertIn("heap (", stdout)
         self.assertRegex(stdout, r"library c64cart keeps")
 
@@ -945,22 +949,22 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
         self.assertEqual(rec[C.T_DESC], self.desc())
 
     def test_pack_cores_mc_switch_off_carries_no_record(self):
-        # D25: the Amiga has cores/amiga/app/desc.toml and no app/sdk.toml with desc_record: no record 6, the app runs on its compiled-in descriptor
+        # D25: the Apple IIe has cores/apple2/app/desc.toml and no app/sdk.toml with desc_record: no record 6, the app runs on its compiled-in descriptor (the Amiga 500, the case's core until T239.5 D15, has its own app now)
         sys.path.insert(0, os.path.join(self.ROOT, "tools"))
         import core_toml
-        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "amiga", "app", "desc.toml")))
-        self.assertNotEqual(core_toml.sdk_table("amiga").get("desc_record"), True)
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "apple2", "app", "desc.toml")))
+        self.assertNotEqual(core_toml.sdk_table("apple2").get("desc_record"), True)
         self.assertIs(core_toml.sdk_table("vc20").get("desc_record"), True)
         with tempfile.TemporaryDirectory() as d:
             bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
             for x in (bits, apps, out):
                 os.mkdir(x)
             open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
-            open(os.path.join(bits, "amiga_partial.bit"), "wb").write(bit_file()[0])
-            open(os.path.join(apps, "amiga.app"), "wb").write(APP)
-            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "amiga"], capture_output=True, text=True)
+            open(os.path.join(bits, "apple2_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "apple2.app"), "wb").write(APP)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "apple2"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "amiga.cor"), "rb").read())[1])
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "apple2.cor"), "rb").read())[1])
 
     def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
         import descrec
@@ -982,15 +986,29 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             # a table in both files is refused
             r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
-            # D25: a core with cores/<id>/app/desc.toml and the switch off (the C128, a large core) carries no record
-            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True)
+            # D25: a core with cores/<id>/app/desc.toml and the switch off carries no record. Every core with a desc.toml has moved or will move, so the case is built on a tree of its own
+            # (CI_DATA_ROOT, which core_toml.py reads the cores from): the C128's desc.toml and no sdk.toml beside it
+            sw = os.path.join(d, "switch_off")
+            os.makedirs(os.path.join(sw, "cores", "c128", "app"))
+            shutil.copy(os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml"), os.path.join(sw, "cores", "c128", "app", "desc.toml"))
+            r = subprocess.run(cmd[:2] + ["c128"] + cmd[3:], capture_output=True, text=True, env=dict(os.environ, CI_DATA_ROOT=sw))
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1])
+            # the C128's own app has the switch on: its desc.toml is record 6 (under its own name, a manifest that names it)
+            c128 = os.path.join(self.ROOT, "cores", "c128", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["c128", "--name", "Commodore 128"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "c128.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(c128, open(c128).read())]))
             # T213.3: the Amiga 1200, a large core with an app of its own, has the switch on: its desc.toml is record 6 (under its own name)
             a12 = os.path.join(self.ROOT, "cores", "amiga1200", "app", "desc.toml")
             r = subprocess.run(cmd[:2] + ["amiga1200", "--name", "Amiga 1200 (AGA, 68020)"] + cmd[5:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual(C.parse(open(os.path.join(out, "amiga1200.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(a12, open(a12).read())]))
+            # T239.5 D15: the Amiga 500, a large core with an app of its own since its move, has the switch on: its desc.toml (its registers named through its TOML A) is record 6
+            a500 = os.path.join(self.ROOT, "cores", "amiga", "app", "desc.toml")
+            r = subprocess.run(cmd[:2] + ["amiga", "--name", "Amiga (OCS/ECS, 68000)"] + cmd[5:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "amiga.cor"), "rb").read())[1][C.T_DESC], descrec.compile_files([(a500, open(a500).read())]))
             # a core without cores/<id>/app/desc.toml carries no record
             r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

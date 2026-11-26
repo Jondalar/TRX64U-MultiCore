@@ -1,0 +1,60 @@
+# TOML B of the Commodore 264's app (T239.3 D55, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "c264"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library c264 below defines it); the core table of this app holds this core only
+desc = "c264_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the C264 is a large core on the host's pieces) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader, the IEC block, whose version byte the board's IEC probe reads, and audio_master (the host's master
+# volume and tone: the rows Volume and Tone, T239.3 D36). The drive window is the core's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is not
+# taken, so the drive library's WD177x code (d1541_wd.cc) compiles to nothing. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
+# cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of the ROM and PRG handling and the cartridge image, the mount slots). Its files are in cores/c264/app/lib; hk_defaults.h is a
+# copy of the shared app's (the other cores still use the original).
+[[library]]
+name = "c264"
+sources = ["c264.cc"]
+headers = ["c264_regs.h", "hk_defaults.h"]
+needs = ["cbm1541", "cbmrun"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: c264app, the group c264): unit = 2 unit tests (c264 the descriptor against the model of its
+# register block and the 16 KB aperture), service = 8 mock bitstream -> service (c264_descgen the record compiled from desc.toml against the descriptor, c264_romreq the ROM rows in the host's table,
+# c264_mounts the media engine's mounts of the drive and the cartridge image, c264_joyswap its own joystick key), ui = 9 service -> UI (c264_ledcores the LED setting of the core's record,
+# c264_desc the walk of its descriptor and its menu golden, c264_hotkeys its default hotkey map, c264_keywalk every key of its menu), api = 10 service -> API: its operations through the service call
+# the REST and RPC transports make (svc_call; c264_memops) and the reach of its declaration over the UI service (c264_uicover). T239.5 D13: these are the 264's cases of the shared tests (TEST_APP_C264).
+tests = { unit = ["c264"], service = ["c264_descgen", "c264_romreq", "c264_mounts", "c264_joyswap"], ui = ["c264_ledcores", "c264_desc", "c264_hotkeys", "c264_keywalk"], api = ["c264_memops", "c264_uicover"] }
+
+# The 1541 drive A on the IEC bus (the C264's drive_l2): the shared library, the same sources as trx64u's app links (S12)
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
+headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
+bind = "cbm1541_bind"
+register_ops = "cbm1541_register"
+capability = "drive_a"
+needs = ["newfile"]
+
+# Run PRG and Load PRG (cbm_run.cc) on the BASIC loader of the CBM family
+[[library]]
+name = "cbmrun"
+sources = ["cbm_run.cc"]
+headers = ["cbm_run.h"]
+needs = ["cbmprg"]
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+headers = ["cbm_prg.h", "cbmprg_api.h"]
+bind = "cbmprg_bind"
+
+# The shared rule of a new file's folder and name (T122 D2, T239.3 L-2): the drive library makes its blank disks with it (needs, as in the shared app's TOML B: S12)
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]

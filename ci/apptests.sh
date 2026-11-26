@@ -64,7 +64,8 @@ suite_specs() {
     coreapp_render) printf '%s\n' "${common[@]}" tests/coreapp app/view app/video app/loaders app/lib app/edit host-app/target/u64ii/riscv/coreapp ;;
     hostapp_render) printf '%s\n' "${common[@]}" tests/hostapp app/view app/video ;;
     # emulator scripts (ue2emu through ci/ue2emu.sh, T174 D2.8): they run on the built RISC-V images; a PASS is cached for the content below
-    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh tools/ue2emu_kit.sh ;;
+    # the round of the old pipeline is the VIC-20's: its profile and description are read by tools/ue2emu_core.py
+    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh ci/emu_kit.sh tools/ue2emu_kit.sh tools/ue2emu_core.py ;;
     *) return 1 ;;
   esac
 }
@@ -219,7 +220,8 @@ run_one() {   # run_one suite : returns the suite's status
   local t0=$SECONDS rc=0 args=()
   if [ "$k" = render ]; then mkdir -p "$render_dir/$s"; args=("$render_dir/$s"); fi
   local grp=""; case "$s" in coreapp) grp=shared ;; coreapp:*) grp="${s#coreapp:}" ;; esac   # T174 D3: the group of the core application tests
-  CA_GROUP="$grp" nice -n 15 "$sc" ${args[@]+"${args[@]}"} || rc=$?
+  # RENDER_CORE=shared: the coreapp render suite is the shared bench; each moved core's render build runs in its own lane (ci/lane.sh core:<id> ui, T239.5 D13)
+  CA_GROUP="$grp" RENDER_CORE=shared nice -n 15 "$sc" ${args[@]+"${args[@]}"} || rc=$?
   if [ $rc -eq 0 ]; then
     echo "=== apptests $s: ${plan:+plan }done in $((SECONDS - t0))s"
     if [ "$k" = test ] && [ "$tier" = fast ] && [ -z "$plan" ] && [ -n "$cache_on" ]; then

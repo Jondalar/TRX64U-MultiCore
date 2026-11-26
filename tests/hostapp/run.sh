@@ -501,7 +501,8 @@ root, out = sys.argv[1:3]
 sys.path.insert(0, root + "/tools")
 import descrec
 open(out + "/roms4.bin", "wb").write(descrec.compile_text(open(root + "/tests/hostapp/golden/roms_record.toml").read()))
-open(out + "/romset.bin", "wb").write(descrec.compile_text(open(root + "/cores/amiga/app/desc.toml").read()))
+am = root + "/cores/amiga/app/desc.toml"   # T239.5: the Amiga's description names its TOML A (toml_a), found beside it
+open(out + "/romset.bin", "wb").write(descrec.compile_text(open(am).read(), am))
 PY
 t_test_coremaint() {
   c++ -std=gnu++11 -Wall -I"$H" -I"$ROOT/coreapp/src" -I"$ROOT/uicore" -o "$T/test_coremaint" "$CMT" "$H/coremaint.cc" "${CMX[@]}" 2>&1

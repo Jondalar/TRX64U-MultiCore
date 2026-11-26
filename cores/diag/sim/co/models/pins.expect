@@ -1,12 +1,24 @@
-# the open-drain loop-back model: a driven pin reads low, the rest high; the first sample is 50 us + the PADCTL and WAIT op overhead after RUN
+# the open-drain loop-back model: a driven pin reads low, the rest high; timestamps are the RTL engine's measured clocks: the first sample 5000 (the WAIT) + 7, each following sample the previous one's + 2011 or 4015 clocks of the steps between them
 meta.status = "done"
-slot.base.pins = [1023]
-slot.base.ts = [5005]
-slot.d_p1_up.pins = [1022]
-slot.d_p1_down.pins = [1021]
-slot.d_p1_left.pins = [1019]
-slot.d_p1_right.pins = [1015]
-slot.d_p1_fire.pins = [1007]
-slot.d_p2_up.pins = [991]
-slot.d_p2_fire.pins = [511]
+slot.base.levels = ["1111111111"]
+slot.base.ts = [5007]
+slot.d_p1_up.pins = ["KBJOY_1_JOY0"]
+slot.d_p1_up.levels = ["0"]
+slot.d_p1_down.pins = ["KBJOY_1_JOY1"]
+slot.d_p1_down.levels = ["0"]
+slot.d_p1_left.pins = ["KBJOY_1_JOY2"]
+slot.d_p1_left.levels = ["0"]
+slot.d_p1_right.pins = ["KBJOY_1_JOY3"]
+slot.d_p1_right.levels = ["0"]
+slot.d_p1_fire.pins = ["KBJOY_1_JOY4"]
+slot.d_p1_fire.levels = ["0"]
+slot.d_p2_up.pins = ["KBJOY_2_JOY0"]
+slot.d_p2_up.levels = ["0"]
+slot.d_p2_fire.pins = ["KBJOY_2_JOY4"]
+slot.d_p2_fire.levels = ["0"]
+slot.d_p1_up.ts = [7018]
+slot.d_p1_down.ts = [11033]
+slot.d_p2_up.ts = [27093]
 eval.drivable ~ PASS
+eval.ok_p1_up ~ PASS
+eval.ok_p2_fire ~ PASS

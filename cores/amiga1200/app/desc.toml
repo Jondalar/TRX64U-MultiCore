@@ -1,8 +1,8 @@
-# The Amiga 1200's data description (T239.3 D17): the tables of its descriptor (coreapp/cores/amiga.cc make(1)), compiled by tools/descrec.py into the description record of the .cor
+# The Amiga 1200's data description (T239.3 D17): the tables of its descriptor (cores/amiga1200/app/lib/amiga1200.cc), compiled by tools/descrec.py into the description record of the .cor
 # (record 6, layout in coreapp/src/descrec.h). The Amiga 500 (cores/amiga/app) and the Amiga 1200 (cores/amiga1200/app) are two records of one gateware ID; they
 # differ in the identity, the memory choices, the picture (the 1200's 32 bit buffers and its picture window), the Kickstart Auto looks for, and the ID feature that tells them apart.
 # What the record cannot hold is code and stays in the core's C++: init, release, the operations of register_ops (the poll, "Mount DF0 and reset", the pad's two settings), the
-# Kickstart version and pick functions, and the names of the state values. Register numbers are cores/amiga/rtl/trx/amiga_regs.v (coreapp/cores/amiga_regs.h); the DDR2 window starts at 0x01000000.
+# Kickstart version and pick functions, and the names of the state values. Register numbers are cores/amiga1200/rtl/amiga_regs.v (cores/amiga1200/app/gateware.toml); the DDR2 window starts at 0x01000000.
 machine_info = "Chipset,Chip RAM,Slow RAM,Fast RAM"
 
 [core]

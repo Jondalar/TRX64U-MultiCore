@@ -40,7 +40,7 @@ int main()
     CHECK(fs_write_refused("/flash/boot.cfg/x"));
     CHECK(fs_write_refused("/flash/trx64u/boot2.cfg"));
     CHECK(fs_write_refused("/flash/trx64u/c64.cfg.bak"));
-    CHECK(fs_write_refused("/flash/trx64u/atari800.cfg"));
+    CHECK(fs_write_refused("/flash/trx64u/dummy800.cfg"));
     CHECK(fs_write_refused("/flash/trx64u"));
     CHECK(fs_write_refused("/flash/trx64u/"));
     CHECK(fs_write_refused("/flash/trx64u/x/../c64.cfg"));
@@ -48,7 +48,7 @@ int main()
     CHECK(fs_write_refused("/flash/c64.cfg"));
     CHECK(fs_write_refused("/flash"));
     CHECK(!fs_write_refused("/usb0/trx64u/c64.cfg"));             // other media are not the flash's business
-    CHECK(!fs_write_refused("/sd/cores/atari800.cfg"));
+    CHECK(!fs_write_refused("/sd/cores/dummy800.cfg"));
     // a registration replaces the last one; a path that is no "/flash/<dir>/<file>" is refused and registers nothing
     CHECK(fs_flash_set_exceptions("/flash/vc20/boot.cfg", 0));
     CHECK(fs_write_refused("/flash/trx64u/c64.cfg") && fs_write_refused("/flash/trx64u/boot.cfg") && !fs_write_refused("/flash/vc20/boot.cfg"));

@@ -1,4 +1,4 @@
-// T141 `rawkeys`: a USB keyboard delivered to the Amiga 500 and 1200 as raw key events (coreapp/src/rawkeys.cc, the table coreapp/cores/amiga_keys.h).
+// T141 `rawkeys`: a USB keyboard delivered to the Amiga 500 and 1200 as raw key events (coreapp/src/rawkeys.cc, the table cores/amiga/app/lib/amiga_keys.h).
 // S3: every key the Amiga has comes out as its raw code, the release once with bit 7. S4: each key once, the menu keys never reach the machine,
 // while the menu is open USB keys go nowhere, and the register's room is respected. The expected codes below are written out from the Amiga
 // Hardware Reference Manual's keyboard table, not read from amiga_keys.h.
@@ -294,7 +294,7 @@ int main()
     }
 
 #endif
-#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the Amiga 500 shares the queue (gateware: the shared amiga_input.v): the same record, the same events
     {
         FakeFs fs2;

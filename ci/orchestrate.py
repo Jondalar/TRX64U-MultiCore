@@ -8,8 +8,12 @@ asks the plan whether it runs, `needs:` is the table's needs. Nothing is dispatc
         the children this plan asks for, in dependency order, with what each needs (nothing is started)
   ci/orchestrate.py graph --json <plan.json> [...]
         the same as one JSON line: {"children": [names], "targets": {child: [targets]}, "ids": [...], "tier": N}
-  ci/orchestrate.py outputs <plan.json> [--tier N] [--update yes|no]
-        `key=value` lines for $GITHUB_OUTPUT: children, sim_owners, cor_targets (JSON), sims_tier, update, docs_only
+  ci/orchestrate.py outputs <plan.json> [--tier N] [--update yes|no] [--matrix yes|no]
+        `key=value` lines for $GITHUB_OUTPUT: children, sim_owners, cor_targets (JSON), order_targets (JSON), sims_tier, update, docs_only
+        T239.5 D13: cor_targets (the legs of the child cor) leave out the cores with an app of their own (plan universe.own): their .cor comes from their matrix
+        lane (.github/workflows/matrix.yml). order_targets (the run's work order, ci/order.py COR_TARGETS) are the cor legs' targets and, with --matrix yes
+        (the default: the matrix runs beside this pipeline), the bitstreams of every core lane the dispatcher starts (matrix_lanes, its rule); --matrix no (a
+        pull request, which runs no matrix): the cor legs' targets only.
   ci/orchestrate.py stamp <plan.json> --tier N   write the run's sims tier into the plan (ci/child.sh sim reads it back)
   ci/orchestrate.py owners [--tier N]            JSON list of every bench owner that has a bench up to tier N (the nightly's matrix)
   ci/orchestrate.py tier <plan.json>             the sims tier of the plan (env SIMS_TIER, default 2, without one);  benches <plan.json> <owner>: that owner's
@@ -78,8 +82,7 @@ def targets_of(row, plan, tier, update):
     w, apps = row["when"], plan.get("apps", {})
     app_any = any(apps.values())
     full = plan.get("scope", "full") == "full"
-    uni = plan.get("universe", {})
-    cors = ["core:" + c for c in plan.get("dfx", []) if c in uni.get("cor", plan.get("dfx", []))] + ["large:" + c for c in plan.get("large", [])]
+    cors = order_cors(plan, matrix=False)
     package = full or update
     if w == "local":
         return [""]
@@ -103,6 +106,41 @@ def targets_of(row, plan, tier, update):
     if w == "prerelease":
         return [""] if package else []
     raise SystemExit("ci/children.txt: unknown when %r" % w)
+
+
+def lane_target(name, kind):
+    """the bitstream target of a core lane (ci/fetch_bits.sh, ci/order.py): core:<id> for a partial, large:<id> for a flat bitstream."""
+    return ("large:" if kind == "large" else "core:") + name
+
+
+HOST_EMU_CORE = "vc20"   # the core whose .cor the host menu lane's emulator test runs (tests/hostapp/emu_host.sh EMU_OWN_APP, matrix.yml host-emu)
+
+
+def matrix_lanes(plan, lanes):
+    """T239.5 D13: the one rule of the dispatcher (ci/dispatch.py, a push without the whole package) and of the work order (order_cors): of the core lanes
+    `lanes` ((name, kind) of the cores with an app of their own), those that start - a core the plan names (plan dfx and large, plan lanes), every one when
+    the plan has no base (all) or the application tests changed (tests) - and the VIC-20 whenever the host app changed: the host menu lane's emulator
+    test (S6, D15) runs the host with the .cor of the vc20 lane."""
+    L = plan.get("lanes") or {}
+    named = set(plan.get("dfx", [])) | set(plan.get("large", [])) | set(L.get("dfx", [])) | set(L.get("large", []))
+    every = bool(plan.get("all") or plan.get("tests"))
+    if (plan.get("apps") or {}).get("host"):
+        named.add(HOST_EMU_CORE)
+    return [(c, k) for c, k in lanes if every or c in named]
+
+
+def order_cors(plan, matrix=True):
+    """the .cor targets of a feature branch's plan: the cor legs' targets (the cores the plan names, those with an app of their own left out: plan
+    universe.own) and, with matrix (the matrix runs beside this pipeline), the bitstream targets of every core lane it starts (matrix_lanes; a core of
+    universe.large is a large lane) - the work order's COR_TARGETS."""
+    uni = plan.get("universe", {})
+    own = uni.get("own", [])
+    named = ["core:" + c for c in plan.get("dfx", []) if c in uni.get("cor", plan.get("dfx", []))] + ["large:" + c for c in plan.get("large", [])]
+    legs = [t for t in named if t.split(":", 1)[1] not in own]
+    if not matrix:
+        return legs
+    lanes = [(c, "large" if c in uni.get("large", []) else "dfx") for c in own]
+    return legs + [lane_target(c, k) for c, k in matrix_lanes(plan, lanes)]
 
 
 def nid(child, target):
@@ -197,8 +235,8 @@ def check_benches():
 
 
 
-def outputs(plan, tier, update):
-    """what the jobs of .github/workflows/pipeline.yml ask the plan: which children run, and the matrix targets of sim and cor."""
+def outputs(plan, tier, update, matrix=True):
+    """what the jobs of .github/workflows/pipeline.yml ask the plan: which children run, the matrix targets of sim and cor, and the work order's targets."""
     nodes = graph(plan, tier, update)
     names = list(dict.fromkeys(n[1] for n in nodes))
     targets = {}
@@ -206,7 +244,9 @@ def outputs(plan, tier, update):
         targets.setdefault(child, [])
         if target:
             targets[child].append(target)
-    return {"children": names, "targets": targets, "ids": [n[0] for n in nodes], "tier": tier}
+    full = plan.get("scope", "full") == "full"
+    return {"children": names, "targets": targets, "ids": [n[0] for n in nodes], "tier": tier,
+            "order": [] if full or plan.get("docs_only") else order_cors(plan, matrix)}
 
 
 def job_map(path):
@@ -329,12 +369,14 @@ def check():
 
 
 def opts(a):
-    o = {"--tier": "1", "--update": "no"}
+    o = {"--tier": "1", "--update": "no", "--matrix": "yes"}
     it = iter(a)
     for k in it:
         if k not in o:
             raise SystemExit(__doc__)
         o[k] = next(it)
+    if o["--matrix"] not in ("yes", "no"):
+        raise SystemExit(__doc__)
     return o
 
 
@@ -372,19 +414,20 @@ def main():
         raise SystemExit(__doc__)
     plan = json.load(open(a[1]))
     o = opts(a[2:])
-    tier, update = int(o["--tier"]), o["--update"] == "yes"
+    tier, update, matrix = int(o["--tier"]), o["--update"] == "yes", o["--matrix"] == "yes"
     plan.setdefault("ci", {})["sims_tier"] = tier
     if a[0] == "outputs":
-        d = outputs(plan, tier, update)
+        d = outputs(plan, tier, update, matrix)
         print("children=" + json.dumps(d["children"], separators=(",", ":")))
         print("sim_owners=" + json.dumps(d["targets"].get("sim", []), separators=(",", ":")))
         print("cor_targets=" + json.dumps(d["targets"].get("cor", []), separators=(",", ":")))
+        print("order_targets=" + json.dumps(d["order"], separators=(",", ":")))
         print("sims_tier=%d" % tier)
         print("update=%s" % ("yes" if update else "no"))
         print("docs_only=%s" % ("true" if plan.get("docs_only") else "false"))
         return
     if as_json:
-        print(json.dumps(outputs(plan, tier, update), separators=(",", ":")))
+        print(json.dumps(outputs(plan, tier, update, matrix), separators=(",", ":")))
         return
     nodes = graph(plan, tier, update)
     if not nodes:

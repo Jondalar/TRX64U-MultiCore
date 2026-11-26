@@ -647,15 +647,15 @@ int main()
         struct Src { static int read(void *u, uint32_t off, void *buf, uint32_t n) { memcpy(buf, (uint8_t *)u + off, n); return 0; } };
         WbRaw raw = { Src::read, ram.data(), (uint32_t)ram.size() };
         r->c.cor_path[0] = 0;
-        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/nes.cor");
+        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/dummycon.cor");
         char path[260];
-        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path)));
-        CHECK_STR(path, "/SD/cores/nes/saves/Zelda II.sav");                   // Q2, T148 D5
+        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path)));
+        CHECK_STR(path, "/SD/cores/dummycon/saves/Zelda II.sav");                   // Q2, T148 D5
         r->c.cor_path[0] = 0;
-        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path)));
+        CHECK(wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path)));
         CHECK_STR(path, "/SD/games/Zelda II.sav");                             // no core folder: beside the game
-        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/nes.cor");
-        wb_save_path(&r->c, "/SD/games/Zelda II.nes", path, sizeof(path));
+        snprintf(r->c.cor_path, sizeof(r->c.cor_path), "/SD/cores/dummycon.cor");
+        wb_save_path(&r->c, "/SD/games/Zelda II.bin", path, sizeof(path));
         WbMedium m;
         memset(&m, 0, sizeof(m));
         snprintf(m.path, sizeof(m.path), "%s", path);

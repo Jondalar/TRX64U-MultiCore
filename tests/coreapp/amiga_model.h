@@ -9,11 +9,21 @@
 #include "ctx.h"
 #include "cores.h"
 #include "amiga_regs.h"
+#ifndef AM_DIW_H
+// the A1200's display window and crop window registers (cores/amiga1200/app/gateware.toml, blocks diw and crop): the Amiga 500's TOML A has none; the tests that prove the A500 does not decode them name them as numbers
+#define AM_DIW_H        0x0C0
+#define AM_DIW_V        0x0C4
+#define AM_FB_SKIP_X    0x0D0
+#define AM_FB_SKIP_Y    0x0D2
+#define AM_FB_COLS      0x0D4
+#define AM_FB_LINES     0x0D6
+#endif
 
-// the Amiga record a test of "the Amiga" runs on: the A1200's in the A1200's own app (run.sh a12app, TEST_APP_A1200), the A500's in the shared app (which has no A1200 since T213.3)
+// the Amiga record a test of "the Amiga" runs on: the A1200's in the A1200's own app (run.sh a12app, TEST_APP_A1200), the A500's in its own app (run.sh amigaapp, TEST_APP_AMIGA); no shared unit has an Amiga (T239.5 D13)
 #ifdef TEST_APP_A1200
 #define AM_REC amiga1200_desc
 #else
+extern const CoreDesc amiga_desc;      // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 #define AM_REC amiga_desc
 #endif
 

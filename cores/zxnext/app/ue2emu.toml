@@ -1,0 +1,20 @@
+# The ZX Spectrum Next core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/vc20/app/ue2emu.toml). Registers from
+# cores/zxnext/trx/zxn_regs.v (cores/zxnext/app/gateware.toml); layer2_zxnext.v builds it with ID_TRX2 0.
+name = "zxnext"
+id = "ZXN_"                  # zxn_regs.v:136
+board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
+
+[ro]
+0x00C = 0x01                 # FEATURES (zxn_regs.v:200): b0 the SD size register counts 512 byte sectors (desc.toml [sector_media] feat_reg, feat_sectors)
+
+[regs]
+0x0A0 = 0x01                 # CTRL (zxn_regs.v:89, reset 0x01): b0 HOLD, the machine in reset after power-up
+0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (zxn_regs.v:92, its reset value)
+0x0C7 = 0x01
+0x0CA = 0x10                 # FB_STRIDE 0x00100000 (zxn_regs.v:93)
+
+[handover]
+core = "ZX Spectrum Next"         # the manifest's name
+id = "zxnext"                     # core.toml id
+path = "/Usb0/cores/zxnext.cor"   # the core folder is next to it: give --usb-dir
+video = "1080p"

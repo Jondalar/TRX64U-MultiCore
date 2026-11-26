@@ -1,0 +1,18 @@
+# The emulator profile of the A1200 core (S44 of the u64-emulator repository): the core as its application sees it in ue2emu. The tests run it with --core
+# (tests/ui, tests/coreapp/emu); step 12 of the matrix hands it to --core-dir (tools/ue2emu_core.py profile). Registers from cores/amiga1200/app/gateware.toml.
+#   ue2emu run --trx-io --c64 none --core cores/amiga1200/app/ue2emu.toml --firmware coreapp.elf ...
+name = "amiga1200"
+id = "AMIG"                  # the gateware's one ID word, shared with the A500
+board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
+
+[ro]
+0x00C = 0x3F                 # FEATURES (cores/amiga1200/rtl/amiga_regs.v:269, HDF_SECT = 1): b0 HDF_SECT, b1 audio KPIs, b2 catch-up KPI, b3 FBWIN, b4 RAWKEY, b5 PAD2
+
+[regs]
+0x0A0 = 0x01                 # AM_CTRL: b0 HOLD, the machine in reset after power-up
+
+[handover]
+core = "Amiga 1200 (AGA, 68020)"   # the manifest's name
+id = "amiga1200"                   # core.toml id: start.cc decides by it before the name
+path = "/Usb0/cores/amiga1200.cor"  # the core folder is next to it (roms/): give --usb-dir, or /SD/... with --sd
+video = "1080p"

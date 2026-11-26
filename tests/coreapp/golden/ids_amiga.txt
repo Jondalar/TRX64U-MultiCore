@@ -1,0 +1,39 @@
+Amiga (OCS/ECS, 68000) F1/home 0 task:Reset Amiga
+Amiga (OCS/ECS, 68000) F1/home 1 task:Reload Kickstart, Reset
+Amiga (OCS/ECS, 68000) F1/home 2 media:amiga.df0.image
+Amiga (OCS/ECS, 68000) F1/home 3 media:amiga.df1.image
+Amiga (OCS/ECS, 68000) F1/home 4 media:amiga.df2.image
+Amiga (OCS/ECS, 68000) F1/home 5 media:amiga.df3.image
+Amiga (OCS/ECS, 68000) F1/home 6 media:amiga.hd0.image
+Amiga (OCS/ECS, 68000) F1/home 7 media:amiga.hd1.image
+Amiga (OCS/ECS, 68000) F1/home 8 fixed:10:Save as config...
+Amiga (OCS/ECS, 68000) F1/home 9 fixed:11:Load config...
+Amiga (OCS/ECS, 68000) F5/settings 0 set:Kickstart file (at reload)
+Amiga (OCS/ECS, 68000) F5/settings 1 set:Chip RAM (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 2 set:Slow RAM (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 3 set:Fast RAM (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 4 set:Chipset (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 5 set:Floppy drives (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 6 set:Floppy write protect (next reset)
+Amiga (OCS/ECS, 68000) F5/settings 7 set:Real-time clock (at next reset)
+Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
+Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
+Amiga (OCS/ECS, 68000) F5/input 0 set:Map port 2 to USB controller
+Amiga (OCS/ECS, 68000) F5/input 1 set:Port 2 acts as
+Amiga (OCS/ECS, 68000) F5/input 2 set:Mouse Sensitivity
+Amiga (OCS/ECS, 68000) F5/input 3 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 4 task:Map port 2 buttons
+Amiga (OCS/ECS, 68000) F8/expert 0 fixed:13:Actions
+Amiga (OCS/ECS, 68000) F8/expert 1 fixed:6:Restart core
+Amiga (OCS/ECS, 68000) F8/expert 2 fixed:7:Return to host menu
+Amiga (OCS/ECS, 68000) F8/expert 3 fixed:13:Network
+Amiga (OCS/ECS, 68000) F8/expert 4 fixed:9:WiFi
+Amiga (OCS/ECS, 68000) F8/expert 5 fixed:13:Support
+Amiga (OCS/ECS, 68000) F8/expert 6 fixed:8:Bug report
+Amiga (OCS/ECS, 68000) F8/expert 7 fixed:17:Keys and help
+Amiga (OCS/ECS, 68000) F8/expert 8 fixed:13:Reset
+Amiga (OCS/ECS, 68000) F8/expert 9 fixed:5:Reset to host defaults
+Amiga (OCS/ECS, 68000) F8/expert 10 fixed:13:Status
+Amiga (OCS/ECS, 68000) F8/expert 11 info:Build
+Amiga (OCS/ECS, 68000) F8/expert 12 info:ROMs
+Amiga (OCS/ECS, 68000) F8/expert 13 info:Libraries

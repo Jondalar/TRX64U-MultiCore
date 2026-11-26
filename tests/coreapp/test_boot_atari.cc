@@ -1,6 +1,6 @@
 // T93 M2: the Atari start sequence against a model of the core's register block - ROMs through the aperture, settings into the
 // registers while held, the picture's buffers, release last - and the resets. The descriptor under test is the real one
-// (coreapp/cores/atari800.cc).
+// (cores/atari800/app/lib/atari800.cc).
 #include <string>
 #include <setjmp.h>
 #include "check.h"
@@ -9,6 +9,7 @@
 #include "keyboard.h"
 #include "cores.h"
 #include "atari800_regs.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 static jmp_buf g_gone;                               // the host's way back does not return: the model leaves boot_start the same way
 

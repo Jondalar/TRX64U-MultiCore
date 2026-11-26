@@ -8,7 +8,9 @@
 #include <vector>
 #include "check.h"
 #include "model_grid.h"
+#ifdef TEST_APP_ATARI800                // the Atari's file manager cases: its app (run.sh a8app, the unit a8_cut)
 #include "sio_model.h"
+#endif
 #include "fakes.h"
 #include "cores.h"
 #include "menuctl.h"
@@ -18,13 +20,18 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "record_menu.h"
+#ifdef TEST_APP_ATARI800
 #include "atari_media.h"
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };   // the table of its app (the shared units link the shared table.cc)
+#endif
 #include "libload.h"
 #include "libexports.h"
 #include "menuflows.h"
 
-extern const CoreDesc pet_desc;
-extern const CoreDesc nes_desc;
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_cut): the record's cases; the shared unit keeps the key table
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
 static RecordMenu *g_rm;
@@ -62,7 +69,7 @@ template <int N> static int rec_op(CoreCtx *, const OpArgs &a, OpOut &o)
 }
 
 struct Rec {
-    SioModel io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;
+    FakeIo io; FakeFs fs; CoreCtx c; Host host; Settings *st; MenuCtl *m;      // the record core's (the NES's) registers: no SIO bridge
     explicit Rec(const CoreDesc *d = 0, const MenuMerge *mm = 0)
     {
         if (!d) { d = &g_rm->desc; mm = &g_rm->mm; }
@@ -110,6 +117,7 @@ static bool open_by_home_row(MenuCtl &m, const char *label)
     return false;
 }
 
+#ifdef TEST_APP_ATARI800
 struct Lib {
     SioModel io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
     Lib()
@@ -138,27 +146,15 @@ struct Lib {
     void to_games() { m->key(KEY_F3); for (int i = 0; i < 12 && strcmp(m->title(), "/"); i++) m->key(KEY_LEFT); enter("usb0/"); enter("games/"); }
     void run_job() { int n = 0; while (m->tick() && ++n < 400) { } }
 };
+#endif
 
 int main(int, char **argv)
 {
+#ifdef TEST_APP_NES                      // the record core's cases (the NES with golden/desc_cut.toml): its app (run.sh nesapp, nes_cut)
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     g_rm = new RecordMenu(&base, argv[1]);
     setvbuf(stdout, 0, _IONBF, 0);
-    // ---- T228 DC5: the machine line names the RAM only while its row is shown (PET: the 2001, 3032 and 4032 have the row, the CRTC models have 32 KiB whatever it says) ------------------
-    {
-        Rec r(&pet_desc, 0);
-        Settings *st = r.c.settings;
-        int model = st->find("Model (at next reset)"), ram = st->find("RAM (at next reset)");
-        CHECK(model >= 0 && ram >= 0);
-        char line[160];
-        st->set(model, 2);                                      // 4032
-        r.m->machine_line(line, sizeof(line));
-        CHECK_STR(line, "4032 - RAM 32 KiB");
-        st->set(model, 3);                                      // 8032
-        r.m->machine_line(line, sizeof(line));
-        CHECK_STR(line, "8032");
-    }
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
         Rec r;
@@ -452,6 +448,10 @@ int main(int, char **argv)
         CHECK_STR(r.m->status(), "The ring is gone");
         CHECK(r.m->status_bad());
     }
+#else
+    (void)argv;
+#endif
+#ifdef TEST_APP_ATARI800                // the file manager on the Atari's menu (Lib): its app (run.sh a8app, the unit a8_cut)
     // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
     {
         Lib l;
@@ -561,6 +561,8 @@ int main(int, char **argv)
         l.m->relist();
         CHECK(l.left(l.m->selected()) == "b.atr");
     }
+#endif
+#ifndef TEST_APP_NES                     // the key table: the shared unit's and the Atari's app's
     // ---- the table: every row names an intent the executor knows (S6, S15) -------------------------------------------------------------------------------------------
     {
         int n;
@@ -578,5 +580,6 @@ int main(int, char **argv)
         }
         CHECK_EQ(menu_intent_by_name("no such intent"), -1);
     }
+#endif
     DONE("test_cut");
 }

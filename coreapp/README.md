@@ -1,7 +1,7 @@
 # The core-application blueprint (T93)
 
 One application on the lean base (LVGL, Freeze only) that every core without Gideon's Ultimate application runs. This
-build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and the A1200 (Amiga), atari800, nes, apple2, zx, zxnext, cpc, vc20, c264, c128, pet, snes, neogeo, c64scpu, diag and the two DDT demos. Only the C64 reference core (`trx64g.cor`) runs Gideon's Ultimate application; `trx64u.cor` runs our own application (the VC-20 and the C16/Plus/4 left Gideon's application on 2026-10-22, Alex; the A500 uses the blueprint since T93).
+build serves every core whose `core.toml` says `app = "blueprint"`: the A1200 (Amiga), apple2, vc20, snes, c64scpu, diag and the DDT demo that is not DDT Look Ma, No VIC. Only the C64 reference core (`trx64g.cor`) runs Gideon's Ultimate application; `trx64u.cor` runs our own application (the VC-20 and the C16/Plus/4 left Gideon's application on 2026-10-22, Alex; the A500 uses the blueprint since T93).
 
 - `src/` the shared services: start and identity (`start.cc`), the hand-over (`host-app/software/hostapp/handover.*`), settings
   and the `.cfg` format (`settings.cc`, `cfgfile.cc`), the ROM manager (`romfind.cc`, `boot.cc`), the whitelist menu (`menutree.cc`,
@@ -19,10 +19,9 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
 - new disk images (T122): `newfile.*` where a new file goes and under what name (the folder the menu is on, a free name, never over a file; the 1541 drive uses it too), `newdisk.*` the builders for a blank Apple II DOS 3.3 `.dsk`, Amiga OFS `.adf`, Atari DOS 2.0S `.atr` and CPC `.dsk` and the operation `disk.create` (the 1541's own are in `app/lib/cbm1541`).
 - the write-back service (T154): `writeback.*` what a game writes to its cartridge or battery RAM goes back to the user's file - Off / Ask / Auto, quiet time, flush before reset / eject / core change / power-off / menu open, NAME.tmp and NAME.bak; `writeback_crt.*` the .crt writer. A core registers its medium and reports changes with `wb_mark()`; the C64's flash and EEPROM path is `cores/c64_cart.cc`.
 - `cores/` one translation unit per core: its descriptor and hooks, next to that core's register constants. Media code a core owns sits beside
-  it: `tape_pulses.*` (a .tap/.tzx/.cdt as the pulse stream of the Spectrum's and the CPC's tape engine) and `tape_deck.*` (insert, play, blocks,
-  eject: shared by `zx.cc` and `cpc.cc`), `zx_snap.*` (.sna/.z80), `cpc_disk.*` (the two DSK drives with write-back), `cbm_run.*` (Run PRG and
-  Load PRG of the VIC-20 and the 264: the job around the PRG library, shared by the VIC-20's library `cores/vc20/app/lib/vc20.cc` and `c264.cc`).
-- `tools/build_coreapp.sh` builds it (`--dist` copies the image to `dist/coreapps/atari800.app`, `nes.app`, `apple2.app`, `zx.app`, `cpc.app`, `zxnext.app` and `c264.app`: one image, D14 (the VIC-20 has an app of its own since V-4, `tools/sdk_core_app.sh`), the core
+  it: the tape deck (`tape_deck.*`) and pulse converter (`tape_pulses.*`) of the PET, the Spectrum and the CPC are in each core's own app library (`cores/pet/app/lib`, `cores/zx/app/lib`, `cores/cpc/app/lib`, T239.5 D16), `cbm_run.*` (Run PRG and
+  Load PRG of the VIC-20 and the 264: the job around the PRG library, shared by the VIC-20's library `cores/vc20/app/lib/vc20.cc` and the 264's `cores/c264/app/lib/c264.cc`).
+- `tools/build_coreapp.sh` builds it (`--dist` copies the image to `dist/coreapps/apple2.app`: one image, D14 (the VIC-20 has an app of its own since V-4, `tools/sdk_core_app.sh`, and so have the Atari 800 XL, the NES, the C264, the ZX Spectrum Next, the Neo Geo, the Amiga 500 (T239.5 D15), DDT Look Ma, No VIC, the ZX Spectrum, the CPC, the PET and the C128 (T239.5 D16)), the core
   is chosen at run time from the ID block; the Amiga names stay untouched).
 - `tests/coreapp/run.sh` runs the logic natively with a negative control per test.
 - `libs/shared.toml` is the TOML B of the shared app (T239.3 D31, P3-1): the libraries the app is linked with (sources, headers, the entries each hands the generic application). `tools/libtab.py` makes the library table

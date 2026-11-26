@@ -165,7 +165,7 @@ static void s1_mount()
     CHECK_EQ(nano_lba(n, n.cyl - 1, n.heads - 1, n.sec), sectors - 1);
     uint8_t last[512];
     CHECK(dev.read(sectors - 1, last));
-#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 counts bytes
     {
         FakeFs fs2;
@@ -202,7 +202,7 @@ static void s2_valid_volume()
     for (auto &en : rd.ents) (en.dir ? dirs : files)++;
     CHECK_EQ(files, 40);
     CHECK_EQ(dirs, 3);                                       // C, S, Empty
-#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 core sees the same volume
     FakeFs fs2;
     make_tree(fs2, "/usb0/hd");

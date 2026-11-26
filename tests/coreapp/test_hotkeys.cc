@@ -12,6 +12,42 @@
 #include "keyboard.h"
 #include "regset.h"
 #include "padkeys.h"
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
+#ifdef TEST_APP_ATARI800
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+#endif
+#ifdef TEST_APP_NES
+extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
+#ifdef TEST_APP_C264
+extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
+#endif
+#ifdef TEST_APP_ZXNEXT
+extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+#endif
+#ifdef TEST_APP_NEOGEO
+extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+#endif
+#ifdef TEST_APP_C128
+extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+#endif
+#ifdef TEST_APP_PET
+extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+#endif
+#ifdef TEST_APP_CPC
+extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+#endif
+#ifdef TEST_APP_ZX
+extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+#endif
+#ifdef TEST_APP_DIAG
+extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+#endif
+#ifdef TEST_APP_DDT
+extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+#endif
 
 enum { CTRL = 58, CBM = 61, KR = 17, KPLUS = 40, KMINUS = 43, KJ = 34, KP = 41, KA = 10, KSHIFT = 15, K1 = 56 };
 
@@ -49,7 +85,16 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#ifdef TEST_APP_DIAG
+    // ---- a core without the setting (the diag core: T239.5 D13, its app's unit diag_hotkeys): the line says so, nothing changes
+    {
+        char line[64];
+        Rig z(&portdiag_desc, false);
+        CHECK(!hk_swap_joystick(&z.c, line, sizeof(line))); CHECK(strstr(line, "No joystick swap"));
+        CHECK(!hk_step_volume(&z.c, 1, line, sizeof(line)) || true);
+    }
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -69,6 +114,8 @@ int main()
         hk_regs(off, r);
         for (int i = 0; i < 11; i++) CHECK_EQ(r[i], 0);                  // no first modifier: everything off
     }
+#endif
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the cases on its core
     // ---- S1, S2, S3 on the nes (volume setting, Joystick ports, a Picture item), CTRL as the modifier
     {
         static Setting px[1] = { { "Picture", 0, 3, 0, WHEN_LIVE, 0, 0 } };
@@ -145,11 +192,9 @@ int main()
         CHECK_EQ(seen, 1u << HKA_SWAP);
         CHECK(lp.det.poll(hk_current(), HkKeys(), 0) == 0);
         g.io.key(KJ, false); g.io.key(CTRL, false);
-        // a core without the setting: the line says so, nothing changes
-        Rig z(&zx_desc, false);
-        CHECK(!hk_swap_joystick(&z.c, line, sizeof(line))); CHECK(strstr(line, "No joystick swap"));
-        CHECK(!hk_step_volume(&z.c, 1, line, sizeof(line)) || true);
     }
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)
     // ---- the action key goes down before the modifier completes: it fires once, when the modifier is complete
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -162,6 +207,8 @@ int main()
         j.k = (1ull << CTRL) | (1ull << KR); CHECK_EQ(e.poll(two, j, 10), 0u);
         j.k = (1ull << CTRL) | (1ull << CBM) | (1ull << KR); CHECK_EQ(e.poll(two, j, 20), 1u << HKA_RESET);
     }
+#endif
+#ifdef TEST_APP_NES
     // ---- the F8 map changes the registers at once and the .cfg keeps it (D3)
     {
         Rig g(&nes_desc);
@@ -192,6 +239,8 @@ int main()
         HkLoop lp; g.io.key(CTRL, true); g.io.key(KR, true);
         uint32_t all = 0; first_fire(g, lp, 0, 100, &all); CHECK_EQ(all, 0u);
     }
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -223,6 +272,14 @@ int main()
         hk_usb_set_map(none);
     }
 #endif
+#ifdef TEST_APP_ZX
+    // a core without the setting: the line says so, nothing changes (the shared unit has this case on another core)
+    {
+        char line[64];
+        Rig z(&zx_desc, false);
+        CHECK(!hk_swap_joystick(&z.c, line, sizeof(line))); CHECK(strstr(line, "No joystick swap"));
+    }
+#endif
     // ---- S5 and the per-core default maps: every core that has hotkeys, the default is harmless in it
     {
         struct Row { const CoreDesc *d; const char *name; bool has; };
@@ -230,12 +287,34 @@ int main()
         const Row rows[] = { { &vc20_desc, "vc20", true } };
 #elif defined(TEST_APP_A1200)
         const Row rows[] = { { &amiga1200_desc, "amiga1200", true } };
+#elif defined(TEST_APP_DDT)
+        const Row rows[] = { { &ddt_novic_desc, "ddt_novic", false } };
+#elif defined(TEST_APP_ZX)
+        const Row rows[] = { { &zx_desc, "zx", true } };
+#elif defined(TEST_APP_CPC)
+        const Row rows[] = { { &cpc_desc, "cpc", true } };
+#elif defined(TEST_APP_PET)
+        const Row rows[] = { { &pet_desc, "pet", true } };
+#elif defined(TEST_APP_C128)
+        const Row rows[] = { { &c128_desc, "c128", true } };
+#elif defined(TEST_APP_AMIGA)
+        const Row rows[] = { { &amiga_desc, "amiga", true } };
+#elif defined(TEST_APP_ATARI800)
+        const Row rows[] = { { &atari800_desc, "atari800", true } };
+#elif defined(TEST_APP_NES)
+        const Row rows[] = { { &nes_desc, "nes", true } };
+#elif defined(TEST_APP_C264)
+        const Row rows[] = { { &c264_desc, "c264", true } };
+#elif defined(TEST_APP_ZXNEXT)
+        const Row rows[] = { { &zxnext_desc, "zxnext", true } };
+#elif defined(TEST_APP_NEOGEO)
+        const Row rows[] = { { &neogeo_desc, "neogeo", true } };
+#elif defined(TEST_APP_DIAG)
+        const Row rows[] = { { &portdiag_desc, "portdiag", false } };
 #else
-        const Row rows[] = { { &c64scpu_desc, "c64scpu", true }, { &c128_desc, "c128", true },
-                             { &c264_desc, "c264", true }, { &pet_desc, "pet", true }, { &amiga_desc, "amiga", true }, { &apple2_desc, "apple2", true },
-                             { &atari800_desc, "atari800", true }, { &zx_desc, "zx", true }, { &zxnext_desc, "zxnext", true }, { &cpc_desc, "cpc", true },
-                             { &nes_desc, "nes", true }, { &snes_desc, "snes", true }, { &neogeo_desc, "neogeo", true },
-                             { &ddt_novic_desc, "ddt_novic", false }, { &portdiag_desc, "portdiag", false } };
+        const Row rows[] = { { &c64scpu_desc, "c64scpu", true },
+                             { &apple2_desc, "apple2", true },
+                             { &snes_desc, "snes", true } };
 #endif
         for (const Row &r : rows) {
             CHECK_EQ(r.d->hotkeys != 0, r.has);
@@ -261,7 +340,7 @@ int main()
             CHECK(g.st->find(HK_KEY_MOD) >= 0);
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
+#ifdef TEST_APP_ATARI800                // the case stands on the Atari's descriptor: its app (run.sh a8app, the unit a8_hotkeys)
     // ---- T207: a hotkey is set by pressing the key (S1 the prompt and the key, S2 a used key is refused, S3 the modifier)
     {
         struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
@@ -371,6 +450,8 @@ int main()
             CHECK(hk_current().mod_a != CBM && hk_current().mod_b != CBM);
         }
     }
+#endif
+#ifdef TEST_APP_PET
     // ---- T232: pad keys A-Z and learn by key press (PET rows; the board's path: the menu learn -> settings_set -> regset -> the register file)
     {
         struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
@@ -459,6 +540,8 @@ int main()
         m->key(KEY_RETURN); press(64); release(64);
         CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
     }
+#endif
+#ifdef TEST_APP_NES
     // ---- T228 R1/R16 (gate fixes 3 and 5): two tasks of a core's menu (Timewarp... and Monitor..., hotkey T and O) hold CTRL+T and CTRL+O by default; a key the stored settings give a
     // fixed action is not doubled. The core is the NES descriptor with the two tasks and the items hk_extend and hk_extend_tasks make (T239.3 P1-8: trx64u's menu is TRX64-Ultimate's)
     {

@@ -1,0 +1,92 @@
+# TOML B of the Amiga 500's app (T239.3 D55, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its link: the base's
+# archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own tools read the same file:
+# tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "amiga"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library amiga below defines it); the core table of this app holds this core only
+desc = "amiga_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the Amiga 500 is a large core on the host's pieces) that the shared
+# drivers (hw.cc) name: the host's mode register (cart_regs: am_init and am_release hold and release the machine through it), the five ICAP blocks of the loader and the partition control, and audio_master
+# (the host's master volume and tone: the rows Volume and Tone). No block iec_status, drive_a, c64cart, c64_debug, dma or cmd_if is named: the Amiga has no IEC bus, no 1541, no cartridge, no ring, no DMA window
+# and no command interface, so board.cc runs none of their probes in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the poll and the pad operations, the register map) and the keyboard table of the raw key events. Its files are in cores/amiga/app/lib; hk_defaults.h is a copy
+# of the shared app's (the other cores still use the original). The Amiga 1200's app has its own copy of this descriptor (cores/amiga1200/app/lib/amiga1200.cc).
+[[library]]
+name = "amiga"
+sources = ["amiga.cc"]
+headers = ["amiga_regs.h", "amiga_keys.h", "hk_defaults.h"]
+# newdisk: amiga.cc calls newdisk_register (the task Create blank ADF); pad: pad2_apply calls pad_ensure and pad_set_target (the gamepad as game port 2)
+needs = ["newdisk", "pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: amigaapp, the group amiga): unit = 2 unit tests (amiga500 the record against the register decode of the A500's gateware, amiga_regset the
+# settings down to the register bytes, amiga_rawkeys the key queue, amiga_ledload the LED selector, amiga_fbwin the picture of a core without a display window), service = 8 mock bitstream -> service (amiga_joyswap the "Joystick ports" setting down to the
+# register, amiga_descgen the record compiled from desc.toml against the descriptor, amiga_romreq its row of the host's ROM table, amiga_romset the Kickstart set, amiga_mousescale the Mouse Sensitivity and Acceleration rows), ui = 9 service -> UI
+# (amiga_ledcores the LED setting in the menu), api = 10 service -> API: its operations through the service call the REST and RPC transports make (svc_call; the A500's case of the shared test_memops, TEST_APP_AMIGA).
+# T239.5 D13: the A500's cases of the other shared tests run here too (TEST_APP_AMIGA in the files that serve several cores; the units whose every case stands on its record): service amiga_start (the pick
+# of the record by id, name and feature bits), amiga_video, amiga_baseset (the mouse rows), amiga_corereport, amiga_corefolder (the Kickstart set), amiga_newdisk, amiga_winslot, amiga_sectors,
+# amiga_media_writeback, amiga_media_mounts, amiga_configs (each with its controls); ui amiga_desc, amiga_hotkeys, amiga_volume, amiga_tone, amiga_scale, amiga_createflow, amiga_home, amiga_reopen, amiga_keywalk (every key of its menu against its
+# golden); api amiga_uiapp, amiga_uicover (every row, setting value and operation of its declaration over the API)
+tests = { unit = ["amiga500", "amiga_regset", "amiga_rawkeys", "amiga_ledload", "amiga_fbwin"], service = ["amiga_joyswap", "amiga_descgen", "amiga_romreq", "amiga_romset", "amiga_mousescale", "amiga_start", "amiga_video", "amiga_baseset", "amiga_corereport", "amiga_corefolder", "amiga_newdisk", "amiga_winslot", "amiga_sectors", "amiga_media_writeback", "amiga_media_mounts", "amiga_configs"], ui = ["amiga_ledcores", "amiga_desc", "amiga_hotkeys", "amiga_volume", "amiga_tone", "amiga_scale", "amiga_createflow", "amiga_home", "amiga_reopen", "amiga_keywalk"], api = ["amiga_memops", "amiga_uiapp", "amiga_uicover"] }
+
+# "Create blank ADF" (the task of the descriptor, disk.create): the same sources as the shared app's library, S12. The capability "floppy" of the descriptor registers it too.
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]
+
+# The shared rule of a new file's folder and name (T122 D2): newdisk makes the blank ADF's path with it
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+# The USB gamepads (the descriptor's pad spec, caps "pad"): the pad service with its maps and mapping wizard (the Input tab's Map port 2 buttons), the HID descriptor reader and the XInput driver. The
+# same sources as the shared app's library, S12 (its table "pad" is what engines.cc and ops_glue.cc call)
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"
+
+# The USB mouse (the descriptor's MouseSinkSpec, caps "mouse"): engines.cc and baseset.cc call its table "mouse" (the mouse sink, Mouse Sensitivity and Mouse Acceleration)
+[[library]]
+name = "mouse"
+sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
+headers = ["mousesink.h", "mouse_api.h"]
+table = "mouse_table"
+init = "mouse_lib_init"
+# T239.5 D4: the mouse library's report stream into the Amiga's counters, and the sink's clamp and scaling on the A500's mouse spec (amiga_mousesink)
+tests = { unit = ["amiga_mouselib", "amiga_mousesink"] }
+
+# A folder of a medium as an Amiga hard disk (the tasks Mount folder as HD0 and HD1, sectors.mount_folder, T128)
+[[library]]
+name = "folderhd"
+sources = ["folderhd.cc", "folderhd_fold.cc", "amiga_ffs.cc", "folderhd_exports.cc"]
+headers = ["folderhd.h", "folderhd_impl.h", "amiga_ffs.h", "folderhd_api.h"]
+bind = "folderhd_bind"
+# T239.5 D13: the folder disk on the A500's model (S1-S8, S10, with its controls; the shared unit folderhd of the A500 moved here)
+tests = { unit = ["amiga_folderhd"] }
+
+# The cluster link map of an open FatFs file: the file manager's CoreFs seeks through it in a large HDF image (T104 5.16)
+[[library]]
+name = "fastseek"
+sources = ["fastseek.cc", "fastseek_exports.cc"]
+headers = ["fastseek.h", "fastseek_api.h"]
+bind = "fastseek_bind"
+
+# The FTP medium's client for the Library's FTP folder (netfs.cc, T104.2): the A500 mounts an ADF or an HDF from an FTP host as it does today
+[[library]]
+name = "ftp"
+sources = ["ftp_client.cc", "ftp_exports.cc"]
+headers = ["ftp_client.h", "ftp_api.h"]
+bind = "ftp_bind"

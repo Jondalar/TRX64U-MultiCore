@@ -49,6 +49,7 @@ check "python compile" bash -c 'git ls-files -- "*.py" | xargs python3 -m py_com
 check "ruff" bash -c 'git ls-files -- "*.py" | xargs ruff check --no-cache --select E9,F63,F7,F82'
 
 gcheck core "core descriptors" python3 tools/core_toml.py --check
+gcheck core "diag pin table (T260)" python3 tools/diag_pins_gen.py --check
 check "issue forms (T161)" python3 tools/check_issue_forms.py --selftest
 if command -v patch >/dev/null; then check "atari800 gen" sh tools/atari800_gen.sh --check; fi
 check "nes gen" python3 tools/nes_gen.py --check
@@ -191,6 +192,7 @@ check "no Gitea API calls (T239.1 S6)" bash -c '
     | xargs grep -nE "/api/v1|/api/packages" 2>/dev/null || true)
   [ -z "$hits" ] || { echo "$hits"; exit 1; }'
 check "emulator kit (T239.1 D23)" ci/test_emu_kit.sh
+check "core round in the emulator (T239.5 D18)" ci/test_core_round.sh
 check "public-tree checker unit tests (T239.1 D24)" python3 -I tools/test_check_public_tree.py
 check "pre-push path rule (T239.1 D24)" ci/test_pre_push.sh
 check "pre-release staging (T239.1 D1, D42)" ci/test_prerelease.sh

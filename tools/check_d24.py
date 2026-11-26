@@ -42,12 +42,12 @@ D12_TRX64U = [r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/monitor\.(cc|h)", r"c
               r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h", r"coreapp/src/trxmon/.*"]
 
 # Core-specific files of coreapp/src, decided by name and content on 2026-11-16: the monitor and its server (the TRX64 bus monitor, trace ring), the trace ring
-# files, the TRX64U ops and menu glue, the U64 configuration (U64 register map and resampler), the Port Diagnostics tests (diag core), the Amiga filesystem,
+# files, the TRX64U ops and menu glue, the U64 configuration (U64 register map and resampler), the Amiga filesystem,
 # the C64 tape container. Everything else in coreapp/src is generic (menu, files, network, update ...) and is scanned for core ids.
 SRC_PER_CORE = [
     r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h",
     r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)", r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/u64_resample\.inc",
-    r"coreapp/src/diagtest\.(cc|h)", r"coreapp/src/amiga_ffs\.(cc|h)", r"coreapp/src/t64\.(cc|h)", r"coreapp/src/trxmon/.*",
+    r"coreapp/src/amiga_ffs\.(cc|h)", r"coreapp/src/t64\.(cc|h)", r"coreapp/src/trxmon/.*",
 ]
 GENERIC_DIRS = ["coreapp/src", "uicore"]
 CODE_EXT = (".cc", ".c", ".h", ".inc", ".asm", ".toml", ".py")

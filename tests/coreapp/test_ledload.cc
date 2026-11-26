@@ -55,7 +55,7 @@ int main()
         CHECK(r.io.led_log.size() == 3 && r.io.led_log[2].v == 0x04);
     }
 
-#ifndef TEST_APP_A1200                   // the A500 is in the shared app only
+#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // ---- the A500 is the A1200 1:1 (T159 D-all, Alex 2026-11-02): the same setting, default On, the same single selector write 0x04
     {
         FakeFs fs;

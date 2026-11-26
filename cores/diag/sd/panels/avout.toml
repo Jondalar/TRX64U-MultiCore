@@ -1,0 +1,234 @@
+# The A/V output panel (T201, T259; a panel file since T260 D5): one row per knob of the A/V test encoder (cores/diag/rtl/diag_avout.v), live in the registers. LEFT / RIGHT change
+# the row and write its register at once; Load preset / Save preset read and write <folder>/presets/<name>.toml; Defaults puts every row back. The first 24 rows are also the knobs
+# of the A/V walks (tests/av*.toml): their order and keys are the walks' contract (diagtest.cc), so rows are added after them. The Standard also sets the System Mode (the clock the
+# subcarrier constant is for) and the C64_VIDEOFORMAT byte, as the C128's page does. Registers are named as in gateware.toml (the core's TOML A): block.property[.field].
+kind = "panel"
+
+[panel]
+name = "A/V output"
+presets = "presets"
+preset_kind = "avpreset"
+
+[[row]]
+key = "Standard"
+reg = "av.std"
+system = true
+video_format = [0x00, 0x2B, 0x2A, 0x01]
+names = ["PAL 50 Hz", "NTSC 60 Hz", "PAL 60 Hz", "NTSC 50 Hz"]
+min = 0
+max = 3
+default = "PAL 50 Hz"
+
+[[row]]
+key = "Groups"
+reg = "av.perm"
+names = ["Y=A, C=B, CVBS=C", "Y=A, C=C, CVBS=B", "Y=B, C=A, CVBS=C", "Y=C, C=A, CVBS=B", "Y=B, C=C, CVBS=A", "Y=C, C=B, CVBS=A"]
+min = 0
+max = 5
+default = "Y=C, C=B, CVBS=A"
+
+[[row]]
+key = "Bits A"
+reg = "av.rev"
+shift = 0
+mask = 1
+names = ["MSB first", "Reversed"]
+min = 0
+max = 1
+default = "MSB first"
+
+[[row]]
+key = "Bits B"
+reg = "av.rev"
+shift = 1
+mask = 1
+names = ["MSB first", "Reversed"]
+min = 0
+max = 1
+default = "MSB first"
+
+[[row]]
+key = "Bits C"
+reg = "av.rev"
+shift = 2
+mask = 1
+names = ["MSB first", "Reversed"]
+min = 0
+max = 1
+default = "MSB first"
+
+[[row]]
+key = "V sign"
+reg = "av.vinv.vinv"
+names = ["Normal", "Inverted"]
+min = 0
+max = 1
+default = "Inverted"
+
+[[row]]
+key = "Subcarrier trim"
+reg = "av.trim"
+signed = true
+names = ["-480 Hz", "-450 Hz", "-420 Hz", "-390 Hz", "-360 Hz", "-330 Hz", "-300 Hz", "-270 Hz", "-240 Hz", "-210 Hz", "-180 Hz", "-150 Hz", "-120 Hz", "-90 Hz", "-60 Hz", "-30 Hz", "0 Hz", "+30 Hz", "+60 Hz", "+90 Hz", "+120 Hz", "+150 Hz", "+180 Hz", "+210 Hz", "+240 Hz", "+270 Hz", "+300 Hz", "+330 Hz", "+360 Hz", "+390 Hz", "+420 Hz", "+450 Hz", "+480 Hz"]
+values = [-16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+min = -128
+max = 127
+default = "0 Hz"
+
+[[row]]
+key = "Burst start"
+reg = "av.bstart"
+names = ["16", "18", "20", "22", "24", "26", "28", "30", "32", "36", "40"]
+values = [16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40]
+min = 0
+max = 127
+default = "28"
+
+[[row]]
+key = "Burst end"
+reg = "av.bend"
+names = ["90", "94", "96", "98", "99", "100", "102", "104", "106", "110"]
+values = [90, 94, 96, 98, 99, 100, 102, 104, 106, 110]
+min = 0
+max = 1023
+default = "99"
+
+[[row]]
+key = "Burst level"
+reg = "av.bamp"
+names = ["0 %", "50 %", "75 %", "100 %", "125 %", "150 %"]
+values = [0, 16, 24, 32, 40, 48]
+min = 0
+max = 63
+default = "100 %"
+
+[[row]]
+key = "Chroma gain"
+reg = "av.gain"
+names = ["0 %", "50 %", "75 %", "100 %", "125 %", "150 %", "190 %"]
+values = [0, 8, 12, 16, 20, 24, 30]
+min = 0
+max = 31
+default = "100 %"
+
+[[row]]
+key = "Sync level"
+reg = "av.sync"
+names = ["0", "8", "16", "24", "32"]
+values = [0, 8, 16, 24, 32]
+min = 0
+max = 255
+default = "0"
+
+[[row]]
+key = "Blank level"
+reg = "av.blank"
+names = ["64", "68", "73", "77", "80", "84", "88"]
+values = [64, 68, 73, 77, 80, 84, 88]
+min = 0
+max = 255
+default = "77"
+
+[[row]]
+key = "White level"
+reg = "av.white"
+names = ["8/16", "9/16", "10/16", "11/16", "12/16", "13/16", "14/16", "15/16", "16/16"]
+values = [8, 9, 10, 11, 12, 13, 14, 15, 16]
+min = 0
+max = 31
+default = "11/16"
+
+[[row]]
+key = "Equalizing"
+reg = "av.syncb.eq"
+names = ["Off", "On"]
+min = 0
+max = 1
+default = "Off"
+
+[[row]]
+key = "Vsync length"
+reg = "av.vlen"
+names = ["3 lines", "2.5 lines", "6 lines"]
+values = [6, 5, 12]
+min = 0
+max = 31
+default = "3 lines"
+
+[[row]]
+key = "Vsync position"
+reg = "av.vpos"
+signed = true
+names = ["-8", "-4", "0", "+4", "+8"]
+values = [-8, -4, 0, 4, 8]
+min = -128
+max = 127
+default = "0"
+
+[[row]]
+key = "Lines 60 Hz"
+reg = "av.syncb.l262"
+names = ["263", "262"]
+min = 0
+max = 1
+default = "263"
+
+[[row]]
+key = "Map"
+reg = "av.map"
+names = ["Scan groups", "Names"]
+min = 0
+max = 1
+default = "Scan groups"
+
+[[row]]
+key = "Mode"
+reg = "av.mode"
+names = ["Test picture", "Channel probe", "RGB"]
+min = 0
+max = 2
+default = "Test picture"
+
+[[row]]
+key = "Probe channel"
+reg = "av.pch"
+names = ["A or R", "B or G", "C or B"]
+min = 0
+max = 2
+default = "A or R"
+
+[[row]]
+key = "RGB picture"
+reg = "av.rch"
+names = ["Palette picture", "R ramp", "G ramp", "B ramp"]
+min = 0
+max = 3
+default = "Palette picture"
+
+[[row]]
+key = "SYNCn"
+reg = "av.synm"
+names = ["High", "Low", "Csync", "Inverted csync"]
+min = 0
+max = 3
+default = "High"
+
+[[row]]
+key = "FB"
+reg = "av.fbm"
+names = ["Low", "High", "Window", "Inverted window"]
+min = 0
+max = 3
+default = "Low"
+
+[[row]]
+key = "Load preset"
+action = "load"
+
+[[row]]
+key = "Save preset"
+action = "save"
+
+[[row]]
+key = "Defaults"
+action = "defaults"

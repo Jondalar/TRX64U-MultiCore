@@ -12,6 +12,12 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "tone.h"
+#ifdef TEST_APP_AMIGA
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
+#endif
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the item on its core
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#endif
 
 struct Rig {
     FakeIo io; FakeFs fs; CoreCtx c; Settings *st;
@@ -41,8 +47,11 @@ static void set_tone(Rig &r, const char *value)
 
 int main()
 {
+#ifdef TEST_APP_AMIGA
+    // T239.5 D13: the Amiga 500's case of this file runs as its app (run.sh amigaapp, unit amiga_tone); the shared unit tone keeps the others
+    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);                    // no descriptor declares it: the application adds it
+#elif defined(TEST_APP_NES)              // the NES's app (run.sh nesapp, the unit nes_tone); T239.5 D13: no shared unit tone (every case stands on a core)
     CHECK_EQ(count_key(nes_desc, TONE_KEY), 0);                      // no descriptor declares it: the application adds it
-    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);
     static CoreDesc gd, vd, od, nd, dd, dx;
     static Setting gs[SETTINGS_MAX], vs[SETTINGS_MAX], os[SETTINGS_MAX], ns[SETTINGS_MAX], xs[SETTINGS_MAX];
     CHECK(!tone_extend(&nes_desc, &gd, gs));
@@ -103,5 +112,6 @@ int main()
         set_tone(g2, "Flat");
         CHECK_EQ(lastt(g2.io), 0);
     }
+#endif
     DONE("test_tone");
 }

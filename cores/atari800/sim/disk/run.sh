@@ -1,7 +1,7 @@
 #!/bin/sh
 # T108 D1: the Atari core boots a disk. The real XL OS and BASIC (cores/atari800/roms) run in the whole core under GHDL, a
 # boot disk made here (bootdisk.asm, gen_disk.py) is mounted to D1:, and the application's own SIO responder
-# (coreapp/cores/atari_sio.cc, compiled into the simulator by app_bridge.cc) answers through the register window.
+# (cores/atari800/app/lib/atari_sio.cc, compiled into the simulator by app_bridge.cc) answers through the register window.
 #   run.sh disk     S1: the disk boots, the picture is the boot program's; prints the worst command-frame answer time
 #   run.sh empty    S2: nothing in D1:, the OS must give up and end at the BASIC prompt
 #   run.sh ghost    S2 control: an unmounted drive that answers anyway; the bench must FAIL "no command frame was answered"
@@ -22,6 +22,8 @@ what=${1:-disk}
 out=$here/build
 mkdir -p "$out"
 prep() {
+  # atari800_regs.h names the registers through the driver table of the app (drvtab.h): made by prep (once, before the container runs) from the core's TOML A as the app's link makes it (tests/coreapp/own_drv.sh)
+  ROOT=$root; . "$root/tests/coreapp/own_drv.sh"; own_drv_dir atari800 "$out/a8tab" || exit 1
   64tass -q -b --nostart -o "$out/bootdisk.bin" "$here/bootdisk.asm"
   python3 "$here/gen_disk.py" "$out/bootdisk.bin" "$out/boot.atr" > /dev/null
   python3 "$here/../machine/rom2hex.py" "$root/cores/atari800/roms/atarixl.rom" "$out/osxl.hex" > /dev/null
@@ -38,7 +40,7 @@ mkdir -p "$W"
 cd "$W"
 rm -f ./*.cf ./*.o
 # the application's responder: the product source, or for a control a copy with one expression broken (as tests/coreapp/run.sh does)
-src=$root/coreapp/cores
+src=$root/cores/atari800/app/lib
 case "$what" in
   nobaud) mut='s/^    match_baud();$//' ;;
   *)      mut= ;;
@@ -46,11 +48,11 @@ esac
 if [ -n "$mut" ]; then
   src=$out/mut_$what
   rm -rf "$src"; mkdir -p "$src"
-  cp "$root"/coreapp/cores/atari_sio.* "$root"/coreapp/cores/atari_atr.* "$root"/coreapp/cores/atari_disk.h "$root"/coreapp/cores/atari800_regs.h "$src"/
+  cp "$root"/cores/atari800/app/lib/atari_sio.* "$root"/cores/atari800/app/lib/atari_atr.* "$root"/cores/atari800/app/lib/atari_disk.h "$root"/cores/atari800/app/lib/atari800_regs.h "$src"/
   sed -e "$mut" "$src/atari_sio.cc" > "$src/atari_sio.cc.sed" && mv "$src/atari_sio.cc.sed" "$src/atari_sio.cc"
-  if cmp -s "$src/atari_sio.cc" "$root/coreapp/cores/atari_sio.cc"; then echo "CONTROL $what: the sed expression changed nothing - the control is vacuous"; exit 1; fi
+  if cmp -s "$src/atari_sio.cc" "$root/cores/atari800/app/lib/atari_sio.cc"; then echo "CONTROL $what: the sed expression changed nothing - the control is vacuous"; exit 1; fi
 fi
-nice -n 15 g++ -std=gnu++11 -O1 -fPIC -Wall -c -I"$src" -I"$root/coreapp/src" \
+nice -n 15 g++ -std=gnu++11 -O1 -fPIC -Wall -c -I"$src" -I"$out/a8tab/drv" -I"$root/coreapp/src" \
   "$here/app_bridge.cc" "$src/atari_sio.cc" "$src/atari_atr.cc"
 nice -n 15 ghdl -i $A8OPTS --work=work $A8FILES "$here/../machine/tb_a8_pkg.vhd" "$here/tb_a8_disk.vhd" > import.log 2>&1 || { tail -20 import.log; exit 1; }
 nice -n 15 ghdl -m $A8OPTS -O${GHDL_O:-2} -Wl,app_bridge.o -Wl,atari_sio.o -Wl,atari_atr.o -Wl,-lstdc++ -Wl,-lpthread tb_a8_disk > make.log 2>&1 || { tail -30 make.log; exit 1; }

@@ -20,7 +20,57 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
+#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the NES's descriptor, then the record core over it, its goldens keywalk_nes.txt and ids_nes.txt
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#define KW_GOLDEN "_nes"
+#elif defined(TEST_APP_ATARI800)         // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#define KW_GOLDEN "_atari800"
+#elif defined(TEST_APP_C264)             // the Commodore 264's app is its own build (run.sh c264app): its table is its core only, its walk has goldens of its own
+extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#define KW_GOLDEN "_c264"
+#elif defined(TEST_APP_ZXNEXT)           // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only, its rows are golden/keywalk_zxnext.txt and ids_zxnext.txt
+extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
+#define KW_GOLDEN "_zxnext"
+#elif defined(TEST_APP_NEOGEO)           // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_keywalk): its table is its core only, its golden is its own
+extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
+const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#define KW_GOLDEN "_neogeo"
+#elif defined(TEST_APP_AMIGA)            // the Amiga 500's app (run.sh amigaapp, the unit amiga_keywalk): its table is its core only, its rows are golden/keywalk_amiga.txt and ids_amiga.txt
+extern const CoreDesc amiga_desc;        // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
+const CoreDesc *const core_table[] = { &amiga_desc, 0 };
+#define KW_GOLDEN "_amiga"
+#elif defined(TEST_APP_CPC)              // the CPC's app (run.sh cpcapp, the unit cpc_keywalk): its table is its core only, its rows are golden/keywalk_cpc.txt and ids_cpc.txt
+extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
+const CoreDesc *const core_table[] = { &cpc_desc, 0 };
+#define KW_GOLDEN "_cpc"
+#elif defined(TEST_APP_C128)             // the C128's app (run.sh c128app, the unit c128_keywalk): its table is its core only, its rows are golden/keywalk_c128.txt and ids_c128.txt
+extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
+const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#define KW_GOLDEN "_c128"
+#elif defined(TEST_APP_PET)              // the PET's app (run.sh petapp, the unit pet_keywalk): its table is its core only, its rows are golden/keywalk_pet.txt and ids_pet.txt
+extern const CoreDesc pet_desc;          // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
+const CoreDesc *const core_table[] = { &pet_desc, 0 };
+#define KW_GOLDEN "_pet"
+#elif defined(TEST_APP_DIAG)             // the diag core's app (run.sh diagapp, the unit diag_keywalk): its table is its core only, its rows are golden/keywalk_diag.txt and ids_diag.txt
+extern const CoreDesc portdiag_desc;     // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
+#define KW_GOLDEN "_diag"
+#elif defined(TEST_APP_DDT)              // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_keywalk): its table is its core only, its rows are golden/keywalk_ddt_novic.txt and ids_ddt_novic.txt
+extern const CoreDesc ddt_novic_desc;    // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
+const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
+#define KW_GOLDEN "_ddt_novic"
+#elif defined(TEST_APP_ZX)               // the ZX Spectrum's app (run.sh zxapp, the unit zx_keywalk): its table is its core only, its rows are golden/keywalk_zx.txt and ids_zx.txt
+extern const CoreDesc zx_desc;           // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
+const CoreDesc *const core_table[] = { &zx_desc, 0 };
+#define KW_GOLDEN "_zx"
+#else                                    // the shared app: the cores of its table
 extern const CoreDesc *const core_table[];
+#define KW_GOLDEN ""
+#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {
@@ -79,16 +129,23 @@ int main(int argc, char **argv)
     bool verbose = getenv("KEYWALK_VERBOSE") != 0;
     std::string out, ids;
     int probes = 0;
-    // the cores of the table, and a core whose menu is a record (golden/desc_cut.toml over the NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
+    // the cores of the table (the shared app, or a core's own app: its core), or in the NES's app the NES's descriptor and a core whose menu is a record (golden/desc_cut.toml over the
+    // NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
     struct Walk { const CoreDesc *d; const MenuMerge *merge; const char *name; };
     std::vector<Walk> walks;
+#ifndef TEST_APP_NES
+    (void)argc; (void)argv;
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
+#else
+    (void)argc;
+    walks.push_back({ &nes_desc, 0, 0 });                       // the NES's own menu, as its app shows it
     static CoreDesc base = nes_desc;
     base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
     RecordMenu *rm = new RecordMenu(&base, argv[1]);
     walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
+#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
@@ -104,19 +161,6 @@ int main(int argc, char **argv)
         c.settings = &st;
         c.started = true;
         c.install_files = core_files_install;       // run.cc sets it for every core; pd.install (Write the example tests) goes through it
-        std::vector<uint8_t> diag_cor;               // T175: the example tests are record 8 of diag.cor; the application's installer writes the missing ones at every start of the core, as on the board
-        if (!strcmp(cname, "Port Diagnostics") && getenv("DIAG_COR")) {
-            std::ifstream df(getenv("DIAG_COR"), std::ios::binary);
-            diag_cor.assign((std::istreambuf_iterator<char>(df)), std::istreambuf_iterator<char>());
-        }
-        auto start_core = [&]() {                    // the bundle is on the card only while the installer reads it: the folder listing is the bench's, not the bundle's
-            if (!diag_cor.empty()) {
-                fs.put(c.cor_path, diag_cor);
-                core_files_install(&c);
-                fs.remove(c.cor_path);
-            }
-        };
-        start_core();
         fs.put("/usb0/x/a.bin", std::vector<uint8_t>(64, 1));
         fs.put("/usb0/x/b.txt", std::vector<uint8_t>(40, 'b'));
         fs.put("/usb0/x/e.prg", std::vector<uint8_t>{ 1, 8, 0, 0 });
@@ -155,7 +199,6 @@ int main(int argc, char **argv)
                 uint32_t acc = 2166136261u;
                 int n = 0;
                 for (int ki = 0; ki < NKEYS; ki++) {
-                    start_core();
                     MenuCtl m(&c, &host);
                     io.t += 5000;
                     m.open();
@@ -185,7 +228,7 @@ int main(int argc, char **argv)
         }
     }
     printf("keywalk: %d probes\n", probes);
-    std::string path = std::string(GOLDEN_DIR) + "/keywalk.txt";
+    std::string path = std::string(GOLDEN_DIR) + "/keywalk" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(path) << out;
     }
@@ -207,14 +250,14 @@ int main(int argc, char **argv)
         }
     }
     CHECK(want == out);
-    std::string ipath = std::string(GOLDEN_DIR) + "/ids.txt";
+    std::string ipath = std::string(GOLDEN_DIR) + "/ids" KW_GOLDEN ".txt";
     if (getenv("UPDATE_GOLDEN")) {
         std::ofstream(ipath) << ids;
     }
     std::ifstream fi(ipath);
     std::string iwant((std::istreambuf_iterator<char>(fi)), std::istreambuf_iterator<char>());
     if (iwant != ids) {
-        printf("the identities of the rows differ from tests/coreapp/golden/ids.txt (UPDATE_GOLDEN=1 writes it)\n");
+        printf("the identities of the rows differ from tests/coreapp/golden/ids%s.txt (UPDATE_GOLDEN=1 writes it)\n", KW_GOLDEN);
     }
     CHECK(iwant == ids);
     DONE("test_keywalk");

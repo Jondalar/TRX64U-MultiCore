@@ -1,7 +1,7 @@
 // T104.1 D12, Q10: the libraries of a folder are loaded at the start of a core application - in dependency order, a cycle refused, a
 // missing folder no error, one log line per file, a library whose capability the core lacks refused with a sentence that names the library,
 // the capability and the core. The file system is a map of byte vectors, the heap a model, the core descriptors are the real ones (the
-// capability list goes through desc_has_capability on atari800_desc / nes_desc, the table through desc_check). What is not here: that
+// capability list goes through desc_has_capability on the descriptor of the table, the table through desc_check). What is not here: that
 // RISC-V code runs; the host's twin of lib_register is a function of this file (the same split tests/loader/ makes).
 #include <string>
 #include <vector>
@@ -15,7 +15,15 @@
 #include "libscan.h"
 #include "board.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, 0 };
+#ifdef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_libscan): its core only
+extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)              // the NES's app (nes_libscan): the cases on its record
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core; its cases are the order on made-up metadata
+#endif
 
 // the capabilities of a monolith core (TRX64-Ultimate's trx64u asks for these seven): the list the board strikes from in the check below (T239.3 P1-8)
 static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
@@ -138,7 +146,11 @@ struct World {
     LibLoader ld;
     Log log;
     LibScanResult r;
+#ifdef TEST_APP_ATARI800
     World(const CoreDesc *d = &atari800_desc) : host(d), ld(&host, &reg) { }
+#else
+    explicit World(const CoreDesc *d) : host(d), ld(&host, &reg) { }
+#endif
     void add(const char *path, const Img &i) { fs.put(path, build(i)); }
     void run() { lib_load_folder(&ld, &fs, lib_roots, LIB_FOLDER, &log, &r); }
     std::string dump() const { std::string s; for (size_t i = 0; i < log.lines.size(); i++) { s += log.lines[i] + "\n"; } return s; }
@@ -157,6 +169,7 @@ int main()
     for (const CoreDesc *const *p = core_table; *p; p++) { const char *why = desc_check(*p); if (why) printf("%s: %s\n", (*p)->cor_name, why); CHECK(!why); }
     CHECK(!desc_check_table(core_table));
 
+#ifdef TEST_APP_ATARI800                // the cases on the Atari's descriptor (World's default): its app (run.sh a8app, the unit a8_libscan)
     // ---- a missing folder is not an error
     {
         World w;
@@ -290,8 +303,10 @@ int main()
         CHECK_STR(w.r.summary, "1 loaded, 4 refused: pp");
         CHECK_EQ(w.r.nkept, 4);
     }
+#endif
     // ---- Q10 on the real descriptors: the Atari has "sio", it has no "drive_a"
     {
+#ifdef TEST_APP_ATARI800
         World w;
         w.add(L1 "cbm1541.u2a", Img("cbm1541").capability("drive_a"));
         w.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
@@ -306,6 +321,7 @@ int main()
         CHECK(w.r.nkept == 2 && strstr(w.r.kept[0], "cbm1541") && strstr(w.r.kept[0], "drive_a") && strstr(w.r.kept[0], "Atari 800 XL"));
         CHECK_EQ(w.host.allocs, 1);                                   // nothing was allocated for the refused one
         CHECK_STR(w.r.summary, "1 loaded, 2 refused: cbm1541");
+#elif defined(TEST_APP_NES)
         // the same files on the NES: it has neither
         World n(&nes_desc);
         n.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
@@ -314,7 +330,9 @@ int main()
         CHECK_EQ(n.r.loaded, 1);
         CHECK(n.log.find("needs the capability \"sio\", which the core \"Nintendo Entertainment System\" does not have.") >= 0);
         CHECK(n.log.find("[lib] carts v1.0 at 0x") >= 0);
+#endif
     }
+#ifdef TEST_APP_NES
     // ---- T104.2 D3 on a monolith core's capability list: what the board strikes, a library cannot have. The monolith has the T37 sockets, the MultiCore
     // trx64 core has not; neither has a drive B. The core's effective list is what the loader is given (run.cc merges it).
     {
@@ -350,6 +368,8 @@ int main()
             }
         }
     }
+#endif
+#ifdef TEST_APP_ATARI800
     // ---- an application is not loaded from here; a file that is not a library is refused by name and the others still load
     {
         World w;
@@ -417,6 +437,8 @@ int main()
         CHECK_EQ(g_lib_logs.size(), 1);
         if (!g_lib_logs.empty()) { CHECK_STR(g_lib_logs[0].c_str(), "hello from alpha"); }
     }
+#endif
+#ifndef TEST_APP_NES                     // the order on made-up metadata: the shared unit's and the Atari's app's (not the NES's unit)
     // ---- the order itself, on made-up metadata (no files)
     {
         LibMeta m[4];
@@ -458,5 +480,6 @@ int main()
         CHECK_EQ(lib_dep_order(m, 3, order, cyc), 2);
         CHECK_EQ(cyc[2], 2);
     }
+#endif
     DONE("test_libscan");
 }

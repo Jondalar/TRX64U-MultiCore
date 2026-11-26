@@ -2,11 +2,6 @@
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
 exception coreapp/src/u64cfg.cc +1033 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-file coreapp/cores/6502/xexboot.asm 161
-file coreapp/cores/6502/xexboot_bin.h 26
-file coreapp/cores/amiga.cc 330
-file coreapp/cores/amiga_keys.h 23
-file coreapp/cores/amiga_regs.h 62
 file coreapp/cores/apple2.cc 340
 file coreapp/cores/apple2_disk.cc 470
 file coreapp/cores/apple2_disk.h 71
@@ -16,25 +11,6 @@ file coreapp/cores/apple2_nib.h 21
 file coreapp/cores/apple2_regs.h 69
 file coreapp/cores/apple2_woz.cc 154
 file coreapp/cores/apple2_woz.h 17
-file coreapp/cores/atari800.cc 208
-file coreapp/cores/atari800_regs.h 39
-file coreapp/cores/atari_atr.cc 115
-file coreapp/cores/atari_atr.h 15
-file coreapp/cores/atari_cart.cc 61
-file coreapp/cores/atari_cart.h 14
-file coreapp/cores/atari_disk.h 16
-file coreapp/cores/atari_media.cc 188
-file coreapp/cores/atari_media.h 33
-file coreapp/cores/atari_sio.cc 362
-file coreapp/cores/atari_sio.h 67
-file coreapp/cores/atari_xex.cc 64
-file coreapp/cores/atari_xex.h 8
-file coreapp/cores/c128.cc 1078
-file coreapp/cores/c128_keys.h 12
-file coreapp/cores/c128_prg.h 30
-file coreapp/cores/c128_regs.h 52
-file coreapp/cores/c264.cc 293
-file coreapp/cores/c264_regs.h 29
 file coreapp/cores/c64_cart.cc 627
 file coreapp/cores/c64_cart.h 11
 file coreapp/cores/c64_cart_desc.h 72
@@ -49,48 +25,15 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 21
-file coreapp/cores/cpc.cc 317
-file coreapp/cores/cpc_disk.cc 238
-file coreapp/cores/cpc_disk.h 27
-file coreapp/cores/cpc_regs.h 41
-file coreapp/cores/ddt_novic.cc 48
-file coreapp/cores/ddt_regs.h 13
+file coreapp/cores/cores.h 9
 file coreapp/cores/drive_rom_pick.h 98
 file coreapp/cores/hk_defaults.h 23
-file coreapp/cores/ines.cc 100
-file coreapp/cores/ines.h 22
-file coreapp/cores/neogeo.cc 651
-file coreapp/cores/neogeo_regs.h 78
-file coreapp/cores/neoset.cc 589
-file coreapp/cores/neoset.h 58
-file coreapp/cores/nes.cc 189
-file coreapp/cores/nes_regs.h 23
-file coreapp/cores/pet.cc 745
-file coreapp/cores/pet_models.h 111
-file coreapp/cores/pet_regs.h 52
-file coreapp/cores/portdiag.cc 473
-file coreapp/cores/portdiag.h 20
-file coreapp/cores/portdiag_regs.h 50
 file coreapp/cores/snes.cc 558
 file coreapp/cores/snes_regs.h 44
 file coreapp/cores/snes_rom.cc 222
 file coreapp/cores/snes_rom.h 26
-file coreapp/cores/tape_deck.cc 138
-file coreapp/cores/tape_deck.h 31
-file coreapp/cores/tape_pulses.cc 485
-file coreapp/cores/tape_pulses.h 24
-file coreapp/cores/zx.cc 311
-file coreapp/cores/zx_regs.h 42
-file coreapp/cores/zx_snap.cc 311
-file coreapp/cores/zx_snap.h 17
-file coreapp/cores/zxnext.cc 283
-file coreapp/cores/zxnext_fw.h 170
-file coreapp/cores/zxnext_regs.h 36
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
-file coreapp/src/diagtest.cc 2551
-file coreapp/src/diagtest.h 178
 file coreapp/src/monitor.cc 473
 file coreapp/src/monitor.h 24
 file coreapp/src/monsrv.cc 547
@@ -165,7 +108,7 @@ ids coreapp/src/rest.cc null 2
 ids coreapp/src/rpc.cc null 3
 ids coreapp/src/rpccontract.cc null 9
 ids coreapp/src/run.cc c64 1
-ids coreapp/src/run.cc diag 2
+ids coreapp/src/run.cc diag 1
 ids coreapp/src/svc.cc null 2
 ids coreapp/src/svcjson.cc null 2
 ids coreapp/src/writeback_crt.cc c64 1
@@ -174,7 +117,7 @@ ids uicore/uic_svc.cc null 1
 # In-flight release fixes, measured on their worktrees 2026-11-16 (code-line delta against the branch's own base). Alex's decision: pre-registered by the coordinator on his
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
-# board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
+# board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests are a folder of the lane delivery (T260 D6). t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
 exception coreapp/src/ring.cc +240 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/ringfile.cc +1489 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/ringops.cc +223 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

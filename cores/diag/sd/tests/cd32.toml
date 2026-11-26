@@ -49,7 +49,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -58,7 +58,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -88,7 +88,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -97,7 +97,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -109,8 +109,14 @@ op = "sample"
 into = "r_rel"
 
 [[step]]
-op = "padctl"
-dis = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "release"
 
 [[step]]
 op = "wait"
@@ -127,7 +133,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -136,7 +142,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -148,8 +154,14 @@ op = "sample"
 into = "r_d0"
 
 [[step]]
-op = "padctl"
-dis = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "release"
 
 [[step]]
 op = "wait"
@@ -166,7 +178,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -175,7 +187,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -187,9 +199,14 @@ op = "sample"
 into = "r_d1"
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
@@ -206,7 +223,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -215,7 +232,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -227,9 +244,14 @@ op = "sample"
 into = "r_d0a0"
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "high"
 
 [[step]]
 op = "wait"
@@ -246,7 +268,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -255,7 +277,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -267,9 +289,14 @@ op = "sample"
 into = "r_d0a1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
@@ -286,7 +313,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -295,7 +322,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -307,9 +334,14 @@ op = "sample"
 into = "r_d1a0"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "high"
 
 [[step]]
 op = "wait"
@@ -326,7 +358,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -335,7 +367,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -351,8 +383,14 @@ op = "wait_user"
 prompt = "off"
 
 [[step]]
-op = "padctl"
-dis = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "release"
 
 [[step]]
 op = "wait"
@@ -369,7 +407,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -378,7 +416,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -390,8 +428,14 @@ op = "sample"
 into = "n_d0"
 
 [[step]]
-op = "padctl"
-dis = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "release"
 
 [[step]]
 op = "wait"
@@ -408,7 +452,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -417,7 +461,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -429,9 +473,14 @@ op = "sample"
 into = "n_d1"
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
@@ -448,7 +497,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -457,7 +506,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -469,9 +518,14 @@ op = "sample"
 into = "n_d0a0"
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "high"
 
 [[step]]
 op = "wait"
@@ -488,7 +542,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -497,7 +551,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -509,9 +563,14 @@ op = "sample"
 into = "n_d0a1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
@@ -528,7 +587,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -537,7 +596,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -549,9 +608,14 @@ op = "sample"
 into = "n_d1a0"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 1
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "high"
 
 [[step]]
 op = "wait"
@@ -568,7 +632,7 @@ body = 5
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "low"
 
 [[step]]
@@ -577,7 +641,7 @@ us = 2000
 
 [[step]]
 op = "drive"
-pins = ["p2_fire"]
+pins = ["KBJOY_2_JOY4"]
 level = "release"
 
 [[step]]
@@ -590,24 +654,24 @@ into = "n_d1a1"
 
 [[eval]]
 id = "d0_pin5"
-value = "n0_d0.cmp"
-mask = 4
+value = "n0_d0.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d0 (DIS low, ADJ released): pin 5 (cmp2) reads low"
 fail = "d0 (DIS low, ADJ released): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d0_idle"
-value = "n_d0.cmp"
-mask = 8
-eq = 8
+value = "n_d0.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d0: pin 9 reads high with no button (read 1)"
 fail = "d0: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d0_reads"
-value = "r_d0.cmp"
-mask = 8
+value = "r_d0.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d0"
 verdict = "d0: red held changes the data (read 1)"
 fail = "d0: red held does not change the data (read 1)"
@@ -620,9 +684,9 @@ fail = "no pad read with d0 (DIS low, ADJ released)"
 
 [[eval]]
 id = "d0_id"
-value = "n_d0.cmp"
+value = "n_d0.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d0: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d0: data not low on read 8 (the ID check only means something where the data moved)"
@@ -630,24 +694,24 @@ fail = "d0: data not low on read 8 (the ID check only means something where the 
 
 [[eval]]
 id = "d1_pin5"
-value = "n0_d1.cmp"
-mask = 4
+value = "n0_d1.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d1 (DIS high, ADJ released): pin 5 (cmp2) reads low"
 fail = "d1 (DIS high, ADJ released): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d1_idle"
-value = "n_d1.cmp"
-mask = 8
-eq = 8
+value = "n_d1.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d1: pin 9 reads high with no button (read 1)"
 fail = "d1: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d1_reads"
-value = "r_d1.cmp"
-mask = 8
+value = "r_d1.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d1"
 verdict = "d1: red held changes the data (read 1)"
 fail = "d1: red held does not change the data (read 1)"
@@ -660,9 +724,9 @@ fail = "no pad read with d1 (DIS high, ADJ released)"
 
 [[eval]]
 id = "d1_id"
-value = "n_d1.cmp"
+value = "n_d1.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d1: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d1: data not low on read 8 (the ID check only means something where the data moved)"
@@ -670,24 +734,24 @@ fail = "d1: data not low on read 8 (the ID check only means something where the 
 
 [[eval]]
 id = "d0a0_pin5"
-value = "n0_d0a0.cmp"
-mask = 4
+value = "n0_d0a0.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d0a0 (DIS low, ADJ low): pin 5 (cmp2) reads low"
 fail = "d0a0 (DIS low, ADJ low): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d0a0_idle"
-value = "n_d0a0.cmp"
-mask = 8
-eq = 8
+value = "n_d0a0.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d0a0: pin 9 reads high with no button (read 1)"
 fail = "d0a0: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d0a0_reads"
-value = "r_d0a0.cmp"
-mask = 8
+value = "r_d0a0.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d0a0"
 verdict = "d0a0: red held changes the data (read 1)"
 fail = "d0a0: red held does not change the data (read 1)"
@@ -700,9 +764,9 @@ fail = "no pad read with d0a0 (DIS low, ADJ low)"
 
 [[eval]]
 id = "d0a0_id"
-value = "n_d0a0.cmp"
+value = "n_d0a0.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d0a0: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d0a0: data not low on read 8 (the ID check only means something where the data moved)"
@@ -710,24 +774,24 @@ fail = "d0a0: data not low on read 8 (the ID check only means something where th
 
 [[eval]]
 id = "d0a1_pin5"
-value = "n0_d0a1.cmp"
-mask = 4
+value = "n0_d0a1.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d0a1 (DIS low, ADJ high): pin 5 (cmp2) reads low"
 fail = "d0a1 (DIS low, ADJ high): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d0a1_idle"
-value = "n_d0a1.cmp"
-mask = 8
-eq = 8
+value = "n_d0a1.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d0a1: pin 9 reads high with no button (read 1)"
 fail = "d0a1: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d0a1_reads"
-value = "r_d0a1.cmp"
-mask = 8
+value = "r_d0a1.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d0a1"
 verdict = "d0a1: red held changes the data (read 1)"
 fail = "d0a1: red held does not change the data (read 1)"
@@ -740,9 +804,9 @@ fail = "no pad read with d0a1 (DIS low, ADJ high)"
 
 [[eval]]
 id = "d0a1_id"
-value = "n_d0a1.cmp"
+value = "n_d0a1.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d0a1: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d0a1: data not low on read 8 (the ID check only means something where the data moved)"
@@ -750,24 +814,24 @@ fail = "d0a1: data not low on read 8 (the ID check only means something where th
 
 [[eval]]
 id = "d1a0_pin5"
-value = "n0_d1a0.cmp"
-mask = 4
+value = "n0_d1a0.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d1a0 (DIS high, ADJ low): pin 5 (cmp2) reads low"
 fail = "d1a0 (DIS high, ADJ low): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d1a0_idle"
-value = "n_d1a0.cmp"
-mask = 8
-eq = 8
+value = "n_d1a0.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d1a0: pin 9 reads high with no button (read 1)"
 fail = "d1a0: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d1a0_reads"
-value = "r_d1a0.cmp"
-mask = 8
+value = "r_d1a0.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d1a0"
 verdict = "d1a0: red held changes the data (read 1)"
 fail = "d1a0: red held does not change the data (read 1)"
@@ -780,9 +844,9 @@ fail = "no pad read with d1a0 (DIS high, ADJ low)"
 
 [[eval]]
 id = "d1a0_id"
-value = "n_d1a0.cmp"
+value = "n_d1a0.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d1a0: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d1a0: data not low on read 8 (the ID check only means something where the data moved)"
@@ -790,24 +854,24 @@ fail = "d1a0: data not low on read 8 (the ID check only means something where th
 
 [[eval]]
 id = "d1a1_pin5"
-value = "n0_d1a1.cmp"
-mask = 4
+value = "n0_d1a1.pins"
+pins = ["PADDLE_CMP2"]
 eq = 0
 verdict = "d1a1 (DIS high, ADJ high): pin 5 (cmp2) reads low"
 fail = "d1a1 (DIS high, ADJ high): pin 5 (cmp2) is not pulled low"
 
 [[eval]]
 id = "d1a1_idle"
-value = "n_d1a1.cmp"
-mask = 8
-eq = 8
+value = "n_d1a1.pins"
+pins = ["PADDLE_CMP3"]
+eq = 1
 verdict = "d1a1: pin 9 reads high with no button (read 1)"
 fail = "d1a1: pin 9 reads low with no button (line held low, or no pad)"
 
 [[eval]]
 id = "d1a1_reads"
-value = "r_d1a1.cmp"
-mask = 8
+value = "r_d1a1.pins"
+pins = ["PADDLE_CMP3"]
 differs = "n_d1a1"
 verdict = "d1a1: red held changes the data (read 1)"
 fail = "d1a1: red held does not change the data (read 1)"
@@ -820,9 +884,9 @@ fail = "no pad read with d1a1 (DIS high, ADJ high)"
 
 [[eval]]
 id = "d1a1_id"
-value = "n_d1a1.cmp"
+value = "n_d1a1.pins"
 index = 7
-mask = 8
+pins = ["PADDLE_CMP3"]
 eq = 0
 verdict = "d1a1: data low on read 8 after the ID bit, as the Minimig model shifts"
 fail = "d1a1: data not low on read 8 (the ID check only means something where the data moved)"

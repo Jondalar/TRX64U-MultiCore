@@ -1,6 +1,6 @@
-// T175 (Port Diagnostics) / T201 (A/V test picture): this core's copy mono/top.v of mono/host/top.v (mono/top.v.diff): KBJOY_1_JOY / KBJOY_2_JOY are open-drain pads (diag_pads.v), layer2 has the ports kbjoy_i / kbjoy_low, and the A/V port (AVID_*) is driven by layer 2's group words. Everything else is the host's.
+// T175 (Port Diagnostics) / T201 (A/V test picture) / T260 (pin bank): this core's copy mono/top.v of mono/host/top.v (mono/top.v.diff, `diff host/top.v top.v`): KBJOY_1_JOY / KBJOY_2_JOY are open-drain pads (diag_pads.v), the cartridge port's A / D / R/W lines are the pads of diag_slot_pads (diag_pads.v), layer 2 has the pin bank (dg_in / dg_en / dg_o / dg_z, mono/diag_dgin.vh and rtl/diag_pintab.vh generated from rtl/pins.toml) through which the engine drives the slot, C2N, PADDLE, IEC, SID and LED pins (guarded and released in the gateware), the A/V port (AVID_*) is driven by layer 2's group words, and layer 2's engine client e_* writes the capture ring. Everything else is the host's.
 0a1
-> // T175 / T201: the Port Diagnostics core's copy of the host copy's top.v (mono/host/top.v; mono/top.v.diff): KBJOY_1_JOY / KBJOY_2_JOY are open-drain pads (diag_pads.v) the probe engine of layer 2 can pull low, layer2 has the two extra ports kbjoy_i / kbjoy_low. T201: the A/V port (AVID_*) is driven from layer 2's three group words (av_ga/gb/gc). Everything else is the host's.
+> // T175 / T201 / T260: the diag core's copy of the host copy's top.v (mono/host/top.v; mono/top.v.diff): the open-drain joystick pads, the cartridge port pads and the pin bank of layer 2 (T260: dg_in / dg_en / dg_o / dg_z, the engine drives the slot, C2N, PADDLE, IEC, SID and LED pins), the A/V port (AVID_*) from layer 2's group words (T201). Everything else is the host's.
 67c68
 <     input  wire [4:0] KBJOY_1_JOY, KBJOY_2_JOY, // up, down, left, right, fire; low = pressed
 ---
@@ -12,28 +12,150 @@
 >     // T201 (the diag core's A/V test picture): the A/V port's THS8136 DAC, three 8 bit groups from layer 2 (diag_avout.v); balls in avid_pins.xdc
 >     output wire [9:2]  AVID_R, AVID_G, AVID_B,
 >     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
-940a945,949
->     // T175: the joystick pins are open-drain pads; the probe engine of layer 2 (kbjoy_low) is the only one that can pull one low
+116a121,128
+>     // T260: the pin bank of the diag core (cores/diag/rtl/pins.toml; tools/diag_pins_gen.py makes the two includes): IX_<name> = a pin's index, dg_in = what layer 2 reads,
+>     // dg_en / dg_o / dg_z = what the engine of layer 2 drives (en: the engine drives or overrides, o: the level, z: high-Z request of the A0-A11 pads)
+>     `include "diag_pintab.vh"
+>     wire [127:0] dg_in, dg_en, dg_o, dg_z;
+>     wire [15:0]  slot_a_i;                  // the pad levels of the cartridge port (diag_slot_pads)
+>     wire  [7:0]  slot_d_i;
+>     wire         slot_rw_i;
+>     wire         paddle_dis_lv, paddle_adj_lv;   // what the FPGA drives on PADDLE_DIS / PADDLE_ADJ (0 while released: the pads are output only)
+144,147c156
+<     assign SLOT_ADDR[11:0]  = slot_a[11:0];
+<     assign SLOT_ADDR[15:12] = slot_ahi_t ? 4'bzzzz : slot_a[15:12];
+<     assign SLOT_RWn         = slot_ahi_t ? 1'bz : slot_rw;
+<     assign SLOT_DATA        = slot_d_t ? 8'bzzzzzzzz : slot_d_o;
+---
+>     // T260: SLOT_ADDR, SLOT_DATA and SLOT_RWn are the pads of diag_slot_pads (below, after port_off); the bank's engine can drive them
+639c648
+<     assign ETH_LED_YELn = eth_age[27];
+---
+>     assign ETH_LED_YELn = (dg_en[IX_ETH_LED_YELn] & ~core_decouple) ? dg_o[IX_ETH_LED_YELn] : eth_age[27];    // T260: the bank can override it
+737,738c746,748
+<     assign IEC_RESET_O = 1'b0;
+<     assign IEC_SRQ_O   = 1'b0;
+---
+>     // T260: the bank's engine can pull the bus lines low (class pull: o = 1 pulls)
+>     assign IEC_RESET_O = core_decouple ? 1'b0 : dg_en[IX_IEC_RESET_O] & dg_o[IX_IEC_RESET_O];
+>     assign IEC_SRQ_O   = core_decouple ? 1'b0 : dg_en[IX_IEC_SRQ_O] & dg_o[IX_IEC_SRQ_O];
+940a951,955
+>     // T175: the joystick pins are open-drain pads; the bank's engine (dg_en of the ten pins) is the only one that can pull one low
 >     wire [4:0] kbj1_i, kbj2_i;
->     wire [9:0] l2_kbjoy_low;
 >     wire [7:0] av_ga, av_gb, av_gc;          // T201: layer 2's A/V group words
->     diag_pads kbjoy_pads (.KBJOY_1_JOY(KBJOY_1_JOY), .KBJOY_2_JOY(KBJOY_2_JOY), .low(l2_kbjoy_low), .decouple(core_decouple), .j1_i(kbj1_i), .j2_i(kbj2_i));
-944c953
+>     wire       av_syn_n, av_fb;              // T259: layer 2's AVID_SYNCn and AVID_FB
+>     diag_pads kbjoy_pads (.KBJOY_1_JOY(KBJOY_1_JOY), .KBJOY_2_JOY(KBJOY_2_JOY), .low({dg_en[IX_KBJOY_2_JOY0 +: 5], dg_en[IX_KBJOY_1_JOY0 +: 5]}), .decouple(core_decouple), .j1_i(kbj1_i), .j2_i(kbj2_i));
+944c959
 <         pins_s1 <= ~{KBJOY_RESTORE, KBJOY_2_JOY, KBJOY_1_JOY};
 ---
 >         pins_s1 <= ~{KBJOY_RESTORE, kbj2_i, kbj1_i};
-1689a1699,1701
->         .kbjoy_i({kbj2_i, kbj1_i}),
->         .kbjoy_low(l2_kbjoy_low),
->         .av_ga(av_ga), .av_gb(av_gb), .av_gc(av_gc),
-1880a1893,1902
+1069a1085
+>     wire bling_led_h;                   // T260: bling_io's lamp line, before the bank's override
+1075c1091,1092
+<                   .bling_led(BLING_LED));
+---
+>                   .bling_led(bling_led_h));
+>     assign BLING_LED = (dg_en[IX_BLING_LED] & ~core_decouple) ? dg_o[IX_BLING_LED] : bling_led_h;
+1083,1084c1100,1102
+<     assign LED_DATA  = 1'b0;            // case LED strip: out (OPT-bling), idle level
+<     assign LED_CLOCK = 1'b0;
+---
+>     // T260: the LED pads and the bank: released = the host's own function (here the idle level), driven by the engine unless the core is decoupled
+>     assign LED_DATA  = (dg_en[IX_LED_DATA] & ~core_decouple) ? dg_o[IX_LED_DATA] : 1'b0;            // case LED strip: out (OPT-bling), idle level
+>     assign LED_CLOCK = (dg_en[IX_LED_CLOCK] & ~core_decouple) ? dg_o[IX_LED_CLOCK] : 1'b0;
+1440c1458
+<     assign LED_BOARDn = 1'b0;               // off: active high despite the name (green, on the FPGA module)
+---
+>     assign LED_BOARDn = (dg_en[IX_LED_BOARDn] & ~core_decouple) ? dg_o[IX_LED_BOARDn] : 1'b0;     // off when released; the pin's LEVEL is what the bank sets (T260)
+1456,1458c1474,1476
+<     assign LED_CASE1n = !led1n;
+<     assign LED_CASE2n = !led2n;
+<     assign LED_CASE3n = 1'b0;
+---
+>     assign LED_CASE1n = (dg_en[IX_LED_CASE1n] & ~core_decouple) ? dg_o[IX_LED_CASE1n] : !led1n;
+>     assign LED_CASE2n = (dg_en[IX_LED_CASE2n] & ~core_decouple) ? dg_o[IX_LED_CASE2n] : !led2n;
+>     assign LED_CASE3n = (dg_en[IX_LED_CASE3n] & ~core_decouple) ? dg_o[IX_LED_CASE3n] : 1'b0;
+1528,1530c1546,1548
+<     assign IEC_ATN_O = core_decouple ? 1'b0 : l2_IEC_ATN_O;
+<     assign IEC_CLOCK_O = core_decouple ? 1'b0 : l2_IEC_CLOCK_O;
+<     assign IEC_DATA_O = core_decouple ? 1'b0 : l2_IEC_DATA_O;
+---
+>     assign IEC_ATN_O = core_decouple ? 1'b0 : dg_en[IX_IEC_ATN_O] ? dg_o[IX_IEC_ATN_O] : l2_IEC_ATN_O;
+>     assign IEC_CLOCK_O = core_decouple ? 1'b0 : dg_en[IX_IEC_CLOCK_O] ? dg_o[IX_IEC_CLOCK_O] : l2_IEC_CLOCK_O;
+>     assign IEC_DATA_O = core_decouple ? 1'b0 : dg_en[IX_IEC_DATA_O] ? dg_o[IX_IEC_DATA_O] : l2_IEC_DATA_O;
+1532,1542c1550,1560
+<     portlock_clk plclk (.clk(sys_clk), .lock(port_lock), .decouple(core_decouple), .l2_phi2(l2_SLOT_PHI2), .l2_dotclk(l2_SLOT_DOTCLK),
+<                         .l2_rst_o(l2_slot_rst_o), .phi2(SLOT_PHI2), .dotclk(SLOT_DOTCLK), .rst_o(slot_rst_o), .gen_phi2(), .gen_dotclk());
+<     assign SLOT_ADDRDIR = port_off ? 1'b1 : l2_SLOT_ADDRDIR;
+<     assign SLOT_ADDROEn = port_off ? 1'b1 : l2_SLOT_ADDROEn;
+<     assign SLOT_BA = port_off ? 1'b1 : l2_SLOT_BA;
+<     assign SLOT_DATADIR = port_off ? 1'b1 : l2_SLOT_DATADIR;
+<     assign SLOT_DATAOEn = port_off ? 1'b1 : l2_SLOT_DATAOEn;
+<     assign SLOT_IO1n = port_off ? 1'b1 : l2_SLOT_IO1n;
+<     assign SLOT_IO2n = port_off ? 1'b1 : l2_SLOT_IO2n;
+<     assign SLOT_ROMHn = port_off ? 1'b1 : l2_SLOT_ROMHn;
+<     assign SLOT_ROMLn = port_off ? 1'b1 : l2_SLOT_ROMLn;
+---
+>     portlock_clk plclk (.clk(sys_clk), .lock(port_lock), .decouple(core_decouple), .l2_phi2(dg_en[IX_SLOT_PHI2] ? dg_o[IX_SLOT_PHI2] : l2_SLOT_PHI2), .l2_dotclk(dg_en[IX_SLOT_DOTCLK] ? dg_o[IX_SLOT_DOTCLK] : l2_SLOT_DOTCLK),
+>                         .l2_rst_o(dg_en[IX_SLOT_RST_O] ? dg_o[IX_SLOT_RST_O] : l2_slot_rst_o), .phi2(SLOT_PHI2), .dotclk(SLOT_DOTCLK), .rst_o(slot_rst_o), .gen_phi2(), .gen_dotclk());
+>     assign SLOT_ADDRDIR = port_off ? 1'b1 : dg_en[IX_SLOT_ADDRDIR] ? dg_o[IX_SLOT_ADDRDIR] : l2_SLOT_ADDRDIR;
+>     assign SLOT_ADDROEn = port_off ? 1'b1 : dg_en[IX_SLOT_ADDROEn] ? dg_o[IX_SLOT_ADDROEn] : l2_SLOT_ADDROEn;
+>     assign SLOT_BA = port_off ? 1'b1 : dg_en[IX_SLOT_BA] ? dg_o[IX_SLOT_BA] : l2_SLOT_BA;
+>     assign SLOT_DATADIR = port_off ? 1'b1 : dg_en[IX_SLOT_DATADIR] ? dg_o[IX_SLOT_DATADIR] : l2_SLOT_DATADIR;
+>     assign SLOT_DATAOEn = port_off ? 1'b1 : dg_en[IX_SLOT_DATAOEn] ? dg_o[IX_SLOT_DATAOEn] : l2_SLOT_DATAOEn;
+>     assign SLOT_IO1n = port_off ? 1'b1 : dg_en[IX_SLOT_IO1n] ? dg_o[IX_SLOT_IO1n] : l2_SLOT_IO1n;
+>     assign SLOT_IO2n = port_off ? 1'b1 : dg_en[IX_SLOT_IO2n] ? dg_o[IX_SLOT_IO2n] : l2_SLOT_IO2n;
+>     assign SLOT_ROMHn = port_off ? 1'b1 : dg_en[IX_SLOT_ROMHn] ? dg_o[IX_SLOT_ROMHn] : l2_SLOT_ROMHn;
+>     assign SLOT_ROMLn = port_off ? 1'b1 : dg_en[IX_SLOT_ROMLn] ? dg_o[IX_SLOT_ROMLn] : l2_SLOT_ROMLn;
+1547a1566,1571
+>     // T260: the address, data and R/W pads, with the bank's drive (diag_slot_pads.v); under port_off they are the host's idle
+>     diag_slot_pads slot_pads (.SLOT_ADDR(SLOT_ADDR), .SLOT_DATA(SLOT_DATA), .SLOT_RWn(SLOT_RWn), .port_off(port_off),
+>         .l2_a(slot_a), .l2_ahi_t(slot_ahi_t), .l2_d_o(slot_d_o), .l2_d_t(slot_d_t), .l2_rw(slot_rw),
+>         .a_en(dg_en[IX_SLOT_ADDR0 +: 16]), .a_o(dg_o[IX_SLOT_ADDR0 +: 16]), .a_z(dg_z[IX_SLOT_ADDR0 +: 16]),
+>         .d_en(dg_en[IX_SLOT_DATA0 +: 8]), .d_o(dg_o[IX_SLOT_DATA0 +: 8]), .rw_en(dg_en[IX_SLOT_RWn]), .rw_o(dg_o[IX_SLOT_RWn]),
+>         .a_i(slot_a_i), .d_i(slot_d_i), .rw_i(slot_rw_i));
+1616c1640
+<     IOBUF b_c2n_motor (.IO(C2N_MOTOR), .I(l2_c2n_motor_o), .T(core_decouple | ~l2_c2n_motor_en), .O(c2n_motor_i));
+---
+>     IOBUF b_c2n_motor (.IO(C2N_MOTOR), .I(1'b0), .T(core_decouple | ~dg_en[IX_C2N_MOTOR]), .O(c2n_motor_i));   // T260: open drain, the bank pulls it low (D4)
+1621,1628c1645,1654
+<     IOBUF b_c2n_sense (.IO(C2N_SENSE), .I(1'b0),          .T(core_decouple | ~l2_c2n_sense_o), .O(c2n_sense_i));   // open drain
+<     IOBUF b_c2n_read  (.IO(C2N_READ),  .I(l2_c2n_read_o),  .T(core_decouple | ~l2_c2n_read_en),  .O(c2n_read_i));
+<     IOBUF b_c2n_write (.IO(C2N_WRITE), .I(l2_c2n_write_o), .T(core_decouple | ~l2_c2n_write_en), .O(c2n_write_i));
+<     OBUFT b_pad_dis   (.O(PADDLE_DIS), .I(l2_paddle_dis_o), .T(core_decouple | ~l2_paddle_dis_en));
+<     OBUFT b_pad_adj   (.O(PADDLE_ADJ), .I(l2_paddle_adj_o), .T(core_decouple | ~l2_paddle_adj_en));
+<     assign SLOT_SID1n    = core_decouple ? 1'b1 : l2_sid_sock1_n;
+<     assign SLOT_SID2n    = core_decouple ? 1'b1 : l2_sid_sock2_n;
+<     assign SLOT_SID_ADDR = core_decouple ? 1'b0 : l2_sid_sock_addr;
+---
+>     IOBUF b_c2n_sense (.IO(C2N_SENSE), .I(1'b0),          .T(core_decouple | ~dg_en[IX_C2N_SENSE]), .O(c2n_sense_i));   // open drain
+>     IOBUF b_c2n_read  (.IO(C2N_READ),  .I(1'b0),  .T(core_decouple | ~dg_en[IX_C2N_READ]),  .O(c2n_read_i));
+>     IOBUF b_c2n_write (.IO(C2N_WRITE), .I(1'b0), .T(core_decouple | ~dg_en[IX_C2N_WRITE]), .O(c2n_write_i));
+>     OBUFT b_pad_dis   (.O(PADDLE_DIS), .I(dg_o[IX_PADDLE_DIS]), .T(core_decouple | ~dg_en[IX_PADDLE_DIS]));   // T260: the bank drives it (pz)
+>     assign paddle_dis_lv = dg_en[IX_PADDLE_DIS] & ~core_decouple & dg_o[IX_PADDLE_DIS];
+>     OBUFT b_pad_adj   (.O(PADDLE_ADJ), .I(dg_o[IX_PADDLE_ADJ]), .T(core_decouple | ~dg_en[IX_PADDLE_ADJ]));
+>     assign paddle_adj_lv = dg_en[IX_PADDLE_ADJ] & ~core_decouple & dg_o[IX_PADDLE_ADJ];
+>     assign SLOT_SID1n    = core_decouple ? 1'b1 : dg_en[IX_SLOT_SID1n] ? dg_o[IX_SLOT_SID1n] : l2_sid_sock1_n;
+>     assign SLOT_SID2n    = core_decouple ? 1'b1 : dg_en[IX_SLOT_SID2n] ? dg_o[IX_SLOT_SID2n] : l2_sid_sock2_n;
+>     assign SLOT_SID_ADDR = core_decouple ? 1'b0 : dg_en[IX_SLOT_SID_ADDR] ? dg_o[IX_SLOT_SID_ADDR] : l2_sid_sock_addr;
+1629a1656,1657
+>     // T260: dg_in, the snapshot input of the bank: every pin's net (generated; after the pad instances above, which declare the levels it reads)
+>     `include "diag_dgin.vh"
+1641c1669
+<         .SLOT_DATA(SLOT_DATA),
+---
+>         .SLOT_DATA(slot_d_i),
+1689a1718,1719
+>         .dg_in(dg_in), .dg_en(dg_en), .dg_o(dg_o), .dg_z(dg_z), .dg_dc(dc_cpu),
+>         .av_ga(av_ga), .av_gb(av_gb), .av_gc(av_gc), .av_syn_n(av_syn_n), .av_fb(av_fb),
+1879a1910,1919
+> 
 >     // T201: the A/V port. Which ball is in which group: the boundary scan's three groups of eight (as cores/c128/mono/c128_avpins.v; the words are MSB first in the order listed).
 >     // Which word (Y, C, CVBS) goes to which group and in which bit order is layer 2's register setting (diag_avout.v). The DAC takes the words on CLK, the inverted sys_clk.
 >     assign {AVID_G[9], AVID_R[9], AVID_G[7], AVID_G[6], AVID_G[4], AVID_G[3], AVID_B[9], AVID_B[6]} = av_ga;
 >     assign {AVID_R[4], AVID_R[3], AVID_B[8], AVID_B[7], AVID_B[5], AVID_B[4], AVID_B[3], AVID_B[2]} = av_gb;
 >     assign {AVID_R[8], AVID_R[7], AVID_R[6], AVID_R[5], AVID_R[2], AVID_G[8], AVID_G[5], AVID_G[2]} = av_gc;
->     assign AVID_SYNCn = 1'b1;           // the sync is in the Y and CV words
->     assign AVID_FB    = 1'b0;
+>     assign AVID_SYNCn = av_syn_n;       // T259: a knob of diag_avout.v (reset: high, the sync is in the Y and CV words)
+>     assign AVID_FB    = av_fb;          // T259: a knob (reset: low)
 >     ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
 >         .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));
-> 

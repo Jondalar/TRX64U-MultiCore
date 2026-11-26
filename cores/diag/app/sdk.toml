@@ -1,0 +1,36 @@
+# TOML B of the Port Diagnostics core's app (T260 P7, T239.5 D13/D15; as the A1200's, T213.3 P1): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh,
+# ci/lane.sh); nothing else is in its link: the base's archives, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch: a core whose TOML B
+# names [app] desc has moved to its own app).
+[app]
+name = "diag"
+# the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library diag below defines it); the core table of this app holds this core only
+desc = "portdiag_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml) that the shared drivers (hw.cc) name: the host's mode
+# register (cart_regs: the core's start and release go through it), the ICAP blocks of the loader and the partition control (the way back to the host is the IPROG of hw_return_to_host), and
+# audio_master. The core has no IEC bus drive, no 1541, no cartridge, no DMA window and no command interface in the app: it reads their pins through its own probe engine.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of the runner and the panels), the test runner (diagtest.cc: the parser, the compiler, the evaluation, the result files) and the panels (panel.cc).
+# Its files are in cores/diag/app/lib; the dialogs the runner asks through are the application's CoreDialogs (coreapp/src/coredlg.h), which the base gives every app.
+[[library]]
+name = "diag"
+sources = ["portdiag.cc", "diagtest.cc", "panel.cc", "pdnames.cc", "dtv2.cc"]
+headers = ["portdiag.h", "portdiag_regs.h", "diagtest.h", "panel.h", "dtv2.h"]
+# pad: portdiag.cc drives the XInput driver for the xpad test (xinput.h)
+needs = ["pad"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: diagapp)
+tests = { unit = ["diagtest", "portdiag", "diag_avtrace", "panel", "dtv2"], service = ["diag_descgen"], ui = ["diag_desc", "diag_hotkeys", "diag_keywalk"], api = ["diag_memops", "diag_uicover"] }
+
+# The USB gamepads: the XInput driver the xpad test reads (the same sources as the shared app's library, S12)
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+table = "pad_table"
+init = "pad_lib_init"
+core = "pad_lib_core"

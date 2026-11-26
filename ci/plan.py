@@ -27,7 +27,8 @@ plan.json (version 1):
   host, aux (bool), dfx[], large[] (named cores), apps{host, core, ultimate},
   lanes{host, dfx[], large[]} (T100 D10: the lanes whose triggers fired, see lanes_of),
   package{cor[], cfw[] (everything the package carries; it is published whole), fresh[] (those whose content moves)},
-  sims[] (bench names), universe{dfx[], large[], cor[]}, limits{host, core, large}, notes[]
+  sims[] (bench names), universe{dfx[], large[], cor[], reference, own[]}, limits{host, core, large}, notes[]
+  universe.own (T239.5 D13): the cores with an app of their own (tools/core_toml.py lanes); their .cor comes from their matrix lane, not from the child cor
 """
 import json, os, re, subprocess, sys
 
@@ -436,9 +437,10 @@ def make(base, head, source, files_out=None, branch=None):
     # D2.6: the full benches (render benches, file benches, negative controls) run on main and its kind, and on a branch only when a fundamental file is
     # touched (ci/fundamental.txt); the rest runs at night on main
     fundamental = everything or not scoped or bool(changed_code(base, head, fundamental_specs()))
-    # T174 D4: the application tests themselves (the child `apptests` runs on an app change, on this, or on a fundamental file)
+    # T174 D4: the application tests themselves (the child `apptests` runs on an app change, on this, or on a fundamental file); with them the files the
+    # emulator rounds read besides their scripts (T239.5 D18: a core lane's step 12, tests/coreapp/emu/core_round.sh, and the host menu lane's)
     tests = everything or bool(changed_code(base, head, ["tests/hostapp", "tests/coreapp", "tests/loader", "tests/view", "tests/ctlcache.sh",
-                                                           "tests/ctlcache.py", "ci/apptests.sh", "ci/render.sh"]))
+                                                           "tests/ctlcache.py", "ci/apptests.sh", "ci/render.sh", "tools/ue2emu_core.py", "ci/emu_kit.sh", "ci/ue2emu.sh", "tools/cor_pack.py", "tools/descrec.py"]))
     plan = {
         "version": 1, "branch": branch, "scope": "branch" if scoped else "full", "fundamental": fundamental, "tests": tests, "docs_only": docs_only, "head": head if re.match(r"^[0-9a-f]{40}$", head) else git("rev-parse", head).strip(),
         "base": {"commit": base, "source": source}, "all": everything, "changed": len(changed),
@@ -448,7 +450,8 @@ def make(base, head, source, files_out=None, branch=None):
         "lanes": lanes_of(everything, host, "aux" in targets, {"host": "app:host" in targets, "core": "app:core" in targets,
                                                                "ultimate": "app:ultimate" in targets}, named_dfx, sorted(set(named_large) | packed), dfx_all, large_all, scoped),
         "sims": sorted(sims),
-        "universe": {"dfx": dfx_all, "large": large_all, "cor": cor_all, "reference": ref},
+        "universe": {"dfx": dfx_all, "large": large_all, "cor": cor_all, "reference": ref,
+                     "own": [row.split()[0] for row in core_toml("lanes").splitlines() if row.strip()]},
         "limits": limits, "notes": notes,
     }
     if files_out:

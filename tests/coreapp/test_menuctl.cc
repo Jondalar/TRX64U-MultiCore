@@ -12,6 +12,7 @@
 #include "lib_skel.h"
 #include "ops_glue.h"
 #include "home.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 struct Host : MenuHost {
     int returns = 0; bool can = false;
@@ -360,33 +361,6 @@ int main()
         CHECK(has("/usb0/p.xex") && !has("/usb0/games/p.xex") && !has("/p.xex"));
     }
 
-    // --- a core that waits for a program cannot close its menu, and opens on the browser
-    Rig n(&nes_desc, "/sd/cores/nes.cfg");
-    n.st->load();
-    CHECK_EQ(boot_start(&n.c, &ui), BOOT_WAITING_PROGRAM);
-    n.m->open();
-    CHECK(n.m->tree().a[n.m->area()].tabs[n.m->tab()].count == 1);   // it opens on the browser
-    CHECK_STR(n.m->tree().a[n.m->area()].tabs[n.m->tab()].name, "Browse");
-    CHECK(strstr(n.m->status(), ".nes") != 0);
-    for (int k : { KEY_BREAK, KEY_ESCAPE, KEY_F10, KEY_SCRLOCK }) {
-        CHECK_EQ(n.m->key(k), MenuCtl::R_REDRAW);
-        CHECK(!n.m->closable());
-    }
-    std::vector<uint8_t> g(16 + 16384 + 8192, 0);
-    memcpy(g.data(), "NES\x1A", 4); g[4] = 1; g[5] = 1;
-    n.fs.put("/usb0/g/game.nes", g);
-    n.m->open();                                                  // the Library lists what the stick holds now
-    CHECK_STR(n.m->title(), "/");                                 // the media level
-    n.go_to("usb0/"); n.m->key(KEY_RETURN);
-    n.go_to("g/"); n.m->key(KEY_RETURN);
-    CHECK_EQ(n.m->rows(), 2);                                     // ".." and game.nes
-    n.go_to("game.nes");
-    CHECK_EQ(n.m->key(KEY_RETURN), MenuCtl::R_REDRAW);            // the sheet: Run first, then the eight of every file
-    CHECK(n.m->chooser());
-    CHECK_EQ(n.m->key(KEY_RETURN), MenuCtl::R_CLOSE);             // Run: closes
-    CHECK(n.m->closable());
-    CHECK(n.c.program_loaded && n.c.started);
-    CHECK_EQ(n.io.reset_releases, 1);
     // --- spec 5.14: media that mounts after the menu opened. The browser's directory is read again, the
     // selection follows its entry by name, and an unchanged directory reports nothing (the negative control).
     Rig u(&atari800_desc);

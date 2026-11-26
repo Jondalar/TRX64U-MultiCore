@@ -7,11 +7,9 @@ name         = "Port Diagnostics"
 short        = "DIAG"                 # T209 D15: no logo, the boot menu's text tile says this
 version      = "0.1.0"
 contract     = 2
-app          = "blueprint"     # the T104 generic core application; the descriptor coreapp/cores/portdiag.cc is the other half of T175
+app          = "blueprint"     # the core's application is its own since T260 P7: cores/diag/app (TOML B sdk.toml), linked from the SDK; the shared image has no diag code
 order        = 17              # after the Neo Geo (16)
 delivery     = "cfw"
 experimental = true            # Alex 2026-11-02 (T175 Q5): experimental first
 mono_env     = ["TRX_FEATURES=jtag"]
-sources      = ["cores/diag", ":(exclude)cores/diag/sim", ":(exclude)cores/diag/sd", ":(exclude)cores/diag/superseded"]   # sd/ and superseded/ are record 8 of diag.cor, no input of the bitstream (ci/plan.py packs: install_dir / install_old)
-install_dir  = "sd"            # cores/diag/sd/tests/*.toml -> <core folder>/tests/ when missing (T175; record 8 of diag.cor, no other core carries them)
-install_old  = "superseded"    # earlier shipped texts <name>.v<N>.toml: an unedited copy of one is replaced
+sources      = ["cores/diag", ":(exclude)cores/diag/sim", ":(exclude)cores/diag/sd"]   # sd/ (tests, presets, panels) is a folder of the lane's delivery (T260 D6), no input of the bitstream

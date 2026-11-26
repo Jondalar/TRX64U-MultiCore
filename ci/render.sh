@@ -81,7 +81,7 @@ elif command -v c++ >/dev/null 2>&1 && [ -d "$app/software/lvgl/src" ]; then
   export TRX_LVGL_CACHE="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lvgl"
   export CONTROLS_CACHE="${CONTROLS_CACHE:-${CI_APPTESTS_OK:-/cache/multicore/apptests-ok}/controls}"
   part render-view nice -n 15 "$ROOT/tests/view/run.sh" "$W_OUT/view"
-  part render-coreapp nice -n 15 "$ROOT/tests/coreapp/render/run.sh" "$W_OUT/coreapp"
+  part render-coreapp env RENDER_CORE=shared nice -n 15 "$ROOT/tests/coreapp/render/run.sh" "$W_OUT/coreapp"   # T239.5 D13: each moved core's build runs in its lane (ci/lane.sh ui)
   part render-hostapp nice -n 15 "$ROOT/tests/hostapp/render/run.sh" "$W_OUT/hostapp"
 else
   echo "render benches SKIPPED: no c++ or no vendor/gideon/software/lvgl in this checkout"

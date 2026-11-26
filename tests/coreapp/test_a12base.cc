@@ -1,4 +1,4 @@
-// T213.3 P3 (the A1200's cases of test_home, test_reopen, test_volume, test_tone and test_baseset, which run on the A500's record in the shared app since the A1200 left it): the
+// T213.3 P3 (the A1200's cases of test_home, test_reopen, test_volume, test_tone and test_baseset, which run on the A500's record in its own app, run.sh amigaapp, T239.5 D13): the
 // application's own rows on the A1200's record. No descriptor declares Volume, Tone or the Home items; the base adds them (Volume and Tone one row each, Home three) and leaves the
 // A1200's own mouse rows (operations mouse.sens / mouse.accel) alone. Built as the A1200's app (run.sh a12app, TEST_APP_A1200).
 #include <string.h>

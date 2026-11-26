@@ -34,12 +34,24 @@ int video_gateware_row(void) { return g_gw_row; }
 
 #ifdef TEST_APP_A1200
 // T213.3 (T239.5 D13): built as the A1200's app (a12_scale): the A1200's record is the frame-buffer core of the cases (T107 D7/D8, T136); the NES
-// and the Atari, which only the shared app links, drop out
+// and the Atari (its own app, a8_scale) drop out
 #define SC_REC amiga1200_desc
 const CoreDesc *const core_table[] = { &amiga1200_desc, &testcore::desc, 0 };
-#else
+#elif defined(TEST_APP_ATARI800)
+// T239.5 D13: built as the Atari's app (a8_scale): its frame buffer gets the picture items too; the cases on the Amiga's record are the shared unit's
+extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
+const CoreDesc *const core_table[] = { &atari800_desc, &testcore::desc, 0 };
+#elif defined(TEST_APP_AMIGA)
+// T239.5 D13: built as the Amiga 500's app (amiga_scale): its record is the frame-buffer core of the same cases; the shared unit scale keeps the NES and the Atari
+extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #define SC_REC amiga_desc
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &amiga_desc, &testcore::desc, 0 };
+#elif defined(TEST_APP_NES)
+// T239.5 D13: built as the NES's app (nes_scale): the cases on its record
+extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+const CoreDesc *const core_table[] = { &nes_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &testcore::desc, 0 };   // T239.5 D13: the shared unit scale stands on no core (the layout table)
 #endif
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
@@ -100,9 +112,11 @@ bool video_set_follow_gateware(int on) { g_follow_written = on; return true; }  
 int g_vic_scale_written = -1;
 bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return true; }   // T222: the board's write to 0x4F01
 
+#ifndef TEST_APP_ATARI800
 // T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
 static void follow_item()
 {
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     for (const CoreDesc *d : { &SC_REC }) {
         Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
@@ -127,8 +141,9 @@ static void follow_item()
         CHECK_EQ(ext.nsettings, d->nsettings + 3);
         CHECK_EQ(follow_index(&ext), -1);
     }
+#endif
     // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
@@ -137,6 +152,7 @@ static void follow_item()
     }
 #endif
     // a descriptor may not declare the key itself
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { CoreDesc bad = SC_REC; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
       static const char *const v[2] = { "Off", "On" };
       for (int i = 0; i < bad.nsettings; i++) { s[i] = SC_REC.settings[i]; }
@@ -168,7 +184,9 @@ static void follow_item()
       follow_apply(&c, 0);
       CHECK_EQ(g_follow_written, 0);
     }
+#endif
 }
+#endif
 
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreDesc ext; Setting items[SETTINGS_MAX + 4]; CoreCtx c; Settings *st; Video *vid;
@@ -192,6 +210,7 @@ struct Rig {
 static void items_and_apply()
 {
     // T164 G14: Picture, Scale and Smoothing for every frame-buffer core on a gateware host; a host without it (an old firmware) has Picture alone
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
       CHECK(!r.why);
       CHECK_EQ(r.ext.nsettings, SC_REC.nsettings + 3);
@@ -215,11 +234,16 @@ static void items_and_apply()
       CHECK(reg.find_op(SCALE_OP) != 0);
       CHECK(reg.find_op(SMOOTH_OP) != 0);
     }
+#endif
     // every frame-buffer core has them, not only the A1200 (the A500, the Atari and the NES too) ...
-#ifdef TEST_APP_A1200
+#ifdef SC_REC
     const CoreDesc *others[] = { &SC_REC, 0 };
+#elif defined(TEST_APP_ATARI800)
+    const CoreDesc *others[] = { &atari800_desc, 0 };
+#elif defined(TEST_APP_NES)
+    const CoreDesc *others[] = { &nes_desc, 0 };
 #else
-    const CoreDesc *others[] = { &amiga_desc, &atari800_desc, &nes_desc, 0 };
+    const CoreDesc *others[] = { 0 };                         // the shared unit has no frame-buffer core
 #endif
     for (const CoreDesc *const *p = others; *p; p++) {
         Rig r(*p);
@@ -232,8 +256,9 @@ static void items_and_apply()
         CHECK_EQ(scale_index(&o.ext), -1);
         CHECK_EQ(smooth_index(&o.ext), -1);
     }
+#ifndef TEST_APP_ATARI800
     // a core that draws its own picture has no frame buffer to scale
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Rig r(&own);
       CHECK_EQ(r.ext.nsettings, own.nsettings + 1);
@@ -241,7 +266,7 @@ static void items_and_apply()
     }
 #endif
     // T222: a core whose picture is the VIC through a gateware with the scale register: Picture and Scale (default Fit), no Smoothing; Scale writes 0x4F01
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { CoreDesc own = nes_desc; own.video.w = 0;
       Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
       PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, true };
@@ -277,6 +302,7 @@ static void items_and_apply()
     }
 #endif
     // Smoothing (Q3): the scaler's register follows the item, written with every layer set so that it survives the menu
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       r.vid->init(); r.vid->show();
@@ -289,7 +315,8 @@ static void items_and_apply()
       smooth_apply(&r.c, 0);
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#endif
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig r(&nes_desc, false);                                   // an old host has no such register: never written
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       r.vid->init(); r.vid->show();
@@ -298,6 +325,7 @@ static void items_and_apply()
     }
 #endif
     // the mode goes to the gateware when it answers, to the firmware otherwise
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
@@ -362,14 +390,17 @@ static void items_and_apply()
             CHECK_STR(r.ext.settings[idx].values[v], lbl);
         }
     }
+#endif
     // the gateware starts in 1080p at 50 Hz: a host that was handed 60 Hz (or anything else) does not make it so
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_NTSC60, VID_HDMI_1080P);
       CHECK(g_fw.empty() && g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1080P));
       CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
     }
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#endif
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig r(&nes_desc, false);
       g_fw.clear(); g_gw.clear(); video_current = 0;
       picture_apply(&r.c, 2);
@@ -379,8 +410,10 @@ static void items_and_apply()
       CHECK_EQ(r.vid->scale(), 3);
     }
 #endif
+#endif
 }
 
+#ifndef TEST_APP_ATARI800
 // T107 5.9 (Alex, 2026-10-30): the menu canvas (960 x 540, laid out for 540 lines) at a whole-number factor max(1, active height / 540), centred in the
 // mode's active area, laid out again with every mode change (also while the menu is up and the video service shows nothing), independent of Scale.
 static void menu_places()
@@ -395,6 +428,7 @@ static void menu_places()
         { pv(VID_HDMI_480_576),   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
         { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
     };
+#ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     Rig r(&SC_REC);
     g_gw.clear();
     picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
@@ -427,20 +461,28 @@ static void menu_places()
         const PxRec::Pl &g = r.px.place.back();
         CHECK(g.x == 160 && g.y == 90 && g.w == 960 && g.h == 540);
     }
+#endif
     // a core on a host without the gateware keeps the layer the way it was: no place at all
-#ifndef TEST_APP_A1200      // the NES's record: the shared app only
+#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
     { Rig n(&nes_desc, false);
       picture_apply(&n.c, 2);
       CHECK(n.px.place.empty());
     }
 #endif
 }
+#endif
 
 int main()
 {
+#ifndef TEST_APP_NES                     // the layout table stands on no core: the shared unit's (and the Atari's and the Amiga apps')
     layouts();
+#endif
+#ifndef TEST_APP_ATARI800
     menu_places();
+#endif
     items_and_apply();
+#ifndef TEST_APP_ATARI800
     follow_item();
+#endif
     DONE("scale");
 }

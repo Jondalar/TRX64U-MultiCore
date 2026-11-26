@@ -36,6 +36,8 @@ CORES_SRC = os.path.join(ROOT, "coreapp", "cores")
 SRC = os.path.join(ROOT, "coreapp", "src")
 WINDOW = "0x101A0000:0x10000"
 BUS = "layer2_%s:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata"
+BUS_DRV = "layer2_%s:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata"      # the drive window (0x10020000, the whole address on the port) of a core that has its own block drive_a
+WINDOW_DRV = "0x10020000:0x4000:full"
 BASE_BLOCKS = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]    # the A1200's and the VIC-20's common set (sdk.toml)
 MIN_A = """[io]
 iobase = 0x10000000
@@ -152,8 +154,8 @@ _OWNERS = {}
 
 def owners():
     if not _OWNERS:
-        for c in table_cores() + ["portdiag"]:
-            _OWNERS[c] = set(closure(c)[0]) if c != "portdiag" else set()
+        for c in table_cores():
+            _OWNERS[c] = set(closure(c)[0])
     return _OWNERS
 
 
@@ -201,7 +203,7 @@ def sdk_toml(inf):
          "[app]", 'name = "%s"' % c, "desc_record = true", 'desc = "%s_desc"' % c,
          '# TOML A: the core\'s own (gateware.toml: emitted from the RTL, tools/rtl_check.py emit; TODO the names and blocks) and the blocks of the host\'s TOML A that the shared drivers (hw.cc) name',
          'toml_a = "gateware.toml"', 'base_toml_a = "host.toml"', "base_blocks = %s" % toml_val(BASE_BLOCKS + (["iec_status"] if "cbm1541" in inf["libs"] else [])),
-         'base_sources = ["portdiag.cc"]', "",
+         "",
          "[[library]]", 'name = "%s"' % c, "sources = %s" % toml_val(own_cc), "headers = %s" % toml_val(hdr)]
     if inf["libs"]:
         L.append("needs = %s" % toml_val(inf["libs"]))
@@ -459,7 +461,11 @@ def gates(core, appdir=None, work=None):
     print("gates: rtl_check")
     l = ["--list", os.path.relpath(os.path.join(appdir, "rtl_check_sources.tcl"), os.path.join(ROOT, "host"))] if os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")) else \
         sum([["--list", x] for x in info(core)["lists"]], [])
-    p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW,
+    own_drive = re.search(r'name = "drive_a"\nmodule = "(?!cbm1541")', rd(os.path.join(appdir, "gateware.toml"))) is not None    # a TOML A that describes the core's own drive block (not the shipped map): its drive window is a second bus of the same module
+    drv = ["--bus", BUS_DRV % core, "--window", WINDOW_DRV] if own_drive else []
+    if own_drive and not os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")):
+        l += ["--list", "gideon_vhdl.tcl"]      # the drive's VHDL (drive_l2) is Gideon's file list, which a core's recipe sources itself
+    p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW, *drv,
             "--toml-a", os.path.join(appdir, "gateware.toml"), "--maps", "app/sdkpkg/maps", *sum([["--define", d] for d in defines(core)], [])], cwd=ROOT)
     print("  " + (p.stdout + p.stderr).strip().replace("\n", "\n  "))
     ok &= p.returncode == 0
