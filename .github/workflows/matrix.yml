@@ -218,6 +218,14 @@ jobs:
       - name: 7 Test (the package checks itself)
         if: ${{ inputs.tests }}
         run: ci/lane.sh sdk test
+      - name: 7 Test (the overlay test app, the artifact ovtest-app of ovtest-emu)
+        if: ${{ inputs.tests }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: ovtest-app
+          path: ${{ env.CI_TEMP }}/handoff/ovtest
+          retention-days: 7
+          if-no-files-found: error
       - name: 11 Package (what the lane deploys)
         run: ci/lane.sh sdk package
       - name: 13 Deploy (the artifact sdk the core lanes take)
@@ -560,6 +568,63 @@ jobs:
         with:
           name: emu-${{ matrix.core }}
           path: ${{ env.CI_TEMP }}/emu-out
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # 12 Emulator tests of the SDK lane (T239.5 D19): the overlay features (T256 S3, S5, S10) on the SDK example's app linked with the overlay test library (tests/ui/ovtest/build.sh, step 7 of the
+  # SDK lane), on the machine of the emulator profile vc20 and a .cor that carries the test element: tests/ui/run.sh features_cores/overlay_vc20.feature. No core lane builds or runs ovtest.
+  ovtest-emu:
+    name: "12 Emulator tests: the overlay service (the SDK example with ovtest)"
+    needs: [dispatch, sdk]
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.sdk.result == 'success' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: ovtest-app
+          path: ${{ env.CI_TEMP }}/handoff/ovtest
+      - name: Gideon's pinned commit
+        id: gideon
+        run: echo "commit=$(sed -n 's/^GIDEON_COMMIT="\(.*\)"$/\1/p' ci/emu_kit.sh)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+        with:
+          path: ${{ env.CI_TEMP }}/gideon-roms
+          key: gideon-roms-${{ steps.gideon.outputs.commit }}
+      - name: Kit (the emulator's ROM folder)
+        shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
+        run: |
+          set -eu
+          roms=()
+          [ ! -d "$RUNNER_TEMP/gideon-roms" ] || roms=(--roms "$RUNNER_TEMP/gideon-roms")
+          ci/emu_kit.sh "$RUNNER_TEMP/kit" ${roms[@]+"${roms[@]}"}
+          [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
+      - name: 12 Emulator tests (tests/ui/run.sh features_cores/overlay_vc20.feature - the overlay service on the SDK example's app)
+        shell: bash
+        run: |
+          set -eu
+          rc=0; OVTEST_APP="$RUNNER_TEMP/handoff/ovtest/example_ovtest.app" UE2EMU="$PWD/ci/ue2emu.sh" UE2EMU_ROMS="$RUNNER_TEMP/kit/roms" tests/ui/run.sh features_cores/overlay_vc20.feature || rc=$?
+          [ "$rc" -eq 0 ] || { echo "LANE RED: ovtest emu: tests/ui/run.sh exit $rc"; exit 1; }
+      - name: Emulator output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: emu-ovtest
+          path: tests/ui/out
           retention-days: 7
           if-no-files-found: ignore
 

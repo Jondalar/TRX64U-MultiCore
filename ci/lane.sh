@@ -50,10 +50,13 @@ sdk)
     unit) "$ROOT/ci/apptests.sh" --tier fast coreapp ;;
     # 6: the base, the shared libraries, the sub-apps (.u2a), the base archives and the SDK package (ci/trxapps.sh, its part sdk)
     build) TRXAPPS_ONLY=sdk "$ROOT/ci/trxapps.sh" ;;
-    # 7: the package checks itself - the example library, its menu record and the example core's app built from the unpacked package alone
+    # 7: the package checks itself - the example library, its menu record and the example core's app built from the unpacked package alone; then the example's app with the overlay test library (D19)
     test)
       t="$(ls "$HANDOFF"/trxapps/trx64-sdk-*.tar.gz 2>/dev/null | head -1)"; [ -n "$t" ] || die "no SDK package in $HANDOFF/trxapps (step build)"
-      RV_PREFIX=riscv32-unknown-elf- bash "$ROOT/tools/sdk_check.sh" "$t" ;;
+      RV_PREFIX=riscv32-unknown-elf- bash "$ROOT/tools/sdk_check.sh" "$t"
+      # T239.5 D19: the overlay test library linked into the SDK example's app from this package (tests/ui/ovtest/build.sh); the artifact `ovtest-app` takes it to the emulator job `ovtest-emu`
+      rm -rf "$HANDOFF/ovtest"; mkdir -p "$HANDOFF/ovtest"
+      RV_PREFIX=riscv32-unknown-elf- bash "$ROOT/tests/ui/ovtest/build.sh" "$t" "$HANDOFF/ovtest/example_ovtest.app" ;;
     # 11: what the lane deploys (13: the job's artifact `sdk`, which the core lanes take): the package, the sub-apps, the shared app's link map (S12); and the
     # shared image with its ELF (13: the artifact `shared-app`), which the whole package packs the cores that still run it with (D14)
     package)

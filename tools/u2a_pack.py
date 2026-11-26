@@ -51,6 +51,7 @@ FLAG_MENU, FLAG_BUDGET, FLAG_EXPORTS = 1, 2, 4
 EXPORTS_MAX = 8
 BUDGET_NONE = 0xFFFFFFFF
 BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
+NEEDS_MAX = 8                      # U2A3_NEEDS_MAX of coreapp/src/libfmt.h: the dependencies a file may name
 BASE_32 = (3 << 16) | 2            # the base API that reads a budget record and a list of exported names (3.2): a file that has one needs it
 
 EM_RISCV = 243
@@ -392,8 +393,8 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
                 break
         else:
             needs.append(("base", BASE_32))
-    if len(needs) > 4:
-        raise PackError("at most 4 dependencies")
+    if len(needs) > NEEDS_MAX:
+        raise PackError("at most %d dependencies (U2A3_NEEDS_MAX)" % NEEDS_MAX)
     if align < 4 or align > 4096 or align & (align - 1):
         raise PackError("alignment: a power of two from 4 to 4096")
 

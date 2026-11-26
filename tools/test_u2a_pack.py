@@ -219,8 +219,11 @@ def synthetic():
     check(hdr(b4)["reg"] == 4 and hdr(b4)["res"] == 1, "a resident app keeps lib_register")
     b5, _i, _t = pk(elf3, needs=[("base", 3 << 16 | 1), ("cbm1541", 1 << 16)], capability="drive_a")
     check(hdr(b5)["needs"] == 2 and hdr(b5)["cap"] == "drive_a", "needs and capability")
+    b6, _i, _t = pk(elf3, needs=[("lib%d" % k, 1 << 16) for k in range(8)])
+    check(hdr(b6)["needs"] == 8, "eight dependencies are packed (U2A3_NEEDS_MAX 8)")
 
     # the refusals
+    refused("nine dependencies", lambda: pk(elf3, needs=[("lib%d" % k, 1 << 16) for k in range(9)]), "at most 8")
     refused("absolute HI20", lambda: pk(build_elf(P.ET_EXEC, bytes(64), relas=[(4, 26, 0)], dyn=False, symbols={"lib_register": 0})), "HI20")
     refused("got reloc", lambda: pk(build_elf(P.ET_EXEC, bytes(64), relas=[(4, 20, 0)], dyn=False, symbols={"lib_register": 0})), "GOT_HI20")
     refused("dyn reloc type", lambda: pk(build_elf(P.ET_DYN, bytes(64), relas=[(4, 1, 0)], symbols={"lib_register": 0})), "other than R_RISCV_RELATIVE")
@@ -388,7 +391,7 @@ def budget_record():
     check(struct.unpack_from("<16sI", b2, hdr(b2)["needs_off"])[1] == (3 << 16 | 5), "a base dependency above 3.2 stays")
     b3 = P.pack(data, "lib", "testlib", 1, [], budget=bud)[0]
     check(hdr(b3)["needs"] == 1 and struct.unpack_from("<16sI", b3, hdr(b3)["needs_off"])[1] == (3 << 16 | 2), "without a base dependency the packer adds one")
-    refused("four needs and no base", lambda: P.pack(data, "lib", "testlib", 1, [("a%d" % i, 0) for i in range(4)], budget=bud), "at most 4")
+    refused("eight needs and no base (the packer adds the ninth)", lambda: P.pack(data, "lib", "testlib", 1, [("a%d" % i, 0) for i in range(8)], budget=bud), "at most 8")
     refused("a keep over the peak", lambda: P.parse_budget(["heap_keep=100", "heap_peak=99"]), "keeps 100 bytes of heap and allows a peak of 99")
     refused("an image over its figure", lambda: P.pack(data, "lib", "testlib", 1, base30, budget={"image": 8}), "over its declared budget of 8 bytes")
     # the figure counts payload and bss: one byte less than that is refused, exactly that packs

@@ -1,0 +1,20 @@
+# The picture and freeze sections of the overlay test's description (T256 S5, T239.5 D19), appended by build.sh to a copy of the SDK example's app/desc.toml (which has none: the example draws no
+# picture). The VIC-20's values (cores/vc20/app/desc.toml); the registers are the blocks of video_gateware.toml.
+[video]
+w = 376
+h = 283
+scale = 3
+x0 = 396
+y0 = 115
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
+nbuf = 4
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
+
+[freeze]
+reg_status = "machine.status"
+mask = 0x02
+timeout_ms = 200
