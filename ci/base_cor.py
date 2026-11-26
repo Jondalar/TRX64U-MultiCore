@@ -40,6 +40,8 @@ def download(url, token):
         if e.code not in (301, 302, 303, 307, 308):
             raise
         loc = e.headers.get("Location")
+        if not loc:
+            raise OSError("a redirect without a Location")
     with urllib.request.urlopen(loc, timeout=600) as r:
         return r.read()
 

@@ -147,7 +147,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -169,7 +171,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -210,7 +214,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -243,7 +249,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -343,7 +351,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -385,7 +395,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -455,7 +467,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -532,7 +546,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -596,7 +612,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -699,7 +717,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -789,7 +809,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -857,7 +879,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -947,7 +971,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -1017,7 +1043,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -1096,7 +1124,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
@@ -1180,7 +1210,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
         run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
