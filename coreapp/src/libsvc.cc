@@ -634,6 +634,19 @@ struct LibSvc {
         return net_adopt(l, k, l->base_net_->connect(host, port, timeout_ms));
     }
     static int net_resolve(const char *name, char *buf, int len) { const SvcNet *n = L()->base_net_; return n && n->size >= sizeof(SvcNet) && n->resolve ? n->resolve(name, buf, len) : -1; }
+    // Base 4.0: the port is on the account of the image whose code announces it (owner_at): discard() takes it back when that image goes. A linked library is never
+    // released, so its port stays; an application's goes with its image.
+    static void net_announce(uint16_t port)
+    {
+        LibLoader *l = L();
+        const SvcNet *n = l->base_net_;
+        if (!n || n->size < sizeof(SvcNet) || !n->announce) {
+            return;
+        }
+        int o = l->owner_at(__builtin_return_address(0));
+        n->announce(port);
+        l->announce_owner_ = port ? o : LibLoader::ANNOUNCE_NONE;
+    }
     static int net_close(int h)
     {
         LibLoader *l = L();
@@ -747,6 +760,7 @@ void LibLoader::add_services()
     net_.peer = LibSvc::net_peer;
     net_.connect = LibSvc::net_connect;
     net_.resolve = LibSvc::net_resolve;
+    net_.announce = LibSvc::net_announce;
     job_.size = sizeof(job_);
     job_.start = LibSvc::job_start;
     job_.cancelled = LibSvc::job_cancelled;

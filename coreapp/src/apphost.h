@@ -45,7 +45,8 @@ public:
     // Everything the board knows that the base cannot: the groups that are the machine's (net, the flash, the hand-over).
     void set_machine_groups(const SvcNet *net, int (*flash_read)(uint32_t, void *, int), void (*handover)(void));
 
-    // What the machine has to undo when an application ends (the port a runtime service announced; its sockets and jobs are closed by the loader's account of the application before): called with the image still there.
+    // What the machine has to undo when an application ends, called with the image still there (its sockets, jobs and announced port are taken back through the loader's account
+    // of the image). Null: nothing.
     void set_end_hook(void (*fn)(void)) { end_hook_ = fn; }
 
     // ---- the menu task ----

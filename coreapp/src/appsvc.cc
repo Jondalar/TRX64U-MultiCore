@@ -262,19 +262,13 @@ static int net_connect(const char *host, uint16_t port, uint32_t timeout_ms)
 
 static volatile uint16_t s_rpc_port;
 
-// SvcNet::announce: the TCP port of the core's runtime service. The base keeps it; trx_io's identity block (app_trx_rpc_port) and the UDP ident reply report it as `rpc`.
+// SvcNet::announce: the TCP port of the core's runtime service. The base keeps it; trx_io's identity block (app_trx_rpc_port) and the UDP ident reply report it as `rpc`. The
+// loader's own net table (libsvc.cc) calls this and keeps who announced it: the port goes back to 0 when that image is released (LibLoader::discard).
 static void net_announce(uint16_t port) { s_rpc_port = port; }
 uint16_t appsvc_rpc_port(void) { return s_rpc_port; }
 
 static const SvcNet g_net = { sizeof(SvcNet), net_listen, net_accept, net_recv, net_send, net_close, net_wait, net_peer, net_connect, net_resolve, net_announce };
 const SvcNet *appsvc_net(void) { return &g_net; }
-
-// An application ended: the port it announced goes back (the port is on the account of the image that announced it). Its sockets and jobs are not here: the loader closes the
-// ones on its account before this runs (AppHost::end_application), so the listener of a resident library survives it.
-void appsvc_end(void)
-{
-    s_rpc_port = 0;
-}
 
 // ---- the flash, the hand-over ----------------------------------------------------------------------------------------------------------------------
 

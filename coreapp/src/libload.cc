@@ -16,7 +16,7 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), discard_notify_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), base_net_(0), base_job_(0), job_cancel_(0), board_io_(0), windows_rec_(0), media_src_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), discard_notify_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), base_net_(0), base_job_(0), job_cancel_(0), board_io_(0), announce_owner_(ANNOUNCE_NONE), windows_rec_(0), media_src_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -797,6 +797,12 @@ void LibLoader::discard(int si)
         }
     }
     close_sockets(si);
+    if (announce_owner_ == si) {                        // the port this image announced goes with it (SvcNet::announce, libsvc.cc)
+        announce_owner_ = ANNOUNCE_NONE;
+        if (base_net_ && base_net_->size >= sizeof(SvcNet) && base_net_->announce) {
+            base_net_->announce(0);
+        }
+    }
     if (overlay_svc_) {
         overlay_svc_->drop_owner(si);                   // T256: the image's elements go at once, before its memory does
     }

@@ -812,7 +812,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);
     appsvc_init(&ctx);
     app_host.install();
-    app_host.set_end_hook(appsvc_end);
     app_host.set_machine_groups(appsvc_net(), appsvc_flash_read, appsvc_handover);
     if (!desc->hooks_lib) {
         hooks_attach();    // the table "corehooks" of a linked library of the core (core_hooks.h, libslot.h), if one exports it; a record that names its library took its table above

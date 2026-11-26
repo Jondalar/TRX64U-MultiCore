@@ -425,6 +425,8 @@ private:
     const SvcJob *base_job_;
     void (*job_cancel_)(struct SvcJobH *);
     CoreIo *board_io_;
+    enum { ANNOUNCE_NONE = -2 };
+    int announce_owner_;                  // the account that announced the runtime service's port (SvcNet::announce), ANNOUNCE_NONE: no port; -1: code of no image
     const DescRecord *windows_rec_;
     int (*media_src_)(CoreCtx *, const char *, char *, int);
 };

@@ -10,7 +10,6 @@ void appsvc_init(CoreCtx *c);
 
 const SvcNet *appsvc_net(void);
 
-void appsvc_end(void);                                  // an application ended: the port it announced is taken back (its sockets and jobs are closed through the loader's account of it)
 uint16_t appsvc_rpc_port(void);                         // the TCP port announced through SvcNet::announce (0: none)
 
 int appsvc_flash_read(uint32_t addr, void *buf, int len);
