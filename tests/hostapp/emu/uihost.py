@@ -30,7 +30,7 @@ for n, sz in (('basic.bin', 8192), ('kernal.bin', 8192), ('char.bin', 4096)): op
 open(os.path.join(stick, 'docs', 'readme.txt'), 'w').write('hello\n' * 4000)
 os.makedirs(os.path.join(work, 'cors')); os.makedirs(os.path.join(work, 'profiles'))
 shutil.copy(vc20, os.path.join(work, 'cors', 'vc20.cor'))
-shutil.copy(os.path.join(emu_repo, 'docs/examples/core-vic20.toml'), os.path.join(work, 'profiles', 'VIC-20.toml'))
+subprocess.run([sys.executable, '-I', os.path.join(HERE, '..', '..', '..', 'tools', 'ue2emu_core.py'), 'profile', 'vc20', vc20, os.path.join(work, 'profiles')], check=True, stdout=subprocess.DEVNULL)
 shutil.copy(flash, os.path.join(work, 'flash.bin'))
 CTRL, HTTP = 16900 + os.getpid() % 500, 18600 + os.getpid() % 500
 log = open(os.path.join(out, 'emu.log'), 'w')

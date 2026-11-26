@@ -7,8 +7,10 @@
 #
 # T239.5 (step 12 of the matrix): EMU_OWN_APP=<core> runs the kit's .cor with the app it was packed with (a core lane packed it from the core's own app, linked from the
 # SDK); its symbols are <images dir>/<core>.elf and nothing is swapped in. Unset: the shared app (coreapp.app) is swapped into the kit's vc20.cor (the old pipeline).
-# T213.3 P5: EMU_OWN_APP=amiga1200 runs the round with the A1200's large .cor (the kit of ci/emu_kit.sh --core amiga1200): the host starts it by IPROG and the
-# boot magic, C=+RUN/STOP and RESTORE open its menu, F8 brings the host back; the host menu's own flows walk vc20.cor and run in the VIC-20's lane only.
+# T239.5 D13: the round host -> core -> menu -> host is the same for every core of the kit (ci/emu_kit.sh --core <core>); what differs is the core's own data, read by
+# tools/ue2emu_core.py: a DFX core's partial or a large core's IPROG and boot magic, the ID word and name the core app identifies, the modifier of its menu hotkey
+# (with RESTORE; the menu button when the core has no hotkey) and the stand-ins of the ROM files it needs. The host menu's own flows walk vc20.cor and run in
+# the VIC-20's lane only.
 # <images dir>: hostapp_emu.elf (ci/trxapps.sh: the host app built with HOSTAPP_EMU_FLASH) and coreapp.elf. <out dir>: the run's log, flash image and PNGs
 # (host-start.png, core-menu.png, host-back.png; the T187 picture flow: host-home, host-f8-list, host-picture-page, host-picture-applied). The kit (ROMs, flash.bin, profile, vc20.cor) is found as ci/lib.sh ue2emu_kit says (tools/ue2emu_kit.sh);
 # the emulator is ci/ue2emu.sh (local binary or the UE2EMU_IMAGE container). Prints PASS/FAIL lines; 
@@ -21,21 +23,17 @@ img="${1:?usage: emu_host.sh <images dir> <out dir>}"; out="${2:?usage: emu_host
 UE2EMU="${UE2EMU:-$ROOT/ci/ue2emu.sh}"
 skip() { echo "hostapp_emu SKIPPED out loud: $*" >&2; exit 77; }
 own="${EMU_OWN_APP:-}"
-# the core of the round: the VIC-20 (a partial) or the A1200 (a large core; stand-in ROM, hotkey and start time as the emulator's own smoke test of its
-# release v0.7.0, scripts/smoke-s44-host.sh)
-core="${own:-vc20}"
-case "$core" in
-    vc20)      cname="VIC-20" ident="VC20 VIC-20" prof="VIC-20.toml" hot=ctrl start_ms=30000 ;;
-    amiga1200) cname="Amiga 1200 (AGA, 68020)" ident="AMIG Amiga 1200 (AGA, 68020)" prof="amiga1200.toml" hot=cbm+runstop start_ms=60000 ;;
-    *) skip "no host flow for the core $core (this script knows vc20 and amiga1200)" ;;
-esac
+core="${own:-vc20}"   # the core of the round
 if [ -n "$own" ]; then
     [ -f "$img/hostapp_emu.elf" ] && [ -f "$img/$own.elf" ] || skip "no hostapp_emu.elf / $own.elf in $img (the host menu lane and the $own lane build them)"
 else
     [ -f "$img/hostapp_emu.elf" ] && [ -f "$img/coreapp.elf" ] && [ -f "$img/coreapp.app" ] || skip "no hostapp_emu.elf / coreapp.elf / coreapp.app in $img (ci/trxapps.sh builds them)"
 fi
 kit="$(ue2emu_kit)" || skip "no emulator kit (UE2EMU_KIT, tools/ue2emu_kit.sh)"
-[ -f "$kit/cors/$core.cor" ] && [ -f "$kit/profiles/$prof" ] || skip "kit $kit has no cors/$core.cor or profiles/$prof"
+[ -f "$kit/cors/$core.cor" ] || skip "kit $kit has no cors/$core.cor"
+# kind, cname, prof, ident, hold, magic, start_ms (tools/ue2emu_core.py facts)
+facts="$(python3 -I "$ROOT/tools/ue2emu_core.py" facts "$core" "$kit/cors/$core.cor" "$kit/profiles")" || { echo "FAIL host->$core->menu->host: no facts of the round"; exit 1; }
+eval "$facts"
 "$UE2EMU" run --help >/dev/null 2>&1 || skip "no emulator ($UE2EMU)"
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"; img="$(cd "$img" && pwd -P)"
 # T221: the images of a dev build carry no version (no git in the build container); the package stamps them (ci/package.sh), so the flows run on stamped copies, the pictures show real strings
@@ -55,10 +53,11 @@ elf_under_test() {   # elf_under_test PROFILE_DIR: the app's ELF under the name 
 }
 FAIL=0
 
-# nav: past the countdown, F3, USB0, into cores (the list is .., <core>/, <core>.cor), the .cor, S = start; back: the hotkey, RESTORE, F8 System (first focus Restart core), one down to Return to host menu (T187 D8)
+# nav: past the countdown, F3, USB0, into cores (the list is .., <core>/, <core>.cor), the .cor, S = start; back: the hotkey's modifier with RESTORE (or the menu button), F8 System (first focus Restart core), one down to Return to host menu (T187 D8)
 nav() { printf 'wait 15000\npng %s/host-start.png\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n' "$out"
         printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 500\nkey s\nwait %s\n' "$start_ms"; }
-back() { printf 'hold %s\nwait 300\nrestore\nwait 300\nrelease %s\nwait 2000\npng %s/core-menu.png\nkey f8\nwait 1500\n' "$hot" "$hot" "$out"
+back() { if [ -n "$hold" ]; then printf 'hold %s\nwait 300\nrestore\nwait 300\nrelease %s\n' "$hold" "$hold"; else printf 'rocker up\n'; fi   # rocker: the menu button (run.cc)
+         printf 'wait 2000\npng %s/core-menu.png\nkey f8\nwait 1500\n' "$out"
          for ((i = 0; i < 1; i++)); do printf 'key down\nwait 300\n'; done
          printf 'key return\nwait 30000\npng %s/host-back.png\nquit\n' "$out"; }
 
@@ -73,12 +72,7 @@ run_flow() {   # run_flow NAME WITH_COR(1|0): the whole flow; the log is $out/NA
     fi
     cp "$kit/profiles/$prof" "$w/profiles/"; elf_under_test "$w/profiles"
     # zero-filled stand-ins (no ROM goes into a kit): the core application finds its ROM files, releases the machine and its hotkey opens the menu
-    if [ "$core" = vc20 ]; then
-        head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/basic.bin"; head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/kernal.bin"
-        head -c 4096 /dev/zero > "$w/stick/cores/vc20/roms/char.bin"
-    else
-        head -c 524288 /dev/zero > "$w/stick/cores/$core/roms/kick31.rom"
-    fi
+    python3 -I "$ROOT/tools/ue2emu_core.py" roms "$core" "$w/stick/cores/$core/roms" > /dev/null || return 1
     { nav; back; } > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/$name-flash.bin"
     ( cd "$w" && nice -n 15 timeout 420 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
@@ -90,10 +84,10 @@ run_flow() {   # run_flow NAME WITH_COR(1|0): the whole flow; the log is $out/NA
 }
 check_flow() {   # check_flow NAME: 0 when the flow ran through; prints the first missing step. The icap lines are not anchored: the firmware's UART text is written in pieces and can sit in front of an emulator line on the same log line
     local l="$out/$1.log"
-    if [ "$core" = vc20 ]; then
+    if [ "$kind" = dfx ]; then
         grep -aqF "icap: the partial of \"$cname\"" "$l" || { echo "the partial of $cname was not found"; return 1; }
-    else   # a large core: IPROG to its bitstream in the flash, its application started by the boot magic at the image's load address
-        grep -a 'icap: IPROG WBSTAR 0x' "$l" | grep -aF "the large core \"$cname\"" | grep -aq 'boot magic: 0x00030000' \
+    else   # a large core: IPROG to its bitstream in the flash, its application started by the boot magic at the image's entry
+        grep -a 'icap: IPROG WBSTAR 0x' "$l" | grep -aF "the large core \"$cname\"" | grep -aqF "boot magic: $magic" \
             || { echo "no IPROG into the large core $cname"; return 1; }
     fi
     grep -aqF "phase core identified: [core] $ident, cor /USB0/cores/$core.cor" "$l" || { echo "the core application did not identify ${ident%% *}"; return 1; }
@@ -103,7 +97,7 @@ check_flow() {   # check_flow NAME: 0 when the flow ran through; prints the firs
 }
 
 run_flow flow 1; rc=$?
-if [ "$core" = vc20 ]; then how="partial found"; else how="IPROG into the large core"; fi
+if [ "$kind" = dfx ]; then how="partial found"; else how="IPROG into the large core"; fi
 if [ $rc -ne 0 ]; then echo "FAIL host->$core->menu->host: the emulator exited $rc (see $out/flow.log)"; FAIL=1
 elif why="$(check_flow flow)"; then echo "PASS host->$core->menu->host: $how, ${ident%% *} identified, back on the host with the menu marker (PNGs in $out)"
 else echo "FAIL host->$core->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
