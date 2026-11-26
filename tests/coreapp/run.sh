@@ -87,6 +87,9 @@ PETLIB="$ROOT/cores/pet/app/lib"   # the PET's library lives in its own reposito
 CPCLIB="$ROOT/cores/cpc/app/lib"   # the CPC's library lives in its own repository part (cores/cpc/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
+source "$TST/diag_drv.sh"
+diag_drv_dir "$T/diagtab" || { echo "coreapp: the diag core's driver table was not generated" >&2; exit 1; }   # portdiag_regs.h names the registers through it
+DIAGLIB="$ROOT/cores/diag/app/lib"   # T260 P7: the diag core's library lives in its own app (cores/diag/app/lib)
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/own_drv.sh"
 source "$TST/nes_drv.sh"
@@ -169,6 +172,10 @@ petapp() { local INC=("${INC_PET[@]}") CA_APP=pet APPLIB="$PETLIB"; "$@"; }
 cpcapp() { local INC=("${INC_CPC[@]}") CA_APP=cpc APPLIB="$CPCLIB"; "$@"; }
 zxapp() { local INC=("${INC_ZX[@]}") CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
 ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic APPLIB="$DDTLIB"; "$@"; }
+# The diag core is its own app too (T260 P7: cores/diag/app). diagapp CMD... builds like a8app, with the diag core's library (APPLIB), its table and TEST_APP_DIAG: its units are in the group diag.
+INC_DIAG=(-DTEST_APP_DIAG=1 -I"$DIAGLIB" -I"$T/diagtab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DIAG+=("$i"); done
+diagapp() { local INC=("${INC_DIAG[@]}") CA_APP=diag APPLIB="$DIAGLIB"; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
 vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
 build() {
@@ -319,18 +326,14 @@ nesapp run nes_ines test_ines.cc ines.cc
 
 nesapp run nes_core test_nes.cc $NESSRC
 
-# T175: the diag core's test files (diagtest.cc) against a model of the probe engine. The example tests are record 8 of diag.cor (T175 D-files): the real packer makes the
-# record, the application's installer (instfiles.cc) writes it onto the fake card (diag_examples.h)
-python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$T/diag_files.rec" > /dev/null
-export DIAG_FILES_REC="$T/diag_files.rec"
-python3 "$TST/gen_bundle.py" "$T/bundles"       # diag.cor: the .cor as the packer makes it, for the bench of the installer on a bundle
-export DIAG_COR="$T/bundles/diag.cor"
-run diagtest test_diagtest.cc diagtest.cc instfiles.cc
-control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc instfiles.cc
-control diagtest_overwrite instfiles.cc 's/if (fs->stat(path, \&sz, \&dir) \&\& (dir || /if (false \&\& (dir || /' test_diagtest.cc diagtest.cc instfiles.cc
-control diagtest_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, path, sz, olds, nold))/(true)/' test_diagtest.cc diagtest.cc instfiles.cc
-
-run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
+# T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
+# copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
+diagapp run diagtest test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
+diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
+diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
+diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
+diagapp run dtv2 test_dtv2.cc dtv2.cc
+diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
@@ -350,14 +353,15 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+python3 "$TST/gen_bundle.py" "$T/bundles"       # desc_own.bin: the unit `desc` opens it, and it runs before the later gen_bundle call
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run joyswap test_joyswap.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run ledcores test_ledcores.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -508,7 +512,7 @@ run c64scpu test_c64scpu.cc $C64SCPU
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -589,7 +593,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -711,7 +715,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="$BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+ALLCORES="$BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -737,12 +741,12 @@ run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core of the shared table and asserts every row, setting value and operation is reachable
 # (T239.5 D13: each moved core's walk is its app's unit <core>_uicover)
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the shared table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table
 # reproduces it (T239.5 D13: each moved core's walk is its app's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt)
-run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
-run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
@@ -1232,6 +1236,18 @@ ddtapp run ddt_hotkeys test_hotkeys.cc $DDTD
 # T239.5 D13: every key of its menu against its golden (ddt_keywalk: golden/keywalk_ddt_novic.txt, ids_ddt_novic.txt) and its declaration over the API (ddt_uicover), TEST_APP_DDT
 ddtapp run ddt_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DDTD
 ddtapp run ddt_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DDTD
+# T239.5 D13, T260 P7: the diag core's cases of the shared tests, built as its app (diagapp: its library cores/diag/app/lib and its own table, the group diag) - the units its
+# TOML B (cores/diag/app/sdk.toml) names besides the runner's (diagtest, portdiag, diag_avtrace, panel, dtv2 above). The sources are the app's own and the base's (no other core).
+DIAG="portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
+DIAGD="desc_check.cc overlay.cc descrec.cc $DIAG"
+diagapp run diag_memops test_memops.cc $SVC $DIAGD
+RARGS="$T/bundles/desc_own.bin" diagapp run diag_desc test_desc.cc $DIAGD
+RARGS="$BUN/app" diagapp run diag_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $DIAGD
+diagapp run diag_hotkeys test_hotkeys.cc $DIAGD
+# every key of its menu against its golden (golden/keywalk_diag.txt, ids_diag.txt) and its declaration over the API (diag_uicover), TEST_APP_DIAG
+diagapp run diag_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DIAGD
+diagapp run diag_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DIAGD
+
 
 # T239.5 D4, D16: the ZX Spectrum's units, built as its app (zxapp: its library cores/zx/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the
 # group zx) - the units its TOML B (cores/zx/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zx.cc, zx_snap.cc, the tape deck and the base's.

@@ -5,7 +5,8 @@ kind = "test"
 [test]
 name = "2-button stick, port 2"
 id = "stick2"
-version = 2
+version = 3
+menu_input = "keyboard"
 needs = ["joystick with two buttons"]
 
 [[prompt]]

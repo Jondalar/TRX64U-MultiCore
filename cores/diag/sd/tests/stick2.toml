@@ -30,9 +30,14 @@ text = "Let go of everything. Then press RETURN."
 timeout_s = 300
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait_user"
@@ -69,23 +74,23 @@ into = "rel"
 [[eval]]
 id = "idle_high"
 value = "idle.pins"
-mask = 992
-eq = 992
+pins = ["KBJOY_2_JOY0", "KBJOY_2_JOY1", "KBJOY_2_JOY2", "KBJOY_2_JOY3", "KBJOY_2_JOY4"]
+eq = 31
 verdict = "port 2 lines idle high"
 fail = "a port 2 line is low with nothing pressed"
 
 [[eval]]
 id = "b1_pin6"
 value = "b1.pins"
-mask = 512
+pins = ["KBJOY_2_JOY4"]
 eq = 0
 verdict = "button 1 pulls pin 6 low"
 fail = "button 1 does not pull pin 6 low (or was not held)"
 
 [[eval]]
 id = "b2_moves"
-value = "b2"
-mask = 63548
+value = "b2.pins"
+pins = ["PADDLE_CMP0", "PADDLE_CMP1", "PADDLE_CMP2", "PADDLE_CMP3", "KBJOY_2_JOY0", "KBJOY_2_JOY1", "KBJOY_2_JOY2", "KBJOY_2_JOY3", "KBJOY_2_JOY4"]
 differs = "idle"
 verdict = "button 2 is seen: a port 2 pin or a comparator bit moved (the samples show which)"
 fail = "button 2 moves neither a port 2 pin nor a comparator bit"
@@ -93,8 +98,8 @@ fail = "button 2 moves neither a port 2 pin nor a comparator bit"
 [[eval]]
 id = "rel_pins"
 value = "rel.pins"
-mask = 992
-eq = 992
+pins = ["KBJOY_2_JOY0", "KBJOY_2_JOY1", "KBJOY_2_JOY2", "KBJOY_2_JOY3", "KBJOY_2_JOY4"]
+eq = 31
 verdict = "released: port 2 lines high again"
 fail = "a port 2 line stays low after the release"
 

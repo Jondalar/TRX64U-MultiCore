@@ -88,6 +88,8 @@ Port Diagnostics F1/home 3 media:pd.last
 Port Diagnostics F1/home 4 task:Pick a test and run it
 Port Diagnostics F1/home 5 task:Write the example tests
 Port Diagnostics F1/home 6 task:Save A/V preset
+Port Diagnostics F1/home 7 task:Load A/V preset by name
+Port Diagnostics F1/home 8 task:Set an A/V knob (playground)
 Port Diagnostics F5/settings 0 set:Standard
 Port Diagnostics F5/settings 1 set:Groups
 Port Diagnostics F5/settings 2 set:Bits A
@@ -106,6 +108,12 @@ Port Diagnostics F5/settings 14 set:Equalizing
 Port Diagnostics F5/settings 15 set:Vsync length
 Port Diagnostics F5/settings 16 set:Vsync position
 Port Diagnostics F5/settings 17 set:Lines 60 Hz
+Port Diagnostics F5/settings 18 set:Map
+Port Diagnostics F5/settings 19 set:Mode
+Port Diagnostics F5/settings 20 set:Probe channel
+Port Diagnostics F5/settings 21 set:RGB picture
+Port Diagnostics F5/settings 22 set:SYNCn
+Port Diagnostics F5/settings 23 set:FB
 Port Diagnostics F8/expert 0 fixed:13:Actions
 Port Diagnostics F8/expert 1 fixed:6:Restart core
 Port Diagnostics F8/expert 2 fixed:7:Return to host menu

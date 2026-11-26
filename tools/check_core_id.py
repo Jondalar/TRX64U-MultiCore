@@ -21,7 +21,7 @@ PAIRS = (("cores/zx/trx/zx_regs.v", "cores/zx/app/lib/zx.cc"),
          ("cores/c64scpu/c64scpu_regs.v", "coreapp/cores/c64scpu.cc"),
          ("cores/neogeo/trx/neo_regs.v", "cores/neogeo/app/lib/neogeo.cc"),
          ("cores/ddt_novic/layer2_ddt_novic.v", "cores/ddt_novic/app/lib/ddt_novic.cc"),
-         ("cores/diag/rtl/diag_regs.v", "coreapp/cores/portdiag.cc"))
+         ("cores/diag/rtl/diag_regs.v", "cores/diag/app/lib/portdiag.cc"))
 
 
 def gw_id(text):

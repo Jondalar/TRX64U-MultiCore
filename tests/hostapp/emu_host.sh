@@ -27,7 +27,8 @@ core="${own:-vc20}"
 case "$core" in
     vc20)      cname="VIC-20" ident="VC20 VIC-20" prof="VIC-20.toml" hot=ctrl start_ms=30000 ;;
     amiga1200) cname="Amiga 1200 (AGA, 68020)" ident="AMIG Amiga 1200 (AGA, 68020)" prof="amiga1200.toml" hot=cbm+runstop start_ms=60000 ;;
-    *) skip "no host flow for the core $core (this script knows vc20 and amiga1200)" ;;
+    diag)      cname="Port Diagnostics" ident="DIAG Port Diagnostics" prof="diag.toml" hot=cbm+runstop start_ms=30000 ;;
+    *) skip "no host flow for the core $core (this script knows vc20, amiga1200 and diag)" ;;
 esac
 if [ -n "$own" ]; then
     [ -f "$img/hostapp_emu.elf" ] && [ -f "$img/$own.elf" ] || skip "no hostapp_emu.elf / $own.elf in $img (the host menu lane and the $own lane build them)"
