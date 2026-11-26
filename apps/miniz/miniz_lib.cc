@@ -15,8 +15,9 @@ static const ZipLib k_table = {
     tinfl_decompress_mem_to_mem,
 };
 
-// The table of the export "miniz" (size word first). Every core that lists the library has the zip code, so the table is never null.
-extern "C" const void *miniz_table(void)
+// The table of the export "miniz" (size word first). Every app that links the library has the zip code, so the table is never null. C++ linkage, as the declaration
+// tools/libtab.py writes into libtab_table.cc.
+const void *miniz_table(void)
 {
     return &k_table;
 }

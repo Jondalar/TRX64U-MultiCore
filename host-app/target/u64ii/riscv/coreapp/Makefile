@@ -296,7 +296,9 @@ ifneq ($(strip $(SIZES_GEN)),)
 $(error $(SIZES_GEN))
 endif
 SRCS_CC += $(LIB_SRCS_CC) libtab.cc libtab_table.cc
+SRCS_C  += $(LIB_SRCS_C)
 VPATH += $(LIB_DIR)
+VPATH += $(PATH_SW)/../../apps/miniz $(PATH_SW)/../../apps/miniz/src   # the library miniz (shared.toml, base 4.0): its sources and headers
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S
@@ -349,7 +351,7 @@ $(OUTPUT)/$(PRJ).out: $(IOFRAG)
 SDKBASE       = $(OUTPUT)/sdkbase
 SDK_GENERATED = drvtab.c libtab_table.cc
 SDK_START     = crt0.o port_asm.o
-SDK_SRCS_ALL  = $(filter-out $(SDK_GENERATED) $(LIB_SRCS_CC),$(SRCS_C) $(SRCS_CC))
+SDK_SRCS_ALL  = $(filter-out $(SDK_GENERATED) $(LIB_SRCS_CC) $(LIB_SRCS_C),$(SRCS_C) $(SRCS_CC))
 SDK_PATHS     = $(foreach f,$(SDK_SRCS_ALL),$(firstword $(wildcard $(addsuffix /$(f),$(VPATH)))))
 sdkbase: all
 	@rm -rf $(SDKBASE)/lib $(SDKBASE)/incdirs.txt $(SDKBASE)/archive.objs

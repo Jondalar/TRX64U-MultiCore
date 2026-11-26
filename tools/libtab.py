@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The library table of an app (T239.3 D31, P3-1): reads the TOML B of a core's app, which names the libraries the app is linked with.
 
-  libtab.py table TOML_B OUT_DIR     writes libtab_table.cc (the table libtab.cc walks, the export slots g_libslot), libslots.h (LIBSLOT_<name>) and libtab.mk (LIB_SRCS_CC, the sources to compile),
+  libtab.py table TOML_B OUT_DIR     writes libtab_table.cc (the table libtab.cc walks, the export slots g_libslot), libslots.h (LIBSLOT_<name>) and libtab.mk (LIB_SRCS_CC, LIB_SRCS_C: the sources to compile),
                                      each only when its content changes
   libtab.py sources TOML_B           the source file names of every library, one per line
   libtab.py lint TOML_B ROOT         no generic source (coreapp/src, uicore) includes a header of a library or names an entry symbol of one
@@ -46,7 +46,7 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
 KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak", "tests", "exports", "menu"} | set(ENTRIES)
 EXPORT_NAME = re.compile(r"^[a-z0-9_]{1,15}$")
 TEST_KINDS = ("unit", "service", "ui", "api")   # T239.5 D4, D8: the steps 2, 8, 9 and 10 of a core lane
-SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541", "apps/miniz")
+SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541", "apps/miniz", "apps/miniz/src")
 GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 FILE = re.compile(r"^[A-Za-z0-9_]+\.(cc|c|h)$")
@@ -263,8 +263,9 @@ def slots_text(libs, source="TOML B"):
 
 
 def mk_text(libs):
+    """libtab.mk: the C++ sources (LIB_SRCS_CC) and the C sources (LIB_SRCS_C, miniz) of the libraries, for the two compile rules of the build."""
     srcs = [f for lib in libs for f in lib["sources"]]
-    return "LIB_SRCS_CC = %s\n" % " ".join(srcs)
+    return "LIB_SRCS_CC = %s\nLIB_SRCS_C = %s\n" % (" ".join(f for f in srcs if not f.endswith(".c")), " ".join(f for f in srcs if f.endswith(".c")))
 
 
 def write_if_changed(path, text):
