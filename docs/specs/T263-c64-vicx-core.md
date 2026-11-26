@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1-D4 decided; Q4-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T (50T drops streams etc.); D3 large; D4 VRAM in DDR2; Q4-12
+https://github.com/NebulaSleuth/VIC-X/". D1-D5 decided; Q5-Q12 open; nothing built.
+Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4 VRAM DDR2; D5 picture B/C; Q5-12 open
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -209,6 +209,12 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   runs with `EXT_VRAM => true`; its `vx_*` port reaches the DDR2 through a client of the memory arbiter, built the way `c64scpu` keeps its RAM
   and ROM in the DDR2 behind slot and line caches (`cores/c64scpu/mono/core.toml:19`, `cores/c64scpu/PROVENANCE.md:21`) - that path is
   read and reused before anything new is written. The XRAM (the REU's memory) is in the DDR2 already.
+- **D5 (Alex, 2026-11-26): the picture path is B or C, chosen by measurement; A is out.** Asked Q4 (widen the scaler ring, fewer lines in a
+  wider ring, or a DDR2 frame buffer): "Naja wie wir das Bild bekommen muss sich dann zeigen. Er hat ja für mister gebaut. Anderer Chip. Ich
+  tendiere zu b oder c" (translated: "Well, how we get the picture will have to show then. He built for the MiSTer. A different chip. I lean
+  towards b or c"). VIC-X's video interface was made for the MiSTer's C64 core; ours differs. The first build measures both: B's block RAM
+  and the depth proof of `tools/hdmi_modes.py check` for the shorter ring, C's DDR2 bandwidth beside VRAM, XRAM and the C64's RAM; the
+  result goes to Alex before the choice is built.
 
 **Open questions for Alex** (one at a time):
 
@@ -244,7 +250,7 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   B: DDR2 through the client that `trx_engine` leaves free (`top.v:771`), or a new `mig_arb` client; an adapter for 8-byte reads and
   16-bit writes. The upper 64 MB are reserved only for the trx64 ring (T138 D2, Alex 2026-10-28), apart from the host's still capture
   at `0x5050000-0x506FFFF`; or a range in the app's lower 64 MB.
-- **Q4 The picture path from the index to RGB.**
+- **Q4 The picture path from the index to RGB.** Narrowed: D5 (B or C, by measurement).
   A: widen the scaler's 64-line ring from 4 bits to RGB565 (16 tiles) or RGB888 (24 tiles) instead of 4 (arithmetic).
   B: fewer lines in a wider ring; the depth is proven by `tools/hdmi_modes.py check` (`vic_scaler.v:30-32`), so the proof changes.
   C: a DDR2 frame buffer through the pixel layer, as the VC-20 and the ZX draw (T119).
