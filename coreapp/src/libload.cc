@@ -786,7 +786,7 @@ void LibLoader::discard(int si)
         discard_notify_(si, slot_[si].info.image_addr, slot_[si].info.image_size);
     }
     for (int i = 0; i < slot_[si].ndep; i++) {
-        unuse(slot_[si].dep[i]);                        // what this image needed is free for eviction once nothing else uses it
+        unuse(slot_[si].dep[i]);                        // what this image needed is used by one image less
     }
     if (!stop_jobs(si)) {
         api_.log("An image went while a job of it was still running; the job did not answer a request to stop.");
@@ -848,32 +848,6 @@ uint32_t LibLoader::resident_bytes() const
         }
     }
     return n;
-}
-
-static bool record_contributes(const LibRecord &r)
-{
-    return (r.poll.op && r.poll.op[0]) || r.nnodes > 0 || r.nfile_actions > 0 || r.nsettings > 0 || r.ntabs > 0;
-}
-
-// A library that exports the table "corehooks" (core_hooks.h): the base keeps a pointer into it for the whole run (hookhost.cc) and calls it from the menu close and every
-// change of a base-owned setting, so the library is never evicted, whatever else it declares.
-static bool exports_corehooks(const LibInfo *li)
-{
-    if (!LIB_RECORD_COVERS(li->record.struct_size, export_list)) {
-        return false;
-    }
-    for (int k = 0; k < li->record.nexport_list; k++) {
-        if (!strcmp(li->record.export_list[k].name, "corehooks")) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool LibLoader::contributes(int handle) const
-{
-    const LibInfo *li = info(handle);
-    return li && (record_contributes(li->record) || (li->menu && (record_contributes(li->menu->rec) || li->menu->nkeys > 0)) || exports_corehooks(li));
 }
 
 bool LibLoader::unserved_text(const char *, const LibRecord &, char *, int)
@@ -1676,29 +1650,6 @@ void LibLoader::unuse(int handle)
 int LibLoader::uses(int handle) const
 {
     return handle >= 0 && handle < LIB_MAX && slot_[handle].used ? slot_[handle].uses : 0;
-}
-
-int LibLoader::unload(int handle, char *err, int errlen)
-{
-    if (handle < 0 || handle >= LIB_MAX || !slot_[handle].used) {
-        return fail(LIB_STATE, err, errlen, "Nothing is loaded under handle %d.", handle);
-    }
-    Slot &s = slot_[handle];
-    if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
-        return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
-    }
-    // The caller holds the core lock (the eviction of apphost.cc): a job of the library that needs the lock to end would stall everything here, so the jobs are asked to stop and the library stays until they have.
-    cancel_jobs(handle);
-    if (jobs_running(handle)) {
-        return fail(LIB_STATE, err, errlen, "\"%s\" has a job that is still running; it was asked to stop.", s.info.name);
-    }
-    retire(s);
-    if (cur_ == handle) {
-        cur_ = -1;
-    }
-    discard(handle);
-    count_--;
-    return LIB_OK;
 }
 
 int LibLoader::finish(int handle, char *err, int errlen)

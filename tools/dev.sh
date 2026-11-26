@@ -4,7 +4,7 @@
 #
 #   tools/dev.sh build     [--branch B] [--clean]   compile and link both applications (hostapp, coreapp), incremental; no images
 #   tools/dev.sh test      [--branch B]             the host tests of the applications: `ci/apptests.sh --tier fast` (the unit tests of what changed)
-#   tools/dev.sh riscv     [--branch B] [--clean]   the build stage of the pipeline (ci/trxapps.sh): the RISC-V images, size check, testlib/unzip;
+#   tools/dev.sh riscv     [--branch B] [--clean]   the build stage of the pipeline (ci/trxapps.sh): the RISC-V images, size check, unzip;
 #                                                   the images come back to .ci/dev/<branch>/
 #   tools/dev.sh emu       [--branch B] [--clean]   the emulator script of the host app when this branch touches it (T174 D2.2/D2.8), ON THE BUILDER: the images are built
 #                                                   first (ue2emu runs the RISC-V image itself), then ue2emu runs in the Linux image UE2EMU_IMAGE (ci/lib.sh) through
@@ -100,7 +100,7 @@ lap "$mode on $host (rc=$rc)"
 
 case "$mode" in riscv|emu|cor|integrate)
   out=".ci/dev/$slug"; mkdir -p "$out"
-  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf testlib.u2a unzip.u2a; do
+  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf unzip.u2a; do
     scp -q "$host:$tree/.dev-out/trxapps/$f" "$out/" 2>/dev/null || echo "(no $f in the result)"
   done
   rm -rf "$out"/trx64-sdk-*   # the SDK package of the build (tools/sdk_pack.sh): the tarball, unpacked beside it

@@ -8,8 +8,7 @@
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
 #   (trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features: TRX64-Ultimate builds them itself, T261 D6; their sources are not in this repository)
-#   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
-#                 image's riscv32-unknown-elf compiler; copied to <stick>/trx/lib/ it is loaded at the next core start
+#   (app/lib/testlib is no build of this stage since base 4.0: the base loads no library file, T239.3 D58; its ELF fixtures for tests/loader are made by its Makefile)
 #
 # Until this stage existed the core applications came from the generic package trx64-coreapps, uploaded
 # by hand from a Mac, and the host app for an update file was whatever lay in a local result/ directory.
@@ -184,7 +183,6 @@ else
     mkdir -p "$c.tmp$$" 2>/dev/null && cp "$out/$n" "$c.tmp$$/$n" && rm -rf "$c" && mv "$c.tmp$$" "$c" || true
   }
   if part sdk; then
-  libapp app/lib/testlib testlib.u2a
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
   # T197 P1, base 4.0 (T239.3 D58): the zip code is the TOML B library miniz (apps/miniz, linked into the core app); unzip.u2a lists it in its needs and carries none of it.
@@ -250,7 +248,7 @@ printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ls -l "$out"; [ ! -d "$out/coreapps" ] || ls -l "$out/coreapps"
 sums=()
 part host && sums+=("$out/hostapp.app")
-part sdk && sums+=("$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a")
+part sdk && sums+=("$out/coreapp.bin" "$out/unzip.u2a")
 sha256sum "${sums[@]}"; ! part sdk || [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"

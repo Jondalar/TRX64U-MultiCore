@@ -170,24 +170,17 @@ public:
     int run(int handle, const char *action, const char *file, char *reply, int replylen, int *app_rc, char *err, int errlen, bool keep = false);
     // A transient application kept open by run(): frees it. Its registrations go with it (the registry's drop_owner).
     int release(int handle, char *err, int errlen);
-    // T197 D8: how many loaded images need this one (a library): load() takes a use on every library the image needs and discard() gives it
-    // back, so a resident application, or a library imported by a loaded library, keeps its library; a library with none may be evicted.
+    // T197 D8: how many loaded images need this one (a linked library): load() takes a use on every library the image needs and discard() gives it back. A linked library
+    // is never unloaded (base 4.0, D58: its code is part of the app), so the count only tells who needs it.
     void use(int handle);
     void unuse(int handle);
     int uses(int handle) const;
-    // True when the library declares anything the base serves from the library's memory: a poll, menu nodes, file actions, settings, tabs or key rows, in its
-    // lib_register record or in its menu record, or exports the table "corehooks" (hookhost.h). Such a library is never evicted (AppIndex::prepare_open): the poll would call into freed code and the
-    // merged menu would point into freed strings.
-    bool contributes(int handle) const;
-    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, a library in use, or one with a job that still runs (the jobs are asked
-    // to stop, none is waited for: the caller holds the core lock, which a job may need to end).
-    int unload(int handle, char *err, int errlen);
 
     // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
-    // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
+    // poll ends when the image is released. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
     // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
-    // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (an unload, a release, a load that fails after the image was
+    // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (a release, a load that fails after the image was
     // placed): what the base kept of that image (a table the image's code gave it) is let go there. Null: nobody is told.
     void set_discard_notify(void (*fn)(int handle, uint32_t image_addr, uint32_t image_size)) { discard_notify_ = fn; }
 
