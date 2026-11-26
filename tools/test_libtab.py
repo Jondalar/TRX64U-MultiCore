@@ -157,6 +157,8 @@ class SharedApp(unittest.TestCase):
         self.assertIn('{ "a", "alpha", 1u, alpha_table, 0u },', t)                      # a library without register keeps at_start 0
         self.assertIn('{ "r", 0, 0, 0, 0, 0, 0, 0, r_register, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE },', t)
         self.assertIn("const unsigned g_libtab_link_order[] = { 1 };", t)
+        self.assertIn('extern "C" int r_register(const LibApi *, LibRecord *);', t)                  # a register library may be C: the table is C++
+        self.assertNotIn('extern "C" void', t)
         # without register an export has to name its table
         with self.assertRaises(L.LibTabError) as e:
             L.load(toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\nexports = [{ name = "alpha", major = 1 }]\n'))
@@ -164,6 +166,15 @@ class SharedApp(unittest.TestCase):
         # with register an export may not name one
         with self.assertRaises(L.LibTabError):
             L.load(toml_b('[[library]]\nname = "r"\nsources = ["r.cc"]\nregister = "r_register"\nexports = [{ name = "rho", major = 1, table = "rho_table" }]\n'))
+
+    def test_slot_needs_reads_the_files_it_is_given_and_a_missing_file_is_a_finding(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        write(os.path.join(d, "a.cc"), "int x = LIBSLOT_rho;\n")
+        libs = L.load(toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\n[[library]]\nname = "r"\nsources = ["r.cc"]\nregister = "r_register"\nexports = [{ name = "rho", major = 1 }]\n'))
+        found = L.slot_needs(libs, lambda f: os.path.join(d, f) if os.path.isfile(os.path.join(d, f)) else None)
+        self.assertTrue(any("a.cc:1" in f and "needs do not list" in f for f in found), found)
+        self.assertTrue(any(f.startswith("r.cc") and "not found" in f for f in found), found)
 
     def test_libtab_mk_splits_c_and_cc_sources(self):
         p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc", "a1.c"]\n[[library]]\nname = "b"\nsources = ["b.c", "b.cc"]\n')

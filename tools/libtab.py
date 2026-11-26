@@ -305,15 +305,18 @@ def lint(libs, root):
 
 def slot_needs(libs, root):
     """Base 4.0 (libslot.h): a library whose source names the slot of an export (LIBSLOT_<name>) lists the library that exports it in `needs` (or is it).
-    Returns the findings."""
+    `root` is the repository (the sources are in SRC_DIRS) or a function name -> path or None (app_build.py: the package's tree and the --src folders). A file the library names
+    and that is not found is a finding. Returns the findings."""
+    resolve = root if callable(root) else (lambda f: find_file(root, f))
     exporter = {e["name"]: lib["name"] for lib in libs for e in lib.get("exports", [])}
     use = re.compile(r"\bLIBSLOT_([a-z0-9_]+?)(?:_MAJOR)?\b")
     found = []
     for lib in libs:
         own = set(lib.get("needs", [])) | {lib["name"]}
         for f in lib["sources"] + lib.get("headers", []):
-            p = find_file(root, f)
+            p = resolve(f)
             if not p:
+                found.append("%s (library %s) is not found: the slot check cannot read it" % (f, lib["name"]))
                 continue
             with open(p, errors="replace") as fh:
                 for no, line in enumerate(fh, 1):

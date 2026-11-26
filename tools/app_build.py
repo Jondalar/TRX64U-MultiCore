@@ -328,6 +328,19 @@ def cmd_build(a):
     for f in libsrcs:                                          # a library's source is in the package's tree or in a directory the core names
         if not find_source(sdk, srcdirs, f):
             raise BuildError("the source %s of a library of %s is in the package's base/ and in none of %s" % (f, a["toml-b"], ", ".join(srcdirs) or "(no --src)"))
+    def find_any(f):                                           # a source or a header of a library: the --src folders, the package's base/src, base/inc and include/
+        p = find_source(sdk, srcdirs, f)
+        if p:
+            return p
+        for top in (os.path.join(sdk, "base", "inc"), os.path.join(sdk, "include")):
+            for root, _, files in os.walk(top):
+                if f in files:
+                    return os.path.join(root, f)
+        return None
+    import libtab
+    bad = libtab.slot_needs(libtab.load(a["toml-b"]), find_any)    # base 4.0: a library reaches only the exports of the libraries in its needs (libslot.h)
+    if bad:
+        raise BuildError("%s: %s" % (a["toml-b"], "; ".join(bad)))
     sized_list = open(os.path.join(sdk, "base", "SIZED.txt")).read().split()
     desc = app.get("desc", "")
     if desc and not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", str(desc)):
