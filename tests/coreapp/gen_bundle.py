@@ -2,9 +2,9 @@
 """Makes the fixtures the description and bundle tests read, with the real packer (tools/cor_pack.py, tools/descrec.py), so that the C++ readers of the
 board are tested against what the tools write (T104.1 D9, D12).
 
-    gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
+    gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + the menu record of the library alpha in record 7; beta has none), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
+                              merged.cor (the description with the menu of the library gamma merged in, no record 7), menu_alpha.bin, menu_gamma.bin, libs_v1.bin (record 7 version 1, refused), libs_ab.toml / libs_gamma.toml (the TOML B of the libraries), desc_own.bin (a core's own menu tables and pad, golden/desc_own.toml), desc_cut.bin (a Timewarp page and a monitor page with their key table, golden/desc_cut.toml),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
                               nofiles.cor (the same core without record 8), subapp.cor (record 8 holds apps/probe.u2a), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
                               data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
@@ -31,18 +31,34 @@ def bit_file():
 
 
 def u2a(name, needs=(), kind=1, version=(1, 0), menu=b""):
-    """A format-3 file as small as the loader takes one: header, needs, 64 bytes of payload (tests/coreapp/test_libscan.cc build())."""
+    """A format-3 file of base API 4 as small as the loader takes one: header, needs, 64 bytes of payload. Base 4.0 loads no library file (kind 1 is refused by the loader);
+    the fixtures use it for an application (kind 2): the sub-app of record 8."""
     needs_off = 104
     pay_off = needs_off + 20 * len(needs)
     reg = 0xFFFFFFFF if kind == 2 else 0
     main = 0 if kind == 2 else 0xFFFFFFFF
     menu_off = pay_off + 64 if menu else 0                     # the record follows the (empty) relocation table: payload is 64 bytes, a multiple of 4
-    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 3, 3, kind, 1 if kind == 1 else 0, 2, len(needs), 1 if menu else 0,
+    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 4, 4, kind, 1 if kind == 1 else 0, 2, len(needs), 1 if menu else 0,
                     name.encode(), (version[0] << 16) | version[1], b"", pay_off, 64, 16, 16, reg, main, pay_off + 64, 0, needs_off, 0, 0, menu_off)
     assert len(h) == 104, len(h)
     for n, v in needs:
         h += struct.pack("<16sI", n.encode(), v)
     return h + bytes(64) + menu
+
+
+def toml_b(out, name, libs):
+    """A TOML B of an app with register libraries: [(name, menu TOML in golden/ or None, needs)]; written next to the fixtures, read by cor_pack.toml_b_libs."""
+    text = ""
+    for lib, menu, needs in libs:
+        text += '[[library]]\nname = "%s"\nsources = ["%s.cc"]\nregister = "%s_register"\n' % (lib, lib, lib)
+        if needs:
+            text += "needs = [%s]\n" % ", ".join('"%s"' % n for n in needs)
+        if menu:
+            text += 'menu = "%s"\n' % os.path.join(here, "golden", menu)
+        text += "\n"
+    path = os.path.join(out, name)
+    open(path, "w").write(text)
+    return path
 
 
 def main(out):
@@ -67,19 +83,27 @@ def main(out):
     app = bytes(0x60 for _ in range(64))
     kw = dict(version="0.1", partial=bit_file(), app=app, load=0x30000, entry=0x30000, host_key="820eded2")
     menu_alpha = descrec.compile_text(open(os.path.join(gold, "menu_alpha.toml")).read())
-    alpha, beta = u2a("alpha", version=(1, 2), menu=menu_alpha), u2a("beta", needs=[("alpha", (1 << 16) | 0)])
-    open(os.path.join(out, "new.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=[beta, alpha], **kw))
-    # T104.2 D10: gamma has a menu without a poll, so the packer merges it into the description; the record names it
+    # Base 4.0 (T239.3 D58): no library file. The libraries a core links are the [[library]] of the TOML B of its app (--sizes of cor_pack): alpha (a menu with a poll, kept for the run
+    # time: record 7), beta (no menu record: nothing in record 7) and gamma (a menu without a poll: the packer merges it into the description, record 7 stays out).
+    ab = toml_b(out, "libs_ab.toml", [("alpha", "menu_alpha.toml", []), ("beta", None, ["alpha"])])
+    gamma = toml_b(out, "libs_gamma.toml", [("gamma", "menu_gamma.toml", [])])
+    alpha_libs, gamma_libs = C.toml_b_libs(ab), C.toml_b_libs(gamma)
     menu_gamma = descrec.compile_text(open(os.path.join(gold, "menu_gamma.toml")).read())
-    open(os.path.join(out, "merged.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=[u2a("gamma", menu=menu_gamma)], **kw))
+    open(os.path.join(out, "menu_alpha.bin"), "wb").write(menu_alpha)
+    open(os.path.join(out, "menu_gamma.bin"), "wb").write(menu_gamma)              # gamma's record on its own: the test links gamma with it where the bundle does not carry it
+    open(os.path.join(out, "new.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=alpha_libs, **kw))
+    # T104.2 D10: gamma has a menu without a poll, so the packer merges it into the description; the record names it
+    open(os.path.join(out, "merged.cor"), "wb").write(C.pack(name="Test Machine", desc=desc, libs=gamma_libs, **kw))
     open(os.path.join(out, "old.cor"), "wb").write(C.pack(name="Test Machine", **kw))
-    open(os.path.join(out, "other.cor"), "wb").write(C.pack(name="Another Machine", desc=desc, libs=[alpha], **kw))
+    open(os.path.join(out, "other.cor"), "wb").write(C.pack(name="Another Machine", desc=desc, libs=alpha_libs, **kw))
+    # record 7 as the version 1 packers wrote it ("TRXL", 1, count, [len, library file]...): base 4.0 refuses it (tests/coreapp/test_libscan.cc, test_bundle.cc read its bytes)
+    open(os.path.join(out, "libs_v1.bin"), "wb").write(b"TRXL" + struct.pack("<II", 1, 1) + struct.pack("<I", 8) + bytes(8))
     # a large core: the full bitstream is whatever scan_config accepts (an IDCODE write and a sync word)
     sync = struct.pack(">I", C.AXSS_SYNC)
     idcode = struct.pack(">II", (1 << 29) | (2 << 27) | (C.REG_IDCODE << 13) | 1, C.IDCODE_XC7A50T)
     data = b"\xFF" * 8 + sync + idcode + struct.pack(">I", 0x20000000) * 20
     bit = data + bytes(-len(data) % 4)
-    open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=[alpha]))
+    open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=alpha_libs))
     # T175: the Port Diagnostics core carries its example tests as record 8 (cores/diag/core.toml install_dir / install_old)
     diag = os.path.join(here, "..", "..", "cores", "diag")
     files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))

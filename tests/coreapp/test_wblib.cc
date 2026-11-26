@@ -84,7 +84,8 @@ static SvcWbMedium medium(const char *path, bool create = false)
     return m;
 }
 
-// A minimal image of the given kind (the shape tests/loader/test_libload.cc builds): the loader gives it a slot, so a call inside LibLoader::Scope(&ld, handle) is the call of that image.
+// A minimal application image (the shape tests/loader/test_libload.cc builds, abi 4): the loader gives it a slot, so a call inside LibLoader::Scope(&ld, handle) is the call of that image.
+// A library is not a file (base 4.0, D58): it is linked, through LibLoader::link with a native register function, and gets a slot of kind lib the same way.
 struct MemSource : LibSource {
     std::vector<uint8_t> d;
     uint32_t size() override { return (uint32_t)d.size(); }
@@ -98,11 +99,12 @@ struct MemSource : LibSource {
 static void put32(std::vector<uint8_t> &v, uint32_t x) { for (int i = 0; i < 4; i++) { v.push_back((uint8_t)(x >> (8 * i))); } }
 static void put16(std::vector<uint8_t> &v, uint16_t x) { v.push_back((uint8_t)x); v.push_back((uint8_t)(x >> 8)); }
 static void putname(std::vector<uint8_t> &v, const char *s) { for (int i = 0; i < 16; i++) { v.push_back(i < (int)strlen(s) ? s[i] : 0); } }
+static int reg_wbtest(const LibApi *, LibRecord *) { return 0; }
 static std::vector<uint8_t> image(uint8_t kind, const char *name)
 {
     const uint32_t pay_off = U2A3_HEADER_SIZE, pay_len = 64;
     std::vector<uint8_t> v;
-    put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, 3); put16(v, 3); put16(v, 3);
+    put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, 3); put16(v, 4); put16(v, 4);
     v.push_back(kind); v.push_back(U2A3_RES_RESIDENT); v.push_back(U2A3_ARCH_RISCV32); v.push_back(0);
     put32(v, 0); putname(v, name); put32(v, U2A3_VERSION(1, 0)); putname(v, "");
     put32(v, pay_off); put32(v, pay_len); put32(v, 32); put32(v, 16); put32(v, 0); put32(v, kind == U2A3_KIND_APP ? 0 : U2A3_NONE);
@@ -135,11 +137,18 @@ struct Rig {
         memset(g_img, 0x11, sizeof(g_img));
         g_calls = g_old_seen = g_old_size = g_block0 = g_fail = g_holds_on = g_holds_off = 0;
         if (kind) {
-            MemSource src;
-            src.d = image(kind, "wbtest");
             char err[LIB_ERR_MAX] = "";
-            if (ld.load(&src, &h, err, LIB_ERR_MAX) != 0) {
-                printf("FAIL the test image did not load: %s\n", err);
+            int rc;
+            if (kind == U2A3_KIND_LIB) {
+                rc = ld.link("wbtest", reg_wbtest, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, 0, 0, err, LIB_ERR_MAX);
+                h = ld.handle_of("wbtest");
+            } else {
+                MemSource src;
+                src.d = image(kind, "wbtest");
+                rc = ld.load(&src, &h, err, LIB_ERR_MAX);
+            }
+            if (rc != 0 || h < 0) {
+                printf("FAIL the test library did not register: %s\n", err);
                 g_fails++;
             }
             as = new LibLoader::Scope(&ld, h);
@@ -336,7 +345,7 @@ int main()
         CHECK(!wb_active());
         CHECK(std::string(g_api->wb->error(SVCWB_E_TAKEN)).size() > 0 && std::string(g_api->wb->error(-99)) == "unknown code");
     }
-    // S9 (review): only an image of kind library registers a medium. An application and code of no loaded image get SVCWB_E_APP and nothing changes
+    // S9 (review): only a linked library registers a medium. An application and code of no loaded image get SVCWB_E_APP and nothing changes
     {
         Rig r(U2A3_KIND_APP);
         r.fs.put_size(P, 64, 0xEE);

@@ -333,9 +333,9 @@ control diagtest_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, path
 run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
-# T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
+# T239.3 P2-6 (D58): the linked libraries registered at the start with the menu records of record 7 (version 2), against a fake link step; lib_cor_menus on good and damaged records
 LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $BASEL board.cc"
-run libscan test_libscan.cc $LIBSRC
+RARGS="$T/bundles" run libscan test_libscan.cc $LIBSRC
 GUARDSRC="libguard.cc bootcfg.cc"
 run libguard test_libguard.cc $GUARDSRC
 control guard_noset libguard.cc 's/    if (!write(1)) {/    if (false) {/' test_libguard.cc $GUARDSRC
@@ -368,11 +368,11 @@ run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menufl
 run baseset test_baseset.cc $BASEL
 # T239.3 D32, P2-4 QC: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): whole, placed, and the code's own tables agree with them
 run baserows test_baserows.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL
-# T239.3 base 3.3, a core whose code is a library (core_hooks.h): the record names it (hooks), the base takes its table of that library through the real loader, calls the descriptor's hooks
-# (init, release, warm_reset, cold_start, media_flush, media_pending) and serves the [mount] slots through it; the records and library files are made by the real tools
+# T239.3 base 3.3, a core whose code is a library (core_hooks.h): the record names it (hooks), the base takes its table of that library through the slot table (a native register function linked by LibLoader::link), calls the descriptor's hooks
+# (init, release, warm_reset, cold_start, media_flush, media_pending) and serves the [mount] slots through it; the records are made by the real tool
 CL="$T/corelib_fx"
 python3 -I "$TST/gen_corelib.py" "$CL" "$ROOT"
-RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/desc_empty.rec $CL/desc_long.rec $CL/cmodel.u2a $CL/cnohooks.u2a $CL/cmajor2.u2a" \
+RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/desc_empty.rec $CL/desc_long.rec" \
   run corelib test_corelib.cc overlay.cc libload.cc libmenu.cc descrec.cc libsvc.cc hooklib.cc $BASEL
 # T164 WP11: the host's master volume for every core (the generic item, the register write, the toast on every page)
 # T104.1 Q10: the capability list the loader asks
@@ -816,7 +816,7 @@ PASS=$((PASS + 1))
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; BASEL_NOSTUB="${BASEL/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
 UZSRC="overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $BASEL_NOSTUB $C64"
-CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/otherlib.u2a $UZ/pollib.u2a $UZ/menulib.u2a $UZ/keylib.u2a $UZ/hooklib.u2a $UZ/plain.u2a $UZ/ringlib.u2a $UZ/ring2lib.u2a $UZ/ringapp.u2a $UZ/t.zip $UZ/manifest.txt"
+CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/ziplist.u2a $UZ/plain.u2a $UZ/ringapp.u2a $UZ/libfile.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
 
@@ -923,7 +923,7 @@ a8app control set_writes_all settings.cc 's/^        if (core_\[i\] >= 0 || all)
 a8app control set_reset_keeps settings.cc 's/if (fs_->remove(cfg_path_) || write_cfg())/if (false)/' test_settings.cc $ATARI
 a8app control set_case cfgfile.cc 's/strncasecmp(a, b, la) == 0/strncmp(a, b, la) == 0/' test_settings.cc $ATARI
 a8app run a8_video test_video.cc $ATARI
-a8app run a8_libscan test_libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc board.cc $ATARI
+RARGS="$T/bundles" a8app run a8_libscan test_libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc board.cc $ATARI
 RARGS="$T/bundles/desc_own.bin" a8app run a8_desc test_desc.cc $A8DM
 a8app run a8_joyswap test_joyswap.cc $A8D
 a8app run a8_ledcores test_ledcores.cc $A8D
@@ -988,7 +988,7 @@ nesapp run nes_volume test_volume.cc $NESA
 nesapp run nes_tone test_tone.cc $NESA
 nesapp run nes_baseset test_baseset.cc $NESD
 nesapp run nes_baserows test_baserows.cc $NESA
-nesapp run nes_libscan test_libscan.cc libload.cc libmenu.cc libscan.cc board.cc $NESA
+RARGS="$T/bundles" nesapp run nes_libscan test_libscan.cc libload.cc libmenu.cc libscan.cc board.cc $NESA
 CARGS="$BUN/desc_places.bin" RARGS="$BUN/desc_places.bin" nesapp run nes_uiplace test_uiplace.cc $NESA
 RARGS="$BUN/desc_cut.bin" nesapp run nes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NESA     # the NES's menu and the record menu over it: golden/keywalk_nes.txt, ids_nes.txt
 nesapp run nes_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $NESA                                                  # every row, setting value and operation of its declaration over the API

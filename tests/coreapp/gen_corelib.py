@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Fixtures of test_corelib.cc (T239.3 base 3.3, a core whose code is a library, core_hooks.h): the description records of a core that names its hooks library and one that does not,
-made by the real tool (tools/descrec.py), and the library files of the bundle, made by the real packer (tools/u2a_pack.py) from the loader's fixture image.
+made by the real tool (tools/descrec.py). Base 4.0 loads no library file: the model libraries are linked by the test through LibLoader::link.
 
     gen_corelib.py OUTDIR REPO_ROOT
 """
 import os
-import subprocess
 import sys
 
 out, root = sys.argv[1], sys.argv[2]
@@ -47,16 +46,3 @@ for bad in ('hooks = "CModel"', 'hooks = ""', 'hooks = "0123456789abcdef"', 'hoo
         continue
     raise SystemExit("descrec.py accepted %s" % bad)
 write("desc_long.rec", descrec.compile_text(CORE % 'hooks = "0123456789abcde"'))      # 15 characters: the longest
-
-elf = os.path.join(root, "tests/loader/fixtures/testlib.at0.elf")
-pack = os.path.join(root, "tools/u2a_pack.py")
-
-
-def lib(name, *extra):
-    subprocess.check_call([sys.executable, pack, elf, "-o", os.path.join(out, name + ".u2a"), "--kind", "lib", "--name", name, "--version", "1"] + list(extra),
-                          stdout=subprocess.DEVNULL)
-
-
-lib("cmodel", "--export", "corehooks=1")
-lib("cnohooks")
-lib("cmajor2", "--export", "corehooks=2")

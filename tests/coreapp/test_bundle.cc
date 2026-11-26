@@ -1,7 +1,8 @@
 // T104.1 D9, D12, Q5: what a .cor carries beyond the partial and the application. Bundles are made by the real packer (tests/coreapp/gen_bundle.py):
-// the description (record 6) is found, hashed, parsed and merged into the menu; the libraries (record 7) load before a stick's, in dependency order
-// whatever the order they were packed in, and the bundle's copy wins over a stick's of the same name; a bundle without either record is read as it
-// always was; a bundle that is another core's, for another host, or damaged, is told by name and never stops the start.
+// the description (record 6) is found, hashed, parsed and merged into the menu; record 7 (base 4.0, version 2) holds the menu records of the linked libraries by name:
+// lib_link_cor hands each to the library of that name as it registers (a fake link step stands for libtab_link), a record no library takes is refused, and a library whose menu
+// the packer merged into the description is not added a second time; a bundle without either record is read as it always was; a bundle that is another core's, for another
+// host, or damaged, is told by name and never stops the start.
 //
 //   test_bundle DIR       (DIR holds new.cor old.cor other.cor large.cor, made by gen_bundle.py)
 #include <string>
@@ -32,7 +33,7 @@ static Bytes slurp(const std::string &p)
 
 static std::string slurp_text(const std::string &p) { Bytes b = slurp(p); return std::string(b.begin(), b.end()); }
 
-// a library's registration, as the host's twin of lib_register makes it
+// a library's registration, as the register function of a linked library makes it
 static int op_nop(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
 static int g_alpha_calls;
 static int op_alpha(CoreCtx *, const OpArgs &, OpOut &) { g_alpha_calls++; return OPE_OK; }
@@ -47,9 +48,73 @@ static const LibOpDecl gamma_ops[] = { { "gamma.go", 0, 0, op_gamma }, { "gamma.
 static const LibOpDecl beta_ops[] = { { "beta.go", 0, 0, op_nop } };
 static const LibNodeDecl beta_nodes[] = { { "F5/tools", LN_OP, "Beta go", "beta.go", 0, 1 } };
 
+static std::vector<std::string> g_registered;
+static int reg_alpha(const LibApi *, LibRecord *rec)
+{
+    g_registered.push_back("alpha");
+    rec->ops = alpha_ops; rec->nops = 1;
+    rec->nodes = alpha_nodes; rec->nnodes = 1;
+    return 0;
+}
+static int reg_gamma(const LibApi *, LibRecord *rec)
+{
+    g_registered.push_back("gamma");
+    rec->ops = gamma_ops; rec->nops = 2;                       // no nodes of its own: its menu is the record of the bundle (menu_gamma.toml)
+    return 0;
+}
+static int reg_beta(const LibApi *, LibRecord *rec)
+{
+    g_registered.push_back("beta");
+    rec->ops = beta_ops; rec->nops = 1;
+    rec->nodes = beta_nodes; rec->nnodes = 1;
+    return 0;
+}
+
+// The fake link step (libtab_link on the board): the libraries of the test's TOML B in this order, each asked for its menu record, linked, and reported.
+struct LinkItem {
+    const char *name;
+    int (*reg)(const LibApi *, LibRecord *);
+    const char *menu_file;                                      // a menu record the step hands over itself, bypassing record 7 (null: whatever record 7 gives)
+};
+static std::vector<LinkItem> g_items;
+static std::string g_dir;
+static std::string slurp_s(const std::string &p);
+static void fake_link_all(LibLoader &ld, bool (*menu)(void *, const char *, DescRecord **, uint8_t **), void (*done)(void *, const char *, int, const char *), void *user)
+{
+    for (size_t i = 0; i < g_items.size(); i++) {
+        DescRecord *rec = 0;
+        uint8_t *bytes = 0;
+        bool have = menu(user, g_items[i].name, &rec, &bytes);
+        if (g_items[i].menu_file && !have) {
+            std::string b = slurp_s(g_dir + "/" + g_items[i].menu_file);
+            bytes = new uint8_t[b.size()];
+            memcpy(bytes, b.data(), b.size());
+            rec = new DescRecord;
+            char why[200];
+            CHECK_EQ(descrec_parse(bytes, (uint32_t)b.size(), rec, why, sizeof(why)), 0);
+        }
+        char err[LIB_ERR_MAX] = "";
+        int rc = ld.link(g_items[i].name, g_items[i].reg, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, rec, bytes, err, sizeof(err));
+        done(user, g_items[i].name, rc, err);
+    }
+}
+static std::string slurp_s(const std::string &p) { Bytes b = slurp(p); return std::string(b.begin(), b.end()); }
+static void link_set(const char *what)
+{
+    g_items.clear();
+    g_registered.clear();
+    if (!strcmp(what, "ab")) {                                  // beta needs alpha: the TOML B's link order puts alpha first
+        g_items.push_back(LinkItem{ "alpha", reg_alpha, 0 });
+        g_items.push_back(LinkItem{ "beta", reg_beta, 0 });
+    } else if (!strcmp(what, "gamma")) {
+        g_items.push_back(LinkItem{ "gamma", reg_gamma, 0 });
+    } else if (!strcmp(what, "gamma_menu")) {                   // gamma linked with its menu record although the bundle's description merged it
+        g_items.push_back(LinkItem{ "gamma", reg_gamma, "menu_gamma.bin" });
+    }
+}
+
 struct Host : DescLibHost {
     std::vector<void *> live;
-    std::vector<std::string> registered;
     explicit Host(const CoreDesc *d) : DescLibHost(d) { }
     ~Host() { for (size_t i = 0; i < live.size(); i++) free(live[i]); }
     void *alloc(uint32_t n) override { void *p = malloc(n); live.push_back(p); return p; }
@@ -59,20 +124,7 @@ struct Host : DescLibHost {
     }
     uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
     void sync_code(void *, uint32_t) override { }
-    int call_register(const Entry &e, const LibApi *, LibRecord *rec) override
-    {
-        registered.push_back(e.name);
-        if (!strcmp(e.name, "alpha")) {
-            rec->ops = alpha_ops; rec->nops = 1;
-            rec->nodes = alpha_nodes; rec->nnodes = 1;
-        } else if (!strcmp(e.name, "gamma")) {
-            rec->ops = gamma_ops; rec->nops = 2;                       // no nodes of its own: its menu is the record in its file (menu_gamma.toml)
-        } else if (!strcmp(e.name, "beta")) {
-            rec->ops = beta_ops; rec->nops = 1;
-            rec->nodes = beta_nodes; rec->nnodes = 1;
-        }
-        return 0;
-    }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }     // nothing is loaded from a file
 };
 
 struct Log : LibLog {
@@ -102,6 +154,7 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);                                 // a mutant may crash: what it said before has to be out
     CHECK(argc == 2);
     std::string dir = argv[1];
+    g_dir = dir;
     FakeFs fs;
     FakeIo io;
     fs.put("/usb0/cores/new.cor", slurp(dir + "/new.cor"));
@@ -126,7 +179,7 @@ int main(int argc, char **argv)
             CHECK_EQ(x.desc->rec.nnodes, 4);
             CHECK_STR(x.desc->settings[0].key, "Drive Bus ID");
         }
-        // the libraries, packed as [beta, alpha] while beta needs alpha: loaded alpha first
+        // the libraries, linked in the order of the TOML B (alpha first: beta needs it); record 7 carries alpha's menu record only
         Host host(&testcore::desc);
         OpRegistry *reg = ops_of(&c);
         reg->contributor("zz");
@@ -135,15 +188,18 @@ int main(int argc, char **argv)
         LibLoader ld(&host, reg);
         Log log;
         LibScanResult r;
-        lib_load_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], &log, &r, 0, 0);
+        link_set("ab");
+        lib_link_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], fake_link_all, &log, &r, 0, 0);
         CHECK_EQ(r.loaded, 2);
         CHECK_EQ(r.refused, 0);
-        CHECK_EQ(host.registered.size(), 2u);
-        if (host.registered.size() == 2) {
-            CHECK_STR(host.registered[0].c_str(), "alpha");
-            CHECK_STR(host.registered[1].c_str(), "beta");
+        CHECK_EQ(g_registered.size(), 2u);
+        if (g_registered.size() == 2) {
+            CHECK_STR(g_registered[0].c_str(), "alpha");
+            CHECK_STR(g_registered[1].c_str(), "beta");
         }
-        CHECK(log.has("alpha v1.2"));
+        CHECK(log.has("[lib] alpha (linked) : ok") && log.has("[lib] beta (linked) : ok"));
+        const LibInfo *ai = ld.info(ld.handle_of("alpha")), *bi = ld.info(ld.handle_of("beta"));
+        CHECK(ai && ai->menu != 0 && bi && bi->menu == 0);          // alpha got its record from record 7, beta has none
         CHECK(reg->find_op("alpha.go") != 0 && reg->find_op("beta.go") != 0);
         // ... and the menu merged from the description and the two libraries
         CoreDesc merged;
@@ -183,7 +239,7 @@ int main(int argc, char **argv)
         free_extras(&x);
     }
 
-    // ---- a stick's copy of a name the bundle has loaded already is refused, the bundle's stays
+    // ---- a menu record of the bundle that no linked library takes is a refusal (cor_pack packs a record only for a library of the TOML B it was given: another app's bundle)
     {
         CoreCtx c;
         ctx_for(&c, &fs, &io, "/usb0/cores/new.cor");
@@ -192,22 +248,16 @@ int main(int argc, char **argv)
         Host host(&testcore::desc);
         LibLoader ld(&host, ops_of(&c));
         Log log;
-        LibScanResult r1, r2;
-        lib_load_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], &log, &r1, 0, 0);
-        // the library file of the bundle, written to a stick: extract it with the record's own layout (TRXL, 1, count, [len, bytes]...)
-        Bytes whole = slurp(dir + "/new.cor");
-        uint32_t p = x.ci.off[COR_PART_LIBS] + 12;
-        uint32_t len1 = whole[p] | whole[p + 1] << 8 | whole[p + 2] << 16 | (uint32_t)whole[p + 3] << 24;     // beta (packed first)
-        uint32_t o2 = p + 4 + len1 + ((4 - (len1 & 3)) & 3);
-        uint32_t len2 = whole[o2] | whole[o2 + 1] << 8 | whole[o2 + 2] << 16 | (uint32_t)whole[o2 + 3] << 24;  // alpha
-        fs.put("/usb1/trx/lib/alpha.u2a", Bytes(whole.begin() + o2 + 4, whole.begin() + o2 + 4 + len2));
-        lib_load_folder(&ld, &fs, lib_roots, LIB_FOLDER, &log, &r2);
-        CHECK_EQ(r1.loaded, 2);
-        CHECK_EQ(r2.loaded, 0);
-        CHECK_EQ(r2.refused, 1);
-        CHECK(log.has("alpha"));
-        CHECK_EQ(ld.count(), 2);                                   // alpha and beta, once each
-        fs.files.erase("/usb1/trx/lib/alpha.u2a");
+        LibScanResult r1;
+        g_items.clear();
+        g_registered.clear();
+        g_items.push_back(LinkItem{ "beta", reg_beta, 0 });          // alpha is not linked here
+        lib_link_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], fake_link_all, &log, &r1, 0, 0);
+        CHECK_EQ(r1.loaded, 1);
+        CHECK_EQ(r1.refused, 1);
+        CHECK(log.has("carries a menu record for \"alpha\", which this app does not link with `register`"));
+        CHECK_EQ(ld.count(), 1);
+        CHECK_STR(r1.summary, "1 loaded, 1 refused: alpha");
         free_extras(&x);
     }
 
@@ -226,7 +276,8 @@ int main(int argc, char **argv)
         LibLoader ld(&host, ops_of(&c));
         Log log;
         LibScanResult r;
-        lib_load_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], &log, &r, 0, 0);
+        link_set("none");
+        lib_link_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], fake_link_all, &log, &r, 0, 0);
         CHECK_EQ(r.loaded, 0); CHECK_EQ(r.refused, 0); CHECK(log.lines.empty());
         CoreDesc merged;
         static MenuMerge mm;
@@ -285,9 +336,9 @@ int main(int argc, char **argv)
         CHECK(x.probed && x.desc == 0);
         CHECK(strstr(x.why, "description record") != 0 && strstr(x.why, "SHA-256") != 0);
         // (a record whose hash is right and whose content is not is test_descrec's: the manifest's hash cannot follow a rewritten byte)
-        // a damaged library record: nothing of it loads, and it is told. Its hash is the host's to check (cor_full_check), the structure is ours.
+        // a damaged library record: no menu record of it is read, it is told, and the libraries still register without one. Its hash is the host's to check (cor_full_check), the structure is ours.
         Bytes bad2 = whole;
-        bad2[lo + 8] = 1;                                          // one entry claimed, two there: bytes are left behind the last one
+        bad2[lo + 8] = 2;                                          // two entries claimed, one there: the second runs past the end
         fs.put("/usb0/cores/bad2.cor", bad2);
         ctx_for(&c, &fs, &io, "/usb0/cores/bad2.cor");
         BundleExtras y;
@@ -296,10 +347,20 @@ int main(int argc, char **argv)
         LibLoader ld(&host, ops_of(&c));
         Log log;
         LibScanResult r;
-        lib_load_cor(&ld, &fs, c.cor_path, y.ci.off[COR_PART_LIBS], y.ci.size[COR_PART_LIBS], &log, &r, 0, 0);
-        CHECK_EQ(r.loaded, 0);
+        link_set("ab");
+        lib_link_cor(&ld, &fs, c.cor_path, y.ci.off[COR_PART_LIBS], y.ci.size[COR_PART_LIBS], fake_link_all, &log, &r, 0, 0);
+        CHECK_EQ(r.loaded, 2);
         CHECK_EQ(r.refused, 1);
         CHECK(log.has("damaged"));
+        const LibInfo *di = ld.info(ld.handle_of("alpha"));
+        CHECK(di && di->menu == 0);                                // the record could not be read: alpha registered without its menu
+        // record 7 as a version 1 packer wrote it (library files): refused with the base 4.0 sentence, nothing read from it
+        Bytes v1 = slurp(dir + "/libs_v1.bin");
+        fs.put("/usb0/cores/v1.bin", v1);
+        char why[200];
+        LibCorMenus cm;
+        CHECK_EQ(lib_cor_menus(&fs, "/usb0/cores/v1.bin", 0, (uint32_t)v1.size(), &cm, why, sizeof(why)), -1);
+        CHECK(strstr(why, "base 4.0 loads no library file") != 0);
         free_extras(&y);
     }
 
@@ -322,8 +383,11 @@ int main(int argc, char **argv)
         LibLoader ld(&host, reg);
         Log log;
         LibScanResult r;
-        lib_load_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], &log, &r, 0, 0);
+        CHECK_EQ(x.ci.size[COR_PART_LIBS], 0u);                    // the packer merged the only menu record: no record 7
+        link_set("gamma_menu");                                    // gamma is linked with its menu record all the same (as a bundle of a packer that did not merge would give it)
+        lib_link_cor(&ld, &fs, c.cor_path, x.ci.off[COR_PART_LIBS], x.ci.size[COR_PART_LIBS], fake_link_all, &log, &r, 0, 0);
         CHECK_EQ(r.loaded, 1);
+        CHECK(ld.info(ld.handle_of("gamma")) && ld.info(ld.handle_of("gamma"))->menu != 0);
         CoreDesc merged;
         static MenuMerge mm;
         struct Say : LibLog { Log *l; void line(const char *t) override { l->line(t); } } say;
@@ -337,7 +401,7 @@ int main(int argc, char **argv)
         size_t g1 = dump.find("node Gamma menu");
         CHECK(g1 != std::string::npos && dump.find("node Gamma menu", g1 + 1) == std::string::npos);      // once, not twice
         CHECK(dump.find("filetype .gam: Play gamma") != std::string::npos);
-        // the same bundle read with its record's list taken away shows the node twice: the library's own record adds it (the control of the skip)
+        // the same bundle read with its record's list taken away shows the node twice: the linked library's own menu record adds it (the control of the skip)
         x.desc->merged = 0;
         CoreDesc merged2;
         static MenuMerge mm2;

@@ -1,7 +1,7 @@
 // T239.3 base 3.3, a core whose code is a library (core_hooks.h, docs/dev/boundary-trx64u-handover.md "The core's code in its library"). The record names the library (section 1, hooks);
-// the base takes the table "corehooks" of THAT library, at exact major 1, from the real loader, and calls the members where boot.cc and engines.cc call the descriptor's. The library is a
-// model: native code behind a real .u2a file (the file lists the export; no RISC-V instruction runs), so the loader, the services of api (io, settings, ctx), the account of the library
-// and the base's own paths (boot_start, boot_cold_reset, boot_warm_reset, boot_restart, mounts_restore, mounts_pass) are the real ones.
+// the base takes the table "corehooks" of THAT library, at exact major 1, from the slot table (libslot.h), and calls the members where boot.cc and engines.cc call the descriptor's. The
+// library is a model: a native register function linked through LibLoader::link (base 4.0 loads no library file; the slot table of this unit declares the export, as a TOML B does), so
+// the loader, the services of api (io, settings, ctx), the account of the library and the base's own paths (boot_start, boot_cold_reset, boot_warm_reset, boot_restart, mounts_restore, mounts_pass) are the real ones.
 //   (1) the record: tools/descrec.py writes `hooks`, descrec.cc reads it with the same limits, descrec_core accepts the [mount] section and leaves the control hooks to the library;
 //   (2) the first reset (boot_start, after the libraries are loaded): init sees api->io and the settings group filled; the hooks run in the order of the descriptor's; a hook runs on the
 //       library's account; (3) the mount slots: the spec buffer is the base's, 0 is empty, -1 is refused, a restore sets CTX_MEDIA_RESTORING, a self change is notified and stored,
@@ -17,6 +17,7 @@
 #include "boot.h"
 #include "libload.h"
 #include "libapi.h"
+#include "libslot.h"
 #include "descrec.h"
 #include "core_hooks.h"
 #include "hookhost.h"
@@ -124,6 +125,16 @@ static void make_table(bool slots = true)
     }
 }
 
+// The slots of this unit's "TOML B" (libslot.h): the table of "cmodel" and "cmajor2" is what lib_register delivered at start (g_libslot_bound, written by LibLoader::link).
+static const void *cmodel_table(void) { return g_libslot_bound[0]; }
+static const void *cmajor2_table(void) { return g_libslot_bound[1]; }
+const LibSlot g_libslot[] = {
+    { "cmodel", "corehooks", 1, cmodel_table, 1 },
+    { "cmajor2", "corehooks", 2, cmajor2_table, 1 },
+};
+const unsigned g_libslot_n = 2;
+const void *g_libslot_bound[2];
+
 struct Host : LibHost {
     void *alloc(uint32_t n) override { return malloc(n); }
     void release(void *p) override { free(p); }
@@ -131,22 +142,33 @@ struct Host : LibHost {
     void sync_code(void *, uint32_t) override { }
     bool has_capability(const char *) override { return false; }
     const char *core_name() override { return "Model Core"; }
-    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override
-    {
-        g_api = api;
-        static LibExportDecl l1[1], l2[1];                                   // the record points into these for as long as the library is loaded
-        if (!strcmp(e.name, "cmodel")) {
-            l1[0] = LibExportDecl{ "corehooks", g_major, &g_table, (uint32_t)sizeof(g_table) };
-            rec->export_list = l1;
-            rec->nexport_list = 1;
-        } else if (!strcmp(e.name, "cmajor2")) {
-            l2[0] = LibExportDecl{ "corehooks", 2u, &g_table, (uint32_t)sizeof(g_table) };
-            rec->export_list = l2;
-            rec->nexport_list = 1;
-        }
-        return 0;
-    }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }     // nothing is loaded from a file: the libraries are linked
 };
+
+// the register functions of the model libraries, as the TOML B names them (LibLoader::link calls them)
+static int reg_cmodel(const LibApi *api, LibRecord *rec)
+{
+    g_api = api;
+    static LibExportDecl l1[1];                                              // the record points into this for as long as the library is linked
+    l1[0] = LibExportDecl{ "corehooks", g_major, &g_table, (uint32_t)sizeof(g_table) };
+    rec->export_list = l1;
+    rec->nexport_list = 1;
+    return 0;
+}
+static int reg_cmajor2(const LibApi *, LibRecord *rec)
+{
+    static LibExportDecl l2[1];
+    l2[0] = LibExportDecl{ "corehooks", 2u, &g_table, (uint32_t)sizeof(g_table) };
+    rec->export_list = l2;
+    rec->nexport_list = 1;
+    return 0;
+}
+static int reg_cnohooks(const LibApi *, LibRecord *) { return 0; }          // a library that exports nothing
+
+static int link_lib(LibLoader &ld, const char *name, int (*reg)(const LibApi *, LibRecord *), char *err, int errlen)
+{
+    return ld.link(name, reg, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, 0, 0, err, errlen);
+}
 
 struct FileSource : LibSource {
     std::vector<uint8_t> d;
@@ -236,7 +258,7 @@ struct Run {
     int bind_rc = 0;
     char bind_why[200];
     const char *bind_err = 0;
-    Run(const char *cfg, const char *recfile = "desc.rec", const char *libfile = "cmodel.u2a") : ld(&host, &reg, U2A_BASE_MINOR)
+    Run(const char *cfg, const char *recfile = "desc.rec") : ld(&host, &reg, U2A_BASE_MINOR)
     {
         char why[240];
         rec = new DescRecord;
@@ -261,8 +283,9 @@ struct Run {
         ld.add_services();
         ld.set_ctx(&c);
         char err[LIB_ERR_MAX];
-        FileSource src(libfile);
-        CHECK_EQ(ld.load(&src, &g_handle, err, LIB_ERR_MAX), LIB_OK);
+        CHECK_EQ(link_lib(ld, "cmodel", reg_cmodel, err, LIB_ERR_MAX), LIB_OK);
+        g_handle = ld.handle_of("cmodel");
+        CHECK(g_handle >= 0);
         g_log.clear();
     }
     int attach()
@@ -483,17 +506,17 @@ int main(int argc, char **argv)
         Run r(0);
         char w[200];
         CHECK_EQ(hooks_attach_lib(&r.ld, "other", w, sizeof(w)), -1);
-        CHECK(strstr(w, "\"other\"") && strstr(w, "not loaded"));
+        CHECK(strstr(w, "\"other\"") && strstr(w, "does not export corehooks at major 1"));    // a library the app is not linked with has no slot
         CHECK(!hooks_present());
         const char *err = hooks_bind(&r.d);                                  // no table: the control hooks are bound to do nothing, the slots are gone, the answer says why
         CHECK(err != 0 && strstr(err, "no table of hooks"));
         CHECK(r.d.init != 0 && r.d.release != 0 && r.d.mount_slots == 0);
         char err2[LIB_ERR_MAX];
-        int h2 = -1, h3 = -1;
-        { FileSource src("cnohooks.u2a"); CHECK_EQ(r.ld.load(&src, &h2, err2, LIB_ERR_MAX), LIB_OK); }
+        CHECK_EQ(link_lib(r.ld, "cnohooks", reg_cnohooks, err2, LIB_ERR_MAX), LIB_OK);
         CHECK_EQ(hooks_attach_lib(&r.ld, "cnohooks", w, sizeof(w)), -1);
         CHECK(strstr(w, "does not export corehooks at major 1"));
-        { FileSource src("cmajor2.u2a"); CHECK_EQ(r.ld.load(&src, &h3, err2, LIB_ERR_MAX), LIB_OK); }
+        CHECK_EQ(link_lib(r.ld, "cmajor2", reg_cmajor2, err2, LIB_ERR_MAX), LIB_OK);
+        CHECK(g_libslot_bound[1] != 0);                                      // lib_register delivered its table at the slot its TOML B declared
         CHECK_EQ(hooks_attach_lib(&r.ld, "cmajor2", w, sizeof(w)), -1);      // the export is there, at major 2: not ours
         CHECK(strstr(w, "does not export corehooks at major 1"));
         CHECK(!hooks_present());

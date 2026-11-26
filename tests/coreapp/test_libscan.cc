@@ -1,134 +1,102 @@
-// T104.1 D12, Q10: the libraries of a folder are loaded at the start of a core application - in dependency order, a cycle refused, a
-// missing folder no error, one log line per file, a library whose capability the core lacks refused with a sentence that names the library,
-// the capability and the core. The file system is a map of byte vectors, the heap a model, the core descriptors are the real ones (the
-// capability list goes through desc_has_capability on the descriptor of the table, the table through desc_check). What is not here: that
-// RISC-V code runs; the host's twin of lib_register is a function of this file (the same split tests/loader/ makes).
+// T239.3 P2-6, base API 4.0 (D58): the libraries a core application links with `register` are registered at its start, each with the menu record the bundle carries for it by name
+// (record 7 version 2 of the .cor, tools/cor_pack.py pack_libs). Pure: the file system is a map of byte vectors, the heap a model, the step that registers the libraries (libtab_link on the
+// board) is a fake of this file that calls the callbacks of lib_link_cor and LibLoader::link with two test register libraries. The menu records are the real ones (gen_bundle.py).
+//   (1) lib_cor_menus: a good record of two entries; version 1 (library files) refused with the base 4.0 sentence; damaged records (count, an entry past the end, a duplicate name, a
+//       name with no NUL, a wrong magic, a record outside the file) refused;
+//   (2) lib_link_cor: each library gets the menu record of its own name, whatever the order of the record; one log line per library ("(linked) : ok" / "refused"); before_first runs once, before
+//       the first registration; a library that fails to register is refused with the loader's sentence; a menu record no library takes is a refusal; a damaged record or a record that cannot be
+//       read is a refusal and the libraries still register without a menu record; no record at all is no refusal; the summary line of each outcome.
+// The Atari's and the NES's units (a8_libscan, nes_libscan) run the same cases against their descriptors' hosts and check that the descriptors are well formed. What loaded library files
+// (folders, dependency order, capability sentences, file limits) is gone with the files: the order of the libraries is the TOML B's (tools/libtab.py link_order, test_libtab.py), their capability
+// is the app's (register_ops with `capability`, libtab.cc).
+//
+//   test_libscan BUNDLE_DIR      (menu_alpha.bin, menu_gamma.bin made by gen_bundle.py)
 #include <string>
 #include <vector>
-#include <functional>
-#include <deque>
-#include <map>
+#include <fstream>
+#include <sstream>
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
 #include "desc_check.h"
 #include "libscan.h"
-#include "board.h"
+#include "descrec.h"
 
 #ifdef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_libscan): its core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)              // the NES's app (nes_libscan): the cases on its record
+#elif defined(TEST_APP_NES)              // the NES's app (nes_libscan)
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core; its cases are the order on made-up metadata
+const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core
 #endif
 
-// the capabilities of a monolith core (TRX64-Ultimate's trx64u asks for these seven): the list the board strikes from in the check below (T239.3 P1-8)
-static const char *const mono_caps[] = { "iec", "drive_a", "cartridge", "reu", "ring", "uci", "sid_sockets" };
-
-// ---------------------------------------------------------------------------------------------------------------- files
-
-struct Img {
-    uint8_t kind, residence;
-    std::string name, cap;
-    uint32_t version;
-    std::vector<std::pair<std::string, uint32_t> > needs;
-    uint32_t reg, main;
-    std::vector<std::pair<std::string, uint32_t> > exp;            // the names it exports (U2A3_FLAG_EXPORTS)
-    Img(const char *n) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)), reg(0), main(U2A3_NONE) { }
-    Img &need(const char *n, uint32_t v = U2A3_VERSION(1, 0)) { needs.push_back(std::make_pair(std::string(n), v)); return *this; }
-    Img &exports(const char *n, uint32_t major = 1) { exp.push_back(std::make_pair(std::string(n), major)); return *this; }
-    Img &capability(const char *c) { cap = c; return *this; }
-    Img &ver(uint32_t major, uint32_t minor) { version = U2A3_VERSION(major, minor); return *this; }
-    Img &app() { kind = U2A3_KIND_APP; residence = U2A3_RES_TRANSIENT; reg = U2A3_NONE; main = 0; return *this; }
-};
 typedef std::vector<uint8_t> Bytes;
+static Bytes slurp(const std::string &p)
+{
+    std::ifstream f(p.c_str(), std::ios::binary);
+    std::stringstream s;
+    s << f.rdbuf();
+    std::string t = s.str();
+    return Bytes(t.begin(), t.end());
+}
 static void put32(Bytes &v, uint32_t x) { for (int i = 0; i < 4; i++) { v.push_back((uint8_t)(x >> (8 * i))); } }
-static void put16(Bytes &v, uint16_t x) { v.push_back((uint8_t)x); v.push_back((uint8_t)(x >> 8)); }
 static void putname(Bytes &v, const std::string &s) { for (int i = 0; i < 16; i++) { v.push_back(i < (int)s.size() ? s[i] : 0); } }
 
-static Bytes build(const Img &m)
+// record 7 version 2: "TRXL", 2, count, per entry name[16], length, bytes, zeros to 4
+struct Entry {
+    std::string name;
+    Bytes menu;
+};
+static Bytes record7(const std::vector<Entry> &es, uint32_t version = 2, int32_t count = -1)
 {
-    uint32_t exp_size = m.exp.empty() ? 0 : 4 + (uint32_t)m.exp.size() * U2A3_EXPORT_NAME_SIZE;
-    uint32_t needs_off = U2A3_HEADER_SIZE + exp_size, pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE, psize = 64;
     Bytes v;
-    put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, 3); put16(v, 3); put16(v, 3);
-    v.push_back(m.kind); v.push_back(m.residence); v.push_back(U2A3_ARCH_RISCV32); v.push_back((uint8_t)m.needs.size());
-    put32(v, m.exp.empty() ? 0 : U2A3_FLAG_EXPORTS); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
-    put32(v, pay_off); put32(v, psize); put32(v, 16); put32(v, 16); put32(v, m.reg); put32(v, m.main);
-    put32(v, pay_off + psize); put32(v, 0); put32(v, needs_off); put32(v, 0); put32(v, 0); put32(v, 0);
-    if (!m.exp.empty()) {
-        put32(v, (uint32_t)m.exp.size());
-        for (size_t i = 0; i < m.exp.size(); i++) { putname(v, m.exp[i].first); put32(v, m.exp[i].second); }
+    v.push_back('T'); v.push_back('R'); v.push_back('X'); v.push_back('L');
+    put32(v, version);
+    put32(v, count < 0 ? (uint32_t)es.size() : (uint32_t)count);
+    for (size_t i = 0; i < es.size(); i++) {
+        putname(v, es[i].name);
+        put32(v, (uint32_t)es[i].menu.size());
+        v.insert(v.end(), es[i].menu.begin(), es[i].menu.end());
+        while (v.size() & 3) { v.push_back(0); }
     }
-    for (size_t i = 0; i < m.needs.size(); i++) { putname(v, m.needs[i].first); put32(v, m.needs[i].second); }
-    v.resize(v.size() + psize, 0);
     return v;
+}
+
+static const char *COR = "/usb0/cores/test.cor";
+static const uint32_t PREFIX = 36;                                  // the record does not start at the file's start
+static Bytes in_cor(const Bytes &rec)
+{
+    Bytes f(PREFIX, 0xEE);
+    f.insert(f.end(), rec.begin(), rec.end());
+    return f;
 }
 
 // ---------------------------------------------------------------------------------------------------------------- the machine
 
-static void test_log_sink(const char *);
-static std::vector<std::string> g_lib_logs;
-static void test_log_sink(const char *t) { g_lib_logs.push_back(t); }
-
 struct Host : DescLibHost {
     std::vector<void *> live;
-    int allocs, releases;
-    std::vector<std::string> registered;
-    std::vector<std::string> declares;       // libraries whose record carries two nodes and a poll
-    std::map<std::string, std::vector<std::pair<std::string, uint32_t> > > exporters;   // library -> the tables its record returns (name, major)
-    std::vector<LibExportDecl *> kept;
-    std::deque<std::string> names;            // the export names the records point at
-    explicit Host(const CoreDesc *d) : DescLibHost(d), allocs(0), releases(0) { }
-    ~Host() { for (size_t i = 0; i < live.size(); i++) { free(live[i]); } for (size_t i = 0; i < kept.size(); i++) { delete[] kept[i]; } }
+    int allocs;
+    explicit Host(const CoreDesc *d) : DescLibHost(d), allocs(0) { }
+    ~Host() { for (size_t i = 0; i < live.size(); i++) { free(live[i]); } }
     void *alloc(uint32_t n) override { allocs++; void *p = malloc(n); live.push_back(p); return p; }
     void release(void *p) override
     {
-        releases++;
         for (size_t i = 0; i < live.size(); i++) { if (live[i] == p) { live.erase(live.begin() + i); free(p); return; } }
         CHECK(!"release of a block that is not allocated");
     }
     uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
     void sync_code(void *, uint32_t) override { }
-    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override
-    {
-        registered.push_back(e.name);
-        std::map<std::string, std::vector<std::pair<std::string, uint32_t> > >::const_iterator x = exporters.find(e.name);
-        if (x != exporters.end()) {
-            static uint32_t table[2] = { sizeof(table), 0 };
-            LibExportDecl *list = new LibExportDecl[x->second.size()];
-            for (size_t i = 0; i < x->second.size(); i++) {
-                names.push_back(x->second[i].first);
-                list[i].name = names.back().c_str();
-                list[i].major = x->second[i].second;
-                list[i].table = table;
-                list[i].size = sizeof(table);
-            }
-            kept.push_back(list);
-            rec->export_list = list;
-            rec->nexport_list = (int)x->second.size();
-        }
-        for (size_t i = 0; i < declares.size(); i++) {
-            if (declares[i] == e.name) {
-                static const LibNodeDecl nodes[2] = { };
-                rec->nnodes = 2; rec->nodes = nodes;
-                rec->poll.op = "x.poll";
-            }
-        }
-        if (api->log) { api->log((std::string("hello from ") + e.name).c_str()); }
-        return 0;
-    }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }   // nothing is loaded from a file
 };
 
 struct Log : LibLog {
     std::vector<std::string> lines;
     void line(const char *t) override { lines.push_back(t); }
-    int find(const std::string &part, int from = 0) const
+    int find(const std::string &part) const
     {
-        for (size_t i = from; i < lines.size(); i++) { if (lines[i].find(part) != std::string::npos) { return (int)i; } }
+        for (size_t i = 0; i < lines.size(); i++) { if (lines[i].find(part) != std::string::npos) { return (int)i; } }
         return -1;
     }
     int count(const std::string &part) const
@@ -139,6 +107,39 @@ struct Log : LibLog {
     }
 };
 
+// the test register libraries and the fake link step
+static std::vector<std::string> g_registered;
+static int g_fail_rc;                                               // what the register function of "bb" returns
+static int reg_aa(const LibApi *, LibRecord *) { g_registered.push_back("aa"); return 0; }
+static int reg_bb(const LibApi *, LibRecord *) { g_registered.push_back("bb"); return g_fail_rc; }
+struct Item {
+    const char *name;
+    int (*reg)(const LibApi *, LibRecord *);
+};
+static std::vector<Item> g_items;
+static std::vector<int> g_menu_given;                               // per item: did the menu callback hand it a record
+static void fake_link_all(LibLoader &ld, bool (*menu)(void *, const char *, DescRecord **, uint8_t **), void (*done)(void *, const char *, int, const char *), void *user)
+{
+    g_menu_given.clear();
+    for (size_t i = 0; i < g_items.size(); i++) {
+        DescRecord *rec = 0;
+        uint8_t *bytes = 0;
+        g_menu_given.push_back(menu(user, g_items[i].name, &rec, &bytes) ? 1 : 0);
+        char err[LIB_ERR_MAX] = "";
+        int rc = ld.link(g_items[i].name, g_items[i].reg, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, rec, bytes, err, sizeof(err));
+        done(user, g_items[i].name, rc, err);
+    }
+}
+
+static int g_before, g_before_at;
+static void before_first(void *ctx)
+{
+    g_before++;
+    g_before_at = (int)g_registered.size();
+    CHECK(ctx == (void *)&g_before);
+}
+
+static CoreDesc g_blank;
 struct World {
     FakeFs fs;
     Host host;
@@ -147,339 +148,223 @@ struct World {
     Log log;
     LibScanResult r;
 #ifdef TEST_APP_ATARI800
-    World(const CoreDesc *d = &atari800_desc) : host(d), ld(&host, &reg) { }
+    World() : host(&atari800_desc), ld(&host, &reg) { reset(); }
+#elif defined(TEST_APP_NES)
+    World() : host(&nes_desc), ld(&host, &reg) { reset(); }
 #else
-    explicit World(const CoreDesc *d) : host(d), ld(&host, &reg) { }
+    World() : host(&g_blank), ld(&host, &reg) { reset(); }
 #endif
-    void add(const char *path, const Img &i) { fs.put(path, build(i)); }
-    void run() { lib_load_folder(&ld, &fs, lib_roots, LIB_FOLDER, &log, &r); }
-    std::string dump() const { std::string s; for (size_t i = 0; i < log.lines.size(); i++) { s += log.lines[i] + "\n"; } return s; }
+    void reset() { g_registered.clear(); g_items.clear(); g_fail_rc = 0; g_before = 0; g_before_at = -1; }
+    void libs(bool aa, bool bb)
+    {
+        g_items.clear();
+        if (aa) { g_items.push_back(Item{ "aa", reg_aa }); }
+        if (bb) { g_items.push_back(Item{ "bb", reg_bb }); }
+    }
+    void cor(const Bytes &rec) { fs.put(COR, in_cor(rec)); }
+    void run(uint32_t rec_size) { lib_link_cor(&ld, &fs, COR, PREFIX, rec_size, fake_link_all, &log, &r, before_first, &g_before); }
 };
 
-#define L1 "/usb1/trx/lib/"
-static int index_of(const std::vector<std::string> &v, const char *s)
+int main(int argc, char **argv)
 {
-    for (size_t i = 0; i < v.size(); i++) { if (v[i] == s) { return (int)i; } }
-    return -1;
-}
-
-int main()
-{
+    CHECK(argc == 2);
+    std::string dir = argv[1];
     // the real descriptors are well formed and name their capabilities (desc_check is the one of the product)
     for (const CoreDesc *const *p = core_table; *p; p++) { const char *why = desc_check(*p); if (why) printf("%s: %s\n", (*p)->cor_name, why); CHECK(!why); }
     CHECK(!desc_check_table(core_table));
 
-#ifdef TEST_APP_ATARI800                // the cases on the Atari's descriptor (World's default): its app (run.sh a8app, the unit a8_libscan)
-    // ---- a missing folder is not an error
+    Bytes alpha = slurp(dir + "/menu_alpha.bin"), gamma = slurp(dir + "/menu_gamma.bin");
+    CHECK(alpha.size() > 12 && gamma.size() > 12);
+    std::vector<Entry> two;                                         // bb first: the menu goes by name, not by position
+    two.push_back(Entry{ "bb", gamma });
+    two.push_back(Entry{ "aa", alpha });
+
+    // ---- (1) lib_cor_menus: a good record, read where it lies in the .cor
     {
         World w;
-        w.fs.put_text("/usb1/roms/atari800/readme.txt", "x");        // a stick with other things on it
-        w.run();
-        CHECK_EQ(w.r.roots_found, 0); CHECK_EQ(w.r.loaded, 0); CHECK_EQ(w.r.refused, 0); CHECK_EQ(w.ld.count(), 0);
-        CHECK_EQ(w.host.allocs, 0);
-        CHECK(w.log.find("no library folder") >= 0);
-        CHECK(w.log.find("refused") < 0);
-        CHECK_STR(w.r.summary, "none");
-        World g;                                                       // the stick is gone altogether
-        g.fs.gone = true;
-        g.run();
-        CHECK_EQ(g.r.loaded + g.r.refused, 0);
-        CHECK(g.log.find("no library folder") >= 0);
+        Bytes rec = record7(two);
+        w.cor(rec);
+        LibCorMenus m;
+        char why[200] = "";
+        CHECK_EQ(lib_cor_menus(&w.fs, COR, PREFIX, (uint32_t)rec.size(), &m, why, sizeof(why)), 0);
+        CHECK_EQ(m.n, 2);
+        CHECK_STR(m.name[0], "bb"); CHECK_STR(m.name[1], "aa");
+        CHECK_EQ(m.len[0], gamma.size()); CHECK_EQ(m.len[1], alpha.size());
+        Bytes f = in_cor(rec);
+        CHECK(m.n == 2 && !memcmp(&f[m.off[0]], gamma.data(), gamma.size()) && !memcmp(&f[m.off[1]], alpha.data(), alpha.size()));   // the offsets are in the .cor
+        CHECK(!m.taken[0] && !m.taken[1]);
     }
-    // ---- a folder with no .u2a in it; other files and folders are left alone, the extension's case does not matter
+    // ---- (1) version 1 (library files) and damaged records are refused, each with a sentence
     {
         World w;
-        w.fs.put_text(L1 "readme.txt", "hello");
-        w.fs.put_text(L1 "sub/inner.u2a", "a folder's content is not looked at");
-        w.run();
-        CHECK_EQ(w.r.roots_found, 1); CHECK_EQ(w.r.files, 0); CHECK(w.log.find("holds no .u2a") >= 0); CHECK_STR(w.r.summary, "none");
-        World w2;
-        w2.add(L1 "Upper.U2A", Img("upper"));
-        w2.run();
-        CHECK_EQ(w2.r.loaded, 1); CHECK(w2.ld.info(0) && !strcmp(w2.ld.info(0)->name, "upper"));
-    }
-    // ---- dependency order: a needs b, b needs c; their file names sort the other way round
-    {
-        World w;
-        w.add(L1 "a.u2a", Img("alpha").need("beta"));
-        w.add(L1 "b.u2a", Img("beta").need("gamma").need("base"));
-        w.add(L1 "c.u2a", Img("gamma"));
-        w.add(L1 "d.u2a", Img("delta"));                              // independent: keeps its place among the ready ones
-        w.add(L1 "e.u2a", Img("eps"));
-        w.run();
-        CHECK_EQ(w.r.loaded, 5); CHECK_EQ(w.r.refused, 0);
-        std::vector<std::string> want; want.push_back("gamma"); want.push_back("beta"); want.push_back("alpha"); want.push_back("delta"); want.push_back("eps");
-        CHECK(w.host.registered == want);
-        int g = w.log.find("[lib] gamma v1.0 at 0x"), b = w.log.find("[lib] beta v1.0 at 0x"), a = w.log.find("[lib] alpha v1.0 at 0x");
-        CHECK(g >= 0 && b > g && a > b);
-        CHECK_EQ(w.log.count(" : ok"), 5);
-        // the address in the line is the one the loader put the image at
-        char want_line[80];
-        bool addr_ok = false;
-        for (int h = 0; h < LIB_MAX; h++) {
-            const LibInfo *i = w.ld.info(h);
-            if (i && !strcmp(i->name, "gamma")) {
-                snprintf(want_line, sizeof(want_line), "[lib] gamma v1.0 at 0x%08x : ok", (unsigned)i->image_addr);
-                addr_ok = w.log.find(want_line) >= 0;
-            }
+        LibCorMenus m;
+        char why[200];
+        Bytes v1 = record7(two, 1);
+        w.cor(v1);
+        CHECK_EQ(lib_cor_menus(&w.fs, COR, PREFIX, (uint32_t)v1.size(), &m, why, sizeof(why)), -1);
+        CHECK(strstr(why, "base 4.0 loads no library file") != 0);
+        CHECK_EQ(m.n, 0);
+        struct Bad { const char *what; Bytes rec; const char *sentence; } bad[8];
+        int n = 0;
+        bad[n].what = "count 3, two entries"; bad[n].rec = record7(two, 2, 3); bad[n].sentence = "damaged"; n++;
+        bad[n].what = "count 1, two entries"; bad[n].rec = record7(two, 2, 1); bad[n].sentence = "damaged"; n++;
+        bad[n].what = "count 0"; bad[n].rec = record7(std::vector<Entry>(), 2); bad[n].sentence = "damaged"; n++;
+        {   // an entry past the end: the length of the last claims more than is there
+            Bytes r = record7(two);
+            size_t len_at = 12 + 16 + 4 + gamma.size() + ((4 - (gamma.size() & 3)) & 3) + 16;
+            r[len_at + 2] = 0x10;                                   // +1 MiB
+            bad[n].what = "an entry past the end"; bad[n].rec = r; bad[n].sentence = "damaged"; n++;
         }
-        CHECK(addr_ok);
-        CHECK_STR(w.r.summary, "5 loaded");
-    }
-    // ---- D20: a need on a name another library exports; the exporter goes first, whatever it is called and whatever its file is called
-    {
-        World w;
-        w.add(L1 "a.u2a", Img("monitor").need("ring").need("uci", U2A3_VERSION(1, 0)));     // needs two export names
-        w.add(L1 "b.u2a", Img("ringlib").exports("ring", 1).exports("trx", 1).need("uci"));    // exports two, needs one
-        w.add(L1 "c.u2a", Img("ucilib").exports("uci", 1));
-        w.add(L1 "d.u2a", Img("other"));
-        w.host.exporters["ringlib"].push_back(std::make_pair(std::string("ring"), 1u));
-        w.host.exporters["ringlib"].push_back(std::make_pair(std::string("trx"), 1u));
-        w.host.exporters["ucilib"].push_back(std::make_pair(std::string("uci"), 1u));
-        w.run();
-        CHECK_EQ(w.r.loaded, 4); CHECK_EQ(w.r.refused, 0);
-        std::vector<std::string> want; want.push_back("ucilib"); want.push_back("ringlib"); want.push_back("monitor"); want.push_back("other");
-        CHECK(w.host.registered == want);
-        int ph = w.ld.handle_of("ringlib"), uh = w.ld.handle_of("ucilib");
-        CHECK(ph >= 0 && uh >= 0);
-        CHECK_EQ(w.ld.uses(ph), 1);                                    // the monitor's need is met by the exporter, which it keeps loaded
-        CHECK_EQ(w.ld.uses(uh), 2);                                    // the monitor's and the ring library's
-        CHECK_EQ(w.ld.handle_providing("trx", U2A3_VERSION(1, 0)), ph);
-        // without the lists of the files the exporter has no place in the order: the need is the loader's to refuse
-        World v;
-        v.add(L1 "a.u2a", Img("monitor").need("ring"));
-        v.add(L1 "b.u2a", Img("ringlib"));
-        v.host.exporters["ringlib"].push_back(std::make_pair(std::string("ring"), 1u));
-        v.run();
-        CHECK_EQ(v.r.loaded, 1); CHECK_EQ(v.r.refused, 1);              // the monitor's file is first and nothing lists "ring": the loader refuses the monitor by name
-        CHECK(v.log.find("[lib] monitor v1.0 : refused: \"monitor\" needs \"ring\" 1.0, which is not loaded.") >= 0);
-        // a file that lists a name lib_register does not return is refused, and so is what needs it
-        World u;
-        u.add(L1 "a.u2a", Img("monitor").need("ring"));
-        u.add(L1 "b.u2a", Img("ringlib").exports("ring", 1));
-        u.run();
-        CHECK_EQ(u.r.loaded, 0); CHECK_EQ(u.r.refused, 2);
-        CHECK(u.log.find("[lib] ringlib v1.0 : refused: Library \"ringlib\" is refused: its file lists the export \"ring\" 1 and lib_register does not return it.") >= 0);
-        CHECK(u.log.find("\"monitor\" needs \"ring\" 1.0, which is not loaded.") >= 0);
-        // two libraries that need what the other exports are a cycle
-        World c;
-        c.add(L1 "a.u2a", Img("pp").exports("xx").need("yy"));
-        c.add(L1 "b.u2a", Img("qq").exports("yy").need("xx"));
-        c.add(L1 "c.u2a", Img("free"));
-        c.run();
-        CHECK_EQ(c.r.loaded, 1); CHECK_EQ(c.r.refused, 2);
-        CHECK(c.log.find("Library \"pp\" is part of a dependency cycle (pp, qq) and is not loaded.") >= 0);
-    }
-    // ---- a version too old is the loader's sentence, with both numbers; the dependent of a refused library follows
-    {
-        World w;
-        w.add(L1 "a.u2a", Img("alpha").need("beta", U2A3_VERSION(2, 0)));
-        w.add(L1 "b.u2a", Img("beta").ver(1, 3));
-        w.add(L1 "c.u2a", Img("gamma").need("alpha"));
-        w.run();
-        CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 2);
-        CHECK(w.log.find("[lib] alpha v1.0 : refused: \"alpha\" needs \"beta\" 2.0, 1.3 is loaded.") >= 0);
-        CHECK(w.log.find("[lib] gamma v1.0 : refused: \"gamma\" needs \"alpha\" 1.0, which is not loaded.") >= 0);
-    }
-    // ---- a cycle: refused, named, nothing allocated for it; what lies behind it is refused by the loader; the rest loads
-    {
-        World w;
-        w.add(L1 "a.u2a", Img("pp").need("qq"));
-        w.add(L1 "b.u2a", Img("qq").need("pp"));
-        w.add(L1 "c.u2a", Img("rr").need("pp"));                      // behind the cycle
-        w.add(L1 "d.u2a", Img("ss"));
-        w.add(L1 "e.u2a", Img("zz").need("zz"));                      // needs itself
-        w.run();
-        CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 4);
-        CHECK(w.log.find("[lib] ss v1.0 at 0x") >= 0);
-        CHECK(w.log.find("[lib] pp v1.0 : refused: Library \"pp\" is part of a dependency cycle (pp, qq) and is not loaded.") >= 0);
-        CHECK(w.log.find("[lib] qq v1.0 : refused: Library \"qq\" is part of a dependency cycle (pp, qq) and is not loaded.") >= 0);
-        CHECK(w.log.find("[lib] zz v1.0 : refused: Library \"zz\" is part of a dependency cycle (zz) and is not loaded.") >= 0);
-        CHECK(w.log.find("[lib] rr v1.0 : refused: \"rr\" needs \"pp\" 1.0, which is not loaded.") >= 0);
-        CHECK_EQ(w.host.allocs, 1);                                   // only ss ever asked for memory
-        std::vector<std::string> want(1, "ss");
-        CHECK(w.host.registered == want);
-        CHECK_EQ(w.ld.count(), 1);
-        CHECK_STR(w.r.summary, "1 loaded, 4 refused: pp");
-        CHECK_EQ(w.r.nkept, 4);
-    }
-#endif
-    // ---- Q10 on the real descriptors: the Atari has "sio", it has no "drive_a"
-    {
-#ifdef TEST_APP_ATARI800
-        World w;
-        w.add(L1 "cbm1541.u2a", Img("cbm1541").capability("drive_a"));
-        w.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
-        w.add(L1 "user.u2a", Img("user").need("cbm1541"));            // its dependency is refused
-        w.run();
-        CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 2);
-        const char *want = "[lib] cbm1541 v1.0 : refused: Library \"cbm1541\" needs the capability \"drive_a\", which the core \"Atari 800 XL\" does not have.";
-        CHECK(w.log.find(want) >= 0);
-        CHECK(w.log.find("[lib] sioext v1.0 at 0x") >= 0);
-        CHECK(w.log.find("[lib] user v1.0 : refused: \"user\" needs \"cbm1541\" 1.0, which is not loaded.") >= 0);
-        // the screen gets the sentence as the loader wrote it, with library, capability and core in it
-        CHECK(w.r.nkept == 2 && strstr(w.r.kept[0], "cbm1541") && strstr(w.r.kept[0], "drive_a") && strstr(w.r.kept[0], "Atari 800 XL"));
-        CHECK_EQ(w.host.allocs, 1);                                   // nothing was allocated for the refused one
-        CHECK_STR(w.r.summary, "1 loaded, 2 refused: cbm1541");
-#elif defined(TEST_APP_NES)
-        // the same files on the NES: it has neither
-        World n(&nes_desc);
-        n.add(L1 "sioext.u2a", Img("sioext").capability("sio"));
-        n.add(L1 "carts.u2a", Img("carts").capability("cartridge"));
-        n.run();
-        CHECK_EQ(n.r.loaded, 1);
-        CHECK(n.log.find("needs the capability \"sio\", which the core \"Nintendo Entertainment System\" does not have.") >= 0);
-        CHECK(n.log.find("[lib] carts v1.0 at 0x") >= 0);
-#endif
-    }
-#ifdef TEST_APP_NES
-    // ---- T104.2 D3 on a monolith core's capability list: what the board strikes, a library cannot have. The monolith has the T37 sockets, the MultiCore
-    // trx64 core has not; neither has a drive B. The core's effective list is what the loader is given (run.cc merges it).
-    {
-        struct P : BoardProbe {
-            uint8_t icap; P(uint8_t i) : icap(i) { }
-            uint8_t icap_id() { return icap; }
-            uint32_t fpga_caps() { return BOARD_FPGA_DRIVE_1541_1 | BOARD_FPGA_COMMAND_INTF; }
-            uint8_t trx_caps() { return BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE | BOARD_TRX_CAPS_CART; }
-            uint8_t iec_version() { return BOARD_IEC_VERSION; }
-            bool handover_valid() { return true; }
-        };
-        for (int mc = 0; mc < 2; mc++) {
-            P p(mc ? 0x7A : 0);
-            BoardProfile b = board_detect(&p);
-            const char *eff[16];
-            CoreDesc d = nes_desc;
-            d.cor_name = "TRX64U";
-            d.ncaps = board_effective_caps(b, mono_caps, 7, eff, 16, 0, 0);
-            d.caps = eff;
-            World w(&d);
-            w.add(L1 "cbm1541.u2a", Img("cbm1541").capability("drive_a"));
-            w.add(L1 "socks.u2a", Img("socks").capability("sid_sockets"));
-            w.add(L1 "driveb.u2a", Img("driveb").capability("drive_b"));
-            w.run();
-            CHECK(w.log.find("[lib] cbm1541 v1.0 at 0x") >= 0);                 // a drive A is on both
-            CHECK(w.log.find("needs the capability \"drive_b\", which the core \"TRX64U\" does not have.") >= 0);
-            if (mc) {
-                CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 2);
-                CHECK(w.log.find("Library \"socks\" needs the capability \"sid_sockets\", which the core \"TRX64U\" does not have.") >= 0);
-            } else {
-                CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 1);
-                CHECK(w.log.find("[lib] socks v1.0 at 0x") >= 0);
-            }
+        {   // a duplicate name
+            std::vector<Entry> d;
+            d.push_back(Entry{ "aa", alpha });
+            d.push_back(Entry{ "aa", gamma });
+            bad[n].what = "a duplicate name"; bad[n].rec = record7(d); bad[n].sentence = "damaged"; n++;
         }
-    }
-#endif
-#ifdef TEST_APP_ATARI800
-    // ---- an application is not loaded from here; a file that is not a library is refused by name and the others still load
-    {
-        World w;
-        w.add(L1 "app.u2a", Img("someapp").app());
-        w.fs.put_text(L1 "junk.u2a", "this is not a u2a file at all, but it is long enough to hold a header, no it is not, it is shorter than 104 bytes?");
-        w.fs.put_size(L1 "zeros.u2a", 300, 0);
-        w.add(L1 "z.u2a", Img("zlib"));
-        w.run();
-        CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 3);
-        CHECK(w.log.find("[lib] someapp v1.0 : refused: \"someapp\" is an application, not a library") >= 0);
-        CHECK(w.log.find("[lib] junk.u2a : refused: Not a library or app file") >= 0);
-        CHECK(w.log.find("[lib] zeros.u2a : refused: Not a library or app file") >= 0);
-        CHECK(w.log.find("[lib] zlib v1.0 at 0x") >= 0);
-        CHECK_EQ(w.host.allocs, 1);
-        bool named = false;
-        for (int i = 0; i < w.r.nkept; i++) { named |= strstr(w.r.kept[i], "junk.u2a: Not a library") != 0; }
-        CHECK(named);                                                 // a refusal about a file names the file on the screen
-    }
-    // ---- two sticks: the same library twice is the loader's duplicate; both folders are looked at
-    {
-        World w;
-        w.add("/usb0/trx/lib/same.u2a", Img("same"));
-        w.add("/usb1/trx/lib/same.u2a", Img("same"));
-        w.add("/usb1/trx/lib/other.u2a", Img("other"));
-        w.run();
-        CHECK_EQ(w.r.roots_found, 2); CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 1);
-        CHECK(w.log.find("\"same\" is loaded already") >= 0);
-    }
-    // ---- more files than the scan takes: the rest is named, never silently dropped; the loader's own limit shows as refusals
-    {
-        World w;
-        for (int i = 0; i < 30; i++) {
-            char path[64], name[24];
-            snprintf(path, sizeof(path), L1 "l%02d.u2a", i);
-            snprintf(name, sizeof(name), "lib%02d", i);
-            w.add(path, Img(name));
+        {   // a name of 16 characters with no NUL
+            Bytes r = record7(two);
+            for (int i = 0; i < 16; i++) { r[12 + i] = 'x'; }
+            bad[n].what = "a name with no NUL"; bad[n].rec = r; bad[n].sentence = "damaged"; n++;
         }
-        w.run();
-        CHECK_EQ(w.r.files, 30); CHECK_EQ(w.r.ignored, 6);
-        CHECK_EQ(w.r.loaded, LIB_MAX); CHECK_EQ(w.r.loaded + w.r.refused, LIB_SCAN_MAX);
-        CHECK(w.log.find("6 more file(s)") >= 0);
-        CHECK_EQ(w.host.allocs - w.host.releases, LIB_MAX);
+        {   // an entry with an empty name
+            Bytes r = record7(two);
+            r[12] = 0;
+            bad[n].what = "an empty name"; bad[n].rec = r; bad[n].sentence = "damaged"; n++;
+        }
+        {   // the magic
+            Bytes r = record7(two);
+            r[0] = 'Q';
+            bad[n].what = "the magic"; bad[n].rec = r; bad[n].sentence = "cannot be read"; n++;
+        }
+        for (int i = 0; i < n; i++) {
+            w.cor(bad[i].rec);
+            why[0] = 0;
+            int rc = lib_cor_menus(&w.fs, COR, PREFIX, (uint32_t)bad[i].rec.size(), &m, why, sizeof(why));
+            if (rc != -1 || !strstr(why, bad[i].sentence)) { printf("FAIL lib_cor_menus %s: rc %d, \"%s\"\n", bad[i].what, rc, why); g_fails++; }
+            CHECK_EQ(m.n, 0);
+        }
+        // a record that lies past the end of the file, and one that is too short for a header
+        w.cor(record7(two));
+        CHECK_EQ(lib_cor_menus(&w.fs, COR, PREFIX, 100000, &m, why, sizeof(why)), -1);
+        CHECK_EQ(lib_cor_menus(&w.fs, COR, PREFIX, 8, &m, why, sizeof(why)), -1);
+        CHECK_EQ(lib_cor_menus(&w.fs, "/usb0/cores/gone.cor", PREFIX, 100, &m, why, sizeof(why)), -1);
     }
-    // ---- a record with nodes and a poll: the menu merge and the poll task serve them, so the Home line has nothing to add
+    // ---- (2) each library gets the menu record of its own name; the log, the count, before_first, the summary
     {
         World w;
-        w.host.declares.push_back("alpha");
-        w.add(L1 "a.u2a", Img("alpha"));
-        w.add(L1 "b.u2a", Img("beta"));
-        w.run();
-        CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.unserved, 0);
+        Bytes rec = record7(two);
+        w.cor(rec);
+        w.libs(true, true);
+        w.run((uint32_t)rec.size());
+        CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 0); CHECK_EQ(w.r.nkept, 0);
         CHECK_STR(w.r.summary, "2 loaded");
-        World q;
-        q.add(L1 "a.u2a", Img("alpha"));
-        q.run();
-        CHECK_EQ(q.r.unserved, 0); CHECK_STR(q.r.summary, "1 loaded");
+        CHECK_EQ(w.ld.count(), 2);
+        CHECK(g_menu_given.size() == 2 && g_menu_given[0] == 1 && g_menu_given[1] == 1);
+        const LibInfo *a = w.ld.info(w.ld.handle_of("aa")), *b = w.ld.info(w.ld.handle_of("bb"));
+        CHECK(a && b && a->menu && b->menu);
+        if (a && b && a->menu && b->menu) {
+            CHECK(a->menu->rec.poll.op && !strcmp(a->menu->rec.poll.op, "alpha.go"));     // aa got alpha's record (it declares a poll) ...
+            CHECK(b->menu->rec.poll.op == 0 || !b->menu->rec.poll.op[0]);                  // ... bb got gamma's (it has none)
+            CHECK(b->menu->rec.nnodes == 1 && b->menu->rec.nfile_actions == 1);
+        }
+        CHECK(a && a->kind == U2A3_KIND_LIB && a->image_size == 0);                       // linked: a slot of kind lib, no image
+        CHECK_EQ(w.log.count("(linked) : ok"), 2);
+        CHECK(w.log.find("[lib] aa (linked) : ok") >= 0 && w.log.find("[lib] bb (linked) : ok") >= 0);
+        CHECK(w.log.find("refused") < 0);
+        CHECK_EQ(g_before, 1);                                                             // once ...
+        CHECK_EQ(g_before_at, 0);                                                          // ... before the first library registered
+        CHECK(g_registered.size() == 2 && g_registered[0] == "aa" && g_registered[1] == "bb");
     }
-    // ---- what the library logs reaches the sink the board sets
+    // ---- (2) only one of the two is linked and the record carries one of them: a library with no record in the bundle registers without
     {
         World w;
-        g_lib_logs.clear();
-        w.ld.set_log(test_log_sink);
-        w.add(L1 "a.u2a", Img("alpha"));
-        w.run();
-        CHECK_EQ(g_lib_logs.size(), 1);
-        if (!g_lib_logs.empty()) { CHECK_STR(g_lib_logs[0].c_str(), "hello from alpha"); }
+        std::vector<Entry> one(1, Entry{ "aa", alpha });
+        Bytes rec = record7(one);
+        w.cor(rec);
+        w.libs(true, true);
+        w.run((uint32_t)rec.size());
+        CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 0);
+        CHECK(g_menu_given.size() == 2 && g_menu_given[0] == 1 && g_menu_given[1] == 0);
+        const LibInfo *b = w.ld.info(w.ld.handle_of("bb"));
+        CHECK(b && b->menu == 0);
     }
-#endif
-#ifndef TEST_APP_NES                     // the order on made-up metadata: the shared unit's and the Atari's app's (not the NES's unit)
-    // ---- the order itself, on made-up metadata (no files)
+    // ---- (2) a library that fails to register: the loader's sentence, on the log, in the screen's list and in the summary; the other still links
     {
-        LibMeta m[4];
-        memset(m, 0, sizeof(m));
-        for (int i = 0; i < 4; i++) { m[i].valid = true; m[i].kind = U2A3_KIND_LIB; }
-        strcpy(m[0].name, "a"); strcpy(m[1].name, "b"); strcpy(m[2].name, "c"); strcpy(m[3].name, "d");
-        m[0].nneeds = 1; strcpy(m[0].need[0], "b");
-        m[1].nneeds = 1; strcpy(m[1].need[0], "c");
-        m[2].nneeds = 1; strcpy(m[2].need[0], "base");
-        m[3].nneeds = 1; strcpy(m[3].need[0], "nobody");                // a name no file has: the loader's to refuse, not a cycle
-        int order[4], cyc[4];
-        int n = lib_dep_order(m, 4, order, cyc);
-        CHECK_EQ(n, 4);
-        CHECK(order[0] == 2 && order[1] == 1 && order[2] == 0 && order[3] == 3);
-        for (int i = 0; i < 4; i++) { CHECK_EQ(cyc[i], -1); }
-        // two cycles, one group each
-        strcpy(m[2].need[0], "a");                                     // a -> b -> c -> a
-        strcpy(m[3].need[0], "d");                                     // d -> d
-        n = lib_dep_order(m, 4, order, cyc);
-        CHECK_EQ(n, 0);
-        CHECK(cyc[0] == 0 && cyc[1] == 0 && cyc[2] == 0 && cyc[3] == 3);
+        World w;
+        Bytes rec = record7(two);
+        w.cor(rec);
+        w.libs(true, true);
+        g_fail_rc = 5;
+        w.run((uint32_t)rec.size());
+        CHECK_EQ(w.r.loaded, 1); CHECK_EQ(w.r.refused, 1);
+        CHECK(w.log.find("[lib] bb (linked) : refused: Library \"bb\": lib_register failed (5).") >= 0);
+        CHECK(w.log.find("[lib] aa (linked) : ok") >= 0);
+        CHECK(w.r.nkept == 1 && !strcmp(w.r.kept[0], "Library \"bb\": lib_register failed (5)."));
+        CHECK_STR(w.r.summary, "1 loaded, 1 refused: bb");
+        CHECK_EQ(w.ld.count(), 1);                                                         // nothing of bb stays
+        CHECK_EQ(w.ld.handle_of("bb"), -1);
     }
-    // ---- the order on made-up metadata: a need on an exported name
+    // ---- (2) a menu record no library takes is a refusal
     {
-        LibMeta m[3];
-        memset(m, 0, sizeof(m));
-        for (int i = 0; i < 3; i++) { m[i].valid = true; m[i].kind = U2A3_KIND_LIB; }
-        strcpy(m[0].name, "user"); m[0].nneeds = 1; strcpy(m[0].need[0], "ring");
-        strcpy(m[1].name, "other");
-        strcpy(m[2].name, "ringlib"); m[2].nexports = 2; strcpy(m[2].exp_name[0], "trx"); strcpy(m[2].exp_name[1], "ring");
-        int order[3], cyc[3];
-        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 3);
-        CHECK(order[0] == 1 && order[1] == 2 && order[2] == 0);          // "other" is ready first; then the exporter, then what needs "ring"
-        m[2].nexports = 0;                                               // the list is gone: no edge, the files keep their order
-        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 3);
-        CHECK(order[0] == 0 && order[1] == 1 && order[2] == 2);
-        // a library that needs a name it exports itself is a cycle of one
-        m[2].nexports = 1; strcpy(m[2].exp_name[0], "self"); m[2].nneeds = 1; strcpy(m[2].need[0], "self");
-        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 2);
-        CHECK_EQ(cyc[2], 2);
+        World w;
+        std::vector<Entry> es = two;
+        es.push_back(Entry{ "zz", gamma });
+        Bytes rec = record7(es);
+        w.cor(rec);
+        w.libs(true, true);
+        w.run((uint32_t)rec.size());
+        CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 1);
+        CHECK(w.log.find("The core bundle carries a menu record for \"zz\", which this app does not link with `register`.") >= 0);
+        CHECK(w.r.nkept == 1 && strstr(w.r.kept[0], "\"zz\""));
+        CHECK_STR(w.r.summary, "2 loaded, 1 refused: zz");
+        // two libraries of the record, only one linked
+        World v;
+        v.cor(rec);
+        v.libs(false, true);
+        v.run((uint32_t)rec.size());
+        CHECK_EQ(v.r.loaded, 1); CHECK_EQ(v.r.refused, 2);
+        CHECK_STR(v.r.summary, "1 loaded, 2 refused: aa");
     }
-#endif
+    // ---- (2) a damaged record, a version 1 record, a record that cannot be read: told, the libraries still register without a menu record
+    {
+        Bytes damaged = record7(two, 2, 3), v1 = record7(two, 1);
+        const Bytes *recs[2] = { &damaged, &v1 };
+        for (int i = 0; i < 2; i++) {
+            World w;
+            w.cor(*recs[i]);
+            w.libs(true, true);
+            w.run((uint32_t)recs[i]->size());
+            CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 1);
+            CHECK(w.log.find(std::string("[lib] ") + COR + ": ") >= 0);
+            CHECK(w.r.nkept == 1 && strstr(w.r.kept[0], i ? "base 4.0 loads no library file" : "damaged"));
+            CHECK_STR(w.r.summary, "2 loaded, 1 refused: bundle");
+            CHECK(g_menu_given.size() == 2 && g_menu_given[0] == 0 && g_menu_given[1] == 0);
+            CHECK(w.ld.info(w.ld.handle_of("aa")) && w.ld.info(w.ld.handle_of("aa"))->menu == 0);
+        }
+        World g;                                                                           // the .cor is not there at all
+        g.libs(true, false);
+        g.run(200);
+        CHECK_EQ(g.r.loaded, 1); CHECK_EQ(g.r.refused, 1);
+        CHECK(g.log.find("cannot be read") >= 0);
+    }
+    // ---- (2) no record: nothing refused, before_first still runs before the first registration; no library linked: it does not run
+    {
+        World w;
+        w.libs(true, true);
+        w.run(0);
+        CHECK_EQ(w.r.loaded, 2); CHECK_EQ(w.r.refused, 0);
+        CHECK_STR(w.r.summary, "2 loaded");
+        CHECK_EQ(g_before, 1); CHECK_EQ(g_before_at, 0);
+        CHECK(w.ld.info(w.ld.handle_of("bb")) && w.ld.info(w.ld.handle_of("bb"))->menu == 0);
+        World n;
+        n.run(0);
+        CHECK_EQ(n.r.loaded + n.r.refused, 0);
+        CHECK_STR(n.r.summary, "none");
+        CHECK(n.log.lines.empty());
+        CHECK_EQ(g_before, 0);
+        World x;                                                                           // no link step at all
+        lib_link_cor(&x.ld, &x.fs, COR, PREFIX, 0, 0, &x.log, &x.r, 0, 0);
+        CHECK_STR(x.r.summary, "none");
+    }
     DONE("test_libscan");
 }
