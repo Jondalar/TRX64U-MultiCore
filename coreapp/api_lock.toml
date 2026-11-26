@@ -49,3 +49,10 @@ headers = "5f20315f650767193d099ba57a370eb97aac873c7e1fa67ac9bc550674764e7a"
 version = "3.6"
 released = true
 headers = "176b3dbd37e17705eae830273e0b3de8e9da92d9d1c927318751c57562790e50"
+#
+# 3.7 (T260, T239.3 D54; the coming release, SDK 0.5.3): the dialogs of a core's own application, CoreDialogs (coredlg.h, CoreCtx::dialogs) with the list editor edit_list and the
+# text prompt text (api.md 9.8). Unreleased: what is added before the next SDK release stays under it (P2-6 renames this minor to 4.0, T239.3 D57).
+[[lock]]
+version = "3.7"
+released = false
+headers = "5cd0d5330273cd1b8d200327676cd8b0844cafb402e472ed5ff85496aff19651"
