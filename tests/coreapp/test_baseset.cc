@@ -14,6 +14,7 @@
 #include "baseset.h"
 #include "hookhost.h"
 #include "core_hooks.h"
+#include "libslot.h"
 #include "mousesink.h"
 #include "contrib.h"
 #ifdef TEST_APP_AMIGA
@@ -71,21 +72,48 @@ static void h_menu_closed(void) { g_log.push_back("menu_closed"); }
 static void h_changed(const char *key) { g_log.push_back(std::string("changed ") + key); }
 static void h_video(int behind) { g_log.push_back("video " + std::to_string(behind)); }
 static CoreHooks g_table;
-static uint32_t g_table_size, g_table_major;
-static const void *lib_find(const char *name, uint32_t min_version, uint32_t *size)
+static uint32_t g_table_major;
+static bool g_linked;                                     // the app is linked with the hooks library
+// The slot table of this unit's app (libslot.h, base 4.0): the slots of the native builds (tests/coreapp/libtab_native.cc: the shared app's exports, among them the mouse table that
+// u64_get_usb_hid_config_value reads), and the export "corehooks" of the hooks library at major 1 and one at major 2 (a table of a later major only); hooks_attach takes the slot of
+// major 1 (libtab_export). The size is the table's first word, as make_table sets it.
+const void *c64cart_table(void);
+const void *cbm1541_table(void);
+const void *sid_table(void);
+const void *tempdisk_table(void);
+const void *cbmprg_table(void);
+const void *mouse_table(void);
+const void *pad_table(void);
+const void *padkeys_table(void);
+const void *miniz_table(void);
+static const void *hooks_m1(void) { return g_linked && g_table_major == 1 ? &g_table : 0; }
+static const void *hooks_m2(void) { return g_linked && g_table_major == 2 ? &g_table : 0; }
+const LibSlot g_libslot[] = {
+    { "c64cart", "c64cart", 1, c64cart_table, 0 },
+    { "cbm1541", "cbm1541", 1, cbm1541_table, 0 },
+    { "sid", "sid", 1, sid_table, 0 },
+    { "tempdisk", "tempdisk", 1, tempdisk_table, 0 },
+    { "cbmprg", "cbmprg", 1, cbmprg_table, 0 },
+    { "mouse", "mouse", 1, mouse_table, 0 },
+    { "pad", "pad", 1, pad_table, 0 },
+    { "padkeys", "padkeys", 1, padkeys_table, 0 },
+    { "miniz", "miniz", 1, miniz_table, 0 },
+    { "hooklib", "corehooks", 1, hooks_m1, 0 },
+    { "hooklib2", "corehooks", 2, hooks_m2, 0 },
+};
+const unsigned g_libslot_n = 11;
+const void *g_libslot_bound[11];
+static void attach(bool linked)
 {
-    if (strcmp(name, "corehooks") || (min_version >> 16) != g_table_major) return 0;
-    if (size) *size = g_table_size;
-    return &g_table;
+    g_linked = linked;
+    hooks_attach();
 }
-static const SvcLib lib = { sizeof(SvcLib), lib_find };
 static void make_table(uint32_t size, bool all)
 {
     memset(&g_table, 0, sizeof(g_table));
     g_table.size = size;
     g_table.start = h_start;
     if (all) { g_table.menu_closed = h_menu_closed; g_table.base_setting_changed = h_changed; g_table.menu_video = h_video; }
-    g_table_size = size;
     g_table_major = 1;
 }
 
@@ -268,7 +296,7 @@ int main()
     {
         Rig r(&rich_amiga);
         make_table(sizeof(CoreHooks), true);
-        hooks_attach(&lib);
+        attach(true);
         CHECK(hooks_present());
         g_log.clear();
         r.set("Joystick Input", "Swapped");                                // before the start: the port acts, the hook is not told
@@ -301,16 +329,16 @@ int main()
         CHECK_STR(g_log[0].c_str(), "video 1");
         CHECK_STR(g_log[1].c_str(), "video 0");
         make_table((uint32_t)offsetof(CoreHooks, menu_video), true);      // a library of an earlier 3.3 has no menu_video: nothing is called
-        hooks_attach(&lib);
+        attach(true);
         g_log.clear();
         hooks_menu_video(true);
         CHECK(g_log.empty());
         make_table(sizeof(CoreHooks), true);
-        hooks_attach(&lib);
+        attach(true);
 
         Rig nm(&mouse_core);                                               // a core with a mouse and without a capability: the two mouse rows
         make_table(sizeof(CoreHooks), true);
-        hooks_attach(&lib);
+        attach(true);
         g_log.clear();
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         CHECK_EQ(g_log.size(), 3u);
@@ -318,7 +346,7 @@ int main()
 
         // a start that fails says why (cut to the buffer) and returns 1; the settings are still told after it
         make_table(sizeof(CoreHooks), true);
-        hooks_attach(&lib);
+        attach(true);
         g_fail_start = true;
         g_log.clear();
         char small[24];
@@ -329,20 +357,20 @@ int main()
 
         // a table of an older 3.x that ends before menu_closed: no such hook; one that ends before base_setting_changed: no such hook
         make_table((uint32_t)offsetof(CoreHooks, menu_closed), true);
-        hooks_attach(&lib);
+        attach(true);
         g_log.clear();
         CHECK(!hooks_menu_closed());
         CHECK(!hooks_has_menu_closed());
         CHECK_EQ(hooks_start(&nm.c, msg, sizeof(msg)), 0);
         CHECK_EQ(g_log.size(), 1u);                                        // start only
         make_table((uint32_t)offsetof(CoreHooks, base_setting_changed), true);
-        hooks_attach(&lib);
+        attach(true);
         g_log.clear();
         CHECK(hooks_menu_closed());
         CHECK_EQ(g_log.size(), 1u);
         // a member left null is no hook
         make_table(sizeof(CoreHooks), false);
-        hooks_attach(&lib);
+        attach(true);
         g_log.clear();
         CHECK(!hooks_menu_closed());
         CHECK(!hooks_has_menu_closed());
@@ -353,7 +381,7 @@ int main()
         make_table(sizeof(CoreHooks), true);
         g_table.start = 0;
         g_table.menu_closed = 0;
-        hooks_attach(&lib);
+        attach(true);
         CHECK(hooks_present());
         CHECK(!hooks_has_menu_closed());
         g_log.clear();
@@ -361,12 +389,12 @@ int main()
         CHECK_EQ(g_log.size(), 2u);                                        // no start, but the two settings of a core with a mouse are told
         CHECK_STR(g_log[0].c_str(), "changed Mouse Sensitivity");
 
-        // a table of a later major only, no table, no lib: no hooks, nothing is called
+        // a table of a later major only, no library linked: no hooks, nothing is called
         make_table(sizeof(CoreHooks), true);
         g_table_major = 2;
-        hooks_attach(&lib);
+        attach(true);
         CHECK(!hooks_present());
-        hooks_attach(0);
+        attach(false);
         CHECK(!hooks_present());
         g_log.clear();
         CHECK(!hooks_menu_closed());
@@ -382,7 +410,7 @@ int main()
     {
         Rig r(&rich_nes);
         g_log.clear();
-        hooks_attach(0);
+        attach(false);
         const char *names[6] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
         const char *want[6] = { "joy 0 0", "joy 1 0", "joy 0 1", "joy 1 1", "joy 0 3", "joy 1 3" };
         for (int i = 0; i < 6; i++) {

@@ -31,6 +31,33 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };   // the table of it
 
 #ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_cut): the record's cases; the shared unit keeps the key table
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
+#include "libslot.h"
+// The slot table of this unit's app (libslot.h, base 4.0): the slots of the native builds (tests/coreapp/libtab_native.cc) and a library with a text screen, "textgrid" major 1 (the
+// model grid). The base reaches the grid by name through the slot table (LibLoader::find_export), never through an API call (T239.3 D58).
+const void *c64cart_table(void);
+const void *cbm1541_table(void);
+const void *sid_table(void);
+const void *tempdisk_table(void);
+const void *cbmprg_table(void);
+const void *mouse_table(void);
+const void *pad_table(void);
+const void *padkeys_table(void);
+const void *miniz_table(void);
+static const void *slot_textgrid(void) { return &g_mg_table; }
+const LibSlot g_libslot[] = {
+    { "c64cart", "c64cart", 1, c64cart_table, 0 },
+    { "cbm1541", "cbm1541", 1, cbm1541_table, 0 },
+    { "sid", "sid", 1, sid_table, 0 },
+    { "tempdisk", "tempdisk", 1, tempdisk_table, 0 },
+    { "cbmprg", "cbmprg", 1, cbmprg_table, 0 },
+    { "mouse", "mouse", 1, mouse_table, 0 },
+    { "pad", "pad", 1, pad_table, 0 },
+    { "padkeys", "padkeys", 1, padkeys_table, 0 },
+    { "miniz", "miniz", 1, miniz_table, 0 },
+    { "gridlib", "textgrid", 1, slot_textgrid, 0 },
+};
+const unsigned g_libslot_n = 10;
+const void *g_libslot_bound[10];
 #endif
 
 // the core of these units: the NES with the record golden/desc_cut.toml (argv[1], compiled by gen_bundle.py): the Timewarp and monitor pages and the key table that drives them
@@ -38,17 +65,6 @@ static RecordMenu *g_rm;
 // the monitor's key operation of a record core: here it only counts what it was given (the real one is TRX64-Ultimate's)
 static int g_mon_key_n, g_mon_key_last;
 static int mon_key_op(CoreCtx *, const OpArgs &a, OpOut &o) { g_mon_key_n++; g_mon_key_last = (int)a.i(0); o.msg[0] = 0; return OPE_OK; }
-
-// the loader of the application, as libboard.cc makes it, with no images: the table of the monitor's grid goes in through add_export and the menu finds it through LibLoader::find_export
-struct GridHost : LibHost {
-    void *alloc(uint32_t n) override { return malloc(n); }
-    void release(void *p) override { free(p); }
-    uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
-    void sync_code(void *, uint32_t) override { }
-    bool has_capability(const char *) override { return false; }
-    const char *core_name() override { return "Test Core"; }
-    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 99; }
-};
 
 struct Host : MenuHost {
     int leaves = 0;
@@ -226,13 +242,10 @@ int main(int, char **argv)
         CHECK_EQ(r.m->key(KEY_F10), MenuCtl::R_CLOSE);
         mg_uninstall();
     }
-    // ---- the base's chain to a library's text screen: the table registered with the loader under "textgrid", the menu's finder is LibLoader::find_export, and the calls reach the table
+    // ---- the base's chain to a library's text screen: the export "textgrid" of the app's slot table, the menu's finder is LibLoader::find_export, and the calls reach the table
     {
         Rec r;
-        GridHost gh;
-        LibLoader ld(&gh, ops_of(&r.c), 3);
         g_mg.reset();
-        CHECK(ld.add_export("textgrid", 1, &g_mg_table));
         menu_set_export_finder(LibLoader::find_export);
         const TextGrid *g = menu_grid("textgrid");
         CHECK(g != 0 && g->size == sizeof(TextGrid));
