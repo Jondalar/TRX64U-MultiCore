@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1-D3 decided; Q3-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26; D1 base trx64 w/o ring+monitor; D2 50T+100T, 50T drops streams/sampler; D3 large; Q3-12 open
+https://github.com/NebulaSleuth/VIC-X/". D1-D4 decided; Q4-Q12 open; nothing built.
+Open (one line, as in the TODO table): PROPOSED 11-26; D1 base trx64 w/o ring+monitor; D2 50T+100T, 50T drops streams/sampler; D3 large; D4 VRAM in DDR2; Q4-12 open
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -204,6 +204,11 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
 - **D3 (Alex, 2026-11-26): a large core.** Asked Q1 (large and flat, host and core in one bitstream, or partial in `pb_l2`, where even
   `c64ref` plus the smallest VIC-X build does not fit): "Ja ein large Core." (translated: "Yes, a large core."). Host and core are flat in
   one bitstream with the core's own copy of the host files, as `cores/c64scpu/mono/host`.
+- **D4 (Alex, 2026-11-26): VRAM in the DDR2, one design for both boards.** Asked Q3 (VRAM in block RAM, in the DDR2, or per board): "B. Und
+  so Kram haben wir doch für die scpu auch schon gehabt." (translated: "B. And we already had that kind of thing for the SuperCPU.") VIC-X
+  runs with `EXT_VRAM => true`; its `vx_*` port reaches the DDR2 through a client of the memory arbiter, built the way `c64scpu` keeps its RAM
+  and ROM in the DDR2 behind slot and line caches (`cores/c64scpu/mono/core.toml:19`, `cores/c64scpu/PROVENANCE.md:21`) - that path is
+  read and reused before anything new is written. The XRAM (the REU's memory) is in the DDR2 already.
 
 **Open questions for Alex** (one at a time):
 
@@ -233,7 +238,7 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   A: full VIC-X; standard blocks give way until it fits.
   B: sprites 64/16 (inside the spec); fewer standard blocks give way.
   C: a build below the spec's required set (no DMA, or layers only); still above S10's budget by arithmetic, so blocks give way too.
-- **Q3 VRAM inside or outside.**
+- **Q3 VRAM inside or outside.** Answered: D4 (DDR2).
   A: block RAM, 32 tiles (128 KB) or 16 (64 KB); with the full block about 57 + 15 + 16 = 88 of 75 tiles. No DMA engine and no XRAM
   windows (`hdl/README.md:160-163`).
   B: DDR2 through the client that `trx_engine` leaves free (`top.v:771`), or a new `mig_arb` client; an adapter for 8-byte reads and
