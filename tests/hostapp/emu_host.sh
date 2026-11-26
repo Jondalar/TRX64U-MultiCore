@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # T174 D2.8: the host application's real flow in ue2emu (S44, docs/specs/S44-multicore-cores.md of the emulator): the host app starts, F3 > USB0 > cores >
-# vc20.cor > S starts a DFX core (the partial is found by its SHA-256 in the emulator's --cor-dir), the core application identifies VC20 and takes the
-# machine, CTRL+RESTORE opens its menu, F8 > "Return to host menu" brings the host application back (IPROG WBSTAR 0, the menu marker).
+# <core>.cor > S starts the core (a DFX core's partial is found by its SHA-256 in the emulator's --cor-dir, a large core by IPROG), the core application
+# identifies it and takes the machine, its menu hotkey (or the menu button) opens the menu, F8 > "Return to host menu" brings the host application back.
 #
 #   tests/hostapp/emu_host.sh <images dir> <out dir>
 #
@@ -12,7 +12,7 @@
 # (with RESTORE; the menu button when the core has no hotkey) and the stand-ins of the ROM files it needs. The host menu's own flows walk vc20.cor and run in
 # the VIC-20's lane only.
 # <images dir>: hostapp_emu.elf (ci/trxapps.sh: the host app built with HOSTAPP_EMU_FLASH) and coreapp.elf. <out dir>: the run's log, flash image and PNGs
-# (host-start.png, core-menu.png, host-back.png; the T187 picture flow: host-home, host-f8-list, host-picture-page, host-picture-applied). The kit (ROMs, flash.bin, profile, vc20.cor) is found as ci/lib.sh ue2emu_kit says (tools/ue2emu_kit.sh);
+# (host-start.png, core-menu.png, host-back.png; the T187 picture flow: host-home, host-f8-list, host-picture-page, host-picture-applied). The kit (ROMs, flash.bin, the cores' .cor files) is found as ci/lib.sh ue2emu_kit says (ci/emu_kit.sh, tools/ue2emu_kit.sh); the profiles come from this tree;
 # the emulator is ci/ue2emu.sh (local binary or the UE2EMU_IMAGE container). Prints PASS/FAIL lines; 
 # Exit 0 = PASS, 1 = FAIL, 77 = nothing to run with (no images, kit or emulator: said out loud).
 set -uo pipefail
@@ -31,8 +31,14 @@ else
 fi
 kit="$(ue2emu_kit)" || skip "no emulator kit (UE2EMU_KIT, tools/ue2emu_kit.sh)"
 [ -f "$kit/cors/$core.cor" ] || skip "kit $kit has no cors/$core.cor"
+# the profiles come from this tree (cores/<core>/app/ue2emu.toml through tools/ue2emu_core.py), never from the kit: a kit made earlier may hold an older one
+kprof="$(mktemp -d)"; trap 'rm -rf "$kprof"' EXIT
+for c in "$core" vc20; do
+    [ -f "$kit/cors/$c.cor" ] || continue
+    python3 -I "$ROOT/tools/ue2emu_core.py" profile "$c" "$kit/cors/$c.cor" "$kprof" > /dev/null || { echo "FAIL host->$core->menu->host: no profile of $c"; exit 1; }
+done
 # kind, cname, prof, ident, hold, magic, start_ms (tools/ue2emu_core.py facts)
-facts="$(python3 -I "$ROOT/tools/ue2emu_core.py" facts "$core" "$kit/cors/$core.cor" "$kit/profiles")" || { echo "FAIL host->$core->menu->host: no facts of the round"; exit 1; }
+facts="$(python3 -I "$ROOT/tools/ue2emu_core.py" facts "$core" "$kit/cors/$core.cor" "$kprof")" || { echo "FAIL host->$core->menu->host: no facts of the round"; exit 1; }
 eval "$facts"
 "$UE2EMU" run --help >/dev/null 2>&1 || skip "no emulator ($UE2EMU)"
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"; img="$(cd "$img" && pwd -P)"
@@ -70,7 +76,7 @@ run_flow() {   # run_flow NAME WITH_COR(1|0): the whole flow; the log is $out/NA
         cor_under_test "$w/cors/$core.cor" || return 1
         cp "$w/cors/$core.cor" "$w/stick/cores/"
     fi
-    cp "$kit/profiles/$prof" "$w/profiles/"; elf_under_test "$w/profiles"
+    cp "$kprof/$prof" "$w/profiles/"; elf_under_test "$w/profiles"
     # zero-filled stand-ins (no ROM goes into a kit): the core application finds its ROM files, releases the machine and its hotkey opens the menu
     python3 -I "$ROOT/tools/ue2emu_core.py" roms "$core" "$w/stick/cores/$core/roms" > /dev/null || return 1
     { nav; back; } > "$w/flow.ctl"
@@ -164,7 +170,7 @@ run_cfg_flow() {
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
     cor_under_test "$w/cors/vc20.cor" || return 1
     cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$w/cors/vc20.cor" "$w/stick/cores/vc20x.cor"
-    cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
+    cp "$kprof/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
     local d n
     for d in vc20 vc20x; do
         mkdir -p "$w/stick/cores/$d/roms" "$w/stick/cores/$d/configs"
@@ -306,7 +312,7 @@ run_core_page() {
     local w="$out/work-cpage" n
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores/vc20/roms" "$w/stick/many"
     cor_under_test "$w/cors/vc20.cor" || return 1
-    cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
+    cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$kprof/VIC-20.toml" "$w/profiles/"; elf_under_test "$w/profiles"
     head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/basic.bin"; head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/kernal.bin"; head -c 4096 /dev/zero > "$w/stick/cores/vc20/roms/char.bin"
     for n in $(seq -w 1 80); do printf 'x\n' > "$w/stick/many/file$n.txt"; done
     core_page_nav > "$w/flow.ctl"

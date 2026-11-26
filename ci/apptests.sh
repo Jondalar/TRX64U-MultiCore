@@ -65,7 +65,7 @@ suite_specs() {
     hostapp_render) printf '%s\n' "${common[@]}" tests/hostapp app/view app/video ;;
     # emulator scripts (ue2emu through ci/ue2emu.sh, T174 D2.8): they run on the built RISC-V images; a PASS is cached for the content below
     # the round of the old pipeline is the VIC-20's: its profile and description are read by tools/ue2emu_core.py
-    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh tools/ue2emu_kit.sh tools/ue2emu_core.py cores/vc20/app/ue2emu.toml cores/vc20/app/desc.toml ;;
+    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh ci/emu_kit.sh tools/ue2emu_kit.sh tools/ue2emu_core.py ;;
     *) return 1 ;;
   esac
 }

@@ -1,4 +1,4 @@
-# The Commodore PET core of TRX64U-MultiCore as the core application sees it (the layout of vc20.toml). Tests only (T206 emulator picture).
+# The Commodore PET core of TRX64U-MultiCore as the core application sees it (the layout of vc20.toml). Read by the emulator tests (T206 emulator picture) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
 name = "pet"
 id = "PET1"
 board = "multicore"

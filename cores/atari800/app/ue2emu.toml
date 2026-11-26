@@ -1,4 +1,4 @@
-# The Atari 800 XL core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml). Tests only (T205 emulator pictures).
+# The Atari 800 XL core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml). Read by the emulator tests (T205 emulator pictures) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
 name = "atari800"
 id = "A8XL"
 board = "multicore"

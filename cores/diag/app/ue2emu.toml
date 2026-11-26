@@ -1,4 +1,4 @@
-# The Port Diagnostics core of TRX64U-MultiCore as the core application sees it (the layout of c128.toml). Tests only (T196 S7 emulator run of the xpad test).
+# The Port Diagnostics core of TRX64U-MultiCore as the core application sees it (the layout of c128.toml). Read by the emulator tests (T196 S7 emulator run of the xpad test) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
 name = "diag"
 id = "DIAG"
 board = "multicore"

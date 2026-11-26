@@ -1,4 +1,4 @@
-# The C64 with SuperCPU core of TRX64U-MultiCore as the core application sees it (the layout of c128.toml). Tests only (T217 emulator pictures).
+# The C64 with SuperCPU core of TRX64U-MultiCore as the core application sees it (the layout of c128.toml). Read by the emulator tests (T217 emulator pictures) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
 name = "c64scpu"
 id = "SCPU"
 board = "multicore"
