@@ -17,6 +17,9 @@
       skipped without the checkout or the commit): all 39 blocks (168 properties) agree with the RTL (V-1f: trx_dbg_run.owner byte 3, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set included).
   2f. the miniature design tests/rtl_check/mini6 (V-1f): a unit two modules behind the handshake (an instance inside the module that the continuous assignments feed), a genvar select, a write that
       clears a register whatever the data is, a register written under an address compare while another expression names the data behind a different compare.
+  2g. the miniature design tests/rtl_check/mini7, one top per construct, the request on the top's own ports (the cores' way): a function declared in a process (apple2's
+      a2_regs.vhd), a write branch that assigns the address to a process variable under the write flag (a2_regs.vhd), an instance whose module is a `define of its file
+      (the SNES core's snes_core.v), and a register whose decoded read answers the constant 0 (c64_basic's command_protocol.vhd, command_start).
   3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
   5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
      same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
@@ -93,6 +96,26 @@ must(rc == 0 and "3 block(s), 4 properties agree" in out,
      "mini6 design: a unit that the module behind the handshake's continuous assignments holds (an instance followed behind a handshake), two cells of a generate-for that compare the address with "
      "a select of the genvar, a register written from the data under an address compare (the data of another compare in another register's expression is no write), and a register that a write clears "
      "whatever the data is (a case arm of the pipeline's module): the blocks agree with the RTL", out)
+
+
+def mini7(top, toml):
+    return run("check", "--design", os.path.join(HERE, "mini7"), "--toml-a", os.path.join(HERE, toml), "--top", top,
+               "--bus", top + ":write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100")
+
+
+rc, out = mini7("top7fn", "mini7_fn.toml")
+must(rc == 0 and "1 block(s), 4 properties agree" in out,
+     "mini7 (apple2's a2_regs.vhd): a function declared in a process (a local `downto 0` that takes the argument, one return), called with a port, with a register and with a slice "
+     "of a port, is read: build, base and stat_hi are read through it", out)
+rc, out = mini7("top7var", "mini7_var.toml")
+must(rc == 0 and "1 block(s), 2 properties agree" in out,
+     "mini7 (apple2's a2_regs.vhd): an assignment of the address to a process variable under the write flag is no write: only the register that takes the data is written", out)
+rc, out = mini7("top7mac", "mini7_mac.toml")
+must(rc == 0 and "1 block(s), 1 property agree" in out,
+     "mini7 (the SNES core's snes_core.v): the instance whose module is a `define of its file (under `ifndef, the ports in the next lines) is followed: its register is written and read", out)
+rc, out = mini7("top7zero", "mini7_zero.toml")
+must(rc == 0 and "1 block(s), 2 properties agree" in out,
+     "mini7 (c64_basic's command_protocol.vhd, command_start): the register whose case arm answers the constant 0 is read", out)
 
 ult_commit = "975aa59b"
 tomla = subprocess.run(["git", "-C", ult, "show", ult_commit + ":software/trx64u/gateware/c64_basic.toml"], capture_output=True, text=True) if os.path.isdir(dsg) else None

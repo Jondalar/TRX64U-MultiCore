@@ -14,14 +14,19 @@ check
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
-  read does not run (a strobe register that ignores the data byte; the write flag alone is no write); a read is a response whose data does not come from the literal 0 alone. A module is followed
+  read does not run (a strobe register that ignores the data byte; the write flag alone is no write; a process variable is a write only when it takes the data:
+  a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag is not, the signal that takes its value is); a read is a response whose data does not come from the literal 0 alone, or
+  whose 0 a case arm that the request's address selects for sure assigns as a constant (a decoded register that reads 0: command_protocol.vhd's command_start; the 0 of an
+  address that no arm selects, `when others`, `default` or an assignment before the case, stays no read, and a copy under such an arm, a mux of the answers, is followed to
+  where it comes from). A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
   A block with owner = "core" is checked like a block of the base (D43): decoded, every property written and read as its dir says. Where the RTL hands its bytes to the core, over a port of the
   groups CORE_PORTS (the host: a strobe port that is 1 for the address, or a register driven under the address; a data port of the same group must carry the request's data), the block is
   a window and only the hand-over is checked (a block the design decodes in every byte is checked like a base block, whatever else it forwards); its properties are then the core's contract, checked
   in the core's own design. A design that holds layer 2 as well (c64_basic) decodes them itself.
   `--own-core` and `--core-in-design` (the options of 0.4.5 that chose this per run) are still accepted and change nothing.
-  `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
+  `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined, but for a `define of the same Verilog file
+  above it (in a branch that is on). Such a `define without arguments is replaced by its text where `NAME is used (snes_core.v: the module of an instance). A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
   another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
   unknown (X) (the parameter lists of the top-level Verilog file are read for it).
@@ -43,6 +48,8 @@ check
   The synchronizers of a clock-domain bridge (synchronizer_gzw) carry the vector unchanged: their outputs are their inputs, io_bus_bridge2 itself is read from its source.
   A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
   A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
+  A function declared in a process (a2_regs.vhd: b4; in-parameters, local variables `downto 0` assigned in its body, one return at its end) is replaced by its return expression
+  at its calls, each local by what was assigned to it, each formal by the argument (an argument whose range is not `downto 0` is refused).
   The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
   A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
   assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
@@ -71,7 +78,8 @@ check
   another address (trx_dbg.v: ev <= ... || (wcmd && cmd == 8'h01)) is no write of this address. A select of a genvar (`{1'b1, 6'h02, gu[0]}`) is a constant. A register that a write sets whatever the
   data is (trx_sys.v: `14'h0402: sb_err <= 1'b0` under op_we) is a write when its assignment lies in an arm of a case that the request's address selects (taint m) in a module behind a handshake with a
   register pipeline, and the same address as a read does not run it; what a read of the address runs is collected in every module the request reaches (the readref of the first level and of each level behind it).
-  What is not followed yet: a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
+  What is not followed yet: a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment, a Verilog macro with arguments or one
+  the file does not `define (the rest of the line where it is used is not read), a decoded read of the constant 0 behind an if (only a case arm counts).
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -286,7 +294,7 @@ VLOG_TOK = re.compile(r'''
  (?P<ws>\s+)
 |(?P<cm>//[^\n]*|/\*.*?\*/)
 |(?P<attr>\(\*(?!\)).*?\*\))
-|(?P<dir>`[^\n]*)
+|(?P<dir>`[A-Za-z_]\w*|`[^\n]*)
 |(?P<num>\d*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ_?]+|\d[\d_]*\.\d[\d_]*|\d[\d_]*|'[01xXzZ])
 |(?P<str>"(?:[^"\\]|\\.)*")
 |(?P<id>[A-Za-z_][\w$]*|\$[A-Za-z_]\w*)
@@ -298,9 +306,13 @@ XNEG = [0]        # how often a unary minus met an unknown operand (the value be
 DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
 
 
-def lex(text, lang, fname):
+def lex(text, lang, fname, macros=None, expanding=()):
+    """The tokens of a source text. Verilog: an `ifdef / `ifndef / `elsif names a --define symbol or a `define of the file above it (in a branch that is on); an object-like
+    `define of the file (`define SNES_MEM_MOD snes_mem) is replaced by its text where `NAME is used (snes_core.v: the module of an instance). A use of a macro the file does not
+    define, or of one with arguments, and every other directive take the rest of their line, as before."""
     pat = VHDL_TOK if lang == "vhdl" else VLOG_TOK
     out, pos, line = [], 0, 1
+    macros = {} if macros is None else macros    # name -> body text (None: a macro with arguments) of the `define lines read so far
     cond = []   # one (parent active, a branch was taken, this branch active) per open `ifdef
     while pos < len(text):
         m = pat.match(text, pos)
@@ -309,24 +321,50 @@ def lex(text, lang, fname):
         k, s = m.lastgroup, m.group()
         on = all(c[2] for c in cond)
         if k == "dir":
+            word = s[1:]
+            if macros.get(word) is not None and word not in ("ifdef", "ifndef", "else", "elsif", "endif", "define", "undef"):
+                if word in expanding:
+                    raise Unsupported("%s:%d: the macro `%s uses itself" % (fname, line, word))
+                if on:
+                    out += [(bk, bs, line) for bk, bs, _ in lex(macros[word], lang, fname, macros, expanding + (word,))[:-1]]
+                pos = m.end()
+                continue
+            end = text.find("\n", pos)
+            end = len(text) if end < 0 else end
+            if word == "define":
+                while end < len(text) and text[pos:end].rstrip().endswith("\\"):     # a body that goes on in the next line
+                    nxt = text.find("\n", end + 1)
+                    end = len(text) if nxt < 0 else nxt
+            s = text[pos:end]
             d = re.match(r"`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", s)
             if d:
                 kw, nm = d.groups()
                 if kw in ("ifdef", "ifndef"):
-                    hit = (nm in DEFINES) == (kw == "ifdef")
+                    hit = (nm in DEFINES or nm in macros) == (kw == "ifdef")
                     cond.append((on, hit, hit))
                 elif not cond:
                     raise Unsupported("%s:%d: `%s without an open `ifdef" % (fname, line, kw))
                 elif kw == "elsif":
                     par, taken, _ = cond[-1]
-                    hit = (nm in DEFINES) and not taken
+                    hit = (nm in DEFINES or nm in macros) and not taken
                     cond[-1] = (par, taken or hit, hit)
                 elif kw == "else":
                     par, taken, _ = cond[-1]
                     cond[-1] = (par, True, not taken)
                 else:
                     cond.pop()
-        elif k not in ("ws", "cm", "attr") and on:
+            elif on and word == "define":
+                dm = re.match(r"`define[ \t]+([A-Za-z_]\w*)(\()?(.*)", s, re.S)
+                if dm:
+                    macros[dm.group(1)] = None if dm.group(2) else dm.group(3).replace("\\\n", " ").strip()
+            elif on and word == "undef":
+                um = re.match(r"`undef[ \t]+([A-Za-z_]\w*)", s)
+                if um:
+                    macros.pop(um.group(1), None)
+            line += s.count("\n")
+            pos = end
+            continue
+        if k not in ("ws", "cm", "attr") and on:
             out.append((k, s.lower() if (lang == "vhdl" and k == "id") else s, line))
         line += s.count("\n")
         pos = m.end()
@@ -527,7 +565,7 @@ class P:
     def __init__(self, toks, fname, ovr=None):
         self.t, self.i, self.fname = toks, 0, fname
         self.ovr = ovr or {}
-        self.procs, self.noreg, self.aliases = {}, 0, {}
+        self.procs, self.funcs, self.noreg, self.aliases = {}, {}, 0, {}
         self.cur, self.pvars = None, {}
 
     def pk(self, n=0):
@@ -1055,8 +1093,100 @@ class VhdlParser(P):
         self.eat(";")
         self.procs[name] = (formals, body)
 
+    def function(self, m):
+        """A function declared in a process (a2_regs.vhd: b4): in-parameters, local variables, a body of assignments to the locals and one return at its end. A call is replaced
+        by the return expression (func_call), each local by the expression last assigned to it and each formal by the argument. A local vector is declared `downto 0`: the
+        assignment renumbers the argument's bits from 0, which the replacement keeps only for an argument whose own range ends at 0 (func_call refuses another)."""
+        self.acc("pure") or self.acc("impure")
+        self.eat("function")
+        name = self.eat()[1]
+        formals = []
+        if self.acc("("):
+            while True:
+                if self.txt() in ("signal", "variable", "file"):
+                    raise self.err("a function parameter class")
+                self.acc("constant")
+                names = [self.eat()[1]]
+                while self.acc(","):
+                    names.append(self.eat()[1])
+                self.eat(":")
+                if self.txt() in ("out", "inout", "buffer"):
+                    raise self.err("a function parameter of mode %s" % self.txt())
+                self.acc("in")
+                self.subtype()
+                if self.txt() == ":=":
+                    raise self.err("a function parameter with a default")
+                formals += names
+                if not self.acc(";"):
+                    break
+            self.eat(")")
+        self.eat("return")
+        self.subtype()
+        self.eat("is")
+        locs = {}
+        while self.txt() != "begin":
+            if self.txt() != "variable":
+                raise self.err("a declaration in a function I do not know")
+            self.eat()
+            names = [self.eat()[1]]
+            while self.acc(","):
+                names.append(self.eat()[1])
+            self.eat(":")
+            ty = self.subtype()
+            if self.txt() == ":=":
+                raise self.err("a function variable with an initial value")
+            self.eat(";")
+            if ty.hi is not None and (ty.asc or ty.lo is None or ty.lo[0] != "n" or not ty.lo[1].known() or ty.lo[1].v != 0):
+                raise self.err("a function variable whose range is not `downto 0`")
+            for n in names:
+                locs[n] = Decl(n, "var", ty)
+        self.eat("begin")
+        saved, env = self.pvars, {}
+        self.pvars = dict({f: Decl(f, "var", Ty("formal")) for f in formals}, **locs)     # the names of the body as the slice parser looks them up (asc_high)
+        try:
+            while self.txt() != "return":
+                lhs = self.target()
+                if lhs[0] != "id" or lhs[1] not in locs or not self.acc(":="):
+                    raise self.err("a function body other than assignments to its variables and one return")
+                env[lhs[1]] = subst(self.expr(), env)
+                self.eat(";")
+            self.eat("return")
+            ret = subst(self.expr(), env)
+            self.eat(";")
+        finally:
+            self.pvars = saved
+        self.eat("end")
+        self.acc("function")
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+        used = set()
+        ids_of(ret, used)
+        if used & (set(locs) - set(env)):
+            raise self.err("a function variable read before it is assigned")
+        self.funcs[name] = (formals, ret)
+
+    def func_call(self, name):
+        """f(a, b) of a function declared in the process: its return expression with the arguments put in (see function)."""
+        formals, ret = self.funcs[name]
+        self.eat("(")
+        args = [self.expr()]
+        while self.acc(","):
+            args.append(self.expr())
+        self.eat(")")
+        if len(args) != len(formals):
+            raise self.err("a call of %s with named or missing arguments" % name)
+        for a in args:
+            while a[0] == "paren":
+                a = a[1]
+            d = (self.pvars.get(a[1]) or (self.cur.decls.get(a[1]) if self.cur is not None else None)) if a[0] == "id" else None
+            if d is not None and d.ty is not None and d.ty.hi is not None and (d.ty.asc or d.ty.lo[0] != "n" or not d.ty.lo[1].known() or d.ty.lo[1].v != 0):
+                raise self.err("a call of %s with %s, a vector whose range is not `downto 0`" % (name, a[1]))
+        return ("paren", subst(ret, dict(zip(formals, args))))
+
     def process(self, m, where):
         self.procs = {}
+        self.funcs = {}
         self.acc("postponed")
         self.eat("process")
         if self.txt() == "(":
@@ -1079,6 +1209,8 @@ class VhdlParser(P):
                     vars_[n] = Decl(n, "var", ty, init)
             elif self.txt() == "procedure":
                 self.procedure(m)
+            elif self.txt() in ("function", "pure", "impure"):
+                self.function(m)
             elif self.txt() == "alias":
                 self.alias_decl()
             elif self.txt() in ("constant", "type", "subtype"):
@@ -1089,7 +1221,7 @@ class VhdlParser(P):
         self.eat("begin")
         self.pvars = vars_
         stmts = self.seq(m, ("end",))
-        self.pvars = {}
+        self.pvars, self.funcs = {}, {}
         self.eat("end")
         self.eat("process")
         if self.txt() != ";":
@@ -1321,7 +1453,10 @@ class VhdlParser(P):
             while self.txt() == "." and self.pk(1)[0] == "id":
                 self.eat()
                 name += "." + self.eat()[1]
-            e = self.aliases[name] if name in self.aliases else ("id", name)
+            if name in self.funcs and self.txt() == "(":
+                e = self.func_call(name)
+            else:
+                e = self.aliases[name] if name in self.aliases else ("id", name)
             while self.txt() == "(":
                 e = self.suffix(e)
             if self.txt() == "'":
@@ -2106,21 +2241,22 @@ class Design:
 
 def pp_ifdef(text):
     """The `ifdef / `ifndef / `elsif / `else / `endif lines of a Verilog text decided with DEFINES (the line-based form of lex's): a branch that is off, and the directive lines, become empty
-    lines (D55: layer2_c128.v chooses the module of an instance, and the header of the instance is inside the branches)."""
-    cond, out = [], []
+    lines (D55: layer2_c128.v chooses the module of an instance, and the header of the instance is inside the branches). As in lex, a `define of the text above (in a branch
+    that is on) counts as defined."""
+    cond, out, defs = [], [], set()
     for ln in text.split("\n"):
         d = re.match(r"\s*`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", ln)
         on = all(c[2] for c in cond)
         if d:
             kw, nm = d.groups()
             if kw in ("ifdef", "ifndef"):
-                hit = (nm in DEFINES) == (kw == "ifdef")
+                hit = (nm in DEFINES or nm in defs) == (kw == "ifdef")
                 cond.append((on, hit, hit))
             elif not cond:
                 raise Unsupported("`%s without an open `ifdef" % kw)
             elif kw == "elsif":
                 par, taken, _ = cond[-1]
-                hit = (nm in DEFINES) and not taken
+                hit = (nm in DEFINES or nm in defs) and not taken
                 cond[-1] = (par, taken or hit, hit)
             elif kw == "else":
                 par, taken, _ = cond[-1]
@@ -2129,6 +2265,9 @@ def pp_ifdef(text):
                 cond.pop()
             out.append("")
         else:
+            dm = re.match(r"\s*`(define|undef)[ \t]+([A-Za-z_]\w*)", ln)
+            if dm and on:
+                (defs.add if dm.group(1) == "define" else defs.discard)(dm.group(2))
             out.append(ln if on else "")
     return "\n".join(out)
 
@@ -2256,6 +2395,7 @@ class Run:
         self.store = {}
         self.effects = []
         self.vt = {}
+        self.dec = 0          # > 0 while the statements of a case arm run that the request's address selects for sure (exec_case): an assignment there is decoded
 
 
 class Sc:
@@ -3341,8 +3481,8 @@ class Ev:
         if k == "case":
             sel = self.ev(ctx, s[1], sc)
             self.no_pipeline(ctx, s[1], sel)
-            pt2 = pt | self.taint(ctx, s[1], r.vt)
-            return self.exec_case(ctx, p, sel, s[2], st, certain, pt2, r, sc)
+            ts = self.taint(ctx, s[1], r.vt)
+            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, "a" in ts)
         if k == "for":
             a, b = self.const_int(ctx, s[2], sc), self.const_int(ctx, s[3], sc)
             rng = range(a, b + 1) if s[4] == "to" else range(a, b - 1, -1)
@@ -3426,7 +3566,9 @@ class Ev:
         st.clear()
         st.update(self.merge_store(s1, s2))
 
-    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc):
+    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc, asel=False):
+        """asel: the selector carries the request's address. An arm with choices that it selects for sure is a decode of the address: its assignments are marked (Run.dec), so that
+        a response it sets to the constant 0 is a read (zero_alt), unlike the 0 of an address no arm selects (`when others`, `default`, an assignment before the case)."""
         if not arms:
             return
         ch, body = arms[0]
@@ -3437,13 +3579,18 @@ class Ev:
             m = 1 if 1 in ms else (0 if all(x == 0 for x in ms) else None)
         pa = pt | {"m"} if ch is not None and m != 0 and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
         if m == 1:
-            return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
+            dec = asel and ch is not None
+            r.dec += dec
+            try:
+                return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
+            finally:
+                r.dec -= dec
         if m == 0:
-            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc)
+            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc, asel)
         s1 = dict(st)
         self.exec_list(ctx, p, body, s1, False, pa, r, sc)
         s2 = dict(st)
-        self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc)
+        self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc, asel)
         st.clear()
         st.update(self.merge_store(s1, s2))
 
@@ -3490,11 +3637,11 @@ class Ev:
             nv = allx(w)
         if not certain:
             nv = v_merge(curv, nv)
-        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap),))
+        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap, r.dec > 0),))
 
     def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
         r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
-        alt = (rhs, ctx, nv, snap)
+        alt = (rhs, ctx, nv, snap, r.dec > 0)      # the assignment's right side, module, value, the process variables, and whether a case arm of the address runs it
         old = st.get(key)
         if certain or old is None:
             st[key] = Ent(nv if certain else allx(nv.w or 1), (alt,))
@@ -3510,7 +3657,7 @@ class Ev:
         seen.add(k)
         v = self.val(ctx, name)
         if v.known() and not self.flag_varies(ctx, name, v):
-            return {("c", v.v)}
+            return {("dec", 0) if v.v == 0 and self.zero_decoded(ctx, name, set()) else ("c", v.v)}
         mod = ctx.mod
         base = name.partition(".")[0]
         port = mod.ports.get(base)
@@ -3546,9 +3693,10 @@ class Ev:
                         out |= self.origins_expr(ctx, d[2], None, seen)
                 elif d[0] == "proc":
                     ent = self.run(ctx, d[1]).store.get(name)
-                    for rhs, actx, nv, snap in (ent.alts if ent else ()):
+                    for alt in (ent.alts if ent else ()):
+                        rhs, actx, nv, snap, _ = alt
                         if nv.known():
-                            out.add(("c", nv.v))
+                            out.add(("dec", 0) if nv.v == 0 and self.zero_alt(alt, set()) else ("c", nv.v))     # the 0 a decoded arm answers is a read
                         else:
                             out |= self.origins_expr(actx, rhs, snap, seen)
                 elif d[0] == "split":
@@ -3606,6 +3754,90 @@ class Ev:
         if k in ("sl", "ix", "psl", "call") and not out:
             out.add(("c", None))
         return out or {("c", 0)}
+
+    def zero_alt(self, alt, seen):
+        """One assignment of a process (an entry of Ent.alts) whose value is 0: the 0 is decoded when the assignment lies in a case arm that the request's address selects for
+        sure (Run.dec) and its right side is a constant (no signal, port or process variable: the arm answers it itself), or when the right side copies a 0 that is decoded
+        where it comes from. A copy under such an arm decodes only the way to the answer (ultimate_sys.vhd: `when r_uci => io_resp <= uci_resp` selects the UCI's region, not
+        its register): it is followed to its source."""
+        rhs, actx, nv, snap, dec = alt
+        names = set()
+        ids_of(rhs, names)
+        if not any((n.partition(".")[0] in actx.mod.decls and n not in actx.mod.consts) or (snap and n in snap) for n in names):
+            return dec
+        return self.zero_expr(actx, rhs, seen)
+
+    def zero_decoded(self, ctx, name, seen):
+        """True when the constant 0 that name holds comes, over copies only, from a case arm that the request's address selects and that answers the constant itself (zero_alt):
+        a decoded read that answers 0 (command_protocol.vhd: command_start is c_cmd_if_command_buffer_addr(10 downto 3), the constant 0). The 0 of an address that no arm
+        selects (a default assignment, the other branch of a mux, a mask) does not come from such an arm. The copies: an instance port, a continuous assignment of a name, a
+        slice, a conversion, an OR of answers, the branch a known condition takes (both when it is open), the splitter's answer, the synchronizer, a process's assignment."""
+        k = (id(ctx), name)
+        if k in seen:
+            return False
+        seen.add(k)
+        mod = ctx.mod
+        base = name.partition(".")[0]
+        port = mod.ports.get(base)
+        if port is not None and port[0] == "in":
+            if ctx.inst is None:
+                return False
+            for f, a in ctx.inst.ports:
+                if f == base and a is not None:
+                    if "." in name and a[0] == "id":
+                        return self.zero_decoded(ctx.parent, a[1] + name[len(base):], seen)
+                    return self.zero_expr(ctx.parent, a, seen)
+            return False
+        if ctx.parent is None and mod.nets:
+            for inst in mod.insts:
+                for f, a in inst.ports:
+                    if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
+                        ch = [x for x in self.followed if x.parent is ctx and x.inst is inst]
+                        return bool(ch) and self.zero_decoded(ch[0], f, seen)
+            return False
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        keys = [name]
+        while "." in keys[-1]:
+            keys.append(keys[-1].rsplit(".", 1)[0])
+        for key in keys:
+            for d in ctx.drv.get(key, []):
+                if d[0] == "ca":
+                    hit = self.zero_expr(ctx, d[2], seen) if key == name else (d[2][0] == "id" and self.zero_decoded(ctx, d[2][1] + name[len(key):], seen))
+                elif d[0] == "proc":
+                    ent = self.run(ctx, d[1]).store.get(name)
+                    hit = ent is not None and any(self.zero_alt(a, seen) for a in ent.alts)
+                elif d[0] == "splitr":
+                    hit = any(self.zero_decoded(ctx, r + name[len(key):], seen) for r in self.split_resps(ctx, d[1]))
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    hit = bool(src) and src[0] is not None and self.zero_expr(ctx, src[0], seen)
+                elif d[0] == "inst":
+                    ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
+                    hit = bool(ch) and self.zero_decoded(ch[0], d[2] + name[len(key):], seen)
+                else:
+                    hit = False
+                if hit:
+                    return True
+        return False
+
+    def zero_expr(self, ctx, e, seen):
+        """zero_decoded through an expression that copies (see there); any other expression is no copy."""
+        k = e[0]
+        if k == "paren":
+            return self.zero_expr(ctx, e[1], seen)
+        if k == "id":
+            return self.zero_decoded(ctx, e[1], seen)
+        if k == "cond":
+            t = truth(self.ev(ctx, e[1]))
+            return (t != 0 and self.zero_expr(ctx, e[2], seen)) or (t != 1 and self.zero_expr(ctx, e[3], seen))
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS | {"to_integer"} and len(e[2]) == 1:
+            return self.zero_expr(ctx, e[2][0], seen)
+        if k in ("sl", "psl", "ix") or (k == "call" and (e[1][0] != "id" or e[1][1] in ctx.mod.decls)):
+            return self.zero_expr(ctx, e[1], seen)
+        if k == "bin" and e[1] in ("or", "|"):          # the OR of answers: the value is 0, so is every operand; one decoded 0 decodes the byte
+            return self.zero_expr(ctx, e[2], seen) or self.zero_expr(ctx, e[3], seen)
+        return False
 
     # ---- following
     def activate(self):
@@ -3772,7 +4004,7 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and self.is_write(ctx, e) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
+                    if write and self.is_write(ctx, e, p.vars) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
@@ -3806,7 +4038,7 @@ class Ev:
                     for p in ctx.mod.procs:
                         for e in self.run(ctx, p).effects:
                             res["refs"].add((ctx.name, e.key, e.where))
-                            if self.is_write(ctx, e) and (id(ctx), e.key) not in held:
+                            if self.is_write(ctx, e, p.vars) and (id(ctx), e.key) not in held:
                                 res["write"] = True
                                 res["cert"] = res.get("cert") or e.certain
         if not write:
@@ -3832,12 +4064,16 @@ class Ev:
         d = ctx.mod.decls.get(base)
         return (d is not None and d.ty.name.lower() == "t_io_resp") or key.rpartition(".")[2].lower() in ("ack", "nc")
 
-    def is_write(self, ctx, e):
+    def is_write(self, ctx, e, pvars=()):
         """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
         names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
-        the bus (an ack under the write flag) is none of these."""
+        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) is a write only when it takes the data: the guard rule does not
+        hold for it (a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag holds the address for every byte of the page); a signal that takes
+        the variable's value carries its taint (Run.vt), and that assignment is the write."""
         if self.is_response(ctx, e.key):
             return False
+        if e.key in pvars:
+            return "d" in e.taint
         return "d" in e.taint or (({"q", "w"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):

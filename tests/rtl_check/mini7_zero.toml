@@ -1,0 +1,24 @@
+# A fixture TOML A for tests/rtl_check/mini7, top top7zero (T239.3, c64_basic's command_protocol.vhd): r is written and read, start is the decoded read whose answer is the
+# constant 0 (command_start).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "zero"
+module = "m7zero"
+owner = "base"
+address = 0x10000020
+size = 0x2
+
+  [[block.property]]
+  name = "r"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "start"
+  offset = 0x1
+  width = 8
+  dir = "r"
