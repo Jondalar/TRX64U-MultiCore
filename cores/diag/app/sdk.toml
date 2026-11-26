@@ -24,7 +24,7 @@ headers = ["portdiag.h", "portdiag_regs.h", "diagtest.h", "panel.h", "dtv2.h"]
 # pad: portdiag.cc drives the XInput driver for the xpad test (xinput.h)
 needs = ["pad"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: diagapp)
-tests = { unit = ["diagtest", "portdiag", "diag_avtrace", "panel", "dtv2"], ui = ["diag_desc"] }
+tests = { unit = ["diagtest", "portdiag", "diag_avtrace", "panel", "dtv2"], service = ["diag_descgen"], ui = ["diag_desc", "diag_hotkeys", "diag_keywalk"], api = ["diag_memops", "diag_uicover"] }
 
 # The USB gamepads: the XInput driver the xpad test reads (the same sources as the shared app's library, S12)
 [[library]]
