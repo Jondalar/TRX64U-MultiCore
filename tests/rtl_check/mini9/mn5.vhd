@@ -1,26 +1,24 @@
--- tests/rtl_check/mini7 (T239.3, command_protocol.vhd's command_start): the case arm of x"21" answers a constant that is 0, after a default 0 for every address.
+-- tests/rtl_check/mini9 (T239.3 review 9): a case on a compare (`case addr = x"20" is when false => q <= x"00"`): no read.
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity m7zero is
+entity mn5 is
   port (
     clk   : in  std_logic;
     we    : in  std_logic;
     re    : in  std_logic;
+    mode  : in  std_logic;
     addr  : in  std_logic_vector(7 downto 0);
     wdata : in  std_logic_vector(7 downto 0);
     rdata : out std_logic_vector(7 downto 0)
   );
 end entity;
-
-architecture rtl of m7zero is
-  constant c_start : unsigned(10 downto 0) := to_unsigned(0, 11);
+architecture rtl of mn5 is
   signal r : std_logic_vector(7 downto 0) := (others => '0');
   signal q : std_logic_vector(7 downto 0) := (others => '0');
 begin
   rdata <= q;
-
   process (clk)
   begin
     if rising_edge(clk) then
@@ -31,10 +29,9 @@ begin
           when others => null;
         end case;
       elsif re = '1' then
-        case addr is
-          when x"20" => q <= r;
-          when x"21" => q <= std_logic_vector(c_start(10 downto 3));
-          when others => null;
+        case addr = x"20" is
+          when true => q <= r;
+          when false => q <= x"00";
         end case;
       end if;
     end if;

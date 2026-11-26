@@ -1,0 +1,23 @@
+# A fixture TOML A for tests/rtl_check/mini9 (T239.3 review 9 (mn9)): r at +0x0 is written and read; ghost at +0x5 (dir r) is not in the RTL: never a pass.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "n9"
+module = "mn9"
+owner = "base"
+address = 0x10000020
+size = 0x8
+
+  [[block.property]]
+  name = "r"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "ghost"
+  offset = 0x5
+  width = 8
+  dir = "r"
