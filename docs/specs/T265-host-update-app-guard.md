@@ -97,10 +97,11 @@ Parts:
   estimate): about 870 LUT, 510 FF, 14 DSP48. Alex: "But then we must have Rick's measurement for NTSC" - the NTSC constants come
   from Rick's values (T259 D3) before they are fixed.
 - The order of writes for P3: application, recovery copy, record last.
-- **D10 (Alex, 2026-11-26):** the host menu goes out interlaced on RGB (576i at 50 Hz, 480i at 60 Hz): "Im Hostmenü ist es mir egal ...
-  Dann mach erstmal dein interlaced." The menu canvas follows the HDMI row (960x540, or the row's size below 960 wide,
-  `coreapp/src/video.cc:111-146`); at a 576p or 480p row its lines map one to one onto the fields. A core's picture keeps its own
-  raster, progressive, one to one where it fits (VC-20 283 lines, Atari 288), two lines averaged where it is doubled (Apple II 384).
+- **D10 (Alex, 2026-11-26):** the host menu goes out progressive on RGB with two lines averaged into one (the menu's 540, 576 or 480
+  lines onto the field), its 16:9 squeezed to 4:3: "Also A 4:3 erstmal" (after first saying "Im Hostmenü ist es mir egal ... dann mach
+  erstmal dein interlaced"; A is the final word). Interlace (about +100 LUT) is not built now. The menu canvas follows the HDMI row
+  (960x540, or the row's size below 960 wide, `coreapp/src/video.cc:111-146`). A core's picture keeps its own raster, progressive,
+  one to one where it fits (VC-20 283 lines, Atari 288), two lines averaged where it is doubled (Apple II 384).
 - **D9 (Alex, 2026-11-26: "An und auf RGB"):** at power-on the A/V output is on, in RGB. The setting is a host setting on F8 (host
   settings, Picture), stored with the other video values in `/Flash/boot.cfg` (`video=<sys>,<hdmi>,<av>`), so a user can switch it
   off; the register's reset value is RGB.
