@@ -11,7 +11,7 @@ name: Pipeline
 # T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix alone (matrix.yml, the job `matrix`, input beside false): `plan` does not run there, so
 # every job of this file that waits for a green plan is skipped and only the job summary reports; the job matrix needs plan too, and its `if` starts it when
 # plan was skipped (it makes its own plan, work order and approval). T239.5 D11, D13, D14: every other push of a branch or a v* tag (not t239.1, not a pull
-# request) runs both, the matrix beside the jobs of this file (input beside: this file's plan, work order, approval, lint and sims are the run's; input tests
+# request) runs both, the matrix beside the jobs of this file (input beside: this file's plan, lint and sims are the run's; T265 P5: the matrix's dispatcher writes the work order and its job approve holds the click, this file's only for a pull request and t239.1; input tests
 # false on a push to main or a v* tag, D51). There the package of record is the matrix's whole package (its jobs collect and package, the artifact `package`, with the .cor of every
 # core lane): this file's job `package` runs only on t239.1 and for a pull request, and update, emu and prerelease take the matrix's artifact. The child
 # cor leaves out the cores with an app of their own (ci/orchestrate.py): their .cor comes from their matrix lane (a pull request runs no
@@ -119,8 +119,11 @@ jobs:
           update="$(ci/select.sh update)"
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
           python3 ci/orchestrate.py outputs "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" --matrix "$MATRIX" | tee -a "$GITHUB_OUTPUT"
+      # T265 P5: the matrix writes the work order and holds the vivado click on every run it takes part in; this job only for a pull request and t239.1 (the
+      # complement of the job matrix's `if`: upload-artifact refuses a second work-order in a run)
       - name: Work order
         id: order
+        if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/t239.1' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
@@ -135,6 +138,7 @@ jobs:
           retention-days: 3
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/t239.1' }}
         with:
           name: work-order
           path: ${{ env.CI_TEMP }}/handoff/work-order.json

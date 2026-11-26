@@ -201,6 +201,34 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
     *) die "a core lane has no step $step" ;;
   esac ;;
 
+# T265 P5: the host gateware (host, aux designs, the reference core, the flash filler): the builder builds what the work order names (the target host of
+# ci/order.py), this lane keys, fetches and reports it. The DFX lanes' bits jobs wait for it.
+bits:host)
+  case "$step" in
+    key)
+      say "the host gateware: the host, the aux designs, the reference core $(layer_reference "$ROOT/host/layers.txt") and the flash filler ($(python3 -I "$ROOT/tools/core_toml.py" flash-fillers | tr '\n' ' '))"
+      "$ROOT/ci/fetch_bits.sh" --names host | sed 's/^/    /' ;;
+    fetch) "$ROOT/ci/fetch_bits.sh" host ;;
+    report)
+      cache="${CI_BIT_CACHE:?CI_BIT_CACHE}"
+      entries=("$cache"/host-* "$cache"/aux-* "$cache"/core-"$(layer_reference "$ROOT/host/layers.txt")"-*)
+      for f in $(python3 -I "$ROOT/tools/core_toml.py" flash-fillers); do entries+=("$cache"/core-"$f"-*); done
+      for e in "${entries[@]}"; do
+        [ -f "$e/DONE" ] || continue
+        say "${e##*/}: from $(cat "$e/from" 2>/dev/null || echo ?)"
+        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do
+          [ -f "$f" ] || continue
+          awk -v n="${f##*/}" '
+            /All user specified timing constraints are met|Timing constraints are not met/ { print "    " n ": " $0; next }
+            w == 1 { w = 2; next }
+            w == 2 { printf "    %s: WNS %s ns, TNS %s ns, WHS %s ns\n", n, $1, $2, $5; w = 3; next }
+            w == 0 && /^[ \t]*WNS\(ns\)[ \t]+TNS\(ns\)/ { w = 1; next }
+            /^\| Slice LUTs/ && !l { gsub(/[ ]+/, " "); print "    " n ": " $0; l = 1 }' "$f"
+        done
+      done ;;
+    *) die "the host bitstream lane has no step $step" ;;
+  esac ;;
+
 bits:?*)
   id="${lane#bits:}"
   kind="$(kind_of "$id")"; target="core:$id"; [ "$kind" = dfx ] || target="large:$id"
@@ -274,6 +302,6 @@ package)
     *) die "the whole package has no step $step" ;;
   esac ;;
 
-*) die "unknown lane (sdk, host, core:<id>, bits:<id>, package)" ;;
+*) die "unknown lane (sdk, host, core:<id>, bits:host, bits:<id>, package)" ;;
 esac
 say "green"

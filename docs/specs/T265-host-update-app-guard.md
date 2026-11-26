@@ -143,6 +143,12 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   names the host only when a package or update is made (`ci/order.py:80-92`). Built: a `host` target in `ci/order.py` and
   `ci/fetch_bits.py`, a matrix job `host-bits` that the DFX lanes wait for, the work order written by the matrix; the old pipeline
   writes it only for pull requests and `t239.1` (Alex: "nicht mehr im alten"). The DFX lanes wait for `host-bits` explicitly.
+  Files (branch `t265-ci`, not yet run; the proof of S9 is the first run on each branch kind): `ci/order.py`, `ci/fetch_bits.py` (target `host`; the
+  flash fillers from `tools/core_toml.py flash-fillers`), `ci/orchestrate.py` (`order_cors`), `ci/dispatch.py` (outputs `host_bits`, `order_targets`),
+  `ci/lane.sh` (`bits:host`), `.github/workflows/matrix.yml` (job `host-bits`, the work order and the click beside too), `.github/workflows/pipeline.yml`
+  (work order only for a pull request and `t239.1`), `tools/check_bootrom_fresh.sh` (lint host: the boot ROM package is not older than its source;
+  it does not rebuild it, so open Q4 of the design - the build image's gcc against the committed package - stays open). Tests: `ci/test_order.py`,
+  `ci/test_fetch_bits.py`, `ci/test_orchestrate.py`.
 - **P1:** the boot ROM uses 2,892 of 8,192 bytes (`host/bootrom_pkg.vhd`); CRC-32, record check and the jump to the recovery add about
   1.6 KiB. The length is compared first. A JTAG request boot skips the guard. The result block 0xFFC0 is cleared before the JTAG
   path; guard and recovery results go to 0xFF80 / 0xFF60. On a 100T the record and the recovery sit below the app at the same

@@ -5,9 +5,12 @@ tools/core_toml.py lanes: a partial core, or a large core with its flat bitstrea
 from its content-keyed caches (the images stage key, the app test units, the bitstream releases); the sims of the bitstream lanes run on demand only
 (ci/select.sh sims-tier > 0: "[sims]" or the dispatch input), for the owners host, core:<id> and large:<id>.
 
+T265 P5: the matrix owns the work order and the vivado click on every run it takes part in (the old plan job writes the work order only for a pull request and t239.1);
+the host gateware is its own job (host-bits: key, fetch, report) whenever the whole package is made or the plan changes host/ or the aux designs.
+
 Alone (the T239 branch, D3): every lane runs, with its lint legs and sims, and the whole package is made (D14), so the work order names every entry.
-Beside the old pipeline (--beside: every other push of a branch or v* tag, D11, D13): the run's plan, work order, approval, lint and sims are the old
-pipeline's jobs (its job lint runs every group of ci/lint.sh), so this run has no lint legs and no sims of its own. Where the old pipeline makes a package
+Beside the old pipeline (--beside: every other push of a branch or v* tag, D11, D13): the run's plan, lint and sims are the old
+pipeline's jobs (its job lint runs every group of ci/lint.sh), so this run has no lint legs and no sims of its own; the work order and the vivado approval are this run's (T265 P5). Where the old pipeline makes a package
 (scope full: main, integration, integ-*, release/*, v* tags; or --update yes) the matrix makes the whole package instead, so every lane runs; on any other
 branch only the lanes the push touched start (the D2 addendum: an app change drags no core in): the core lanes of ci/orchestrate.py matrix_lanes (a core the
 plan names, its sources or its app; every core lane when the application tests changed or the plan has no base - the same rule names their bitstreams in the
@@ -16,8 +19,8 @@ Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1), alon
 package.
 
   ci/dispatch.py <plan.json> --tier N [--beside] [--update yes|no]
-      prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (core:<id> or large:<id>), sim_owners (JSON lists), sims_tier, host_emu_core (the core the host menu lane's emulator test runs), and sdk, host,
-      package (true or false); and appends the matrix of this run (lanes from top to bottom, the steps from left to right) to $GITHUB_STEP_SUMMARY when set
+      prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (host, core:<id> or large:<id>), order_targets (the work order's targets beside the old pipeline: ci/orchestrate.py order_cors), sim_owners (JSON lists), sims_tier, host_emu_core (the core the host menu lane's emulator test runs), and sdk, host,
+      package, host_bits (true or false; host_bits: the matrix job host-bits builds and keeps the host gateware, T265 P5); and appends the matrix of this run (lanes from top to bottom, the steps from left to right) to $GITHUB_STEP_SUMMARY when set
 """
 import json
 import os
@@ -59,14 +62,14 @@ def sim_owners(plan_path, tier, targets):
     return [o for o in owners if o in keep]
 
 
-def matrix(lanes, owners, beside, sdk, host, package):
+def matrix(lanes, owners, beside, sdk, host, package, host_bits=True):
     """The rows of this run: (lane, {step number: what runs there})."""
     sims = lambda o: "sims" if o in owners else ("sims: the old job sim" if beside else "sims on demand")
     lint = "the old job lint" if beside else "lint"
     off = {6: "not touched"}
     rows = [("Every push", {1: "the old job lint" if beside else "tree checks", 3: "dispatcher"}),
             ("SDK", {1: lint, 2: "unit tests", 6: "build", 7: "test", 11: "package", 13: "deploy"} if sdk else off)]
-    if lanes:
+    if host_bits:
         rows.append(("Bitstream host", {2: sims("host"), 3: "key", 6: "Vivado (builder)", 7: "report", 11: "keep", 13: "to the lanes"}))
     for c, k in lanes:
         rows.append(("Bitstream " + c, {2: sims(target(c, k)), 3: "key", 6: "Vivado flat (builder)" if k == "large" else "Vivado (builder)", 7: "report",
@@ -120,18 +123,23 @@ def main(argv):
         run, sdk, host = touched(plan, lanes)
     cores = [c for c, _ in run]
     targets = [target(c, k) for c, k in run]
+    # T265 P5: the host gateware (job host-bits): whenever the whole package is made (it carries the host) or the plan changes the host or aux designs; the target
+    # `host` names it in the work order (ci/order.py), and in the order of this run
+    host_bits = not docs and (package or bool(plan.get("host") or plan.get("aux")))
+    if host_bits:
+        targets = ["host"] + targets
     owners = [] if beside else sim_owners(plan_path, tier, targets)
     out = {"cores": cores, "lint_groups": [] if beside or docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
-           "cor_targets": targets, "sim_owners": owners}
+           "cor_targets": targets, "order_targets": [] if docs else O.order_cors(plan, True), "sim_owners": owners}
     for k, v in out.items():
         print("%s=%s" % (k, json.dumps(v, separators=(",", ":"))))
     print("sims_tier=%d" % tier)
     print("host_emu_core=%s" % O.HOST_EMU_CORE)
-    for k, v in (("sdk", sdk), ("host", host), ("package", package)):
+    for k, v in (("sdk", sdk), ("host", host), ("package", package), ("host_bits", host_bits)):
         print("%s=%s" % (k, "true" if v else "false"))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
-        how = ("Beside the old pipeline (D11): the plan, the work order, the approval, the lint and the sims are its jobs; " +
+        how = ("Beside the old pipeline (D11): the plan, the lint and the sims are its jobs, the work order and the approval this run's (T265 P5); " +
                ("the package of record is this run's whole package" if package else "no package on this push (scope %s); the lanes this push touched: %s"
                 % (plan.get("scope"), " ".join(cores) or "none")) if beside else "Alone (D3): this run's dispatcher uploads the plan and the work order")
         if docs:
@@ -140,7 +148,7 @@ def main(argv):
                  "Changed: %s code files, branch %s, base %s" % (plan.get("changed"), plan.get("branch"), (plan.get("base") or {}).get("commit") or "none"), "",
                  how, "",
                  "| lane | " + " | ".join("%d %s" % (i + 1, s) for i, s in enumerate(STEPS)) + " |", "|---" * (len(STEPS) + 1) + "|"]
-        for lane, cells in matrix(run, owners, beside, sdk, host, package):
+        for lane, cells in matrix(run, owners, beside, sdk, host, package, host_bits):
             lines.append("| %s | " % lane + " | ".join(cells.get(i + 1, "") for i in range(len(STEPS))) + " |")
         with open(summary, "a") as fh:
             fh.write("\n".join(lines) + "\n")

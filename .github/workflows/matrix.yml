@@ -50,6 +50,7 @@ jobs:
       lint_groups: ${{ steps.dispatch.outputs.lint_groups }}
       sim_owners: ${{ steps.dispatch.outputs.sim_owners }}
       sims_tier: ${{ steps.dispatch.outputs.sims_tier }}
+      host_bits: ${{ steps.dispatch.outputs.host_bits }}
       missing: ${{ steps.order.outputs.missing }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
@@ -95,18 +96,18 @@ jobs:
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
           cat "$CI_HANDOFF/dispatch.out"
       # D14: the whole package needs every entry (ci/order.py: a package child needs them all); a documentation-only plan makes no package and starts no lane,
-      # so its work order is empty. Beside the old pipeline (D11) its job plan has uploaded the run's plan and work order (the same plan; its work order names
-      # every entry where a package is made, else the entries of the cor legs and of every core lane this dispatcher starts: ci/orchestrate.py order_targets,
-      # matrix_lanes is the rule of both), so this job uploads neither: one of each per run
+      # so its work order is empty. T265 P5: this job writes the work order on every run (the old job plan writes it only for a pull request and t239.1, the exact
+      # complement of this workflow's `if`; upload-artifact refuses a second work-order in a run). Beside the old pipeline the plan artifact is the old plan job's
+      # (one plan per run), so only alone this job uploads it. The targets: every entry where a package is made, else the cor legs' cores, the host (when host/ or the
+      # aux designs changed) and every core lane this dispatcher starts (ci/orchestrate.py order_cors)
       - name: Work order (the bitstreams the builder builds)
         id: order
-        if: ${{ !inputs.beside }}
         env:
           GH_TOKEN: ${{ github.token }}
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
           CHILDREN: ${{ steps.dispatch.outputs.package == 'true' && '["cor","package"]' || '["cor"]' }}
-          COR_TARGETS: ${{ steps.dispatch.outputs.cor_targets }}
+          COR_TARGETS: ${{ steps.dispatch.outputs.order_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         if: ${{ !inputs.beside }}
@@ -116,14 +117,13 @@ jobs:
           retention-days: 3
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
-        if: ${{ !inputs.beside }}
         with:
           name: work-order
           path: ${{ env.CI_TEMP }}/handoff/work-order.json
           retention-days: 3
           if-no-files-found: error
 
-  # T239.1 D14: Alex's click for a commit the builder does not build by itself (as the job approve of pipeline.yml; beside the old pipeline that job holds it: no work order here, so no `missing`)
+  # T239.1 D14: Alex's click for a commit the builder does not build by itself (T265 P5: the only click on a matrix run; the old job approve holds it for a pull request and t239.1)
   approve:
     name: Approve the builder's work (environment vivado)
     needs: dispatch
@@ -347,12 +347,60 @@ jobs:
       target: ${{ matrix.owner }}
       tier: ${{ needs.dispatch.outputs.sims_tier }}
 
-  # the bitstream lanes of the host and of each moved core - 3 key, 6 Vivado (the builder, while this job waits at the environment bitstreams),
+  # T265 P5: the host gateware (the host, the aux designs, the reference core, the flash filler): the builder builds it when the work order names it (the target host
+  # of ci/order.py: a push that changes host/ or the aux designs, or a whole package); this job keys, fetches and reports it. The jobs bits wait for it.
+  host-bits:
+    name: "Bitstreams: the host (reference core, flash filler, aux)"
+    needs: [dispatch, approve, sims]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.host_bits == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    environment: bitstreams
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 40
+    env:
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff" "$RUNNER_TEMP/bit"
+      - name: 3 Key
+        run: ci/lane.sh bits:host key
+      - name: 6 Vivado (the builder) and 11 keep (the entries from the builds repository)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/lane.sh bits:host fetch
+      - name: 7 Report
+        run: ci/lane.sh bits:host report
+      - name: 13 To the lanes (the artifact bits-host)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: bits-host
+          path: ${{ env.CI_TEMP }}/bit
+          retention-days: 3
+          if-no-files-found: error
+
+  # the bitstream lanes of each moved core (after the host gateware: the host key moves every core key) - 3 key, 6 Vivado (the builder, while this job waits at the environment bitstreams),
   # 7 report, 11 keep (the entries restored from the builds repository), 13 to the lanes (the artifact bits-<id>)
   bits:
     name: "Bitstreams: the host and ${{ matrix.core }}"
-    needs: [dispatch, approve, sims]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
+    needs: [dispatch, approve, sims, host-bits]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' && needs.host-bits.result != 'failure' && needs.host-bits.result != 'cancelled' }}
     runs-on: ubuntu-latest
     environment: bitstreams
     container:
@@ -775,8 +823,8 @@ jobs:
   # request, where this file does not run), so the run has one.
   package:
     name: "Whole package: 11 package (every .cor), 13 deliver"
-    needs: [dispatch, collect, sdk, host, core]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    needs: [dispatch, host-bits, collect, sdk, host, core]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.host-bits.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -833,7 +881,7 @@ jobs:
 
   summary:
     name: Result (the matrix)
-    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu, host-emu, collect, package]
+    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, host-bits, bits, core, emu, host-emu, collect, package]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
