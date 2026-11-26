@@ -1,6 +1,6 @@
 name: Cor
 
-# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: one core's .cor on a feature branch (ci/cor.sh), from this run's images and the core's bitstream. The job waits at the environment `bitstreams`
+# T239.1 S6, D12: a job of the matrix (ci/children.txt). Concern: one core's .cor on a feature branch (ci/cor.sh), from the shared image of this run's SDK lane and the core's bitstream. The job waits at the environment `bitstreams`
 # until the builder has published the keys of the run (D21); the .cor is an artifact of the run.
 # It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
 # and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
@@ -76,8 +76,10 @@ jobs:
           path: ${{ env.CI_TEMP }}/handoff
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         with:
-          name: handoff-trxapps
-          path: ${{ env.CI_TEMP }}/handoff/trxapps
+          name: shared-app
+          path: ${{ env.CI_TEMP }}/handoff/shared-app
+      - name: The images (the shared image of the SDK lane and its copies)
+        run: ci/lane.sh cor trxapps
       - name: Bitstreams
         env:
           GH_TOKEN: ${{ github.token }}

@@ -2,7 +2,7 @@
 # Stage `lint`: cheap checks that fail before a bench or Vivado runs, in
 # trx64-sim-env. Every check runs; the stage fails if one did.
 #
-#   ci/lint.sh                          every check (the old pipeline's stage lint)
+#   ci/lint.sh                          every check (by hand; the matrix runs the groups)
 #   ci/lint.sh tree|sdk|host|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
 #                                       TODO and specs, versions), sdk = the SDK's lint (its tools, the API document, D24, the shared TOML B), host = the
 #                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports, the TOML A against the RTL)
@@ -11,7 +11,7 @@
 #  - python: byte-compile and ruff's syntax/undefined-name rules (E9, F63, F7, F82)
 #  - the RTL (designs/*/*.v): syntax only (yosys -defer), no elaboration; the VHDL and the
 #    benches are analysed by the benches of stage sims
-#  - the workflows: parse, every `needs:` names a job, every `uses:` a file; the children table against pipeline.yml (ci/orchestrate.py check)
+#  - the workflows: parse, every `needs:` names a job, every `uses:` a file; the children table against matrix.yml, pipeline.yml only calling the matrix (ci/orchestrate.py check)
 #  - ci/select.sh: its answers for the cases the workflows rely on
 #  - host/layers.txt, the layer cache keys, the host_sha rule of the core entries and the cache janitor, on generated data
 #  - ci/sims.txt: every bench's script exists
@@ -183,7 +183,7 @@ check "plan scenarios D9-1..6" ci/test_plan.sh
 check "large stage flow (fake vivado)" ci/test_large_flow.sh
 check "constraint fail-fast in the host builds" ci/test_constraint_check.sh
 check "treesync: persistent build tree touches only what changed (T174)" ci/test_treesync.sh
-# T174 D4, T239.1 S6: pipeline.yml has one job for each child of ci/children.txt, with the table's needs, and calls the child's workflow, which checks out the
+# T174 D4, T239.1 S6, T239.5 D22: pipeline.yml only calls the matrix; matrix.yml has a job for each child of ci/children.txt, which calls the child's workflow, which checks out the
 # run's commit and runs ci/child.sh; the environments vivado and builds sit only where D1 and D14 want them; every bench has one owner (ci/sims.lane).
 check "children table and workflows (D4, S6)" python3 ci/orchestrate.py check
 check "children table: graph, outputs, check (S6)" python3 -I ci/test_orchestrate.py
@@ -217,7 +217,6 @@ check "select.sh" bash -c '
   EXPECT=yes t update GITHUB_REF_NAME=integ-m1 &&
   EXPECT=yes t update GITHUB_REF_NAME=main &&
   EXPECT=yes t update GITHUB_REF_NAME=integration &&
-  EXPECT=yes t update GITHUB_REF_NAME=t239.1 &&
   EXPECT=no  t update GITHUB_REF_NAME=feature SELECT_MSG=x CI_BRANCH=feature &&
   EXPECT=yes t update GITHUB_REF_NAME=12/merge CI_BRANCH=main &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integration GITHUB_EVENT_NAME=push &&

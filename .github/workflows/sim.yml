@@ -1,6 +1,6 @@
 name: Sim
 
-# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the simulation benches of one owner (host, core:<id>, large:<id>; ci/sims.lane) that the plan names, in the plan's tier; `all` = every bench of the
+# T239.1 S6, D12: a job of the matrix (ci/children.txt). Concern: the simulation benches of one owner (host, core:<id>, large:<id>; ci/sims.lane) that the plan names, in the plan's tier; `all` = every bench of the
 # tier. The caller makes one leg per owner (a hosted job stops after 6 h). A bench TIMEOUT is red with "TIMEOUT after N s".
 # It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
 # and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).

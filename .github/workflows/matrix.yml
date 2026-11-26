@@ -1,30 +1,24 @@
 name: Matrix
 run-name: "matrix @${{ github.event.pull_request.head.sha || github.sha }}"
 
-# T239.5 (D8-D10, the scenarios S1-S7 of docs/specs/T239.5-core-pipeline.md): the new pipeline as a matrix. The lanes from top to bottom: the tree checks
-# and the dispatcher of every push, the SDK (A), the bitstreams of the host and of each core that moved to the SDK, the host menu, one lane per moved core
-# (B); the same thirteen steps from left to right (1 lint, 2 unit tests, 3 what has changed, 4 comparison, 5 what must be in it, 6 build, 7 complete and
-# fits, 8-10 tests mock bitstream -> service, service -> UI, service -> API, 11 package, 12 emulator tests, 13 deliver). A lane leaves a step empty when
-# it does not have it. ci/lane.sh runs one step of one lane; ci/dispatch.py decides what this push has to do (D9).
-# It runs instead of the old pipeline's jobs on the T239 branch (t239.3, t239.3-*, D3): pipeline.yml calls it there, so the builder, which serves the runs of
-# pipeline.yml, builds the bitstreams this file's work order names as missing (T239.1 D11) and releases the environment `bitstreams` (D21).
-# D11, D13: on every other push of a branch or v* tag (not t239.1, not a pull request) it runs beside the old pipeline's jobs (input beside): there the run's
-# plan, work order, approval, lint and sims are the old jobs plan, approve, lint and sim (the artifacts `plan` and `work-order` exist once per run; the builder
-# reads that work order), and where the old pipeline makes a package (scope full, or update asked) the package of record is this file's whole package (D14,
-# the jobs collect and package): the old job package does not run, and the old jobs update, emu and prerelease take this file's artifact `package`. On a
-# feature branch without a package only the lanes the push touched run (ci/dispatch.py); a documentation-only push runs no lane. Input tests (T239.1 D51):
-# false on a push to main or a v* tag, where no test runs - the lanes build, pack and deliver; their test steps (2, 4, 7 of the SDK, 8-10) and the emulator
-# jobs (12) are left out.
+# T239.5 (D8-D10, D22, the scenarios S1-S7 of docs/specs/T239.5-core-pipeline.md): the pipeline of every push, pull request from a fork and dispatch - the only one since D22
+# (pipeline.yml holds the triggers and calls this file). The lanes from top to bottom: the tree checks and the dispatcher of every push, the SDK (A), the
+# bitstreams of the host and of each core that moved to the SDK, the host menu, one lane per moved core (B); the same thirteen steps from left to right
+# (1 lint, 2 unit tests, 3 what has changed, 4 comparison, 5 what must be in it, 6 build, 7 complete and fits, 8-10 tests mock bitstream -> service,
+# service -> UI, service -> API, 11 package, 12 emulator tests, 13 deliver). A lane leaves a step empty when it does not have it. ci/lane.sh runs one step of
+# one lane; ci/dispatch.py decides what this push has to do (D9). Beside the lanes: the jobs keys, apptests, sims (the benches on demand), cor (the .cor of a core
+# that has no lane of its own, on a branch without a package), update (the .cfw/.ue2 update files) and prerelease (main and v* tags).
+# The builder serves the runs of pipeline.yml (its `SRC_WORKFLOW_PATH`): it reads this run's work order and releases the environment `bitstreams` (T239.1 D11, D21).
+# Where the plan's scope is full, or the update files are asked for, the matrix makes the whole package (D14: the jobs collect and package, the artifact `package`
+# with the .cor of every core lane). On a feature branch without a package only the lanes the push touched run (ci/dispatch.py); a documentation-only push runs
+# no lane. Input tests (T239.1 D51): false on a push to main or a v* tag, where no test runs - the lanes build, pack and deliver; their test steps (1 lint, 2, 4, 7 of
+# the SDK, 8-10), the jobs keys, apptests and sims and the emulator jobs (12) are left out.
 permissions:
   contents: read
 
 on:
   workflow_call:
     inputs:
-      beside:
-        description: "true beside the old pipeline (every push but the T239 branch's): its plan, work order, approval, lint and sims serve the matrix too"
-        type: boolean
-        default: false
       tests:
         description: "false on a push to main or a v* tag (T239.1 D51: no test job there); the lanes then skip their test steps and the emulator jobs"
         type: boolean
@@ -43,6 +37,9 @@ jobs:
       CI_REF_TYPE: ${{ github.ref_type }}
     outputs:
       cores: ${{ steps.dispatch.outputs.cores }}
+      cor_legs: ${{ steps.dispatch.outputs.cor_legs }}
+      update: ${{ steps.dispatch.outputs.update }}
+      apptests: ${{ steps.dispatch.outputs.apptests }}
       sdk: ${{ steps.dispatch.outputs.sdk }}
       host: ${{ steps.dispatch.outputs.host }}
       package: ${{ steps.dispatch.outputs.package }}
@@ -82,24 +79,20 @@ jobs:
         env:
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
           UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
-          BESIDE: ${{ inputs.beside }}
         run: |
           set -eu
           tier="$(ci/select.sh sims-tier)"
-          # as the old plan job: the update files are asked for (ci/select.sh update), so a package is made (ci/orchestrate.py: package = scope full or update)
+          # the update files are asked for (ci/select.sh update), so a package is made (ci/dispatch.py: package = scope full or update)
           update="$(ci/select.sh update)"
-          # the plan carries the tier of this run, as the old plan job stamps it: a sims leg (ci/child.sh sim) reads it from the plan artifact
+          # the plan carries the tier of this run: a sims leg (ci/child.sh sim) reads it from the plan artifact
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
-          b=""; [ "$BESIDE" != true ] || b=--beside
           # into a file first: a failing dispatcher fails this step (a pipe into tee would hide its exit code)
-          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" $b > "$CI_HANDOFF/dispatch.out"
+          python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" > "$CI_HANDOFF/dispatch.out"
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
           cat "$CI_HANDOFF/dispatch.out"
       # D14: the whole package needs every entry (ci/order.py: a package child needs them all); a documentation-only plan makes no package and starts no lane,
-      # so its work order is empty. T265 P5: this job writes the work order on every run (the old job plan writes it only for a pull request and t239.1, the exact
-      # complement of this workflow's `if`; upload-artifact refuses a second work-order in a run). Beside the old pipeline the plan artifact is the old plan job's
-      # (one plan per run), so only alone this job uploads it. The targets: every entry where a package is made, else the cor legs' cores, the host (when host/ or the
-      # aux designs changed) and every core lane this dispatcher starts (ci/orchestrate.py order_cors)
+      # so its work order is empty. T265 P5: this job writes the work order on every run. The targets: every entry where a package is made, else the cor legs' cores,
+      # the host (when host/ or the aux designs changed) and every core lane this dispatcher starts (ci/orchestrate.py order_cors)
       - name: Work order (the bitstreams the builder builds)
         id: order
         env:
@@ -110,7 +103,6 @@ jobs:
           COR_TARGETS: ${{ steps.dispatch.outputs.order_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
-        if: ${{ !inputs.beside }}
         with:
           name: plan
           path: ${{ env.CI_TEMP }}/handoff/plan.json
@@ -123,7 +115,7 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # T239.1 D14: Alex's click for a commit the builder does not build by itself (T265 P5: the only click on a matrix run; the old job approve holds it for a pull request and t239.1)
+  # T239.1 D14: Alex's click for a commit the builder does not build by itself
   approve:
     name: Approve the builder's work (environment vivado)
     needs: dispatch
@@ -134,11 +126,11 @@ jobs:
     steps:
       - run: echo "approved; the builder builds the missing keys of this commit"
 
-  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>); alone only - beside, the old job lint runs every group
+  # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>); not on main or a v* tag (D51)
   lint:
     name: "1 Lint (${{ matrix.group }})"
     needs: dispatch
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-sim@sha256:3e366a085f3ff5bfec33b5fa08359a625034038803b8b89f3406691683a625e0
@@ -164,11 +156,40 @@ jobs:
       - name: Lint
         run: ci/lint.sh "$GROUP"
 
+  # ci/test_keys.sh needs the Python 3.10 code-hash libraries of the build image (lint runs in the simulation image, Python 3.12)
+  keys:
+    name: Key tests (ci/test_keys.sh)
+    needs: dispatch
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Key tests
+        run: ci/test_keys.sh
+
+  # the host tests of every application suite and the render benches (ci/render.sh, ci/apptests.sh); the RISC-V builds of the lanes wait for them (T174 D2.2: native first).
+  # The lanes' unit steps (2) run their own suites at the fast tier beside this one; the units are cached by content, so a unit runs once
+  apptests:
+    needs: dispatch
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.apptests == 'true' }}
+    uses: ./.github/workflows/apptests.yml
+
   # A: the SDK lane - 2 unit tests, 6 build, 7 test, 11 package, 13 deploy (the artifact `sdk`; later the registry, T239.4)
   sdk:
     name: "SDK (A): unit tests, build, test, package, deploy"
-    needs: [dispatch, lint]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.dispatch.outputs.sdk == 'true' }}
+    needs: [dispatch, lint, apptests]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.apptests.result == 'success' || needs.apptests.result == 'skipped') && needs.dispatch.outputs.sdk == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -277,8 +298,8 @@ jobs:
   # the host menu lane - 2 unit tests, 6 build, 13 deliver (12, the emulator, is the job host-emu)
   host:
     name: "Host menu: unit tests, build, deliver"
-    needs: [dispatch, lint]
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.dispatch.outputs.host == 'true' }}
+    needs: [dispatch, lint, apptests]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.apptests.result == 'success' || needs.apptests.result == 'skipped') && needs.dispatch.outputs.host == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -333,10 +354,11 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # the bitstream lanes, step 2: the sims of the host and of the moved cores, on demand only ("[sims]" or the dispatch input), before Vivado
+  # the bitstream lanes, step 2: the benches of every owner the plan names (ci/sims.lane: the host, a core, a large core), on integration, integ-*, release/*, tags, the dispatch
+  # input `sims` and "[sims]" (ci/select.sh sims-tier), before Vivado; not on main or a v* tag (D51)
   sims:
     needs: dispatch
-    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.sim_owners != '[]' }}
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.sim_owners != '[]' }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -755,9 +777,8 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # D14: the whole package, 11 (first half): the bitstream entries of every lane and the imports, as the old pipeline's collect (T239.1 D40: kept in GitHub's
-  # cache by the run's entry names; D41: only a job that fetches releases waits at the environment bitstreams). Alone on the T239 branch without the imports
-  # (CI_IMPORTS=no, ci/lane.sh package names: the builder names their entries with integration's ci/imports.py, T261 review 3.3); beside, with them.
+  # D14: the whole package, 11 (first half): the bitstream entries of every lane and the imports (T239.1 D40: kept in GitHub's cache by the run's entry names; D41:
+  # only a job that fetches releases waits at the environment bitstreams).
   collect:
     name: "Whole package: 11 collect (every lane's bitstreams)"
     needs: [dispatch, approve]
@@ -770,7 +791,6 @@ jobs:
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
       CI_REF_TYPE: ${{ github.ref_type }}
-      CI_IMPORTS: ${{ inputs.beside && 'yes' || 'no' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
         with:
@@ -789,7 +809,7 @@ jobs:
             echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/handoff"
-      - name: 11 Entry names (every lane's; the imports beside the old pipeline only)
+      - name: 11 Entry names (every lane's and the imports')
         id: bitnames
         run: |
           ci/lane.sh package names
@@ -817,10 +837,8 @@ jobs:
           if-no-files-found: error
 
   # D14: the whole package, 11 (second half) and 13: ci/package.sh over every lane's result - the bitstreams of collect, the SDK lane's shared image, sub-apps and
-  # SDK package, the host menu, each core lane's .cor (D13: a core with an app of its own is delivered by its lane). The artifact `package` is the one the old
-  # pipeline's update, emu and prerelease read. Beside it this job runs wherever the old pipeline makes a package (scope full: main, integration, integ-*,
-  # release/*, v* tags; or a feature branch that asks for the update files), and the old job package does not run there (only on t239.1 and for a pull
-  # request, where this file does not run), so the run has one.
+  # SDK package, the host menu, each core lane's .cor (D13: a core with an app of its own is delivered by its lane). The artifact `package` is the one the jobs update and
+  # prerelease read. It runs wherever a package is made (scope full: main, integration, integ-*, release/*, v* tags; or a feature branch that asks for the update files).
   package:
     name: "Whole package: 11 package (every .cor), 13 deliver"
     needs: [dispatch, host-bits, collect, sdk, host, core]
@@ -879,9 +897,76 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  # a feature branch: one .cor per touched core that has no lane of its own (ci/dispatch.py cor_legs), from the builder's bitstream (the legs wait at the environment bitstreams)
+  # and the shared image of the SDK lane
+  cor:
+    needs: [dispatch, approve, sims, sdk, host-bits]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cor_legs != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' && needs.sdk.result == 'success' && needs.host-bits.result != 'failure' && needs.host-bits.result != 'cancelled' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        target: ${{ fromJSON(needs.dispatch.outputs.cor_legs) }}
+    uses: ./.github/workflows/cor.yml
+    with:
+      target: ${{ matrix.target }}
+
+  # the .cfw/.ue2 update files of the package (ci/select.sh update: integ-m1, integration, main, tags, "[bundle]", the dispatch input `update`); the artifact `update` is the pre-release's
+  update:
+    needs: [dispatch, lint, keys, apptests, sims, cor, package]
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.update == 'true' && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    uses: ./.github/workflows/update.yml
+
+  # D1, D42: the package of a push to main or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the job runs the commit's
+  # own scripts with the token of that environment, so the push must be one of Alex's (rulesets of main and v* tags, D15, D28). The package is the whole package of this file.
+  prerelease:
+    name: Pre-release
+    needs: [dispatch, package, update, emu, host-emu, ovtest-emu]
+    if: >-
+      ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.package.result == 'success' && needs.update.result == 'success'
+      && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: ubuntu-latest
+    environment: builds
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Environment
+        run: |
+          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: package
+          path: ${{ env.CI_TEMP }}/package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: update
+          path: ${{ env.CI_TEMP }}/update
+      - name: Pre-release
+        env:
+          CI_PACKAGE_IN: ${{ env.CI_TEMP }}/package
+          CI_UPDATE_IN: ${{ env.CI_TEMP }}/update
+          CI_STAGE: ${{ env.CI_TEMP }}/prerelease-stage
+          MC_BUILDS_REPO: Jondalar/trx64mc-builds
+          BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
+        run: ci/child.sh prerelease
+
   summary:
     name: Result (the matrix)
-    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, host-bits, bits, core, emu, host-emu, collect, package]
+    needs: [dispatch, approve, lint, keys, apptests, sdk, sdk-release, host, sims, host-bits, bits, cor, core, emu, host-emu, ovtest-emu, collect, package, update, prerelease]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

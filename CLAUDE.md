@@ -51,14 +51,18 @@ No code for a change that has no spec section to point at; a one-line fix points
   Specs and decisions live on `integration` (T94 Q10, as read since the switch). GitHub releases, comments and posts need Alex's go.
 - Never force-push. One exception (Alex, 2026-10-18: "Ja er darf"): a session may rebase its own, not yet merged feature branch and
   push it with `--force-with-lease`; never `integration` or `main`, never a branch another session works on.
-- **The pipeline** (parent and children, T174 D4, Alex 2026-11-08: "separation of concerns in the CI too"): a push runs
-  `.github/workflows/pipeline.yml`; its jobs and the reusable workflows it calls run in dependency order, and the dependents of a red
-  job do not start: plan (`ci/plan.py`: what changed, which children, which bitstream
-  keys are missing), lint, keys, apptests, images, sim, cor, package (it first collects the bitstreams by content key from the
-  builder), update, emu and the pre-release. Only a push to `main` or a `v*` tag publishes a pre-release `<branch>-<sha8>` in the
-  builds repository (the release bundle, T239.1 D1, D42; `t239.1` too while it exists). Pushes queue; none is cancelled. A push that
-  changes only `**.md`, `docs/**` or `.claude/**` starts no run. Everything unchanged comes from the content-keyed cache. The Gitea
-  workflows of the old home stay in `.gitea/workflows/` and run only by hand (T239.1 D45).
+- **The pipeline** (T239.5 D22, Alex 2026-11-26: "Away with the monolith."): a push runs `.github/workflows/pipeline.yml`, which only holds the triggers and the
+  one call of the matrix (`.github/workflows/matrix.yml`); the matrix is the whole pipeline, its jobs run in dependency order, and the dependents of a red job do
+  not start: dispatch (`ci/dispatch.py`: what changed, which lanes and jobs, the work order of the builder), approve, lint (one leg per lane), keys, apptests, the
+  lanes (SDK, host menu, one per core with an app of its own), sims, the bitstream jobs, cor (the .cor of a core without a lane), collect and package, update,
+  the emulator jobs, the pre-release. The bitstreams are not a job of GitHub's: the builder builds the keys the dispatcher's work order names as missing (D11, D13)
+  and releases the environment `bitstreams`, where the jobs that need them wait without a runner (D21). Environment `vivado` (job approve) is Alex's click for a
+  commit the builder does not trust by itself (D14); environment `builds` (jobs prerelease, sdk-release) is the publish. Only a push to `main` or a `v*` tag publishes a pre-release
+  `<branch>-<sha8>` in the builds repository (the release bundle, T239.1 D1, D42). A push to `main` or a `v*` tag runs no test job (T239.1 D51: lint, keys,
+  apptests, sims, emulator tests are left out; integration has tested that content): it builds, packs and publishes. A pull request from a fork runs the matrix as a
+  push does (a pull request from a branch of this repository is the push's run). Pushes queue; none is cancelled. A push that changes only `**.md`, `docs/**` or
+  `.claude/**` starts no run. Everything unchanged comes from the content-keyed cache. The Gitea workflows of the old home stay in `.gitea/workflows/` and run only by
+  hand (T239.1 D45).
 - Only the coordinating session pushes code that builds, and only when no CI run is in progress or waiting. Agents commit locally and
   report; the coordinator reviews (QC every agent result against code, specs and decisions) and pushes.
 - **Review before every push** (Alex, 2026-11-08: "I want a review agent to work once before a push" - "from now on always", translated):

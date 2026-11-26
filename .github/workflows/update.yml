@@ -1,7 +1,7 @@
 name: Update
 
-# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the tester update files (.cfw/.ue2/.txu) of this run's package (ci/update.sh). Takes the bitstreams from the package artifact, so it does not wait at the environment `bitstreams` (D41); runs when ci/select.sh
-# update says yes (the plan job asked).
+# T239.1 S6, D12: a job of the matrix (ci/children.txt). Concern: the tester update files (.cfw/.ue2/.txu) of this run's package (ci/update.sh). Takes the bitstreams from the package artifact, so it does not wait at the environment `bitstreams` (D41); runs when ci/select.sh
+# update says yes (the matrix's dispatcher asked).
 # It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
 # and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
 run-name: "update @${{ github.event.pull_request.head.sha || github.sha }}"
@@ -63,10 +63,6 @@ jobs:
         with:
           name: plan
           path: ${{ env.CI_TEMP }}/handoff
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
-        with:
-          name: handoff-trxapps
-          path: ${{ env.CI_TEMP }}/handoff/trxapps
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         with:
           name: package
