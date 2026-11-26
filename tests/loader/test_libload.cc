@@ -20,6 +20,9 @@
 #include "hostos.h"
 #include "service.h"
 #include "apphost.h"
+#include "libslot.h"
+#include "online_api.h"
+#include "netfs.h"
 
 #ifndef FIXDIR
 #error FIXDIR is the directory of testlib.u2a and testlib.at1000.raw (tests/loader/run.sh makes them)
@@ -204,6 +207,25 @@ static std::vector<uint8_t> read_file(const char *name)
     return v;
 }
 
+// ------------------------------------------------------------------------------------------------ the slot table of this test's app (libslot.h)
+
+struct ExpTab { uint32_t size; uint32_t member; };
+static ExpTab g_ring_tab = { sizeof(ExpTab), 11 };
+static ExpTab g_trx_tab = { 12, 22 };
+static const void *g_online_tab = 0;                           // what the slot "online" answers (test_online.inc): null = this core has none
+static const void *slot_ring(void) { return &g_ring_tab; }
+static const void *slot_trx(void) { return &g_trx_tab; }
+static const void *slot_gone(void) { return 0; }               // linked, and the table is empty on this core
+static const void *slot_online(void) { return g_online_tab; }
+extern const LibSlot g_libslot[] = {
+    { "ringlib", "ring", 1, slot_ring, 0 },
+    { "ringlib", "trx", 2, slot_trx, 0 },
+    { "ringlib", "gone", 1, slot_gone, 0 },
+    { "onlinelib", "online", 1, slot_online, 0 },
+};
+extern const unsigned g_libslot_n = 4;
+const void *g_libslot_bound[4];
+
 // ------------------------------------------------------------------------------------------------ a writer of images, independent of the packer
 
 struct Img {
@@ -218,8 +240,8 @@ struct Img {
     uint32_t flags = 0, reserved = 0;
     std::vector<uint8_t> budget;                  // the record behind the header (U2a3Budget bytes); empty: no budget, no flag
     std::vector<uint8_t> exp;                     // the list of exported names behind the budget (a count, then U2a3ExportName entries); empty: none, no flag
-    Img(const char *n, const char *marker) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
-          payload(64, 0), bss(32), align(16), reg(0), main(U2A3_NONE), abi_min(3), abi_max(3), fmt(3)
+    Img(const char *n, const char *marker) : kind(U2A3_KIND_APP), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
+          payload(64, 0), bss(32), align(16), reg(0), main(8), abi_min(4), abi_max(4), fmt(3)       // a resident application that registers (lib_register) and has app_main
     {
         // offset 0: code that is never run; 4: a marker; 16: a word that holds the offset of the marker (relocated: its address);
         // 20: a word that holds the offset of that word
@@ -313,8 +335,59 @@ struct World {
     }
 };
 
-// A load that must be refused: the code, the words in the sentence, and nothing left behind.
-static void refused(const char *what, World &w, const std::vector<uint8_t> &f, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0)
+// A transient application that registers (the shape that can be released: what a library file's unload was)
+static Img tr(const char *n, const char *marker)
+{
+    Img i(n, marker);
+    i.residence = U2A3_RES_TRANSIENT;
+    i.main = 4;
+    return i;
+}
+
+// The files of the real RISC-V link are libraries (the packer's default kind); the loader refuses that kind (D58), so the test reads one as an application: the kind byte
+// and app_main (the same offset as lib_register) are patched in the bytes, the relocation and everything else is the real file's.
+static std::vector<uint8_t> as_app(std::vector<uint8_t> f)
+{
+    if (f.size() >= 80) {
+        f[12] = U2A3_KIND_APP;
+        memcpy(&f[76], &f[72], 4);
+    }
+    return f;
+}
+static std::vector<uint8_t> read_app(const char *name) { return as_app(read_file(name)); }
+
+// LibLoader::link over the twin of `name` (the host-compiled lib_register): the register function is a plain pointer, so the twin is reached through a global
+static std::function<int(const LibApi *, LibRecord *)> g_reg_fn;
+static int reg_tramp(const LibApi *api, LibRecord *rec) { return g_reg_fn(api, rec); }
+static int link_lib(World &w, const char *name, int *h, char *err, uint32_t keep = U2A3_BUDGET_NONE, uint32_t peak = U2A3_BUDGET_NONE, const std::vector<uint8_t> *menu = 0)
+{
+    std::map<std::string, Model::Twin>::iterator t = w.m.twins.find(name);
+    CHECK(t != w.m.twins.end());
+    *h = -1;
+    if (t == w.m.twins.end()) {
+        return 99;
+    }
+    Model::Twin tw = t->second;
+    LibHost::Entry e = { name, 0, 0, 0 };
+    Model *mp = &w.m;
+    g_reg_fn = [tw, e, mp](const LibApi *a, LibRecord *r) { mp->register_calls++; return tw(e, a, r); };
+    DescRecord *d = 0;
+    uint8_t *b = 0;
+    if (menu) {
+        MemSource s(*menu);
+        char why[160] = "";
+        if (libmenu_read(&s, s.size(), 0, &d, &b, why, sizeof(why), false) != 0) {       // as a library's menu record is read: no route, no key of an application
+            snprintf(err, LIB_ERR_MAX, "%s", why);
+            return LIB_BAD_FILE;
+        }
+    }
+    int rc = w.ld->link(name, reg_tramp, keep, peak, d, b, err, LIB_ERR_MAX);
+    *h = rc == LIB_OK ? w.ld->handle_of(name) : -1;
+    return rc;
+}
+
+// A refusal that must leave nothing behind: the code, the words in the sentence, and the heap, the registry, the accounts and the process heap as they were.
+static void refused_go(const char *what, World &w, std::function<int(int *, char *)> go, int rc, const char *n1, const char *n2, const char *n3)
 {
     std::string heap = w.m.shape();
     int ops = w.reg.nops(), st = w.reg.nstates(), ev = w.reg.nevents(), count = w.ld->count();
@@ -322,7 +395,7 @@ static void refused(const char *what, World &w, const std::vector<uint8_t> &f, i
     long live = g_live;
     char err[LIB_ERR_MAX] = "";
     int h = 0;
-    int got = w.load(f, &h, err);
+    int got = go(&h, err);
     long live_after = g_live;                                          // before any temporary of the checks below
     bool ok = got == rc && h == -1;
     ok = ok && (!n1 || strstr(err, n1)) && (!n2 || strstr(err, n2)) && (!n3 || strstr(err, n3));
@@ -334,6 +407,19 @@ static void refused(const char *what, World &w, const std::vector<uint8_t> &f, i
                w.m.shape().c_str(), ops, w.reg.nops(), live, live_after, (unsigned)held, (unsigned)w.ld->held_total());
         g_fails++;
     }
+}
+
+// A load that must be refused.
+static void refused(const char *what, World &w, const std::vector<uint8_t> &f, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0)
+{
+    refused_go(what, w, [&](int *h, char *err) { return w.load(f, h, err); }, rc, n1, n2, n3);
+}
+
+// A link that must be refused.
+static void refused_link(const char *what, World &w, const char *name, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0, uint32_t keep = U2A3_BUDGET_NONE,
+                         uint32_t peak = U2A3_BUDGET_NONE, const std::vector<uint8_t> *menu = 0)
+{
+    refused_go(what, w, [&](int *h, char *err) { return link_lib(w, name, h, err, keep, peak, menu); }, rc, n1, n2, n3);
 }
 
 static std::string call(World &w, const char *op, const char *arg = 0)
@@ -370,7 +456,7 @@ static void coexist()
 {
     World w;
     w.m.caps.push_back("drive_a");
-    std::vector<uint8_t> tl = read_file("testlib.u2a");
+    std::vector<uint8_t> tl = read_app("testlib.u2a");
     std::vector<uint8_t> raw = read_file("testlib.at1000.raw");
     CHECK(tl.size() > U2A3_HEADER_SIZE && raw.size() > 0);
     char err[LIB_ERR_MAX];
@@ -390,10 +476,9 @@ static void coexist()
     CHECK(w.reg.find_state("test.version") != 0);
     CHECK_EQ((int)w.m.entries[0].entry_addr, 0x1000);                       // lib_register is at offset 0 of the image
 
-    // alpha: a library with an alignment of 64, a dependency on the first one and on the base
+    // alpha: a resident application with an alignment of 64 and a dependency on the base (an older minor of the major before is met too)
     Img a("alpha", "ALPHA-MARK");
     a.align = 64;
-    a.needs.push_back(std::make_pair(std::string("testlib"), U2A3_VERSION(1, 0)));
     a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
     a.cap = "drive_a";
     CHECK_EQ(w.load(build(a), &h_a, err), LIB_OK);
@@ -418,7 +503,7 @@ static void coexist()
     CHECK_EQ(ib->image_addr % 256, 0);
     CHECK(ia->image_addr != itl->image_addr && ib->image_addr != ia->image_addr);
     CHECK_EQ(ib->main_addr, ib->image_addr + 8);
-    CHECK_EQ(ia->main_addr, 0);
+    CHECK_EQ(ia->main_addr, ia->image_addr + 8);
     CHECK(image_is(w, ia, expected_image(a, ia->image_addr)));
     CHECK(image_is(w, ib, expected_image(b, ib->image_addr)));
     CHECK_EQ(w.ld->resident_bytes(), itl->image_size + ia->image_size + ib->image_size);
@@ -537,53 +622,61 @@ static void refusals()
     e4.main = 0xFFFFFF00;
     refused("main outside", w, build(e4), LIB_BAD_FILE, "app_main");
     Img e5 = ok;
-    e5.reg = U2A3_NONE;
-    refused("library without lib_register", w, build(e5), LIB_BAD_FILE, "lib_register");
-    Img e6 = ok;
-    e6.residence = U2A3_RES_TRANSIENT;
-    refused("transient library", w, build(e6), LIB_BAD_FILE, "resident");
+    e5.main = U2A3_NONE;
+    refused("application without app_main", w, build(e5), LIB_BAD_FILE, "app_main");
+    Img e6 = ok;                                                            // D58: the one file kind base 4.0 does not load
+    e6.kind = U2A3_KIND_LIB;
+    e6.main = U2A3_NONE;
+    refused("a file of kind lib", w, build(e6), LIB_BAD_FILE, "alpha", "is a library file: base 4.0 loads no library file", "TOML B");
     CHECK_EQ(w.m.allocs, allocs);                                           // refused without spending memory
     CHECK_EQ(w.m.register_calls, 0);
 
     // ---- D11: versions, by name and both numbers
     Img v1 = ok;
-    v1.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 2)));
-    refused("needs base 3.2 on 3.1", w, build(v1), LIB_NEEDS, "alpha", "base", "3.2");
+    v1.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 2)));
+    refused("needs base 4.2 on 4.1", w, build(v1), LIB_NEEDS, "alpha", "base", "4.2");
     {
         char e[LIB_ERR_MAX];
         MemSource s(build(v1));
         w.ld->load(&s, &h, e, sizeof(e));
-        CHECK(strstr(e, "3.2") && strstr(e, "3.1"));                       // both numbers
+        CHECK(strstr(e, "4.2") && strstr(e, "4.1"));                       // both numbers
     }
     Img v2 = ok;
-    v2.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 1)));
-    CHECK_EQ(w.load(build(v2), &h, err), LIB_OK);                           // 3.1 on 3.1 is enough
+    v2.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 1)));
+    CHECK_EQ(w.load(build(v2), &h, err), LIB_OK);                           // 4.1 on 4.1 is enough
+    Img v2b = ok;
+    v2b.name = "delta2";
+    v2b.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 2)));
+    CHECK_EQ(w.load(build(v2b), &h, err), LIB_OK);                          // a need of the major before is met by this base
+    // the needs bind to the slots of the app's libraries (g_libslot): an export it is not linked with, one at another major, one whose table is empty here
     Img v3 = ok;
     v3.name = "gamma";
     v3.needs.push_back(std::make_pair(std::string("cbm1541"), U2A3_VERSION(1, 0)));
-    refused("needs a library that is not loaded", w, build(v3), LIB_NEEDS, "gamma", "cbm1541", "not loaded");
-    Img dep("cbm1541", "D");
-    dep.version = U2A3_VERSION(1, 0);
-    w.m.twins["cbm1541"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
-    CHECK_EQ(w.load(build(dep), &h, err), LIB_OK);
+    refused("needs an export the app is not linked with", w, build(v3), LIB_NEEDS, "gamma", "\"cbm1541\" 1.0", "which the app is not linked with");
     Img v4 = v3;
-    v4.needs[0].second = U2A3_VERSION(2, 0);
-    refused("needs a newer library", w, build(v4), LIB_NEEDS, "gamma", "cbm1541", "2.0");
-    {
-        char e[LIB_ERR_MAX];
-        MemSource s(build(v4));
-        w.ld->load(&s, &h, e, sizeof(e));
-        CHECK(strstr(e, "2.0") && strstr(e, "1.0"));
-    }
+    v4.needs[0] = std::make_pair(std::string("trx"), U2A3_VERSION(1, 0));
+    refused("needs another major than the app is linked with", w, build(v4), LIB_NEEDS, "gamma", "\"trx\" 1.0", "the app is linked with 2.0");
+    Img v5 = v3;
+    v5.needs[0] = std::make_pair(std::string("gone"), U2A3_VERSION(1, 0));
+    refused("needs a table that is empty on this core", w, build(v5), LIB_NEEDS, "gamma", "\"gone\" 1.0", "which this core does not have");
+    Img v6 = v3;
+    v6.name = "needy";
+    v6.needs[0] = std::make_pair(std::string("ring"), U2A3_VERSION(1, 0));
+    w.m.twins["needy"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+    CHECK_EQ(w.load(build(v6), &h, err), LIB_OK);                           // an export the app is linked with, at that major
     Img a1 = ok;
     a1.name = "gamma";
-    a1.abi_min = 4;
-    a1.abi_max = 4;
-    refused("built for ABI 4", w, build(a1), LIB_ABI, "gamma", "ABI 4", "ABI 3");
+    a1.abi_min = 3;
+    a1.abi_max = 3;
+    refused("built for API 3", w, build(a1), LIB_ABI, "gamma", "base API 3", "rebuild");
     Img a2 = a1;
     a2.abi_min = 2;
     a2.abi_max = 2;
-    refused("built for ABI 2", w, build(a2), LIB_ABI, "ABI 2");
+    refused("built for API 2", w, build(a2), LIB_ABI, "base API 2");
+    Img a3 = a1;
+    a3.abi_min = 5;
+    a3.abi_max = 5;
+    refused("built for API 5", w, build(a3), LIB_ABI, "base API 5", "newer base");
 
     // ---- Q10: a capability the core lacks
     Img c1 = ok;
@@ -625,7 +718,7 @@ static void failures()
     World w;
     char err[LIB_ERR_MAX];
     int h = -1;
-    std::vector<uint8_t> tl = read_file("testlib.u2a");
+    std::vector<uint8_t> tl = read_app("testlib.u2a");
     CHECK_EQ(w.load(tl, &h, err), LIB_OK);
     uint32_t used = w.m.used_bytes();
     std::string heap = w.m.shape();
@@ -693,7 +786,7 @@ static void unserved()
     w.ld->set_log(sink);
     char err[LIB_ERR_MAX];
     int h = -1;
-    CHECK_EQ(w.load(read_file("testlib.u2a"), &h, err), LIB_OK);
+    CHECK_EQ(w.load(read_app("testlib.u2a"), &h, err), LIB_OK);
     w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
         static const LibNodeDecl nodes[2] = { };
         static const LibFileActionDecl fas[1] = { };
@@ -737,7 +830,7 @@ static void base_version()
     }
     Img major("alpha", "A");
     major.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR + 1, 0)));
-    refused("needs the next major of the base", w, build(major), LIB_NEEDS, "alpha", "4.0", want_have);
+    refused("needs the next major of the base", w, build(major), LIB_NEEDS, "alpha", "5.0", want_have);
     Img same("alpha", "A");
     same.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR)));
     CHECK_EQ(w.load(build(same), &h, err), LIB_OK);                         // exactly what the base provides is enough
@@ -813,32 +906,32 @@ static void polls()
     int h = -1;
     memset(g_polled, 0, sizeof(g_polled));
 
-    // a library: polled at its period from its registration, until it is unloaded
+    // an application that registers a poll: polled at its period from its registration, until it is released
     std::string heap0 = w.m.shape();
-    CHECK_EQ(w.load(build(Img("pa", "A")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("pa", "A")), &h, err), LIB_OK);
     int ha = h;
     CHECK_EQ(lp.count(), 1);
     spin(os, lp, 1000);
     printf("S3 library pa (10 ms), 1000 ms: %d calls\n", g_polled[0]);
     CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
     // a second one beside it, at its own period
-    CHECK_EQ(w.load(build(Img("pb", "B")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("pb", "B")), &h, err), LIB_OK);
     int hb = h;
     CHECK_EQ(lp.count(), 2);
     int a0 = g_polled[0];
     spin(os, lp, 1000);
     printf("S3 pa and pb (20 ms), 1000 ms: pa %d calls, pb %d calls\n", g_polled[0] - a0, g_polled[1]);
     CHECK(g_polled[0] - a0 >= 98 && g_polled[1] >= 49 && g_polled[1] <= 51);
-    // unloaded: nothing is polled after, the other goes on
-    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    // released: nothing is polled after, the other goes on
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
     CHECK_EQ(lp.count(), 1);
     a0 = g_polled[0];
     int b0 = g_polled[1];
     spin(os, lp, 500);
-    printf("S3 pa unloaded: pa %d -> %d calls, pb %d -> %d calls\n", a0, g_polled[0], b0, g_polled[1]);
+    printf("S3 pa released: pa %d -> %d calls, pb %d -> %d calls\n", a0, g_polled[0], b0, g_polled[1]);
     CHECK_EQ(g_polled[0], a0);
     CHECK(g_polled[1] >= b0 + 24);
-    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);
     CHECK_EQ(lp.count(), 0);
     b0 = g_polled[1];
     spin(os, lp, 300);
@@ -878,27 +971,27 @@ static void polls()
         rec->poll.op = "pa.arg"; rec->poll.period_ms = 10;
         return 0;
     };
-    refused("a poll that takes arguments", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "pa.arg", "takes arguments");
+    refused("a poll that takes arguments", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "pa.arg", "takes arguments");
     w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->poll.op = "pa.missing"; rec->poll.period_ms = 10; return 0; };
-    refused("a poll of an operation nobody registered", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "pa.missing", "not registered");
+    refused("a poll of an operation nobody registered", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "pa.missing", "not registered");
     w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
         static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
         rec->ops = ops; rec->nops = 1;
         rec->poll.op = "pa.tick"; rec->poll.period_ms = 0;
         return 0;
     };
-    refused("a poll with no period", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "no period");
+    refused("a poll with no period", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "no period");
     CHECK_EQ(lp.count(), 0);
     CHECK(w.reg.find_op("pa.tick") == 0);
 
-    // a poll the library declares in its menu record is served like one of lib_register, from the load to the unload; in both records it is refused
+    // a poll the library declares in its menu record is served like one of lib_register, from the load to the release; in both records it is refused
     w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
         static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
         rec->ops = ops; rec->nops = 1;
         return 0;
     };
     memset(g_polled, 0, sizeof(g_polled));
-    CHECK_EQ(w.load(with_menu(Img("pa", "A"), read_file("menu_poll.bin")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(with_menu(tr("pa", "A"), read_file("menu_poll.bin")), &h, err), LIB_OK);
     CHECK_EQ(lp.count(), 1);
     spin(os, lp, 1000);
     printf("S3 pa with its poll in the menu record (10 ms), 1000 ms: %d calls\n", g_polled[0]);
@@ -912,10 +1005,10 @@ static void polls()
     CHECK(g_polled[0] >= a0 + 9);
     CHECK(lp.add("pa", "pa.tick", 20, false, why, sizeof(why)));
     CHECK_EQ(lp.count(), 1);
-    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
     CHECK_EQ(lp.count(), 0);
     w.m.twins["pa"] = twin_poll<0>;
-    refused("a poll in lib_register and in the menu record", w, with_menu(Img("pa", "A"), read_file("menu_poll.bin")), LIB_REGISTER, "pa", "one is allowed");
+    refused("a poll in lib_register and in the menu record", w, with_menu(tr("pa", "A"), read_file("menu_poll.bin")), LIB_REGISTER, "pa", "one is allowed");
     CHECK_EQ(lp.count(), 0);
     CHECK(w.reg.find_op("pa.tick") == 0);
 
@@ -925,8 +1018,8 @@ static void polls()
         w.m.twins["pb"] = twin_poll<1>;
         memset(g_polled, 0, sizeof(g_polled));
         int hpa = -1, hpb = -1;
-        CHECK_EQ(w.load(build(Img("pa", "A")), &hpa, err), LIB_OK);
-        CHECK_EQ(w.load(build(Img("pb", "B")), &hpb, err), LIB_OK);
+        CHECK_EQ(w.load(build(tr("pa", "A")), &hpa, err), LIB_OK);
+        CHECK_EQ(w.load(build(tr("pb", "B")), &hpb, err), LIB_OK);
         CHECK_EQ(lp.count(), 2);
         cx.frozen = true;
         spin(os, lp, 500);
@@ -936,8 +1029,8 @@ static void polls()
         cx.frozen = false;
         spin(os, lp, 200);
         CHECK(g_polled[1] >= 9);
-        CHECK_EQ(w.ld->unload(hpa, err, sizeof(err)), LIB_OK);
-        CHECK_EQ(w.ld->unload(hpb, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(hpa, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(hpb, err, sizeof(err)), LIB_OK);
         CHECK_EQ(lp.count(), 0);
         w.m.twins["pa"] = twin_poll<0>;
     }
@@ -945,7 +1038,7 @@ static void polls()
     // no sink (a loader whose core has not started): the library loads, the record keeps the declaration for the menu merge
     World w2(U2A_BASE_MINOR);
     w2.m.twins["pb"] = twin_poll<1>;
-    CHECK_EQ(w2.load(build(Img("pb", "B")), &h, err), LIB_OK);
+    CHECK_EQ(w2.load(build(tr("pb", "B")), &h, err), LIB_OK);
     CHECK(w2.ld->info(h) && !strcmp(w2.ld->info(h)->record.poll.op, "pb.tick"));
 }
 
@@ -998,7 +1091,8 @@ static void menu_record()
         World wk;
         char err[LIB_ERR_MAX] = "";
         int h = -1;
-        CHECK_EQ(wk.load(with_menu(Img("alpha", "A"), read_file("menu_keys.bin")), &h, err), LIB_OK);
+        std::vector<uint8_t> keys = read_file("menu_keys.bin");
+        CHECK_EQ(link_lib(wk, "alpha", &h, err, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &keys), LIB_OK);   // a linked library's record may carry key rows
         const LibInfo *i = wk.ld->info(h);
         CHECK(i && i->menu && i->menu->nkeys == 2);
         if (i && i->menu && i->menu->nkeys == 2) {
@@ -1007,6 +1101,12 @@ static void menu_record()
         }
     }
     refused("menu with windows", w, with_menu(Img("alpha", "A"), read_file("windows.bin")), LIB_BAD_FILE, "alpha", "has windows");
+    refused("an application's menu record with keys", w, with_menu(Img("alpha", "A"), read_file("menu_keys.bin")), LIB_BAD_FILE, "alpha", "key table");
+    {
+        std::vector<uint8_t> route2 = read_file("menu_route.bin");
+        World wl;
+        refused_link("a library's menu record with a route", wl, "alpha", LIB_BAD_FILE, "alpha", "gives a route", 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &route2);
+    }
     Img f2("alpha", "A");
     f2.flags = 8;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");
@@ -1165,7 +1265,7 @@ static void apps()
 
     // run() of a library, of nothing, and on a host that cannot run apps
     int hl = -1;
-    CHECK_EQ(w.load(read_file("testlib.u2a"), &hl, err), LIB_OK);
+    CHECK_EQ(link_lib(w, "alpha", &hl, err), LIB_OK);                         // a linked library is no app
     CHECK_EQ(w.ld->run(hl, 0, 0, reply, sizeof(reply), &arc, err, sizeof(err)), LIB_NOT_APP);
     CHECK(strstr(err, "not an app"));
     CHECK_EQ(w.ld->run(11, 0, 0, reply, sizeof(reply), &arc, err, sizeof(err)), LIB_STATE);
@@ -1500,11 +1600,7 @@ static void budgets()
         w.ld->set_log(log_to_test);
         g_log.clear();
         w.m.twins["hq"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { void *p = api->mem->malloc(200); CHECK(p == 0); return 0; };
-        Img q("hq", "Q");
-        U2a3Budget bd = bud_open();
-        bd.heap_peak = 100;
-        q.budget = bud_bytes(bd);
-        refused("heap over the budget at load", w, build(q), LIB_BUDGET, "hq", "200 bytes", "heap peak of 100");
+        refused_link("heap over the budget at load (link)", w, "hq", LIB_BUDGET, "hq", "200 bytes", "heap peak of 100", U2A3_BUDGET_NONE, 100);
         CHECK(g_log.empty());                                               // a refusal at load is the load's sentence, not a log line
         static LibOpDecl hp_ops[3] = { { "hp.grow", 0, 0, h_hp_grow }, { "hp.realloc", 0, 0, h_hp_realloc }, { 0, 0, 0, 0 } };
         w.m.twins["hp"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
@@ -1514,7 +1610,12 @@ static void budgets()
             rec->ops = hp_ops; rec->nops = 2;
             return 0;
         };
-        Img p("hp", "P");
+        U2a3Budget bd = bud_open();
+        bd.heap_peak = 100;
+        Img q = tr("hq", "Q");
+        q.budget = bud_bytes(bd);
+        refused("heap over the budget at load (file)", w, build(q), LIB_BUDGET, "hq", "200 bytes", "heap peak of 100");
+        Img p = tr("hp", "P");
         p.budget = bud_bytes(bd);
         CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
         CHECK_EQ(w.ld->account_bytes(h), 64u);
@@ -1527,17 +1628,17 @@ static void budgets()
         for (size_t i = 0; i < g_log.size(); i++) { told += g_log[i].find("declared heap peak of 100") != std::string::npos; }
         CHECK_EQ(told, 1);
         CHECK_EQ(w.ld->account_blocks(-1), 0);                              // none of it went to nobody
-        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
         CHECK_EQ(w.ld->held_total(), 0u);
         // realloc holds the old and the new block together (64 held by the library's own block, 16 + 90 would be 170)
         CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
         CHECK_STR(call(w, "hp.realloc").c_str(), "kept 1");
         CHECK_EQ(w.ld->account_bytes(h), 80u);                              // the 64 of lib_register and the 16 that stayed
     }
-    {   // the permanent figure is checked against the room of the heap before anything is placed; a keep above the peak is no budget
+    {   // the permanent figure is checked against the room of the heap before anything is placed (a file) or before lib_register runs (a link); a keep above the peak is no budget
         World w(U2A_BASE_MINOR);
         w.m.twins["hk"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
-        Img k("hk", "K");
+        Img k = tr("hk", "K");
         U2a3Budget bd = bud_open();
         bd.heap_keep = 4000;
         bd.heap_peak = 9000;
@@ -1546,7 +1647,7 @@ static void budgets()
         refused("keep over the room", w, build(k), LIB_NO_ROOM, "hk", "keeps 4000 bytes", "room for 4111");
         w.m.room_v = 4000 + 96 + 16;
         CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
-        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
         bd.heap_keep = 9001;
         k.budget = bud_bytes(bd);
         w.m.room_v = 0xFFFFFFFFu;
@@ -1556,11 +1657,18 @@ static void budgets()
         k.budget = bud_bytes(bd);
         w.m.room_v = 0;
         CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        // linked: no image, so the keep alone is held against the room
+        w.m.room_v = 3999;
+        refused_link("link: keep over the room", w, "hk", LIB_NO_ROOM, "hk", "keeps 4000 bytes", "room for 3999", 4000, 9000);
+        refused_link("link: keep over peak", w, "hk", LIB_BAD_FILE, "hk", "keeps 9001", "peak of 9000", 9001, 9000);
+        w.m.room_v = 4000;
+        CHECK_EQ(link_lib(w, "hk", &h, err, 4000, 9000), LIB_OK);
     }
     {   // the real file: the packer wrote the budget, the loader enforces it
         World w(U2A_BASE_MINOR);
         w.m.caps.push_back("drive_a");
-        std::vector<uint8_t> ok = read_file("testlib.budget.u2a"), tight = read_file("testlib.ops0.u2a");
+        std::vector<uint8_t> ok = read_app("testlib.budget.u2a"), tight = read_app("testlib.ops0.u2a");
         CHECK(ok.size() > U2A3_HEADER_SIZE + U2A3_BUDGET_SIZE);
         uint32_t fl;
         memcpy(&fl, ok.data() + 16, 4);
@@ -1569,8 +1677,6 @@ static void budgets()
         CHECK_EQ(w.reg.nops(), 1);
         World w2(U2A_BASE_MINOR);
         refused("the packed budget of ops=0", w2, tight, LIB_BUDGET, "testlib", "1 operations", "budget of 0");
-        World w3(1);                                                         // a base that is older than the budget refuses the dependency the packer added
-        refused("a base older than 3.2", w3, ok, LIB_NEEDS, "testlib", "needs base 3.2");
     }
     {   // a budget record that is not one
         World w(U2A_BASE_MINOR);
@@ -1584,7 +1690,7 @@ static void budgets()
         refused("budget record of an odd size", w, build(a), LIB_BAD_FILE, "alpha", "budget record");
         bd.size = U2A3_BUDGET_SIZE + 16;                                    // longer than the bytes the writer put in: it runs into the dependencies
         a.budget = bud_bytes(bd);
-        a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
+        a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 0)));
         refused("budget record over the dependencies", w, build(a), LIB_BAD_FILE, "alpha", "overlaps");
         // a record of a later minor is longer and still read: the figures it has are the figures
         bd = bud_open();
@@ -1604,7 +1710,7 @@ static void budgets()
 }
 
 // S14: what a library took, it gives back. The account of an image is its block, its blocks of api->mem (also those that its operations take later, whoever
-// calls them), its files and its menu record; unloading it returns the heap to what it was before the load.
+// calls them), its files and its menu record; releasing it returns the heap to what it was before the load.
 static const LibApi *g_acct_api;
 static int h_acct_grow(CoreCtx *, const OpArgs &, OpOut &o)
 {
@@ -1663,8 +1769,8 @@ static void accounts()
     uint32_t used0 = w.m.used_bytes();
     long live0 = g_live;
     int ha = -1, hb = -1;
-    CHECK_EQ(w.load(build(Img("acct", "A")), &ha, err), LIB_OK);
-    CHECK_EQ(w.load(build(Img("bacct", "B")), &hb, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("acct", "A")), &ha, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("bacct", "B")), &hb, err), LIB_OK);
     // the model rounds every block to 16 and the sizes here are rounded already: what the heap gave is exactly what the account says
     CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
     CHECK(w.ld->held_bytes(ha) > w.ld->info(ha)->image_size && w.ld->held_bytes(hb) > w.ld->info(hb)->image_size);
@@ -1687,11 +1793,11 @@ static void accounts()
     CHECK_EQ(w.ld->current(), -1);
     CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
 
-    // unloading gives all of it back: the heap is what it was before the first load
-    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    // releasing gives all of it back: the heap is what it was before the first load
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
     CHECK_EQ(w.ld->account_blocks(ha), 0);
     CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
-    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);
     CHECK_EQ(w.ld->held_total(), 0u);
     CHECK_EQ(w.m.used_bytes(), used0);
     CHECK(shape0 == w.m.shape());
@@ -1699,12 +1805,12 @@ static void accounts()
 
     // files and the menu record are on the account too
     int hf = -1;
-    CHECK_EQ(w.load(with_menu(Img("facct", "F"), rec), &hf, err), LIB_OK);
+    CHECK_EQ(w.load(with_menu(tr("facct", "F"), rec), &hf, err), LIB_OK);
     CHECK(g_live > live0);                                                  // the menu record
     CHECK_EQ(disk.open_files, 1);
     CHECK_EQ(w.ld->account_files(hf), 1);
     CHECK(w.ld->held_bytes(hf) > w.m.used_bytes() - used0);                 // the model's arena holds the image, the block and the handle; the menu record is on the process heap
-    CHECK_EQ(w.ld->unload(hf, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hf, err, sizeof(err)), LIB_OK);
     CHECK_EQ(disk.open_files, 0);
     CHECK_EQ(w.ld->held_total(), 0u);
     CHECK_EQ(w.m.used_bytes(), used0);
@@ -1801,17 +1907,10 @@ static void scopes()
     (void)used0;
 }
 
-// ------------------------------------------------------------------------------------------------ T239.3 D20: named exports
+// ------------------------------------------------------------------------------------------------ base 4.0: the exports of linked libraries, the slots of an app
 
-struct ExpTab { uint32_t size; uint32_t member; };
-static ExpTab g_ring_tab = { sizeof(ExpTab), 11 };
-static ExpTab g_trx_tab = { 12, 22 };
-static ExpTab g_trx2_tab = { sizeof(ExpTab), 33 };
-static ExpTab g_old_tab = { sizeof(ExpTab), 44 };
-static C64Api g_base_c64 = { sizeof(C64Api), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static LibExportDecl g_ringlib_exports[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "trx", 2, &g_trx_tab, 12 } };
-static LibExportDecl g_c64_lib1[] = { { "c64", 1, &g_trx_tab, 12 } };
-static LibExportDecl g_c64_lib2[] = { { "c64", 2, &g_trx2_tab, sizeof(ExpTab) } };
+static LibExportDecl g_c64_lib2[] = { { "c64", 2, &g_ring_tab, sizeof(ExpTab) } };
 static LibExportDecl g_dup_in_record[] = { { "ring", 1, &g_ring_tab, 8 }, { "ring", 1, &g_ring_tab, 8 } };
 static LibExportDecl g_bad_major[] = { { "ring", 0, &g_ring_tab, 8 } };
 static LibExportDecl g_bad_name[] = { { "Ring", 1, &g_ring_tab, 8 } };
@@ -1829,11 +1928,9 @@ static int twin_exports(const LibHost::Entry &, const LibApi *api, LibRecord *re
     rec->nexport_list = g_xn;
     return 0;
 }
-static int twin_old_table(const LibHost::Entry &, const LibApi *api, LibRecord *rec)
+static int twin_api(const LibHost::Entry &, const LibApi *api, LibRecord *)
 {
     g_xapi = api;
-    rec->exports = &g_old_tab;                                   // the one table of base 3.1, found by the name of the library
-    rec->exports_size = sizeof(ExpTab);
     return 0;
 }
 
@@ -1858,110 +1955,51 @@ static void named_exports()
     char err[LIB_ERR_MAX];
     int h = -1;
     uint32_t sz = 0;
-    // the record is read through struct_size: a record of base 3.1 ends before the list
+    // the record is read through struct_size: a record that ends before the list has none
     CHECK(LIB_RECORD_COVERS(sizeof(LibRecord), export_list));
-    CHECK(!LIB_RECORD_COVERS(offsetof(LibRecord, exports_size) + sizeof(uint32_t), export_list));
+    CHECK(!LIB_RECORD_COVERS(offsetof(LibRecord, export_list), export_list));
 
-    {   // one library exports two tables: found by name and major
+    {   // the slots of the app: found by name and exact major, the minor of a version means nothing to an export; an empty table is none
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(1, 7), 0) == &g_ring_tab);
+        CHECK(LibLoader::find_export("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab && sz == 12);
+        sz = 99;
+        CHECK(LibLoader::find_export("trx", U2A3_VERSION(1, 0), &sz) == 0 && sz == 0);
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(2, 0), &sz) == 0);
+        CHECK(LibLoader::find_export("uci", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK(LibLoader::find_export(0, U2A3_VERSION(1, 0), &sz) == 0);
+        sz = 99;
+        CHECK(LibLoader::find_export("gone", U2A3_VERSION(1, 0), &sz) == 0 && sz == 0);
+        CHECK(lib_slot(0, &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(lib_slot(g_libslot_n, &sz) == 0 && sz == 0);
+        CHECK(lib_slot(2, &sz) == 0 && sz == 0);
+    }
+    {   // a linked library's exports: the slot of the library that has an export is found by handle_providing; the name of the library is no export name
         World w(U2A_BASE_MINOR);
         use_exports(w, "ringlib", g_ringlib_exports, 2);
-        Img p("ringlib", "R");
-        p.exp = exp_bytes("ring", 1, "trx", 2);
-        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
-        const SvcLib *lib = g_xapi->lib;
-        CHECK(lib && lib->find);
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab && sz == sizeof(ExpTab));
-        CHECK(lib->find("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab && sz == 12);
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), 0) == &g_ring_tab);              // the size may be left out
-        // the major matches exactly: a table of a higher major is not given to a caller of a lower one (its layout is not the caller's); the minor of the version means nothing to an export
-        CHECK(lib->find("trx", U2A3_VERSION(2, 7), &sz) == &g_trx_tab && sz == 12);
-        sz = 99;
-        CHECK(lib->find("trx", U2A3_VERSION(1, 7), &sz) == 0 && sz == 99);
-        // a major that is too low or too high is not found, nor is a name nobody exports, nor a null name
-        CHECK(lib->find("trx", U2A3_VERSION(3, 0), &sz) == 0 && sz == 99);
-        CHECK(lib->find("ring", U2A3_VERSION(2, 0), &sz) == 0);
-        CHECK(lib->find("uci", U2A3_VERSION(1, 0), &sz) == 0);
-        CHECK(lib->find(0, U2A3_VERSION(1, 0), &sz) == 0);
-        // the name of the library is not an export name: this library has no single table (`exports`), so by its name there is none
-        CHECK(lib->find("ringlib", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
         CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(1, 0)), h);
         CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(2, 0)), -1);
-        CHECK_EQ(w.ld->handle_providing("ringlib", U2A3_VERSION(1, 0)), h);
+        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(2, 0)), h);
         CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(3, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("ringlib", U2A3_VERSION(1, 0)), -1);
         CHECK_EQ(w.ld->handle_providing("nobody", 0), -1);
-        // the exports leave with the library
-        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK_EQ(w.ld->handle_providing(0, 0), -1);
+        CHECK_EQ(w.ld->info(h)->record.nexport_list, 2);
     }
-    {   // the major is matched exactly: a need of major 1 is not met by a table of major 2; a find at major 0 (a bare major in the place of U2A3_VERSION) finds nothing and logs the call
+    {   // an application that needs an export a linked library has: that library is its dependency while it is loaded
         World w(U2A_BASE_MINOR);
         use_exports(w, "ringlib", g_ringlib_exports, 2);
-        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
-        Img c("alpha", "A");
-        c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(1, 0)));
-        refused("a need on an export at a lower major than the one loaded", w, build(c), LIB_NEEDS, "alpha", "\"trx\" 1.0", "2.0 is loaded");
-        const SvcLib *lib = g_xapi->lib;
-        w.ld->set_log(log_to_test);
-        g_log.clear();
-        sz = 99;
-        CHECK(lib->find("ring", 1, &sz) == 0 && sz == 99);                               // the bare number 1 is 0.1: major 0
-        CHECK_EQ((int)g_log.size(), 1);
-        CHECK(g_log.size() == 1 && g_log[0].find("api->lib->find(\"ring\"") != std::string::npos && g_log[0].find("major 0") != std::string::npos);
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab);                // the right call says nothing
-        CHECK(lib->find("nobody", 1, &sz) == 0);                                         // a name no export has is not an export name: no line
-        CHECK_EQ((int)g_log.size(), 1);
-    }
-    {   // a library of base 3.1 (one table, no list) is found by its name as before; its table is not found by any other name
-        World w(U2A_BASE_MINOR);
-        w.m.twins["beta"] = twin_old_table;
-        CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
-        const SvcLib *lib = g_xapi->lib;
-        CHECK(lib->find("beta", U2A3_VERSION(1, 0), &sz) == &g_old_tab && sz == sizeof(ExpTab));
-        CHECK(lib->find("beta", U2A3_VERSION(2, 0), &sz) == 0);                          // its version is 1.0
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == 0);
-        // it loads next to a library with a list: export names are searched first, then library names
-        use_exports(w, "ringlib", g_ringlib_exports, 2);
-        Img p("ringlib", "R");
-        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);                                     // the list in the record, none in the file: found, not part of the order
-        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab);
-        CHECK(lib->find("beta", U2A3_VERSION(1, 0), &sz) == &g_old_tab);
-    }
-    {   // a need on an export name: the provider is loaded first, whatever it is called
-        World w(U2A_BASE_MINOR);
-        use_exports(w, "ringlib", g_ringlib_exports, 2);
-        Img c("alpha", "A");
-        c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
-        refused("a need on an export that is not loaded yet", w, build(c), LIB_NEEDS, "alpha", "\"ring\" 1.0", "not loaded");
-        Img p("ringlib", "R");
-        p.exp = exp_bytes("ring", 1, "trx", 2);
-        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
         int ph = h;
         CHECK_EQ(w.ld->uses(ph), 0);
+        Img c = tr("alpha", "A");
+        c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
+        c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
         CHECK_EQ(w.load(build(c), &h, err), LIB_OK);
-        CHECK_EQ(w.ld->uses(ph), 1);                                                     // the provider is the dependency: the consumer keeps it loaded
-        CHECK_EQ(w.ld->unload(ph, err, sizeof(err)), LIB_STATE);
-        Img c2("beta", "B");
-        c2.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(3, 0)));
-        refused("a need on an export at a higher major", w, build(c2), LIB_NEEDS, "beta", "\"trx\" 3.0", "2.0 is loaded");
-        Img c3("gamma", "G");
-        c3.needs.push_back(std::make_pair(std::string("ringlib"), U2A3_VERSION(1, 0)));
-        c3.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
-        CHECK_EQ(w.load(build(c3), &h, err), LIB_OK);                                    // the name of the library still works, beside an export name
-        CHECK_EQ(w.ld->uses(ph), 3);
-        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(2, 0)), ph);
-    }
-    {   // what the file lists, lib_register has to return
-        World w(U2A_BASE_MINOR);
-        use_exports(w, "ringlib", g_ringlib_exports, 1);                                 // returns "ring" 1 only
-        Img p("ringlib", "R");
-        p.exp = exp_bytes("ring", 1, "trx", 2);
-        refused("a listed export that lib_register does not return", w, build(p), LIB_REGISTER, "ringlib", "\"trx\" 2", "does not return it");
-        Img q("ringlib", "R");
-        q.exp = exp_bytes("ring", 2);                                                    // the major differs
-        refused("a listed export at another major", w, build(q), LIB_REGISTER, "ringlib", "\"ring\" 2");
-        Img r("ringlib", "R");
-        r.exp = exp_bytes("ring", 1);
-        CHECK_EQ(w.load(build(r), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->uses(ph), 2);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->uses(ph), 0);                                                     // given back with the application
     }
     {   // the record is checked
         struct Case { const char *what; const LibExportDecl *list; int n; const char *word; } cases[] = {
@@ -1977,113 +2015,32 @@ static void named_exports()
         for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
             World w(U2A_BASE_MINOR);
             use_exports(w, "ringlib", cases[i].list, cases[i].n);
-            refused(cases[i].what, w, build(Img("ringlib", "R")), LIB_REGISTER, "ringlib", cases[i].word);
+            refused_link(cases[i].what, w, "ringlib", LIB_REGISTER, "ringlib", cases[i].word);
         }
     }
     {   // names are not shared: two libraries do not export one name at one major, an export is not the name of a library, a library is not named like an export
         World w(U2A_BASE_MINOR);
         use_exports(w, "ringlib", g_ringlib_exports, 2);
-        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
         w.m.twins["beta"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_ringlib_exports; rec->nexport_list = 1; return 0; };
-        refused("the same export of another library", w, build(Img("beta", "B")), LIB_REGISTER, "beta", "\"ring\" 1 is exported by \"ringlib\" already");
+        refused_link("the same export of another library", w, "beta", LIB_REGISTER, "beta", "\"ring\" 1 is exported by \"ringlib\" already");
         use_exports(w, "beta", g_c64_lib2, 1);                                           // another major of another name is fine
-        CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
+        CHECK_EQ(link_lib(w, "beta", &h, err), LIB_OK);
         w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_like_lib; rec->nexport_list = 1; return 0; };
-        refused("an export named like a loaded library", w, build(Img("alpha", "A")), LIB_REGISTER, "alpha", "is the name of the library");
-        CHECK_EQ(w.load(build(Img("gamma", "G")), &h, err), LIB_OK);
-        refused("a library named like an export", w, build(Img("ring", "N")), LIB_DUPLICATE, "ring", "name of a table", "ringlib");
+        refused_link("an export named like a linked library", w, "alpha", LIB_REGISTER, "alpha", "is the name of the library");
+        CHECK_EQ(link_lib(w, "gamma", &h, err), LIB_OK);
+        w.m.twins["ring"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        refused_link("a library named like an export", w, "ring", LIB_DUPLICATE, "ring", "name of a table", "ringlib");
+        refused_link("a library linked twice", w, "gamma", LIB_DUPLICATE, "gamma", "linked twice");
     }
-    {   // the list of the file
-        struct Case { const char *what; std::vector<uint8_t> rec; } cases[4];
-        cases[0].what = "no entry"; put32(cases[0].rec, 0);
-        cases[1].what = "nine entries"; put32(cases[1].rec, 9); for (int i = 0; i < 9; i++) { putname(cases[1].rec, "a"); put32(cases[1].rec, i + 1); }
-        cases[2].what = "a name of capitals"; cases[2].rec = exp_bytes("Ring", 1);
-        cases[3].what = "major 0"; cases[3].rec = exp_bytes("ring", 0);
-        for (int i = 0; i < 4; i++) {
-            World w(U2A_BASE_MINOR);
-            use_exports(w, "ringlib", g_ringlib_exports, 2);
-            Img p("ringlib", "R");
-            p.exp = cases[i].rec;
-            refused(cases[i].what, w, build(p), LIB_BAD_FILE, "ringlib", "exported names");
-        }
+    {   // an application's file lists no exports (only a library's record does)
         World w(U2A_BASE_MINOR);
-        use_exports(w, "ringlib", g_ringlib_exports, 2);
-        Img twice("ringlib", "R");
-        twice.exp = exp_bytes("ring", 1, "ring", 1);
-        refused("a name and major twice", w, build(twice), LIB_BAD_FILE, "ringlib", "exported names");
         Img app("ringlib", "R");
-        app.kind = U2A3_KIND_APP;
-        app.residence = U2A3_RES_TRANSIENT;
-        app.main = 8;
         app.exp = exp_bytes("ring", 1);
-        refused("an application that exports", w, build(app), LIB_BAD_FILE, "ringlib", "exported names");
-        // the list overlaps the dependencies: needs_off in the header is the one the writer chose, so cut the record short in the file
-        Img ov("ringlib", "R");
-        ov.exp = exp_bytes("ring", 1);
-        ov.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
-        std::vector<uint8_t> f = build(ov);
-        uint32_t early = U2A3_HEADER_SIZE + 4;                                           // inside the list
-        memcpy(&f[88], &early, 4);
-        refused("a list that overlaps the dependencies", w, f, LIB_BAD_FILE, "ringlib", "exported names");
-        // with a budget in front the list stands behind it
-        Img b("ringlib", "R");
-        b.budget = bud_bytes(bud_open());
-        b.exp = exp_bytes("ring", 1, "trx", 2);
-        CHECK_EQ(w.load(build(b), &h, err), LIB_OK);
-        U2a3ExportName e2[U2A3_EXPORTS_MAX];
-        MemSource ms(build(b));
-        U2a3Header hd;
-        CHECK(ms.read(0, &hd, sizeof(hd)));
-        CHECK_EQ(lib_read_exports(&ms, hd, e2), 2);
-        CHECK(!strcmp(e2[0].name, "ring") && e2[0].major == 1 && !strcmp(e2[1].name, "trx") && e2[1].major == 2);
+        refused("an application that lists exported names", w, build(app), LIB_BAD_FILE, "ringlib", "exported names");
     }
-    {   // the file the packer writes (--export ring=1 --export trx=2): the loader reads its list, and holds lib_register to it
-        World w(U2A_BASE_MINOR);
-        std::vector<uint8_t> f = read_file("testlib.exports.u2a");
-        refused("a packed list that lib_register does not return", w, f, LIB_REGISTER, "testlib", "\"ring\" 1", "does not return it");
-        use_exports(w, "testlib", g_ringlib_exports, 2);
-        CHECK_EQ(w.load(f, &h, err), LIB_OK);
-        CHECK(g_xapi->lib->find("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab);
-        U2a3Header hd;
-        memcpy(&hd, f.data(), sizeof(hd));
-        CHECK_EQ(hd.flags & (U2A3_FLAG_EXPORTS | U2A3_FLAG_BUDGET), U2A3_FLAG_EXPORTS);
-        U2a3Need nd;
-        memcpy(&nd, f.data() + hd.needs_offset, sizeof(nd));
-        CHECK(!strcmp(nd.name, "base") && nd.min_version == U2A3_VERSION(3, 2));         // the packer added the dependency
-    }
-    {   // the base's own table of "c64"
-        World w(U2A_BASE_MINOR);
-        use_exports(w, "ringlib", g_ringlib_exports, 2);
-        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
-        const SvcLib *lib = g_xapi->lib;
-        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == 0);                           // the core is no C64: nothing is answered
-        w.ld->set_c64_api(&g_base_c64);
-        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == &g_base_c64 && sz == sizeof(C64Api));
-        CHECK(lib->find("c64", U2A3_VERSION(2, 0), &sz) == 0);
-        // a library that exports "c64" at the same major wins; one at a higher major does not shadow the base's table for a caller of major 1
-        use_exports(w, "alpha", g_c64_lib1, 1);
-        CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
-        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == &g_trx_tab && sz == 12);
-        World w2(U2A_BASE_MINOR);
-        use_exports(w2, "gamma", g_c64_lib2, 1);
-        w2.ld->set_c64_api(&g_base_c64);
-        CHECK_EQ(w2.load(build(Img("gamma", "G")), &h, err), LIB_OK);
-        const SvcLib *lib2 = g_xapi->lib;
-        CHECK(lib2->find("c64", U2A3_VERSION(1, 0), &sz) == &g_base_c64);
-        CHECK(lib2->find("c64", U2A3_VERSION(2, 0), &sz) == &g_trx2_tab);
-        // a need on "c64" is met by a library that exports it
-        Img c("beta", "B");
-        c.needs.push_back(std::make_pair(std::string("c64"), U2A3_VERSION(2, 0)));
-        CHECK_EQ(w2.load(build(c), &h, err), LIB_OK);
-        // the base's table is no loaded library: a need on "c64" is not met by it (the library that needs it names the table's provider, or reads api->lib at run time)
-        World w3(U2A_BASE_MINOR);
-        w3.ld->set_c64_api(&g_base_c64);
-        Img d("beta", "B");
-        d.needs.push_back(std::make_pair(std::string("c64"), U2A3_VERSION(1, 0)));
-        refused("a need on the base's own c64 table", w3, build(d), LIB_NEEDS, "beta", "\"c64\" 1.0", "not loaded");
-    }
+    // a cycle of needs between two libraries is refused where the table is made: tools/libtab.py link_order, tested by LinkOrderTests in tools/test_libtab.py
 }
-
 
 // ---------------------------------------------------------------------------------------------------- base 3.3: the groups of api (libsvc.cc)
 
@@ -2110,27 +2067,21 @@ static std::string st_of(const LibApi *api, const char *name)
     return t ? t : "(null)";
 }
 
-// ------------------------------------------------------------------------------------------------ T239.3 P2-6a: the tables of an image's needs at slots
+// ------------------------------------------------------------------------------------------------ the tables of an image's needs at slots (api->lib->need)
 
 static void need_slots()
 {
     char err[LIB_ERR_MAX];
-    int hl = -1, ha = -1, hring = -1;
+    int ha = -1;
     uint32_t sz = 99;
     World w(U2A_BASE_MINOR);
-    use_exports(w, "ringlib", g_ringlib_exports, 2);
-    Img p("ringlib", "R");
-    p.exp = exp_bytes("ring", 1, "trx", 2);
-    CHECK_EQ(w.load(build(p), &hring, err), LIB_OK);
-    w.m.twins["oldlib"] = twin_old_table;
-    CHECK_EQ(w.load(build(Img("oldlib", "O")), &hl, err), LIB_OK);
+    w.m.twins["alpha"] = twin_api;
 
-    // the slots are the order of the file: an export by name and major, the base, the table of a library of base 3.1 by its name
-    Img c("alpha", "A");
+    // the slots are the order of the file: an export by name and major, the base (no table), another export
+    Img c = tr("alpha", "A");
     c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
-    c.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 1)));
+    c.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 0)));
     c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
-    c.needs.push_back(std::make_pair(std::string("oldlib"), U2A3_VERSION(1, 0)));
     CHECK_EQ(w.load(build(c), &ha, err), LIB_OK);
     const SvcLib *lib = g_xapi->lib;
     CHECK(lib && lib->need && lib->size >= offsetof(SvcLib, need) + sizeof(lib->need));
@@ -2139,21 +2090,16 @@ static void need_slots()
         CHECK(lib->need(0, &sz) == &g_trx_tab && sz == 12);
         CHECK(lib->need(1, &sz) == 0 && sz == 0);                                        // `base` names no table
         CHECK(lib->need(2, &sz) == &g_ring_tab && sz == sizeof(ExpTab));
-        CHECK(lib->need(3, &sz) == &g_old_tab && sz == sizeof(ExpTab));
         sz = 99;
-        CHECK(lib->need(4, &sz) == 0 && sz == 0);                                        // past the list
+        CHECK(lib->need(3, &sz) == 0 && sz == 0);                                        // past the list
         CHECK(lib->need(2, 0) == &g_ring_tab);                                           // the size may be left out
     }
     CHECK(lib->need(0, &sz) == 0 && sz == 0);                                            // a caller that is no image has no needs
-    {
-        LibLoader::Scope in(w.ld, hl);                                                   // a library with no needs entry
-        CHECK(lib->need(0, &sz) == 0);
-    }
-    // the provider cannot go while the image that needs it is loaded, and the image's slots go with it
-    CHECK_EQ(w.ld->unload(hring, err, sizeof(err)), LIB_STATE);
-    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    // the image's slots go with it
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
     int hb = -1;
-    CHECK_EQ(w.load(build(Img("beta", "B")), &hb, err), LIB_OK);                         // the slot is reused: it must not show alpha's tables
+    w.m.twins["beta"] = twin_api;
+    CHECK_EQ(w.load(build(tr("beta", "B")), &hb, err), LIB_OK);                          // the slot is reused: it must not show alpha's tables
     {
         LibLoader::Scope in(w.ld, hb);
         CHECK(lib->need(0, &sz) == 0 && sz == 0);
@@ -2188,7 +2134,7 @@ static void services()
         return 0;
     };
     std::string shape0 = w.m.shape();
-    CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("alpha", "A")), &h, err), LIB_OK);
     const LibApi *api = g_sapi;
     CHECK(api->sync && api->settings && api->ctx && api->board && !api->io);              // no context yet: no register window
     CHECK_EQ(api->sys->size, sizeof(SvcSys));
@@ -2546,9 +2492,9 @@ static void services()
     bd->case_led_select(0x21);
     CHECK(io.led_log.size() == 1 && io.led_log[0].v == 0x21);
 
-    // ---- the library that is still holding a mutex goes with it: the heap is what it was
+    // ---- the image that is still holding a mutex goes with it: the heap is what it was
     CHECK(g_kept_mutex != 0);
-    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
     CHECK(shape0 == w.m.shape());
 }
 
@@ -2609,10 +2555,10 @@ static void net_and_jobs()
     w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
     int ha = -1, hb = -1;
     std::string shape0 = w.m.shape();
-    CHECK_EQ(w.load(build(Img("liba", "A")), &ha, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("liba", "A")), &ha, err), LIB_OK);
     api0 = g_jobapi;
     CHECK(api0->net && api0->job && api0->net->size == sizeof(SvcNet) && api0->job->size == sizeof(SvcJob));
-    CHECK_EQ(w.load(build(Img("libb", "B")), &hb, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("libb", "B")), &hb, err), LIB_OK);
     // before the base gives its tables: no socket, no job, and nothing breaks
     CHECK_EQ(api0->net->listen(9000, 2), -7);
     CHECK_EQ(api0->net->connect("host", 80, 1000), -7);                                     // the same for the outgoing half
@@ -2669,7 +2615,7 @@ static void net_and_jobs()
     CHECK_EQ(api0->net->send(lib_conn, "x", 1), 1);                                         // the other members pass through
     CHECK_EQ(api0->net->recv(lib_conn, 0, 0), -5);
 
-    // the application ends: its listener and its job go, the library's two sockets and its job stay (appsvc_end no longer kills all)
+    // the application ends: its listener and its job go, the other image's two sockets and its job stay (one image's end touches nothing of another)
     w.m.on_delay = [&]() { for (int i = 0; i < 4; i++) { if (g_jobs[i].used && g_jobs[i].cancel && !g_jobs[i].done) { g_jobs[i].done = true; } } };
     CHECK(w.ld->stop_jobs(hp));
     w.ld->close_sockets(hp);
@@ -2728,7 +2674,7 @@ static void net_and_jobs()
     int j2 = api0->net->listen(9002, 1);                                                    // owner: nobody (no scope, no application)
     CHECK_EQ(w.ld->account_sockets(-1), 1);
     CHECK(j2 >= 100);
-    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);                                   // the listener of the library is closed in discard()
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);                                   // the listener of the library is closed in discard()
     CHECK(!g_open.count(lib_listener));
     CHECK_EQ(w.ld->account_sockets(ha), 0);
     {
@@ -2742,15 +2688,11 @@ static void net_and_jobs()
     for (int i = 0; i < 4; i++) { if (g_jobs[i].used && !g_jobs[i].done) { bj = &g_jobs[i]; } }
     CHECK(bj != 0);
     int delays0 = 0;
-    w.m.on_delay = [&]() { delays0++; };
-    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_STATE);                                // the caller holds the core lock: the job is asked to stop, nothing is waited for
-    CHECK(bj->cancel && bj->used && delays0 == 0 && w.ld->info(hb));
-    CHECK_EQ(w.ld->account_jobs(hb), 1);
-    bj->done = true;                                                                        // the job answered
-    w.m.on_delay = 0;
-    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);                                   // joined, its socket closed
-    CHECK(!bj->used);
+    w.m.on_delay = [&]() { delays0++; for (int i = 0; i < 4; i++) { if (g_jobs[i].used && g_jobs[i].cancel) { g_jobs[i].done = true; } } };      // the job answers the request to stop
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);                                  // asked to stop, waited for, joined; its socket closed
+    CHECK(bj->cancel && !bj->used && delays0 >= 1 && w.ld->info(hb) == 0);
     CHECK_EQ(w.ld->account_sockets(hb) + w.ld->account_jobs(hb), 0);
+    w.m.on_delay = 0;
     CHECK(g_open.size() == 1 && g_open.count(j2));                                          // only the socket of nobody is left
     w.m.on_delay = 0;
     w.ld->close_sockets(-1);
@@ -2767,9 +2709,9 @@ static void calls_on_the_owners_account()
     w.m.twins["libx"] = [](const LibHost::Entry &, const LibApi *a, LibRecord *) { g_jobapi = a; return 0; };
     w.m.twins["liby"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
     int hx = -1, hy = -1;
-    CHECK_EQ(w.load(build(Img("libx", "X")), &hx, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("libx", "X")), &hx, err), LIB_OK);
     api = g_jobapi;
-    CHECK_EQ(w.load(build(Img("liby", "Y")), &hy, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("liby", "Y")), &hy, err), LIB_OK);
     w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
     Img a("capp", "P");
     a.kind = U2A3_KIND_APP;
@@ -2818,8 +2760,8 @@ static void calls_on_the_owners_account()
     api->sync->mutex_free(m1);
     CHECK_EQ(w.ld->account_blocks(hx) + w.ld->account_blocks(hy) + w.ld->account_blocks(hp), 0);
     CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
-    CHECK_EQ(w.ld->unload(hy, err, sizeof(err)), LIB_OK);
-    CHECK_EQ(w.ld->unload(hx, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hy, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hx, err, sizeof(err)), LIB_OK);
 }
 
 // The base's own job table (AppHost, linked for real with stubs of the screens): an application's stop and the end of an application reach the application's jobs and no library's (S14).
@@ -2844,7 +2786,7 @@ struct AppHostTest {
         w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
         w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
         int ha = -1, hp = -1;
-        CHECK_EQ(w.load(build(Img("liba", "A")), &ha, err), LIB_OK);
+        CHECK_EQ(w.load(build(tr("liba", "A")), &ha, err), LIB_OK);
         const LibApi *api = g_jobapi;
         Img a("capp", "P");
         a.kind = U2A3_KIND_APP;
@@ -2879,7 +2821,7 @@ struct AppHostTest {
         CHECK_EQ(api->job->join(app_job), 5);
         CHECK_EQ(w.ld->account_jobs(ha) + w.ld->account_jobs(hp), 0);
         CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
-        CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
     }
 };
 
@@ -2894,20 +2836,20 @@ static void discard_notice()
     char err[LIB_ERR_MAX];
     int h = -1;
     g_gone.clear();
-    CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("alpha", "A")), &h, err), LIB_OK);
     CHECK(g_gone.empty());
     int ha = h;
-    CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("beta", "B")), &h, err), LIB_OK);
     uint32_t addr_a = w.ld->info(ha)->image_addr, size_a = w.ld->info(ha)->image_size;
-    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
     CHECK(g_gone.size() == 1 && g_gone[0] == ha);
     CHECK(g_gone_addr == addr_a && g_gone_size == size_a && size_a > 0);      // the range of the image that goes
     w.ld->set_discard_notify(0);
-    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);                    // nobody told: nothing happens
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);                    // nobody told: nothing happens
     CHECK_EQ(g_gone.size(), 1);
 }
 
-#include "test_online.inc"                                         // T239.3 L-3: the online search as a sub-app, and its client
+#include "test_online.inc"                                         // base 4.0: the table "online" a linked library exports, as netfs.cc reads it
 
 int main()
 {
@@ -2931,7 +2873,6 @@ int main()
     calls_on_the_owners_account();
     AppHostTest::jobs();
     discard_notice();
-    online_client();
-    online_subapp();
+    online_netfs();
     DONE("test_libload");
 }

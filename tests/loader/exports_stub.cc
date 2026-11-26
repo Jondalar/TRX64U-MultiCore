@@ -7,7 +7,6 @@
 #include "d1541_drive.h"
 #include "tempdisk.h"
 #include "writeback.h"
-#include "appsvc.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -50,9 +49,6 @@ int c64_cart_save(CoreCtx *c, const char *path, char *msg, int msglen) { note(c,
 int c64_cart_run_image(CoreCtx *c, const char *name, const uint8_t *img, char *msg, int msglen) { note(c, "run_image(%s,%02x)", name, img[0]); say(msg, msglen, "image"); return g_stub.rc; }
 void c64_cart_player_end(CoreCtx *c) { note(c, "player_end"); }
 bool c64_cart_player_active(void) { return g_stub.player; }
-
-// ---- appsvc.h
-const SvcC64 *appsvc_c64(void) { static SvcC64 t; return g_stub.c64core ? &t : 0; }
 
 // ---- writeback.h
 bool wb_active(void) { return g_stub.wb_active; }

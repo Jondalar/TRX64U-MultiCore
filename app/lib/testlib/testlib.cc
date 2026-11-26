@@ -1,6 +1,7 @@
-// The smallest library (T104.1 D10): one operation, test.echo(text), and one state value. It is the build path's proof and the bench's
-// real RISC-V image; it needs no libc. Build: app/lib/testlib/Makefile.
+// The smallest library (T104.1 D10): one operation, test.echo(text), and one state value. tests/loader registers it natively through LibLoader::link (base 4.0 loads
+// no library file, T239.3 D58) and compares the relocation of its RISC-V ELF fixtures (app/lib/testlib/Makefile `fixtures`); it needs no libc.
 #include "libapi.h"
+#include "libfmt.h"
 
 static int echo(CoreCtx *, const OpArgs &a, OpOut &o)
 {
@@ -28,7 +29,7 @@ static const LibStateDecl states[] = { { "test.version", version_text } };
 #endif
 extern "C" LIB_ENTRY_ATTR int lib_register(const LibApi *api, LibRecord *out)
 {
-    if (api->abi_major != 3) {
+    if (api->abi_major != U2A_ABI_MAJOR) {
         return 1;
     }
     out->ops = ops;

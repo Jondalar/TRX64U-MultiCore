@@ -1,4 +1,4 @@
-// The application's code that libexports.cc calls, as a model for tests/loader/test_exports.cc: every function records its call in `log` and answers what the test set. The
+// The application's code that the export files of the libraries (c64cart_exports.cc, ...) call, as a model for tests/loader/test_exports.cc: every function records its call in `log` and answers what the test set. The
 // real code (c64_cart.cc, cbm1541.cc, d1541_drive.cc, tempdisk.cc, writeback.cc) needs the board or a model of the machine; what is under test here is the table.
 #ifndef TESTS_LOADER_EXPORTS_STUB_H
 #define TESTS_LOADER_EXPORTS_STUB_H
@@ -12,7 +12,6 @@ class CbmDrive;
 struct ExportsStub {
     std::string log;                       // "name(args);" of every call, in order
     const CoreCtx *ctx = 0;                // the context the last call got
-    bool c64core = false;                  // appsvc_c64: the core is the C64 (the cartridge port of the C64 family)
     bool cart_active = false, wb_active = false, ef_ok = true, player = false, pending = false, service_work = false;
     std::string cart_name = "", cart_path = "";
     int crt_type = 0;

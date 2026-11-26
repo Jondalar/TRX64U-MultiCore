@@ -1,12 +1,15 @@
-// T239.3 base 3.3: the tables the base answers api->lib->find with for the shared libraries that stay in it (libexports.cc): c64cart, cbm1541, sid, tempdisk, cbmprg (uci left with D49: it is TRX64-Ultimate's library). The application's code
-// behind the members is a recording model (exports_stub.cc); what is proven is the table: found by name, size first, every member there, and each member calling the code the header
-// names with the core's context.
+// Base 4.0: the tables of the shared libraries c64cart, cbm1541, sid, tempdisk, cbmprg, which the TOML B of the app lists under `exports` (libslot.h; the test's own TOML B is libs_exports.toml, made
+// into the slot table by tools/libtab.py). The application's code behind the members is a recording model (exports_stub.cc); what is proven is the table: its slot, found by name through libtab_export,
+// lib_slot and LibLoader::find_export, size first, every member there, and each member calling the code the header names with the core's context (the library's bind gave it).
 #include <string>
 #include <vector>
 #include <stddef.h>
 #include "check.h"
 #include "libload.h"
 #include "libexports.h"
+#include "libtab.h"
+#include "libslots.h"
+#include "descrec.h"
 #include "c64cart_api.h"
 #include "cbm1541_api.h"
 #include "sid_api.h"
@@ -59,8 +62,20 @@ public:
     void eeprom_read(uint32_t off, void *p, uint32_t n) override { memcpy(p, ee + off, n); }
 };
 
-// the major of the table, as U2A3_VERSION(major, 0): the base matches it exactly
-static const void *find_major(const char *name, uint32_t major, uint32_t *size) { return LibLoader::find_export(name, U2A3_VERSION(major, 0), size); }
+// the table of the slot named `name` at exactly `major`
+static const void *find_major(const char *name, uint32_t major, uint32_t *size) { return libtab_export(name, major, size); }
+
+// the running core has the cartridge port of the C64 family when its TOML A has the block c64cart: libtab_core hands each library the bundle's record (c64cart_lib_core reads the block)
+static void set_port(CoreCtx *cx, CoreDesc &desc, bool on)
+{
+    static DescMap map;
+    static DescRecord rec;
+    memset(&map, 0, sizeof(map));
+    map.nblocks = 1;
+    map.blocks[0].win.name = "c64cart";
+    rec.map = &map;
+    libtab_core(cx, &desc, on ? &rec : 0);
+}
 
 // how many of the pointer-sized members of a table of `size` bytes, from offset `first` on, are null
 static int null_members(const void *t, uint32_t size, size_t first)
@@ -72,31 +87,29 @@ static int null_members(const void *t, uint32_t size, size_t first)
     return n;
 }
 
-static void base_list()
+// The slot table the build made from libs_exports.toml: one slot per export, in the order of the file; the three ways to a table (a slot number, the name through libtab_export, the name through
+// LibLoader::find_export) end at the same table; a major is matched exactly and the minor of a version means nothing to an export
+static void slots()
 {
-    Host h;
-    OpRegistry reg;
-    LibLoader ld(&h, &reg, 3);
-    static const uint32_t ta[3] = { 12, 0, 0 }, tb[3] = { 12, 1, 1 };
-    uint32_t sz = 0;
-    CHECK(find_major("x", 1, &sz) == 0);
-    CHECK(ld.add_export("x", 1, ta));
-    CHECK(find_major("x", 1, &sz) == ta && sz == 12);
-    CHECK(find_major("x", 2, &sz) == 0 && find_major("y", 1, &sz) == 0);
-    CHECK(ld.add_export("x", 1, tb));                                      // the same name and major: replaced
-    CHECK(find_major("x", 1, &sz) == tb);
-    CHECK(ld.add_export("x", 3, ta));                                      // a higher major beside it: each major answers for itself, none for a major in between
-    CHECK(find_major("x", 1, &sz) == tb && find_major("x", 2, &sz) == 0 && find_major("x", 3, &sz) == ta && find_major("x", 4, &sz) == 0);
-    CHECK(ld.add_export("x", 1, 0));                                       // a null table takes the entry away
-    CHECK(find_major("x", 1, &sz) == 0 && find_major("x", 3, &sz) == ta);
-    CHECK(ld.add_export("x", 9, 0));                                       // nothing there: nothing to do
-    static const char *const names[] = { "n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11", "n12", "n13", "n14", "n15" };
-    int added = 0;
-    for (int i = 0; i < LIB_BASE_EXPORTS_MAX; i++) {
-        added += ld.add_export(names[i], 1, ta);
+    static const char *const names[] = { "c64cart", "cbm1541", "sid", "tempdisk", "cbmprg" };
+    uint32_t sz = 0, sz2 = 0;
+    CHECK_EQ((int)g_libslot_n, 5);
+    CHECK_EQ(LIBSLOT_COUNT, 5);
+    CHECK(LIBSLOT_c64cart == 0 && LIBSLOT_cbm1541 == 1 && LIBSLOT_sid == 2 && LIBSLOT_tempdisk == 3 && LIBSLOT_cbmprg == 4);
+    for (unsigned i = 0; i < 5; i++) {
+        CHECK_STR(g_libslot[i].name, names[i]);
+        CHECK_STR(g_libslot[i].lib, names[i]);
+        CHECK(g_libslot[i].major == 1 && g_libslot[i].at_start == 0);
+        const void *a = lib_slot(i, &sz);
+        CHECK(a != 0 && sz >= sizeof(uint32_t) && sz == *(const uint32_t *)a);
+        CHECK(libtab_export(names[i], 1, &sz2) == a && sz2 == sz);
+        CHECK(LibLoader::find_export(names[i], U2A3_VERSION(1, 7), &sz2) == a && sz2 == sz);       // the minor of the version means nothing
+        CHECK(LibLoader::find_export(names[i], U2A3_VERSION(2, 0), &sz2) == 0 && sz2 == 0);
+        CHECK(libtab_export(names[i], 2, &sz2) == 0 && sz2 == 0);
     }
-    CHECK_EQ(added, LIB_BASE_EXPORTS_MAX - 1);                              // "x" holds one place; the list is full after that and says so
-    CHECK(!ld.add_export("one_more", 1, ta));
+    sz = 99;
+    CHECK(lib_slot(5, &sz) == 0 && sz == 0);
+    CHECK(libtab_export("x", 1, &sz) == 0 && LibLoader::find_export("x", U2A3_VERSION(1, 0), 0) == 0 && LibLoader::find_export(0, U2A3_VERSION(1, 0), 0) == 0);
 }
 
 static void tables(CoreCtx *cx)
@@ -104,7 +117,6 @@ static void tables(CoreCtx *cx)
     Host h;
     OpRegistry reg;
     LibLoader ld(&h, &reg, 3);
-    CHECK(find_major("c64cart", 1, 0) == 0 && find_major("sid", 1, 0) == 0);           // nothing registered yet
     libexports_register(ld, cx);
     uint32_t sz = 0;
     const C64CartApi *cart = (const C64CartApi *)find_major("c64cart", 1, &sz);
@@ -186,7 +198,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     c->eeprom_get(ee_out);
     CHECK(io.win[0x00EF0000u - 0x00EA8000u] == 0 && z[0] == 0 && z[3] == 0);
     CHECK(io.ee[0] == 0xAA && io.ee[2048] == 0xBB && ee_out[0] == 0 && ee_out[2047] == 0);
-    g_stub.c64core = true;
+    set_port(cx, desc, true);
     CHECK_EQ(c->ram_size(), 65536);
     uint8_t w[3] = { 7, 8, 9 }, r[3] = { 5, 5, 5 };
     c->ram_write(0xFFFD, w, 3);
@@ -203,8 +215,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     c->ram_read(0xFFFE, r, 3);                                             // not wholly inside: zeros
     CHECK(r[0] == 0 && r[1] == 0 && r[2] == 0);
     // what the cartridge says about itself
-    g_stub = ExportsStub();
-    g_stub.c64core = true;
+    g_stub = ExportsStub();                                                // the port stays: the record of the core still has the block
     CHECK(c->require() == 0 && c->prohibit() == 0 && !c->writable());
     g_stub.wb_active = true;
     CHECK(!c->writable());                                                 // no cartridge in the port: false whatever the write-back service holds
@@ -224,6 +235,7 @@ static void cart_table(CoreCtx *cx, WinIo &io, CoreDesc &desc)
     CHECK(!memcmp(got, put, 2048) && io.ee[0] == 0);                       // a dump leaves the flag alone
     desc.caps = 0;
     desc.ncaps = 0;
+    set_port(cx, desc, false);
 }
 
 static void drive_table(CoreCtx *cx, WinIo &io)
@@ -571,7 +583,7 @@ int main()
     memset(&cx, 0, sizeof(cx));
     cx.io = &io;
     cx.desc = &desc;
-    base_list();
+    slots();
     tables(&cx);
     cart_table(&cx, io, desc);
     drive_table(&cx, io);
