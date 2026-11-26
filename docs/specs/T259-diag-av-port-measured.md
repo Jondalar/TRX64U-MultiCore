@@ -214,6 +214,26 @@ Built 2026-11-24 on `t259-diag-av` (P1-P4, P6; P5 is not part of this build, §4
 
 The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): `diag_avenc` (`PASS tb_avenc errors=0`), `diag_avregs` (`PASS avregs`, with `PASS tb_avsync errors=0 checks=146`).
 
+**Board, 2026-11-26 (Alex's Sony, a C64U to SCART RGB cable; `diag_new.cor` of run 45805580029 on t239.3, sha256 304b5890..., driven over the
+core app's REST by the coordinator, Alex at the TV; photos in the session)**
+- Gideon's firmware 3.15a ("Analog Video Mode RGB") shows a colour picture through the same cable: cable and TV work.
+- `avprobe` (6 steps, SYNCn High, FB Low): no picture in any step. `avrgb` and `avsync` started from the same pins: no picture either.
+- Playground, mode RGB: SYNCn Csync with FB Low gives a white screen; SYNCn Csync with FB High gives the palette picture. So on this cable
+  `AVID_SYNCn` is the sync the TV takes (SCART pin 20: with FB Low the TV shows the csync itself as video, white between the pulses) and
+  `AVID_FB` switches the TV to its RGB input (SCART pin 16, fast blanking). With SYNCn High the TV has no sync at all, whatever the words hold.
+- Map Names with Groups "Y=C, C=B, CVBS=A" (perm 5) showed the bars white, cyan, yellow, green, magenta, blue, red: R and B swapped by the
+  permutation, which acts on RGB too (`diag_avout.v:19`). With Groups "Y=A, C=B, CVBS=C" (perm 0) the bars are white, yellow, cyan, green,
+  purple, red, blue, black as `diag_avout.v:121-123` draws them, and the grey steps run black to white: H1 holds for RGB (A = R, B = G, C = B).
+- R, G and B ramps (RGB picture R / G / B ramp): each a pure primary, dark to bright across the picture, no steps: MSB first on all three.
+- Saved as the preset `Sony-RGB` (PAL 50 Hz, Map Names, Groups "Y=A, C=B, CVBS=C", MSB first, mode RGB, SYNCn Csync, FB High; the other
+  knobs as `Sony-PAL`) through Save preset; the file read back over FTP holds these values.
+- S2 is proven on the board. S7 (knobs live, Save preset) is proven on the board. S3 is proven for SYNCn Csync with FB Low / High only.
+- Open from this session: the walks' [base] for the SCART cable (avrgb, avsync start with SYNCn High / FB Low and show nothing on it);
+  avprobe cannot find a channel through SCART, because pin 20 carries SYNCn, not a DAC channel; S1 on the luma / composite inputs needs an
+  S-Video or composite cable; NTSC is Rick's (D3).
+- A side effect while driving the panel over REST: a script stepped the Standard row through to NTSC 50 Hz by mistake; the HDMI picture
+  flickered until it was set back to PAL 50 Hz. The A/V Standard row also changes the raster the HDMI picture comes from.
+
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
 - "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
