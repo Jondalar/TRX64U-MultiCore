@@ -280,7 +280,8 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   `host/sim/lat` not rerun: it does not instantiate `pix_layer` (it cannot see the A/V load) and `ddr2_port.v` is unchanged.
 - **P4 built, app (2026-11-26, branch t265-rgb):** `gw_av_write(mode, std)` in `HostVideoIo` (`hostvideo.h`, last member, null in an older
   rig) and `hv_av_apply(on)`; the board side writes `0x4F0A` only when `0x4F05 >= 2`. `boot.cfg` `video=<sys>,<hdmi>,<av>` (`BootCfg::vid_av`, default
-  1; an older host reads two fields and drops the third); the first start that moves `video=` to `host.cfg` keeps the third field. The value is
+  1, written only when 0, so a file at the default stays byte for byte the old one: `test_libguard`; an older host reads two fields
+  and drops the third); the first start that moves `video=` to `host.cfg` keeps the third field. The value is
   written to the host after every load of `boot.cfg` and on every change. F8 row `Analogue out` (`SK_AV`, `settings.av`, Off / RGB, a toggle)
   after `Picture`, `HC_SET_SLOTS` 10 -> 11 (page layout unchanged: the UX review with pictures is the coordinator's). Units run once:
   `test_bootcfg`, `test_hostcore` (896), `test_hostvideo` (84), each green; the render bench and its golden (`hostrows.txt`, the settings row

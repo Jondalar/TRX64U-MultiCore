@@ -45,7 +45,7 @@ int main()
         v.vid_sys = 1; v.vid_hdmi = 4;
         char txt[4096];
         CHECK(bootcfg_format(&v, txt, sizeof(txt)) > 0);
-        CHECK(strstr(txt, "video=1,4,1") != 0 && v.vid_av == 1);   // T265 P4 D9: the A/V port is on (RGB) unless the file says 0
+        CHECK(strstr(txt, "video=1,4\n") != 0 && v.vid_av == 1);   // T265 D9: the A/V port is on (RGB) unless the file says 0; on is not written
         BootCfg w;
         bootcfg_init(&w);
         bootcfg_parse(&w, txt);

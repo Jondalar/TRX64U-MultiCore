@@ -105,8 +105,11 @@ void bootcfg_parse(BootCfg *c, const char *text)
 
 int bootcfg_format(const BootCfg *c, char *out, int max)
 {
-    int n = snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d,%d\n",
-                     c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi, c->vid_av ? 1 : 0);
+    // T265 D9: the A/V field is written only when it is off; RGB on is the default, so a file without it stays byte for byte the old one
+    int n = c->vid_av ? snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d\n",
+                                 c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi)
+                      : snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d,0\n",
+                                 c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi);
     if (c->lib_attempt > 0 && n >= 0 && n < max) {
         n += snprintf(out + n, max - n, "lib_attempt=%d\n", c->lib_attempt);
     }

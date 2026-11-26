@@ -249,7 +249,7 @@ static void commands()
     g_disk = std::string(FIXTURE) + "video=0,2\n";
     stub_video_moves = true;
     g_saves = 0;
-    CHECK(hc_cfg_try_load() && stub_video_sys == 0 && stub_video_hdmi == 2 && g_saves == 1 && hc_cfg().vid_sys == -1 && hc_cfg().vid_hdmi == -1 && g_disk.find("video=-1,-1,1") != std::string::npos && stub_av_applied == 1);
+    CHECK(hc_cfg_try_load() && stub_video_sys == 0 && stub_video_hdmi == 2 && g_saves == 1 && hc_cfg().vid_sys == -1 && hc_cfg().vid_hdmi == -1 && g_disk.find("video=-1,-1\n") != std::string::npos && stub_av_applied == 1);
     stub_video_moves = false;
 
     // the module settings go through the core
