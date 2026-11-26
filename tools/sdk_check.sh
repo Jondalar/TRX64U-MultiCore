@@ -3,10 +3,11 @@
 #
 #   tools/sdk_check.sh <trx64-sdk-x.y.z.tar.gz>      RV_PREFIX (default riscv32-unknown-elf-) names the compiler
 #
-# The package is unpacked into a fresh temporary directory outside the repository; the example library and its menu record are built there, then the example core's app: its own TOML A (with a block of the core's) and
-# its own TOML B (a shared library, no compiled-in descriptor) are turned into the driver table, the library table, the I/O fragment and the sizes, the sources that depend on the core are compiled with those sizes, the base archives are
-# linked, and the image is packed with the description and the library that is the core's code (example.u2a) into a .cor. The build fails when any dependency file or a linked image names a path of the repository this script belongs to,
-# or when a maximum of the TOML B is not in the image. One result line at the end.
+# The package is unpacked into a fresh temporary directory outside the repository; the example's menu record is built there, then the example core's app: its own TOML A (with a block of the core's) and
+# its own TOML B (a shared library and the example library, which is the core's code, linked with `register`; no compiled-in descriptor) are turned into the driver table, the library table, the I/O
+# fragment and the sizes, the sources that depend on the core are compiled with those sizes, the base archives are linked, and the image is packed with the description and the example library's
+# menu record (from its TOML B) into a .cor. Base 4.0 loads no library file (T239.3 D58): there is no example.u2a. The build fails when any dependency file or a linked image names a path of the
+# repository this script belongs to, or when a maximum of the TOML B is not in the image. One result line at the end.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tgz="${1:?usage: tools/sdk_check.sh <trx64-sdk-x.y.z.tar.gz>}"
@@ -48,9 +49,9 @@ grep -q "${hv:0:12}" "$P/README.md" || fail "README.md does not carry the hash o
 # the build read nothing of the repository is shown by the grep of its dependency files, its log and the image below.
 cd "$P/example"
 CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
-"${CLEAN[@]}" make RV_PREFIX="$RV" >"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make of the example"; }
-"${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
-[ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
+# base 4.0 (T239.3 D58): the example library is linked into the example core's app (app/toml_b.toml), no example.u2a; `make` makes its menu record
+"${CLEAN[@]}" make menu >"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
+[ -s example.menu.bin ] || fail "example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
 # a [[window]] compiles from the package alone (descrec.py reads gateware/host.toml beside itself); 0xA0000600 is an address host.toml leaves free
 # (0xA0000500 is the base block audio_mixer since V-1, which a window may not cover: T239.3 V-3c)
@@ -85,9 +86,10 @@ PY
 python3 "$P/tools/descrec.py" drivers gateware/example.toml appcheck/exdrv --maps "$P/maps" --maps gateware >/dev/null || fail "the driver table of the example's TOML A is not generated from the package"
 grep -q -F '#define DRV_example_ctl_control_WR(v)' appcheck/exdrv/drvtab.h && grep -q -F '#define DRV_example_ctl_OWNER 1' appcheck/exdrv/drvtab.h || fail "the driver table lacks the register macro or the owner of the example's own block"
 # the example's app: everything but the compiler runs always; with the compiler the app is linked from the package alone
-python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a gateware/example.toml --maps gateware --toml-b app/toml_b.toml --out appcheck/gen --src app --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
+python3 "$P/tools/app_build.py" build --sdk "$P" --toml-a gateware/example.toml --maps gateware --toml-b app/toml_b.toml --out appcheck/gen --src app --src . --record appcheck/desc.bin --dry-run >/dev/null || fail "app_build.py build --dry-run"
 [ -z "$(sed -n 's/^CORE_DESC := *//p' appcheck/gen/build.mk)" ] || fail "the example's app names a compiled-in descriptor: its core is described by its record"
-grep -q -F 'cbm_prg.cc' appcheck/gen/build.mk || fail "the library of the example's TOML B is not in its build"
+grep -q -F 'cbm_prg.cc' appcheck/gen/build.mk && grep -q -F 'example.cc' appcheck/gen/build.mk || fail "a library of the example's TOML B (cbmprg, example) is not in its build"
+grep -q -F 'example_register' appcheck/gen/lib/libtab_table.cc && grep -q -F '"corehooks"' appcheck/gen/lib/libtab_table.cc || fail "the library table of the example lacks its register entry or its export corehooks"
 [ -s appcheck/gen/drv/basetab.h ] && grep -q -F 'BASE_BLOCK(ident,' appcheck/gen/drv/basetab.h && [ -s appcheck/gen/drv/drvtab.h ] && [ -s appcheck/gen/lib/libtab_table.cc ] && [ -s appcheck/gen/io.ld ] && [ -s appcheck/gen/appsizes.h ] || fail "the generated files of the example's app are missing"
 app_res="app not linked (no compiler)"
 if command -v "${RV}gcc" >/dev/null 2>&1; then
@@ -99,24 +101,22 @@ if command -v "${RV}gcc" >/dev/null 2>&1; then
   # (a file-static C++ object: the compiler names it _ZL5g_rep, so nm demangles with -C)
   rep_sz="$("${RV}nm" -C -S -t d appout/obj/diag.o | awk '$4 == "g_rep" { print $2 + 0 }')"
   [ "$rep_sz" = "16384" ] || fail "the report buffer of the example's app is ${rep_sz:-missing} bytes, its TOML B says report_bytes = 16384"
-  # and packs: the image, the description and the library that is the core's code (hooks = "example": cor_pack refuses a bundle whose library does not export corehooks=1) in a .cor (a dummy partial: the packer's own checks are what is shown here, not a bitstream)
+  # and packs: the image and the description in a .cor, the menu record of the library example from its TOML B (hooks = "example": cor_pack refuses a core whose TOML B does not
+  # link that library with the export corehooks major 1) (a dummy partial: the packer's own checks are what is shown here, not a bitstream)
   # the packer looks for the word-aligned sync word in the first 4 KiB of a partial (cor_pack.py check_partial): 16 bytes, the sync word, zeros
   { head -c 16 /dev/zero; printf '\252\231\125\146'; head -c 4076 /dev/zero; } > appcheck/partial.bin
-  python3 "$P/tools/cor_pack.py" pack -o appcheck/example.cor --name Example --version 1 --partial appcheck/partial.bin --app appout/app.bin --host-key 00000000 --desc app/desc.toml --lib example.u2a --sizes app/toml_b.toml >/dev/null \
+  python3 "$P/tools/cor_pack.py" pack -o appcheck/example.cor --name Example --version 1 --partial appcheck/partial.bin --app appout/app.bin --host-key 00000000 --desc app/desc.toml --sizes app/toml_b.toml >/dev/null \
     || fail "the example's app does not pack into a .cor"
   python3 "$P/tools/cor_pack.py" check appcheck/example.cor >/dev/null || fail "the packed .cor of the example does not check"
-  app_res="app.bin $(wc -c < appout/app.bin | tr -d " ") bytes, report buffer $rep_sz bytes, packed into a .cor"
+  # every object of the example library was made, and the dependency files name the package's headers
+  [ -f appout/obj/example.o ] && [ -f appout/obj/greet.o ] || fail "an object of the library example is missing"
+  grep -q "/base/inc/coreapp/src/libapi.h" appout/obj/*.d || fail "the dependency files name no header of the package: nothing was checked"
+  nd="$(ls appout/obj/*.d | wc -l | tr -d ' ')"
+  dep_hdrs="$(cat appout/obj/*.d | tr -d '\\' | tr ' ' '\n' | grep "/base/inc/" | sort -u | wc -l | tr -d ' ')"
+  app_res="app.bin $(wc -c < appout/app.bin | tr -d " ") bytes, report buffer $rep_sz bytes, $nd dependency files with $dep_hdrs package headers, none names $ROOT, packed into a .cor"
 fi
-# every object of both sources was made (lib.mk compiles every file of LIB_SRCS)
-[ -f example.o ] && [ -f greet.o ] || fail "an object of LIB_SRCS is missing"
-# no path of the repository in the build: its dependency files, the log and the image
-nd="$(ls ./*.d | wc -l)"
-if grep -l -F "$ROOT" ./*.d "$W/make.log" 2>/dev/null; then fail "the build read a path of the repository $ROOT"; fi
-if grep -a -q -F "$ROOT" example.u2a example.elf; then fail "the image names a path of the repository"; fi
-grep -q "include/libapi.h" ./*.d || fail "the dependency files name no header of the package: nothing was checked"
-dep_hdrs="$(cat ./*.d | tr -d '\\' | tr ' ' '\n' | grep "/include/" | sort -u | wc -l | tr -d ' ')"
 tst="skipped (no host C++ compiler)"
 if command -v "${CXX_HOST:-c++}" >/dev/null 2>&1; then
   "${CLEAN[@]}" make test CXX_HOST="${CXX_HOST:-c++}" >"$W/test.log" 2>&1 && tst="$(tail -1 "$W/test.log")" || { cat "$W/test.log" >&2; fail "the host test"; }
 fi
-echo "sdk_check: ok: trx64-sdk-$ver: base API $maj.$min (VERSION, README, image/version.toml, include/libfmt.h agree), headers ${hv:0:12}: example.u2a $(wc -c < example.u2a | tr -d " ") bytes, menu record $(wc -c < example.menu.bin | tr -d " ") bytes, $nd dependency files with $dep_hdrs package headers, none names $ROOT; $app_res; $tst"
+echo "sdk_check: ok: trx64-sdk-$ver: base API $maj.$min (VERSION, README, image/version.toml, include/libfmt.h agree), headers ${hv:0:12}: menu record $(wc -c < example.menu.bin | tr -d " ") bytes; $app_res; $tst"

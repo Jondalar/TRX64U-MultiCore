@@ -19,7 +19,7 @@
 A library: name, sources, headers (the headers that name its functions), and the entries it hands the generic application: bind, register_ops (with capability: a name, or a list of names: it runs for a core that names any of them), init, start,
 freeze_request, core, register (base 4.0: a library from outside this repository, `int fn(const LibApi *, LibRecord *)`, the file interface of lib_register: the base calls it at
 start where it loaded a library file and takes its record with the same checks, libload.h LibLoader::link). `exports` (base 4.0, libslot.h) lists the tables the library exports,
-each { name, major, table }: `table` names `const void *fn(void)`; a library with `register` may leave it out and deliver the table in LibRecord::export_list at start. `table` writes
+each { name, major, table }: `table` names `const void *fn(void)`; a library with `register` leaves it out and delivers the table in LibRecord::export_list at start. `table` writes
 libslots.h (LIBSLOT_<name>, LIBSLOT_<name>_MAJOR, LIBSLOT_COUNT) beside libtab_table.cc (g_libtab, g_libslot); `lint` refuses a source that names LIBSLOT_<x> of a library its `needs` do not list.
 `menu` (a library with `register`) is the path of its menu record (an app.toml-style TOML, relative to the TOML B), which tools/cor_pack.py packs into the .cor (record 7).
 `needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
@@ -123,6 +123,8 @@ def load(path):
                 raise LibTabError("%s: library '%s': export %s: table is a function name" % (path, n, e["name"]))
             if "table" not in e and "register" not in lib:
                 raise LibTabError("%s: library '%s': export %s names no table function (only a library with register delivers its tables at start)" % (path, n, e["name"]))
+            if "table" in e and "register" in lib:
+                raise LibTabError("%s: library '%s': export %s names a table function; a library with register delivers its tables at start (LibRecord::export_list), table is for a library without register" % (path, n, e["name"]))
     seen = {}
     for lib in libs:
         for e in lib.get("exports", []):

@@ -79,7 +79,8 @@ public:
 
 }   // namespace
 
-// "/Online" and below: the results of the Assembly64 / CommoServe search. The sub-app that has it (apps/online) exports the table "online" (online_api.h); a core that does not carry it has none and no folder.
+// "/Online" and below: the results of the Assembly64 / CommoServe search. The library that has it (TRX64-Ultimate's online, linked through its TOML B) exports the table "online"
+// (online_api.h), found among the linked exports (libslot.h); an app not linked with it has none and no folder.
 static const OnlineApi *online_api(void)
 {
     uint32_t sz = 0;

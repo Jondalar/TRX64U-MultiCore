@@ -58,8 +58,8 @@ while read -r h; do
   [ ! -e "$P/include/$(basename "$f")" ] || { echo "sdk_pack: two headers named $(basename "$f")" >&2; exit 1; }
   cp "$f" "$P/include/"
 done < "$t/headers"
-# online_api.h: the table of the online sub-app (apps/online includes it); it is no root of the base API (the lock does not hash it), so it is copied by name. The other headers apps/online includes
-# (libapi.h, libfmt.h, svctab.h and, through them, fsif.h and the svc_*.h) are in the closure above; its own files (online_*.h, otext.h) are in apps/online.
+# online_api.h: the layout of the export "online" that the base's netfs.cc reads by name (LibLoader::find_export); TRX64-Ultimate's library online, linked through its TOML B, exports it
+# (base 4.0, T239.3 D58). It is no root of the base API (the lock does not hash it), so it is copied by name.
 cp "$ROOT/coreapp/src/online_api.h" "$P/include/"
 
 for f in lib.mk app.mk sdkroot.mk lib.ld appflags.mk appbuild.mk; do cp "$ROOT/app/lib/$f" "$P/mk/"; done

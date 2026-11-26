@@ -1,7 +1,7 @@
-// The table "online" (major 1): what the file manager asks of the Assembly64 / CommoServe search to show its results as the folder "/Online" (netfs.cc). The sub-app that has the search
-// (apps/online, a .u2a the core carries) exports it; the file manager finds it by name (LibLoader::find_export) and calls no function of the search, so a core without the sub-app has no
-// folder "/Online". The functions are called on the menu task and never wait for the server: what the sub-app does not keep it fetches in the background and the call fails with `error`
-// saying so, until a later call finds it (api.md 9.5.11). Size first; within a major members are only appended (`fetch` took its `alloc` argument after the table was written: base 3.3 is not released, so the major stays 1).
+// The table "online" (major 1): what the file manager asks of the Assembly64 / CommoServe search to show its results as the folder "/Online" (netfs.cc). TRX64-Ultimate's library online,
+// linked into its app through its TOML B (base 4.0, T239.3 D58), exports it; the file manager finds it by name among the linked exports (LibLoader::find_export, libslot.h) and calls no
+// function of the search, so an app not linked with that library has no folder "/Online". The functions are called on the menu task and never wait for the server: what the library does
+// not keep it fetches in the background and the call fails with `error` saying so, until a later call finds it (api.md 9.5.11). Size first; within a major members are only appended (`fetch` took its `alloc` argument after the table was written: base 3.3 is not released, so the major stays 1).
 #ifndef COREAPP_ONLINE_API_H
 #define COREAPP_ONLINE_API_H
 

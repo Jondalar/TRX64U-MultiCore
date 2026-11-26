@@ -1,6 +1,6 @@
 // The export "textgrid" (major 1): a text screen of a library, drawn by the generic UI (T239.3 section 5, boundary 12.2). A node of the core's UI TOML with the layout
-// "terminal" and a layout parameter `grid = "<export name>"` names the export; the base takes it by that name from the exports of the app's libraries (libslot.h) or of a
-// loaded file (LibRecord::export_list), at major 1, and draws the grid with build_terminal. It is a table of its own, not a member of LibApi: a library exports it under
+// "terminal" and a layout parameter `grid = "<export name>"` names the export; the base takes it by that name from the exports of the libraries the app is linked with
+// (libslot.h, LibLoader::find_export), at major 1, and draws the grid with build_terminal. It is a table of its own, not a member of LibApi: a library exports it under
 // any name the TOML uses ("textgrid" is the name of TRX64-Ultimate's monitor's).
 //
 // The grid: `cols` columns (80 for the monitor) and up to TG_ROWS_MAX rows of text, one attribute per row, a cursor cell. The screen is redrawn when `sig` changes; the base

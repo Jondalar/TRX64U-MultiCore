@@ -42,7 +42,6 @@ file coreapp/src/t64.cc 79
 file coreapp/src/t64.h 11
 file coreapp/src/u64_resample.inc 83
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
-ids coreapp/src/appsvc.h c64 1
 ids coreapp/src/desc_check.cc null 1
 ids coreapp/src/diag.cc diag 14
 ids coreapp/src/filemgr.cc diag 1
@@ -53,7 +52,6 @@ ids coreapp/src/libboard.cc c64 1
 # T239.3 D12 (Alex's decision 2026-11-22: C64 cartridges, SID and UCI stay here as shared libraries): the id c64 names the shared C64 cartridge library, not per-core code
 ids coreapp/src/c64cart_exports.cc c64 1
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
-ids coreapp/src/libload.h c64 1
 ids coreapp/src/menuctl.cc diag 1
 ids coreapp/src/menutree.cc diag 1
 # T239.3 P3-1 (D12): the list of the T64 library names the C64 family's operations on a tape entry; it gives way to a container row of the UI TOML with the cut (P4)

@@ -18,13 +18,13 @@
 #define U2A3_HEADER_SIZE 104
 #define U2A3_NEED_SIZE 20
 #define U2A3_NAME_MAX 16                /* a name and its NUL */
-/* Base 4.0: the needs list is the one way a file reaches a table (api->lib->find is gone): entry n is api->lib->need(n) (svctab.h, libslot.h). trx64u's library
- * reaches six tables (base/lib_trx64u.cc g_x), so four entries no longer hold it. The file format is unchanged: needs_count is a byte. */
+/* Base 4.0: the needs list is the one way a file reaches a table (api->lib->find is gone): entry n is api->lib->need(n) (svctab.h, libslot.h), bound when the file
+ * loads to the export of that name of the libraries the app is linked with. The file format is unchanged: needs_count is a byte. */
 #define U2A3_NEEDS_MAX 8
 /* Two needs that name no library (AppIndex and LibLoader skip them): */
 #define PRG_APP_NEED "standalone"        /* offered only when the board is not the MultiCore host (T228 DC1) */
 #define CART_APP_NEED "cart_port"        /* base 4.0: offered only where the running core's TOML A has the block c64cart (T239.3 D40: the capability's block guards the
-                                            cartridge probe); 3.x tested the descriptor id "TRX2" (appsvc_c64), which goes with api->c64 */
+                                            cartridge probe) */
 #define U2A3_NONE 0xFFFFFFFFU           /* an entry offset the file does not have */
 
 #define U2A3_ARCH_RISCV32 2             /* as U2A_ARCH_RISCV32 of format 2 */

@@ -10,8 +10,9 @@
 //
 // `table` names a function of the library, `const void *fn(void)`, that returns the table, or null when the running core has none (the table's first member is its
 // size, uint32_t, as every exported table has it; members are only appended inside a major). A library with `register` (a library from outside this repository, linked
-// through the TOML B: `int fn(const LibApi *, LibRecord *)`, libload.h LibLoader::link) may leave `table` out: it delivers the table in LibRecord::export_list when the
-// base calls it at start, the base checks it against the declaration (a declared export it does not deliver refuses the library) and writes it into g_libslot_bound.
+// through the TOML B: `int fn(const LibApi *, LibRecord *)`, libload.h LibLoader::link) names no `table` (libtab.py refuses one): it delivers the table in
+// LibRecord::export_list when the base calls it at start, the base checks it against the declaration (a declared export it does not deliver refuses the library) and
+// writes it into g_libslot_bound.
 // An export name is 1 to 15 characters of [a-z0-9_] and stands once in a TOML B; the major starts at 1. This key replaces the `add_export` calls of a library's `bind`
 // and the `table` entry of base 3.3 (libtab.h): an export is declared once, in the TOML B, and the build knows it. tools/libtab.py writes, from the TOML B and in the
 // order of the file:
