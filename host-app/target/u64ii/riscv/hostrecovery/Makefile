@@ -120,7 +120,7 @@ $(error $(IOFRAG_GEN))
 endif
 endif
 LIBS    += $(IOFRAG)
-LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
+LFLAGS   = --gc-sections --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
 VERSION_COMPONENT = hostapp
