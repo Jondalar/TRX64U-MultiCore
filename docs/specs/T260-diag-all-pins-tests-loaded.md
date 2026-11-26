@@ -145,7 +145,8 @@ Scenario: S11 timing and area
 - Analogue levels: the board has comparators only (T175 §4).
 - Driving an open-drain line high, and driving any pin by hand (T175 D7).
 - Running a test unattended over REST (T175 §4).
-- How the package or the registry carries the core (T239.5 D15: later).
+- How the package or the registry carries the core (T239.5 D15: later). Answered 2026-11-26 by T239.5 D21: every package up to the
+  pre-release carries `diag.cor` and `SD/cores/diag/`; the release bundle does not.
 
 ## §5 Build notes
 
