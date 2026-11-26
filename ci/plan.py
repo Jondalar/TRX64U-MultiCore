@@ -440,7 +440,7 @@ def make(base, head, source, files_out=None, branch=None):
     # T174 D4: the application tests themselves (the child `apptests` runs on an app change, on this, or on a fundamental file); with them the files the
     # emulator rounds read besides their scripts (T239.5 D18: a core lane's step 12, tests/coreapp/emu/core_round.sh, and the host menu lane's)
     tests = everything or bool(changed_code(base, head, ["tests/hostapp", "tests/coreapp", "tests/loader", "tests/view", "tests/ctlcache.sh",
-                                                           "tests/ctlcache.py", "ci/apptests.sh", "ci/render.sh", "tools/ue2emu_core.py", "ci/emu_kit.sh"]))
+                                                           "tests/ctlcache.py", "ci/apptests.sh", "ci/render.sh", "tools/ue2emu_core.py", "ci/emu_kit.sh", "ci/ue2emu.sh", "tools/cor_pack.py", "tools/descrec.py"]))
     plan = {
         "version": 1, "branch": branch, "scope": "branch" if scoped else "full", "fundamental": fundamental, "tests": tests, "docs_only": docs_only, "head": head if re.match(r"^[0-9a-f]{40}$", head) else git("rev-parse", head).strip(),
         "base": {"commit": base, "source": source}, "all": everything, "changed": len(changed),

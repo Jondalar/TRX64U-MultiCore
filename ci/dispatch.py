@@ -11,12 +11,12 @@ pipeline's jobs (its job lint runs every group of ci/lint.sh), so this run has n
 (scope full: main, integration, integ-*, release/*, v* tags; or --update yes) the matrix makes the whole package instead, so every lane runs; on any other
 branch only the lanes the push touched start (the D2 addendum: an app change drags no core in): the core lanes of ci/orchestrate.py matrix_lanes (a core the
 plan names, its sources or its app; every core lane when the application tests changed or the plan has no base - the same rule names their bitstreams in the
-old pipeline's work order), the SDK lane when the shared app changed or a core lane runs, the host menu lane when the host app changed or a core lane runs.
+old pipeline's work order), the SDK lane when the shared app changed or a core lane runs, the host menu lane when the host app changed or the lane of the core whose .cor it runs (ci/orchestrate.py HOST_EMU_CORE) runs.
 Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1), alone or beside: no lane, no lint leg, no
 package.
 
   ci/dispatch.py <plan.json> --tier N [--beside] [--update yes|no]
-      prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (core:<id> or large:<id>), sim_owners (JSON lists), sims_tier, and sdk, host,
+      prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (core:<id> or large:<id>), sim_owners (JSON lists), sims_tier, host_emu_core (the core the host menu lane's emulator test runs), and sdk, host,
       package (true or false); and appends the matrix of this run (lanes from top to bottom, the steps from left to right) to $GITHUB_STEP_SUMMARY when set
 """
 import json
@@ -83,10 +83,10 @@ def matrix(lanes, owners, beside, sdk, host, package):
 
 def touched(plan, lanes):
     """Beside the old pipeline on a feature branch: the core lanes the push touched (ci/orchestrate.py matrix_lanes, the rule the work order uses too), and
-    whether the SDK and the host menu lane run."""
+    whether the SDK and the host menu lane run (the host app changed, or the lane of the core that lane runs with starts)."""
     run = O.matrix_lanes(plan, lanes)
     apps = plan.get("apps") or {}
-    return run, bool(run or apps.get("core")), bool(run or apps.get("host"))
+    return run, bool(run or apps.get("core")), bool(apps.get("host") or O.HOST_EMU_CORE in [c for c, _ in run])
 
 
 def main(argv):
@@ -126,6 +126,7 @@ def main(argv):
     for k, v in out.items():
         print("%s=%s" % (k, json.dumps(v, separators=(",", ":"))))
     print("sims_tier=%d" % tier)
+    print("host_emu_core=%s" % O.HOST_EMU_CORE)
     for k, v in (("sdk", sdk), ("host", host), ("package", package)):
         print("%s=%s" % (k, "true" if v else "false"))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
