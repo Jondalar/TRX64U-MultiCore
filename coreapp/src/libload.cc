@@ -1,4 +1,5 @@
 #include "libload.h"
+#include "libslot.h"
 #include "libmenu.h"
 #include "ctx.h"
 #include "contrib.h"
@@ -15,7 +16,7 @@ static LibLoader *s_ld;
 LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), discard_notify_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), base_net_(0), base_job_(0), job_cancel_(0), board_io_(0), windows_rec_(0), media_src_(0), nbase_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), discard_notify_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), base_net_(0), base_job_(0), job_cancel_(0), board_io_(0), windows_rec_(0), media_src_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -25,7 +26,6 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     memset(jobs_, 0, sizeof(jobs_));
     memset(&net_, 0, sizeof(net_));
     memset(&job_, 0, sizeof(job_));
-    memset(base_, 0, sizeof(base_));
     s_ld = this;
     reg_->set_scope(this);
     sys_.size = sizeof(sys_);
@@ -44,7 +44,6 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     ops_.call = svc_call;
     ops_.state = svc_state;
     lib_.size = sizeof(lib_);
-    lib_.find = svc_lib_find;
     lib_.need = svc_lib_need;
     fs_.size = sizeof(fs_);
     fs_.open = svc_open;
@@ -87,9 +86,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     api_.fs = &fs_;
     api_.dlg = 0;
     api_.job = 0;
-    api_.trx = 0;
     api_.net = 0;
-    api_.c64 = 0;
     api_.lib = &lib_;
     api_.sync = 0;                                      // add_services
     api_.settings = 0;
@@ -364,97 +361,38 @@ int LibLoader::handle_providing(const char *name, uint32_t min_version) const
     const LibExportDecl *ex;
     uint32_t other;
     const Slot *s = name ? provider(name, min_version, &ex, &other) : 0;
-    if (!s && name) {
-        s = find(name);
-        if (s && (s->info.kind != U2A3_KIND_LIB || s->info.version < min_version)) {
-            s = 0;
-        }
-    }
     return s ? (int)(s - slot_) : -1;
 }
 
-bool LibLoader::add_export(const char *name, uint32_t major, const void *table)
+// Base 4.0 (libslot.h): the export of the linked libraries at exactly the major of min_version; *slot_major the highest other major of the name (0: none), for a refusal.
+static const void *slot_export(const char *name, uint32_t min_version, uint32_t *table_size, uint32_t *other_major, bool *named)
 {
-    for (int i = 0; i < nbase_; i++) {
-        if (!strcmp(base_[i].name, name) && base_[i].major == major) {
-            if (table) {
-                base_[i].table = table;
-            } else {
-                base_[i] = base_[--nbase_];
-                base_[nbase_].name = 0;
-                base_[nbase_].table = 0;
-            }
-            return true;
+    uint32_t want = min_version >> 16;
+    *other_major = 0;
+    *named = false;
+    if (table_size) {
+        *table_size = 0;
+    }
+    for (unsigned i = 0; i < g_libslot_n; i++) {
+        if (strcmp(g_libslot[i].name, name)) {
+            continue;
         }
-    }
-    if (!table) {
-        return true;
-    }
-    if (nbase_ >= LIB_BASE_EXPORTS_MAX) {
-        return false;
-    }
-    base_[nbase_].name = name;
-    base_[nbase_].major = major;
-    base_[nbase_].table = table;
-    nbase_++;
-    return true;
-}
-
-const LibLoader::BaseExport *LibLoader::base_export(const char *name, uint32_t want_major) const
-{
-    for (int i = 0; i < nbase_; i++) {
-        if (!strcmp(base_[i].name, name) && base_[i].major == want_major) {
-            return &base_[i];
+        if (g_libslot[i].major == want) {
+            *named = true;
+            return lib_slot(i, table_size);
+        }
+        if (g_libslot[i].major > *other_major) {
+            *other_major = g_libslot[i].major;
         }
     }
     return 0;
 }
 
-bool LibLoader::export_name_known(const char *name) const
+const void *LibLoader::find_export(const char *name, uint32_t min_version, uint32_t *table_size)
 {
-    for (int i = 0; i < nbase_; i++) {
-        if (!strcmp(base_[i].name, name)) {
-            return true;
-        }
-    }
-    return exporter_of(name) != 0;
-}
-
-const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
-{
-    if (!name || !s_ld) {                                              // no loader yet: the first calls (a file system read before lib_board_load) find nothing
-        return 0;
-    }
-    if ((min_version >> 16) == 0 && s_ld->export_name_known(name)) {
-        char line[160];                                                // majors start at 1: min_version is U2A3_VERSION(major, minor), a bare major finds nothing
-        snprintf(line, sizeof(line), "api->lib->find(\"%s\", 0x%X) asks for major 0, which no export has; pass U2A3_VERSION(major, 0).", name, (unsigned)min_version);
-        s_ld->api_.log(line);
-    }
-    const LibExportDecl *ex;
     uint32_t other;
-    const Slot *p = s_ld->provider(name, min_version, &ex, &other);
-    // the base's own tables compete as a major of their own: a library that exports the same major wins over the base
-    const BaseExport *own = s_ld->base_export(name, min_version >> 16);
-    if (own && !p) {
-        if (table_size) {
-            *table_size = *(const uint32_t *)own->table;
-        }
-        return own->table;
-    }
-    if (p) {
-        if (table_size) {
-            *table_size = ex->size;
-        }
-        return ex->table;
-    }
-    const Slot *s = s_ld->find(name);
-    if (!s || s->info.kind != U2A3_KIND_LIB || s->info.version < min_version || !s->info.record.exports) {
-        return 0;
-    }
-    if (table_size) {
-        *table_size = s->info.record.exports_size;
-    }
-    return s->info.record.exports;
+    bool named;
+    return name ? slot_export(name, min_version, table_size, &other, &named) : 0;
 }
 
 const void *LibLoader::svc_lib_need(uint32_t n, uint32_t *table_size)
@@ -868,7 +806,9 @@ void LibLoader::discard(int si)
     delete slot_[si].info.menu;
     delete[] slot_[si].info.menu_bytes;
     free_account(si);
-    host_->release(slot_[si].raw);
+    if (slot_[si].raw) {                                // a library linked into the app (link) has no image
+        host_->release(slot_[si].raw);
+    }
     memset(&slot_[si], 0, sizeof(slot_[si]));
 }
 
@@ -913,9 +853,6 @@ static bool record_contributes(const LibRecord &r)
 // change of a base-owned setting, so the library is never evicted, whatever else it declares.
 static bool exports_corehooks(const LibInfo *li)
 {
-    if (!strcmp(li->name, "corehooks") && li->record.exports) {
-        return true;
-    }
     if (!LIB_RECORD_COVERS(li->record.struct_size, export_list)) {
         return false;
     }
@@ -1144,11 +1081,53 @@ bool LibLoader::exports_bad(int si, const LibRecord &rec, const U2a3ExportName *
             there = !strcmp(rec.export_list[i].name, file[f].name) && rec.export_list[i].major == file[f].major;
         }
         if (!there) {
-            snprintf(why, whylen, "its file lists the export \"%s\" %u and lib_register does not return it.", file[f].name, (unsigned)file[f].major);
+            snprintf(why, whylen, "it declares the export \"%s\" %u (its file, or its TOML B) and lib_register does not return it.", file[f].name, (unsigned)file[f].major);
             return true;
         }
     }
     return false;
+}
+
+// The checks of a lib_register's record and the registrations it brings, the same for a loaded file (load) and a library linked with `register` (link): `rc` is what the
+// function returned, `rec` its record, `fexp` the exports it has to return (the file's list, or the TOML B's). LIB_OK, or the refusal in err; the caller rolls the registry back.
+int LibLoader::take_record(int si, const char *name, int rc, const LibRecord &rec, const U2a3Budget &bud, const U2a3ExportName *fexp, int nfexp, const LibRecord *menu,
+                           char *err, int errlen)
+{
+    Slot &s = slot_[si];
+    int bad = LIB_OK;
+    char why[LIB_ERR_MAX];
+    if (s.heap_denied) {                            // what the library could not get is the reason, whatever lib_register made of it
+        bad = fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: lib_register asked for %u bytes of heap with %u held, over its declared heap peak of %u bytes.", name,
+                   (unsigned)s.heap_want, (unsigned)s.heap_had, (unsigned)s.heap_limit);
+    } else if (rc != 0) {
+        bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\": lib_register failed (%d).", name, rc);
+    } else if (rec.struct_size != sizeof(rec)) {
+        bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" was built against another record layout (%u bytes, this base %u).", name,
+                   (unsigned)rec.struct_size, (unsigned)sizeof(rec));
+    } else if (rec.nops < 0 || rec.nstates < 0 || rec.nevents < 0 || (rec.nops && !rec.ops) || (rec.nstates && !rec.states) ||
+               (rec.nevents && !rec.events)) {
+        bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
+    } else if (exports_bad(si, rec, fexp, nfexp, why, sizeof(why))) {
+        bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
+    } else if (over_budget(name, bud, &rec, menu, why, sizeof(why))) {
+        bad = fail(LIB_BUDGET, err, errlen, "%s", why);
+    } else {
+        reg_->contributor_in(s.info.name, si);
+        int r = OPE_OK;
+        for (int i = 0; i < rec.nops && r == OPE_OK; i++) {
+            r = reg_->add_op(rec.ops[i].name, rec.ops[i].args, rec.ops[i].nargs, rec.ops[i].fn);
+        }
+        for (int i = 0; i < rec.nstates && r == OPE_OK; i++) {
+            r = reg_->add_state(rec.states[i].name, rec.states[i].get);
+        }
+        for (int i = 0; i < rec.nevents && r == OPE_OK; i++) {
+            r = reg_->add_event(rec.events[i].name, rec.events[i].payload);
+        }
+        if (r != OPE_OK) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, reg_->error());
+        }
+    }
+    return bad;
 }
 
 int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
@@ -1187,7 +1166,10 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     if (h.arch != U2A3_ARCH_RISCV32) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" is not built for this CPU.", name);
     }
-    if (h.kind != U2A3_KIND_LIB && h.kind != U2A3_KIND_APP) {
+    if (h.kind == U2A3_KIND_LIB) {                      // base 4.0 (T239.3 D58, D31): no library is loaded at run time
+        return fail(LIB_BAD_FILE, err, errlen, "\"%s\" is a library file: base 4.0 loads no library file; a library is linked into the core's app through its TOML B.", name);
+    }
+    if (h.kind != U2A3_KIND_APP) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" is neither a library nor an app.", name);
     }
     if (h.residence != U2A3_RES_TRANSIENT && h.residence != U2A3_RES_RESIDENT) {
@@ -1302,31 +1284,24 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         if (!strcmp(nd.name, PRG_APP_NEED) || !strcmp(nd.name, CART_APP_NEED)) {
             continue;                                         // not a library: AppIndex decides where such an application is offered (libfmt.h)
         }
-        // a table a loaded library exports under that name comes first, then a library of that name (D20)
-        const LibExportDecl *ex = 0;
+        // base 4.0 (libslot.h, D58): an entry binds to the export of that name at exactly that major of the libraries the app is linked with, once, now
         uint32_t other = 0;
-        const Slot *dep = provider(nd.name, nd.min_version, &ex, &other);
-        if (!dep) {
-            dep = find(nd.name);
-            if (!dep) {
-                if (other) {
-                    version_text(vh, U2A3_VERSION(other, 0));
-                    return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
-                }
-                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);
+        bool named = false;
+        const void *t = slot_export(nd.name, nd.min_version, &need_size[i], &other, &named);
+        if (!t) {
+            if (named) {
+                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which this core does not have (the app is linked with it, its table is empty here).", name, nd.name, vw);
             }
-            if (dep->info.version < nd.min_version) {
-                version_text(vh, dep->info.version);
-                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
+            if (other) {
+                version_text(vh, U2A3_VERSION(other, 0));
+                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, the app is linked with %s.", name, nd.name, vw, vh);
             }
+            return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which the app is not linked with.", name, nd.name, vw);
         }
-        deps[ndeps++] = (int)(dep - slot_);
-        if (ex) {
-            need_tab[i] = ex->table;
-            need_size[i] = ex->size;
-        } else if (dep->info.kind == U2A3_KIND_LIB && dep->info.record.exports) {
-            need_tab[i] = dep->info.record.exports;
-            need_size[i] = dep->info.record.exports_size;
+        need_tab[i] = t;
+        int dep = handle_providing(nd.name, nd.min_version);    // a library linked with `register` holds a slot: counted as used while this image is loaded (T197 D8)
+        if (dep >= 0) {
+            deps[ndeps++] = dep;
         }
     }
 
@@ -1452,41 +1427,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         cur_ = si;                                      // what lib_register takes from api->mem is the image's
         int rc = host_->call_register(e, &api_, &rec);
         cur_ = -1;
-        int bad = LIB_OK;
-        char why[LIB_ERR_MAX];
-        if (s.heap_denied) {                            // what the library could not get is the reason, whatever lib_register made of it
-            bad = fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: lib_register asked for %u bytes of heap with %u held, over its declared heap peak of %u bytes.", name,
-                       (unsigned)s.heap_want, (unsigned)s.heap_had, (unsigned)s.heap_limit);
-        } else if (rc != 0) {
-            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\": lib_register failed (%d).", name, rc);
-        } else if (rec.struct_size != sizeof(rec)) {
-            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" was built against another record layout (%u bytes, this base %u).", name,
-                       (unsigned)rec.struct_size, (unsigned)sizeof(rec));
-        } else if (rec.nops < 0 || rec.nstates < 0 || rec.nevents < 0 || (rec.nops && !rec.ops) || (rec.nstates && !rec.states) ||
-                   (rec.nevents && !rec.events)) {
-            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
-        } else if (rec.exports && rec.exports_size < sizeof(uint32_t)) {
-            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a call table with no size.", name);
-        } else if (exports_bad(si, rec, fexp, nfexp, why, sizeof(why))) {
-            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
-        } else if (over_budget(name, bud, &rec, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
-            bad = fail(LIB_BUDGET, err, errlen, "%s", why);
-        } else {
-            reg_->contributor_in(s.info.name, si);
-            int r = OPE_OK;
-            for (int i = 0; i < rec.nops && r == OPE_OK; i++) {
-                r = reg_->add_op(rec.ops[i].name, rec.ops[i].args, rec.ops[i].nargs, rec.ops[i].fn);
-            }
-            for (int i = 0; i < rec.nstates && r == OPE_OK; i++) {
-                r = reg_->add_state(rec.states[i].name, rec.states[i].get);
-            }
-            for (int i = 0; i < rec.nevents && r == OPE_OK; i++) {
-                r = reg_->add_event(rec.events[i].name, rec.events[i].payload);
-            }
-            if (r != OPE_OK) {
-                bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, reg_->error());
-            }
-        }
+        int bad = take_record(si, name, rc, rec, bud, fexp, nfexp, menu.d ? &menu.d->rec : 0, err, errlen);
         if (bad) {
             reg_->rollback(mark);
             if (!had_error) {
@@ -1535,6 +1476,123 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     s.used = true;
     count_++;
     *handle = si;
+    return LIB_OK;
+}
+
+int LibLoader::link(const char *name, int (*reg)(const LibApi *, LibRecord *), uint32_t heap_keep, uint32_t heap_peak, DescRecord *menu_rec, uint8_t *menu_bytes,
+                    char *err, int errlen)
+{
+    struct MenuGuard {                                  // the loader owns the menu record from here; a refusal frees it
+        DescRecord *d;
+        uint8_t *b;
+        ~MenuGuard() { delete d; delete[] b; }
+    } menu = { menu_rec, menu_bytes };
+    if (!name || !field_ok(name, false) || !reg) {
+        return fail(LIB_BAD_FILE, err, errlen, "A library of the TOML B has no valid name or no register function.");
+    }
+    U2a3Budget bud;
+    memset(&bud, 0xFF, sizeof(bud));
+    bud.heap_keep = heap_keep;
+    bud.heap_peak = heap_peak;
+    if (heap_keep != U2A3_BUDGET_NONE && heap_peak != U2A3_BUDGET_NONE && heap_keep > heap_peak) {
+        return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the budget keeps %u bytes of heap and allows a peak of %u.", name, (unsigned)heap_keep, (unsigned)heap_peak);
+    }
+    // the exports its TOML B declares with no table function: lib_register has to return each of them (exports_bad), as a file's list
+    U2a3ExportName fexp[U2A3_EXPORTS_MAX];
+    int nfexp = 0;
+    for (unsigned i = 0; i < g_libslot_n; i++) {
+        if (!g_libslot[i].at_start || strcmp(g_libslot[i].lib, name)) {
+            continue;
+        }
+        if (nfexp == U2A3_EXPORTS_MAX) {
+            return fail(LIB_BAD_FILE, err, errlen, "Library \"%s\" declares more than %d exports.", name, U2A3_EXPORTS_MAX);
+        }
+        memset(&fexp[nfexp], 0, sizeof(fexp[nfexp]));
+        snprintf(fexp[nfexp].name, sizeof(fexp[nfexp].name), "%s", g_libslot[i].name);
+        fexp[nfexp].major = g_libslot[i].major;
+        nfexp++;
+    }
+    {
+        char why[LIB_ERR_MAX];
+        if (over_budget(name, bud, 0, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
+            return fail(LIB_BUDGET, err, errlen, "%s", why);
+        }
+    }
+    if (find(name)) {
+        return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is linked twice.", name);
+    }
+    if (const Slot *owner = exporter_of(name)) {
+        return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is the name of a table that \"%s\" exports.", name, owner->info.name);
+    }
+    int si = -1;
+    for (int i = 0; i < LIB_MAX && si < 0; i++) {
+        si = slot_[i].used ? -1 : i;
+    }
+    if (si < 0) {
+        return fail(LIB_NO_ROOM, err, errlen, "No room for \"%s\": %d images are loaded.", name, LIB_MAX);
+    }
+    if (heap_keep != U2A3_BUDGET_NONE && heap_keep > host_->room()) {
+        return fail(LIB_NO_ROOM, err, errlen, "Library \"%s\" is refused: it keeps %u bytes of heap, the heap has room for %u.", name, (unsigned)heap_keep,
+                    (unsigned)host_->room());
+    }
+    Slot &s = slot_[si];
+    memset(&s, 0, sizeof(s));
+    snprintf(s.info.name, sizeof(s.info.name), "%s", name);
+    s.info.kind = U2A3_KIND_LIB;                        // linked: no image, no version of its own (the app's), never evicted
+    s.info.residence = U2A3_RES_RESIDENT;
+    s.heap_limit = heap_peak;
+    if (menu.d && menu.b) {
+        uint32_t total = menu.b[8] | menu.b[9] << 8 | menu.b[10] << 16 | (uint32_t)menu.b[11] << 24;
+        s.menu_cost = (uint32_t)sizeof(DescRecord) + total;
+    }
+
+    RegMark mark = reg_->mark();
+    bool had_error = reg_->error()[0] != 0;
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
+    cur_ = si;                                          // what lib_register takes from api->mem is the library's
+    int rc = reg(&api_, &rec);
+    cur_ = -1;
+    int bad = take_record(si, name, rc, rec, bud, fexp, nfexp, menu.d ? &menu.d->rec : 0, err, errlen);
+    const LibPollDecl *pd = rec.poll.op && rec.poll.op[0] ? &rec.poll : 0;
+    if (!bad && menu.d && menu.d->rec.poll.op && menu.d->rec.poll.op[0]) {
+        if (pd) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: it declares a poll in lib_register and in its menu record; one is allowed.", name);
+        }
+        pd = &menu.d->rec.poll;
+    }
+    if (!bad && pd && polls_) {
+        char why[120];
+        if (!polls_->add(s.info.name, pd->op, pd->period_ms, pd->when_frozen, why, sizeof(why))) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
+        }
+    }
+    if (bad) {
+        reg_->rollback(mark);
+        if (!had_error) {
+            reg_->clear_error();
+        }
+        discard(si);
+        return bad;
+    }
+    s.info.record = rec;
+    for (unsigned i = 0; i < g_libslot_n; i++) {        // the tables it delivered, at the slots its TOML B declared (exports_bad held them against the declaration)
+        if (!g_libslot[i].at_start || strcmp(g_libslot[i].lib, name)) {
+            continue;
+        }
+        for (int k = 0; k < rec.nexport_list; k++) {
+            if (!strcmp(rec.export_list[k].name, g_libslot[i].name) && rec.export_list[k].major == g_libslot[i].major) {
+                g_libslot_bound[i] = rec.export_list[k].table;
+            }
+        }
+    }
+    s.info.menu = menu.d;                               // the slot owns the record from here (discard frees it)
+    s.info.menu_bytes = menu.b;
+    menu.d = 0;
+    menu.b = 0;
+    s.used = true;
+    count_++;
     return LIB_OK;
 }
 

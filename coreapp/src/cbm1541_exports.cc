@@ -1,4 +1,4 @@
-// The table of the 1541 drive library (cbm1541.cc, app/lib/cbm1541): its table "cbm1541" (T239.3 D12, base 3.3), answered by api->lib->find under its export name. This file is part of the library: libtab.cc (from the TOML B of the app) calls cbm1541_bind once, when the loader is made.
+// The table of the 1541 drive library (cbm1541.cc, app/lib/cbm1541): its table "cbm1541" (T239.3 D12, base 3.3), its export (base 4.0: declared in the TOML B, `exports`, reached through libslot.h). This file is part of the library: libtab.cc (from the TOML B of the app) calls cbm1541_bind once, when the loader is made.
 // The bodies call the code of the library with the core's context that is given here once, so no member of a table takes one.
 #include "libexports.h"
 #include "libexp_util.h"
@@ -112,8 +112,9 @@ static const Cbm1541Api g_drv = {
     drv_service, drv_media_flush, drv_media_pending, drv_reset,
 };
 
-void cbm1541_bind(CoreCtx *c, LibLoader &ld)
+void cbm1541_bind(CoreCtx *c, LibLoader &)
 {
     g_c = c;
-    ld.add_export("cbm1541", 1, &g_drv);
 }
+
+const void *cbm1541_table(void) { return &g_drv; }

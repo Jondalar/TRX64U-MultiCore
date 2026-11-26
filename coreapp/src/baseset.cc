@@ -224,7 +224,7 @@ int baseset_usb_config(int key, int default_value)
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
 {
-    const MouseApi *m = (const MouseApi *)libtab_table(MOUSE_API_NAME);
+    const MouseApi *m = (const MouseApi *)libtab_export(MOUSE_API_NAME, 1);
     int v;
     if (m && m->size >= sizeof(MouseApi) && m->scaling(key, &v)) {
         return v;

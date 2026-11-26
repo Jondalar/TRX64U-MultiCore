@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include "libfmt.h"
 #include "libapi.h"
-#include "c64_api.h"
 #include "libpoll.h"
 #include "ops.h"
 #include "opscope.h"
@@ -125,7 +124,6 @@ enum LibRc {
 #define LIB_MAX 12              // images loaded at once
 #define LIB_NET_MAX 16          // sockets of api->net held at once (the base's own table is as big)
 #define LIB_JOB_MAX 8           // jobs of api->job held at once, ended ones not yet joined included (the base has 4 slots)
-#define LIB_BASE_EXPORTS_MAX 16 // the tables the base itself answers find with (add_export)
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
@@ -189,8 +187,6 @@ public:
     // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
     // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
-    // The call tables libraries export, as api->lib hands them to a library: the base asks it for the table "corehooks" (hookhost.h).
-    const SvcLib *svc_lib() const { return &lib_; }
     // Told the slot of an image, and the range it lies in (as the CPU sees it), just before its memory is given back (an unload, a release, a load that fails after the image was
     // placed): what the base kept of that image (a table the image's code gave it) is let go there. Null: nobody is told.
     void set_discard_notify(void (*fn)(int handle, uint32_t image_addr, uint32_t image_size)) { discard_notify_ = fn; }
@@ -215,19 +211,19 @@ public:
     // the account of the image whose code asked and call the table given here; one of them given before or after add_services is the same, and with none given the calls fail (a socket
     // -7, a job null). A loader without the services hands the table on as it is.
     void set_job(const SvcJob *t) { base_job_ = t; api_.job = services_ ? &job_ : t; }
-    void set_trx(const SvcTrx *t) { api_.trx = t; }
     void set_net(const SvcNet *t) { base_net_ = t; api_.net = services_ ? &net_ : t; }
     // What the base does to a job that its owner has to give up: sets the cancel flag the job's `cancelled()` reads (apphost.cc). Null: jobs cannot be asked to stop.
     void set_job_cancel(void (*fn)(struct SvcJobH *)) { job_cancel_ = fn; }
-    void set_c64(const SvcC64 *t) { api_.c64 = t; }
-    // The tables the base itself answers api->lib->find with (base 3.2: "c64"; base 3.3: c64cart, cbm1541, sid, tempdisk, cbmprg, textgrid): a name, the major of the table and the table, whose first
-    // member is its size (uint32_t). A table with the name and major of an earlier one replaces it; a null table takes the entry away. `name` is kept, not copied (a string literal). find answers
-    // such a table only for exactly its major, and a loaded library that exports the same major wins. False: the list is full (LIB_BASE_EXPORTS_MAX).
-    bool add_export(const char *name, uint32_t major, const void *table);
-    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2). Null: the base has none (the core is no C64) and find answers only what libraries export.
-    void set_c64_api(const C64Api *t) { add_export(C64_API_NAME, C64_API_MAJOR, t); }
-    // What api->lib->find answers for `name` at exactly the major of min_version: the same call a library makes, for the code of the base (the screens that draw a library's TextGrid).
-    static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size) { return svc_lib_find(name, min_version, table_size); }
+    // Base 4.0 (libslot.h): the export `name` at exactly the major of min_version among the exports of the libraries the app is linked with (g_libslot), and its size; for the code
+    // of the base that serves a table by name (the terminal layout's grid, netfs's "online"). Null: the app has no such export, or its table is null on this core.
+    static const void *find_export(const char *name, uint32_t min_version, uint32_t *table_size);
+    // Base 4.0 (T239.3 D58, libtab.h libtab_link): a library linked into the app through its TOML B with `register` (a library from outside this repository). `reg` is its
+    // lib_register, `int reg(const LibApi *, LibRecord *)`, called here as the loader called a file's: the library gets a slot of kind lib with no image, and its record goes
+    // through the checks of a loaded file (the record layout, the counts, the exports, the budget, the registry, the poll); the exports it declares in the TOML B with no
+    // `table` (LibSlot::at_start) have to be in its export_list, and are written into g_libslot_bound. heap_keep and heap_peak are its TOML B budget (U2A3_BUDGET_NONE: none),
+    // held as a file's: heap_keep against the room of the heap, heap_peak as the most its account holds at once. `menu` and `menu_bytes` are its menu record (libmenu.h; null:
+    // none), which the loader owns from the call on. LIB_OK, or a refusal with the library's name in err (nothing of it stays registered).
+    int link(const char *name, int (*reg)(const LibApi *, LibRecord *), uint32_t heap_keep, uint32_t heap_peak, DescRecord *menu, uint8_t *menu_bytes, char *err, int errlen);
     // The machine's CoreIo for the two calls of the board that need no core context: sys.delay_us (io.delay_us) and sys.wall_time. The core application gives it at the start
     // (libboard.cc), before the first library registers, so a wait in lib_register waits; once set_ctx has run, the context's io is the one used.
     void set_board_io(CoreIo *io) { board_io_ = io; }
@@ -277,8 +273,8 @@ public:
 
     const LibInfo *info(int handle) const;
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
-    // The slot of the loaded library that provides `name` at exactly the major of `min_version`: one that exports the name (LibExportDecl), else the library of that
-    // name at that version or later - what a `needs` entry resolves against (D20). -1: none.
+    // The slot of the linked library (LibLoader::link) that exports `name` at exactly the major of `min_version` (LibExportDecl) - a `needs` entry of a sub-app binds to its
+    // table. -1: none (also for an export of a library linked without `register`, which has no slot: libtab_export answers those).
     int handle_providing(const char *name, uint32_t min_version) const;
     int count() const { return count_; }
     uint32_t resident_bytes() const;      // heap held by the images that stay (image and bss), what Q7's budget counts
@@ -359,12 +355,13 @@ private:
     int owner_at(const void *ra) const;   // the account of a service call made from the code at `ra`: the image that holds it, else owner()
     void *alloc_for(int owner, uint32_t n);
     bool over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const;
+    int take_record(int si, const char *name, int rc, const LibRecord &rec, const U2a3Budget &bud, const U2a3ExportName *fexp, int nfexp, const LibRecord *menu,
+                    char *err, int errlen);
     static void *svc_malloc(uint32_t n);
     static void svc_free(void *p);
     static void *svc_realloc(void *p, uint32_t n);
     static int svc_call(const char *name, const OpIn *in, int nin, OpResult *r);
     static const char *svc_state(const char *name, uint32_t *rev);
-    static const void *svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size);
     static const void *svc_lib_need(uint32_t n, uint32_t *table_size);
     static void svc_log(const char *text);
     static uint32_t svc_ms(void);
@@ -405,7 +402,6 @@ private:
     // (a refusal can say "2.0 is loaded"). Null: no library exports it at that major.
     const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *other) const;
     const Slot *exporter_of(const char *name) const;          // a loaded library that exports the name at any major
-    bool export_name_known(const char *name) const;           // a loaded library or the base itself offers a table of that name (at any major)
     bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
 
     // sockets and jobs (S14): what api->net and api->job handed out, with the account. Fixed tables: the base's own tables are as small (16 sockets, 4 jobs).
@@ -431,14 +427,6 @@ private:
     CoreIo *board_io_;
     const DescRecord *windows_rec_;
     int (*media_src_)(CoreCtx *, const char *, char *, int);
-    struct BaseExport {
-        const char *name;
-        uint32_t major;
-        const void *table;
-    };
-    BaseExport base_[LIB_BASE_EXPORTS_MAX];
-    int nbase_;
-    const BaseExport *base_export(const char *name, uint32_t want_major) const;   // the table of the name at exactly want_major
 };
 
 #endif

@@ -1,4 +1,5 @@
 #include "hookhost.h"
+#include "libload.h"
 #include "core_hooks.h"
 #include "libfmt.h"
 #include "baseset.h"
@@ -42,14 +43,11 @@ template <typename T> bool reaches(const T *member)
 #define HOOK(m) (reaches(&g_hooks->m) ? g_hooks->m : 0)
 }
 
-void hooks_attach(const SvcLib *lib)
+void hooks_attach(void)
 {
     hooks_detach();
-    if (!lib || !lib->find) {
-        return;
-    }
     uint32_t size = 0;
-    const CoreHooks *t = (const CoreHooks *)lib->find(COREHOOKS_NAME, U2A3_VERSION(COREHOOKS_MAJOR, 0), &size);
+    const CoreHooks *t = (const CoreHooks *)LibLoader::find_export(COREHOOKS_NAME, U2A3_VERSION(COREHOOKS_MAJOR, 0), &size);   // base 4.0: the linked slot table (libslot.h)
     if (!t || size < sizeof(uint32_t) || t->size < sizeof(uint32_t)) {
         return;
     }

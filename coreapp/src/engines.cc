@@ -9,13 +9,13 @@
 // The tables of the mouse and pad libraries (libtab.h): none in an app linked without them, and then there is no mouse and no pad.
 static const MouseApi *mouse_lib(void)
 {
-    const MouseApi *a = (const MouseApi *)libtab_table(MOUSE_API_NAME);
+    const MouseApi *a = (const MouseApi *)libtab_export(MOUSE_API_NAME, 1);
     return a && a->size >= sizeof(MouseApi) ? a : 0;
 }
 
 static const PadApi *pad_lib(void)
 {
-    const PadApi *a = (const PadApi *)libtab_table(PAD_API_NAME);
+    const PadApi *a = (const PadApi *)libtab_export(PAD_API_NAME, 1);
     return a && a->size >= sizeof(PadApi) ? a : 0;
 }
 

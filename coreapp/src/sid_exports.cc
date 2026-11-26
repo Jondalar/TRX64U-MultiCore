@@ -1,5 +1,5 @@
-// The table of the SID library (sidfile.cc): its table "sid" (T239.3 D12, base 3.3), answered by api->lib->find under its export name. This file is part of the library: libtab.cc (from the TOML B of the app) calls sid_bind once, when the loader is made.
-// The bodies call the code of the library with the core's context that is given here once, so no member of a table takes one.
+// The table of the SID library (sidfile.cc): its table "sid" (T239.3 D12, base 3.3), its export (base 4.0: declared in the TOML B, `exports`, reached through libslot.h). This file is part of the library: the slot's table function is sid_table.
+// Pure functions: no member of the table takes a context, and the library needs none.
 #include "libexports.h"
 #include "libexp_util.h"
 #include "sid_api.h"
@@ -27,8 +27,4 @@ static void sid_t_mus_header(struct SidTune *t, bool stereo) { sid_mus_header(t,
 
 static const SidApi g_sid = { sizeof(SidApi), sid_t_parse, sid_t_info_text, sid_t_plan, sid_t_requests, sid_t_mus_stereo, sid_t_mus_header };
 
-void sid_bind(CoreCtx *c, LibLoader &ld)
-{
-    (void)c;
-    ld.add_export("sid", 1, &g_sid);
-}
+const void *sid_table(void) { return &g_sid; }

@@ -11,9 +11,9 @@
 #define COREHOOKS_NAME "corehooks"
 #define COREHOOKS_MAJOR 1
 
-// Looks the table up through api->lib->find (SvcLib), once the libraries are loaded. Null `lib`, no export of that name, or an export of another major: no hooks.
-// Forgets the previous state, the call is the start of a run (and of every test). No scope: the calls are made on the account of whoever calls.
-void hooks_attach(const SvcLib *lib);
+// Takes the table from the exports of the libraries the app is linked with (base 4.0, libslot.h; LibLoader::find_export), once the libraries are linked. No export of that name,
+// or one of another major: no hooks. Forgets the previous state, the call is the start of a run (and of every test). No scope: the calls are made on the account of whoever calls.
+void hooks_attach(void);
 bool hooks_present(void);
 
 // The table of the library the core's record names (DescSections::ident.hooks, CoreDesc::hooks_lib), exact major COREHOOKS_MAJOR: the table the library lists as the export "corehooks"

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The library table of an app (T239.3 D31, P3-1): reads the TOML B of a core's app, which names the libraries the app is linked with.
 
-  libtab.py table TOML_B OUT_DIR     writes libtab_table.cc (the table libtab.cc walks) and libtab.mk (LIB_SRCS_CC, the sources to compile), each only when its content changes
+  libtab.py table TOML_B OUT_DIR     writes libtab_table.cc (the table libtab.cc walks, the export slots g_libslot), libslots.h (LIBSLOT_<name>) and libtab.mk (LIB_SRCS_CC, the sources to compile),
+                                     each only when its content changes
   libtab.py sources TOML_B           the source file names of every library, one per line
   libtab.py lint TOML_B ROOT         no generic source (coreapp/src, uicore) includes a header of a library or names an entry symbol of one
   libtab.py symcheck TOML_B OBJDIR ROOT
@@ -16,8 +17,13 @@
                                      the libraries' and the [app] base_sources of this TOML B. The link holds what the TOML B names and the base
 
 A library: name, sources, headers (the headers that name its functions), and the entries it hands the generic application: bind, register_ops (with capability: a name, or a list of names: it runs for a core that names any of them), init, start,
-freeze_request, core, table (the library's call table, found by libtab_table(name) in libtab.h; a table's header, *_api.h, is the seam the generic code reads it through). `needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
-(the figures of a .u2a budget, P4-1): tools/cor_pack.py sums the first against the core's heap and reports both. `tests` (T239.5 D4, optional) is an inline table that
+freeze_request, core, register (base 4.0: a library from outside this repository, `int fn(const LibApi *, LibRecord *)`, the file interface of lib_register: the base calls it at
+start where it loaded a library file and takes its record with the same checks, libload.h LibLoader::link). `exports` (base 4.0, libslot.h) lists the tables the library exports,
+each { name, major, table }: `table` names `const void *fn(void)`; a library with `register` may leave it out and deliver the table in LibRecord::export_list at start. `table` writes
+libslots.h (LIBSLOT_<name>, LIBSLOT_<name>_MAJOR, LIBSLOT_COUNT) beside libtab_table.cc (g_libtab, g_libslot); `lint` refuses a source that names LIBSLOT_<x> of a library its `needs` do not list.
+`menu` (a library with `register`) is the path of its menu record (an app.toml-style TOML, relative to the TOML B), which tools/cor_pack.py packs into the .cor (record 7).
+`needs` names other libraries of the file. `heap_keep` and `heap_peak` (bytes, optional) are the heap the linked library holds when idle and at most at once
+(the figures of a .u2a budget, P4-1): tools/cor_pack.py sums the first against the core's heap and reports both; the base checks both for a library with `register`. `tests` (T239.5 D4, optional) is an inline table that
 names the library's tests by the step of the matrix that runs them: unit, service, ui, api, each a list of units of tests/coreapp/run.sh (a unit is named once in the file).
 See coreapp/src/libtab.h for what each entry is."""
 import os
@@ -34,12 +40,13 @@ ENTRIES = {  # key -> (return, parameters) of the function the entry names
     "init": ("void", "const BoardProfile &"),
     "start": ("void", "CoreCtx *"),
     "freeze_request": ("bool", "void"),
-    "table": ("const void *", "void"),
     "core": ("void", "CoreCtx *, const CoreDesc *, const DescRecord *"),
+    "register": ("int", "const LibApi *, LibRecord *"),
 }
-KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak", "tests"} | set(ENTRIES)
+KEYS = {"name", "sources", "headers", "needs", "capability", "heap_keep", "heap_peak", "tests", "exports", "menu"} | set(ENTRIES)
+EXPORT_NAME = re.compile(r"^[a-z0-9_]{1,15}$")
 TEST_KINDS = ("unit", "service", "ui", "api")   # T239.5 D4, D8: the steps 2, 8, 9 and 10 of a core lane
-SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541")
+SRC_DIRS = ("coreapp/src", "coreapp/cores", "app/loaders", "app/lib/cbm1541", "apps/miniz")
 GENERIC_DIRS = ("coreapp/src", "uicore", "app/lib/cbm1541", "app/loaders", "app/view", "app/edit", "app/video")   # every directory the build compiles generic code from; a source of TOML B or of the TRX64-Ultimate files is not generic
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 FILE = re.compile(r"^[A-Za-z0-9_]+\.(cc|c|h)$")
@@ -62,6 +69,8 @@ def load(path):
     names, srcs = [], {}
     for lib in libs:
         for k in lib:
+            if k == "table":
+                raise LibTabError("%s: library '%s': the key table is gone (base 4.0, libslot.h): name each table under exports = [{ name, major, table }]" % (path, lib.get("name", "?")))
             if k not in KEYS:
                 raise LibTabError("%s: library '%s': unknown key '%s'" % (path, lib.get("name", "?"), k))
         n = lib.get("name")
@@ -97,6 +106,29 @@ def load(path):
             caps = lib["capability"] if isinstance(lib["capability"], list) else [lib["capability"]]
             if not caps or not all(isinstance(c, str) and re.match(r"^[a-z0-9_]+$", c) for c in caps) or len(set(caps)) != len(caps):
                 raise LibTabError("%s: library '%s': capability is a name, or a list of different names" % (path, n))
+        if "menu" in lib and not (isinstance(lib["menu"], str) and lib["menu"] and "register" in lib):
+            raise LibTabError("%s: library '%s': menu is the path of a menu record, for a library with register" % (path, n))
+        ex = lib.get("exports", [])
+        if not isinstance(ex, list) or not all(isinstance(e, dict) for e in ex):
+            raise LibTabError("%s: library '%s': exports is a list of inline tables { name, major, table }" % (path, n))
+        for e in ex:
+            for k in e:
+                if k not in ("name", "major", "table"):
+                    raise LibTabError("%s: library '%s': an export has no key '%s' (name, major, table)" % (path, n, k))
+            if not isinstance(e.get("name"), str) or not EXPORT_NAME.match(e["name"]):
+                raise LibTabError("%s: library '%s': an export needs a name of 1 to 15 characters of [a-z0-9_]" % (path, n))
+            if isinstance(e.get("major"), bool) or not isinstance(e.get("major"), int) or e["major"] < 1:
+                raise LibTabError("%s: library '%s': export %s needs a major from 1" % (path, n, e["name"]))
+            if "table" in e and not (isinstance(e["table"], str) and IDENT.match(e["table"])):
+                raise LibTabError("%s: library '%s': export %s: table is a function name" % (path, n, e["name"]))
+            if "table" not in e and "register" not in lib:
+                raise LibTabError("%s: library '%s': export %s names no table function (only a library with register delivers its tables at start)" % (path, n, e["name"]))
+    seen = {}
+    for lib in libs:
+        for e in lib.get("exports", []):
+            if e["name"] in seen:
+                raise LibTabError("%s: the export %s is in library '%s' and in '%s'" % (path, e["name"], seen[e["name"]], lib["name"]))
+            seen[e["name"]] = lib["name"]
     units = {}
     for lib in libs:
         t = lib.get("tests")
@@ -135,6 +167,15 @@ def check_files(libs, root):
                 raise LibTabError("library '%s': %s is in none of %s" % (lib["name"], f, ", ".join(SRC_DIRS)))
 
 
+def slots(libs):
+    """The exports of the file in its order (libslot.h): [(slot, library, export)]."""
+    out = []
+    for lib in libs:
+        for e in lib.get("exports", []):
+            out.append((len(out), lib, e))
+    return out
+
+
 def table_text(libs, source="TOML B"):
     decl = []
     rows = []
@@ -152,15 +193,43 @@ def table_text(libs, source="TOML B"):
             cell.append("cap_%s" % lib["name"])
         else:
             cell.append("0")
-        for key in ("init", "start", "freeze_request", "table", "core"):
+        for key in ("init", "start", "freeze_request", "core", "register"):
             cell.append(lib[key] if key in lib else "0")
+        for key in ("heap_keep", "heap_peak"):
+            cell.append("%du" % lib[key] if key in lib else "U2A3_BUDGET_NONE")
         rows.append('    { "%s", %s },' % (lib["name"], ", ".join(cell)))
-    out = ["// Generated by tools/libtab.py from %s (T239.3 D31): the libraries the app is linked with. Do not edit." % source,
-           '#include "libtab.h"', ""]
+    srows, sfn = [], []
+    for i, lib, e in slots(libs):
+        fn = e.get("table")
+        if fn:
+            decl.append("const void *%s(void);" % fn)
+        else:                                          # a register library delivers the table at start (LibRecord::export_list); the base writes it into g_libslot_bound
+            fn = "slot_bound_%d" % i
+            sfn.append("static const void *%s(void) { return g_libslot_bound[%d]; }" % (fn, i))
+        srows.append('    { "%s", "%s", %du, %s, %du },' % (lib["name"], e["name"], e["major"], fn, 0 if e.get("table") else 1))
+    out = ["// Generated by tools/libtab.py from %s (T239.3 D31): the libraries the app is linked with and their exports (libslot.h). Do not edit." % source,
+           '#include "libtab.h"', '#include "libslot.h"', ""]
     out += sorted(set(decl)) + [""] + caps + ["", "const LibEntry g_libtab[] = {"] + rows
     if not rows:
-        out.append("    { 0, 0, 0, 0, 0, 0, 0, 0, 0 },")
+        out.append("    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },")
     out += ["};", "const unsigned g_libtab_n = %d;" % len(rows), ""]
+    out += ["const void *g_libslot_bound[%d];" % max(1, len(srows))] + sfn + ["", "const LibSlot g_libslot[] = {"] + srows
+    if not srows:
+        out.append("    { 0, 0, 0, 0, 0 },")
+    out += ["};", "const unsigned g_libslot_n = %d;" % len(srows), ""]
+    return "\n".join(out)
+
+
+def slots_text(libs, source="TOML B"):
+    """libslots.h: the slot of every export of the file, for the sources the app compiles (libslot.h)."""
+    out = ["// Generated by tools/libtab.py from %s (T239.3 D31, base 4.0): the slots of the exports of the libraries the app is linked with (libslot.h). Do not edit." % source,
+           "#ifndef LIBSLOTS_H", "#define LIBSLOTS_H", ""]
+    n = 0
+    for i, lib, e in slots(libs):
+        out.append("#define LIBSLOT_%s %d                    /* library %s */" % (e["name"], i, lib["name"]))
+        out.append("#define LIBSLOT_%s_MAJOR %d" % (e["name"], e["major"]))
+        n = i + 1
+    out += ["#define LIBSLOT_COUNT %d" % n, "", "#endif", ""]
     return "\n".join(out)
 
 
@@ -179,6 +248,7 @@ def lint(libs, root):
     import check_d24                                       # D12_TRX64U: the files that go to TRX64-Ultimate; they are a core's code, not the generic application
     headers = {h: lib["name"] for lib in libs for h in lib.get("headers", []) if not h.endswith("_api.h")}   # a table's header (online_api.h) is the seam the generic code reads through
     entry_syms = {lib[k]: lib["name"] for lib in libs for k in ENTRIES if k in lib}
+    entry_syms.update({e["table"]: lib["name"] for lib in libs for e in lib.get("exports", []) if "table" in e})
     lib_sources = {f for lib in libs for f in lib["sources"]}
     inc = re.compile(r'^\s*#\s*include\s*"([^"]+)"')
     found = []
@@ -198,6 +268,30 @@ def lint(libs, root):
                 for sym, ln in entry_syms.items():
                     if re.search(r"\b%s\s*\(" % re.escape(sym), line) and not line.lstrip().startswith("//"):
                         found.append("%s/%s:%d calls %s (library %s)" % (d, fn, no, sym, ln))
+    return found
+
+
+def slot_needs(libs, root):
+    """Base 4.0 (libslot.h): a library whose source names the slot of an export (LIBSLOT_<name>) lists the library that exports it in `needs` (or is it).
+    Returns the findings."""
+    exporter = {e["name"]: lib["name"] for lib in libs for e in lib.get("exports", [])}
+    use = re.compile(r"\bLIBSLOT_([a-z0-9_]+?)(?:_MAJOR)?\b")
+    found = []
+    for lib in libs:
+        own = set(lib.get("needs", [])) | {lib["name"]}
+        for f in lib["sources"] + lib.get("headers", []):
+            p = find_file(root, f)
+            if not p:
+                continue
+            with open(p, errors="replace") as fh:
+                for no, line in enumerate(fh, 1):
+                    for x in use.findall(line):
+                        if x == "COUNT":
+                            continue
+                        if x not in exporter:
+                            found.append("%s:%d (library %s) names LIBSLOT_%s, which no library of the file exports" % (f, no, lib["name"], x))
+                        elif exporter[x] not in own:
+                            found.append("%s:%d (library %s) takes the export %s of library %s, which its needs do not list" % (f, no, lib["name"], x, exporter[x]))
     return found
 
 
@@ -297,7 +391,7 @@ def samelib(libs_a, libs_b, name, maps=(), text=lambda p: open(p, errors="replac
     if a is None or b is None:
         return ["the library %s is not in both TOML B files" % name]
     found = []
-    for key in ("sources", "headers") + tuple(ENTRIES) + ("capability", "needs"):
+    for key in ("sources", "headers") + tuple(ENTRIES) + ("capability", "needs", "exports", "menu"):
         if a.get(key) != b.get(key):
             found.append("library %s: %s is %s in one TOML B and %s in the other" % (name, key, a.get(key), b.get(key)))
     for m in maps:
@@ -315,6 +409,7 @@ def main(argv):
             os.makedirs(argv[2], exist_ok=True)
             write_if_changed(os.path.join(argv[2], "libtab_table.cc"), table_text(libs, os.path.basename(argv[1])))
             write_if_changed(os.path.join(argv[2], "libtab.mk"), mk_text(libs))
+            write_if_changed(os.path.join(argv[2], "libslots.h"), slots_text(libs, os.path.basename(argv[1])))
             return 0
         if len(argv) in (2, 3) and argv[0] == "tests":
             if len(argv) == 3 and argv[2] not in TEST_KINDS:
@@ -333,7 +428,7 @@ def main(argv):
         if len(argv) == 3 and argv[0] == "lint":
             libs = load(argv[1])
             check_files(libs, argv[2])
-            found = lint(libs, argv[2])
+            found = lint(libs, argv[2]) + slot_needs(libs, argv[2])
             for f in found:
                 print("libtab lint: %s" % f)
             return 1 if found else 0

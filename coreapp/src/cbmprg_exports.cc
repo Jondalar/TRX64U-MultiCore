@@ -1,4 +1,4 @@
-// The table of the CBM program loader library (app/loaders/cbm_prg.cc): its table "cbmprg" (T239.3 D12, base 3.3), answered by api->lib->find under its export name. This file is part of the library: libtab.cc (from the TOML B of the app) calls cbmprg_bind once, when the loader is made.
+// The table of the CBM program loader library (app/loaders/cbm_prg.cc): its table "cbmprg" (T239.3 D12, base 3.3), its export (base 4.0: declared in the TOML B, `exports`, reached through libslot.h). This file is part of the library: libtab.cc (from the TOML B of the app) calls cbmprg_bind once, when the loader is made.
 // The bodies call the code of the library with the core's context that is given here once, so no member of a table takes one.
 #include "libexports.h"
 #include "libexp_util.h"
@@ -125,8 +125,9 @@ static const CbmPrgApi g_prg = {
     sizeof(CbmPrgApi), prg_place, prg_type_start, prg_script_check, prg_script_step, prg_relink, prg_key_for, prg_mem_write, prg_mem_read,
 };
 
-void cbmprg_bind(CoreCtx *c, LibLoader &ld)
+void cbmprg_bind(CoreCtx *c, LibLoader &)
 {
     g_c = c;
-    ld.add_export(CBMPRG_API_NAME, CBMPRG_API_MAJOR, &g_prg);
 }
+
+const void *cbmprg_table(void) { return &g_prg; }

@@ -780,8 +780,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
         app_index.set_multicore(!ctx.board || ctx.board->can_return_host);                  // the predicate of the state host.multicore (diag.cc)
-        appsvc_init(&ctx);                                                                 // appsvc_c64() reads the context (it is set again below, harmless)
-        app_index.set_cart_port(appsvc_c64() != 0);                                        // the cartridge tools only where the core gives that service (CART_APP_NEED)
+        // CART_APP_NEED (libfmt.h, T239.3 D40): the cartridge tools only where the running core's TOML A has the block c64cart - read from the bundle's description record, since the one app runs many cores
+        app_index.set_cart_port(bundle.desc && descrec_block(*bundle.desc, "c64cart") != 0);
         app_index.set_prg_apps(ops_of(&ctx)->find_op(PRG_APP_OP) != 0);                    // T228 R21 #14: a core that registered the operation gets "Run with App"
         app_index.scan(ctx.fs, app_folders, nf, &say_out);
         printf("[app] %d application(s) in %s\n", app_index.count(), nf ? app_folders[0] : "(no folder)");
@@ -813,9 +813,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     appsvc_init(&ctx);
     app_host.install();
     app_host.set_end_hook(appsvc_end);
-    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover, appsvc_c64_api());
+    app_host.set_machine_groups(appsvc_net(), appsvc_flash_read, appsvc_handover);
     if (!desc->hooks_lib) {
-        hooks_attach(lib_board_loader() ? lib_board_loader()->svc_lib() : 0);    // the table "corehooks" of a library of the core (core_hooks.h), if one exports it; a record that names its library took its table above
+        hooks_attach();    // the table "corehooks" of a linked library of the core (core_hooks.h, libslot.h), if one exports it; a record that names its library took its table above
     }
     // T239.3 P1-4 (D30 condition 2, D31): the one check that stays at run time. The record of TOML A names the bitstream it was made for; the standard block of the bitstream that runs has to
     // say the same (ID and build). A pair that does not match is told and the core is not released: the settings, the menu and the browser still open, the machine stays held on every path (CoreCtx::identity_refused: no release in boot.cc, no poll, no write-back task).

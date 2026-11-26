@@ -1,5 +1,5 @@
-// The table of the temp RAM disk library (tempdisk.cc): its table "tempdisk" (T239.3 D12, base 3.3), answered by api->lib->find under its export name. This file is part of the library: libtab.cc (from the TOML B of the app) calls tempdisk_bind once, when the loader is made.
-// The bodies call the code of the library with the core's context that is given here once, so no member of a table takes one.
+// The table of the temp RAM disk library (tempdisk.cc): its table "tempdisk" (T239.3 D12, base 3.3), its export (base 4.0: declared in the TOML B, `exports`, reached through libslot.h). This file is part of the library: the slot's table function is tempdisk_table.
+// Pure functions: no member of the table takes a context, and the library needs none.
 #include "libexports.h"
 #include "libexp_util.h"
 #include "tempdisk_api.h"
@@ -16,11 +16,7 @@ static void temp_set(bool auto_cleanup, bool subfolders) { tempdisk_set(auto_cle
 
 static const TempDiskApi g_temp = { sizeof(TempDiskApi), temp_set };
 
-void tempdisk_bind(CoreCtx *c, LibLoader &ld)
-{
-    (void)c;
-    ld.add_export("tempdisk", 1, &g_temp);
-}
+const void *tempdisk_table(void) { return &g_temp; }
 
 // The temp RAM disk exists on the monolith only (T228 R21: as in TRX64-Ultimate's firmware, FW ramdisk.cc:16-44), not on the MultiCore host; the library names this in its entry `init`, so the application does not.
 void tempdisk_lib_init(const BoardProfile &b)

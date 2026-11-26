@@ -1,11 +1,12 @@
-// The table of the C64 cartridge library (c64_cart.cc): its table "c64cart" (T239.3 D12, base 3.3), answered by api->lib->find under its export name. This file is part of the library: libtab.cc (from the TOML B of the app) calls c64cart_bind once, when the loader is made.
+// The table of the C64 cartridge library (c64_cart.cc): its export "c64cart" (T239.3 D12; base 4.0: declared in the TOML B, `exports`, and reached through libslot.h). This file is part of the library:
+// libtab.cc (from the TOML B of the app) calls c64cart_bind once, when the loader is made, and c64cart_lib_core when the core's description is known.
 // The bodies call the code of the library with the core's context that is given here once, so no member of a table takes one.
 #include "libexports.h"
 #include "libexp_util.h"
 #include "c64cart_api.h"
 #include "c64_cart.h"
 #include "writeback.h"
-#include "appsvc.h"
+#include "descrec.h"
 #include "desc.h"
 #include "ctx.h"
 #include <stddef.h>
@@ -14,6 +15,7 @@
 #include <string.h>
 
 static CoreCtx *g_c;
+static bool g_port;                                   // the running core's TOML A has the block c64cart (c64cart_lib_core)
 
 // ---- c64cart (c64cart_api.h) -------------------------------------------------------------------------------------------------------------------------
 
@@ -31,8 +33,8 @@ static void cart_image_write(uint32_t off, const uint8_t *src, uint32_t n) { c64
 static int cart_for_state(const char *path, char *msg, int msglen) { REASON(msg, msglen); return c64_cart_for_state(g_c, path, msg, msglen); }
 
 // The port of the C64 family: the capability "cartridge" alone is also listed by cores with a cartridge of their own (the Atari, the NES, the SNES, the Neo Geo), whose windows are not these;
-// the core that has the port is the one the base gives its "c64" table (appsvc_c64).
-static bool cart_port(void) { return g_c && g_c->desc && appsvc_c64() && desc_has_capability(g_c->desc, "cartridge"); }
+// the core that has the port is the one whose TOML A has the block c64cart (T239.3 D40: the capability's block guards it; base 4.0, it was the base's table "c64").
+static bool cart_port(void) { return g_c && g_c->desc && g_port && desc_has_capability(g_c->desc, "cartridge"); }
 static uint32_t cart_ram_size(void) { return cart_port() ? CART_RAM_BYTES : 0; }
 static void cart_ram_read(uint32_t off, uint8_t *dst, uint32_t n)
 {
@@ -88,8 +90,15 @@ static const C64CartApi g_cart = {
     cart_run, cart_remove, cart_save, cart_ef_clear, cart_run_image, cart_player_end, cart_player_active,
 };
 
-void c64cart_bind(CoreCtx *c, LibLoader &ld)
+void c64cart_bind(CoreCtx *c, LibLoader &)
 {
     g_c = c;
-    ld.add_export("c64cart", 1, &g_cart);
 }
+
+// The library's `core` entry (libtab.h): the bundle's description record says whether the running core has the port (rec null before it is read: not yet).
+void c64cart_lib_core(CoreCtx *, const CoreDesc *, const DescRecord *rec)
+{
+    g_port = rec && descrec_block(*rec, "c64cart") != 0;
+}
+
+const void *c64cart_table(void) { return &g_cart; }

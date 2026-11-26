@@ -175,10 +175,10 @@ struct HkLoop {
     bool perform(CoreCtx *c, uint32_t fired, char *line, int n);
 };
 
-// The generic side of the table "padkeys" (padkeys_api.h): found through libtab_table, so the header the SDK ships does not need libtab.h.
+// The generic side of the table "padkeys" (padkeys_api.h): found through libtab_export, so the header the SDK ships does not need libtab.h.
 static inline const PadkeysApi *padkeys_api(void)
 {
-    const PadkeysApi *a = (const PadkeysApi *)libtab_table(PADKEYS_API_NAME);
+    const PadkeysApi *a = (const PadkeysApi *)libtab_export(PADKEYS_API_NAME, 1);
     return a && a->size >= sizeof(PadkeysApi) ? a : 0;
 }
 

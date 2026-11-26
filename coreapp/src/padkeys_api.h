@@ -1,5 +1,5 @@
 // The table "padkeys": what the generic application asks of the pad-keys library (padkeys.cc): whether a setting row is a pad-key row (a button's key, padkeys.h PADKEY_ROW) and which entry of the
-// key list a pressed key picks. The generic code finds the table through libtab_table("padkeys") (libtab.h) and calls no function of the library; an app linked without it has no pad-key rows.
+// key list a pressed key picks. The generic code finds the table through libtab_export("padkeys", 1) (libtab.h) and calls no function of the library; an app linked without it has no pad-key rows.
 // Size first; within a major members are only appended. The header ships in the SDK (include/), so a library or a core's app can read the table.
 #ifndef COREAPP_PADKEYS_API_H
 #define COREAPP_PADKEYS_API_H

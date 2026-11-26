@@ -71,7 +71,7 @@ void ops_register_base(OpRegistry &r)
     home_register(r);
     settings_register(r);
     wb_register_ops(r);
-    if (const PadApi *p = (const PadApi *)libtab_table(PAD_API_NAME)) {       // the gamepad library's operations and states (pad_api.h); an app linked without it has none
+    if (const PadApi *p = (const PadApi *)libtab_export(PAD_API_NAME, 1)) {       // the gamepad library's operations and states (pad_api.h); an app linked without it has none
         if (p->size >= sizeof(PadApi)) {
             p->register_ops(r);
         }
