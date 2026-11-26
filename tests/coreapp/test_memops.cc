@@ -25,13 +25,16 @@ extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app 
 #ifdef TEST_APP_NES
 extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #endif
+#ifdef TEST_APP_DIAG
+extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
 #ifdef TEST_APP_C264
 extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 #endif
 #ifdef TEST_APP_ZXNEXT
@@ -70,9 +73,10 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #elif defined(TEST_APP_CPC)               // the CPC's app is its own build (run.sh cpcapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
+#elif defined(TEST_APP_DIAG)              // the diag core's app is its own build (run.sh diagapp): its core is the only one in its table
+const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc,
-                                       &portdiag_desc, 0 };
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")
@@ -151,6 +155,8 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &neogeo_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_AMIGA)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
+#elif defined(TEST_APP_DIAG)
+    struct W { const CoreDesc *d; int last; } widths[] = { { &portdiag_desc, 0xFFFF } };
 #elif defined(TEST_APP_DDT)
     struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #elif defined(TEST_APP_ZX)
@@ -193,7 +199,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
 #ifdef TEST_APP_ATARI800                  // the Atari's app (run.sh a8app, the unit a8_memops)
     // ---- the Atari: the same window, no ram-only bit
     {
@@ -215,14 +221,8 @@ int main()
         CHECK(res.data[0] == 0xAA && res.data[1] == 0xBB);
         CHECK_EQ(r.call("machine.read_mem", 0xFFF0, 0x20, &res), OPE_ARG);       // main RAM ends at $FFFF, the aux region is another one
     }
-    // ---- the ZX Spectrum Next: the unit zxnext_memops (its app)
-    // ---- cores whose memory the application cannot reach say so, and why (the NES's is its unit nes_memops)
-    for (const CoreDesc *d : { &portdiag_desc }) {               // T239.5 D13: the Amiga 500's case is its unit amiga_memops
-        Rig r(d);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
+    // ---- the ZX Spectrum Next: the unit zxnext_memops (its app); the cores whose memory the application cannot reach are their apps' units (nes_memops, amiga_memops,
+    // diag_memops, ...): the shared table has none left (T239.5 D13)
 #endif
 #ifdef TEST_APP_ZX
     // ---- the ZX Spectrum: 128 KB through a window of 64 KB, the page register put back to 0
@@ -320,6 +320,14 @@ int main()
         Rig r(&amiga1200_desc);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
+        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
+    }
+#elif defined(TEST_APP_DIAG)
+    // ---- the diag core has no machine: its memory is not reachable by the application, it says so, and why
+    {
+        Rig r(&portdiag_desc);
+        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
+        CHECK(strlen(res.msg) > 40 && res.ndata == 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(TEST_APP_DDT)

@@ -15,7 +15,7 @@ private:
     CoreFile *f_;
 };
 
-// The record in memory (it is read once, hashed against the manifest by cor_read_part; the .cor is 36 KB of it for the diag core).
+// The record in memory (it is read once, hashed against the manifest by cor_read_part).
 class MemSrc : public CorSource {
 public:
     MemSrc(const uint8_t *p, uint32_t n) : p_(p), n_(n) { }

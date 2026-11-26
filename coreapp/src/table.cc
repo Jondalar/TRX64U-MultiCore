@@ -3,6 +3,7 @@
 #include "cores.h"
 
 #ifdef CORE_ONLY
+extern const CoreDesc CORE_ONLY;   // T239.5 D13: a core with an app of its own is not in cores.h; its image names it here
 // An image of one core (the SDK's app build, app/lib/appbuild.mk, names it by [app] desc): --gc-sections drops every other core's code and data.
 const CoreDesc *const core_table[] = { &CORE_ONLY, 0 };
 #elif defined(CORE_NONE)
@@ -13,7 +14,6 @@ const CoreDesc *const core_table[] = {
     &apple2_desc,
     &c64scpu_desc,
     &snes_desc,
-    &portdiag_desc,
     0
 };
 #endif

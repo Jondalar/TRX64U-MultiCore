@@ -40,7 +40,7 @@
 // named exports; 3.3 (SDK 0.3.0) api->sync, settings, ctx, io, board; 3.4 (SDK 0.4.6) api->wb, overlay exit_to_machine and goto_screen; 3.5 (SDK
 // 0.5.0) LN_LIST, ctx.ask_list, the F3 search sources; 3.6 (SDK 0.5.1) ctx.browse_at and browse_sheet, SVCFS_SIZE_UNKNOWN, [[key]] rows.
 #define U2A_ABI_MAJOR 4
-#define U2A_BASE_MINOR 0                /* 4.0 (T239.3 P2-6, D57: one joint cut with TRX64-Ultimate's P2-5, no fallback and no parallel old API): api->trx (SvcTrx with SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports are gone, and with them the base's export "c64" (C64Api); a table is exported by name only (LibRecord::export_list for a file, TOML B `exports` for a linked library, libslot.h) and reached through slots fixed when the app or the file is linked (libslot.h, SvcLib::need); SvcNet::announce takes SvcTrx::announce's place; U2A3_NEEDS_MAX 8 */
+#define U2A_BASE_MINOR 0                /* 4.0 (T239.3 P2-6, D57: one joint cut with TRX64-Ultimate's P2-5, no fallback and no parallel old API): api->trx (SvcTrx with SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports are gone, and with them the base's export "c64" (C64Api); a table is exported by name only (LibRecord::export_list for a file, TOML B `exports` for a linked library, libslot.h) and reached through slots fixed when the app or the file is linked (libslot.h, SvcLib::need); SvcNet::announce takes SvcTrx::announce's place; U2A3_NEEDS_MAX 8; CoreDialogs of a core's own application (coredlg.h, T260, T239.3 D54) with edit_list and text */
 #define U2A3_VERSION(major, minor) ((uint32_t)(((major) << 16) | (minor)))
 
 // Limits the loader enforces before it allocates anything.

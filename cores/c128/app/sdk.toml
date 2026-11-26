@@ -13,8 +13,6 @@ desc = "c128_desc"
 toml_a = "gateware.toml"
 base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master", "iec_status"]
-# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
-base_sources = ["portdiag.cc"]
 
 # The core's own code: its descriptor and hooks (init, release, the ROM image and the character store, the operations of the PRG start and of the drive's ROM choice, the USB keyboard's extra keys, the register map),
 # with its own copies of hk_defaults.h and drive_rom_pick.h (the originals stay for the cores that have not moved, T239.5 D16). Its files are in cores/c128/app/lib.

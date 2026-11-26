@@ -52,8 +52,8 @@ headers = "176b3dbd37e17705eae830273e0b3de8e9da92d9d1c927318751c57562790e50"
 #
 # 4.0 (T239.3 P2-6, D57, D58): api->trx (SvcTrx, SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports gone, C64Api (c64_api.h) gone; no library file is loaded (a file of kind
 # lib is refused); libslot.h (the exports of the linked libraries at slots fixed when the app is linked, LibSlot::at_start and g_libslot_bound for a library with `register`); SvcNet::announce;
-# U2A3_NEEDS_MAX 8; u2p_api_t without trx and c64, with root.
+# U2A3_NEEDS_MAX 8; CoreDialogs (T260, T239.3 D54, was 3.7: coredlg.h, CoreCtx::dialogs with edit_list and text, api.md 9.8); u2p_api_t without trx and c64, with root.
 [[lock]]
 version = "4.0"
 released = false
-headers = "d34985f650d7336e033a32117b2daa21ab1cd095629f03e9b3bf3db3117f5b57"
+headers = "908e382622e163388b76e59e0b2ec821228618ba3c12675202a18d8da03d4e4a"

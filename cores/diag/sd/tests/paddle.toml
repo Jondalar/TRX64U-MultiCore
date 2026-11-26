@@ -1,5 +1,5 @@
 # Paddle charge time per potentiometer line (X1, Y1, X2, Y2). Paddles in both ports; each end is measured per comparator bit.
-# PADDLE_DIS high discharges the pot capacitors (T47 hypothesis H), so each measurement discharges (dis = 1), waits, lets go (dis = 0) and times the comparator.
+# PADDLE_DIS high discharges the pot capacitors (T47 hypothesis H), so each measurement discharges (PADDLE_DIS high), waits, lets go (PADDLE_DIS low) and times the comparator edge.
 # The comparator-to-pot mapping is a hypothesis (T47): this test measures it. The numbers in the evals are first guesses.
 kind = "test"
 
@@ -24,82 +24,122 @@ op = "wait_user"
 prompt = "left"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [0]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP0"
 timeout_us = 40000
 into = "t_left_x1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [1]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP1"
 timeout_us = 40000
 into = "t_left_y1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [2]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP2"
 timeout_us = 40000
 into = "t_left_x2"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [3]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP3"
 timeout_us = 40000
 into = "t_left_y2"
 
@@ -108,82 +148,122 @@ op = "wait_user"
 prompt = "right"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [0]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP0"
 timeout_us = 40000
 into = "t_right_x1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [1]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP1"
 timeout_us = 40000
 into = "t_right_y1"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [2]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP2"
 timeout_us = 40000
 into = "t_right_x2"
 
 [[step]]
-op = "padctl"
-dis = 1
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "high"
+
+[[step]]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
 
 [[step]]
 op = "wait"
 us = 2000
 
 [[step]]
-op = "padctl"
-dis = 0
-adj = 0
+op = "drive"
+pins = ["PADDLE_DIS"]
+level = "low"
 
 [[step]]
-op = "time_to_flip"
-cmp = [3]
+op = "drive"
+pins = ["PADDLE_ADJ"]
+level = "low"
+
+[[step]]
+op = "time_to_edge"
+pin = "PADDLE_CMP3"
 timeout_us = 40000
 into = "t_right_y2"
 

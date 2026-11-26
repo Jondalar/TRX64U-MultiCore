@@ -191,12 +191,10 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_woz.cc \
 			apple2_hdd.cc \
 			c64scpu.cc \
-			portdiag.cc \
 			d1541_fs.cc \
 			snes.cc \
 			snes_rom.cc \
 			diag.cc \
-			diagtest.cc \
 			bugreport.cc \
 			corereport.cc \
 			netfs.cc \

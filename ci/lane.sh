@@ -187,8 +187,10 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
       d="$HANDOFF/deliver-$id"; rm -rf "$d"; mkdir -p "$d/docs"
       cp "$out/cor/$id.cor" "$out/stamped/$id.elf" "$d/"
       [ ! -f "$ROOT/cores/$id/rtl/NOTICE" ] || cp "$ROOT/cores/$id/rtl/NOTICE" "$d/docs/NOTICE-$id"
+      # T260 D6: the core's files for the SD card (cores/<id>/sd: tests, presets, panels) are a folder of the delivery, no record of the .cor: SD/cores/<id>/ here is /SD/cores/<id>/ on the card
+      if [ -d "$ROOT/cores/$id/sd" ]; then mkdir -p "$d/SD/cores/$id"; cp -R "$ROOT/cores/$id/sd/." "$d/SD/cores/$id/"; fi
       cp "$ROOT/docs/manual/11-cores.md" "$ROOT/docs/manual/12-roms.md" "$d/docs/"
-      (cd "$d" && sha256sum "$id.cor" "$id.elf" | tee SHA256SUMS) ;;
+      (cd "$d" && sha256sum "$id.cor" "$id.elf" $( [ ! -d SD ] || find SD -type f | sort ) | tee SHA256SUMS) ;;
     *) die "a core lane has no step $step" ;;
   esac ;;
 

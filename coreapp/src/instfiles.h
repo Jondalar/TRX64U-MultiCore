@@ -1,5 +1,5 @@
-// The files a core installs on the SD card from its own .cor (record 8, tools/cor_pack.py: its docstring is the format). Alex 2026-11-16 (T175): the diag core's
-// example tests are TOML files that ride in diag.cor; no other core's bundle carries them and the application image holds none.
+// The files a core installs on the SD card from its own .cor (record 8, tools/cor_pack.py: its docstring is the format): files for the person that ride in the
+// core's bundle, not in the application image.
 //
 // At the start of the core every file of the record that is missing is written to <core folder>/<path>. A file that is there is never touched, except one that
 // is byte for byte (size and FNV-1a 64) an earlier version the record lists for it: a tester who never edited it gets the new text. Pure: the bytes come

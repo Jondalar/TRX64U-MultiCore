@@ -272,7 +272,7 @@ class Vic20App(unittest.TestCase):
         self.assertEqual(app["desc"], "vc20_desc")
         self.assertIn("const CoreDesc vc20_desc", open(os.path.join(own, "vc20.cc")).read())
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "cores", "vc20", "app", app["toml_a"])))
-        for f in app["base_sources"]:
+        for f in app.get("base_sources", []):
             self.assertTrue(os.path.isfile(os.path.join(ROOT, "coreapp", "cores", f)))
 
     def test_it_names_no_library_the_core_does_not_use(self):
@@ -293,9 +293,9 @@ class Vic20App(unittest.TestCase):
 
     def test_a_link_map_with_what_the_toml_b_names_passes(self):
         libs = L.load(VC20_B)
-        objs = ["obj/%s.o" % os.path.splitext(f)[0] for lib in libs for f in lib["sources"]] + ["obj/portdiag.o", "obj/table.o", "lib/libtrxbase.a(ops.o)", "lib/libtrxbase.a(settings.o)"]
+        objs = ["obj/%s.o" % os.path.splitext(f)[0] for lib in libs for f in lib["sources"]] + ["obj/table.o", "lib/libtrxbase.a(ops.o)", "lib/libtrxbase.a(settings.o)"]
         text = "Linker script and memory map\n" + "".join(" .text 0x1000 0x20 %s\n" % o for o in objs)
-        self.assertEqual(L.mapcheck(libs, L.load(SHARED), text, ROOT, ["portdiag.cc"]), [])
+        self.assertEqual(L.mapcheck(libs, L.load(SHARED), text, ROOT, []), [])
         self.assertEqual(L.samelib(L.load(SHARED), libs, "cbm1541", [], text=lambda p: text), [])
 
 

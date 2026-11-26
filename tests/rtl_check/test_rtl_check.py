@@ -191,6 +191,12 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "c128", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--define", "VDC64", "--define", "ROM_CACHE", "--define", "RAM_DDR2", "--define", "SID2", "--define", "SOCK_AUDIO", "--define", "TAPE", "--define", "NO_NET", "--define", "NO_VIC_SCALER")
 must(rc == 0 and "17 block(s), 86 properties agree" in out, "c128: 17 blocks, 86 properties of gateware.toml agree with the RTL of the core window (the C64U window's ident, irq, ddr_cal, caps and tape pins, the host's pixel layer capture, the C128's page E: id, irq, machine, ROM line cache, video, cold start, character store, counters, activity) and of the drive window behind c64u_drive_l2 (mm_drive: the 1541 block and the WD177x block of the 1581)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/diag/app/rtl_check_sources.tcl",
+              "--top", "layer2_diag",
+              "--bus", "layer2_diag:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "diag", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "14 block(s), 51 properties agree" in out, "diag: 14 blocks, 51 properties of gateware.toml agree with the RTL of the core window (diag_regs.v v2: ident, engine, live snapshot, A/V, DRVEN, pin bank, pin ROM, capture; TICKS_US is a module parameter the checker does not read)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,

@@ -1232,6 +1232,9 @@ static uint32_t question_sig(const DlgView &v)
     add(&v.rows, sizeof(v.rows));
     for (int i = 0; i < v.rows && i < DLG_ITEMS_MAX; i++) {
         add(v.row[i], strlen(v.row[i]) + 1);
+        if (v.row_val[i]) {
+            add(v.row_val[i], strlen(v.row_val[i]) + 1);
+        }
         add(&v.row_dir[i], 1);
     }
     add(&v.buttons, sizeof(v.buttons));
@@ -1249,7 +1252,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
         for (const char *p = v.text; *p; p++) {
             lines += *p == '\n';
         }
-        int rows = (v.kind == DK_CHOOSE || v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER) ? (v.rows < 1 ? 1 : v.rows) : 0;
+        int rows = (v.kind == DK_CHOOSE || v.kind == DK_EDIT || v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER) ? (v.rows < 1 ? 1 : v.rows) : 0;
         int h = 22 + 30 + (v.text[0] ? 16 * (lines < 14 ? lines : 14) + 8 : 0) + (rows ? rows * (trx_row_h() + 1) + 24 : 0) +
                 (v.kind == DK_TEXT ? 44 : 0) + (v.kind == DK_BUTTONS || v.kind == DK_MESSAGE ? 44 : 0) + 34;
         if (h > SH - 70) {
@@ -1275,7 +1278,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             cy += 40;
         }
         if (rows) {
-            if (v.kind != DK_CHOOSE) {
+            if (v.kind != DK_CHOOSE && v.kind != DK_EDIT) {
                 trx_txt(card, t.space_lg, cy, v.input, t.caption, t.accent, w - 2 * t.space_lg);
                 cy += 18;
             }
@@ -1283,6 +1286,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
                 TrxRow r;
                 memset(&r, 0, sizeof(r));
                 r.label = v.row[i];
+                r.value = v.row_val[i];
                 r.selected = r.strong = (v.first + i == v.sel);
                 trx_row_at(card, t.space_lg, cy, w - 2 * t.space_lg, r, &cy);
             }
@@ -1309,6 +1313,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             }
         }
         const char *hint = v.kind == DK_CHOOSE ? "UP/DOWN  MOVE   RETURN  CHOOSE   <-  CANCEL"
+                         : v.kind == DK_EDIT ? "UP/DOWN  ROW   LEFT/RIGHT  CHANGE   RETURN  DO   <-  CLOSE"
                          : v.kind == DK_TEXT ? "TYPE   DEL  BACK   RETURN  OK   <-  CANCEL"
                          : v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER ? "RETURN  OPEN OR PICK   <-  ONE FOLDER UP   R/S  CANCEL"
                          : v.kind == DK_BUTTONS ? "LEFT/RIGHT  FOCUS   RETURN  ANSWER   Y  YES   N  NO"

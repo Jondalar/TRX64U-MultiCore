@@ -39,7 +39,8 @@ done
 case "$core" in
   vc20)      prof_src=core-vic20.toml prof_out=VIC-20.toml; [ -n "$prof_sha" ] || prof_sha="$UE2_PROFILE_SHA256" ;;
   amiga1200) prof_src=core-amiga1200.toml prof_out=amiga1200.toml; [ -n "$prof_sha" ] || prof_sha="$UE2_A1200_SHA256" ;;
-  *) echo "emu_kit: --core is vc20 or amiga1200, not $core" >&2; exit 2 ;;
+  diag)      prof_src=core-diag.toml prof_out=diag.toml; [ -n "$prof" ] || { prof="$HERE/../tests/coreapp/emu/profiles/diag.toml"; prof_sha="$(python3 -I -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$prof")"; } ;;   # T260 P7: the emulator release has no diag profile; this tree's own (the A1200's layout, name = "diag"), so its SHA-256 is the file's own
+  *) echo "emu_kit: --core is vc20, amiga1200 or diag, not $core" >&2; exit 2 ;;
 esac
 sha256() { python3 -I -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 mkdir -p "$kit/profiles" "$kit/cors"
@@ -73,8 +74,8 @@ tree_of() {
 if [ -z "$prof" ]; then prof="$kit/profiles/.download"; curl -fsSL --retry 3 -o "$prof" "$UE2_EXAMPLES/$prof_src"; fi
 [ "$(sha256 "$prof")" = "$prof_sha" ] || { echo "emu_kit: the profile $prof_src does not match its SHA-256 $prof_sha" >&2; exit 1; }
 if [ "$core" = vc20 ]; then cp "$prof" "$kit/profiles/$prof_out"
-else awk '{ print } /^name = "amiga1200"$/ { print "symbols = \"coreapp.elf\"" }' "$prof" > "$kit/profiles/$prof_out"   # awk: a newline in a sed replacement is GNU only
-  grep -q '^symbols = "coreapp.elf"' "$kit/profiles/$prof_out" || { echo "emu_kit: $prof_src has no line name = \"amiga1200\" to put the symbols after" >&2; exit 1; }
+else awk -v n="$core" '{ print } $0 == "name = \"" n "\"" { print "symbols = \"coreapp.elf\"" }' "$prof" > "$kit/profiles/$prof_out"   # awk: a newline in a sed replacement is GNU only
+  grep -q '^symbols = "coreapp.elf"' "$kit/profiles/$prof_out" || { echo "emu_kit: $prof_src has no line name = \"$core\" to put the symbols after" >&2; exit 1; }
 fi
 rm -f "$kit/profiles/.download"
 cp "$cor" "$kit/cors/$core.cor"

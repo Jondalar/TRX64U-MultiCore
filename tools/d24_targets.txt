@@ -27,17 +27,12 @@ coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
 coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
-coreapp/cores/portdiag.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/portdiag.h core-library the core's own file format or engine (D9)
-coreapp/cores/portdiag_regs.h data register map (D8)
 coreapp/cores/snes.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/snes_regs.h data register map (D8)
 coreapp/cores/snes_rom.cc core-library the core's own file format or engine (D9)
 coreapp/cores/snes_rom.h core-library the core's own file format or engine (D9)
 coreapp/src/amiga_ffs.cc core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/amiga_ffs.h core-library Amiga FFS format, Amiga only (D9)
-coreapp/src/diagtest.cc core-library the diag core's test runner
-coreapp/src/diagtest.h core-library the diag core's test runner
 coreapp/src/t64.cc shared-library C64 T64 lister, stays here (D12; TRX64-Ultimate takes only its T64 loading)
 coreapp/src/t64.h shared-library C64 T64 lister, stays here (D12; TRX64-Ultimate takes only its T64 loading)
 coreapp/src/u64_resample.inc shared-library resampling kept here (D12)

@@ -55,6 +55,10 @@ const CoreDesc *const core_table[] = { &c128_desc, 0 };
 extern const CoreDesc pet_desc;          // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
 const CoreDesc *const core_table[] = { &pet_desc, 0 };
 #define KW_GOLDEN "_pet"
+#elif defined(TEST_APP_DIAG)             // the diag core's app (run.sh diagapp, the unit diag_keywalk): its table is its core only, its rows are golden/keywalk_diag.txt and ids_diag.txt
+extern const CoreDesc portdiag_desc;     // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
+const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
+#define KW_GOLDEN "_diag"
 #elif defined(TEST_APP_DDT)              // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_keywalk): its table is its core only, its rows are golden/keywalk_ddt_novic.txt and ids_ddt_novic.txt
 extern const CoreDesc ddt_novic_desc;    // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
@@ -157,19 +161,6 @@ int main(int argc, char **argv)
         c.settings = &st;
         c.started = true;
         c.install_files = core_files_install;       // run.cc sets it for every core; pd.install (Write the example tests) goes through it
-        std::vector<uint8_t> diag_cor;               // T175: the example tests are record 8 of diag.cor; the application's installer writes the missing ones at every start of the core, as on the board
-        if (!strcmp(cname, "Port Diagnostics") && getenv("DIAG_COR")) {
-            std::ifstream df(getenv("DIAG_COR"), std::ios::binary);
-            diag_cor.assign((std::istreambuf_iterator<char>(df)), std::istreambuf_iterator<char>());
-        }
-        auto start_core = [&]() {                    // the bundle is on the card only while the installer reads it: the folder listing is the bench's, not the bundle's
-            if (!diag_cor.empty()) {
-                fs.put(c.cor_path, diag_cor);
-                core_files_install(&c);
-                fs.remove(c.cor_path);
-            }
-        };
-        start_core();
         fs.put("/usb0/x/a.bin", std::vector<uint8_t>(64, 1));
         fs.put("/usb0/x/b.txt", std::vector<uint8_t>(40, 'b'));
         fs.put("/usb0/x/e.prg", std::vector<uint8_t>{ 1, 8, 0, 0 });
@@ -208,7 +199,6 @@ int main(int argc, char **argv)
                 uint32_t acc = 2166136261u;
                 int n = 0;
                 for (int ki = 0; ki < NKEYS; ki++) {
-                    start_core();
                     MenuCtl m(&c, &host);
                     io.t += 5000;
                     m.open();

@@ -252,10 +252,16 @@ Base API 4.0 is a new major. A library or an application of major 3 is refused: 
 - **No library file at run time (D58).** A `.u2a` of kind lib is refused. Record 7 of a `.cor` holds menu records (version 2), not files. The folder `<root>/trx/lib` is not read.
 - **Libraries linked through the TOML B.** A `[[library]]` has `exports = [{ name, major, table }]`, `register = "fn"` (`int fn(const LibApi *, LibRecord *)`, called at start where `lib_register` of a file ran), `menu = "path"` (its menu record), `heap_keep` and `heap_peak` (checked as the budget of a file) and `needs` (the order of registration; a cycle is refused). The slot table `include/libslot.h` (`lib_slot(LIBSLOT_<name>, &size)`) and `api->lib->need` of a sub-app reach the exports (`api.md` 2.4, 4.10).
 - **The example library is linked.** `example/` has no `example.u2a`: `app/toml_b.toml` links `example.cc` and `greet.cc` with `register = "example_register"` and `menu = "../menu.toml"`. `make menu` writes the menu record, `make app` links the example core's app.
-- **miniz is a library of `shared.toml`.** The application Unzip needs `base>=4.0` and `miniz>=1.0`; an app that is not linked with `miniz` refuses it.
+- **Unzip carries miniz (D60).** The sub-app Unzip is linked with the zip code of miniz and needs `base>=4.0` only; no core's app and not the host application links miniz. A core's app starts `unzip.u2a` for the action and frees it afterwards.
 - **Record 7, version 2.** `cor_pack.py` takes the menu records of the libraries from the TOML B of `--sizes`; `--lib` is gone.
 - **`CART_APP_NEED`** (`cart_port`) is offered where the TOML A of the core has the block `c64cart`.
 - **`u2p_compat`.** The adapter of the older interface has no `trx` and no `c64` table, and `media.reset` calls the operation `machine.warm_reset`.
+- **The dialogs of a core's own application (`CoreDialogs`, `api.md` 9.8, T260, T239.3 D54).** The code of a core that has an application of its own reaches the person through `CoreCtx::dialogs`:
+  a task of its own (`spawn`), a question (`ask`, `ask_live`), a choice (`choose`), a message (`notice`), a file picker (`pick`), the clock stamp (`stamp`) and the joystick ports as
+  menu keys (`joystick_menu`). New in the class: `text`, a line the person types, and `edit_list`, a list of rows of label and value that the person edits (UP/DOWN select, LEFT/RIGHT
+  and RETURN call back on the menu task, RETURN on an action row closes the list and answers the row, ESC closes it): the dialog of a panel of registers that comes from a file at run
+  time. A test builds its own class derived from `CoreDialogs` and scripts the answers (`api.md` 9.8.13).
+
 
 ## Licence
 

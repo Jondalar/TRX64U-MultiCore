@@ -13,8 +13,6 @@ desc = "cpc_desc"
 toml_a = "gateware.toml"
 base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
-# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
-base_sources = ["portdiag.cc"]
 
 # The core's own code: its descriptor and hooks (init, release, the ROM handling, the tape slot, the register map), the DSK drives with their write-back, the default hotkeys and the tape deck with
 # its pulse converter (copies of the files the PET app still shares, T239.5 D16). Its files are in cores/cpc/app/lib. needs: the blank-file and blank-disk creation of the shared SDK libraries.

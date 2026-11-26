@@ -1,37 +1,46 @@
-// The diag core's example tests as the application installs them: record 8 of diag.cor, made by the real packer (tools/cor_pack.py files-record, run.sh
-// puts it in $DIAG_FILES_REC), written by the application's own installer (coreapp/src/instfiles.cc) onto a fake card.
+// The diag core's shipped tests and presets as the lane's delivery carries them (T260 D6): the folder cores/diag/sd of the repository, copied onto a fake card (the tester's FTP copy to
+// /SD/cores/diag). The tests run in the repository root, so the folder is read by its relative path.
 #ifndef TESTS_COREAPP_DIAG_EXAMPLES_H
 #define TESTS_COREAPP_DIAG_EXAMPLES_H
 
-#include <cstdlib>
+#include <dirent.h>
 #include <fstream>
-#include <iterator>
-#include <vector>
-#include "instfiles.h"
+#include <sstream>
+#include <string>
 
-namespace {
-class VecSrc : public CorSource {
-public:
-    explicit VecSrc(const std::vector<uint8_t> &v) : v_(v) { }
-    uint32_t size() { return (uint32_t)v_.size(); }
-    bool read(uint32_t off, void *buf, uint32_t len) { if ((uint64_t)off + len > v_.size()) return false; memcpy(buf, v_.data() + off, len); return true; }
-private:
-    const std::vector<uint8_t> &v_;
-};
-}
-
-static inline std::vector<uint8_t> diag_record()
+// Every file of `dir` (recursive) to `folder` on the card; the number of files written.
+static inline int diag_put_dir(CoreFs *fs, const std::string &dir, const std::string &folder)
 {
-    const char *p = getenv("DIAG_FILES_REC");
-    std::ifstream f(p ? p : "", std::ios::binary);
-    return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    int n = 0;
+    DIR *d = opendir(dir.c_str());
+    if (!d) {
+        return 0;
+    }
+    while (dirent *e = readdir(d)) {
+        std::string nm = e->d_name;
+        if (nm == "." || nm == "..") {
+            continue;
+        }
+        std::string src = dir + "/" + nm, dst = folder + "/" + nm;
+        if (e->d_type == DT_DIR) {
+            fs->mkdir(dst.c_str());
+            n += diag_put_dir(fs, src, dst);
+        } else {
+            std::ifstream f(src, std::ios::binary);
+            std::stringstream s;
+            s << f.rdbuf();
+            std::string t = s.str();
+            n += fs->save(dst.c_str(), t.data(), (uint32_t)t.size()) ? 1 : 0;
+        }
+    }
+    closedir(d);
+    return n;
 }
 
 static inline int diag_install_examples(CoreFs *fs, const char *folder)
 {
-    std::vector<uint8_t> rec = diag_record();
-    VecSrc src(rec);
-    return instfiles_install(fs, src, 0, (uint32_t)rec.size(), folder);
+    fs->mkdir(folder);
+    return diag_put_dir(fs, "cores/diag/sd", folder);
 }
 
 #endif

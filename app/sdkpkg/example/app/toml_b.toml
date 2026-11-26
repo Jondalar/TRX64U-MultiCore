@@ -5,10 +5,9 @@
 #
 # The core is described by its record (D17): no descriptor symbol is named in [app], the table of cores of the image is empty and the start makes the descriptor from the record of the
 # bundle. The core's code is its library: `hooks = "example"` of desc.toml names the library of this file (`[[library]] example` below: ../example.cc, linked into the app) that exports the core hooks.
-# `base_sources` names files of the base's coreapp/cores/ that the image links: run.cc calls portdiag_attach, so the image needs portdiag.cc (its descriptor is not in the table).
+# `base_sources` names files of the base's coreapp/cores/ that the image links (none here: the base's run.cc names no core's code).
 [app]
 name = "example"
-base_sources = ["portdiag.cc"]
 
 # Every key is optional (python3 tools/app_build.py table lists them with the defaults). A small core is sized small: the report buffer is a static array of this size in its image.
 [sizes]

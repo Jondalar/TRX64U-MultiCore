@@ -498,33 +498,33 @@ int main(int argc, char **argv)
         CHECK(!w.probed && w.desc == 0);
     }
 
-    // ---- T175, record 8: the files a core installs on the card (the diag core's example tests ride in diag.cor)
+    // ---- T175, record 8: the files a core installs on the card (the fixture core instfiles carries files, T260 D6: the diag core carries none)
     {
-        fs.put("/usb0/cores/diag.cor", slurp(dir + "/diag.cor"));
+        fs.put("/usb0/cores/instfiles.cor", slurp(dir + "/instfiles.cor"));
         fs.put("/usb0/cores/nofiles.cor", slurp(dir + "/nofiles.cor"));
         CoreDesc dd = testcore::desc;
-        dd.cor_name = "Port Diagnostics";
+        dd.cor_name = "Install Files";
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/usb0/cores/diag.cor");
+        ctx_for(&c, &fs, &io, "/usb0/cores/instfiles.cor");
         c.desc = &dd;
         BundleExtras x;
         bundle_read(&c, &x);
         CHECK(x.probed && x.ci.size[COR_PART_FILES] > 0);                       // the host's reader sees record 8
         free_extras(&x);
         // an unedited text of an earlier version is replaced, an edited one is not, a file the person made stays, the rest is written
-        fs.put_text("/usb0/cores/diag/tests/cd32.toml", slurp_text("cores/diag/superseded/cd32.v1.toml"));
-        fs.put_text("/usb0/cores/diag/tests/stick2.toml", slurp_text("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-        fs.put_text("/usb0/cores/diag/tests/pins.toml", "# mine\n");
-        fs.put_text("/usb0/cores/diag/tests/mytest.toml", "# mine too\n");
-        CHECK_EQ(core_files_install(&c), 8);                      // 10 files: cd32 replaced + 7 missing written; stick2 and pins edited, kept
-        CHECK_STR(fs.text("/usb0/cores/diag/tests/cd32.toml").c_str(), slurp_text("cores/diag/sd/tests/cd32.toml").c_str());
-        CHECK_STR(fs.text("/usb0/cores/diag/tests/pins.toml").c_str(), "# mine\n");
-        CHECK(fs.text("/usb0/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
-        CHECK_STR(fs.text("/usb0/cores/diag/tests/mytest.toml").c_str(), "# mine too\n");
-        CHECK_STR(fs.text("/usb0/cores/diag/tests/paddle.toml").c_str(), slurp_text("cores/diag/sd/tests/paddle.toml").c_str());
+        fs.put_text("/usb0/cores/instfiles/tests/cd32.toml", slurp_text("tests/coreapp/instfiles/old/cd32.v1.toml"));
+        fs.put_text("/usb0/cores/instfiles/tests/stick2.toml", slurp_text("tests/coreapp/instfiles/old/stick2.v1.toml") + "# mine\n");
+        fs.put_text("/usb0/cores/instfiles/tests/pins.toml", "# mine\n");
+        fs.put_text("/usb0/cores/instfiles/tests/mytest.toml", "# mine too\n");
+        CHECK_EQ(core_files_install(&c), 3);                      // 5 files: cd32 replaced + paddle and joystick missing written; stick2 and pins edited, kept
+        CHECK_STR(fs.text("/usb0/cores/instfiles/tests/cd32.toml").c_str(), slurp_text("tests/coreapp/instfiles/sd/tests/cd32.toml").c_str());
+        CHECK_STR(fs.text("/usb0/cores/instfiles/tests/pins.toml").c_str(), "# mine\n");
+        CHECK(fs.text("/usb0/cores/instfiles/tests/stick2.toml").find("# mine") != std::string::npos);
+        CHECK_STR(fs.text("/usb0/cores/instfiles/tests/mytest.toml").c_str(), "# mine too\n");
+        CHECK_STR(fs.text("/usb0/cores/instfiles/tests/paddle.toml").c_str(), slurp_text("tests/coreapp/instfiles/sd/tests/paddle.toml").c_str());
         CHECK_EQ(core_files_install(&c), 0);                      // the second start writes nothing
         // a card that cannot be written says so
-        fs.remove("/usb0/cores/diag/tests/paddle.toml");
+        fs.remove("/usb0/cores/instfiles/tests/paddle.toml");
         fs.read_only = true;
         CHECK_EQ(core_files_install(&c), -1);
         fs.read_only = false;
@@ -532,7 +532,7 @@ int main(int argc, char **argv)
         ctx_for(&c, &fs, &io, "/usb0/cores/nofiles.cor");
         c.desc = &dd;
         CHECK_EQ(core_files_install(&c), 0);
-        ctx_for(&c, &fs, &io, "/usb0/cores/diag.cor");            // the Test Machine's descriptor with the diag core's bundle
+        ctx_for(&c, &fs, &io, "/usb0/cores/instfiles.cor");            // the Test Machine's descriptor with the fixture core's bundle
         size_t before = fs.writes;
         CHECK_EQ(core_files_install(&c), 0);
         CHECK_EQ((size_t)fs.writes, before);
@@ -541,7 +541,7 @@ int main(int argc, char **argv)
         ctx_for(&c, &fs, &io, "");                                // no bundle
         CHECK_EQ(core_files_install(&c), 0);
         // a damaged record is refused and writes nothing: one flipped byte inside record 8 breaks its SHA-256
-        std::vector<uint8_t> bad = slurp(dir + "/diag.cor");
+        std::vector<uint8_t> bad = slurp(dir + "/instfiles.cor");
         fs.put("/usb0/cores/bad.cor", bad);
         {
             CoreCtx cb;

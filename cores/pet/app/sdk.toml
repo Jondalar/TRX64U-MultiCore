@@ -13,8 +13,6 @@ desc = "pet_desc"
 toml_a = "gateware.toml"
 base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
-# coreapp/cores of the base that this app links: run.cc starts the diag core's runner (portdiag_attach) in every app
-base_sources = ["portdiag.cc"]
 
 # The core's own code: its descriptor and hooks (init, release, the ROM choice per model, the dual drive unit's media functions, the tape slot, the register map), the model table, the tape deck with its
 # pulse converter (copies of the files the ZX Spectrum's and the CPC's apps have their own copies of, T239.5 D16: the shared app's last users were the PET and the cores that moved before it). Its files are in cores/pet/app/lib.
