@@ -68,12 +68,13 @@ static const void *find_major(const char *name, uint32_t major, uint32_t *size) 
 // the running core has the cartridge port of the C64 family when its TOML A has the block c64cart: libtab_core hands each library the bundle's record (c64cart_lib_core reads the block)
 static void set_port(CoreCtx *cx, CoreDesc &desc, bool on)
 {
-    static DescMap map;
-    static DescRecord rec;
-    memset(&map, 0, sizeof(map));
-    map.nblocks = 1;
-    map.blocks[0].win.name = "c64cart";
-    rec.map = &map;
+    static DescRecord rec;                                         // the record owns its map (~DescRecord deletes it): the map is on the heap
+    if (!rec.map) {
+        rec.map = new DescMap;
+        memset(rec.map, 0, sizeof(*rec.map));
+        rec.map->nblocks = 1;
+        rec.map->blocks[0].win.name = "c64cart";
+    }
     libtab_core(cx, &desc, on ? &rec : 0);
 }
 
