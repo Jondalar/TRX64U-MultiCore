@@ -96,6 +96,8 @@ Parts:
   estimate): about 870 LUT, 510 FF, 14 DSP48. Alex: "But then we must have Rick's measurement for NTSC" - the NTSC constants come
   from Rick's values (T259 D3) before they are fixed.
 - The order of writes for P3: application, recovery copy, record last.
+- **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
+  that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den
   Release"):** when the flash drive has no copy, the recovery program looks for `hostrecovery.app` in the root of every medium
   (the USB sticks, the SD card) and starts the first it finds. The package and the release carry `hostrecovery.app` (S10). The
@@ -113,5 +115,4 @@ Parts:
 
 (not started)
 
-Open questions:
-- Q4: F8 "Protect Flash from updates" on by default (T152 D4; its board steps S2, S5, S6b, S7, Q5 are open).
+Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
