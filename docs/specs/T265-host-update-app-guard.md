@@ -119,6 +119,14 @@ Parts:
   model (flash, EEPROM, slot, fill), UCI, the TRX register windows (`cwio`, `csys`, `win`: c64ref has no app), the audio socket. Kept:
   CPU, VIC-II, the two CIAs, RAM and ROMs, SID, the bus between them, their video and audio out. Every contract port whose driver goes
   is driven with its idle value. The cut list with the numbers of run 45814821390 is in §5.
+- **D12 withdrawn, D13 (Alex, 2026-11-26, translated):** the second run (45888568985) routed the host against the slimmed c64ref
+  (WNS +0.126 ns), and every DFX core built against it missed timing by 1.4-1.6 ns (null -1.501, vc20 -1.404, atari800 -1.644,
+  ddt_novic -1.404), on the same path: the pixel layer's read data `hout/pxl/rdata` through the core's register window back into the
+  CPU's `dmem_resp`, for the VC-20 also the drive's `l2/drv/i_gcr`. Without the register windows and the drive in c64ref those paths
+  had no timing pressure when the host was routed, so their partition pins sat far from where the real cores need them. Alex: "We
+  need a host that can serve the menu ... Whatever has to go out for it I don't care about at all. The host has to work, including
+  analogue video out." c64ref is back to integration's state (T115); if the host does not route with P4, host logic goes, the VIC path
+  (`NO_C64VIDEO`, about 372 LUT and 4 RAMB36) first; RGB stays.
 - **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
   that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den

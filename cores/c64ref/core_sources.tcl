@@ -55,16 +55,16 @@ set core_read {
 
   # c64_top_c64ref.v and c64_turbo_c64ref.v: SystemVerilog like the rest of icepi (a reg on an output port is legal there, run 879)
   read_verilog -sv [list $c64ref/c64_top_c64ref.v $c64ref/c64_turbo_c64ref.v]
-  read_verilog $c64ref/c64_core_c64ref.v $c64ref/c64_mem_c64ref.v
+  read_verilog $c64ref/c64_core_c64ref.v $c64ref/c64_mem_c64ref.v $c64ref/cart_slot_c64ref.v $c64ref/slot_port_c64ref.v
   read_xdc -mode out_of_context $c64ref/c64_core_ooc.xdc
 }
 set core_files [concat [trx_tree $core] \
-  $c64ref/c64_core_c64ref.v $c64ref/c64_top_c64ref.v $c64ref/c64_turbo_c64ref.v $c64ref/c64_mem_c64ref.v \
+  $c64ref/c64_core_c64ref.v $c64ref/c64_top_c64ref.v $c64ref/c64_turbo_c64ref.v $c64ref/c64_mem_c64ref.v $c64ref/cart_slot_c64ref.v $c64ref/slot_port_c64ref.v \
   $c64ref/c64_core_ooc.xdc [lsort [glob mem/*.mem]]]
 # no SID engine in the core (T107 D9); NO_REU and NO_TURBO as before
 set core_synth [list -include_dirs [list $core $kawari $core/c64_redip_sid/reDIP-SID/gateware] -verilog_define NO_REU -verilog_define NO_TURBO]
 puts "=== SID: none (c64ref, T107 D9: silence stand-in in c64_top_c64ref.v)"
-puts "=== c64ref blocks: the machine only (T265 D12): CPU, VIC-II, CIAs, RAM and ROMs, SID stand-in; reu turbo off (NO_REU NO_TURBO); no cartridge, slot, UCI, drive, register windows"
+puts "=== c64ref blocks: reu turbo off (NO_REU NO_TURBO); sampler datasette udp-streams removed; uci paddles drive-a (mm_drive 1541/1581) on"
 lassign [trx_ooc c64_core_c64ref $part $core_files $core_read $core_synth] core_dcp core_stub
 
 # Gideon's VHDL the HOST reads ($gvhdl: build.tcl's synth of top)
@@ -98,8 +98,16 @@ if {$l2_key ne "" && [file exists $l2_cdcp] && [file exists $l2_cstub]} {
 } else {
   create_project -in_memory -part $part
   set_property target_language Verilog [current_project]
-  read_verilog $core_stub $c64ref/layer2_c64ref.v
-  synth_design -top layer2 -part $part -mode out_of_context
+  # Gideon's VHDL this core uses (cores/c64ref/gideon, dependency order) and ours around it
+  set gdir $c64ref/gideon
+  set g_names { io_bus_pkg.vhd io_bus_splitter.vhd c1541_timing.vhd pkg_6502_defs.vhd pkg_6502_decode.vhd proc_control.vhd bit_cpx_cpy.vhd shifter.vhd alu.vhd implied.vhd data_oper.vhd proc_registers.vhd proc_interrupt.vhd proc_core.vhd cpu6502.vhd via6522.vhd cia_pkg.vhd cia_timer.vhd tl_string_util_pkg.vhd cia_registers.vhd sync_fifo.vhd stepper.vhd mem_bus_pkg.vhd wd177x.vhd mm_drive_cpu.vhd noise_generator.vhd floppy_stream.vhd pseudo_dpram_8x32.vhd endianness_pkg.vhd floppy_param_mem.vhd floppy_mem.vhd floppy.vhd floppy_sound.vhd c1541_pkg.vhd drive_registers.vhd mem_bus_arbiter_pri.vhd mem_to_mem32.vhd mm_drive.vhd bin2gcr.vhd gcr2bin.vhd gcr_codec.vhd dpram.vhd slot_bus_pkg.vhd command_if_pkg.vhd command_protocol.vhd command_interface.vhd synchronizer_gzw.vhd io_bus_bridge2.vhd  }
+  set g_files {}
+  foreach n $g_names { lappend g_files $gdir/$n }
+  lappend g_files $gdir/c64ref_pseudo_dpram_8x32_x7.vhd $gdir/c64ref_drive_mem.vhd $gdir/uci_unit_c64ref.vhd $gdir/c64ref_l2.vhd
+  read_vhdl -library work $g_files
+  read_verilog $core_stub $c64ref/layer2_c64ref.v $c64ref/c64ref_io.v $c64ref/c64ref_sys.v $c64ref/cart_fill_c64ref.v \
+    $c64ref/dma_win_c64ref.v $c64ref/iec_bus_c64ref.v $c64ref/sid_sock_audio_c64ref.v
+  synth_design -top layer2 -part $part -mode out_of_context -include_dirs $c64ref
   write_verilog -force -mode synth_stub $l2_stub
   write_checkpoint -force $l2_dcp
   report_utilization -hierarchical -hierarchical_depth 3 -file $bdir/utilization_c64ref_hier_synth.rpt

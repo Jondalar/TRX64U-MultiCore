@@ -1,4 +1,4 @@
-// Unit bench for the cartridge (iverilog, run.sh): cart_slot_c64u (the C64 reference core's cartridge slot) with icepi's
+// Unit bench for the cartridge (iverilog, run.sh): cart_slot_c64ref (the C64 reference core's cartridge slot) with icepi's
 // model, cart_fill against a MIG model (random stalls, read latency) and
 // trx_io in the app's clock. The app's interrupt handler is played here: it
 // applies each flash operation to the DDR2 image with direct stores (its own
@@ -55,7 +55,7 @@ module tb_cart_unit;
     wire        ee_we;
     wire  [7:0] ee_wdata, ee_rdata;
 
-    cart_slot_c64u dut (
+    cart_slot_c64ref dut (
         .clk(clk), .cart_type(cart_type), .cart_kill_tgl(kill_tgl), .cart_force_tgl(force_tgl),
         .cart_active(cart_active), .desc(desc),
         .addr(addr), .din(din), .we(we), .roml_n(roml_n), .romh_n(romh_n), .io1_n(io1_n), .io2_n(io2_n),

@@ -31,10 +31,10 @@ r = sys.argv[1]
 # cores/refx has no descriptor since T115 (a source tree): the fixture writes one, as the reference core
 open(r + "/cores/refx/core.toml", "w").write(
     'id = "refx"\nname = "refx"\nversion = "0.0.1"\ncontract = 1\napp = "none"\norder = 0\nexperimental = false\n'
-    'sources = ["cores/refx", "vendor/icepi", ":(exclude)cores/refx/c64_turbo_c64ref.v"]\n')
+    'sources = ["cores/refx", "vendor/icepi", ":(exclude)cores/refx/dma_win_c64ref.v"]\n')
 open(r + "/cores/other/core.toml", "w").write(
     'id = "other"\nname = "other"\nversion = "0.0.1"\ncontract = 1\napp = "none"\n'
-    'order = 1\nexperimental = false\nsources = ["cores/refx/c64_turbo_c64ref.v"]\n')
+    'order = 1\nexperimental = false\nsources = ["cores/refx/dma_win_c64ref.v"]\n')
 # a core is only built when it has a layer-2 recipe (ci/bitstream_layers.sh skips it otherwise)
 open(r + "/cores/other/core_sources.tcl", "w").write('set l2_dcp other.dcp\n')
 # layers.txt as it was before T115: refx is the reference core and none of its files is a shared one
@@ -44,7 +44,7 @@ ls = "\n".join(l for l in ls.split("\n") if not l.startswith("cores/refx") and n
 open(lp, "w").write(ls)
 open(r + "/cores/other/core.toml", "w").write(
     'id = "other"\nname = "other"\nversion = "0.0.1"\ncontract = 1\napp = "none"\n'
-    'order = 1\nexperimental = false\nsources = ["cores/refx/c64_turbo_c64ref.v"]\n')
+    'order = 1\nexperimental = false\nsources = ["cores/refx/dma_win_c64ref.v"]\n')
 # a core is only built when it has a layer-2 recipe (ci/bitstream_layers.sh skips it otherwise)
 open(r + "/cores/other/core_sources.tcl", "w").write('set l2_dcp other.dcp\n')
 TOML
@@ -127,7 +127,7 @@ stage scratch2 || fail "second branch"
 [ -f "$H1/pins/branch.scratch2" ] || fail "S4: the second branch did not pin the shared host"
 
 # 4. S3: a core-only change: host hit, one core build, no host step
-echo "// core change" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// core change" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "core change"
 stage scratch2 || fail "core change"
 [ "$(calls 'stage=host')" = 0 ] && [ "$(calls 'core.tcl')" = 1 ] || fail "S3: a core-only change must build the core only: $(cat "$FAKE_LOG")"
@@ -155,7 +155,7 @@ stage scratch2 || fail "evicted host"
 grep -q "another host build" "$W/out.scratch2.txt" || fail "S7: no explanation in the log"
 
 # 7. S10: a core that misses timing fails the stage, caches nothing, keeps host and other entries
-echo "// core change 2" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// core change 2" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "core change 2"
 n_core="$(ls -d "$CI_BIT_CACHE"/core-* | wc -l | tr -d ' ')"; n_host="$(ls -d "$CI_BIT_CACHE"/host-* | wc -l | tr -d ' ')"
 if FAKE_CORE_WNS=-0.2 stage scratch2; then fail "S10: the stage passed with a core at WNS -0.2"; fi
@@ -180,7 +180,7 @@ if FAKE_CORE_WNS=-0.2 stage scratch2; then fail "D9.6: a red core left the stage
 rm -rf "$W/handoff.red"
 # 7c. T95 5.16: a core whose constraints resolved to no object fails, even with a good WNS and a bitstream
 git -C "$R" reset -q --hard HEAD~1
-echo "// core change 3" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// core change 3" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "core change 3"
 if FAKE_CORE_UNRESOLVED=1 stage scratch2; then fail "T95 5.16: the stage passed with a constraint that resolved to no object"; fi
 grep -q "resolved to no object" "$W/out.scratch2.txt" || fail "T95 5.16: the unresolved constraint is not named"
@@ -233,14 +233,14 @@ stage scratch2 || fail "D9-7: plan naming nothing, warm cache"
 [ -z "$(grep -E 'stage=host|core.tcl' "$FAKE_LOG")" ] || fail "D9-7: an unnamed target with a cache hit was built: $(cat "$FAKE_LOG")"
 grep -q "plan: dfx:other - cache hit (not named by the plan)" "$W/out.scratch2.txt" || fail "D9-7: the hit of an unnamed target is not marked"
 # ... and a cache miss of an unnamed target is built and marked. 'other' is the only core whose sources contain dma_win.v.
-echo "// d9-7 core change" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// d9-7 core change" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "d9-7 core change"
 planfile ""
 stage scratch2 || fail "D9-7: plan naming nothing, cache miss"
 [ "$(calls 'core.tcl')" = 1 ] || fail "D9-7: the unnamed target with a cache miss was not built: $(cat "$FAKE_LOG")"
 grep -q "plan: dfx:other - cache miss of an unnamed target: building" "$W/out.scratch2.txt" || fail "D9-7: the cache miss is not marked"
 # negative control: the same miss, now NAMED, must not carry the unnamed mark (a stage that marked everything would pass the check above)
-echo "// d9-7 core change 2" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// d9-7 core change 2" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "d9-7 core change 2"
 planfile "other"
 stage scratch2 || fail "D9-7 control: named miss"
@@ -249,7 +249,7 @@ if grep -q "unnamed target" "$W/out.scratch2.txt"; then fail "D9-7 control: a na
 echo "D9-7 ok (hit marked, miss built and marked, control: named miss unmarked)"
 
 # D9-8 one target that does not finish does not eat the run: 'other' hangs, 'nul' (built after it) is still built, the run is red
-echo "// d9-8 core change" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// d9-8 core change" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "d9-8 core change"
 echo "// d9-8 nul change" >> "$R/cores/nul/nul.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "d9-8 nul change"
@@ -264,7 +264,7 @@ grep -q "TIMEOUT: the core run was stopped" "$W/out.scratch2.txt" || fail "D9-8:
 [ ! -f "$W/handoff/bit-c64u/other_full.bit" ] || fail "D9-8: a stopped core left an image"
 # control: the same limit on a core that finishes is no timeout and no red target
 rm -rf "$W/handoff.red"
-echo "// d9-8 control change" >> "$R/cores/refx/c64_turbo_c64ref.v"
+echo "// d9-8 control change" >> "$R/cores/refx/dma_win_c64ref.v"
 git -C "$R" -c user.name=t -c user.email=t@t commit -qam "d9-8 control change"
 CI_LIMIT_SECONDS=3 stage scratch2 || fail "D9-8 control: a fast core under the limit failed"
 if grep -q "TIMEOUT" "$W/out.scratch2.txt" || [ -e "$W/handoff.red/bit-c64u.other" ]; then fail "D9-8 control: a core that finishes was reported as timeout"; fi
