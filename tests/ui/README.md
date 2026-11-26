@@ -6,7 +6,7 @@ Gherkin `.feature` files run against the real application image (`coreapp.app`) 
 
 ## Run
 
-The cores are the profile cores of `tests/coreapp/emu/profiles` (`emu.CORES`; no C64 is in the machine): `features_a1200/` (first line `# core: amiga1200`, the default) against the Amiga 1200 core menu (T192.3 section 5, D26), `features_nes/` (`# core: nes`), `features_cores/` (the first line names the core). The menu of TRX64U is TRX64-Ultimate's (T239.3 D21): its features left this repository.
+The cores are the profile cores of `cores/<core>/app/ue2emu.toml` (`emu.CORES`; no C64 is in the machine): `features_a1200/` (first line `# core: amiga1200`, the default) against the Amiga 1200 core menu (T192.3 section 5, D26), `features_nes/` (`# core: nes`), `features_cores/` (the first line names the core). The menu of TRX64U is TRX64-Ultimate's (T239.3 D21): its features left this repository.
 A feature file is one emulator session of its core; `run.sh` without arguments runs the three directories.
 
 ```

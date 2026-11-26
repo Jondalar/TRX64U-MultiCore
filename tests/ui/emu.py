@@ -42,7 +42,7 @@ WORK = os.path.join(HERE, "work")
 OUT = os.path.join(HERE, "out")
 
 
-CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu", "diag", "cpc")      # the cores with a profile in tests/coreapp/emu/profiles (no C64 in the machine)
+CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu", "diag", "cpc")      # the cores with a test stick (fixtures.make_stick) and a profile cores/<core>/app/ue2emu.toml (no C64 in the machine)
 
 
 class EmuError(Exception):
@@ -53,7 +53,7 @@ class Emu:
     def __init__(self, log=None, core="amiga1200"):
         core, _, flags = core.partition("+")  # T256: "vc20+ovtest" is the core with the .cor of the overlay test library (tests/ui/ovtest, fixtures.make_ovtest_cor)
         self.ovtest = "ovtest" in flags.split("+")
-        self.core = core                     # "amiga1200" or "nes" ... (the profiles of tests/coreapp/emu/profiles)
+        self.core = core                     # "amiga1200" or "nes" ... (the profiles cores/<core>/app/ue2emu.toml)
         self.token = None
         self.proc = None
         self.sock = None
@@ -65,7 +65,7 @@ class Emu:
     def start(self):
         app = app_of(self.core)
         if self.core not in CORES:
-            raise EmuError("no profile for the core \"%s\" (tests/coreapp/emu/profiles, emu.CORES)" % self.core)
+            raise EmuError("no profile for the core \"%s\" (cores/<core>/app/ue2emu.toml, emu.CORES)" % self.core)
         if not os.path.exists(app):
             raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
         for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the core app image (COREAPP, or COREAPP_%s for a core with an app of its own)" % self.core)):
@@ -96,7 +96,7 @@ class Emu:
                "--hostfwd", "tcp:127.0.0.1:%d:80" % REST_PORT]
         # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
         cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
-        cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
+        cmd += ["--core", os.path.join(ROOT, "cores", self.core, "app", "ue2emu.toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
         cmd += os.environ.get("UI_EMU_ARGS", "").split()      # e.g. UI_EMU_ARGS="--log io" (T210: the register writes of the first frames)
         self.log = open(self.logpath, "w")
         self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=subprocess.STDOUT, cwd=WORK)

@@ -143,7 +143,7 @@ def make_stick(stick, roms_dir, core="amiga1200", ovtest=False):
 
 # T256: the core the overlay features run on (S3, S5, S10) is the same core with a .cor that carries the test library and the UI TOML of the test element (tests/ui/ovtest/). The .cor is
 # made by the real packer on a stand-in bitstream (the tests of the packer's readers do the same: tests/coreapp/gen_bundle.py); the application reads the description and the library
-# from it at the hand-over path of the core's profile. The names are the core names the profiles hand over (tests/coreapp/emu/profiles/*.toml, `core`).
+# from it at the hand-over path of the core's profile. The names are the core names the profiles hand over (cores/<core>/app/ue2emu.toml, `core`).
 OVTEST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ovtest")
 OVTEST_U2A = os.environ.get("OVTEST_U2A", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "ovtest.u2a"))
 OVTEST_NAMES = {"vc20": "VIC-20", "c64scpu": "C64 with SuperCPU"}

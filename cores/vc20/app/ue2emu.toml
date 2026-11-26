@@ -1,4 +1,4 @@
-# The VIC-20 core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml). Tests only (T205 emulator pictures).
+# The VIC-20 core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml): the T205 emulator pictures and step 12 of the matrix.
 name = "vc20"
 id = "VC20"
 board = "multicore"

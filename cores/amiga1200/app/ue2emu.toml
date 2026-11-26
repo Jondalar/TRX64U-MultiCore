@@ -1,7 +1,6 @@
-# Copied from ~/Development/u64-emulator/docs/examples/core-amiga1200.toml (S44, u64-emulator repository); keep in step with it.
-# S44: the A1200 core of TRX64U-MultiCore as the core application sees it (docs/specs/S44-multicore-cores.md).
-#   ue2emu run --trx-io --c64 none --core docs/examples/core-amiga1200.toml --firmware coreapp.elf ...
-# Registers from TRX64U-MultiCore cores/amiga1200/app/gateware.toml; the MultiCore repo keeps the profiles of its cores.
+# The emulator profile of the A1200 core (S44 of the u64-emulator repository): the core as its application sees it in ue2emu. The tests run it with --core
+# (tests/ui, tests/coreapp/emu); step 12 of the matrix hands it to --core-dir (tools/ue2emu_core.py profile). Registers from cores/amiga1200/app/gateware.toml.
+#   ue2emu run --trx-io --c64 none --core cores/amiga1200/app/ue2emu.toml --firmware coreapp.elf ...
 name = "amiga1200"
 id = "AMIG"                  # the gateware's one ID word, shared with the A500
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
