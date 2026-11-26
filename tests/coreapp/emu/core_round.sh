@@ -10,6 +10,8 @@
 #   4. the same key closes it again ("[core] menu closed, machine running"). The round stops after 3 for a menu_first core (nothing is behind its menu) and
 #      for a core that waits for a program: its menu cannot close before a program runs (MenuCtl::closable) and its hotkeys are off until the core has
 #      started (HkLoop::poll); a program to run is a file of the core's own kind, which a round that names no core does not make.
+# 2b. a core whose app waits on its ROM page (D20: the files it checks are not the stand-ins) ends there: identified, then the app's ROM page line
+#     "[coreapp] ROM files:" (every core's, ui.cc), picture core-rompage.png; no core is named here
 # Pictures in <out dir>: core-start.png (a running core before the menu), core-menu.png (the open menu), core-back.png (after the close); the menu picture
 # must differ from the one after the close. The emulator's console is <out dir>/round.log.
 #
@@ -42,7 +44,7 @@ eval "$facts"
 case "$start" in running|program|menu_first) ;; *) fail "unknown start \"$start\" (tools/ue2emu_core.py direct)" ;; esac
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"
 cor="$(cd "$(dirname "$cor")" && pwd -P)/$(basename "$cor")"; elf="$(cd "$(dirname "$elf")" && pwd -P)/$(basename "$elf")"
-w="$out/work"; rm -rf "$w" "$out"/core-*.png; mkdir -p "$w/stick/$rom_dir"
+w="$out/work"; rm -rf "$w" "$out"/core-*.png "$out/rompage.log"; mkdir -p "$w/stick/$rom_dir"
 cp "$cor" "$w/stick/$stick_cor"
 python3 -I "$ROOT/tools/ue2emu_core.py" roms "$core" "$w/stick/$rom_dir" > "$out/stand-ins.txt" || fail "no ROM stand-ins (the reason above)"
 python3 -I "$ROOT/tools/ue2emu_core.py" firmware "$cor" "$elf" "$w/app.elf" > "$out/app.txt" || fail "the ELF is not the link of the .cor's app (the reason above)"
@@ -71,10 +73,27 @@ esac
     printf 'quit\n'
 } > "$w/round.ctl" || exit 1
 # the flash image beside the pictures: ci/ue2emu.sh's container fallback mounts the directories of the files it is given, and the pictures go to $out
-( cd "$w" && nice -n 15 timeout 480 "$UE2EMU" run --board c64u --trx-io=on --c64 none --core "$prof" --firmware "$w/app.elf" --roms "$emu_roms" \
-    --flash "$out/round-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/round.ctl" \
-    --max-seconds 420 > "$out/round.log" 2>&1 )
+emu_run() {   # <control file> <console log>
+    ( cd "$w" && nice -n 15 timeout 480 "$UE2EMU" run --board c64u --trx-io=on --c64 none --core "$prof" --firmware "$w/app.elf" --roms "$emu_roms" \
+        --flash "$out/round-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$1" \
+        --max-seconds 420 > "$2" 2>&1 )
+}
+emu_run "$w/round.ctl" "$out/round.log"
 rc=$?
+
+# D20: a core whose app waits on its ROM page (the files are not the ones it accepts) ends its round there: the app prints every ROM page it shows as
+# "[coreapp] ROM files: <text>" (ui.cc message), and a core that started never shows one after its identification. Proven = identified, then that line; the
+# picture of the page is made by a short second run of the same boot (the first run's script ends at the step that did not come).
+rompage=0
+if tr -d '\000' < "$out/round.log" | grep -a -v expect-console | awk -v id="phase core identified: [core] $ident," \
+    'index($0, id) { seen = 1; next } seen && index($0, "phase boot_start returned") { started = 1 } seen && index($0, "[coreapp] ROM files:") { found = 1 } END { exit !(found && !started) }'; then
+    {
+        printf 'expect-console %s 60000\n' "$(q "${says[0]}")"
+        printf 'expect-console %s 120000\nwait 2000\npng %s/core-rompage.png\nquit\n' "$(q "[coreapp] ROM files:")" "$out"
+    } > "$w/rompage.ctl"
+    emu_run "$w/rompage.ctl" "$out/rompage.log"; rc2=$?
+    if [ "$rc2" -eq 0 ] && [ -s "$out/core-rompage.png" ]; then rompage=1; fi
+fi
 rm -rf "$w" "$out/round-flash.bin"
 
 # how many of the steps the console shows, each after the one before it (the log may hold NUL bytes of the firmware's UART: out before awk). The emulator's
@@ -86,6 +105,11 @@ red() {
     echo "--- last 60 lines of $out/round.log"; tail -n 60 "$out/round.log" | tr -d '\000' | cut -c1-200; echo "---"
     exit 1
 }
+if [ "$rompage" -eq 1 ] && [ "$found" -eq 1 ]; then
+    page="$(tr -d '\000' < "$out/rompage.log" | grep -a -v expect-console | grep -a -m1 -A1 '\[coreapp\] ROM files:' | cut -c1-160 | tr '\n' ' ')"
+    echo "PASS $core alone: ${ident%% *} identified (${ident#* }), waits on its ROM page: ${page} (PNG $out/core-rompage.png)"
+    exit 0
+fi
 if [ "$found" -lt "${#says[@]}" ]; then
     why="${whys[$found]}"
     case "$found" in

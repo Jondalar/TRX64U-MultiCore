@@ -93,8 +93,14 @@ if round vc20 vc20; then fail "another core's identification passed"; fi
 grep -q '^FAIL vc20 alone: the core app did not identify VC20 (.*PET1 Commodore PET' "$W/out" || { cat "$W/out"; fail "the wrong identification is not named"; }
 say "$id" "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin" \
     '    1: expect-console "phase boot_start returned (running)": not in the console output within 120000 ms emulated'
-if round vc20 vc20; then fail "a core held on its ROM page passed"; fi
-grep -q '^FAIL vc20 alone: the core did not start (running): .*wrong content: kernal.bin' "$W/out" || { cat "$W/out"; fail "the ROM page is not named"; }
+# D20: a core held on its ROM page ends its round there - identified, then the app's own ROM page line, and the picture of the page
+round vc20 vc20 || { cat "$W/out"; fail "a core held on its ROM page did not pass"; }
+grep -q '^PASS vc20 alone: .* waits on its ROM page: .*wrong content: kernal.bin' "$W/out" && [ -s "$W/o/core-rompage.png" ] || { cat "$W/out"; fail "no PASS line or no picture of the ROM page"; }
+# a ROM page without the identification before it, or after the core started, is no proof
+say "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin"
+if round vc20 vc20; then fail "a ROM page without the core's identification passed"; fi
+say "$id" "phase boot_start returned (running)" "[coreapp] ROM files: x"
+if round vc20 vc20; then fail "a ROM page behind the core's start passed as a held core"; fi
 # the emulator's report of the control line that failed quotes the line's text: it is no step
 say "$id" "$up" "[core] menu open 709 ms after the request" '    1: expect-console "[core] menu closed": not in the console output within 30000 ms emulated'
 if round vc20 vc20; then fail "the emulator's report of the missing close passed as the close"; fi
