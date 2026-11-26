@@ -1216,6 +1216,106 @@ jobs:
           python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
           print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
+  stop-approve:
+    # T239.5 D25: approve waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
+    name: "Stop the run: approve is red"
+    needs: [approve]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: The first red job ends the run (T239.5 D25)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          echo "### ❌ red: approve - its environment was not released; the rest of the run is cancelled (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
+
+  stop-host-bits:
+    # T239.5 D25: host-bits waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
+    name: "Stop the run: host-bits is red"
+    needs: [host-bits]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: The first red job ends the run (T239.5 D25)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          echo "### ❌ red: host-bits - its environment was not released; the rest of the run is cancelled (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
+
+  stop-bits:
+    # T239.5 D25: bits waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
+    name: "Stop the run: bits is red"
+    needs: [bits]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: The first red job ends the run (T239.5 D25)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          echo "### ❌ red: bits - its environment was not released; the rest of the run is cancelled (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
+
+  stop-collect:
+    # T239.5 D25: collect waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
+    name: "Stop the run: collect is red"
+    needs: [collect]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: The first red job ends the run (T239.5 D25)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          echo "### ❌ red: collect - its environment was not released; the rest of the run is cancelled (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
+
+  stop-cor:
+    # T239.5 D25: cor waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
+    name: "Stop the run: cor is red"
+    needs: [cor]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: The first red job ends the run (T239.5 D25)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          echo "### ❌ red: cor - its environment was not released; the rest of the run is cancelled (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
+
   summary:
     name: Result (the matrix)
     needs: [dispatch, approve, lint, keys, apptests, sdk, sdk-release, host, sims, host-bits, bits, cor, core, emu, host-emu, ovtest-emu, collect, package, update, prerelease]
