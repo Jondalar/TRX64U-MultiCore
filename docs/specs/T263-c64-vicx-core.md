@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1-D6 decided; Q6-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4 VRAM DDR2; D5 picture B/C; D6 turbo first
+https://github.com/NebulaSleuth/VIC-X/". D1-D7 decided; Q7-Q12 open; spec only, nothing is built (D7).
+Open (one line, as in the TODO table): PROPOSED 11-26, spec only (D7); D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4-D7 decided; Q7-Q12 open
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -218,6 +218,10 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
 - **D6 (Alex, 2026-11-26): turbo first, as on the MiSTer.** Asked Q5 (a window access holds the CPU until the DDR2 answers, turbo off
   while VIC-X is unlocked, or turbo first with VIC-X taking what is left): "C". The turbo keeps its priority; VIC-X's XRAM windows and DMA
   take the memory cycles the turbo leaves (`hdl/README.md:205-206`).
+- **D7 (Alex, 2026-11-26): the copy is TRX64-Ultimate's `c64_basic` at a pinned commit; spec only, nothing is built now.** Asked Q6
+  (`c64_basic` pinned, or this repository's older `cores/c64u`): "A, aber bitte NICHTS bauen jetzt, nur specs schreiben." (translated: "A,
+  but please build NOTHING now, only write specs."). The core starts from `designs/c64_basic` at a pinned commit (today `23d25554`), with
+  ring and monitor cut by hand. No branch, no agent and no build of T263 starts until Alex says so; until then only this spec changes.
 
 **Open questions for Alex** (one at a time):
 
@@ -262,7 +266,7 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   A: a window access holds the CPU until DDR2 answers; turbo stays on.
   B: turbo off while VIC-X is unlocked.
   C: as on the MiSTer: turbo first, VIC-X takes what is left (`hdl/README.md:205-206`).
-- **Q6 Which copy of the trx64 core.**
+- **Q6 Which copy of the trx64 core.** Answered: D7 (A).
   A: TRX64-Ultimate `designs/c64_basic` at a pinned commit (now `23d25554`): the shipped state with the U16 HDMI rows and the U19
   caches. Ring and monitor are cut here by hand: `c64_core.v` and the state bus have no build switch for them
   (`docs/layering-map.md:94`). A later trx64 fix arrives only with a new copy.
