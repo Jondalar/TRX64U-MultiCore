@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1-D7 decided; Q7-Q12 open; spec only, nothing is built (D7).
-Open (one line, as in the TODO table): PROPOSED 11-26, spec only (D7); D1 trx64 w/o ring+monitor; D2 50T+100T; D3 large; D4-D7 decided; Q7-Q12 open
+https://github.com/NebulaSleuth/VIC-X/". D1-D8 decided; Q8-Q11 start from the proposals after D8; Q12 open; spec only, nothing is built (D7).
+Open (one line, as in the TODO table): PROPOSED 11-26, spec only (D7); D1-D8 decided (trx64 w/o ring, 50T+100T, large, VRAM DDR2); Q12 name open
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -222,6 +222,17 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   (`c64_basic` pinned, or this repository's older `cores/c64u`): "A, aber bitte NICHTS bauen jetzt, nur specs schreiben." (translated: "A,
   but please build NOTHING now, only write specs."). The core starts from `designs/c64_basic` at a pinned commit (today `23d25554`), with
   ring and monitor cut by hand. No branch, no agent and no build of T263 starts until Alex says so; until then only this spec changes.
+- **D8 (Alex, 2026-11-26): the board debug aids only in development builds; the rest shows in the first Vivado route.** Asked Q7 (what
+  "etc." covers besides ring and monitor: `jtag_dbg`, `rv_dbg`, `con_ring` out, in development builds only, or in): "Erstmal B ... gibt es
+  noch echt fragen ? Weil das zeigt sich erst alles wenn wir das ding das erste mal durch Vivado routen, also was geht und wie am besten"
+  (translated: "B for now ... are there still real questions? Because all of that only shows when we route the thing through Vivado the
+  first time, what works and how best"). The debug aids are built only with a development switch, as `cores/c64scpu/mono/build.sh --jtag`.
+  Q8-Q11 are not asked: each takes the proposal below as its starting point, and the first Vivado route and the first build show
+  whether it holds; a change goes to Alex then.
+- **Starting points for Q8-Q11 (coordinator, 2026-11-26, after D8; not decisions of Alex):** Q8 A (a copy at a pinned commit with a renew
+  script, as `tools/gideon_sources.sh`); Q9 A (the README's "or any later version" as the grant, recorded in the copy's NOTICE with the
+  commit); Q10 B for CI (the Verilator machine bench with a `$D7FF` result register, as `cores/c64scpu/sim`) and C for the board step;
+  Q11 A (the SDK's shared libraries, the VIC-X settings as data of the core's TOML, a "VIC-X off" setting as VICE's `VICXEnable`).
 
 **Open questions for Alex** (one at a time):
 
@@ -272,7 +283,7 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   (`docs/layering-map.md:94`). A later trx64 fix arrives only with a new copy.
   B: this repository's `cores/c64u` (1.3.2): ring, engine, state bus, debugger and lens unit are already out. It is older than U16 and
   U19, a partial that was never built, and carries T103's stock additions (UCI, streams, tape).
-- **Q7 What "etc." covers besides ring and monitor:** the board debug aids `jtag_dbg` (about 690 LUT), `rv_dbg`, `con_ring`.
+- **Q7 What "etc." covers besides ring and monitor:** Answered: D8 (development builds only). the board debug aids `jtag_dbg` (about 690 LUT), `rv_dbg`, `con_ring`.
   A: out. B: in dev builds only, as `c64scpu` (`TRX_TOP_OFF=NO_JTAG_DBG`, `cores/c64scpu/mono/core.toml:25-27`). C: in.
 - **Q8 Where the VIC-X sources live.** The spec is "Draft specification, version 0.1"; renewals are to be expected.
   A: a copy in this repository at a pinned commit, with a renew script as `tools/gideon_sources.sh` (T120).
