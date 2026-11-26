@@ -80,7 +80,8 @@ static LibExportDecl g_one_exp[] = { { "ring", 1, &g_ring_tab, sizeof(Tab) } };
 static LibExportDecl g_two_exp[] = { { "tworing", 1, &g_two_tab, sizeof(Tab) } };
 static const LibOpDecl g_peaky_ops[] = { { "peaky.op", 0, 0, one_op } };
 
-int regone_register(const LibApi *, LibRecord *out)
+// extern "C": the generated table declares register entries with C linkage (tools/libtab.py, a register library may be C)
+extern "C" int regone_register(const LibApi *, LibRecord *out)
 {
     g_order += "regone;";
     out->ops = g_one_ops; out->nops = 1;
@@ -88,24 +89,24 @@ int regone_register(const LibApi *, LibRecord *out)
     out->export_list = g_one_exp; out->nexport_list = 1;
     return 0;
 }
-int regtwo_register(const LibApi *, LibRecord *out)
+extern "C" int regtwo_register(const LibApi *, LibRecord *out)
 {
     g_order += "regtwo;";
     g_seen_ring = lib_slot(LIBSLOT_ring, &g_seen_size);
     out->export_list = g_two_exp; out->nexport_list = 1;
     return 0;
 }
-int nodeliver_register(const LibApi *, LibRecord *)
+extern "C" int nodeliver_register(const LibApi *, LibRecord *)
 {
     g_order += "nodeliver;";
     return 0;                                         // declares "lost" in the TOML B and returns no export_list
 }
-int bigkeep_register(const LibApi *, LibRecord *)
+extern "C" int bigkeep_register(const LibApi *, LibRecord *)
 {
     g_big_called = true;
     return 0;
 }
-int peaky_register(const LibApi *api, LibRecord *out)
+extern "C" int peaky_register(const LibApi *api, LibRecord *out)
 {
     g_order += "peaky;";
     g_peaky_blocks.push_back(api->mem->malloc(200));  // over its peak of 100
