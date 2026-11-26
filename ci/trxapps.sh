@@ -122,7 +122,8 @@ else
   for lib in lwip lvgl; do nice -n 15 make -j"$J" -C "$H/libs/riscv/$lib"; done
   # `gitinfo` first and alone: `all` has it beside the compile targets and in parallel the rule rewrites gitinfo.h while a source that
   # includes it is compiled (T93 5.15)
-  apps=""; part host && apps="hostapp"; part sdk && apps="$apps coreapp"
+  # T265 P2: the recovery program first - the host app links its slot image (recovery_slot.app)
+  apps=""; part host && apps="hostrecovery hostapp"; part sdk && apps="$apps coreapp"
   for a in $apps; do
     make -C "$H/u64ii/riscv/$a" gitinfo
     nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
@@ -144,7 +145,7 @@ else
 
   if [ -n "$compile_only" ]; then
     echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
-    size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
+    size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
     exit 0
   fi
 
@@ -155,6 +156,10 @@ else
     cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
   fi
   if part host; then
+  # T265 P2 (S10): the recovery program must fit the 0x3F000 slot below the host application with its record and its CRC-32 trailer (0x3EFF0 bytes of data); the slot image
+  # (tools/rec_trailer.py in the program's makefile) refuses a bigger one already, this is the same number in the log
+  python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.app" 0x3EFF0
+  cp "$H/u64ii/riscv/hostrecovery/result/hostrecovery.app" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.elf" "$H/u64ii/riscv/hostrecovery/result/recovery_slot.app" "$out/"
   cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
   # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
   # flash chip is accepted). Rebuilt from that one object and the link, then the tree is put back to the board build (touch + make again) so a later

@@ -235,7 +235,7 @@ static void t_stage()
       CHECK(!is_official(g)); Staged s = stage(g); CHECK(!s.ok && s.img.sealed != FW_SEALED); }
     // sizes against the slots
     { Bytes g = load("backup.cor"); MemSrc q(g); FwPkg pp; fw_probe(q, CFW_IDCODE_XC7A50T, &pp); FwCheck c; FwImage im;
-      pp.bit_flash_len = FW_BIT_SLOT + 4; CHECK(!fw_restore_stage(q, pp, 0, CHIP, bit_stage, app_stage, 0, 0, 0, &c, &im) && strstr(c.why, "larger"));
+      pp.bit_flash_len = FW_BIT_SLOT_FULL + 4; CHECK(!fw_restore_stage(q, pp, 0, CHIP, bit_stage, app_stage, 0, 0, 0, &c, &im) && strstr(c.why, "larger"));
       fw_probe(q, CFW_IDCODE_XC7A50T, &pp); pp.app_flash_len = FW_APP_SLOT + 4; CHECK(!fw_restore_stage(q, pp, 0, CHIP, bit_stage, app_stage, 0, 0, 0, &c, &im) && strstr(c.why, "larger")); }
     // an application that loads elsewhere than the boot ROM takes: a vendor image whose record says so
     { Bytes g = load("vendor.cfw"); MemSrc pr3(g); FwPkg p3; fw_probe(pr3, CFW_IDCODE_XC7A50T, &p3); g[p3.ci.app_off + 8] = 0x10; g[p3.ci.app_off + 9] = 0; g[p3.ci.app_off + 10] = 0x01;
@@ -260,7 +260,7 @@ static void t_gate()
     // the seal is refused for a package that did not pass its check, and for parts that do not fit or a record the boot ROM would not take
     const char *why;
     { FwImage im; CHECK(!fw_image_seal(&im, false, bit_stage, s.img.bit_len, app_stage, s.img.app_len, 0, &why) && im.sealed != FW_SEALED); }
-    { FwImage im; CHECK(!fw_image_seal(&im, true, bit_stage, FW_BIT_SLOT + 4, app_stage, s.img.app_len, 0, &why) && im.sealed != FW_SEALED); }
+    { FwImage im; CHECK(!fw_image_seal(&im, true, bit_stage, FW_BIT_SLOT_FULL + 4, app_stage, s.img.app_len, 0, &why) && im.sealed != FW_SEALED); }
     { FwImage im; CHECK(!fw_image_seal(&im, true, bit_stage, s.img.bit_len, app_stage, FW_APP_SLOT + 4, 0, &why) && im.sealed != FW_SEALED); }
     { std::vector<uint8_t> bad(app_stage, app_stage + s.img.app_len); bad[5]++;     // the length (+256) disagrees with the record
       FwImage im; CHECK(!fw_image_seal(&im, true, bit_stage, s.img.bit_len, bad.data(), s.img.app_len, 0, &why) && im.sealed != FW_SEALED); }
@@ -297,7 +297,7 @@ static void t_write()
     CHECK(!memcmp(&f.mem[FW_BIT_ADDR], s.img.bit, s.img.bit_len));
     // the rest of the bitstream slot reads blank again (the old, longer image is gone)
     bool blank = true;
-    for (uint32_t a = (s.img.bit_len + 255) & ~255u; a < FW_BIT_SLOT; a++) blank &= f.mem[a] == 0xFF;
+    for (uint32_t a = (s.img.bit_len + 255) & ~255u; a < FW_BIT_SLOT_FULL; a++) blank &= f.mem[a] == 0xFF;
     CHECK(blank);
     // nothing outside the two regions changed: the flash drive and the config pages are what they were
     CHECK(!memcmp(&f.mem[0x400000], drive.data(), drive.size()) && !memcmp(&f.mem[0xFE8000], pattern(0x18000, 0x31).data(), 0x18000));
@@ -306,7 +306,7 @@ static void t_write()
     for (size_t i = 0; i < f.log.size(); i++) if (f.log[i].kind == 'E') {
         uint32_t a = (uint32_t)f.log[i].arg * 4096;
         if (a >= FW_APP_ADDR && a < FW_APP_ADDR + FW_APP_SLOT) e_app++;
-        else if (a < FW_BIT_SLOT && a < bit_sectors * 4096) e_bit++;
+        else if (a < FW_BIT_SLOT_FULL && a < bit_sectors * 4096) e_bit++;
         else e_tail++;
     }
     int want_tail = (int)((s.img.bit_len + 20000 - 1) / 4096) - (int)bit_sectors + 1;

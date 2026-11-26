@@ -17,7 +17,7 @@ if [ ! -f "$HS/io/flash/flash.h" ]; then
   exit 0
 fi
 INC=(${HJ_INC:+-I"$HJ_INC"} -I"$H" -I"$ROOT/app/video" -I"$ROOT/app/edit" -I"$HS/io/flash" -I"$HS/components" -I"$HS/infra" -I"$HS/system" -I"$HS/api" -I"$HS/filesystem" -I"$HS/io/c64")
-srcs=("${HJ_WIFI:-$H/host_core_flow_wifi.cc}" "${HJ_FLOW:-$H/host_core_flow.cc}" "$H/txu.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc"
+srcs=("${HJ_WIFI:-$H/host_core_flow_wifi.cc}" "${HJ_FLOW:-$H/host_core_flow.cc}" "$H/txu.cc" "$H/guard.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc"
       "$H/fwknown.cc" "$ROOT/app/edit/lineedit.cc")
 c++ -std=gnu++14 ${HJ_DEFS:-} -Wall -Wno-unused-function -Wno-sign-compare "${INC[@]}" -o "$T/test_hostwifi" "$ROOT/tests/hostapp/test_hostwifi.cc" "${srcs[@]}" "$T/sha256.o" 2>&1
 "$T/test_hostwifi" "${HW_GOLDEN:-$ROOT/tests/hostapp/golden/hostwifi.txt}" $W

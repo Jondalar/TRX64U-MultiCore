@@ -2,6 +2,7 @@
 #include "handover.h"
 #include "fatwalk.h"
 #include "hostfs.h"
+#include "guardnote.h"
 #include "sha256.h"
 #include "srcverify.h"
 #include "FreeRTOS.h"
@@ -262,6 +263,7 @@ static const char *sv_why(sv_result_t r, bool cor, bool app)
 
 bool legacy_stage(const char *path, LegacyPlan *p, const char **why, core_progress_t cb, void *ctx, bool verify, bool direct)
 {
+    guard_wait_idle();                               // T265: the flash drive has one big writer at a time (the recovery copy is written in the background after an update)
     memset(p, 0, sizeof(*p));
     uint32_t t0 = core_cycles();
     if (!core_icap_present()) {

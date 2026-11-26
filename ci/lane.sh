@@ -77,7 +77,9 @@ host)
     build)
       TRXAPPS_ONLY=host "$ROOT/ci/trxapps.sh"
       o="$HANDOFF/host"; rm -rf "$o"; mkdir -p "$o"
-      cp "$HANDOFF/trxapps/hostapp.app" "$HANDOFF/trxapps/hostapp.elf" "$HANDOFF/trxapps/hostapp_emu.elf" "$o/" ;;
+      cp "$HANDOFF/trxapps/hostapp.app" "$HANDOFF/trxapps/hostapp.elf" "$HANDOFF/trxapps/hostapp_emu.elf" "$o/"
+      # T265 P2: the recovery program for debugging; the host app carries its slot image itself
+      cp "$HANDOFF/trxapps/hostrecovery.app" "$HANDOFF/trxapps/hostrecovery.elf" "$o/" ;;
     *) die "the host menu lane has no step $step" ;;
   esac ;;
 

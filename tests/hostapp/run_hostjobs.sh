@@ -19,7 +19,7 @@ fi
 mkdir -p "$T/txu"
 python3 "$ROOT/tests/hostapp/mktxutest.py" "$T/txu"
 INC=(-I"$H" -I"$ROOT/app/video" -I"$HS/io/flash" -I"$HS/components" -I"$HS/infra" -I"$HS/system" -I"$HS/api" -I"$HS/filesystem" -I"$HS/io/c64")
-srcs=("${HJ_FLOW:-$H/host_core_flow.cc}" "$H/txu.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc")
+srcs=("${HJ_FLOW:-$H/host_core_flow.cc}" "$H/txu.cc" "$H/guard.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc")
 c++ -std=gnu++14 ${HJ_DEFS:-} -Wall -Wno-unused-function -Wno-sign-compare "${INC[@]}" -o "$T/test_hostjobs" "$ROOT/tests/hostapp/test_hostjobs.cc" "${srcs[@]}" "$T/sha256.o" 2>&1
 "$T/test_hostjobs" "$T/txu" "${HJ_GOLDEN:-$ROOT/tests/hostapp/golden/hostjobs_update.txt}" $W
 
@@ -28,7 +28,7 @@ hj_mutant() {   # name, sed expression on host_core_flow.cc
   local name="$1" expr="$2" bad="$T/mut_$1.cc"
   sed -e "$expr" "$H/host_core_flow.cc" > "$bad"
   cmp -s "$bad" "$H/host_core_flow.cc" && { echo "CONTROL $name: the sed changed nothing" >&2; exit 1; }
-  c++ -std=gnu++14 -w "${INC[@]}" -o "$T/mut_$name" "$ROOT/tests/hostapp/test_hostjobs.cc" "$bad" "$H/txu.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc" "$T/sha256.o" 2>&1
+  c++ -std=gnu++14 -w "${INC[@]}" -o "$T/mut_$name" "$ROOT/tests/hostapp/test_hostjobs.cc" "$bad" "$H/txu.cc" "$H/guard.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc" "$T/sha256.o" 2>&1
   if "$T/mut_$name" "$T/txu" "$ROOT/tests/hostapp/golden/hostjobs_update.txt" > "$T/mut_$name.log" 2>&1; then echo "CONTROL $name: the bench PASSED against the mutant" >&2; exit 1; fi
   grep -q '^FAIL' "$T/mut_$name.log" || { echo "CONTROL $name: it failed without a red check" >&2; exit 1; }
   echo "control $name: fails as it must ($(grep -c '^FAIL' "$T/mut_$name.log") check(s) red)"

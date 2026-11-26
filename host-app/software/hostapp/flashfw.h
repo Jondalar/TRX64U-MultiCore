@@ -13,7 +13,11 @@ class Flash;
 
 // ---- the flash layout of the 50T board (flash.h flash_addresses_u64ii_50t, T49)
 #define FW_BIT_ADDR        0x000000u
-#define FW_BIT_SLOT        0x220000u      // the bitstream slot; the application starts right behind it
+#define FW_BIT_SLOT        0x1E0000u      // the bitstream slot (T265 D2); the recovery slot starts right behind it
+#define FW_BIT_SLOT_FULL   0x220000u      // a whole firmware of Gideon or Commodore (a restore, T137): its bitstream may run over the recovery slot and the record, a clean install of that firmware (T265 D2)
+#define FW_RECOVERY_ADDR   0x1E0000u      // T265 D2: the recovery program, 0x1E0000-0x21EFFF (the boot ROM starts it when the application is not the host's own)
+#define FW_RECOVERY_SLOT   0x3F000u
+#define FW_RECORD_ADDR     0x21F000u      // T265 D2: the guard's record, the one 4 KiB sector behind the recovery slot
 #define FW_APP_ADDR        0x220000u
 #define FW_APP_SLOT        0x1E0000u      // the application slot, 12-byte record included
 #define FW_REC_HDR         12u
@@ -53,6 +57,7 @@ struct FwImage {
     const uint8_t *app;               // written at FW_APP_ADDR: record + data, padded to 4
     uint32_t app_len;
     uint32_t axss;                    // the stamp the bitstream must show in the flash, 0 = none demanded
+    uint32_t bit_slot;                // where the bitstream's slot ends: FW_BIT_SLOT, or FW_BIT_SLOT_FULL for fw_image_seal (0 reads as FW_BIT_SLOT)
     uint32_t sealed;                  // FW_SEALED once fw_image_seal() accepted it
 };
 #define FW_SEALED 0x53454C44u
@@ -95,5 +100,25 @@ bool fw_write(Flash *fl, const FwImage &img, FwProgress cb, void *ctx, FwWriteRe
 #define FW_PART_BIT 1u
 #define FW_PART_APP 2u
 bool fw_write_parts(Flash *fl, const FwImage &img, uint32_t parts, FwProgress cb, void *ctx, FwWriteResult *res);
+
+// ---- T265: the guard's record and the recovery program (docs/specs/T265/p1-p3-guard-and-recovery.md, 1.2 and 2.6)
+// The record, 16 bytes at FW_RECORD_ADDR, the rest of its sector stays 0xFF: "TRXG", the length of the application as written at FW_APP_ADDR (record + data,
+// padded to 4: FwImage::app_len), its CRC-32 (zlib), and chk = ~(magic ^ len ^ crc). A page that was only partly programmed fails chk and reads as no record.
+#define FW_GUARD_MAGIC     0x47585254u
+struct FwGuardRecord {
+    uint32_t len, crc;
+};
+uint32_t fw_guard_chk(uint32_t len, uint32_t crc);
+// true when the record is there and its chk agrees
+bool fw_read_record(Flash *fl, FwGuardRecord *rec);
+// Erases the record's sector and programs the 16 bytes, read back. false: *res says why (started = the erase was issued).
+bool fw_write_record(Flash *fl, uint32_t len, uint32_t crc, FwWriteResult *res);
+// The recovery image (a Gideon record {dest, length, run}, the data, a CRC-32 trailer over both: tools/rec_trailer.py) as the flash holds it.
+bool fw_recovery_equals(Flash *fl, const uint8_t *img, uint32_t len);
+// Writes it at FW_RECOVERY_ADDR: header sector last, every page read back, the rest of the slot erased. len at most FW_RECOVERY_SLOT.
+bool fw_write_recovery(Flash *fl, const uint8_t *img, uint32_t len, FwWriteResult *res);
+// The application as the flash holds it: its record is read, checked as fw_image_seal_parts does, the CRC-32 of the whole image is made while it is read.
+// *len is the image length (record + data padded to 4, the number the guard's record keeps). false: nothing valid there.
+bool fw_flash_app_crc(Flash *fl, uint32_t *len, uint32_t *crc);
 
 #endif
