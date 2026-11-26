@@ -488,7 +488,7 @@ jobs:
   emu:
     name: "12 Emulator tests: ${{ matrix.core }}"
     needs: [dispatch, core]
-    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.core.result == 'success' }}
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
@@ -516,17 +516,22 @@ jobs:
           echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/handoff"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        id: dl
+        continue-on-error: true   # D15: this lane's own deliver artifact only - a red lane has none, and only its own emu leg has nothing to run (the lane itself is red)
         with:
           name: deliver-${{ matrix.core }}
           path: ${{ env.CI_TEMP }}/handoff/deliver
       - name: Gideon's pinned commit
+        if: steps.dl.outcome == 'success'
         id: gideon
         run: echo "commit=$(sed -n 's/^GIDEON_COMMIT="\(.*\)"$/\1/p' ci/emu_kit.sh)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+      - if: steps.dl.outcome == 'success'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
         with:
           path: ${{ env.CI_TEMP }}/gideon-roms
           key: gideon-roms-${{ steps.gideon.outputs.commit }}
       - name: Kit (the emulator's ROM folder)
+        if: steps.dl.outcome == 'success'
         shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
         run: |
           set -eu
@@ -535,6 +540,7 @@ jobs:
           ci/emu_kit.sh "$RUNNER_TEMP/kit" ${roms[@]+"${roms[@]}"}
           [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
       - name: 12 Emulator tests (tests/coreapp/emu/core_round.sh - the core's app alone, identified, its menu opens and closes)
+        if: steps.dl.outcome == 'success'
         shell: bash
         run: |
           set -eu
@@ -550,11 +556,11 @@ jobs:
           if-no-files-found: ignore
 
   # 12 Emulator tests of the host menu lane (S6, D18): the host app's real flow in ue2emu with the .cor the VIC-20's lane delivered - the round host -> vc20.cor
-  # -> its menu -> host and the host menu's own flows (T187, T198, T211, T221, T223; tests/hostapp/emu_host.sh). It runs where both lanes ran.
+  # -> its menu -> host and the host menu's own flows (T187, T198, T211, T221, T223; tests/hostapp/emu_host.sh). It runs where the host lane is green and vc20 delivered (D15: no other lane matters).
   host-emu:
     name: "12 Emulator tests: the host menu (with vc20.cor)"
     needs: [dispatch, host, core]
-    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && contains(fromJSON(needs.dispatch.outputs.cores), 'vc20') && needs.host.result == 'success' && needs.core.result == 'success' }}
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && contains(fromJSON(needs.dispatch.outputs.cores), 'vc20') && needs.host.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
@@ -581,17 +587,22 @@ jobs:
           name: host
           path: ${{ env.CI_TEMP }}/handoff/host
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        id: dl
+        continue-on-error: true   # D15: the vc20 lane's artifact alone; a red vc20 lane has none (the lane is red, this leg has nothing to run)
         with:
           name: deliver-vc20
           path: ${{ env.CI_TEMP }}/handoff/deliver
       - name: Gideon's pinned commit
+        if: steps.dl.outcome == 'success'
         id: gideon
         run: echo "commit=$(sed -n 's/^GIDEON_COMMIT="\(.*\)"$/\1/p' ci/emu_kit.sh)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+      - if: steps.dl.outcome == 'success'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
         with:
           path: ${{ env.CI_TEMP }}/gideon-roms
           key: gideon-roms-${{ steps.gideon.outputs.commit }}
       - name: Kit (the host app's emulator build and vc20.cor)
+        if: steps.dl.outcome == 'success'
         shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
         run: |
           set -eu
@@ -600,6 +611,7 @@ jobs:
           ci/emu_kit.sh "$RUNNER_TEMP/kit" --firmware "$CI_HANDOFF/host/hostapp_emu.elf" --cor "$CI_HANDOFF/deliver/vc20.cor" --core vc20 ${roms[@]+"${roms[@]}"}
           [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
       - name: 12 Emulator tests (tests/hostapp/emu_host.sh - host -> vc20.cor -> menu -> host and the host menu's flows)
+        if: steps.dl.outcome == 'success'
         shell: bash
         run: |
           set -eu
