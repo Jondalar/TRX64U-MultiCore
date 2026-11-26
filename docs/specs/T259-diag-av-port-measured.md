@@ -222,8 +222,8 @@ core app's REST by the coordinator, Alex at the TV; photos in the session)**
   `AVID_SYNCn` is the sync the TV takes (SCART pin 20: with FB Low the TV shows the csync itself as video, white between the pulses) and
   `AVID_FB` switches the TV to its RGB input (SCART pin 16, fast blanking). With SYNCn High the TV has no sync at all, whatever the words hold.
 - Map Names with Groups "Y=C, C=B, CVBS=A" (perm 5) showed the bars white, cyan, yellow, green, magenta, blue, red: R and B swapped by the
-  permutation, which acts on RGB too (`diag_avout.v:19`). With Groups "Y=A, C=B, CVBS=C" (perm 0) the bars are white, yellow, cyan, green,
-  purple, red, blue, black as `diag_avout.v:121-123` draws them, and the grey steps run black to white: H1 holds for RGB (A = R, B = G, C = B).
+  permutation, which acts on RGB too (`diag_avout.v:211` on t239.3, `who_f(perm)`). With Groups "Y=A, C=B, CVBS=C" (perm 0) the bars are white, yellow, cyan, green,
+  purple, red, blue, black as `diag_avout.v:123-124` (t239.3) draws them, and the grey steps run black to white: H1 holds for RGB (A = R, B = G, C = B).
 - R, G and B ramps (RGB picture R / G / B ramp): each a pure primary, dark to bright across the picture, no steps: MSB first on all three.
 - Saved as the preset `Sony-RGB` (PAL 50 Hz, Map Names, Groups "Y=A, C=B, CVBS=C", MSB first, mode RGB, SYNCn Csync, FB High; the other
   knobs as `Sony-PAL`) through Save preset; the file read back over FTP holds these values.
