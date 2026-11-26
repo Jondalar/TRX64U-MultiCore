@@ -97,6 +97,9 @@ Parts:
   estimate): about 870 LUT, 510 FF, 14 DSP48. Alex: "But then we must have Rick's measurement for NTSC" - the NTSC constants come
   from Rick's values (T259 D3) before they are fixed.
 - The order of writes for P3: application, recovery copy, record last.
+- **D9 (Alex, 2026-11-26: "An und auf RGB"):** at power-on the A/V output is on, in RGB. The setting is a host setting on F8 (host
+  settings, Picture), stored with the other video values in `/Flash/boot.cfg` (`video=<sys>,<hdmi>,<av>`), so a user can switch it
+  off; the register's reset value is RGB.
 - **D8 (Alex, 2026-11-26, on the host's timing margin: "Dann streichen wir weiter am c64ref"):** the reference core c64ref (build_only,
   routed with the host) is slimmed further to give the host route room for P1 and P4. Measured before: the host's worst path in run
   45814821390 (`null.timing.rpt`) is 0.109 ns, `ult/i_cpu/i_dmem/addr_i_reg[8]` to `hout/ovl/scr_reg/WEA[0]` (cpu_mmcm, 10 ns), 7 logic
