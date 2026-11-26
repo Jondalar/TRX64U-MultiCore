@@ -88,8 +88,6 @@ file coreapp/src/u64cfg.cc 583
 file coreapp/src/u64cfg.h 9
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/appsvc.h c64 1
-# T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
-ids coreapp/src/c64_api.h c64 1
 ids coreapp/src/desc_check.cc null 1
 ids coreapp/src/diag.cc diag 14
 ids coreapp/src/filemgr.cc diag 1

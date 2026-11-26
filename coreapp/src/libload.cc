@@ -1176,9 +1176,13 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" sets header flags (0x%X) or reserved bits (0x%X) this base does not know.", name,
                     (unsigned)h.flags, (unsigned)h.reserved);
     }
-    if (h.abi_min > U2A_ABI_MAJOR || h.abi_max < U2A_ABI_MAJOR) {
-        return fail(LIB_ABI, err, errlen, "\"%s\" was built for ABI %u..%u, this base is ABI %u.", name, (unsigned)h.abi_min,
-                    (unsigned)h.abi_max, (unsigned)U2A_ABI_MAJOR);
+    if (h.abi_max < U2A_ABI_MAJOR) {                    // an older major: base 4.0 removed what major 3 offered (api->trx, api->c64, api->lib->find), so nothing of it may run
+        return fail(LIB_ABI, err, errlen, "\"%s\" is built for base API %u, this base is API %u.%u and does not load it: rebuild it with an SDK of base API %u.", name,
+                    (unsigned)h.abi_max, (unsigned)U2A_ABI_MAJOR, (unsigned)base_minor_, (unsigned)U2A_ABI_MAJOR);
+    }
+    if (h.abi_min > U2A_ABI_MAJOR) {
+        return fail(LIB_ABI, err, errlen, "\"%s\" is built for base API %u, this base is API %u.%u: it needs a newer base.", name, (unsigned)h.abi_min,
+                    (unsigned)U2A_ABI_MAJOR, (unsigned)base_minor_);
     }
     if (h.arch != U2A3_ARCH_RISCV32) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" is not built for this CPU.", name);

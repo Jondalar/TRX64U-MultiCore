@@ -29,6 +29,19 @@
 
 // The service tables (svctab.h, T104.3 D2) are plain structs; LibApi is the root a library or an application gets. A group the base or the core does not
 // have is a null pointer.
+//
+// Base 4.0 (T239.3 P2-6, D57): the groups trx (SvcTrx, with its SvcRing) and c64 (SvcC64) are gone, and so is lib->find. What they gave is the core's own (its TOML A
+// and its libraries, D20, D53) or a group that stays:
+//   - the C64's memory by DMA (c64 peek, poke, dma_read, dma_write): io->ram_read and io->ram_write on the base RAM window, the block `dma` (svc_io.h; the same
+//     window and the same byte loop, hw.cc HwIo::ram_read/ram_write), with io->ram_memonly as before;
+//   - c64 cart_mode, cart_setup_bus, cart_restore_bus: io->cart_wr, io->bus_rd/bus_wr, io->ram_read/ram_write, io->ram_memonly, by the core's own code;
+//   - c64 cart_detect: the property cart_detect of the block u64_sys of the core's TOML A, through its driver table (drvtab.h, D53);
+//   - trx regs, caps, acquire, release, video and ring: the core's own blocks (ident, trx_dbg_run, trx_debug) through its driver table, and its ring library's
+//     export "ring";
+//   - trx announce: net->announce (svctab.h SvcNet);
+//   - trx reset_c64: ops->call("machine.warm_reset", ...), the operation it called;
+//   - lib->find: the slots of libslot.h (linked code) and lib->need (a file).
+// A library or an application of major 3 is refused (libfmt.h U2A_ABI_MAJOR).
 struct LibApi {
     uint32_t struct_size;
     uint16_t abi_major, abi_minor;
@@ -39,20 +52,19 @@ struct LibApi {
     const SvcFs *fs;
     const SvcDlg *dlg;
     const SvcJob *job;
-    const SvcTrx *trx;
     const SvcNet *net;
-    const SvcC64 *c64;
-    const SvcLib *lib;                    // base 3.1: the call tables of loaded libraries
-    // base 3.3 (svc_*.h): the generic application's own services, each table size first. io is null on a core without a register window.
+    const SvcLib *lib;                    // the tables of the calling file's needs entries (base 4.0: need only; libslot.h)
+    // the generic application's own services, each table size first. io is null on a core without a register window.
     const SvcSync *sync;
     const SvcSettings *settings;
     const SvcCtx *ctx;
     const SvcIo *io;
     const SvcBoard *board;
-    const SvcOverlay *overlay;            // base 3.3 (svc_overlay.h): the overlay service; null in a loader without a core, and in a LibApi of a base before the group (api->struct_size)
-    const SvcWb *wb;                      // base 3.4 (svc_wb.h): the write-back service for libraries (D51); null in a loader without a core, and in a LibApi of a base before the group
+    const SvcOverlay *overlay;            // svc_overlay.h: the overlay service; null in a loader without a core
+    const SvcWb *wb;                      // svc_wb.h: the write-back service for libraries (D51); null in a loader without a core
 };
-// Does a LibApi of this struct_size have the member? A library built against a header with the group `overlay` that must also run on a base before it tests `LIB_API_COVERS(api, overlay)`.
+// Does a LibApi of this struct_size have the member? A library built against a header with a group that a later minor of 4 appends, and that must also run on a base before
+// that minor, tests `LIB_API_COVERS(api, member)`.
 #define LIB_API_COVERS(api, member) ((api)->struct_size >= offsetof(LibApi, member) + sizeof(((const LibApi *)0)->member))
 // Does a call table of a group (an Svc* table, `size` first) have the call `field`, set? A library built against a header with a newer call that must also run on an
 // older base tests SVC_HAS(api->overlay, goto_screen) before the call (the form of U2P_HAS in u2p_app.h).
@@ -152,11 +164,12 @@ struct LibTabDecl {
     uint8_t n;                            // 0: the next free number
 };
 
-// One table of a library under a name (base 3.2): a library may export several, and what asks for a table asks by name and major, not by the name of the library
-// that provides it. `table` is a table of function pointers in the image (or a block the library keeps), `size` its size in bytes (at least 4; the table starts with a
-// uint32_t `size` of its own, and a caller checks it before it uses a member). Within a major the table is only appended to. The name is 1 to 15 characters of
-// [a-z0-9_] and is not the name of another loaded library or export of the same major; the major is at least 1. The same names, with their majors, stand in the
-// file (U2A3_FLAG_EXPORTS, libfmt.h), which is what orders the load of a folder.
+// One table of a file under a name (base 3.2): a file may export several, and what needs a table names the export and its major, not the library that provides it.
+// `table` is a table of function pointers in the image (or a block the file keeps), `size` its size in bytes (at least 4; the table starts with a uint32_t `size` of
+// its own, and a caller checks it before it uses a member). Within a major the table is only appended to. The name is 1 to 15 characters of [a-z0-9_] and is not the
+// name of an export of the same major of the app (libslot.h) or of another loaded file; the major is at least 1. The same names, with their majors, stand in the file
+// (U2A3_FLAG_EXPORTS, libfmt.h), which is what orders the load of a folder. Base 4.0: the loader binds an export to the needs entries of the files that need it when
+// they load (SvcLib::need); the base reads a sub-app's export by its name (the file manager's "online", online_api.h). No call of LibApi finds it by name.
 struct LibExportDecl {
     const char *name;
     uint32_t major;
@@ -175,18 +188,12 @@ struct LibRecord {
     const LibSettingDecl *settings;       int nsettings;
     LibPollDecl poll;
     const LibTabDecl *tabs;               int ntabs;
-    // T197 (base 3.1): the call table of a library an application calls through api->lib->find; a table of function pointers in the image, its layout the
-    // library's own header. Null: none. Last in the record, so a library built before it (zero here) is read as it was.
-    const void *exports;
-    uint32_t exports_size;
-    // T239.3 D20 (base 3.2): the named tables of the library, found with api->lib->find by name and major (LibExportDecl above). Appended after the last member of
-    // 3.1, so a library built before it leaves them zero. A library built against 3.2 that must also run on a base of 3.1 writes them only when
-    // LIB_RECORD_COVERS(out->struct_size, export_list) holds; one that `needs base >= 3.2` need not ask.
+    // The named tables of the file (LibExportDecl above, T239.3 D20). Base 4.0: the one way a file exports a table; the unnamed table of 3.1 (`exports`, `exports_size`,
+    // found by the library's name) is gone with lib->find.
     const LibExportDecl *export_list;
     int nexport_list;
-    // T239.3 L-3 (base 3.3): how the tabs of `tabs` are drawn: one string for each tab, in the order of `tabs`, as a route's own tab says it ("split;title=...;side=...", tools/descrec.py UI_TAB_KEYS);
-    // a null entry, or a null array, leaves the tab a flat list. Appended after the last member of 3.2, so a library built before it leaves it zero; one that must also run on a base before
-    // 3.3 writes it only when LIB_RECORD_COVERS(out->struct_size, tab_layouts) holds.
+    // T239.3 L-3: how the tabs of `tabs` are drawn: one string for each tab, in the order of `tabs`, as a route's own tab says it ("split;title=...;side=...", tools/descrec.py UI_TAB_KEYS);
+    // a null entry, or a null array, leaves the tab a flat list.
     const char *const *tab_layouts;
 };
 // Does a record of this struct_size have the member? (a record of an older base ends before it)

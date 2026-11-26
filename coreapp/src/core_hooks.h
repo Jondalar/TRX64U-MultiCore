@@ -2,7 +2,8 @@
 // of its descriptor (CoreDesc::init, release, warm_reset, cold_start, media_flush, media_pending in desc.h) are named in the core's data (D8) and implemented here. The
 // core's API TOML names the library whose export table they are: `hooks = "<library name>"` in its [core] section (advisor 2026-11-23); cor_pack refuses a core whose
 // named library is not in the bundle or does not list the export corehooks=1, and the base takes the table of that library. A core that leaves a member null is as
-// before: no hook. The table goes into LibRecord::exports (base 3.2). It is not a member of LibApi.
+// before: no hook. Base 4.0: the library exports the table by name, in LibRecord::export_list when it is a file, in the `exports` of its [[library]] of TOML B when it
+// is linked (libslot.h: the base takes the slot whose `lib` is the [core] hooks name and whose name is "corehooks"). It is not a member of LibApi.
 //
 // The members after media_pending are new in base 3.3. The earlier draft of the boundary map called menu_closed "resume".
 //

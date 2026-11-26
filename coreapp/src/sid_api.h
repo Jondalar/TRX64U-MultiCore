@@ -1,6 +1,7 @@
 // The export "sid" (major 1): the header of a .sid / .mus / .str file and what the SID player needs from it, the shared SID library of T239.3 D12 (today coreapp/src/sidfile.h
-// and sidfile.cc: pure functions, bytes in, numbers and text out). A library of this repository puts the table into LibRecord::exports (base 3.2); the TRX64-Ultimate base
-// library finds it with SvcLib::find("sid", U2A3_VERSION(1, 0), &size). Not a member of LibApi.
+// and sidfile.cc: pure functions, bytes in, numbers and text out). Base 4.0 (libslot.h): the library sid of a TOML B exports it (`exports = [{ name = "sid", major = 1,
+// table = "sid_table" }]`); code linked into the same app takes it with lib_slot(LIBSLOT_sid, &size), a file with its needs entry "sid>=1.0" and
+// api->lib->need(n, &size). Not a member of LibApi.
 //
 // The structures SidTune and SidReq and the SID_HDR_* sizes are defined here, once: sidfile.h includes this header for them (they had the same layout field for field).
 // The functions take pointers where sidfile.h takes C++ references. No call takes a CoreCtx and none touches the machine.

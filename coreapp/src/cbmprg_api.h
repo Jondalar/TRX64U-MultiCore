@@ -1,6 +1,7 @@
 // The export "cbmprg" (major 1): the CBM BASIC program loader of this repository (app/loaders/cbm_prg.cc), a shared library of T239.3 D12 (advisor 2026-11-23).
-// The VC-20, C16/Plus 4 and PET (cbm_run), the C128, the SuperCPU and the C64 place, relink and start programs with the same code; a core's library finds it with
-// SvcLib::find("cbmprg", U2A3_VERSION(1, 0), &size). It is not a member of LibApi.
+// The VC-20, C16/Plus 4 and PET (cbm_run), the C128, the SuperCPU and the C64 place, relink and start programs with the same code. Base 4.0 (libslot.h): the library
+// cbmprg of a TOML B exports it (`exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]`); code linked into the same app takes it with
+// lib_slot(LIBSLOT_cbmprg, &size), a file with its needs entry "cbmprg>=1.0" and api->lib->need(n, &size). It is not a member of LibApi.
 //
 // Why no CoreIo: the functions of cbm_prg.h take one; behind this table they act on the memory of the running core (its io), so no call here takes it.
 //

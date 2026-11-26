@@ -49,3 +49,9 @@ headers = "5f20315f650767193d099ba57a370eb97aac873c7e1fa67ac9bc550674764e7a"
 version = "3.6"
 released = true
 headers = "176b3dbd37e17705eae830273e0b3de8e9da92d9d1c927318751c57562790e50"
+#
+# 4.0 (T239.3 P2-6, D57, draft of the header shape): api->trx (SvcTrx, SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports gone, C64Api (c64_api.h) gone; libslot.h (the exports of the linked libraries at slots fixed when the app is linked); SvcNet::announce; U2A3_NEEDS_MAX 8; u2p_api_t without trx and c64, with root.
+[[lock]]
+version = "4.0"
+released = false
+headers = "78e6a3cc9c28f461495ab5d4b56d3585c098f1883ee8c84aaedf6adfc5732e0e"

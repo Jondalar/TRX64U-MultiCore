@@ -18,10 +18,13 @@
 #define U2A3_HEADER_SIZE 104
 #define U2A3_NEED_SIZE 20
 #define U2A3_NAME_MAX 16                /* a name and its NUL */
-#define U2A3_NEEDS_MAX 4
+/* Base 4.0: the needs list is the one way a file reaches a table (api->lib->find is gone): entry n is api->lib->need(n) (svctab.h, libslot.h). trx64u's library
+ * reaches six tables (base/lib_trx64u.cc g_x), so four entries no longer hold it. The file format is unchanged: needs_count is a byte. */
+#define U2A3_NEEDS_MAX 8
 /* Two needs that name no library (AppIndex and LibLoader skip them): */
 #define PRG_APP_NEED "standalone"        /* offered only when the board is not the MultiCore host (T228 DC1) */
-#define CART_APP_NEED "cart_port"        /* offered only where the core gives the cartridge port service (appsvc_c64, T228 review) */
+#define CART_APP_NEED "cart_port"        /* base 4.0: offered only where the running core's TOML A has the block c64cart (T239.3 D40: the capability's block guards the
+                                            cartridge probe); 3.x tested the descriptor id "TRX2" (appsvc_c64), which goes with api->c64 */
 #define U2A3_NONE 0xFFFFFFFFU           /* an entry offset the file does not have */
 
 #define U2A3_ARCH_RISCV32 2             /* as U2A_ARCH_RISCV32 of format 2 */
@@ -31,9 +34,13 @@
 #define U2A3_RES_RESIDENT 1             /* stays; its contributions and poll live on (D10.3) */
 
 // The application binary interface the base offers, as major.minor. A file carries the majors it knows (abi_min .. abi_max); the
-// minor is a dependency like any other: `needs base >= 3.1` (D11). Version numbers are major << 16 | minor.
-#define U2A_ABI_MAJOR 3
-#define U2A_BASE_MINOR 6                /* 3.1 (T197): api->lib, the call tables libraries export; 3.2 (T239.3, one minor per SDK release, 0.2.0): the poll of a library that loads after the core has started, the budget record, a library's memory account, named exports; 3.3 (T239.3, SDK 0.3.0): api->sync, settings, ctx, io and board, the members added to sys and fs, the states set.<key> and net.gated; 3.4 (SDK 0.4.6): api->wb, the write-back service for libraries (svc_wb.h, T239.3 D51); overlay exit_to_machine and goto_screen (T256 D13); 3.5 (SDK 0.5.0, T262): the node kind LN_LIST, ctx.ask_list, the F3 search sources (node kind list at F3/search); 3.6 (SDK 0.5.1, T262 D4): ctx.browse_at and browse_sheet, SVCFS_SIZE_UNKNOWN, [[key]] rows in a library's menu record */
+// minor is a dependency like any other: `needs base >= 4.0` (D11). Version numbers are major << 16 | minor. A file whose range does not hold this
+// major is refused before anything of it is placed or runs; a file of major 3 is refused with the major it was built for and the one to rebuild with
+// (libload.cc). Major 3 ended at 3.6 (SDK 0.5.1): 3.1 (T197) api->lib; 3.2 (SDK 0.2.0) the late poll, the budget record, a library's memory account,
+// named exports; 3.3 (SDK 0.3.0) api->sync, settings, ctx, io, board; 3.4 (SDK 0.4.6) api->wb, overlay exit_to_machine and goto_screen; 3.5 (SDK
+// 0.5.0) LN_LIST, ctx.ask_list, the F3 search sources; 3.6 (SDK 0.5.1) ctx.browse_at and browse_sheet, SVCFS_SIZE_UNKNOWN, [[key]] rows.
+#define U2A_ABI_MAJOR 4
+#define U2A_BASE_MINOR 0                /* 4.0 (T239.3 P2-6, D57: one joint cut with TRX64-Ultimate's P2-5, no fallback and no parallel old API): api->trx (SvcTrx with SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports are gone, and with them the base's export "c64" (C64Api); a table is exported by name only (LibRecord::export_list for a file, TOML B `exports` for a linked library, libslot.h) and reached through slots fixed when the app or the file is linked (libslot.h, SvcLib::need); SvcNet::announce takes SvcTrx::announce's place; U2A3_NEEDS_MAX 8 */
 #define U2A3_VERSION(major, minor) ((uint32_t)(((major) << 16) | (minor)))
 
 // Limits the loader enforces before it allocates anything.
@@ -63,8 +70,8 @@ typedef char u2a3_budget_size_check[(sizeof(U2a3Budget) == U2A3_BUDGET_SIZE) ? 1
 /* The names a library exports (T239.3 D20, base 3.2): header flag U2A3_FLAG_EXPORTS says a list stands directly behind the budget record (behind the header when there is
  * none): a count, then that many entries of the size of a need. It is the static form of LibRecord's export list (libapi.h LibExportDecl): the order in which a folder of
  * libraries is loaded reads it before any image runs, so a library that needs "ring" is loaded after the one that exports it, whatever that one is called. The loader refuses
- * a library whose lib_register does not return every name and major the file lists. A library may export more in its record than the file lists; those are found
- * by `find` but do not take part in the order. */
+ * a library whose lib_register does not return every name and major the file lists. A library may export more in its record than the file lists; those are bound
+ * to the needs entries of a file loaded after it (base 4.0: no `find`) but do not take part in the order. */
 #define U2A3_FLAG_EXPORTS 4U
 #define U2A3_EXPORTS_MAX 8
 struct U2a3ExportName {
@@ -74,9 +81,10 @@ struct U2a3ExportName {
 #define U2A3_EXPORT_NAME_SIZE 20
 typedef char u2a3_export_name_size_check[(sizeof(U2a3ExportName) == U2A3_EXPORT_NAME_SIZE) ? 1 : -1];
 
+/* One entry of the needs list, which is the file's slot list (base 4.0, libslot.h): entry n is what api->lib->need(n) answers. */
 struct U2a3Need {
-    char name[U2A3_NAME_MAX];           /* "base", or the name another library provides */
-    uint32_t min_version;               /* major << 16 | minor: the one provided has to be at least this */
+    char name[U2A3_NAME_MAX];           /* "base", PRG_APP_NEED, CART_APP_NEED, or the name of an export (base 4.0: never a library's name) */
+    uint32_t min_version;               /* major << 16 | minor: "base" has to be at least this; an export has exactly this major (its minor means nothing) */
 };
 
 struct U2a3Header {
