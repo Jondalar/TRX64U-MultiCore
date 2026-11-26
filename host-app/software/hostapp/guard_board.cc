@@ -70,7 +70,7 @@ static void set_note(const GuardProv &o)
     } else if (o.copy_failed) {
         snprintf(g_note, sizeof(g_note), "The recovery copy could not be written. Restart the board to try again.");
     } else if (o.record_failed) {
-        snprintf(g_note, sizeof(g_note), "The guard record could not be written. Restart the board to try again.");
+        snprintf(g_note, sizeof(g_note), "The recovery information could not be written. Restart the board to try again.");
     } else if (!o.app_ok) {
         return;                                   // the flash holds another application than this one: nothing to say, nothing was written
     } else {

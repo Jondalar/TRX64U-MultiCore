@@ -944,8 +944,8 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
     }
     case SK_AV:
         name = hc_set_name(SK_AV);
-        snprintf(v, sizeof(v), "%s", cfg.vid_av ? "RGB" : "Off");
-        help = "RGB on the A/V port: the menu and the cores' pictures, 15 kHz, csync, for a SCART cable. Off: the port is silent. Saved at once; on at power-on.";
+        snprintf(v, sizeof(v), "%s", cfg.vid_av ? "RGB" : "off");
+        help = "The menu and the cores' pictures on the A/V port, for a SCART RGB cable. off: nothing on the port. Saved at once.";
         break;
     case SK_PROTECT:
         name = hc_set_name(SK_PROTECT);

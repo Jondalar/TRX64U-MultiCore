@@ -37,11 +37,11 @@ void rp_page(const RepairUi &u, bool force)
     char l[124];
     hp_page(&pg, HCT_WARN, "Repairing the host application");
     hp_line(&pg, 0, HCT_WARN, "Another firmware replaced the host application in the flash.");
-    snprintf(l, sizeof(l), "This copy was started from %s. Host key %08x.", hc_repair_medium(u.medium), (unsigned)u.host_key);
+    snprintf(l, sizeof(l), "This copy was started from %s.", hc_repair_medium(u.medium));
     hp_line(&pg, 1, HCT_INK, l);
     snprintf(l, sizeof(l), "Write the host application   %s", !u.app_needed ? "not needed, the flash holds it" : (u.step > 0 ? "done" : "..."));
     hp_line(&pg, 3, !u.app_needed || u.step > 0 ? HCT_OK : HCT_INK, l);
-    snprintf(l, sizeof(l), "Write the recovery copy and the record   %s", u.step > 0 ? "..." : "");
+    snprintf(l, sizeof(l), "Write the recovery copy   %s", u.step > 0 ? "..." : "");
     hp_line(&pg, 4, u.step > 0 ? HCT_INK : HCT_MUTED, l);
     hp_line(&pg, 5, HCT_MUTED, u.detail);
     uint32_t units = u.app_needed ? 3 : 1, base = u.step > 0 ? (u.app_needed ? 2 : 0) : 0;
@@ -104,8 +104,9 @@ bool RepairJob::run()
         hp_page(&pg, HCT_WARN, "The host application was not repaired");
         fw_sentence(l, sizeof(l), why);
         hp_line(&pg, 0, HCT_WARN, l);
-        snprintf(l, sizeof(l), "The host in the flash provides interface %u; this application needs %u.", (unsigned)gi.iface, (unsigned)TXU_IFACE_NEEDED);
-        hp_line(&pg, 1, HCT_INK, l);
+        if (gi.iface != TXU_IFACE_NEEDED) {
+            hp_line(&pg, 1, HCT_INK, "The host in the flash does not match this application.");
+        }
         hp_line(&pg, 2, HCT_INK, "Put the hostrecovery.app of the installed release on a stick or the SD card, then restart.");
         hp_line(&pg, 3, HCT_INK, "Nothing was written. The flash is as it was.");
         snprintf(pg.hint, sizeof(pg.hint), "any key opens the boot menu");
@@ -172,7 +173,7 @@ bool RepairJob::run()
     hp_page(&pg, go.copy_ok && go.record_ok ? HCT_OK : HCT_WARN, "Host application repaired");
     hp_line(&pg, 0, HCT_OK, "The host application is back in the flash.");
     if (go.copy_ok && go.record_ok) {
-        hp_line(&pg, 1, HCT_OK, "The recovery copy and the record are current.");
+        hp_line(&pg, 1, HCT_OK, "The recovery copy is current.");
     } else {
         snprintf(l, sizeof(l), "%s", !go.copy_ok ? (go.copy_room ? "The recovery copy does not fit on the flash drive." : "The recovery copy could not be written.")
                                                  : "The record could not be written.");

@@ -795,7 +795,7 @@ bool UpdateJob::run()
         if (wr.ok && w_app && guard_active()) {                   // T265 P3: the order is the application, the recovery copy, the record
             u.phase = FWP_READBACK;
             u.done = u.rb_pages;
-            snprintf(u.detail, sizeof(u.detail), "Writing the recovery copy and the record");
+            snprintf(u.detail, sizeof(u.detail), "Writing the recovery copy");
             up_run_page(u, true);
             GuardOut go;
             guard_after_update(fl, img.app, img.app_len, &go);
@@ -804,7 +804,7 @@ bool UpdateJob::run()
                 snprintf(done.warn, sizeof(done.warn), "%s", go.copy_room ? "The recovery copy does not fit on the flash drive. Delete files from it, then restart."
                                                                           : "The recovery copy could not be written. Restart the board to try again.");
             } else if (!go.record_ok) {
-                snprintf(done.warn, sizeof(done.warn), "The guard record could not be written. Restart the board to try again.");
+                snprintf(done.warn, sizeof(done.warn), "The recovery information could not be written. Restart the board to try again.");
             }
         }
         ms = env.now(env.ctx) - t0;
