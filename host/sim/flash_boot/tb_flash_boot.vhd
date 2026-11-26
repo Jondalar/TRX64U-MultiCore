@@ -268,6 +268,12 @@ begin
             hwrite(l, mem.get(16#FFC0# + 4 * i));
         end loop;
         writeline(fo, l);
+        write(l, string'("GUARD"));
+        for i in 0 to 15 loop
+            write(l, string'(" "));
+            hwrite(l, mem.get(16#FF60# + 4 * i));
+        end loop;
+        writeline(fo, l);
         write(l, string'("MARKER ")); hwrite(l, mem.get(16#FFB0#)); writeline(fo, l);
         write(l, string'("BOOTWORDS ")); hwrite(l, mem.get(16#FFFC#)); write(l, string'(" "));
         hwrite(l, mem.get(16#FFF4#)); writeline(fo, l);

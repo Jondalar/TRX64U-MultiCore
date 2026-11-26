@@ -97,6 +97,14 @@ class T(unittest.TestCase):
         errs, _ = self.check(package(P.build_blobs(bit, app, "main-abcd1234", "b", "a"), pre=False), "x.ue2")
         self.assertEqual(errs, [])
 
+    def test_bitstream_slot_ends_where_the_recovery_starts(self):
+        # T265 D2: 0x1E0000-0x21FFFF is the recovery program and the guard's record
+        self.assertEqual(P.BIT_MAX, 0x1E0000)
+        app = app_file()
+        P.build_blobs(bit_file(0x12345678, body_words=(P.BIT_MAX - 400) // 4), app, "main-abcd1234", "b", "a")
+        with self.assertRaises(ValueError):
+            P.build_blobs(bit_file(0x12345678, body_words=P.BIT_MAX // 4 + 8), app, "main-abcd1234", "b", "a")
+
     def test_softboot_still_finds_bitstream_and_app(self):
         bit, app = bit_file(0x12345678), app_file()
         rec = package(P.build_blobs(bit, app, "main-abcd1234", "b", "a"), pre=False)
