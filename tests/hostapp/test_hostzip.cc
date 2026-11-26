@@ -234,7 +234,7 @@ int main(int argc, char **argv)
         int runs0 = hc_zip_runs();
         CHECK(!run_job(z, "/SD/games/t.zip"));
         CHECK_EQ(hc_zip_runs(), runs0);
-        CHECK_EQ(fs.files.size(), 3u);
+        CHECK_EQ(fs.files.size(), 2u);                                   // unzip.u2a and the zip: nothing written
         CHECK(r.note.find("Nothing was changed") != std::string::npos);
         hc_zip_rig_free(z);
     }
@@ -275,7 +275,7 @@ int main(int argc, char **argv)
         r.keys.push_back(KEY_RETURN);                                     // the page that says it did not finish
         CHECK(!run_job(z, "/SD/games/bad.zip"));
         CHECK(any_page(r, "Cannot read this file as a ZIP") && any_page(r, "Unzip did not finish"));
-        CHECK_EQ(fs.files.size(), 3u);
+        CHECK_EQ(fs.files.size(), 2u);                                   // unzip.u2a and the file: nothing written
         hc_zip_rig_free(z);
     }
     DONE("test_hostzip");
