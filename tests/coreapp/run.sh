@@ -347,7 +347,7 @@ control guard_overwrite libguard.cc 's/    if (!known_) {                       
 control guard_unmounted libguard.cc 's/        return false;                    \/\/ "\/x": a volume root, never certain/        return true;/' test_libguard.cc $GUARDSRC
 control guard_listed_statfail libguard.cc 's/            return false;                \/\/ listed but not statable: not absent/            return true;/' test_libguard.cc $GUARDSRC
 control guard_write_in_begin libguard.cc 's/    out->armed = false;                  \/\/ armed by arm(), just before the first library loads/    out->armed = write(1);/' test_libguard.cc $GUARDSRC
-WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc"
+WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc libtab_native.cc"   # libtab_native.cc: the slot table libload.cc reads (base 4.0)
 run libwait test_libwait.cc $WAITSRC
 
 RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 overlay.cc descrec.cc
