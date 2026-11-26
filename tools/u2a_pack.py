@@ -347,7 +347,7 @@ def field(text, what, may_be_empty=False):
 
 
 def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None, align=16, link_base=0, manifest=b"",
-         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b"", budget=None, exports=None):
+         register_sym="lib_register", main_sym="app_main", abi=(4, 4), menu=b"", budget=None, exports=None):
     elf = Elf(elf_bytes)
     refuse_constructors(elf)          # in front of build_image: an orphan .init_array behind .bss would fail there first, without the D19 message
     img, bss = build_image(elf, link_base)

@@ -30,7 +30,7 @@
 #include "handover.h"
 #include "walltime.h"
 
-// trx_io.cc asks which TCP port an application serves for the identity block: the one an application announced (appsvc.h), 0 while none did.
+// trx_io.cc asks which TCP port the core's runtime service listens on for the identity block: the one announced through SvcNet::announce (appsvc.h), 0 while none was.
 extern "C" uint16_t app_trx_rpc_port(void) { return appsvc_rpc_port(); }
 
 // The scan mode the host application put up, which it hands over (T105): the host's scaler, overlay, pixel layer and

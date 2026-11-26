@@ -252,7 +252,7 @@ package)
     package)
       t="$HANDOFF/trxapps"; rm -rf "$t"; mkdir -p "$t"
       sdkt="$(sdk_tarball)"; [ -n "$sdkt" ] || die "no SDK package in $HANDOFF/sdk (the SDK lane's artifact sdk)"
-      for f in "$sdkt" "$HANDOFF/sdk/unzip.u2a" "$HANDOFF/sdk/miniz.u2a" "$HANDOFF/host/hostapp.app" "$HANDOFF/host/hostapp.elf" \
+      for f in "$sdkt" "$HANDOFF/sdk/unzip.u2a" "$HANDOFF/host/hostapp.app" "$HANDOFF/host/hostapp.elf" \
                "$HANDOFF/shared-app/coreapp.bin" "$HANDOFF/shared-app/coreapp.elf"; do
         [ -s "$f" ] || die "no ${f#"$HANDOFF"/} (the artifacts sdk, host and shared-app of the SDK and host menu lanes)"
         cp "$f" "$t/"

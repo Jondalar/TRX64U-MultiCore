@@ -101,8 +101,6 @@ trxapps="$(need_stage trxapps)"
 cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
-# T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
-[ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
 # T261 D6/D7: trex_crt.u2a and online.u2a are TRX64-Ultimate's: they come with the bit-imports below (the pin's U2A field), not from this stage; softboot.u2a is not shipped.
 # T239.3 D17, T239.5 D14: the SDK package of this run (built by the stage trxapps or by the matrix's SDK lane; the SDK release of T261 D4 publishes it), beside the apps
 sdkpkg=("$trxapps"/trx64-sdk-*.tar.gz)

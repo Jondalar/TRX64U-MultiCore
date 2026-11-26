@@ -70,11 +70,8 @@ void AppHost::install()
     ld_->set_job_cancel(job_cancel_one);
 }
 
-void AppHost::set_machine_groups(const SvcTrx *trx, const SvcNet *net, const SvcC64 *c64, int (*flash_read)(uint32_t, void *, int), void (*handover)(void), const C64Api *c64api)
+void AppHost::set_machine_groups(const SvcNet *net, int (*flash_read)(uint32_t, void *, int), void (*handover)(void))
 {
-    ld_->set_c64(c64);
-    ld_->set_c64_api(c64api);
-    ld_->set_trx(trx);
     ld_->set_net(net);
     ld_->set_sys_extra(flash_read, handover);
 }

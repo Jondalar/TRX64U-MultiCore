@@ -1,6 +1,6 @@
-// The library "miniz" (T197 P1): miniz's zip reader and inflate as one resident library of format 3. It registers nothing in the menu or the registry; what
-// it contributes is the call table of zip_lib.h, which an application reaches through api->lib->find("miniz", ZIPLIB_VERSION, &size).
-#include "libapi.h"
+// The library "miniz": miniz's zip reader and inflate, linked into the app through TOML B (T239.3 D58, base 4.0: the base loads no library file). It registers nothing in the
+// menu or the registry; what it contributes is the call table of zip_lib.h, which the TOML B export `{ name = "miniz", major = 1, table = "miniz_table" }` hands out. Code
+// linked into the app takes it with lib_slot(LIBSLOT_miniz, &size) (libslot.h); an application file lists `miniz>=1.0` in its needs and calls api->lib->need(n, &size).
 #include "zip_lib.h"
 
 static const ZipLib k_table = {
@@ -15,17 +15,8 @@ static const ZipLib k_table = {
     tinfl_decompress_mem_to_mem,
 };
 
-#ifdef __riscv
-#define LIB_ENTRY_ATTR __attribute__((visibility("default"), section(".text.lib_register")))
-#else
-#define LIB_ENTRY_ATTR
-#endif
-extern "C" LIB_ENTRY_ATTR int lib_register(const LibApi *api, LibRecord *out)
+// The table of the export "miniz" (size word first). Every core that lists the library has the zip code, so the table is never null.
+extern "C" const void *miniz_table(void)
 {
-    if (api->abi_major != 3 || api->abi_minor < 1) {
-        return 1;                                       // needs the library group (base 3.1)
-    }
-    out->exports = &k_table;
-    out->exports_size = sizeof(k_table);
-    return 0;
+    return &k_table;
 }

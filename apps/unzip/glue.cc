@@ -13,9 +13,9 @@ extern "C" int app_main(const LibApi *api, AppCtx *ctx)
 {
     g_base = ctx;
     uint32_t zsize = 0;
-    const ZipLib *zt = api->lib ? static_cast<const ZipLib *>(api->lib->find(ZIPLIB_NAME, ZIPLIB_VERSION, &zsize)) : 0;
+    const ZipLib *zt = api->lib ? static_cast<const ZipLib *>(api->lib->need(1, &zsize)) : 0;      // entry 1 of APP_NEEDS (Makefile): "base" is entry 0, "miniz" entry 1
     if (!zt || zsize < sizeof(uint32_t) || !ZIPLIB_HAS(zt, extract_to_callback)) {
-        u2p_reply_into(ctx, "The zip library (miniz.u2a) is not loaded.");
+        u2p_reply_into(ctx, "This core has no zip library.");
         return 1;
     }
     unzip_set_zip(zt);

@@ -42,10 +42,10 @@ public:
 
     // Wires c->app_open and the service groups of the loader (dlg, job).
     void install();
-    // Everything the board knows that the base cannot: the groups that are the machine's (trx, net, the flash).
-    void set_machine_groups(const SvcTrx *trx, const SvcNet *net, const SvcC64 *c64, int (*flash_read)(uint32_t, void *, int), void (*handover)(void), const C64Api *c64api = 0);
+    // Everything the board knows that the base cannot: the groups that are the machine's (net, the flash, the hand-over).
+    void set_machine_groups(const SvcNet *net, int (*flash_read)(uint32_t, void *, int), void (*handover)(void));
 
-    // What the machine has to undo when an application ends (the debug block; its sockets and jobs are closed by the loader's account of the application before): called with the image still there.
+    // What the machine has to undo when an application ends (the port a runtime service announced; its sockets and jobs are closed by the loader's account of the application before): called with the image still there.
     void set_end_hook(void (*fn)(void)) { end_hook_ = fn; }
 
     // ---- the menu task ----

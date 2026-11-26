@@ -7,7 +7,7 @@
 #include "libfmt.h"
 #include "core_hooks.h"
 
-extern "C" int lib_register(const LibApi *api, LibRecord *out);
+extern "C" int example_register(const LibApi *api, LibRecord *out);
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); fails++; } } while (0)
@@ -21,7 +21,7 @@ int main()
     api.struct_size = sizeof api;
     api.abi_major = U2A_ABI_MAJOR;
     api.abi_minor = U2A_BASE_MINOR;
-    CHECK(lib_register(&api, &rec) == 0);
+    CHECK(example_register(&api, &rec) == 0);
     CHECK(rec.nops == 1 && strcmp(rec.ops[0].name, "example.greet") == 0);
     CHECK(rec.nstates == 1 && strcmp(rec.states[0].name, "example.version") == 0);
     // the code of the example core: the export corehooks at major 1, init and release answer done, the members after media_pending are not in the table
@@ -48,7 +48,7 @@ int main()
     CHECK(strlen(msg) == sizeof msg - 1);
 
     api.abi_major = U2A_ABI_MAJOR + 1;          // a base of another major is refused
-    CHECK(lib_register(&api, &rec) != 0);
+    CHECK(example_register(&api, &rec) != 0);
 
     printf(fails ? "test_example: FAILED\n" : "test_example: ok\n");
     return fails ? 1 : 0;

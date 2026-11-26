@@ -4,7 +4,7 @@
 # of the build image).
 #
 # The core is described by its record (D17): no descriptor symbol is named in [app], the table of cores of the image is empty and the start makes the descriptor from the record of the
-# bundle. The core's code is its library: `hooks = "example"` of desc.toml names the library of the bundle (example.u2a, ../example.cc) that exports the core hooks.
+# bundle. The core's code is its library: `hooks = "example"` of desc.toml names the library of this file (`[[library]] example` below: ../example.cc, linked into the app) that exports the core hooks.
 # `base_sources` names files of the base's coreapp/cores/ that the image links: run.cc calls portdiag_attach, so the image needs portdiag.cc (its descriptor is not in the table).
 [app]
 name = "example"
@@ -25,3 +25,16 @@ name = "cbmprg"
 sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
 headers = ["cbm_prg.h", "cbmprg_api.h"]
 bind = "cbmprg_bind"
+
+# The core's own code (T239.3 D58, base 4.0: the base loads no library file, so the code of a core is linked into its app). A register library: the base calls example_register(const LibApi *,
+# LibRecord *) at start and takes the operations, the states and the export corehooks from the record, as it took them from a loaded file; `menu` is its menu record. The sources are in ../, found
+# through `--src .` of the makefile.
+[[library]]
+name = "example"
+sources = ["example.cc", "greet.cc"]
+headers = ["greet.h"]
+register = "example_register"
+menu = "../menu.toml"
+exports = [{ name = "corehooks", major = 1 }]
+heap_keep = 0
+heap_peak = 0

@@ -153,7 +153,7 @@ up (T239.3 D31).
 python3 tools/app_build.py build --sdk . --toml-a mycore/toml_a.toml --maps mycore --toml-b mycore/toml_b.toml --out out --src mycore --record out/desc.bin
 ```
 
-`--maps` adds the register maps of the core's own blocks (`<name>.map.toml`) to the package's `maps/`. A core that is described by its record names no `desc` symbol: the core table of its app is empty and the start makes the descriptor from the record of the `.cor`; the code of that core is the library its record names (`hooks = "<library>"`, api.md 9.7). `example/` is such a core: its own TOML A (`example/gateware/`), TOML B and description (`example/app/`) and the library `example.u2a` that is its code.
+`--maps` adds the register maps of the core's own blocks (`<name>.map.toml`) to the package's `maps/`. A core that is described by its record names no `desc` symbol: the core table of its app is empty and the start makes the descriptor from the record of the `.cor`; the code of that core is the library its record names (`hooks = "<library>"`, api.md 9.7). `example/` is such a core: its own TOML A (`example/gateware/`), TOML B and description (`example/app/`) and the library `example` that is its code (a `[[library]]` of its TOML B, linked into the app; the base loads no library file).
 
 The TOML B has `[app]` (`desc`: the symbol of the descriptor of a core that is compiled into the app, none for a core described by its record, `base_sources`: files of the package's `coreapp/cores` that hold it, `sources`: the core's own files, found in the
 `--src` directories), the libraries (`[[library]]`, as `libs/shared.toml`: sources found in the package's `base/src` or in `--src`) and `[sizes]`. The record is compiled against the same
@@ -184,12 +184,12 @@ operation shows its row without running. The real app is checked in the emulator
 
 ```
 cd example
-make RV_PREFIX=riscv32-unknown-elf-
 make menu
 make test
+make app
 ```
 
-`make` builds `example.u2a` from `example.cc` and `greet.cc`, with `menu.toml` as its menu record. `make menu` writes `example.menu.bin`. `make app` links the example core's app (see above).
+The library (`example.cc`, `greet.cc`) is no file: the `[[library]]` block of `app/toml_b.toml` (`register = "example_register"`, `menu = "../menu.toml"`, export `corehooks`) links it into the app. `make menu` writes `example.menu.bin`. `make app` links the example core's app (see above).
 `make test` builds `example.cc` and `greet.cc` with the host compiler, registers the library against a fake `LibApi` and calls its operation.
 
 ## Not in this package yet

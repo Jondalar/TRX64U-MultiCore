@@ -153,7 +153,7 @@ def real_fixtures():
     h = hdr(ba)
     check(h["magic"] == P.MAGIC and h["header_size"] == 104 and h["fmt"] == 3, "header magic, size, format")
     check(h["kind"] == 1 and h["res"] == 1 and h["arch"] == 2 and h["name"] == "testlib" and h["version"] == 1 << 16, "header identity")
-    check(h["abi_min"] == 3 and h["abi_max"] == 3 and h["needs"] == 1 and h["cap"] == "" and h["main"] == P.NONE, "header abi, needs")
+    check(h["abi_min"] == 4 and h["abi_max"] == 4 and h["needs"] == 1 and h["cap"] == "" and h["main"] == P.NONE, "header abi, needs")
     check(h["reg"] == 0 and h["reloc_count"] == 6, "lib_register is at offset 0 and six words are listed")
     check(ta == [0xb4, 0xb8, 0xc0, 0xc4, 0xc8, 0xcc], "the table holds the six R_RISCV_32 words of the data.rel.ro section: %s" % ta)
     check(table_of(ba) == ta and image_of(ba) == ia, "the file holds the table and the image it was built from")
