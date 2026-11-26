@@ -16,7 +16,8 @@ check
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
   read does not run (a strobe register that ignores the data byte; the write flag alone is no write). Such a strobe is a write of the byte only when the last decision on
   the address before it selects the byte by name (taint s): a case arm whose choices are constants that the address (or a part, copy or offset of it) is compared with,
-  an if whose condition holds only for the addresses it compares for equality (`we = '1' and addr = x"25"`, a flag set from such a compare). The arm `when others` or
+  an if whose condition holds only for the addresses it compares for equality (`we = '1' and addr = x"25"`, a flag set from such a compare). The bits of a
+  concatenation keep their own class (pix_layer's `addr` is `cw_addr(11 downto 0)` of `cw_addr <= cw_win & io_req.address(15 downto 0)`: the address). The arm `when others` or
   `default` of a case on the address, the else of an if on the address, an inequality (`/=`, `!=`), a range (`when 16#21# to 255`, `addr >= x"20"`), a negated compare,
   a case on a compare (`case addr = x"20" is when false`) and a flag set on such a path select every byte but some: a strobe there is no write of a byte (mini9's p5:
   `when others => err <= '1'`). A process variable is decided by its right side: one that takes the
@@ -3978,7 +3979,18 @@ class Ev:
             pos = [x for x in (e[2:4] if k != "call" else e[2]) if isinstance(x, tuple)]
             if (e[1][0] == "id" and self.is_array(ctx, e[1][1])) or any("q" in self.taint(ctx, x, vt) for x in pos):
                 return "neg"                    # an element the address picks, or a part at a position the address gives
-            return "val" if self.aclass(ctx, e[1], vt, sc, cur, seen) == "val" else "neg"
+            c = None
+            if k != "psl" and (k != "call" or len(e[2]) == 1):
+                try:
+                    hi = self.const_int(ctx, pos[0], sc)
+                    lo = self.const_int(ctx, pos[1], sc) if k == "sl" else hi
+                    lo0 = self.lowbound(ctx, e[1])
+                    c = self.aclass_part(ctx, e[1], hi - lo0, lo - lo0, vt, sc, cur, seen)
+                except (Unsupported, IndexError):
+                    c = "?"
+            if c is None or c == "?":
+                c = self.aclass(ctx, e[1], vt, sc, cur, seen)
+            return "val" if c in (None, "val") else "neg"
         if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS | {"to_integer", "conv_integer", "resize", "to_unsigned", "to_signed", "conv_std_logic_vector"}:
             if any("q" in self.taint(ctx, x, vt) for x in e[2][1:]):
                 return "neg"
@@ -3993,6 +4005,8 @@ class Ev:
             ca, cb = self.aclass(ctx, a, vt, sc, cur, seen), self.aclass(ctx, b, vt, sc, cur, seen)
             qs = [x for x in (ca, cb) if x is not None]
             if op in ("=", "==", "==="):
+                if not qs:
+                    return "neg"                # no operand class for a compare that carries the address: not a decode known here
                 if all(x == "val" for x in qs):
                     return "pos"                # the address (a part, an offset) compared for equality
                 if len(qs) == 1:                # a flag compared with a constant: flag = '1' is the flag, flag = '0' its negation
@@ -4034,6 +4048,77 @@ class Ev:
                 return "pos" if ok else "neg"
             return "neg"
         return "neg"
+
+    def aclass_part(self, ctx, e, hi, lo, vt, sc, cur, seen):
+        """aclass of bits hi..lo of e: a concatenation keeps its parts apart (cw_addr <= cw_win & io_req.address(15 downto 0): bits 11..0 are the address, whatever
+        the flag cw_win is), followed over slices, conversions, instance ports, continuous assignments and followed instances, as taint_bits_expr does."""
+        if "q" not in self.taint(ctx, e, vt):
+            return None
+        k = e[0]
+        if k == "paren":
+            return self.aclass_part(ctx, e[1], hi, lo, vt, sc, cur, seen)
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+            return self.aclass_part(ctx, e[2][0], hi, lo, vt, sc, cur, seen)
+        parts = self.cat_parts(ctx, e)
+        if parts is not None:
+            try:
+                ws = [self.ewidth(ctx, x) for x in parts]
+            except Unsupported:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            cs = []
+            for i, x in enumerate(parts):
+                plo = sum(ws[i + 1:])
+                phi = plo + ws[i] - 1
+                if phi >= lo and plo <= hi:
+                    cs.append(self.aclass_part(ctx, x, min(hi, phi) - plo, max(lo, plo) - plo, vt, sc, cur, seen))
+            cs = [c for c in cs if c is not None]
+            return None if not cs else ("val" if all(c == "val" for c in cs) else "neg")
+        if k == "sl" and e[1][0] == "id":
+            try:
+                h2, l2 = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            except Unsupported:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            lo0 = self.lowbound(ctx, e[1])
+            if h2 < l2:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            return self.aclass_part(ctx, e[1], l2 - lo0 + hi, l2 - lo0 + lo, vt, sc, cur, seen)
+        if k == "id" and not (vt is not None and e[1] in vt) and not (sc is not None and e[1] in sc.cur):
+            return self.name_part_class(ctx, e[1], hi, lo, seen)
+        return self.aclass(ctx, e, vt, sc, cur, seen)
+
+    def name_part_class(self, ctx, name, hi, lo, seen):
+        """aclass_part of a name: through an instance port, a continuous assignment of the whole name and a followed instance; any other driver gives the class of
+        the whole name."""
+        k = (id(ctx), name, hi, lo)
+        if k in seen:
+            return "neg"
+        seen = seen | {k}
+        mod = ctx.mod
+        if (ctx is self.bus and name in self.rootv) or "." in name or (id(ctx), name) in self.hold:
+            return self.name_class(ctx, name, None, None, None, seen)
+        if ctx.parent is None and mod.nets:
+            for inst in mod.insts:
+                for f, a in inst.ports:
+                    if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
+                        ch = [x for x in self.followed if x.parent is ctx and x.inst is inst]
+                        return self.name_part_class(ch[0], f, hi, lo, seen) if ch else "neg"
+            return self.name_class(ctx, name, None, None, None, seen)
+        port = mod.ports.get(name)
+        if port is not None and port[0] == "in":
+            if ctx.parent is not None and ctx.inst is not None:
+                for f, a in ctx.inst.ports:
+                    if f == name and a is not None:
+                        return self.aclass_part(ctx.parent, a, hi, lo, None, None, None, seen)
+            return "neg"                        # the taint has the address, so it came over a connection not found here
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        ds = ctx.drv.get(name, [])
+        if len(ds) == 1 and ds[0][0] == "ca" and ds[0][1][0] == "id":
+            return self.aclass_part(ctx, ds[0][2], hi, lo, None, None, None, seen)
+        if len(ds) == 1 and ds[0][0] == "inst":
+            ch = [x for x in self.followed if x.parent is ctx and x.inst is ds[0][1]]
+            return self.name_part_class(ch[0], ds[0][2], hi, lo, seen) if ch else "neg"
+        return self.name_class(ctx, name, None, None, None, seen)
 
     def name_class(self, ctx, name, vt, sc, cur, seen):
         """aclass of a name: through instance ports, continuous assignments and followed instances; a name a process assigns by the assignments that ran (eff_class)."""
