@@ -16,7 +16,8 @@ check
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
   read does not run (a strobe register that ignores the data byte; the write flag alone is no write). Such a strobe is a write of the byte only when the last decision on
   the address before it selects the byte by name (taint s): a case arm whose choices are constants that the address (or a part, copy or offset of it) is compared with,
-  an if whose condition holds only for the addresses it compares for equality (`we = '1' and addr = x"25"`, a flag set from such a compare). The bits of a
+  an if whose condition holds only for the addresses it compares for equality (`we = '1' and addr = x"25"`, an and of such a compare with any other condition:
+  trx_io's `we && !win && page == 4'd6`, a flag set from such a compare). The bits of a
   concatenation keep their own class (pix_layer's `addr` is `cw_addr(11 downto 0)` of `cw_addr <= cw_win & io_req.address(15 downto 0)`: the address). The arm `when others` or
   `default` of a case on the address, the else of an if on the address, an inequality (`/=`, `!=`), a range (`when 16#21# to 255`, `addr >= x"20"`), a negated compare,
   a case on a compare (`case addr = x"20" is when false`) and a flag set on such a path select every byte but some: a strobe there is no write of a byte (mini9's p5:
@@ -4024,8 +4025,12 @@ class Ev:
                 # address while the operand does
                 if op in ("||", "or", "|") and len(qs) < 2:
                     return "neg"
-                ok = all(x == "pos" or (x == "val" and self.ewidth_of(ctx, y, sc) == 1) for x, y in ((ca, a), (cb, b)) if x is not None)
-                return "pos" if qs and ok else "neg"
+                sel = [x == "pos" or (x == "val" and self.ewidth_of(ctx, y, sc) == 1) for x, y in ((ca, a), (cb, b)) if x is not None]
+                if op in ("&&", "and", "&"):
+                    # an and holds only where each operand holds: one operand that compares the address for equality selects by name, any other narrows it
+                    # (trx_io's `we && !win && page == 4'd6`)
+                    return "pos" if any(sel) else "neg"
+                return "pos" if sel and all(sel) else "neg"
             if op in ("and", "or", "&", "|", "xor", "^", "+", "-", "*") and all(x == "val" for x in qs):
                 return "val"                    # a mask or an offset of the address
             return "neg"
