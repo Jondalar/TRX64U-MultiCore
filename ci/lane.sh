@@ -14,7 +14,8 @@
 #   A core lane is a partial core (dfx) or a large core (large: cores/<id>/mono/core.toml, its own flat bitstream), tools/core_toml.py lanes.
 #
 # The steps (D8): 1 lint (ci/lint.sh <lane>, its own job), 2 unit, 3 changed, 4 compare, 5 needs, 6 build, 7 fits (the SDK: test), 8 service, 9 ui, 10 api,
-# 11 package, 12 emulator tests (tests/hostapp/emu_host.sh, the emulator job), 13 deliver (the artifact of the job).
+# 11 package, 12 emulator tests (the emulator jobs: a core lane's app alone, tests/coreapp/emu/core_round.sh; the host menu lane's round with vc20.cor,
+# tests/hostapp/emu_host.sh), 13 deliver (the artifact of the job).
 # env: CI_HANDOFF (the hand-over directory: the dispatcher's plan.json, the artifacts of the lanes this one needs: sdk/, bits/), CI_BIT_CACHE (the restored
 # bitstreams), CI_APPTESTS_OK and CI_TRXAPPS_CACHE (the caches of the jobs).
 set -euo pipefail

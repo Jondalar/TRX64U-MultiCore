@@ -11,8 +11,8 @@ pipeline's jobs (its job lint runs every group of ci/lint.sh), so this run has n
 (scope full: main, integration, integ-*, release/*, v* tags; or --update yes) the matrix makes the whole package instead, so every lane runs; on any other
 branch only the lanes the push touched start (the D2 addendum: an app change drags no core in): the core lanes of ci/orchestrate.py matrix_lanes (a core the
 plan names, its sources or its app; every core lane when the application tests changed or the plan has no base - the same rule names their bitstreams in the
-old pipeline's work order), the SDK lane when the shared app changed or a core lane runs, the host menu lane when the host app changed or a core lane runs
-(its emulator tests take the host app). Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1), alone or beside: no lane, no lint leg, no
+old pipeline's work order), the SDK lane when the shared app changed or a core lane runs, the host menu lane when the host app changed or a core lane runs.
+Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1), alone or beside: no lane, no lint leg, no
 package.
 
   ci/dispatch.py <plan.json> --tier N [--beside] [--update yes|no]

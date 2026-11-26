@@ -5,12 +5,13 @@
 #
 #   tests/hostapp/emu_host.sh <images dir> <out dir>
 #
-# T239.5 (step 12 of the matrix): EMU_OWN_APP=<core> runs the kit's .cor with the app it was packed with (a core lane packed it from the core's own app, linked from the
-# SDK); its symbols are <images dir>/<core>.elf and nothing is swapped in. Unset: the shared app (coreapp.app) is swapped into the kit's vc20.cor (the old pipeline).
-# T239.5 D13: the round host -> core -> menu -> host is the same for every core of the kit (ci/emu_kit.sh --core <core>); what differs is the core's own data, read by
+# T239.5 (step 12 of the host menu lane, S6, D18: EMU_OWN_APP=vc20): EMU_OWN_APP=<core> runs the kit's .cor with the app it was packed with (a core lane packed it
+# from the core's own app, linked from the SDK); its symbols are <images dir>/<core>.elf and nothing is swapped in. Unset: the shared app (coreapp.app) is swapped
+# into the kit's vc20.cor (the old pipeline). A core lane's own step 12 runs the core's app alone, without the host (tests/coreapp/emu/core_round.sh).
+# The round host -> core -> menu -> host is the same for every core of the kit (ci/emu_kit.sh --core <core>); what differs is the core's own data, read by
 # tools/ue2emu_core.py: a DFX core's partial or a large core's IPROG and boot magic, the ID word and name the core app identifies, the modifier of its menu hotkey
-# (with RESTORE; the menu button when the core has no hotkey) and the stand-ins of the ROM files it needs. The host menu's own flows walk vc20.cor and run in
-# the VIC-20's lane only.
+# (with RESTORE; the menu button when the core has no hotkey) and the stand-ins of the ROM files it needs. The host menu's own flows walk vc20.cor and run only
+# when the round's core is the VIC-20.
 # <images dir>: hostapp_emu.elf (ci/trxapps.sh: the host app built with HOSTAPP_EMU_FLASH) and coreapp.elf. <out dir>: the run's log, flash image and PNGs
 # (host-start.png, core-menu.png, host-back.png; the T187 picture flow: host-home, host-f8-list, host-picture-page, host-picture-applied). The kit (ROMs, flash.bin, the cores' .cor files) is found as ci/lib.sh ue2emu_kit says (ci/emu_kit.sh, tools/ue2emu_kit.sh); the profiles come from this tree;
 # the emulator is ci/ue2emu.sh (local binary or the UE2EMU_IMAGE container). Prints PASS/FAIL lines; 
@@ -110,7 +111,7 @@ else echo "FAIL host->$core->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
 # the CI container and its /tmp go away with the job: a failed flow shows the end of its log here (runs 2119/2150 failed without it)
 [ "${FAIL:-0}" = 1 ] && [ -f "$out/flow.log" ] && { echo "--- last 60 lines of $out/flow.log"; tail -n 60 "$out/flow.log" | cut -c1-200; echo "---"; }
 if [ "$core" != vc20 ]; then
-    echo "SKIPPED out loud: the host menu's flows (T187 picture, T221 versions, T198 configs, T223 32 entries, T211 page keys) walk vc20.cor; the VIC-20's lane runs them"
+    echo "SKIPPED out loud: the host menu's flows (T187 picture, T221 versions, T198 configs, T223 32 entries, T211 page keys) walk vc20.cor; the host menu lane runs them"
     [ $FAIL = 0 ] && echo "tests/hostapp/emu_host: the round of $core passed" || { echo "tests/hostapp/emu_host: FAILED"; exit 1; }
     exit 0
 fi
