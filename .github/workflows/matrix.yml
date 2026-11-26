@@ -1220,7 +1220,7 @@ jobs:
     # T239.5 D25: approve waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
     name: "Stop the run: approve is red"
     needs: [approve]
-    if: ${{ failure() }}
+    if: ${{ always() && needs.approve.result == 'failure' }}     # its own red only, not a red further up the chain
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1240,7 +1240,7 @@ jobs:
     # T239.5 D25: host-bits waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
     name: "Stop the run: host-bits is red"
     needs: [host-bits]
-    if: ${{ failure() }}
+    if: ${{ always() && needs.host-bits.result == 'failure' }}     # its own red only, not a red further up the chain
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1260,7 +1260,7 @@ jobs:
     # T239.5 D25: bits waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
     name: "Stop the run: bits is red"
     needs: [bits]
-    if: ${{ failure() }}
+    if: ${{ always() && needs.bits.result == 'failure' }}     # its own red only, not a red further up the chain
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1280,7 +1280,7 @@ jobs:
     # T239.5 D25: collect waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
     name: "Stop the run: collect is red"
     needs: [collect]
-    if: ${{ failure() }}
+    if: ${{ always() && needs.collect.result == 'failure' }}     # its own red only, not a red further up the chain
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1300,7 +1300,7 @@ jobs:
     # T239.5 D25: cor waits on an environment without a runner; a rejection fails it before any step runs, so its own stop step never runs. This job does it.
     name: "Stop the run: cor is red"
     needs: [cor]
-    if: ${{ failure() }}
+    if: ${{ always() && needs.cor.result == 'failure' }}     # its own red only, not a red further up the chain
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
