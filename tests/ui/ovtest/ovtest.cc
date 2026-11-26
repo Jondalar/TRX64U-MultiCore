@@ -145,7 +145,7 @@ static const LibOpDecl ops[] = {
 };
 static const LibStateDecl states[] = { { "ovtest.status", status_text } };
 
-int ovtest_register(const LibApi *api, LibRecord *out)
+extern "C" int ovtest_register(const LibApi *api, LibRecord *out)
 {
     if (api->abi_major != U2A_ABI_MAJOR) {
         return 1;

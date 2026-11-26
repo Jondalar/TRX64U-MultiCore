@@ -212,7 +212,7 @@ def table_text(libs, source="TOML B"):
     for lib in libs:
         for key, (ret, par) in ENTRIES.items():
             if key in lib:
-                decl.append("%s %s(%s);" % (ret, lib[key], par))
+                decl.append('extern "C" %s %s(%s);' % (ret, lib[key], par) if key == "register" else "%s %s(%s);" % (ret, lib[key], par))   # a register library may be C (LIB_SRCS_C)
         cell = []
         for key in ("bind", "register_ops"):
             cell.append(lib[key] if key in lib else "0")
