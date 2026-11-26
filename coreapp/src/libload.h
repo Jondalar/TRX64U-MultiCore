@@ -213,7 +213,8 @@ public:
     // Base 4.0 (T239.3 D58, libtab.h libtab_link): a library linked into the app through its TOML B with `register` (a library from outside this repository). `reg` is its
     // lib_register, `int reg(const LibApi *, LibRecord *)`, called here as the loader called a file's: the library gets a slot of kind lib with no image, and its record goes
     // through the checks of a loaded file (the record layout, the counts, the exports, the budget, the registry, the poll); the exports it declares in the TOML B with no
-    // `table` (LibSlot::at_start) have to be in its export_list, and are written into g_libslot_bound. heap_keep and heap_peak are its TOML B budget (U2A3_BUDGET_NONE: none),
+    // `table` (LibSlot::at_start) have to be in its export_list, and are written into g_libslot_bound; an export in its export_list that its TOML B does not declare for it
+    // refuses the library. heap_keep and heap_peak are its TOML B budget (U2A3_BUDGET_NONE: none),
     // held as a file's: heap_keep against the room of the heap, heap_peak as the most its account holds at once. `menu` and `menu_bytes` are its menu record (libmenu.h; null:
     // none), which the loader owns from the call on. LIB_OK, or a refusal with the library's name in err (nothing of it stays registered).
     int link(const char *name, int (*reg)(const LibApi *, LibRecord *), uint32_t heap_keep, uint32_t heap_peak, DescRecord *menu, uint8_t *menu_bytes, char *err, int errlen);

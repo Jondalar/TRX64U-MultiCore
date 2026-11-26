@@ -54,7 +54,7 @@ heap_peak = 4096
 - `sources` and `headers` are files found in the `--src` directories. They are compiled into the app.
 - `register = "fn"` names `int fn(const LibApi *, LibRecord *)`. It is the old `lib_register`: the base calls it at start and takes the operations, state values, events, poll, export list, core hooks and budget from the record, with the checks and refusals it applied to a file.
 - `menu = "path"` is the menu record of the library (a TOML relative to the TOML B). `cor_pack` compiles it and merges it into the description of the core, or puts it into record 7 (version 2) of the `.cor`; the base hands it to the registration of that library.
-- `exports = [{ name, major, table }]` lists the tables the library exports. `table` names a function `const void *fn(void)` that returns the table with its `size` first. A library with `register` may leave `table` out and deliver the table in `LibRecord.export_list`; the base refuses the library when a declared export is not delivered.
+- `exports = [{ name, major, table }]` lists the tables the library exports. `table` names a function `const void *fn(void)` that returns the table with its `size` first. A library with `register` may leave `table` out and deliver the table in `LibRecord.export_list`; the base refuses the library when a declared export is not delivered, and when it delivers one its TOML B does not declare.
 - `heap_keep` and `heap_peak` are the figures of the budget (below), checked as for a file.
 - `needs` names the other libraries of the TOML B that this one calls. The libraries with `register` are registered in the order of their `needs`; a cycle is refused by `tools/libtab.py`.
 

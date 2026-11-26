@@ -217,14 +217,16 @@ static const void *slot_ring(void) { return &g_ring_tab; }
 static const void *slot_trx(void) { return &g_trx_tab; }
 static const void *slot_gone(void) { return 0; }               // linked, and the table is empty on this core
 static const void *slot_online(void) { return g_online_tab; }
+static const void *slot_beta_c64(void) { return g_libslot_bound[4]; }   // a register library's export with no table function: what lib_register delivered
 extern const LibSlot g_libslot[] = {
     { "ringlib", "ring", 1, slot_ring, 0 },
     { "ringlib", "trx", 2, slot_trx, 0 },
     { "ringlib", "gone", 1, slot_gone, 0 },
     { "onlinelib", "online", 1, slot_online, 0 },
+    { "beta", "c64", 2, slot_beta_c64, 1 },
 };
-extern const unsigned g_libslot_n = 4;
-const void *g_libslot_bound[4];
+extern const unsigned g_libslot_n = 5;
+const void *g_libslot_bound[5];
 
 // ------------------------------------------------------------------------------------------------ a writer of images, independent of the packer
 
@@ -2027,12 +2029,26 @@ static void named_exports()
         refused_link("the same export of another library", w, "beta", LIB_REGISTER, "beta", "\"ring\" 1 is exported by \"ringlib\" already");
         use_exports(w, "beta", g_c64_lib2, 1);                                           // another major of another name is fine
         CHECK_EQ(link_lib(w, "beta", &h, err), LIB_OK);
+        CHECK(lib_slot(4, &sz) == &g_ring_tab && sz == sizeof(ExpTab));                 // at the slot its TOML B declares
         w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_like_lib; rec->nexport_list = 1; return 0; };
         refused_link("an export named like a linked library", w, "alpha", LIB_REGISTER, "alpha", "is the name of the library");
         CHECK_EQ(link_lib(w, "gamma", &h, err), LIB_OK);
         w.m.twins["ring"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
         refused_link("a library named like an export", w, "ring", LIB_DUPLICATE, "ring", "name of a table", "ringlib");
         refused_link("a library linked twice", w, "gamma", LIB_DUPLICATE, "gamma", "linked twice");
+    }
+    {   // what lib_register returns, the TOML B declares for that library: an export of no slot, one at another major, one that another library declares
+        World w(U2A_BASE_MINOR);
+        static LibExportDecl undeclared[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "spare", 1, &g_ring_tab, sizeof(ExpTab) } };
+        static LibExportDecl other_major[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "ring", 3, &g_ring_tab, sizeof(ExpTab) } };
+        use_exports(w, "ringlib", undeclared, 2);
+        refused_link("an export its TOML B does not declare", w, "ringlib", LIB_REGISTER, "ringlib", "\"spare\" 1", "TOML B does not declare");
+        use_exports(w, "ringlib", other_major, 2);
+        refused_link("an export at a major its TOML B does not declare", w, "ringlib", LIB_REGISTER, "ringlib", "\"ring\" 3", "TOML B does not declare");
+        use_exports(w, "gamma", g_c64_lib2, 1);
+        refused_link("an export another library declares", w, "gamma", LIB_REGISTER, "gamma", "\"c64\" 2", "TOML B does not declare");
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);                               // the declared ones alone: linked
     }
     {   // an application's file lists no exports (only a library's record does)
         World w(U2A_BASE_MINOR);

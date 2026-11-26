@@ -1535,6 +1535,16 @@ int LibLoader::link(const char *name, int (*reg)(const LibApi *, LibRecord *), u
     int rc = reg(&api_, &rec);
     cur_ = -1;
     int bad = take_record(si, name, rc, rec, bud, fexp, nfexp, menu.d ? &menu.d->rec : 0, err, errlen);
+    for (int k = 0; !bad && k < rec.nexport_list; k++) {   // every export it returns is one its TOML B declares for it (take_record checked the list)
+        bool declared = false;
+        for (unsigned i = 0; i < g_libslot_n && !declared; i++) {
+            declared = !strcmp(g_libslot[i].lib, name) && !strcmp(g_libslot[i].name, rec.export_list[k].name) && g_libslot[i].major == rec.export_list[k].major;
+        }
+        if (!declared) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: lib_register returns the export \"%s\" %u, which its TOML B does not declare.", name,
+                       rec.export_list[k].name, (unsigned)rec.export_list[k].major);
+        }
+    }
     const LibPollDecl *pd = rec.poll.op && rec.poll.op[0] ? &rec.poll : 0;
     if (!bad && menu.d && menu.d->rec.poll.op && menu.d->rec.poll.op[0]) {
         if (pd) {
