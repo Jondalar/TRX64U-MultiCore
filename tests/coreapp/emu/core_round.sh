@@ -7,8 +7,9 @@
 #   2. the core starts: "phase boot_start returned (running)", or "(waiting for a program)" for a core whose desc.toml [core] has needs_program
 #   3. the menu opens ("[core] menu open"): by the menu hotkey (desc.toml [hotkeys] mod held with RESTORE), by the menu button (`rocker up`) for a core
 #      without one; a core that waits for a program and a menu_first core open it by themselves
-#   4. the same key closes it again ("[core] menu closed, machine running"); a core that waits for a program opens it once more with it. A menu_first core
-#      has nothing behind its menu: it stops after 3.
+#   4. the same key closes it again ("[core] menu closed, machine running"). The round stops after 3 for a menu_first core (nothing is behind its menu) and
+#      for a core that waits for a program: its menu cannot close before a program runs (MenuCtl::closable) and its hotkeys are off until the core has
+#      started (HkLoop::poll); a program to run is a file of the core's own kind, which a round that names no core does not make.
 # Pictures in <out dir>: core-start.png (a running core before the menu), core-menu.png (the open menu), core-back.png (after the close); the menu picture
 # must differ from the one after the close. The emulator's console is <out dir>/round.log.
 #
@@ -55,7 +56,6 @@ says=("phase core identified: [core] $ident," "phase boot_start returned ($boot)
 whys=("the core app did not identify ${ident%% *}" "the core did not start ($boot)" "the menu did not open")
 case "$start" in
     running) says+=("[core] menu closed"); whys+=("$how did not close the menu") ;;
-    program) says+=("[core] menu closed" "[core] menu open"); whys+=("$how did not close the menu" "$how did not open the menu again") ;;
 esac
 {
     printf 'expect-console %s 60000\n' "$(q "${says[0]}")"
@@ -65,11 +65,7 @@ esac
             printf 'wait 3000\npng %s/core-start.png\n' "$out"; menu_key
             printf 'expect-console %s 30000\nwait 2000\npng %s/core-menu.png\n' "$(q "[core] menu open")" "$out"; menu_key
             printf 'expect-console %s 30000\nwait 2000\npng %s/core-back.png\n' "$(q "[core] menu closed")" "$out" ;;
-        program)
-            printf 'expect-console %s 60000\nwait 2000\npng %s/core-menu.png\n' "$(q "[core] menu open")" "$out"; menu_key
-            printf 'expect-console %s 30000\nwait 2000\npng %s/core-back.png\n' "$(q "[core] menu closed")" "$out"; menu_key
-            printf 'expect-console %s 30000\nwait 1000\n' "$(q "[core] menu open")" ;;
-        menu_first)
+        program|menu_first)
             printf 'expect-console %s 60000\nwait 2000\npng %s/core-menu.png\n' "$(q "[core] menu open")" "$out" ;;
     esac
     printf 'quit\n'
@@ -81,9 +77,10 @@ esac
 rc=$?
 rm -rf "$w" "$out/round-flash.bin"
 
-# how many of the steps the console shows, each after the one before it (the log may hold NUL bytes of the firmware's UART: out before awk)
+# how many of the steps the console shows, each after the one before it (the log may hold NUL bytes of the firmware's UART: out before awk). The emulator's
+# report of a control line that failed quotes the line ("1: expect-console \"[core] menu closed\": not in the console output ..."): it is no step.
 found="$(tr -d '\000' < "$out/round.log" | awk 'BEGIN { n = ARGC - 1; for (i = 1; i < ARGC; i++) want[i] = ARGV[i]; ARGC = 1; k = 1 }
-    k <= n && index($0, want[k]) { k++ } END { print k - 1 }' "${says[@]}")"
+    index($0, "expect-console") { next } k <= n && index($0, want[k]) { k++ } END { print k - 1 }' "${says[@]}")"
 red() {
     echo "FAIL $core alone: $*"
     echo "--- last 60 lines of $out/round.log"; tail -n 60 "$out/round.log" | tr -d '\000' | cut -c1-200; echo "---"
@@ -93,19 +90,20 @@ if [ "$found" -lt "${#says[@]}" ]; then
     why="${whys[$found]}"
     case "$found" in
         0) got="$(grep -a -m1 'phase core identified' "$out/round.log" | tr -d '\000' | cut -c1-200)"; why="$why (${got:-no identification line})" ;;
-        1) got="$(grep -a -m1 -E 'phase boot_start returned|ROM files' "$out/round.log" | tr -d '\000' | cut -c1-200)"; why="$why: ${got:-no line of the start}" ;;
+        1) got="$(tr -d '\000' < "$out/round.log" | grep -a -v expect-console | grep -a -m1 -A4 -E 'phase boot_start returned|ROM files' | cut -c1-160 | tr '\n' ' ')"
+           why="$why: ${got:-no line of the start}" ;;
     esac
     red "$why; the emulator exited $rc (see $out/round.log)"
 fi
 [ "$rc" -eq 0 ] || red "every step is on the console, but the emulator exited $rc (see $out/round.log)"
 [ -s "$out/core-menu.png" ] || red "no picture of the open menu"
-if [ "$start" != menu_first ]; then
+if [ "$start" = running ]; then
     [ -s "$out/core-back.png" ] || red "no picture after the close"
     ! cmp -s "$out/core-menu.png" "$out/core-back.png" || red "the picture of the open menu is the picture after the close"
 fi
 case "$start" in
     running)    echo "PASS $core alone: ${ident%% *} identified (${ident#* }), started, $how opened the menu and closed it, the machine running (PNGs in $out)" ;;
-    program)    echo "PASS $core alone: ${ident%% *} identified (${ident#* }), waits for a program with its menu open, $how closed it and opened it again (PNGs in $out)" ;;
+    program)    echo "PASS $core alone: ${ident%% *} identified (${ident#* }), waits for a program with its menu open (it closes once a program runs; PNGs in $out)" ;;
     menu_first) echo "PASS $core alone: ${ident%% *} identified (${ident#* }), its menu is its screen and open (PNGs in $out)" ;;
 esac
 exit 0

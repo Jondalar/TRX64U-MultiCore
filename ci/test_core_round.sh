@@ -91,26 +91,32 @@ grep -q '^FAIL vc20 alone: the hotkey ctrl+RESTORE did not close the menu' "$W/o
 say "[t+340 ms] phase core identified: [core] PET1 Commodore PET, cor /Usb0/cores/pet.cor" "$up" "[core] menu open 1 ms" "[core] menu closed, 1 ms"
 if round vc20 vc20; then fail "another core's identification passed"; fi
 grep -q '^FAIL vc20 alone: the core app did not identify VC20 (.*PET1 Commodore PET' "$W/out" || { cat "$W/out"; fail "the wrong identification is not named"; }
-say "$id" "[coreapp] ROM files: ROM files of the VIC-20, wrong content: kernal.bin"
+say "$id" "[coreapp] ROM files: ROM files of the VIC-20 in cores/vc20/roms:" "wrong content: kernal.bin" \
+    '    1: expect-console "phase boot_start returned (running)": not in the console output within 120000 ms emulated'
 if round vc20 vc20; then fail "a core held on its ROM page passed"; fi
 grep -q '^FAIL vc20 alone: the core did not start (running): .*wrong content: kernal.bin' "$W/out" || { cat "$W/out"; fail "the ROM page is not named"; }
+# the emulator's report of the control line that failed quotes the line's text: it is no step
+say "$id" "$up" "[core] menu open 709 ms after the request" '    1: expect-console "[core] menu closed": not in the console output within 30000 ms emulated'
+if round vc20 vc20; then fail "the emulator's report of the missing close passed as the close"; fi
+grep -q '^FAIL vc20 alone: the hotkey ctrl+RESTORE did not close the menu' "$W/out" || { cat "$W/out"; fail "the missing close behind the report is not named"; }
 # the steps in order: a close before the open does not count
 say "$id" "$up" "[core] menu closed, machine running 1 ms" "[core] menu open 1 ms"
 if round vc20 vc20; then fail "a close before the open passed"; fi
 # the emulator's exit counts
 say "$id" "$up" "[core] menu open 709 ms after the request" "[core] menu closed, machine running 12 ms after the close key"
 if FAKE_RC=1 round vc20 vc20; then fail "a run whose emulator exited 1 passed"; fi
-# a core without a hotkey: the menu button; a core that waits for a program: its menu opens by itself, the hotkey closes it and opens it again
+# a core without a hotkey: the menu button; a core that waits for a program: its menu opens by itself and stays open (no key: its hotkeys are off until it runs)
 say "[core] phase core identified: [core] DDTN DDT Look Ma, No VIC, cor x" "$up" "[core] menu open 1 ms" "[core] menu closed, 1 ms"
 round ddt_novic ddt || { cat "$W/out"; fail "the DDT core's round did not pass"; }
 [ "$(grep -c '^rocker up$' "$W/fake/ctl")" = 2 ] && ! grep -q '^hold' "$W/fake/ctl" || { cat "$W/fake/ctl"; fail "a core without a hotkey does not use the menu button"; }
-say "phase core identified: [core] NES_ Nintendo Entertainment System, cor x" "phase boot_start returned (waiting for a program)" "[core] menu open 1 ms" \
-    "[core] menu closed, 1 ms" "[core] menu open 2 ms"
+say "phase core identified: [core] NES_ Nintendo Entertainment System, cor x" "phase boot_start returned (waiting for a program)" "[core] menu open 1 ms"
 round nes nes || { cat "$W/out"; fail "the NES's round did not pass"; }
-grep -q '^PASS nes alone: NES_ identified (Nintendo Entertainment System), waits for a program with its menu open, the hotkey ctrl+RESTORE closed it and opened it again' "$W/out" \
+grep -q '^PASS nes alone: NES_ identified (Nintendo Entertainment System), waits for a program with its menu open' "$W/out" \
     || { cat "$W/out"; fail "no PASS line of a core that waits for a program"; }
-say "phase core identified: [core] NES_ Nintendo Entertainment System, cor x" "phase boot_start returned (waiting for a program)" "[core] menu open 1 ms" "[core] menu closed, 1 ms"
-if round nes nes; then fail "a core that waits for a program passed without the second open"; fi
+! grep -q -E '^(hold|restore|rocker)' "$W/fake/ctl" || { cat "$W/fake/ctl"; fail "the round of a core that waits for a program presses a menu key"; }
+say "phase core identified: [core] NES_ Nintendo Entertainment System, cor x" "phase boot_start returned (waiting for a program)"
+if round nes nes; then fail "a core that waits for a program passed without its menu"; fi
+grep -q '^FAIL nes alone: the menu did not open' "$W/out" || { cat "$W/out"; fail "the missing menu is not named"; }
 # a .cor that is not the core's is refused before the emulator runs
 if round ddt_novic vc20; then fail "the VIC-20's .cor passed as the DDT core's"; fi
 [ ! -e "$W/fake/ctl" ] || fail "the emulator ran for a .cor that is not the core's"

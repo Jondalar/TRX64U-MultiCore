@@ -16,11 +16,11 @@ emulator). The rest comes from the core's .cor (its manifest and its app) and it
   tools/ue2emu_core.py roms <core> <dir>            zero-filled stand-ins of the ROM files the core needs to start (no ROM is in the repository) in <dir>: each [[rom]]
                                                     that is required or part of a set, and the [romset]'s example, at their first size. Prints the files.
   tools/ue2emu_core.py direct <core> <cor>          the core's app started alone (--core with the profile, no host) as shell assignments: prof (the profile's path),
-                                                    ident and hold (as for facts), start (running: the machine runs once the ROMs are in, program: the core waits for a
-                                                    program and its menu opens by itself, menu_first: the menu is its screen and does not close), stick_cor (the .cor's
-                                                    path on the USB stick, from the profile's [handover] path /Usb0/...), rom_dir (the .cor's core folder's roms/ on the
-                                                    stick, where the app looks for ROM files). Refused: a .cor that is not the core's, a hand-over that names another
-                                                    core than the .cor's manifest or a .cor that is not on the stick.
+                                                    ident and hold (as for facts), start (running: the machine runs once the ROMs are in; program: the core waits for a
+                                                    program, its menu opens by itself and stays open until one runs; menu_first: the menu is its screen and does not
+                                                    close), stick_cor (the .cor's path on the USB stick, from the profile's [handover] path /Usb0/...), rom_dir (the
+                                                    .cor's core folder's roms/ on the stick, where the app looks for ROM files). Refused: a .cor that is not the
+                                                    core's, a hand-over that names another core than the .cor's manifest or a .cor that is not on the stick.
   tools/ue2emu_core.py firmware <cor> <elf> <out>   <out>: the ELF of the app's link with the bytes of the .cor's app record in its loaded segments, so the emulator
                                                     runs the .cor's own app with the link's symbols. The packer sets the heap word of the image (cor_pack.py app_heap),
                                                     so the two may differ in that word and nowhere else; refused: another load address, entry or size, a difference
