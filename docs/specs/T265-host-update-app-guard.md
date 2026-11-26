@@ -148,6 +148,9 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   guard_no_recovery, guard_rec_badcrc, guard_jtag_request, guard_100t, guard_time (64 KiB, at most 1.5 x the unguarded time); match_after
   checks verdict 0 and the reported CRC (no record = as today, S6); jtag_magic checks the stale blocks are cleared. The testbench dumps
   0xFF60-0xFF9F as a GUARD line.
+  Tools: the host bitstream slot is 0x000000-0x1DFFFF (D2) in `tools/txu_pack.py` (`SLOT`) and `tools/trx_pkg.py` (`BIT_MAX`, also what
+  `cfw_core.py` and `trx_pkg_check.py` refuse); a larger bitstream is refused with a control at the slot's edge (`txu_pack.py selftest`,
+  `test_trx_pkg.py`); the selftest also compares `HOST_IFACE`, `FLASH_APPL`, the recovery distance and `MAX_APPL_SIZE` of `bootrom.c`.
 - **P2:** the recovery program reuses the host app's drivers (USB with the hub over I2C, SD, FatFs with long names, read-only);
   estimate 110-160 KB of 258,048 bytes. It needs no clock synthesizer or HDMI: CPU and USB clocks come from the 50 MHz PHY clock.
   It never calls `init_flash_disk()` (that formats on a failed probe, `blockdev_flash.cc:177`). Order: flash copy, SD, USB; it keeps

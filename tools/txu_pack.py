@@ -30,7 +30,7 @@ FIXED = 80                     # 76 bytes of header + the CRC; each part adds PA
 PART = 48
 KIND_HOST, KIND_APP = 1, 2
 FLASH_ADDR = {KIND_HOST: 0x000000, KIND_APP: 0x220000}
-SLOT = {KIND_HOST: 0x220000, KIND_APP: 0x1E0000}
+SLOT = {KIND_HOST: 0x1E0000, KIND_APP: 0x1E0000}   # T265 D2: the host bitstream ends at 0x1DFFFF, 0x1E0000-0x21FFFF is the recovery and the guard's record
 IFACE_PROVIDED = 1             # host-app/software/hostapp/txu.h TXU_IFACE_PROVIDED / TXU_IFACE_NEEDED (the selftest compares)
 IFACE_NEEDED = 1
 
@@ -199,6 +199,13 @@ def _selftest():
     hh = open(os.path.join(HERE, "..", "host-app", "software", "hostapp", "txu.h")).read()
     check(int(re.search(r"#define TXU_IFACE_PROVIDED (\d+)u", hh).group(1)) == IFACE_PROVIDED, "TXU_IFACE_PROVIDED = IFACE_PROVIDED")
     check(int(re.search(r"#define TXU_IFACE_NEEDED +(\d+)u", hh).group(1)) == IFACE_NEEDED, "TXU_IFACE_NEEDED = IFACE_NEEDED")
+    # the guard's constants are the boot ROM's (host/bootrom/bootrom.c)
+    bc = open(os.path.join(HERE, "..", "host", "bootrom", "bootrom.c")).read()
+    check(int(re.search(r"#define HOST_IFACE +(\d+)", bc).group(1)) == IFACE_PROVIDED, "HOST_IFACE = IFACE_PROVIDED")
+    check(int(re.search(r"#define FLASH_APPL +0x([0-9A-Fa-f]+)", bc).group(1), 16) == FLASH_ADDR[KIND_APP], "FLASH_APPL = app flash address")
+    check(int(re.search(r"#define RECOVERY_BELOW +0x([0-9A-Fa-f]+)", bc).group(1), 16) == FLASH_ADDR[KIND_APP] - SLOT[KIND_HOST],
+          "recovery slot starts where the host bitstream slot ends")
+    check(int(re.search(r"#define MAX_APPL_SIZE +\(0x([0-9A-Fa-f]+)", bc).group(1), 16) == SLOT[KIND_APP], "MAX_APPL_SIZE = app slot")
     blob = pack(bit, app, "v", "c")
     # every refusal of the writer
     refuses(lambda: pack(None, None), "nothing to pack")
@@ -209,6 +216,11 @@ def _selftest():
     refuses(lambda: pack(bit, struct.pack("<III", 0x30001, 8, 0x30001) + bytes(8)), "a load address not word aligned")
     refuses(lambda: pack(bit, app, version="x" * 24), "a version that does not fit")
     refuses(lambda: pack(bit, app, iface_provided=0), "interface 0 for a host")
+    # T265 D2: the slot ends at 0x1DFFFF; a bigger bitstream would cover the recovery program (control: the largest that fits)
+    fits = TC.full_bit(frames=(SLOT[KIND_HOST] - 400) // 4)
+    check(len(fits) <= SLOT[KIND_HOST] and len(fits) > SLOT[KIND_HOST] - 400, "the control bitstream fills the slot")
+    check(len(pack(fits, app)) > len(fits), "a bitstream that fills the slot is accepted")
+    refuses(lambda: pack(TC.full_bit(frames=SLOT[KIND_HOST] // 4 + 8), app), "a bitstream larger than the slot (the recovery's room)")
     # every refusal of the reader (what txu.cc refuses too)
     def mut(i, v):
         b = bytearray(blob)
