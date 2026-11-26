@@ -1,6 +1,7 @@
 # T265 — The host boots only its own application, recovers it by itself when another firmware replaced it, and puts out RGB
 
-**Status:** PROPOSED (2026-11-26), asked by Alex.
+**Status:** ACCEPTED (2026-11-26), asked by Alex: "Todo 3: Das T265 und dabei auch das Hostmenu auf Matrix pipeline umstellen"
+(D2 and D3 as proposed; building).
 **Repo:** TRX64U-MultiCore — the host's boot ROM (`host/bootrom/`), a recovery program (new, in the host's flash slot), the host
 app (`host-app/software/hostapp/`: the update writer, the descriptor, the recovery file), the host gateware (`host/`: the RGB
 encoder), the matrix pipeline (the host lane), `tools/txu_pack.py`.
