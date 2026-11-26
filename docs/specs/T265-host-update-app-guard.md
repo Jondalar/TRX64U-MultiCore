@@ -189,4 +189,17 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   paddle_dis_en and the ui_clk DDR2 client `c_*`; 1 for SLOT_*n/BA/DIR lines, slot_a, slot_d_o, slot_d_t, slot_rw, slot_ahi_t, sid_sock*_n
   and drive_leds_n. The inputs of removed blocks have no load. `drv_clk_o` and `drv_data_o` were undriven before and stay so.
 
+  **Built (2026-11-26).** `c64_core_c64ref` keeps `c64_top_c64ref` and `mem`; the cartridge model, expansion port, UCI inputs, REU, DMA
+  window, turbo registers and sockets are constants inside it, its ports shrank to the machine's. `layer2_c64ref.v` instantiates
+  the core and the tie flops (754 + 41 + 176 FDRE) and nothing else; the files `c64ref_io`, `c64ref_sys`, `cart_fill`, `cart_slot`,
+  `slot_port`, `dma_win`, `iec_bus`, `sid_sock_audio`, `c64ref_cw.vh` and the whole `gideon/` copy (drive, GCR, UCI) are deleted;
+  the xdc lost the two cart clocks, `core_sources.tcl` the VHDL read, `core.toml` the 1541 ROM name. Shared files untouched.
+  Three readers of removed paths fixed minimally: `host/sim/cart_unit` (run.sh, tb) and `ci/sims.deps` now read
+  `cores/c64u/cart_slot_c64u.v` (the same module, checked by diff modulo the name); `ci/test_layers_flow.sh` takes
+  `c64_turbo_c64ref.v` as its fixture file where it took `dma_win_c64ref.v`. `contract/host_pin.txt` updated (c64ref is a pinned
+  part of the static). Expected pb_l2 logic after: VIC 1,992 + CPU 700 + CIA 758 + mem 53 + glue 239 + 56 keep LUT1 = about 3,800
+  LUT (computed from the report's module numbers, not synthesised: yosys has no VHDL front end for the CPU), flops 7,595 - 4,243 + 971 tie
+  flops = about 4,320, 24 RAMB36 (the drive's RAMB18 and the cartridge cache go). Checked with yosys: `hierarchy -check`, no implicit nets, widths clean for
+  `layer2` (core as black box) and for `c64_core_c64ref` (top and mem as black boxes).
+
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).

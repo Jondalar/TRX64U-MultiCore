@@ -1,7 +1,7 @@
-# The reference core (T115, Alex 2026-10-25): a slim copy of cores/c64u that exists ONLY to route the host's static against
+# The reference core (T115, Alex 2026-10-25; cut to the machine by T265 D12): a slim copy of cores/c64u that exists ONLY to route the host's static against
 # (host/layers.txt reference:). Never shipped - build_only keeps it out of every .cor list, release set, boot menu and app build.
-# Without REU, turbo, sampler, datasette, UDP streams and SID (T107 D9: silence on the audio words); VIC, CPU, CIAs, drive, cart slot and UCI stay.
-# Self-contained (its own copies of every layer-2 file and of Gideon's VHDL it needs, cores/c64ref/gideon/PROVENANCE.md).
+# Without REU, turbo, sampler, datasette, UDP streams and SID (T107 D9: silence on the audio words), without drive, cart slot, UCI and register windows (T265 D12); VIC, CPU, CIAs, RAM and ROMs stay.
+# Self-contained (its own copies of every layer-2 file it needs).
 id           = "c64ref"
 name         = "C64 Reference"
 version      = "1.0.0"
@@ -14,4 +14,4 @@ build_only   = true
 # the host, UCI and UDP streams of the host off); core_sources.tcl reads the variable for that.
 features     = ["TRX_FEATURES=jtag"]
 sources      = ["cores/c64ref", "vendor/icepi"]
-roms         = ["basic.901226-01", "characters.901225-01", "kernal.901227-03", "1541-ii"]
+roms         = ["basic.901226-01", "characters.901225-01", "kernal.901227-03"]
