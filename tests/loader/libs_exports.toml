@@ -1,6 +1,6 @@
 # TOML B of the exports test (tests/loader/run.sh): the five libraries whose tables test_exports.cc reads, over the recording model of the code behind them (exports_stub.cc). Base 4.0: each
 # library lists its table under `exports` (libslot.h); the entries are the ones of coreapp/libs/shared.toml that the test needs: `bind` (the context the table's members use) and `core` (c64cart: does the
-# running core have the port), `init` (tempdisk). The entries that name functions of the board code the test does not link are left out.
+# running core have the port). The entries that name functions of the board code the test does not link are left out.
 [app]
 name = "exports_test"
 
