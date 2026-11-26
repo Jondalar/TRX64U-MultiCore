@@ -84,7 +84,7 @@ CORES = [
          sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),
     dict(id="diag", match=("port diagnostics",), title="Port Diagnostics", folder="diag",
          files="none", needed="nothing",
-         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `presets/` and `results/` under the core folder; the tests and presets come in the delivery's folder SD/cores/diag, T260 D6, not in the .cor), cores/diag/mono/core.toml (no ROM, no media)"),
+         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `panels/`, `presets/` and `results/` under the core folder); T260 D6, P6 (the tests, panels and presets are the repository folder cores/diag/sd, copied to /SD/cores/diag/ by FTP; neither diag.cor nor this bundle carries them, T260 §4); cores/diag/mono/core.toml (no ROM, no media)"),
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",
@@ -262,7 +262,8 @@ PARAS = {
     ],
     "diag": [
         "Needs no ROM file. The core has no machine: it measures the joystick and paddle ports from test files (`.toml`, in `cores/diag/tests/` on the stick or the card).",
-        "The example tests are written there at the first start (a file that is there already is never overwritten, so an edited test stays).",
+        "The tests, panels and presets are not in this bundle and not in `diag.cor`: they are the folder `cores/diag/sd` of the TRX64U-MultiCore source repository.",
+        "Copy its content (`tests/`, `panels/`, `presets/`) by FTP into the core's folder `cores/diag/` (`/SD/cores/diag/` on the card). A new test is one more `.toml` file there; it needs no new build.",
         "A test says what to plug in, what to press and what to measure; the result is written next to it in `cores/diag/results/` as a `.toml` and a readable `.txt`.",
     ],
     "zxnext": [
