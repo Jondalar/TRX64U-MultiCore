@@ -43,7 +43,8 @@ struct LibApi {
     const SvcNet *net;
     const SvcC64 *c64;
     const SvcLib *lib;                    // base 3.1: the call tables of loaded libraries
-    // base 3.3 (svc_*.h): the generic application's own services, each table size first. io is null on a core without a register window.
+    // base 3.3 (svc_*.h): the generic application's own services, each table size first. io is null without a core context that has a CoreIo, and on a core with
+    // menu_first (svc_io.h).
     const SvcSync *sync;
     const SvcSettings *settings;
     const SvcCtx *ctx;

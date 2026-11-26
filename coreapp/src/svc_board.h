@@ -40,7 +40,8 @@ typedef struct SvcBoard {
     // and 1 s for a buffer. The caller calls media.flush_for_core first for a power off or cycle. Task: any that may block.
     int (*esp32_rpc)(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms);
     // The picture layer takes a new system mode (picture_set_system): `sys` is the video mode (the index of the 6 colour timings: PAL, NTSC, ...) of the System Mode
-    // setting; the layer's HDMI mode and the Picture row are picked again. Second users: c128, c64scpu, the diag app (cores/diag/app/lib/portdiag.cc, for a panel row with `system`). Task: lock.
+    // setting; the layer's HDMI mode and the Picture row are picked again. Second users: a core's own code that sets the System Mode (a page or a panel row of its own), beside
+    // the base's System Mode row. Task: lock.
     void (*video_set_system)(int sys);
     // The video PLL for system mode `sys` with the colour clock's offset `ppm` (-100 .. 100), then the HDMI PLL reset: SetVideoPll and ResetHdmiPll as the one pair a
     // library calls. ppm 0 is the nominal clock. Single library user; kept because no library touches a PLL register and the base's video path programs the same PLL

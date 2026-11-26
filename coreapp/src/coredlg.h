@@ -1,5 +1,5 @@
-// The dialogs of the application host that a core's code may ask through (T260 P7: what the diag core's runner needed, moved out of the shared run.cc's diag-named hook).
-// A core's test runner waits for the person, so it runs on a task of its own and asks through this; run.cc gives every app one (CoreCtx::dialogs), tests/coreapp a model.
+// The dialogs of the application host that a core's code may ask through (base 3.7, T239.3 D54). Code that waits for the person (a test runner, a panel) runs on a task
+// of its own (spawn) and asks through this; the application gives every core one (CoreCtx::dialogs), a native test a model of its own.
 #ifndef COREAPP_COREDLG_H
 #define COREAPP_COREDLG_H
 
