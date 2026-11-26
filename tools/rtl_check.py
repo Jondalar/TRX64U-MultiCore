@@ -14,13 +14,18 @@ check
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
-  read does not run (a strobe register that ignores the data byte; the write flag alone is no write; a process variable outside the case arms of the address is a write
-  only when it takes the data: a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag is not, the signal that takes its value is; inside such an arm the
-  variable can be the register); a read is a response whose data does not come from the literal 0 alone, or
-  whose 0 a case arm that the request's address (not the write or read flag) selects for sure assigns to the whole name as a constant, in the last decision on the address
-  (no case or if on the address inside the arm): a decoded register that reads 0, command_protocol.vhd's command_start. The 0 of an address that no arm selects (`when
+  read does not run (a strobe register that ignores the data byte; the write flag alone is no write). A process variable is decided by its right side: one that takes the
+  request (the address or a flag: a2_regs.vhd's `o := to_integer(unsigned(off))`, also inside an arm of the address) writes no byte, the signal that takes its value does;
+  one whose right side carries no request is a write only by its guard, the address and the write flag together (`when x"40" => pend := '1'`); the data in a variable
+  alone is no write. A read is a response whose data does not come from the literal 0 alone, or
+  whose 0 a case arm that the request's address (not the write or read flag; in the selector or in a choice, `case (1'b1) (addr[3:0] == 4'h0):`) selects for sure assigns
+  to the whole name as a constant, in the last decision on the address (inside the arm no case or if whose selector, choice or condition carries the address or names a
+  process variable): a decoded register that reads 0, command_protocol.vhd's command_start. The 0 of an address that no arm selects (`when
   others`, `default`, an assignment before the case), of an outer arm before its inner decision, of an inner `when others` or `else`, or written to a part of the name
-  stays no read; a copy under such an arm, a mux of the answers, is followed to where it comes from. A module is followed
+  stays no read; a copy under such an arm, a mux of the answers, is followed to where it comes from. A process variable is read on the path that assigned it (an
+  undecided branch runs on its own copy of the state until the paths join). A case or if that the request does not decide, on a process variable that held the address
+  on one path and another value on another, is refused for a byte (the address known in every bit): the merged value has unknown bits that match addresses the
+  request does not have (0x25 or 0 merge to 0b00x00x0x, which matches 0x20). A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
   A block with owner = "core" is checked like a block of the base (D43): decoded, every property written and read as its dir says. Where the RTL hands its bytes to the core, over a port of the
   groups CORE_PORTS (the host: a strobe port that is 1 for the address, or a register driven under the address; a data port of the same group must carry the request's data), the block is
@@ -53,8 +58,11 @@ check
   A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
   A function declared in a process (a2_regs.vhd: b4; in-parameters, local variables `downto 0` assigned in its body, one return at its end) is replaced by its return expression
   at its calls, each local by what was assigned to it, each formal by the argument. Refused: an argument that is a name of neither a scalar nor a vector declared
-  `downto 0` (a subtype name, an ascending vector), a slice of the body outside its argument (when the byte is asked for), a name declared twice (an overload), a call of
-  the function in its own body, a local read before the body assigns it.
+  `downto 0` (a subtype name, an ascending vector); for a formal of an unconstrained vector type that the body indexes, slices or returns (not only copies whole into a
+  local `downto 0`, as b4's `w := v` does), an argument that is no such name (a slice keeps its own index range in VHDL: hib(wd(31 downto 8)) with `return v(15 downto 8)`
+  reads wd(15 downto 8); an expression or a literal); a formal declared with a range that is not `downto 0` or with a type that is neither a scalar nor an unconstrained
+  vector; a slice or an index of the body outside its argument (when the byte is asked for); a name declared twice (an overload); a call of the function in its own body;
+  a local read before the body assigns it. An index below a vector's low bound is refused anywhere.
   The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
   A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
   assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
@@ -1103,15 +1111,18 @@ class VhdlParser(P):
     def function(self, m):
         """A function declared in a process (a2_regs.vhd: b4): in-parameters, local variables, a body of assignments to the locals and one return at its end. A call is replaced
         by the return expression (func_call), each local by the expression last assigned to it and each formal by the argument. A local vector is declared `downto 0`: the
-        assignment renumbers the argument's bits from 0, which the replacement keeps only for an argument whose own range ends at 0 (func_call refuses another). A slice
-        of a local or a formal is marked (a fifth element "f"): its bits must lie inside the argument (Ev.ev), or the call is refused. Refused: a name declared twice
-        (an overload: which body a call takes depends on the argument's type), a call of the function in its own body, and a local read before the body assigns it."""
+        assignment renumbers the argument's bits from 0, as the replacement does. A formal of an unconstrained vector type that the body names otherwise than as the whole right
+        side of `local := formal` (it indexes or slices it, or returns it) keeps the index range of its argument in VHDL: such a formal is noted (need), and func_call
+        takes for it only a name declared `downto 0` (a slice such as wd(31 downto 8), an expression or a literal is refused: the replacement would renumber it from 0). A
+        slice or an index of a local or a formal is marked (a last element "f"): its bits must lie inside the argument (Ev.ev, Ev.call), or the call is refused. Refused: a
+        formal declared with a range that is not `downto 0` or with a type that is neither a scalar nor an unconstrained vector (a subtype name), a name declared twice (an
+        overload: which body a call takes depends on the argument's type), a call of the function in its own body, and a local read before the body assigns it."""
         self.acc("pure") or self.acc("impure")
         self.eat("function")
         name = self.eat()[1]
         if name in self.funcs:
             raise self.err("a function %s declared twice in the process (an overload)" % name)
-        formals = []
+        formals, opn = [], set()
         if self.acc("("):
             while True:
                 if self.txt() in ("signal", "variable", "file"):
@@ -1124,9 +1135,16 @@ class VhdlParser(P):
                 if self.txt() in ("out", "inout", "buffer"):
                     raise self.err("a function parameter of mode %s" % self.txt())
                 self.acc("in")
-                self.subtype()
+                fty = self.subtype()
                 if self.txt() == ":=":
                     raise self.err("a function parameter with a default")
+                if fty.hi is not None:
+                    if fty.asc or fty.lo is None or fty.lo[0] != "n" or not fty.lo[1].known() or fty.lo[1].v != 0:
+                        raise self.err("a function parameter whose range is not `downto 0`")
+                elif fty.name.lower() in VEC_TYPES:
+                    opn.update(names)      # unconstrained: the formal has the argument's index range
+                elif fty.name.lower() not in TYPE_SCALARS:
+                    raise self.err("a function parameter of type %s (a subtype name or a type I do not know)" % fty.name)
                 formals += names
                 if not self.acc(";"):
                     break
@@ -1155,9 +1173,16 @@ class VhdlParser(P):
         saved, env = self.pvars, {}
         self.pvars = dict({f: Decl(f, "var", Ty("formal")) for f in formals}, **locs)     # the names of the body as the slice parser looks them up (asc_high)
         self.funcs[name] = None           # a call of it in its own body: primary sees the name and func_call refuses the recursion
+        named = set()                     # the formals the body names otherwise than as the whole right side of `local := formal`
 
-        def body_expr():
-            e = mark_fslices(self.expr(), set(formals) | set(locs))
+        def body_expr(dst):
+            raw = self.expr()
+            core = raw
+            while core[0] == "paren":
+                core = core[1]
+            if not (dst is not None and core[0] == "id" and core[1] in formals and locs[dst].ty.hi is not None):
+                ids_of(raw, named)
+            e = mark_fslices(raw, set(formals) | set(locs))
             used = set()
             ids_of(e, used)
             if used & (set(locs) - set(env)):       # read before the body assigns it: neither its value nor a signal of the architecture with the same name
@@ -1168,10 +1193,10 @@ class VhdlParser(P):
                 lhs = self.target()
                 if lhs[0] != "id" or lhs[1] not in locs or not self.acc(":="):
                     raise self.err("a function body other than assignments to its variables and one return")
-                env[lhs[1]] = body_expr()
+                env[lhs[1]] = body_expr(lhs[1])
                 self.eat(";")
             self.eat("return")
-            ret = body_expr()
+            ret = body_expr(None)
             self.eat(";")
         finally:
             self.pvars = saved
@@ -1181,14 +1206,16 @@ class VhdlParser(P):
         if self.txt() != ";":
             self.eat()
         self.eat(";")
-        self.funcs[name] = (formals, ret)
+        self.funcs[name] = (formals, ret, opn & named)
 
     def func_call(self, name):
         """f(a, b) of a function declared in the process: its return expression with the arguments put in (see function). An argument that is a name must be a scalar or a
-        vector declared with its own range `downto 0` (a subtype name, an unconstrained or an ascending vector is refused: the body renumbers it from 0)."""
+        vector declared with its own range `downto 0` (a subtype name, an unconstrained or an ascending vector is refused: the body renumbers it from 0). The argument of a
+        formal the body indexes (need) must be such a name: a slice keeps its own index range in VHDL (hib(wd(31 downto 8)) with `return v(15 downto 8)` reads wd(15 downto 8),
+        not bits 15..8 of the slice renumbered from 0), and an expression or a literal has a range the check does not compute."""
         if self.funcs[name] is None:
             raise self.err("a recursive call of %s" % name)
-        formals, ret = self.funcs[name]
+        formals, ret, need = self.funcs[name]
         self.eat("(")
         args = [self.expr()]
         while self.acc(","):
@@ -1196,11 +1223,14 @@ class VhdlParser(P):
         self.eat(")")
         if len(args) != len(formals):
             raise self.err("a call of %s with named or missing arguments" % name)
-        for a in args:
+        for f, a in zip(formals, args):
             while a[0] == "paren":
                 a = a[1]
             d = (self.pvars.get(a[1]) or (self.cur.decls.get(a[1]) if self.cur is not None else None)) if a[0] == "id" else None
             if d is None or d.ty is None:
+                if f in need:
+                    raise self.err("a call of %s whose argument for %s is no name of a vector declared `downto 0` (a slice, an expression or a literal), and the body "
+                                   "indexes %s: in VHDL it keeps the argument's own index range" % (name, f, f))
                 continue
             if d.ty.hi is None and d.ty.name.lower() in TYPE_SCALARS:
                 continue
@@ -2436,20 +2466,32 @@ PASS_FUNCS = {"unsigned", "signed", "std_logic_vector", "std_ulogic_vector", "$s
 
 
 class Ent:
-    __slots__ = ("v", "alts")
+    __slots__ = ("v", "alts", "lossy")
 
-    def __init__(self, v, alts=()):
+    def __init__(self, v, alts=(), lossy=False):
         self.v, self.alts = v, alts
+        self.lossy = lossy    # a process variable whose value merges paths that the known/unknown bits of v do not describe exactly (merge_store): {0x25, 0} is not 0b00x00x0x
+
+
+def v_merge_exact(a, b):
+    """True when v_merge(a, b) takes no value that neither a nor b can take: one covers the other, or both have the same unknown bits and differ in one known bit."""
+    def covers(p, q):
+        return (~p.x & q.x) == 0 and ((p.v ^ q.v) & ~p.x) == 0
+    if covers(a, b) or covers(b, a):
+        return True
+    d = (a.v ^ b.v) & ~a.x & ~b.x
+    return a.x == b.x and d > 0 and d & (d - 1) == 0
 
 
 CORE_PORTS = ("cw_", "dma_", "drv_io_", "gcr_io_", "sidcv_")
 
 
 class Eff:
-    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard")
+    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard", "rt")
 
-    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset()):
+    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset(), rt=frozenset()):
         self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where, self.guard = key, rhs, v, certain, taint, ctx, where, guard
+        self.rt = rt          # the taint of the right side alone (is_write: a process variable that takes the request is no write)
 
 
 class Run:
@@ -2457,14 +2499,16 @@ class Run:
         self.store = {}
         self.effects = []
         self.vt = {}
+        self.rvt = {}         # process variable -> the taint of the values assigned to it (right sides only, no guard): "q" when it held the request's address on some path
         self.dec = 0          # > 0 while the statements of a case arm run that the request's address selects for sure (exec_case): an assignment there is decoded
 
 
 class Sc:
-    __slots__ = ("st", "readall", "names", "snap")
+    __slots__ = ("st", "readall", "names", "snap", "cur")
 
     def __init__(self, st, readall, names):
         self.st, self.readall, self.names, self.snap = st, readall, names, None
+        self.cur = st         # the store of the path being run (exec_if, exec_case run their undecided branches on copies): a process variable is read from it
 
 
 class Ctx:
@@ -2514,11 +2558,11 @@ def walk_assigned(stmts, out):
 
 
 def mark_fslices(e, names):
-    """A slice of one of names (a local or a formal of a process function) with a fifth element "f": Ev.ev refuses it when its bits do not lie inside the argument
-    put in for the name (b4(build, 4) on a 32-bit build reads no byte of it; it is no 0)."""
+    """A slice or an index of one of names (a local or a formal of a process function) with a last element "f": Ev.ev and Ev.call refuse it when its bits do not lie
+    inside the argument put in for the name (b4(build, 4) on a 32-bit build reads no byte of it, bit_of(fl, 15) on 8 bits no bit; it is no 0)."""
     if isinstance(e, tuple):
-        if e and e[0] == "sl" and len(e) == 4 and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in names:
-            return ("sl",) + tuple(mark_fslices(x, names) for x in e[1:]) + ("f",)
+        if e and e[0] in ("sl", "call") and len(e) == {"sl": 4, "call": 3}[e[0]] and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in names:
+            return (e[0],) + tuple(mark_fslices(x, names) for x in e[1:]) + ("f",)
         return tuple(mark_fslices(x, names) for x in e)
     if isinstance(e, list):
         return [mark_fslices(x, names) for x in e]
@@ -3010,6 +3054,8 @@ class Ev:
             return self.ev(ctx, e[1], sc)
         if k == "id":
             n = e[1]
+            if sc is not None and n in sc.names and n in sc.cur:
+                return sc.cur[n].v          # a process variable: the value of the path being run
             if sc is not None and n in sc.st and (sc.readall or n in sc.names):
                 return sc.st[n].v
             return self.val(ctx, n)
@@ -3115,10 +3161,24 @@ class Ev:
         if i.x:
             return X1
         i = i.v - self.lowbound(ctx, base)
+        if i < 0:
+            raise Unsupported("%s: an index below the vector's low bound" % ctx.mod.fname)
         return V(a.v >> i, a.x >> i, 1)
 
     def call(self, ctx, e, sc):
         f, args = e[1], e[2]
+        if len(e) > 3 and len(args) == 1:       # an index in a process function (mark_fslices): inside its argument, or refused
+            i = self.ev(ctx, args[0], sc)
+            if i.known():
+                w = self.ev(ctx, f, sc).w
+                if w is None and f[0] == "id":
+                    try:
+                        w = self.width(ctx, f[1])
+                    except Unsupported:
+                        w = None
+                i0 = i.v - self.lowbound(ctx, f)
+                if i0 < 0 or w is None or i0 >= w:
+                    raise Unsupported("%s: a process function reads bit %d of an argument of %s bits" % (ctx.mod.fname, i.v, w))
         if len(args) == 1 and args[0][0] == "attr" and args[0][2] == "range" and args[0][1][0] == "id":
             # x(y'range): the part of x that has the indices of y
             y = args[0][1][1]
@@ -3129,7 +3189,7 @@ class Ev:
                 return self.index(ctx, f, args[0], sc)
             raise Unsupported("a call of an expression")
         n = f[1]
-        if n in ctx.mod.decls or (sc is not None and n in sc.st):
+        if n in ctx.mod.decls or (sc is not None and (n in sc.st or n in sc.cur)):
             if len(args) != 1:
                 raise Unsupported("a multi-dimensional index")
             return self.index(ctx, f, args[0], sc)
@@ -3545,7 +3605,8 @@ class Ev:
         for k in set(a) | set(b):
             ea, eb = a.get(k), b.get(k)
             if ea is not None and eb is not None:
-                out[k] = Ent(v_merge(ea.v, eb.v), ea.alts + tuple(x for x in eb.alts if x not in ea.alts))
+                out[k] = Ent(v_merge(ea.v, eb.v), ea.alts + tuple(x for x in eb.alts if x not in ea.alts),
+                             ea.lossy or eb.lossy or not (ea is eb or v_merge_exact(ea.v, eb.v)))
             else:
                 e = ea or eb
                 out[k] = Ent(allx(e.v.w or 1), e.alts)
@@ -3565,7 +3626,9 @@ class Ev:
             sel = self.ev(ctx, s[1], sc)
             self.no_pipeline(ctx, s[1], sel)
             ts = self.taint(ctx, s[1], r.vt)
-            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, "q" in ts)      # q: the address (a is on the write and read flags too)
+            # asel: the selector or a choice carries the address (q; a is on the write and read flags too): `case (1'b1) (addr[3:0] == 4'h0): ...` decides on it as well
+            asel = "q" in ts or any("q" in self.taint(ctx, c, r.vt) for ch, _ in s[2] for c in (ch or ()))
+            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, asel, s[1])
         if k == "for":
             a, b = self.const_int(ctx, s[2], sc), self.const_int(ctx, s[3], sc)
             rng = range(a, b + 1) if s[4] == "to" else range(a, b - 1, -1)
@@ -3642,17 +3705,48 @@ class Ev:
             return self.exec_list(ctx, p, body, st, certain, pt2, r, sc)
         if t == 0:
             return self.exec_if(ctx, p, arms[1:], els, st, certain, pt2, r, sc)
+        self.lossy_decision(ctx, p, [c], st, r)
         s1 = dict(st)
-        self.exec_list(ctx, p, body, s1, False, pt2, r, sc)
+        self.on_path(sc, s1, self.exec_list, ctx, p, body, s1, False, pt2, r, sc)
         s2 = dict(st)
-        self.exec_if(ctx, p, arms[1:], els, s2, False, pt2, r, sc)
+        self.on_path(sc, s2, self.exec_if, ctx, p, arms[1:], els, s2, False, pt2, r, sc)
         st.clear()
         st.update(self.merge_store(s1, s2))
 
-    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc, asel=False):
-        """asel: the selector carries the request's address (taint q). An arm with choices that it selects for sure and with no further decision on the address inside
-        (addr_leaf) is the decode of one register: its assignments are marked (Run.dec), so that a response it sets to the constant 0 is a read (zero_alt), unlike the 0 of an
-        address no arm selects (`when others`, `default`, an assignment before the case) or the 0 an outer arm writes before an inner case or if on the address decides."""
+    @staticmethod
+    def on_path(sc, st, fn, *args):
+        """Run fn on the copy st of the store that an undecided branch takes: a process variable it assigns is read from that copy (Sc.cur) until the paths join."""
+        prev, sc.cur = sc.cur, st
+        try:
+            return fn(*args)
+        finally:
+            sc.cur = prev
+
+    def addr_known(self):
+        """True when the request's address is known in every bit (a single byte, lowx 0): then an unknown value of a process variable that holds the address is no part of it."""
+        return all(v.known() for n, v in self.rootv.items() if "q" in self.roott.get(n, ()))
+
+    def lossy_decision(self, ctx, p, exprs, st, r):
+        """An undecided case or if on a process variable that held the request's address on one path and another value on another (mv2: `when '0' => o := addr;
+        when others => o := 0;` then `case o`): the paths are merged into one value with unknown bits (Ent.lossy), whose arms are no addresses the request can have
+        (0x25 or 0 is 0b00x00x0x, which matches 0x20). With the address known in every bit such an arm is a guess: refused. A span (low bits unknown) decides nothing on
+        an arm it is not sure of (its write needs certain effects), so it is not refused there."""
+        if not p.vars or not self.addr_known():
+            return
+        names = set()
+        for e in exprs:
+            ids_of(e, names)
+        for n in sorted(names):
+            ent = st.get(n)
+            if n in p.vars and ent is not None and ent.lossy and "q" in r.rvt.get(n, ()):
+                raise Unsupported("%s: a decision on the process variable %s, which holds the request's address on one path and another value on another "
+                                  "(the merged value is no address the request has)" % (ctx.mod.fname, n))
+
+    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc, asel=False, se=None):
+        """asel: the selector or a choice carries the request's address (taint q). An arm with choices that it selects for sure and with no further decision on the address
+        inside (addr_leaf) is the decode of one register: its assignments are marked (Run.dec), so that a response it sets to the constant 0 is a read (zero_alt), unlike the 0
+        of an address no arm selects (`when others`, `default`, an assignment before the case) or the 0 an outer arm writes before an inner case or if on the address decides.
+        se: the selector expression (lossy_decision)."""
         if not arms:
             return
         ch, body = arms[0]
@@ -3663,7 +3757,9 @@ class Ev:
             m = 1 if 1 in ms else (0 if all(x == 0 for x in ms) else None)
         pa = pt | {"m"} if ch is not None and m != 0 and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
         if m == 0:
-            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc, asel)
+            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc, asel, se)
+        if m is None and se is not None:
+            self.lossy_decision(ctx, p, [se] + list(ch), st, r)
         old = r.dec
         if asel:
             r.dec = 1 if m == 1 and ch is not None and self.addr_leaf(ctx, p, body, r) else 0
@@ -3671,22 +3767,23 @@ class Ev:
             if m == 1:
                 return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
             s1 = dict(st)
-            self.exec_list(ctx, p, body, s1, False, pa, r, sc)
+            self.on_path(sc, s1, self.exec_list, ctx, p, body, s1, False, pa, r, sc)
         finally:
             r.dec = old
         s2 = dict(st)
-        self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc, asel)
+        self.on_path(sc, s2, self.exec_case, ctx, p, sel, arms[1:], s2, False, pt, r, sc, asel, se)
         st.clear()
         st.update(self.merge_store(s1, s2))
 
     def addr_leaf(self, ctx, p, stmts, r):
-        """No case or if inside the statements decides on the request's address (taint q; a process variable this run has not assigned yet counts as the address): the
-        arm that holds them is the last decision on the address."""
+        """No case or if inside the statements decides on the request's address: a selector, a choice or a condition with taint q, or one that names a process variable
+        (whatever the variable holds when the arm is entered, the arm can assign it the address before it decides: mh1's `lo := ...(3 downto 0); case lo`). The arm
+        that holds them is the last decision on the address."""
         for s in stmts:
             k = s[0]
             conds, subs = [], []
             if k == "case":
-                conds, subs = [s[1]], [b for _, b in s[2]]
+                conds, subs = [s[1]] + [c for ch, _ in s[2] for c in (ch or ())], [b for _, b in s[2]]
             elif k == "if":
                 conds, subs = [c for c, _ in s[1]], [b for _, b in s[1]] + [s[2]]
             elif k == "blk":
@@ -3696,7 +3793,7 @@ class Ev:
             for c in conds:
                 names = set()
                 ids_of(c, names)
-                if "q" in self.taint(ctx, c, r.vt) or any(n in p.vars and n not in r.vt for n in names):
+                if "q" in self.taint(ctx, c, r.vt) or any(n in p.vars for n in names):
                     return False
             if not all(self.addr_leaf(ctx, p, b, r) for b in subs):
                 return False
@@ -3713,10 +3810,17 @@ class Ev:
     def do_assign(self, ctx, p, s, st, certain, pt, r, sc):
         lhs, rhs = s[1], s[2]
         key = base_name(lhs)[0]
-        t = pt | self.taint(ctx, rhs, r.vt)
+        rt = self.taint(ctx, rhs, r.vt)
+        t = pt | rt
         snap = {n: st[n] for n in p.vars if n in st}
+        lossy = False
+        if p.vars:
+            names = set()
+            ids_of(rhs, names)
+            lossy = any(n in p.vars and n in st and st[n].lossy for n in names)     # a copy of a merged variable is merged too
         if key in p.vars:
             r.vt[key] = r.vt.get(key, frozenset()) | t
+            r.rvt[key] = r.rvt.get(key, frozenset()) | self.taint(ctx, rhs, r.rvt)
         if lhs[0] == "id":
             base = key.partition(".")[0]
             d = ctx.mod.decls.get(base) or p.vars.get(base)
@@ -3726,14 +3830,14 @@ class Ev:
                     raise Unsupported("%s: a record assigned from an expression" % s[-1])
                 for fn, _ in self.d.record_fields(ti[1]):
                     sub = ("id", rhs[1] + "." + fn)
-                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap, pt)
+                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap, pt, rt)
                 return
             w = self.width(ctx, key) if key not in p.vars else self.width_ty(ctx, p.vars[key].ty)
-            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap, pt)
+            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap, pt, rt, lossy)
             return
         base = key
         rv = self.ev(ctx, rhs, sc)
-        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt))
+        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt, rt))
         if self.is_array(ctx, base):
             return
         cur = st.get(base)
@@ -3743,14 +3847,20 @@ class Ev:
             nv = self.overlay(ctx, curv, lhs, rv)
         except Unsupported:
             nv = allx(w)
-        if not certain:
+        if not certain and base not in p.vars:       # a process variable: the store is this path's copy (put)
             nv = v_merge(curv, nv)
-        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap, None),))      # a part of the name: never a decoded 0 (zero_alt), the other bits come from elsewhere
+        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap, None),),      # a part of the name: never a decoded 0 (zero_alt), the other bits come from elsewhere
+                       base in p.vars and (lossy or (cur is not None and cur.lossy)))
 
-    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
-        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
+    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset(), rt=frozenset(), lossy=False):
+        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt, rt))
         alt = (rhs, ctx, nv, snap, r.dec > 0)      # the assignment's right side, module, value, the process variables, and whether the last case arm of the address runs it (None: a part of the name)
         old = st.get(key)
+        if key in p.vars:
+            # a variable of the process takes its value on the path that runs the assignment: an undecided branch runs on a copy of the store (exec_if, exec_case,
+            # on_path), which is merged with the other path where they join; merged here with its old value, a decision on it later in the branch would guess
+            st[key] = Ent(nv, (alt,), lossy)
+            return
         if certain or old is None:
             st[key] = Ent(nv if certain else allx(nv.w or 1), (alt,))
         else:
@@ -4178,13 +4288,16 @@ class Ev:
     def is_write(self, ctx, e, pvars=()):
         """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
         names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
-        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) outside every case arm that the address selects (taint m) is a write only
-        when it takes the data: a2_regs.vhd's `o := to_integer(unsigned(off))` under the write flag holds the address for every byte of the page; a signal that takes the
-        variable's value carries its taint (Run.vt), and that assignment is the write. Inside such an arm the variable can be the register (`when x"40" => pend := '1'`)."""
+        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) is decided by its right side: one that takes the request (taint a or q:
+        a2_regs.vhd's `o := to_integer(unsigned(off))`, mv3's `o := ...addr(3 downto 0)` inside an arm of the address) holds it, and only the signal that takes its value
+        (which carries its taint, Run.vt) is the write; one whose right side carries no request (`when x"40" => pend := '1'`, or the data) is a write only by the guard,
+        the address and the write flag together, as a strobe register is: the data in a variable alone writes no byte (a temporary the decode copies, or not)."""
         if self.is_response(ctx, e.key):
             return False
-        if e.key in pvars and not (e.taint & {"d", "m"}):
-            return False
+        if e.key in pvars:
+            if e.rt & {"a", "q"}:
+                return False
+            return {"q", "w"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref
         return "d" in e.taint or (({"q", "w"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):
