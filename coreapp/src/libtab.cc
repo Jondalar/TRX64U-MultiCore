@@ -69,8 +69,8 @@ void libtab_core(CoreCtx *c, const CoreDesc *d, const DescRecord *rec)
 void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes), void *user, void (*say)(const char *line), int *loaded,
                  int *refused, char *first_refusal, int first_len)
 {
-    for (unsigned i = 0; i < g_libtab_n; i++) {
-        const LibEntry &e = g_libtab[i];
+    for (unsigned k = 0; k < g_libtab_link_n; k++) {
+        const LibEntry &e = g_libtab[g_libtab_link_order[k]];
         if (!e.reg) {
             continue;
         }

@@ -149,7 +149,34 @@ def load(path):
         for need in lib.get("needs", []):
             if need not in names:
                 raise LibTabError("%s: library '%s' needs '%s', which the file does not list" % (path, lib["name"], need))
+    try:
+        link_order(libs)
+    except LibTabError as e:
+        raise LibTabError("%s: %s" % (path, e))
     return libs
+
+
+def link_order(libs):
+    """Base 4.0: the order in which the base links the libraries (LibLoader::link for those with `register`): every library after the libraries its `needs` name, a need may
+    point to a library later in the file, ties keep the order of the file. A cycle is refused with two of its names. Returns the libraries in that order."""
+    by = {lib["name"]: lib for lib in libs}
+    state, out = {}, []
+
+    def visit(lib, via):
+        n = lib["name"]
+        if state.get(n) == 2:
+            return
+        if state.get(n) == 1:
+            raise LibTabError("library '%s' and library '%s' need each other (a cycle of needs)" % (via, n))
+        state[n] = 1
+        for need in lib.get("needs", []):
+            visit(by[need], n)
+        state[n] = 2
+        out.append(lib)
+
+    for lib in libs:
+        visit(lib, lib["name"])
+    return out
 
 
 def find_file(root, name):
@@ -213,6 +240,8 @@ def table_text(libs, source="TOML B"):
     if not rows:
         out.append("    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },")
     out += ["};", "const unsigned g_libtab_n = %d;" % len(rows), ""]
+    order = [str(libs.index(l)) for l in link_order(libs) if "register" in l]   # the libraries with `register`, after what they need (libtab_link)
+    out += ["const unsigned g_libtab_link_order[] = { %s };" % (", ".join(order) or "0"), "const unsigned g_libtab_link_n = %d;" % len(order), ""]
     out += ["const void *g_libslot_bound[%d];" % max(1, len(srows))] + sfn + ["", "const LibSlot g_libslot[] = {"] + srows
     if not srows:
         out.append("    { 0, 0, 0, 0, 0 },")

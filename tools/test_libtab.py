@@ -231,3 +231,34 @@ class Vic20App(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LinkOrderTests(unittest.TestCase):
+    """Base 4.0 (P2-6): the base links the libraries with `register` after the libraries their needs name; a cycle is refused with both names."""
+
+    @staticmethod
+    def lib(name, needs=(), register=True):
+        d = {"name": name, "sources": [name + ".cc"], "needs": list(needs)}
+        if register:
+            d["register"] = name + "_register"
+        return d
+
+    def test_trx64u_toml_b_links_in_the_order_of_its_needs(self):
+        base = [self.lib(n, register=False) for n in ("c64cart", "cbm1541", "uci", "tempdisk", "cbmprg")]
+        theirs = [self.lib("trx64u", ["c64cart", "cbm1541", "uci", "tempdisk", "cbmprg", "ring"]), self.lib("monitor", ["ring"]),
+                  self.lib("ring", ["c64cart", "cbm1541", "uci"]), self.lib("online")]
+        order = [l["name"] for l in L.link_order(base + theirs)]
+        self.assertLess(order.index("ring"), order.index("trx64u"))         # a need later in the file comes first
+        self.assertLess(order.index("ring"), order.index("monitor"))
+        self.assertLess(order.index("trx64u"), order.index("monitor"))        # ties keep the order of the file
+        self.assertLess(order.index("monitor"), order.index("online"))
+        t = L.table_text(base + theirs)
+        regs = [i for i, l in enumerate(base + theirs) if "register" in l]
+        self.assertIn("const unsigned g_libtab_link_order[] = { 7, 5, 6, 8 };", t)
+        self.assertEqual(len(regs), 4)
+
+    def test_a_cycle_of_needs_is_refused_with_both_names(self):
+        with self.assertRaises(L.LibTabError) as e:
+            L.link_order([self.lib("a", ["b"]), self.lib("b", ["a"])])
+        self.assertIn("'a'", str(e.exception))
+        self.assertIn("'b'", str(e.exception))

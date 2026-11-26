@@ -30,6 +30,11 @@ struct LibEntry {
 };
 
 extern const LibEntry g_libtab[];                       // libtab_table.cc, generated
+// Base 4.0: the libraries with `register` in the order libtab_link calls them: each after the libraries its `needs` name (a need may point to a library later in the
+// TOML B; ties keep the order of the file; libtab.py refuses a cycle), as indexes into g_libtab. A library reaches through lib_slot only the exports of the libraries it
+// needs, which are registered by then.
+extern const unsigned g_libtab_link_order[];
+extern const unsigned g_libtab_link_n;
 extern const unsigned g_libtab_n;
 
 void libtab_bind(CoreCtx *c, LibLoader &ld);
@@ -54,7 +59,7 @@ static inline const void *libtab_export(const char *name, uint32_t major, uint32
     return 0;
 }
 
-// Base 4.0: the libraries with `register` (a library from outside this repository), in the order of the TOML B, through LibLoader::link, each with the menu record the
+// Base 4.0: the libraries with `register` (a library from outside this repository), in g_libtab_link_order, through LibLoader::link, each with the menu record the
 // bundle carries for it (menu(name, &rec, &bytes): the caller's record for that library, or false; ownership passes to the loader). Each refusal is logged by `say` with
 // the library's name, and the count of loaded and refused libraries is added to *loaded / *refused. Call it once, after libtab_bind, where the base loaded library files.
 void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes), void *user, void (*say)(const char *line), int *loaded,
