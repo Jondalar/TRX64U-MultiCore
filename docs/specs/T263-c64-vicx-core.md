@@ -2,8 +2,8 @@
 
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
-https://github.com/NebulaSleuth/VIC-X/". D1 decided; Q1-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26 (Alex); D1 base = trx64 core without ring and monitor; Q1-Q12 open, nothing built
+https://github.com/NebulaSleuth/VIC-X/". D1, D2 decided; Q1, Q3-Q12 open; nothing built.
+Open (one line, as in the TODO table): PROPOSED 11-26; D1 base trx64 w/o ring+monitor; D2 50T+100T, 50T drops streams/sampler; Q open
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
@@ -194,7 +194,13 @@ Scenario: a program unlocks VIC-X and draws a bitmap layer
   trx64 core ... without ring, monitor etc."). The base is the trx64 C64 of 1.3. The modules marked "out" in 1.3.3 do not go in; the
   standard blocks of 1.3.4 stay.
 
-**Open questions for Alex** (one at a time; none decided):
+- **D2 (Alex, 2026-11-26): both boards are looked at, the 50T and the 100T; on the 50T, if needed, the repurposed standard blocks give way,
+  not VIC-X.** Asked whether the core targets the 100T only, the 50T with blocks given up, or both: "Erstmal beides anschauen. Und ggfs bei
+  den umfunktionierten reduzieren." (translated: "Look at both first. And reduce, if needed, among the repurposed ones.") Asked whether
+  "the repurposed ones" are the blocks taken over from the trx64 core: "Ne, steaming, sampler usw. Genau." (translated: "No, streaming,
+  sampler etc. Exactly."). So VIC-X stays the full build where it fits; on the 50T the levers of Q2 (UDP streams, sampler, turbo, the JTAG
+  debug master, the number of SIDs) give way in that order of need, until it fits; on the 100T nothing gives way. Q2 is answered by this
+  for the 50T (A); which blocks exactly is measured, not guessed (the first Vivado run of each board).
 
 - **Q1 Large or partial.**
   A: large: host and core flat in one bitstream, with the core's own copy of the host files (as `cores/c64scpu/mono/host`, T164 3a Q1).
