@@ -107,11 +107,13 @@ Parts:
 - **D9 (Alex, 2026-11-26: "An und auf RGB"):** at power-on the A/V output is on, in RGB. The setting is a host setting on F8 (host
   settings, Picture), stored with the other video values in `/Flash/boot.cfg` (`video=<sys>,<hdmi>,<av>`), so a user can switch it
   off; the register's reset value is RGB.
-- **D8 (Alex, 2026-11-26, on the host's timing margin: "Dann streichen wir weiter am c64ref"):** the reference core c64ref (build_only,
-  routed with the host) is slimmed further to give the host route room for P1 and P4. Measured before: the host's worst path in run
-  45814821390 (`null.timing.rpt`) is 0.109 ns, `ult/i_cpu/i_dmem/addr_i_reg[8]` to `hout/ovl/scr_reg/WEA[0]` (cpu_mmcm, 10 ns), 7 logic
-  levels, 81 % of the delay is route: a placement/congestion path in the host's static part, not in c64ref. What c64ref loses is read
-  from its utilization report and kept to what the partition contract and the reference role need.
+- **D8 (Alex, 2026-11-26) - withdrawn the same day.** First: "Dann streichen wir weiter am c64ref" (slim the reference core for the
+  host's timing room). Built on a local branch: c64ref reduced to one flop per contract port bit (8,943 LUT, 27 BRAM tiles before). It
+  gave the host nothing: the host's logic and P4's ~560 LUT sit in pb_l1 (13,271 of 17,400 LUT), c64ref in pb_l2; and a host routed
+  against an empty region may route its static nets through pb_l2, where the DFX cores must later route around them. It also undid
+  T115's decision that the reference is a slim C64U, not the null core. Alex: "Ja bitte" (discard): the branch is deleted, c64ref
+  stays as T115 decided. The host's worst path before T265: run 45814821390 (`null.timing.rpt`), 0.109 ns,
+  `ult/i_cpu/i_dmem/addr_i_reg[8]` to `hout/ovl/scr_reg/WEA[0]` (cpu_mmcm, 10 ns), 7 logic levels, 81 % route.
 - **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
   that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den
