@@ -8,12 +8,14 @@ name: Pipeline
 # environment `bitstreams`, where the jobs that need them wait without a runner (D21). Environment `vivado` (job approve) is Alex's click for a commit the builder
 # does not trust by itself (D14); environment `builds` (job prerelease) is the D1 publish.
 #
-# T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix (matrix.yml, the job `matrix`) and none of the jobs of this file: its `plan` does not run
-# there, so every job that needs it is skipped. T239.5 D11, D13, D14: every other push of a branch or a v* tag (not t239.1, not a pull request) runs both, the
-# matrix beside the jobs of this file (input beside: this file's plan, work order, approval, lint and sims are the run's; input tests false on a push to main
-# or a v* tag, D51). There the package of record is the matrix's whole package (its jobs collect and package, the artifact `package`, with the .cor of every
+# T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix alone (matrix.yml, the job `matrix`, input beside false): `plan` does not run there, so
+# every job of this file that waits for a green plan is skipped and only the job summary reports; the job matrix needs plan too, and its `if` starts it when
+# plan was skipped (it makes its own plan, work order and approval). T239.5 D11, D13, D14: every other push of a branch or a v* tag (not t239.1, not a pull
+# request) runs both, the matrix beside the jobs of this file (input beside: this file's plan, work order, approval, lint and sims are the run's; input tests
+# false on a push to main or a v* tag, D51). There the package of record is the matrix's whole package (its jobs collect and package, the artifact `package`, with the .cor of every
 # core lane): this file's job `package` runs only on t239.1 and for a pull request, and update, emu and prerelease take the matrix's artifact. The child
-# cor leaves out the cores with an app of their own (ci/orchestrate.py): their .cor comes from their matrix lane.
+# cor leaves out the cores with an app of their own (ci/orchestrate.py): their .cor comes from their matrix lane (a pull request runs no
+# matrix: no cor leg and no work-order entry for them).
 # Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository
 # is the push's run). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and runs for it.
 # D9: schedule and workflow_dispatch work only for workflows on the default branch, so the nightly and sims-long run from a push to a scratch branch
@@ -108,12 +110,15 @@ jobs:
           # D39: the dropdown `extra` sets both; a push or a pull request has no inputs, so both are false there
           SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
           UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
+          # T239.5 D13: whether the job matrix runs beside this file's jobs (as its `if`: not for a pull request, not on t239.1); without it the work order
+          # names no bitstream of a core with an app of its own (ci/orchestrate.py order_targets): no lane would read it, and the child cor has no leg for it
+          MATRIX: ${{ github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' && 'yes' || 'no' }}
         run: |
           set -eu
           tier="$(ci/select.sh sims-tier)"
           update="$(ci/select.sh update)"
           python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
-          python3 ci/orchestrate.py outputs "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" | tee -a "$GITHUB_OUTPUT"
+          python3 ci/orchestrate.py outputs "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" --matrix "$MATRIX" | tee -a "$GITHUB_OUTPUT"
       - name: Work order
         id: order
         env:
@@ -121,7 +126,7 @@ jobs:
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
           CHILDREN: ${{ steps.children.outputs.children }}
-          COR_TARGETS: ${{ steps.children.outputs.order_targets }}    # T239.5 D13: the cor legs' cores and the touched cores with an app of their own (their matrix lanes)
+          COR_TARGETS: ${{ steps.children.outputs.order_targets }}    # T239.5 D13: the cor legs' cores and every core lane the matrix's dispatcher starts
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:

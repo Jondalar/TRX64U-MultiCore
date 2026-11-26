@@ -12,8 +12,9 @@ run-name: "matrix @${{ github.event.pull_request.head.sha || github.sha }}"
 # plan, work order, approval, lint and sims are the old jobs plan, approve, lint and sim (the artifacts `plan` and `work-order` exist once per run; the builder
 # reads that work order), and where the old pipeline makes a package (scope full, or update asked) the package of record is this file's whole package (D14,
 # the jobs collect and package): the old job package does not run, and the old jobs update, emu and prerelease take this file's artifact `package`. On a
-# feature branch without a package only the lanes the push touched run (ci/dispatch.py). Input tests (T239.1 D51): false on a push to main or a v* tag,
-# where no test runs - the lanes build, pack and deliver; their test steps (2, 4, 7 of the SDK, 8-10) and the emulator job are left out.
+# feature branch without a package only the lanes the push touched run (ci/dispatch.py); a documentation-only push runs no lane. Input tests (T239.1 D51):
+# false on a push to main or a v* tag, where no test runs - the lanes build, pack and deliver; their test steps (2, 4, 7 of the SDK, 8-10) and the emulator
+# job are left out.
 permissions:
   contents: read
 
@@ -92,9 +93,10 @@ jobs:
           python3 ci/dispatch.py "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" $b > "$CI_HANDOFF/dispatch.out"
           cat "$CI_HANDOFF/dispatch.out" >> "$GITHUB_OUTPUT"
           cat "$CI_HANDOFF/dispatch.out"
-      # D14: the whole package needs every entry (ci/order.py: a package child needs them all). Beside the old pipeline (D11) its job plan has uploaded the run's
-      # plan and work order (the same plan; its work order names every entry where a package is made, else the touched cores' entries, those with an app of
-      # their own included: ci/orchestrate.py order_targets), so this job uploads neither: one of each per run
+      # D14: the whole package needs every entry (ci/order.py: a package child needs them all); a documentation-only plan makes no package and starts no lane,
+      # so its work order is empty. Beside the old pipeline (D11) its job plan has uploaded the run's plan and work order (the same plan; its work order names
+      # every entry where a package is made, else the entries of the cor legs and of every core lane this dispatcher starts: ci/orchestrate.py order_targets,
+      # matrix_lanes is the rule of both), so this job uploads neither: one of each per run
       - name: Work order (the bitstreams the builder builds)
         id: order
         if: ${{ !inputs.beside }}
@@ -102,7 +104,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
-          CHILDREN: '["cor","package"]'
+          CHILDREN: ${{ steps.dispatch.outputs.package == 'true' && '["cor","package"]' || '["cor"]' }}
           COR_TARGETS: ${{ steps.dispatch.outputs.cor_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
@@ -615,7 +617,9 @@ jobs:
 
   # D14: the whole package, 11 (second half) and 13: ci/package.sh over every lane's result - the bitstreams of collect, the SDK lane's shared image, sub-apps and
   # SDK package, the host menu, each core lane's .cor (D13: a core with an app of its own is delivered by its lane). The artifact `package` is the one the old
-  # pipeline's update, emu and prerelease read; beside it (integration, integ-*) its own job package does not run, so the run has one.
+  # pipeline's update, emu and prerelease read. Beside it this job runs wherever the old pipeline makes a package (scope full: main, integration, integ-*,
+  # release/*, v* tags; or a feature branch that asks for the update files), and the old job package does not run there (only on t239.1 and for a pull
+  # request, where this file does not run), so the run has one.
   package:
     name: "Whole package: 11 package (every .cor), 13 deliver"
     needs: [dispatch, collect, sdk, host, core]
