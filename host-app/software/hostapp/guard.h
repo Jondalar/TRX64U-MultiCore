@@ -21,7 +21,7 @@ class Flash;
 #define GUARD_W_RECOVERY     0
 #define GUARD_W_GUARD        8
 #define GUARD_W_RESULT       24
-#define GUARD_BLOCK_MAGIC    0x31445247u       // "GRD1": the guard block the boot ROM writes at 0xFF80
+#define GUARD_BLOCK_MAGIC    0x54323635u       // the guard block the boot ROM writes at 0xFF80 (bootrom.c GUARD_VALID)
 #define GUARD_RECOVERY_MAGIC 0x31564352u       // "RCV1": the recovery block the recovery program writes at 0xFF60
 #define GUARD_RES_VALID      0x54313552u       // the result block's magic (bootrom.c RES_VALID)
 #define GUARD_ST_BOOTING     1u                // result status: booted from the flash or a request

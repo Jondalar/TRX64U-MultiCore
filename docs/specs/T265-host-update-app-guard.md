@@ -147,7 +147,8 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
 
 **Built, P2 and P3 (2026-11-26, branch `t265-recovery`; boot ROM, `txu_pack.py`, `trx_pkg.py`, the matrix files are other branches):**
 
-- **Blocks.** The magic words the boot ROM and the recovery program must write are fixed in `host-app/software/hostapp/guard.h`: guard block (0xFF80) `0x31445247` "GRD1", recovery block (0xFF60)
+- **Blocks.** The magic words the boot ROM and the recovery program must write are fixed in `host-app/software/hostapp/guard.h`: guard block (0xFF80) `0x54323635` (the boot ROM's `GUARD_VALID`; words magic, verdict 0-5 with 5 = JTAG request, not
+  enforced, record length, record CRC, flash length, flash CRC, interface, recovery status), recovery block (0xFF60)
   `0x31564352` "RCV1", result magic `0x54313552`, statuses 1 (flash/request) and 9 (guard); recovery block words: magic, medium, stage address, stage length, stage CRC, copy equals record, 0,
   chk = ~(xor of words 0..6). The stage length is the file length (record + data padded to 4). The host application decodes them once (`guard_capture`, `hostapp.cc`) and clears the three magic words.
 - **Recovery program** (`host-app/software/hostrecovery/recovery.cc`, `host-app/target/u64ii/riscv/hostrecovery/`): linked at 0x01800000, R1 (Gideon's file layer as the host app links it), the flash drive
