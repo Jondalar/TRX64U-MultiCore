@@ -119,7 +119,8 @@ Parts:
 
 ## §5 Decisions taken while building
 
-Designs (2026-11-26, read-only analyses with file:line, in the coordinator's scratchpad; their decisions are copied here):
+Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-guard-and-recovery.md`, `p4-rgb-out.md` (sketch in
+`p4-sketch/`, synthesised only), `p5-host-in-the-matrix.md`. Their decisions:
 
 - **P5:** no GitHub job runs Vivado; the builder builds what the run's `work-order` names, and today the old `plan` job writes it and
   names the host only when a package or update is made (`ci/order.py:80-92`). Built: a `host` target in `ci/order.py` and
