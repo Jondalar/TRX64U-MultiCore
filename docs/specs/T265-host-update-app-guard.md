@@ -1,0 +1,103 @@
+# T265 — The host boots only its own application, recovers it by itself when another firmware replaced it, and puts out RGB
+
+**Status:** PROPOSED (2026-11-26), asked by Alex.
+**Repo:** TRX64U-MultiCore — the host's boot ROM (`host/bootrom/`), a recovery program (new, in the host's flash slot), the host
+app (`host-app/software/hostapp/`: the update writer, the descriptor, the recovery file), the host gateware (`host/`: the RGB
+encoder), the matrix pipeline (the host lane), `tools/txu_pack.py`.
+**Number:** T265.
+**Origin:** Alex, 2026-11-26 (translated), after a forum user's board stopped booting: he ran Commodore 1.2.1 from the MultiCore
+host and, inside it, a community "flash patch" updater for 1.2.1. Alex: "That is NOT good ... many people do that." His proposal:
+"What if our host bitstream does not go up to 0x200000, and we have a trampoline safeguard in the range that Gideon's bitstream
+normally covers? It does: is the code at 0x220000 our app? Yes: boot. No: boot a default core with the message 'you broke our
+installation, please rerun the updater'." Then: "Make a spec for host updates: boot ROM with app protection; recovery otherwise
+from /SD, best from the txu, or we put the app next to the settings as 'hostrecovery.app' or so; built with the matrix pipeline
+and no longer in the old one, that is pending anyway; RGB video out in already." The cores need nothing of it: "the cores do not
+need the protection (!)". After this host: "then we rebuild the remaining few DFX cores."
+**Depends on:** T152 (update and flash protection), T164 (host package), T239.5 (matrix pipeline, host lane), T259 (A/V port
+measured: RGB on the SCART cable), T140 (analogue picture; Y/C and composite stay there).
+**Milestone:** M2.
+
+---
+
+## §1 The problem
+
+- **Who:** a user of the MultiCore host who starts a Commodore or Gideon firmware from the host and runs an updater inside it;
+  the host lane of the pipeline; a user with a SCART RGB cable.
+- **What happens today (board report, 2026-11-26, and the code):**
+  - The updater (`Mech_FlashPatch_1.2.1.ue2`, 1,532,768 bytes) is one updater image (record {0x03000000, 0x176354,
+    0x03000000}) with no FPGA bitstream in it (no sync word `AA995566`, no `.bit` header). It asks "Program 1.2.1 Mech?" and
+    writes the "Ultimate Application" only.
+  - It writes Gideon's application partition of the U64-II 50T layout, 0x220000 (`vendor/gideon/software/io/flash/w25q_flash.cc:53`).
+    The host keeps its own application at the same address; the boot ROM loads it from there (`host/bootrom/bootrom.c:74`).
+  - The boot ROM checks that the bitstream in flash carries the running bitstream's build stamp, but not whose application is at
+    0x220000 (`host/bootrom/bootrom.c:398`). At the next power-on it starts the 1.2.1 application on the host gateware, which
+    hangs. The board shows nothing. The way back is a USB Blaster.
+  - F8 "Protect Flash from updates" locks 0x000000-0x3FFFFF before a firmware or a large core is started
+    (`host-app/software/hostapp/host_core.cc:536`), but it is off by default (`flashlock_board.cc:16`, T152 D9).
+  - The host has no analogue picture. The diag core showed on 2026-11-26 how RGB reaches a SCART TV (T259 §5): names map (A = R,
+    B = G, C = B), MSB first, `AVID_SYNCn` = csync, `AVID_FB` high = the TV's RGB switch.
+  - The host gateware is still built by the old pipeline; the matrix's host lane builds the host app only (T239.5).
+- **Room in the flash:** the host bitstream in flash (`null_full.bit` of run 45814821390, compressed) is 1,592,533 bytes and ends
+  at 0x184CD5. The bitstream slot ends at 0x220000. The rest of the slot, 635,691 bytes, is unused today, but it is the room
+  the host bitstream grows into; only a fixed share of it can be given to this spec (D2).
+
+Parts:
+- **P1 The guard:** the boot ROM starts the application at 0x220000 only when it is the host's own.
+- **P2 The recovery:** when it is not, the board repairs itself without a JTAG cable and says what happened.
+- **P3 The writers:** every path that writes the host application keeps the guard's record and the recovery copy current
+  (the `.txu` update, the installer from Commodore firmware, the board tools).
+- **P4 RGB out:** the host puts out RGB on the A/V port (the menu and the cores' pictures) with the values T259 measured.
+- **P5 The build:** the host gateware is built, packed and published by the matrix pipeline's host lane, not by the old one.
+
+## §2 Scenarios
+
+| # | Solves | Scenario | Test | Where |
+|---|---|---|---|---|
+| S1 | P1 | Host app written by the `.txu`; power off and on: the host menu comes up. | board step | board session |
+| S2 | P1 | The app slot holds another firmware's application (the 1.2.1 flash patch run inside a started 1.2.1); power off and on: the boot ROM does not start it (console line names the mismatch). Negative control: the same image with the guard's check removed starts it. | board step; boot ROM bench (`host/sim/flash_boot`) with a foreign image | board session; `ci/sims.txt` |
+| S3 | P2 | After S2 the recovery starts the host application from the recovery copy; the host menu says that the flash application was replaced and that it was repaired, and the next power-on boots normally (S1). | board step | board session |
+| S4 | P2 | No recovery copy is present: the board shows that the installation is broken and what to do (the medium of D4). | board step | board session |
+| S5 | P3 | An app-only `.txu` update and a host+app update: after each, S1 holds and the recovery copy is the new version. Negative control: power lost between writing the app and the record: the next power-on recovers (S3), never starts a half-written app. | `tests/hostapp` unit over the flash model; board step | apptests; board session |
+| S6 | P3 | An installed host without the guard's record (every board today) updates by `.txu` to this host: S1 holds, and the record is written. | board step | board session |
+| S7 | P4 | Host menu, then a DFX core (VC-20), PAL: the SCART RGB cable on Alex's Sony shows the picture in the right colours. | board step, photo | board session |
+| S8 | P1, P4 | The host routes with WNS >= 0 inside its budget; the large cores' bitstreams do not change (their own boot ROM copies, `cores/<core>/mono/host/bootrom_pkg.vhd`). | Vivado report of the host lane; key compare | matrix host lane |
+| S9 | P5 | A push that changes `host/` builds the host gateware in the matrix host lane, and the whole package carries it; the old pipeline builds no host. | the run's step lines | matrix |
+
+## §3 Decision
+
+- **D1 (Alex, 2026-11-26):** the four parts as he listed them: "Bootrom mit App-protection; recovery sonst aus der /SD ... aus der
+  txu oder ... 'hostrecovery.app'; neu gebaut mit der Matrix-Pipeline und nicht mehr im alten; RGB video out rein schonmal". The
+  check lives in the host's boot ROM only; large cores keep their own boot ROM copies (Alex: "die Cores brauchen den Schutz aber
+  nicht"). The DFX cores are rebuilt against the new host afterwards ("dann bauen wir die verbliebenen paar DFX cores neu").
+- **D2 (proposal):** the host bitstream slot becomes 0x000000-0x1DFFFF (1,966,080 bytes; today's bitstream uses 81 % of it). The
+  range 0x1E0000-0x21FFFF (256 KiB) holds the recovery program and, in its last 4 KiB sector (0x21F000), the guard's record:
+  magic, application length, CRC-32 of the application as written at 0x220000. App-only updaters write from 0x220000 up and
+  leave this range alone; a full Gideon or Commodore update rewrites it together with the bitstream, which is a clean install of
+  that firmware.
+- **D3 (proposal):** the boot ROM (8 KiB, `bootrom_8k`) computes the CRC while it loads the application. No record (erased) = boot
+  as today, so boards from before this host still boot (S6). Record present and CRC equal = boot. Record present and CRC
+  different = load and start the recovery program from 0x1E0000. The recovery program reads the recovery copy (D4) into DDR2 and
+  starts it; it writes nothing. The host application, started this way, sees that the flash application differs from itself,
+  says so and writes itself, the copy and the record back (P3).
+- **D4 (open, Q1):** where the recovery copy lives. Alex named two: inside the `.txu` on the SD card, or the application file next
+  to the host settings (`/Flash/trx/hostrecovery.app`, on the flash drive, `hostcfg.h:13`).
+- **D5 (open, Q2):** what the host's RGB output can be set to at run time and what is fixed in the gateware.
+- The order of writes for P3: application, recovery copy, record last.
+
+## §4 Out
+
+- Y/C and composite out of the host: T140, after Rick's NTSC values (T259 D3). Alex: "RGB video out rein schonmal".
+- The large cores: no guard, no change (D1).
+- Protecting against an updater that writes the bitstream slot too: that is a full install of the other firmware (D2).
+
+## §5 Decisions taken while building
+
+(not started)
+
+Open questions:
+- Q1 (D4): the recovery copy from the `.txu` on the SD card, or `/Flash/trx/hostrecovery.app`? (The recovery program needs a FAT
+  reader either way; the SD card has to be read through its slot, the flash drive through the SPI flash the boot path reads
+  already. Free space on the flash drive is to be counted before deciding.)
+- Q2 (D5): RGB settings at run time or fixed in the gateware.
+- Q3: S4's medium when nothing can be recovered (the recovery program starts no video; the boot ROM leaves the clocks to the app).
+- Q4: F8 "Protect Flash from updates" on by default (T152 D4; its board steps S2, S5, S6b, S7, Q5 are open).
