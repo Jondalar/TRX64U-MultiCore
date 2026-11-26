@@ -113,6 +113,8 @@ check "no v1 UI state, no second reader (T192.3)" python3 tools/check_no_v1_ui.p
 check "no v1 UI state: selftest" python3 tools/check_no_v1_ui.py --selftest
 # T211 S1 (D1): the host app names its keys itself; no Gideon page/help/tasks code treated as an F key
 gcheck host "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --selftest && python3 -I tools/check_host_keys.py'
+# T265 P5: the boot ROM package is made by hand; red when host/bootrom moved after it (a host key input that CI never rebuilds)
+gcheck host "boot ROM package not older than its source (T265 P5)" tools/check_bootrom_fresh.sh
 gcheck sdk "u2a_pack test" python3 tools/test_u2a_pack.py
 # T239.3 S1: the API document of the SDK (app/sdkpkg/api.md) has a section for every symbol of the public headers of the core application (libapi.h, svctab.h, ops.h, libfmt.h);
 # the unit test has a complete document and one with a missing section, and runs the real headers against the real document
