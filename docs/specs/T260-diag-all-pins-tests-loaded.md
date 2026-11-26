@@ -145,7 +145,8 @@ Scenario: S11 timing and area
 - Analogue levels: the board has comparators only (T175 §4).
 - Driving an open-drain line high, and driving any pin by hand (T175 D7).
 - Running a test unattended over REST (T175 §4).
-- How the package or the registry carries the core (T239.5 D15: later).
+- How the package or the registry carries the core (T239.5 D15: later). Answered 2026-11-26 by T239.5 D21: every package up to the
+  pre-release carries `diag.cor` and `SD/cores/diag/`; the release bundle does not.
 
 ## §5 Build notes
 
@@ -324,7 +325,8 @@ lane muxes (stage A, 16:1 per chunk, one register after it) and to the 128:1 pin
   `instfiles`, no control there), the golden `menu_portdiag.txt` (needs a diag-app build of `test_desc`'s golden(), open).
 - Lane: `tools/core_toml.py lanes` lists `diag large`; `ci/package.sh` and `ci/cor.sh` leave it out loudly by the TOML B switch (generic, as for the A1200); `ci/emu_kit.sh --core diag`
   and `tests/hostapp/emu_host.sh` (EMU_OWN_APP=diag) added - the profile is this tree's `tests/coreapp/emu/profiles/diag.toml` (the emulator release has none), hotkey and start time copied
-  from the A1200's round, **not run** (step 12 runs only in the matrix).
+  from the A1200's round, **not run** (step 12 runs only in the matrix). Superseded on 2026-11-26 by T239.5 S8 step 12: the profile is
+  `cores/diag/app/ue2emu.toml`, the round is generic (the menu button, since diag's desc.toml has no `[hotkeys]`; the large core's start time).
 
 *Step 3, P6/S9.* `cores/diag/mono/core.toml` has no `install_dir`/`install_old`; `cores/diag/superseded` is deleted (its two sample files moved to `tests/coreapp/instfiles/old`
 with five test files as the fixture of `test_bundle`'s record 8 case, which is generic: the A500's sub-app test uses record 8 too). `gen_bundle.py`: `diag.cor` has no record 8
@@ -408,3 +410,20 @@ evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live
    the test (old DRIVE mask -> one DRIVE per pin in bit order, MASK+EDGES -> EDGES, TIME_TO_FLIP sel -> TTE any, PADCTL -> DRIVE DIS, DRIVE ADJ (a part not named is RELEASE), LOOP K recounted in words), then compare.
 4. `diag_engine.h` (the model) to v2 for the benches of the shipped tests (pins as a 128 bit state, open drain pins pulled high, DRIVE LOW pulls a pin low, the comparators of the paddle test), `render.cc` and
    `test_portdiag.cc` follow (they read LIVE at 0x40).
+
+### Onto t239.3 (2026-11-26)
+
+- Merged onto `t239.3` (T239.5 D15 pattern of the eleven moved cores) and pushed as 4266345b2. diag is an app of its own (`diagapp`, its
+  descriptor out of `cores.h`, `BLUEPRINT_CORES` = apple2 snes); its eleven units (`diagtest`, `portdiag`, `diag_avtrace`, `panel`, `dtv2`,
+  `diag_memops`, `diag_desc`, `diag_descgen`, `diag_hotkeys`, `diag_keywalk`, `diag_uicover`) are listed in its TOML B; the shared goldens
+  lost only their "Port Diagnostics" rows; diag has its own render build (`RENDER_APP_DIAG`) whose pictures come from the real code
+  (stick2.toml through `diag_run_file`, the panel from `sd/panels/avout.toml`).
+- Found on the way (T239.3 D57): the eleven moved cores' TOML Bs and `tools/core_move.py` still named `base_sources = ["portdiag.cc"]`;
+  removed, since portdiag.cc left the base.
+- D54's `CoreDialogs` is base 3.7 (unreleased, `coredlg.h` a root of `tools/sdk_api.py`), SDK 0.5.3; it folds into base 4.0 when P2-6 lands.
+- The record-8 installer's persistence controls are controls of the `bundle` unit now (`instfiles_overwrite`, `instfiles_superseded`).
+- Run (fast tier, Mac): tests/coreapp 299 programs passed, both controls fail as they must; render shared 82,834 checks and diag 9,039
+  checks, 0 failed; tests/loader, sdk_api, check_api_doc, check_d24, check_menuctl_gate, check_controls ok. Not run: RISC-V, the diag
+  lane's gateware, ue2emu, the board.
+- The diag SD folder is not in the package (§4); `tools/release_notes_mc.py` says it is copied from `cores/diag/sd` by FTP. Superseded
+  by T239.5 D21 (02e28716d): the lane delivers `SD/cores/diag/`, every package and pre-release carries it as `SD.zip`.

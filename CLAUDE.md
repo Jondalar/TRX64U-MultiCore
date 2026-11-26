@@ -144,7 +144,8 @@ No code for a change that has no spec section to point at; a one-line fix points
     in Gideon's FW too, we still force the user to install a ROM!", translated). `trx64u.cor` is TRX64-Ultimate's file (T239.3 D21, P1-8): this package takes it
     by the sha256 of its pin and changes no byte. The CI pre-release carries both as well (T239.1 D43, Alex, translated: "They may
     go in! Rule changed. My decision."), and `trx64g.cor` the part of the C64 character ROM that Gideon's application holds (T239.1
-    D44, Alex: "Erlauben"); the ROM check of a CI package lets no other ROM through.
+    D44, Alex: "Erlauben"), `trx64u.cor` the window of it that its Timewarp font holds (T261 D9, Alex 2026-11-25, translated: "The C64
+    ROMs are everywhere on the net, at Gideon and VICE etc. Just carry on with it"); the ROM check of a CI package lets no other ROM through.
 - Name is "TRX64", never "TREX64".
 
 ## Generic app, no per-core code (T192 D24, T213 D4)

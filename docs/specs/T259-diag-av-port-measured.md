@@ -166,6 +166,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   (`tools/d24_ledger.txt`: `portdiag.cc` +59, `portdiag_regs.h` +1, `diagtest.cc` +113, `diagtest.h` +6). Alex (translated): "yes of
   course, I want T259 so that we can measure." Why no generic path fits: a contributed range setting has at most 16 values, the
   playground (D3) needs free values up to the register's range (0..1023), and a suite could not hold A/V walks.
+- **D5 (Alex, 2026-11-26): DSP use of the analogue output is decided per core later; maybe two variants.** DDT wrote to Alex (forum PM,
+  2026-11-26) that his Mandelbrot core's PAL encoder uses no DSP and asked that video output (the scaler too) leave the DSPs to the
+  emulator cores; he also asked for a setting that switches the three A/V pins to analogue R, G, B and to component (Y/Pb/Pr). Alex
+  (translated): "Leave the DSP thing, we will look at what suits the cores best ... maybe we also make 2 variants of video out, with DSP
+  and without, because depending on the core it needs different approaches." Today `cores/diag/rtl/diag_yc.v:164` multiplies
+  (`dsel * gain`). Component is not in D2's list (Y/C, composite, RGB).
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
@@ -207,6 +213,28 @@ Built 2026-11-24 on `t259-diag-av` (P1-P4, P6; P5 is not part of this build, §4
 | S6 | Vivado, the builder's build of db29691a (pipeline run 45408377169, `build_mono_diag`; the later commits change no gateware input, so the key and the bitstream in the board's `diag.cor` of 0612dccf1 are the same): `All user specified timing constraints are met.`, WNS 0.017 ns, TNS 0.000, WHS 0.053 ns; Slice LUTs 13112 of 32600 (40.22 %), Slice Registers 16345 (25.07 %), Block RAM Tile 22.5 of 75 (30.00 %), DSPs 36 of 120 (30.00 %); `diag_avout` 781 LUT (778 logic, 3 SRL), 449 FF, 12 DSP. Before the build, the Yosys estimate of `diag_avout` against the T201 module: LUT 725 -> 869 (+144), FF 451 -> 524 (+73), DSP48 10 -> 14 (+4: the three RGB scalers and the ramp), SRL16 2 -> 7; `diag_regs` +6 byte registers (about 11 FF, 20 LUT); `top.v` nothing |
 
 The T201 benches still pass with the wider `av_cfg` (zero = the old behaviour): `diag_avenc` (`PASS tb_avenc errors=0`), `diag_avregs` (`PASS avregs`, with `PASS tb_avsync errors=0 checks=146`).
+
+**Board, 2026-11-26 (Alex's Sony, a C64U to SCART RGB cable; `diag_new.cor` of run 45805580029 on t239.3, sha256 304b5890..., driven over the
+core app's REST by the coordinator, Alex at the TV; photos in the session)**
+- Gideon's firmware 3.15a ("Analog Video Mode RGB") shows a colour picture through the same cable: cable and TV work.
+- `avprobe` (6 steps, SYNCn High, FB Low): no picture in any step. `avrgb` and `avsync` started from the same pins: no picture either.
+- Playground, mode RGB: SYNCn Csync with FB Low gives a white screen; SYNCn Csync with FB High gives the palette picture. So on this cable
+  `AVID_SYNCn` is the sync the TV takes (SCART pin 20: with FB Low the TV shows the csync itself as video, white between the pulses) and
+  `AVID_FB` switches the TV to its RGB input (SCART pin 16, fast blanking). With SYNCn High the TV has no sync at all, whatever the words hold.
+- Map Names with Groups "Y=C, C=B, CVBS=A" (perm 5) showed the bars white, cyan, yellow, green, magenta, blue, red: R and B swapped by the
+  permutation, which acts on RGB too (`diag_avout.v:211` on t239.3, `who_f(perm)`). With Groups "Y=A, C=B, CVBS=C" (perm 0) the bars are white, yellow, cyan, green,
+  purple, red, blue, black as `diag_avout.v:123-124` (t239.3) draws them, and the grey steps run black to white: H1 holds for RGB (A = R, B = G, C = B).
+- R, G and B ramps (RGB picture R / G / B ramp): each a pure primary, dark to bright across the picture, no steps: MSB first on all three.
+- Saved as the preset `Sony-RGB` (PAL 50 Hz, Map Names, Groups "Y=A, C=B, CVBS=C", MSB first, mode RGB, SYNCn Csync, FB High; the other
+  knobs as `Sony-PAL`) through Save preset; the file read back over FTP holds these values.
+- S2 is proven on the board. S7 (knobs live, Save preset) is proven on the board. S3 is proven for SYNCn Csync with FB Low / High only.
+- Open from this session: the walks' [base] for the SCART cable (avrgb, avsync start with SYNCn High / FB Low and show nothing on it);
+  avprobe cannot find a channel through SCART, because pin 20 carries SYNCn, not a DAC channel; S1 on the luma / composite inputs needs an
+  S-Video or composite cable; NTSC is Rick's (D3).
+- S1 through Alex's SCART cable with S-Video (luma on pin 20; the Sony takes no S-Video, so only the luma channel would show): not run.
+  Alex (2026-11-26, translated): "No, let Rick do that first, his part."
+- A side effect while driving the panel over REST: a script stepped the Standard row through to NTSC 50 Hz by mistake; the HDMI picture
+  flickered until it was set back to PAL 50 Hz. The A/V Standard row also changes the raster the HDMI picture comes from.
 
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
