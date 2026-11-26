@@ -64,10 +64,16 @@ static bool b_gw_status(HvGwStatus *s)
     s->processed = GW(0x4F09);
     return GW(0x4F04) == 0x48;
 }
+static void b_gw_av_write(int mode, int std)
+{
+    if (GW(0x4F04) == 0x48 && GW(0x4F05) >= 2) {                  // a host older than version 2 has no A/V register
+        GW(0x4F0A) = (uint8_t)((mode & 3) | ((std & 3) << 2));
+    }
+}
 static void b_enable(void) { U64_HDMI_ENABLE = 1; }
 static uint32_t b_ms(void) { return xTaskGetTickCount() * portTICK_PERIOD_MS; }
 static void b_pause(int ms) { TickType_t t = pdMS_TO_TICKS(ms); vTaskDelay(t ? t : 1); }
 
-static const HostVideoIo board_io = { b_hpd, video_read_edid, b_gw_present, b_gw_write, b_gw_status, video_apply, b_enable, b_ms, b_pause };
+static const HostVideoIo board_io = { b_hpd, video_read_edid, b_gw_present, b_gw_write, b_gw_status, video_apply, b_enable, b_ms, b_pause, b_gw_av_write };
 
 const HostVideoIo *hostvideo_board_io(void) { return &board_io; }

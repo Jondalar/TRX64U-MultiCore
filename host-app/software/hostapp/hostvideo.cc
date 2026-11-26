@@ -32,6 +32,14 @@ static void ensure(void)
     }
 }
 
+void hv_av_apply(int on)
+{
+    ensure();
+    if (io && io->gw_av_write) {
+        io->gw_av_write(on ? 1 : 0, 0);
+    }
+}
+
 static uint32_t digest(const uint8_t *b, int n)
 {
     uint32_t h = 2166136261u;

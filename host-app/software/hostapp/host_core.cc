@@ -393,6 +393,7 @@ bool hc_cfg_try_load(int *save)
     bootcfg_parse(&g_cfg, g_text);
     g_loaded = true;
     changed();
+    hv_av_apply(g_cfg.vid_av);                        // T265 P4: the stored A/V port setting goes to the host (its power-on value is RGB)
     // T164 WP17: boot.cfg's `video=` is read once. The first start that finds a choice there and none in host.cfg moves it over and clears the line.
     if (hc_picture_load_default(g_cfg.vid_sys, g_cfg.vid_hdmi)) {
         g_cfg.vid_sys = -1;
@@ -476,6 +477,13 @@ int hc_direct_toggle(void)
 {
     g_cfg.direct = !g_cfg.direct;
     return hc_cfg_save();
+}
+
+void hc_av_set(bool on)
+{
+    g_cfg.vid_av = on ? 1 : 0;
+    hc_cfg_save();
+    hv_av_apply(g_cfg.vid_av);
 }
 
 int hc_autostart(bool on, int secs)

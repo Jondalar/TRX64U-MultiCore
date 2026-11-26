@@ -32,6 +32,11 @@
 // of 1080p has; in mig_arb the video client takes turns with the RISC-V/REU pair, and goes before them once a line fetch is 5.3 us
 // old: v_urgent). A request that comes while the previous line is still being read stops that one (it is late anyway); the new
 // one starts once the reads in flight have landed.
+// A/V port (T265 P4): a second requester in the same fetcher serves host/av_rgb.v (the 15 kHz scan-out of the shown buffer): it
+// asks for one source line, or for two lines one stride apart (a_rq_two), ceil(W / 8) reads each, and writes them into av_rgb's own
+// line RAMs (a_we_a for the first line, a_we_b for the second; a_wa = {pair, word}); a_done_tgl toggles when the request is complete.
+// An HDMI request waits for an RGB line in flight (at most 2 x 120 reads), an RGB request for the HDMI line in flight; the HDMI line
+// is stopped by a newer HDMI request exactly as before. The registers are exported for av_rgb (av_*, clk_sys).
 // Page flip: a write of PX_BACK (its byte 3) asks for a flip; at the next
 // frame start the shown buffer (PX_FRONT's, which does not follow: write-only) becomes
 // PX_BACK's and the flip-done cause is raised.
@@ -114,6 +119,22 @@ module pix_layer #(
     input  wire         v_rd_data_valid,
     output reg          v_urgent = 1'b0,
 
+    // the A/V port's scan-out (host/av_rgb.v): the registers it follows (clk_sys) and its line requests (ui_clk side)
+    output wire [6:0]   av_ctrl,
+    output wire [15:0]  av_w, av_h, av_stride,
+    output wire [31:0]  av_front, av_back,
+    output wire         av_cfg_tgl, av_front_tgl, av_back_tgl,
+    input  wire         a_rq_tgl,
+    input  wire [26:4]  a_rq_addr,
+    input  wire [15:0]  a_rq_stride,
+    input  wire [7:0]   a_rq_n,
+    input  wire         a_rq_two,
+    input  wire         a_rq_pair,
+    output reg          a_done_tgl = 1'b0,
+    output wire         a_we_a, a_we_b,
+    output wire [7:0]   a_wa,
+    output wire [127:0] a_wd,
+
     input  wire         vclk,
     input  wire [3:0]   pix,
     input  wire [9:0]   px,
@@ -149,6 +170,10 @@ module pix_layer #(
     reg        cfg_tgl = 1'b0, front_tgl = 1'b0, back_tgl = 1'b0;
     reg [23:0] stg = 24'd0;
     reg [31:0] lat = 32'd0;
+
+    assign av_ctrl = r_ctrl; assign av_w = r_w; assign av_h = r_h; assign av_stride = r_stride;
+    assign av_front = r_front; assign av_back = r_back;
+    assign av_cfg_tgl = cfg_tgl; assign av_front_tgl = front_tgl; assign av_back_tgl = back_tgl;
 
     // events from the other clocks
     wire       px_vs_tgl, px_flip_tgl, px_flip_seen, px_under_tgl, px_vblank, st_done_tgl;
@@ -708,7 +733,19 @@ module pix_layer #(
     reg  [26:4]  st_a;
     wire         st_pend = u_st[1] != st_ack;
 
-    wire issue = run && !nxt && n_left != 8'd0;
+    // the A/V requester (T265 P4): the request from av_rgb's clock (stable from its toggle to the next request), the line in flight
+    (* ASYNC_REG = "TRUE" *) reg [2:0] u_aq = 3'd0;
+    reg          a_pend = 1'b0;         // an A/V request taken, its lines not all started
+    reg          cur_a = 1'b0;          // the line in flight (or the last one started) is an A/V line
+    reg          a_ln = 1'b0;           // the next A/V line of the request is its second
+    reg          cur_ln = 1'b0, cur_last = 1'b0;
+    reg  [26:4]  q_addr;
+    reg  [15:0]  q_stride;
+    reg  [7:0]   q_n;
+    reg          q_two, q_pair;
+
+    // an A/V line is never stopped, so while one runs the HDMI request waits in nxt and the reads go on
+    wire issue = run && (cur_a || !nxt) && n_left != 8'd0;
     assign v_en       = st_pend || issue;
     assign v_cmd      = st_pend ? 3'b000 : 3'b001;
     assign v_addr     = st_pend ? {1'b0, st_a, 3'b000} : rd_a;
@@ -716,13 +753,23 @@ module pix_layer #(
     assign v_wdf_mask = 16'h0000;
     assign v_wdf_wren = st_pend;
     wire rd_go = v_rdy && !st_pend;
+    assign a_wd   = v_rd_data;
+    assign a_we_a = v_rd_data_valid && cur_a && !cur_ln && !wa[7];
+    assign a_we_b = v_rd_data_valid && cur_a && cur_ln && !wa[7];
+    assign a_wa   = {q_pair, wa[6:0]};
+    wire rq_edge = u_rq[2] != u_rq[1];
 
     always @(posedge ui_clk) begin
         u_rq  <= {u_rq[1:0], rq_tgl};
+        u_aq  <= {u_aq[1:0], a_rq_tgl};
         u_st  <= {u_st[0], st_tgl};
-        if (u_rq[2] != u_rq[1]) begin
-            nxt <= 1'b1; run <= 1'b0;
+        if (rq_edge) begin
+            nxt <= 1'b1; if (!cur_a) run <= 1'b0;
             n_addr <= la; n_n <= rq_n; n_slot <= rq_slot; n_sm <= rq_sm; n_tag <= rq_tag;
+        end
+        if (u_aq[2] != u_aq[1]) begin
+            a_pend <= 1'b1; a_ln <= 1'b0;
+            q_addr <= a_rq_addr; q_stride <= a_rq_stride; q_n <= a_rq_n; q_two <= a_rq_two; q_pair <= a_rq_pair;
         end
 
         out <= out + rd_go - v_rd_data_valid;
@@ -733,19 +780,21 @@ module pix_layer #(
         end
         if (v_rd_data_valid) begin
             // four slots of 128 words: a late line's reads landing past its slot are dropped, not written into the next line
-            if (!(cur_sm && wa[7])) lb[cur_sm ? {cur_slot, wa[6:0]} : {cur_slot[0], wa[7:0]}] <= v_rd_data;
+            if (!cur_a && !(cur_sm && wa[7])) lb[cur_sm ? {cur_slot, wa[6:0]} : {cur_slot[0], wa[7:0]}] <= v_rd_data;
             wa     <= wa + 8'd1;
             if (run) begin
                 rcv_left <= rcv_left - 8'd1;
                 if (rcv_left == 8'd1) begin
                     run <= 1'b0;
-                    done_tag <= cur_tag; done_slot <= cur_slot; done_tgl <= ~done_tgl;
+                    if (!cur_a) begin done_tag <= cur_tag; done_slot <= cur_slot; done_tgl <= ~done_tgl; end
+                    else if (cur_last) a_done_tgl <= ~a_done_tgl;
                 end
             end
         end
-        // the next line once the last one's reads have landed
-        if (nxt && u_rq[2] == u_rq[1] && out == 5'd0 && !v_rd_data_valid) begin
+        // the next line once the last one's reads have landed: the HDMI request first, then the A/V request (a line at a time)
+        if (nxt && !rq_edge && !run && out == 5'd0 && !v_rd_data_valid) begin
             nxt      <= 1'b0;
+            cur_a    <= 1'b0;
             run      <= n_n != 8'd0;
             rd_a     <= {1'b0, n_addr[26:4], 3'b000};
             n_left   <= n_n;
@@ -754,13 +803,25 @@ module pix_layer #(
             cur_slot <= n_slot;
             cur_sm   <= n_sm;
             cur_tag  <= n_tag;
+        end else if (!nxt && a_pend && !run && out == 5'd0 && !v_rd_data_valid) begin
+            cur_a    <= 1'b1;
+            run      <= q_n != 8'd0;
+            rd_a     <= {1'b0, a_ln ? q_addr + {7'd0, q_stride[15:4]} : q_addr, 3'b000};
+            n_left   <= q_n;
+            rcv_left <= q_n;
+            wa       <= 8'd0;
+            cur_ln   <= a_ln;
+            cur_last <= a_ln || !q_two;
+            a_ln     <= 1'b1;
+            if (a_ln || !q_two) a_pend <= 1'b0;
+            if (q_n == 8'd0 && (a_ln || !q_two)) a_done_tgl <= ~a_done_tgl;
         end
         // a line not in after 400 clocks (5.3 us) goes before the RISC-V and the REU in mig_arb
         if (!run) age <= 10'd0;
         else if (age != 10'h3FF) age <= age + 10'd1;
         v_urgent <= run && age >= 10'd400;
         if (ui_rst) begin
-            nxt <= 1'b0; run <= 1'b0; out <= 5'd0;
+            nxt <= 1'b0; run <= 1'b0; out <= 5'd0; a_pend <= 1'b0; cur_a <= 1'b0;
         end
     end
 

@@ -147,7 +147,7 @@ Scenario: S4 fits
 
 ## §4 Out
 
-- RGB/SCART: the port has no RGB lines.
+- RGB/SCART out of the C128 core: not in T140. The port has R, G and B words (T259 §5); the host puts RGB out for the DFX cores and its menu (T265 P4).
 
 ## §5 Build notes
 

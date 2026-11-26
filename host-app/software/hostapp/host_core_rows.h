@@ -148,8 +148,8 @@ const char *hc_wifi_net_set_name(int i);          // the label of a row of the W
 void hc_wifi_op_poll(void);                       // the action that was under way has ended: its result is the page's note
 
 // ---- the settings page ---------------------------------------------------------------------------------------------------------------------------
-enum { SK_DIRECT, SK_AUTO, SK_SECS, SK_HDMI, SK_PROTECT, SK_WIFI, SK_FTP, SK_ESP, SK_CORES, SK_REPORT };
-#define HC_SET_SLOTS 10
+enum { SK_DIRECT, SK_AUTO, SK_SECS, SK_HDMI, SK_PROTECT, SK_WIFI, SK_FTP, SK_ESP, SK_CORES, SK_REPORT, SK_AV };   // SK_AV (T265 P4) is listed after SK_HDMI; its number is the last one so the others keep theirs
+#define HC_SET_SLOTS 11
 int hc_set_kinds(int *k);                         // the kinds on the page now, in order
 const char *hc_set_name(int kind);                // the label of a row (the declaration's)
 // The text of one row: its name, its value and its help (the line under the rows when it is selected). One function for the screen and for the service. with_help: the help of the flash

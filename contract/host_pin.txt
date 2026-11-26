@@ -21,6 +21,7 @@ d917bf6b9355e5eb781e214d2d7a5f9f843913a5 cores/common/trx_io.v
 a0f286560cdb313a32232aa18a167215ad9864d1 cores/common/trx_sys.v
 233932782e4c4607ea3746782b1a8dfd010cca7c host/app_i2c.v
 8a15b7b3a882c00363a135c1f94bcc3ee348abee host/app_input.v
+ec3bb17a8b002c81d3409a4bfe04e5a2b380436d host/av_rgb.v
 a9c6227d75bc92b19436f1223bfbb6180456eaee host/bling_io.v
 9f20c2013e4947b13306a14767c12354c84508f2 host/bling_keyboard.v
 05e4c33614fddd209fc963399cbd31e7c5df6de3 host/bootrom/Makefile
@@ -29,7 +30,7 @@ c96e09c963be3dcb603e8370da56f77c2bbe8a22 host/bootrom/crt0.S
 a0211d2a5c24173655494f23e619c97d7ab7dfba host/bootrom/linker.ld
 2d104fb722d37d4ff8d6144e9916ff5de1daf3d6 host/bootrom/mkpkg.py
 fbd3547c7e8f76670fa5f4fcff2971b01692b5d9 host/bootrom_pkg.vhd
-3932c47adfe927e59ee0ed9333bf014331f2e4e5 host/build.tcl
+26304bb0ae1335cc1771936a540fd7ef581b213f host/build.tcl
 d5a65f04366891461e58d38243b2b84148215586 host/c64_text.v
 4cdb8cd1053c835810d890651c2f9a5676e2aa13 host/c64u.xdc
 e010adf4a7d960bc0fbe6d3166595b79bc580b32 host/c64u_keyboard.v
@@ -66,7 +67,7 @@ f82c46650204cecacd21110063c76fce49ca5790 host/hdmi_enc/packet_assembler.sv
 a6addd510b43aa1db870c770451bc43c3c6beed2 host/hdmi_enc/tmds_channel.sv
 ebd3cdad476c4ed66d6569aa7844b3d1a6a9ce03 host/hdmi_gtp.v
 3760b4e83636bf416f87f353895e893c024ab3b2 host/hdmi_modes.vh
-3761c2c424acb6a10d44dee3674748bbf3942b00 host/hdmi_out.v
+8a3542eec1a10de3d3a9ad9046e4d2b996eb323c host/hdmi_out.v
 f9e910643e18c66f083ff46bf52cef812f8c01b2 host/hdmi_timing.v
 5979777b68b0a150314f05d4e794d6a3c29fc3aa host/i2s_out.v
 66844b8abfd53434f25a0b72c30e4dbd08189c84 host/icap_test/Makefile
@@ -78,11 +79,11 @@ f355dd17eb2757a7fe059f8bd8addb93139288fa host/jtag_dbg.v
 f11973768bbdee0fc071da23a18d35f5eb80f656 host/mem/ovl_font8.mem
 09447c10be5e136bbc82bf68c3c976691d1ef50b host/mig_ddr2.prj
 96c75e3a6565183852b5c488f132be0ce3e567db host/mode_ctl.v
-8e7b9498fe6ad9f6c7c339b175f269f6ab1d1ce5 host/mode_req.v
+fa2f11db95ff483666c8589eedb39834055ad892 host/mode_req.v
 876dea50363120b87633dbc7f434a8504cbeab04 host/overlay.v
 c42899c664f5e0697503d567c5afdea021bcf9fd host/pal_ram.v
-e62bcb4fcb3639cf11b4c35b5ad4bddec7e12779 host/pins.xdc
-c6eb2f96b947af31c0278c923f08c487250ef84c host/pix_layer.v
+c5c6c60edd7a004e594f2c5a06ea7d81bab1fff7 host/pins.xdc
+0b3ed5cf929384fd4fcc6bc893a0a23abc0bff11 host/pix_layer.v
 a6e18b33705f8b46bfa107b93174d71f782372e8 host/pktport_host.v
 c2292b47ff7bd87ef15acc8ecd953d716ee2c515 host/portlock_clk.v
 f4b118a6e3b83401f834bc399d346d733dda6ff9 host/pseudo_dpram_8x32_x7.vhd
@@ -94,7 +95,7 @@ a2e00c0eebb3f1ead5880554edd560692bb40c4e host/rvlite_wrapper_dc.vhd
 86fcf811727c6ad96bae6c0da541a982e5907278 host/stream_mux.v
 649cc874d88e64f8e2e0bbe93c7ee065401d6056 host/tmds.v
 94d45d79013a688e3ae6e791ac2ce181d6775efd host/tmds_rep.v
-dd61b70d518db80e2be75b245eed33d707fc86d3 host/top.v
+9bf3c06f9966ea6ee441dec5cd69d00aef6e3504 host/top.v
 0fafdec72a58ee11150e687f1e030da458631425 host/trx_gain.v
 6e523747af775bc14452518b0e396f57e016f668 host/trx_tone.v
 3ff720a3ddb63b9bc2a23e4538178373dc06dc92 host/uci_unit.vhd

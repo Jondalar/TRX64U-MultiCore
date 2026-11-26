@@ -9,7 +9,7 @@ out=${OUT:-$(mktemp -d "${TMPDIR:-/tmp}/t164-wp8-hdmi_out.XXXXXX")}
 mkdir -p "$out"
 JOBS=${JOBS:-8}
 V=$D/../vendor/icepi/hdmi
-SRC="$D/hdmi_timing.v $D/mode_req.v $D/cdce_mode.v $D/tmds_rep.v $D/vic_scaler.v $D/pal_ram.v $D/overlay.v $D/pix_layer.v $D/c64_text.v $D/dfx_decouple.v \
+SRC="$D/hdmi_timing.v $D/av_rgb.v $D/mode_req.v $D/cdce_mode.v $D/tmds_rep.v $D/vic_scaler.v $D/pal_ram.v $D/overlay.v $D/pix_layer.v $D/c64_text.v $D/dfx_decouple.v \
  $D/hdmi_enc/hdmi.v $D/hdmi_enc/packet_picker.sv $D/hdmi_enc/auxiliary_video_information_info_frame.sv $D/hdmi_enc/audio_clock_regeneration_packet.sv \
  $D/hdmi_enc/packet_assembler.sv $D/hdmi_enc/tmds_channel.sv $V/audio_sample_packet.sv $V/audio_info_frame.sv $V/source_product_description_info_frame.sv \
  $D/sim/mig_ui_model.v $here/models.v"

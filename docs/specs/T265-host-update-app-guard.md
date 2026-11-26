@@ -257,5 +257,32 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   app part by `tools/check_release_flash.py --recovery`, named in INSTALL.md (what is in here, the stick: the ROOT, known problems).
 - **Tests.** `tests/hostapp/run_guard.sh` (`test_guard.cc`): cut sweeps over the provisioning (102 cut points), the update writer (239) and the repair (172) with a flash and a RAM disk that lose power at every
   operation; 12 source mutants. Not run: board, RISC-V build, the render bench with the new pages (`SJ_REPAIR`, the warn line), `tests/hostapp/run.sh` as a whole.
+- **P4 built, gateware (2026-11-26, branch t265-rgb; Vivado, timing and board not run):** `host/av_rgb.v` in `hdmi_out` (`sys_clk`, own raster
+  504 x 312 / 520 x 263, sync as `c128_avout.v`, window 364 + 1600 clocks, one sample per `sys_clk` by a phase accumulator, words as IOB flops,
+  `AVID_CLK` = ODDR on the inverted `sys_clk` in `top.v`). Changed from the sketch: the sketch's line RAM with word holds could not work
+  (the top line's word overwrote the old one two clocks before the last old pixel was used; fetch had a deadlock with an HDMI request waiting
+  behind an RGB line), so the line RAM is two RAMs, A (first line) and B (second line of a pair), read at the same address every clock and
+  no word is held: 4 RAMB36 instead of 2 (host block RAM 24.5 -> 28.5 of 35 tiles), 395 FF instead of 722. "Two lines averaged" = source
+  taller than 1.25 x the window (the sketch's "taller than the window" would have squeezed the VC-20's 283 lines at 60 Hz); anything else is 1:1
+  centred or cropped. Only format 1 (RGB565) is shown; format 2 leaves the port black. `pix_layer` exports its registers and takes the
+  requests (`a_*`); an A/V line is never stopped by an HDMI request (it waits, at most 2 x 120 reads), an HDMI line is stopped as before.
+  `mode_req` 0x4F0A (reset 0x01 = RGB on, b3:2 std), version byte 2. `top.v` AVID ports, `pins.xdc` (as `avid_pins.xdc` of the C128),
+  `build.tcl`, `layers.txt`, `host_pin.txt`, `contract/version.toml` 0.2.1 -> 0.3.0 (247 ports, VERSION 2 unchanged), TOML A block
+  `overlay_av_mode` (`rtl_check.py` against the RTL needs the TRX64-Ultimate checkout: not run). yosys `synth_xilinx -family xc7 -flatten`
+  (`nice -n 15`): `av_rgb` 458 LUT, 395 FF, 4 RAMB36, 0 DSP; `pix_layer` +76 LUT, +64 FF against `origin/integration`; `mode_req` +6 LUT,
+  +4 FF; total about 540 LUT, 463 FF (pb_l1 13,271 -> about 13,810 of 17,400 = 79.4 %, before Vivado's packing). Bench
+  `host/sim/avrgb` (`ci/sims.txt` `avrgb`, tier 2; iverilog, the real `pix_layer` with the HDMI side running on the same buffer in the first
+  phases, `mig_arb`, the MIG model): every sample of a frame in 7 phases (50 Hz menu 960 x 540 two-line average, flip to the second buffer,
+  60 Hz crop 540 -> 240, std 0 follows a 263-line core (60 Hz, 640 x 384), std 0 on a 312-line core (50 Hz, 960 x 283 1:1 centred), 50 Hz 640 x 384,
+  off) against a model written in the bench: line length, hsync width, broad lines, window position, FB, 11/16 levels, 4:3 squeeze. HDMI
+  underruns while both read: 0. `host/sim/modepath` checks the register (reset value, write, read-back, version 2) and passes.
+  `host/sim/lat` not rerun: it does not instantiate `pix_layer` (it cannot see the A/V load) and `ddr2_port.v` is unchanged.
+- **P4 built, app (2026-11-26, branch t265-rgb):** `gw_av_write(mode, std)` in `HostVideoIo` (`hostvideo.h`, last member, null in an older
+  rig) and `hv_av_apply(on)`; the board side writes `0x4F0A` only when `0x4F05 >= 2`. `boot.cfg` `video=<sys>,<hdmi>,<av>` (`BootCfg::vid_av`, default
+  1; an older host reads two fields and drops the third); the first start that moves `video=` to `host.cfg` keeps the third field. The value is
+  written to the host after every load of `boot.cfg` and on every change. F8 row `Analogue out` (`SK_AV`, `settings.av`, Off / RGB, a toggle)
+  after `Picture`, `HC_SET_SLOTS` 10 -> 11 (page layout unchanged: the UX review with pictures is the coordinator's). Units run once:
+  `test_bootcfg`, `test_hostcore` (896), `test_hostvideo` (84), each green; the render bench and its golden (`hostrows.txt`, the settings row
+  strings) were edited by hand and not run.
 
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).

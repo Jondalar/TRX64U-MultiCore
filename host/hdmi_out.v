@@ -11,6 +11,9 @@
 // Selection of the picture: on a 1080p row (hm_locked) the VIC path (gear 1) is in the chain, on every other row hdmi_timing's own (black)
 // picture goes into the overlay: the scaler's three clocks of delay would shift the pixels against `pce` of a repeated row.
 //
+// The A/V port (T265 P4): av_rgb.v scans the pixel layer's shown buffer out at 15 kHz in sys_clk (own raster, a second requester in
+// pix_layer's fetcher); the register is mode_req's 0x4F0A. The words go to the AVID pins in top.v.
+//
 // c64_type (static): the core is a C64-type one, held to the System Mode's family and to the VIC-locked rows (mode_req, cdce_mode `lock`). The
 // DFX host ties it to 0 (no DFX core ships on the VIC path, T164 Q4); a large C64-type core's top sets 1.
 module hdmi_out #(
@@ -71,6 +74,10 @@ module hdmi_out #(
     input  wire        cram_grant,
     input  wire [3:0]  cram_rdata,
 
+    // the A/V port (T265 P4): the words are registers in sys_clk (IOB flops), AVID_CLK is top's ODDR on the inverted sys_clk
+    output wire [7:0]  av_r, av_g, av_b,
+    output wire        av_syn_n, av_fb,
+
     // the VIC raster and the palette
     input  wire [3:0]  pix_color,
     input  wire [9:0]  pix_x,
@@ -114,10 +121,12 @@ module hdmi_out #(
     wire        vm_rst, running;
     wire [7:0]  mr_rdata;
     wire        mr_rhit;
+    wire [1:0]  av_mode, av_std;
     mode_req mreq (
         .clk_sys(cpu_clk), .we(ovl_we), .addr(ovl_addr), .wdata(ovl_wdata), .rdata(mr_rdata), .rhit(mr_rhit),
         .clk50(clk50), .c64_type(c64_type), .fam_v60(fam_v60), .vm_mode(vm_mode), .vm_rst(vm_rst),
-        .clk_pix(pix_clk), .mode_pix(mode_pix), .gt_ready(gt_ready), .pix_locked(pix_locked), .running(running), .mode_q(m_mode)
+        .clk_pix(pix_clk), .mode_pix(mode_pix), .gt_ready(gt_ready), .pix_locked(pix_locked), .running(running), .mode_q(m_mode),
+        .av_mode(av_mode), .av_std(av_std)
     );
     cdce_mode i2c (.clk(clk50), .rst(cdce_rst | vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(i2c_done),
                    .mode(vm_mode), .lock(c64_type));
@@ -191,16 +200,40 @@ module hdmi_out #(
     wire        p_de, p_hs, p_vs;
     wire [11:0] p_cx;
     wire [10:0] p_cy;
+    wire [6:0]   avc_ctrl;
+    wire [15:0]  avc_w, avc_h, avc_stride;
+    wire [31:0]  avc_front, avc_back;
+    wire         avc_cfg, avc_fr, avc_bk;
+    wire         a_rq_tgl, a_rq_two, a_rq_pair, a_done_tgl, a_we_a, a_we_b;
+    wire [26:4]  a_rq_addr;
+    wire [15:0]  a_rq_stride;
+    wire [7:0]   a_rq_n, a_wa;
+    wire [127:0] a_wd;
     pix_layer #(.SMOOTH(SMOOTH)) pxl (
         .clk_sys(cpu_clk), .we(px_we), .re(px_re), .addr(px_addr), .wdata(px_wdata),
         .rdata(pxl_rdata), .ev_vsync(px_ev_vsync), .ev_flip(px_ev_flip),
         .ui_clk(ui_clk), .ui_rst(ui_rst), .v_addr(v_addr), .v_cmd(v_cmd), .v_en(v_en),
         .v_rdy(v_rdy), .v_wdf_data(v_wdf_data), .v_wdf_mask(v_wdf_mask), .v_wdf_wren(v_wdf_wren),
         .v_rd_data(v_rd_data), .v_rd_data_valid(v_rd_data_valid), .v_urgent(v_urgent),
+        .av_ctrl(avc_ctrl), .av_w(avc_w), .av_h(avc_h), .av_stride(avc_stride), .av_front(avc_front), .av_back(avc_back),
+        .av_cfg_tgl(avc_cfg), .av_front_tgl(avc_fr), .av_back_tgl(avc_bk),
+        .a_rq_tgl(a_rq_tgl), .a_rq_addr(a_rq_addr), .a_rq_stride(a_rq_stride), .a_rq_n(a_rq_n), .a_rq_two(a_rq_two), .a_rq_pair(a_rq_pair),
+        .a_done_tgl(a_done_tgl), .a_we_a(a_we_a), .a_we_b(a_we_b), .a_wa(a_wa), .a_wd(a_wd),
         .vclk(sys_clk), .pix(pix_color), .px(pix_x), .py(pix_y), .v60(v60),
         .clk(pix_clk), .ce(pce), .hact(m_hact), .vact(m_vact), .xact0(m_xact0), .yact0(m_yact0),
         .rgb_in(o_rgb), .de_in(o_de), .hs_in(o_hs), .vs_in(o_vs), .cx_in(o_cx), .cy_in(o_cy),
         .rgb(p_rgb), .de(p_de), .hs(p_hs), .vs(p_vs), .cx(p_cx), .cy(p_cy)
+    );
+
+    // ---- the A/V port: the same shown buffer at 15 kHz (the overlay's start line and the freeze text are not on it, T265 D11)
+    av_rgb avr (
+        .cpu_clk(cpu_clk), .r_mode(av_mode), .r_std(av_std),
+        .r_ctrl(avc_ctrl), .r_w(avc_w), .r_h(avc_h), .r_stride(avc_stride), .r_front(avc_front), .r_back(avc_back),
+        .cfg_tgl(avc_cfg), .front_tgl(avc_fr), .back_tgl(avc_bk),
+        .pix_y(pix_y),
+        .a_rq_tgl(a_rq_tgl), .a_rq_addr(a_rq_addr), .a_rq_stride(a_rq_stride), .a_rq_n(a_rq_n), .a_rq_two(a_rq_two), .a_rq_pair(a_rq_pair),
+        .a_done_tgl(a_done_tgl), .ui_clk(ui_clk), .a_we_a(a_we_a), .a_we_b(a_we_b), .a_wa(a_wa), .a_wd(a_wd),
+        .clk(sys_clk), .r_o(av_r), .g_o(av_g), .b_o(av_b), .syn_n(av_syn_n), .fb(av_fb)
     );
 
     // ---- the freeze menu's C64 text on top: the still the app drew on the pixel layer stays below it
