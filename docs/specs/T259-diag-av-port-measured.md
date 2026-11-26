@@ -231,6 +231,8 @@ core app's REST by the coordinator, Alex at the TV; photos in the session)**
 - Open from this session: the walks' [base] for the SCART cable (avrgb, avsync start with SYNCn High / FB Low and show nothing on it);
   avprobe cannot find a channel through SCART, because pin 20 carries SYNCn, not a DAC channel; S1 on the luma / composite inputs needs an
   S-Video or composite cable; NTSC is Rick's (D3).
+- S1 through Alex's SCART cable with S-Video (luma on pin 20; the Sony takes no S-Video, so only the luma channel would show): not run.
+  Alex (2026-11-26, translated): "No, let Rick do that first, his part."
 - A side effect while driving the panel over REST: a script stepped the Standard row through to NTSC 50 Hz by mistake; the HDMI picture
   flickered until it was set back to PAL 50 Hz. The A/V Standard row also changes the raster the HDMI picture comes from.
 
