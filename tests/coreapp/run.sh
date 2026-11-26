@@ -879,7 +879,10 @@ if ca_in amiga1200 && ca_unit a12_romreq; then t_romreq_a12; PASS=$((PASS + 1));
 a12app run a12_folderhd test_folderhd.cc $A12
 a12app run a12_mouselib test_mouselib.cc $A12
 a12app run a12_base test_a12base.cc $A12
-CARGS="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin" RARGS="$CARGS" a12app run a12_descsec test_descsec.cc overlay.cc descrec.cc $A12
+# the two records as both arguments by value: a prefix assignment that reads another one of the same command (RARGS="$CARGS") took the global, empty CARGS in a run
+# of the whole group (bash 3.2, traced), so the test started without its records
+A12SEC="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin"
+CARGS="$A12SEC" RARGS="$A12SEC" a12app run a12_descsec test_descsec.cc overlay.cc descrec.cc $A12
 a12app run a12_romset test_romset.cc $A12
 a12app run a12_regset test_regset.cc $A12
 a12app run a12_joyswap test_joyswap.cc $A12
