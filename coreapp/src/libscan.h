@@ -1,16 +1,12 @@
-// The libraries of a folder, loaded at the start of a core application (T104.1 D12: TRX64 Ultimate and the sticks of the MultiCore
-// boards read them as files from one fixed folder). Pure: the file system is a CoreFs, the machine behind the loader is a LibHost, the log
-// is a LibLog, so tests/coreapp/ runs the whole of it against a map of byte vectors and a model of the heap.
+// The libraries of a core application at its start (base 4.0, T239.3 D58): the base loads no library file. Every library is linked into the app through its TOML B
+// (libtab.h); those with `register` (libraries from outside this repository) are registered here, in the order of their needs, each with the menu record its bundle
+// carries for it (record 7 version 2 of the .cor, tools/cor_pack.py pack_libs). Pure: the file system is a CoreFs, the machine behind the loader is a LibHost, the log
+// is a LibLog, so tests/coreapp/ runs the whole of it against a map of byte vectors and a model of the heap. One line is logged for each library:
 //
-// What it does, in this order: lists LIB_FOLDER on each root; reads the header and the needs of every *.u2a; puts the files in dependency
-// order (a provider before whoever needs it, ties by path, a cycle refused); loads them one by one through LibLoader::load; logs one line
-// for each:
+//     [lib] example (linked) : ok
+//     [lib] trx64u (linked) : refused: Library "trx64u" is refused: it declares the export "ring" 1 (its file, or its TOML B) and lib_register does not return it.
 //
-//     [lib] testlib v1.0 at 0x00a31230 : ok
-//     [lib] cbm1541 v1.0 : refused: Library "cbm1541" needs the capability "drive_a", which the core "Atari 800 XL" does not have.
-//
-// A folder that does not exist is not an error. A file that is not a library, or not a file of this format, is refused with the loader's
-// own sentence and does not stop the others.
+// It also holds the wait for the stick at the start (lib_wait_for_stick).
 #ifndef COREAPP_LIBSCAN_H
 #define COREAPP_LIBSCAN_H
 
@@ -19,13 +15,12 @@
 #include "desc.h"
 
 #define LIB_MOUNT_WAIT_MS 4000          // lib_wait_for_stick: how long the start waits, at most, for a stick that is known to be coming
-#define LIB_FOLDER "trx/lib"             // the one place: <root>/trx/lib/<name>.u2a
-#define LIB_EXT ".u2a"
-#define LIB_SCAN_MAX 24                  // files looked at; more are named in the log and left alone
-#define LIB_LIST_MAX 64                  // directory entries read per root
+#define LIB_EXT ".u2a"                   // the extension of a file the loader reads (an application, apps folders: appindex.h)
+#define LIB_LIST_MAX 64                  // directory entries read per folder
+#define LIB_COR_MENUS_MAX 12             // menu records in record 7 (LIB_MAX: one per linked library at most)
 #define LIB_REFUSALS_KEPT 4
 
-// The roots a library folder is looked for on, null-terminated, in this order (the sticks; the paths are case-insensitive in the file manager).
+// The roots of the sticks, null-terminated, in this order (the paths are case-insensitive in the file manager).
 extern const char *const lib_roots[];
 
 // What the wait for the stick asks of the machine: the clock, a pause, and the one fact the file system cannot tell - whether the USB stack
@@ -72,47 +67,33 @@ public:
     virtual void line(const char *text) = 0;
 };
 
-// What the loader of a file needs to know before it spends memory: from the header and the needs, nothing else.
-struct LibMeta {
-    bool valid;                          // magic, header size, format 3 and a name; a file that is not leaves the rest to the loader's sentence
-    uint8_t kind;
-    char name[U2A3_NAME_MAX];
-    uint32_t version;
-    int nneeds;
-    char need[U2A3_NEEDS_MAX][U2A3_NAME_MAX];
-    int nexports;                        // the names it exports (U2A3_FLAG_EXPORTS): a library that needs one is loaded after this one, whatever this one is called
-    char exp_name[U2A3_EXPORTS_MAX][U2A3_NAME_MAX];
-};
-
-// The order to load n files in. order[] receives indexes: first every library whose dependencies are in front of it (ties in the given
-// order), then the libraries that lie behind a cycle (the loader refuses them with "not loaded"), then what is not a library or not valid
-// (the loader or the caller refuses them). A library that is part of a cycle - or needs its own name - is not in order[]; cycle[i] is the
-// lowest index of its group, -1 for everyone else. "base" is not a file and never an edge; a name no file provides is the loader's to refuse. A file provides its own
-// name and every name it exports (LibMeta::exp_name): a need on an exported name puts the exporter in front (D20).
-// Returns the number of entries in order[].
-int lib_dep_order(const LibMeta *m, int n, int *order, int *cycle);
-
 struct LibScanResult {
-    int roots_found;                     // roots that have the folder
-    int files;                           // *.u2a files seen
-    int loaded, refused;
-    int ignored;                         // files beyond LIB_SCAN_MAX
+    int loaded, refused;                 // linked libraries with `register`, and menu records of the bundle no such library takes
     int nkept;
     char kept[LIB_REFUSALS_KEPT][LIB_ERR_MAX];     // the first refusals as sentences, for the screen
-    int unserved;                        // always 0: every declaration of a record is served
-    char summary[96];                    // one line for the Home page: "none", "2 loaded", "1 loaded, 1 refused: cbm1541", "1 loaded, 1 with unserved parts"
+    char summary[96];                    // one line for the Home page: "none", "2 loaded", "1 loaded, 1 refused: trx64u"
 };
 
-// Loads the libraries of `folder` on each of `roots` into `ld`. Never fails as a whole; the result says what happened.
-void lib_load_folder(LibLoader *ld, CoreFs *fs, const char *const *roots, const char *folder, LibLog *log, LibScanResult *out);
-// The same, and before_first(ctx) runs once, just before the first library file is loaded (the crash guard arms there, libguard.h).
-void lib_load_folder(LibLoader *ld, CoreFs *fs, const char *const *roots, const char *folder, LibLog *log, LibScanResult *out,
-                     void (*before_first)(void *), void *ctx);
+// The menu records of record 7 version 2 (tools/cor_pack.py pack_libs): "TRXL", u32 2, u32 count, then per entry char name[16] (the library's name, NUL-padded),
+// u32 length, the menu record (descrec.h, libmenu.h), zeros to a multiple of 4. Each field is checked against the record before anything is read from it.
+struct LibCorMenus {
+    int n;
+    char name[LIB_COR_MENUS_MAX][U2A3_NAME_MAX];
+    uint32_t off[LIB_COR_MENUS_MAX], len[LIB_COR_MENUS_MAX];   // in the .cor
+    bool taken[LIB_COR_MENUS_MAX];       // handed to a library (lib_link_cor)
+};
+// Reads the directory of record 7 at `rec_off`/`rec_size` of the .cor: 0, or -1 with the sentence in why (a version 1 record of library files is refused: D58).
+int lib_cor_menus(CoreFs *fs, const char *cor_path, uint32_t rec_off, uint32_t rec_size, LibCorMenus *out, char *why, int whylen);
 
-// The libraries a core bundle carries (record 7, T104.1 D12, Q5: a copy in every .cor that needs it): `rec_off`/`rec_size` is the record in the file
-// (CorInfo off/size of COR_PART_LIBS). Same rules, same loader, same refusals as a folder; load these first, so a library of the bundle wins
-// over a stick's of the same name (point 4 of 2026-10-20: one fixed winner, independent of the roots). rec_size 0: nothing to do.
-void lib_load_cor(LibLoader *ld, CoreFs *fs, const char *cor_path, uint32_t rec_off, uint32_t rec_size, LibLog *log, LibScanResult *out,
+// The step that registers the linked libraries (libtab.h libtab_link on the board; a test gives its own): calls menu() for each library before it registers it, and done()
+// after, with the loader's code and sentence.
+typedef void (*LibLinkAll)(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes),
+                           void (*done)(void *user, const char *name, int rc, const char *err), void *user);
+
+// Registers the linked libraries with `register` through `link_all`, each with its menu record from record 7 of the bundle (rec_size 0: none carries one), and logs
+// one line for each; a menu record that no linked library takes, or a record that cannot be read, is a refusal in the result. before_first(ctx) runs once, just before
+// the first library registers (the crash guard arms there, libguard.h). Never fails as a whole; the result says what happened.
+void lib_link_cor(LibLoader *ld, CoreFs *fs, const char *cor_path, uint32_t rec_off, uint32_t rec_size, LibLinkAll link_all, LibLog *log, LibScanResult *out,
                   void (*before_first)(void *), void *ctx);
 
 #endif

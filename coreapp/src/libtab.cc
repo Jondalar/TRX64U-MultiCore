@@ -1,6 +1,5 @@
 #include "libtab.h"
 #include "desc.h"
-#include <stdio.h>
 
 void libtab_bind(CoreCtx *c, LibLoader &ld)
 {
@@ -66,8 +65,8 @@ void libtab_core(CoreCtx *c, const CoreDesc *d, const DescRecord *rec)
     }
 }
 
-void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes), void *user, void (*say)(const char *line), int *loaded,
-                 int *refused, char *first_refusal, int first_len)
+void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes),
+                 void (*done)(void *user, const char *name, int rc, const char *err), void *user)
 {
     for (unsigned k = 0; k < g_libtab_link_n; k++) {
         const LibEntry &e = g_libtab[g_libtab_link_order[k]];
@@ -80,19 +79,10 @@ void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescR
             rec = 0;
             bytes = 0;
         }
-        char err[LIB_ERR_MAX];
+        char err[LIB_ERR_MAX] = "";
         int rc = ld.link(e.name, e.reg, e.heap_keep, e.heap_peak, rec, bytes, err, sizeof(err));     // the loader owns the record from the call on, refused or not
-        if (rc == LIB_OK) {
-            if (loaded) {
-                (*loaded)++;
-            }
-            continue;
-        }
-        if (refused && !(*refused)++ && first_refusal && first_len > 0) {
-            snprintf(first_refusal, first_len, "%s", err);
-        }
-        if (say) {
-            say(err);
+        if (done) {
+            done(user, e.name, rc, err);
         }
     }
 }

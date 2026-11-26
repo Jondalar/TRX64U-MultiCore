@@ -59,10 +59,10 @@ static inline const void *libtab_export(const char *name, uint32_t major, uint32
     return 0;
 }
 
-// Base 4.0: the libraries with `register` (a library from outside this repository), in g_libtab_link_order, through LibLoader::link, each with the menu record the
-// bundle carries for it (menu(name, &rec, &bytes): the caller's record for that library, or false; ownership passes to the loader). Each refusal is logged by `say` with
-// the library's name, and the count of loaded and refused libraries is added to *loaded / *refused. Call it once, after libtab_bind, where the base loaded library files.
-void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes), void *user, void (*say)(const char *line), int *loaded,
-                 int *refused, char *first_refusal, int first_len);
+// Base 4.0: the libraries with `register` (a library from outside this repository), in g_libtab_link_order, through LibLoader::link: menu(user, name, &rec, &bytes)
+// gives the menu record the bundle carries for that library (false: none; the loader owns what it gives from the call on), done(user, name, rc, err) is told the
+// loader's code and its sentence. Called once at the start, after libtab_bind (libscan.h lib_link_cor, which logs and counts).
+void libtab_link(LibLoader &ld, bool (*menu)(void *user, const char *name, DescRecord **rec, uint8_t **bytes),
+                 void (*done)(void *user, const char *name, int rc, const char *err), void *user);
 
 #endif

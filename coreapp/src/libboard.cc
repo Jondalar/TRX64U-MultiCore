@@ -1,7 +1,7 @@
 #include "libboard.h"
 #include "libexports.h"
 #include "mediamounts.h"
-#include "textgrid.h"
+#include "libtab.h"
 #include "menuflows.h"
 #include "ops_glue.h"
 #include "romfind.h"
@@ -331,7 +331,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     }
     done = true;
     // The host and the loader come first and always: the applications of the core's folder (apphost.h) load through the same loader whether or not the
-    // libraries are loaded this time (a skipped start loads none of them, T104.1 D12).
+    // linked libraries register this time (a skipped start registers none of them, T104.1 D12).
     static BoardLibHost host(c->desc);
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
@@ -340,13 +340,10 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     loader.set_windows(bundle ? bundle->desc : 0);              // io.window: the register windows of the core's description record (section 19)
     loader.set_board_io(c->io);                                 // sys.delay_us and sys.wall_time work in lib_register, before AppHost::install gives the loader its context
     libexports_register(loader, c);                             // base 3.3 (libexports.cc): the bind entry of every library TOML B names (libtab.h)
-    if (ops_of(c)->find_op("monitor.open")) {
-        loader.add_export("textgrid", 1, monitor_textgrid(c));  // the core has the built-in monitor: its screen is the grid the terminal layout names
-    }
     loader.set_settings_apply(regset_apply_setting);
     loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);
-    menu_set_export_finder(LibLoader::find_export);              // the terminal layout finds its text grid by the name of its `grid` parameter
+    menu_set_export_finder(LibLoader::find_export);              // the terminal layout finds its text grid by the name of its `grid` parameter, among the linked exports (libslot.h)
     // The rescue from a crashing library (libguard.h): decided before anything of the stick is touched, and before the wait for it.
     // The monolith with no valid core id has no boot.cfg and no flash exception (api.md 4.4.3): its guard counts in memory, it never falls back to the host's file.
     static LibGuard g(c->fs, !c->board || c->board->kind == BOARD_MULTICORE ? FS_FLASH_BOOT_MULTICORE : c->board->boot_cfg);
@@ -380,7 +377,7 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     void (*arm_cb)(void *) = [](void *x) {
         Arm *a = (Arm *)x;
         if (a->done) {
-            return;                                                   // the guard arms before the first library of the bundle or the stick, once
+            return;                                                   // the guard arms before the first linked library registers, once
         }
         a->done = true;
         a->g->arm(a->p);
@@ -390,45 +387,14 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
             a->rep->title = "Crash guard";
         }
     };
-    // The bundle's own libraries first (T104.1 D12, Q5): the copy the core was tested with wins over a stick's of the same name.
-    LibScanResult cres;
-    memset(&cres, 0, sizeof(cres));
-    if (bundle && bundle->probed && bundle->ci.size[COR_PART_LIBS]) {
-        lib_load_cor(&loader, c->fs, c->cor_path, bundle->ci.off[COR_PART_LIBS], bundle->ci.size[COR_PART_LIBS], &log, &cres, arm_cb, &arm);
-    }
-    lib_load_folder(&loader, c->fs, lib_roots, LIB_FOLDER, &log, &res, arm_cb, &arm);
-    if (cres.loaded || cres.refused) {
-        // one result for the screen and the Home line: the bundle's refusals first
-        LibScanResult all = res;
-        all.loaded += cres.loaded;
-        all.refused += cres.refused;
-        all.nkept = 0;
-        for (int i = 0; i < cres.nkept && all.nkept < LIB_REFUSALS_KEPT; i++) {
-            memcpy(all.kept[all.nkept++], cres.kept[i], LIB_ERR_MAX);
-        }
-        for (int i = 0; i < res.nkept && all.nkept < LIB_REFUSALS_KEPT; i++) {
-            memcpy(all.kept[all.nkept++], res.kept[i], LIB_ERR_MAX);
-        }
-        if (all.refused) {
-            snprintf(all.summary, sizeof(all.summary), "%d loaded, %d refused", all.loaded, all.refused);
-        } else {
-            snprintf(all.summary, sizeof(all.summary), "%d loaded", all.loaded);
-        }
-        res = all;
-    }
-    // images: image + bss of what stays; accounts: everything the heap gave the loaded images and has not got back (their blocks with headers, files, menu
-    // records, the images); the heap free drops by about that much plus the block headers of the heap itself, and rises by it when the images go (S14)
-    printf("[lib] %d loaded, %d refused; images %u bytes, accounts %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.resident_bytes(),
-           (unsigned)loader.held_total(), (unsigned)free_before, (unsigned)xPortGetFreeHeapSize());
-    // The board test of the library build path (docs/specs/T104.1 5.5): app/lib/testlib registers test.echo and test.version, and the only way
-    // to see its RISC-V code run before a menu or the REST door can call it is to call it here. Present only when that file is on the stick.
-    if (ops_of(c)->find_op("test.echo")) {
-        OpResult out;
-        OpIn in = in_str("text", "ping");
-        int rc = ops_call(c, "test.echo", &in, 1, &out);
-        const char *ver = ops_state(c, "test.version");
-        printf("[lib] self-test: test.echo(\"ping\") -> rc %d \"%s\"; test.version -> \"%s\"\n", rc, out.msg, ver ? ver : "(none)");
-    }
+    // Base 4.0 (T239.3 D58): no library file is loaded. The libraries linked with `register` register here, in the order of their needs, each with the menu record the
+    // bundle carries for it (record 7 version 2), under the crash guard.
+    lib_link_cor(&loader, c->fs, c->cor_path, bundle && bundle->probed ? bundle->ci.off[COR_PART_LIBS] : 0, bundle && bundle->probed ? bundle->ci.size[COR_PART_LIBS] : 0,
+                 libtab_link, &log, &res, arm_cb, &arm);
+    // accounts: everything the heap gave the linked libraries and has not got back (their blocks with headers, files, menu records); the heap free drops by about
+    // that much plus the block headers of the heap itself (S14)
+    printf("[lib] %d linked, %d refused; accounts %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.held_total(), (unsigned)free_before,
+           (unsigned)xPortGetFreeHeapSize());
     snprintf(summary, sizeof(summary), "%s", res.summary);
     rep->loaded = res.loaded;
     rep->refused = res.refused;

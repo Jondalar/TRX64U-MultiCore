@@ -113,7 +113,7 @@ static bool is_screen_node(const LibNodeDecl &nd)
 }
 
 // One file: its header and its menu record into `a`. False (and a line in the log) when it is not an application this base can use.
-bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log, LibFile *lib)
+bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log)
 {
     CoreFile *cf = fs->open(path, false);
     if (!cf) {
@@ -132,17 +132,12 @@ bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log,
     }
     h.name[U2A3_NAME_MAX - 1] = 0;
     if (h.kind != U2A3_KIND_APP) {
-        int nex = lib && h.kind == U2A3_KIND_LIB ? lib_read_exports(&src, h, lib->exports) : 0;      // before the file is closed
         fs->close(cf);
-        if (lib && h.kind == U2A3_KIND_LIB) {                       // T197: a library of the folder, kept for the applications that need it; not an entry
-            snprintf(lib->path, sizeof(lib->path), "%s", path);
-            memcpy(lib->name, h.name, sizeof(lib->name));
-            lib->version = h.version;
-            lib->image_bytes = h.payload_size + h.bss_size + h.align;
-            lib->nexports = nex > 0 ? nex : 0;                       // a malformed list is the loader's to refuse when the library loads
-            return false;
+        if (h.kind == U2A3_KIND_LIB) {                              // base 4.0 (T239.3 D58): a library is linked into the core's app through its TOML B, never loaded
+            say(log, "[app] %s: \"%s\" is a library file; base 4.0 loads no library file", path, h.name);
+        } else {
+            say(log, "[app] %s: \"%s\" is not an application", path, h.name);
         }
-        say(log, "[app] %s: \"%s\" is a library, not an application", path, h.name);
         return false;
     }
     memset(&a, 0, sizeof(a));
@@ -216,8 +211,6 @@ static void free_entry(AppEntry &a)
 void AppIndex::scan(CoreFs *fs, char folders[][APP_PATH_MAX], int nf, LibLog *log)
 {
     clear();
-    nlibs_ = 0;
-    memset(libs_, 0, sizeof(libs_));
     sig_ = signature(fs, folders, nf);
     FsEntry *e = (FsEntry *)malloc(sizeof(FsEntry) * LIB_LIST_MAX);        // 17 KB for this scan, not for good
     if (!e) {
@@ -236,12 +229,7 @@ void AppIndex::scan(CoreFs *fs, char folders[][APP_PATH_MAX], int nf, LibLog *lo
             }
             snprintf(path, sizeof(path), "%s/%s", folders[f], e[i].name);
             AppEntry tmp;
-            LibFile lf;
-            memset(&lf, 0, sizeof(lf));
-            if (!read_file(fs, path, tmp, log, &lf)) {
-                if (lf.name[0] && nlibs_ < LIBS_MAX && !find_lib(lf.name)) {      // the first of a name counts, as for applications
-                    libs_[nlibs_++] = lf;
-                }
+            if (!read_file(fs, path, tmp, log)) {
                 continue;
             }
             if (find(tmp.name)) {
@@ -354,51 +342,15 @@ const AppEntry *AppIndex::find(const char *name) const
     return 0;
 }
 
-const LibFile *AppIndex::find_lib(const char *name, uint32_t min_version) const
-{
-    for (int i = 0; name && i < nlibs_; i++) {
-        if (!strcasecmp(libs_[i].name, name) && libs_[i].version >= min_version) {
-            return &libs_[i];
-        }
-    }
-    return 0;
-}
-
-const LibFile *AppIndex::find_lib_for(const char *name, uint32_t min_version) const
-{
-    for (int i = 0; name && i < nlibs_; i++) {
-        for (int e = 0; e < libs_[i].nexports; e++) {
-            const U2a3ExportName &x = libs_[i].exports[e];
-            if (!strcmp(x.name, name) && x.major == (min_version >> 16)) {
-                return &libs_[i];
-            }
-        }
-    }
-    return find_lib(name, min_version);
-}
-
 bool AppIndex::need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const
 {
-    uint64_t n = (uint64_t)a.image_bytes + APP_WORK_BYTES;
+    (void)ld;
     for (int k = 0; k < a.nneeds; k++) {
-        int h = ld ? ld->handle_providing(a.needs[k].name, a.needs[k].min_version) : -1;
-        if (h < 0 && ld) {
-            h = ld->handle_of(a.needs[k].name);                      // loaded, too old: the loader's sentence names both versions
-        }
-        const LibInfo *li = h >= 0 ? ld->info(h) : 0;
-        if (li) {
-            if (!strcmp(li->name, a.needs[k].name) && li->version < a.needs[k].min_version) {
-                return false;
-            }
-            continue;                                                // in memory: its bytes are gone from the room already
-        }
-        const LibFile *lf = find_lib_for(a.needs[k].name, a.needs[k].min_version);
-        if (!lf) {
+        if (!LibLoader::find_export(a.needs[k].name, a.needs[k].min_version, 0)) {
             return false;
         }
-        n += lf->image_bytes;
     }
-    *need = n;
+    *need = (uint64_t)a.image_bytes + APP_WORK_BYTES;
     return true;
 }
 
@@ -416,60 +368,22 @@ bool AppIndex::fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const
 
 bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
 {
+    (void)fs;
     uint64_t need;
     if (need_bytes(a, ld, &need) && need > ld->room()) {
-        for (bool again = true; again;) {                            // a library only an unloaded library used is free on the next pass
-            again = false;
-            for (int h = 0; h < LIB_MAX; h++) {
-                const LibInfo *li = ld->info(h);
-                if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0 || ld->contributes(h)) {   // a poll, menu nodes, actions, settings or tabs stay
-                    continue;
-                }
-                bool wanted = false;
-                for (int k = 0; k < a.nneeds; k++) {
-                    wanted |= !strcasecmp(a.needs[k].name, li->name) || ld->handle_providing(a.needs[k].name, a.needs[k].min_version) == h;
-                }
-                if (!wanted && ld->unload(h, 0, 0) == LIB_OK) {
-                    again = true;
-                }
-            }
-        }
-        if (!need_bytes(a, ld, &need) || need > ld->room()) {
-            // Rule: needs is rounded UP, free is rounded DOWN, so the two figures can never read equal on a refusal (need > room gives ceil(need) > floor(room)).
-            snprintf(err, errlen, "Not enough memory for %s (needs %u KB, %u KB free).", a.name, (unsigned)((need + 1023) / 1024), (unsigned)(ld->room() / 1024));
-            return false;
-        }
+        // Rule: needs is rounded UP, free is rounded DOWN, so the two figures can never read equal on a refusal (need > room gives ceil(need) > floor(room)).
+        snprintf(err, errlen, "Not enough memory for %s (needs %u KB, %u KB free).", a.name, (unsigned)((need + 1023) / 1024), (unsigned)(ld->room() / 1024));
+        return false;
     }
-    return load_needs(fs, ld, a, err, errlen);
+    return needs_linked(a, err, errlen);
 }
 
-bool AppIndex::load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
+bool AppIndex::needs_linked(const AppEntry &a, char *err, int errlen) const
 {
     for (int k = 0; k < a.nneeds; k++) {
-        const char *name = a.needs[k].name;
-        int h = ld->handle_providing(name, a.needs[k].min_version);
-        if (h < 0) {
-            h = ld->handle_of(name);
-        }
-        if (h >= 0) {
-            continue;                                                // loaded; the loader checks the version of the one in memory
-        }
-        const LibFile *lf = find_lib_for(name, a.needs[k].min_version);
-        if (!lf) {
-            snprintf(err, errlen, "%s needs the library \"%s\" %u.%u, which is not in the apps folder.", a.name, name, (unsigned)(a.needs[k].min_version >> 16),
+        if (!LibLoader::find_export(a.needs[k].name, a.needs[k].min_version, 0)) {
+            snprintf(err, errlen, "%s needs \"%s\" %u.%u, which this core's app is not linked with.", a.name, a.needs[k].name, (unsigned)(a.needs[k].min_version >> 16),
                      (unsigned)(a.needs[k].min_version & 0xFFFF));
-            return false;
-        }
-        CoreFile *f = fs->open(lf->path, false);
-        if (!f) {
-            snprintf(err, errlen, "%s: the file cannot be opened.", lf->path);
-            return false;
-        }
-        CoreFileSource src(f);
-        int lh = -1;
-        int rc = ld->load(&src, &lh, err, errlen);
-        fs->close(f);
-        if (rc != LIB_OK) {
             return false;
         }
     }
