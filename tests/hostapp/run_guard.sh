@@ -21,6 +21,28 @@ TST="$ROOT/tests/hostapp/test_guard.cc"
 srcs=("$H/guard.cc" "$H/flashfw.cc")
 c++ -std=gnu++14 -Wall -Wno-unused-function "${INC[@]}" -o "$T/test_guard" "$TST" "${srcs[@]}" "$T/sha256.o" 2>&1
 "$T/test_guard"
+# the slot image of the recovery program (tools/rec_trailer.py): record + data + CRC-32 trailer; a program that does not fit the slot is refused and leaves no file
+python3 -I - "$ROOT/tools" "$T/guard" <<'PY'
+import struct, subprocess, sys, zlib, os
+tools, d = sys.argv[1:]
+app = struct.pack("<III", 0x01800000, 1001, 0x01800000) + bytes(range(256)) * 3 + b"xyz" + bytes(234)
+app = app[:12 + 1001]
+open(os.path.join(d, "r.app"), "wb").write(app)
+r = subprocess.run([sys.executable, "-I", os.path.join(tools, "rec_trailer.py"), os.path.join(d, "r.app"), os.path.join(d, "r.slot")], capture_output=True, text=True)
+img = open(os.path.join(d, "r.slot"), "rb").read()
+assert r.returncode == 0 and len(img) == 12 + 1004 + 4, (r.returncode, r.stderr, len(img))
+assert struct.unpack("<I", img[-4:])[0] == zlib.crc32(img[:-4]) & 0xFFFFFFFF
+big = struct.pack("<III", 0x01800000, 0x3EFF1, 0x01800000) + bytes(0x3EFF1)
+open(os.path.join(d, "big.app"), "wb").write(big)
+if os.path.exists(os.path.join(d, "big.slot")): os.remove(os.path.join(d, "big.slot"))
+r = subprocess.run([sys.executable, "-I", os.path.join(tools, "rec_trailer.py"), os.path.join(d, "big.app"), os.path.join(d, "big.slot")], capture_output=True, text=True)
+assert r.returncode == 1 and not os.path.exists(os.path.join(d, "big.slot")), r
+ok = struct.pack("<III", 0x01800000, 0x3EFF0, 0x01800000) + bytes(0x3EFF0)
+open(os.path.join(d, "ok.app"), "wb").write(ok)
+r = subprocess.run([sys.executable, "-I", os.path.join(tools, "rec_trailer.py"), os.path.join(d, "ok.app"), os.path.join(d, "ok.slot")], capture_output=True, text=True)
+assert r.returncode == 0 and os.path.getsize(os.path.join(d, "ok.slot")) == 0x3F000, r
+print("PASS rec_trailer: record + data + CRC-32 trailer; 0x3EFF0 data bytes fill the 0x3F000 slot exactly, one byte more is refused and leaves no file")
+PY
 gd_mutant() {   # name, source file name (in $H), sed expression
   local name="$1" src="$2" expr="$3" bad="$T/guard/mut_$1.${2##*.}" list=()
   sed -e "$expr" "$H/$src" > "$bad"
