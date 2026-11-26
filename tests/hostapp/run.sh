@@ -548,6 +548,10 @@ cc_block fwrestore t_fwrestore
 t_txu() { bash "$ROOT/tests/hostapp/run_txu.sh" "$T"; }
 cc_block txu t_txu
 
+# T265 S3-S6: the guard's application side: provisioning, the write order application -> copy -> record, the repair, over a flash and a RAM disk that lose their power at every operation (run_guard.sh)
+t_guard() { bash "$ROOT/tests/hostapp/run_guard.sh" "$T"; }
+cc_block guard t_guard
+
 # T192.2-S3/S4: the MultiCore update as a job: the record of every case (pages, notes, flash counts) of the blocking call and of the stepped job equals the golden
 # capture of the flow before it was cut into steps; a job that asks writes nothing until it is answered (run_hostjobs.sh)
 t_hostjobs() { bash "$ROOT/tests/hostapp/run_hostjobs.sh" "$T"; }
