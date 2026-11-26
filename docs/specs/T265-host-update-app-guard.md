@@ -268,7 +268,8 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   requests (`a_*`); an A/V line is never stopped by an HDMI request (it waits, at most 2 x 120 reads), an HDMI line is stopped as before.
   `mode_req` 0x4F0A (reset 0x01 = RGB on, b3:2 std), version byte 2. `top.v` AVID ports, `pins.xdc` (as `avid_pins.xdc` of the C128),
   `build.tcl`, `layers.txt`, `host_pin.txt`, `contract/version.toml` 0.2.1 -> 0.3.0 (247 ports, VERSION 2 unchanged), TOML A block
-  `overlay_av_mode` (`rtl_check.py` against the RTL needs the TRX64-Ultimate checkout: not run). yosys `synth_xilinx -family xc7 -flatten`
+  `overlay_mode_status.av_mode` (offset 6 of the block at 0x10144F04, size 6 -> 7: a new block would be the 65th, over
+  descrec's limit of 64; `rtl_check.py` against the RTL needs the TRX64-Ultimate checkout: not run). yosys `synth_xilinx -family xc7 -flatten`
   (`nice -n 15`): `av_rgb` 458 LUT, 395 FF, 4 RAMB36, 0 DSP; `pix_layer` +76 LUT, +64 FF against `origin/integration`; `mode_req` +6 LUT,
   +4 FF; total about 540 LUT, 463 FF (pb_l1 13,271 -> about 13,810 of 17,400 = 79.4 %, before Vivado's packing). Bench
   `host/sim/avrgb` (`ci/sims.txt` `avrgb`, tier 2; iverilog, the real `pix_layer` with the HDMI side running on the same buffer in the first

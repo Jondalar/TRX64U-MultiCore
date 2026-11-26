@@ -986,7 +986,7 @@ name = "overlay_mode_status"
 module = "ultimate_sys"
 owner = "base"
 address = 0x10144F04
-size = 0x6
+size = 0x7
   [[block.property]]
   name = "id"
   offset = 0x0
@@ -1017,16 +1017,9 @@ size = 0x6
   offset = 0x5
   width = 8
   dir = "r"
-
-[[block]]
-name = "overlay_av_mode"
-module = "ultimate_sys"
-owner = "base"
-address = 0x10144F0A
-size = 0x1
   [[block.property]]
-  name = "mode"
-  offset = 0x0
+  name = "av_mode"
+  offset = 0x6
   width = 8
   dir = "rw"
 
