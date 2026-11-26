@@ -336,6 +336,7 @@ diagapp run dtv2 test_dtv2.cc dtv2.cc
 diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
+python3 "$TST/gen_bundle.py" "$T/bundles"       # the bundles and menu records the units libscan and desc open (a clean tree has none yet); the later gen_bundle call renews them
 # T239.3 P2-6 (D58): the linked libraries registered at the start with the menu records of record 7 (version 2), against a fake link step; lib_cor_menus on good and damaged records
 LIBSRC="overlay.cc libload.cc libmenu.cc descrec.cc libscan.cc desc_check.cc menutree.cc $BASEL board.cc"
 RARGS="$T/bundles" run libscan test_libscan.cc $LIBSRC
@@ -353,7 +354,6 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc libtab_native.cc"   # libtab_native.cc: the slot table libload.cc reads (base 4.0)
 run libwait test_libwait.cc $WAITSRC
 
-python3 "$TST/gen_bundle.py" "$T/bundles"       # desc_own.bin: the unit `desc` opens it, and it runs before the later gen_bundle call
 RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
