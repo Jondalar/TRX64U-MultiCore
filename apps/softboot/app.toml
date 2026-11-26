@@ -1,8 +1,0 @@
-# Softboot (T104.3 D6): an update image runs from RAM without being flashed. FW's manifest.json (apps/softboot) has the file types only and no task, so there is no row of its own (T228 R21).
-# T228 DC1: the need `standalone` (Makefile) is no library: AppIndex offers the application only when the board is not the MultiCore host.
-
-[[file_action]]
-ext = [".cfw", ".ue2", ".u64"]
-label = "Run as Softboot"
-app = "softboot"
-action = "run"

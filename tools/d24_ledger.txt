@@ -1,7 +1,6 @@
 # T213 D4 (Alex 2026-11-16): the baseline of per-core code in the app. tools/check_d24.py reads it. Lines only shrink; lower a value when the code moved out.
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
-exception coreapp/src/u64cfg.cc +1033 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/apple2.cc 340
 file coreapp/cores/apple2_disk.cc 470
 file coreapp/cores/apple2_disk.h 71
@@ -39,53 +38,9 @@ file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
 file coreapp/src/diagtest.cc 2551
 file coreapp/src/diagtest.h 178
-file coreapp/src/monitor.cc 473
-file coreapp/src/monitor.h 24
-file coreapp/src/monsrv.cc 547
-file coreapp/src/monsrv.h 39
-file coreapp/src/ring.cc 2139
-file coreapp/src/ringfile.cc 880
-file coreapp/src/ringops.cc 359
-file coreapp/src/ringops.h 6
 file coreapp/src/t64.cc 79
 file coreapp/src/t64.h 11
-file coreapp/src/trx_c64re.h 19
-file coreapp/src/trx_ring.h 135
-file coreapp/src/trxmon/README.md 4
-file coreapp/src/trxmon/asm6502.h 22
-file coreapp/src/trxmon/cond.h 38
-file coreapp/src/trxmon/dis6502.h 9
-file coreapp/src/trxmon/dis6502_table.h 36
-file coreapp/src/trxmon/hw.h 192
-file coreapp/src/trxmon/json.h 44
-file coreapp/src/trxmon/mach.h 174
-file coreapp/src/trxmon/mlib.h 31
-file coreapp/src/trxmon/mon.h 27
-file coreapp/src/trxmon/ring.h 45
-file coreapp/src/trxmon/rpc.h 30
-file coreapp/src/trxmon/spans.h 11
-file coreapp/src/trxmon/tm_asm6502.c 886
-file coreapp/src/trxmon/tm_cond.c 371
-file coreapp/src/trxmon/tm_dis6502.c 103
-file coreapp/src/trxmon/tm_hw_trx.c 473
-file coreapp/src/trxmon/tm_json.c 422
-file coreapp/src/trxmon/tm_mach.c 1262
-file coreapp/src/trxmon/tm_mlib.c 194
-file coreapp/src/trxmon/tm_mon.c 3075
-file coreapp/src/trxmon/tm_ring.c 952
-file coreapp/src/trxmon/tm_rpc.c 1589
-file coreapp/src/trxmon/tm_spans.c 95
-file coreapp/src/trxmon/tm_trace.c 1005
-file coreapp/src/trxmon/tm_trx_lens.c 245
-file coreapp/src/trxmon/tm_ui.c 822
-file coreapp/src/trxmon/tm_ws.c 304
-file coreapp/src/trxmon/trace.h 12
-file coreapp/src/trxmon/trx_lens.h 43
-file coreapp/src/trxmon/ui.h 71
-file coreapp/src/trxmon/ws.h 26
 file coreapp/src/u64_resample.inc 83
-file coreapp/src/u64cfg.cc 583
-file coreapp/src/u64cfg.h 9
 # T239.3 D20 (Alex's decision: C64Api is an SDK header named c64, the export the C64-family cores share): the id "c64" in this file is the name of that export, not per-core code
 ids coreapp/src/appsvc.h c64 1
 ids coreapp/src/desc_check.cc null 1
@@ -121,15 +76,8 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
-exception coreapp/src/ring.cc +240 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/ringfile.cc +1489 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/ringops.cc +223 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/trx_c64re.h +34 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/trx_ring.h +19 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/c64_cart.cc +192 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/c64_cart.h +9 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/u64cfg.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/hk_defaults.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64scpu.cc +18 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 exception coreapp/cores/c64scpu_regs.h +1 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 # t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.
+exception coreapp/cores/c64_cart.cc +192 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.h +9 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

@@ -185,7 +185,7 @@ int main(int, char **argv)
         MenuIntent lv; lv.id = MI_LEAVE; lv.arg = 0; lv.key = 0; lv.stage = KS_MAIN; lv.row = -1;
         CHECK_EQ(r.m->apply(lv), MenuCtl::R_CLOSE);
     }
-    // ---- the monitor: every key is trxmon's, what closes the menu is the menu's (S5, S6) ----------------------------------------------------------------------------------
+    // ---- the terminal screen: every key is the grid's library's, what closes the menu is the menu's (S5, S6) ----------------------------------------------------------------------------------
     {
         Rec r;
         CHECK(open_by_home_row(*r.m, "Monitor..."));

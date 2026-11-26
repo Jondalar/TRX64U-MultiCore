@@ -8,7 +8,6 @@
 #include "ops.h"
 #include "ctx.h"
 #include "libfiles.h"
-#include "monitor.h"
 #include "diag.h"
 #include "netops.h"
 #include "sectors.h"
@@ -21,13 +20,6 @@ __attribute__((weak)) void libfiles_register(OpRegistry &) { }     // tests/core
 void diag_register(OpRegistry &) { }
 void netops_register(OpRegistry &) { }
 
-// the monitor session (monitor.cc) that menuctl.cc opens on the F4 tab: no debug block here
-void mon_open(CoreCtx *) { }
-bool mon_key(CoreCtx *, int) { return true; }
-bool mon_wants_stop(void) { return false; }
-bool mon_leave_requested(void) { return false; }
-bool mon_diag_requested(void) { return false; }
-void mon_release(void) { }
 const char *diag_text(int, int *n)
 {
     if (n) {
@@ -36,14 +28,4 @@ const char *diag_text(int, int *n)
     return "";
 }
 void diag_help_areas(const char *, const char *) { }
-bool mon_tick(CoreCtx *) { return false; }
-void mon_run(CoreCtx *, const char *) { }
-void mon_render(void) { }
-int mon_cols(void) { return 80; }
-int mon_rows(void) { return 0; }
-const char *mon_line(int) { return ""; }
-int mon_attr(int) { return 0; }
-int mon_blank_rows(void) { return 0; }
-void mon_cursor(int *x, int *y) { *x = 0; *y = 0; }
-uint32_t mon_sig(void) { return 0; }
 

@@ -83,7 +83,7 @@ int main()
             if (n.size() < 3 || (n.substr(n.size() - 3) != ".cc" && n.substr(n.size() - 2) != ".h")) continue;
             std::string text = slurp(std::string(dir) + "/" + n);
             scanned++;
-            // T104.3: appsvc.cc holds the driver pointer to give an application the flash's bytes to READ (the softboot app checks the bitstream there); T228 R21:
+            // T104.3: appsvc.cc holds the driver pointer to give an application the flash's bytes to READ; T228 R21:
             // dmasvc.cc too, for the Ultimate DMA service's READFLASH (page size, page count, one page: FW socket_dma.cc). The write calls stay forbidden in both
             // like everywhere, and so does every other use of the pointer in every other file.
             bool reader = n == "appsvc.cc" || n == "dmasvc.cc";

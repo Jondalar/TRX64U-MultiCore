@@ -735,13 +735,13 @@ int main()
         NavLog a;
         a.open = true;
         strcpy(a.session, "online");
-        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:trxmon:view"), false, true, &a), ONV_WENT);   // to an application: closed menu opens, the foreign session ends, app.open
-        CHECK(a.opens == 1 && a.ended == 1 && a.apps == 1 && !strcmp(a.app, "trxmon") && !strcmp(a.action, "view") && a.places == 0);
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:viewer:view"), false, true, &a), ONV_WENT);   // to an application: closed menu opens, the foreign session ends, app.open
+        CHECK(a.opens == 1 && a.ended == 1 && a.apps == 1 && !strcmp(a.app, "viewer") && !strcmp(a.action, "view") && a.places == 0);
         CHECK(a.order[0] == 4 && a.order[1] == 1 && a.order[2] == 6);
         NavLog sm;                                                                          // the session of the application itself stays
         sm.open = true;
-        strcpy(sm.session, "trxmon");
-        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:trxmon"), true, true, &sm), ONV_WENT);
+        strcpy(sm.session, "viewer");
+        CHECK_EQ(ovl_nav_request(nav_of(OVN_GOTO, 0, "app:viewer"), true, true, &sm), ONV_WENT);
         CHECK(sm.ended == 0 && sm.apps == 1 && !strcmp(sm.action, ""));
         NavLog np;                                                                          // no such place / no such application: the port said it
         np.place_ok = false;

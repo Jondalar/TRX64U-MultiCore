@@ -37,24 +37,9 @@ SRCS_C   =	itu.c \
 			malloc_lock.c \
 			sha256.c \
 			sid_coeff.c \
-			tm_dis6502.c \
-			tm_mlib.c \
-			tm_spans.c \
-			tm_asm6502.c \
-			tm_cond.c \
-			tm_hw_trx.c \
-			tm_json.c \
-			tm_mach.c \
-			tm_mon.c \
-			tm_ring.c \
-			tm_rpc.c \
-			tm_trace.c \
-			tm_trx_lens.c \
-			tm_ws.c \
 			http_protocol.c \
 			multipart.c \
 			url.c \
-			tm_ui.c \
 			gitinfo.c \
 			drvtab.c
 
@@ -149,7 +134,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			libload.cc \
 			libsvc.cc \
 			libexports.cc \
-			monitor_grid.cc \
 			libscan.cc \
 			libboard.cc \
 			libguard.cc \
@@ -211,11 +195,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			d1541_fs.cc \
 			snes.cc \
 			snes_rom.cc \
-			u64cfg.cc \
-			ring.cc \
-			ringops.cc \
-			monitor.cc \
-			monsrv.cc \
 			diag.cc \
 			diagtest.cc \
 			bugreport.cc \
@@ -224,7 +203,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			netops.cc \
 			netsvc.cc \
 			hostwifi.cc \
-			ringfile.cc \
 			libfiles.cc \
 			kickstart.cc \
 			fm_fs.cc \
@@ -272,7 +250,6 @@ VPATH +=	$(PATH_SW)/io/c64
 VPATH +=	$(PATH_SW)/api
 VPATH +=	$(PATH_SW)/io/usb
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/io/audio
-VPATH +=	$(PATH_SW)/../../coreapp/src/trxmon
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/appsdk/include
 VPATH +=	$(PATH_SW)/httpd/c-version/lib
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/network

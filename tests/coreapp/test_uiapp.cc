@@ -14,7 +14,6 @@
 #include "rpc.h"
 #include "uiapp.h"
 #include "uic.h"
-#include "monsrv.h"
 extern const CoreDesc amiga_desc;               // T239.5 D13: this file's cases are the Amiga 500's, built as its app (run.sh amigaapp, cores/amiga/app/lib)
 
 struct Host : MenuHost {
@@ -653,16 +652,6 @@ int main()
         CHECK(n > 0 && strstr(out, "asks for a confirmation first") != 0);
         rpc_close(rs);
         delete rs;
-    }
-
-    // T192 review 1 and 2: the monitor socket refuses every restore/goto of the ring state while the service is up, and an id or method is escaped in the error
-    CHECK(monsrv_gated("checkpoint/restore") && monsrv_gated("transport/goto") && monsrv_gated("mark/goto") && monsrv_gated("runtime/reverse_step"));
-    CHECK(monsrv_gated("monitor/exec") && monsrv_gated("media/mount") && monsrv_gated("sandbox/run"));
-    CHECK(!monsrv_gated("ping") && !monsrv_gated("transport/status") && !monsrv_gated("mark/list") && !monsrv_gated("checkpoint/list"));
-    {
-        char o[64];
-        monsrv_json_esc("a\"b\\c\nd", o, sizeof(o));
-        CHECK_STR(o, "a\\\"b\\\\c\\u000ad");
     }
 
     // ---- the token file deleted: the next login is a new token, the old one is dead (S17) ---------------------------------------------------------------------------------------------

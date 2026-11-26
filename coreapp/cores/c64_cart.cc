@@ -860,7 +860,7 @@ int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
     return g_for_state ? 0 : boot_cold_reset(c, msg, msglen);
 }
 
-// A loaded state's cartridge (FW trx_c64re.cc build_cartridge): the .crt at `path` is inserted, or the port emptied for NULL, and nothing is reset - the state
+// A loaded state's cartridge (the firmware's build_cartridge): the .crt at `path` is inserted, or the port emptied for NULL, and nothing is reset - the state
 // goes in next. 0, or a reason in msg.
 int c64_cart_for_state(CoreCtx *c, const char *path, char *msg, int msglen)
 {

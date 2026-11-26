@@ -331,7 +331,7 @@ def stub_incs(stubdir):
     ps, vs = os.path.join(ROOT, "host-app", "software"), os.path.join(ROOT, "vendor", "gideon", "software")
     ds = [vs + "/FreeRTOS/Source", vs + "/FreeRTOS/Source/include", vs + "/FreeRTOS/Source/portable/risc-v",
           vs + "/FreeRTOS/Source/portable/risc-v/chip_specific_extensions/RV32I_CLINT_no_extensions", ps + "/portable/riscv", ps + "/u64ii", ps + "/u64", ps + "/u64ctrl/main",
-          ps + "/io/uart", ps + "/io/usb", ps + "/api", ps + "/system", vs + "/io/audio", vs + "/appsdk/include", vs + "/network", vs + "/system", ROOT + "/coreapp/src/trxmon",
+          ps + "/io/uart", ps + "/io/usb", ps + "/api", ps + "/system", vs + "/io/audio", vs + "/appsdk/include", vs + "/network", vs + "/system",
           ROOT + "/coreapp/ffconf", ps + "/lvgl"]
     return ["-I" + d for d in ds if os.path.isdir(d)] + ["-I" + stubdir]
 

@@ -32,7 +32,7 @@ typedef struct SvcCtx {
     // menu's close. The caller tests CTX_STARTED first (op_pause_toggle answers "not running yet" when it is clear). Task: lock.
     void (*set_paused)(bool on);
     // A line the screen shows when the menu next opens, told once (CoreCtx::notice, notice_pending). `only_if_free` true: written only when no notice waits
-    // (u64cfg's rule); false: it replaces a waiting one (the former trx64u_ops' rule). The text is cut to 199 characters. Result: true when it was stored. Replaces
+    // (the rule of the former u64cfg); false: it replaces a waiting one (the former trx64u_ops' rule). The text is cut to 199 characters. Result: true when it was stored. Replaces
     // ui_notice and ui_notice_pending. Task: any.
     bool (*notice)(const char *text, bool only_if_free);
     // The folder the menu was on when a task asks for a name (CoreCtx::media_dir): where a new file goes. "" when none. Never null. Task: any.

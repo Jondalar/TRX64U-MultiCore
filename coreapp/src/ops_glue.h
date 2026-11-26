@@ -18,7 +18,7 @@ const char *ops_error(CoreCtx *c);
 
 // An operation by name. The arguments are checked against the registered types first; a refused call never reaches the handler.
 int ops_call(CoreCtx *c, const char *name, const OpIn *in, int nin, OpResult *r);
-// The same call on the calling task, not through the executor (the monitor's keys: trxmon runs on the menu task and takes no core lock).
+// The same call on the calling task, not through the executor (a caller on the menu task, which takes no core lock).
 int ops_call_direct(CoreCtx *c, const char *name, const OpIn *in, int nin, OpResult *r);
 
 // A descriptor entry's call: the bindings fill the arguments, `file` is what $file stands for (null for a task).

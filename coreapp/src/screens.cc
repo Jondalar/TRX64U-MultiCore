@@ -45,7 +45,7 @@ static int g_lib_first;
 static int lib_rows(bool sheet);
 static bool g_live;
 static bool g_viewer;
-static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 the monitor
+static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 a text grid
 
 uint32_t screens_cheap_moves(void) { return g_cheap; }
 uint32_t screens_inplace_writes(void) { return g_inplace; }
@@ -930,18 +930,18 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     draw_selpan(m, sel);
 }
 
-// ---- the monitor: trxmon's screen, 80 x 40 cells on the whole layer, no frame, no rail, no footer -----------------------------------------------------------------
+// ---- the terminal layout: a text grid of a library (textgrid.h), 80 x 40 cells on the whole layer, no frame, no rail, no footer -----------------------------------------------------------------
 // The cell is 12 x 13 pixels (the 8 x 8 pixel font with 4 px between the letters), the colours the C64 palette gives the user interface's schemes (userinterface.cc).
 static uint32_t mon_color(int attr)
 {
     switch (attr) {
-    case 1: return 0xFFFFFF;                 // UA_STATUS
-    case 2: return 0xFFFFFF;                 // UA_REGS
-    case 3: return 0x959595;                 // UA_ECHO
-    case 4: return 0xCB7E75;                 // UA_ERR
-    case 5: return 0xFFFFFF;                 // UA_PROMPT
-    case 7: return 0x6C6C6C;                 // UA_SEP
-    case 8: return 0x959595;                 // UA_HINT
+    case 1: return 0xFFFFFF;                 // TG_STATUS
+    case 2: return 0xFFFFFF;                 // TG_REGS
+    case 3: return 0x959595;                 // TG_ECHO
+    case 4: return 0xCB7E75;                 // TG_ERR
+    case 5: return 0xFFFFFF;                 // TG_PROMPT
+    case 7: return 0x6C6C6C;                 // TG_SEP
+    case 8: return 0x959595;                 // TG_HINT
     default: return 0xFFFFFF;
     }
 }
@@ -1399,7 +1399,7 @@ static void build_app(lv_obj_t *c, MenuCtl &m, int sel)
     }
 }
 
-// Lines of text in the pixel font in a card: a memory dump, the monitor. `key` names the tab's state value that holds them, one line to a row.
+// Lines of text in the pixel font in a card: a memory dump or any text. `key` names the tab's state value that holds them, one line to a row.
 static void grid_card(lv_obj_t *c, MenuCtl &m, int x, int y, int w, int nrows, const char *key, bool input_line)
 {
     const TrxTheme &t = trx_theme();

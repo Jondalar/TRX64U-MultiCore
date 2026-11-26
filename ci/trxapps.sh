@@ -4,10 +4,10 @@
 #   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every blueprint core,
 #                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants; a core with a TOML B of its own
 #                 (cores/<id>/app/sdk.toml, SDK_OWN_APPS) gets no copy but its app linked from the SDK package (tools/sdk_core_app.sh), under the same name
-#   apps/miniz      -> miniz.u2a      the zip library unzip.u2a imports (T197), shipped beside it
+#   apps/miniz      no file (base 4.0, T239.3 D58): the zip library is linked into the core app through TOML B; unzip.u2a lists it in its needs
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
-#   (trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features: TRX64-Ultimate builds them itself, T261 D6)
+#   (trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features: TRX64-Ultimate builds them itself, T261 D6; their sources are not in this repository)
 #   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
 #                 image's riscv32-unknown-elf compiler; copied to <stick>/trx/lib/ it is loaded at the next core start
 #
@@ -133,6 +133,15 @@ else
   # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app.
   ! part sdk || NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
 
+  # T239.3 P2-6 (S8): the core application built for the other cores holds no trx64u symbol. The set is the code set P2-6 deleted (ring, ringfile, ringops, monitor, monsrv, u64cfg, trxmon's tm_*,
+  # trx64u_ops); nm over the shared image's ELF here and over every linked core app's ELF below (nm_trx64u).
+  nm_trx64u() {
+    local bad
+    bad="$(riscv32-unknown-elf-nm -C "$1" | awk '$2 ~ /^[TtDdBbRrWwVv]$/ { n = $3; sub(/^.*::/, "", n); if (n ~ /^(ring_|trx_ring|mon_|monsrv_|u64cfg_|tm_|trx64u_)/) print $3 }' | sort -u | head -20)"
+    [ -z "$bad" ] || { echo "trxapps: $1 holds trx64u symbols (S8, T239.3 P2-6):" >&2; echo "$bad" >&2; exit 1; }
+  }
+  ! part sdk || nm_trx64u "$H/u64ii/riscv/coreapp/result/coreapp.elf"
+
   if [ -n "$compile_only" ]; then
     echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
     size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
@@ -177,12 +186,8 @@ else
   libapp app/lib/testlib testlib.u2a
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
-  # T197 P1: the zip code is the library (apps/miniz, resident, format 3); unzip.u2a imports it and carries none of it. S2: the size shows it - an application
-  # that linked its own miniz would be as large as the library.
-  libapp apps/miniz miniz.u2a
-  uz=$(wc -c < "$out/unzip.u2a"); mz=$(wc -c < "$out/miniz.u2a")
-  echo "=== trxapps: unzip.u2a $uz bytes, miniz.u2a $mz bytes"
-  [ "$uz" -lt "$mz" ] || { echo "trxapps: unzip.u2a ($uz bytes) is not smaller than the zip library ($mz): it carries its own miniz (T197 S2)" >&2; exit 1; }
+  # T197 P1, base 4.0 (T239.3 D58): the zip code is the TOML B library miniz (apps/miniz, linked into the core app); unzip.u2a lists it in its needs and carries none of it.
+  echo "=== trxapps: unzip.u2a $(wc -c < "$out/unzip.u2a") bytes"
   fi
   if [ -z "$only" ]; then
   mkdir -p "$out/coreapps"
@@ -216,6 +221,7 @@ else
   for c in $SDK_OWN_APPS; do
     RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_core_app.sh" "$out"/trx64-sdk-*.tar.gz "$c" "$out/coreapps"
   done
+  for c in $SDK_OWN_APPS; do nm_trx64u "$out/coreapps/$c.elf"; done
   # V-5: the app of such a core is the linked one and none of the shared image's copies: no blueprint copy of it exists in the hand-over, and its image is not the shared image
   for c in $SDK_OWN_APPS; do
     [ -s "$out/coreapps/$c.app" ] || { echo "trxapps: $c has no linked app in coreapps/" >&2; exit 1; }
@@ -242,7 +248,7 @@ printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ls -l "$out"; [ ! -d "$out/coreapps" ] || ls -l "$out/coreapps"
 sums=()
 part host && sums+=("$out/hostapp.app")
-part sdk && sums+=("$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a")
+part sdk && sums+=("$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a")
 sha256sum "${sums[@]}"; ! part sdk || [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"

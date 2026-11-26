@@ -80,11 +80,8 @@ lint-src
   source (--allow FILE:LITERAL lets one literal of one file pass, by the file's trailing path components and the literal's text with its
   suffix: a hash constant such as 0x10325476 lies in the I/O space by chance. The rest of that file is read like any other.)
   Comments and strings are not read. Exit 0: none; exit 1: the list, one line each, file:line: literal.
-  It is switched on for coreapp/src in P2-6 (when the last address literal has gone): there ci/lint.sh gets the line
-      check "reverse lint (coreapp/src, libraries)" python3 -I tools/rtl_check.py lint-src coreapp/src <library source dirs> \\
-          --allow ringfile.cc:0x106aa070u --allow trxmon/tm_ws.c:0x10325476 --allow wsproto.cc:0x10325476u
-  The three --allow literals are no addresses: 0x106aa070 is SHA-256 K[47] (ringfile.cc, also uicore/uic_sha.cc), 0x10325476 is a hash
-  initial word (tm_ws.c, wsproto.cc). Until P2-6 it is not in ci/lint.sh; run by hand it lists what is left.
+  It is switched on for coreapp/src (P2-6, ci/lint.sh) with the --allow literals below. They are no addresses: 0x106aa070 is SHA-256 K[47]
+  (uicore/uic_sha.cc), 0x10325476 is a hash initial word (wsproto.cc).
 """
 import glob
 import os
@@ -4479,7 +4476,7 @@ def cmd_lint(args):
         elif a == "--allow":
             f, sep, lit = args[i + 1].rpartition(":")
             if not sep or not f or not lit:
-                raise CheckError("--allow takes FILE:LITERAL, such as ringfile.cc:0x106aa070u")
+                raise CheckError("--allow takes FILE:LITERAL, such as uic_sha.cc:0x106aa070u")
             allow.append((f, lit))
             i += 2
         elif a == "--iobase":
