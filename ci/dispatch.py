@@ -9,9 +9,11 @@ Alone (the T239 branch, D3): every lane runs, with its lint legs and sims, and t
 Beside the old pipeline (--beside: every other push of a branch or v* tag, D11, D13): the run's plan, work order, approval, lint and sims are the old
 pipeline's jobs (its job lint runs every group of ci/lint.sh), so this run has no lint legs and no sims of its own. Where the old pipeline makes a package
 (scope full: main, integration, integ-*, release/*, v* tags; or --update yes) the matrix makes the whole package instead, so every lane runs; on any other
-branch only the lanes the push touched start (the D2 addendum: an app change drags no core in): a core lane when the plan names the core (its sources, its
-app included), every core lane when the application tests changed or the plan has no base, the SDK lane when the shared app changed or a core lane runs,
-the host menu lane when the host app changed or a core lane runs (its emulator tests take the host app). Nothing touched: no lane, no matrix work.
+branch only the lanes the push touched start (the D2 addendum: an app change drags no core in): the core lanes of ci/orchestrate.py matrix_lanes (a core the
+plan names, its sources or its app; every core lane when the application tests changed or the plan has no base - the same rule names their bitstreams in the
+old pipeline's work order), the SDK lane when the shared app changed or a core lane runs, the host menu lane when the host app changed or a core lane runs
+(its emulator tests take the host app). Nothing touched: no lane, no matrix work. A documentation-only plan (D2.1), alone or beside: no lane, no lint leg, no
+package.
 
   ci/dispatch.py <plan.json> --tier N [--beside] [--update yes|no]
       prints `key=value` lines for $GITHUB_OUTPUT: cores, lint_groups, cor_targets (core:<id> or large:<id>), sim_owners (JSON lists), sims_tier, and sdk, host,
@@ -24,6 +26,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+import orchestrate as O  # noqa: E402
+
 STEPS = ["Lint", "Unit tests", "What has changed?", "Comparison", "What must be in it", "Build", "Complete and fits", "Tests: mock bitstream -> service",
          "Tests: service -> UI", "Tests: service -> API", "Package", "Emulator tests", "Deliver"]
 
@@ -38,9 +43,7 @@ def moved_cores():
     return lanes
 
 
-def target(name, kind):
-    """The bitstream target of a core lane (ci/fetch_bits.sh, ci/order.py): core:<id> for a partial, large:<id> for a flat bitstream."""
-    return ("large:" if kind == "large" else "core:") + name
+target = O.lane_target     # the bitstream target of a core lane: core:<id> or large:<id>
 
 
 def sim_owners(plan_path, tier, targets):
@@ -79,11 +82,9 @@ def matrix(lanes, owners, beside, sdk, host, package):
 
 
 def touched(plan, lanes):
-    """Beside the old pipeline on a feature branch: the core lanes the push touched, and whether the SDK and the host menu lane run."""
-    L = plan.get("lanes") or {}
-    named = set(plan.get("dfx", [])) | set(plan.get("large", [])) | set(L.get("dfx", [])) | set(L.get("large", []))
-    every = bool(plan.get("all") or plan.get("tests"))
-    run = [(c, k) for c, k in lanes if every or c in named]
+    """Beside the old pipeline on a feature branch: the core lanes the push touched (ci/orchestrate.py matrix_lanes, the rule the work order uses too), and
+    whether the SDK and the host menu lane run."""
+    run = O.matrix_lanes(plan, lanes)
     apps = plan.get("apps") or {}
     return run, bool(run or apps.get("core")), bool(run or apps.get("host"))
 
@@ -109,15 +110,18 @@ def main(argv):
         print("dispatch: %s is no plan.json of version 1" % plan_path, file=sys.stderr)
         return 1
     lanes = moved_cores()
-    package = not beside or plan.get("scope", "full") == "full" or update
-    if package:
+    docs = bool(plan.get("docs_only"))
+    package = not docs and (not beside or plan.get("scope", "full") == "full" or update)
+    if docs:
+        run, sdk, host = [], False, False
+    elif package:
         run, sdk, host = lanes, True, True
     else:
         run, sdk, host = touched(plan, lanes)
     cores = [c for c, _ in run]
     targets = [target(c, k) for c, k in run]
     owners = [] if beside else sim_owners(plan_path, tier, targets)
-    out = {"cores": cores, "lint_groups": [] if beside else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
+    out = {"cores": cores, "lint_groups": [] if beside or docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
            "cor_targets": targets, "sim_owners": owners}
     for k, v in out.items():
         print("%s=%s" % (k, json.dumps(v, separators=(",", ":"))))
@@ -129,6 +133,8 @@ def main(argv):
         how = ("Beside the old pipeline (D11): the plan, the work order, the approval, the lint and the sims are its jobs; " +
                ("the package of record is this run's whole package" if package else "no package on this push (scope %s); the lanes this push touched: %s"
                 % (plan.get("scope"), " ".join(cores) or "none")) if beside else "Alone (D3): this run's dispatcher uploads the plan and the work order")
+        if docs:
+            how += "; documentation only (D2.1): no lane, no lint leg, no package"
         lines = ["### The matrix of this push (T239.5)", "",
                  "Changed: %s code files, branch %s, base %s" % (plan.get("changed"), plan.get("branch"), (plan.get("base") or {}).get("commit") or "none"), "",
                  how, "",

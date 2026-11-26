@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """T239.1 S6: ci/orchestrate.py against plans made from this tree: the graph of a docs-only, a full-scope and a feature-branch plan, the outputs the
-pipeline's jobs read, stamp/tier/benches/owners, and `check` on the tree's own workflows. Unit and happy path; no network, no git history needed beyond HEAD.
+pipeline's jobs read, stamp/tier/benches/owners, `check` on the tree's own workflows, and the lanes ci/dispatch.py starts against the work order's targets
+(T239.5 D13). Unit and happy path; no network, no git history needed beyond HEAD.
 
   python3 -I ci/test_orchestrate.py
 """
@@ -15,6 +16,18 @@ fails = []
 def run(*a, **kw):
     r = subprocess.run([sys.executable, ORCH, *a], capture_output=True, text=True, cwd=ROOT, **kw)
     return r.returncode, r.stdout, r.stderr
+
+
+def kv_of(out):
+    return dict(l.split("=", 1) for l in out.strip().splitlines() if "=" in l)
+
+
+def dispatch(plan_path, *a):
+    """ci/dispatch.py over a plan: its $GITHUB_OUTPUT lines as a dict (the JSON values decoded)."""
+    env = {k: v for k, v in os.environ.items() if k != "GITHUB_STEP_SUMMARY"}
+    r = subprocess.run([sys.executable, os.path.join(HERE, "dispatch.py"), plan_path, "--tier", "0", *a], capture_output=True, text=True, cwd=ROOT, env=env)
+    kv = kv_of(r.stdout)
+    return r.returncode, {k: v if v in ("true", "false") or k == "sims_tier" else json.loads(v) for k, v in kv.items()}, r.stdout + r.stderr
 
 
 def want(name, ok, detail=""):
@@ -72,10 +85,50 @@ with tempfile.TemporaryDirectory() as td:
     rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no")
     kv = dict(l.split("=", 1) for l in out.strip().splitlines())
     want("branch: cor leg core:apple2 only, no package", json.loads(kv["cor_targets"]) == ["core:apple2"] and "package" not in json.loads(kv["children"]), out)
-    want("branch: order_targets name every touched core", json.loads(kv["order_targets"]) == ["core:vc20", "core:apple2", "large:amiga1200"], out)
+    want("branch: order_targets name every touched core", sorted(json.loads(kv["order_targets"])) == ["core:apple2", "core:vc20", "large:amiga1200"], out)
     rc, out, _ = run("outputs", fp, "--tier", "0", "--update", "yes")
     kv = dict(l.split("=", 1) for l in out.strip().splitlines())
     want("full: no order_targets (the package names every entry)", json.loads(kv["order_targets"]) == [], out)
+
+    # T239.5 D13: a feature branch that changes host gateware and the application tests names no core of its own, yet the dispatcher starts every core lane
+    # (plan tests); the work order names the bitstreams of each of them (ci/orchestrate.py matrix_lanes, the rule of both). The tree's own cores and kinds.
+    def host_tests(p):
+        p.update(docs_only=False, scope="branch", sims=[], large=[], host=True, aux=False, dfx=["null"], tests=True, all=False)
+        p["apps"] = {"host": False, "core": False, "ultimate": False}
+        p["lanes"] = {"host": True, "dfx": ["null"], "large": []}
+    hp = mk("host_tests.json", host_tests)
+    own = plan["universe"]["own"]
+    want_own = sorted(("large:" if c in plan["universe"]["large"] else "core:") + c for c in own)
+    rc, out, _ = run("outputs", hp, "--tier", "0", "--update", "no")
+    order = json.loads(kv_of(out)["order_targets"])
+    rc2, d, dout = dispatch(hp, "--beside")
+    want("host+tests branch: the dispatcher starts every own-app core lane", rc2 == 0 and own and sorted(d["cores"]) == sorted(own) and d["package"] == "false",
+         dout)
+    want("host+tests branch: order_targets name every lane the dispatcher starts", rc == 0 and set(d.get("cor_targets", [])) <= set(order)
+         and sorted(t for t in order if t.split(":", 1)[1] in own) == want_own, out + dout)
+
+    # T239.5 D13: a pull request runs no matrix (--matrix no): the work order names the cor legs only, no core with an app of its own
+    rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no", "--matrix", "no")
+    kv = kv_of(out)
+    want("pull request: order_targets = the cor legs (core:apple2), no own-app core", json.loads(kv["order_targets"]) == ["core:apple2"]
+         and json.loads(kv["order_targets"]) == json.loads(kv["cor_targets"]), out)
+    rc, out, _ = run("outputs", hp, "--tier", "0", "--update", "no", "--matrix", "no")
+    want("pull request, host+tests: no own-app entry ordered", not any(t.split(":", 1)[1] in own for t in json.loads(kv_of(out)["order_targets"])), out)
+    rc, out, err = run("outputs", hp, "--tier", "0", "--matrix", "maybe")
+    want("--matrix takes yes or no only", rc != 0, out + err)
+
+    # documentation only (D2.1): the dispatcher starts no lane, no lint leg and no package, alone and beside a full-scope run; the work order names nothing
+    def docs_full(p):
+        p.update(docs_only=True, scope="full", tests=False, all=False)
+    dp = mk("docs_full.json", docs_full)
+    for mode in ([], ["--beside"], ["--beside", "--update", "yes"]):
+        rc, d, dout = dispatch(dp, *mode)
+        want("docs only, dispatcher %s: no lane, lint leg or package" % (" ".join(mode) or "alone"),
+             rc == 0 and d["cores"] == [] and d["lint_groups"] == [] and d["cor_targets"] == [] and (d["sdk"], d["host"], d["package"]) == ("false",) * 3, dout)
+    rc, out, _ = run("outputs", dp, "--tier", "0", "--update", "yes")
+    want("docs only: order_targets empty", json.loads(kv_of(out)["order_targets"]) == [], out)
+    rc, d, dout = dispatch(fp)
+    want("full alone (not docs only): every lane and the package", rc == 0 and sorted(d["cores"]) == sorted(own) and d["package"] == "true", dout)
 
     # the sims tier travels in the plan
     run("stamp", fp, "--tier", "2")
