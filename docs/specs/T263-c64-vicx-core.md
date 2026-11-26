@@ -3,7 +3,7 @@
 **Status:** PROPOSED (2026-11-26). Alex, 2026-11-26 (translated): "Write a spec: C64-vicx. Basically like the SuperCPU, but with the
 6502 CPU, all TRX64 building blocks that are standard (reSID, floppy, etc.). No focus on ring, monitor etc. Specs and Vivado:
 https://github.com/NebulaSleuth/VIC-X/". D1-D4 decided; Q4-Q12 open; nothing built.
-Open (one line, as in the TODO table): PROPOSED 11-26; D1 base trx64 w/o ring+monitor; D2 50T+100T, 50T drops streams/sampler; D3 large; D4 VRAM in DDR2; Q4-12 open
+Open (one line, as in the TODO table): PROPOSED 11-26; D1 trx64 w/o ring+monitor; D2 50T+100T (50T drops streams etc.); D3 large; D4 VRAM in DDR2; Q4-12
 **Repo:** TRX64U-MultiCore: a new core directory `cores/<id>/` (gateware, `core.toml`, its own app under `cores/<id>/app/`) and a copy
 of the VIC-X sources (Q8). The trx64 gateware it copies stays in TRX64-Ultimate; nothing is changed there.
 **Number:** T263.
