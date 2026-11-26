@@ -25,9 +25,10 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# the headers of the call tables of base 3.3 that libapi.h does not include (svc_sys.h: the members of SvcSys; the rest: what the libraries of this base export, T239.3 D17)
+# the headers of the call tables of base 3.3 that libapi.h does not include (svc_sys.h: the members of SvcSys; the rest: what the libraries of this base export, T239.3 D17);
+# coredlg.h: CoreDialogs, which ctx.h only declares (base 3.7, T239.3 D54)
 ROOTS = ["libapi.h", "libfmt.h", "c64_api.h", "glue.h", "u2p_app.h", "u2p_ui.h", "hidden.h", "svc_sys.h", "textgrid.h", "c64cart_api.h", "cbm1541_api.h", "sid_api.h",
-         "tempdisk_api.h", "core_hooks.h", "cbmprg_api.h", "mouse_api.h", "pad_api.h", "padkeys_api.h"]
+         "tempdisk_api.h", "core_hooks.h", "cbmprg_api.h", "mouse_api.h", "pad_api.h", "padkeys_api.h", "coredlg.h"]
 DIRS = ["coreapp/src", "app/sdk"]
 LOCK = "coreapp/api_lock.toml"
 VERSION_TOML = "coreapp/version.toml"
