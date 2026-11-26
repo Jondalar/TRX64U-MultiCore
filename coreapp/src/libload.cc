@@ -149,7 +149,7 @@ int LibLoader::owner() const
 }
 
 // Whose account a service call goes on, by the code that made it (base 3.3, S14): the image that holds the return address `ra`, else owner(). A library's export table
-// (lib->find) is called by whoever found it, straight through the function pointers of the library, so no bracket of the base is around that call; the allocation
+// (api->lib->need, libslot.h) is called by whoever took it, straight through the function pointers of the library, so no bracket of the base is around that call; the allocation
 // that the exported function makes is still the library's, because its code is what asks. The same holds for a core hook, a job function, a callback. Only the code
 // of a loaded image counts (a call from the base, or from an image that is not in a slot, goes on the account owner() names). A tail call hides the library's address
 // (the return address is the one of its caller), so lib.mk builds libraries with -fno-optimize-sibling-calls.

@@ -154,10 +154,10 @@ typedef struct SvcNet {
 
 // The tables of the exports a file uses (base 4.0, T239.3 D31, P2-6; libslot.h). need(n) is the table of the calling image's own needs entry number n: the file lists
 // its needs in the order of LIB_NEEDS (APP_NEEDS), "base" included, and the numbers are fixed when the file is packed; that list is the file's slot list. The loader
-// bound each entry once, when it loaded the file, to the export of that name at exactly that major: an export of a library the app is linked with (libslot.h), or of a
-// file loaded before. No name is looked up when the file runs, and nothing finds a table by name (lib->find is gone). A file whose entry no export answers is not
+// bound each entry once, when it loaded the file, to the export of that name at exactly that major of the libraries the app is linked with (libslot.h; base 4.0 loads
+// no library file, D58). No name is looked up when the file runs, and nothing finds a table by name (lib->find is gone). A file whose entry no export answers is not
 // loaded (the refusal names the file, the export and its major). Null (and *table_size 0) for a number past the list and for the entries "base", PRG_APP_NEED and
-// CART_APP_NEED (libfmt.h). *table_size is the export's size (the file's LibExportDecl::size, or the first word of a linked library's table). The caller is the image
+// CART_APP_NEED (libfmt.h). *table_size is the export's size (the first word of its table). The caller is the image
 // whose code makes the call, as for api->mem: a table found here is used only by that image.
 typedef struct SvcLib {
     uint32_t size;

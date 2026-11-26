@@ -26,7 +26,7 @@ struct BundleExtras {
 };
 
 // Reads the bundle ctx->cor_path names. A path that is no .cor, a bundle that is not this core's or one the host contract does not accept leaves
-// everything null with the reason in why. The description is read, hashed and parsed here; the libraries are only located (lib_load_cor loads them).
+// everything null with the reason in why. The description is read, hashed and parsed here; record 7 (the menu records of the linked libraries) is only located (libscan.h lib_link_cor reads it).
 void bundle_read(CoreCtx *c, BundleExtras *out);
 
 // T239.3 P1-4 (D30 condition 2, D31): the one check that stays at run time. A bundle whose record is TOML A (version 7) names the standard block of its bitstream (identity block, properties

@@ -712,8 +712,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     MenuCtl *menu = new MenuCtl(&ctx, &board_host);
     bool menu_open = false;
 
-    // The libraries (T104.1 D12): every .u2a of <stick>/trx/lib, after the descriptor and before the core is released, so what they register is
-    // there for the menu, the executor and the poll. A refusal (Q10: a capability this core lacks, a dependency, a cycle) is told here, on the
+    // The libraries (T104.1 D12; base 4.0, D58: the libraries linked with `register`, no library file), after the descriptor and before the core is released, so what
+    // they register is there for the menu, the executor and the poll. A refusal (a record or a budget the loader refuses, an export not delivered) is told here, on the
     // screen and in the log; the core still starts. So does a start that skips them all (libguard.h). Waits for a key, at most 6 s, so that it can be read and an unattended start is not held.
     static BundleExtras bundle;
     {

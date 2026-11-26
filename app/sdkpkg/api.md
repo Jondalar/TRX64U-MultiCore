@@ -5,34 +5,35 @@
 ### 1.1 What this document covers
 
 1.1.1 This document describes what the core application (the base) offers to a library and to an application.
-1.1.2 A library is a `.u2a` file of kind lib. It stays loaded and registers operations, state values and events.
+1.1.2 A library is code that the app of a core is linked with, named in the TOML B of that app (section 2.4). It stays for the run and registers operations, state values and events, or exports call tables, or both.
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
-1.1.4 A library and an application are both called an image.
+1.1.4 A library and an application are both called an image. Since base 4.0 only an application is a file the base loads: a `.u2a` file of kind lib is refused (2.4.10). A library is a slot of the base with no loaded image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h`, `libfmt.h` and `libslot.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h`, `svc_overlay.h` and `svc_fs.h`, and the table of the core hooks in `core_hooks.h` (9.5).
 1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
-1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
+1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document. Since base 4.0 the adapter has no `trx` and no `c64` table, and `media.reset` calls the operation `machine.warm_reset`.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
 
 ### 1.2 Versions
 
-1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 6.
-1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
-1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
+1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 4.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 0.
+1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry and the `version` of a library use this form.
+1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 4. A file built for base API 3 is refused with a sentence that names the major it was built for and asks to build it again.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2, 3.3, 3.4, 3.5 or 3.6. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). Base 3.4 added the members `exit_to_machine` and `goto_screen` of `api->overlay` (4.17.18, 4.17.19) and the group `api->wb`, the write-back service for libraries (4.18). Base 3.5 (SDK 0.5.0, T262) added the member `ask_list` of `api->ctx` (4.14.14), the node kind `LN_LIST` (6.19), the sources of the F3 search (6.20) and, in the menu record, the node keys `pick = "@state"`, `busy`, `more`, `search`, `find` and `fields` (6.7.3), the tab key `show` (6.11.7) and the key row key `legend` (6.18.3). Base 3.6 (SDK 0.5.1, T262 D4) added the members `browse_at` and `browse_sheet` of `api->ctx` (4.14.15, 4.14.16), the value `SVCFS_SIZE_UNKNOWN` of `SvcFsEntryLong.size` (4.4.24.6) and, in the menu record of a library, the key table `[[key]]` (6.18.5). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.6 writes `needs base >= 3.1`, `needs base >= 3.2`, `needs base >= 3.3`, `needs base >= 3.4`, `needs base >= 3.5` or `needs base >= 3.6`. A library built against 3.4 or 3.5 loads and runs on 3.6 unchanged: every addition is a new member at the end of a table, a new value of an enum, or a new key of a text.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2, 3.3, 3.4, 3.5, 3.6 or 4.0 (1.2.10). Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size` (base 4.0 removed the two members). Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library (section 9) with the table `C64Api` (base 4.0 removed the table). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), the states `set.<key>` and `net.gated` (4.13.5), the members `connect` and `resolve` of `api->net` (4.8.13, 4.8.14) and `need` of `api->lib` (4.10.3). Base 3.4 added the members `exit_to_machine` and `goto_screen` of `api->overlay` (4.17.18, 4.17.19) and the group `api->wb`, the write-back service for libraries (4.18). Base 3.5 (SDK 0.5.0, T262) added the member `ask_list` of `api->ctx` (4.14.14), the node kind `LN_LIST` (6.19), the sources of the F3 search (6.20) and, in the menu record, the node keys `pick = "@state"`, `busy`, `more`, `search`, `find` and `fields` (6.7.3), the tab key `show` (6.11.7) and the key row key `legend` (6.18.3). Base 3.6 (SDK 0.5.1, T262 D4) added the members `browse_at` and `browse_sheet` of `api->ctx` (4.14.15, 4.14.16), the value `SVCFS_SIZE_UNKNOWN` of `SvcFsEntryLong.size` (4.4.24.6) and, in the menu record of a library, the key table `[[key]]` (6.18.5). The groups `api->net` and `api->job` are in the table that a library sees when it registers; every allocation, file, socket and job is on the account of the image whose code makes the call (4.2.2.1, 4.6.3, 4.8.2); the jobs of a library do not see the stop of an application (4.6.5, 4.6.13.3); the poll of a library with `when_frozen` runs while the machine is frozen (6.10.9). A library that depends on one of the additions of 3.1 to 3.6 writes `needs base >= 3.1`, `needs base >= 3.2`, `needs base >= 3.3`, `needs base >= 3.4`, `needs base >= 3.5` or `needs base >= 3.6`. A library built against 3.4 or 3.5 loaded and ran on 3.6 unchanged: every addition is a new member at the end of a table, a new value of an enum, or a new key of a text. Base 4.0 is a new major: a library or an application of major 3 is refused (1.2.10).
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release. Base 3.6 (SDK 0.5.1 and 0.5.2), base 3.5 (SDK 0.5.0), base 3.4 (SDK 0.4.6 and 0.4.7), base 3.3 (SDK 0.4.0 to 0.4.5, in 0.4.5's state), base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release. Base 4.0 (SDK 0.6.0, T239.3 P2-6) is the minor of the coming release. Base 3.6 (SDK 0.5.1 and 0.5.2), base 3.5 (SDK 0.5.0), base 3.4 (SDK 0.4.6 and 0.4.7), base 3.3 (SDK 0.4.0 to 0.4.5, in 0.4.5's state), base 3.2 (SDK 0.2.0) and base 3.1 are released.
+1.2.10 Base 4.0 (SDK 0.6.0, T239.3 P2-6, D57 and D58) is a new major. Removed: `api->trx` with `SvcRing` (4.7), `api->c64` (4.9), `api->lib->find` (4.10.2), the members `LibRecord.exports` and `LibRecord.exports_size` (6.1), the base's own export `c64` with `C64Api` (3.2.10, 9.4), the loading of a library file at run time (2.4.10: a `.u2a` of kind lib is refused, record 7 of a `.cor` holds menu records and no files, the folder `<root>/trx/lib` is not read) and the eviction of a library to make room for an application. Added: the linking of libraries through the TOML B (2.4), the slot table `libslot.h` (2.4.9), `api->lib->need` bound to the linked exports (4.10.3), `api->net->announce` (4.8.15) and the offer of `CART_APP_NEED` where the TOML A of the core has the block `c64cart`. `U2A3_NEEDS_MAX` is 8. A library or an application of major 3 is refused: build it again against base 4.0. There is no fallback to the calls that went.
 
 | Symbol | Contract |
 |---|---|
-| `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 6. |
+| `U2A_ABI_MAJOR` | The major number of the API, 4. A base of another major refuses the image. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 0. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
-| `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
+| `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 8. |
 | `U2A3_IMAGE_MAX` | The size of the image (payload and zeroed memory), at most 1 MiB. |
 | `U2A3_ALIGN_MAX` | The largest alignment an image may ask for, 4096 bytes. |
 | `U2A3_FLAG_BUDGET` | The header flag 2 of a file: the budget record stands directly behind the header (section 8). A base older than 3.2 refuses a file that sets it. |
@@ -40,7 +41,7 @@
 | `U2A3_EXPORTS_MAX` | The number of names a library exports, at most 8 (also `LIB_EXPORTS_MAX` for the record). |
 | `U2A3_BUDGET_NONE` | The value 0xFFFFFFFF of a figure in the budget record: the image declares no figure of its own (8.2). |
 | `PRG_APP_NEED` | The name `standalone`. A `needs` entry with this name names no library. The base does not offer the application while the board runs under the MultiCore host. |
-| `CART_APP_NEED` | The name `cart_port`. A `needs` entry with this name names no library. The base offers the application only where `api->c64` is not null. |
+| `CART_APP_NEED` | The name `cart_port`. A `needs` entry with this name names no library. The base offers the application only where the TOML A of the running core has the block `c64cart` (D40). |
 
 ### 1.3 Tasks
 
@@ -49,8 +50,8 @@
 1.3.3 The executor task runs the operations that the menu, the REST door and the WebSocket door call. It holds the core lock while a handler runs.
 1.3.4 The application task is the task `App`. It runs `app_main`. Its stack is 8192 words, 32 KiB.
 1.3.5 A job task is a task `App job`, made by `api->job->start`.
-1.3.6 A poll task is a task of its own for each poll that is served: the polls the record of the core and of the libraries loaded at start declare, and the polls of the libraries and kept applications that load later. It holds the core lock while the operation runs.
-1.3.7 The start-up task runs before the menu loop. It loads the libraries of the `.cor` file and of the libraries folders.
+1.3.6 A poll task is a task of its own for each poll that is served: the polls the record of the core and of the libraries registered at start declare, and the polls of the kept applications that load later. It holds the core lock while the operation runs.
+1.3.7 The start-up task runs before the menu loop. It registers the libraries that are linked with `register`, and hands each its menu record from record 7 of the `.cor` file (2.4).
 1.3.8 The core lock serialises the registers, windows and state of the core.
 1.3.9 A call that blocks the caller (`api->dlg`, `api->job->join`, `api->net->send`) is never made from the menu task or the executor task.
 
@@ -68,20 +69,20 @@
 
 Since base 3.0.
 
-2.1.1 The entry of a library is `extern "C" int lib_register(const LibApi *api, LibRecord *out)`. The type is `lib_register_fn`.
-2.1.2 The packer finds the entry by the symbol name `lib_register`. The symbol has to be visible. The example marks it with `visibility("default")`.
-2.1.3 The base calls `lib_register` once, when it loads the image, on the task that loads it.
-2.1.4 The start-up task loads the libraries of the core at start. The menu task loads a library an application needs, with the core lock held.
+2.1.1 The entry of a library is a function `int fn(const LibApi *api, LibRecord *out)`. The type is `lib_register_fn`. The TOML B names the function of a linked library in `register` (2.4.4). An application that has screens may also have the entry `extern "C" int lib_register(const LibApi *api, LibRecord *out)` (2.2.4).
+2.1.2 The packer finds the entry of an application by the symbol name `lib_register`. The symbol has to be visible. The example marks it with `visibility("default")`.
+2.1.3 The base calls the entry once: for a linked library when it registers the library at start, for an application when it loads the image, on the task that does it.
+2.1.4 The start-up task registers the libraries of the core at start. The menu task loads an application, with the core lock held.
 2.1.5 The base clears `*out` and sets `out->struct_size` before the call. A library leaves `struct_size` as it is.
 2.1.6 The function fills `*out` and returns 0. Any other value refuses the load. The base then takes back everything the image registered and frees the image.
-2.1.7 The base refuses the load too when `out->struct_size` changed, when a count is negative or has no list, when `exports` is set and `exports_size` is below 4, when the list `export_list` is malformed or lacks a name the file lists (9.2), and when the registry refuses a name.
+2.1.7 The base refuses the load too when `out->struct_size` changed, when a count is negative or has no list, when the list `export_list` is malformed or lacks a name the file lists (9.2) or the TOML B declares (2.4.8), and when the registry refuses a name.
 2.1.8 The base copies `*out`. The lists it points to are not copied. They stay in the image.
 2.1.9 The base registers `out->ops`, `out->states` and `out->events` under the name of the image. The menu merge reads `nodes`, `file_actions`, `settings`, `tabs` and `poll` (section 6).
-2.1.10 Memory a library takes from `api->mem` inside `lib_register` belongs to the library. It is freed when the library is unloaded or when the load fails.
-2.1.11 Not every group of `api` is there during `lib_register` of a library loaded at core start (section 3.2).
-2.1.12 The loader runs no constructor and no destructor. It does not walk `.init_array` or `.fini_array`, and nothing calls a function registered with `atexit` or `__cxa_atexit` when the library is unloaded.
+2.1.10 Memory a library takes from `api->mem` inside `lib_register` belongs to the library. It is freed when the registration is refused.
+2.1.11 Not every group of `api` is there during `lib_register` of a library registered at core start (section 3.2).
+2.1.12 The loader runs no constructor and no destructor for a `.u2a` file. It does not walk `.init_array` or `.fini_array`, and nothing calls a function registered with `atexit` or `__cxa_atexit` when the image is unloaded.
 2.1.13 The packer refuses an image that would hold one: a non-empty `.init_array`, `.fini_array`, `.ctors` or `.dtors`, or an undefined reference to `__cxa_atexit` or `atexit`. The message names the section or the symbol and, where the relocations tell it, the function and the object it comes from. `lib.mk` and `app.mk` run the check on the objects in front of `ld` (`u2a_pack.py --check-objects`), because `ld` would stop on the undefined `__cxa_atexit` of a destructor before the packer saw the image; so `make` shows the packer's message, not `ld`'s.
-2.1.14 A global object with a constructor or a destructor is therefore not allowed. Hold the state in a plain structure, set it up in `lib_register` and release it where the library ends its work.
+2.1.14 A global object with a constructor or a destructor is therefore not allowed in a file. Hold the state in a plain structure, set it up in `lib_register` and release it where the image ends its work.
 
 ### 2.2 `app_main` (`app_main_fn`)
 
@@ -113,6 +114,22 @@ Since base 3.0.
 | `AppCtx.reply` | A buffer for one line, `reply_len` bytes. The base sets its first byte to 0 before the call. The line is the application's result: the status line of the screens, or the answer of a transport. |
 | `AppCtx.reply_len` | The size of `reply` in bytes. It is 240 when the base opens the application. The base sets the last byte of the buffer to 0 after `app_main` returns. |
 
+### 2.4 Linking a library: the TOML B
+
+Since base 4.0 (T239.3 D31, D58).
+
+2.4.1 A library is linked into the app of a core. The base loads no library file (2.4.10).
+2.4.2 The app is linked with the `[[library]]` tables of its TOML B: `coreapp/libs/shared.toml` for the shared app, `app/toml_b.toml` for the example core. `tools/libtab.py table TOML_B OUT` makes `libtab_table.cc` (`g_libtab`, `g_libtab_link_order`, `g_libslot`, `g_libslot_bound`), `libslots.h` and `libtab.mk`, the list of sources to compile.
+2.4.3 The keys of a `[[library]]` are `name`, `sources`, `headers`, `needs`, `bind`, `register_ops`, `capability`, `init`, `start`, `freeze_request`, `core`, `register`, `exports`, `menu`, `heap_keep`, `heap_peak` and `tests`. The old key `table` is refused.
+2.4.4 `register = "fn"` names a function `int fn(const LibApi *, LibRecord *)`: the interface of `lib_register` (2.1). The base calls it at start, where it called `lib_register` of a loaded file, and takes the operations, state values, events, poll, `export_list`, core hooks and budget from the record as it took them from a file, with the same checks and the same refusals. A library without `register` has no record: it exports tables and hands the generic application its entries (`bind`, `init`, `start`).
+2.4.5 `needs` names the libraries of the same TOML B that this one calls. The libraries with `register` are registered in the order of their `needs`: a library after the libraries it needs. `libtab.py` refuses a cycle.
+2.4.6 `heap_keep` and `heap_peak` are the figures of the budget (section 8) of a library with `register`. The base checks `heap_keep` against the room of the heap and holds the library to `heap_peak` while it registers, as for a file.
+2.4.7 `menu = "path"` is the menu record of a library with `register`, an `app.toml` style TOML. The path is relative to the directory of the TOML B. `cor_pack` compiles it. It merges the record into the description of the core where it can, and otherwise puts it into record 7 of the `.cor` file (2.4.11). The base hands the record to the registration of the library of that name. A menu record that no library takes is refused with a sentence that names the library.
+2.4.8 `exports = [{ name = "x", major = 1, table = "x_table" }]` lists the tables a library exports, one entry for each. An export name is 1 to 15 characters of `a-z`, `0-9` and `_`, and stands once in a TOML B. The major starts at 1. `table` names a function `const void *fn(void)` of the library that returns the table, with its `size` first, or null when the running core has none. `table` is for a library without `register`. A library with `register` names no `table` (`tools/libtab.py` refuses one): it delivers the table in `LibRecord.export_list`, and the base refuses the library, naming the export, when a declared export is not in the list (`it declares the export "x" 1 (its file, or its TOML B) and lib_register does not return it.`). `add_export` of a `bind` function is gone.
+2.4.9 The slot table is `libslot.h`. `LibSlot` is `{ lib, name, major, table, at_start }`. `g_libslot[]` and `g_libslot_n` hold one slot for each export, in the order of the TOML B. `lib_slot(i, &size)` returns the table of slot `i` and its size, or null and 0 for a slot past the table and for a table function that answers null. `libslots.h` has `LIBSLOT_<name>`, `LIBSLOT_<name>_MAJOR` and `LIBSLOT_COUNT`. A library that uses an export of another library calls `lib_slot(LIBSLOT_<name>, &size)` and lists that library in its `needs`: `libtab.py lint` refuses a source that names a slot of a library its `needs` do not list. A slot that the TOML B does not export is no macro, so the source does not compile. A library that uses an export only where the app has it writes `#ifdef LIBSLOT_<name>`. The generic application takes an export by its name with `libtab_export(name, major, &size)`.
+2.4.10 A `.u2a` file of kind lib is refused by `LibLoader::load` with the code `LIB_BAD_FILE` and the sentence `"<name>" is a library file: base 4.0 loads no library file; a library is linked into the core's app through its TOML B.` The file index of the apps folders logs `[app] <path>: "<name>" is a library file; base 4.0 loads no library file` and does not list the file. The folder `<root>/trx/lib` is not read.
+2.4.11 Record 7 of a `.cor` file holds menu records, not files. Its version is 2: `"TRXL"`, a `u32` 2, a `u32` count, and for each entry `char name[16]` (NUL padded), a `u32` length and the menu record, padded with zeros to a multiple of 4. A record 7 of version 1 is refused with the sentence `base 4.0 loads no library file`. At start the base hands each library with `register` its record by name, logs `[lib] <name> (linked) : ok` or `[lib] <name> (linked) : refused: <why>`, and counts the libraries registered and refused.
+
 ## 3. The root: `LibApi`
 
 ### 3.1 The members
@@ -123,7 +140,7 @@ Since base 3.0.
 
 | Member | Contract |
 |---|---|
-| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the six groups after it (a development base of 3.3 before the overlay service by the last one: test `LIB_API_COVERS(api, overlay)`). A call that a group got later is tested with `SVC_HAS(table, call)`: the table is there, its `size` covers the call and the call is set, e.g. `SVC_HAS(api->overlay, goto_screen)` (`libapi.h`). |
+| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the six groups after it (a development base of 3.3 before the overlay service by the last one: test `LIB_API_COVERS(api, overlay)`). Base 4.0 has no members `trx` and `c64`, so the members from `net` on stand at other offsets than in base 3 and a file of major 3 is refused (1.2.4). A call that a group got later is tested with `SVC_HAS(table, call)`: the table is there, its `size` covers the call and the call is set, e.g. `SVC_HAS(api->overlay, goto_screen)` (`libapi.h`). |
 | `api->abi_major` | `U2A_ABI_MAJOR` of the base. |
 | `api->abi_minor` | `U2A_BASE_MINOR` of the base. |
 
@@ -140,13 +157,13 @@ Since base 3.0.
 3.2.1 Each of the other members of `LibApi` points to a call table. The sections of chapter 4 describe them.
 3.2.2 Every table starts with a member `size`, the size of the table in bytes. A member is there when `size` covers it and its pointer is not null (section 4.11).
 3.2.3 A group the core or the base does not have is a null pointer. Test it before the call.
-3.2.4 The base fills the groups in two steps. When `lib_register` runs for a library loaded at core start, the following holds.
+3.2.4 The base fills the groups in two steps. When `lib_register` runs for a library registered at core start, the following holds.
 3.2.5 `api->ops` answers `OPE_UNSUPPORTED` to `call` and null to `state`. `api->fs` fails every call as if the core had no file system.
-3.2.6 `api->dlg`, `api->trx` and `api->c64` are null. `api->sys->flash_read` and `api->sys->machine_handover` are null. `api->job` and `api->net` are there from base 3.3, but they have no machine behind them yet: `api->net->listen` returns -7 and `api->job->start` returns null until the base has given its own tables (3.2.7).
+3.2.6 `api->dlg` is null. `api->sys->flash_read` and `api->sys->machine_handover` are null. `api->job` and `api->net` are there from base 3.3, but they have no machine behind them yet: `api->net->listen` returns -7 and `api->job->start` returns null until the base has given its own tables (3.2.7).
 3.2.7 The base fills these members later in the same object. An image that keeps `api` reads the members at the time of the call.
-3.2.8 A library or an application loaded after the start sees every group the core has.
-3.2.9 `api->trx`, the ring table `api->trx->ring` and `api->c64` leave the base API. They come from libraries, through `api->lib->find` (4.10, section 9): the names `trx`, `ring` and `c64`, each at major 1. New code asks `api->lib->find`. The three pointers stay in `LibApi` and keep their meaning until the cut of `LibApi` that comes with the next change of its major; the base fills them as before.
-3.2.10 The base itself answers `find("c64", ...)` with a `C64Api` table (9.4). It does not answer `trx` or `ring`: their layouts belong to the libraries of the core that has them.
+3.2.8 An application loaded after the start sees every group the core has.
+3.2.9 Removed in base 4.0 (T239.3 D57): `api->trx`, the ring table `api->trx->ring` and `api->c64` are no members of `LibApi`, and there is no fallback. What they gave is the core's own: its TOML A and the driver table for the registers, the export `ring` of the ring library of the core, `api->net->announce` (4.8.15) for `trx->announce`, the operation `machine.warm_reset` for `reset_c64` (`api->ops->call`), and `api->io->ram_read` and `api->io->ram_write` (4.15.9) for the memory of the C64.
+3.2.10 Removed in base 4.0 (T239.3 D57): the base answers no name with a table of its own. The export `c64` and `C64Api` are gone (9.4).
 3.2.11 The core is handed to the base later too. Until then `api->io` is null, and the calls of `api->settings` and `api->ctx` answer as for a bad index (4.13.1, 4.14). `api->sync` and `api->board` work, except `video_set_system` and `case_led_select`, which do nothing. `api->sys->delay_us` and `wall_time` work (4.1.10.3).
 3.2.12 A loader that has no core does not fill the five groups of base 3.3: `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` are null, and it offers base 3.2. A file that needs `base>=3.3` is refused there (`LIB_NEEDS`). The zip reader of the host application is such a loader. A library of base 3.3 therefore always finds `api->sync` and `api->board` when the loader accepted it, and tests `api->io` only.
 
@@ -157,11 +174,9 @@ Since base 3.0.
 | `api->ops` | `SvcOps` | Always. |
 | `api->fs` | `SvcFs` | Always. |
 | `api->dlg` | `SvcDlg` | Null when the base has no screen. |
-| `api->job` | `SvcJob` | Always, after the start; a library loaded at core start sees the group at base 3.3 and later (3.2.6). |
-| `api->trx` | `SvcTrx` | Null unless the ID block of the core reads `TRX2`. |
-| `api->net` | `SvcNet` | Always, after the start; a library loaded at core start sees the group at base 3.3 and later (3.2.6). |
-| `api->c64` | `SvcC64` | Null unless the descriptor of the core has the id `TRX2`. |
-| `api->lib` | `SvcLib` | Always. |
+| `api->job` | `SvcJob` | Always, after the start; a library registered at core start sees the group at base 3.3 and later (3.2.6). |
+| `api->net` | `SvcNet` | Always, after the start; a library registered at core start sees the group at base 3.3 and later (3.2.6). |
+| `api->lib` | `SvcLib` | Always. Base 4.0: `need` only. |
 | `api->sync` | `SvcSync` | Always. Since base 3.3. |
 | `api->settings` | `SvcSettings` | Always. Since base 3.3. |
 | `api->ctx` | `SvcCtx` | Always. Since base 3.3. |
@@ -212,14 +227,14 @@ The system group. It is there for every image.
 4.1.6.2 It returns `len` on success.
 4.1.6.3 It returns -1 when `buf` is null, `len` is negative, or the range is not inside the flash.
 4.1.6.4 It returns -6 when the board has no flash driver.
-4.1.6.5 The member is null while a library loaded at core start registers (section 3.2).
+4.1.6.5 The member is null while a library registered at core start registers (section 3.2).
 
 #### 4.1.7 `api->sys->machine_handover`
 
 4.1.7.1 `void machine_handover(void)` prepares the machine to jump into other firmware. It does not return control to the base.
 4.1.7.2 The call logs a line, gives the pixel layer back, stops the link to the ESP32 that sends the rocker and button events, disables the interrupts and stops the network receive.
 4.1.7.3 There is no way back. The caller jumps to the other code next.
-4.1.7.4 The member is null while a library loaded at core start registers (section 3.2).
+4.1.7.4 The member is null while a library registered at core start registers (section 3.2).
 
 #### 4.1.8 `api->sys->ms_timer`
 
@@ -244,7 +259,7 @@ Since base 3.3.
 
 4.1.10.1 `void delay_us(uint32_t us)` waits `us` microseconds by looping. The unit is 10 us, rounded down. Below 10 it returns at once.
 4.1.10.2 The task does not sleep, and no other task of its priority runs meanwhile. The call is for a few microseconds up to a few milliseconds (the handshakes of the SID chips, SIO timing). A longer wait is `sleep_ms`.
-4.1.10.3 It waits in `lib_register` of a library loaded at core start too: the base has the machine's `CoreIo` for this call from the start. It does nothing in a loader that has no machine, such as the zip reader of the host application (3.2.12). Any task may call it.
+4.1.10.3 It waits in `lib_register` of a library registered at core start too: the base has the machine's `CoreIo` for this call from the start. It does nothing in a loader that has no machine, such as the zip reader of the host application (3.2.12). Any task may call it.
 
 #### 4.1.11 `api->sys->wall_time`
 
@@ -252,7 +267,7 @@ Since base 3.3.
 
 4.1.11.1 `bool wall_time(uint8_t t[6])` reads the wall clock of the board: `t[0]` is the year of 2000 plus `t[0]` (0 to 99), then month 1 to 12, day 1 to 31, hour, minute and second.
 4.1.11.2 It returns `false` when the board has no clock, or when it was never set (the year reads before 2020). `t` is then not written.
-4.1.11.3 It works in `lib_register` of a library loaded at core start, like `delay_us` (4.1.10.3). Any task may call it.
+4.1.11.3 It works in `lib_register` of a library registered at core start, like `delay_us` (4.1.10.3). Any task may call it.
 
 #### 4.1.12 `api->sys->app_version`
 
@@ -275,10 +290,10 @@ The memory group. It is there for every image.
 
 4.2.1 The memory comes from the heap of the core.
 4.2.2 The base records every block with its owner. The owner is the image whose code takes the block: the image whose `lib_register` is running, the image whose operation or state getter the registry is running (whoever called it), or the application that is open at the time of the call. With none of these, the block has no owner.
-4.2.2.1 Since base 3.3 the code that makes the call comes first: when the return address of the call into `api->mem` lies in the image of a loaded library or application, that image is the owner, whoever called the function of the image. An export table found with `api->lib->find` is called through the function pointers of the library, so what the exported function allocates is the account of the library, not of its caller.
-4.2.2.2 A tail call replaces the return address by the one of the caller. Both build paths of the SDK (`mk/lib.mk` and `mk/app.mk`, which also builds a library with `APP_KIND = lib`) turn tail calls off (`-fno-optimize-sibling-calls`). An image that is built otherwise may find what it takes on the account of its caller.
+4.2.2.1 Since base 3.3 the code that makes the call comes first: when the return address of the call into `api->mem` lies in the image of a loaded library or application, that image is the owner, whoever called the function of the image. A table that a file exports, reached with `api->lib->need` (4.10.3), is called through the function pointers of the file, so what the exported function allocates is the account of the file, not of its caller. Code linked into the app lies in no image. What it allocates is on the account of the calling task: during the `register` function of a linked library, that library's account; while the registry runs an operation of a linked library, that library's account; else the account of the application that is open, or of nobody.
+4.2.2.2 A tail call replaces the return address by the one of the caller. Both build paths of the SDK (`mk/lib.mk` and `mk/app.mk`) turn tail calls off (`-fno-optimize-sibling-calls`). An image that is built otherwise may find what it takes on the account of its caller.
 4.2.3 A block that has no owner is never freed by the base.
-4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its load fails or it is unloaded. A resident application keeps its blocks. An image that declared a `heap_peak` figure holds at most that many bytes at once (8.1, 8.4).
+4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its registration is refused. A resident application keeps its blocks. An image that declared a `heap_peak` figure holds at most that many bytes at once (8.1, 8.4).
 4.2.5 Free a block only with `api->mem->free`. A block from another allocator is not accepted.
 4.2.6 Every block has a header of 16 bytes. On the board the block is 16-byte aligned.
 4.2.7 Any task may call the group.
@@ -350,7 +365,7 @@ The file group. It is the file system of the core, `CoreFs`.
 4.4.4 On the monolith board profile the flash drive is writable.
 4.4.5 A file an image leaves open is closed when its application ends.
 4.4.6 Any task of the image may call the group.
-4.4.7 The group fails every call while `lib_register` of a library loaded at core start runs (section 3.2).
+4.4.7 The group fails every call while `lib_register` of a library registered at core start runs (section 3.2).
 
 #### 4.4.8 `SvcFile`
 
@@ -576,7 +591,7 @@ The job group. A job is long work on a task of its own, so that `app_main` can a
 4.6.2 A job has a stack of at least 12 KiB.
 4.6.3 The memory and the files a job takes belong to the image that started it, application or library. The function of the job runs with that image as the owner.
 4.6.4 When the person closes the screens, the base marks every job of the application as cancelled and waits up to 4 seconds. When a job or the application task still runs, it refuses to close the screens.
-4.6.5 When the application ends, the base marks every job of that application as cancelled, waits up to 5 seconds, and goes on. The jobs of a library are not touched, and the end or the closing of an application is no request for them: `cancelled` and `stop_requested` of a library's job answer for the job and the library alone. A job that has not ended by then keeps running. Make a job end when it is cancelled. A library whose job still runs is not unloaded to make room for an application: the base marks the job as cancelled and keeps the library until a later attempt finds no job running. When the base frees a library otherwise (a load that is refused), it waits up to 5 seconds for the jobs first.
+4.6.5 When the application ends, the base marks every job of that application as cancelled, waits up to 5 seconds, and goes on. The jobs of a library are not touched, and the end or the closing of an application is no request for them: `cancelled` and `stop_requested` of a library's job answer for the job and the library alone. A job that has not ended by then keeps running. Make a job end when it is cancelled. The base does not unload a library to make room for an application (4.10.2). When the base frees a library because its registration is refused, it waits up to 5 seconds for the jobs first.
 4.6.6 A finished job keeps its handle until `join`. `start` may reuse the slot of a finished job that was not joined. Join a job before you start the next one when you need its result.
 4.6.7 A job started while the base has no job table behind the group returns null (3.2.6).
 
@@ -616,213 +631,7 @@ Since base 3.0.
 
 ### 4.7 `api->trx` (`SvcTrx`)
 
-Since base 3.0.
-
-The debug block of the TRX bitstream: the register window, the run control of the machine, and the frame ring.
-
-4.7.0 Since base 3.2 this group leaves the base API (3.2.9): new code finds the table `trx` (major 1) with `api->lib->find`. The pointer stays until the cut.
-4.7.1 The group is null unless the ID block of the core reads `TRX2`.
-4.7.2 The base makes the table when it installs the application host at core start, before the first reset. `ring` is not null only while the base's frame ring is present: the base sets it when it starts the ring at core start, which it does for a core whose library has no `start` (9.7.6).
-4.7.3 The base releases the debug block when the application ends (see `release`).
-
-#### 4.7.4 `api->trx->regs`
-
-4.7.4.1 `volatile uint8_t *regs` is the base address of the register block, byte wide. On the board it is 0x101A0000.
-4.7.4.2 The registers are those of the bitstream. This document does not describe them.
-
-#### 4.7.5 `api->trx->caps`
-
-4.7.5.1 `uint32_t caps` is the value of the CAPS register at the time the table was made.
-
-#### 4.7.6 `api->trx->acquire`
-
-4.7.6.1 `int acquire(uint32_t flags)` holds the machine and takes run control: it sets the pause bit, then sets OWNER, so that `C64_STOP` no longer stops the machine. It returns 0.
-4.7.6.2 `flags` is not used.
-
-#### 4.7.7 `api->trx->release`
-
-4.7.7.1 `void release(void)` gives run control back. It switches off the execution bitmap, both watch units and the drive comparator, disarms the cycle compare, clears OWNER and lets the machine run.
-4.7.7.2 It does nothing when `acquire` was not called.
-
-#### 4.7.8 `api->trx->announce`
-
-4.7.8.1 `void announce(uint16_t rpc_port)` records the TCP port on which the application serves the runtime contract. 0 means none.
-4.7.8.2 The base clears the port when the application ends.
-
-#### 4.7.9 `api->trx->ring`
-
-4.7.9.1 `const SvcRing *ring` points to the ring group. It is null without the engine.
-
-#### 4.7.10 `api->trx->video`
-
-4.7.10.1 `int video(u2p_video_t *v)` fills the video timing of the machine and returns 0.
-
-#### 4.7.11 `api->trx->reset_c64`
-
-4.7.11.1 `void reset_c64(void)` calls the operation `machine.warm_reset` of the core through the executor and ignores its result.
-4.7.11.2 Nothing happens when the core has no such operation.
-
-#### 4.7.12 `SvcRing`
-
-Since base 3.0.
-
-`SvcRing` holds the frame ring and the instruction trace of the engine. The layouts of its records are those of the application interface of the TRX64 line.
-
-4.7.12.1 A call fails with a negative code. `api->trx->ring->error` turns a code of `land` into a sentence. The codes of `land` are -1 (no ring in the bitstream), -2 (no such frame), -3 (the frame has no whole chip block), -4 (the log no longer reaches the frame), -5 (the machine did not reach the snap position), -6 (the state bus refused the staged words), -7 (out of memory), -8 (the engine did not finish), -9 (the REU is enabled).
-
-#### 4.7.13 `api->trx->ring->status`
-
-4.7.13.1 `int status(u2p_ring_status_t *st)` fills the status. It returns 0 when the engine is present and -6 when it is not.
-
-#### 4.7.14 `api->trx->ring->frame`
-
-4.7.14.1 `int frame(int index, u2p_ring_frame_t *f)` copies the timeline entry `index` (0 is the oldest). It returns 0, or -2 when there is no such entry.
-
-#### 4.7.15 `api->trx->ring->find`
-
-4.7.15.1 `int find(uint32_t seq)` returns the index of the entry with the number `seq`, or -1 when it is gone. A number is never reused. An index moves when old entries drop.
-
-#### 4.7.16 `api->trx->ring->land`
-
-4.7.16.1 `int land(int index)` puts the machine on the entry `index` and leaves it paused on that frame, held by the debugger. It does not cut the timeline.
-4.7.16.2 It returns 0, or a negative code (see 4.7.12.1).
-
-#### 4.7.17 `api->trx->ring->commit`
-
-4.7.17.1 `void commit(void)` lets the machine run on from where `land` left it. The frames after the entry are cut. It does nothing when nothing was landed.
-
-#### 4.7.18 `api->trx->ring->error`
-
-4.7.18.1 `const char *error(int code)` returns the sentence for a code of `land`. The string belongs to the base.
-
-#### 4.7.19 `api->trx->ring->trace_ctl`
-
-4.7.19.1 `int trace_ctl(int on)` switches the trace gate on (1), off (0), or only asks (-1). It returns the gate (1 or 0), or -1 when the bitstream has no trace.
-
-#### 4.7.20 `api->trx->ring->trace_status`
-
-4.7.20.1 `int trace_status(u2p_trace_status_t *st)` fills the status. It returns 0 when the trace is present, -6 when not.
-
-#### 4.7.21 `api->trx->ring->trace_read`
-
-4.7.21.1 `int trace_read(uint32_t first, uint32_t n, u2p_trace_rec_t *out)` copies `n` records of the history, starting at `first` (0 is the oldest).
-4.7.21.2 It returns the number copied. It returns 0 when `n` is 0 or the trace is not there.
-
-#### 4.7.22 `api->trx->ring->trace_whowrote`
-
-4.7.22.1 `int trace_whowrote(uint16_t addr, int limit, u2p_trace_hit_t *hits, int *exhausted)` finds the writes to `addr`, newest first, at most `limit`.
-4.7.22.2 It returns the number found. It sets `*exhausted` to 1 when the search reached the oldest record, and 0 when it stopped at `limit`.
-4.7.22.3 It returns 0 and sets `*exhausted` to 1 when `limit` is below 1 or the trace is not there.
-
-#### 4.7.23 `api->trx->ring->reserved_files`, `api->trx->ring->reserved_trace_writes`
-
-4.7.23.1 The two members are null in this base. Do not use them.
-
-#### 4.7.24 `api->trx->ring->log_read`
-
-4.7.24.1 The member is null in this base. Test it before a call.
-
-#### 4.7.25 The record types
-
-Since base 3.0.
-
-The calls of the ring and of the video fill these records.
-
-##### 4.7.25.1 `u2p_video_t`
-
-`u2p_video_t` is the video timing.
-
-| Member | Contract |
-|---|---|
-| `u2p_video_t.lines` | The lines of a frame: 312 for PAL and NTSC-50, 263 for NTSC and PAL-60. |
-| `u2p_video_t.cycles_per_line` | The phi2 cycles of a line: 63, or 65 when `hz60` is 1. |
-| `u2p_video_t.frame_cycles` | The phi2 cycles of a frame. |
-| `u2p_video_t.cpu_hz` | The CPU clock: 985248, or 1022727 when `hz60` is 1. |
-| `u2p_video_t.fps_x100` | The frames per second times 100. |
-| `u2p_video_t.hz60` | 1 when the machine runs at 60 Hz. |
-| `u2p_video_t.reserved` | Zero. |
-
-##### 4.7.25.2 `u2p_ring_status_t`
-
-`u2p_ring_status_t` is the status of the ring.
-
-| Member | Contract |
-|---|---|
-| `u2p_ring_status_t.present` | 1 when the bitstream has the engine. |
-| `u2p_ring_status_t.on` | 1 when the log runs. |
-| `u2p_ring_status_t.landed` | 1 when a land is open. |
-| `u2p_ring_status_t.reu_off` | Not filled by this base. It is always 0. |
-| `u2p_ring_status_t.frames` | The number of timeline entries. |
-| `u2p_ring_status_t.targets` | The number of entries `land` can go to. |
-| `u2p_ring_status_t.head_seq` | The number of the newest entry. |
-| `u2p_ring_status_t.oldest_seq` | The number of the oldest entry. |
-| `u2p_ring_status_t.landed_seq` | The number of the entry the last `land` put the machine on. 0 when none is open. |
-
-##### 4.7.25.3 `u2p_ring_frame_t`
-
-`u2p_ring_frame_t` is one timeline entry, the snap that starts a frame.
-
-| Member | Contract |
-|---|---|
-| `u2p_ring_frame_t.seq` | The number of the entry. It is never reused. |
-| `u2p_ring_frame_t.c24` | The low 24 bits of the phi2 cycle count after the snap edge. |
-| `u2p_ring_frame_t.cycles` | The phi2 cycles since the ring started. |
-| `u2p_ring_frame_t.line` | The line of the snap edge. |
-| `u2p_ring_frame_t.x` | The position on the line of the snap edge. |
-| `u2p_ring_frame_t.flags` | The frame flags of the engine. |
-| `u2p_ring_frame_t.target` | 1 when `land` can go to this entry. |
-| `u2p_ring_frame_t.reserved` | Zero. |
-
-##### 4.7.25.4 `u2p_trace_rec_t`
-
-`u2p_trace_rec_t` is one instruction of the trace.
-
-| Member | Contract |
-|---|---|
-| `u2p_trace_rec_t.cycle` | The timeline cycle count of the edge that ended the fetch of the opcode. |
-| `u2p_trace_rec_t.write_start` | The first of the write records of the instruction. |
-| `u2p_trace_rec_t.write_count` | The number of write records of the instruction. |
-| `u2p_trace_rec_t.pc` | The program counter before the instruction. |
-| `u2p_trace_rec_t.a` | The accumulator before the instruction. |
-| `u2p_trace_rec_t.x` | The X register before the instruction. |
-| `u2p_trace_rec_t.y` | The Y register before the instruction. |
-| `u2p_trace_rec_t.sp` | The stack pointer before the instruction. |
-| `u2p_trace_rec_t.p` | The status register before the instruction. |
-| `u2p_trace_rec_t.opcode` | The opcode. |
-| `u2p_trace_rec_t.b1` | The first operand byte, 0 when the opcode has none. |
-| `u2p_trace_rec_t.b2` | The second operand byte, 0 when the opcode has none. |
-
-##### 4.7.25.5 `u2p_trace_hit_t`
-
-`u2p_trace_hit_t` is one write that `trace_whowrote` found.
-
-| Member | Contract |
-|---|---|
-| `u2p_trace_hit_t.cycle` | The cycle of the writing instruction. |
-| `u2p_trace_hit_t.addr` | The address that was asked for. |
-| `u2p_trace_hit_t.pc` | The program counter of the writing instruction. |
-| `u2p_trace_hit_t.old_value` | The byte before the write. |
-| `u2p_trace_hit_t.new_value` | The byte after the write. |
-| `u2p_trace_hit_t.flags` | This base does not write it. Clear the array before the call. |
-| `u2p_trace_hit_t.index` | The index of the writing instruction in the history. |
-| `U2P_TRACE_HIT_OLD_UNKNOWN` | The flag value 1: the old value is not known. This base never sets it. |
-| `U2P_TRACE_HIT_NEW_UNKNOWN` | The flag value 2: the new value is not known. This base never sets it. |
-
-##### 4.7.25.6 `u2p_trace_status_t`
-
-`u2p_trace_status_t` is the status of the trace.
-
-| Member | Contract |
-|---|---|
-| `u2p_trace_status_t.present` | 1 when the bitstream has the trace. |
-| `u2p_trace_status_t.on` | 1 when the trace gate is on and the log runs. |
-| `u2p_trace_status_t.gap` | 1 when the history has a gap. |
-| `u2p_trace_status_t.reserved` | Zero. |
-| `u2p_trace_status_t.records` | The records in the history. |
-| `u2p_trace_status_t.capacity` | The records the area holds. |
-| `u2p_trace_status_t.lost` | The records the engine dropped. |
-| `u2p_trace_status_t.oldest_cycle` | The cycle of the oldest record. |
-| `u2p_trace_status_t.newest_cycle` | The cycle of the newest record. |
+Removed in base 4.0 (T239.3 D57). The group `api->trx` and its table `SvcRing` are gone, with the record types `u2p_video_t`, `u2p_ring_status_t`, `u2p_ring_frame_t`, `u2p_trace_rec_t`, `u2p_trace_hit_t` and `u2p_trace_status_t`. The core's own libraries and its driver table reach the debug block (3.2.9); `announce` is `api->net->announce` (4.8.15).
 
 ### 4.8 `api->net` (`SvcNet`)
 
@@ -892,78 +701,49 @@ Since base 3.3.
 4.8.14.2 It returns the length of the text. It returns -1 when `name` or `buf` is null, `len` is below 8, the text does not fit, the lookup fails, or the base has no socket table behind the group.
 4.8.14.3 The call blocks the caller while the lookup runs (1.3.9). It takes no handle.
 
+#### 4.8.15 `api->net->announce`
+
+Since base 4.0. It replaces `api->trx->announce`.
+
+4.8.15.1 `void announce(uint16_t port)` records the TCP port on which the core's runtime service listens (the runtime contract of TRX64, TCP 4312). 0 takes the port back.
+4.8.15.2 The base keeps the port. The UDP ident reply (port 64, a request `json`) reports it as `rpc` in the member `trx64`, beside the `id` and `caps` of the identity block. `/v1/info` does not report it.
+4.8.15.3 The port is on the account of the image that announced it. The release of that image takes the port back.
+4.8.15.4 Any task may call it.
+
 ### 4.9 `api->c64` (`SvcC64`)
 
-Since base 3.0.
-
-The bus group of the C64, for the cartridge tools while the machine is stopped.
-
-4.9.0 Since base 3.2 this group leaves the base API (3.2.9): new code finds the table `c64` (major 1, the type `C64Api` of section 9.4) with `api->lib->find`. The pointer stays until the cut.
-4.9.1 The group is null unless the descriptor of the core has the id `TRX2`.
-4.9.2 The group is not in `lib_register` of a library loaded at core start (section 3.2).
-4.9.3 Every call goes through the memory window of the core. `dma_read` and `dma_write` do not wrap at 0xFFFF: a range that runs past it reads or writes past the window.
-
-#### 4.9.4 `api->c64->peek`
-
-4.9.4.1 `uint8_t peek(uint16_t addr)` reads a byte through the window.
-
-#### 4.9.5 `api->c64->poke`
-
-4.9.5.1 `void poke(uint16_t addr, uint8_t val)` writes a byte through the window.
-
-#### 4.9.6 `api->c64->dma_read`
-
-4.9.6.1 `int dma_read(uint16_t addr, void *dst, int len)` copies `len` bytes from the window into `dst`. It returns `len`. It does not fail.
-
-#### 4.9.7 `api->c64->dma_write`
-
-4.9.7.1 `int dma_write(uint16_t addr, const void *src, int len)` copies `len` bytes from `src` into the window. It returns `len`. It does not fail.
-
-#### 4.9.8 `api->c64->cart_setup_bus`
-
-4.9.8.1 `void cart_setup_bus(void)` saves the bus bridge, the internal and external bus registers, the serve-while-stopped bit, the CPU port and `C64_DMA_MEMONLY`.
-4.9.8.2 It then sets the window to see the C64 memory map (I/O and cartridge), switches the external bus on, and sets the CPU port so that BASIC, KERNAL and I/O are mapped.
-4.9.8.3 `C64_MODE` is left as it is.
-4.9.8.4 One level is saved. A second call overwrites the saved values.
-
-#### 4.9.9 `api->c64->cart_restore_bus`
-
-4.9.9.1 `void cart_restore_bus(void)` puts back what `cart_setup_bus` saved. It does nothing when nothing is saved.
-
-#### 4.9.10 `api->c64->cart_mode`
-
-4.9.10.1 `void cart_mode(uint8_t mode)` writes `mode` to register 0 of the cartridge block.
-
-#### 4.9.11 `api->c64->cart_detect`
-
-4.9.11.1 `uint8_t cart_detect(void)` returns bits 0 and 1 of the cartridge detect register, the GAME line and the EXROM line as read from the expansion port.
+Removed in base 4.0 (T239.3 D57). The group `api->c64` is gone. The memory of the C64 is `api->io->ram_read` and `api->io->ram_write` (4.15.9); the cartridge port is the core's own code over `api->io` (4.15) and the blocks of its TOML A.
 
 ### 4.10 `api->lib` (`SvcLib`)
 
-Since base 3.1.
+Since base 3.1. Base 4.0 keeps `need` only.
 
-The library group. A library puts a table of function pointers in its record (`LibRecord.exports`), or several under names (`LibRecord.export_list`, since base 3.2). An image that needs the library finds the table here.
+The library group. A file reaches the call tables of the libraries the app is linked with, and of the files loaded before it, through its `needs` list. A table is exported under a name and a major: by a library in its TOML B (2.4.8), by a file in `LibRecord.export_list` (section 9).
 
 4.10.1 The group is there for every image. A base of version 3.0 has no `lib` member: test `api->struct_size` or `api->abi_minor`.
 
 #### 4.10.2 `api->lib->find`
 
-4.10.2.1 `const void *find(const char *name, uint32_t min_version, uint32_t *table_size)` returns a call table by name. Since base 3.2 it searches the export names first (section 9), then the names of the libraries, as it did before. Since base 3.3 an export is found at exactly the major of `min_version`.
-4.10.2.2 It returns null when `name` is null, nothing is exported under that name at the major of `min_version` (the major must be equal: a table of a higher major is not given, its layout is not the caller's), no library of that name is loaded, its version is below `min_version`, or it has no table.
-4.10.2.3 `min_version` is `U2A3_VERSION(major, minor)`: always write it so, never a bare number (`find("ring", 1, &size)` asks for major 0). For an export name only the major counts: an export has a major and no minor, and a table grows by appending within its major (9.1). A call at major 0 for a name that is an export finds nothing, and the base logs one line that names the call, the name and the number it was given.
-4.10.2.4 `table_size` may be null. It receives the number of bytes of the table: `size` of the export, or `exports_size` of the library.
-4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
-4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs and that contributes nothing (4.10.2.7) may be unloaded when an application is opened and the heap is short.
-4.10.2.7 A library that declares a poll, menu nodes, file actions, settings, tabs or key rows (6.18.5), in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
+Removed in base 4.0 (T239.3 D57). No call finds a table by name at run time. Linked code takes a table with `lib_slot(LIBSLOT_<name>, &size)` (2.4.9), the generic application with `libtab_export`, and a file with `api->lib->need` (4.10.3). The base unloads no library to make room for an application: the libraries are linked, and the opening of an application checks its `needs` entries against the linked exports (4.10.4) and the room of the heap, and loads nothing before both hold.
 
 #### 4.10.3 `api->lib->need`
 
-Since base 3.3.
+Since base 3.3. Base 4.0 binds the entries to the linked exports.
 
-4.10.3.1 `const void *need(uint32_t n, uint32_t *table_size)` returns the table of the entry number `n` of the `needs` list of the calling image. The entries are numbered from 0 in the order of the file, which is the order of `LIB_NEEDS` when the image is packed, so the number is fixed when the application is linked. No name is looked up.
-4.10.3.2 The loader resolved the entry when it loaded the image: the table is the one the provider exports under that name (9.1) or, for a provider that exports one table of base 3.1, its `exports`. The entries `base`, `standalone` and `cart_port` take a number and have no table.
-4.10.3.3 It returns null and sets `*table_size` to 0 when `n` is past the list, the entry has no table, or the caller has no list. The caller is found as in 4.2.2.1: the image that holds the return address, otherwise the image the base runs at that moment; a call from other code made while no image runs gets null. `table_size` may be null; otherwise it receives the size of the table as in 4.10.2.4.
-4.10.3.4 The caller is the image whose code makes the call, as for `api->mem` (4.2.2.1): `lib_register`, `app_main`, the operations and the screens of the image all see their own list. The table stays valid while the image is loaded, because the image counts as a user of its providers (4.10.2.6).
+4.10.3.1 `const void *need(uint32_t n, uint32_t *table_size)` returns the table of the entry number `n` of the `needs` list of the calling image. The entries are numbered from 0 in the order of the file, which is the order of `LIB_NEEDS` (`APP_NEEDS`) when the image is packed, so the number is fixed when the application is linked. No name is looked up. The list has at most `U2A3_NEEDS_MAX` entries, 8.
+4.10.3.2 The loader binds each entry once, when it loads the file, to the export of that name at exactly that major: an export of a library the app is linked with (its slot, 2.4.9) or of a file loaded before. The minor of the entry is not read. The entries `base`, `standalone` and `cart_port` take a number and have no table.
+4.10.3.3 It returns null and sets `*table_size` to 0 when `n` is past the list, the entry has no table, or the caller has no list. The caller is found as in 4.2.2.1: the image that holds the return address, otherwise the image the base runs at that moment; a call from other code made while no image runs gets null. `table_size` may be null; otherwise it receives the size of the table: the first word of the table of a linked library, or `LibExportDecl.size` of a file.
+4.10.3.4 The caller is the image whose code makes the call, as for `api->mem` (4.2.2.1): `lib_register`, `app_main`, the operations and the screens of the image all see their own list. The table stays valid while the image is loaded.
+
+#### 4.10.4 The refusal of a `needs` entry
+
+Since base 4.0.
+
+4.10.4.1 A file whose entry no linked export answers is not loaded. The code is `LIB_NEEDS`, and the sentence names the file, the export and the version, in one of these forms.
+4.10.4.2 `"x" needs "y" 1.0, which the app is not linked with.` No slot of that name exists.
+4.10.4.3 `"x" needs "y" 1.0, the app is linked with 2.0.` A slot of that name exists at another major.
+4.10.4.4 `"x" needs "y" 1.0, which this core does not have (the app is linked with it, its table is empty here).` The slot exists and its table function answers null on this core.
+4.10.4.5 The opening of an application answers `<app> needs "y" 1.0, which this core's app is not linked with.` before anything is loaded, and does not evict anything.
 
 ### 4.11 The member `size`
 
@@ -1038,7 +818,7 @@ Since base 3.3.
 
 The settings group: the settings of the running core by key, as the base holds them. A setting has three layers: the default of its declaration (0), the flash of the host (1) and the `.cfg` file of the core (2). The value in force is the one of the topmost layer that has one, and one place to write: the file.
 
-4.13.1 No call takes a context. The group acts on the running core. Before the base has handed the core over (while `lib_register` of a library loaded at core start runs, section 3.2) there are no settings: every call answers as for a bad index.
+4.13.1 No call takes a context. The group acts on the running core. Before the base has handed the core over (while `lib_register` of a library registered at core start runs, section 3.2) there are no settings: every call answers as for a bad index.
 4.13.2 `generation`, `find`, `value`, `text`, `layer`, `info`, `cfg_value`, `cfg_text` and `extra_get` read, and any task may call them. `set`, `override_value`, `apply` and `extra_set` change the state of the core. The task that calls them holds the core lock: a handler, a core hook or a poll. `apply` must not be called from a job.
 4.13.3 An index (from `find`) stays valid while `generation` is the same. When the generation changed, find the keys again.
 4.13.4 A bad index gives -1 (an `int`), `false` (a `bool`) or the empty string (a text). Nothing asserts.
@@ -1242,7 +1022,7 @@ Since base 3.3.
 
 The io group: the hardware of the running core, as the base's own `CoreIo` has it. Each member is a window of the core with offsets relative to that window. The header names no register of any core: the registers are the core's own.
 
-4.15.1 The group is null on a core without a register window: a core with no machine (the diag core), and a context with no `CoreIo`. A library tests `api->io` before the first call. It is also null while `lib_register` of a library loaded at core start runs (section 3.2).
+4.15.1 The group is null on a core without a register window: a core with no machine (the diag core), and a context with no `CoreIo`. A library tests `api->io` before the first call. It is also null while `lib_register` of a library registered at core start runs (section 3.2).
 4.15.2 No call takes a context. Every access is one byte wide per register: the windows take one byte per access. A register of 32 bit is four calls. The caller holds `api->sync->enter` and `leave` around the four when the bitstream needs them back to back.
 4.15.3 The register calls (`rd`, `wr`, `cart_rd`, `cart_wr`, `bus_rd`, `bus_wr`, `drv_rd`, `drv_wr`, `ram_memonly`, `video_format`, `stop`, `mode_reset`), `ram_read` and `ram_write` belong to a task that holds the core lock. What the last two see depends on `ram_memonly` and on whether the machine is stopped. The bulk calls that depend on no mode (`ddr_read`, `ddr_write`, `ddr_abs_read`, `ddr_abs_write`, `rom_read`, `rom_write`, `eeprom_read`, `eeprom_write`) and `window` may also run on a job task. `keys_read` and `delay_us` are for any task.
 4.15.4 Work that holds the machine for a long time, a dump for example, is a stepped operation (4.14.9): the menu calls it again while it answers `more`, and each call holds the lock for one step.
@@ -1574,7 +1354,7 @@ Since base 3.4.
 
 4.18.12.1 `int register_medium(const SvcWbMedium *m)` registers the calling image's writable medium. It returns 0, `SVCWB_E_NOSERVICE`, `SVCWB_E_ARG`, `SVCWB_E_TAKEN`, `SVCWB_E_APP` (the caller is no library) or `SVCWB_E_FAILED`. Nothing is changed unless it returns 0.
 4.18.12.2 An image that registers again replaces its medium. What was pending for the old one is written first (setting Auto) and then dropped; when that write fails, the call returns `SVCWB_E_FAILED` and the old medium stays.
-4.18.12.3 The call works from the core's start hook on. A call from `lib_register` of a library loaded at core start returns `SVCWB_E_NOSERVICE`.
+4.18.12.3 The call works from the core's start hook on. A call from `lib_register` of a library registered at core start returns `SVCWB_E_NOSERVICE`.
 
 #### 4.18.13 `api->wb->unregister_medium`
 
@@ -1837,9 +1617,8 @@ Since base 3.0.
 | `LibRecord.poll` | The poll (`LibPollDecl`). |
 | `LibRecord.tabs` | The tabs (`LibTabDecl`). |
 | `LibRecord.ntabs` | The count of `tabs`. |
-| `LibRecord.exports` | Since base 3.1. The call table of the library, found with `api->lib->find`. Null: none. |
-| `LibRecord.exports_size` | Since base 3.1. The size of the table in bytes. At least 4 when `exports` is set. |
-| `LibRecord.export_list` | Since base 3.2. The named tables of the library (`LibExportDecl`), found with `api->lib->find` by name and major (section 9). Null: none. A library built before 3.2 leaves it zero. |
+| `LibRecord.exports`, `LibRecord.exports_size` | Removed in base 4.0 (T239.3 D57). The unnamed table of base 3.1 is gone with `api->lib->find`: a table is exported by name in `export_list`. |
+| `LibRecord.export_list` | Since base 3.2. The named tables of the library (`LibExportDecl`), bound to the `needs` entries of a file by name and major (section 9). Null: none. For a library linked with `register` the base checks the list against the exports its TOML B declares (2.4.8). A library built before 3.2 leaves it zero; base 4.0 refuses it anyway (1.2.4). |
 | `LibRecord.nexport_list` | Since base 3.2. The count of `export_list`, at most 8. |
 | `LibRecord.tab_layouts` | Since base 3.3. How the tabs of `tabs` are drawn: one string for each tab, in the order of `tabs`, written as a tab of the route writes it (`"split;title=Search;side=Results"`; 6.11.5). A null entry, or a null array, leaves the tab a flat list. A library built before 3.3 leaves it zero; one that must also run on a base before 3.3 writes it only when `LIB_RECORD_COVERS(out->struct_size, tab_layouts)` holds. |
 
@@ -2024,18 +1803,18 @@ Since base 3.0.
 
 ### 6.10 `LibPollDecl`
 
-Since base 3.0. The service of a library that loads after the core has started, the stop when the library goes and the refusal at load are base 3.2.
+Since base 3.0. The service of a poll that is declared after the core has started, the stop when the image goes and the refusal at load are base 3.2.
 
 `LibPollDecl` declares an operation the base calls every period.
 
-6.10.1 A poll is served from the moment its library has registered until the library is released or unloaded. The base stops the poll before it removes the operations of the library.
+6.10.1 A poll is served from the moment its library has registered until the image is released or unloaded (a linked library: for the run). The base stops the poll before it removes the operations of the library.
 6.10.2 The operation has no arguments. It has to exist when the poll is added.
 6.10.3 The task calls the operation with the core lock, every `period_ms`. The call waits until the core has started, and while the machine is frozen for the menu unless the poll declares `when_frozen` (6.10.9).
 6.10.4 When the handler sets `more`, the task calls it again at once. After 20 ms in a row it sleeps one period.
 6.10.5 A poll is declared in `LibRecord.poll` or in the `[poll]` of the menu record of the file, not in both. A library that declares both is refused at load.
-6.10.6 A poll the base cannot serve is refused: no operation of that name, an operation with arguments, a period of 0, or no free slot. A library loaded after the core has started is then refused at load, and nothing of it stays. A library loaded before the core starts stays loaded; its poll is dropped and the base writes a line to the log.
-6.10.7 The base serves 16 polls at once after the core has started. The polls of the libraries loaded before start come through the menu merge, which takes 12.
-6.10.8 A library that has a poll is never unloaded to make room (4.10.2.7).
+6.10.6 A poll the base cannot serve is refused: no operation of that name, an operation with arguments, a period of 0, or no free slot. An application loaded after the core has started is then refused at load, and nothing of it stays. A library registered at start stays registered; its poll is dropped and the base writes a line to the log.
+6.10.7 The base serves 16 polls at once after the core has started. The polls of the libraries registered at start come through the menu merge, which takes 12.
+6.10.8 No library is unloaded to make room for an application (4.10.2).
 6.10.9 A poll that declares `when_frozen` keeps running with the menu open, beside the executor and the core hooks. It protects the state it shares with them by its own mutex (`api->sync`). The poll of the `[poll]` of a menu record has no such field and waits for the menu to close.
 
 | Member | Contract |
@@ -2087,10 +1866,10 @@ Since base 3.2.
 
 | Member | Contract |
 |---|---|
-| `LibExportDecl.name` | The name of the table: 1 to 15 characters of `a-z`, `0-9` and `_`. It is not the name of another loaded library. |
+| `LibExportDecl.name` | The name of the table: 1 to 15 characters of `a-z`, `0-9` and `_`. It is not the name, at the same major, of an export of the app (2.4.9) or of another loaded file. |
 | `LibExportDecl.major` | The major version of the layout of the table, at least 1. |
 | `LibExportDecl.table` | The table: a block that starts with a `uint32_t` `size`, in the image or in memory the library keeps. It is not null. |
-| `LibExportDecl.size` | The size of the table in bytes, at least 4. `find` hands it back as `table_size`. |
+| `LibExportDecl.size` | The size of the table in bytes, at least 4. `api->lib->need` hands it back as `table_size`. |
 
 ### 6.14 TOML A: the description of the gateware
 
@@ -2156,7 +1935,7 @@ Since base 3.3.
 6.18.3 `legend = "Label"` (since base 3.5, T262; a record with a legend table is not read by a base before 3.5) puts the row into the key legend at the foot of the tab it is for: the key's name and the label in capitals (`CTRL+O CLEAR`, `X GO ON`). The label is 1 to 16 printable characters. Only an op row of one key can have it (not a range, not `any`, not a decline or a swallow). The row is in the legend only while its `when` holds. The record writes the labels in a table behind the rows; a record that has no `legend` is byte for byte the record it was. A base from before this key refuses a record with the table (the length of the section does not fit), so a record that must also load there leaves `legend` out.
 6.18.4 The legend is that of a list tab or a screen of the core's menu. The file browser's own legend, and the legend of an application's screens, do not list the rows of this table.
 
-6.18.5 A library's menu record (`u2a_pack --menu`) may carry `[[key]]` rows as a core's record does (since base 3.6, T262 D4): `key` or `codes`, `op`, `do`, `value`, `when`, `legend` and the flags of 6.18.2, scoped by `layout` or `node`. While the library is loaded the menu merges its rows into the key table behind those of the core, in the order the libraries loaded, tried in that order for the tab that is shown; the rows go when the library is unloaded. `op` names an operation that is registered when the key is pressed (the library's own, normally). At most 32 rows of all libraries together are merged; one over that is refused with a line in the log. A library's record still carries no `[[window]]` and no route; an application's menu record carries no key table. A base before 3.6 refuses a file whose menu record has a key table, so a library that must also load there leaves it out.
+6.18.5 A library's menu record (the `menu` key of its TOML B, 2.4.7) may carry `[[key]]` rows as a core's record does (since base 3.6, T262 D4): `key` or `codes`, `op`, `do`, `value`, `when`, `legend` and the flags of 6.18.2, scoped by `layout` or `node`. While the library is registered the menu merges its rows into the key table behind those of the core, in the order the libraries loaded, tried in that order for the tab that is shown; the rows stay for the run. `op` names an operation that is registered when the key is pressed (the library's own, normally). At most 32 rows of all libraries together are merged; one over that is refused with a line in the log. A library's record still carries no `[[window]]` and no route; an application's menu record carries no key table. A base before 3.6 refuses a file whose menu record has a key table, so a library that must also load there leaves it out.
 
 ### 6.17 The driver table: TOML A at build time
 
@@ -2177,7 +1956,7 @@ Since base 3.3.
 6.17.6 Two names that make the same macro (the block `a` with the property `b_c`, and the block `a_b` with the property `c`) are refused when the table is generated.
 6.17.7 `drvtab.c` holds the table of the blocks, `drv_blocks[]` with `drv_nblocks`: name, module, owner, address and size. A native test redirects every register access with `-DDRV_PTR_HEADER='"drv_fake.h"'` (`test/drv_fake.h` of the package, `tests/drv_fake.h` in this repository: one array for the address space), so a test reads back what a driver wrote.
 6.17.8 The shared drivers take their blocks from the table: the cartridge port and the built-in drive A (`hw.cc`; without `drive_a` in the TOML A the app has no drive), the debug register (`dmasvc.cc`), the ICAP loader and the partition control (`hw.cc`) and the master volume and tone bytes (`hw.cc`).
-6.17.9 Every source writes every block (D53; it replaces D50's rule that only the owner writes). `drvtab.h` gives the `_WR` macros of every block, the base's (`owner = "base"`) like the core's, to every source: a core's own library and its `[app]` sources, the SDK's shared libraries and a `.u2a` library built with `lib.mk`. The registers a core has are the ones its TOML A names. The c64cart table drops the cartridge's cached lines itself after `ram_write` and `image_write` (9.5.3).
+6.17.9 Every source writes every block (D53; it replaces D50's rule that only the owner writes). `drvtab.h` gives the `_WR` macros of every block, the base's (`owner = "base"`) like the core's, to every source: a core's own library and its `[app]` sources, the SDK's shared libraries and an application built with `lib.mk` or `app.mk`. The registers a core has are the ones its TOML A names. The c64cart table drops the cartridge's cached lines itself after `ram_write` and `image_write` (9.5.3).
 
 ### 6.19 The list node: `LN_LIST`, `pick`
 
@@ -2223,7 +2002,7 @@ Since base 3.5 (T262).
 | Contributed settings | 16 |
 | Values of one setting | 16 |
 | File types, file actions | 40, 96 |
-| Polls | 16 after the core has started, 12 from the libraries loaded before |
+| Polls | 16 after the core has started, 12 from the libraries registered at start |
 | Tabs of one area | 8 |
 | Named tables of one library | 8 |
 | Entries of a folder in the file picker | 160 |
@@ -2240,7 +2019,8 @@ Since base 3.5 (T262).
 8.1.4 A file with a budget needs base 3.2. The packer adds the dependency `base>=3.2` to the file, or raises a lower `base` dependency to it. A base older than 3.2 refuses the file.
 8.1.5 The packer refuses an image that is over its own `image` figure, before it writes the file. It cannot know the registrations of `lib_register`: the loader checks them (8.4).
 8.1.6 A figure is a number from 0 to 4294967294. The figure 0 is a figure: the image declares that it brings none of that kind. `heap_keep` above `heap_peak` is no budget: the packer and the loader refuse it.
-8.1.7 These are the keys.
+8.1.7 A library linked with `register` declares `heap_keep` and `heap_peak` in its `[[library]]` (2.4.6); the other keys are those of a file. The base checks them as it checks the budget of a file (8.4).
+8.1.8 These are the keys.
 
 | Key | What it limits |
 |---|---|
@@ -2279,7 +2059,7 @@ Since base 3.5 (T262).
 | a table | `Library "mylib" is refused: it brings 5 settings, the table holds 16 and 12 are taken.` |
 | a tab strip | `Library "mylib" is refused: it brings 3 tabs to area F5, the tab strip holds 8 and 6 are taken.` |
 | the heap, at load | `Library "mylib" is refused: lib_register asked for 200 bytes of heap with 0 held, over its declared heap peak of 100 bytes.` |
-| the room of the heap | `Library "mylib" is refused: it keeps 1500000 bytes of heap and its image takes 4112, the heap has room for 900000.` The code is `LIB_NO_ROOM`: a library that is evicted or an application that is released may make room. |
+| the room of the heap | `Library "mylib" is refused: it keeps 1500000 bytes of heap and its image takes 4112, the heap has room for 900000.` The code is `LIB_NO_ROOM`: an application that is released may make room. |
 
 ### 8.5 The account
 
@@ -2291,92 +2071,87 @@ Since base 3.5 (T262).
 8.5.6 A poll is the one thing that is not on the account of its image. The poll slots keep the task of a slot for the next image that polls (1.3.6). An image with a poll leaves that task in the pool when it goes, and the heap free after the unload is lower by the task and its stack until a slot is used again.
 8.5.7 A block taken while no image is current has no owner and is never freed (4.2.3).
 8.5.8 The owner of a handler is kept per task. While the registry runs an operation or a state getter of an image on one task, that image is the owner for that task alone; the other tasks keep theirs, and the task gets back the owner it had when the handler returns. The application that is open is the owner of every task that is in no handler. A task whose application is released while it is in a handler of a library gets no owner when the handler returns: its blocks are nobody's (8.5.7).
-8.5.9 The account covers what an image causes through `api->mem`, `api->fs`, `api->sync`, `api->net` and `api->job`: a call is on the account of the image whose code makes it (4.2.2.1), so a call through an export table (`api->lib->find`), a job function and a callback are on the account of the library behind them, and so are the sockets and jobs it starts (4.6.3, 4.8.2). What is not on it yet: the hooks of a core and the start hook, until the base calls them for the library; any engine a library starts there; the debug block.
+8.5.9 The account covers what an image causes through `api->mem`, `api->fs`, `api->sync`, `api->net` and `api->job`: a call is on the account of the image whose code makes it (4.2.2.1), so a call through an export table (`api->lib->need`), a job function and a callback are on the account of the library behind them, and so are the sockets and jobs it starts (4.6.3, 4.8.2). What is not on it yet: the hooks of a core and the start hook, until the base calls them for the library; any engine a library starts there; the debug block.
 
-## 9. Named exports and the C64 table
+## 9. Named exports
 
-### 9.1 Exports and `find`
+### 9.1 Exports and slots
 
-Since base 3.2.
+Since base 3.2. Base 4.0 binds an export to a `needs` entry; no call finds it by name.
 
-9.1.1 A library may offer several call tables. Each is an entry of `LibRecord.export_list` (`LibExportDecl`): a name, a major, the table and its size. A library built before 3.2 offers none, or the one table of `LibRecord.exports` under its own name.
-9.1.2 `api->lib->find` looks for the export `name` first. It takes the entry whose major is equal to the major of `min_version` (exactly: a caller of major 1 never gets a table of major 2), from any loaded library. A find at major 0 for an export name finds nothing and is logged (4.10.2.3). When there is none it looks for the library of that name, as in base 3.1.
+9.1.1 A library or a file may offer several call tables. A file lists them in `LibRecord.export_list` (`LibExportDecl`): a name, a major, the table and its size. A linked library declares them in its TOML B (2.4.8); a library with `register` may deliver the table in `export_list` instead. The unnamed table of base 3.1 is gone.
+9.1.2 A `needs` entry names an export and its major. The loader binds it, when it loads the file, to the export whose major is equal to the major of the entry (exactly: a caller of major 1 never gets a table of major 2). The entry is answered by `api->lib->need` (4.10.3).
 9.1.3 A table starts with `uint32_t size`, its own size in bytes. Within a major a table is only appended to. A caller checks `size` before it reads a member, and a member is there when its pointer is not null. Removing or reordering a member makes the next major.
-9.1.4 A provider that changes a layout can export the old and the new major together under one name. `find` gives each caller the major it asks for.
-9.1.5 The loader refuses a library whose export is malformed, whose name and major another loaded library exports already, whose export has the name of another loaded library, or whose own name is an export name of a loaded library. The refusal names the library and the export.
-9.1.6 The tables leave with the library. The base keeps no copy.
-9.1.7 A library built against base 3.2 that must also run on a base of 3.1 writes `export_list` only when `LIB_RECORD_COVERS(out->struct_size, export_list)` holds. A library that lists `needs base >= 3.2` need not ask: the packer adds that dependency to every file with a list.
+9.1.4 A provider that changes a layout can export the old and the new major together under one name. Each caller gets the major it asks for.
+9.1.5 The loader refuses a file whose export is malformed, or whose export name and major an export of the app or of another loaded file has already. The refusal names the file and the export.
+9.1.6 The tables of a file leave with the file. The base keeps no copy.
+9.1.7 A library built against base 3.2 that must also run on a base of 3.1 wrote `export_list` only when `LIB_RECORD_COVERS(out->struct_size, export_list)` held. Base 4.0 refuses a file of major 3, so the question does not arise.
 
 ### 9.2 What the file lists
 
-9.2.1 The packer writes the names and majors of the exports into the file (`--export name=major`, `LIB_EXPORTS` in `lib.mk`, `APP_EXPORTS` in `app.mk`). They are the static form of `export_list`: the base reads them before any image runs.
-9.2.2 The loader refuses a library whose `lib_register` does not return every name and major its file lists.
-9.2.3 A library may return more exports than its file lists. They are found by `find`, but they take no part in the load order (9.3).
+9.2.1 The packer writes the names and majors of the exports of a file into the file (`--export name=major`, `LIB_EXPORTS` in `lib.mk`, `APP_EXPORTS` in `app.mk`). They are the static form of `export_list`: the base reads them before any image runs.
+9.2.2 The loader refuses a file whose `lib_register` does not return every name and major its file lists. A library linked with `register` is checked against the exports its TOML B declares in the same way (2.4.8).
+9.2.3 A file may return more exports than its file lists. They are bound to the `needs` entries of a file loaded after it, but they take no part in the load order (9.3).
 
 ### 9.3 Needs on an export name
 
-9.3.1 A `needs` entry of a file resolves against export names first, then against library names. A library can need `ring>=1` whatever the library that provides `ring` is called. The major of the entry must be equal to the major of the export, and the minor is not read.
-9.3.2 A need that is met by an export counts as a use of the library that exports it, as a need on its name does. The library stays loaded while an image that needs it is loaded.
-9.3.3 The loader of a folder reads the lists of the files before it loads one, and puts a file in front of every file that needs a name it exports. A need on an export name that a folder does not list in any file is refused by the loader at load, with the sentence `"x" needs "ring" 1.0, which is not loaded.`
-9.3.4 A need on an export of another major, lower or higher, is refused with both versions: `"x" needs "trx" 3.0, 2.0 is loaded.`
-9.3.5 The own tables of the base (9.4, 9.5) are no loaded library. They cannot be listed in `needs`. Ask `api->lib->find` for them and test the result.
+9.3.1 A `needs` entry of a file names an export, never a library: `ring>=1` is met by whatever library or file exports `ring`. The major of the entry must be equal to the major of the export, and the minor is not read.
+9.3.2 A need that is met by the export of a file counts as a use of that file. The file stays loaded while an image that needs it is loaded. A library of the app is linked for the run.
+9.3.3 The base loads no folder of libraries (2.4.10). A library with `register` is registered after the libraries it names in `needs` (2.4.5).
+9.3.4 A need that no export answers is refused (4.10.4): `"x" needs "ring" 1.0, which the app is not linked with.`
+9.3.5 A need on an export of another major, lower or higher, is refused with both versions: `"x" needs "ring" 1.0, the app is linked with 2.0.`
+9.3.6 The entries `base`, `standalone` and `cart_port` are no exports. `cart_port` is offered where the TOML A of the running core has the block `c64cart` (D40).
 
 ### 9.4 The C64 table
 
-Since base 3.2.
-
-9.4.1 The table `C64Api` is declared in the header `c64_api.h` of the package. The name is `C64_API_NAME`, `"c64"`, and the major is `C64_API_MAJOR`, 1. A library of a core of the C64 family exports it. Several cores can provide it, and the shared libraries use it.
-9.4.2 The members, in this order: `size`, `peek`, `poke`, `dma_read`, `dma_write`, `cart_setup_bus`, `cart_restore_bus`, `cart_mode`, `cart_detect` (the members of `api->c64`, 4.9), then `dma_read_frozen`, `cart_preference` and `reset`.
-9.4.3 `dma_read_frozen(addr, dst, len)` reads C64 memory as the tools of the machine see it while it is frozen: the screen it had, not the menu over it. It returns the number of bytes read.
-9.4.4 `cart_preference()` returns the cartridge preference: 0 Auto, 1 Internal, 2 External, 3 Manual.
-9.4.5 `reset()` resets the C64. It replaces `api->trx->reset_c64`, which calls the same operation.
-9.4.6 The base answers `find("c64", ...)` with its own table, when the core is the C64: the members of `api->c64` and `reset`. `dma_read_frozen` and `cart_preference` are null in that table. The table is major 1 and competes with the libraries' exports like any export: a caller gets the table of exactly the major it asks for. A library of the core that has the two members exports a `c64` of major 1, which takes the place of the base's table. A `c64` of a higher major does not hide it from a caller that asks for major 1; that caller still gets the base's table. A caller that asks for the higher major gets the library's.
+Removed in base 4.0 (T239.3 D57). The export `c64` with the table `C64Api` (`c64_api.h`) is gone, and so is the base's own answer. A library of a C64 core reaches the memory of the C64 with `api->io->ram_read` and `api->io->ram_write` (4.15.9) and the cartridge port through its own blocks.
 
 ### 9.5 The tables of the shared libraries of the base
 
 Since base 3.3.
 
-9.5.1 The shared libraries that stay in the base (T239.3 D12) answer `api->lib->find` with a table each, at major 1: `c64cart` (`c64cart_api.h`), `cbm1541` (`cbm1541_api.h`), `sid` (`sid_api.h`), `tempdisk` (`tempdisk_api.h`) and `cbmprg` (`cbmprg_api.h`). An app answers only for the libraries its TOML B names (the file `coreapp/libs/shared.toml` for the shared app; `tools/libtab.py` makes the library table from it): a table of a library the app is not linked with is not found. Each library gives its table in its own source (`*_exports.cc`, the function its `bind` entry names). They compete with the exports of the libraries like the C64 table (9.4.6): each answers for exactly its major, and a library that exports the same name and major wins over the base. `table_size` is the `size` the table starts with.
+9.5.1 The shared libraries that stay in the base (T239.3 D12) have a table each, at major 1, in the slot table (2.4.9): `c64cart` (`c64cart_api.h`), `cbm1541` (`cbm1541_api.h`), `sid` (`sid_api.h`), `tempdisk` (`tempdisk_api.h`) and `cbmprg` (`cbmprg_api.h`). An app has a slot only for the libraries its TOML B names (the file `coreapp/libs/shared.toml` for the shared app; `tools/libtab.py` makes the library table and the slots from it): a table of a library the app is not linked with has no slot, and an entry that names it is refused (4.10.4). `miniz` (`zip_lib.h`) is a library of `shared.toml` as well; its export `miniz` is at major 1, with C++ linkage. Each library gives its table in its own source (`*_exports.cc`, the function its `exports` entry names as `table`). Each answers for exactly its major, and the same name at the same major is exported once. `table_size` is the `size` the table starts with.
 9.5.2 No member takes a `CoreCtx`: the base calls the code behind it with the context of the core it runs. A member that takes `msg` and `msglen` answers 0 for done and non-zero with the reason in `msg`, cut to `msglen - 1`. With `msg` null or `msglen` 0 the call gives no reason and works as with one.
-9.5.3 `c64cart` is the cartridge port of the C64 family. `ram_size` is 65536 on the core that has the cartridge port of the C64 family (the core the base gives the `c64` table of 9.4.6, and whose capabilities list `cartridge`) and 0 on every other core, also on a core that lists `cartridge` for a cartridge of its own; `ram_read` and `ram_write` reach the port's RAM window in DDR2. A range that is not wholly inside is ignored by a write and read as zeros. `eeprom_get` and `eeprom_put` reach the 2048 bytes of the GMod2's EEPROM on that core; `eeprom_put` clears the dirty flag, `eeprom_get` leaves it; on every other core `eeprom_get` gives zeros and `eeprom_put` does nothing. `writable` is true while a cartridge with flash or an EEPROM that the C64 can change is in the port. `require` and `prohibit` answer 0 for every cartridge, also with one in the port: the base has no cartridge definition, so 0 means "not known by the base", never "nothing is required". A library that needs the flags keeps the definition itself. `ram_write` and `image_write` drop the cartridge's cached lines themselves after every write that lands (the `inval` bit of the property `cmd` of the cartridge page, which only the base's driver writes under 6.17.9): a library does not write `cmd.inval` after a restore. Neither call reports anything to the base's write-back service, because a restore (a Timewarp rewind, a state or ring load) is no change of the cartridge: only the C64's own flash or EEPROM programming is. A library that changes the cartridge on purpose reports it through the write-back group of LibApi (D51).
+9.5.3 `c64cart` is the cartridge port of the C64 family. `ram_size` is 65536 on the core that has the cartridge port of the C64 family (the core whose capabilities list `cartridge` and whose TOML A has the block `c64cart`) and 0 on every other core, also on a core that lists `cartridge` for a cartridge of its own; `ram_read` and `ram_write` reach the port's RAM window in DDR2. A range that is not wholly inside is ignored by a write and read as zeros. `eeprom_get` and `eeprom_put` reach the 2048 bytes of the GMod2's EEPROM on that core; `eeprom_put` clears the dirty flag, `eeprom_get` leaves it; on every other core `eeprom_get` gives zeros and `eeprom_put` does nothing. `writable` is true while a cartridge with flash or an EEPROM that the C64 can change is in the port. `require` and `prohibit` answer 0 for every cartridge, also with one in the port: the base has no cartridge definition, so 0 means "not known by the base", never "nothing is required". A library that needs the flags keeps the definition itself. `ram_write` and `image_write` drop the cartridge's cached lines themselves after every write that lands (the `inval` bit of the property `cmd` of the cartridge page, which only the base's driver writes under 6.17.9): a library does not write `cmd.inval` after a restore. Neither call reports anything to the base's write-back service, because a restore (a Timewarp rewind, a state or ring load) is no change of the cartridge: only the C64's own flash or EEPROM programming is. A library that changes the cartridge on purpose reports it through the write-back group of LibApi (D51).
 9.5.4 `cbm1541` is the built-in drive A. `drive_info` fills the members that the `size` of the caller's `Cbm1541Info` covers and leaves the others and `size` as they are. It answers false for a slot other than 0 and on a core without a drive window. `image_size(0)` is 65536 on a core with a drive window and 0 on every other; `image_read` and `image_write` reach the drive's image in DDR2 with the same rule for a range that is not wholly inside. A member of task class `lock` makes the drive on its first call; `drive_info`, `image_size`, `image_read` and `image_write` (task class `any`) never make it: `drive_info` answers false until a call of class `lock` has made the drive and attached it to the hardware, and the three image members test the drive window of the core only.
-9.5.5 `uci` is not a table of the base. The command interface at $DF1C is a library of the core that runs it (TRX64-Ultimate's trx64u), linked into that core's app; the base holds no UCI code and no `find("uci", ...)` answer (T239.3 D48, D49). The block `cmd_if` and the `gcr_coder` of the SDK's TOML A are core blocks. SDK 0.4.6 hands the server's source over once, see the folder `handover/` of the package.
+9.5.5 `uci` is not a table of the base. The command interface at $DF1C is a library of the core that runs it (TRX64-Ultimate's trx64u), linked into that core's app; the base holds no UCI code and no table `uci` (T239.3 D48, D49). The block `cmd_if` and the `gcr_coder` of the SDK's TOML A are core blocks. SDK 0.4.6 hands the server's source over once, see the folder `handover/` of the package.
 9.5.6 `sid` is the header work of the SID player: pure functions of bytes. `plan` accepts a null `why`.
 9.5.7 `tempdisk` sets the two switches of the file manager's temp folder. The base mounts the Temp disk itself.
-9.5.8 `cbmprg` is the CBM BASIC program loader of the base (`app/loaders/cbm_prg.cc`), the one the VC-20, the C16 and Plus/4, the PET, the C128, the SuperCPU and the C64 share. A library finds it with `find("cbmprg", U2A3_VERSION(1, 0), &size)`. No call takes a `CoreIo`: `place`, `type_start`, `script_step`, `mem_write` and `mem_read` act on the memory of the running core, through its RAM window, or through the DDR2 window at `mem_ddr + address` as well when `mem_ddr` is not 0. They are task class `lock`; `script_check`, `relink` and `key_for` are class `any`.
+9.5.8 `cbmprg` is the CBM BASIC program loader of the base (`app/loaders/cbm_prg.cc`), the one the VC-20, the C16 and Plus/4, the PET, the C128, the SuperCPU and the C64 share. A library takes it with `lib_slot(LIBSLOT_cbmprg, &size)` (2.4.9). No call takes a `CoreIo`: `place`, `type_start`, `script_step`, `mem_write` and `mem_read` act on the memory of the running core, through its RAM window, or through the DDR2 window at `mem_ddr + address` as well when `mem_ddr` is not 0. They are task class `lock`; `script_check`, `relink` and `key_for` are class `any`.
 9.5.9 The caller describes its machine with `CbmPrgMachine`: the start addresses of its BASIC, the pointer pair of the start of BASIC and the window its value has to fall in, the three end pointers, the keyboard buffer and its count byte, the time after a reset, the header of a `.P00`, the smallest and largest file, and `mem_ddr`. The base checks the table by `size`: a `size` that does not reach `max_size` is no machine (`place` answers 1 with the reason `No machine given.`, `type_start`, `script_step` and `mem_write` do nothing, `mem_read` gives zeros); a member past the `size` of the caller reads as 0.
 9.5.10 `place(data, n, m, is_p00, out, msg, msglen)` writes the program as the file is on the medium (its two load-address bytes first, for a `.P00` the header before them) and gives where it went in `out`. A load address that is one of `basic_starts` is a BASIC program: it goes to the start of BASIC the machine states in `txttab` (refused when the value is outside `txttab_min` and `txttab_max`), every line is relinked and the three end pointers are set. Any other address is a machine-language file and stays where it says. It answers 0, or 1 with the reason in `msg`. `type_start` types `RUN` for a BASIC program and `SYS<start>` otherwise into the keyboard buffer; call it once the machine is at READY. `script_step` types the next piece of a script (`script_check`: pieces of at most ten keys, separated by `|`) when the buffer is empty and answers 1 once the whole script is in and taken.
-9.5.11 The table `online` (`online_api.h`, major 1) belongs to no library of the base. The sub-app `online.u2a` (`apps/online`, a resident image that needs base 3.3) exports it with `export_list`, and registers the operations and state values `online.*` of the search form; its menu record adds the tab "Online" to F3 (6.11.4). The file manager reads the folder `/Online` through the table and calls nothing else of the search, so a core that carries no such sub-app has no `/Online`. `fetch` gives the bytes of a file of a result in a block of the allocator the caller hands it (`alloc`), not in a block of the sub-app's account; the base frees the block with its own `free`. The sub-app talks to the server `hackerswithstyle.se` over `api->net->connect` (4.8.13), `send` and `recv`, and makes those calls only on the task of a job it starts with `api->job->start` (4.6.9), never on the menu task or the executor task (1.3.9, 4.8.13.2). The operations `online.presets` and `online.search` are nodes of its menu record with the attribute `job` (6.7): the menu calls the operation again while it answers `more` (4.14.9), and the operation answers `more` for as long as its job waits for the server; the person's cancel (4.14.10) gives the request up and the job's answer is dropped. A caller that does not step the operation (REST, a hotkey, a poll) gets the answer "Asking the server" at once, and the state values show the result when the job has ended. The sub-app runs one request at a time: a second one is refused with a sentence while the first is in flight. The folder `/Online` is called on the menu task and never waits for the server: `list`, `stat` and `fetch` answer from what the sub-app keeps (the results of the search, the files of the result last opened, the file last downloaded); what is not kept is a prefetch, a job that the call starts, and the call itself fails at once (`list` returns -1, `stat` false, `fetch` null) with the reason in `error` ("Loading the files of this result", "Downloading the file"). The call after the job has ended finds the data, or the reason the job failed, which `error` tells once; the call after that asks the server again. The member `loading` (appended, T239.3 D41) says after a failed `list` or `fetch` that the job of that folder or file is still running or its result is not taken over yet: the file manager then shows the last line "Loading ..." instead of a failure and reads the folder again every 300 ms until the job has ended, and the member `loading_for` (appended, review of SDK 0.4.6) says the same for one file (`rel` as in `fetch`): the job that runs is the one of that file's entries or download, not another job. The base's file `open` of a file below `/Online` never waits: it calls `fetch` once, and when that fails while `loading_for` holds it returns null with `CoreFs::file_loading` true and the sub-app's words as `open_note`. The file manager keeps the action (view, mount, copy) pending, shows the words on the status row and opens again every 300 ms until the job has ended; the key that leaves the folder or closes the menu cancels it (a copy waits inside its job, the person's cancel ends it). A caller that is not the menu, an operation over JSON-RPC, asks again for up to 120 s on its own task. A failed `list` that is not loading puts `error` on that line and on the status row; the folder is not asked again until the person enters it again. The search itself, when its job has ended with results, calls `goto_screen` of `api->overlay` with the target `F3` (4.17.19) after `lib.show`, so the menu goes to the Library on the results; on a base without that member it stays on the tab. A quiet server therefore holds up the job only, never the menu: the connection gives up after 10 s, a quiet answer after 15 s, and a job that the base asks to end (`api->job->cancelled`, 4.6.5 and 4.6.10) gives its request up at the next quiet moment of the answer. The sub-app does not join its jobs: an ended job's slot is reused by the next `start` (4.6.6), and `join` is not for the menu task (4.6.11.3).
+9.5.11 The table `online` (`online_api.h`, major 1) belongs to no library of this repository. A library linked with `register` (TRX64-Ultimate's `online`; `apps/online` is gone from this repository) exports it, and registers the operations and state values `online.*` of the search form; its menu record (the `menu` key of its TOML B, 2.4.7) adds the tab "Online" to F3 (6.11.4). The file manager takes the table by its name among the linked exports (`LibLoader::find_export`, no call of `LibApi`) and reads the folder `/Online` through it. It calls nothing else of the search, so an app that is not linked with such a library has no `/Online`. `fetch` gives the bytes of a file of a result in a block of the allocator the caller hands it (`alloc`), not in a block of the library's account; the base frees the block with its own `free`. The library talks to the server `hackerswithstyle.se` over `api->net->connect` (4.8.13), `send` and `recv`, and makes those calls only on the task of a job it starts with `api->job->start` (4.6.9), never on the menu task or the executor task (1.3.9, 4.8.13.2). The operations `online.presets` and `online.search` are nodes of its menu record with the attribute `job` (6.7): the menu calls the operation again while it answers `more` (4.14.9), and the operation answers `more` for as long as its job waits for the server; the person's cancel (4.14.10) gives the request up and the job's answer is dropped. A caller that does not step the operation (REST, a hotkey, a poll) gets the answer "Asking the server" at once, and the state values show the result when the job has ended. The library runs one request at a time: a second one is refused with a sentence while the first is in flight. The folder `/Online` is called on the menu task and never waits for the server: `list`, `stat` and `fetch` answer from what the library keeps (the results of the search, the files of the result last opened, the file last downloaded); what is not kept is a prefetch, a job that the call starts, and the call itself fails at once (`list` returns -1, `stat` false, `fetch` null) with the reason in `error` ("Loading the files of this result", "Downloading the file"). The call after the job has ended finds the data, or the reason the job failed, which `error` tells once; the call after that asks the server again. The member `loading` (appended, T239.3 D41) says after a failed `list` or `fetch` that the job of that folder or file is still running or its result is not taken over yet: the file manager then shows the last line "Loading ..." instead of a failure and reads the folder again every 300 ms until the job has ended, and the member `loading_for` (appended, review of SDK 0.4.6) says the same for one file (`rel` as in `fetch`): the job that runs is the one of that file's entries or download, not another job. The base's file `open` of a file below `/Online` never waits: it calls `fetch` once, and when that fails while `loading_for` holds it returns null with `CoreFs::file_loading` true and the library's words as `open_note`. The file manager keeps the action (view, mount, copy) pending, shows the words on the status row and opens again every 300 ms until the job has ended; the key that leaves the folder or closes the menu cancels it (a copy waits inside its job, the person's cancel ends it). A caller that is not the menu, an operation over JSON-RPC, asks again for up to 120 s on its own task. A failed `list` that is not loading puts `error` on that line and on the status row; the folder is not asked again until the person enters it again. The search itself, when its job has ended with results, calls `goto_screen` of `api->overlay` with the target `F3` (4.17.19) after `lib.show`, so the menu goes to the Library on the results; on a base without that member it stays on the tab. A quiet server therefore holds up the job only, never the menu: the connection gives up after 10 s, a quiet answer after 15 s, and a job that the base asks to end (`api->job->cancelled`, 4.6.5 and 4.6.10) gives its request up at the next quiet moment of the answer. The library does not join its jobs: an ended job's slot is reused by the next `start` (4.6.6), and `join` is not for the menu task (4.6.11.3).
 
-9.5.12 The shared libraries `mouse` (`mouse_api.h`), `pad` (`pad_api.h`), `padkeys` (`padkeys_api.h`) and `resample` ship in the package as the other shared libraries do: their sources are in `base/` and `libs/shared.toml` lists them, and the headers of their tables are in `include/`. They are linked statically (D31), and their tables are not found with `api->lib->find`: the entries `table` and `core` of the library entry (`tools/libtab.py`) hand the call table to the generic part of the application (`libtab_table`) and tell the library which core runs. `mouse_api.h` holds `MouseSinkSpec` and `MouseApi`, `pad_api.h` holds `PadSpec`, `PadApi` and the `PAD_*` constants, `padkeys_api.h` holds `PadkeysApi`; each names `CoreCtx` only by a pointer. `resample` (`u64_resample.cc`) has no call table; its header `u64_resample.h` ships with its source under `base/` (`base/inc`), and the file of a placed core (`u64cfg.cc`) calls it directly.
+9.5.12 The shared libraries `mouse` (`mouse_api.h`), `pad` (`pad_api.h`), `padkeys` (`padkeys_api.h`) and `resample` ship in the package as the other shared libraries do: their sources are in `base/` and `libs/shared.toml` lists them, and the headers of their tables are in `include/`. They are linked statically (D31). The `exports` entry of the library entry (`tools/libtab.py`) hands the call table to the generic part of the application (`libtab_export`, by name and major), and the entry `core` tells the library which core runs. `mouse_api.h` holds `MouseSinkSpec` and `MouseApi`, `pad_api.h` holds `PadSpec`, `PadApi` and the `PAD_*` constants, `padkeys_api.h` holds `PadkeysApi`; each names `CoreCtx` only by a pointer. `resample` (`u64_resample.cc`) has no call table; its header `u64_resample.h` ships with its source under `base/` (`base/inc`), and the file of a placed core (`u64cfg.cc`) calls it directly.
 9.5.13 The entry `capability` of a library in the TOML B is a name or a list of names. The operations of the entry's `register_ops` are registered for a core that names any one of them: `newdisk` names `floppy` and `sio`, so that a core described by its record (the atari800 names `sio`) has "New disk image" as the compiled-in core has it.
+9.5.14 The library `miniz` (`zip_lib.h`, export `miniz`, major 1) is a `[[library]]` of `coreapp/libs/shared.toml`: its sources are `miniz_lib.cc` and the C files of miniz, and the host application links it too. The application Unzip lists `base>=4.0` and `miniz>=1.0` in its `needs` and takes the table with `api->lib->need(1, &size)`. An app that is not linked with `miniz` refuses Unzip (4.10.4).
 
 ### 9.6 The text grid of a terminal node
 
 Since base 3.3.
 
-9.6.1 A node of the core's menu with the layout `terminal` and the layout parameter `grid = "<export name>"` is drawn as a text screen of 80 columns on the whole layer. The base finds the table `TextGrid` (`textgrid.h`) with `api->lib->find` (the name, major 1) and draws the rows the table gives, one attribute per row and the cursor cell.
+9.6.1 A node of the core's menu with the layout `terminal` and the layout parameter `grid = "<export name>"` is drawn as a text screen of 80 columns on the whole layer. The base takes the table `TextGrid` (`textgrid.h`) by that name, at major 1, from the exports of the libraries the app is linked with (`LibLoader::find_export`), and draws the rows the table gives, one attribute per row and the cursor cell.
 9.6.2 The base calls `render` and then `sig` on every draw pass of the screen, also on a pass that redraws nothing, and reads the rows only when `sig` changed (or the screen is drawn afresh); the other drawing calls come after `render`. A table whose `size` does not cover the members up to `sig`, or that has a null member among them, is no grid. Without a grid the screen is empty.
 9.6.3 `enter` is called once when the node is entered; `tick` is called on every pass of the menu loop while the node is shown and no key is waiting, and a `true` answer redraws. Both are optional. They run on the task of the menu, one after the other with the drawing calls.
-9.6.4 The base registers one grid itself, under the name `textgrid`: the built-in monitor, on a core that registers the monitor. The menu of that core names it with `grid = "textgrid"`. A library may export a table of the same name and major 1, which takes its place.
+9.6.4 The base registers no grid itself. A library exports one under the name the TOML of the core uses (`textgrid` is the name of the monitor of TRX64-Ultimate); a core that links no such library shows an empty screen.
 
 ### 9.7 The core hooks
 
 Since base 3.3. The header is `core_hooks.h`.
 
-9.7.1 The code of a core is its library. A library that implements the hooks of its core exports the table `CoreHooks` under the name `corehooks` at major 1 (`LIB_EXPORTS = corehooks=1`, 9.2). the base asks `api->lib->find` for the name `corehooks` at major 1 once, after the libraries are loaded and before the core starts.
+9.7.1 The code of a core is its library. A library that implements the hooks of its core exports the table `CoreHooks` under the name `corehooks` at major 1 (`exports = [{ name = "corehooks", major = 1 }]` in its `[[library]]`, 2.4.8). The base reads the slot named `corehooks` at major 1 once, after the libraries are registered and before the core starts (`hooks_attach`).
 9.7.2 The table starts with `size`. The base calls a member only when `size` of the table and the size the export carries both cover it and its pointer is not null. A member that is null is as if there were no hook: the base makes its own call where it has one (9.5.6).
 9.7.3 The base reads the export `corehooks` at exactly major 1: a library that lists it at another major only (2, say) has no hooks, and the base says so. Within major 1 the table is only appended to.
 9.7.4 The members, in this order: `size`, `init`, `release`, `warm_reset`, `cold_start`, `media_flush`, `media_pending`, `start`, `menu_closed`, `base_setting_changed`, `slot_spec`, `slot_mount`, `slot_eject`, `menu_video`. The first six mean what the members of the same name of the core description mean. No call takes a context. A hook returns 0 for done, or non-zero with the reason in `msg` (at most `msglen - 1` characters).
 9.7.5 The three members of base 3.3:
-9.7.5.1 `int start(char *msg, int msglen)` is called once, after the groups of the API are installed and the libraries named in `needs` are loaded, and before the first poll. It is the place to start an engine (the ring's buffers, the monitor, `uci.start`); `lib_register` is not, because the groups do not exist when it runs. A non-zero result is logged and shown to the person as a notice, and the core runs on without what failed. Task: the start task, holding the core lock.
+9.7.5.1 `int start(char *msg, int msglen)` is called once, after the groups of the API are installed and the libraries are registered, and before the first poll. It is the place to start an engine (the ring's buffers, the monitor, `uci.start`); `lib_register` is not, because the groups do not exist when it runs. A non-zero result is logged and shown to the person as a notice, and the core runs on without what failed. Task: the start task, holding the core lock.
 9.7.5.2 `void menu_closed(void)` is called once when the menu closes, by any way, and the machine is about to run. The hook gives back what the debugger of the core held and lands what the menu chose. It cannot refuse. Task: the main loop of the application. The core lock is not held: the hook protects state it shares with a poll declared `when_frozen`, or with the executor, by its own mutex (`api->sync`). `CTX_MENU_OPEN` and `CTX_FROZEN` are still set when it runs, the menu is hidden, and the machine is still stopped. It does not block for long.
 9.7.5.3 `void base_setting_changed(const char *key)` is called after the base applied one of its own settings (4.13.19), with its key. It is called once for each of those settings the core has, in the order of the table in 4.13.19.2, after `start` returned; a change is not told before that. After that it is called after every change. Task: lock, like the operation of a setting.
 9.7.6 A member the table does not have is a call the base does not make: the base has no frame ring and no monitor of its own, so with no `start` nothing starts and with no `menu_closed` nothing is released or unfrozen after the menu closes. A core with no table at all gets no such calls either. With no `menu_video` the base calls nothing: behind the menu is what the core's video shows.
-9.7.7 A library that exports `corehooks` is never unloaded to make room for an application, whatever else it declares: the base keeps a pointer into the table for the whole run.
+9.7.7 No library is unloaded to make room for an application (4.10.2). The base keeps a pointer into the table for the whole run.
 9.7.8 The order of the calls in one run: `start`; `base_setting_changed` for each base setting the core has; then, until the end, `menu_closed` for each close of the menu, `menu_video` for each change of the picture behind the menu, and `base_setting_changed` for each change.
-9.7.9 The library that is the code of a core is named in the core's API TOML: `hooks = "<library name>"` in its `[core]` section (1 to 15 characters of a-z, 0-9 and _). The packer (`cor_pack`) refuses a core whose named library is not among the libraries of the bundle, or whose file does not list the export `corehooks=1` (`u2a_pack --export corehooks=1`). The base takes the table of that library, at exactly major 1 (a table of another major is no hooks, and the core runs without it, with a notice); with no name it takes the table of whatever library exports it, as in 9.7.1. Every call into the table is made on the account of that library (allocations and files it makes in a hook are its own).
-9.7.10 For such a core the base calls the first six members where it calls the members of the core description, in the same order and with the same meaning: `init` and `release` hold and release the machine at every start, cold reset and reload (a library without one leaves the machine as it is: the core is then not released, and the person is told when the table is missing altogether); `warm_reset` is the warm reset, and a table without it makes a warm reset a cold one; `cold_start` runs before the restart's reload and stops it with its reason; `media_flush` and `media_pending` are the write-back of a core's own media engine (a table without them is a core with none). The first reset at power-on comes after the libraries are loaded and their API groups are filled: `init` has `api->io` and `api->settings` there.
+9.7.9 The library that is the code of a core is named in the core's API TOML: `hooks = "<library name>"` in its `[core]` section (1 to 15 characters of a-z, 0-9 and _). The packer (`cor_pack`, with `--sizes` of the TOML B) refuses a core whose description names hooks when no `[[library]]` of the TOML B is given, or when the named `[[library]]` does not export `corehooks` at major 1. The base takes the table of that library, at exactly major 1 (a table of another major is no hooks, and the core runs without it, with a notice); with no name it takes the table of whatever library exports it, as in 9.7.1. Every call into the table is made on the account of that library (allocations and files it makes in a hook are its own).
+9.7.10 For such a core the base calls the first six members where it calls the members of the core description, in the same order and with the same meaning: `init` and `release` hold and release the machine at every start, cold reset and reload (a library without one leaves the machine as it is: the core is then not released, and the person is told when the table is missing altogether); `warm_reset` is the warm reset, and a table without it makes a warm reset a cold one; `cold_start` runs before the restart's reload and stops it with its reason; `media_flush` and `media_pending` are the write-back of a core's own media engine (a table without them is a core with none). The first reset at power-on comes after the libraries are registered and their API groups are filled: `init` has `api->io` and `api->settings` there.
 9.7.11 `slot_spec`, `slot_mount` and `slot_eject` serve the media slots of the core: the names are the `[mount]` list of the core's API TOML, `slot` is the position in it, and the three members come together (a table with one of them missing takes the slots away, with a notice). The base gives `slot_spec` its own buffer of 200 bytes (`Settings::MOUNT_VAL_LEN`): the length 0 is an empty slot, -1 a spec that does not fit (the slot then reads as empty). A spec is the words the file uses for what is in the slot (`ro /usb0/x.d64`), and a path in it starts with `/`. `slot_mount` returns 0, or non-zero with the reason in `msg`, and a slot that cannot take the medium keeps what it held. `ctx.media_source("<slot name>")` answers with the spec, "Persist medium mounts" stores it in the core's settings file and mounts it again at the start, and the named configs hold it. While the base restores mounts, `ctx.state()` has `CTX_MEDIA_RESTORING`: the machine is held and the base releases it later, so `slot_mount` neither resets nor releases it. When a slot changes by the engine's own doing it calls `ctx.mount_notify("<slot name>")`.
 9.7.12 A core that is described by its record and whose code is a library registers no operations of the base's own code. The base registers for it the groups that a built-in core registers in its own code: Diagnostics (`diag.*`, `media.*`, `usb.*`) for every such core, and the group of the 1541 (`drive.*`, `drive.put_rom` among them) when its capabilities name `drive_a` and the board did not strike it (6.12.1, the record's `board_caps`). The base's own monitor does not serve such a core: TCP port 4312 is left to the core's library.
 9.7.13 `void menu_video(int behind)` is called when the base turns the picture of the machine behind its menu layer on (`behind` = 1) or off (0). It is on while a screen of the base shows the picture behind the menu, which is the still element: the base's still, or the surface a library shows as "still" (4.17.8.3). It is off when the menu covers it again. The page of a core's key table with the layout `timeline` has no UI of the base: it is transparent over the still, and the key colour without one, so a library paints its own bar as elements (4.17). A library that changes the machine's frame while the machine stands (a scrub) paints the new frame with `api->overlay->frame` and calls `update`: the base does not call `menu_video` again for it. The base calls it once for each change, never twice with the same value, and the first call is an on. It cannot refuse. Task: the main loop of the application, which draws the menu. The core lock is not held, as for `menu_closed`. It does not block for long: the screen waits for it.
