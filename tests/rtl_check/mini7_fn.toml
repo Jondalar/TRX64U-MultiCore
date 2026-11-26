@@ -1,0 +1,36 @@
+# A fixture TOML A for tests/rtl_check/mini7, top top7fn (T239.3, apple2's a2_regs.vhd): build2, base and stat_hi are read through the process function b4 (of a constant
+# vector, of a register written byte by byte, of a slice of a constant vector); id is read from constants. build2 and stat_hi are not 0 only at the right bytes.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "fn"
+module = "m7fn"
+owner = "base"
+address = 0x10000000
+size = 0x18
+
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "build2"
+  offset = 0xA
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "base"
+  offset = 0x10
+  width = 32
+  dir = "rw"
+
+  [[block.property]]
+  name = "stat_hi"
+  offset = 0x14
+  width = 32
+  dir = "r"

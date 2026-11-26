@@ -23,7 +23,24 @@
       skipped without the checkout or the commit): all 39 blocks (168 properties) agree with the RTL (V-1f: trx_dbg_run.owner byte 3, cyc_cmp, cmp_en, trx_statebus.status and trx_debug.ipc_set included).
   2f. the miniature design tests/rtl_check/mini6 (V-1f): a unit two modules behind the handshake (an instance inside the module that the continuous assignments feed), a genvar select, a write that
       clears a register whatever the data is, a register written under an address compare while another expression names the data behind a different compare.
-  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed.
+  2g. the miniature design tests/rtl_check/mini7, one top per construct, the request on the top's own ports (the cores' way): a function declared in a process (apple2's
+      a2_regs.vhd; its arguments are 0 but at the right bytes), a write branch that assigns the address to a process variable under the write flag (a2_regs.vhd; emit finds
+      the standard block read-only), an instance whose module is a `define of its file and an `ifdef / `elsif / `undef on the file's own `define (the SNES core's
+      snes_core.v), and the module of a top file's instance from a `define of the top file.
+  2h. the miniature design tests/rtl_check/mini8 (the review of T239.3's reader): each pattern that passed a wrong TOML A or crashed is refused (a finding or a pattern the
+      check does not know): the 0 of an arm on the access type, of an outer arm before its inner decision, of an inner `when others` or `else`, of the other half of a vector;
+      an overloaded, a recursive process function, a function local read before it is assigned, an argument declared with a subtype name, a byte outside the argument,
+      a top file's instance whose module is an undefined macro; a process variable that takes the address (under a case on the write flag, inside an arm of the address), a
+      decision on a variable that merges the address with another value, the 0 before or in the default of a reverse case (`case (1'b1)`) whose choices name the address, an arm
+      that assigns the address to a variable and decides on it, a slice argument for a formal the function indexes, an index outside the argument. A process variable
+      written in the arm of the address is a write (the TOML A that says so agrees).
+  2i. the miniature design tests/rtl_check/mini9 (the review of T239.3's reader, round 9): one module per pattern, r at +0 written and read, ghost at +5 that the RTL
+      does not have. A constant 0 is no read in any arm (a range, a region, a reverse case, a case on a compare, a variable, a second case); a strobe under
+      `when others` is no write of the byte; a value that merges the address with another value (a conditional signal, `sel <= addr when mode = '1' else x"00"`) is
+      refused where a decision on it is open; an always @* reg of a blocking assignment and a VHDL variable are read on their path; a plain case item with ? bits and
+      a casez are refused. Each block fails on ghost alone (r agrees) or is refused.
+  3. check on host/ with coreapp/gateware/host.toml (T239.3 V-1, V-1b): the host's own decode, no checkout of another repository needed. One finding: sd_spi.crc,
+     a strobe of the SPI's state writing a clock after the request, which the check does not follow (no write proved, no pass).
   5. emit (D55, tools/toml_a_emit.py): the TOML A of the VIC-20's core window written from the RTL decode (the first 0x200 bytes), named from a C header by offset, checked by `check` against the
      same RTL (by construction) and compared with cores/vc20/app/gateware.toml; the header reader skips the mask of a register.
   4. lint-src: a clean source passes, the literals of hit.cc are listed with file and line.
@@ -99,6 +116,116 @@ must(rc == 0 and "3 block(s), 4 properties agree" in out,
      "mini6 design: a unit that the module behind the handshake's continuous assignments holds (an instance followed behind a handshake), two cells of a generate-for that compare the address with "
      "a select of the genvar, a register written from the data under an address compare (the data of another compare in another register's expression is no write), and a register that a write clears "
      "whatever the data is (a case arm of the pipeline's module): the blocks agree with the RTL", out)
+
+
+def mini7(top, toml):
+    return run("check", "--design", os.path.join(HERE, "mini7"), "--toml-a", os.path.join(HERE, toml), "--top", top,
+               "--bus", top + ":write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100")
+
+
+rc, out = mini7("top7fn", "mini7_fn.toml")
+must(rc == 0 and "1 block(s), 4 properties agree" in out,
+     "mini7 (apple2's a2_regs.vhd): a function declared in a process (a local `downto 0` that takes the argument, one return), called with a constant vector, with a register and "
+     "with a slice of a constant vector, reads the right byte: build2 (byte 2 of 0x00D40000), base and stat_hi (the high word of a 64-bit vector whose low word is 0) are read", out)
+import tempfile
+with tempfile.TemporaryDirectory() as td7:
+    out7 = os.path.join(td7, "m7var.toml")
+    rc, out = run("emit", "--design", os.path.join(HERE, "mini7"), "--top", "top7var",
+                  "--bus", "top7var:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100", "--core", "m7v",
+                  "--scan", "0:0x40", "-j", "1", "--toml-a-out", out7, "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+    text = open(out7).read() if os.path.exists(out7) else ""
+must(rc == 0 and "agree with the RTL" in out and "[identity]" in text and text.count('dir = "rw"') == 1,
+     "mini7 (apple2's a2_regs.vhd): an assignment of the address to a process variable under the write flag is no write: emit finds the standard block and 0x31 read-only, "
+     "only the register at 0x30 is written", out + text)
+rc, out = mini7("top7mac", "mini7_mac.toml")
+must(rc == 0 and "1 block(s), 1 property agree" in out,
+     "mini7 (the SNES core's snes_core.v): the instance whose module is a `define of its file (under `ifndef, the ports in the next lines) is followed, and `ifdef / `elsif / "
+     "`undef decide on the file's own `define: its register is written and read", out)
+rc, out = mini7("top7tmac", "mini7_mac.toml")
+must(rc == 0 and "1 block(s), 1 property agree" in out,
+     "mini7: the top file's instance whose module is a `define of the top file is followed: the register behind it is written and read", out)
+
+
+
+def mini8(top, toml):
+    return run("check", "--design", os.path.join(HERE, "mini8"), "--toml-a", os.path.join(HERE, toml), "--top", top,
+               "--bus", top + ":write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100")
+
+
+def refused(rc, out):
+    """A finding or a pattern the check does not know; never a pass, never a crash."""
+    return rc == 1 and "Traceback" not in out and "agree with the RTL" not in out and ("finding(s)" in out or "an RTL pattern I do not know" in out)
+
+
+for top, toml, what in (("topd", "mini8_d.toml", "review 1: the 0 an arm on the access type (case {re, we}) answers is no decoded read"),
+                        ("topd2", "mini8_d2.toml", "review 1: the default 0 before an if on the address is no decoded read"),
+                        ("topa1", "mini8_a1.toml", "review 2: the 0 an outer arm of the address writes before its inner case decides is no decoded read"),
+                        ("topa2", "mini8_a2.toml", "review 2: the 0 of an inner `when others` of a nested decode is no decoded read"),
+                        ("topa3", "mini8_a3.toml", "review 2: the 0 of the else of an if on the address inside an outer arm is no decoded read"),
+                        ("topc", "mini8_c.toml", "review 3: an arm that writes 0 to the other half of a vector decodes no byte of the half the answer reads"),
+                        ("topf1", "mini8_f1.toml", "review 4: two process functions of one name (an overload) are refused"),
+                        ("topf2", "mini8_f2.toml", "review 7: a function local read before it is assigned is refused (it does not read the architecture's signal of that name)"),
+                        ("topf3", "mini8_f3.toml", "review 7: a process function that calls itself is refused"),
+                        ("top8sub", "mini8_sub.toml", "review 6: a function argument declared with a subtype name is refused, not a crash"),
+                        ("top8fn", "mini8_fn.toml", "review 7: a function slice outside its argument (bytes 4..7 of 32 bits) is refused, not a 0"),
+                        ("top8nomac", "mini8_nomac.toml", "review 7: a top file's instance whose module is a macro the file does not define is refused, not skipped"),
+                        ("topv1", "mini8_v1.toml", "review 8: a process variable that takes the address under a case on the write flag (case we) is no write"),
+                        ("topv2", "mini8_v2.toml", "review 8: a case on a process variable that is the address on one path and 0 on another (merged, 0x25 or 0) is refused"),
+                        ("topv3", "mini8_v3.toml", "review 8: a process variable that takes the address inside an arm of the address (a2_regs' o) is no write"),
+                        ("topg1", "mini8_g1.toml", "review 8: the 0 of an outer arm before a reverse case (case (1'b1)) whose choices decide on the address is no decoded read"),
+                        ("topg2", "mini8_g2.toml", "review 8: the default 0 of a reverse case whose choices decide on the address is no decoded read"),
+                        ("toph1", "mini8_h1.toml", "review 8: an arm that assigns the address to a process variable and then decides on it is no last decision: its 0 is no decoded read"),
+                        ("topfx", "mini8_fx.toml", "review 8: a slice wd(31 downto 8) for a function formal the body indexes (return v(15 downto 8)) is refused, not renumbered from 0"),
+                        ("topix", "mini8_ix.toml", "review 8: an index of a function formal outside its argument (bit 15 and bit -1 of 8 bits) is refused, not a 0")):
+    rc, out = mini8(top, toml)
+    must(refused(rc, out), "mini8 (%s): %s" % (top, what), out)
+rc, out = mini8("topix", "mini8_ix.toml")
+must("reads bit -1 of an argument of 8 bits" in out, "mini8 (topix): the index below the argument is named as -1 (a signed integer), not 4294967295", out)
+rc, out = mini8("topb", "mini8_b.toml")
+must(rc == 0 and "1 block(s), 2 properties agree" in out,
+     "mini8 (review 5): a process variable set in the case arm of the address under the write flag (`when x\"40\" => pend := '1'`) is a write: the strobe agrees", out)
+
+
+def mini9(name):
+    top = "top" + name
+    return run("check", "--design", os.path.join(HERE, "mini9"), "--toml-a", os.path.join(HERE, "mini9_%s.toml" % name), "--top", top,
+               "--bus", top + ":write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x10000000:0x100")
+
+
+def ghost_only(rc, out, d):
+    """The block fails on ghost alone: r (written and read at +0) agrees."""
+    return (rc == 1 and "Traceback" not in out and "agree with the RTL" not in out and "1 finding(s)" in out
+            and ("property ghost (dir %s): byte +0x5 (0x10000025) has no %s" % (d, {"r": "read", "w": "write"}[d])) in out)
+
+
+def unknown(rc, out):
+    return rc == 1 and "Traceback" not in out and "agree with the RTL" not in out and "an RTL pattern I do not know" in out
+
+
+for name, d, kind, what in (
+        ("n1", "r", "g", "a range arm (`when 16#21# to 255`) that answers the constant 0 is no read"),
+        ("n2", "r", "g", "an arm of a region (`case addr(7 downto 4)`) in the else of the address compare that answers 0 is no read"),
+        ("n3", "r", "g", "a Verilog arm of a region (`case (addr[7:4]) 4'h2: q <= 8'h00`) is no read"),
+        ("n4", "r", "g", "a reverse case whose choice is an inequality (`case (1'b1) (addr != 8'h20): q <= 8'h00`) is no read"),
+        ("n5", "r", "g", "a case on a compare (`case addr = x\"20\" is when false => q <= x\"00\"`) is no read"),
+        ("n6", "r", "g", "the 0 of an arm of a region before a reverse case on the low bits is no read"),
+        ("n7", "r", "g", "the 0 of an arm of a region before an if on the low bits is no read"),
+        ("n8", "r", "g", "the 0 of an arm of a region before an if on a wire that compares the low bits is no read"),
+        ("n9", "r", "g", "a case on a variable (1 for every byte but 0x20) whose arm answers 0 is no read"),
+        ("n10", "r", "g", "a second case on addr(0) that answers 0 at the odd bytes is no read"),
+        ("p1", "r", "g", "the 0 of an arm of a region before an if on the low bits (no read flag in it) is no read"),
+        ("p2", "r", "u", "a process function without parameters, called without parentheses, is refused"),
+        ("p3", "w", "u", "a write case on a conditional signal that merges the address with 0 (`sel <= addr when mode = '1' else x\"00\"`) is refused"),
+        ("p4", "w", "g", "a register that takes the address under the write flag at every byte (`last <= addr`) is no write of 0x25"),
+        ("p5", "w", "g", "a strobe under `when others` (`err <= '1'`, every byte but 0x20) is no write of 0x25"),
+        ("p6", "r", "u", "a read case on a conditional signal that merges the address with 0 is refused (0x25 or 0 merged matches 0x20)"),
+        ("p7", "r", "u", "a casez is refused"),
+        ("p8", "r", "u", "a plain case item with ? bits (`8'b0010_0???`) that the request does not decide is refused"),
+        ("p9", "w", "g", "an always @* reg of a blocking assignment that takes the address in an undecided if is read on that path (`sel == 8'h20` is false for 0x25): no write"),
+        ("q1", "w", "g", "the VHDL variable of p9 is read on its path: no write of 0x25"),
+        ("p9c", "w", "g", "the control of p9 (the compare names addr itself): no write of 0x25")):
+    rc, out = mini9(name)
+    must(ghost_only(rc, out, d) if kind == "g" else unknown(rc, out), "mini9 (top%s): %s" % (name, what), out)
 
 ult_commit = "975aa59b"
 tomla = subprocess.run(["git", "-C", ult, "show", ult_commit + ":software/trx64u/gateware/c64_basic.toml"], capture_output=True, text=True) if os.path.isdir(dsg) else None
@@ -199,9 +326,12 @@ must(rc == 0 and "14 block(s), 51 properties agree" in out, "diag: 14 blocks, 51
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "64 block(s), 190 properties agree" in out and "clean room" not in out,
-     "host: 64 blocks of coreapp/gateware/host.toml agree with the RTL of host/ (base blocks by property, core blocks by hand-over; the overlay, the palette, "
-     "IEC, SD and WiFi windows, the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
+crc = "rtl_check: block sd_spi, property crc (dir rw): byte +0xC (0x1006000C) has no write in the RTL"
+must(rc == 1 and [l for l in out.splitlines() if l.startswith("rtl_check: ")] == [crc, "rtl_check: 1 finding(s)"] and "clean room" not in out,
+     "host: coreapp/gateware/host.toml against the RTL of host/: one finding, sd_spi.crc has no write (spi_peripheral_io.vhd clears the CRC in its state writing, a "
+     "clock after the request, by the address alone: `when \"11\" => clear_crc <= '1'`; the request's own clock only moves the state, `state <= writing` for every byte "
+     "of the window, which selects no byte by name; the check proves no write there and says so). The rest agrees (base blocks by property, core blocks by hand-over; the overlay, the palette, "
+     "IEC, SD and WiFi windows (wifi_uart.tx_push and rx_get: strobes in arms of io_req.address, which wifi_req <= io_req copies field by field), the overlay palette as three runs of 16 elements with the stride 4, behind io_bus_splitter the ITU with its console UART, USB and Ethernet, and the flash window whose flash_gate holds each request one clock (a held request); no Gideon file of the deny list is in the source list, the Minimig agnus_copper.v is Verilog and is no Gideon file)", out)
 
 # D55: emit. The header reader: names by offset, a bit mask after a register with a larger offset is no register, a function-like macro is evaluated.
 import tempfile

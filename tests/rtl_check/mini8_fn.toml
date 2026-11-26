@@ -1,0 +1,17 @@
+# A fixture TOML A for tests/rtl_check/mini8 (T239.3 review 7 (m8fn): build_hi reads bytes 4..7 of a 32-bit argument: refused, not a 0).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "fn"
+module = "m8fn"
+owner = "base"
+address = 0x10000000
+size = 0x10
+
+  [[block.property]]
+  name = "build_hi"
+  offset = 0xC
+  width = 32
+  dir = "r"

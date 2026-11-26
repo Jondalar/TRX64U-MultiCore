@@ -14,14 +14,34 @@ check
   that only copies the held request (region_r <= region) takes the request's value, a handshake flag (every assignment a literal)
   takes its initial value, any other state is unknown. A write is an executed assignment whose value or guard comes from the
   request's data through wires, or whose guard comes from the write flag and the address together (behind a register pipeline: lies in a case arm that the address selects) and that the same address as a
-  read does not run (a strobe register that ignores the data byte; the write flag alone is no write); a read is a response whose data does not come from the literal 0 alone. A module is followed
+  read does not run (a strobe register that ignores the data byte; the write flag alone is no write). Such a strobe is a write of the byte only when the last decision on
+  the address before it selects the byte by name (taint s): a case arm whose choices are constants that the address (or a part, copy or offset of it) is compared with,
+  an if whose condition holds only for the addresses it compares for equality (`we = '1' and addr = x"25"`, an and of such a compare with any other condition:
+  trx_io's `we && !win && page == 4'd6`, a flag set from such a compare). The bits of a
+  concatenation keep their own class (pix_layer's `addr` is `cw_addr(11 downto 0)` of `cw_addr <= cw_win & io_req.address(15 downto 0)`: the address). The arm `when others` or
+  `default` of a case on the address, the else of an if on the address, an inequality (`/=`, `!=`), a range (`when 16#21# to 255`, `addr >= x"20"`), a negated compare,
+  a case on a compare (`case addr = x"20" is when false`) and a flag set on such a path select every byte but some: a strobe there is no write of a byte (mini9's p5:
+  `when others => err <= '1'`). A process variable is decided by its right side: one that takes the
+  request (the address or a flag: a2_regs.vhd's `o := to_integer(unsigned(off))`, also inside an arm of the address) writes no byte, the signal that takes its value does;
+  one whose right side carries no request is a write only by its guard, the address and the write flag together (`when x"40" => pend := '1'`); the data in a variable
+  alone is no write. A read is a response whose data does not come from the literal 0 alone: a register that answers the constant 0 is no read, wherever the address
+  selects it (command_protocol.vhd's command_start is write-only for the check). A process variable and a Verilog reg of a blocking assignment (`=`) are read on the path
+  that assigned them (an undecided branch runs on its own copy of the state until the paths join; there the paths merge). A value that merges two paths into unknown bits
+  that neither path has (0x25 or 0 merge to 0b00x00x0x, which matches 0x20), where one of the paths carries the address: a process variable or reg at the join of an
+  undecided branch, a signal of a process assigned on an undecided path, a conditional value (`sel <= addr when mode = '1' else x"00"`, `mode ? addr : 8'h00`) and
+  everything computed from such a value (a compare, a flag, a copy over ports and continuous assignments) is lossy. A decision that the request leaves open (an if, a
+  case arm, a conditional in an answer, a RAM's write enable, a strobe port of an instance) on a lossy value is refused for a byte (the address known in every bit,
+  Unsupported): it would match addresses the request does not have. A case item with x, z or ? bits in a plain case (`8'b0010_0???`) that the request does not decide
+  is refused (in synthesis such an item matches no address; casez and casex are refused anyway). A module is followed
   only when a strobe derived from the request reaches it (its source is then parsed too).
   A block with owner = "core" is checked like a block of the base (D43): decoded, every property written and read as its dir says. Where the RTL hands its bytes to the core, over a port of the
   groups CORE_PORTS (the host: a strobe port that is 1 for the address, or a register driven under the address; a data port of the same group must carry the request's data), the block is
   a window and only the hand-over is checked (a block the design decodes in every byte is checked like a base block, whatever else it forwards); its properties are then the core's contract, checked
   in the core's own design. A design that holds layer 2 as well (c64_basic) decodes them itself.
   `--own-core` and `--core-in-design` (the options of 0.4.5 that chose this per run) are still accepted and change nothing.
-  `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined. A VHDL
+  `--define NAME` (repeatable) names the `define symbols of the build the check is run for; every other `ifdef symbol is undefined, but for a `define of the same Verilog file
+  above it (in a branch that is on). Such a `define without arguments is replaced by its text where `NAME is used (snes_core.v: the module of an instance; in the top
+  file too, where an instance whose module is a macro the file does not define is refused). A VHDL
   if-generate is decided with the generics' defaults and a Verilog one with the parameters' defaults; an instance that gives such a generic
   another value gets the module parsed again with that value (the generate branches follow it); the check fails only when the value is
   unknown (X) (the parameter lists of the top-level Verilog file are read for it).
@@ -43,6 +63,13 @@ check
   The synchronizers of a clock-domain bridge (synchronizer_gzw) carry the vector unchanged: their outputs are their inputs, io_bus_bridge2 itself is read from its source.
   A RAM entity (MEMORIES: dpram, dpram_8x16, dpram_8x32, pseudo_dpram_8x32) is a write sink: its write enable is 1 for the request and its data port carries the data.
   A procedure declared in a process is inlined at its calls (in-parameters only), aliases are replaced where they are used, a VHDL block statement is part of the module.
+  A function declared in a process (a2_regs.vhd: b4; in-parameters, local variables `downto 0` assigned in its body, one return at its end) is replaced by its return expression
+  at its calls, each local by what was assigned to it, each formal by the argument. Refused: an argument that is a name of neither a scalar nor a vector declared
+  `downto 0` (a subtype name, an ascending vector); for a formal of an unconstrained vector type that the body indexes, slices or returns (not only copies whole into a
+  local `downto 0`, as b4's `w := v` does), an argument that is no such name (a slice keeps its own index range in VHDL: hib(wd(31 downto 8)) with `return v(15 downto 8)`
+  reads wd(15 downto 8); an expression or a literal); a formal declared with a range that is not `downto 0` or with a type that is neither a scalar nor an unconstrained
+  vector; a slice or an index of the body outside its argument (when the byte is asked for); a name declared twice (an overload); a call of the function in its own body;
+  a local read before the body assigns it. An index below a vector's low bound is refused anywhere.
   The taint of a part of a vector (a slice, an index) is that of those bits: a concatenation, a synchronizer and an instance port keep the address, data, read and write of the request apart.
   A write is a register or a RAM that takes the request's data (a RAM also needs the request's address on its address port, and a run or block may not be larger than the RAM), an assignment the data decides, or an
   assignment guarded by the address and the write flag that the read of the same address does not run; an answer of the bus (a t_io_resp signal, ack, nc) is none of them.
@@ -73,7 +100,8 @@ check
   another address (trx_dbg.v: ev <= ... || (wcmd && cmd == 8'h01)) is no write of this address. A select of a genvar (`{1'b1, 6'h02, gu[0]}`) is a constant. A register that a write sets whatever the
   data is (trx_sys.v: `14'h0402: sb_err <= 1'b0` under op_we) is a write when its assignment lies in an arm of a case that the request's address selects (taint m) in a module behind a handshake with a
   register pipeline, and the same address as a read does not run it; what a read of the address runs is collected in every module the request reaches (the readref of the first level and of each level behind it).
-  What is not followed yet: a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment.
+  What is not followed yet: a Verilog generate-for that is no counting loop, a Verilog function with more than its one assignment, a Verilog macro with arguments or one
+  the file does not `define (the rest of the line where it is used is not read).
 
 lint-src
   The reverse lint (D30 conditions 1 and 4): a literal that lies in the I/O space or in a block of TOML A is refused in a C/C++
@@ -153,6 +181,13 @@ class V:
 
 def kn(v, w=None):
     return V(v, 0, w)
+
+
+def signed(a):
+    """The known value of a as a signed number (its top bit the sign): an index o - 16#30# of an integer reads -1, not 4294967295 (messages)."""
+    if a.w and a.v >> (a.w - 1) & 1:
+        return a.v - (1 << a.w)
+    return a.v
 
 
 def allx(w):
@@ -249,6 +284,8 @@ def v_slice(a, hi, lo):
     n = hi - lo + 1
     if n < 1:
         raise Unsupported("empty slice")
+    if lo < 0:
+        raise Unsupported("a slice below bit 0 of its vector (bits %d..%d)" % (hi, lo))
     return V(a.v >> lo, a.x >> lo, n)
 
 
@@ -285,7 +322,7 @@ VLOG_TOK = re.compile(r'''
  (?P<ws>\s+)
 |(?P<cm>//[^\n]*|/\*.*?\*/)
 |(?P<attr>\(\*(?!\)).*?\*\))
-|(?P<dir>`[^\n]*)
+|(?P<dir>`[A-Za-z_]\w*|`[^\n]*)
 |(?P<num>\d*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ_?]+|\d[\d_]*\.\d[\d_]*|\d[\d_]*|'[01xXzZ])
 |(?P<str>"(?:[^"\\]|\\.)*")
 |(?P<id>[A-Za-z_][\w$]*|\$[A-Za-z_]\w*)
@@ -297,9 +334,13 @@ XNEG = [0]        # how often a unary minus met an unknown operand (the value be
 DEFINES = set()   # the `define names of the build the check is run for (--define); everything else is undefined
 
 
-def lex(text, lang, fname):
+def lex(text, lang, fname, macros=None, expanding=()):
+    """The tokens of a source text. Verilog: an `ifdef / `ifndef / `elsif names a --define symbol or a `define of the file above it (in a branch that is on); an object-like
+    `define of the file (`define SNES_MEM_MOD snes_mem) is replaced by its text where `NAME is used (snes_core.v: the module of an instance). A use of a macro the file does not
+    define, or of one with arguments, and every other directive take the rest of their line, as before."""
     pat = VHDL_TOK if lang == "vhdl" else VLOG_TOK
     out, pos, line = [], 0, 1
+    macros = {} if macros is None else macros    # name -> body text (None: a macro with arguments) of the `define lines read so far
     cond = []   # one (parent active, a branch was taken, this branch active) per open `ifdef
     while pos < len(text):
         m = pat.match(text, pos)
@@ -308,24 +349,50 @@ def lex(text, lang, fname):
         k, s = m.lastgroup, m.group()
         on = all(c[2] for c in cond)
         if k == "dir":
+            word = s[1:]
+            if macros.get(word) is not None and word not in ("ifdef", "ifndef", "else", "elsif", "endif", "define", "undef"):
+                if word in expanding:
+                    raise Unsupported("%s:%d: the macro `%s uses itself" % (fname, line, word))
+                if on:
+                    out += [(bk, bs, line) for bk, bs, _ in lex(macros[word], lang, fname, macros, expanding + (word,))[:-1]]
+                pos = m.end()
+                continue
+            end = text.find("\n", pos)
+            end = len(text) if end < 0 else end
+            if word == "define":
+                while end < len(text) and text[pos:end].rstrip().endswith("\\"):     # a body that goes on in the next line
+                    nxt = text.find("\n", end + 1)
+                    end = len(text) if nxt < 0 else nxt
+            s = text[pos:end]
             d = re.match(r"`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", s)
             if d:
                 kw, nm = d.groups()
                 if kw in ("ifdef", "ifndef"):
-                    hit = (nm in DEFINES) == (kw == "ifdef")
+                    hit = (nm in DEFINES or nm in macros) == (kw == "ifdef")
                     cond.append((on, hit, hit))
                 elif not cond:
                     raise Unsupported("%s:%d: `%s without an open `ifdef" % (fname, line, kw))
                 elif kw == "elsif":
                     par, taken, _ = cond[-1]
-                    hit = (nm in DEFINES) and not taken
+                    hit = (nm in DEFINES or nm in macros) and not taken
                     cond[-1] = (par, taken or hit, hit)
                 elif kw == "else":
                     par, taken, _ = cond[-1]
                     cond[-1] = (par, True, not taken)
                 else:
                     cond.pop()
-        elif k not in ("ws", "cm", "attr") and on:
+            elif on and word == "define":
+                dm = re.match(r"`define[ \t]+([A-Za-z_]\w*)(\()?(.*)", s, re.S)
+                if dm:
+                    macros[dm.group(1)] = None if dm.group(2) else dm.group(3).replace("\\\n", " ").strip()
+            elif on and word == "undef":
+                um = re.match(r"`undef[ \t]+([A-Za-z_]\w*)", s)
+                if um:
+                    macros.pop(um.group(1), None)
+            line += s.count("\n")
+            pos = end
+            continue
+        if k not in ("ws", "cm", "attr") and on:
             out.append((k, s.lower() if (lang == "vhdl" and k == "id") else s, line))
         line += s.count("\n")
         pos = m.end()
@@ -529,7 +596,7 @@ class P:
     def __init__(self, toks, fname, ovr=None):
         self.t, self.i, self.fname = toks, 0, fname
         self.ovr = ovr or {}
-        self.procs, self.noreg, self.aliases = {}, 0, {}
+        self.procs, self.funcs, self.noreg, self.aliases = {}, {}, 0, {}
         self.cur, self.pvars = None, {}
 
     def pk(self, n=0):
@@ -1057,8 +1124,139 @@ class VhdlParser(P):
         self.eat(";")
         self.procs[name] = (formals, body)
 
+    def function(self, m):
+        """A function declared in a process (a2_regs.vhd: b4): in-parameters, local variables, a body of assignments to the locals and one return at its end. A call is replaced
+        by the return expression (func_call), each local by the expression last assigned to it and each formal by the argument. A local vector is declared `downto 0`: the
+        assignment renumbers the argument's bits from 0, as the replacement does. A formal of an unconstrained vector type that the body names otherwise than as the whole right
+        side of `local := formal` (it indexes or slices it, or returns it) keeps the index range of its argument in VHDL: such a formal is noted (need), and func_call
+        takes for it only a name declared `downto 0` (a slice such as wd(31 downto 8), an expression or a literal is refused: the replacement would renumber it from 0). A
+        slice or an index of a local or a formal is marked (a last element "f"): its bits must lie inside the argument (Ev.ev, Ev.call), or the call is refused. Refused: a
+        formal declared with a range that is not `downto 0` or with a type that is neither a scalar nor an unconstrained vector (a subtype name), a name declared twice (an
+        overload: which body a call takes depends on the argument's type), a call of the function in its own body, and a local read before the body assigns it."""
+        self.acc("pure") or self.acc("impure")
+        self.eat("function")
+        name = self.eat()[1]
+        if name in self.funcs:
+            raise self.err("a function %s declared twice in the process (an overload)" % name)
+        formals, opn = [], set()
+        if self.acc("("):
+            while True:
+                if self.txt() in ("signal", "variable", "file"):
+                    raise self.err("a function parameter class")
+                self.acc("constant")
+                names = [self.eat()[1]]
+                while self.acc(","):
+                    names.append(self.eat()[1])
+                self.eat(":")
+                if self.txt() in ("out", "inout", "buffer"):
+                    raise self.err("a function parameter of mode %s" % self.txt())
+                self.acc("in")
+                fty = self.subtype()
+                if self.txt() == ":=":
+                    raise self.err("a function parameter with a default")
+                if fty.hi is not None:
+                    if fty.asc or fty.lo is None or fty.lo[0] != "n" or not fty.lo[1].known() or fty.lo[1].v != 0:
+                        raise self.err("a function parameter whose range is not `downto 0`")
+                elif fty.name.lower() in VEC_TYPES:
+                    opn.update(names)      # unconstrained: the formal has the argument's index range
+                elif fty.name.lower() not in TYPE_SCALARS:
+                    raise self.err("a function parameter of type %s (a subtype name or a type I do not know)" % fty.name)
+                formals += names
+                if not self.acc(";"):
+                    break
+            self.eat(")")
+        self.eat("return")
+        self.subtype()
+        self.eat("is")
+        locs = {}
+        while self.txt() != "begin":
+            if self.txt() != "variable":
+                raise self.err("a declaration in a function I do not know")
+            self.eat()
+            names = [self.eat()[1]]
+            while self.acc(","):
+                names.append(self.eat()[1])
+            self.eat(":")
+            ty = self.subtype()
+            if self.txt() == ":=":
+                raise self.err("a function variable with an initial value")
+            self.eat(";")
+            if ty.hi is not None and (ty.asc or ty.lo is None or ty.lo[0] != "n" or not ty.lo[1].known() or ty.lo[1].v != 0):
+                raise self.err("a function variable whose range is not `downto 0`")
+            for n in names:
+                locs[n] = Decl(n, "var", ty)
+        self.eat("begin")
+        saved, env = self.pvars, {}
+        self.pvars = dict({f: Decl(f, "var", Ty("formal")) for f in formals}, **locs)     # the names of the body as the slice parser looks them up (asc_high)
+        self.funcs[name] = None           # a call of it in its own body: primary sees the name and func_call refuses the recursion
+        named = set()                     # the formals the body names otherwise than as the whole right side of `local := formal`
+
+        def body_expr(dst):
+            raw = self.expr()
+            core = raw
+            while core[0] == "paren":
+                core = core[1]
+            if not (dst is not None and core[0] == "id" and core[1] in formals and locs[dst].ty.hi is not None):
+                ids_of(raw, named)
+            e = mark_fslices(raw, set(formals) | set(locs))
+            used = set()
+            ids_of(e, used)
+            if used & (set(locs) - set(env)):       # read before the body assigns it: neither its value nor a signal of the architecture with the same name
+                raise self.err("a function variable read before it is assigned")
+            return subst(e, env)
+        try:
+            while self.txt() != "return":
+                lhs = self.target()
+                if lhs[0] != "id" or lhs[1] not in locs or not self.acc(":="):
+                    raise self.err("a function body other than assignments to its variables and one return")
+                env[lhs[1]] = body_expr(lhs[1])
+                self.eat(";")
+            self.eat("return")
+            ret = body_expr(None)
+            self.eat(";")
+        finally:
+            self.pvars = saved
+            del self.funcs[name]
+        self.eat("end")
+        self.acc("function")
+        if self.txt() != ";":
+            self.eat()
+        self.eat(";")
+        self.funcs[name] = (formals, ret, opn & named)
+
+    def func_call(self, name):
+        """f(a, b) of a function declared in the process: its return expression with the arguments put in (see function). An argument that is a name must be a scalar or a
+        vector declared with its own range `downto 0` (a subtype name, an unconstrained or an ascending vector is refused: the body renumbers it from 0). The argument of a
+        formal the body indexes (need) must be such a name: a slice keeps its own index range in VHDL (hib(wd(31 downto 8)) with `return v(15 downto 8)` reads wd(15 downto 8),
+        not bits 15..8 of the slice renumbered from 0), and an expression or a literal has a range the check does not compute."""
+        if self.funcs[name] is None:
+            raise self.err("a recursive call of %s" % name)
+        formals, ret, need = self.funcs[name]
+        self.eat("(")
+        args = [self.expr()]
+        while self.acc(","):
+            args.append(self.expr())
+        self.eat(")")
+        if len(args) != len(formals):
+            raise self.err("a call of %s with named or missing arguments" % name)
+        for f, a in zip(formals, args):
+            while a[0] == "paren":
+                a = a[1]
+            d = (self.pvars.get(a[1]) or (self.cur.decls.get(a[1]) if self.cur is not None else None)) if a[0] == "id" else None
+            if d is None or d.ty is None:
+                if f in need:
+                    raise self.err("a call of %s whose argument for %s is no name of a vector declared `downto 0` (a slice, an expression or a literal), and the body "
+                                   "indexes %s: in VHDL it keeps the argument's own index range" % (name, f, f))
+                continue
+            if d.ty.hi is None and d.ty.name.lower() in TYPE_SCALARS:
+                continue
+            if d.ty.hi is None or d.ty.asc or d.ty.lo[0] != "n" or not d.ty.lo[1].known() or d.ty.lo[1].v != 0:
+                raise self.err("a call of %s with %s, which is no scalar and no vector declared `downto 0`" % (name, a[1]))
+        return ("paren", subst(ret, dict(zip(formals, args))))
+
     def process(self, m, where):
         self.procs = {}
+        self.funcs = {}
         self.acc("postponed")
         self.eat("process")
         if self.txt() == "(":
@@ -1081,6 +1279,8 @@ class VhdlParser(P):
                     vars_[n] = Decl(n, "var", ty, init)
             elif self.txt() == "procedure":
                 self.procedure(m)
+            elif self.txt() in ("function", "pure", "impure"):
+                self.function(m)
             elif self.txt() == "alias":
                 self.alias_decl()
             elif self.txt() in ("constant", "type", "subtype"):
@@ -1091,7 +1291,7 @@ class VhdlParser(P):
         self.eat("begin")
         self.pvars = vars_
         stmts = self.seq(m, ("end",))
-        self.pvars = {}
+        self.pvars, self.funcs = {}, {}
         self.eat("end")
         self.eat("process")
         if self.txt() != ";":
@@ -1323,7 +1523,10 @@ class VhdlParser(P):
             while self.txt() == "." and self.pk(1)[0] == "id":
                 self.eat()
                 name += "." + self.eat()[1]
-            e = self.aliases[name] if name in self.aliases else ("id", name)
+            if name in self.funcs and self.txt() == "(":
+                e = self.func_call(name)
+            else:
+                e = self.aliases[name] if name in self.aliases else ("id", name)
             while self.txt() == "(":
                 e = self.suffix(e)
                 while self.txt() == "." and self.pk(1)[0] == "id":      # a field of an indexed record (m(1).step): a node of its own, which no evaluator follows
@@ -2111,21 +2314,22 @@ class Design:
 
 def pp_ifdef(text):
     """The `ifdef / `ifndef / `elsif / `else / `endif lines of a Verilog text decided with DEFINES (the line-based form of lex's): a branch that is off, and the directive lines, become empty
-    lines (D55: layer2_c128.v chooses the module of an instance, and the header of the instance is inside the branches)."""
-    cond, out = [], []
+    lines (D55: layer2_c128.v chooses the module of an instance, and the header of the instance is inside the branches). As in lex, a `define of the text above (in a branch
+    that is on) counts as defined."""
+    cond, out, defs = [], [], set()
     for ln in text.split("\n"):
         d = re.match(r"\s*`(ifdef|ifndef|else|elsif|endif)\b\s*(\w*)", ln)
         on = all(c[2] for c in cond)
         if d:
             kw, nm = d.groups()
             if kw in ("ifdef", "ifndef"):
-                hit = (nm in DEFINES) == (kw == "ifdef")
+                hit = (nm in DEFINES or nm in defs) == (kw == "ifdef")
                 cond.append((on, hit, hit))
             elif not cond:
                 raise Unsupported("`%s without an open `ifdef" % kw)
             elif kw == "elsif":
                 par, taken, _ = cond[-1]
-                hit = (nm in DEFINES) and not taken
+                hit = (nm in DEFINES or nm in defs) and not taken
                 cond[-1] = (par, taken or hit, hit)
             elif kw == "else":
                 par, taken, _ = cond[-1]
@@ -2134,8 +2338,49 @@ def pp_ifdef(text):
                 cond.pop()
             out.append("")
         else:
+            dm = re.match(r"\s*`(define|undef)[ \t]+([A-Za-z_]\w*)", ln)
+            if dm and on:
+                (defs.add if dm.group(1) == "define" else defs.discard)(dm.group(2))
             out.append(ln if on else "")
     return "\n".join(out)
+
+
+def pp_macros(text, fname):
+    """The object-like `define of a Verilog text (its lines that pp_ifdef left on) put in where they are used, as lex does: the scan of the top file (top_instances)
+    then reads an instance whose module is a macro (`CORE_MOD core (...)`). An instance whose module is a macro the file does not define without arguments is refused:
+    the scan would skip it."""
+    macros, out = {}, []
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        dm = re.match(r"\s*`(define|undef)[ \t]+([A-Za-z_]\w*)(\()?(.*)$", ln)
+        if dm:
+            body, n = dm.group(4), 1
+            while body.rstrip().endswith("\\") and i + n < len(lines):
+                body = body.rstrip()[:-1] + " " + lines[i + n]
+                n += 1
+            if dm.group(1) == "undef":
+                macros.pop(dm.group(2), None)
+            else:
+                macros[dm.group(2)] = None if dm.group(3) else body.strip()
+            out += [""] * n
+            i += n
+            continue
+        for _ in range(16):
+            new = re.sub(r"`([A-Za-z_]\w*)", lambda mm: macros[mm.group(1)] if macros.get(mm.group(1)) is not None else mm.group(0), ln)
+            if new == ln:
+                break
+            ln = new
+        else:
+            raise Unsupported("%s: a macro that names itself" % fname)
+        out.append(ln)
+        i += 1
+    text = "\n".join(out)
+    bad = re.search(r"`([A-Za-z_]\w*)\s*(?:#\s*\(|[A-Za-z_]\w*\s*\(\s*\.)", text)
+    if bad:
+        raise Unsupported("%s: an instance whose module is the macro `%s, which the file does not define (without arguments)" % (fname, bad.group(1)))
+    return text
 
 
 def top_instances(design, topname, extra_names):
@@ -2144,7 +2389,7 @@ def top_instances(design, topname, extra_names):
     if f is None:
         raise CheckError("no top module %s in the source list" % topname)
     text = read_source(f)
-    text = pp_ifdef(re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S))
+    text = pp_macros(pp_ifdef(re.sub(r"//[^\n]*|/\*.*?\*/", " ", text, flags=re.S)), f)
     m = Mod(topname, "vlog", f)
     for dm in re.finditer(r"\b(?:wire|reg)\s*(?:\[\s*(\d+)\s*:\s*(\d+)\s*\])?\s*([\w\s,]+?)\s*(?:=|;)", text):
         w = int(dm.group(1)) - int(dm.group(2)) + 1 if dm.group(1) else 1
@@ -2240,20 +2485,32 @@ PASS_FUNCS = {"unsigned", "signed", "std_logic_vector", "std_ulogic_vector", "$s
 
 
 class Ent:
-    __slots__ = ("v", "alts")
+    __slots__ = ("v", "alts", "lossy")
 
-    def __init__(self, v, alts=()):
+    def __init__(self, v, alts=(), lossy=False):
         self.v, self.alts = v, alts
+        self.lossy = lossy    # v merges paths, one of them with the request's address, into bits that neither path has ({0x25, 0} is not 0b00x00x0x), or comes from such a value
+
+
+def v_merge_exact(a, b):
+    """True when v_merge(a, b) takes no value that neither a nor b can take: one covers the other, or both have the same unknown bits and differ in one known bit."""
+    def covers(p, q):
+        return (~p.x & q.x) == 0 and ((p.v ^ q.v) & ~p.x) == 0
+    if covers(a, b) or covers(b, a):
+        return True
+    d = (a.v ^ b.v) & ~a.x & ~b.x
+    return a.x == b.x and d > 0 and d & (d - 1) == 0
 
 
 CORE_PORTS = ("cw_", "dma_", "drv_io_", "gcr_io_", "sidcv_")
 
 
 class Eff:
-    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard")
+    __slots__ = ("key", "rhs", "v", "certain", "taint", "ctx", "where", "guard", "rt")
 
-    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset()):
+    def __init__(self, key, rhs, v, certain, taint, ctx, where, guard=frozenset(), rt=frozenset()):
         self.key, self.rhs, self.v, self.certain, self.taint, self.ctx, self.where, self.guard = key, rhs, v, certain, taint, ctx, where, guard
+        self.rt = rt          # the taint of the right side alone (is_write: a process variable that takes the request is no write)
 
 
 class Run:
@@ -2261,13 +2518,16 @@ class Run:
         self.store = {}
         self.effects = []
         self.vt = {}
+        self.rvt = {}         # process variable or blocking reg -> the taint of the values assigned to it (right sides only, no guard): alts_q reads a right side with it
+        self.aqc = {}         # alts_q's answer per right side
 
 
 class Sc:
-    __slots__ = ("st", "readall", "names", "snap")
+    __slots__ = ("st", "readall", "names", "snap", "cur")
 
     def __init__(self, st, readall, names):
         self.st, self.readall, self.names, self.snap = st, readall, names, None
+        self.cur = st         # the store of the path being run (exec_if, exec_case run their undecided branches on copies): a name of names (seq_names) is read from it
 
 
 class Ctx:
@@ -2316,6 +2576,18 @@ def walk_assigned(stmts, out):
             walk_assigned(s[5], out)
 
 
+def mark_fslices(e, names):
+    """A slice or an index of one of names (a local or a formal of a process function) with a last element "f": Ev.ev and Ev.call refuse it when its bits do not lie
+    inside the argument put in for the name (b4(build, 4) on a 32-bit build reads no byte of it, bit_of(fl, 15) on 8 bits no bit; it is no 0)."""
+    if isinstance(e, tuple):
+        if e and e[0] in ("sl", "call") and len(e) == {"sl": 4, "call": 3}[e[0]] and isinstance(e[1], tuple) and e[1][:1] == ("id",) and e[1][1] in names:
+            return (e[0],) + tuple(mark_fslices(x, names) for x in e[1:]) + ("f",)
+        return tuple(mark_fslices(x, names) for x in e)
+    if isinstance(e, list):
+        return [mark_fslices(x, names) for x in e]
+    return e
+
+
 def ids_of(e, out):
     if not isinstance(e, tuple):
         return
@@ -2347,12 +2619,14 @@ class Ev:
         self.hold, self.holdt = {}, {}      # held requests: (id(ctx), register) -> value / taint in the decode cycle (find_held)
         self.readref = set()  # (module, signal, place) of the effects the same address has as a read: a write by strobe is none of them
         self.bus, self.rootv, self.roott = None, {}, {}
+        self.root_lossy = set()   # the ports of a handshake (link) whose forwarded value is lossy (find_links): a decision on it is refused as on the sender's value
         self.top = Ctx(self, topmod, None, None)
         self.busname = busname
         if link is not None:
             self.bus = self.top.child(link[0])
             self.check_assumed(self.bus)
             self.rootv, self.roott = dict(link[1]), dict(link[2])
+            self.root_lossy = {n for n, t in self.roott.items() if "l" in t}
             # a port of the handshake carries the data of the request ("d"), or its address with what the value was made of (find_links: link_t, the write flag or the address compare of a strobe
             # that a continuous assignment of the sender decodes); a port whose value is the sender's state alone has the address taint only
             self.roott = {n: (frozenset("d") if "d" in t else frozenset("a") | (t & {"q", "w", "r"})) for n, t in self.roott.items()}
@@ -2629,6 +2903,7 @@ class Ev:
             if t == 1:
                 return True
             if t is None:
+                self.lossy_guard(ctx, [we], None)
                 hit = False
         return hit
 
@@ -2801,6 +3076,8 @@ class Ev:
             return self.ev(ctx, e[1], sc)
         if k == "id":
             n = e[1]
+            if sc is not None and n in sc.names and n in sc.cur:
+                return sc.cur[n].v          # a process variable or a blocking reg: the value of the path being run
             if sc is not None and n in sc.st and (sc.readall or n in sc.names):
                 return sc.st[n].v
             return self.val(ctx, n)
@@ -2862,6 +3139,16 @@ class Ev:
                 # a slice whose position is state (a byte lane picked by a register): its value is unknown, whatever the register is
                 return V(0, mask(64), None)
             lo0 = self.lowbound(ctx, e[1])
+            if len(e) > 4:              # a slice in a process function (mark_fslices): inside its argument, or refused
+                w = a.w
+                if w is None and e[1][0] == "id":
+                    try:
+                        w = self.width(ctx, e[1][1])
+                    except Unsupported:
+                        w = None
+                if lo < lo0 or (w is not None and hi - lo0 >= w):
+                    raise Unsupported("%s: a process function reads bits %d..%d of an argument of %s bits" % (
+                        ctx.mod.fname, signed(self.ev(ctx, e[2], sc)), signed(self.ev(ctx, e[3], sc)), w))
             return v_slice(a, hi - lo0, lo - lo0)
         if k == "psl":
             a = self.ev(ctx, e[1], sc)
@@ -2897,10 +3184,24 @@ class Ev:
         if i.x:
             return X1
         i = i.v - self.lowbound(ctx, base)
+        if i < 0:
+            raise Unsupported("%s: an index below the vector's low bound" % ctx.mod.fname)
         return V(a.v >> i, a.x >> i, 1)
 
     def call(self, ctx, e, sc):
         f, args = e[1], e[2]
+        if len(e) > 3 and len(args) == 1:       # an index in a process function (mark_fslices): inside its argument, or refused
+            i = self.ev(ctx, args[0], sc)
+            if i.known():
+                w = self.ev(ctx, f, sc).w
+                if w is None and f[0] == "id":
+                    try:
+                        w = self.width(ctx, f[1])
+                    except Unsupported:
+                        w = None
+                i0 = i.v - self.lowbound(ctx, f)
+                if i0 < 0 or w is None or i0 >= w:
+                    raise Unsupported("%s: a process function reads bit %d of an argument of %s bits" % (ctx.mod.fname, signed(i), w))
         if len(args) == 1 and args[0][0] == "attr" and args[0][2] == "range" and args[0][1][0] == "id":
             # x(y'range): the part of x that has the indices of y
             y = args[0][1][1]
@@ -2911,7 +3212,7 @@ class Ev:
                 return self.index(ctx, f, args[0], sc)
             raise Unsupported("a call of an expression")
         n = f[1]
-        if n in ctx.mod.decls or (sc is not None and n in sc.st):
+        if n in ctx.mod.decls or (sc is not None and (n in sc.st or n in sc.cur)):
             if len(args) != 1:
                 raise Unsupported("a multi-dimensional index")
             return self.index(ctx, f, args[0], sc)
@@ -3284,7 +3585,7 @@ class Ev:
         ctx.running.add(id(p))
         try:
             st = {}
-            sc = Sc(st, not p.clocked, set(p.vars))
+            sc = Sc(st, not p.clocked, set(self.seq_names(p)))
             for n, d in p.vars.items():
                 st[n] = Ent(self.ev(ctx, d.init) if d.init is not None else allx(self.width_ty(ctx, d.ty)))
             if p.clocked:
@@ -3300,6 +3601,33 @@ class Ev:
         finally:
             ctx.running.discard(id(p))
         return r
+
+    @staticmethod
+    def seq_names(p):
+        """The names whose assignment takes effect at once on the path that runs it: the process variables, and in Verilog the regs of a blocking assignment (`=`;
+        a VHDL `:=` names a variable). They are read from the path's store (Sc.cur), an undecided branch assigns them on its own copy, and their taint is the run's (Run.vt)."""
+        s = getattr(p, "seq", None)
+        if s is None:
+            s = set(p.vars)
+
+            def walk(stmts):
+                for x in stmts:
+                    if x[0] == "as" and x[3] == "var":
+                        s.add(base_name(x[1])[0])
+                    elif x[0] == "blk":
+                        walk(x[1])
+                    elif x[0] == "if":
+                        for _, b in x[1]:
+                            walk(b)
+                        walk(x[2])
+                    elif x[0] == "case":
+                        for _, b in x[2]:
+                            walk(b)
+                    elif x[0] == "for":
+                        walk(x[5])
+            walk(p.stmts)
+            p.seq = s
+        return s
 
     def rec_keys(self, ctx, keys, p):
         """The assigned names with every whole record replaced by its fields (a record is assigned field by field, do_assign)."""
@@ -3322,12 +3650,13 @@ class Ev:
         for s in stmts:
             self.exec_stmt(ctx, p, s, st, certain, pt, r, sc)
 
-    def merge_store(self, a, b):
+    def merge_store(self, a, b, r):
         out = {}
         for k in set(a) | set(b):
             ea, eb = a.get(k), b.get(k)
             if ea is not None and eb is not None:
-                out[k] = Ent(v_merge(ea.v, eb.v), ea.alts + tuple(x for x in eb.alts if x not in ea.alts))
+                out[k] = Ent(v_merge(ea.v, eb.v), ea.alts + tuple(x for x in eb.alts if x not in ea.alts),
+                             ea.lossy or eb.lossy or not (ea is eb or v_merge_exact(ea.v, eb.v)) and self.alts_q(ea.alts + eb.alts, r))
             else:
                 e = ea or eb
                 out[k] = Ent(allx(e.v.w or 1), e.alts)
@@ -3346,8 +3675,12 @@ class Ev:
         if k == "case":
             sel = self.ev(ctx, s[1], sc)
             self.no_pipeline(ctx, s[1], sel)
-            pt2 = pt | self.taint(ctx, s[1], r.vt)
-            return self.exec_case(ctx, p, sel, s[2], st, certain, pt2, r, sc)
+            ts = self.taint(ctx, s[1], r.vt)
+            # adec: a case on the address (taint q; a is on the write and read flags too), in the selector or in a choice (`case (1'b1) (addr[3:0] == 4'h0):`): its arms
+            # decide whether a strobe is a write of the byte (case_pos)
+            adec = "q" in ts or any("q" in self.taint(ctx, c, r.vt) for ch, _ in s[2] for c in (ch or ()))
+            scls = self.aclass(ctx, s[1], r.vt, sc, (p, r), set()) if adec else None
+            return self.exec_case(ctx, p, sel, s[2], st, certain, pt | ts, r, sc, adec, s[1], scls)
         if k == "for":
             a, b = self.const_int(ctx, s[2], sc), self.const_int(ctx, s[3], sc)
             rng = range(a, b + 1) if s[4] == "to" else range(a, b - 1, -1)
@@ -3419,38 +3752,559 @@ class Ev:
         cv = self.ev(ctx, c, sc)
         self.no_pipeline(ctx, c, cv)
         t = truth(cv)
-        pt2 = pt | self.taint(ctx, c, r.vt)
+        tc = self.taint(ctx, c, r.vt)
+        pt2 = pt | tc
+        pb = pe = pt2
+        if "q" in tc:
+            # a decision on the address: its body selects the byte by name only when the condition holds for the addresses it compares for equality (taint s);
+            # its else, and the body of any other condition (an inequality, a range, a negation), selects every byte but some (strobe_pos)
+            pe = pt2 - {"s", "m"}
+            pb = pt2 | {"s"} if self.as_cond(ctx, c, r.vt, sc, (p, r)) else pe
         if t == 1:
-            return self.exec_list(ctx, p, body, st, certain, pt2, r, sc)
+            return self.exec_list(ctx, p, body, st, certain, pb, r, sc)
         if t == 0:
-            return self.exec_if(ctx, p, arms[1:], els, st, certain, pt2, r, sc)
+            return self.exec_if(ctx, p, arms[1:], els, st, certain, pe, r, sc)
+        self.lossy_guard(ctx, [c], sc, r)
         s1 = dict(st)
-        self.exec_list(ctx, p, body, s1, False, pt2, r, sc)
+        self.on_path(sc, s1, self.exec_list, ctx, p, body, s1, False, pb, r, sc)
         s2 = dict(st)
-        self.exec_if(ctx, p, arms[1:], els, s2, False, pt2, r, sc)
+        self.on_path(sc, s2, self.exec_if, ctx, p, arms[1:], els, s2, False, pe, r, sc)
         st.clear()
-        st.update(self.merge_store(s1, s2))
+        st.update(self.merge_store(s1, s2, r))
 
-    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc):
+    @staticmethod
+    def on_path(sc, st, fn, *args):
+        """Run fn on the copy st of the store that an undecided branch takes: a process variable or a blocking reg it assigns is read from that copy (Sc.cur) until the
+        paths join."""
+        prev, sc.cur = sc.cur, st
+        try:
+            return fn(*args)
+        finally:
+            sc.cur = prev
+
+    def addr_known(self):
+        """True when the request's address is known in every bit (a single byte, lowx 0): then an unknown bit of a value that merges the address with another value is
+        no part of the address."""
+        ak = getattr(self, "_ak", None)
+        if ak is None:
+            ak = self._ak = all(v.known() for n, v in self.rootv.items() if "q" in self.roott.get(n, ()))
+        return ak
+
+    # ---- lossy values: a merge of two paths into bits that neither path has, where one path carries the address
+    def lossy_guard(self, ctx, exprs, sc, r=None):
+        """A decision that the request leaves open (exec_if, an arm of exec_case, a conditional of an answer in origins_expr, a RAM's write enable, a strobe port of an
+        instance) on a lossy value is refused when the address is known in every bit: the merged value has unknown bits that match addresses the request does not have
+        (mv2: `when '0' => o := addr; when others => o := 0;` then `case o`; p6: `sel <= addr when mode = '1' else x"00"` then `case sel`; 0x25 or 0 is 0b00x00x0x,
+        which matches 0x20). A span (low bits unknown) decides nothing on an arm it is not sure of (a write and a decode need certain effects there, a read is split down
+        to its bytes), so it is not refused there."""
+        if not self.addr_known():
+            return
+        vt = r.vt if r is not None else None
+        for e in exprs:
+            if e is not None and self.lossy_src(ctx, e, sc, vt):
+                raise Unsupported("%s: a decision on a value that merges the request's address with another value (one path the address, another path another value: "
+                                  "the merged bits match addresses the request does not have)" % ctx.mod.fname)
+
+    def lossy_src(self, ctx, e, sc=None, vt=None):
+        """True when the unknown bits of e come from a lossy value (Ent.lossy, lossy_name, a conditional that merges the address with another value or decides on a
+        lossy value). Only the parts whose value is unknown are followed; an element of an array is state (any value) and no merge."""
+        k = e[0]
+        if k == "n":
+            return False
+        try:
+            v = self.ev(ctx, e, sc)
+        except Unsupported:
+            v = None
+        if v is not None and v.known():
+            return False
+        if k == "paren":
+            return self.lossy_src(ctx, e[1], sc, vt)
+        if k == "id":
+            n = e[1]
+            if sc is not None:
+                if n in sc.names and n in sc.cur:
+                    return sc.cur[n].lossy
+                if n in sc.st and (sc.readall or n in sc.names):
+                    return sc.st[n].lossy
+            if vt is not None and n in vt:
+                return False                # a variable of the running process that no store holds: its value is the declaration's
+            if "q" not in self.taint_name(ctx, n):
+                return False
+            return self.lossy_name(ctx, n)
+        if k == "cond":
+            try:
+                t = truth(self.ev(ctx, e[1], sc))
+            except Unsupported:
+                t = None
+            if t == 1:
+                return self.lossy_src(ctx, e[2], sc, vt)
+            if t == 0:
+                return self.lossy_src(ctx, e[3], sc, vt)
+            if self.lossy_src(ctx, e[1], sc, vt):
+                return True
+            try:
+                exact = v_merge_exact(self.ev(ctx, e[2], sc), self.ev(ctx, e[3], sc))
+            except Unsupported:
+                exact = False
+            if not exact and "q" in (self.taint(ctx, e[2], vt) | self.taint(ctx, e[3], vt)):
+                return True
+            return self.lossy_src(ctx, e[2], sc, vt) or self.lossy_src(ctx, e[3], sc, vt)
+        if k in ("ix", "call") and isinstance(e[1], tuple) and e[1][0] == "id":
+            f = e[1][1]
+            if self.is_array(ctx, f):
+                return False
+            if k == "call" and f.partition(".")[0] not in ctx.mod.decls and not (sc is not None and (f in sc.st or f in sc.cur)):
+                return any(self.lossy_src(ctx, a, sc, vt) for a in e[2] if isinstance(a, tuple) and a and isinstance(a[0], str))     # a function: its arguments
+        for x in e[1:]:
+            if isinstance(x, tuple) and x and isinstance(x[0], str):
+                if self.lossy_src(ctx, x, sc, vt):
+                    return True
+            elif isinstance(x, list):
+                for y in x:
+                    if isinstance(y, tuple) and y and isinstance(y[0], str) and self.lossy_src(ctx, y, sc, vt):
+                        return True
+        return False
+
+    def lossy_name(self, ctx, name):
+        """lossy_src of a name: the value its driver gives it (driven), followed over instance ports, continuous assignments and the outputs of followed instances; a
+        signal of a process is lossy when its store entry is (a register whose value is unknown is state, any value). Cached with the values (ctx.cache)."""
+        key = ("lossy", name)
+        c = ctx.cache
+        if key in c:
+            return c[key]
+        c[key] = False                       # a loop of names: no merge on the way back
+        res = self._lossy_name(ctx, name)
+        c[key] = res
+        return res
+
+    def _lossy_name(self, ctx, name):
+        mod = ctx.mod
+        if (id(ctx), name) in self.hold:
+            return False
+        if ctx is self.bus and name in self.rootv:
+            return name in self.root_lossy
+        if name in mod.enums or name in mod.consts or name in mod.generics:
+            return False
+        if ctx.parent is None and mod.nets:
+            rc = getattr(mod, "regcopies", {}).get(name) if self.bus is self.top else None
+            if rc is not None:
+                self.reset_off += 1
+                try:
+                    return self.lossy_src(ctx, rc)
+                finally:
+                    self.reset_off -= 1
+            for inst in mod.insts:
+                for f, a in inst.ports:
+                    if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
+                        ch = [x for x in self.followed if x.parent is ctx and x.inst is inst]
+                        return bool(ch) and self.lossy_name(ch[0], f)
+            return False
+        base = name.partition(".")[0]
+        if base not in mod.decls:
+            return False
+        port = mod.ports.get(base)
+        if port is not None and port[0] == "in":
+            if ctx.parent is None or ctx.inst is None:
+                return False
+            for f, a in ctx.inst.ports:
+                if f == base:
+                    if a is None:
+                        return False
+                    if "." in name:
+                        return a[0] == "id" and self.lossy_name(ctx.parent, a[1] + name[len(base):])
+                    return self.lossy_src(ctx.parent, a)
+            return False
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        keys = [name]
+        while "." in keys[-1]:
+            keys.append(keys[-1].rsplit(".", 1)[0])
+        for key in keys:
+            for d in ctx.drv.get(key, []):
+                if d[0] == "ca":
+                    lhs, rhs = d[1], d[2]
+                    if lhs[0] == "id":
+                        if lhs[1] == name:
+                            return self.lossy_src(ctx, rhs)
+                        if key != name and rhs[0] == "id":
+                            return self.lossy_name(ctx, rhs[1] + name[len(key):])
+                        return False
+                    if self.lossy_src(ctx, rhs):            # a part of the name
+                        return True
+                elif d[0] == "proc":
+                    p = d[1]
+                    if id(p) in ctx.running:
+                        return False
+                    ent = self.run(ctx, p).store.get(name)
+                    if ent is None:
+                        continue
+                    if p.clocked and not ent.v.known():
+                        return False                        # a register: state (state_val), any value
+                    return ent.lossy
+                elif d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    return bool(src) and src[0] is not None and self.lossy_src(ctx, src[0])
+                elif d[0] == "inst":
+                    ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
+                    return bool(ch) and self.lossy_name(ch[0], d[2] + name[len(key):])
+                else:
+                    return False                            # the splitter: the request's own fields, the OR of the answers (unknown)
+        return False
+
+    def src_lossy(self, ctx, rhs, v, sc, r):
+        """The value v of an assignment's right side is lossy (lossy_src): only an unknown value, with the address known in every bit."""
+        if v.known() or not self.addr_known():
+            return False
+        return self.lossy_src(ctx, rhs, sc, r.vt)
+
+    # ---- the strobe's decode: does the last decision on the address select the byte by name?
+    def as_cond(self, ctx, e, vt, sc, cur):
+        """True when the condition e holds only for addresses it names (aclass "pos", or a one-bit part of the address: a region)."""
+        c = self.aclass(ctx, e, vt, sc, cur, set())
+        return c == "pos" or (c == "val" and self.ewidth_of(ctx, e, sc) == 1)
+
+    def ewidth_of(self, ctx, e, sc):
+        try:
+            return self.ev(ctx, e, sc).w
+        except Unsupported:
+            return None
+
+    def aclass(self, ctx, e, vt, sc, cur, seen):
+        """How the request's address takes part in e: None (it does not: no taint q), "val" (e is the address, a part, a copy, a conversion or an offset of it),
+        "pos" (a condition that holds only for the addresses it compares for equality, or an and/or of such conditions and one-bit parts of the address), "neg" (any
+        other way: an inequality, a range, a negated compare, a conditional value, a flag set on another path, a pattern not known here)."""
+        if "q" not in self.taint(ctx, e, vt):
+            return None
+        k = e[0]
+        if k == "paren":
+            return self.aclass(ctx, e[1], vt, sc, cur, seen)
+        if k == "id":
+            return self.name_class(ctx, e[1], vt, sc, cur, seen)
+        if k in ("sl", "psl", "ix") or (k == "call" and e[1][0] == "id" and (e[1][1].partition(".")[0] in ctx.mod.decls or (vt is not None and e[1][1] in vt)
+                                                                         or (sc is not None and e[1][1] in sc.cur))):
+            pos = [x for x in (e[2:4] if k != "call" else e[2]) if isinstance(x, tuple)]
+            if (e[1][0] == "id" and self.is_array(ctx, e[1][1])) or any("q" in self.taint(ctx, x, vt) for x in pos):
+                return "neg"                    # an element the address picks, or a part at a position the address gives
+            c = None
+            if k != "psl" and (k != "call" or len(e[2]) == 1):
+                try:
+                    hi = self.const_int(ctx, pos[0], sc)
+                    lo = self.const_int(ctx, pos[1], sc) if k == "sl" else hi
+                    lo0 = self.lowbound(ctx, e[1])
+                    c = self.aclass_part(ctx, e[1], hi - lo0, lo - lo0, vt, sc, cur, seen)
+                except (Unsupported, IndexError):
+                    c = "?"
+            if c is None or c == "?":
+                c = self.aclass(ctx, e[1], vt, sc, cur, seen)
+            return "val" if c in (None, "val") else "neg"
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS | {"to_integer", "conv_integer", "resize", "to_unsigned", "to_signed", "conv_std_logic_vector"}:
+            if any("q" in self.taint(ctx, x, vt) for x in e[2][1:]):
+                return "neg"
+            return self.aclass(ctx, e[2][0], vt, sc, cur, seen)
+        parts = self.cat_parts(ctx, e) if k in ("cat", "bin") else None
+        if parts is not None:
+            cs = [self.aclass(ctx, x, vt, sc, cur, seen) for x in parts]
+            return "val" if all(c in (None, "val") for c in cs) else "neg"
+        if k == "bin":
+            op = e[1]
+            a, b = e[2], e[3]
+            ca, cb = self.aclass(ctx, a, vt, sc, cur, seen), self.aclass(ctx, b, vt, sc, cur, seen)
+            qs = [x for x in (ca, cb) if x is not None]
+            if op in ("=", "==", "==="):
+                if not qs:
+                    return "neg"                # no operand class for a compare that carries the address: not a decode known here
+                if all(x == "val" for x in qs):
+                    return "pos"                # the address (a part, an offset) compared for equality
+                if len(qs) == 1:                # a flag compared with a constant: flag = '1' is the flag, flag = '0' its negation
+                    fl, other = (ca, b) if ca is not None else (cb, a)
+                    try:
+                        ov = self.ev(ctx, other, sc)
+                    except Unsupported:
+                        ov = None
+                    if ov is not None and ov.known() and ov.v == 1:
+                        return "pos" if fl == "pos" else "neg"
+                return "neg"
+            w = self.ewidth_of(ctx, e, sc)
+            if op in ("&&", "||") or (op in ("and", "or", "&", "|") and w == 1):
+                # an and narrows: an operand without the address (the write flag, a state) leaves the decode as it is; an or with such an operand holds for any
+                # address while the operand does
+                if op in ("||", "or", "|") and len(qs) < 2:
+                    return "neg"
+                sel = [x == "pos" or (x == "val" and self.ewidth_of(ctx, y, sc) == 1) for x, y in ((ca, a), (cb, b)) if x is not None]
+                if op in ("&&", "and", "&"):
+                    # an and holds only where each operand holds: one operand that compares the address for equality selects by name, any other narrows it
+                    # (trx_io's `we && !win && page == 4'd6`)
+                    return "pos" if any(sel) else "neg"
+                return "pos" if sel and all(sel) else "neg"
+            if op in ("and", "or", "&", "|", "xor", "^", "+", "-", "*") and all(x == "val" for x in qs):
+                return "val"                    # a mask or an offset of the address
+            return "neg"
+        if k == "un":
+            c = self.aclass(ctx, e[2], vt, sc, cur, seen)
+            if e[1] in ("not", "~", "+"):
+                return "val" if c == "val" else "neg"
+            if e[1] == "!":
+                return "pos" if c == "val" else "neg"         # !addr: addr == 0
+            return "neg"
+        if k == "cond":
+            # a flag mux: `x <= a when c else '0'` is c and a; any other conditional is no decode the check can name
+            try:
+                ob = self.ev(ctx, e[3], sc)
+            except Unsupported:
+                ob = None
+            if ob is not None and ob.known() and ob.v == 0 and "q" not in self.taint(ctx, e[3], vt):
+                ok = all(x is None or x == "pos" or (x == "val" and self.ewidth_of(ctx, y, sc) == 1)
+                         for x, y in ((self.aclass(ctx, e[1], vt, sc, cur, seen), e[1]), (self.aclass(ctx, e[2], vt, sc, cur, seen), e[2])))
+                return "pos" if ok else "neg"
+            return "neg"
+        return "neg"
+
+    def aclass_part(self, ctx, e, hi, lo, vt, sc, cur, seen):
+        """aclass of bits hi..lo of e: a concatenation keeps its parts apart (cw_addr <= cw_win & io_req.address(15 downto 0): bits 11..0 are the address, whatever
+        the flag cw_win is), followed over slices, conversions, instance ports, continuous assignments and followed instances, as taint_bits_expr does."""
+        if "q" not in self.taint(ctx, e, vt):
+            return None
+        k = e[0]
+        if k == "paren":
+            return self.aclass_part(ctx, e[1], hi, lo, vt, sc, cur, seen)
+        if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS and len(e[2]) == 1:
+            return self.aclass_part(ctx, e[2][0], hi, lo, vt, sc, cur, seen)
+        parts = self.cat_parts(ctx, e)
+        if parts is not None:
+            try:
+                ws = [self.ewidth(ctx, x) for x in parts]
+            except Unsupported:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            cs = []
+            for i, x in enumerate(parts):
+                plo = sum(ws[i + 1:])
+                phi = plo + ws[i] - 1
+                if phi >= lo and plo <= hi:
+                    cs.append(self.aclass_part(ctx, x, min(hi, phi) - plo, max(lo, plo) - plo, vt, sc, cur, seen))
+            cs = [c for c in cs if c is not None]
+            return None if not cs else ("val" if all(c == "val" for c in cs) else "neg")
+        if k == "sl" and e[1][0] == "id":
+            try:
+                h2, l2 = self.const_int(ctx, e[2], sc), self.const_int(ctx, e[3], sc)
+            except Unsupported:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            lo0 = self.lowbound(ctx, e[1])
+            if h2 < l2:
+                return self.aclass(ctx, e, vt, sc, cur, seen)
+            return self.aclass_part(ctx, e[1], l2 - lo0 + hi, l2 - lo0 + lo, vt, sc, cur, seen)
+        if k == "id" and not (vt is not None and e[1] in vt) and not (sc is not None and e[1] in sc.cur):
+            return self.name_part_class(ctx, e[1], hi, lo, seen)
+        return self.aclass(ctx, e, vt, sc, cur, seen)
+
+    def name_part_class(self, ctx, name, hi, lo, seen):
+        """aclass_part of a name: through an instance port, a continuous assignment of the whole name and a followed instance; any other driver gives the class of
+        the whole name."""
+        k = (id(ctx), name, hi, lo)
+        if k in seen:
+            return "neg"
+        seen = seen | {k}
+        mod = ctx.mod
+        if (ctx is self.bus and name in self.rootv) or "." in name or (id(ctx), name) in self.hold:
+            return self.name_class(ctx, name, None, None, None, seen)
+        if ctx.parent is None and mod.nets:
+            for inst in mod.insts:
+                for f, a in inst.ports:
+                    if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
+                        ch = [x for x in self.followed if x.parent is ctx and x.inst is inst]
+                        return self.name_part_class(ch[0], f, hi, lo, seen) if ch else "neg"
+            return self.name_class(ctx, name, None, None, None, seen)
+        port = mod.ports.get(name)
+        if port is not None and port[0] == "in":
+            if ctx.parent is not None and ctx.inst is not None:
+                for f, a in ctx.inst.ports:
+                    if f == name and a is not None:
+                        return self.aclass_part(ctx.parent, a, hi, lo, None, None, None, seen)
+            return "neg"                        # the taint has the address, so it came over a connection not found here
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        ds = ctx.drv.get(name, [])
+        if len(ds) == 1 and ds[0][0] == "ca" and ds[0][1][0] == "id":
+            return self.aclass_part(ctx, ds[0][2], hi, lo, None, None, None, seen)
+        if len(ds) == 1 and ds[0][0] == "inst":
+            ch = [x for x in self.followed if x.parent is ctx and x.inst is ds[0][1]]
+            return self.name_part_class(ch[0], ds[0][2], hi, lo, seen) if ch else "neg"
+        return self.name_class(ctx, name, None, None, None, seen)
+
+    def name_class(self, ctx, name, vt, sc, cur, seen):
+        """aclass of a name: through instance ports, continuous assignments and followed instances; a name a process assigns by the assignments that ran (eff_class)."""
+        k = (id(ctx), name)
+        if k in seen:
+            return "neg"
+        seen = seen | {k}
+        p, r = cur if cur is not None else (None, None)
+        if p is not None and name in self.assigned(p) and (vt is not None and name in vt or sc is not None and (sc.readall or name in sc.names)):
+            return self.eff_class(ctx, name, r.effects, r.vt, None, cur, seen)
+        key = ("pol", name)
+        if key in ctx.cache:
+            return ctx.cache[key]
+        res = self._name_class(ctx, name, seen)
+        ctx.cache[key] = res
+        return res
+
+    def _name_class(self, ctx, name, seen):
+        mod = ctx.mod
+        if (id(ctx), name) in self.hold:
+            return "val" if "q" in self.holdt.get((id(ctx), name), ()) else None
+        if ctx is self.bus and name in self.rootv:
+            t = self.roott.get(name, ())
+            if "q" not in t:
+                return None
+            return "val" if not ({"w", "r"} & t) else "pos"     # the address, or a strobe that the sender decoded (a link's port)
+        if name in mod.enums or name in mod.consts or name in mod.generics:
+            return None
+        if ctx.parent is None and mod.nets:
+            for inst in mod.insts:
+                for f, a in inst.ports:
+                    if a is not None and a[0] == "id" and a[1] == name and self.d.port_dir(inst.modname, f) == "out":
+                        ch = [x for x in self.followed if x.parent is ctx and x.inst is inst]
+                        return self.name_class(ch[0], f, None, None, None, seen) if ch else "neg"
+            return "neg"
+        base = name.partition(".")[0]
+        if base not in mod.decls:
+            return None
+        port = mod.ports.get(base)
+        if port is not None and port[0] == "in":
+            if ctx.parent is None or ctx.inst is None:
+                return None
+            for f, a in ctx.inst.ports:
+                if f == base and a is not None:
+                    if "." in name:
+                        return self.name_class(ctx.parent, a[1] + name[len(base):], None, None, None, seen) if a[0] == "id" else "neg"
+                    return self.aclass(ctx.parent, a, None, None, None, seen)
+            return None
+        if ctx.drv is None:
+            self.build_drv(ctx)
+        keys = [name]
+        while "." in keys[-1]:
+            keys.append(keys[-1].rsplit(".", 1)[0])
+        for key in keys:
+            for d in ctx.drv.get(key, []):
+                if d[0] == "ca":
+                    if d[1][0] != "id":
+                        return "neg"
+                    if d[1][1] == name:
+                        return self.aclass(ctx, d[2], None, None, None, seen)
+                    if key != name and d[2][0] == "id":
+                        return self.name_class(ctx, d[2][1] + name[len(key):], None, None, None, seen)
+                    return "neg"
+                if d[0] == "proc":
+                    p = d[1]
+                    if p.clocked or id(p) in ctx.running:
+                        return "neg"             # a register: a decision of another clock
+                    r = self.run(ctx, p)
+                    return self.eff_class(ctx, name, r.effects, r.vt, None, (p, r), seen)
+                if d[0] == "split" and key != name:
+                    fld = name[len(key) + 1:]
+                    return "val" if fld == "address" else ("pos" if fld in ("read", "write") else None)
+                if d[0] == "pass":
+                    src = [a for f, a in d[1].ports if f == PASSTHROUGH[d[1].modname.lower()][d[2]]]
+                    return self.aclass(ctx, src[0], None, None, None, seen) if src and src[0] is not None else "neg"
+                if d[0] == "inst":
+                    ch = [x for x in self.followed if x.parent is ctx and x.inst is d[1]]
+                    return self.name_class(ch[0], d[2] + name[len(key):], None, None, None, seen) if ch else "neg"
+                return "neg"
+        return "neg"
+
+    def eff_class(self, ctx, name, effs, vt, sc, cur, seen):
+        """The class of a name by the assignments of a process that ran for this request: "val" when each that carries the address assigns a value of the address;
+        "pos" when each that can set it (a value that is not 0) carries the address and lies on a path that selects the byte by name (taint s) or assigns a "pos"
+        condition; "neg" otherwise."""
+        out = []
+        for e in effs:
+            if e.key != name or "q" not in (e.taint | e.rt):
+                continue                         # e.rt: the field of a record copy (`wifi_req <= io_req`) has the taint of its own right side
+            rc = self.aclass(e.ctx, e.rhs, vt, sc, cur, seen)
+            if rc == "val":
+                out.append("val")
+                continue
+            if e.v.known() and e.v.v == 0:
+                continue                         # a clear: the flag is not set here
+            out.append("pos" if rc == "pos" or (rc is None and "s" in e.taint) else "neg")
+        if not out:
+            return "neg"
+        if all(x == "val" for x in out):
+            return "val"
+        return "pos" if all(x == "pos" for x in out) else "neg"
+
+    @staticmethod
+    def assigned(p):
+        a = getattr(p, "asg", None)
+        if a is None:
+            a = set()
+            walk_assigned(p.stmts, a)
+            p.asg = a
+        return a
+
+    def case_pos(self, ctx, sel, ch, ms, adec, cs, vt, sc, cur):
+        """The arm with choices ch (None: `when others`, `default`) of a case: None when the case does not decide on the address (adec), else True when the arm selects
+        the byte by name: the selector is the address (aclass "val") and the choices that can match are constants, not ranges; the selector is a condition with
+        aclass "pos" and the arm is its true arm; or the selector is the constant 1 (`case (1'b1)`) and each choice that can match is a "pos" condition."""
+        if not adec:
+            return None
+        if ch is None:
+            return False
+        live = [c for c, m in zip(ch, ms) if m != 0]
+        if cs == "val":
+            return all(c[0] != "rng" and "q" not in self.taint(ctx, c, vt) for c in live)
+        if cs is not None:
+            if cs != "pos" or sel.w != 1:
+                return False
+            for c in live:
+                if c[0] == "rng":
+                    return False
+                cv = self.ev(ctx, c, sc)
+                if not (cv.known() and cv.v == 1):
+                    return False
+            return True
+        if not (sel.known() and sel.v == 1 and sel.w in (1, None)):
+            return False
+        return bool(live) and all("q" in self.taint(ctx, c, vt) and c[0] != "rng" and self.as_cond(ctx, c, vt, sc, cur) for c in live)
+
+    def exec_case(self, ctx, p, sel, arms, st, certain, pt, r, sc, adec=False, se=None, scls=None):
+        """adec: the selector or a choice carries the request's address (taint q); se: the selector expression, scls its aclass. An arm that selects the byte by name
+        (case_pos) marks its assignments s (a strobe there is a write of the byte, is_write); `when others`, `default` and an arm that selects otherwise clear s and m."""
         if not arms:
             return
         ch, body = arms[0]
         if ch is None:
-            m = 1
+            m, ms = 1, None
         else:
             ms = [self.choice_match(ctx, sel, c, sc) for c in ch]
             m = 1 if 1 in ms else (0 if all(x == 0 for x in ms) else None)
-        pa = pt | {"m"} if ch is not None and m != 0 and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
+        if m == 0:
+            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc, adec, se, scls)
+        pol = self.case_pos(ctx, sel, ch, ms, adec, scls, r.vt, sc, (p, r))
+        if pol is None:
+            pa = pt | {"m"} if ch is not None and "a" in pt else pt   # inside an arm that the request's address selects: a register's decode, not the module's housekeeping
+        elif pol:
+            pa = pt | {"s"} | ({"m"} if "a" in pt else frozenset())
+        else:
+            pa = pt - {"s", "m"}
         if m == 1:
             return self.exec_list(ctx, p, body, st, certain, pa, r, sc)
-        if m == 0:
-            return self.exec_case(ctx, p, sel, arms[1:], st, certain, pt, r, sc)
+        self.lossy_guard(ctx, [se] + list(ch), sc, r)
         s1 = dict(st)
-        self.exec_list(ctx, p, body, s1, False, pa, r, sc)
+        self.on_path(sc, s1, self.exec_list, ctx, p, body, s1, False, pa, r, sc)
         s2 = dict(st)
-        self.exec_case(ctx, p, sel, arms[1:], s2, False, pt, r, sc)
+        self.on_path(sc, s2, self.exec_case, ctx, p, sel, arms[1:], s2, False, pt, r, sc, adec, se, scls)
         st.clear()
-        st.update(self.merge_store(s1, s2))
+        st.update(self.merge_store(s1, s2, r))
+
+    @staticmethod
+    def xbits(e):
+        """True when e holds a literal with unknown bits (x, z, ? of a Verilog number, '-', 'X', 'Z', 'U' of a VHDL bit string)."""
+        if isinstance(e, tuple):
+            if e and e[0] == "n" and isinstance(e[1], V):
+                return bool(e[1].x)
+            return any(Ev.xbits(x) for x in e[1:] if isinstance(x, (tuple, list)))
+        if isinstance(e, list):
+            return any(Ev.xbits(x) for x in e)
+        return False
 
     def choice_match(self, ctx, sel, c, sc):
         if c[0] == "rng":
@@ -3458,15 +4312,22 @@ class Ev:
             if sel.x or lo.x or hi.x:
                 return None
             return 1 if lo.v <= sel.v <= hi.v else 0
-        return truth(v_eq(sel, self.ev(ctx, c, sc)))
+        res = truth(v_eq(sel, self.ev(ctx, c, sc)))
+        if res is None and self.xbits(c):
+            # a plain case compares x, z and ? as values: in synthesis such an item matches no address; casez would match it. Neither is assumed.
+            raise Unsupported("%s: a case item with x, z or ? bits that the request does not decide (a plain case: no match in synthesis; casez: a match)" % ctx.mod.fname)
+        return res
 
     def do_assign(self, ctx, p, s, st, certain, pt, r, sc):
         lhs, rhs = s[1], s[2]
         key = base_name(lhs)[0]
-        t = pt | self.taint(ctx, rhs, r.vt)
+        rt = self.taint(ctx, rhs, r.vt)
+        t = pt | rt
         snap = {n: st[n] for n in p.vars if n in st}
-        if key in p.vars:
+        seq = self.seq_names(p)
+        if key in seq:
             r.vt[key] = r.vt.get(key, frozenset()) | t
+            r.rvt[key] = r.rvt.get(key, frozenset()) | self.taint(ctx, rhs, r.rvt)
         if lhs[0] == "id":
             base = key.partition(".")[0]
             d = ctx.mod.decls.get(base) or p.vars.get(base)
@@ -3476,14 +4337,16 @@ class Ev:
                     raise Unsupported("%s: a record assigned from an expression" % s[-1])
                 for fn, _ in self.d.record_fields(ti[1]):
                     sub = ("id", rhs[1] + "." + fn)
-                    self.put(ctx, p, st, key + "." + fn, sub, self.ev(ctx, sub, sc), certain, t, r, s[-1], snap, pt)
+                    sv = self.ev(ctx, sub, sc)
+                    self.put(ctx, p, st, key + "." + fn, sub, sv, certain, t, r, s[-1], snap, pt, self.taint(ctx, sub, r.vt), self.src_lossy(ctx, sub, sv, sc, r))
                 return
             w = self.width(ctx, key) if key not in p.vars else self.width_ty(ctx, p.vars[key].ty)
-            self.put(ctx, p, st, key, rhs, fit(self.ev(ctx, rhs, sc), w), certain, t, r, s[-1], snap, pt)
+            v = self.ev(ctx, rhs, sc)
+            self.put(ctx, p, st, key, rhs, fit(v, w), certain, t, r, s[-1], snap, pt, rt, self.src_lossy(ctx, rhs, v, sc, r))
             return
         base = key
         rv = self.ev(ctx, rhs, sc)
-        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt))
+        r.effects.append(Eff(base, rhs, rv, certain, t, ctx, s[-1], pt, rt))
         if self.is_array(ctx, base):
             return
         cur = st.get(base)
@@ -3493,18 +4356,39 @@ class Ev:
             nv = self.overlay(ctx, curv, lhs, rv)
         except Unsupported:
             nv = allx(w)
-        if not certain:
+        lossy = (cur is not None and cur.lossy) or self.src_lossy(ctx, rhs, rv, sc, r)
+        alts = (cur.alts if cur else ()) + ((rhs, ctx, rv, snap),)
+        if not certain and base not in seq:       # a process variable or a blocking reg: the store is this path's copy (put)
+            lossy = lossy or not v_merge_exact(curv, nv) and self.alts_q(alts, r)
             nv = v_merge(curv, nv)
-        st[base] = Ent(nv, (cur.alts if cur else ()) + ((rhs, ctx, rv, snap),))
+        st[base] = Ent(nv, alts, lossy)
 
-    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset()):
-        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt))
-        alt = (rhs, ctx, nv, snap)
+    def put(self, ctx, p, st, key, rhs, nv, certain, t, r, where, snap, pt=frozenset(), rt=frozenset(), lossy=False):
+        """The assignment of a whole name. lossy: its value is lossy where it comes from (src_lossy); a merge here with the value of another path adds to it (Ent.lossy)."""
+        r.effects.append(Eff(key, rhs, nv, certain, t, ctx, where, pt, rt))
+        alt = (rhs, ctx, nv, snap)      # the assignment's right side, module, value and the process variables
         old = st.get(key)
+        if key in self.seq_names(p):
+            # a process variable or a blocking reg takes its value on the path that runs the assignment: an undecided branch runs on a copy of the store (exec_if,
+            # exec_case, on_path), which is merged with the other path where they join; merged here with its old value, a decision on it later in the branch would guess
+            st[key] = Ent(nv, (alt,), lossy)
+            return
         if certain or old is None:
-            st[key] = Ent(nv if certain else allx(nv.w or 1), (alt,))
+            st[key] = Ent(nv if certain else allx(nv.w or 1), (alt,), lossy and certain)
         else:
-            st[key] = Ent(v_merge(old.v, nv), old.alts + (alt,))
+            st[key] = Ent(v_merge(old.v, nv), old.alts + (alt,), old.lossy or lossy or not v_merge_exact(old.v, nv) and self.alts_q(old.alts + (alt,), r))
+
+    def alts_q(self, alts, r):
+        """One of the assignments (Ent.alts) assigns a value that carries the request's address (taint q of its right side, a variable's by Run.rvt): a merge of
+        paths is lossy (Ent.lossy) only then; the merge of two states (two constants on paths the state decides) is state, any value."""
+        for rhs, actx, _, _ in alts:
+            k = (id(actx), id(rhs))
+            q = r.aqc.get(k)
+            if q is None:
+                q = r.aqc[k] = "q" in self.taint(actx, rhs, r.rvt)
+            if q:
+                return True
+        return False
 
     # ---- origins of response data
     def origins(self, ctx, name, seen=None):
@@ -3589,6 +4473,7 @@ class Ev:
                 return self.origins_expr(ctx, e[2], snap, seen)
             if t == 0:
                 return self.origins_expr(ctx, e[3], snap, seen)
+            self.lossy_guard(ctx, [e[1]], sc)          # both answers only when the request leaves the condition open, not when a lossy value does
             return self.origins_expr(ctx, e[2], snap, seen) | self.origins_expr(ctx, e[3], snap, seen)
         if k == "call" and e[1][0] == "id" and e[1][1] in PASS_FUNCS | {"to_integer"}:
             return self.origins_expr(ctx, e[2][0], snap, seen)
@@ -3680,6 +4565,7 @@ class Ev:
                     if t == 1:
                         return 2
                     if t is None:
+                        self.lossy_guard(ctx, [("id", n)], None)
                         res = 1
         return res
 
@@ -3777,7 +4663,7 @@ class Ev:
                 fw = [e for e in effs if is_out(e) and e.certain and "a" in self.taint(ctx, e.rhs) and "d" not in self.taint(ctx, e.rhs)]
                 res["forward"] += ["%s.%s" % (ctx.name, e.key) for e in fw]
                 for e in effs:
-                    if write and self.is_write(ctx, e) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
+                    if write and self.is_write(ctx, e, p.vars) and not (fw and is_out(e)) and (id(ctx), e.key) not in held:
                         res["write"] = True
                         res["cert"] = res.get("cert") or e.certain
                 res["cert"] = res.get("cert") or bool(fw)
@@ -3811,7 +4697,7 @@ class Ev:
                     for p in ctx.mod.procs:
                         for e in self.run(ctx, p).effects:
                             res["refs"].add((ctx.name, e.key, e.where))
-                            if self.is_write(ctx, e) and (id(ctx), e.key) not in held:
+                            if self.is_write(ctx, e, p.vars) and (id(ctx), e.key) not in held:
                                 res["write"] = True
                                 res["cert"] = res.get("cert") or e.certain
         if not write:
@@ -3837,13 +4723,21 @@ class Ev:
         d = ctx.mod.decls.get(base)
         return (d is not None and d.ty.name.lower() == "t_io_resp") or key.rpartition(".")[2].lower() in ("ack", "nc")
 
-    def is_write(self, ctx, e):
+    def is_write(self, ctx, e, pvars=()):
         """An executed assignment is a write of the byte when a register or a RAM takes the request's data, when the data decides it, or when its guard
-        names the address and the write flag (a strobe register that ignores the data byte) and the read of the same address does not run it. The answer of
-        the bus (an ack under the write flag) is none of these."""
+        names the address and the write flag (a strobe register that ignores the data byte), the last decision on the address before it selects the byte by name
+        (taint s: exec_if, case_pos; not `when others`, `default`, an else, an inequality or a range), and the read of the same address does not run it. The answer of
+        the bus (an ack under the write flag) is none of these. A variable of the process (pvars) is decided by its right side: one that takes the request (taint a or q:
+        a2_regs.vhd's `o := to_integer(unsigned(off))`, mv3's `o := ...addr(3 downto 0)` inside an arm of the address) holds it, and only the signal that takes its value
+        (which carries its taint, Run.vt) is the write; one whose right side carries no request (`when x"40" => pend := '1'`, or the data) is a write only by the guard,
+        the address and the write flag together, as a strobe register is: the data in a variable alone writes no byte (a temporary the decode copies, or not)."""
         if self.is_response(ctx, e.key):
             return False
-        return "d" in e.taint or (({"q", "w"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
+        if e.key in pvars:
+            if e.rt & {"a", "q"}:
+                return False
+            return {"q", "w", "s"} <= e.taint and (ctx.name, e.key, e.where) not in self.readref
+        return "d" in e.taint or (({"q", "w", "s"} <= e.taint or ("m" in e.taint and self.crossed and self.pipe)) and (ctx.name, e.key, e.where) not in self.readref)
 
     def core_handover(self, res):
         """The write leaves the base for layer 2: a strobe port of the core groups (CORE_PORTS) that is 1 for this address, or an effect that
@@ -3874,10 +4768,12 @@ class Ev:
         handshake) and a module of the top-level file reads them: that module decodes it in another clock domain. For every such
         module: the values and taints its input ports have, and its output ports that answer the forwarder."""
         outs = {}
+        lossy = set()          # the ports whose forwarded value is lossy (lossy_src): the module behind the handshake gets the mark (Ev.root_lossy)
         for ctx in self.followed:
             if ctx.parent is not self.top:
                 continue
             for p in ctx.mod.procs:
+                ent_of = self.run(ctx, p).store
                 for e in self.run(ctx, p).effects:
                     pt = ctx.mod.ports.get(e.key)
                     if pt is None or pt[0] == "in" or not e.taint:
@@ -3887,6 +4783,8 @@ class Ev:
                         new = ("d", allx(self.width(ctx, e.key)))
                     elif "a" in rt and e.certain:
                         new = ("a", e.v)
+                        if ent_of.get(e.key) is not None and ent_of[e.key].lossy:
+                            lossy.add((id(ctx), e.key))
                     else:
                         new = ("s", allx(self.width(ctx, e.key)))
                     old = outs.get((id(ctx), e.key))
@@ -3894,6 +4792,8 @@ class Ev:
                         if old[0] == "d" or new[0] == "d":
                             new = ("d", new[1])
                         elif old[0] == "a" and new[0] == "a":
+                            if not v_merge_exact(old[1], new[1]):
+                                lossy.add((id(ctx), e.key))
                             new = ("a", v_merge(old[1], new[1]))
                         else:
                             new = ("s" if "s" in (old[0], new[0]) else "a", allx(new[1].w or 1))
@@ -3915,6 +4815,8 @@ class Ev:
                     new = ("d", allx(self.width(ctx, key)))
                 else:
                     new = ("a", self.ev(ctx, rhs))
+                    if not new[1].known() and self.addr_known() and self.lossy_src(ctx, rhs):
+                        lossy.add((id(ctx), key))
                     names = set()
                     ids_of(rhs, names)
                     flag = any((id(ctx), n) in self.hold and self.hold[(id(ctx), n)].w == 1 and not self.hold[(id(ctx), n)].x for n in names)
@@ -3955,6 +4857,8 @@ class Ev:
                     if dr == "in" and a[1] in nets:
                         kind, v = mine[nets[a[1]]]
                         rv[f], rt[f] = v, (frozenset("d") if kind == "d" else frozenset("a") | self.link_t.get((id(ctx), nets[a[1]]), frozenset()))
+                        if (id(ctx), nets[a[1]]) in lossy:
+                            rt[f] = rt[f] | {"l"}
                         k = (id(ctx), nets[a[1]])
                         hit = hit or k not in plain or k in strobe        # a module that reads only an address or data a continuous assignment passes on (no strobe) does not decode the request
                     elif dr == "out" and a[1] in back:
