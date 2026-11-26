@@ -130,6 +130,19 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   1.6 KiB. The length is compared first. A JTAG request boot skips the guard. The result block 0xFFC0 is cleared before the JTAG
   path; guard and recovery results go to 0xFF80 / 0xFF60. On a 100T the record and the recovery sit below the app at the same
   distances (app 0x3C0000).
+  Built (`host/bootrom/bootrom.c`, branch `t265-bootrom`): record at app - 0x1000, recovery slot at app - 0x40000 (derived, not
+  constants, so the 100T follows); a record is valid when magic and check word agree, a broken one counts as none. Valid record:
+  header read first, length compared (12 + padded length), then the CRC-32 is computed while the application is copied; a
+  difference ends in status 9 and the recovery's `{dest,length,run}` image (its CRC-32 trailer is checked before the jump, limit
+  0x3EFF0 data bytes) is started with the status left at 9 for the host app; no usable recovery: status 10, the ROM waits for JTAG.
+  Guard block 0xFF80 (magic 0x54323635, verdict 0 none / 1 match / 2 empty / 3 header or length / 4 CRC / 5 JTAG request not
+  enforced, record length and CRC, flash length and CRC, `HOST_IFACE`, recovery status 0-4); the recovery block 0xFF60 is the
+  recovery program's, the ROM only clears its magic. The result, guard and recovery magics are cleared before the JTAG-magic
+  check. `-DTRX_GUARD=0` compiles the decision out (bench negative control, `host/sim/flash_boot/bootrom_noguard_pkg.vhd`);
+  `linker.ld` asserts 1 KiB of stack below .bss. Size, measured with riscv64-elf-gcc 16.2 `-march=rv32i_zicsr` (not the build
+  image's compiler, which gives 2,892 for the old source where this gives 2,941): old 2,941 bytes, with the guard 4,172
+  (+1,231), without 3,225; .bss 1,056 (CRC table); stack room 8,192 - 4,172 - 1,056 = 2,964 bytes. Not yet regenerated:
+  `host/bootrom_pkg.vhd` and `bootrom_noguard_pkg.vhd` come from `tools/build_bootrom.sh` (container build image).
 - **P2:** the recovery program reuses the host app's drivers (USB with the hub over I2C, SD, FatFs with long names, read-only);
   estimate 110-160 KB of 258,048 bytes. It needs no clock synthesizer or HDMI: CPU and USB clocks come from the 50 MHz PHY clock.
   It never calls `init_flash_disk()` (that formats on a failed probe, `blockdev_flash.cc:177`). Order: flash copy, SD, USB; it keeps

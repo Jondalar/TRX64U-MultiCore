@@ -21,5 +21,6 @@ SECTIONS
         __bss_end = .;
     } > rom
     __stack_top = ORIGIN(rom) + LENGTH(rom);
+    ASSERT(__bss_end <= __stack_top - 1024, "boot ROM: .bss leaves less than 1 KiB for the stack")
     /DISCARD/ : { *(.comment) *(.riscv.attributes) }
 }
