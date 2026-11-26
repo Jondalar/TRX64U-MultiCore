@@ -166,6 +166,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   (`tools/d24_ledger.txt`: `portdiag.cc` +59, `portdiag_regs.h` +1, `diagtest.cc` +113, `diagtest.h` +6). Alex (translated): "yes of
   course, I want T259 so that we can measure." Why no generic path fits: a contributed range setting has at most 16 values, the
   playground (D3) needs free values up to the register's range (0..1023), and a suite could not hold A/V walks.
+- **D5 (Alex, 2026-11-26): DSP use of the analogue output is decided per core later; maybe two variants.** DDT wrote to Alex (forum PM,
+  2026-11-26) that his Mandelbrot core's PAL encoder uses no DSP and asked that video output (the scaler too) leave the DSPs to the
+  emulator cores; he also asked for a setting that switches the three A/V pins to analogue R, G, B and to component (Y/Pb/Pr). Alex
+  (translated): "Leave the DSP thing, we will look at what suits the cores best ... maybe we also make 2 variants of video out, with DSP
+  and without, because depending on the core it needs different approaches." Today `cores/diag/rtl/diag_yc.v:164` multiplies
+  (`dsel * gain`). Component is not in D2's list (Y/C, composite, RGB).
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
