@@ -1,0 +1,19 @@
+# The Commodore PET core of TRX64U-MultiCore as the core application sees it (the layout of vc20.toml). Read by the emulator tests (T206 emulator picture) and by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5).
+name = "pet"
+id = "PET1"
+board = "multicore"
+
+[regs]
+0x0A0 = 0x01                 # CTRL: b0 HOLD
+0x0C4 = 0xD0                 # PET_FB_BASE 0x01D00000 (its reset value)
+0x0C5 = 0x01
+0x0C8 = 0x10                 # PET_FB_STRIDE 0x00100000
+
+[handover]
+core = "Commodore PET"
+id = "pet"
+path = "/Usb0/cores/pet.cor"
+video = "1080p"
+
+[round]
+ends = "rompage"          # the app waits on its ROM page: the files it checks are not the zero-filled stand-ins (step 12 ends there, tests/coreapp/emu/core_round.sh)

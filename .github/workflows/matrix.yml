@@ -14,7 +14,7 @@ run-name: "matrix @${{ github.event.pull_request.head.sha || github.sha }}"
 # the jobs collect and package): the old job package does not run, and the old jobs update, emu and prerelease take this file's artifact `package`. On a
 # feature branch without a package only the lanes the push touched run (ci/dispatch.py); a documentation-only push runs no lane. Input tests (T239.1 D51):
 # false on a push to main or a v* tag, where no test runs - the lanes build, pack and deliver; their test steps (2, 4, 7 of the SDK, 8-10) and the emulator
-# job are left out.
+# jobs (12) are left out.
 permissions:
   contents: read
 
@@ -26,7 +26,7 @@ on:
         type: boolean
         default: false
       tests:
-        description: "false on a push to main or a v* tag (T239.1 D51: no test job there); the lanes then skip their test steps and the emulator job"
+        description: "false on a push to main or a v* tag (T239.1 D51: no test job there); the lanes then skip their test steps and the emulator jobs"
         type: boolean
         default: true
 
@@ -46,6 +46,7 @@ jobs:
       sdk: ${{ steps.dispatch.outputs.sdk }}
       host: ${{ steps.dispatch.outputs.host }}
       package: ${{ steps.dispatch.outputs.package }}
+      host_emu_core: ${{ steps.dispatch.outputs.host_emu_core }}
       lint_groups: ${{ steps.dispatch.outputs.lint_groups }}
       sim_owners: ${{ steps.dispatch.outputs.sim_owners }}
       sims_tier: ${{ steps.dispatch.outputs.sims_tier }}
@@ -265,7 +266,7 @@ jobs:
           BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: python3 -I ci/publish_sdk.py --dir "$CI_TEMP/sdk-in" --sha "$GITHUB_SHA"
 
-  # the host menu lane - 2 unit tests, 6 build, 13 deliver (12, the emulator, is the job emu)
+  # the host menu lane - 2 unit tests, 6 build, 13 deliver (12, the emulator, is the job host-emu)
   host:
     name: "Host menu: unit tests, build, deliver"
     needs: [dispatch, lint]
@@ -392,7 +393,7 @@ jobs:
           if-no-files-found: error
 
   # B: one lane per moved core - 2 unit tests, 3 what has changed, 4 comparison, 5 what must be in it, 6 build, 7 complete and fits, 8-10 the tests its
-  # TOML B names (D4), 11 package, 13 deliver (the artifact deliver-<core>; 12 is the job emu)
+  # TOML B names (D4), 11 package, 13 deliver (the artifact deliver-<core>; 12 is the job emu: the core's app alone, D18)
   core:
     name: "${{ matrix.core }} (B): steps 2-11 and 13"
     needs: [dispatch, lint, sdk, bits]
@@ -483,15 +484,18 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # 12 Emulator tests of the host menu lane and the core lanes: the host app's real flow in ue2emu with the core's .cor as its lane packed it (its own app)
+  # 12 Emulator tests of a core lane (D18): the core's own app alone in ue2emu, no host - started from the .cor and the ELF its lane delivered, it identifies
+  # the core and then ends as its description says (tests/coreapp/emu/core_round.sh): a running core opens and closes its menu, a core that waits for a program
+  # or a menu_first core has its menu open, a core whose profile says [round] ends = "rompage" waits on its ROM page; a refused identity fails every kind.
+  # The kit is the emulator's ROM folder alone (ci/emu_kit.sh)
   emu:
-    name: "12 Emulator tests: the host menu and ${{ matrix.core }}"
-    needs: [dispatch, host, core]
-    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.host.result == 'success' && needs.core.result == 'success' }}
+    name: "12 Emulator tests: ${{ matrix.core }}"
+    needs: [dispatch, core]
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.core.result != 'skipped' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
-    timeout-minutes: 45
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -515,41 +519,125 @@ jobs:
           echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/handoff"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
-        with:
-          name: host
-          path: ${{ env.CI_TEMP }}/handoff/host
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        id: dl
+        continue-on-error: true   # D15: this lane's own deliver artifact only - a red lane has none, and only its own emu leg has nothing to run (the lane itself is red)
         with:
           name: deliver-${{ matrix.core }}
           path: ${{ env.CI_TEMP }}/handoff/deliver
+      - name: The lane is green, so its deliver artifact has to be there
+        if: steps.dl.outcome != 'success' && needs.core.result == 'success'
+        run: |
+          echo "LANE RED: $CORE emu: the deliver artifact did not download although the lane is green (a download failure, not a red lane)"
+          exit 1
       - name: Gideon's pinned commit
+        if: steps.dl.outcome == 'success'
         id: gideon
         run: echo "commit=$(sed -n 's/^GIDEON_COMMIT="\(.*\)"$/\1/p' ci/emu_kit.sh)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+      - if: steps.dl.outcome == 'success'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
         with:
           path: ${{ env.CI_TEMP }}/gideon-roms
           key: gideon-roms-${{ steps.gideon.outputs.commit }}
-      - name: Kit (the host app's emulator build and the core's .cor)
+      - name: Kit (the emulator's ROM folder)
+        if: steps.dl.outcome == 'success'
         shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
         run: |
           set -eu
           roms=()
           [ ! -d "$RUNNER_TEMP/gideon-roms" ] || roms=(--roms "$RUNNER_TEMP/gideon-roms")
-          ci/emu_kit.sh "$RUNNER_TEMP/kit" --firmware "$CI_HANDOFF/host/hostapp_emu.elf" --cor "$CI_HANDOFF/deliver/$CORE.cor" --core "$CORE" ${roms[@]+"${roms[@]}"}
+          ci/emu_kit.sh "$RUNNER_TEMP/kit" ${roms[@]+"${roms[@]}"}
           [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
-      - name: 12 Emulator tests (tests/hostapp/emu_host.sh with the core's own app; a large core's round starts it by IPROG)
+      - name: 12 Emulator tests (tests/coreapp/emu/core_round.sh - the core's app alone, identified, its menu opens and closes)
+        if: steps.dl.outcome == 'success'
         shell: bash
         run: |
           set -eu
-          img="$RUNNER_TEMP/emu-img"; mkdir -p "$img"
-          cp "$CI_HANDOFF/host/hostapp_emu.elf" "$CI_HANDOFF/deliver/$CORE.elf" "$img/"
-          rc=0; EMU_OWN_APP="$CORE" UE2EMU_KIT="$RUNNER_TEMP/kit" tests/hostapp/emu_host.sh "$img" "$RUNNER_TEMP/emu-out" || rc=$?
-          [ "$rc" -eq 0 ] || { echo "LANE RED: $CORE emu: tests/hostapp/emu_host.sh exit $rc (77: nothing ran)"; exit 1; }
+          rc=0; UE2EMU_ROMS="$RUNNER_TEMP/kit/roms" tests/coreapp/emu/core_round.sh "$CORE" "$CI_HANDOFF/deliver/$CORE.cor" "$CI_HANDOFF/deliver/$CORE.elf" "$RUNNER_TEMP/emu-out" || rc=$?
+          [ "$rc" -eq 0 ] || { echo "LANE RED: $CORE emu: tests/coreapp/emu/core_round.sh exit $rc (77: nothing ran)"; exit 1; }
       - name: Emulator output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: emu-${{ matrix.core }}
+          path: ${{ env.CI_TEMP }}/emu-out
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # 12 Emulator tests of the host menu lane (S6, D18): the host app's real flow in ue2emu with the .cor the host lane core's lane delivered (ci/orchestrate.py HOST_EMU_CORE) - the round host -> its .cor
+  # -> its menu -> host and the host menu's own flows (T187, T198, T211, T221, T223; tests/hostapp/emu_host.sh). It runs where the host lane is green and that core delivered (D15: no other lane matters).
+  host-emu:
+    name: "12 Emulator tests: the host menu (with the .cor of ${{ needs.dispatch.outputs.host_emu_core }})"
+    needs: [dispatch, host, core]
+    if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && contains(fromJSON(needs.dispatch.outputs.cores), needs.dispatch.outputs.host_emu_core) && needs.host.result == 'success' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
+    timeout-minutes: 45
+    env:
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+      HOST_EMU_CORE: ${{ needs.dispatch.outputs.host_emu_core }}   # ci/orchestrate.py HOST_EMU_CORE, printed by ci/dispatch.py: the one place the lane's core is named
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Container paths and git
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Environment
+        run: |
+          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: host
+          path: ${{ env.CI_TEMP }}/handoff/host
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        id: dl
+        continue-on-error: true   # D15: the host lane core's artifact alone; a red lane has none (the lane is red, this leg has nothing to run)
+        with:
+          name: deliver-${{ needs.dispatch.outputs.host_emu_core }}
+          path: ${{ env.CI_TEMP }}/handoff/deliver
+      - name: The lane is green, so its deliver artifact has to be there
+        if: steps.dl.outcome != 'success' && needs.core.result == 'success'
+        run: |
+          echo "LANE RED: host emu: the deliver artifact did not download although the lane is green (a download failure, not a red lane)"
+          exit 1
+      - name: Gideon's pinned commit
+        if: steps.dl.outcome == 'success'
+        id: gideon
+        run: echo "commit=$(sed -n 's/^GIDEON_COMMIT="\(.*\)"$/\1/p' ci/emu_kit.sh)" >> "$GITHUB_OUTPUT"
+      - if: steps.dl.outcome == 'success'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+        with:
+          path: ${{ env.CI_TEMP }}/gideon-roms
+          key: gideon-roms-${{ steps.gideon.outputs.commit }}
+      - name: Kit (the host app's emulator build and the host lane core's .cor)
+        if: steps.dl.outcome == 'success'
+        shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
+        run: |
+          set -eu
+          roms=()
+          [ ! -d "$RUNNER_TEMP/gideon-roms" ] || roms=(--roms "$RUNNER_TEMP/gideon-roms")
+          ci/emu_kit.sh "$RUNNER_TEMP/kit" --firmware "$CI_HANDOFF/host/hostapp_emu.elf" --cor "$CI_HANDOFF/deliver/$HOST_EMU_CORE.cor" --core "$HOST_EMU_CORE" ${roms[@]+"${roms[@]}"}
+          [ -d "$RUNNER_TEMP/gideon-roms" ] || cp -R "$RUNNER_TEMP/kit/roms" "$RUNNER_TEMP/gideon-roms"
+      - name: 12 Emulator tests (tests/hostapp/emu_host.sh - host -> the core's .cor -> menu -> host and the host menu's flows)
+        if: steps.dl.outcome == 'success'
+        shell: bash
+        run: |
+          set -eu
+          img="$RUNNER_TEMP/emu-img"; mkdir -p "$img"
+          cp "$CI_HANDOFF/host/hostapp_emu.elf" "$CI_HANDOFF/deliver/$HOST_EMU_CORE.elf" "$img/"
+          rc=0; EMU_OWN_APP="$HOST_EMU_CORE" UE2EMU_KIT="$RUNNER_TEMP/kit" tests/hostapp/emu_host.sh "$img" "$RUNNER_TEMP/emu-out" || rc=$?
+          [ "$rc" -eq 0 ] || { echo "LANE RED: host emu: tests/hostapp/emu_host.sh exit $rc (77: nothing ran)"; exit 1; }
+      - name: Emulator output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: emu-host
           path: ${{ env.CI_TEMP }}/emu-out
           retention-days: 7
           if-no-files-found: ignore
@@ -680,7 +768,7 @@ jobs:
 
   summary:
     name: Result (the matrix)
-    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu, collect, package]
+    needs: [dispatch, approve, lint, sdk, sdk-release, host, sims, bits, core, emu, host-emu, collect, package]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

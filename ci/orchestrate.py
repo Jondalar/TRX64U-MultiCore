@@ -113,13 +113,19 @@ def lane_target(name, kind):
     return ("large:" if kind == "large" else "core:") + name
 
 
+HOST_EMU_CORE = "vc20"   # the core whose .cor the host menu lane's emulator test runs (tests/hostapp/emu_host.sh EMU_OWN_APP, matrix.yml host-emu)
+
+
 def matrix_lanes(plan, lanes):
     """T239.5 D13: the one rule of the dispatcher (ci/dispatch.py, a push without the whole package) and of the work order (order_cors): of the core lanes
     `lanes` ((name, kind) of the cores with an app of their own), those that start - a core the plan names (plan dfx and large, plan lanes), every one when
-    the plan has no base (all) or the application tests changed (tests)."""
+    the plan has no base (all) or the application tests changed (tests) - and the VIC-20 whenever the host app changed: the host menu lane's emulator
+    test (S6, D15) runs the host with the .cor of the vc20 lane."""
     L = plan.get("lanes") or {}
     named = set(plan.get("dfx", [])) | set(plan.get("large", [])) | set(L.get("dfx", [])) | set(L.get("large", []))
     every = bool(plan.get("all") or plan.get("tests"))
+    if (plan.get("apps") or {}).get("host"):
+        named.add(HOST_EMU_CORE)
     return [(c, k) for c, k in lanes if every or c in named]
 
 

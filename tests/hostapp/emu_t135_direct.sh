@@ -31,7 +31,7 @@ mkdir -p cors profiles stick/cores/vc20/roms
 # the .cor must carry the image whose ELF gives the symbols (a mismatch fires the fault hook on a wrong address, C64U_emu 2026-11-08)
 python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/vc20.cor" --app "$kit/coreapp.app" -o cors/vc20.cor > /dev/null || exit 2; cp cors/vc20.cor stick/cores/
 [[ -f "$kit/amiga1200.cor" ]] && cp "$kit/amiga1200.cor" cors/ && cp "$kit/amiga1200.cor" stick/cores/
-cp "$kit/coreapp.elf" profiles/; cp "$U/docs/examples/core-vic20.toml" profiles/VIC-20.toml
+cp "$kit/coreapp.elf" profiles/; python3 -I "$ROOT/tools/ue2emu_core.py" profile vc20 cors/vc20.cor profiles > /dev/null || exit 2
 head -c 8192 /dev/zero > stick/cores/vc20/roms/basic.bin; head -c 8192 /dev/zero > stick/cores/vc20/roms/kernal.bin; head -c 4096 /dev/zero > stick/cores/vc20/roms/char.bin
 
 # emu NAME ELF FLASH_TEMPLATE STICK  (script NAME.ctl; flash after the run: NAME-flash.bin, log NAME.log)

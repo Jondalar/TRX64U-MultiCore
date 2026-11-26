@@ -27,7 +27,7 @@ def dispatch(plan_path, *a):
     env = {k: v for k, v in os.environ.items() if k != "GITHUB_STEP_SUMMARY"}
     r = subprocess.run([sys.executable, os.path.join(HERE, "dispatch.py"), plan_path, "--tier", "0", *a], capture_output=True, text=True, cwd=ROOT, env=env)
     kv = kv_of(r.stdout)
-    return r.returncode, {k: v if v in ("true", "false") or k == "sims_tier" else json.loads(v) for k, v in kv.items()}, r.stdout + r.stderr
+    return r.returncode, {k: v if v in ("true", "false") or k in ("sims_tier", "host_emu_core") else json.loads(v) for k, v in kv.items()}, r.stdout + r.stderr
 
 
 def want(name, ok, detail=""):
@@ -106,6 +106,29 @@ with tempfile.TemporaryDirectory() as td:
          dout)
     want("host+tests branch: order_targets name every lane the dispatcher starts", rc == 0 and set(d.get("cor_targets", [])) <= set(order)
          and sorted(t for t in order if t.split(":", 1)[1] in own) == want_own, out + dout)
+
+    # T239.5 S6, D15: a push that changes only the host app starts the host menu lane and, with it, the vc20 lane (the host lane's emulator test runs the
+    # host with vc20's .cor); the work order names vc20's bitstream, no other core lane starts
+    def host_app(p):
+        p.update(docs_only=False, scope="branch", sims=[], large=[], host=False, aux=False, dfx=[], tests=False, all=False)
+        p["apps"] = {"host": True, "core": False, "ultimate": False}
+        p["lanes"] = {"host": False, "dfx": [], "large": []}
+    ap = mk("host_app.json", host_app)
+    rc2, d, dout = dispatch(ap, "--beside")
+    want("host app only: the dispatcher starts the vc20 lane and nothing else of the cores", rc2 == 0 and d["cores"] == ["vc20"] and d["host"] == "true", dout)
+    rc, out, _ = run("outputs", ap, "--tier", "0", "--update", "no")
+    want("host app only: the work order names vc20's bitstream", rc == 0 and "core:vc20" in json.loads(kv_of(out)["order_targets"]), out)
+
+    want("host app only: the dispatcher prints the core of the host lane", d.get("host_emu_core") == "vc20", dout)
+    # a push that starts a core lane other than the host lane's core (its own source) does not start the host menu lane
+    other = next((c for c in own if c != "vc20" and c in plan["universe"].get("dfx", plan["universe"]["own"])), None) or next(c for c in own if c != "vc20")
+    def core_only(p):
+        p.update(docs_only=False, scope="branch", sims=[], large=[], host=False, aux=False, dfx=[other], tests=False, all=False)
+        p["apps"] = {"host": False, "core": False, "ultimate": False}
+        p["lanes"] = {"host": False, "dfx": [other], "large": []}
+    cp = mk("core_only.json", core_only)
+    rc2, d, dout = dispatch(cp, "--beside")
+    want("a core lane of another core: no host menu lane", rc2 == 0 and other in d["cores"] and "vc20" not in d["cores"] and d["host"] == "false", dout)
 
     # T239.5 D13: a pull request runs no matrix (--matrix no): the work order names the cor legs only, no core with an app of its own
     rc, out, _ = run("outputs", bp, "--tier", "0", "--update", "no", "--matrix", "no")
