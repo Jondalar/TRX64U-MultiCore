@@ -40,6 +40,6 @@ tests = { unit = ["neogeo"], service = ["neogeo_joyswap", "neogeo_descgen", "neo
 name = "pad"
 sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
 headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
-table = "pad_table"
+exports = [{ name = "pad", major = 1, table = "pad_table" }]
 init = "pad_lib_init"
 core = "pad_lib_core"

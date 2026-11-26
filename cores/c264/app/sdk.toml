@@ -38,6 +38,7 @@ name = "cbm1541"
 sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
 headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
 bind = "cbm1541_bind"
+exports = [{ name = "cbm1541", major = 1, table = "cbm1541_table" }]
 register_ops = "cbm1541_register"
 capability = "drive_a"
 needs = ["newfile"]
@@ -54,6 +55,7 @@ name = "cbmprg"
 sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
 headers = ["cbm_prg.h", "cbmprg_api.h"]
 bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
 
 # The shared rule of a new file's folder and name (T122 D2, T239.3 L-2): the drive library makes its blank disks with it (needs, as in the shared app's TOML B: S12)
 [[library]]

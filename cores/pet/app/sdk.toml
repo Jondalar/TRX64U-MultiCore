@@ -33,6 +33,7 @@ name = "cbmprg"
 sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
 headers = ["cbm_prg.h", "cbmprg_api.h"]
 bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
 
 [[library]]
 name = "cbmrun"
@@ -44,7 +45,7 @@ needs = ["cbmprg"]
 name = "pad"
 sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
 headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
-table = "pad_table"
+exports = [{ name = "pad", major = 1, table = "pad_table" }]
 init = "pad_lib_init"
 core = "pad_lib_core"
 
@@ -52,4 +53,4 @@ core = "pad_lib_core"
 name = "padkeys"
 sources = ["padkeys.cc", "padkeys_exports.cc"]
 headers = ["padkeys.h", "padkeys_api.h"]
-table = "padkeys_table"
+exports = [{ name = "padkeys", major = 1, table = "padkeys_table" }]

@@ -38,5 +38,5 @@ tests = { unit = ["zxnext"], service = ["zxnext_joyswap", "zxnext_descgen"], ui 
 name = "mouse"
 sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
 headers = ["mousesink.h", "mouse_api.h"]
-table = "mouse_table"
+exports = [{ name = "mouse", major = 1, table = "mouse_table" }]
 init = "mouse_lib_init"

@@ -646,6 +646,7 @@ static void refusals()
     CHECK_EQ(w.load(build(v2), &h, err), LIB_OK);                           // 4.1 on 4.1 is enough
     Img v2b = ok;
     v2b.name = "delta2";
+    v2b.reg = U2A3_NONE;                                                    // no lib_register: an application that only runs
     v2b.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 2)));
     CHECK_EQ(w.load(build(v2b), &h, err), LIB_OK);                          // a need of the major before is met by this base
     // the needs bind to the slots of the app's libraries (g_libslot): an export it is not linked with, one at another major, one whose table is empty here
@@ -1105,7 +1106,7 @@ static void menu_record()
     {
         std::vector<uint8_t> route2 = read_file("menu_route.bin");
         World wl;
-        refused_link("a library's menu record with a route", wl, "alpha", LIB_BAD_FILE, "alpha", "gives a route", 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &route2);
+        refused_link("a library's menu record with a route", wl, "alpha", LIB_BAD_FILE, "gives a route", 0, 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &route2);
     }
     Img f2("alpha", "A");
     f2.flags = 8;
@@ -2629,8 +2630,13 @@ static void net_and_jobs()
 
     // an application's stop is the application's: a library's job and a library's code do not see it (S14)
     g_app_stop = true;
-    w.m.code_addr = w.ld->info(ha)->image_addr + 4;
-    CHECK(!api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    {   // base 4.0: a library's code is linked and lies in no image; the account of its call is the calling task's scope (a handler, a job, its register call of the library)
+        int hl = -1;
+        CHECK_EQ(link_lib(w, "gamma", &hl, err), LIB_OK);
+        w.m.code_addr = 0;
+        LibLoader::Scope in_lib(w.ld, hl);
+        CHECK(!api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    }
     w.m.code_addr = w.ld->info(hp)->image_addr + 4;
     CHECK(api0->job->stop_requested() && !api0->job->cancelled(lib_job));
     w.m.code_addr = 0;
@@ -2805,8 +2811,13 @@ struct AppHostTest {
         CHECK_EQ(w.ld->account_jobs(ha), 1);
         CHECK_EQ(w.ld->account_jobs(hp), 1);
         H.stop_ = true;                                                                // the application is asked to end (close_session, or another application is opened)
-        w.m.code_addr = w.ld->info(ha)->image_addr + 4;                                // a call from the library's code
-        CHECK(!api->job->cancelled(lib_job) && !api->job->stop_requested());
+        {   // a call from a linked library's code: no image, the task's scope is the library (base 4.0)
+            int hl = -1;
+            CHECK_EQ(link_lib(w, "gamma", &hl, err), LIB_OK);
+            w.m.code_addr = 0;
+            LibLoader::Scope in_lib(w.ld, hl);
+            CHECK(!api->job->cancelled(lib_job) && !api->job->stop_requested());
+        }
         w.m.code_addr = w.ld->info(hp)->image_addr + 4;                                // a call from the application's code
         CHECK(api->job->stop_requested() && !api->job->cancelled(lib_job));
         w.ld->cancel_jobs(hp);                                                         // what stop_jobs, close_session and the asked-to-end path do

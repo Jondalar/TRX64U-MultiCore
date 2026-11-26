@@ -85,16 +85,21 @@ import descrec
 import test_cor_pack as TC
 t = sys.argv[1]
 desc = descrec.compile_text(open("tests/coreapp/golden/desc_test.toml").read())
-lib1, lib2 = TC.u2a(), TC.u2a() + bytes(9000)                # a library record much larger than the partial and the application
+# base 4.0 (T239.3 D58): record 7 holds the menu records of the libraries linked with `register`, from the core's TOML B; a poll keeps a menu out of the merge into record 6,
+# so both stay in record 7, the second much larger than the partial and the application
+_menu = open("tests/loader/menu_lib.toml").read().replace('op = "test.poll"', 'op = "beta.poll"')
+_big = _menu + "".join('\n[[node]]\nanchor = "F5/lib"\nkind = "op"\nlabel = "Pulse number %d of the big record"\nop = "test.echo"\norder = %d\n' % (i, i + 2) for i in range(120))
+libs = TC.blibs([("alpha", [], '[poll]\nop = "alpha.poll"\nperiod_ms = 10\n'), ("beta", [], _big)])
+lib1 = TC.blibs([("alpha", [], '[poll]\nop = "alpha.poll"\nperiod_ms = 10\n')])
 bit, _ = TC.bit_file()
 app = bytes((i * 5) & 0xFF for i in range(512))
 kw = dict(name="VIC-20 rec", version="0.1", partial=bit, app=app, load=0x30000, entry=0x30000, host_key="820eded2")
 open(t + "/old.cor", "wb").write(C.pack(**kw))
-open(t + "/rec.cor", "wb").write(C.pack(desc=desc, libs=[lib1, lib2], **kw))
+open(t + "/rec.cor", "wb").write(C.pack(desc=desc, libs=libs, **kw))
 open(t + "/desc.bin", "wb").write(desc)
-open(t + "/libs.bin", "wb").write(C.pack_libs([lib1, lib2]))
-open(t + "/libsonly.cor", "wb").write(C.pack(libs=[lib1], **kw))
-open(t + "/recl.cor", "wb").write(C.pack_large("amiga1200", "Amiga 1200", "0.3.0", TC.full_bit(frames=500), app, desc=desc, libs=[lib1]))
+open(t + "/libs.bin", "wb").write(C.pack_libs([(n, b) for n, _, b in libs]))
+open(t + "/libsonly.cor", "wb").write(C.pack(libs=lib1, **kw))
+open(t + "/recl.cor", "wb").write(C.pack_large("amiga1200", "Amiga 1200", "0.3.0", TC.full_bit(frames=500), app, desc=desc, libs=lib1))
 m, r = C.parse(open(t + "/rec.cor", "rb").read())
 def rebuild(mm, drop=()):
     body = C.rec(1, json.dumps(mm, sort_keys=True, separators=(",", ":")).encode())

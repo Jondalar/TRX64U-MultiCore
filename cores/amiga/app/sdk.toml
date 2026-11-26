@@ -56,7 +56,7 @@ headers = ["newfile.h"]
 name = "pad"
 sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
 headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
-table = "pad_table"
+exports = [{ name = "pad", major = 1, table = "pad_table" }]
 init = "pad_lib_init"
 core = "pad_lib_core"
 
@@ -65,7 +65,7 @@ core = "pad_lib_core"
 name = "mouse"
 sources = ["mousesink.cc", "mouse_exports.cc", "mouse_board.cc"]
 headers = ["mousesink.h", "mouse_api.h"]
-table = "mouse_table"
+exports = [{ name = "mouse", major = 1, table = "mouse_table" }]
 init = "mouse_lib_init"
 # T239.5 D4: the mouse library's report stream into the Amiga's counters, and the sink's clamp and scaling on the A500's mouse spec (amiga_mousesink)
 tests = { unit = ["amiga_mouselib", "amiga_mousesink"] }

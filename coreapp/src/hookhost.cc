@@ -1,5 +1,6 @@
 #include "hookhost.h"
 #include "libload.h"
+#include "libtab.h"
 #include "core_hooks.h"
 #include "libfmt.h"
 #include "baseset.h"
@@ -47,7 +48,7 @@ void hooks_attach(void)
 {
     hooks_detach();
     uint32_t size = 0;
-    const CoreHooks *t = (const CoreHooks *)LibLoader::find_export(COREHOOKS_NAME, U2A3_VERSION(COREHOOKS_MAJOR, 0), &size);   // base 4.0: the linked slot table (libslot.h)
+    const CoreHooks *t = (const CoreHooks *)libtab_export(COREHOOKS_NAME, COREHOOKS_MAJOR, &size);   // base 4.0: the linked slot table (libslot.h), exact major
     if (!t || size < sizeof(uint32_t) || t->size < sizeof(uint32_t)) {
         return;
     }
