@@ -208,7 +208,7 @@ else
   if [ -n "${HEAVY_SLOT:-}" ]; then exec 9>&-; echo "heavy slot $HEAVY_SLOT released after the build"; unset HEAVY_SLOT; fi
 
   # T239.3 D17 / P8, D31 / P3-2: the SDK package (tools/sdk_pack.sh) from this build's sources and its base archives (`make sdkbase`: the objects of the sources that depend on nothing a core decides,
-  # the libraries, the lists of the rest), after the heavy slot is let go, into the hand-over beside the images (the artifact handoff-trxapps), and its check (tools/sdk_check.sh): the example
+  # the libraries, the lists of the rest), after the heavy slot is let go, into the hand-over beside the images (uploaded by the matrix's SDK lane), and its check (tools/sdk_check.sh): the example
   # library, its menu record and the example core's app built from the unpacked package alone. The package carries no app image. The sources of the package are in the stage key above
   # (app/ with app/sdkpkg, the packer tools, the menu simulator and the rig it builds from, the two scripts).
   if part sdk; then

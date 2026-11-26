@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Which optional parts a run does, one answer per call.
 #
-#   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-* and integration, release/tags,
+#   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-* and integration, release/* (a v* tag runs no tests, T239.5 D51),
 #                            SIMS_INPUT=true (GitHub: the dispatch choice `extra` with sims, T239.1 D39; Gitea: the dispatch input `sims`), or "[sims]" in the head commit. The nightly workflow passes tier 2 itself.
 #   ci/select.sh ue2         yes only when UE2_INPUT=true: the builder's manual dispatch of the 100T host (T239.1 D16); no workflow of this repository sets it.
 #   ci/select.sh update      yes on integ-m1, integration, main and tags v* (the tester update files are built for

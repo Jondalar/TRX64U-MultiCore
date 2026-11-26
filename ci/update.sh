@@ -3,7 +3,7 @@
 # $ROOT/.update/out for the workflow to upload as the artifact `update`; ci/prerelease.sh adds it to the package's pre-release and writes the SHA256SUMS over both.
 # Gideon's application is not built or packed here (T164, Alex 2026-11-01): the monolith updater trx64_update_* is TRX64-Ultimate's.
 #   trx64host_update_<commit8>_<date>.cfw/.ue2  (a tag: trx64host_update_<x.y.z>.cfw/.ue2, ci/lib.sh file_id) the MultiCore file: null_full.bit (the same host + the null core,
-#                                               cores/null, T123: the flash holds no machine) + our boot application from stage trxapps; tools/release_mc.sh attaches it to the release
+#                                               cores/null, T123: the flash holds no machine) + our boot application ($CI_PACKAGE_IN/hostapp.app); tools/release_mc.sh attaches it to the release
 #
 # Only for integ-m1, integration, main and v* tags (ci/select.sh update); any other ref prints "update SKIPPED" and ends green at once. The decision is made here,
 # never by a job-level `if:` (docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (ci/child.sh sets it when it starts this script; the dispatcher's ci/select.sh reads the dispatch choice `extra`
@@ -56,7 +56,7 @@ echo "host key $hk_null in both images"
 pub="$W/out"
 
 # The MultiCore host update file: the host with the null core in the partition (null_full.bit, T123) and OUR boot
-# application (stage trxapps), which is what tools/release_mc.sh attaches to a release. It used to be built on a Mac in the same image,
+# application (the package's hostapp.app), which is what tools/release_mc.sh attaches to a release. It used to be built on a Mac in the same image,
 # so a release needed a machine with that image; now it comes out of the run that built the parts.
 echo "=== updater (host: the MultiCore boot application)"
 rm -rf "$W/out-host"; mkdir -p "$W/out-host"

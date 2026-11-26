@@ -18,7 +18,7 @@
 # T239.5 D13, D14: the matrix's whole package (ci/lane.sh package package, .github/workflows/matrix.yml) runs this script with CI_LANE_COR set, the directory that
 # holds each core lane's deliverable (deliver-<id>/<id>.cor, ci/lane.sh core:<id> deliver). Its trxapps hand-over is what the SDK lane and the host menu lane built:
 # no coreapps/. A core with an app of its own (tools/core_toml.py lanes) then takes its .cor from its lane, unchanged and checked against this package's host; every
-# other .cor core whose core.toml says app = blueprint gets a copy of the shared image. Without CI_LANE_COR (the old pipeline's stage) a large core with an app of
+# other .cor core whose core.toml says app = blueprint gets a copy of the shared image. Without CI_LANE_COR (a run outside the matrix) a large core with an app of
 # its own is left out, out loud.
 #
 set -euo pipefail
