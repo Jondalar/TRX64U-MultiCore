@@ -263,7 +263,7 @@ class Vic20App(unittest.TestCase):
 
     def test_the_toml_b_loads_and_its_files_exist(self):
         libs = L.load(VC20_B)
-        self.assertEqual([lib["name"] for lib in libs], ["vc20", "cbm1541", "cbmrun", "cbmprg", "newfile"])   # newfile: cbm1541 needs it (L-2, S12)
+        self.assertEqual([lib["name"] for lib in libs], ["vc20", "cbm1541", "cbmrun", "cbmprg", "newfile", "miniz"])   # newfile: cbm1541 needs it (L-2, S12); miniz: unzip's need (D58)
         own = os.path.join(ROOT, "cores", "vc20", "app", "lib")
         for lib in libs:
             for f in lib["sources"] + lib.get("headers", []):
@@ -283,6 +283,13 @@ class Vic20App(unittest.TestCase):
     def test_the_drive_library_is_the_shared_one(self):
         # S12: the same sources and entries as the shared app's, which trx64u's own image links
         self.assertEqual(L.samelib(L.load(SHARED), L.load(VC20_B), "cbm1541"), [])
+
+    def test_every_own_app_links_the_zip_library_of_the_shared_app(self):
+        # T239.3 D58 (base 4.0 loads no library file): Unzip stays in every core with an app of its own; unzip's need miniz>=1.0 is met by the library its TOML B links
+        own = sorted(d for d in os.listdir(os.path.join(ROOT, "cores")) if os.path.isfile(os.path.join(ROOT, "cores", d, "app", "sdk.toml")))
+        self.assertGreater(len(own), 1)
+        for core in own:
+            self.assertEqual(L.samelib(L.load(SHARED), L.load(os.path.join(ROOT, "cores", core, "app", "sdk.toml")), "miniz"), [], core)
 
     def test_a_link_map_with_what_the_toml_b_names_passes(self):
         libs = L.load(VC20_B)

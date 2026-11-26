@@ -25,3 +25,11 @@ name = "zx"
 sources = ["zx.cc", "zx_snap.cc", "tape_deck.cc", "tape_pulses.cc"]
 headers = ["zx_regs.h", "zx_snap.h", "tape_deck.h", "tape_pulses.h", "hk_defaults.h"]
 tests = { unit = ["zx", "zx_snap", "boot_zx", "tape_zx"], service = ["zx_descgen", "zx_mounts", "zx_romreq"], ui = ["zx_desc", "zx_hotkeys", "zx_keywalk"], api = ["zx_memops", "zx_uicover"] }
+
+# Unzip (apps/unzip: the actions on a .zip in the File Browser) takes the zip library through its needs entry `miniz>=1.0`. Base 4.0 loads no library file (T239.3 D58), so this app
+# links it as the shared app does (coreapp/libs/shared.toml, the same sources and entries); without it the app refuses unzip's need.
+[[library]]
+name = "miniz"
+sources = ["miniz_lib.cc", "miniz.c", "miniz_tinfl.c", "miniz_zip.c"]
+headers = ["zip_lib.h"]
+exports = [{ name = "miniz", major = 1, table = "miniz_table" }]
