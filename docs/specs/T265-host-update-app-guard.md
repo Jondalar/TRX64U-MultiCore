@@ -81,7 +81,13 @@ Parts:
   says so and writes itself, the copy and the record back (P3).
 - **D4 (open, Q1):** where the recovery copy lives. Alex named two: inside the `.txu` on the SD card, or the application file next
   to the host settings (`/Flash/trx/hostrecovery.app`, on the flash drive, `hostcfg.h:13`).
-- **D5 (open, Q2):** what the host's RGB output can be set to at run time and what is fixed in the gateware.
+- **D5 (Alex, 2026-11-26, "okk, für das Video"):** at run time, by register: the output mode (off, RGB; later Y/C, composite) and the
+  standard, which follows the core's raster; SYNCn and FB follow the mode (RGB: csync and high, T259 §5). Fixed in the gateware: the
+  channel map and bit order (measured on the board, T259 §5) and the levels, burst and gain as constants, so constant products
+  become shifts and adds and need no DSP (T259 D5). The diag core stays the tuning tool; its results become the host's constants.
+  Measured cost of the alternative, the diag core's fully adjustable encoder (`diag_avout.v` + `diag_yc.v`, yosys `synth_xilinx`
+  estimate): about 870 LUT, 510 FF, 14 DSP48. Alex: "But then we must have Rick's measurement for NTSC" - the NTSC constants come
+  from Rick's values (T259 D3) before they are fixed.
 - The order of writes for P3: application, recovery copy, record last.
 
 ## §4 Out
@@ -98,6 +104,5 @@ Open questions:
 - Q1 (D4): the recovery copy from the `.txu` on the SD card, or `/Flash/trx/hostrecovery.app`? (The recovery program needs a FAT
   reader either way; the SD card has to be read through its slot, the flash drive through the SPI flash the boot path reads
   already. Free space on the flash drive is to be counted before deciding.)
-- Q2 (D5): RGB settings at run time or fixed in the gateware.
 - Q3: S4's medium when nothing can be recovered (the recovery program starts no video; the boot ROM leaves the clocks to the app).
 - Q4: F8 "Protect Flash from updates" on by default (T152 D4; its board steps S2, S5, S6b, S7, Q5 are open).
