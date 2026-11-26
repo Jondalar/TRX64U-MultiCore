@@ -324,7 +324,8 @@ lane muxes (stage A, 16:1 per chunk, one register after it) and to the 128:1 pin
   `instfiles`, no control there), the golden `menu_portdiag.txt` (needs a diag-app build of `test_desc`'s golden(), open).
 - Lane: `tools/core_toml.py lanes` lists `diag large`; `ci/package.sh` and `ci/cor.sh` leave it out loudly by the TOML B switch (generic, as for the A1200); `ci/emu_kit.sh --core diag`
   and `tests/hostapp/emu_host.sh` (EMU_OWN_APP=diag) added - the profile is this tree's `tests/coreapp/emu/profiles/diag.toml` (the emulator release has none), hotkey and start time copied
-  from the A1200's round, **not run** (step 12 runs only in the matrix).
+  from the A1200's round, **not run** (step 12 runs only in the matrix). Superseded on 2026-11-26 by T239.5 S8 step 12: the profile is
+  `cores/diag/app/ue2emu.toml`, the round is generic (the menu button, since diag's desc.toml has no `[hotkeys]`; the large core's start time).
 
 *Step 3, P6/S9.* `cores/diag/mono/core.toml` has no `install_dir`/`install_old`; `cores/diag/superseded` is deleted (its two sample files moved to `tests/coreapp/instfiles/old`
 with five test files as the fixture of `test_bundle`'s record 8 case, which is generic: the A500's sub-app test uses record 8 too). `gen_bundle.py`: `diag.cor` has no record 8
