@@ -296,4 +296,11 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   slot, `hostapp.app` 1,349,996 bytes; `tools/dev.sh test` (fast tier) green. Left as designed: the recovery program starts a flash
   copy whose header and size match without checking its CRC (P2 decision above); the contract version moves 0.2.1 -> 0.3.0 for the
   host's new pins, the 247 partition ports unchanged.
+- **First pipeline run of the bundle (45862833501), fixed:** Vivado stopped in c64ref's synthesis (`c64_core_c64ref.v:93`, Synth 8-1577:
+  a declaration list with one initial value needs one on every name); lint: the `avrgb` bench had no owner in `ci/sims.lane`, the
+  pre-release refusal test did not know `hostrecovery.app`; the host render bench: the walks to Cores and ROMs take one row more, and
+  the F8 help line stood under all eleven slots, so a two-line help was cut (it now stands under the rows shown: 0 cut objects in
+  every mode); `hdmi_out` expected status version 1. `flash_boot` ran into its 900 s limit: on the builder in the sim image it takes
+  1,484 s, 27 cases, 158 ok, 0 FAIL, ALL PASS, among them the 11 guard cases (S1, S2 with its control ROM, S6, the 100T distances; the
+  guard adds 1.9 % to a 64 KiB boot: 72,903 us against 71,519 us); its limit is now 3,600 s.
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).

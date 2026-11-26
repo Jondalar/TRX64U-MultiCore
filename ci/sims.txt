@@ -38,7 +38,7 @@
 1|mig_arb|600|ci/sim_iv.sh tb_mig_arb.v host/ddr2_port.v host/sim/mig_ui_model.v
 1|drive_mem|600|sh host/sim/drive_mem/run.sh
 2|flash_gate|900|sh host/sim/flash_gate/run.sh
-2|flash_boot|900|sh host/sim/flash_boot/run.sh
+2|flash_boot|3600|sh host/sim/flash_boot/run.sh
 1|dma_bus|600|sh host/sim/dma_bus/run.sh
 1|vc20|900|sh cores/vc20/sim/run.sh
 1|vc20_pixw|1200|sh cores/vc20/sim/run_pixw.sh
