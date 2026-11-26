@@ -1,0 +1,29 @@
+core DIAG Port Diagnostics
+area F1 Home
+  tab 1 Home
+    media Port 1
+    media Port 2
+    media Comparators
+    media Last test
+    task Pick a test and run it
+    task Open a panel
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .toml: Run test or open panel
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    fixed Keys and help
+    heading Reset
+    fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries
