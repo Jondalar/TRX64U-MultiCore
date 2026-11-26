@@ -2103,7 +2103,7 @@ static void pm_update(void)
 static void build_settings(void)
 {
     lv_obj_t *p = bview(V_SET);
-    int pitch = COMPACT ? 29 : 34, sh = COMPACT ? 26 : 30, y0 = COMPACT ? 62 : 70;           // ten rows (T163 S4: FTP service) in the height nine had
+    int pitch = COMPACT ? 29 : 34, sh = COMPACT ? 26 : 30, y0 = COMPACT ? 62 : 70;           // eleven rows (T163 S4: FTP service, T265 P4: Analogue out) in the height nine had
     int nw = 290, vx = 330;
     if (COMPACT) {                                  // the label column is the width of the longest label (measured, as the File Browser's keys), the value takes the rest
         int lw = 0;

@@ -70,7 +70,9 @@ static void f_legacy(int sys, int hdmi) { g_legacy++; g_legacy_sys = sys; g_lega
 static void f_enable(void) {}
 static uint32_t f_ms(void) { return g_t; }
 static void f_pause(int ms) { g_t += ms; }
-static const HostVideoIo io = { f_hpd, f_edid, f_present, f_write, f_status, f_legacy, f_enable, f_ms, f_pause };
+static int g_av_mode = -1, g_av_std = -1, g_av_writes = 0;
+static void f_av(int mode, int std) { g_av_mode = mode; g_av_std = std; g_av_writes++; }
+static const HostVideoIo io = { f_hpd, f_edid, f_present, f_write, f_status, f_legacy, f_enable, f_ms, f_pause, f_av };
 const HostVideoIo *hostvideo_board_io(void) { return &io; }
 
 // ---- EDID builders (the same shapes as tests/coreapp/test_edid.cc) --------------------------------------------------------------
@@ -437,6 +439,11 @@ int main()
     s12();
     q7();
     picsave();
+    // T265 P4: the A/V port goes out as mode 1 (RGB) / 0 (off) with std 0 (the core's raster)
+    hv_av_apply(1);
+    CHECK(g_av_writes == 1 && g_av_mode == 1 && g_av_std == 0);
+    hv_av_apply(0);
+    CHECK(g_av_writes == 2 && g_av_mode == 0 && g_av_std == 0);
     printf("hostvideo: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
 }
