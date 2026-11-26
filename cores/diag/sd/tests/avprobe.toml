@@ -3,6 +3,7 @@
 # left to the right; the first ones are darker than blanking and look black, the last two are grey and white) and a white bar at the end. The other two channels sit at blanking
 # with no sync. "Names" is the map of the U64 / C64U pinout (A = R = composite on DIN 4, B = G = luma on DIN 1, C = B = chroma on DIN 6); "Scan groups" is the map the C128 and
 # C64SCPU cores use today (A, B, C of the boundary scan). Connect the TV to the input you want to find (S-Video luma, composite, or the SCART video pin) and run the walk.
+# On a C64U to SCART RGB cable the SCART video pin carries AVID_SYNCn, not a DAC channel (T259 section 5): no step shows a picture there; use avrgb.toml for that cable.
 # Question 1: does the TV show a steady picture (it locked on the sync of that channel)? Question 2 (only after YES): do the bars get brighter from left to right?
 # The .txt lists every step the TV locked on and ends with a summary of the channels it locked on and their bit order. Upload results/avprobe_<date>.txt and .toml.
 kind = "avtest"

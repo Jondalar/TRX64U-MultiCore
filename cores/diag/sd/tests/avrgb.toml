@@ -2,7 +2,8 @@
 # Each step lights ONE word as a ramp across the picture (dark at the left to bright at the right), the other two words are 0; the Groups row says which channel carries which word
 # (Y = the R word, C = the G word, CVBS = the B word; the channels are A = R, B = G, C = B with the Names map). The fourth step of every group shows the palette's colour bars.
 # Question: the colour of the ramp on the screen (red, green, blue, or none / other). With the Names map and Groups "Y=A, C=B, CVBS=C" the R ramp should be red, the G ramp green,
-# the B ramp blue. SYNCn and FB are as the A/V panel has them: set them to what your TV needs (SCART: SYNCn Csync, FB High) before the walk. GOOD has no meaning here:
+# the B ramp blue. The walk sets SYNCn Csync and FB High: on the C64U to SCART RGB cable SYNCn is the sync the TV takes and FB switches it to RGB (T259 section 5,
+# board 2026-11-26; with SYNCn High the TV has no sync, with FB Low it shows the csync as a white picture). GOOD has no meaning here:
 # the answers are the measurement. Upload results/avrgb_<date>.txt and .toml.
 kind = "avtest"
 
@@ -22,6 +23,8 @@ stop_after_ok = false
 [base]
 mode = "RGB"
 map = "Names"
+syncn = "Csync"
+fb = "High"
 
 [sweep]
 groups = ["Y=A, C=B, CVBS=C", "Y=A, C=C, CVBS=B", "Y=B, C=A, CVBS=C", "Y=C, C=A, CVBS=B", "Y=B, C=C, CVBS=A", "Y=C, C=B, CVBS=A"]
