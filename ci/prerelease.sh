@@ -2,7 +2,7 @@
 # T239.1 D1, D42, D43, gap 25: the last job of a push to main, t239.1 or a v* tag. Its pre-release of the builds repository holds what a release holds (D42,
 # as v0.2.0): the bundle of tools/make_release_mc.sh - every .cor of the package (trx64u.cor and trx64g.cor as well when the package has them, D43), the update
 # files .cfw and .ue2 (artifact `update`), the package's .txu, the .u2a apps the updater copies into <cores>/apps, INSTALL.md, ROMS.txt and SHA256SUMS - and
-# the zip of that bundle. No report, log, bitstream or ELF goes in: the bit-<entry> releases hold those. publish_files of ci/lib.sh publishes it
+# the zip of that bundle (plus SD.zip, the package's SD/ tree, T239.5 D21). No report, log, bitstream or ELF goes in: the bit-<entry> releases hold those. publish_files of ci/lib.sh publishes it
 # (ci/publish_release.py: a draft release of the builds repository, env BUILDS_TOKEN, published when every digest matches).
 #
 #   ci/prerelease.sh        env: CI_PACKAGE_IN (the directory of the package artifact), CI_UPDATE_IN (the directory of the update artifact),
@@ -36,9 +36,13 @@ cors=(); for c in "$P"/*.cor; do [ -e "$c" ] && cors+=(--cor "$c"); done
 [ "${#cors[@]}" -gt 0 ] || die "the package holds no .cor"
 u2as=(); for u in "$P"/*.u2a; do [ -e "$u" ] && u2as+=(--u2a "$u"); done
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
+# T239.5 D21: the package's SD/ tree (SD/cores/diag/ ...) rides along as SD.zip; the bundle of a v* tag build (id x.y.z) is the one a release takes over (tools/release_mc.sh), so it is
+# made --release: without the cores that are for the pre-release only ([app] release = false: diag) and without their SD folder. Every other pre-release carries them.
+rel=(); [[ "$id" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && rel=(--release)
+sdarg=(); [ ! -d "$P/SD" ] || sdarg=(--sd "$P/SD")
 # --bit c64_basic.bit: the host key every .cor is checked against, and the bitstream INSTALL.md describes
 bash "$CI_CODE/tools/make_release_mc.sh" --id "$id" --bit "$P/c64_basic.bit" --app "$P/hostapp.app" --bit-commit "$bitc" --app-commit "$appc" \
-  --update "$cfw" --update-ue2 "$ue2" --txu "$txu" ${u2as[@]+"${u2as[@]}"} "${cors[@]}" --out "$W" || die "tools/make_release_mc.sh made no bundle"
+  --update "$cfw" --update-ue2 "$ue2" --txu "$txu" ${u2as[@]+"${u2as[@]}"} ${rel[@]+"${rel[@]}"} ${sdarg[@]+"${sdarg[@]}"} "${cors[@]}" --out "$W" || die "tools/make_release_mc.sh made no bundle"
 D="$W/trx64mc-$id"; ZIP="$W/trx64mc-$id.zip"
 [ -d "$D" ] && [ -s "$ZIP" ] || die "no bundle $D or no zip $ZIP"
 python3 "$CI_CODE/tools/check_release_flash.py" --txu "$txu" --reject "$P/c64_basic.bit" "$D"/trx64host_update_*.cfw "$D"/trx64host_update_*.ue2 \

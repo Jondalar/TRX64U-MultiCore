@@ -84,7 +84,7 @@ CORES = [
          sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),
     dict(id="diag", match=("port diagnostics",), title="Port Diagnostics", folder="diag",
          files="none", needed="nothing",
-         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `panels/`, `presets/` and `results/` under the core folder); T260 D6, P6 (the tests, panels and presets are the repository folder cores/diag/sd, copied to /SD/cores/diag/ by FTP; neither diag.cor nor this bundle carries them, T260 §4); cores/diag/mono/core.toml (no ROM, no media)"),
+         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `panels/`, `presets/` and `results/` under the core folder); T260 D6, P6; T239.5 D21 (the tests, panels and presets are the repository folder cores/diag/sd; a package and a pre-release carry them as SD/cores/diag/ (SD.zip), diag.cor does not, and a release bundle carries neither the core nor them); cores/diag/mono/core.toml (no ROM, no media)"),
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",
@@ -262,8 +262,8 @@ PARAS = {
     ],
     "diag": [
         "Needs no ROM file. The core has no machine: it measures the joystick and paddle ports from test files (`.toml`, in `cores/diag/tests/` on the stick or the card).",
-        "The tests, panels and presets are not in this bundle and not in `diag.cor`: they are the folder `cores/diag/sd` of the TRX64U-MultiCore source repository.",
-        "Copy its content (`tests/`, `panels/`, `presets/`) by FTP into the core's folder `cores/diag/` (`/SD/cores/diag/` on the card). A new test is one more `.toml` file there; it needs no new build.",
+        "The tests, panels and presets are not in `diag.cor`: they are in `SD.zip` of this pre-release (the folder `SD/cores/diag/` of the CI package). Unzip it at the root of the SD card or the stick, so that `tests/`, `panels/` and `presets/` land in `/SD/cores/diag/`.",
+        "A new test is one more `.toml` file in `cores/diag/tests/`; it needs no new build.",
         "A test says what to plug in, what to press and what to measure; the result is written next to it in `cores/diag/results/` as a `.toml` and a readable `.txt`.",
     ],
     "zxnext": [
@@ -388,6 +388,8 @@ def render(a, cors, bit_len, alen, dest):
     u2as = sorted(f for f in os.listdir(a.cor_dir) if f.endswith(".u2a"))   # T180 D9: applications every core reads
     for f in u2as:
         w("| `%s` | an application for every core: **Unzip here** on a `.zip` in the F3 browser (section 4) |" % f)
+    if os.path.exists(os.path.join(a.cor_dir, "SD.zip")):   # T239.5 D21: the files the core lanes deliver for the card (diag's tests, presets, panels)
+        w("| `SD.zip` | the files cores deliver for the SD card, `SD/cores/<core>/...` (the tests, presets and panels of the diag core): unzip it at the root of the card |")
     w("| `SHA256SUMS` | checksum of every file above |")
     w("")
     w("The installer writes two things, nothing else in the flash changes:")

@@ -112,6 +112,56 @@ class ReleaseBundleTest(unittest.TestCase):
         r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--u2a", os.path.join(self.d, "nope.u2a"))
         self.assertNotEqual(r.returncode, 0)
 
+    def _diag_inputs(self):
+        # T239.5 D21: a package as ci/package.sh makes it: diag.cor next to vc20.cor and the SD/ tree the core lanes delivered (diag's, and one of another core)
+        diag = os.path.join(self.d, "diag.cor")
+        core(diag, "Port Diagnostics")
+        sd = os.path.join(self.d, "SD")
+        for rel, body in (("cores/diag/tests/avprobe.toml", b"a=1\n"), ("cores/diag/presets/p.toml", b"b=2\n"), ("cores/vc20/extra/x.toml", b"c=3\n")):
+            os.makedirs(os.path.dirname(os.path.join(sd, rel)), exist_ok=True)
+            open(os.path.join(sd, rel), "wb").write(body)
+        return diag, sd
+
+    def _sd_names(self, d):
+        import zipfile
+        z = os.path.join(d, "SD.zip")
+        return sorted(zipfile.ZipFile(z).namelist()) if os.path.exists(z) else []
+
+    def test_pre_release_carries_diag_and_its_sd_folder(self):
+        diag, sd = self._diag_inputs()
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertTrue(os.path.exists(os.path.join(d, "diag.cor")))
+        self.assertIn("SD/cores/diag/tests/avprobe.toml", self._sd_names(d))
+        self.assertIn("SD/cores/vc20/extra/x.toml", self._sd_names(d))
+        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
+        self.assertIn("SD.zip", txt)
+        self.assertNotIn("by FTP", txt.split("Port Diagnostics", 1)[-1][:3000])
+
+    def test_release_bundle_has_neither_diag_nor_its_sd_folder(self):
+        diag, sd = self._diag_inputs()
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd, "--release")
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertFalse(os.path.exists(os.path.join(d, "diag.cor")))
+        self.assertTrue(os.path.exists(os.path.join(d, "vc20.cor")))                 # another core is unchanged
+        self.assertEqual(self._sd_names(d), ["SD/cores/vc20/extra/x.toml"])         # the other core's SD files stay, diag's go
+        self.assertNotIn("avprobe", open(os.path.join(d, "SHA256SUMS")).read())
+        self.assertNotIn("diag.cor", open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read())
+
+    def test_release_bundle_without_any_sd_file_has_no_sd_zip(self):
+        diag, sd = self._diag_inputs()
+        import shutil
+        shutil.rmtree(os.path.join(sd, "cores", "vc20"))
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd, "--release")
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertFalse(os.path.exists(os.path.join(self.out, "trx64mc-main-deadbeef", "SD.zip")))
+
+    def test_diag_is_the_pre_release_only_core_and_no_other(self):
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "core_toml.py"), "pre-release-only"], capture_output=True, text=True)
+        self.assertEqual(r.stdout.split(), ["diag"], r.stderr)
+
     def test_half_a_pair_is_refused(self):
         # the negative control: it must fail, and before anything is written
         r = self.run_it("--update", self.cfw)

@@ -240,6 +240,13 @@ if [ -n "$lane_cor" ]; then
       mark_red package "cor-$c" "$c.cor of the lane core:$c fails tools/cor_pack.py check ${chk[*]:-(a flat .cor)}"
     fi
   done <<< "$own_lanes"
+  # T239.5 D21: the files a core lane delivers for the SD card (deliver-<id>/SD/..., T260 D6) go into this package's SD/ tree as they are, for every core that delivers one
+  # (SD/cores/<id>/ is /SD/cores/<id>/ on the card); tools/make_release_mc.sh --release leaves out those of the cores with [app] release = false
+  for d in "$lane_cor"/deliver-*/SD; do
+    [ -d "$d" ] || continue
+    mkdir -p "$out/SD"; cp -R "$d/." "$out/SD/"
+    echo "=== SD/ of ${d%/SD}: $(find "$d" -type f | wc -l | tr -d ' ') files"
+  done
 fi
 
 # T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). Both pins have COR_SHA256 (T239.3 D21, D46): each file is checked
@@ -268,7 +275,7 @@ else
 fi
 
 # T148 D8: ROMS.txt (what each core needs in its own folder, the legal sources; made from the descriptors' ROM table and the manual) is part of the
-# package, and the package holds .cor files only - never a core folder, which is the user's (tools/check_package_layout.py).
+# package, and the package holds .cor files only - never a core folder, which is the user's (tools/check_package_layout.py; its SD/ tree, T239.5 D21, is the lanes' delivered SD files, not a core folder).
 python3 "$ROOT/tools/gen_roms_txt.py" -o "$out/ROMS.txt" || mark_red package roms-txt "tools/gen_roms_txt.py failed"
 python3 "$ROOT/tools/check_package_layout.py" "$out" || mark_red package layout "the package holds a core folder"
 
@@ -304,7 +311,13 @@ def wns(name):
 rp = os.path.join(os.environ["HANDOFF_DIR"], "bit-releases.json")
 bitstreams = json.load(open(rp)) if os.path.exists(rp) else None
 files = {}
-for f in sorted(os.listdir(out)):
+names = sorted(os.listdir(out))
+for f in list(names):
+    if os.path.isdir(os.path.join(out, f)):       # T239.5 D21: SD/ (the lanes' SD files): every file of it by its path below the package
+        names.remove(f)
+        names += sorted(os.path.join(d, x) for d, _, xs in os.walk(os.path.join(out, f)) for x in xs)
+names = [os.path.relpath(n, out) if os.path.isabs(n) else n for n in names]
+for f in names:
     if (f.endswith(".txt") and f.startswith("wns.")) or f in ("layers.json", "trxapps_commit"):
         continue
     data = open(os.path.join(out, f), "rb").read()
@@ -319,7 +332,7 @@ json.dump({"trx64_commit": full, "trxapps_commit": trxapps, "branch": branch, "v
            "files": files}, open(os.path.join(out, "manifest.json"), "w"), indent=2)
 PY
 rm -f "$out"/wns.*.txt "$out/layers.json" "$out/trxapps_commit"
-(cd "$out" && sha256sum $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+(cd "$out" && find . -type f ! -name SHA256SUMS ! -path './.*' | sed 's|^\./||' | sort | xargs sha256sum > SHA256SUMS)
 ls -l "$out"
 cat "$out/manifest.json"
 

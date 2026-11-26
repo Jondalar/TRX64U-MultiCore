@@ -17,6 +17,8 @@ what ci/lib.sh hashes into that core's keys.
                                           the stages of the old pipeline read this list (ci/trxapps.sh, ci/package.sh), so a large core is not in it (T213.3 P6)
   tools/core_toml.py lanes                every core whose TOML B names a descriptor symbol, "<name> dfx" or "<name> large" (a large core has only
                                           cores/<name>/mono/core.toml): the core lanes of the matrix (ci/dispatch.py, ci/lane.sh; T239.5, T213.3 P5)
+  tools/core_toml.py pre-release-only     the cores whose TOML B says [app] release = false (T239.5 D21): in every package and pre-release, left out of the release bundle
+                                          (tools/make_release_mc.sh --release drops their .cor and their SD/cores/<id>/ folder)
   tools/core_toml.py sdk <name> <key>     one value of the [app] table of cores/<name>/app/sdk.toml (T239.3 D25, V-4)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
@@ -92,7 +94,7 @@ SCHEMA = {
 # core.toml (cores/<id> is). In [app]: desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
 # (coreapp/src/bundle.cc). Absent file, absent key or false: the file rests in the tree (test_descgen keeps it equal to the C tables), the .cor carries no record and the core runs on
 # its compiled-in descriptor. True needs the file.
-SDK_SCHEMA = {"desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
+SDK_SCHEMA = {"release": "bool", "desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
 SDK_TABLES = ("app", "library", "sizes")
 HEAP_DEFAULT = 0x7A0000
 HEAP_MIN = 0x10000
@@ -321,6 +323,8 @@ def main():
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
     elif a[:1] == ["list-own-app"]:
         print("\n".join(own_app_cores()))
+    elif a[:1] == ["pre-release-only"]:
+        print("\n".join(n for n in sorted(os.listdir(CORES)) if sdk_table(n).get("release") is False))
     elif a[:1] == ["lanes"]:
         print("\n".join("%s %s" % e for e in own_app_lanes()))
     elif a[:1] == ["sources"] and len(a) == 2:
