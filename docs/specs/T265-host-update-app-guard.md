@@ -102,6 +102,8 @@ Parts:
   erstmal dein interlaced"; A is the final word). Interlace (about +100 LUT) is not built now. The menu canvas follows the HDMI row
   (960x540, or the row's size below 960 wide, `coreapp/src/video.cc:111-146`). A core's picture keeps its own raster, progressive,
   one to one where it fits (VC-20 283 lines, Atari 288), two lines averaged where it is doubled (Apple II 384).
+- **D11 (Alex, 2026-11-26: "Erstmal ja"):** the "Starting <name>" line of a direct start (`overlay.v`, not the pixel layer) shows on
+  HDMI only, not on RGB, for now.
 - **D9 (Alex, 2026-11-26: "An und auf RGB"):** at power-on the A/V output is on, in RGB. The setting is a host setting on F8 (host
   settings, Picture), stored with the other video values in `/Flash/boot.cfg` (`video=<sys>,<hdmi>,<av>`), so a user can switch it
   off; the register's reset value is RGB.
