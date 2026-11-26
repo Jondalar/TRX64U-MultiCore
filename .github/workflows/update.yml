@@ -15,6 +15,9 @@ on:
 
 jobs:
   update:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Update
     runs-on: ubuntu-latest
     container:
@@ -78,3 +81,11 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           include-hidden-files: true
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"

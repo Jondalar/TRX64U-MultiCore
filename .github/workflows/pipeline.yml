@@ -50,6 +50,9 @@ concurrency:
 
 jobs:
   matrix:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     # a pull request from a branch of this repository is the push's run; a fork's pull request runs here
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository }}
     uses: ./.github/workflows/matrix.yml

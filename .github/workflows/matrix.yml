@@ -27,6 +27,9 @@ on:
 jobs:
   # Every push: what changed (ci/plan.sh), the lanes and steps of this push (ci/dispatch.py, the matrix in the summary), the work order of the builder
   dispatch:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Dispatcher (what this push has to do)
     runs-on: ubuntu-latest
     container:
@@ -114,9 +117,20 @@ jobs:
           path: ${{ env.CI_TEMP }}/handoff/work-order.json
           retention-days: 3
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # T239.1 D14: Alex's click for a commit the builder does not build by itself
   approve:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Approve the builder's work (environment vivado)
     needs: dispatch
     if: ${{ needs.dispatch.outputs.missing == 'true' && !(github.event_name == 'push' && github.actor_id == '682272' && github.triggering_actor == github.actor) }}
@@ -125,9 +139,20 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "approved; the builder builds the missing keys of this commit"
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # 1 Lint, one leg per lane (D7): tree = the tree checks of every push (every check no other lane owns), sdk, host, core:<id> (ci/lint.sh <group>); not on main or a v* tag (D51)
   lint:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "1 Lint (${{ matrix.group }})"
     needs: dispatch
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
@@ -155,9 +180,20 @@ jobs:
           echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Lint
         run: ci/lint.sh "$GROUP"
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # ci/test_keys.sh needs the Python 3.10 code-hash libraries of the build image (lint runs in the simulation image, Python 3.12)
   keys:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Key tests (ci/test_keys.sh)
     needs: dispatch
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.lint_groups != '[]' }}
@@ -177,16 +213,30 @@ jobs:
           echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Key tests
         run: ci/test_keys.sh
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # the host tests of every application suite and the render benches (ci/render.sh, ci/apptests.sh); the RISC-V builds of the lanes wait for them (T174 D2.2: native first).
   # The lanes' unit steps (2) run their own suites at the fast tier beside this one; the units are cached by content, so a unit runs once
   apptests:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     needs: dispatch
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.apptests == 'true' }}
     uses: ./.github/workflows/apptests.yml
 
   # A: the SDK lane - 2 unit tests, 6 build, 7 test, 11 package, 13 deploy (the artifact `sdk`; later the registry, T239.4)
   sdk:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "SDK (A): unit tests, build, test, package, deploy"
     needs: [dispatch, lint, apptests]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.apptests.result == 'success' || needs.apptests.result == 'skipped') && needs.dispatch.outputs.sdk == 'true' }}
@@ -263,10 +313,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/handoff/shared-app
           retention-days: 14
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # T261 P2, D4: the package of the SDK lane as the release sdk-<sdk_version>-<sha8> of the builds repository, when it differs from the last release of its version
   # (ci/publish_sdk.py). The environment `builds` lets only its allowed refs in; the job runs the commit's own scripts with that environment's token.
   sdk-release:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: SDK release (T261)
     needs: [sdk]
     if: ${{ !cancelled() && needs.sdk.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.3') }}
@@ -294,9 +355,20 @@ jobs:
           MC_BUILDS_REPO: Jondalar/trx64mc-builds
           BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: python3 -I ci/publish_sdk.py --dir "$CI_TEMP/sdk-in" --sha "$GITHUB_SHA"
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # the host menu lane - 2 unit tests, 6 build, 13 deliver (12, the emulator, is the job host-emu)
   host:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "Host menu: unit tests, build, deliver"
     needs: [dispatch, lint, apptests]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.apptests.result == 'success' || needs.apptests.result == 'skipped') && needs.dispatch.outputs.host == 'true' }}
@@ -353,10 +425,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/handoff/host
           retention-days: 14
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # the bitstream lanes, step 2: the benches of every owner the plan names (ci/sims.lane: the host, a core, a large core), on integration, integ-*, release/*, tags, the dispatch
   # input `sims` and "[sims]" (ci/select.sh sims-tier), before Vivado; not on main or a v* tag (D51)
   sims:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     needs: dispatch
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.sim_owners != '[]' }}
     strategy:
@@ -372,6 +455,9 @@ jobs:
   # T265 P5: the host gateware (the host, the aux designs, the reference core, the flash filler): the builder builds it when the work order names it (the target host
   # of ci/order.py: a push that changes host/ or the aux designs, or a whole package); this job keys, fetches and reports it. The jobs bits wait for it.
   host-bits:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "Bitstreams: the host (reference core, flash filler, aux)"
     needs: [dispatch, approve, sims]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.host_bits == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
@@ -416,10 +502,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/bit
           retention-days: 3
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # the bitstream lanes of each moved core (after the host gateware: the host key moves every core key) - 3 key, 6 Vivado (the builder, while this job waits at the environment bitstreams),
   # 7 report, 11 keep (the entries restored from the builds repository), 13 to the lanes (the artifact bits-<id>)
   bits:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "Bitstreams: the host and ${{ matrix.core }}"
     needs: [dispatch, approve, sims, host-bits]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' && needs.host-bits.result != 'failure' && needs.host-bits.result != 'cancelled' }}
@@ -469,10 +566,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/bit
           retention-days: 3
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # B: one lane per moved core - 2 unit tests, 3 what has changed, 4 comparison, 5 what must be in it, 6 build, 7 complete and fits, 8-10 the tests its
   # TOML B names (D4), 11 package, 13 deliver (the artifact deliver-<core>; 12 is the job emu: the core's app alone, D18)
   core:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "${{ matrix.core }} (B): steps 2-11 and 13"
     needs: [dispatch, lint, sdk, bits]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.sdk.result == 'success' && needs.bits.result == 'success' }}
@@ -561,12 +669,23 @@ jobs:
           path: ${{ env.CI_TEMP }}/handoff/deliver-${{ matrix.core }}
           retention-days: 14
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # 12 Emulator tests of a core lane (D18): the core's own app alone in ue2emu, no host - started from the .cor and the ELF its lane delivered, it identifies
   # the core and then ends as its description says (tests/coreapp/emu/core_round.sh): a running core opens and closes its menu, a core that waits for a program
   # or a menu_first core has its menu open, a core whose profile says [round] ends = "rompage" waits on its ROM page; a refused identity fails every kind.
   # The kit is the emulator's ROM folder alone (ci/emu_kit.sh)
   emu:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "12 Emulator tests: ${{ matrix.core }}"
     needs: [dispatch, core]
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.core.result != 'skipped' }}
@@ -640,10 +759,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/emu-out
           retention-days: 7
           if-no-files-found: ignore
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # 12 Emulator tests of the SDK lane (T239.5 D19): the overlay features (T256 S3, S5, S10) on the SDK example's app linked with the overlay test library (tests/ui/ovtest/build.sh, step 7 of the
   # SDK lane), on the machine of the emulator profile vc20 and a .cor that carries the test element: tests/ui/run.sh features_cores/overlay_vc20.feature. No core lane builds or runs ovtest.
   ovtest-emu:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "12 Emulator tests: the overlay service (the SDK example with ovtest)"
     needs: [dispatch, sdk]
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && needs.sdk.result == 'success' }}
@@ -697,10 +827,21 @@ jobs:
           path: tests/ui/out
           retention-days: 7
           if-no-files-found: ignore
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # 12 Emulator tests of the host menu lane (S6, D18): the host app's real flow in ue2emu with the .cor the host lane core's lane delivered (ci/orchestrate.py HOST_EMU_CORE) - the round host -> its .cor
   # -> its menu -> host and the host menu's own flows (T187, T198, T211, T221, T223; tests/hostapp/emu_host.sh). It runs where the host lane is green and that core delivered (D15: no other lane matters).
   host-emu:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "12 Emulator tests: the host menu (with the .cor of ${{ needs.dispatch.outputs.host_emu_core }})"
     needs: [dispatch, host, core]
     if: ${{ !cancelled() && inputs.tests && needs.dispatch.result == 'success' && contains(fromJSON(needs.dispatch.outputs.cores), needs.dispatch.outputs.host_emu_core) && needs.host.result == 'success' }}
@@ -776,10 +917,21 @@ jobs:
           path: ${{ env.CI_TEMP }}/emu-out
           retention-days: 7
           if-no-files-found: ignore
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # D14: the whole package, 11 (first half): the bitstream entries of every lane and the imports (T239.1 D40: kept in GitHub's cache by the run's entry names; D41:
   # only a job that fetches releases waits at the environment bitstreams).
   collect:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "Whole package: 11 collect (every lane's bitstreams)"
     needs: [dispatch, approve]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' }}
@@ -835,11 +987,22 @@ jobs:
             ${{ env.CI_TEMP }}/handoff/large-*
           retention-days: 1
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # D14: the whole package, 11 (second half) and 13: ci/package.sh over every lane's result - the bitstreams of collect, the SDK lane's shared image, sub-apps and
   # SDK package, the host menu, each core lane's .cor (D13: a core with an app of its own is delivered by its lane). The artifact `package` is the one the jobs update and
   # prerelease read. It runs wherever a package is made (scope full: main, integration, integ-*, release/*, v* tags; or a feature branch that asks for the update files).
   package:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: "Whole package: 11 package (every .cor), 13 deliver"
     needs: [dispatch, host-bits, collect, sdk, host, core]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.host-bits.result == 'success' && needs.collect.result == 'success' && needs.sdk.result == 'success' && needs.host.result == 'success' && needs.core.result == 'success' }}
@@ -896,10 +1059,21 @@ jobs:
           path: ${{ env.CI_WS }}/out
           retention-days: 14
           if-no-files-found: error
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   # a feature branch: one .cor per touched core that has no lane of its own (ci/dispatch.py cor_legs), from the builder's bitstream (the legs wait at the environment bitstreams)
   # and the shared image of the SDK lane
   cor:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     needs: [dispatch, approve, sims, sdk, host-bits]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cor_legs != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' && needs.sdk.result == 'success' && needs.host-bits.result != 'failure' && needs.host-bits.result != 'cancelled' }}
     strategy:
@@ -913,6 +1087,9 @@ jobs:
 
   # the .cfw/.ue2 update files of the package (ci/select.sh update: integ-m1, integration, main, tags, "[bundle]", the dispatch input `update`); the artifact `update` is the pre-release's
   update:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     needs: [dispatch, lint, keys, apptests, sims, cor, package]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.update == 'true' && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     uses: ./.github/workflows/update.yml
@@ -920,6 +1097,9 @@ jobs:
   # D1, D42: the package of a push to main or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the job runs the commit's
   # own scripts with the token of that environment, so the push must be one of Alex's (rulesets of main and v* tags, D15, D28). The package is the whole package of this file.
   prerelease:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Pre-release
     needs: [dispatch, package, update, emu, host-emu, ovtest-emu]
     if: >-
@@ -963,6 +1143,14 @@ jobs:
           MC_BUILDS_REPO: Jondalar/trx64mc-builds
           BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: ci/child.sh prerelease
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+        run: >-
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"
 
   summary:
     name: Result (the matrix)
