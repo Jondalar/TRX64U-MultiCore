@@ -5,7 +5,8 @@
 //   ovtest.pause    Pause on (api->ctx->set_paused), ovtest.resume Pause off
 //   ovtest.hide     api->overlay->menu_hide, ovtest.show_menu api->overlay->menu_show
 // The element's name, place and size are the UI TOML's (ovtest.toml, [[element]] "ovtest": 160 x 40 above the bottom edge); this library only holds the surface.
-// Build: tests/ui/ovtest/Makefile (make RV_PREFIX=riscv32-unknown-elf-).
+// Base 4.0 loads no library file (T239.3 D58): this is a register library, `int lib_register(const LibApi *, LibRecord *)`, which the test core's app links through its TOML B
+// (`register = "lib_register"`, LibLoader::link); it is not packed into a .u2a any more.
 #include "libapi.h"
 #include "libfmt.h"
 
@@ -144,12 +145,7 @@ static const LibOpDecl ops[] = {
 };
 static const LibStateDecl states[] = { { "ovtest.status", status_text } };
 
-#ifdef __riscv
-#define LIB_ENTRY_ATTR __attribute__((visibility("default"), section(".text.lib_register")))
-#else
-#define LIB_ENTRY_ATTR
-#endif
-extern "C" LIB_ENTRY_ATTR int lib_register(const LibApi *api, LibRecord *out)
+extern "C" int lib_register(const LibApi *api, LibRecord *out)
 {
     if (api->abi_major != U2A_ABI_MAJOR) {
         return 1;

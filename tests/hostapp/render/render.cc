@@ -2727,7 +2727,6 @@ static void scenarios_t197(const char *out)
     mkdir(apps.c_str(), 0755);
     mkdir(zdir.c_str(), 0755);
     copyfile(std::string(fx) + "/unzip.u2a", apps + "/unzip.u2a");
-    copyfile(std::string(fx) + "/miniz.u2a", apps + "/miniz.u2a");
     FILE *f = fopen((zdir + "/set.zip").c_str(), "wb"); fputs("PK dummy: the bench's application does not read it\n", f); fclose(f);
     f = fopen((zdir + "/notes.txt").c_str(), "wb"); fputs("x\n", f); fclose(f);
     g_zip_out = out;
@@ -2777,7 +2776,6 @@ static void scenarios_t197(const char *out)
     printf("t197 page: %s\n", pg);
     CHECK(strstr(pg, "title=Cannot unzip set.zip|") && strstr(pg, "l0=Unzip is not installed.|") && strstr(pg, "Nothing was unpacked.") && !g_zip_refuse_pic && !hostui_test_fmt_active());
     hostui_test_fm_keep(false);
-    unlink((apps + "/miniz.u2a").c_str());
     rmdir(apps.c_str());
     unlink((zdir + "/set.zip").c_str());
     unlink((zdir + "/notes.txt").c_str());

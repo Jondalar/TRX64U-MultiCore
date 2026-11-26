@@ -28,6 +28,6 @@ for f in "$ROOT/apps/unzip/src/unzip.c" "$ROOT/apps/miniz/src/miniz.c" "$ROOT/ap
 done
 srcs=("$H/host_core_flow_zip.cc" "$H/host_core_flow.cc" "$H/txu.cc" "$H/flashfw.cc" "$H/cfw.cc" "$H/cor.cc" "$H/handover.cc" "$H/fwconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc"
       "$SRC/appindex.cc" "$SRC/libload.cc" "$SRC/libscan.cc" "$SRC/libmenu.cc" "$SRC/descrec.cc" "$SRC/overlay.cc" "$SRC/ops.cc" "$SRC/corefolder.cc"
-      "$ROOT/apps/miniz/miniz_lib.cc" "$ROOT/apps/unzip/glue.cc")
+      "$H/hostlibslot.cc" "$ROOT/apps/miniz/miniz_lib.cc" "$ROOT/apps/unzip/glue.cc")
 c++ -std=gnu++14 -Wall -Wno-unused-function -Wno-sign-compare -Wno-inconsistent-missing-override -fno-exceptions "${INC[@]}" -o "$T/test_hostzip" "$ROOT/tests/hostapp/test_hostzip.cc" "${srcs[@]}" "${objs[@]}" "$T/sha256.o" 2>&1
 "$T/test_hostzip" "$T/fx"

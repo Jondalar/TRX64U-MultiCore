@@ -83,24 +83,27 @@ class SharedApp(unittest.TestCase):
             self.assertNotIn(generic, srcs)
 
     def test_table_has_a_row_per_library_with_its_entries(self):
+        # the columns of a LibEntry row (libtab.h): name, bind, register_ops, capability, init, start, freeze_request, core, reg, heap_keep, heap_peak; no `table` column any more
         libs = L.load(SHARED)
         t = L.table_text(libs)
-        self.assertEqual(t.count('\n    { "'), len(libs))
-        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, cap_cbm1541, 0, 0, 0, 0, 0 },', t)
+        N = "U2A3_BUDGET_NONE, U2A3_BUDGET_NONE"
+        self.assertEqual(t.count('\n    { "'), len(libs) + len(L.slots(libs)))                  # one row per library, then one LibSlot row per export
+        self.assertIn('{ "cbm1541", cbm1541_bind, cbm1541_register, cap_cbm1541, 0, 0, 0, 0, 0, %s },' % N, t)
         self.assertIn('static const char *const cap_cbm1541[] = { "drive_a", 0 };', t)
         self.assertNotIn('"uci"', t)                                                   # the command interface is TRX64-Ultimate's library (D49)
-        self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0, 0, 0 },', t)
-        self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0, 0, 0 },', t)                      # a library without an entry: its code is called by the libraries that need it
-        self.assertIn('{ "newdisk", 0, newdisk_register, cap_newdisk, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "dma", 0, 0, 0, 0, dmasvc_start, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "newfile", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)              # a library without an entry: its code is called by the libraries that need it
+        self.assertIn('{ "newdisk", 0, newdisk_register, cap_newdisk, 0, 0, 0, 0, 0, %s },' % N, t)
         self.assertIn('static const char *const cap_newdisk[] = { "floppy", "sio", 0 };', t)       # L-1b: an entry names several capabilities (a record-described atari800 names "sio")
-        self.assertIn('{ "folderhd", folderhd_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
-        self.assertIn('{ "fastseek", fastseek_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
-        self.assertIn('{ "ftp", ftp_bind, 0, 0, 0, 0, 0, 0, 0 },', t)
-        self.assertIn('{ "mouse", 0, 0, 0, mouse_lib_init, 0, 0, mouse_table, 0 },', t)           # the gamepad, mouse and pad-key libraries (L-1): a call table, the USB hook at init, the XInput claim at the core
-        self.assertIn('{ "pad", 0, 0, 0, pad_lib_init, 0, 0, pad_table, pad_lib_core },', t)
-        self.assertIn('{ "padkeys", 0, 0, 0, 0, 0, 0, padkeys_table, 0 },', t)
-        self.assertIn('{ "resample", 0, 0, 0, 0, 0, 0, 0, 0 },', t)
-        self.assertIn("const void * mouse_table(void);", t)
+        self.assertIn('{ "folderhd", folderhd_bind, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "fastseek", fastseek_bind, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "ftp", ftp_bind, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "mouse", 0, 0, 0, mouse_lib_init, 0, 0, 0, 0, %s },' % N, t)           # the gamepad, mouse and pad-key libraries (L-1): the USB hook at init, the XInput claim at the core
+        self.assertIn('{ "pad", 0, 0, 0, pad_lib_init, 0, 0, pad_lib_core, 0, %s },' % N, t)
+        self.assertIn('{ "padkeys", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "resample", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn('{ "miniz", 0, 0, 0, 0, 0, 0, 0, 0, %s },' % N, t)
+        self.assertIn("const void *mouse_table(void);", t)                              # the table function of an export is declared once
         self.assertIn("void pad_lib_core(CoreCtx *, const CoreDesc *, const DescRecord *);", t)
         self.assertIn("void tempdisk_lib_init(const BoardProfile &);", t)
         self.assertIn("const unsigned g_libtab_n = %d;" % len(libs), t)
@@ -112,7 +115,66 @@ class SharedApp(unittest.TestCase):
         t = L.table_text(L.load(p))
         self.assertIn('static const char *const cap_a[] = { "floppy", "sio", 0 };', t)
         self.assertIn('static const char *const cap_b[] = { "iec", 0 };', t)
-        self.assertIn('{ "a", 0, newdisk_register, cap_a, 0, 0, 0, 0, 0 },', t)
+        self.assertIn('{ "a", 0, newdisk_register, cap_a, 0, 0, 0, 0, 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE },', t)
+
+    def test_the_old_table_key_is_refused_for_exports(self):
+        # base 4.0 (libslot.h): `table = "x_table"` of a library is gone; the table is named under exports
+        p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\ntable = "a_table"\n')
+        with self.assertRaises(L.LibTabError) as e:
+            L.load(p)
+        self.assertIn("the key table is gone", str(e.exception))
+        self.assertIn("exports", str(e.exception))
+
+    def test_exports_are_written_into_g_libslot_and_libslots_h(self):
+        p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\nexports = [{ name = "alpha", major = 1, table = "alpha_table" }, { name = "beta", major = 2, table = "beta_table" }]\n'
+                   '[[library]]\nname = "b"\nsources = ["b.cc"]\nexports = [{ name = "gamma", major = 3, table = "gamma_table" }]\n')
+        libs = L.load(p)
+        t = L.table_text(libs)
+        self.assertIn("const LibSlot g_libslot[] = {", t)
+        self.assertIn('{ "a", "alpha", 1u, alpha_table, 0u },', t)
+        self.assertIn('{ "a", "beta", 2u, beta_table, 0u },', t)
+        self.assertIn('{ "b", "gamma", 3u, gamma_table, 0u },', t)
+        self.assertIn("const unsigned g_libslot_n = 3;", t)
+        self.assertIn("const void *g_libslot_bound[3];", t)
+        self.assertIn("const void *alpha_table(void);", t)
+        self.assertLess(t.index('"alpha"'), t.index('"beta"'))                          # the order of the file is the order of the slots
+        h = L.slots_text(libs)
+        for line in ("#define LIBSLOT_alpha 0", "#define LIBSLOT_alpha_MAJOR 1", "#define LIBSLOT_beta 1", "#define LIBSLOT_beta_MAJOR 2", "#define LIBSLOT_gamma 2",
+                     "#define LIBSLOT_gamma_MAJOR 3", "#define LIBSLOT_COUNT 3"):
+            self.assertIn(line, h)
+        # no library exports anything: one placeholder row, so the table is not an empty array
+        t0 = L.table_text(L.load(toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\n')))
+        self.assertIn("const unsigned g_libslot_n = 0;", t0)
+        self.assertIn("{ 0, 0, 0, 0, 0 },", t0)
+
+    def test_a_register_librarys_export_needs_no_table(self):
+        # a library with `register` delivers its table at start (LibRecord::export_list): the slot is at_start 1 and its function reads g_libslot_bound
+        p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\nexports = [{ name = "alpha", major = 1, table = "alpha_table" }]\n'
+                   '[[library]]\nname = "r"\nsources = ["r.cc"]\nregister = "r_register"\nexports = [{ name = "rho", major = 1 }]\n')
+        libs = L.load(p)
+        t = L.table_text(libs)
+        self.assertIn("static const void *slot_bound_1(void) { return g_libslot_bound[1]; }", t)
+        self.assertIn('{ "r", "rho", 1u, slot_bound_1, 1u },', t)
+        self.assertIn('{ "a", "alpha", 1u, alpha_table, 0u },', t)                      # a library without register keeps at_start 0
+        self.assertIn('{ "r", 0, 0, 0, 0, 0, 0, 0, r_register, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE },', t)
+        self.assertIn("const unsigned g_libtab_link_order[] = { 1 };", t)
+        # without register an export has to name its table
+        with self.assertRaises(L.LibTabError) as e:
+            L.load(toml_b('[[library]]\nname = "a"\nsources = ["a.cc"]\nexports = [{ name = "alpha", major = 1 }]\n'))
+        self.assertIn("names no table function", str(e.exception))
+        # with register an export may not name one
+        with self.assertRaises(L.LibTabError):
+            L.load(toml_b('[[library]]\nname = "r"\nsources = ["r.cc"]\nregister = "r_register"\nexports = [{ name = "rho", major = 1, table = "rho_table" }]\n'))
+
+    def test_libtab_mk_splits_c_and_cc_sources(self):
+        p = toml_b('[[library]]\nname = "a"\nsources = ["a.cc", "a1.c"]\n[[library]]\nname = "b"\nsources = ["b.c", "b.cc"]\n')
+        mk = L.mk_text(L.load(p)).split("\n")
+        self.assertEqual(mk[0], "LIB_SRCS_CC = a.cc b.cc")
+        self.assertEqual(mk[1], "LIB_SRCS_C = a1.c b.c")
+        shared = dict(l.split(" = ", 1) for l in L.mk_text(L.load(SHARED)).strip().split("\n"))
+        self.assertIn("miniz.c", shared["LIB_SRCS_C"].split())                          # miniz is plain C
+        self.assertIn("miniz_lib.cc", shared["LIB_SRCS_CC"].split())
+        self.assertNotIn(".c ", shared["LIB_SRCS_CC"] + " ")
 
     def test_the_four_libraries_of_l_1_are_listed_with_their_headers(self):
         libs = {x["name"]: x for x in L.load(SHARED)}
@@ -136,7 +198,8 @@ class SharedApp(unittest.TestCase):
     def test_the_mouse_pad_and_padkeys_libraries_give_the_generic_code_a_table(self):
         libs = {x["name"]: x for x in L.load(SHARED)}
         for name, table in (("mouse", "mouse_table"), ("pad", "pad_table"), ("padkeys", "padkeys_table")):
-            self.assertEqual(libs[name]["table"], table)
+            self.assertNotIn("table", libs[name])                                                   # the old library key is gone: the table is an export
+            self.assertEqual(libs[name]["exports"], [{"name": name, "major": 1, "table": table}])
             self.assertTrue(any(h.endswith("_api.h") for h in libs[name]["headers"]), name)          # the table's header: the seam the generic code reads through
         self.assertEqual(libs["pad"]["core"], "pad_lib_core")
         self.assertIn("u64_resample.cc", libs["resample"]["sources"])

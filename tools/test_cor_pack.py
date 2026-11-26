@@ -4,6 +4,7 @@ wrong host key refused (T84 D5b).
 
   python3 tools/test_cor_pack.py        (also collected by python3 -m pytest tools/test_cor_pack.py)
 """
+import atexit
 import contextlib
 import io
 import os
@@ -391,8 +392,32 @@ LARGE_GOLDEN = "311d02a9c4df134d91ef859fe427b234560ffb56b1269188671588b26c0f4bb5
 DESC_TOML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "coreapp", "golden", "desc_test.toml")
 
 
-def u2a(name="alpha", fmt=3, hsz=104, magic=b"U2AP"):
-    return magic + struct.pack("<HH", hsz, fmt) + bytes(max(0, hsz - 8)) + bytes(64)
+POLL1 = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P1"\nop = "p1.go"\n[poll]\nop = "p1.go"\nperiod_ms = 10\n'
+POLL2 = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P2"\nop = "p2.go"\n[poll]\nop = "p2.go"\nperiod_ms = 20\n'
+GAMMA = '[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n'
+
+
+def toml_b_file(libs, extra=""):
+    """A TOML B in a temp dir (base 4.0): libs = [(name, [(export, major)], menu TOML text or None)]. A library with a menu links with `register` (a menu is for those); its exports
+    then name no table. Returns the path; the menu files lie beside it."""
+    d = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, d, True)
+    out = '[app]\nname = "t"\n' + extra
+    for name, exports, menu in libs:
+        out += '[[library]]\nname = "%s"\nsources = ["%s.cc"]\n' % (name, name)
+        if menu is not None:
+            out += 'register = "%s_register"\nmenu = "%s.toml"\n' % (name, name)
+            open(os.path.join(d, name + ".toml"), "w").write(menu)
+        if exports:
+            out += "exports = [%s]\n" % ", ".join('{ name = "%s", major = %d%s }' % (n, mj, "" if menu is not None else ', table = "%s_table"' % n) for n, mj in exports)
+    path = os.path.join(d, "b.toml")
+    open(path, "w").write(out)
+    return path
+
+
+def blibs(libs):
+    """What the packer is given for a core's app: toml_b_libs of that TOML B."""
+    return C.toml_b_libs(toml_b_file(libs))
 
 
 def desc_record():
@@ -451,16 +476,16 @@ class RecordsTest(unittest.TestCase):
         self.assertTrue(descrec.parse_desc(r[C.T_DESC])["sections"])
         with self.assertRaisesRegex(C.CorError, "core section names"):
             make(desc=desc, name="Another Machine")
-        blob, _ = make(desc=desc, libs=[u2a()])                                     # the libraries' menus are merged in: the sections stay
+        blob, _ = make(desc=desc, libs=blibs([("alpha", [], GAMMA)]))                # the libraries' menus are merged in: the sections stay
         self.assertTrue(descrec.parse_desc(C.parse(blob, C.CONTRACT)[1][C.T_DESC])["sections"])
 
     def test_round_trip_both_kinds(self):
         desc = desc_record()
-        libs = [u2a(), u2a() + b"xy"]
+        libs = blibs([("poller", [], POLL1), ("poller2", [], POLL2)])                # menus with a poll stay for the run time: record 7 holds them
         blob, _ = make(icon=ICON, desc=desc, libs=libs)
         m, r = C.parse(blob, C.CONTRACT)
         self.assertEqual(r[C.T_DESC], desc)
-        self.assertEqual(C.parse_libs(r[C.T_LIBS]), libs)               # the odd length survives its padding
+        self.assertEqual(C.parse_libs(r[C.T_LIBS]), [(n, mb) for n, _, mb in libs])
         self.assertEqual((m["records"], m["desc_size"], m["libs_count"]), (1, len(desc), 2))
         self.assertEqual([t for t in sorted(r)], [1, 2, 3, 4, 6, 7])
         big = make_large(desc=desc, libs=libs[:1])
@@ -472,12 +497,13 @@ class RecordsTest(unittest.TestCase):
         self.assertNotIn(C.T_LIBS, r)
         self.assertNotIn("libs_size", m)
         m, r = C.parse(make(libs=libs)[0])
+        self.assertEqual([n for n, _ in C.parse_libs(r[C.T_LIBS])], ["poller", "poller2"])
         self.assertNotIn(C.T_DESC, r)
         self.assertNotIn("desc_size", m)
 
     def test_the_records_follow_the_icon_and_precede_nothing(self):
         # the order the reader of the board requires: increasing types, the manifest first
-        blob, _ = make(icon=ICON, desc=desc_record(), libs=[u2a()])
+        blob, _ = make(icon=ICON, desc=desc_record(), libs=blibs([("poller", [], POLL1)]))
         types, p = [], 12
         while p < len(blob):
             t, n = struct.unpack_from("<II", blob, p)
@@ -486,7 +512,7 @@ class RecordsTest(unittest.TestCase):
         self.assertEqual(types, [1, 2, 3, 4, 6, 7])
 
     def test_damaged_records_refused(self):
-        blob, _ = make(desc=desc_record(), libs=[u2a()])
+        blob, _ = make(desc=desc_record(), libs=blibs([("poller", [], POLL1)]))
         for t in (C.T_DESC, C.T_LIBS):
             off, p = None, 12
             while p < len(blob):
@@ -502,7 +528,7 @@ class RecordsTest(unittest.TestCase):
 
     def test_manifest_and_records_must_agree(self):
         desc = desc_record()
-        blob, _ = make(desc=desc, libs=[u2a()])
+        blob, _ = make(desc=desc, libs=blibs([("poller", [], POLL1)]))
         m, r = C.parse(blob)
 
         def rebuild(mm, drop=(), keep_desc=True):
@@ -534,61 +560,67 @@ class RecordsTest(unittest.TestCase):
         with self.assertRaises(C.CorError):
             make(desc=desc_record()[:-1])
 
-    def test_libraries_must_be_u2a_of_format_3(self):
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(magic=b"XXXX")])
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(fmt=2)])
-        with self.assertRaises(C.CorError):
-            make(libs=[u2a(hsz=64)])
-        with self.assertRaises(C.CorError):
-            make(libs=[b"U2AP"])
-        with self.assertRaises(C.CorError):
-            C.pack_libs([])
-        # a library set that lies: a count that is not what follows, a length past the end, bytes behind the last
-        good = C.pack_libs([u2a()])
-        for bad in (good[:8] + struct.pack("<I", 2) + good[12:], good[:12] + struct.pack("<I", 9999) + good[16:], good + b"\0\0\0\0", good[:-1],
-                    b"TRXM" + good[4:], good[:4] + struct.pack("<I", 2) + good[8:]):
+    def test_record_7_is_version_2_menu_records_and_nothing_else_is_read(self):
+        menu = descrec.compile_text(POLL1)
+        good = C.pack_libs([("poller", menu)])
+        self.assertEqual(good[:4], b"TRXL")
+        self.assertEqual(struct.unpack_from("<II", good, 4), (2, 1))
+        self.assertEqual(C.parse_libs(good), [("poller", menu)])
+        for bad_pack in ([], [("Poller", menu)], [("", menu)], [("x" * 16, menu)], [("poller", b"")], [("p", menu), ("p", menu)]):
+            with self.assertRaises(C.CorError):
+                C.pack_libs(bad_pack)
+        # version 1 held library files: refused, naming the reason (base 4.0 loads no library file)
+        with self.assertRaisesRegex(C.CorError, "loads no library file"):
+            C.parse_libs(good[:4] + struct.pack("<I", 1) + good[8:])
+        # a library set that lies: a count that is not what follows, a length past the end, bytes behind the last, a wrong magic or version, a record that is no menu record
+        for bad in (good[:8] + struct.pack("<I", 2) + good[12:], good[:28] + struct.pack("<I", 9999) + good[32:], good + b"\0\0\0\0", good[:-1],
+                    b"TRXM" + good[4:], good[:4] + struct.pack("<I", 3) + good[8:], good[:32] + b"\xFF" * len(menu) + good[32 + len(menu):]):
             with self.assertRaises(C.CorError):
                 C.parse_libs(bad)
 
     def test_a_core_whose_code_is_a_library_needs_that_library_with_the_export_corehooks(self):
-        # T239.3 base 3.3 (core_hooks.h): [core] hooks = "<library>" names the library whose export corehooks=1 is the core's code. The packer refuses a bundle whose named library is not
-        # in it, or whose file does not list the export (the list u2a_pack.py writes, U2A3_FLAG_EXPORTS), or lists it at another major; with the list and a budget record both, the list is found
-        import u2a_pack as U
-        elf = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "loader", "fixtures", "testlib.at0.elf"), "rb").read()
-
-        def lib(name, exports=None, budget=None):
-            return U.pack(elf, "lib", name, U.parse_version("1"), exports=exports, budget=budget)[0]
+        # T239.3 base 3.3 (core_hooks.h), base 4.0: [core] hooks = "<library>" names the library whose export corehooks=1 is the core's code. The packer refuses a bundle whose TOML B
+        # (--sizes) does not link that library, or links it without the export corehooks at major 1; without a TOML B a core that names hooks is refused.
         desc = descrec.compile_text('[core]\nid = "VC20"\nname = "VIC-20"\ntitle = "V"\nshort_title = "V"\nfolder = "vic"\nstore = "V"\nhooks = "cmodel"\n')
-        good = lib("cmodel", [("corehooks", 1)])
-        self.assertEqual(C.lib_exports(good), ("cmodel", [("corehooks", 1)]))
-        blob, _ = make(desc=desc, libs=[lib("other"), good])
+        good = blibs([("other", [], None), ("cmodel", [("corehooks", 1)], None)])
+        blob, _ = make(desc=desc, libs=good)
         m, r = C.parse(blob, C.CONTRACT)
         C.check_optional(m, r)                                                    # a made file passes its own check
         self.assertEqual(descrec.parse_desc(r[C.T_DESC])["core"]["hooks"], "cmodel")
-        C.pack_large("amiga1200", "VIC-20", "1", full_bit(), APP, ICON, desc=desc, libs=[good])                     # the large kind has the same records
-        budgeted = lib("cmodel", [("corehooks", 1), ("ring", 2)], U.parse_budget(["heap_keep=0"]))
-        self.assertEqual(C.lib_exports(budgeted)[1], [("corehooks", 1), ("ring", 2)])
-        make(desc=desc, libs=[budgeted])
-        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*not among the libraries'):
-            make(desc=desc)                                                       # no library at all
-        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*other'):
-            make(desc=desc, libs=[lib("other", [("corehooks", 1)])])              # the export is there, in another library
-        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*no export"):
-            make(desc=desc, libs=[lib("cmodel")])                                 # the library has no list
-        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*corehooks=2"):
-            make(desc=desc, libs=[lib("cmodel", [("corehooks", 2)])])             # exact major 1
-        with self.assertRaisesRegex(C.CorError, "does not list the export corehooks=1.*ring=1"):
-            make(desc=desc, libs=[lib("cmodel", [("ring", 1)])])
-        with self.assertRaisesRegex(C.CorError, "does not list the export"):
-            make_large(name="VIC-20", desc=desc, libs=[lib("cmodel")])
-        with self.assertRaisesRegex(C.CorError, "not a .u2a"):                    # a file that is no library is that refusal first
-            make(desc=desc, libs=[b"XXXX" + bytes(200)])
-        blob, _ = make(desc=desc_record(), libs=[lib("cmodel")])                  # a core that names no library is as before
+        C.pack_large("amiga1200", "VIC-20", "1", full_bit(), APP, ICON, desc=desc, libs=good)                     # the large kind has the same records
+        make(desc=desc, libs=blibs([("cmodel", [("corehooks", 1), ("ring", 2)], None)]))
+        with self.assertRaisesRegex(C.CorError, 'names the hooks library "cmodel".*--sizes'):
+            make(desc=desc)                                                       # no TOML B at all
+        with self.assertRaisesRegex(C.CorError, r'names the hooks library "cmodel".*does not link \(other\)'):
+            make(desc=desc, libs=blibs([("other", [("corehooks", 1)], None)]))    # the export is there, in another library
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*nothing"):
+            make(desc=desc, libs=blibs([("cmodel", [], None)]))                   # the library exports nothing
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*corehooks=2"):
+            make(desc=desc, libs=blibs([("cmodel", [("corehooks", 2)], None)]))   # exact major 1
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1.*ring=1"):
+            make(desc=desc, libs=blibs([("cmodel", [("ring", 1)], None)]))
+        with self.assertRaisesRegex(C.CorError, "does not export corehooks major 1"):
+            make_large(name="VIC-20", desc=desc, libs=blibs([("cmodel", [], None)]))
+        blob, _ = make(desc=desc_record(), libs=blibs([("cmodel", [], None)]))    # a core that names no library is as before
         C.check_optional(*C.parse(blob, C.CONTRACT))
-        with self.assertRaisesRegex(C.CorError, "malformed"):                     # a list that runs past the file
-            C.lib_exports(good[:106 + 4 * 0] + struct.pack("<I", 9) + good[110:])
+        # check_hooks directly: no description, or one without hooks, passes with any TOML B or none
+        C.check_hooks(None, None)
+        C.check_hooks(desc_record(), None)
+        with self.assertRaises(C.CorError):
+            C.check_hooks(desc, None)
+        # the command line: hooks without --sizes are refused, with a TOML B that links the library they pass
+        bit, _ = bit_file()
+        with tempfile.TemporaryDirectory() as d:
+            p, a, o, dt = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "hooks.toml"))
+            open(p, "wb").write(bit)
+            open(a, "wb").write(APP)
+            open(dt, "w").write('[core]\nid = "VC20"\nname = "T"\ntitle = "V"\nshort_title = "V"\nfolder = "vic"\nstore = "V"\nhooks = "cmodel"\n')
+            args = ["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2", "--desc", dt]
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(C.main(args), 1)
+            self.assertFalse(os.path.exists(o))
+            self.assertEqual(C.main(args + ["--sizes", toml_b_file([("cmodel", [("corehooks", 1)], None)])]), 0)
+            self.assertEqual(C.main(["check", o]), 0)
 
     def test_a_record_twice_or_out_of_order_refused(self):
         blob, _ = make(desc=desc_record())
@@ -603,16 +635,16 @@ class RecordsTest(unittest.TestCase):
     def test_cli(self):
         bit, _ = bit_file()
         with tempfile.TemporaryDirectory() as d:
-            p, a, o, l1, l2 = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "l1.u2a", "l2.u2a"))
+            p, a, o = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor"))
             open(p, "wb").write(bit)
             open(a, "wb").write(APP)
-            open(l1, "wb").write(u2a())
-            open(l2, "wb").write(u2a() + b"abcd")
+            tb = toml_b_file([("poller", [], POLL1), ("poller2", [], POLL2)])                # the TOML B of the core's app: two libraries with a menu that stays for the run time
             self.assertEqual(C.main(["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2",
-                                      "--desc", DESC_TOML, "--lib", l1, "--lib", l2]), 0)
+                                      "--desc", DESC_TOML, "--sizes", tb]), 0)
             self.assertEqual(C.main(["check", o]), 0)
             m, r = C.parse(open(o, "rb").read())
             self.assertEqual(m["libs_count"], 2)
+            self.assertEqual([n for n, _ in C.parse_libs(r[C.T_LIBS])], ["poller", "poller2"])
             self.assertEqual(r[C.T_DESC], desc_record())
             # a description with a typo is refused with the file named, and nothing is written
             bad = os.path.join(d, "bad.toml")
@@ -624,7 +656,7 @@ class RecordsTest(unittest.TestCase):
             b = os.path.join(d, "x.bit")
             open(b, "wb").write(full_bit())
             self.assertEqual(C.main(["pack-large", "-o", o + "3", "--id", "x", "--name", "A", "--version", "1", "--bit", b, "--app", a,
-                                      "--desc", DESC_TOML, "--lib", l1]), 0)
+                                      "--desc", DESC_TOML, "--sizes", tb]), 0)
             self.assertEqual(C.main(["check", o + "3"]), 0)
 
     def test_desc_more_than_once_compiles_the_files_into_one_record(self):
@@ -675,43 +707,62 @@ class RecordsTest(unittest.TestCase):
             self.assertEqual(C.parse(open(o + "5", "rb").read())[1][C.T_DESC], r[C.T_DESC])
 
 
-def lib_with_menu(name, menu):
-    """A format-3 library file with a menu record (tests/coreapp/gen_bundle.py u2a())."""
-    off = 104 + 64
-    h = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", 0x50413255, 104, 3, 3, 3, 1, 1, 2, 0, 1, name.encode(), 1 << 16, b"", 104, 64, 16, 16, 0, 0xFFFFFFFF,
-                    off, 0, 104, 0, 0, off)
-    return h + bytes(64) + menu
-
-
 class MergedMenusTest(unittest.TestCase):
-    """T104.2 D10: the libraries' menus are merged into the description when it is packed, and the record names them."""
+    """T104.2 D10, base 4.0: the menus of the libraries the core's app links (TOML B `menu`) are merged into the description when it is packed, and the record names them."""
 
     def setUp(self):
-        import descrec
         self.d = descrec
-        self.menu = descrec.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n')
 
     def test_the_menu_is_in_record_6_and_the_library_is_named(self):
-        blob, _ = make(desc=desc_record(), libs=[lib_with_menu("gamma", self.menu)])
+        blob, _ = make(desc=desc_record(), libs=blibs([("gamma", [], GAMMA)]))
         m, r = C.parse(blob)
         rec = self.d.parse_desc(r[C.T_DESC])
         self.assertEqual(rec["merged"], ["gamma"])
         self.assertIn("Gamma", [n["label"] for n in rec["node"]])
         self.assertEqual(m["desc_size"], len(r[C.T_DESC]))
+        self.assertNotIn(C.T_LIBS, r)                                   # merged: nothing is left for the run time
 
     def test_no_description_still_gets_one_for_a_library_with_a_menu(self):
-        blob, _ = make(libs=[lib_with_menu("gamma", self.menu)])
+        blob, _ = make(libs=blibs([("gamma", [], GAMMA)]))
         m, r = C.parse(blob)
         self.assertEqual(self.d.parse_desc(r[C.T_DESC])["merged"], ["gamma"])
 
     def test_a_library_without_a_menu_leaves_the_description_as_it_was(self):
-        blob, _ = make(desc=desc_record(), libs=[u2a()])
+        blob, _ = make(desc=desc_record(), libs=blibs([("alpha", [], None)]))
         self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
+        self.assertNotIn(C.T_LIBS, C.parse(blob)[1])
 
     def test_a_library_with_a_poll_keeps_its_menu_for_the_run_time(self):
-        poll = self.d.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
-        blob, _ = make(desc=desc_record(), libs=[lib_with_menu("poller", poll)])
-        self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
+        libs = blibs([("poller", [], POLL1)])
+        blob, _ = make(desc=desc_record(), libs=libs)
+        m, r = C.parse(blob)
+        self.assertEqual(r[C.T_DESC], desc_record())
+        self.assertEqual(C.parse_libs(r[C.T_LIBS]), [("poller", libs[0][2])])
+        self.assertEqual(m["libs_count"], 1)
+
+    def test_merge_menus_returns_the_description_and_the_menus_that_stay(self):
+        poll = descrec.compile_text(POLL1)
+        gamma = descrec.compile_text(GAMMA)
+        desc, kept = C.merge_menus(desc_record(), [("gamma", gamma), ("poller", poll)])
+        self.assertEqual(descrec.parse_desc(desc)["merged"], ["gamma"])
+        self.assertEqual(kept, [("poller", poll)])
+        self.assertEqual(C.merge_menus(desc_record(), []), (desc_record(), []))
+
+    def test_a_menu_that_is_a_cores_description_is_refused(self):
+        for text, why in (('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0x14\n', "windows"), ('hide = ["F7/settings"]\n', "hides or renames"),
+                          ('[[area]]\nname = "X"\n', "route")):
+            with self.assertRaisesRegex(C.CorError, why):
+                blibs([("bad", [], text)])
+
+    def test_a_menu_that_is_missing_or_without_register_is_refused(self):
+        path = toml_b_file([("gamma", [], GAMMA)])
+        os.remove(os.path.join(os.path.dirname(path), "gamma.toml"))
+        with self.assertRaisesRegex(C.CorError, "gamma"):
+            C.toml_b_libs(path)
+        p2 = toml_b_file([("alpha", [], None)])
+        open(p2, "a").write('[[library]]\nname = "m"\nsources = ["m.cc"]\nmenu = "m.toml"\n')
+        with self.assertRaisesRegex(C.CorError, "register"):
+            C.toml_b_libs(p2)
 
 
 class FilesTest(unittest.TestCase):
