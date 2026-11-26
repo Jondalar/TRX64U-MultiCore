@@ -1915,6 +1915,7 @@ static void update_net(void)
 // The autostart rows only exist while direct boot is off: with it on, the menu does not come up by itself, so there is nothing to count down.
 #define SET_SLOTS HC_SET_SLOTS
 static lv_obj_t *s_box[SET_SLOTS], *s_name[SET_SLOTS], *s_val[SET_SLOTS], *s_help, *s_note;
+static int s_help_top, s_pitch, s_help_y = -1;             // the help line sits under the rows that are shown, not under all slots (T265 P4)
 static lv_obj_t *s_mk[SET_SLOTS][4];
 static void fill_snapshot(WebSnapshot *w);
 
@@ -2134,7 +2135,8 @@ static void build_settings(void)
         }
     }
     BSTEP {
-        s_help = txt(p, CX0, y0 + SET_SLOTS * pitch + 4, "", F_SMALL, C_MUTED, CW);
+        s_help_top = y0 + 4; s_pitch = pitch; s_help_y = y0 + SET_SLOTS * pitch + 4;
+        s_help = txt(p, CX0, s_help_y, "", F_SMALL, C_MUTED, CW);
         s_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
     }
     build_cm(p);
@@ -2172,6 +2174,10 @@ static void update_settings(void)
         set_txt(s_name[i], name);
         set_txt(s_val[i], v);
         marks_show(s_mk[i], i == nv.ssel);
+    }
+    if (s_help_top + n * s_pitch != s_help_y) {
+        s_help_y = s_help_top + n * s_pitch;
+        lv_obj_set_y(s_help, s_help_y);
     }
     set_txt(s_help, help);
     set_txt(s_note, nv.note);
