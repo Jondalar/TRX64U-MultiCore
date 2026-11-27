@@ -255,7 +255,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
    optional; native timings kept (Amiga 15 kHz PAL/NTSC with interlace and hires, SNES 240p/288p and interlace); one common layer in
    `cores/common/` (in: RGB pixel, sync, blank, timing; out: the C64U DAC map, levels, optional PAL/NTSC encoding); the tap before the
    HDMI scaler; 31 kHz Amiga modes never reach a 15 kHz TV unchecked; DSP and LUT cost measured per core. Under review (2026-11-27).
-
+- **D16 (Alex, 2026-11-27, on Rick's two requests of #73): both go into the diag core now.** Alex (translated): "Well, the one is a
+  'mini' thing in the test in the diag core, isn't it? The other should be doable in the .toml or the diag app too." So: the
+  Subcarrier trim gets a step of about 4 Hz (`diag_avout.v`: the trim adds trim x 8 to the increment instead of trim x 64; the panel
+  row lists -500 Hz to +500 Hz in 10 Hz steps), built with the next full build (T264 D4); and an A/V walk asks for the standard once
+  before its first step (the choice list of the panel's Standard names) when its file does not set one, so no walk runs at a standard
+  the TV cannot take.
 ## §4 Out
 
 - A scope measurement of levels and full scale at the port (no scope at hand); the TV's view is what is measured.
