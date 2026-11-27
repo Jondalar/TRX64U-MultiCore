@@ -1458,6 +1458,7 @@ static uint32_t g_ov_gen;
 static void ov_gone(lv_event_t *)
 {
     g_ov = 0;
+    g_ov_gen++;                      // T260 fix review: the panels went with the container now, not at the next trx_overlay() (ui_dialog_render reads the generation before it)
 }
 
 lv_obj_t *trx_overlay(void)

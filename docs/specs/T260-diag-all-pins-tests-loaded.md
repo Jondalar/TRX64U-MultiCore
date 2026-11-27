@@ -427,3 +427,14 @@ evaluator of `diagtest.cc`, `diag_engine.h` (the model), `portdiag.cc` (the live
   lane's gateware, ue2emu, the board.
 - The diag SD folder is not in the package (§4); `tools/release_notes_mc.py` says it is copied from `cores/diag/sd` by FTP. Superseded
   by T239.5 D21 (02e28716d): the lane delivers `SD/cores/diag/`, every package and pre-release carries it as `SD.zip`.
+
+*Fix 2026-11-27, the panel's keys (Rick, tester, and Alex: "each keypress the HDMI screen redraws and it's about a 2 second wait before I can change the value again"; Alex, translated: "I noticed it yesterday too").*
+A regression of step 4: the A/V page was a settings page, whose rows are written in place since T104/T262; the panel is an edit list (`CoreDialogs::edit_list`, DK_EDIT), and `ui_dialog_render`
+built the whole question card again on every revision, because `question_sig` held the window, the selection and every row's label and value. So every key, UP/DOWN as well as LEFT/RIGHT, deleted
+and drew the card (a window of 14 rows, `DLG_ITEMS_MAX`) over the half-transparent veil in software. Fix (`coreapp/src/ui.cc`): for a choose or edit list the card's signature holds only its shape (kind, title, text, row count,
+whether the "a-b of n" label is there, buttons); the card keeps its row objects and a key retexts them with `trx_row_retext` (the function the pages use) and the "a-b of n" label; a row that
+cannot be changed in place builds the card again as before. DK_CHOOSE had the same cost and takes the same path. Found by the review: the overlay generation moved only at the next `trx_overlay()`, after `ui_dialog_render` had compared it, so after a frame rebuild in the
+same pass (a new canvas, e.g. the panel's Standard row switching PAL/NTSC at 480p/576p) the dialog kept pointers to deleted objects; `ov_gone` (`app/view/trxview.cc`) moves it
+now when the container is deleted. Proof: render bench (atari800 build, beside T167 S3) - RIGHT changes the pixels of one row, DOWN those of two rows, END moves the window,
+the three keys served in place (`ui_dialog_inplace`); the card afterwards equals a card built afresh for the same state (0 pixels differ); a frame rebuild between two
+keys builds the card again and writes no old row.
