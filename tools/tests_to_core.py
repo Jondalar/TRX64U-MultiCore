@@ -251,7 +251,10 @@ def convert(cid, run=True, commit=False):
         open(os.path.join(dest, b), "w").write(txt)
     for f in with_macro:
         p = os.path.join(ROOT, f)
-        open(p, "w").write(unifdef(p, ["-U" + macro]))
+        txt = unifdef(p, ["-U" + macro])          # read before the file is opened for writing (open(p, "w") truncates it)
+        if not txt.strip():
+            raise Fail("unifdef -U%s left %s empty" % (macro, f))
+        open(p, "w").write(txt)
     # 3. the files only the core's lines name, and its goldens
     rest_text = "\n".join(lines[i] for i in range(len(lines)) if i not in C)
     moved = set()
