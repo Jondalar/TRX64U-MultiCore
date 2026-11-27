@@ -1,0 +1,346 @@
+# TOML A of the SuperCPU core (T239.3 D55, T239.5 D61): the gateware's registers as capabilities. The blocks and names are from cores/c64scpu/c64scpu_regs.v (the core's own register page E) and
+# cores/c64u/c64u_io.v (the C64U window the core keeps for the rest of the window: identity, interrupts). tools/rtl_check.py check proves every property against the RTL (the core window: the cw_*
+# ports of layer2_c64scpu; the host decodes 0x101A0000-0x101AFFFF to them, so the app's register offset is the address minus 0x101A0000; the drive window 0x10020000 is the drv_io_* port of the same module).
+# Not described: the pages of the C64U window that the core's code does not use (the cartridge page 4, the expansion port page 7, the streams, the UCI, the tape pages C and D, the reSID8 and socket
+# controls, the sampler window, the pixel layer on page 6) and the pin control 078 (the core has no cassette port, T249).
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "SCPU"
+block = "ident"
+
+# 000-003: the ID "SCPU" (layer2_c64scpu.v answers bytes 0-3 itself, byte 0 first), 004 caps, 005 caps2, 006 caps3 and 008-00B the build word come from c64u_io.v (the C64U window the core keeps for everything but page E)
+[[block]]
+name = "ident"
+module = "layer2_c64scpu"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps3"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears) of the C64U window: b4 flash operation pending, b5 EEPROM written, b6 video frame start, b7 page flip done; 018 LEVEL_IRQ (live levels, not masked), 019 LEVEL_IRQ_EN. The core's own interrupt cause is page E (block page_irq)
+[[block]]
+name = "irq"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0010
+size = 0xA
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "level_irq"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "level_irq_en"
+  offset = 0x9
+  width = 8
+  dir = "rw"
+
+# 020-027: the DDR2 controller's calibration result, read only
+[[block]]
+name = "ddr_cal"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "cal"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "cal_hi"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 070-073: the capability word, host_caps | this core's bits (layer2_c64scpu.v core_caps)
+[[block]]
+name = "core_caps"
+module = "c64u_io"
+owner = "base"
+address = 0x101A0070
+size = 0x4
+  [[block.property]]
+  name = "caps"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+# E000-E004: the page's ID "SCPU" and layout version (c64scpu_regs.v)
+[[block]]
+name = "page_id"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE000
+size = 0x5
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+
+# E024 joy_swap b0 = 1: the host's joystick ports 1 and 2 are swapped before the core (live; reset 0; COLD resets it)
+[[block]]
+name = "machine"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE024
+size = 0x1
+  [[block.property]]
+  name = "joy_swap"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# E030 status: b0 SuperCPU ROM valid, b1 20 MHz in effect, b2 emulation mode (E flag), b3 held (Freeze), b4 PAL
+[[block]]
+name = "status"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE030
+size = 0x1
+  [[block.property]]
+  name = "status"
+  offset = 0x0
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "rom_valid"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "fast"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "emu"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "pal"
+    shift = 4
+    bits = 1
+
+# E040 ctrl: write b0 flushes the line caches, read b0 the flush is running; E044 hits, E048 misses (32 bit); E050 base: the DDR2 byte address of the C64 ROM image; E054 srom_base: the SuperCPU ROM's; E058 srom_log2 b4:0 (16, 17 or 18); E05C rom_valid b0 (0 holds the 65816 in reset); E060 sw b0 speed switch, b1 JiffyDOS switch (reset and COLD 0x01)
+[[block]]
+name = "rom"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE040
+size = 0x21
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "hits"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "misses"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "base"
+  offset = 0x10
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "srom_base"
+  offset = 0x14
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "srom_log2"
+  offset = 0x18
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rom_valid"
+  offset = 0x1C
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "sw"
+  offset = 0x20
+  width = 8
+  dir = "rw"
+
+# E064 dev_cyc: CPU enables withheld because the CPU's memory was not ready; E068 cache_hits, E06C cache_misses of the 65816's 32 KiB cache (32 bit each)
+[[block]]
+name = "cache"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE064
+size = 0xC
+  [[block.property]]
+  name = "dev_cyc"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "cache_hits"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "cache_misses"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# E080: write b0 = 1 starts a cold start; read b0 = the cold start is running
+[[block]]
+name = "cold"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE080
+size = 0x1
+  [[block.property]]
+  name = "cold"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# E090/E091 addr (12 bit): the byte address of the character ROM store; E092 data: write stores the byte at addr and adds 1, read gives the byte at addr (two clocks after an addr write) and adds 1
+[[block]]
+name = "chr"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE090
+size = 0x3
+  [[block.property]]
+  name = "addr"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "data"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+# E0A0 rom_waits: CPU cycles held by a missed ROM line (32 bit); E0A4 rom_fill_max: the longest line fetch in core clocks; E0B0 fr_min, E0B4 fr_max: the shortest and the longest VIC frame in core clocks since the last clear (20 bit: 16 + 8); E0B8 dbg_clr: any value clears them
+[[block]]
+name = "perf"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE0A0
+size = 0x19
+  [[block.property]]
+  name = "rom_waits"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "rom_fill_max"
+  offset = 0x4
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_min"
+  offset = 0x10
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_min_hi"
+  offset = 0x12
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fr_max"
+  offset = 0x14
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fr_max_hi"
+  offset = 0x16
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "dbg_clr"
+  offset = 0x18
+  width = 8
+  dir = "w"
+
+# E0C0-E0C9: five 16 bit counters of the RAM in the DDR2: VIC reads answered $FF, CPU reads held by a miss, DDR2 line reads, writes that found the FIFO full (must stay 0), VIC reads of RAM block 1
+[[block]]
+name = "ram_cnt"
+module = "c64scpu_regs"
+owner = "core"
+address = 0x101AE0C0
+size = 0xA
+  [[block.property]]
+  name = "count"
+  offset = 0x0
+  width = 16
+  dir = "r"
+  count = 5
+  stride = 2
+
+# 0x10020000: the drive of the core (Gideon's mm_drive, c64u_drive_l2 behind drv_io_*): the 1541 or the 1581 as the app selects, with the shipped maps cbm1541 (the 1541 and the parameter RAM) and wd177x (the 1581's controller)
+[[block]]
+name = "drive_a"
+module = "c64u_drive_l2"
+owner = "core"
+address = 0x10020000
+size = 0x1800
+map = "cbm1541"
+
+[[block]]
+name = "drive_wd"
+module = "c64u_drive_l2"
+owner = "core"
+address = 0x10021800
+size = 0x10
+map = "wd177x"

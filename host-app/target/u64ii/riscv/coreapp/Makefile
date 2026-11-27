@@ -190,7 +190,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			apple2_nib.cc \
 			apple2_woz.cc \
 			apple2_hdd.cc \
-			c64scpu.cc \
 			d1541_fs.cc \
 			snes.cc \
 			snes_rom.cc \
