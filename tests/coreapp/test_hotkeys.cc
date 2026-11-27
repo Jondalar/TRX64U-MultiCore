@@ -39,9 +39,6 @@ extern const CoreDesc neogeo_desc;              // cores.h lists the shared app'
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
-#ifdef TEST_APP_C64SCPU
-extern const CoreDesc c64scpu_desc;             // cores.h lists the shared app's cores; the C64SCPU is its own app (cores/c64scpu/app/lib)
-#endif
 #ifdef TEST_APP_PET
 extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
 #endif
@@ -322,8 +319,6 @@ int main()
         const Row rows[] = { { &neogeo_desc, "neogeo", true } };
 #elif defined(TEST_APP_DIAG)
         const Row rows[] = { { &portdiag_desc, "portdiag", false } };
-#elif defined(TEST_APP_C64SCPU)
-        const Row rows[] = { { &c64scpu_desc, "c64scpu", true } };
 #elif defined(TEST_APP_SNES)
         const Row rows[] = { { &snes_desc, "snes", true } };
 #else

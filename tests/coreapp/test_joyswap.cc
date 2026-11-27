@@ -25,10 +25,6 @@ extern const CoreDesc c264_desc;         // the Commodore 264 is its own app (co
 #include "c128_regs.h"
 extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
-#ifdef TEST_APP_C64SCPU                  // the C64SCPU's app (run.sh c64scpuapp) has its own core only
-#include "c64scpu_regs.h"
-extern const CoreDesc c64scpu_desc;      // cores.h lists the shared app's cores; the C64SCPU is its own app (cores/c64scpu/app/lib)
-#endif
 #ifdef TEST_APP_CPC                      // the CPC's app (run.sh cpcapp) has its own core only
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
@@ -84,8 +80,6 @@ int main()
         { &cpc_desc, CPC_JOY },
 #elif defined(TEST_APP_C128)
         { &c128_desc, C128_JOY },
-#elif defined(TEST_APP_C64SCPU)
-        { &c64scpu_desc, SCPU_JOY },
 #elif defined(TEST_APP_NES)
         { &nes_desc, NES_JOY },
 #else

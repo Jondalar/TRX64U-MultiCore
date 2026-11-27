@@ -94,12 +94,6 @@ const CoreDesc *const compiled_in_table[] = { &c128_desc, 0 };
 extern const CoreDesc snes_desc;   // cores.h lists the shared app's cores (cores/snes/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &snes_desc, 0 };
-#elif defined(TEST_APP_C64SCPU)
-// the C64SCPU's app is its own build (run.sh c64scpuapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc c64scpu_desc;   // cores.h lists the shared app's cores (cores/c64scpu/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &c64scpu_desc, 0 };
 #else
 #error "compiled_table.cc is the compiled-in table of a core's app: build it as that app (run.sh <core>app, TEST_APP_<CORE>); the shared table is empty (T239.3 D61)"
 #endif

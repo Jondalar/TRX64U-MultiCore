@@ -26,9 +26,6 @@ const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_ATARI800)         // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_C64SCPU)          // the C64SCPU's app (run.sh c64scpuapp, the unit c64scpu_picture) has its own core only
-extern const CoreDesc c64scpu_desc;      // cores.h lists the shared app's cores; the C64SCPU is its own app (cores/c64scpu/app/lib)
-const CoreDesc *const core_table[] = { &c64scpu_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { 0 };   // the shared unit: the frame and the made-up core (T239.5 D13, D61)
 #endif
@@ -665,9 +662,6 @@ int main()
     fixed_frame();
     extension();
     runtime_change();
-#elif defined(TEST_APP_C64SCPU)          // the C64SCPU's app (run.sh c64scpuapp, the unit c64scpu_picture): its own picture, the host's mode
-    own_picture();
-    host_auto();
 #else                                    // the shared unit picture: the frame, the made-up core
     layout_table();
     fixed_frame();
