@@ -14,8 +14,8 @@ For a core <id> (the wrapper of tests/coreapp/run.sh whose CA_APP is <id>; its s
     branches (unifdef -U TEST_APP_<X>: a negative condition loses the core's term);
  3. the files only the core's lines name (its own test programs, its driver table script) and its goldens (golden/*_<id>.*: the core's build then reads its
     GOLDEN_DIR in its folder) move there (git mv);
- 4. the core's units run (CA_GROUP=<id> tests/coreapp/run.sh, every unit and control of the group). A red run, a unit of its lines that did not run, or a
-    script that does not parse undoes every change; the core is reported with the error lines. --commit commits a green core (tools/check_todo.py first).
+ 4. the core's units run (CA_GROUP=<id> tests/coreapp/run.sh, every unit and control of the group). A red run, a run whose last line is not run.sh's
+    summary, a unit of its lines that did not run, or a script that does not parse undoes every change; the core is reported with the error lines. --commit commits a green core (tools/check_todo.py first).
 Nothing here names a core: the cores are what run.sh's wrappers say.
 """
 import os
@@ -101,7 +101,7 @@ def core_lines(lines, w):
                     if not m2 or not re.search(r'^%s\(\)' % re.escape(fn), open(os.path.join(TST, m2.group(1))).read(), re.M):
                         continue
                     other = [j for j, t in enumerate(lines) if j != k and m2.group(1) in t]
-                    refs = [r for r in sh(["git", "grep", "-lwF", m2.group(1), "--", ".", ":!docs", ":!*.md"]).stdout.split() if r not in ("tests/coreapp/run.sh", "tests/coreapp/" + m2.group(1))]
+                    refs = [r for r in sh(["git", "grep", "-lwF", m2.group(1), "--", ".", ":!docs", ":!*.md", ":!cores/%s" % w["id"]]).stdout.split() if r not in ("tests/coreapp/run.sh", "tests/coreapp/" + m2.group(1))]
                     if not other and not refs:
                         C.add(k)
     funcs = blocks(lines)
@@ -230,7 +230,7 @@ def convert(cid, run=True, commit=False):
     words = set(re.findall(r'[\w.]+', moved_text))
     os.makedirs(dest, exist_ok=True)
     # 2. the files with the core's branches
-    with_macro = [f for f in sh(["git", "grep", "-lw", macro, "--", "tests"]).stdout.split() if f.startswith("tests/coreapp/")]
+    with_macro = [f for f in sh(["git", "grep", "-lw", macro, "--", "tests"]).stdout.split() if f.startswith("tests/coreapp/") and f.endswith((".cc", ".h", ".c", ".cpp"))]   # a script that names the symbol in a comment is no C
     others = set(re.findall(r'TEST_APP_\w+', "".join(open(os.path.join(ROOT, f)).read() for f in with_macro))) - {macro}
     copied = set()
     for f in with_macro:
@@ -260,7 +260,7 @@ def convert(cid, run=True, commit=False):
             continue
         if re.search(r'(?<![\w.])%s(?![\w])' % re.escape(b), rest_text):
             continue
-        refs = [r for r in sh(["git", "grep", "-lwF", b, "--", ".", ":!docs", ":!*.md"]).stdout.split() if r not in ("tests/coreapp/run.sh", "tests/coreapp/" + b)]
+        refs = [r for r in sh(["git", "grep", "-lwF", b, "--", ".", ":!docs", ":!*.md", ":!cores/%s" % cid]).stdout.split() if r not in ("tests/coreapp/run.sh", "tests/coreapp/" + b)]
         if refs:
             continue
         git("mv", "tests/coreapp/" + b, "cores/%s/app/tests/%s" % (cid, b))
@@ -270,7 +270,7 @@ def convert(cid, run=True, commit=False):
     for g in sorted(os.listdir(os.path.join(TST, "golden"))):
         if not gre.search(g):
             continue
-        if sh(["git", "grep", "-lF", g, "--", ".", ":!docs", ":!*.md"]).stdout.strip():
+        if sh(["git", "grep", "-lF", g, "--", ".", ":!docs", ":!*.md", ":!cores/%s" % cid]).stdout.strip():
             continue
         os.makedirs(os.path.join(dest, "golden"), exist_ok=True)
         git("mv", "tests/coreapp/golden/" + g, "cores/%s/app/tests/golden/%s" % (cid, g))
@@ -312,8 +312,12 @@ def convert(cid, run=True, commit=False):
     rc, log = run_group(cid, "after")
     text = open(log, errors="replace").read()
     missing = [u for u in units if not re.search(r'^(test|control) %s:' % re.escape(u), text, re.M)]
-    if rc or missing:
+    last = [l for l in text.splitlines() if l.strip()][-1:] or [""]
+    summ = re.match(r'^tests/coreapp: \d+ test programs passed, \d+ parallel controls', last[0])
+    if rc or missing or not summ:
         msg = ["red run (exit %d), log %s" % (rc, log)] if rc else []
+        if not rc and not summ:
+            msg.append("red run: the last line is not the summary of tests/coreapp/run.sh (a control may have failed unseen), log %s" % log)
         if missing:
             msg.append("units of its lines that did not run: " + " ".join(missing))
         raise Fail("; ".join(msg) + "\n    " + "\n    ".join(tail_errors(log)))
