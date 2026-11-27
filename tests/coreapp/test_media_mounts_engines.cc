@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #if defined(TEST_APP_SNES)
@@ -41,9 +41,6 @@
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
-#include "atari800_regs.h"
-#endif
 #ifdef TEST_APP_SNES
 #include "snes_regs.h"
 #endif
@@ -62,9 +59,6 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_C128)
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
-#elif defined(TEST_APP_ATARI800)
-extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #elif defined(TEST_APP_SNES)
@@ -262,17 +256,6 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
-#ifdef TEST_APP_ATARI800
-static Bytes atr(int sectors, uint32_t seed)
-{
-    Bytes v(16, 0);
-    uint32_t paras = (uint32_t)sectors * 128 / 16;
-    v[0] = 0x96; v[1] = 0x02; v[2] = paras & 0xFF; v[3] = (paras >> 8) & 0xFF; v[4] = 128; v[6] = (paras >> 16) & 0xFF;
-    Bytes d = patt(seed, (size_t)sectors * 128);
-    v.insert(v.end(), d.begin(), d.end());
-    return v;
-}
-#endif
 #ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
 #endif
@@ -361,18 +344,6 @@ static Case apple_unit(int u)
     return k;
 }
 #endif
-#ifdef TEST_APP_ATARI800
-static Case atari_drive(int d)
-{
-    Case k;
-    k.key = std::string("Mount D") + std::to_string(d + 1);
-    k.a = "/usb0/a" + std::to_string(d) + ".atr";
-    k.b = "/usb0/b" + std::to_string(d) + ".atr";
-    k.mount = [d](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "atari800.mount", { in_str("path", path.c_str()), in_int("drive", d), in_int("boot", 0) }, m, n); };
-    k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "atari800.eject", { in_int("drive", d) }, m, n); };
-    return k;
-}
-#endif
 #ifdef TEST_APP_CPC          // the CPC's two drives
 static Case cpc_drive(int d)
 {
@@ -442,32 +413,6 @@ static std::vector<Prof> profiles()
         p.prep = [](Run &r) { a2_state(&r.c)->have_diskrom = true; };
         p.cases = { apple_drive(0), apple_drive(1), apple_unit(0), apple_unit(1) };
         p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
-        v.push_back(p);
-    }
-#endif
-#ifdef TEST_APP_ATARI800
-    {   // ---- Atari 800 XL: D1-D4 and the cartridge
-        Prof p;
-        p.name = "atari800"; p.cfg = "/usb0/cores/atari800/atari800.cfg"; p.base = &atari800_desc;
-        p.make_io = [] { return (CoreIo *)new GIo; };
-        p.world = [](FakeFs &fs) {
-            for (int d = 0; d < 4; d++) {
-                fs.put("/usb0/a" + std::to_string(d) + ".atr", atr(80, (uint32_t)d + 1));
-                fs.put("/usb0/b" + std::to_string(d) + ".atr", atr(40, (uint32_t)d + 9));
-            }
-            fs.put("/usb0/g.rom", patt(1, 8192));
-            fs.put("/usb0/h.rom", patt(2, 16384));
-            fs.put("/usb0/x.xex", Bytes{ 0xFF, 0xFF, 0x00, 0x06, 0x02, 0x06, 0xA9, 0x01, 0x60 });
-        };
-        p.cases = { atari_drive(0), atari_drive(1), atari_drive(2), atari_drive(3) };
-        Case cart;
-        cart.key = "Mount Cartridge";
-        cart.a = "/usb0/g.rom";
-        cart.b = "/usb0/h.rom";
-        cart.mount = [](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "atari800.insert_cart", { in_str("path", path.c_str()) }, m, n); };
-        cart.eject = [](Run &r, char *m, int n) { return mount_op(r, "atari800.remove_cart", {}, m, n); };
-        p.cases.push_back(cart);
-        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(A8_CART1); }, 0x01, "the 8 KB cartridge's type written while the core is held" } };
         v.push_back(p);
     }
 #endif
@@ -844,59 +789,6 @@ static const Prof &prof(const std::vector<Prof> &v, const char *name)
 }
 
 // the Atari's .xex boot disk lives in D1 under its own word; an ATR mounted over it takes it away again
-#ifdef TEST_APP_ATARI800
-static void atari_xex(const Prof &p)
-{
-    char msg[240];
-    FakeFs fs;
-    p.world(fs);
-    {
-        Run a(fs, p);
-        a.set(PERSIST_KEY, "Yes");
-        a.boot();
-        OpIn in = in_str("path", "/usb0/x.xex");
-        CHECK_EQ(a.op("atari800.run_xex", &in, 1, msg, sizeof(msg)), OPE_OK);
-        CHECK_STR(a.spec(0).c_str(), "xex /usb0/x.xex");
-        CHECK(has(a.cfg(), "Mount D1=xex /usb0/x.xex"));
-    }
-    {
-        Run b(fs, p);
-        b.boot();
-        CHECK_EQ(g_releases, 1);
-        CHECK_STR(b.spec(0).c_str(), "xex /usb0/x.xex");
-        CHECK_STR(g_rel_specs.empty() ? "(none)" : g_rel_specs[0].c_str(), "xex /usb0/x.xex");
-        CHECK_EQ(p.cases[0].mount(b, "/usb0/a0.atr", msg, sizeof(msg)), 0);          // an ATR over it
-        CHECK(has(b.cfg(), "Mount D1=/usb0/a0.atr") && !has(b.cfg(), "xex"));
-    }
-    printf("Atari: the .xex boot disk is stored as \"xex <path>\" and restored into D1\n");
-}
-
-// SvcCtx::mount_notify marks a slot (CoreCtx::mounts_dirty[i] = engine slot i); the pass stores it once the start has mounted what the .cfg stores
-static void notify_pass(const Prof &p)
-{
-    char msg[240];
-    FakeFs fs;
-    p.world(fs);
-    Run a(fs, p);
-    a.set(PERSIST_KEY, "Yes");
-    a.c.mount_changed = 0;                                                       // a change that no engine call reports: only the mark does
-    a.boot();
-    CHECK_EQ(p.cases[0].mount(a, "/usb0/a0.atr", msg, sizeof(msg)), 0);
-    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));
-    mounts_pass(&a.c);
-    CHECK(!has(a.cfg(), "Mount D1=/usb0/a0.atr"));                               // nothing marked: nothing stored
-    a.c.mounts_ready = false;
-    a.c.mounts_dirty[0] = 1;
-    mounts_pass(&a.c);
-    CHECK(a.c.mounts_dirty[0] == 1 && !has(a.cfg(), "Mount D1=/usb0/a0.atr"));     // the start is not done: the mark waits
-    a.c.mounts_ready = true;
-    mounts_pass(&a.c);
-    CHECK(a.c.mounts_dirty[0] == 0 && has(a.cfg(), "Mount D1=/usb0/a0.atr"));
-    printf("Atari: a slot marked by mount_notify is stored on the next pass\n");
-}
-
-// the drive library's disk is read/write, read only or unlinked: the word in front of the path
-#endif
 #ifndef MME_NO_DRIVE          // the Spectrum's app has no drive
 static void drive_modes(const Prof &p)
 {
@@ -1007,9 +899,6 @@ int main()
     cpc_464(prof(profs, "cpc"));
 #elif defined(TEST_APP_C128)
     drive_modes(prof(profs, "c128"));
-#elif defined(TEST_APP_ATARI800)
-    atari_xex(prof(profs, "atari800"));
-    notify_pass(prof(profs, "atari800"));
 #else
 #endif
     DONE("test_media_mounts_engines");

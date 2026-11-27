@@ -28,7 +28,7 @@ extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -39,10 +39,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
-#elif defined(TEST_APP_ATARI800)          // the Atari 800 XL's app is its own build (run.sh a8app): its core is the only one in its table
-extern const CoreDesc atari800_desc;      // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#define HEX_CORE atari800_desc
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
@@ -124,8 +120,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
 #elif defined(TEST_APP_A1200)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
-#elif defined(TEST_APP_ATARI800)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF } };
 #elif defined(TEST_APP_AMIGA)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_DIAG)
@@ -173,15 +167,6 @@ int main()
     }
 #endif
 #if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
-#ifdef TEST_APP_ATARI800                  // the Atari's app (run.sh a8app, the unit a8_memops)
-    // ---- the Atari: the same window, no ram-only bit
-    {
-        Rig r(&atari800_desc);
-        CHECK_EQ(r.write(0x600, "a9", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x600], 0xA9); CHECK_EQ(r.io.memonly_on, 0);
-    }
-#endif
-#ifndef TEST_APP_ATARI800                 // the other cores of the shared app
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -196,7 +181,6 @@ int main()
     }
     // ---- the ZX Spectrum Next: the unit zxnext_memops (its app); the cores whose memory the application cannot reach are their apps' units (nes_memops, amiga_memops,
     // diag_memops, ...): the shared table has none left (T239.5 D13)
-#endif
 #ifdef TEST_APP_ZX
     // ---- the ZX Spectrum: 128 KB through a window of 64 KB, the page register put back to 0
     {

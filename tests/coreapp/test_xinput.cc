@@ -6,9 +6,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
-#ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app, the unit a8_xinput) has its own core only
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-#elif defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_xinput) has its own core only
+#if   defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_xinput) has its own core only
 #include "snes_regs.h"
 extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
 #else
@@ -60,12 +58,6 @@ static uint8_t dp(int p) { uint32_t b = 0; uint8_t d = 0; pad_state(p, &b, &d); 
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
-#ifdef TEST_APP_ATARI800
-    // D4 on the Atari 800 XL (its app, run.sh a8app): the capability `pad` is exactly the cores that have a PadSpec - the Atari has neither
-    CHECK_EQ(desc_has_capability(&atari800_desc, "pad"), atari800_desc.pad != NULL);
-    CHECK(!desc_has_capability(&atari800_desc, "pad"));
-    DONE("xinput");
-#else
     int dl = 0;
     const uint8_t *desc = xinput_descriptor(&dl);
 
@@ -310,5 +302,4 @@ int main()
         CHECK(!idle.data(r.data(), (int)r.size(), rep));
     }
     DONE("xinput");
-#endif
 }

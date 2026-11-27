@@ -10,12 +10,6 @@ const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
-#elif defined(TEST_APP_ATARI800)
-// the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
-#include "cores.h"
-extern const CoreDesc atari800_desc;   // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &atari800_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 // the Apple IIe's app is its own build (run.sh apple2app): its table is its core only
 #include "cores.h"

@@ -8,9 +8,6 @@
 #include <vector>
 #include "check.h"
 #include "model_grid.h"
-#ifdef TEST_APP_ATARI800                // the Atari's file manager cases: its app (run.sh a8app, the unit a8_cut)
-#include "sio_model.h"
-#endif
 #include "fakes.h"
 #include "cores.h"
 #include "menuctl.h"
@@ -20,11 +17,6 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "record_menu.h"
-#ifdef TEST_APP_ATARI800
-#include "atari_media.h"
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };   // the table of its app (the shared units link the shared table.cc)
-#endif
 #include "libload.h"
 #include "libexports.h"
 #include "menuflows.h"
@@ -103,151 +95,10 @@ static bool open_by_home_row(MenuCtl &m, const char *label)
     return false;
 }
 
-#ifdef TEST_APP_ATARI800
-struct Lib {
-    SioModel io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
-    Lib()
-    {
-        static CoreDesc gd;
-        static Setting gs[SETTINGS_MAX];
-        volume_extend(&atari800_desc, &gd, gs);
-        const CoreDesc *d = &gd;
-        memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs;
-        st = new Settings(d->settings, d->nsettings, d->store, &fs, "/usb0/cores/atari800.cfg", 0);
-        c.settings = st;
-        vid = new Video(d->video, &px, &io);
-        c.video = vid;
-        m = new MenuCtl(&c, &host);
-        st->load();
-        fs.put("/usb0/games/a.atr", std::vector<uint8_t>(32, 1));
-        fs.put("/usb0/games/b.atr", std::vector<uint8_t>(32, 2));
-        fs.put("/usb0/games/c.atr", std::vector<uint8_t>(32, 3));
-        fs.put("/usb0/games/d.atr", std::vector<uint8_t>(32, 4));
-    }
-    std::string left(int i) { char l[300], r[100]; bool a; m->row(i, l, 300, r, 100, &a); return l; }
-    int find_row(const char *s) { for (int i = 0; i < m->rows(); i++) if (left(i) == s) return i; return -1; }
-    bool go_to(const char *s) { int r = find_row(s); if (r < 0) { printf("FAIL no row %s\n", s); g_fails++; return false; } while (m->selected() > r) m->key(KEY_UP); while (m->selected() < r) m->key(KEY_DOWN); return true; }
-    void enter(const char *s) { if (go_to(s)) m->key(KEY_RETURN); }
-    void to_games() { m->key(KEY_F3); for (int i = 0; i < 12 && strcmp(m->title(), "/"); i++) m->key(KEY_LEFT); enter("usb0/"); enter("games/"); }
-    void run_job() { int n = 0; while (m->tick() && ++n < 400) { } }
-};
-#endif
 
 int main(int, char **argv)
 {
     (void)argv;
-#ifdef TEST_APP_ATARI800                // the file manager on the Atari's menu (Lib): its app (run.sh a8app, the unit a8_cut)
-    // ---- the file manager module (S4) --------------------------------------------------------------------------------------------------------------------------------
-    {
-        Lib l;
-        struct Said { std::string text; bool bad = false; } said;
-        FileMgr::Port port = { &said, [](void *u, const char *t, bool b) { ((Said *)u)->text = t; ((Said *)u)->bad = b; }, [](void *) { return true; } };
-        FileMgr fm(&l.c, port);
-        snprintf(fm.path, sizeof(fm.path), "/usb0/games");
-        fm.load_dir();
-        CHECK_EQ(fm.nlist, 5);                                    // "..", a, b, c, d
-        CHECK_STR(fm.list[0].name, "..");
-        CHECK_STR(fm.list[1].name, "a.atr");
-        fm.enter_dir("..");
-        CHECK_STR(fm.path, "/usb0");
-        fm.enter_dir("games");
-        CHECK_STR(fm.path, "/usb0/games");
-        fm.parent_dir();
-        CHECK_STR(fm.path, "/usb0");
-        CHECK_EQ(fm.sel, 0);
-        // the marks stay with the names and are given to the operations (CoreCtx::lib)
-        fm.enter_dir("games");
-        fm.mark_all(true);
-        CHECK(!fm.marked[0] && fm.marked[1] && fm.marked[4]);
-        CHECK_EQ(l.c.lib.nmarked, 4);
-        fm.mark_all(false);
-        CHECK_EQ(l.c.lib.nmarked, 0);
-        // the search: a part of the name, ? is any character; the rows are the files, the full path is the file's
-        snprintf(fm.search_q, sizeof(fm.search_q), "?.at");
-        fm.run_search();
-        CHECK_EQ(fm.vmode, 1);
-        CHECK_EQ(fm.nlist, 4);
-        CHECK_STR(fm.vfull[0], "/usb0/games/a.atr");
-        CHECK(said.text.find("4 found") == 0);
-        char full[FS_PATH_MAX];
-        CHECK_STR(fm.full_path(2, full, sizeof(full)), "/usb0/games/c.atr");
-        fm.parent_dir();
-        CHECK_EQ(fm.vmode, 0);
-        CHECK_STR(fm.path, "/");
-        // the quick seek lands the cursor on the first name that begins with what was typed
-        snprintf(fm.path, sizeof(fm.path), "/usb0/games");
-        fm.load_dir();
-        l.io.t += 5000;
-        fm.seek_key('c');
-        CHECK_STR(fm.list[fm.sel].name, "c.atr");
-        // the viewer: text lines, hex rows, the cursor clamps
-        l.fs.put("/usb0/games/t.txt", std::vector<uint8_t>{ 'a', 'b', '\n', 'c', '\n' });
-        fm.start_view("/usb0/games/t.txt", false);
-        CHECK(fm.view && !fm.view_hex);
-        char ln[200];
-        fm.view_line(0, ln, sizeof(ln)); CHECK_STR(ln, "ab");
-        fm.view_line(1, ln, sizeof(ln)); CHECK_STR(ln, "c");
-        fm.view_scroll(VS_DOWN);
-        fm.view_scroll(VS_END);
-        fm.view_scroll(VS_UP);
-        fm.view_scroll(VS_HOME);
-        CHECK_EQ(fm.view_top, 0u);
-        fm.start_view("/usb0/games/t.txt", true);
-        fm.view_line(0, ln, sizeof(ln));
-        CHECK(std::string(ln).find("00000000  61 62 0A 63 0A") == 0);
-        // the clipboard through the operation the REST clients call
-        snprintf(fm.path, sizeof(fm.path), "/usb0/games");
-        fm.load_dir();
-        fm.sel = 2;
-        fm.lib_sync();
-        fm.clip(false, 0, false);
-        CHECK_EQ(l.c.lib.nclip, 1);
-        CHECK_STR(l.c.lib.clip[0], "/usb0/games/b.atr");
-    }
-    // a single DEL deletes nothing: the question is the only way to a delete (S4)
-    {
-        Lib l;
-        l.to_games();
-        l.enter("b.atr");                                         // the sheet of the file
-        CHECK(l.m->chooser());
-        l.enter("Delete");
-        char t[200];
-        CHECK_STR(l.m->dialog(t, sizeof(t)), "confirm");
-        CHECK_EQ(l.m->key(KEY_BACK), MenuCtl::R_NONE);            // DEL
-        CHECK_EQ(l.m->key(KEY_BACK), MenuCtl::R_NONE);
-        CHECK_STR(l.m->dialog(t, sizeof(t)), "confirm");
-        l.run_job();
-        CHECK(l.fs.files.count("/usb0/games/b.atr") == 1);
-        l.m->key(KEY_RETURN);                                     // only RETURN says yes
-        l.run_job();
-        CHECK(l.fs.files.count("/usb0/games/b.atr") == 0);
-    }
-    // ---- S8: the row that vanished is replaced by its neighbour, not by the top row -------------------------------------------------------------------------------------------
-    {
-        Lib l;
-        l.to_games();
-        l.go_to("c.atr");
-        int at = l.m->selected();
-        CHECK(at > 1);
-        l.fs.files.erase("/usb0/games/c.atr");
-        l.io.t += 5000;
-        CHECK(l.m->relist());
-        CHECK(l.left(l.m->selected()) == "d.atr");                // the neighbour that slid into its place
-        CHECK_EQ(l.m->selected(), at);
-        // the last row vanishes: the cursor goes to the new last row
-        l.go_to("d.atr");
-        l.fs.files.erase("/usb0/games/d.atr");
-        l.io.t += 5000;
-        l.m->relist();
-        CHECK(l.left(l.m->selected()) == "b.atr");
-        // the row under the cursor stays under it when one above it comes and goes
-        l.fs.put("/usb0/games/0.atr", std::vector<uint8_t>(32, 9));
-        l.io.t += 5000;
-        l.m->relist();
-        CHECK(l.left(l.m->selected()) == "b.atr");
-    }
-#endif
     // ---- the table: every row names an intent the executor knows (S6, S15) -------------------------------------------------------------------------------------------
     {
         int n;

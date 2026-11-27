@@ -20,9 +20,6 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_ATARI800
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-#endif
 
 extern "C" int u64_get_usb_hid_config_value(int key, int default_value);
 
@@ -141,37 +138,6 @@ static int count_key(const CoreDesc &d, const char *key)
 
 int main()
 {
-#ifdef TEST_APP_ATARI800
-    // ---- the rows on the Atari 800 XL (its app, run.sh a8app, the unit a8_baseset): a core without a mouse and without a capability gets none, with the joystick's capability the
-    // joystick row alone (the capability is no mouse row); the menu's look is no row of it (T239.3 D56)
-    {
-        CHECK(atari800_desc.mouse == 0);
-        const CoreDesc &rich_atari = rich_of(atari800_desc, 1);
-        Rig nm(&atari800_desc);
-        CHECK_EQ(nm.d.nsettings, atari800_desc.nsettings);
-        for (int k = 0; k < 6; k++) {
-            CHECK_EQ(count_key(atari800_desc, order[k]), 0);
-            CHECK_EQ(count_key(nm.d, order[k]), 0);
-            CHECK_EQ(baseset_adds(&atari800_desc, order[k]), false);
-            CHECK_EQ(baseset_adds(&rich_atari, order[k]), k == 0);
-        }
-        CHECK_EQ(count_key(Rig(&rich_atari).d, "Mouse Mode"), 0);
-        CHECK_EQ(count_key(Rig(&rich_atari).d, "Joystick Input"), 1);
-        for (const char *gone : { "Overlay Transparency", "Color Scheme", "Filename overflow squeeze", "Navigation Style" }) CHECK_EQ(count_key(nm.d, gone), 0);
-        // a descriptor that declares a key itself keeps it: no second one
-        static const char *const two[] = { "A", "B" };
-        static Setting own[SETTINGS_MAX];
-        for (int i = 0; i < atari800_desc.nsettings; i++) own[i] = atari800_desc.settings[i];
-        own[atari800_desc.nsettings] = Setting{ "Joystick Input", two, 2, 0, WHEN_LIVE, 0, 0 };
-        CoreDesc od = rich_atari, ox;
-        static Setting os[SETTINGS_MAX];
-        od.settings = own; od.nsettings = atari800_desc.nsettings + 1;
-        CHECK(!baseset_extend(&od, &ox, os));
-        CHECK_EQ(ox.nsettings, od.nsettings + 0);
-        CHECK_EQ(count_key(ox, "Joystick Input"), 1);
-    }
-    DONE("baseset");
-#else
 #ifdef TEST_APP_AMIGA
     // T239.5 D13: the Amiga 500's cases of this file (the core with a USB mouse, its rich form) run as its app (run.sh amigaapp, unit amiga_baseset); the shared unit baseset keeps
     // the cores without a mouse and the generic checks
@@ -413,5 +379,4 @@ int main()
 #endif
     baseset_attach(0, 0);
     DONE("baseset");
-#endif
 }

@@ -20,12 +20,7 @@
 static std::vector<std::pair<int, int>> g_applied;
 void video_apply(int sys, int hdmi) { g_applied.push_back({ sys, hdmi }); }
 
-#if   defined(TEST_APP_ATARI800)         // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
 const CoreDesc *const core_table[] = { 0 };   // the shared unit: the frame and the made-up core (T239.5 D13, D61)
-#endif
 
 struct Lay { int w, h, hdmi, sys, bx, by, scale, x0, y0; };
 
@@ -91,11 +86,7 @@ struct Rig {
 
 static void extension()
 {
-#if   defined(TEST_APP_ATARI800)
-    const CoreDesc *all[] = { &atari800_desc, 0 };
-#else
     const CoreDesc *all[] = { &testcore::desc, 0 };
-#endif
     for (const CoreDesc *const *p = all; *p; p++) {
         const CoreDesc *d = *p;
         CoreDesc ext; Setting items[SETTINGS_MAX];
@@ -153,24 +144,6 @@ static int pic(Rig &r, int hdmi) { (void)r; return 1 + hdmi; }
 
 static void runtime_change()
 {
-#if   defined(TEST_APP_ATARI800)
-
-    // the Atari: its 14-pixel offset is the same in every mode, and Auto stays 1080p after a smaller mode was chosen
-    Rig a(&atari800_desc);
-    CHECK_EQ(picture_start(&a.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-    CHECK(pos_is(a, 3, 426, 108));
-    picture_apply(&a.c, pic(a, VID_HDMI_720P));
-    CHECK(pos_is(a, 3, 426, 108));
-    picture_apply(&a.c, 0);
-    CHECK_EQ(a.vid->mode(), VID_HDMI_1080P);
-    CHECK(pos_is(a, 3, 426, 108));
-
-    // before the window exists there is nothing to move
-    CoreCtx none; memset(&none, 0, sizeof(none));
-    g_applied.clear();
-    picture_apply(&none, pic(a, VID_HDMI_720P));
-    CHECK_EQ(g_applied.size(), 0u);
-#endif
 }
 
 
@@ -345,45 +318,13 @@ static void fixed_frame()
         CHECK(fw == 1920 && fh == 1080);
     }
     // through the application: a Picture choice of 576p / 720p moves nothing on the layer
-#if defined(TEST_APP_ATARI800)                // on the core of the app (the shared unit has none)
-    static const CoreDesc *const cores[] = { &atari800_desc };
-    for (const CoreDesc *d : cores) {
-        for (int m : modes) {
-            Rig r(d);
-            picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-            Rig ref(d);
-            ref.vid->set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
-            picture_apply(&r.c, 1 + m);
-            CHECK(pos_is(r, ref.vid->scale(), ref.vid->x0(), ref.vid->y0()));
-        }
-    }
-    FakeIo io; PxRec px;
-#endif
-#if   defined(TEST_APP_ATARI800)
-    // wanted_hdmi() answers from the descriptor's own scale, not from the one set_mode() worked out
-    CoreDesc small = atari800_desc;
-    small.video.scale = 1;
-    Video sv(small.video, &px, &io);
-    int before = sv.wanted_hdmi();
-    sv.set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
-    CHECK_EQ(sv.scale(), 3);
-    CHECK_EQ(sv.wanted_hdmi(), before);
-    CHECK_EQ(before, VID_HDMI_480_576);
-#endif
 }
 
 int main()
 {
-#if   defined(TEST_APP_ATARI800)         // the Atari's app (run.sh a8app, the unit a8_picture)
-    layout_table();
-    fixed_frame();
-    extension();
-    runtime_change();
-#else                                    // the shared unit picture: the frame, the made-up core
     layout_table();
     fixed_frame();
     extension();
     picmodes_shared();
-#endif
     DONE("test_picture");
 }

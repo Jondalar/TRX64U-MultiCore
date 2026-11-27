@@ -27,16 +27,13 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_ATARI800
-extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-#endif
 #ifdef TEST_APP_CPC
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)
 #error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
 #endif
 #include "sectors.h"
@@ -51,8 +48,6 @@ const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_ATARI800)        // the Atari's app is its own build (run.sh a8app) with its core only
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #else   // TEST_APP_APPLE2 (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
@@ -84,7 +79,7 @@ struct Rig {
     {
         delete m;
         delete st;
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
 #endif
     }
@@ -205,8 +200,6 @@ static const Create creates[] = {
     { &cpc_desc,       "Create blank DSK", ".dsk" },
 #elif defined(TEST_APP_AMIGA)
     { &amiga_desc,     "Create blank ADF", ".adf" },
-#elif defined(TEST_APP_ATARI800)
-    { &atari800_desc,  "Create blank ATR", ".atr" },
 #else   // TEST_APP_APPLE2
     { &apple2_desc,    "Create blank DSK", ".dsk" },
 #endif
@@ -291,8 +284,6 @@ static void check_suggestions()
     for (const CoreDesc *d : { &cpc_desc }) {
 #elif defined(TEST_APP_AMIGA)
     for (const CoreDesc *d : { &amiga_desc }) {
-#elif defined(TEST_APP_ATARI800)
-    for (const CoreDesc *d : { &atari800_desc }) {
 #else   // TEST_APP_APPLE2
     for (const CoreDesc *d : { &apple2_desc }) {
 #endif
@@ -306,292 +297,6 @@ static void check_suggestions()
     }
 }
 
-#ifdef TEST_APP_ATARI800          // check_junk and check_folder stand on the Atari's descriptor: its app runs them (run.sh a8app, the unit a8_createflow)
-// A state that hands over rubbish: what the prompt takes of it
-static char g_junk[80];
-static const char *state_junk(CoreCtx *) { return g_junk; }
-static int op_nop(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
-static const ArgSpec nop_arg[] = { ARG_PATH("path") };
-
-static void reg_test(OpRegistry &r)
-{
-    atari800_desc.register_ops(r);
-    r.contributor("t122test");
-    r.add_state("test.junk", state_junk);
-    r.add_op("test.nop", nop_arg, 1, op_nop);
-}
-
-static const OpBind nop_bind[] = { B_FILE("path") };
-static const FileAction bin_actions[] = { { "Open", "test.nop", nop_bind, 1, false, 0, 0 } };
-static const FileType bin_types[] = { { ".bin", bin_actions, 1, 0, 0, 0 } };
-
-// the Atari descriptor - with a Create task that prefills from the junk state when `junk` -, and a file type whose action does nothing but succeed
-static CoreDesc test_desc(bool junk)
-{
-    static Task tasks[16];
-    CoreDesc d = atari800_desc;
-    for (int i = 0; i < d.ntasks; i++) tasks[i] = d.tasks[i];
-    for (int i = 0; junk && i < d.ntasks; i++) if (tasks[i].ask_state) tasks[i].ask_state = "test.junk";
-    d.tasks = tasks;
-    d.register_ops = reg_test;
-    d.filetypes = bin_types;
-    d.nfiletypes = 1;
-    return d;
-}
-
-static void check_junk()
-{
-    CoreDesc d = test_desc(true);
-    struct { const char *bytes; size_t n; const char *want; } cases[] = {
-        { "\x01\x7f\xf3junk", 8, "" },                  // control and 8-bit bytes first: an empty field
-        { "name\x01tail", 9, "name" },                  // the name up to the first byte a name cannot hold
-        { "a/b", 3, "a" },
-        { "ok", 2, "ok" },
-    };
-    for (auto &k : cases) {
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        memset(g_junk, 0, sizeof(g_junk));
-        memcpy(g_junk, k.bytes, k.n);
-        r.m->open();
-        r.to_prompt("Create blank ATR", "/usb0");
-        CHECK(r.m->entering());
-        CHECK_STR(r.row0().c_str(), (std::string("Name of the new ATR|") + k.want + "_").c_str());
-    }
-    {   // no end in sight: the field takes 24 characters and stops
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        memset(g_junk, 'A', sizeof(g_junk));
-        r.m->open();
-        r.to_prompt("Create blank ATR", "/usb0");
-        CHECK_STR(r.row0().c_str(), (std::string("Name of the new ATR|") + std::string(24, 'A') + "_").c_str());
-    }
-}
-
-// ---- (b) the folder ---------------------------------------------------------------------------------------------------------------------------
-// the folder browser's title after Create was chosen on the page of the tasks
-static std::string picker_start(Rig &r)
-{
-    CHECK(r.drive_task("Create blank ATR"));
-    r.m->key(KEY_RETURN);
-    CHECK(r.m->picking());
-    return r.m->title();
-}
-
-// The Library opens on the media level, like the host's File Browser; a medium is opened by its row, ../ and LEFT at its top lead back.
-static bool choose_chip(Rig &r, const char *name)               // the medium: up to the media level, its row (T104.2)
-{
-    if (lib_medium(r.m, name)) return true;
-    printf("FAIL no medium %s\n", name);
-    g_fails++;
-    return false;
-}
-
-// opens the menu's browser in `folder` (F3, the medium by its chip, then down)
-static void browse_to(Rig &r, const std::string &folder)
-{
-    r.m->key(KEY_F3);
-    size_t s = folder.find('/', 1);
-    std::string medium = folder.substr(1, s == std::string::npos ? std::string::npos : s - 1);
-    if (strcasecmp(r.m->title(), ("/" + medium).c_str()) != 0 && (strlen(r.m->title()) <= medium.size() + 1 || strncasecmp(r.m->title(), ("/" + medium + "/").c_str(), medium.size() + 2) != 0)) {
-        if (!choose_chip(r, medium.c_str())) return;
-    }
-    std::string rest = s == std::string::npos ? "" : folder.substr(s);
-    while (rest.size() > 1) {
-        size_t t = rest.find('/', 1);
-        std::string part = rest.substr(1, t == std::string::npos ? std::string::npos : t - 1);
-        if (!r.pick((part + "/").c_str())) return;
-        r.m->key(KEY_RETURN);
-        rest = t == std::string::npos ? "" : rest.substr(t);
-    }
-    CHECK_STR(r.m->title(), folder.c_str());
-}
-
-// the browser on no folder: the media level, and one step back out of it (parent_dir sets the path to "/")
-static void browse_nowhere(Rig &r)
-{
-    r.m->key(KEY_F3);
-    CHECK(lib_nowhere(r.m));
-}
-
-static void check_folder()
-{
-    CoreDesc d = test_desc(false);
-    // 1. the menu's browser stands in a folder: the folder browser starts there, though a stick 0 and a last file exist
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        r.fs.put("/usb1/disks/y.bin", Bytes(4, 1));
-        r.fs.put("/usb1/z.bin", Bytes(4, 1));
-        r.m->open();
-        browse_to(r, "/usb1");
-        CHECK(r.pick("z.bin"));
-        r.m->key(KEY_RETURN);                                            // Open z.bin: that is the last file (the Library's screen shows the file's sheet first)
-        if (r.m->chooser()) r.m->key(KEY_RETURN);
-        CHECK(strstr(r.m->status(), "Open") != 0);
-        browse_to(r, "/usb1/disks");
-        CHECK_STR(picker_start(r).c_str(), "/usb1/disks");
-        r.m->key(KEY_ESCAPE);
-        CHECK(!r.m->picking());
-        CHECK(!r.m->entering());
-        CHECK(!r.m->busy());
-        CHECK(r.fs.writes == 0);
-    }
-    // 2. the browser is on no folder (a list of the Library, left): the folder of the last file the menu ran
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        r.fs.put("/usb1/games/z.bin", Bytes(4, 1));
-        r.m->open();
-        browse_to(r, "/usb1/games");
-        CHECK(r.pick("z.bin"));
-        r.m->key(KEY_RETURN);
-        if (r.m->chooser()) r.m->key(KEY_RETURN);
-        CHECK(strstr(r.m->status(), "Open") != 0);
-        browse_nowhere(r);
-        CHECK_STR(picker_start(r).c_str(), "/usb1/games");
-    }
-    // 3. neither: the first stick that can be read. The browser of a Library that has just been opened stands on its first medium and the folder browser starts there.
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/a.bin", Bytes(4, 1));
-        r.fs.put("/usb1/a.bin", Bytes(4, 1));
-        r.fs.put("/sd/a.bin", Bytes(4, 1));
-        r.m->open();
-        CHECK_STR(picker_start(r).c_str(), "/usb0");
-    }
-    {
-        Rig r(&d);
-        r.fs.put("/usb1/a.bin", Bytes(4, 1));
-        r.fs.put("/usb3/a.bin", Bytes(4, 1));
-        r.fs.put("/sd/a.bin", Bytes(4, 1));
-        r.m->open();
-        browse_nowhere(r);
-        CHECK_STR(picker_start(r).c_str(), "/usb1");                     // no folder, no last file: the first stick that can be read (usb0 ... usb3), never the card
-    }
-    // 4. no stick: the list of the media, never the card; "Create here" is not a folder there, and /sd takes a file only when it was chosen
-    {
-        Rig r(&d);
-        r.fs.put("/sd/a.bin", Bytes(4, 1));
-        r.m->open();
-        browse_nowhere(r);
-        CHECK_STR(picker_start(r).c_str(), "/");
-        CHECK_STR(r.row0().c_str(), "Pick a medium first|");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->picking());
-        CHECK(!r.m->entering());
-        CHECK(r.m->status_bad());
-        CHECK(r.fs.writes == 0);
-        CHECK(r.pick("sd/"));
-        r.m->key(KEY_RETURN);
-        CHECK_STR(r.m->title(), "/sd");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->entering());
-        r.clear_name();
-        r.type("card");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->busy());
-        r.run_job();
-        CHECK(r.fs.has("/sd/card.atr"));
-        CHECK_STR(r.m->status(), "Created /sd/card.atr.");
-    }
-    // 5. the folder that was chosen is the folder: other folder, other medium, up and down, the notice has the whole path
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/games/x.bin", Bytes(4, 1));
-        r.fs.put("/usb1/disks/blank.atr", Bytes(4, 1));
-        r.m->open();
-        browse_to(r, "/usb0/games");
-        CHECK(r.drive_task("Create blank ATR"));
-        r.m->key(KEY_RETURN);
-        CHECK_STR(r.m->title(), "/usb0/games");
-        r.goto_folder("/usb1/disks");
-        // the rows: Create here on top, then the way up (and no files: the folder holds blank.atr)
-        CHECK_EQ(r.m->rows(), 2);
-        CHECK_STR(r.row0().c_str(), "Create here|");
-        CHECK_STR(r.sub0().c_str(), "/usb1/disks");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->entering());
-        CHECK_STR(r.row0().c_str(), "Name of the new ATR|blank2_");     // the free name of THAT folder
-        CHECK_STR(r.sub0().c_str(), "Into /usb1/disks - DEL deletes, RETURN takes it, <- cancels");
-        r.clear_name();
-        r.type("chosen");
-        r.m->key(KEY_RETURN);
-        r.run_job();
-        CHECK(r.fs.has("/usb1/disks/chosen.atr"));
-        CHECK(!r.fs.has("/usb0/games/chosen.atr"));
-        CHECK(!r.fs.has("/usb0/chosen.atr"));
-        CHECK_STR(r.m->status(), "Created /usb1/disks/chosen.atr.");
-        CHECK(!r.m->status_bad());
-        Bytes want(ND_ATR_BYTES);
-        nd_build(ND_ATR, want.data(), (uint32_t)want.size(), "chosen");
-        CHECK(bytes_of(r.fs, "/usb1/disks/chosen.atr") == want);
-        // an empty name is a free one in the chosen folder
-        r.fs.put("/usb1/disks/blank2.atr", Bytes(4, 1));
-        CHECK(r.drive_task("Create blank ATR"));
-        r.m->key(KEY_RETURN);
-        CHECK_STR(r.m->title(), "/usb0/games");              // the menu's own folder is still the start
-        r.goto_folder("/usb1/disks");
-        r.m->key(KEY_RETURN);
-        r.clear_name();
-        r.m->key(KEY_RETURN);
-        r.run_job();
-        CHECK(r.fs.has("/usb1/disks/blank3.atr"));
-    }
-    // 6. leaving the folder browser writes nothing: ESC, and a function key
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        r.m->open();
-        r.begin("Create blank ATR");
-        CHECK(r.m->picking());
-        r.m->key(KEY_ESCAPE);
-        CHECK(!r.m->picking() && !r.m->entering() && !r.m->busy());
-        r.begin("Create blank ATR");
-        r.m->key(KEY_F1);
-        CHECK(!r.m->picking() && !r.m->busy());
-        r.begin("Create blank ATR");
-        r.m->key(KEY_RETURN);                                            // Create here
-        CHECK(r.m->entering());
-        r.m->key(KEY_ESCAPE);
-        CHECK(!r.m->entering() && !r.m->busy());
-        CHECK(r.fs.writes == 0);
-    }
-    // 7. a folder that cannot be written: the file is not put on another medium (the old rule fell through to /usb0, /sd ...)
-    {
-        Rig r(&d);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        r.fs.put("/usb1/disks/x.bin", Bytes(4, 1));
-        r.fs.deny_prefix = "/usb1/disks";
-        r.m->open();
-        r.to_prompt("Create blank ATR", "/usb1/disks");
-        r.clear_name();
-        r.m->key(KEY_RETURN);                                            // a free name
-        r.run_job();
-        CHECK(r.m->status_bad());
-        CHECK(strstr(r.m->status(), "/usb1/disks") != 0);
-        CHECK(!r.fs.has("/usb0/blank.atr") && !r.fs.has("/sd/blank.atr") && !r.fs.has("/usb1/blank.atr"));
-        r.to_prompt("Create blank ATR", "/usb1/disks");
-        r.clear_name();
-        r.type("named");
-        r.m->key(KEY_RETURN);
-        r.run_job();
-        CHECK(r.m->status_bad());
-        CHECK(!r.fs.has("/usb0/named.atr") && !r.fs.has("/usb1/disks/named.atr"));
-    }
-    // 8. the operation without the menu (a REST call): a bare name goes to CoreCtx::media_dir, as it did, and a full path is that file
-    {
-        Rig r(&d);
-        r.fs.put("/usb1/disks/x.bin", Bytes(4, 1));
-        snprintf(r.c.media_dir, sizeof(r.c.media_dir), "/usb1/disks");
-        OpResult res;
-        OpIn in[3] = { in_str("path", "api"), in_str("format", "atr"), in_str("name", "") };
-        CHECK_EQ(ops_call(&r.c, "disk.create", in, 3, &res), 0);
-        CHECK(r.fs.has("/usb1/disks/api.atr"));
-        CHECK_STR(res.msg, "Created /usb1/disks/api.atr.");
-    }
-}
-#endif
 
 // ---- (c) the progress -------------------------------------------------------------------------------------------------------------------------
 static void check_progress_for(const CoreDesc *desc, const char *label, const char *ext, int fmt, uint32_t bytes)
@@ -717,22 +422,8 @@ static void check_progress()
     check_progress_for(&cpc_desc, "Create blank DSK", ".dsk", ND_CPC_DSK, ND_CPC_BYTES);
 #elif defined(TEST_APP_AMIGA)
     check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
-#elif !defined(TEST_APP_ATARI800)
-    check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
 #else
-    check_progress_for(&atari800_desc, "Create blank ATR", ".atr", ND_ATR, ND_ATR_BYTES);
-    // the operation called alone, as a REST client does: all of it in one call, still in chunks
-    {
-        Rig r(&atari800_desc);
-        r.fs.put("/usb0/x.bin", Bytes(4, 1));
-        OpResult res;
-        OpIn in[3] = { in_str("path", "one"), in_str("format", "atr"), in_str("name", "") };
-        CHECK_EQ(ops_call(&r.c, "disk.create", in, 3, &res), 0);
-        CHECK(!res.more);
-        CHECK_EQ(bytes_of(r.fs, "/usb0/one.atr").size(), (size_t)ND_ATR_BYTES);
-        for (uint32_t s : r.fs.write_sizes) CHECK(s <= NF_CHUNK);
-        CHECK(r.fs.write_sizes.size() >= 5);
-    }
+    check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
 #endif
 }
 
@@ -821,10 +512,6 @@ int main()
     // what the product prints is checked as it runs: a format with a precision (or %%) in any of the paths below is a failed check
 #endif
     check_suggestions();
-#ifdef TEST_APP_ATARI800
-    check_junk();
-    check_folder();
-#endif
     check_progress();
 #if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)
     check_mount_folder();

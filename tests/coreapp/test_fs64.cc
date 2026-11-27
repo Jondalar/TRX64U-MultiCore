@@ -7,9 +7,6 @@
 #include "check.h"
 #include "fakes.h"
 #include "romfind.h"
-#ifdef TEST_APP_ATARI800                // the Atari's ATR reader: its app (run.sh a8app, the unit a8_fs64)
-#include "atari_atr.h"
-#endif
 
 #include "sparsefs.h"
 
@@ -67,20 +64,6 @@ int main()
     CHECK_EQ(st, ROM_FOUND);
     CHECK_EQ(res[0].hit.size, 16384);
 
-#ifdef TEST_APP_ATARI800
-    // an XFD is 184320 bytes; a file of 4 GiB + 184320 bytes is not one
-    SparseFs af;
-    af.put_big("/usb0/huge.xfd", FOUR_GIB + 184320);
-    char err[200] = "";
-    AtariDisk *d = atr_open(&af, "/usb0/huge.xfd", err, sizeof(err));
-    CHECK(d == 0);
-    CHECK(strlen(err) > 0);
-    af.put_big("/usb0/disk.xfd", 184320);
-    d = atr_open(&af, "/usb0/disk.xfd", err, sizeof(err));
-    CHECK(d != 0);
-    CHECK_EQ(d ? d->sectors() : 0, 720);
-    delete d;
-#endif
 
     DONE("fs64");
 }

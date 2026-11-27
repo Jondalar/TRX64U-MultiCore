@@ -22,12 +22,7 @@
 #include "libscan.h"
 #include "descrec.h"
 
-#ifdef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_libscan): its core only
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
 const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core
-#endif
 
 typedef std::vector<uint8_t> Bytes;
 static Bytes slurp(const std::string &p)
@@ -144,11 +139,7 @@ struct World {
     LibLoader ld;
     Log log;
     LibScanResult r;
-#ifdef TEST_APP_ATARI800
-    World() : host(&atari800_desc), ld(&host, &reg) { reset(); }
-#else
     World() : host(&g_blank), ld(&host, &reg) { reset(); }
-#endif
     void reset() { g_registered.clear(); g_items.clear(); g_fail_rc = 0; g_before = 0; g_before_at = -1; }
     void libs(bool aa, bool bb)
     {

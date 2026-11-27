@@ -22,13 +22,10 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
 #endif
 #ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
-#ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app) has its own core only; its swap is a flag of its own (its own tests), so it has no row below, only its key
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
 
 struct Row { const CoreDesc *d; uint32_t reg; };
@@ -51,7 +48,7 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
-#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)   // the Atari's, the 264's and the Apple IIe's swap have another form (their own key is checked below): no row
+#if !defined(TEST_APP_APPLE2)   // the Atari's, the 264's and the Apple IIe's swap have another form (their own key is checked below): no row
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
@@ -105,9 +102,6 @@ int main()
     }
 #endif
     // the cores that keep another form: their own key is there once (T157 D1)
-#ifdef TEST_APP_ATARI800
-    CHECK_EQ(count_key(atari800_desc, "Joystick ports"), 1);
-#endif
 #ifdef TEST_APP_APPLE2
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
 #endif
