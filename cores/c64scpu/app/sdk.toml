@@ -7,6 +7,8 @@ name = "c64scpu"
 desc_record = true
 # the symbol of the core's descriptor (the library c64scpu below defines it); the core table of this app holds this core only
 desc = "c64scpu_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=c64scpu, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A that the shared drivers (hw.cc) name: the host's mode register
 # (cart_regs), the five ICAP blocks of the loader, the partition block, the host's master volume and tone (audio_master) and the IEC block (iec_status: the board's IEC probe reads its version byte).
 # The drive window is the core's own block drive_a (gateware.toml: the registers of its mm_drive, a 1541 or a 1581).

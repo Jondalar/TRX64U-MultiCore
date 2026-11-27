@@ -12,6 +12,8 @@ release = false
 sd = "sd"
 # the symbol of the core's descriptor (the library diag below defines it); the core table of this app holds this core only
 desc = "portdiag_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=diag, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml) that the shared drivers (hw.cc) name: the host's mode
 # register (cart_regs: the core's start and release go through it), the ICAP blocks of the loader and the partition control (the way back to the host is the IPROG of hw_return_to_host), and
 # audio_master. The core has no IEC bus drive, no 1541, no cartridge, no DMA window and no command interface in the app: it reads their pins through its own probe engine.

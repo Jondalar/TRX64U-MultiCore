@@ -7,6 +7,8 @@ name = "nes"
 desc_record = true
 # the symbol of the core's descriptor (the library nes below defines it); the core table of this app holds this core only
 desc = "nes_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=nes, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the NES is a large core on the host's pieces) that the
 # shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36). The core
 # has no 1541 and no IEC bus, so no block of the drive window or of iec_status is named, and no block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if, so board.cc runs

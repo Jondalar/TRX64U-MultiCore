@@ -7,6 +7,8 @@ name = "amiga"
 desc_record = true
 # the symbol of the core's descriptor (the library amiga below defines it); the core table of this app holds this core only
 desc = "amiga_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=amiga, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the Amiga 500 is a large core on the host's pieces) that the shared
 # drivers (hw.cc) name: the host's mode register (cart_regs: am_init and am_release hold and release the machine through it), the five ICAP blocks of the loader and the partition control, and audio_master
 # (the host's master volume and tone: the rows Volume and Tone). No block iec_status, drive_a, c64cart, c64_debug, dma or cmd_if is named: the Amiga has no IEC bus, no 1541, no cartridge, no ring, no DMA window

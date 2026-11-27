@@ -7,6 +7,8 @@ name = "pet"
 desc_record = true
 # the symbol of the core's descriptor (the library pet below defines it); the core table of this app holds this core only
 desc = "pet_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=pet, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A that the shared drivers (hw.cc) name: the host's mode register
 # (cart_regs), the five ICAP blocks of the loader, the partition block and the host's master volume and tone (audio_master). The core has no drive block of the host's kind (its dual
 # drive unit is the core's own "drive" block), no cartridge, no ring and no DMA window block of its own, so board.cc runs no cartridge, ring, REU or command interface probe in this app.

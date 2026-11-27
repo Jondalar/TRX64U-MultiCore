@@ -7,6 +7,8 @@ name = "c264"
 desc_record = true
 # the symbol of the core's descriptor (the library c264 below defines it); the core table of this app holds this core only
 desc = "c264_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=c264, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the C264 is a large core on the host's pieces) that the
 # shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader, the IEC block, whose version byte the board's IEC probe reads, and audio_master (the host's master
 # volume and tone: the rows Volume and Tone, T239.3 D36). The drive window is the core's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is not
