@@ -21,9 +21,6 @@
 
 static const BaseRow *row(const char *op, const char *key) { return menu_base_row(op, key); }
 
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the extend functions on its record; the shared unit keeps the table's own checks
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#endif
 
 static bool pick_is(const BaseRow *r, const char *name)
 {
@@ -32,7 +29,6 @@ static bool pick_is(const BaseRow *r, const char *name)
 
 int main()
 {
-#ifndef TEST_APP_NES
     int n = 0;
     const BaseRow *all = menu_base_rows(&n);
     CHECK(n > 0);
@@ -109,37 +105,5 @@ int main()
     CHECK_EQ(nkeyrows, HKA_CORE);                                              // the six fixed actions; the core's own function and the tasks are the core's rows
     const BaseRow *mm = row("base.mouse_sens", 0);
     CHECK(mm->show_state && !strcmp(mm->show_state, "set.Mouse_Mode==Cursor keys") && mm->base == 1 && mm->nvalues == 16);
-#else
-    const BaseRow *vol = row(VOLUME_OP, VOLUME_KEY), *tone = row(TONE_OP, TONE_KEY);   // the rows whose checks are the shared unit's
-    CHECK(vol && tone);
-    if (!vol || !tone) DONE("test_baserows");
-
-    // the extend functions hand out the row as it is
-    static CoreDesc d1, d2, d3, d4;
-    static Setting s1[SETTINGS_MAX], s2[SETTINGS_MAX], s3[SETTINGS_MAX], s4[SETTINGS_MAX];
-    CHECK(!volume_extend(&nes_desc, &d1, s1));
-    const Setting &v = d1.settings[d1.nsettings - 1];
-    CHECK(volume_is_generic(v) && v.values == vol->values && v.nvalues == vol->nvalues && v.def == vol->def && !strcmp(v.key, vol->key));
-    CHECK(!tone_extend(&d1, &d2, s1));
-    const Setting &t = d2.settings[d2.nsettings - 1];
-    CHECK(tone_is_generic(t) && t.values == tone->values && t.nvalues == tone->nvalues && t.def == tone->def);
-    CHECK(!home_extend(&d2, &d3, s1));
-    CHECK_EQ(d3.nsettings, d2.nsettings + 3);
-    for (int i = d2.nsettings; i < d3.nsettings; i++) {
-        const BaseRow *r = row(HOME_OP, d3.settings[i].key);
-        CHECK(r != 0);
-        if (!r) continue;
-        CHECK(d3.settings[i].values == r->values && d3.settings[i].nvalues == r->nvalues && d3.settings[i].kind == r->kind && d3.settings[i].base == r->base);
-        CHECK((d3.settings[i].label == r->label) || !strcmp(d3.settings[i].label, r->label));
-    }
-    const Setting &dir = d3.settings[d2.nsettings + 1];                         // the text row: its default is the empty text, 60 characters at most
-    CHECK(dir.kind == 1 && dir.base == 60 && dir.nvalues == 1 && !strcmp(dir.values[0], ""));
-    CHECK(!baseset_extend(&nes_desc, &d4, s4));
-    for (int i = nes_desc.nsettings; i < d4.nsettings; i++) {
-        const BaseRow *r = row(d4.settings[i].apply, d4.settings[i].key);
-        CHECK(r && d4.settings[i].def == r->def);
-        CHECK(r && (r->pick ? d4.settings[i].nvalues >= r->nvalues : d4.settings[i].values == r->values));
-    }
-#endif
     DONE("test_baserows");
 }

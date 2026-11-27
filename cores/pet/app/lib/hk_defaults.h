@@ -1,4 +1,4 @@
-// Copy of coreapp/cores/hk_defaults.h at commit 6696d1028 (T239.5 D16: the original stays for the cores that have not moved; this copy is the PET's own).
+// Copy of coreapp/cores/hk_defaults.h at commit 6696d1028 (T239 D17: every core holds its own copy; the shared original is gone)
 // The default hotkey maps of the cores (T181 D3, spec section 5 has the reason per core). Key indices as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE.
 #ifndef COREAPP_HK_DEFAULTS_H
 #define COREAPP_HK_DEFAULTS_H

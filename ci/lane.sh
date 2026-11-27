@@ -111,10 +111,12 @@ core:?*)
       fi
       printf '%s\n' "gateware=$gw" "toml_a=$ta" "app=$ap" > "$out/changed"
       say "the gateware: $gw, its TOML A: $ta, its app: $ap (base ${base:-none})" ;;
-    # 4: has the gateware changed, does the app change with it. The TOML A against the RTL is not run here: tests/rtl_check runs once per push in the lint's tree
-    # group (T264 S3: tools/rtl_check.py is an optional tool); T264's list compare takes this place.
+    # 4: has the gateware changed, does the app change with it; and the TOML A against the RTL, a list compare in seconds (T264 S1, S4: tools/toml_a_list.py,
+    # time per core in the log; tools/rtl_check.py is an optional tool and runs in no lane)
     compare)
       [ -f "$out/changed" ] || die "no result of the step changed"
+      python3 -I "$ROOT/tools/toml_a_list.py" check "$id" || die "the TOML A cores/$id/app/gateware.toml and the RTL decode disagree (tools/toml_a_list.py, above)"
+      python3 -I "$ROOT/tools/toml_a_gen.py" check "$id" || die "the generated register constants of cores/$id are not current or not used (tools/toml_a_gen.py, above; T264 S2)"
       gw="$(sed -n 's/^gateware=//p' "$out/changed")"; ta="$(sed -n 's/^toml_a=//p' "$out/changed")"
       if [ "$gw" = yes ] && [ "$ta" = no ]; then say "the gateware changed and its TOML A did not: the app is the same"; fi
       if [ "$ta" = yes ]; then say "the TOML A changed: the app is built again against it (steps 5 and 6)"; fi ;;

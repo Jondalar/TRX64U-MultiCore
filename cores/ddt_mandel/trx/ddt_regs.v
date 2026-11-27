@@ -48,6 +48,27 @@ module ddt_regs #(
     output wire [31:0] fb_base,
     output wire [31:0] fb_stride
 );
+    // >>> generated from cores/ddt_novic/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_CONTRACT = 12'h006;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_IRQ_IRQ_EN = 12'h010;
+    localparam [11:0] R_IRQ_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_DDR_CAL_DDR_CAL0 = 12'h020;
+    localparam [11:0] R_DDR_CAL_DDR_CAL1 = 12'h024;
+    localparam [11:0] R_GEOM_LINES = 12'h035;
+    localparam [11:0] R_GEOM_PIX_W = 12'h037;
+    localparam [11:0] R_MACHINE_CTRL = 12'h0A0;
+    localparam [11:0] R_MACHINE_STATUS = 12'h0A4;
+    localparam [11:0] R_MACHINE_FRAMES = 12'h0A8;
+    localparam [11:0] R_VIDEO_FB_LATEST = 12'h0C0;
+    localparam [11:0] R_VIDEO_FRAME_SEQ = 12'h0C1;
+    localparam [11:0] R_VIDEO_FB_OVERRUNS = 12'h0C2;
+    localparam [11:0] R_VIDEO_FB_BASE = 12'h0C4;
+    localparam [11:0] R_VIDEO_FB_STRIDE = 12'h0C8;
+    // <<< generated
     reg [7:0]  ctrl_r = 8'h00;
     reg [31:0] fbb_r = 32'h01D00000, fbs_r = 32'h00100000;
     reg [7:0]  l_a = 8'd0, l_b = 8'd0, l_q = 8'd0, n_a = 8'd0, n_b = 8'd0, n_q = 8'd0;
@@ -85,17 +106,17 @@ module ddt_regs #(
 
         if (we && !win && page == 4'h0) begin
             case (off)
-                12'h010: irq_en <= wdata;
-                12'h014: cause <= (cause & ~wdata) | ev;
-                12'h0A0: ctrl_r <= wdata;
-                12'h0C4: fbb_r[7:0] <= wdata;
-                12'h0C5: fbb_r[15:8] <= wdata;
-                12'h0C6: fbb_r[23:16] <= wdata;
-                12'h0C7: fbb_r[31:24] <= wdata;
-                12'h0C8: fbs_r[7:0] <= wdata;
-                12'h0C9: fbs_r[15:8] <= wdata;
-                12'h0CA: fbs_r[23:16] <= wdata;
-                12'h0CB: fbs_r[31:24] <= wdata;
+                R_IRQ_IRQ_EN: irq_en <= wdata;
+                R_IRQ_IRQ_CAUSE: cause <= (cause & ~wdata) | ev;
+                R_MACHINE_CTRL: ctrl_r <= wdata;
+                R_VIDEO_FB_BASE: fbb_r[7:0] <= wdata;
+                R_VIDEO_FB_BASE + 12'd1: fbb_r[15:8] <= wdata;
+                R_VIDEO_FB_BASE + 12'd2: fbb_r[23:16] <= wdata;
+                R_VIDEO_FB_BASE + 12'd3: fbb_r[31:24] <= wdata;
+                R_VIDEO_FB_STRIDE: fbs_r[7:0] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd1: fbs_r[15:8] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd2: fbs_r[23:16] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd3: fbs_r[31:24] <= wdata;
                 default: ;
             endcase
         end
@@ -103,49 +124,49 @@ module ddt_regs #(
         q <= 8'h00;
         if (!win && page == 4'h0) begin
             case (off)
-                12'h000: q <= ID[7:0];
-                12'h001: q <= ID[15:8];
-                12'h002: q <= ID[23:16];
-                12'h003: q <= ID[31:24];
-                12'h004: q <= 8'hC0;
-                12'h005: q <= 8'h02;
-                12'h006: q <= 8'd2;
-                12'h008: q <= build[7:0];
-                12'h009: q <= build[15:8];
-                12'h00A: q <= build[23:16];
-                12'h00B: q <= build[31:24];
-                12'h010: q <= irq_en;
-                12'h014: q <= cause;
-                12'h020: q <= ddr_cal[7:0];
-                12'h021: q <= ddr_cal[15:8];
-                12'h022: q <= ddr_cal[23:16];
-                12'h023: q <= ddr_cal[31:24];
-                12'h024: q <= ddr_cal[39:32];
-                12'h025: q <= ddr_cal[47:40];
-                12'h026: q <= ddr_cal[55:48];
-                12'h027: q <= ddr_cal[63:56];
-                12'h035: q <= GEOM_LINES[7:0];
-                12'h036: q <= GEOM_LINES[15:8];
-                12'h037: q <= PIX_W[7:0];
-                12'h038: q <= PIX_W[15:8];
-                12'h0A0: q <= ctrl_r;
-                12'h0A4: q <= s_q;
-                12'h0A8: q <= i_q[7:0];
-                12'h0A9: q <= i_q[15:8];
-                12'h0AA: q <= i_q[23:16];
-                12'h0AB: q <= i_q[31:24];
-                12'h0C0: q <= l_q;
-                12'h0C1: q <= n_q;
-                12'h0C2: q <= o_q[7:0];
-                12'h0C3: q <= o_q[15:8];
-                12'h0C4: q <= fbb_r[7:0];
-                12'h0C5: q <= fbb_r[15:8];
-                12'h0C6: q <= fbb_r[23:16];
-                12'h0C7: q <= fbb_r[31:24];
-                12'h0C8: q <= fbs_r[7:0];
-                12'h0C9: q <= fbs_r[15:8];
-                12'h0CA: q <= fbs_r[23:16];
-                12'h0CB: q <= fbs_r[31:24];
+                R_IDENT_ID: q <= ID[7:0];
+                R_IDENT_ID + 12'd1: q <= ID[15:8];
+                R_IDENT_ID + 12'd2: q <= ID[23:16];
+                R_IDENT_ID + 12'd3: q <= ID[31:24];
+                R_IDENT_CAPS: q <= 8'hC0;
+                R_IDENT_CAPS2: q <= 8'h02;
+                R_IDENT_CONTRACT: q <= 8'd2;
+                R_IDENT_BUILD: q <= build[7:0];
+                R_IDENT_BUILD + 12'd1: q <= build[15:8];
+                R_IDENT_BUILD + 12'd2: q <= build[23:16];
+                R_IDENT_BUILD + 12'd3: q <= build[31:24];
+                R_IRQ_IRQ_EN: q <= irq_en;
+                R_IRQ_IRQ_CAUSE: q <= cause;
+                R_DDR_CAL_DDR_CAL0: q <= ddr_cal[7:0];
+                R_DDR_CAL_DDR_CAL0 + 12'd1: q <= ddr_cal[15:8];
+                R_DDR_CAL_DDR_CAL0 + 12'd2: q <= ddr_cal[23:16];
+                R_DDR_CAL_DDR_CAL0 + 12'd3: q <= ddr_cal[31:24];
+                R_DDR_CAL_DDR_CAL1: q <= ddr_cal[39:32];
+                R_DDR_CAL_DDR_CAL1 + 12'd1: q <= ddr_cal[47:40];
+                R_DDR_CAL_DDR_CAL1 + 12'd2: q <= ddr_cal[55:48];
+                R_DDR_CAL_DDR_CAL1 + 12'd3: q <= ddr_cal[63:56];
+                R_GEOM_LINES: q <= GEOM_LINES[7:0];
+                R_GEOM_LINES + 12'd1: q <= GEOM_LINES[15:8];
+                R_GEOM_PIX_W: q <= PIX_W[7:0];
+                R_GEOM_PIX_W + 12'd1: q <= PIX_W[15:8];
+                R_MACHINE_CTRL: q <= ctrl_r;
+                R_MACHINE_STATUS: q <= s_q;
+                R_MACHINE_FRAMES: q <= i_q[7:0];
+                R_MACHINE_FRAMES + 12'd1: q <= i_q[15:8];
+                R_MACHINE_FRAMES + 12'd2: q <= i_q[23:16];
+                R_MACHINE_FRAMES + 12'd3: q <= i_q[31:24];
+                R_VIDEO_FB_LATEST: q <= l_q;
+                R_VIDEO_FRAME_SEQ: q <= n_q;
+                R_VIDEO_FB_OVERRUNS: q <= o_q[7:0];
+                R_VIDEO_FB_OVERRUNS + 12'd1: q <= o_q[15:8];
+                R_VIDEO_FB_BASE: q <= fbb_r[7:0];
+                R_VIDEO_FB_BASE + 12'd1: q <= fbb_r[15:8];
+                R_VIDEO_FB_BASE + 12'd2: q <= fbb_r[23:16];
+                R_VIDEO_FB_BASE + 12'd3: q <= fbb_r[31:24];
+                R_VIDEO_FB_STRIDE: q <= fbs_r[7:0];
+                R_VIDEO_FB_STRIDE + 12'd1: q <= fbs_r[15:8];
+                R_VIDEO_FB_STRIDE + 12'd2: q <= fbs_r[23:16];
+                R_VIDEO_FB_STRIDE + 12'd3: q <= fbs_r[31:24];
                 default: ;
             endcase
         end

@@ -19,7 +19,7 @@ is here or ever goes into this repository, a bench, a package or a .cor.
 
 One cut in a file: SMP.vhd, constant IPLROM. It was the 64 byte boot ROM of the S-SMP, a dump of Nintendo's chip ROM; tools/vendor_snes.sh leaves the bytes out and
 SHA256SUMS describes the file as it is here (T142 D9; Q3, decided 2026-10-29: the bytes are embedded in the application, as the Atari OS ROM is, not here). The core
-takes the 64 bytes from the application (coreapp/cores/snes.cc, table spc_ipl): it writes them into a small RAM of the S-SMP while the machine is held
+takes the 64 bytes from the application (cores/snes/app/lib/snes.cc, table spc_ipl): it writes them into a small RAM of the S-SMP while the machine is held
 (tools/snes_gen.py turns the constant into that RAM).
 
 What is built is NOT these files. cores/snes/gen is what tools/snes_gen.py makes of them: edits to the VHDL in a scratch copy (rtl/ is never edited; each one is a place

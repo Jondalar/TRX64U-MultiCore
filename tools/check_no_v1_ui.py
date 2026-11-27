@@ -5,7 +5,7 @@ T153 (uistate.cc, `?v=1`, the `seq` counter) is gone; this gate is red if it or 
 What it refuses (comments do not count; strings do, because a route or a JSON key is a string):
   - a file named uistate.* anywhere in the tree
   - the names uistate_*, rest_ui_state, UiState, in any source, script or Makefile
-  - the route /v1/ui/state anywhere in C/C++ code outside uicore/uic_net.cc and tests/ (the service owns the route)
+  - the route /v1/ui/state anywhere in C/C++ code outside uicore/uic_net.cc, tests/ and cores/<id>/app/tests/ (the service owns the route)
   - `v=1` on the state route, in any source, script or test
   - a v1 body: the JSON key "v":1 in coreapp/ or app/ code, or a test that reads `['seq']` / `.get('seq')` from the state
   - ui_shell_info_now (the screen's own top bar) outside ui.cc, ui.h and uiapp_board.cc: the snapshot gets the bar from the platform hook, nobody else reads it
@@ -69,7 +69,8 @@ def check(root):
                 hit("the v1 state reader (%s)" % NAMES.search(line).group(0))
             if ROUTE_V1.search(line):
                 hit("the state route with v=1")
-            if cpp and ROUTE.search(line) and f != "uicore/uic_net.cc" and not f.startswith("tests/"):
+            is_test = f.startswith("tests/") or re.match(r"cores/[^/]+/app/tests/", f)          # a core's own tests count as tests (T239 D17)
+            if cpp and ROUTE.search(line) and f != "uicore/uic_net.cc" and not is_test:
                 hit("the state route outside the service")
             if V1_BODY.search(line) and (f.startswith(("coreapp/", "app/")) or f.startswith("tests/ui/")):
                 hit('a v1 body ("v":1)')

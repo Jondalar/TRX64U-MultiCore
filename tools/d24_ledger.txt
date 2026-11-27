@@ -1,36 +1,19 @@
 # T213 D4 (Alex 2026-11-16): the baseline of per-core code in the app. tools/check_d24.py reads it. Lines only shrink; lower a value when the code moved out.
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
-file coreapp/cores/apple2.cc 340
-file coreapp/cores/apple2_disk.cc 470
-file coreapp/cores/apple2_disk.h 71
-file coreapp/cores/apple2_hdd.cc 237
-file coreapp/cores/apple2_nib.cc 270
-file coreapp/cores/apple2_nib.h 21
-file coreapp/cores/apple2_regs.h 69
-file coreapp/cores/apple2_woz.cc 154
-file coreapp/cores/apple2_woz.h 17
 file coreapp/cores/c64_cart.cc 627
 file coreapp/cores/c64_cart.h 11
 file coreapp/cores/c64_cart_desc.h 72
 file coreapp/cores/c64_go.cc 145
 file coreapp/cores/c64_go.h 7
 file coreapp/cores/c64_regs.h 56
-file coreapp/cores/c64scpu.cc 393
-file coreapp/cores/c64scpu_prg.h 20
-file coreapp/cores/c64scpu_regs.h 34
 file coreapp/cores/cbm1541.cc 417
 file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 9
+file coreapp/cores/cores.h 6
 file coreapp/cores/drive_rom_pick.h 98
-file coreapp/cores/hk_defaults.h 23
-file coreapp/cores/snes.cc 558
-file coreapp/cores/snes_regs.h 44
-file coreapp/cores/snes_rom.cc 222
-file coreapp/cores/snes_rom.h 26
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
 file coreapp/src/t64.cc 79
@@ -68,8 +51,6 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests are a folder of the lane delivery (T260 D6). t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
-exception coreapp/cores/c64scpu.cc +18 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
-exception coreapp/cores/c64scpu_regs.h +1 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 # t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.
 exception coreapp/cores/c64_cart.cc +192 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.h +9 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

@@ -73,6 +73,60 @@ module diag_regs #(
     input  wire [127:0] rd_data,
     output wire [92:0] av_cfg                       // T201: the A/V encoder's knobs (diag_avout.v lists the fields)
 );
+    // >>> generated from cores/diag/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_DCAPS = 12'h006;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_IDENT_TICKS_US_X256 = 12'h00C;
+    localparam [11:0] R_ENGINE_IRQ_EN = 12'h010;
+    localparam [11:0] R_ENGINE_STATUS = 12'h011;
+    localparam [11:0] R_ENGINE_CTRL = 12'h012;
+    localparam [11:0] R_ENGINE_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_ENGINE_PC = 12'h016;
+    localparam [11:0] R_ENGINE_REF_PC = 12'h017;
+    localparam [11:0] R_ENGINE_REF_CNT = 12'h018;
+    localparam [11:0] R_ENGINE_STEP_DATA = 12'h020;
+    localparam [11:0] R_ENGINE_STEP_ADDR = 12'h024;
+    localparam [11:0] R_ENGINE_FIFO_DATA = 12'h030;
+    localparam [11:0] R_ENGINE_FIFO_LEVEL = 12'h034;
+    localparam [11:0] R_LIVE_SNAP = 12'h040;
+    localparam [11:0] R_AV_STD = 12'h050;
+    localparam [11:0] R_AV_PERM = 12'h051;
+    localparam [11:0] R_AV_REV = 12'h052;
+    localparam [11:0] R_AV_VINV = 12'h053;
+    localparam [11:0] R_AV_TRIM = 12'h054;
+    localparam [11:0] R_AV_BSTART = 12'h055;
+    localparam [11:0] R_AV_BEND = 12'h056;
+    localparam [11:0] R_AV_BAMP = 12'h058;
+    localparam [11:0] R_AV_GAIN = 12'h059;
+    localparam [11:0] R_AV_SYNC = 12'h05A;
+    localparam [11:0] R_AV_BLANK = 12'h05B;
+    localparam [11:0] R_AV_WHITE = 12'h05C;
+    localparam [11:0] R_AV_SYNCB = 12'h05D;
+    localparam [11:0] R_AV_VLEN = 12'h05E;
+    localparam [11:0] R_AV_VPOS = 12'h05F;
+    localparam [11:0] R_AV_MAP = 12'h060;
+    localparam [11:0] R_AV_MODE = 12'h061;
+    localparam [11:0] R_AV_PCH = 12'h062;
+    localparam [11:0] R_AV_RCH = 12'h063;
+    localparam [11:0] R_AV_SYNM = 12'h064;
+    localparam [11:0] R_AV_FBM = 12'h065;
+    localparam [11:0] R_DRVEN_DRVEN = 12'h070;
+    localparam [11:0] R_PINBANK_COUNT = 12'h080;
+    localparam [11:0] R_PINBANK_GUARD = 12'h081;
+    localparam [11:0] R_PINSEL_IDX = 12'h0A0;
+    localparam [11:0] R_PINROM_ROM = 12'h0C0;
+    localparam [11:0] R_CAPSEL_SEL = 12'h100;
+    localparam [11:0] R_CAPST_STATUS = 12'h120;
+    localparam [11:0] R_CAPCNT_COUNT = 12'h124;
+    localparam [11:0] R_CAPCNT_LOST = 12'h128;
+    localparam [11:0] R_CAPCNT_LINES = 12'h12C;
+    localparam [11:0] R_CAPRADDR_RADDR = 12'h130;
+    localparam [11:0] R_CAPCTL_RCTRL = 12'h134;
+    localparam [11:0] R_CAPRD_RDATA = 12'h140;
+    // <<< generated
     reg [7:0]  irq_en = 8'd0, cause = 8'd0;
     reg [7:0]  q = 8'd0;
     reg        q_p6 = 1'b0, ack_r = 1'b0;
@@ -107,7 +161,7 @@ module diag_regs #(
     wire [11:0] off  = addr[11:0];
     wire  [7:0] ev   = {ev_flip, ev_vsync, ev_eng, 5'b00000};
     wire        r0   = !win && page == 4'h0;
-    assign fifo_rd = re && r0 && off == 12'h033;       // pops in the clock of the read, so the next read sees the next word
+    assign fifo_rd = re && r0 && off == R_ENGINE_FIFO_DATA + 12'd3;       // pops in the clock of the read, so the next read sees the next word
 
     assign px_we = we & ~win & (page == 4'h6);
     assign px_re = re & ~win & (page == 4'h6);
@@ -130,48 +184,48 @@ module diag_regs #(
         if (re | we) ack_r <= 1'b1;
         q_p6 <= re && !win && page == 4'h6;
         run <= 1'b0; abort <= 1'b0; go <= 1'b0; fifo_clr <= 1'b0; st_we <= 1'b0; cap_rst <= 1'b0; rd_start <= 1'b0;
-        rv_q <= rd_valid_i; q_rom <= re && r0 && off[11:5] == 7'h06;
+        rv_q <= rd_valid_i; q_rom <= re && r0 && off[11:5] == (R_PINROM_ROM + 0) >> 5;
         if (rd_valid_i && !rv_q) raddr <= raddr + 19'd1;
 
         if (st_we) saddr <= saddr + 8'd1;      // the clock after the write of 023: st_addr is still the old value in this clock
         if (w_en) begin
-            if (w_off[11:5] == 7'h08) csel[w_off[4:0]] <= w_d[6:0];
+            if (w_off[11:5] == (R_CAPSEL_SEL + 0) >> 5) csel[w_off[4:0]] <= w_d[6:0];
             case (w_off)
-                12'h010: irq_en <= w_d;
-                12'h014: cause <= (cause & ~w_d) | ev;
-                12'h012: begin run <= w_d[0]; abort <= w_d[1]; go <= w_d[2]; fifo_clr <= w_d[3]; cap_rst <= w_d[4]; end
-                12'h0A0: pin_idx <= w_d[6:0];
-                12'h130: raddr[3:0] <= w_d[7:4];
-                12'h131: raddr[11:4] <= w_d;
-                12'h132: raddr[18:12] <= w_d[6:0];
-                12'h134: rd_start <= w_d[0];
-                12'h020: sdata[7:0] <= w_d;
-                12'h021: sdata[15:8] <= w_d;
-                12'h022: sdata[23:16] <= w_d;
-                12'h023: begin sdata[31:24] <= w_d; st_we <= 1'b1; end    // the RAM write is in the next clock; saddr moves on then
-                12'h024: saddr <= w_d;
-                12'h050: av_std <= w_d[1:0];
-                12'h051: av_perm <= (w_d[2:0] > 3'd5) ? 3'd5 : w_d[2:0];
-                12'h052: av_rev <= w_d[2:0];
-                12'h053: begin av_vinv <= w_d[0]; av_frz <= w_d[1]; end
-                12'h054: av_trim <= w_d;
-                12'h055: av_bs <= w_d[6:0];
-                12'h056: av_be[7:0] <= w_d;
-                12'h057: av_be[9:8] <= w_d[1:0];
-                12'h058: av_bamp <= w_d[5:0];
-                12'h059: av_gain <= w_d[4:0];
-                12'h05A: av_sync <= w_d;
-                12'h05B: av_blank <= w_d;
-                12'h05C: av_white <= w_d[4:0];
-                12'h05D: begin av_eq <= w_d[0]; av_l262 <= w_d[1]; end
-                12'h05E: av_vlen <= w_d[4:0];
-                12'h05F: av_vpos <= w_d;
-                12'h060: av_map <= w_d[0];
-                12'h061: av_mode <= (w_d[1:0] == 2'd3) ? 2'd2 : w_d[1:0];
-                12'h062: av_pch <= (w_d[1:0] == 2'd3) ? 2'd2 : w_d[1:0];
-                12'h063: av_rch <= w_d[1:0];
-                12'h064: av_synm <= w_d[1:0];
-                12'h065: av_fbm <= w_d[1:0];
+                R_ENGINE_IRQ_EN: irq_en <= w_d;
+                R_ENGINE_IRQ_CAUSE: cause <= (cause & ~w_d) | ev;
+                R_ENGINE_CTRL: begin run <= w_d[0]; abort <= w_d[1]; go <= w_d[2]; fifo_clr <= w_d[3]; cap_rst <= w_d[4]; end
+                R_PINSEL_IDX: pin_idx <= w_d[6:0];
+                R_CAPRADDR_RADDR: raddr[3:0] <= w_d[7:4];
+                R_CAPRADDR_RADDR + 12'd1: raddr[11:4] <= w_d;
+                R_CAPRADDR_RADDR + 12'd2: raddr[18:12] <= w_d[6:0];
+                R_CAPCTL_RCTRL: rd_start <= w_d[0];
+                R_ENGINE_STEP_DATA: sdata[7:0] <= w_d;
+                R_ENGINE_STEP_DATA + 12'd1: sdata[15:8] <= w_d;
+                R_ENGINE_STEP_DATA + 12'd2: sdata[23:16] <= w_d;
+                R_ENGINE_STEP_DATA + 12'd3: begin sdata[31:24] <= w_d; st_we <= 1'b1; end    // the RAM write is in the next clock; saddr moves on then
+                R_ENGINE_STEP_ADDR: saddr <= w_d;
+                R_AV_STD: av_std <= w_d[1:0];
+                R_AV_PERM: av_perm <= (w_d[2:0] > 3'd5) ? 3'd5 : w_d[2:0];
+                R_AV_REV: av_rev <= w_d[2:0];
+                R_AV_VINV: begin av_vinv <= w_d[0]; av_frz <= w_d[1]; end
+                R_AV_TRIM: av_trim <= w_d;
+                R_AV_BSTART: av_bs <= w_d[6:0];
+                R_AV_BEND: av_be[7:0] <= w_d;
+                R_AV_BEND + 12'd1: av_be[9:8] <= w_d[1:0];
+                R_AV_BAMP: av_bamp <= w_d[5:0];
+                R_AV_GAIN: av_gain <= w_d[4:0];
+                R_AV_SYNC: av_sync <= w_d;
+                R_AV_BLANK: av_blank <= w_d;
+                R_AV_WHITE: av_white <= w_d[4:0];
+                R_AV_SYNCB: begin av_eq <= w_d[0]; av_l262 <= w_d[1]; end
+                R_AV_VLEN: av_vlen <= w_d[4:0];
+                R_AV_VPOS: av_vpos <= w_d;
+                R_AV_MAP: av_map <= w_d[0];
+                R_AV_MODE: av_mode <= (w_d[1:0] == 2'd3) ? 2'd2 : w_d[1:0];
+                R_AV_PCH: av_pch <= (w_d[1:0] == 2'd3) ? 2'd2 : w_d[1:0];
+                R_AV_RCH: av_rch <= w_d[1:0];
+                R_AV_SYNM: av_synm <= w_d[1:0];
+                R_AV_FBM: av_fbm <= w_d[1:0];
                 default: ;
             endcase
         end
@@ -179,72 +233,72 @@ module diag_regs #(
         q <= 8'h00;
         if (r0) begin
             case (off)
-                12'h000: q <= 8'h44;                // "D"
-                12'h001: q <= 8'h49;                // "I"
-                12'h002: q <= 8'h41;                // "A"
-                12'h003: q <= 8'h47;                // "G"
-                12'h004: q <= 8'hC0;
-                12'h005: q <= 8'h02;
-                12'h006: q <= 8'h1F;
-                12'h008: q <= build[7:0];
-                12'h009: q <= build[15:8];
-                12'h00A: q <= build[23:16];
-                12'h00B: q <= build[31:24];
-                12'h00C: q <= TICKS_US_X256[7:0];
-                12'h00D: q <= TICKS_US_X256[15:8];
-                12'h00E: q <= TICKS_US_X256[23:16];
-                12'h00F: q <= TICKS_US_X256[31:24];
-                12'h010: q <= irq_en;
-                12'h011: q <= status;
-                12'h014: q <= cause;
-                12'h016: q <= pc;
-                12'h017: q <= ref_pc;
-                12'h018: q <= ref_cnt;
-                12'h080: q <= 8'd121;
-                12'h081: q <= {7'd0, guard_now};
-                12'h0A0: q <= {1'b0, pin_idx};
-                12'h120: q <= cap_st;
-                12'h124: q <= cap_count[7:0];  12'h125: q <= cap_count[15:8];  12'h126: q <= cap_count[23:16];  12'h127: q <= cap_count[31:24];
-                12'h128: q <= cap_lost[7:0];   12'h129: q <= cap_lost[15:8];   12'h12A: q <= cap_lost[23:16];   12'h12B: q <= cap_lost[31:24];
-                12'h12C: q <= cap_lines[7:0];  12'h12D: q <= cap_lines[15:8];  12'h12E: q <= cap_lines[23:16];  12'h12F: q <= cap_lines[31:24];
-                12'h130: q <= {raddr[3:0], 4'd0};
-                12'h131: q <= raddr[11:4];
-                12'h132: q <= {1'b0, raddr[18:12]};
-                12'h024: q <= saddr;
-                12'h030: q <= fifo_q[7:0];
-                12'h031: q <= fifo_q[15:8];
-                12'h032: q <= fifo_q[23:16];
-                12'h033: q <= fifo_q[31:24];
-                12'h034: q <= fifo_level[7:0];
-                12'h035: q <= {6'd0, fifo_level[9:8]};
-                12'h050: q <= {6'd0, av_std};
-                12'h051: q <= {5'd0, av_perm};
-                12'h052: q <= {5'd0, av_rev};
-                12'h053: q <= {6'd0, av_frz, av_vinv};
-                12'h054: q <= av_trim;
-                12'h055: q <= {1'b0, av_bs};
-                12'h056: q <= av_be[7:0];
-                12'h057: q <= {6'd0, av_be[9:8]};
-                12'h058: q <= {2'd0, av_bamp};
-                12'h059: q <= {3'd0, av_gain};
-                12'h05A: q <= av_sync;
-                12'h05B: q <= av_blank;
-                12'h05C: q <= {3'd0, av_white};
-                12'h05D: q <= {6'd0, av_l262, av_eq};
-                12'h05E: q <= {3'd0, av_vlen};
-                12'h05F: q <= av_vpos;
-                12'h060: q <= {7'd0, av_map};
-                12'h061: q <= {6'd0, av_mode};
-                12'h062: q <= {6'd0, av_pch};
-                12'h063: q <= {6'd0, av_rch};
-                12'h064: q <= {6'd0, av_synm};
-                12'h065: q <= {6'd0, av_fbm};
+                R_IDENT_ID: q <= 8'h44;                // "D"
+                R_IDENT_ID + 12'd1: q <= 8'h49;                // "I"
+                R_IDENT_ID + 12'd2: q <= 8'h41;                // "A"
+                R_IDENT_ID + 12'd3: q <= 8'h47;                // "G"
+                R_IDENT_CAPS: q <= 8'hC0;
+                R_IDENT_CAPS2: q <= 8'h02;
+                R_IDENT_DCAPS: q <= 8'h1F;
+                R_IDENT_BUILD: q <= build[7:0];
+                R_IDENT_BUILD + 12'd1: q <= build[15:8];
+                R_IDENT_BUILD + 12'd2: q <= build[23:16];
+                R_IDENT_BUILD + 12'd3: q <= build[31:24];
+                R_IDENT_TICKS_US_X256: q <= TICKS_US_X256[7:0];
+                R_IDENT_TICKS_US_X256 + 12'd1: q <= TICKS_US_X256[15:8];
+                R_IDENT_TICKS_US_X256 + 12'd2: q <= TICKS_US_X256[23:16];
+                R_IDENT_TICKS_US_X256 + 12'd3: q <= TICKS_US_X256[31:24];
+                R_ENGINE_IRQ_EN: q <= irq_en;
+                R_ENGINE_STATUS: q <= status;
+                R_ENGINE_IRQ_CAUSE: q <= cause;
+                R_ENGINE_PC: q <= pc;
+                R_ENGINE_REF_PC: q <= ref_pc;
+                R_ENGINE_REF_CNT: q <= ref_cnt;
+                R_PINBANK_COUNT: q <= 8'd121;
+                R_PINBANK_GUARD: q <= {7'd0, guard_now};
+                R_PINSEL_IDX: q <= {1'b0, pin_idx};
+                R_CAPST_STATUS: q <= cap_st;
+                R_CAPCNT_COUNT: q <= cap_count[7:0];  R_CAPCNT_COUNT + 12'd1: q <= cap_count[15:8];  R_CAPCNT_COUNT + 12'd2: q <= cap_count[23:16];  R_CAPCNT_COUNT + 12'd3: q <= cap_count[31:24];
+                R_CAPCNT_LOST: q <= cap_lost[7:0];   R_CAPCNT_LOST + 12'd1: q <= cap_lost[15:8];   R_CAPCNT_LOST + 12'd2: q <= cap_lost[23:16];   R_CAPCNT_LOST + 12'd3: q <= cap_lost[31:24];
+                R_CAPCNT_LINES: q <= cap_lines[7:0];  R_CAPCNT_LINES + 12'd1: q <= cap_lines[15:8];  R_CAPCNT_LINES + 12'd2: q <= cap_lines[23:16];  R_CAPCNT_LINES + 12'd3: q <= cap_lines[31:24];
+                R_CAPRADDR_RADDR: q <= {raddr[3:0], 4'd0};
+                R_CAPRADDR_RADDR + 12'd1: q <= raddr[11:4];
+                R_CAPRADDR_RADDR + 12'd2: q <= {1'b0, raddr[18:12]};
+                R_ENGINE_STEP_ADDR: q <= saddr;
+                R_ENGINE_FIFO_DATA: q <= fifo_q[7:0];
+                R_ENGINE_FIFO_DATA + 12'd1: q <= fifo_q[15:8];
+                R_ENGINE_FIFO_DATA + 12'd2: q <= fifo_q[23:16];
+                R_ENGINE_FIFO_DATA + 12'd3: q <= fifo_q[31:24];
+                R_ENGINE_FIFO_LEVEL: q <= fifo_level[7:0];
+                R_ENGINE_FIFO_LEVEL + 12'd1: q <= {6'd0, fifo_level[9:8]};
+                R_AV_STD: q <= {6'd0, av_std};
+                R_AV_PERM: q <= {5'd0, av_perm};
+                R_AV_REV: q <= {5'd0, av_rev};
+                R_AV_VINV: q <= {6'd0, av_frz, av_vinv};
+                R_AV_TRIM: q <= av_trim;
+                R_AV_BSTART: q <= {1'b0, av_bs};
+                R_AV_BEND: q <= av_be[7:0];
+                R_AV_BEND + 12'd1: q <= {6'd0, av_be[9:8]};
+                R_AV_BAMP: q <= {2'd0, av_bamp};
+                R_AV_GAIN: q <= {3'd0, av_gain};
+                R_AV_SYNC: q <= av_sync;
+                R_AV_BLANK: q <= av_blank;
+                R_AV_WHITE: q <= {3'd0, av_white};
+                R_AV_SYNCB: q <= {6'd0, av_l262, av_eq};
+                R_AV_VLEN: q <= {3'd0, av_vlen};
+                R_AV_VPOS: q <= av_vpos;
+                R_AV_MAP: q <= {7'd0, av_map};
+                R_AV_MODE: q <= {6'd0, av_mode};
+                R_AV_PCH: q <= {6'd0, av_pch};
+                R_AV_RCH: q <= {6'd0, av_rch};
+                R_AV_SYNM: q <= {6'd0, av_synm};
+                R_AV_FBM: q <= {6'd0, av_fbm};
                 default: ;
             endcase
-            if (off[11:4] == 8'h04) q <= live[8*off[3:0] +: 8];
-            if (off[11:4] == 8'h07) q <= drv_en[8*off[3:0] +: 8];
-            if (off[11:5] == 7'h08) q <= {1'b0, csel[off[4:0]]};
-            if (off[11:4] == 8'h14) q <= rd_data[8*off[3:0] +: 8];
+            if (off[11:4] == (R_LIVE_SNAP + 0) >> 4) q <= live[8*off[3:0] +: 8];
+            if (off[11:4] == (R_DRVEN_DRVEN + 0) >> 4) q <= drv_en[8*off[3:0] +: 8];
+            if (off[11:5] == (R_CAPSEL_SEL + 0) >> 5) q <= {1'b0, csel[off[4:0]]};
+            if (off[11:4] == (R_CAPRD_RDATA + 0) >> 4) q <= rd_data[8*off[3:0] +: 8];
         end
     end
 endmodule

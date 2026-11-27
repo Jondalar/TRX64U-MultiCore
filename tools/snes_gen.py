@@ -12,7 +12,7 @@ of building something else. Patterned on tools/zxnext_gen.py.
          case drives. The check that the listed choices are all binary
          values is made here, per case; a case that is not complete is left alone.
        - the S-SMP's boot ROM: tools/vendor_snes.sh cut the 64 bytes out of rtl/SMP.vhd (T142 D9: a chip ROM dump; Q3: the application carries the bytes); here the constant
-         becomes a 64 byte RAM that the new ports IPL_WR / IPL_WA / IPL_WD of SMP, SNES and snes_sys write (the application writes its spc_ipl table, coreapp/cores/snes.cc,
+         becomes a 64 byte RAM that the new ports IPL_WR / IPL_WA / IPL_WD of SMP, SNES and snes_sys write (the application writes its spc_ipl table, cores/snes/app/lib/snes.cc,
          into it while the machine is held) - four edits, counted.
        - DSP_LHRomMap.vhd's CC_SR (the Competition Cart's status byte): only bit 1 is ever assigned outside the reset, the other bits are assigned in the reset
          branch alone, which GHDL turns into a signal that holds its own value (`cc_sr = reset ? 0 : cc_sr`, a combinational loop; Quartus makes constant zeros

@@ -12,14 +12,14 @@
 #include "cor_build.h"
 #include "cor.h"
 
-static const CoreDesc vc = { {'V', 'C', '2', '0'}, "VC20", "VIC-20", "vc20", "VIC-20 Settings" };
+static const CoreDesc vc = { {'V', 'C', '2', '0'}, "VC20", "VIC-20", "demo", "VIC-20 Settings" };
 const CoreDesc *const core_table[] = { &vc, 0 };             // T239.5 D13: no moved core in the shared unit (the A500 was a second row no case read)
 
 int main()
 {
     std::vector<uint8_t> partial(4096, 0x5a);
     const uint32_t running = 0x96f6ab08u;                          // what running_host_key() returns on the board (hostapp.cc)
-    const char *path = "/usb0/cores/vc20.cor";
+    const char *path = "/usb0/cores/demo.cor";
     for (int pass = 0; pass < 2; pass++) {
         // pass 0: the .cor is for the running host; pass 1: a .cor really built for another host (negative control)
         FakeFs fs;
@@ -60,9 +60,9 @@ int main()
         for (int k = 0; k < 3; k++) {
             FakeFs fs;
             FakeIo io;
-            fs.put("/SD/cores/apple2.cor", make_cor("VC20", "2bb1de24", partial));
+            fs.put("/SD/cores/democore.cor", make_cor("VC20", "2bb1de24", partial));
             Handover page;
-            handover_fill(&page, "/SD/cores/apple2.cor", "VC20", "0.1", 0x2bb1de24u);
+            handover_fill(&page, "/SD/cores/democore.cor", "VC20", "0.1", 0x2bb1de24u);
             memset(page.host_build, 0, sizeof(page.host_build));
             strcpy(page.host_build, forms[k]);
             page.sum = handover_sum(&page);
@@ -81,7 +81,7 @@ int main()
             CHECK_EQ(rc, 0);
         }
         Handover page;
-        handover_fill(&page, "/SD/cores/apple2.cor", "VC20", "0.1", 0x2bb1de24u);
+        handover_fill(&page, "/SD/cores/democore.cor", "VC20", "0.1", 0x2bb1de24u);
         CHECK_STR(page.host_build, "2bb1de24");                    // the writer's own form, whatever the libc prints
         const char *bad[] = { "2BB1ZE24", "2bb1 e24", "0x2bb1de" };
         for (int k = 0; k < 3; k++) {

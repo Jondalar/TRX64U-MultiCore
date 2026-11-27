@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 B="${BUILDER:-builder}"; T="${BUILD_TREE:-t153}"; IMG="${BUILD_IMAGE:-u64-build-env:ci}"
 cd "$ROOT"
-tar c --no-xattrs --exclude='*/result' --exclude='*/output' --exclude='*.o' coreapp app host-app/target/u64ii/riscv/coreapp/Makefile host-app/software vendor/gideon/software vendor/gideon/tools tools tests/coreapp/golden cores/apple2/rtl/roms 2>/dev/null \
+tar c --no-xattrs --exclude='*/result' --exclude='*/output' --exclude='*.o' coreapp app host-app/target/u64ii/riscv/coreapp/Makefile host-app/software vendor/gideon/software vendor/gideon/tools tools tests/coreapp/golden 2>/dev/null \
   | ssh "$B" "cd ~/$T && tar xm"
 ssh "$B" "timeout 1500 docker run --rm -v \$HOME/$T:/trx -w /trx/host-app $IMG bash -c '
 set -e

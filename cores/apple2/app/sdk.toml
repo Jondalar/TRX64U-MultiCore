@@ -1,0 +1,47 @@
+# TOML B of the Apple //e's app (T239.3 D55, D61, T239.5 D15): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The base's own
+# tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "apple2"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library apple2 below defines it); the core table of this app holds this core only
+desc = "apple2_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=apple2, step 9 of its lane): its cases of the render bench
+render = true
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the Apple //e is a DFX core on the host's pieces) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader and audio_master (the host's master volume and tone). The core has no 1541 and no IEC bus, so no block of
+# the drive window or of iec_status is named; no block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if either, so board.cc runs no cartridge, ring, REU or command
+# interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of the System ROM and the settings, the Disk II and the slot 7 hard disk engines with their write-back, the .dsk / .po / .nib / WOZ /
+# 2MG readers, the mount slots). Its files are in cores/apple2/app/lib; hk_defaults.h is a copy of the shared app's (every core holds its own copy, T239 D17); hdd_rom.h is the slot 7 card's ROM
+# (tools/build_hdd_rom.sh from cores/apple2/rtl/roms/hdd.a65).
+[[library]]
+name = "apple2"
+sources = ["apple2.cc", "apple2_disk.cc", "apple2_hdd.cc", "apple2_nib.cc", "apple2_woz.cc"]
+headers = ["apple2_disk.h", "apple2_nib.h", "apple2_regs.h", "apple2_woz.h", "hdd_rom.h", "hk_defaults.h"]
+needs = ["newfile", "newdisk"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: apple2app, the group apple2): unit = 2 unit tests (apple2_disk the 6-and-2 nibblizer, the file orders, WOZ, the
+# slot 7 hard disk and the flush before an eject against a model of the track window; apple2 the descriptor against a model of the register block), service = 8 mock bitstream -> service (apple2_descgen the record compiled from
+# desc.toml against the descriptor, apple2_romreq its rows of the host's ROM table, apple2_mounts the floppies and slot 7 volumes kept in the .cfg and restored before the release, apple2_joyswap its "Joystick ports" key,
+# apple2_newdisk the blank .dsk and its entry, apple2_createflow the create flow, apple2_ledcores its LED setting down to the register), ui = 9 service -> UI (apple2_desc the checks every descriptor passes and its menu's golden,
+# apple2_hotkeys its default hotkey map, apple2_keywalk every key of its menu against its golden), api = 10 service -> API: its operations through the service call the REST and RPC transports make (apple2_memops: svc_call, main
+# and aux RAM; apple2_corereport the bug report's registers) and the reach of its declaration over the UI service (apple2_uicover). T239.3 D61: these are the Apple IIe's cases of the shared tests (TEST_APP_APPLE2).
+tests = { unit = ["apple2_disk", "apple2"], service = ["apple2_descgen", "apple2_romreq", "apple2_mounts", "apple2_joyswap", "apple2_newdisk", "apple2_createflow", "apple2_ledcores"], ui = ["apple2_desc", "apple2_hotkeys", "apple2_keywalk"], api = ["apple2_memops", "apple2_corereport", "apple2_uicover"] }
+
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]
+
+[[library]]
+name = "newdisk"
+sources = ["newdisk.cc"]
+headers = ["newdisk.h"]
+register_ops = "newdisk_register"
+capability = ["floppy", "sio"]
+needs = ["newfile"]

@@ -376,3 +376,16 @@ REST key log is on #73, not in this repository)**
 - The coordinator's test run (`tools/dev.sh test`, 2026-11-24) found the next one behind it: `test_keywalk` (golden `keywalk.txt`, `ids.txt`) lacked
   the eight new rows. Both are rewritten (only the Port Diagnostics lines change; the hashes of F1/home match the builder's run), and `test_cut`,
   the last unit that compiles `portdiag.cc` and `diagtest.cc`, passes (638 checks).
+
+**D16 built (2026-11-27, branch `diag-1702`; no gateware build yet, T264 D4 takes it with the next full build)**
+- Trim: `diag_avout.v:154` `trim_inc = {{15{trim[7]}}, trim, 3'd0}` (trim x 8; 3.90 Hz at NTSC's 32.725694 MHz, 3.76 Hz at PAL's 31.527778 MHz, range about
+  +-500 Hz); the unit comment at `diag_avout.v:11` and `portdiag_regs.h:65` follow. Panel row `Subcarrier trim` (`avout.toml`): 101 names "-500 Hz" .. "+500 Hz" in 10 Hz
+  steps, values round(Hz / 3.90) clamped to -128..127, default "0 Hz"; the labels are NTSC's, PAL's real steps are 4 percent smaller (comment in the row). The presets keep
+  their labels (`+60 Hz` is now value 15, `+120 Hz` value 31).
+- Walk: `diagtest.cc` `run_avtest`, before the result header: when `[base]`, `[sweep]` and the preset name no standard, `ui->choice` lists the panel's Standard names
+  ("Which standard is the TV set to?"), the pick becomes the base value (and the standard's burst defaults apply as for any fixed standard), the result files record it in `[knobs]`;
+  ESC or a timeout stops the walk with a message. A file that names a standard does not ask (`avvsync.toml`).
+- Proofs: `CA_GROUP=diag tests/coreapp/run.sh`: `test_diagtest: 634 checks, 0 failed` (new `test_avstd_ask`: without a standard one question, its answer is the standard in the log
+  and in the .toml; with one, none; `test_avpresets` wants trim 15 / 31), `test_portdiag: 60 checks, 0 failed`, `test_diag_avtrace: 83 checks, 0 failed` (golden `diag_av_trace.txt`
+  regenerated: only the trim register writes change). `cores/diag/sim/avregs/run.sh`: `PASS tb_avregs errors=0 checks=63`, `PASS tb_avsync errors=0 checks=146`
+  (`tb_avregs.v` now expects trim x 8: +5 adds 40, -3 subtracts 24). `diag_avmap` does not use the trim and was not run; yosys parses `diag_avout.v` clean.

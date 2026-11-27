@@ -687,7 +687,7 @@ int main()
     // ---- the start gate (T192.3 section 5): the port is open while the start waits; 503 with the step, nothing of the service reached. Last: it is global.
     {
         Rig r;
-        rest_starting("ROM files: Kickstart not found. Put a 512 KB .rom file in roms/amiga");
+        rest_starting("ROM files: Kickstart not found. Put a 512 KB .rom file in roms/demo");
         Resp i = http(r, "GET", "/v1/info");
         CHECK_EQ(i.status, 503);
         CHECK(has(i.body, "\"starting\":true") && has(i.body, "Kickstart not found") && has(i.body, "\"code\":-1"));

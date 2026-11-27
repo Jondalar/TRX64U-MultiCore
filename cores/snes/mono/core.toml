@@ -7,7 +7,7 @@ id           = "snes"
 name         = "Super Nintendo"
 version      = "0.0.1"
 contract     = 2
-app          = "blueprint"     # the T104 generic application (coreapp/cores/snes.cc)
+app          = "blueprint"     # the core's own app is linked from cores/snes/app/sdk.toml (cores/snes/app/lib/snes.cc, T239.3 D61)
 delivery     = "cfw"           # a LARGE core (Alex, 2026-10-28, translated: "let 2 agents build the two cores for the SNES and the Neo Geo in parallel,
                                # for real, so that they go onto the large-core list")
 order        = 14              # after the ZX Spectrum Next (13)

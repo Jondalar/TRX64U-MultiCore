@@ -8,6 +8,8 @@ name = "vc20"
 desc_record = true
 # the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
 desc = "vc20_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=vc20, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
 # V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host), the IEC block,
 # whose version byte the board's IEC probe reads, and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36, as the VIC-20 had them before V-4). The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is
@@ -21,7 +23,7 @@ base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count",
 [[library]]
 name = "vc20"
 sources = ["vc20.cc"]
-headers = ["vc20_regs.h"]
+headers = ["hk_defaults.h", "vc20_regs.h"]
 needs = ["cbm1541", "cbmrun"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: vc20app): unit = 2 unit tests (the descriptor against the
 # model of its register block), service = 8 mock bitstream -> service, ui = 9 service -> UI, api = 10 service -> API: its operations through the service call the REST and

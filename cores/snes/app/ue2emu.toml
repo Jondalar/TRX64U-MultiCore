@@ -1,4 +1,4 @@
-# The SNES core as the core application sees it (T226 pictures; the layout of nes.toml). Registers from coreapp/cores/snes_regs.h.
+# The SNES core as the core application sees it (T226 pictures; the layout of nes.toml). Registers from cores/snes/app/gateware.toml (cores/snes/app/lib/snes_regs.h).
 name = "snes"
 id = "SNES"                  # snes.cc: the gateware's ID word
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"

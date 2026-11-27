@@ -20,15 +20,7 @@
 static std::vector<std::pair<int, int>> g_applied;
 void video_apply(int sys, int hdmi) { g_applied.push_back({ sys, hdmi }); }
 
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
-#elif defined(TEST_APP_ATARI800)         // the Atari's cases: its app (run.sh a8app, the unit a8_picture) has its own core only
-extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
-const CoreDesc *const core_table[] = { &c64scpu_desc, 0 };   // the shared unit: the C64SCPU's own picture and the made-up core (T239.5 D13)
-#endif
+const CoreDesc *const core_table[] = { 0 };   // the shared unit: the frame and the made-up core (T239.5 D13, D61)
 
 struct Lay { int w, h, hdmi, sys, bx, by, scale, x0, y0; };
 
@@ -94,13 +86,7 @@ struct Rig {
 
 static void extension()
 {
-#ifdef TEST_APP_NES
-    const CoreDesc *all[] = { &nes_desc, 0 };
-#elif defined(TEST_APP_ATARI800)
-    const CoreDesc *all[] = { &atari800_desc, 0 };
-#else
     const CoreDesc *all[] = { &testcore::desc, 0 };
-#endif
     for (const CoreDesc *const *p = all; *p; p++) {
         const CoreDesc *d = *p;
         CoreDesc ext; Setting items[SETTINGS_MAX];
@@ -125,7 +111,6 @@ static void extension()
         CHECK(strstr(buf, "setting Picture = Auto | 576p / 480p | 1280 x 720 | 1920 x 1080") != 0);
         CHECK(strstr(buf, "(default Auto, live)") != 0);
     }
-#ifndef TEST_APP_NES
 
     // room: a core with SETTINGS_MAX - 1 settings of its own gets the last place; a core with SETTINGS_MAX is refused with a reason, never overflowed
     static Setting own[SETTINGS_MAX + 1];
@@ -147,7 +132,6 @@ static void extension()
     why = desc_check(&d);
     CHECK(why && strstr(why, "Picture"));
     CHECK(picture_extend(&d, &ext, items) != 0);
-#endif
 }
 
 static bool pos_is(Rig &r, int scale, int x0, int y0)
@@ -157,153 +141,11 @@ static bool pos_is(Rig &r, int scale, int x0, int y0)
 
 static int pic(Rig &r, int hdmi) { (void)r; return 1 + hdmi; }
 
-#ifdef TEST_APP_NES
-static void nes_startup()
-{
-    // the hand-over says 1080p PAL; nothing stored: Auto, which for the NES is 720p, and the position moves with it
-    g_applied.clear();
-    Rig r(&nes_desc);
-    CHECK(!r.why);
-    CHECK_EQ(nes_desc.video.x0, 576);                          // the descriptor is for 1080p ...
-    int mode = picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    CHECK_EQ(mode, VID_HDMI_720P);
-    CHECK_EQ(g_applied.size(), 1u);
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_720P));
-    CHECK(pos_is(r, 3, 576, 204));                             // ... and it stays there: the host's frame is 1080p in every mode (T107 5.6)
-    CHECK(r.vid->x0() + 256 * r.vid->scale() <= 1920);
-    CHECK(r.vid->y0() + 224 * r.vid->scale() <= 1080);
-    r.vid->init();
-    r.vid->show();
-    CHECK_EQ(r.px.last(PX_POS), (204u << 16) | 576u);
-    CHECK_EQ(r.px.last(PX_CTRL), 0x33);
-    int sys = -1, hdmi = -1;
-    CHECK(video_unpack(video_current, &sys, &hdmi) && sys == VID_SYS_PAL50 && hdmi == VID_HDMI_720P);
-
-    // the boot sequence applies every setting once more: same mode, nothing is set again, nothing moves
-    size_t w0 = r.px.w.size();
-    boot_apply_settings(&r.c, true);
-    CHECK_EQ(g_applied.size(), 1u);
-    CHECK_EQ(r.px.w.size(), w0);
-
-    // a stored choice wins over Auto and survives a restart: 1080p chosen, the host is in 1080p, nothing to set, x0 stays 576
-    CHECK(r.st->set(picture_index(&r.ext), pic(r, VID_HDMI_1080P)));
-    g_applied.clear();
-    Rig r2(&nes_desc, &r.fs);
-    CHECK_EQ(r2.st->value(picture_index(&r2.ext)), pic(r2, VID_HDMI_1080P));
-    CHECK_EQ(picture_start(&r2.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-    CHECK_EQ(g_applied.size(), 0u);
-    CHECK(pos_is(r2, 3, 576, 204));
-    // the same choice with the host in another mode: the application takes the chosen one
-    CHECK_EQ(picture_start(&r2.c, VID_SYS_NTSC60, VID_HDMI_720P), VID_HDMI_1080P);
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1080P));
-
-    // no hand-over at all (JTAG, developer): PAL, and the mode is still applied
-    g_applied.clear();
-    Rig r3(&nes_desc);
-    CHECK_EQ(picture_start(&r3.c, -1, -1), VID_HDMI_720P);
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_720P));
-}
-#endif
 
 static void runtime_change()
 {
-#ifdef TEST_APP_NES
-    // the layer is shown; the person picks another mode: the layer goes off, the geometry changes, it comes back
-    g_applied.clear();
-    Rig r(&nes_desc);
-    picture_start(&r.c, VID_SYS_NTSC60, VID_HDMI_1080P);
-    r.vid->init();
-    r.vid->show();
-    r.px.w.clear();
-    g_applied.clear();
-    picture_apply(&r.c, pic(r, VID_HDMI_480_576));
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_480_576));   // the system it was in
-    CHECK(pos_is(r, 3, 576, 204));                             // the layout is the host's 1080p frame in every mode: nothing moves
-    CHECK_EQ(r.px.w.size(), 0u);                               // so the shown layer is not touched either
-    // the same choice again: nothing happens
-    size_t w0 = r.px.w.size();
-    picture_apply(&r.c, pic(r, VID_HDMI_480_576));
-    CHECK_EQ(g_applied.size(), 1u);
-    CHECK_EQ(r.px.w.size(), w0);
-    // back to 1080p: the descriptor's own numbers again
-    picture_apply(&r.c, pic(r, VID_HDMI_1080P));
-    CHECK(pos_is(r, 3, 576, 204));
-    // Auto goes back to what the core's picture asks for
-    picture_apply(&r.c, 0);
-    CHECK_EQ(r.vid->mode(), VID_HDMI_720P);
-    CHECK(pos_is(r, 3, 576, 204));
-    // a layer that is not shown is not touched, but shows the new geometry when it comes
-    Rig h(&nes_desc);
-    picture_start(&h.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    h.vid->init();
-    h.px.w.clear();
-    picture_apply(&h.c, pic(h, VID_HDMI_1080P));
-    CHECK_EQ(h.px.w.size(), 0u);
-    h.vid->show();
-    CHECK_EQ(h.px.last(PX_POS), (204u << 16) | 576u);
-#elif defined(TEST_APP_ATARI800)
-
-    // the Atari: its 14-pixel offset is the same in every mode, and Auto stays 1080p after a smaller mode was chosen
-    Rig a(&atari800_desc);
-    CHECK_EQ(picture_start(&a.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-    CHECK(pos_is(a, 3, 426, 108));
-    picture_apply(&a.c, pic(a, VID_HDMI_720P));
-    CHECK(pos_is(a, 3, 426, 108));
-    picture_apply(&a.c, 0);
-    CHECK_EQ(a.vid->mode(), VID_HDMI_1080P);
-    CHECK(pos_is(a, 3, 426, 108));
-
-    // before the window exists there is nothing to move
-    CoreCtx none; memset(&none, 0, sizeof(none));
-    g_applied.clear();
-    picture_apply(&none, pic(a, VID_HDMI_720P));
-    CHECK_EQ(g_applied.size(), 0u);
-#endif
 }
 
-#ifdef TEST_APP_NES
-static void through_the_menu()
-{
-    // the person's way: F5, Video, the Picture row, a key (T187 D1, T205 D1: Video is a tab of F5) - applied live and written to the .cfg beside the .cor
-    struct Host : MenuHost {
-        void info(int, char *out, int) { out[0] = 0; }
-        bool return_to_host(char *, int) { return false; }
-    } host;
-    Rig r(&nes_desc, 0, "/usb0/cores/nes.cfg");
-    picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    r.vid->init();
-    r.vid->show();
-    MenuCtl m(&r.c, &host);
-    m.open();
-    m.key(KEY_F5); m.key('2');
-    int row = -1;
-    for (int i = 0; i < m.rows(); i++) { char l[100], rr[100]; bool a; m.row(i, l, 100, rr, 100, &a); if (!strcmp(l, "Picture")) row = i; }
-    CHECK(row >= 0);
-    while (m.selected() < row) m.key(KEY_DOWN);
-    g_applied.clear();
-    m.key(KEY_RIGHT);                                          // T187 D5: the closed row is no stepper
-    CHECK(g_applied.empty());
-    m.key(KEY_RETURN);                                         // the page of the modes opens; browsing applies nothing
-    CHECK(std::string(m.title()) == "Picture");
-    CHECK_EQ(m.selected(), 0);
-    m.key(KEY_DOWN);
-    CHECK(g_applied.empty());
-    m.key(KEY_UP); m.key(KEY_DOWN);
-    CHECK(g_applied.empty());
-    m.key(KEY_RETURN);                                         // Auto -> 576p / 480p
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_480_576));
-    CHECK_STR(m.toast_text(), "Picture 576p / 480p");                  // T187 D4: the result is the chip in the top bar, named by the row
-    CHECK(pos_is(r, 3, 576, 204));
-    CHECK(r.fs.text("/usb0/cores/nes.cfg").find("Picture") != std::string::npos);
-    CHECK(r.fs.text("/usb0/cores/nes.cfg").find("576p / 480p") != std::string::npos);
-    char l[100], rr[100]; bool a;
-    m.row(1, l, 100, rr, 100, &a);                             // the page: the applied mode carries the "now" tag
-    CHECK(std::string(l).find("576p") != std::string::npos && std::string(rr).find("now") != std::string::npos);
-    m.key(KEY_LEFT);                                           // back to the Video list; its row names the mode in force
-    m.row(row, l, 100, rr, 100, &a);
-    CHECK(std::string(rr).find("576p") != std::string::npos);
-}
-#endif
 
 // T187 D5: the shared page logic (picmodes.cc) - the info line wording of the spec, the tags, the cursor rule that never applies on a move
 static void picmodes_shared()
@@ -448,122 +290,6 @@ static void picmodes_shared()
 }
 
 // T104.2 D5: a core that draws its own picture has no wish. Auto leaves the screen in the mode it is in; a chosen mode is still applied.
-#ifndef TEST_APP_ATARI800                // the C64SCPU's and the NES's cases (the shared unit, the NES's app)
-static void own_picture()
-{
-#ifndef TEST_APP_NES
-    g_applied.clear();
-    video_current = 0;                                                               // nobody has set a mode yet
-    Rig r(&c64scpu_desc);
-    CHECK(!r.why);
-    CHECK(r.vid->own_picture());
-    CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_720P);      // Auto: the host's mode stays
-    CHECK_EQ(g_applied.size(), 0u);
-    CHECK_EQ(picture_start(&r.c, -1, -1), -1);                                       // nobody knows the mode: nothing is guessed, nothing set
-    CHECK_EQ(g_applied.size(), 0u);
-    picture_apply(&r.c, 0);                                                          // Auto at run time: still nothing
-    CHECK_EQ(g_applied.size(), 0u);
-    picture_apply(&r.c, pic(r, VID_HDMI_1080P));                                     // a choice is applied, with no layout of ours to move
-    CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
-    CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
-    picture_apply(&r.c, 0);                                                          // back to Auto: the mode it is in now stays
-    CHECK_EQ(g_applied.size(), 1u);
-    CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
-    for (auto &w : r.px.w) CHECK_EQ(w.v & 1, 0);                                      // the pixel layer was never switched on for it
-#else
-    // the normal cores are as before: Auto asks for what the picture fits in
-    Rig n(&nes_desc);
-    CHECK_EQ(picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P);
-#endif
-}
-
-// T164 D10c: the picture value "Auto" is the mode the HOST is set to (host.cfg [Video] Mode), not the mode that shows this core's picture largest. Without
-// the gateware (this bench) the NES alone would ask for 720p; every case below says which of the two wins.
-static void host_auto()
-{
-    const char *HC = "/Flash/trx/host.cfg";
-    auto host = [](Rig &r, const char *mode) { r.fs.put_text("/Flash/trx/host.cfg", std::string("[Video]\nMode=") + mode + "\nSystem=PAL 50 Hz\n"); };
-#ifdef TEST_APP_NES
-    // host 1080p, core Auto: 1080p, where the NES alone takes 720p
-    { Rig r(&nes_desc); host(r, "1920 x 1080"); g_applied.clear();
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-      CHECK_EQ(g_applied.size(), 0u);
-      CHECK_EQ(r.vid->mode(), VID_HDMI_1080P); }
-    // host 576p, the hand-over says 720p (the host fell back): the host's own choice wins over the hand-over
-    { Rig r(&nes_desc); host(r, "576p / 480p"); g_applied.clear();
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_480_576);
-      CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_480_576)); }
-    // the core's own choice overrides it (stored in its .cfg, 720p against the host's 1080p) ...
-    { Rig a(&nes_desc); CHECK(a.st->set(picture_index(&a.ext), pic(a, VID_HDMI_800x600)));
-      Rig r(&nes_desc, &a.fs); host(r, "1920 x 1080"); g_applied.clear();
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_800x600);
-      // ... and Auto at run time goes back to the host's mode, not to the NES's wish
-      picture_apply(&r.c, 0);
-      CHECK_EQ(r.vid->mode(), VID_HDMI_1080P); }
-    // an old core .cfg (written before D10c: "Picture=Auto") loads and now means the host's mode
-    { Rig r(&nes_desc); host(r, "1920 x 1080");
-      r.fs.put_text("/usb0/cores/old.cfg", std::string("[") + nes_desc.store + "]\nPicture=Auto\n");
-      Settings st(r.ext.settings, r.ext.nsettings, nes_desc.store, &r.fs, "/usb0/cores/old.cfg", 0);
-      st.load();
-      r.c.settings = &st;
-      CHECK_EQ(st.value(picture_index(&r.ext)), 0);
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-      r.c.settings = r.st; }
-    // the host is set to "From the screen": Auto is as before (720p for the NES); so with no file, a file with no section and a Mode in another section
-    { Rig r(&nes_desc); host(r, "From the screen");
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P); }
-    { Rig r(&nes_desc);
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P); }
-    { Rig r(&nes_desc); r.fs.put_text(HC, "Mode=1920 x 1080\n");
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P); }
-    { Rig r(&nes_desc); r.fs.put_text(HC, "[Other]\nMode=1920 x 1080\n");
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_720P); }
-    // the Video section is found after another one
-    { Rig r(&nes_desc); r.fs.put_text(HC, "[Other]\nMode=576p / 480p\n[Video]\nMode=1920 x 1080\n");
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P); }
-#else
-    (void)HC;
-    // a core that draws its own picture has no wish and keeps the screen's mode, whatever the host file says
-    { g_applied.clear(); Rig r(&c64scpu_desc); host(r, "576p / 480p");
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_720P);
-      CHECK_EQ(g_applied.size(), 0u); }
-#endif
-#ifdef TEST_APP_NES
-    // T164 D10c amended (Alex 2026-11-04): the first value of the Picture item says which mode Auto is and whose it is
-    auto auto_of = [](Rig &r) { return std::string(r.ext.settings[picture_index(&r.ext)].values[0]); };
-    { Rig r(&nes_desc);
-      CHECK_STR(auto_of(r).c_str(), "Auto");                                              // before the picture starts the text is plain
-      host(r, "1920 x 1080"); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      CHECK_STR(auto_of(r).c_str(), "Auto (1920 x 1080 from host)"); }
-    { Rig r(&nes_desc); host(r, "576p / 480p"); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P);
-      CHECK_STR(auto_of(r).c_str(), "Auto (576p / 480p from host)"); }
-    { Rig r(&nes_desc); host(r, "From the screen"); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      CHECK_STR(auto_of(r).c_str(), "Auto (1280 x 720 from screen)"); }                  // the host stored none: what the NES picked from the screen
-    { Rig r(&nes_desc); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      CHECK_STR(auto_of(r).c_str(), "Auto (1280 x 720 from screen)"); }
-    // the .cfg keeps the plain label: the note is for the display and goes stale with the host's mode
-    { Rig r(&nes_desc); host(r, "1920 x 1080"); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      int pi = picture_index(&r.ext);
-      CHECK_STR(auto_of(r).c_str(), "Auto (1920 x 1080 from host)");
-      CHECK(r.st->set(pi, 2));
-      CHECK(r.st->set(pi, 0));
-      std::string t = r.fs.text("/usb0/cores/x.cfg");
-      CHECK(t.find("Picture=Auto\n") != std::string::npos);
-      CHECK(t.find("from host") == std::string::npos && t.find("(") == std::string::npos); }
-    // the label a .cfg stored (any release) still finds the first value: plain "Auto", and the note of another host mode
-    { Rig r(&nes_desc); host(r, "1920 x 1080"); picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      const char *lbl[] = { "Auto", "Auto (1280 x 720 from host)", "auto (1920 x 1080 from screen)" };
-      for (const char *l : lbl) {
-          Settings st(r.ext.settings, r.ext.nsettings, nes_desc.store, &r.fs, "/usb0/cores/lbl.cfg", 0);
-          int pi = picture_index(&r.ext);
-          r.fs.put_text("/usb0/cores/lbl.cfg", std::string("[") + nes_desc.store + "]\nPicture=" + l + "\n");
-          st.load();
-          CHECK_EQ(st.value(pi), 0);
-          CHECK_EQ((int)st.layer(pi), (int)Settings::L_CORE);                              // the label was found: the stored Auto is the core's own choice, not the default's
-      } }
-#endif
-}
-#endif
 
 // T107 5.x (2026-10-20): the host's output is always 1920 x 1080 (host/overlay.v:8, host/vic_scaler.v), whatever mode the
 // application asked for, so the layout is the 1080p layout in EVERY mode and system. Apple II 280 x 192 is 560 x 384 at scale 2
@@ -572,7 +298,6 @@ static void fixed_frame()
 {
     static const struct { int w, h, bx, by; } pics[] = { { 256, 224, 0, 0 }, { 384, 288, 14, 0 }, { 280, 192, 0, 0 } };
     static const int modes[] = { VID_HDMI_480_576, VID_HDMI_720P, VID_HDMI_800x600, VID_HDMI_1024x768, VID_HDMI_1280x1024 };
-#ifndef TEST_APP_NES
     for (const auto &p : pics) {
         int rs, rx, ry;
         video_layout(p.w, p.h, VID_HDMI_1080P, VID_SYS_PAL50, p.bx, p.by, &rs, &rx, &ry);
@@ -592,83 +317,14 @@ static void fixed_frame()
         video_frame_size(VID_HDMI_480_576, VID_SYS_NTSC60, &fw, &fh);
         CHECK(fw == 1920 && fh == 1080);
     }
-#else
-    (void)pics;
-#endif
     // through the application: a Picture choice of 576p / 720p moves nothing on the layer
-#if defined(TEST_APP_NES) || defined(TEST_APP_ATARI800)                // on the core of the app (the shared unit has none)
-#ifdef TEST_APP_NES
-    static const CoreDesc *const cores[] = { &nes_desc };
-#else
-    static const CoreDesc *const cores[] = { &atari800_desc };
-#endif
-    for (const CoreDesc *d : cores) {
-        for (int m : modes) {
-            Rig r(d);
-            picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-            Rig ref(d);
-            ref.vid->set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
-            picture_apply(&r.c, 1 + m);
-            CHECK(pos_is(r, ref.vid->scale(), ref.vid->x0(), ref.vid->y0()));
-        }
-    }
-    FakeIo io; PxRec px;
-#endif
-#ifdef TEST_APP_NES
-    CHECK(nes_desc.video.x0 == 576);
-    // set_mode puts the layout's numbers into the working geometry, not the descriptor's: a descriptor that says scale 2 gets
-    // the scale the frame allows, and the offset it implies (its own x0/y0 are only the bias, init_bias)
-    CoreDesc odd = nes_desc;
-    odd.video.scale = 2;
-    odd.video.x0 = 512;
-    odd.video.y0 = 160;
-    Video v(odd.video, &px, &io);
-    v.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
-    int es, ex, ey;
-    video_layout(256, 224, VID_HDMI_1080P, VID_SYS_PAL50, (512 - (1920 - 256 * 2) / 2) / 2, (160 - (1080 - 224 * 2) / 2) / 2, &es, &ex, &ey);
-    CHECK_EQ(v.scale(), es);
-    CHECK_EQ(v.x0(), ex);
-    CHECK_EQ(v.y0(), ey);
-    CHECK(es == 3 && (ex != 512 || ey != 160));
-    // the start-up path goes through the same layout
-    Rig o(&odd);
-    picture_start(&o.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    CHECK(pos_is(o, es, ex, ey));
-#elif defined(TEST_APP_ATARI800)
-    // wanted_hdmi() answers from the descriptor's own scale, not from the one set_mode() worked out
-    CoreDesc small = atari800_desc;
-    small.video.scale = 1;
-    Video sv(small.video, &px, &io);
-    int before = sv.wanted_hdmi();
-    sv.set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
-    CHECK_EQ(sv.scale(), 3);
-    CHECK_EQ(sv.wanted_hdmi(), before);
-    CHECK_EQ(before, VID_HDMI_480_576);
-#endif
 }
 
 int main()
 {
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the cases on its core
-    fixed_frame();
-    extension();
-    nes_startup();
-    runtime_change();
-    own_picture();
-    host_auto();
-    through_the_menu();
-#elif defined(TEST_APP_ATARI800)         // the Atari's app (run.sh a8app, the unit a8_picture)
     layout_table();
     fixed_frame();
     extension();
-    runtime_change();
-#else                                    // the shared unit picture: the frame, the made-up core, the C64SCPU's own picture
-    layout_table();
-    fixed_frame();
-    extension();
-    own_picture();
-    host_auto();
     picmodes_shared();
-#endif
     DONE("test_picture");
 }

@@ -1,7 +1,7 @@
 #!/bin/sh
 # T217: the program start on the SuperCPU core, against the REAL ROMs (local bench, never in CI: the ROM files live outside the repository).
 # The machine boots to the BASIC prompt (the real KERNAL, BASIC and SuperCPU ROM). At PRG_AT the application's start of a program is replayed into the machine's model:
-# tools/cbm_prg_sim.cc places the .prg with the application's own library code and numbers (app/loaders/cbm_prg.cc, coreapp/cores/c64scpu_prg.h) and writes what
+# tools/cbm_prg_sim.cc places the .prg with the application's own library code and numbers (app/loaders/cbm_prg.cc, cores/c64scpu/app/lib/c64scpu_prg.h) and writes what
 # reached the machine - bytes into the DDR2 window (the 65816's SRAM), the cache flush, the key matrix of the typed RUN / SYS - and tb_c64scpu.v +PRG_AT replays it.
 # Cases (all must hold):
 #   basic   new way: the BASIC program runs: its POKE lands in the SRAM ($C000 = 42), its PEEK(45) shows BASIC's VARTAB = the end the relinked chain ends at, TXTTAB is $0801
@@ -22,7 +22,7 @@ if [ ! -x "$build/obj/tb_c64scpu" ]; then
 fi
 w="$build/prgrun_$(echo $cases | tr " " _)"; rm -rf "$w"; mkdir -p "$w"
 eval "$(python3 -I "$here/prgrun_gen.py" scpu "$w" | sed 's/ /\n/g' | sed 's/^/G_/')"
-c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/cores/c128/app/lib" -I"$root/app/loaders" -I"$root/app/video" || exit 1
+c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/cores/c128/app/lib" -I"$root/cores/c64scpu/app/lib" -I"$root/app/loaders" -I"$root/app/video" || exit 1
 rc=0
 for cs in $cases; do
   run="$w/$cs"; mkdir -p "$run"; cp -a "$build/run/." "$run/"

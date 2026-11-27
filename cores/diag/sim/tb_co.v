@@ -1,4 +1,4 @@
-// T175 / T260 co-check: runs a step list the APPLICATION compiled (tests/coreapp/diag_co.cc capture, from a shipped example test) on the real probe engine v2 behind its register block
+// T175 / T260 co-check: runs a step list the APPLICATION compiled (cores/diag/app/tests/diag_co.cc capture, from a shipped example test) on the real probe engine v2 behind its register block
 // (diag_regs.v and probe.v wired as tb_probe.v wires them, without the capture writer), the way the application drives it (ABORT, CLEAR, CAP RESET, STEP_ADDR = 0, the words, RUN, poll STATUS; at a wait: read
 // PC, pop the FIFO, GO; at done: pop the rest, read REF_PC / REF_CNT), against a model of the peripherals the test asks the person to plug in, and writes down what the application will read.
 // The application's decoder then reads that record (diag_co.cc replay). The TB judges nothing about the test; the two sides meet only through these files.

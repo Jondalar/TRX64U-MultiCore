@@ -1,5 +1,5 @@
 // T142: bench of the SNES core (snes_core with cores/snes/gen, the DDR2 models, an application model that sets the core up through the register block like
-// coreapp/cores/snes.cc does: hold, the mapper byte, the masks, the S-SMP's boot ROM (our own 64 byte stub, tools/snes_asm.py spcstub), the image straight
+// cores/snes/app/lib/snes.cc does: hold, the mapper byte, the masks, the S-SMP's boot ROM (our own 64 byte stub, tools/snes_asm.py spcstub), the image straight
 // into the DDR2 model, release). The program is ours (cores/snes/sim/prog/*.s, assembled by tools/snes_asm.py). It reports by writing its final word,
 // DONE = 0xD0 at WRAM $7E:FFFF; when that is there the bench lets the machine run on for +SETTLE frames, then prints hashes of the machine's memories,
 // the picture and the counters on lines that start with SNES (sim/run.sh compares them between the build behind snes_mem.v and the reference build with

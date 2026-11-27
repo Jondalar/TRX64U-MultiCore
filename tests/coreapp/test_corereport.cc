@@ -1,5 +1,5 @@
 // T162: the bug report of the generic core application - the sections, the descriptor's named registers (D3: those and no others are read), the file
-// on the SD card, the REST route, and no secrets (P4). The descriptors are the real ones where the claim is about them (Amiga, Apple IIe, C64) and the
+// on the SD card, the REST route, and no secrets (P4). The descriptors are the real ones where the claim is about them (Amiga, Apple IIe: their units amiga_corereport and apple2_corereport) and the
 // test core where a register or a setting has to be made up.
 #include <string>
 #include <set>
@@ -14,17 +14,8 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-#ifdef TEST_APP_AMIGA
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib): its build has its core only
-#else
-extern const CoreDesc apple2_desc;
-#endif
 
-#ifdef TEST_APP_AMIGA
-const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, 0 };
-#else
-const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
-#endif
+const CoreDesc *const core_table[] = { &testcore::desc, 0 };
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
 
@@ -120,27 +111,6 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
 
 int main()
 {
-#ifdef TEST_APP_AMIGA
-    // ---- D3 in the real descriptors: the Amiga 500's (T239.5 D13: run as its app, run.sh amigaapp, unit amiga_corereport; the shared unit corereport keeps the Apple IIe's)
-    {
-        const CoreDesc *real[] = { &amiga_desc };
-        for (const CoreDesc *d : real) {
-            CHECK(d->nreport_regs > 0 && d->report_regs);
-            CHECK(!desc_check(d));
-        }
-        // a malformed list is refused by the check
-        CoreDesc d = amiga_desc;
-        static const ReportReg odd[] = { { "three", 0x10, 3 } };
-        d.report_regs = odd; d.nreport_regs = 1;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
-        d.report_regs = unnamed;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
-        d.report_regs = far_;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-    }
-#else
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     {
         Rig r;
@@ -257,26 +227,6 @@ int main()
         get(r, "POST", "/v1/report", &st);
         CHECK_EQ(st, 405);
         CHECK_EQ(s_rest_calls, 1);
-    }
-    // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
-    {
-        const CoreDesc *real[] = { &apple2_desc };                // T239.5 D13: the Amiga 500's case and the malformed lists on its record are its unit amiga_corereport
-        for (const CoreDesc *d : real) {
-            CHECK(d->nreport_regs > 0 && d->report_regs);
-            CHECK(!desc_check(d));
-        }
-    }
-    // the report of a real descriptor names its registers
-    {
-        SpyIo io; FakeFs fs; CoreCtx c;
-        memset(&c, 0, sizeof(c));
-        c.desc = &apple2_desc; c.io = &io; c.fs = &fs;
-        int n = core_report_build(&c, 0, false, "", 0, g_out, sizeof(g_out));
-        std::string t(g_out, n);
-        CHECK(has(t, "STATUS (b0 reset, b1 held, b2 cold)"));
-        CHECK(has(t, "Apple IIe"));
-        CHECK_EQ((int)io.reads.size(), 4 + 1 + 1 + 1 + 1 + 1 + 2 + 1 + 1 + 1);
-        delete c.ops;
     }
     // ---- D4: the media lines carry the file's name and its size in bytes, no hash --------------------------------------------------------------
     {
@@ -399,6 +349,5 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
-#endif
     DONE("test_corereport");
 }

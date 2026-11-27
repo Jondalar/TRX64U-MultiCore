@@ -3,9 +3,9 @@
 # trx64-sim-env. Every check runs; the stage fails if one did.
 #
 #   ci/lint.sh                          every check (by hand; the matrix runs the groups)
-#   ci/lint.sh tree|sdk|host|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
+#   ci/lint.sh tree|sdk|host|rtlchk|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
 #                                       TODO and specs, versions), sdk = the SDK's lint (its tools, the API document, D24, the shared TOML B), host = the
-#                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports, the TOML A against the RTL)
+#                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports; the TOML A against the RTL is step 4 of the core lane, T264)
 #
 #  - shell: bash -n and shellcheck (errors only) over ci/, tools/, vivado/ and the benches
 #  - python: byte-compile and ruff's syntax/undefined-name rules (E9, F63, F7, F82)
@@ -25,7 +25,7 @@ cd "$ROOT"
 [ ! -d /cache/runs ] || find /cache/runs -mindepth 1 -maxdepth 1 -mtime +2 -exec rm -rf {} + || true
 
 LINT_GROUP="${1:-all}"
-case "$LINT_GROUP" in all|tree|sdk|host|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
+case "$LINT_GROUP" in all|tree|sdk|host|rtlchk|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host, rtlchk or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
 fails=()
 check() { # check <name> <command...>   a check of the full lint and of the lane tree (T239.5: the tree checks of every push are every check no other lane owns)
   case "$LINT_GROUP" in all|tree) ;; *) return 0 ;; esac
@@ -90,8 +90,11 @@ gcheck tree "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tr
 check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py --selftest >/dev/null && python3 tools/check_vivado_env.py'
 # T239.1 D1, S9: workflow rules (risky triggers with a secret or environment, the builds guard, permissions, SHA and digest pins, no self-hosted, no private repository name); the selftest plants one fault per rule
 check "workflow rules (T239.1 D1)" bash -c 'python3 -I tools/check_workflows.py --selftest >/dev/null && python3 -I tools/check_workflows.py'
+gcheck tree "toml_a_list fixtures (T264 S1: a Verilog and a VHDL decoder, a moved offset, a removed and an extra register)" python3 -I tests/toml_a_list/test_toml_a_list.py
+gcheck tree "toml_a_gen fixtures (T264 S2: a decode without the block, a stale block, an unused constant; a Verilog and a VHDL decoder)" python3 -I tests/toml_a_gen/test_toml_a_gen.py
+gcheck tree "generated register constants current and used, every lane core (T264 S2: tools/toml_a_gen.py)" python3 -I tools/toml_a_gen.py check --all
 gcheck sdk "cor_pack test" python3 tools/test_cor_pack.py
-gcheck tree "rtl_check test, once per push (T239.3 D30, T264 S3: an optional tool; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
+gcheck rtlchk "rtl_check test (T239.3 D30; T264 S3: an optional tool, its group runs only when tools/rtl_check.py or tests/rtl_check change; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
 gcheck sdk "reverse lint: no literal I/O address in a library or base source (T239.3 D30, P2-6)" python3 -I tools/rtl_check.py lint-src app/lib app/sdkpkg/example coreapp/src --allow wsproto.cc:0x10325476u   # P2-6: coreapp/src too; the one literal is a hash initial word
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
@@ -99,7 +102,7 @@ gcheck sdk "descrec test" python3 tools/test_descrec.py
 gcheck sdk "libtab test" python3 tools/test_libtab.py
 gcheck sdk "app_build test (T239.3 D31: the maxima per core, the split of the base)" python3 tools/test_app_build.py
 gcheck sdk "the SDK links with the options of the core app Makefile (T239.3 D31)" python3 -I tools/app_build.py flags host-app/target/u64ii/riscv/coreapp/Makefile app/lib/appflags.mk
-check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_amiga1200.txt
+check "base UI table" python3 tools/gen_base_ui.py --check --ops cores/amiga1200/app/tests/golden/ops_amiga1200.txt
 # T192 D23 (Alex, 2026-11-09: "Until the UI, including the UX, works completely as an API client, it is a botch"): the host's screen changes no state outside host_core, acts on
 # no key itself (the key map is one table), carries no hand-written legend; what is not cut yet is the ledger (tools/host_cut_ledger.txt) and only shrinks.
 gcheck host "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'
@@ -146,6 +149,9 @@ check "negative controls only in flash and persistence tests" python3 -I tools/c
 # T213 D4 / T192 D24 (Alex 2026-11-16): per-core code in the generic app only shrinks (ledger tools/d24_ledger.txt); the selftest plants each breach
 gcheck sdk "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
 gcheck sdk "D24 per-core code gate" python3 -I tools/check_d24.py
+# T239 D17 (Alex 2026-11-27): a core's tests live in its folder (tools/tests_to_core.py); the shared test harness names no core but the ones of the ledger
+# tools/core_names_ledger.txt (the cores whose tests have not moved), which only shrinks
+gcheck sdk "T239 D17: no core in the shared test harness" python3 -I tools/check_core_names.py
 gcheck sdk "library table: TOML B and the generic sources (T239.3 D31)" python3 -I tools/libtab.py lint coreapp/libs/shared.toml .
 
 check "verilog syntax" bash -c '

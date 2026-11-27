@@ -7,8 +7,8 @@
 #include <string.h>
 #include <vector>
 
-// The VC-20's numbers (vc20.cc:264-371), which is the machine this loader was read from.
-static CbmPrgParams vc20(void)
+// The numbers of the machine this loader was read from (its core's own parameters).
+static CbmPrgParams sample_machine(void)
 {
     CbmPrgParams p;
     memset(&p, 0, sizeof(p));
@@ -43,7 +43,7 @@ static std::vector<uint8_t> prg(uint16_t load)
 
 int main()
 {
-    CbmPrgParams p = vc20();
+    CbmPrgParams p = sample_machine();
     FakeIo io;
     char msg[160];
 

@@ -227,7 +227,7 @@ Kickstarts, character ROMs and Disk II ROMs are written by the application from 
   core's own boot ROM (section 6); they are part of the published source. NextZXOS and the Spectrum ROMs come from the user's own
   files, never from the tree.
 - **A ROM that is not here**: the 64 byte boot ROM of the SNES's S-SMP (`SMP.vhd`, constant `IPLROM`) is a dump of Nintendo's chip ROM; `tools/vendor_snes.sh` cuts it out of
-  the vendored file and `tools/check_snes_tree.py` refuses it. The application (`coreapp/cores/snes.cc`, `spc_ipl`) carries the 64 bytes, byte for byte from SNES_MiSTer `bdcd33c5` `rtl/SMP.vhd:76`, and writes them into the machine at the start (second licence exception, Alex 2026-10-29, T142 Q3; CLAUDE.md). The DSP-1B, Cx4 and BSX
+  the vendored file and `tools/check_snes_tree.py` refuses it. The application (`cores/snes/app/lib/snes.cc`, `spc_ipl`) carries the 64 bytes, byte for byte from SNES_MiSTer `bdcd33c5` `rtl/SMP.vhd:76`, and writes them into the machine at the start (second licence exception, Alex 2026-10-29, T142 Q3; CLAUDE.md). The DSP-1B, Cx4 and BSX
   `.mif` files of the upstream are not taken either. The S-DSP's gaussian interpolation table (`DSP_PKG.vhd`, 512 entries) is a table of the chip that the upstream source
   carries and the machine cannot sound right without; it stays (open for Alex, T142 report).
 - **Data in the bitstreams that is not a ROM**: `host/bootrom_pkg.vhd` (our boot ROM, section 3), the overlay fonts, the SID

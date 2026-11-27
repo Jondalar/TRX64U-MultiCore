@@ -498,7 +498,7 @@ int main(int argc, char **argv)
         CHECK(!w.probed && w.desc == 0);
     }
 
-    // ---- T175, record 8: the files a core installs on the card (the fixture core instfiles carries files, T260 D6: the diag core carries none)
+    // ---- T175, record 8: the files a core installs on the card (the fixture core instfiles carries files, T260 D6: a real core ships its files as a folder of its delivery)
     {
         fs.put("/usb0/cores/instfiles.cor", slurp(dir + "/instfiles.cor"));
         fs.put("/usb0/cores/nofiles.cor", slurp(dir + "/nofiles.cor"));
