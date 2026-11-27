@@ -77,10 +77,12 @@ static int n_every(bool hotkeys_only)                         // how many cores 
     return n;
 }
 // the floors of the walks are what each build's walk gives (measured on the Mac, 2026-11-25, the diag build and the shared bench without diag 2026-11-26, tests/coreapp/render/run.sh: the S1, UX, chrome and hotkey learn lines of
-// each build); the thirteen builds together walk every core the one bench walked before the split (then UX chrome: 321 tab strips, 417 legends, 2085 rail items, 45 pages,
+// each build); the fourteen builds together walk every core the one bench walked before the split (then UX chrome: 321 tab strips, 417 legends, 2085 rail items, 45 pages,
 // 306 page rows, 222 key names; the diag core's walk is shorter since T260: its A/V settings pages became a panel file)
 struct Floors { int s1lists, s1states, s1two, s1marked, s1legends, uxhot, uxcmp, uxvals, ucn_strip, ucn_leg, ucn_rail, ucn_pages, ucn_hk, ucn_pcnames, hkl_cores; };
-#if defined(RENDER_APP_ATARI800)
+#if defined(RENDER_APP_APPLE2)
+static const Floors FLOOR = { 15, 339, 0, 0, 0, 1, 12, 23, 18, 24, 120, 3, 21, 21, 2 };   // measured 2026-11-27 (T239.3 D61)
+#elif defined(RENDER_APP_ATARI800)
 static const Floors FLOOR = { 15, 327, 0, 114, 57, 1, 12, 21, 18, 24, 120, 3, 21, 21, 2 };
 #elif defined(RENDER_APP_NES)
 static const Floors FLOOR = { 18, 354, 0, 45, 45, 1, 12, 7, 21, 27, 135, 3, 21, 21, 2 };
@@ -105,7 +107,7 @@ static const Floors FLOOR = { 15, 399, 516, 258, 129, 1, 13, 33, 18, 24, 120, 3,
 #elif defined(RENDER_APP_DIAG)
 static const Floors FLOOR = { 9, 207, 0, 0, 0, 0, 3, 16, 15, 18, 90, 0, 0, 0, 0 };
 #else
-static const Floors FLOOR = { 78, 1770, 0, 1092, 219, 5, 56, 117, 96, 126, 630, 15, 99, 60, 10 };   // the shared bench: the board's table (3) and the VIC-20 and the A1200
+static const Floors FLOOR = { 63, 1431, 0, 1092, 219, 4, 44, 94, 78, 102, 510, 12, 78, 39, 8 };   // the shared bench: the board's table (the SNES and the C64SCPU) and the VIC-20 and the A1200 (T239.3 D61: without the Apple IIe, whose own build is the build above)
 #endif
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
@@ -1933,7 +1935,7 @@ static void ux_shots(const char *out)
 #ifdef RENDER_APP_ATARI800
         { &atari800_desc, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
 #endif
-#ifndef RENDER_OWN_APP
+#ifdef RENDER_APP_APPLE2                                  // T239.3 D61: the Apple IIe's build
         { &apple2_desc, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
 #endif
     };

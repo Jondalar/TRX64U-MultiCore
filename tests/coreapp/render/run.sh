@@ -7,7 +7,7 @@
 set -euo pipefail
 # T239.5 D13: the cores that moved to an app of their own are render builds of their own (RENDER_OWN_APP, RENDER_APP_<CORE>: render.cc takes that core's cases only, its walks
 # visit that core alone; srclist.sh compiles its library against its own driver table and no other core's). The shared bench builds none of them; each runs in its core's lane.
-RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128 diag"
+RENDER_OWN="atari800 nes c264 zxnext neogeo amiga ddt_novic zx cpc pet c128 diag apple2"
 if [ "${1:-}" = --own ]; then echo "$RENDER_OWN"; exit 0; fi
 R="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$R/../../.." && pwd)"
