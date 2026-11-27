@@ -29,8 +29,11 @@ int main()
 #elif defined(TEST_APP_ATARI800)              // the Atari 800 XL's app is its own build (run.sh a8app): its core is the only one in it
     extern const CoreDesc atari800_desc;
     const CoreDesc *const cores[] = { &atari800_desc };
-#else
+#elif defined(TEST_APP_APPLE2)                // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in it
+    extern const CoreDesc apple2_desc;
     const CoreDesc *const cores[] = { &apple2_desc };
+#else
+#error "test_ledcores: every core's LED setting is its app's unit (run.sh vc20app, a12app, amigaapp, c264app, cpcapp, c128app, a8app, apple2app); the shared app has no core of it any more"
 #endif
     for (const CoreDesc *dp : cores) {
         const CoreDesc &d = *dp;

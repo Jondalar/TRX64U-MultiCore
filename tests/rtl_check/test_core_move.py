@@ -23,17 +23,19 @@ def must(cond, what, out=""):
 
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
-    inf = core_move.plan("apple2")
+    inf = core_move.plan("snes")
 out = buf.getvalue()
-must(inf["kind"] == "dfx" and "apple2.cc" in inf["own"] and "apple2_regs.h" in inf["own"] and "hk_defaults.h" in inf["shared"] and "cores.h" not in inf["own"] + inf["shared"],
-     "plan apple2: a dfx core; its sources are the include closure of coreapp/cores/apple2.cc, hk_defaults.h is shared with other cores and stays, cores.h is no core's file", out)
-must("move to cores/apple2/app/lib" in out and "SHARED, stays" in out and "../cores/apple2/core_sources.tcl" in out and "apple2 dfx" in out,
-     "plan apple2: names the move, the shared file, the RTL source list and the lane", out)
+# T239.3 D61: the sample is the SNES, a core that has not moved yet (the Apple IIe, the sample until its move, has its own app; the C64SCPU moves with it). A moved core has no coreapp/cores/<id>.cc to read:
+# when the last core has moved, this case needs a construction of its own (a scratch tree), as the switch-off case of tools/test_cor_pack.py
+must(inf["kind"] == "large" and "snes.cc" in inf["own"] and "snes_regs.h" in inf["own"] and "hk_defaults.h" in inf["shared"] and "cores.h" not in inf["own"] + inf["shared"],
+     "plan snes: a large core; its sources are the include closure of coreapp/cores/snes.cc, hk_defaults.h is shared with other cores and stays, cores.h is no core's file", out)
+must("move to cores/snes/app/lib" in out and "SHARED, stays" in out and "snes large" in out,
+     "plan snes: names the move, the shared file and the lane", out)
 
 sdk = descrec.toml_loads(core_move.sdk_toml(inf))
-must(sdk["app"]["desc"] == "apple2_desc" and sdk["app"]["base_toml_a"] == "host.toml" and "cart_regs" in sdk["app"]["base_blocks"]
-     and sdk["library"][0]["name"] == "apple2" and "apple2.cc" in sdk["library"][0]["sources"] and [l["name"] for l in sdk["library"][1:]] == inf["libs"],
-     "sdk.toml template of apple2 parses: [app] desc, base blocks, its own library first, then the shared libraries it includes (%s)" % ", ".join(inf["libs"]))
+must(sdk["app"]["desc"] == "snes_desc" and sdk["app"]["base_toml_a"] == "host.toml" and "cart_regs" in sdk["app"]["base_blocks"]
+     and sdk["library"][0]["name"] == "snes" and "snes.cc" in sdk["library"][0]["sources"] and [l["name"] for l in sdk["library"][1:]] == inf["libs"],
+     "sdk.toml template of snes parses: [app] desc, base blocks, its own library first, then the shared libraries it includes (%s)" % ", ".join(inf["libs"]))
 
 with tempfile.TemporaryDirectory() as td:
     ta = os.path.join(td, "gateware.toml")

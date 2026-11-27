@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #if !defined(MME_OWN_APP) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
@@ -34,9 +34,12 @@
 #include "mediamounts.h"
 #include "engines.h"
 #ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#include "c64_regs.h"
+#endif
+#ifdef TEST_APP_APPLE2       // the Apple IIe's cases (D1-D4, the two slot 7 volumes): its app (run.sh apple2app, the unit apple2_mounts)
 #include "apple2_disk.h"
 #include "apple2_regs.h"
-#include "c64_regs.h"
+extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
 #ifdef TEST_APP_C264
 #include "c264_regs.h"
@@ -77,9 +80,10 @@ const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)
 extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#elif defined(TEST_APP_APPLE2)
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc,
-                                       0 };
+const CoreDesc *const core_table[] = { &snes_desc, 0 };
 #endif
 
 typedef std::vector<uint8_t> Bytes;
@@ -402,7 +406,7 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
 #endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_APPLE2
 
 static Case apple_drive(int d)
 {
@@ -495,7 +499,7 @@ static Case game_case(const char *run_op, const char *a, const char *b)
 static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_APPLE2
     {   // ---- Apple IIe: two floppies and two slot 7 volumes
         Prof p;
         p.name = "apple2"; p.cfg = "/usb0/cores/apple2/apple2.cfg"; p.base = &apple2_desc;

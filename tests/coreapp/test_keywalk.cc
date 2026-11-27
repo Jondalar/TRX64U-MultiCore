@@ -23,6 +23,10 @@ struct Host : MenuHost {
 #ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the NES's descriptor, then the record core over it, its goldens keywalk_nes.txt and ids_nes.txt
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #define KW_GOLDEN "_nes"
+#elif defined(TEST_APP_APPLE2)           // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_keywalk): its table is its core only, its walk has goldens of its own (keywalk_apple2.txt, ids_apple2.txt)
+extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
+#define KW_GOLDEN "_apple2"
 #elif defined(TEST_APP_ATARI800)         // the Atari's app is its own build (run.sh a8app, the unit a8_keywalk): its table is its core only, its walk has goldens of its own
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };

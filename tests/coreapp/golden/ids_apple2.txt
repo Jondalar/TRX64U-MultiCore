@@ -1,0 +1,30 @@
+Apple IIe F1/home 0 task:Reset (Ctrl-Reset)
+Apple IIe F1/home 1 task:Cold start
+Apple IIe F1/home 2 task:Reload ROMs, cold start
+Apple IIe F1/home 3 media:apple2.d1.image
+Apple IIe F1/home 4 media:apple2.d2.image
+Apple IIe F1/home 5 media:apple2.s71.image
+Apple IIe F1/home 6 media:apple2.s72.image
+Apple IIe F1/home 7 fixed:10:Save as config...
+Apple IIe F1/home 8 fixed:11:Load config...
+Apple IIe F5/settings 0 set:Display
+Apple IIe F5/settings 1 set:Palette
+Apple IIe F5/settings 2 set:Scanlines
+Apple IIe F5/settings 3 set:Character ROM set
+Apple IIe F5/settings 4 set:Joystick ports
+Apple IIe F5/settings 5 set:CAPS LOCK
+Apple IIe F5/settings 6 set:LED Load Indicator
+Apple IIe F8/expert 0 fixed:13:Actions
+Apple IIe F8/expert 1 fixed:6:Restart core
+Apple IIe F8/expert 2 fixed:7:Return to host menu
+Apple IIe F8/expert 3 fixed:13:Network
+Apple IIe F8/expert 4 fixed:9:WiFi
+Apple IIe F8/expert 5 fixed:13:Support
+Apple IIe F8/expert 6 fixed:8:Bug report
+Apple IIe F8/expert 7 fixed:17:Keys and help
+Apple IIe F8/expert 8 fixed:13:Reset
+Apple IIe F8/expert 9 fixed:5:Reset to host defaults
+Apple IIe F8/expert 10 fixed:13:Status
+Apple IIe F8/expert 11 info:Build
+Apple IIe F8/expert 12 info:ROMs
+Apple IIe F8/expert 13 info:Libraries

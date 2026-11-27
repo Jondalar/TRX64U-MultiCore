@@ -1,5 +1,5 @@
 // T162: the bug report of the generic core application - the sections, the descriptor's named registers (D3: those and no others are read), the file
-// on the SD card, the REST route, and no secrets (P4). The descriptors are the real ones where the claim is about them (Amiga, Apple IIe, C64) and the
+// on the SD card, the REST route, and no secrets (P4). The descriptors are the real ones where the claim is about them (Amiga, Apple IIe: their units amiga_corereport and apple2_corereport) and the
 // test core where a register or a setting has to be made up.
 #include <string>
 #include <set>
@@ -16,14 +16,16 @@
 #include "settings.h"
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib): its build has its core only
-#else
-extern const CoreDesc apple2_desc;
+#elif defined(TEST_APP_APPLE2)
+extern const CoreDesc apple2_desc;              // the Apple IIe is its own app (cores/apple2/app/lib): its build has its core only (T239.3 D61)
 #endif
 
 #ifdef TEST_APP_AMIGA
 const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, 0 };
-#else
+#elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { &testcore::desc, 0 };
 #endif
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
@@ -139,6 +141,28 @@ int main()
         static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
         d.report_regs = far_;
         CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
+    }
+#elif defined(TEST_APP_APPLE2)
+    // the Apple IIe's cases (T239.3 D61: run as its app, run.sh apple2app, unit apple2_corereport; the shared unit corereport has the test core's)
+    // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
+    {
+        const CoreDesc *real[] = { &apple2_desc };
+        for (const CoreDesc *d : real) {
+            CHECK(d->nreport_regs > 0 && d->report_regs);
+            CHECK(!desc_check(d));
+        }
+    }
+    // the report of a real descriptor names its registers
+    {
+        SpyIo io; FakeFs fs; CoreCtx c;
+        memset(&c, 0, sizeof(c));
+        c.desc = &apple2_desc; c.io = &io; c.fs = &fs;
+        int n = core_report_build(&c, 0, false, "", 0, g_out, sizeof(g_out));
+        std::string t(g_out, n);
+        CHECK(has(t, "STATUS (b0 reset, b1 held, b2 cold)"));
+        CHECK(has(t, "Apple IIe"));
+        CHECK_EQ((int)io.reads.size(), 4 + 1 + 1 + 1 + 1 + 1 + 2 + 1 + 1 + 1);
+        delete c.ops;
     }
 #else
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
@@ -257,26 +281,6 @@ int main()
         get(r, "POST", "/v1/report", &st);
         CHECK_EQ(st, 405);
         CHECK_EQ(s_rest_calls, 1);
-    }
-    // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
-    {
-        const CoreDesc *real[] = { &apple2_desc };                // T239.5 D13: the Amiga 500's case and the malformed lists on its record are its unit amiga_corereport
-        for (const CoreDesc *d : real) {
-            CHECK(d->nreport_regs > 0 && d->report_regs);
-            CHECK(!desc_check(d));
-        }
-    }
-    // the report of a real descriptor names its registers
-    {
-        SpyIo io; FakeFs fs; CoreCtx c;
-        memset(&c, 0, sizeof(c));
-        c.desc = &apple2_desc; c.io = &io; c.fs = &fs;
-        int n = core_report_build(&c, 0, false, "", 0, g_out, sizeof(g_out));
-        std::string t(g_out, n);
-        CHECK(has(t, "STATUS (b0 reset, b1 held, b2 cold)"));
-        CHECK(has(t, "Apple IIe"));
-        CHECK_EQ((int)io.reads.size(), 4 + 1 + 1 + 1 + 1 + 1 + 2 + 1 + 1 + 1);
-        delete c.ops;
     }
     // ---- D4: the media lines carry the file's name and its size in bytes, no hash --------------------------------------------------------------
     {

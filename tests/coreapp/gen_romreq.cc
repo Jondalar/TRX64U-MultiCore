@@ -22,6 +22,11 @@ const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #include "cores.h"
 extern const CoreDesc c264_desc;                // no shared header declares it (cores/c264/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c264_desc, 0 };
+#elif defined(TEST_APP_APPLE2)
+// the Apple IIe's app is its own build (run.sh apple2app): its table is its core only
+#include "cores.h"
+extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)
 // the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
 #include "cores.h"
