@@ -24,7 +24,21 @@ PAIRS = (("cores/zx/trx/zx_regs.v", "cores/zx/app/lib/zx.cc"),
          ("cores/diag/rtl/diag_regs.v", "cores/diag/app/lib/portdiag.cc"))
 
 
+def literal(text):
+    """T264 S2: a decode names its offsets by the constants of its generated block (`localparam [11:0] R_X = 12'hNNN;`): give back
+    the text with `R_X + 12'dk` / `R_X + k` / `R_X` as the literal 12'hNNN, so the forms below read a converted module as the old one"""
+    val = {n: int(v, 16) for n, v in re.findall(r"localparam \[11:0\] (R_\w+) = 12'h([0-9A-Fa-f]+);", text)}
+    if not val:
+        return text
+    def sub(m):
+        if m.group(1) not in val:
+            return m.group(0)
+        return "12'h%03X" % (val[m.group(1)] + (int(m.group(2)) if m.group(2) else 0))
+    return re.sub(r"\b(R_\w+)(?: \+ (?:12'd)?(\d+))?\b", sub, text)
+
+
 def gw_id(text):
+    text = literal(text)
     m = re.search(r"wire\s*\[31:0\]\s*id\s*=\s*(?:[^;]*?:\s*)?32'h([0-9A-Fa-f]{8})\s*;", text)       # a ternary on ID_TRX2, or the constant alone (neo_regs.v)
     if not m:                                           # the VHDL form (vc20_regs.vhd): if ID_TRX2 /= 0 then id := x"..."; else id := x"..."; end if;
         m = re.search(r'else\s+id\s*:=\s*x"([0-9A-Fa-f]{8})"\s*;', text)

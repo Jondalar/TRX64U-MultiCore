@@ -32,6 +32,8 @@ def bad_files(paths, base):
             continue
         if p.startswith(("cores/zx/app/lib/", "cores/cpc/app/lib/")) and ext in (".cc", ".h") and size <= APP_SRC_MAX:       # the core's own app: C++ source (T239.5 D16), not data
             continue
+        if p.startswith(("cores/zx/app/tests/", "cores/cpc/app/tests/")) and ext in (".cc", ".h", ".txt") and size <= APP_SRC_MAX:  # the core's own tests and goldens (T239 D17)
+            continue
         if ext not in OK_EXT:
             bad.append((p, "extension %r is not source, checksum or bench program" % ext))
         elif ext == ".hex" and size > HEX_MAX:
