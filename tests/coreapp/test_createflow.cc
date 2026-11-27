@@ -27,13 +27,10 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_CPC
-extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
-#endif
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)
 #error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
 #endif
 #include "sectors.h"
@@ -44,8 +41,6 @@ typedef std::vector<uint8_t> Bytes;
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
-#elif defined(TEST_APP_CPC)             // the CPC's app is its own build (run.sh cpcapp) with its core only
-const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #else   // TEST_APP_APPLE2 (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
@@ -79,7 +74,7 @@ struct Rig {
     {
         delete m;
         delete st;
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
 #endif
     }
@@ -196,8 +191,6 @@ static const Create creates[] = {
     { &vc20_desc,      "Create blank G64", ".g64" },
 #elif defined(TEST_APP_A1200)
     { &amiga1200_desc, "Create blank ADF", ".adf" },
-#elif defined(TEST_APP_CPC)
-    { &cpc_desc,       "Create blank DSK", ".dsk" },
 #elif defined(TEST_APP_AMIGA)
     { &amiga_desc,     "Create blank ADF", ".adf" },
 #else   // TEST_APP_APPLE2
@@ -280,8 +273,6 @@ static void check_suggestions()
     for (const CoreDesc *d : { &vc20_desc }) {
 #elif defined(TEST_APP_A1200)
     for (const CoreDesc *d : { &amiga1200_desc }) {
-#elif defined(TEST_APP_CPC)
-    for (const CoreDesc *d : { &cpc_desc }) {
 #elif defined(TEST_APP_AMIGA)
     for (const CoreDesc *d : { &amiga_desc }) {
 #else   // TEST_APP_APPLE2
@@ -418,8 +409,6 @@ static void check_progress()
     check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
 #elif defined(TEST_APP_A1200)
     check_progress_for(&amiga1200_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
-#elif defined(TEST_APP_CPC)
-    check_progress_for(&cpc_desc, "Create blank DSK", ".dsk", ND_CPC_DSK, ND_CPC_BYTES);
 #elif defined(TEST_APP_AMIGA)
     check_progress_for(&amiga_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
 #else
@@ -501,7 +490,7 @@ static void check_mount_folder()
 #endif
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));

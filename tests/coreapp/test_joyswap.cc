@@ -14,11 +14,7 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;        // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_CPC                      // the CPC's app (run.sh cpcapp) has its own core only
-#include "cpc_regs.h"
-extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
-#endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_AMIGA)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
 #endif
 #ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
@@ -50,8 +46,6 @@ int main()
         { &amiga1200_desc, AM_JOY_CFG },
 #elif defined(TEST_APP_AMIGA)
         { &amiga_desc, AM_JOY_CFG },
-#elif defined(TEST_APP_CPC)
-        { &cpc_desc, CPC_JOY },
 #else
 #endif
     };

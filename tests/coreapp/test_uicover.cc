@@ -33,9 +33,6 @@ const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #elif defined(TEST_APP_AMIGA)                   // the Amiga 500's app (run.sh amigaapp, the unit amiga_uicover): its table is its core only
 extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_CPC)                     // the CPC's app (run.sh cpcapp, the unit cpc_uicover): its table is its core only
-extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
-const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_DIAG)                    // the diag core's app (run.sh diagapp, the unit diag_uicover): its table is its core only
 extern const CoreDesc portdiag_desc;            // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };

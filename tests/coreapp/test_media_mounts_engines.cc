@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_APPLE2)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_APPLE2)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
@@ -47,9 +47,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_ZX)
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
-#elif defined(TEST_APP_CPC)
-extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
-const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -247,17 +244,6 @@ static Bytes patt(uint32_t seed, size_t n)
 #ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
 #endif
-#ifdef TEST_APP_CPC          // the CPC's disk image
-static Bytes dsk(uint32_t seed)
-{
-    const char *magic = "MV - CPCEMU Disk-File\r\nDisk-Info\r\n";
-    Bytes v(1024, 0);
-    memcpy(v.data(), magic, strlen(magic));
-    Bytes d = patt(seed, 512);
-    memcpy(&v[512], d.data(), 512);
-    return v;
-}
-#endif
 #ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Bytes d64(const char *name)
 {
@@ -317,19 +303,6 @@ static Case apple_unit(int u)
     return k;
 }
 #endif
-#ifdef TEST_APP_CPC          // the CPC's two drives
-static Case cpc_drive(int d)
-{
-    Case k;
-    k.key = d ? "Mount B" : "Mount A";
-    k.drops = true;
-    k.a = d ? "/usb0/c.dsk" : "/usb0/a.dsk";
-    k.b = d ? "/usb0/d.dsk" : "/usb0/b.dsk";
-    k.mount = [d](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "cpc.mount", { in_str("path", path.c_str()), in_int("drive", d), in_int("boot", 0) }, m, n); };
-    k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "cpc.eject", { in_int("drive", d) }, m, n); };
-    return k;
-}
-#endif
 #ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's and the CPC's apps'
 static Case tape_case(const char *pfx, const char *ext)
 {
@@ -386,21 +359,6 @@ static std::vector<Prof> profiles()
         p.prep = [](Run &r) { a2_state(&r.c)->have_diskrom = true; };
         p.cases = { apple_drive(0), apple_drive(1), apple_unit(0), apple_unit(1) };
         p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
-        v.push_back(p);
-    }
-#endif
-#ifdef TEST_APP_CPC
-    {   // ---- Amstrad CPC: A, B, the tape
-        Prof p;
-        p.name = "cpc"; p.cfg = "/usb0/cores/cpc/cpc.cfg"; p.base = &cpc_desc;
-        p.make_io = [] { GIo *io = new GIo; io->regs[0x0A4] = 2 << 2; return (CoreIo *)io; };     // CPC_STATUS: the 6128 runs
-        p.world = [](FakeFs &fs) {
-            for (const char *n : { "a", "b", "c", "d" }) fs.put(std::string("/usb0/") + n + ".dsk", dsk((uint32_t)n[0]));
-            fs.put("/usb0/a.cdt", cdt());
-            fs.put("/usb0/b.cdt", cdt());
-        };
-        p.prep = [](Run &r) { Bytes rom(16384, 0x5A); OpIn in = in_blob("data", rom.data(), (uint32_t)rom.size()); OpResult res; ops_call(&r.c, "cpc.put_amsdos", &in, 1, &res); };
-        p.cases = { cpc_drive(0), cpc_drive(1), tape_case("cpc", "cdt") };
         v.push_back(p);
     }
 #endif
@@ -778,34 +736,6 @@ static void drive_modes(const Prof &p)
 #endif
 
 // the CPC 464 has no drive: stored disks stay unmounted with a note, the tape comes back
-#ifdef TEST_APP_CPC
-static void cpc_464(const Prof &p)
-{
-    char msg[240];
-    FakeFs fs;
-    p.world(fs);
-    {
-        Run a(fs, p);
-        a.set(PERSIST_KEY, "Yes");
-        a.boot();
-        for (const Case &k : p.cases) CHECK_EQ(k.mount(a, k.a, msg, sizeof(msg)), 0);
-    }
-    {
-        Run b(fs, p);
-        CHECK_EQ(b.set("Model", "CPC 464"), OPE_OK);
-        b.boot();
-        CHECK_EQ(g_releases, 1);
-        CHECK_STR(b.spec(0).c_str(), "(empty)");
-        CHECK_STR(b.spec(1).c_str(), "(empty)");
-        CHECK_STR(b.spec(2).c_str(), "/usb0/a.cdt");
-        CHECK(b.c.notice_pending && strstr(b.c.notice, "A: The CPC 464 has no disk drive") != 0 && strstr(b.c.notice, "B: The CPC 464 has no disk drive") != 0);
-        CHECK(strstr(b.c.notice, "Tape") == 0);
-        CHECK(has(b.cfg(), "Mount A=/usb0/a.dsk"));                              // kept for the 6128 that may come back
-    }
-    printf("cpc: a 464 restores the tape and leaves A and B empty with a note\n");
-}
-
-#endif
 #ifdef MME_GAME
 // a game core's set that leaves the cartridge empty: nothing to run, no reset, the message says so
 static void game_empty_set(const Prof &p)
@@ -852,8 +782,6 @@ int main()
     drive_modes(prof(profs, "vc20"));
 #elif defined(TEST_APP_ZX)
                                                        // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
-#elif defined(TEST_APP_CPC)
-    cpc_464(prof(profs, "cpc"));
 #else
 #endif
     DONE("test_media_mounts_engines");

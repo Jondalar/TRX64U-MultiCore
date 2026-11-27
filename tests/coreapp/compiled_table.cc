@@ -40,12 +40,6 @@ const CoreDesc *const compiled_in_table[] = { &ddt_novic_desc, 0 };
 extern const CoreDesc zx_desc;   // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &zx_desc, 0 };
-#elif defined(TEST_APP_CPC)
-// the CPC's app is its own build (run.sh cpcapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc cpc_desc;   // cores.h lists the shared app's cores (cores/cpc/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &cpc_desc, 0 };
 #else
 #error "compiled_table.cc is the compiled-in table of a core's app: build it as that app (run.sh <core>app, TEST_APP_<CORE>); the shared table is empty (T239.3 D61)"
 #endif

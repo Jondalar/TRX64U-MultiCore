@@ -11,10 +11,6 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#ifdef TEST_APP_CPC
-extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
-#include "cpc_regs.h"
-#endif
 #ifdef TEST_APP_ZX
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 #include "zx_regs.h"
@@ -28,7 +24,7 @@ extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -47,9 +43,6 @@ const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #elif defined(TEST_APP_ZX)                // the ZX Spectrum's app is its own build (run.sh zxapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #define HEX_CORE zx_desc
-#elif defined(TEST_APP_CPC)               // the CPC's app is its own build (run.sh cpcapp): its core is the only one in its table
-const CoreDesc *const core_table[] = { &cpc_desc, 0 };
-#define HEX_CORE cpc_desc
 #elif defined(TEST_APP_DIAG)              // the diag core's app is its own build (run.sh diagapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #else   // TEST_APP_APPLE2: the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
@@ -128,8 +121,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #elif defined(TEST_APP_ZX)
     struct W { const CoreDesc *d; int last; } widths[] = { { &zx_desc, 0x1FFFF } };
-#elif defined(TEST_APP_CPC)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // the Apple IIe (T239.3 D61: its unit apple2_memops); the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
 #endif
@@ -166,7 +157,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -186,28 +177,6 @@ int main()
     {
         const CoreDesc *d = &zx_desc;
         int reg = ZX_WIN_PAGE;
-        Rig r(d, reg);
-        CHECK_EQ(r.write(0x1F000, "c0de", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x1F000], 0xC0); CHECK_EQ(r.io.big[0x1F001], 0xDE);
-        CHECK_EQ(r.io.regs[reg], 0);                                              // back on the first half
-        CHECK_EQ(r.write(0x00010, "11", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x10], 0x11);
-        CHECK_EQ(r.call("machine.read_mem", 0x1F000, 2, &res), OPE_OK);
-        CHECK(res.data[0] == 0xC0 && res.data[1] == 0xDE);
-        // an access across the 64 KB boundary of the window is split into two accesses, one per half
-        r.io.pages_used.clear();
-        CHECK_EQ(r.write(0xFFFE, "01020304", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0xFFFE], 1); CHECK_EQ(r.io.big[0xFFFF], 2); CHECK_EQ(r.io.big[0x10000], 3); CHECK_EQ(r.io.big[0x10001], 4);
-        CHECK(r.io.pages_used.size() == 2 && r.io.pages_used[0] == 0 && r.io.pages_used[1] == 1);
-        CHECK_EQ(r.io.regs[reg], 0);
-        CHECK_EQ(r.call("machine.read_mem", 0x1FFFF, 2, &res), OPE_ARG);
-    }
-#endif
-#ifdef TEST_APP_CPC
-    // ---- the CPC: 128 KB through a window of 64 KB, the page register put back to 0
-    {
-        const CoreDesc *d = &cpc_desc;
-        int reg = CPC_WIN_PAGE;
         Rig r(d, reg);
         CHECK_EQ(r.write(0x1F000, "c0de", &res), OPE_OK);
         CHECK_EQ(r.io.big[0x1F000], 0xC0); CHECK_EQ(r.io.big[0x1F001], 0xDE);

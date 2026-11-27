@@ -17,9 +17,6 @@ int main()
 #elif defined(TEST_APP_AMIGA)                  // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in it
     extern const CoreDesc amiga_desc;
     const CoreDesc *const cores[] = { &amiga_desc };
-#elif defined(TEST_APP_CPC)                   // the CPC's app is its own build (run.sh cpcapp): its core is the only one in it
-    extern const CoreDesc cpc_desc;
-    const CoreDesc *const cores[] = { &cpc_desc };
 #elif defined(TEST_APP_APPLE2)                // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in it
     extern const CoreDesc apple2_desc;
     const CoreDesc *const cores[] = { &apple2_desc };
