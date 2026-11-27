@@ -18,9 +18,9 @@ git clone -q "$SRC" "$W/repo" 2>/dev/null
 for d in ci tests; do rm -rf "${W:?}/repo/$d"; cp -R "$SRC/$d" "$W/repo/$d"; done
 R="$W/repo"
 G() { git -C "$R" -c user.name=t -c user.email=t@t "$@"; }
-# T239.3 D61: a core that moved to its own app is no group of tests/coreapp/cores.txt any more, and the last two groups (snes, c64scpu) are on their way out: the group checks below run on a second group
-# the scratch repository gets for itself, `demo` (a file coreapp/cores/demo.cc that no real tree has), beside the first one the file lists
-printf 'demo: demo.cc\n' >> "$R/tests/coreapp/cores.txt"; echo 'int demo_core;' > "$R/coreapp/cores/demo.cc"
+# T239.3 D61: a core that moved to its own app is no group of tests/coreapp/cores.txt any more, and the file lists none (the last three, apple2, c64scpu and snes, have moved): the group checks below run on two groups
+# the scratch repository gets for itself, `demo` and `demo2` (files coreapp/cores/demo.cc and demo2.cc that no real tree has)
+printf 'demo: demo.cc\ndemo2: demo2.cc\n' >> "$R/tests/coreapp/cores.txt"; echo 'int demo_core;' > "$R/coreapp/cores/demo.cc"; echo 'int demo2_core;' > "$R/coreapp/cores/demo2.cc"
 G add -A; G commit -q --allow-empty -m scratch
 K() { ( cd "$R" && ci/apptests.sh --key "$1" 2>/dev/null ); }
 
@@ -41,15 +41,15 @@ echo "ok   key: tests/coreapp moves coreapp, not hostapp"
 G checkout -q tests/coreapp/run.sh
 
 # (1b) T174 D3: the core application tests are one suite per group - a change to one core's file moves that core's key and `cross`, no other group's
-a0="$(K coreapp:snes)"; v0="$(K coreapp:demo)"; x0="$(K coreapp:cross)"; sh0="$(K coreapp)"
+a0="$(K coreapp:demo2)"; v0="$(K coreapp:demo)"; x0="$(K coreapp:cross)"; sh0="$(K coreapp)"
 echo "int x_$RANDOM;" >> "$R/coreapp/cores/demo.cc"
 [ "$(K coreapp:demo)" != "$v0" ] || fail "a changed demo.cc did not move the coreapp:demo key"
 [ "$(K coreapp:cross)" != "$x0" ] || fail "a changed demo.cc did not move the coreapp:cross key (its units link every core)"
-[ "$(K coreapp:snes)" = "$a0" ] || fail "a changed demo.cc moved the coreapp:snes key"
+[ "$(K coreapp:demo2)" = "$a0" ] || fail "a changed demo.cc moved the coreapp:demo2 key"
 [ "$(K coreapp)" = "$sh0" ] || fail "a changed demo.cc moved the shared coreapp key"
 G checkout -q coreapp/cores/demo.cc
 echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
-for pair in "coreapp=$sh0" "coreapp:cross=$x0" "coreapp:demo=$v0" "coreapp:snes=$a0"; do
+for pair in "coreapp=$sh0" "coreapp:cross=$x0" "coreapp:demo=$v0" "coreapp:demo2=$a0"; do
   [ "$(K "${pair%%=*}")" != "${pair#*=}" ] || fail "a shared source (coreapp/src/ops.cc) did not move ${pair%%=*}"
 done
 G checkout -q coreapp/src/ops.cc
@@ -57,8 +57,8 @@ G checkout -q coreapp/src/ops.cc
 sed -i.bak '/core_excl "\${1#coreapp:}"/s/; core_excl "[^"]*"//' "$R/ci/apptests.sh"
 cmp -s "$R/ci/apptests.sh" "$R/ci/apptests.sh.bak" && fail "control: the sed changed nothing"
 rm -f "$R/ci/apptests.sh.bak"
-a1="$(K coreapp:snes)"; echo "int x_$RANDOM;" >> "$R/coreapp/cores/demo.cc"
-[ "$(K coreapp:snes)" != "$a1" ] || fail "control: without the exclusions a demo change still left coreapp:snes alone, the check cannot tell"
+a1="$(K coreapp:demo2)"; echo "int x_$RANDOM;" >> "$R/coreapp/cores/demo.cc"
+[ "$(K coreapp:demo2)" != "$a1" ] || fail "control: without the exclusions a demo change still left coreapp:demo2 alone, the check cannot tell"
 G checkout -q coreapp/cores/demo.cc ci/apptests.sh
 # the harness is in a suite key by CC_KEY_VERSION: a comment-only edit of tests/ctlcache.sh moves nothing, a raised number moves every suite
 echo "# a comment $RANDOM" >> "$R/tests/ctlcache.sh"
@@ -66,7 +66,7 @@ echo "# a comment $RANDOM" >> "$R/tests/ctlcache.sh"
 sed -i.bak 's/^CC_KEY_VERSION=\([0-9]*\)/CC_KEY_VERSION=9\1/' "$R/tests/ctlcache.sh"; rm -f "$R/tests/ctlcache.sh.bak"
 [ "$(K coreapp:demo)" != "$v0" ] && [ "$(K hostapp)" != "$h0" ] || fail "control: a raised CC_KEY_VERSION did not move the suite keys"
 G checkout -q tests/ctlcache.sh
-echo "ok   groups: a core's file moves that core's suite and cross; a shared source moves all; control: whole-tree keys would move snes"
+echo "ok   groups: a core's file moves that core's suite and cross; a shared source moves all; control: whole-tree keys would move demo2"
 
 # (2) markers, with stub suites
 export CI_APPTESTS_OK="$W/ok"

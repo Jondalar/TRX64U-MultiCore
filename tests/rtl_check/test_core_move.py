@@ -21,21 +21,43 @@ def must(cond, what, out=""):
     print("PASS: " + what)
 
 
-buf = io.StringIO()
-with contextlib.redirect_stdout(buf):
-    inf = core_move.plan("snes")
+# T239.3 D61: no core is left in the shared app (the last three, the Apple IIe, the C64SCPU and the SNES, have moved), so the plan is made on a scratch tree that holds one: a core `demo` with its descriptor
+# row in table.cc, its extern in cores.h, its sources in coreapp/cores (demo.cc includes its register header, hk_defaults.h and the pad library's header) and its layer2 file, beside the real coreapp/libs/shared.toml.
+import shutil
+scratch = tempfile.mkdtemp()
+try:
+    for d in ("coreapp/src", "coreapp/cores", "coreapp/libs", "cores/demo", "tests/coreapp"):
+        os.makedirs(os.path.join(scratch, d))
+    shutil.copy(os.path.join(ROOT, "coreapp", "libs", "shared.toml"), os.path.join(scratch, "coreapp", "libs", "shared.toml"))
+    open(os.path.join(scratch, "coreapp", "src", "table.cc"), "w").write("const CoreDesc *const core_table[] = {\n    &demo_desc,\n    0\n};\n")
+    open(os.path.join(scratch, "coreapp", "cores", "cores.h"), "w").write("extern const CoreDesc demo_desc;\n")
+    open(os.path.join(scratch, "coreapp", "cores", "demo.cc"), "w").write('#include "cores.h"\n#include "demo_regs.h"\n#include "hk_defaults.h"\n#include "pad.h"\n')
+    open(os.path.join(scratch, "coreapp", "cores", "demo_regs.h"), "w").write("#define DEMO_CTRL 0x10\n")
+    open(os.path.join(scratch, "coreapp", "cores", "hk_defaults.h"), "w").write("// default hotkeys\n")
+    open(os.path.join(scratch, "cores", "demo", "layer2_demo.v"), "w").write("module layer2_demo; endmodule\n")
+    open(os.path.join(scratch, "tests", "coreapp", "run.sh"), "w").write("run demo test_demo.cc demo.cc\n")
+    saved = (core_move.ROOT, core_move.CORES_SRC, core_move.SRC)
+    core_move.ROOT, core_move.CORES_SRC, core_move.SRC = scratch, os.path.join(scratch, "coreapp", "cores"), os.path.join(scratch, "coreapp", "src")
+    core_move._OWNERS.clear()
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            inf = core_move.plan("demo")
+    finally:
+        core_move.ROOT, core_move.CORES_SRC, core_move.SRC = saved
+        core_move._OWNERS.clear()
+finally:
+    shutil.rmtree(scratch)
 out = buf.getvalue()
-# T239.3 D61: the sample is the SNES, a core that has not moved yet (the Apple IIe, the sample until its move, has its own app; the C64SCPU moves with it). A moved core has no coreapp/cores/<id>.cc to read:
-# when the last core has moved, this case needs a construction of its own (a scratch tree), as the switch-off case of tools/test_cor_pack.py
-must(inf["kind"] == "large" and "snes.cc" in inf["own"] and "snes_regs.h" in inf["own"] and "hk_defaults.h" in inf["own"] and "cores.h" not in inf["own"] + inf["shared"],
-     "plan snes: a large core; its sources are the include closure of coreapp/cores/snes.cc, hk_defaults.h moves with it (no other core of the shared app includes it since the Apple IIe and the C64SCPU moved), cores.h is no core's file", out)
-must("move to cores/snes/app/lib" in out and "snes large" in out,
-     "plan snes: names the move and the lane", out)
+must(inf["kind"] == "large" and "demo.cc" in inf["own"] and "demo_regs.h" in inf["own"] and "hk_defaults.h" in inf["own"] and "cores.h" not in inf["own"] + inf["shared"] and inf["layer2"],
+     "plan demo (a scratch tree with one core in the shared app): a large core; its sources are the include closure of coreapp/cores/demo.cc, hk_defaults.h moves with it (no other core includes it), cores.h is no core's file", out)
+must("move to cores/demo/app/lib" in out and "demo large" in out and "1 line(s) name the core's sources" in out,
+     "plan demo: names the move, the lane and the line of tests/coreapp/run.sh that names the core's sources", out)
 
 sdk = descrec.toml_loads(core_move.sdk_toml(inf))
-must(sdk["app"]["desc"] == "snes_desc" and sdk["app"]["base_toml_a"] == "host.toml" and "cart_regs" in sdk["app"]["base_blocks"]
-     and sdk["library"][0]["name"] == "snes" and "snes.cc" in sdk["library"][0]["sources"] and [l["name"] for l in sdk["library"][1:]] == inf["libs"],
-     "sdk.toml template of snes parses: [app] desc, base blocks, its own library first, then the shared libraries it includes (%s)" % ", ".join(inf["libs"]))
+must(sdk["app"]["desc"] == "demo_desc" and sdk["app"]["base_toml_a"] == "host.toml" and "cart_regs" in sdk["app"]["base_blocks"]
+     and sdk["library"][0]["name"] == "demo" and "demo.cc" in sdk["library"][0]["sources"] and [l["name"] for l in sdk["library"][1:]] == inf["libs"] and "pad" in inf["libs"],
+     "sdk.toml template of demo parses: [app] desc, base blocks, its own library first, then the shared libraries it includes (%s)" % ", ".join(inf["libs"]))
 
 with tempfile.TemporaryDirectory() as td:
     ta = os.path.join(td, "gateware.toml")
