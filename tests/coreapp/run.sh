@@ -69,7 +69,6 @@ source "$TST/vc20_drv.sh"
 vc20_drv_dir "$T/vc20tab" || { echo "coreapp: the VIC-20's driver table was not generated" >&2; exit 1; }   # vc20_regs.h names the registers through it; not $T/vc20, the unit vc20 is built there
 vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
 source "$TST/a1200_drv.sh"
-a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/own_drv.sh"
 own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
@@ -92,15 +91,10 @@ INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
 INC_VC20=(-DTEST_APP_VC20=1 -I"$VC20LIB" -I"$T/vc20tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_VC20+=("$i"); done
-# The Amiga 1200 is its own app as well (T213.3: cores/amiga1200/app). a12app CMD... builds like vc20app, with the A1200's library, its table and TEST_APP_A1200, and with a shim amiga_regs.h
-# (tests/coreapp/a1200shim), so the files that serve both Amiga apps get the A1200's registers (the A500's header is on amigaapp's path only); amiga.cc, the A500's library, is not in these builds (amiga1200.cc is).
-INC_A1200=(-DTEST_APP_A1200=1 -I"$TST/a1200shim" -I"$A1200LIB" -I"$T/a12tab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Apple IIe is its own app as well (T239.3 D61: cores/apple2/app). apple2app CMD... builds like a8app, with the Apple's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_APPLE2: its units are in the group apple2.
 INC_A2=(-DTEST_APP_APPLE2=1 -I"$A2LIB" -I"$T/a2tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
-a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
 vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
 build() {
   local out="$1" test="$2"; shift 2
@@ -666,47 +660,6 @@ PY
 }
 if ca_in vc20 && ca_unit vc20_romreq; then t_romreq_vc20; PASS=$((PASS + 1)); fi
 
-# T213.3 P3, T239.5 D4: the Amiga 1200's units, built as its app (a12app: its library cores/amiga1200/app/lib and its own table, the group amiga1200) - the units its TOML B
-# (cores/amiga1200/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: amiga1200.cc and the base's (no amiga.cc, no other core).
-A12="amiga1200.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
-A12D="desc_check.cc overlay.cc descrec.cc $A12"
-a12app run a12 test_amiga500.cc $A12
-a12app run a12_memops test_memops.cc $SVC $A12D
-RARGS="$T/bundles/desc_own.bin" a12app run a12_desc test_desc.cc $A12D
-RARGS="$BUN/app" a12app run a12_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $A12D
-a12app run a12_ledcores test_ledcores.cc $A12D
-a12app run a12_hotkeys test_hotkeys.cc $A12D
-a12app run a12_createflow test_createflow.cc $A12D
-# the Amiga 1200's row of the host's ROM table: gen_romreq built as the A1200's app, its rows in the host's table
-t_romreq_a12() {
-  local INC=("${INC_A1200[@]}")
-  build "$T/gen_romreq_a12" "$TST/gen_romreq.cc" $A12D
-  "$T/gen_romreq_a12" > "$T/romreq_a12.inc"
-  python3 -I - "$T/romreq_a12.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Amiga 1200's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
-import sys
-own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
-host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
-PY
-  echo "test a12_romreq: PASS"
-  return 0
-}
-if ca_in amiga1200 && ca_unit a12_romreq; then t_romreq_a12; PASS=$((PASS + 1)); fi
-a12app run a12_folderhd test_folderhd.cc $A12
-a12app run a12_mouselib test_mouselib.cc $A12
-a12app run a12_base test_a12base.cc $A12
-# the two records as both arguments by value: a prefix assignment that reads another one of the same command (RARGS="$CARGS") took the global, empty CARGS in a run
-# of the whole group (bash 3.2, traced), so the test started without its records
-A12SEC="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin"
-CARGS="$A12SEC" RARGS="$A12SEC" a12app run a12_descsec test_descsec.cc overlay.cc descrec.cc $A12
-a12app run a12_romset test_romset.cc $A12
-a12app run a12_regset test_regset.cc $A12
-a12app run a12_joyswap test_joyswap.cc $A12
-a12app run a12_mousescale test_mousescale.cc $A12
-a12app run a12_fbwin test_fbwin.cc $A12
-a12app run a12_scale test_scale.cc desc_check.cc $A12   # T213.3: the picture items and their apply on the A1200's record (the A500's app runs them on its record: amiga_scale)
-a12app run a12_rawkeys test_rawkeys.cc $A12
-a12app run a12_ledload test_ledload.cc $A12
 
 CARGS="" RARGS=""
 

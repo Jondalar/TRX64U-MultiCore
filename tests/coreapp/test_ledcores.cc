@@ -12,8 +12,6 @@ int main()
 {
 #ifdef TEST_APP_VC20                         // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in it
     const CoreDesc *const cores[] = { &vc20_desc };
-#elif defined(TEST_APP_A1200)                  // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in it
-    const CoreDesc *const cores[] = { &amiga1200_desc };
 #elif defined(TEST_APP_APPLE2)                // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in it
     extern const CoreDesc apple2_desc;
     const CoreDesc *const cores[] = { &apple2_desc };

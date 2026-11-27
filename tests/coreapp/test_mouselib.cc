@@ -5,9 +5,6 @@
 #include "amiga_model.h"
 #include "engines.h"
 #include "mousesink.h"
-#ifdef TEST_APP_A1200
-#define amiga_desc amiga1200_desc          // the A1200's app (run.sh a12app) has the one Amiga record, the A1200's: this test reads the mouse spec of "the Amiga" and takes that one
-#endif
 
 // a core whose mouse is a 1351 on the POT lines (the C64 family's, TRX64-Ultimate's trx64u): the descriptor of the made-up core of this test (T239.3 P1-8)
 static const MouseSinkSpec pot_mouse = { 0, 0, 0, 0, 0, 0, MOUSE_POT1351 };

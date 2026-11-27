@@ -63,29 +63,6 @@ struct Machine {
     bool window_is(uint32_t off, const std::vector<uint8_t> &img) { return !memcmp(&r->io.ddr[off], img.data(), img.size()); }
 };
 
-#ifdef TEST_APP_A1200
-// the A1200's app (a12app): the A1200 reads the same files as the A500 and takes 3.1: its Auto, its start with a 512 KB ROM placed once
-int main()
-{
-    char sum[200];
-    {
-        Machine a12;
-        stock(a12.fs);
-        CHECK_EQ(romset_scan(&a12.r->c, sum, sizeof(sum)), ROM_FOUND);
-        CHECK_EQ(romset_choice(&a12.r->c), 0);
-        CHECK_STR(amiga1200_desc.settings[0].values[0], "Auto (3.1 first)");
-    }
-    {
-        Machine b;
-        stock(b.fs);
-        Ui ub; ub.io = &b.r->io; ub.fs = &b.fs;
-        CHECK_EQ(boot_start(&b.r->c, &ub), BOOT_RUNNING);
-        CHECK(b.window_is(AM_W_ROM, kick(524288, 40, 68, 0x31)));
-        CHECK_STR(b.r->c.eng->rs.loaded, "AmigaVision.rom");
-    }
-    DONE("a12_romset");
-}
-#else
 int main()
 {
     // ---- the format: the version is in the image, not in the name
@@ -285,4 +262,3 @@ int main()
     }
     DONE("test_romset");
 }
-#endif

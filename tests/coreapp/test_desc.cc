@@ -18,9 +18,6 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#if defined(TEST_APP_A1200)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
-#include "amiga_regs.h"
-#endif
 #include "record_menu.h"
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
@@ -28,8 +25,6 @@ extern const CoreDesc apple2_desc;              // cores.h lists the shared app'
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
-const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -166,10 +161,6 @@ int main(int, char **argv)
         static const Mi want[] = { { "VIC-20", "Memory Expansion" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
-#elif defined(TEST_APP_A1200)
-        static const Mi want[] = { { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
-        static const char *const none[1] = { 0 };
-        const int n_none = 0;
 #elif defined(TEST_APP_APPLE2)
         static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
         static const char *const none[] = { "Apple IIe" };
@@ -250,8 +241,6 @@ int main(int, char **argv)
         printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
 #ifdef TEST_APP_VC20
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
-#elif defined(TEST_APP_A1200)
-        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
 #elif defined(TEST_APP_APPLE2)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
 #else
@@ -365,8 +354,6 @@ int main(int, char **argv)
         }
 #ifdef TEST_APP_VC20
         CHECK(n205 == 1);
-#elif defined(TEST_APP_A1200)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
         CHECK(n205 == 1);
 #else
@@ -380,8 +367,6 @@ int main(int, char **argv)
     {
 #ifdef TEST_APP_VC20
         static const char *const own[] = { "VC20" };
-#elif defined(TEST_APP_A1200)
-        static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_APPLE2)
         static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
 #else
@@ -410,7 +395,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -620,156 +605,6 @@ int main(int, char **argv)
     CHECK(!desc_has_capability(&apple2_desc, "sio") && !desc_has_capability(&apple2_desc, "iec") && !desc_has_capability(&apple2_desc, "cartridge") && !desc_has_capability(&apple2_desc, "drive_a"));
 #else
 
-#if defined(TEST_APP_A1200)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
-    // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
-    {
-#ifdef TEST_APP_A1200
-        const CoreDesc &amiga_desc = amiga1200_desc;                           // the A1200's app has the one record: the checks of this block run on it (the Amiga 500's amiga_desc is not linked: it is its own app, T239.5 D13)
-        CoreDesc d;                                                            // (the shared app's d is declared in the block this app does not run)
-        CHECK(!desc_check(&amiga1200_desc));
-#else
-        CoreDesc d;                                                            // (the shared region that declares d is not in this app)
-        CHECK(!desc_check(&amiga_desc));
-        {   // T180: the Amiga's own slots are DF0.. and HD0..: an engine's name may not look like one (the slot table ms_ok of the shared case above)
-            MountSlots t;
-            CoreDesc a = amiga_desc;
-            static const char *const df[1] = { "DF9" };
-            t = ms_ok; t.n = 1; t.names = df; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "like a slot of the base"));
-            static const char *const many[7] = { "A", "B", "C", "D", "E", "F", "G" };
-            t = ms_ok; t.n = 7; t.names = many; a.mount_slots = &t; CHECK(desc_check(&a) && strstr(desc_check(&a), "more media than the .cfg"));
-        }
-#endif
-        // D25: the Amiga's own mouse rows pass only with their own operation; a base key with another operation is refused
-        {
-            int sens = -1, acc = -1;
-            for (int i = 0; i < amiga_desc.nsettings; i++) {
-                if (!strcmp(amiga_desc.settings[i].key, "Mouse Sensitivity")) sens = i;
-                if (!strcmp(amiga_desc.settings[i].key, "Mouse Acceleration")) acc = i;
-            }
-            CHECK(sens >= 0 && acc >= 0);
-            static Setting mix[1];
-            mix[0] = amiga_desc.settings[acc];
-            mix[0].key = "Mouse Sensitivity";                       // Sensitivity's key on Acceleration's operation
-            d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
-            CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
-            mix[0] = amiga_desc.settings[sens];
-            mix[0].key = "Joystick Input";                    // a look key on the mouse operation
-            d = amiga_desc; d.settings = mix; d.nsettings = 1; d.romset = 0;
-            CHECK(desc_check(&d) && strstr(desc_check(&d), "belong to the application"));
-        }
-        // a setting is exactly one of: an operation, register bits, the rom_set's choice
-        static Setting both[1];
-        both[0] = amiga_desc.settings[1];
-        both[0].apply = "dummy800.set_ram";
-        d = amiga_desc; d.settings = both; d.nsettings = 1; d.romset = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "exactly one of"));
-        static Setting neither[1];
-        neither[0] = amiga_desc.settings[1];
-        neither[0].bind = 0;
-        d = amiga_desc; d.settings = neither; d.nsettings = 1; d.romset = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "exactly one of"));
-        // register bits: a register outside the block, bits that leave the byte, a value that does not fit, two settings on the same bits
-        static RegBind far_reg = { 0x1234, 0, 3, 0 }, wide = { AM_MEM_CFG, 7, 3, 0 }, tight = { AM_MEM_CFG, 0, 1, 0 };
-        static Setting bad_bind[1];
-        bad_bind[0] = amiga_desc.settings[1];
-        bad_bind[0].bind = &far_reg;
-        d = amiga_desc; d.settings = bad_bind; d.nsettings = 1; d.romset = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "outside the register block"));
-        bad_bind[0].bind = &wide;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "not in one byte"));
-        bad_bind[0].bind = &tight;                                                  // four values in a one bit mask
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "does not fit its bits"));
-        static RegBind same = { AM_MEM_CFG, 1, 3, 0 };                              // bits 2:1 against chip's 1:0
-        static Setting clash[2];
-        clash[0] = amiga_desc.settings[1];
-        clash[1] = amiga_desc.settings[2];
-        clash[1].bind = &same;
-        d = amiga_desc; d.settings = clash; d.nsettings = 2; d.romset = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "own the same bits"));
-        // the rom_set: its choice is one setting with max + 1 values, and the record is complete
-        RomSetSpec rs = *amiga_desc.romset;
-        d = amiga_desc; d.romset = &rs;
-        rs.choice_key = "Nothing";
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "not one setting"));
-        rs = *amiga_desc.romset;
-        rs.max = 4;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "max + 1"));
-        rs = *amiga_desc.romset;
-        rs.sizes[0] = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "romset"));
-        rs = *amiga_desc.romset;
-        rs.mirror_stride = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "mirror"));
-        // the media records
-        WindowMediaSpec w = *amiga_desc.window_media;
-        d = amiga_desc; d.window_media = &w;
-        w.nslots = 5;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "window_media"));
-        w = *amiga_desc.window_media;
-        w.stride = 1000;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "stride"));
-        w = *amiga_desc.window_media;
-        w.dlog_pop = 0x2000;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "register block"));
-        w = *amiga_desc.window_media;
-        w.base = 0x7F0000;                                                          // into the Kickstart
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "overlaps"));
-        SectorMediaSpec sm = *amiga_desc.sector_media;
-        d = amiga_desc; d.sector_media = &sm;
-        sm.stage_off = AM_W_ADF + 0x100;                                            // into a floppy slot
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "overlaps") && strstr(desc_check(&d), "the sector staging"));
-        sm = *amiga_desc.sector_media;
-        sm.nunits = 3;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "sector_media"));
-        sm = *amiga_desc.sector_media;
-        sm.stage_off = 0x01000000u;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "outside the DDR2 window"));
-        MouseSinkSpec ms = *amiga_desc.mouse;
-        d = amiga_desc; d.mouse = &ms;
-        ms.step = 200;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "mouse"));
-        ms = *amiga_desc.mouse;
-        ms.reg_btn = 0x1000;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "register block"));
-        // T104.1 5.6: a core that names the 1351 uses no register; a backend nobody knows is refused
-        {
-            MouseSinkSpec pot = {};
-            pot.kind = MOUSE_POT1351;
-            CoreDesc dp = testcore::desc;
-            dp.mouse = &pot;
-            CHECK(!desc_check(&dp));
-        }
-        ms = *amiga_desc.mouse;
-        ms.kind = (MouseKind)7;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "backend"));
-        static const RegWrite far_write[1] = { { 0x2000, 1 } };
-        d = amiga_desc; d.reset_writes = far_write; d.nreset_writes = 1;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "reset_writes"));
-        // the video: both frame buffer registers or neither (a lone one would write the ID bytes)
-        d = amiga_desc; d.video.reg_fb_base = 0xC4;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "both given or both 0"));
-        d = amiga_desc; d.video.nbuf = 5;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "four buffers"));
-        d = amiga_desc; d.video.reg_latest = 0;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "FB_LATEST"));
-        // the shared ID word: only the records that say so may share it (a twin of the record stands in for the second Amiga; the A1200 has its own app since T213.3)
-        CoreDesc twin = amiga_desc;
-        twin.cor_name = "Amiga twin";
-        twin.id_shared = false;
-        const CoreDesc *const unflagged[] = { &amiga_desc, &twin, 0 };
-        CHECK(desc_check_table(unflagged) && strstr(desc_check_table(unflagged), "share an ID"));
-        twin.id_shared = true;
-        const CoreDesc *const flagged[] = { &amiga_desc, &twin, 0 };
-        CHECK(!desc_check_table(flagged));
-        CoreDesc same_name = twin;
-        same_name.cor_name = amiga_desc.cor_name;
-        const CoreDesc *const dup[] = { &amiga_desc, &same_name, 0 };
-        CHECK(desc_check_table(dup) && strstr(desc_check_table(dup), "manifest name"));
-#ifdef TEST_APP_A1200
-        CHECK(amiga1200_desc.id_shared && !memcmp(amiga1200_desc.id, "AMIG", 4) && !strcmp(amiga1200_desc.store, "Amiga 1200 Settings"));   // the ID word it shares with the A500, and its own .cfg section
-#endif
-    }
-#endif
 
 
     // T104.2 D10: tasks, media and settings name a group, a tab lists groups, an information tab names its lines - two tabs of one widget keep their entries apart
@@ -805,8 +640,6 @@ int main(int, char **argv)
     // golden menu lists
 #ifdef TEST_APP_VC20
     golden(&vc20_desc, "vc20");
-#elif defined(TEST_APP_A1200)
-    golden(&amiga1200_desc, "amiga1200");
 #elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
 #else
@@ -867,7 +700,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

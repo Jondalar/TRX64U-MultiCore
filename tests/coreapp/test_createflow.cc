@@ -21,13 +21,10 @@
 #include "newdisk.h"
 #include "newfile.h"
 #include "d1541_drive.h"
-#if defined(TEST_APP_A1200)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
-#include "amiga_regs.h"
-#endif
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)
 #error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
 #endif
 #include "sectors.h"
@@ -36,8 +33,6 @@ typedef std::vector<uint8_t> Bytes;
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
-const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #elif defined(TEST_APP_APPLE2)   // (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
@@ -69,7 +64,7 @@ struct Rig {
     {
         delete m;
         delete st;
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
+#if !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
 #endif
     }
@@ -184,8 +179,6 @@ static const Create creates[] = {
 #ifdef TEST_APP_VC20
     { &vc20_desc,      "Create blank D64", ".d64" },
     { &vc20_desc,      "Create blank G64", ".g64" },
-#elif defined(TEST_APP_A1200)
-    { &amiga1200_desc, "Create blank ADF", ".adf" },
 #elif defined(TEST_APP_APPLE2)
     { &apple2_desc,    "Create blank DSK", ".dsk" },
 #endif
@@ -264,8 +257,6 @@ static void check_suggestions()
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
     #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
-#elif defined(TEST_APP_A1200)
-    for (const CoreDesc *d : { &amiga1200_desc }) {
 #elif defined(TEST_APP_APPLE2)
     for (const CoreDesc *d : { &apple2_desc }) {
 #endif
@@ -398,88 +389,14 @@ static void check_progress()
 #ifdef TEST_APP_VC20
     // the 1541 library: its own builder and writer state, same display
     check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
-#elif defined(TEST_APP_A1200)
-    check_progress_for(&amiga1200_desc, "Create blank ADF", ".adf", ND_ADF, ND_ADF_BYTES);
 #else
     check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
 #endif
 }
 
-#if defined(TEST_APP_A1200)          // the Amiga's (T239.5 D13: the two Amiga apps; the shared unit has no Amiga)
-// ---- T128: "Mount folder as HD0/HD1" - the folder browser, the size in GB with its suggestion, the job, the refusal ----------------------------
-static void check_mount_folder()
-{
-#ifdef TEST_APP_A1200
-    for (const CoreDesc *d : { &amiga1200_desc }) {
-#else
-    for (const CoreDesc *d : { &amiga_desc }) {
-#endif
-        printf("-- mount folder: %s\n", d->title);
-        Rig r(d);
-#ifdef TEST_APP_A1200
-        r.io.regs[AM_FEAT] = 1;
-#else
-        r.io.regs[AM_FEAT] = 0;
-#endif
-        r.fs.put("/usb0/games/hd/a.txt", Bytes(1000, 7));
-        r.fs.put("/usb0/games/hd/dir/b.txt", Bytes(100, 8));
-        r.fs.put("/usb1/other/c.txt", Bytes(10, 9));
-        r.m->open();
-        r.begin("Mount folder as HD0");
-        CHECK(r.m->picking());
-        r.goto_folder("/usb0/games/hd");
-        CHECK_STR(r.row0().c_str(), "Use this folder|");                  // not "Create here": nothing is created
-        CHECK_STR(r.m->status(), "Choose the folder; \"Use this folder\" takes it, <- goes up, ESC cancels");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->entering());
-        CHECK_STR(r.row0().c_str(), "Size of the disk in GB|1_");
-        CHECK_STR(r.sub0().c_str(), "Into /usb0/games/hd - DEL deletes, RETURN takes it, <- cancels");
-        r.clear_name();
-        r.type("0.1");
-        r.m->key(KEY_RETURN);
-        CHECK(r.m->busy());                                              // the screen before the work: it says what is done, and nothing is built
-        CHECK_STR(r.row0().c_str(), "Mounting the folder|0%");
-        CHECK(strstr(r.m->status(), "Mounting the folder") != 0 && !strstr(r.m->status(), "image"));
-        r.run_job();
-        CHECK(!r.m->status_bad());
-        CHECK_STR(sec_name(&r.c, 0), "hd (folder)");
-        CHECK_EQ(r.io.regs[AM_HDF_MOUNT] & 1, 1);
-        CHECK(strstr(r.m->status(), "3 entries") != 0);
-        // HD1 takes a folder of its own
-        r.to_prompt("Mount folder as HD1", "/usb1/other");
-        CHECK_STR(r.row0().c_str(), "Size of the disk in GB|1_");
-        r.m->key(KEY_RETURN);                                            // an empty... no: the suggestion is taken as it stands
-        r.run_job();
-        CHECK(!r.m->status_bad());
-        CHECK_STR(sec_name(&r.c, 1), "other (folder)");
-        CHECK_STR(sec_name(&r.c, 0), "hd (folder)");
-        // more than the medium can back: refused with the reason, the unit stays as it was
-        r.fs.free_space = 40ull << 20;
-        r.to_prompt("Mount folder as HD1", "/usb0/games/hd");
-        CHECK(strcmp(r.row0().c_str(), "Size of the disk in GB|1_") != 0);       // the suggestion is smaller: 24 MB of room
-        r.clear_name();
-        r.type("2");
-        r.m->key(KEY_RETURN);
-        r.run_job();
-        CHECK(r.m->status_bad());
-        CHECK(strstr(r.m->status(), "can back") != 0);
-        CHECK_STR(sec_name(&r.c, 1), "other (folder)");
-        // a name that is no number
-        r.fs.free_space = 1ull << 40;
-        r.to_prompt("Mount folder as HD1", "/usb0/games/hd");
-        r.clear_name();
-        r.type("big");
-        r.m->key(KEY_RETURN);
-        r.run_job();
-        CHECK(r.m->status_bad());
-        CHECK(strstr(r.m->status(), "not a size") != 0);
-    }
-}
-
-#endif
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));
@@ -491,8 +408,5 @@ int main()
 #endif
     check_suggestions();
     check_progress();
-#if defined(TEST_APP_A1200)
-    check_mount_folder();
-#endif
     DONE("createflow");
 }

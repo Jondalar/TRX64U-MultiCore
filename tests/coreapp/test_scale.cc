@@ -32,14 +32,7 @@ bool video_apply_gateware(int sys, int hdmi)
 bool video_gateware_present(void) { return true; }
 int video_gateware_row(void) { return g_gw_row; }
 
-#ifdef TEST_APP_A1200
-// T213.3 (T239.5 D13): built as the A1200's app (a12_scale): the A1200's record is the frame-buffer core of the cases (T107 D7/D8, T136); the NES
-// and the Atari (its own app, a8_scale) drop out
-#define SC_REC amiga1200_desc
-const CoreDesc *const core_table[] = { &amiga1200_desc, &testcore::desc, 0 };
-#else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };   // T239.5 D13: the shared unit scale stands on no core (the layout table)
-#endif
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
 

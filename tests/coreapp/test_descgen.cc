@@ -596,8 +596,6 @@ int main(int argc, char **argv)
     const std::string dir = argv[1];
 #ifdef TEST_APP_VC20
     std::ifstream idx((dir + "/index_app_vc20.txt").c_str());      // a core that has an app of its own: this unit is built like that app
-#elif defined(TEST_APP_A1200)
-    std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
 #elif defined(TEST_APP_APPLE2)
     std::ifstream idx((dir + "/index_app_apple2.txt").c_str());
 #else

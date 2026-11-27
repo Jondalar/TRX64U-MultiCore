@@ -19,9 +19,6 @@ extern const CoreDesc apple2_desc;              // cores.h lists the shared app'
 #ifdef TEST_APP_VC20                     // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #define HEX_CORE vc20_desc
-#elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
-const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
-#define HEX_CORE amiga1200_desc
 #elif defined(TEST_APP_APPLE2)   // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
@@ -88,8 +85,6 @@ int main()
     // the address width of each core (the last address the pair takes)
 #ifdef TEST_APP_VC20
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
-#elif defined(TEST_APP_A1200)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // the Apple IIe (T239.3 D61: its unit apple2_memops); the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
 #endif
@@ -126,7 +121,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -142,15 +137,7 @@ int main()
     // ---- the ZX Spectrum Next: the unit zxnext_memops (its app); the cores whose memory the application cannot reach are their apps' units (nes_memops, amiga_memops,
     // diag_memops, ...): the shared table has none left (T239.5 D13)
 #endif
-#if   defined(TEST_APP_A1200)
-    // ---- the A1200's memory is not reachable by the application: it says so, and why
-    {
-        Rig r(&amiga1200_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-#elif defined(HEX_CORE)                  // the shared app has no 64 KB C64-family core left: its apps run this case (vc20_memops, c264_memops, ...)
+#if   defined(HEX_CORE)                  // the shared app has no 64 KB C64-family core left: its apps run this case (vc20_memops, c264_memops, ...)
     // ---- the hex text of a write (the 64 KB C64-family core of the app)
     {
         Rig r(&HEX_CORE);

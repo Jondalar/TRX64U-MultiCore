@@ -165,7 +165,6 @@ static void s1_mount()
     CHECK_EQ(nano_lba(n, n.cyl - 1, n.heads - 1, n.sec), sectors - 1);
     uint8_t last[512];
     CHECK(dev.read(sectors - 1, last));
-#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 counts bytes
     {
         FakeFs fs2;
@@ -182,7 +181,6 @@ static void s1_mount()
         CHECK_EQ(e2.mount(1, "/usb0/hd", "3", msg, sizeof(msg)), 0);       // 3 GB are
         CHECK(size_reg(*e2.r, 1) < 0xFFFFFFFFu);
     }
-#endif
 }
 
 
@@ -202,14 +200,12 @@ static void s2_valid_volume()
     for (auto &en : rd.ents) (en.dir ? dirs : files)++;
     CHECK_EQ(files, 40);
     CHECK_EQ(dirs, 3);                                       // C, S, Empty
-#ifndef TEST_APP_A1200                   // the A500's app only (run.sh amigaapp; T239.5 D13)
     // the A500 core sees the same volume
     FakeFs fs2;
     make_tree(fs2, "/usb0/hd");
     Env e2(&fs2, &amiga_desc, false);
     CHECK_EQ(e2.mount(0, "/usb0/hd", "1", msg, sizeof(msg)), 0);
     CHECK_EQ(verify_volume(e2, 0, fs2, "/usb0/hd", "S2/A500"), 0);
-#endif
     maybe_dump(e, 0, "s2");
 }
 

@@ -8,11 +8,6 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#if defined(TEST_APP_A1200)   // the two Amiga apps (run.sh a12app with its shim, amigaapp): no file of the Amiga in any other build (T239.5 D13: the shared unit has none either)
-#include "amiga_regs.h"
-#endif
-#if !defined(TEST_APP_A1200)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
-#endif
 #ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
@@ -39,10 +34,6 @@ int main()
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
 #if !defined(TEST_APP_APPLE2)   // the Atari's, the 264's and the Apple IIe's swap have another form (their own key is checked below): no row
     const Row rows[] = {
-#ifdef TEST_APP_A1200
-        { &amiga1200_desc, AM_JOY_CFG },
-#else
-#endif
     };
     for (const Row &r : rows) {
         const CoreDesc &d = *r.d;
