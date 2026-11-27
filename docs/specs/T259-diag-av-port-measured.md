@@ -2,7 +2,7 @@
 
 **Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony; luma, chroma, composite at NTSC 60 and 50 on Rick's 1702, #73). D6-D15 (2026-11-27):
 the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own change); chroma and composite are seen
-when it is built. D16 (2026-11-27): the 576p canvas is 720 x 540 (PAL overscan). Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
+when it is built. D17 (2026-11-27): the 576p canvas is 720 x 540 (PAL overscan). Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
 Alex's request, for MultiCore to register and build; T259 was kept for it (Alex, 2026-11-23). Registered 2026-11-24, Alex
 (translated): "ok, let an agent build this on an extra branch (T259) into the diag core please. I get the cable today/tomorrow
 and can test it."
@@ -216,7 +216,7 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   large cores instead of DFX; the C16 (`cores/c264`) is one already, the VC-20 is DFX (open).
 - **D11 (Alex, 2026-11-27): with the analogue port as the main output the host menu is drawn on the 576p canvas (PAL) or the 480p
   canvas (NTSC), not on 960 x 540.** Alex (translated): "576p or 480p, because it looks awful, I think." The canvas choice is the one
-  `coreapp/src/video.cc` already makes for those HDMI rows (the row's size below 960 wide; 576p 720 x 540 since D16); the setting that picks the main output is
+  `coreapp/src/video.cc` already makes for those HDMI rows (the row's size below 960 wide; 576p 720 x 540 since D17); the setting that picks the main output is
   Alex's plan "Primary out: HDMI / Analog" (TRX64U-FW session, 2026-11-27).
   Clarified (Alex, 2026-11-27, translated): "576p/480p as the host canvas is not automatically an analogue 15 kHz signal ... for the
   actual analogue output you still need a fitting mapping onto the 15 kHz raster, including the correct synchronisation. A 576p canvas
@@ -239,17 +239,6 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   Alex (translated): "That is indeed to be seen per core when building; I think we lay down a standard solution with the host's
   building block, and if a core then needs DSP, that is the alternative in the toolkit." Each core's room is read from its build.
 - **D15 (Alex, 2026-11-27): the VC-20 stays a DFX core** ("try it as DFX"); its analogue picture comes from the host's encoder.
-- **D16 (Alex, 2026-11-27): the 576p canvas is 720 x 540, so a PAL TV cuts nothing.** Board 2026-11-27, TRX64-Ultimate's
-  `trx64u.cor` `8482650d` (c64_basic: the menu on the A/V port interlaced while the machine is halted, the TRX64U-FW session's spike
-  of D11): the Sony shows every canvas line, one field the even lines, the other the odd ones. At HDMI 1080p (canvas 960 x 540) all
-  270 lines of a field are on the screen. At 576p (720 x 576) Alex reads the menu better (720 pixels over the same line: wider
-  letters), but a field has 288 lines and the Sony shows about 275 (PAL overscan): the top bar and the bottom hint bar are cut.
-  Alex (translated): "it reads better in any case because the letters are bigger, but nothing should be cut." So `trx_canvas_for`
-  (`app/video/trxcanvas.h`) gives 576p a 720 x 540 canvas, centred: 270 lines a field on the TV, and an 18-line black band above and
-  below on HDMI, for the host menu and every core's. Alex (translated): "That is OK [the band, host and every core]. Do it. The UX
-  check we do directly in the trx64 core; that saves the emulator runs." So the change goes to Alex on the board, not through ue2emu.
-  480p (640 x 480, 240 lines a field) is unchanged: not seen on a TV, the NTSC overscan not measured. Seen as well, not decided: Alex's
-  HDMI monitor overscans 576p (left, right and bottom cut); both hosts send the AVI InfoFrame with SCAN_INFO 00 (no data).
 - **Chroma and composite (2026-11-27):** not an open measurement. By D6 they are built from the standards on the known pins; seeing
   them on a set with S-Video or composite inputs is the normal test of the built output, not a precondition.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
@@ -272,6 +261,18 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   row lists -500 Hz to +500 Hz in 10 Hz steps), built with the next full build (T264 D4); and an A/V walk asks for the standard once
   before its first step (the choice list of the panel's Standard names) when its file does not set one, so no walk runs at a standard
   the TV cannot take.
+- **D17 (Alex, 2026-11-27): the 576p canvas is 720 x 540, so a PAL TV cuts nothing.** Board 2026-11-27, TRX64-Ultimate's
+  `trx64u.cor` `8482650d` (c64_basic: the menu on the A/V port interlaced while the machine is halted, the TRX64U-FW session's spike
+  of D11): the Sony shows every canvas line, one field the even lines, the other the odd ones. At HDMI 1080p (canvas 960 x 540) all
+  270 lines of a field are on the screen. At 576p (720 x 576) Alex reads the menu better (720 pixels over the same line: wider
+  letters), but a field has 288 lines and the Sony shows about 275 (PAL overscan): the top bar and the bottom hint bar are cut.
+  Alex (translated): "it reads better in any case because the letters are bigger, but nothing should be cut." So `trx_canvas_for`
+  (`app/video/trxcanvas.h`) gives 576p a 720 x 540 canvas, centred: 270 lines a field on the TV, and an 18-line black band above and
+  below on HDMI, for the host menu and every core's. Alex (translated): "That is OK [the band, host and every core]. Do it. The UX
+  check we do directly in the trx64 core; that saves the emulator runs." So the change goes to Alex on the board, not through ue2emu.
+  480p (640 x 480, 240 lines a field) is unchanged: not seen on a TV, the NTSC overscan not measured. Seen as well, not decided: Alex's
+  HDMI monitor overscans 576p (left, right and bottom cut); both hosts send the AVI InfoFrame with SCAN_INFO 00 (no data).
+
 ## §4 Out
 
 - A scope measurement of levels and full scale at the port (no scope at hand); the TV's view is what is measured.

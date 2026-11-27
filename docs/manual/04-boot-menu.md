@@ -273,7 +273,7 @@ about 550 of the 576 lines, so all 540 fit), **480p** (640 x 480) and **800 x 60
 
 ![The Settings page at 576p: the compact layout with the short value of the Picture row](img/host-compact-576-settings.png)
 
-*Figure 4-7. F8 Settings at 576p. An older picture: it shows the 720 x 576 canvas of before T259 D16; the canvas is 720 x 540 now. The value of `Picture` is the short form `screen: 576p / 480p`. A name or a value that does not fit ends in dots.*
+*Figure 4-7. F8 Settings at 576p. An older picture: it shows the 720 x 576 canvas of before T259 D17; the canvas is 720 x 540 now. The value of `Picture` is the short form `screen: 576p / 480p`. A name or a value that does not fit ends in dots.*
 
 ## 4.11 Configs of a core
 

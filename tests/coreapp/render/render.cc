@@ -702,7 +702,7 @@ static void follow_menu(const char *out)
 #endif
 
 // T164 D10a: the menu in every mode the host offers. Each mode gets the canvas trx_canvas_for names (960 x 540 at a whole factor; the mode's own size
-// below 960 wide: 576p PAL 720 x 540 (T259 D16), 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
+// below 960 wide: 576p PAL 720 x 540 (T259 D17), 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
 // and every visible object must lie inside the canvas and not be cut by its parent. The pictures go to the output directory.
 static void modes_menu(const char *out)
 {
@@ -997,7 +997,7 @@ static void c128_kit_menu(const char *out)
 static void diag_pages(const char *out, int cw, int ch, const char *tag)
 {
     char p[512];
-    ui_set_canvas(cw, ch);                                       // 960 x 540 (shown at 2x), or the compact canvas of 576p: 720 x 540 (T164 D10a, T259 D16)
+    ui_set_canvas(cw, ch);                                       // 960 x 540 (shown at 2x), or the compact canvas of 576p: 720 x 540 (T164 D10a, T259 D17)
     auto shot = [&](const char *name) {
         snprintf(p, sizeof(p), "%s/diag-%s%s.png", out, name, tag);
         if (cw == 960) { png(p, 2); } else { png_out(p, cw, ch, 0, 0, cw, ch); }

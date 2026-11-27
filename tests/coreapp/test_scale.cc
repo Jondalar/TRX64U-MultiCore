@@ -425,7 +425,7 @@ static void menu_places()
         { pv(VID_HDMI_800x600),   1,   0,   0, 800, 600 },                 // D10a: narrower than 960: the canvas is the frame, the compact layout, nothing cut
         { pv(VID_HDMI_1024x768),  1,  32, 114, 960, 540 },
         { pv(VID_HDMI_1280x1024), 1, 160, 242, 960, 540 },
-        { pv(VID_HDMI_480_576),   1,   0,  18, 720, 540 },                 // 576p under PAL: 720 x 540, 18 lines down (T259 D16: PAL overscan)
+        { pv(VID_HDMI_480_576),   1,   0,  18, 720, 540 },                 // 576p under PAL: 720 x 540, 18 lines down (T259 D17: PAL overscan)
         { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
     };
 #ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
