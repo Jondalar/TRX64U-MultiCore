@@ -24,6 +24,7 @@ struct WbState {
     bool told;                              // "cannot be written" was said for the changes up to now
     bool retry;                             // after a failure: not again before retry_at
     uint32_t retry_at;
+    bool whole;                             // T154 D6: the file may differ from the image beyond the map (wb_unmarked, wb_forget): the next write reads it all, held
 };
 WbState g;
 
@@ -52,6 +53,7 @@ void clear_all(void)
     g.flush_req = false;
     g.told = false;
     g.retry = false;
+    g.whole = false;
     leave();
 }
 
@@ -201,7 +203,9 @@ int write_now(CoreCtx *c, char *msg, int msglen)
     begin(&d);
     // T154 D6 (Alex 2026-11-27): a medium that copies the changed part of its image here lets the machine go on while the file is written; the copy is
     // the state at the hold. Not for the second part (aux: the writer copies it itself) and not without an old file (the unchanged blocks come from it).
-    bool snapped = g.m.snap && old && !g.m.may_create && !d.aux && g.m.snap(g.m.user, d) == 0;
+    bool whole = g.whole;                      // a restore or a declined change: every block from the machine, under the hold
+    g.whole = false;
+    bool snapped = !whole && g.m.snap && old && !g.m.may_create && !d.aux && g.m.snap(g.m.user, d) == 0;
     if (g.m.hold && snapped) {
         g.m.hold(g.m.user, false);
     }
@@ -219,6 +223,7 @@ int write_now(CoreCtx *c, char *msg, int msglen)
     }
     if (rc || !synced) {
         fs->remove(tmp);
+        g.whole = g.whole || whole;
         end(false);
         if (!rc) {
             snprintf(msg, msglen, "%s: writing failed (medium full or gone)", g.m.name);
@@ -226,6 +231,7 @@ int write_now(CoreCtx *c, char *msg, int msglen)
         return 1;
     }
     rc = replace_file(c, tmp, msg, msglen);
+    g.whole = g.whole || (whole && rc != 0);
     end(rc == 0);
     if (rc == 0) {
         g.retry = false;
@@ -337,6 +343,12 @@ void wb_forget(void)
     begin(&d);
     end(true);
     g.told = false;
+    g.whole = true;                                            // the declined bytes stay in the image: the next write carries them all (T154 D6)
+}
+
+void wb_unmarked(void)
+{
+    g.whole = true;
 }
 
 int wb_flush(CoreCtx *c, WbWhy why, char *msg, int msglen)

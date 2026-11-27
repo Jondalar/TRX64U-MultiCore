@@ -86,7 +86,7 @@ Scenario: S9 the game saves on while the file is written (D6)
 | S1, S2, S4 | P2 | one EasyFlash game save on the board | board |
 | S7 | P3 | per core after the inventory | bench, board |
 | S8 | P4 | one NES and one SNES battery game | board |
-| S9 | D6 | coreapp bench (a program during the file write: acknowledged at once, in the next file, not in this one; controls `wb_read_after_release`, `wb_changed_from_old`); Wasteland's save on trx64u against trx64g | CI, board |
+| S9 | D6 | coreapp bench (a program at the release and one during the file write: acknowledged at once, in the next file, not in this one; after a restore the whole write held and the file the machine's state; controls `wb_read_after_release`, `wb_changed_from_old`, `wb_fallback_released`, `wb_restore_copied`); Wasteland's save on trx64u against trx64g | CI, board |
 
 ## §3 Decision
 
@@ -114,7 +114,10 @@ Proposed:
   the writer takes a changed block from the copy and an unchanged one from the old file, which holds it as DDR2 does (the load puts every
   packet's bytes into the image as they are). So the file is one state, the one at the copy, as before. Held over the write as before: a
   flush with the EEPROM changed (aux), a medium without an old file or with `may_create`, more than 1 MiB changed (a chip erase of an
-  EasyFlash 3), no memory for the copy, and the library media (`svc_wb.h` unchanged). The core lock stays (the menu waits for the write).
+  EasyFlash 3), no memory for the copy, and the library media (`svc_wb.h` unchanged). Also the write after the image changed beyond the map
+  (MultiCore's review): a state restored into it (`c64_cart_image_write`, which marks nothing, D51, calls `wb_unmarked`) or a change the
+  person declined (`wb_forget`): the old file no longer holds the unchanged blocks, so that write takes every block from the machine and the
+  next one copies again. The core lock stays (the menu waits for the write).
 
 ## §3a Open questions
 

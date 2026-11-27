@@ -84,6 +84,8 @@ bool wb_pending(void);                                         // a change the f
 bool wb_due(void);                                             // ... and quiet for WB_QUIET_MS, or WB_MAX_AGE_MS old, or a flush was asked for
 void wb_request_flush(void);
 void wb_forget(void);                                          // the change is not wanted in the file ("No"): the map is cleared, the image stays
+void wb_unmarked(void);                                        // the image changed in a way that marks no block (a state restored into it, D51): the next
+                                                               // write takes every block from the machine with the hold over it (T154 D6)
 
 // Auto: the file is written now when there is a change; the action that follows runs after. 0 when nothing was to be done or it was written, 1
 // when it failed (msg says why, and a note for the screen is set). Off and Ask do nothing: Ask has its question at the menu's open.

@@ -474,6 +474,9 @@ control wb_ask_no_forget writeback.cc 's/^        wb_forget();$/        (void)0;
 # block taken from the old file loses the change
 control wb_read_after_release writeback.cc 's/ \&\& g.m.snap(g.m.user, d) == 0;/;/' test_writeback.cc $WBL
 control wb_changed_from_old writeback_crt.cc 's/        if (s != WB_CRT_NO_SLOT) {/        if (false) {/' test_writeback.cc $WBL
+# a fallback (here after a restore) ends the hold before the write; a restore ignored copies the changed blocks and takes the rest from the old file
+control wb_fallback_released writeback.cc 's/    if (g.m.hold \&\& snapped) {/    if (g.m.hold) {/' test_writeback.cc $WBL
+control wb_restore_copied writeback.cc 's/    bool snapped = !whole \&\& /    bool snapped = /' test_writeback.cc $WBL
 # T192.3 leak 4 (persistence): the module's question on the Atari's menu - the unit a8_writeback_menu and its control wbm_answer_ignored, built as its app (below)
 
 # D6: the address prompt of "Load PRG and start from": the unit a8_prompt (on the Atari's descriptor), built as its app (below)
