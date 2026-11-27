@@ -129,8 +129,13 @@ def check_core(core, toml_a=None, srcdir=None):
             for n, off, _ in consts:
                 if n == m.group(1):
                     units.add(((off + int(m.group(2) or 0)) >> int(m.group(3)), int(m.group(3))))
+        cval = {n: off for n, off, _ in consts}
+        spans = []          # `off >= R_A && off < R_B + n`: the range decodes every constant between its ends
+        for m in re.finditer(r"[>]=\s*(R_\w+)\s*(?:\+\s*(?:\d+'d)?(\d+))?\s*(?:&&|\band\b)\s*[\w()\[\]:]+\s*(<=?)\s*\(?\s*(R_\w+)\s*(?:\+\s*(?:\d+'d)?(\d+))?", code, re.I):
+            if m.group(1) in cval and m.group(4) in cval:
+                spans.append((cval[m.group(1)] + int(m.group(2) or 0), cval[m.group(4)] + int(m.group(5) or 0) + (1 if m.group(3) == "<=" else 0)))
         for n, off, _ in consts:
-            if not re.search(r"\b%s\b" % n, code, re.I if vhdl else 0) and not any(off >> sh == u for u, sh in units):
+            if not re.search(r"\b%s\b" % n, code, re.I if vhdl else 0) and not any(off >> sh == u for u, sh in units) and not any(a <= off < b for a, b in spans):
                 reds.append("%s: constant %s is not used in the decode" % (f, n))
     return reds
 
