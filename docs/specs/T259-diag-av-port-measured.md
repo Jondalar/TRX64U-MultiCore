@@ -204,6 +204,11 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   don't know)." The foundation (RGB pixel, sync, blank, timing in; DAC map, levels, optional PAL/NTSC encoding out) is in every core
   that has an analogue output; the guard (line rate outside the 15 kHz band: the port goes black) is a separate module that a core
   with 31 kHz modes adds.
+  Amended (Alex, 2026-11-27, translated): "The 31 kHz guard should really be a timing guard. Not only the Amiga and possibly the Atari
+  ST can deliver problematic timings; unusual raster frequencies or faulty core configurations could occur too. The modular decision D9
+  is good. I would only make the interface such that other frequency ranges can be checked later." So the block is the **timing
+  guard**: it measures the source's line rate (and field rate) and passes the picture only inside the band its parameters name (the
+  15 kHz television band first); outside it the port goes black. The band is a parameter of the module, not a constant in it.
 - **D10 (Alex, 2026-11-27): the Y/C and composite encoder goes into the host too.** Alex (translated): "the encoder has to go into the
   host, because the host menu should have the picture too, right?" A person with only an S-Video or composite set needs the host menu
   there. The host's encoder also serves the DFX cores (apple2, atari800, vc20: the host scans their frame buffer out, `host/av_rgb.v`).
@@ -213,6 +218,11 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   canvas (NTSC), not on 960 x 540.** Alex (translated): "576p or 480p, because it looks awful, I think." The canvas choice is the one
   `coreapp/src/video.cc` already makes for those HDMI rows (the row's size below 960 wide); the setting that picks the main output is
   Alex's plan "Primary out: HDMI / Analog" (TRX64U-FW session, 2026-11-27).
+  Clarified (Alex, 2026-11-27, translated): "576p/480p as the host canvas is not automatically an analogue 15 kHz signal ... for the
+  actual analogue output you still need a fitting mapping onto the 15 kHz raster, including the correct synchronisation. A 576p canvas
+  must not simply land at the SCART output with progressive 31 kHz timing." The canvas is the menu's logical resolution only. The
+  analogue port always runs a 15 kHz raster with its own sync (`host/av_rgb.v`: 312 / 263 lines, csync); the canvas reaches it two
+  lines into one or interlaced (the spike of the TRX64U-FW session, 576i / 480i), never as 576p / 480p.
 - **D12 (Alex, 2026-11-27, on open question 3): every core has the same two picture settings, and PAL/NTSC comes from the CPU's
   mode.** Alex (translated): "Every core shall have - HDMI: Default from Host, Default from EDID, the values from EDID. Analog: from
   Host / off / RGB / S-VIDEO. Whether PAL/NTSC comes from the CPU mode." So:
