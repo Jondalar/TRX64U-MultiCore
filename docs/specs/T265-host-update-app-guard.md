@@ -57,8 +57,8 @@ Parts:
 | S1 | P1 | Host app written by the `.txu`; power off and on: the host menu comes up. | board step | board session |
 | S2 | P1 | The app slot holds another firmware's application (the 1.2.1 flash patch run inside a started 1.2.1); power off and on: the boot ROM does not start it (console line names the mismatch). Negative control: the same image with the guard's check removed starts it. | board step; boot ROM bench (`host/sim/flash_boot`) with a foreign image | board session; `ci/sims.txt` |
 | S3 | P2 | After S2 the recovery starts the host application from the recovery copy; the host menu says that the flash application was replaced and that it was repaired, and the next power-on boots normally (S1). | board step | board session |
-| S4 | P2 | No copy on the flash drive: the recovery finds `hostrecovery.app` in the root of a USB stick or the SD card and starts it (D6); none anywhere: the boot ROM waits for JTAG as today. | board step (flash copy deleted, file on a stick) | board session |
-| S10 | P2 | The whole package, every pre-release and the release bundle carry `hostrecovery.app` of the same build as the host app. | the package's file list | matrix whole package; release bundle |
+| S4 | P2 | No copy on the flash drive: the recovery finds `hostrecovery.bin` in the root of a USB stick or the SD card and starts it (D6); none anywhere: the boot ROM waits for JTAG as today. | board step (flash copy deleted, file on a stick) | board session |
+| S10 | P2 | The whole package, every pre-release and the release bundle carry `hostrecovery.bin` of the same build as the host app. | the package's file list | matrix whole package; release bundle |
 | S5 | P3 | An app-only `.txu` update and a host+app update: after each, S1 holds and the recovery copy is the new version. Negative control: power lost between writing the app and the record: the next power-on recovers (S3), never starts a half-written app. | `tests/hostapp` unit over the flash model; board step | apptests; board session |
 | S6 | P3 | An installed host without the guard's record (every board today) updates by `.txu` to this host: S1 holds, and the record is written. | board step | board session |
 | S7 | P4 | Host menu, then a DFX core (VC-20), PAL: the SCART RGB cable on Alex's Sony shows the picture in the right colours. | board step, photo | board session |
@@ -130,8 +130,8 @@ Parts:
 - **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
   that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den
-  Release"):** when the flash drive has no copy, the recovery program looks for `hostrecovery.app` in the root of every medium
-  (the USB sticks, the SD card) and starts the first it finds. The package and the release carry `hostrecovery.app` (S10). The
+  Release"):** when the flash drive has no copy, the recovery program looks for `hostrecovery.bin` in the root of every medium
+  (the USB sticks, the SD card) and starts the first it finds. The package and the release carry `hostrecovery.bin` (S10). The
   recovery program therefore reads USB mass storage and the SD card besides the flash drive; its size against the 256 KiB of D2
   is measured while building. The started application checks that it fits the host in flash (host key, host-app interface, as the
   `.txu` does) before it writes anything.
@@ -266,7 +266,7 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
 - **.txu writer.** `UpdateJob` calls `guard_after_update` after `fw_write_parts` ok with the app part: copy, then record; a copy or record that fails is a warning line on the result page, the update
   stays written (a copy that differs from the record is taken by the recovery, a missing record means no guard). The recovery program is not part of the `.txu`: the host app writes it at its first start.
   Without `guard_install_fs` (the other benches) the step does nothing.
-- **Package.** `hostrecovery.app` = the stamped `hostapp.app` (`ci/package.sh`, `cmp`), required by `ci/prerelease.sh`, copied into the bundle by `tools/make_release_mc.sh`, checked against the `.txu`
+- **Package.** `hostrecovery.bin` (D13; first `hostrecovery.app`) = the stamped `hostapp.app` (`ci/package.sh`, `cmp`), required by `ci/prerelease.sh`, copied into the bundle by `tools/make_release_mc.sh`, checked against the `.txu`
   app part by `tools/check_release_flash.py --recovery`, named in INSTALL.md (what is in here, the stick: the ROOT, known problems).
 - **Tests.** `tests/hostapp/run_guard.sh` (`test_guard.cc`): cut sweeps over the provisioning (102 cut points), the update writer (239) and the repair (172) with a flash and a RAM disk that lose power at every
   operation; 12 source mutants. Not run: board, RISC-V build, the render bench with the new pages (`SJ_REPAIR`, the warn line), `tests/hostapp/run.sh` as a whole.
