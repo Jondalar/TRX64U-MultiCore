@@ -14,7 +14,6 @@ coreapp/cores/cbm_run.cc shared-library Run PRG of five cores
 coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
 coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of two cores (VIC-20, T239.3 D61: the C128's and the C64SCPU's apps hold copies)
-coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
 coreapp/src/amiga_ffs.cc core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/amiga_ffs.h core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/t64.cc shared-library C64 T64 lister, stays here (D12; TRX64-Ultimate takes only its T64 loading)
