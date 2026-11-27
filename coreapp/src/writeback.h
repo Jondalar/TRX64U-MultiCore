@@ -56,6 +56,11 @@ struct WbMedium {
     void *user;                          // the writer's, kept by the owner for as long as the medium is registered
     bool may_create;                     // the file may not exist yet (a battery save the game has never written): the old file is then null for the writer
     void (*hold)(void *user, bool on);   // optional: the machine must not change the medium while the writer reads it (flash operations wait)
+    // optional, with hold (T154 D6): called under the hold right after the changes are taken. 0: the medium has copied what its writer reads of the
+    // machine, so the hold ends before the file is written and the machine's flash goes on meanwhile; else the hold lasts the write. unsnap drops the
+    // copy after the write (called only after a snap that returned 0).
+    int (*snap)(void *user, const WbDirty &dirty);
+    void (*unsnap)(void *user);
 };
 
 void wb_attach(CoreCtx *c, WbPort *port);                      // once, at the start: the port, and the mode from the setting

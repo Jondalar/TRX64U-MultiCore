@@ -199,9 +199,18 @@ int write_now(CoreCtx *c, char *msg, int msglen)
         g.m.hold(g.m.user, true);                  // the machine sees its flash busy while the image is read: one state
     }
     begin(&d);
-    int rc = g.m.write(c, g.m.user, old, out, d, msg, msglen);
-    if (g.m.hold) {
+    // T154 D6 (Alex 2026-11-27): a medium that copies the changed part of its image here lets the machine go on while the file is written; the copy is
+    // the state at the hold. Not for the second part (aux: the writer copies it itself) and not without an old file (the unchanged blocks come from it).
+    bool snapped = g.m.snap && old && !g.m.may_create && !d.aux && g.m.snap(g.m.user, d) == 0;
+    if (g.m.hold && snapped) {
         g.m.hold(g.m.user, false);
+    }
+    int rc = g.m.write(c, g.m.user, old, out, d, msg, msglen);
+    if (g.m.hold && !snapped) {
+        g.m.hold(g.m.user, false);
+    }
+    if (snapped && g.m.unsnap) {
+        g.m.unsnap(g.m.user);
     }
     bool synced = rc == 0 && out->sync();
     fs->close(out);

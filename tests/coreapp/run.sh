@@ -451,7 +451,7 @@ control wb_off_writes writeback.cc 's/^    if (g.mode != WB_AUTO || !wb_pending(
 control wb_no_flush_before_reset boot.cc 's/^    if (media_writeback(c, why, msg, msglen)) {/    if (false) {/' test_writeback.cc $WBL
 control wb_no_flush_before_eject c64_cart.cc 's/^    wb_flush(c, WB_WHY_EJECT, fm, sizeof(fm));                        \/\/ the file first, then the cartridge goes/    (void)fm;/' test_writeback.cc $WBL
 control wb_no_bak writeback.cc 's/        ok = fs->rename(g.m.path, bak);/        ok = fs->remove(g.m.path);/' test_writeback.cc $WBL
-control wb_image_not_read writeback_crt.cc 's/            m->io->ddr_read(m->img_base + p.img_off, buf, p.size);/            memset(buf, 0, p.size);/' test_writeback.cc $WBL
+control wb_image_not_read writeback_crt.cc 's/            m->io->ddr_read(m->img_base + (b << WB_BLOCK_SHIFT), m->copy + k \* BLOCK, BLOCK);/            memset(m->copy + k * BLOCK, 0, BLOCK);/' test_writeback.cc $WBL
 control wb_blank_gets_packet writeback_crt.cc 's/            blank = buf\[i\] == 0xFF;/            blank = false;/' test_writeback.cc $WBL
 control wb_no_new_packet writeback_crt.cc 's/        if (!dirty.test(b) || /        if (true || /' test_writeback.cc $WBL
 control wb_unwritable_tried writeback.cc 's/^    if (!target_writable(c)) {$/    if (false) {/' test_writeback.cc $WBL
@@ -470,6 +470,10 @@ control wb_ef3_evt_hi c64_cart.cc 's/ | (hi << 21)) \& (g_flash->chip_size - 1)/
 control wb_ef3_chip_erase c64_cart.cc 's/        size = p->chip_size;/        size = 0x10000;/' test_writeback.cc $WBL
 control wb_failed_write_dropped writeback.cc 's/^        end(false);$/        end(true);/' test_writeback.cc $WBL
 control wb_ask_no_forget writeback.cc 's/^        wb_forget();$/        (void)0;/' test_writeback.cc $WBL
+# T154 D6 (persistence): the image read after the hold ends (no copy, the flash going on) puts a program made during the write into this file; a changed
+# block taken from the old file loses the change
+control wb_read_after_release writeback.cc 's/ \&\& g.m.snap(g.m.user, d) == 0;/;/' test_writeback.cc $WBL
+control wb_changed_from_old writeback_crt.cc 's/        if (s != WB_CRT_NO_SLOT) {/        if (false) {/' test_writeback.cc $WBL
 # T192.3 leak 4 (persistence): the module's question on the Atari's menu - the unit a8_writeback_menu and its control wbm_answer_ignored, built as its app (below)
 
 # D6: the address prompt of "Load PRG and start from": the unit a8_prompt (on the Atari's descriptor), built as its app (below)

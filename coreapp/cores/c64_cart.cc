@@ -400,7 +400,7 @@ static void flash_configure(CoreIo *io, uint8_t cart_type, const char *path, con
     memset(&m, 0, sizeof(m));
     snprintf(m.path, sizeof(m.path), "%s", path);
     snprintf(m.name, sizeof(m.name), "%s", name);
-    m.write = wb_crt_write;
+    wb_crt_medium(&m);                                      // writer, snap and unsnap (T154 D6)
     m.user = &g_wbcrt;
     m.hold = flash_hold;
     wb_register(m);

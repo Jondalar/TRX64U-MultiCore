@@ -293,20 +293,41 @@ int main()
         delete r;
     }
 
-    // ---- the machine's flash waits (the interrupt is off) for as long as the image is read and the file is written
+    // ---- T154 D6 (Alex 2026-11-27): the machine's flash waits (the interrupt is off) only while the changed blocks are copied; the file is written with
+    // the flash going on, and it holds the image as it was at the copy. A program during the write goes into the next file.
     {
-        struct Probe { FakePort *p; int writes, held; };
+        struct Probe { Rig *r; int writes, held; bool done, ok; };
         Rig *r = ef_rig(4);
-        Probe pr = { &r->port, 0, 0 };
+        Probe pr = { r, 0, 0, false, false };
         r->fs.write_ms = 32;
-        r->fs.tick = [](void *a, uint32_t) { Probe *q = (Probe *)a; q->writes++; if (!(q->p->en & C64_IRQ_FLASH)) q->held++; };
+        r->fs.tick = [](void *a, uint32_t) {
+            Probe *q = (Probe *)a;
+            q->writes++;
+            if (!(q->r->port.en & C64_IRQ_FLASH)) q->held++;
+            if (!q->done) { q->done = true; q->ok = q->r->prog_roml(2, 7, 0x00); }   // the game saves on while the file is written
+        };
         r->fs.tick_arg = &pr;
         CHECK(r->prog_roml(0, 1, 0x00));
+        size_t log0 = r->port.log.size();
         r->quiet();
         wb_poll(&r->c);
         CHECK(pr.writes > 0);
-        CHECK_EQ(pr.held, pr.writes);
-        CHECK_EQ(r->port.en & C64_IRQ_FLASH, C64_IRQ_FLASH);            // and it is on again afterwards
+        CHECK_EQ(pr.held, 0);                                           // no file write with the flash held
+        CHECK(pr.ok);                                                   // the program during the write was acknowledged at once
+        const std::string dis = "dis " + std::to_string(C64_IRQ_FLASH), en = "en " + std::to_string(C64_IRQ_FLASH);
+        CHECK(r->port.log.size() >= log0 + 2 && r->port.log[log0] == dis && r->port.log[log0 + 1] == en);   // held for the copy, then on again
+        std::vector<Pk> pk = packets(r->file(F));
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 1], 0x00);       // the change before the copy is in the file
+        CHECK_EQ(r->file(F)[need(pk, 2, 0x8000).data + 7], 0x27);       // the one during the write is not: the file is the state at the copy
+        CHECK(wb_pending());
+        r->fs.tick = 0;
+        r->quiet();
+        wb_poll(&r->c);
+        CHECK(!wb_pending());
+        pk = packets(r->file(F));
+        CHECK_EQ(r->file(F)[need(pk, 2, 0x8000).data + 7], 0x00);       // ... it is in the next one
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 1], 0x00);
+        CHECK_EQ(r->port.en & C64_IRQ_FLASH, C64_IRQ_FLASH);            // and the flash is on afterwards
         delete r;
     }
 
