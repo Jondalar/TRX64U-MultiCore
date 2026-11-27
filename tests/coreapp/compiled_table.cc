@@ -22,12 +22,6 @@ const CoreDesc *const compiled_in_table[] = { &apple2_desc, 0 };
 extern const CoreDesc amiga_desc;  // cores.h lists the shared app's cores (cores/amiga/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_DIAG)
-// the diag core's app is its own build (run.sh diagapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc portdiag_desc;   // cores.h lists the shared app's cores (cores/diag/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_DDT)
 // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its table is its core only
 #include "cores.h"

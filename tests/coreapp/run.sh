@@ -73,9 +73,6 @@ ddt_drv_dir "$T/ddttab" || { echo "coreapp: DDT Look Ma, No VIC's driver table w
 DDTLIB="$ROOT/cores/ddt_novic/app/lib"   # the DDT core's library lives in its own repository part (cores/ddt_novic/app/lib), not in coreapp/cores
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
-source "$TST/diag_drv.sh"
-diag_drv_dir "$T/diagtab" || { echo "coreapp: the diag core's driver table was not generated" >&2; exit 1; }   # portdiag_regs.h names the registers through it
-DIAGLIB="$ROOT/cores/diag/app/lib"   # T260 P7: the diag core's library lives in its own app (cores/diag/app/lib)
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/own_drv.sh"
 source "$TST/amiga_drv.sh"
@@ -117,10 +114,6 @@ apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DDT+=("$i"); done
 ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic APPLIB="$DDTLIB"; "$@"; }
-# The diag core is its own app too (T260 P7: cores/diag/app). diagapp CMD... builds like a8app, with the diag core's library (APPLIB), its table and TEST_APP_DIAG: its units are in the group diag.
-INC_DIAG=(-DTEST_APP_DIAG=1 -I"$DIAGLIB" -I"$T/diagtab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DIAG+=("$i"); done
-diagapp() { local INC=("${INC_DIAG[@]}") CA_APP=diag APPLIB="$DIAGLIB"; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
 vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
 build() {
@@ -245,14 +238,6 @@ run cbm_prg test_cbm_prg.cc cbm_prg.cc
 
 
 
-# T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
-# copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
-diagapp run diagtest test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
-diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
-diagapp run portdiag test_portdiag.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
-diagapp run diag_avtrace test_diag_avtrace.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
-diagapp run dtv2 test_dtv2.cc dtv2.cc
-diagapp run panel test_panel.cc portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 python3 "$TST/gen_bundle.py" "$T/bundles"       # the bundles and menu records the units libscan and desc open (a clean tree has none yet); the later gen_bundle call renews them
@@ -903,17 +888,6 @@ ddtapp run ddt_hotkeys test_hotkeys.cc $DDTD
 # T239.5 D13: every key of its menu against its golden (ddt_keywalk: golden/keywalk_ddt_novic.txt, ids_ddt_novic.txt) and its declaration over the API (ddt_uicover), TEST_APP_DDT
 ddtapp run ddt_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DDTD
 ddtapp run ddt_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DDTD
-# T239.5 D13, T260 P7: the diag core's cases of the shared tests, built as its app (diagapp: its library cores/diag/app/lib and its own table, the group diag) - the units its
-# TOML B (cores/diag/app/sdk.toml) names besides the runner's (diagtest, portdiag, diag_avtrace, panel, dtv2 above). The sources are the app's own and the base's (no other core).
-DIAG="portdiag.cc panel.cc pdnames.cc xinput.cc diagtest.cc dtv2.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
-DIAGD="desc_check.cc overlay.cc descrec.cc $DIAG"
-diagapp run diag_memops test_memops.cc $SVC $DIAGD
-RARGS="$T/bundles/desc_own.bin" diagapp run diag_desc test_desc.cc $DIAGD
-RARGS="$BUN/app" diagapp run diag_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $DIAGD
-diagapp run diag_hotkeys test_hotkeys.cc $DIAGD
-# every key of its menu against its golden (golden/keywalk_diag.txt, ids_diag.txt) and its declaration over the API (diag_uicover), TEST_APP_DIAG
-diagapp run diag_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DIAGD
-diagapp run diag_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DIAGD
 
 
 # T239.5 D4, D16: the ZX Spectrum's units, built as its app (zxapp: its library cores/zx/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the

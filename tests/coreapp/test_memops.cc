@@ -14,13 +14,10 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_DIAG
-extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
-#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -36,8 +33,6 @@ const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #define HEX_CORE ddt_novic_desc
-#elif defined(TEST_APP_DIAG)              // the diag core's app is its own build (run.sh diagapp): its core is the only one in its table
-const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #else   // TEST_APP_APPLE2: the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
@@ -108,8 +103,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_AMIGA)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
-#elif defined(TEST_APP_DIAG)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &portdiag_desc, 0xFFFF } };
 #elif defined(TEST_APP_DDT)
     struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #else
@@ -148,7 +141,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -178,14 +171,6 @@ int main()
         Rig r(&amiga1200_desc);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-#elif defined(TEST_APP_DIAG)
-    // ---- the diag core has no machine: its memory is not reachable by the application, it says so, and why
-    {
-        Rig r(&portdiag_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(TEST_APP_DDT)

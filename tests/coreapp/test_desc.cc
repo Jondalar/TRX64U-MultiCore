@@ -28,9 +28,6 @@ extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app 
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_DIAG
-extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
-#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
@@ -43,8 +40,6 @@ const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_DIAG)            // the diag core's app is its own build (run.sh diagapp) with its core only
-const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -193,10 +188,6 @@ int main(int, char **argv)
         static const Mi want[] = { { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
-#elif defined(TEST_APP_DIAG)
-        static const Mi want[1] = { { "", "" } };                          // the diag core has no setting, so no machine line: nothing to find (the count below is skipped)
-        static const char *const none[] = { "Port Diagnostics" };
-        const int n_none = 1;
 #elif defined(TEST_APP_APPLE2)
         static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
         static const char *const none[] = { "Apple IIe" };
@@ -283,8 +274,6 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
 #elif defined(TEST_APP_AMIGA)
         CHECK(seen_cbm == 0 && seen_other == 1);                    // the walk saw the A500's ADF (Mount DF0 and reset), no CBM image (the HDF has nothing to run)
-#elif defined(TEST_APP_DIAG)
-        CHECK(seen_cbm == 0 && seen_other == 0);                    // the diag core has no file type
 #elif defined(TEST_APP_APPLE2)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
 #else
@@ -404,8 +393,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_AMIGA)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_DIAG)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
         CHECK(n205 == 1);
 #else
@@ -425,8 +412,6 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // DDT has no medium
 #elif defined(TEST_APP_AMIGA)
         static const char *const own[] = { 0 };                              // the A500's media are the base engines' (window and sector media): no flush of its own to hand over
-#elif defined(TEST_APP_DIAG)
-        static const char *const own[] = { 0 };                              // the diag core has no medium
 #elif defined(TEST_APP_APPLE2)
         static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
 #else
@@ -455,7 +440,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -662,14 +647,6 @@ int main(int, char **argv)
 #elif defined(TEST_APP_DDT)
     // the real core: one task, Reset, and nothing to ask (the records that the shared app's cores have are tested in the shared unit)
     CHECK(ddt_novic_desc.ntasks == 1 && !ddt_novic_desc.tasks[0].ask && ddt_novic_desc.nsettings == 0);
-#elif defined(TEST_APP_DIAG)
-    // T175: a core with no machine and no picture (the diag core): only such a core may have no PAUSED bit, and its freeze waits for nothing
-    CHECK(!desc_check(&portdiag_desc));
-    { CoreDesc d = portdiag_desc; d.menu_first = false; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }
-    { CoreDesc d = portdiag_desc; CHECK(!desc_check(&d)); d.freeze.timeout_ms = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "freeze")); }
-    CHECK(portdiag_desc.menu_first);
-    CHECK_EQ((int)portdiag_desc.video.w, 0);
-    CHECK_STR(portdiag_desc.core_id, "diag");
 #elif defined(TEST_APP_APPLE2)
     // T104.1 Q10: the capability list of the real descriptor (a floppy on slot 6 and a hard disk on slot 7: no SIO, no IEC, no cartridge)
     CHECK(desc_has_capability(&apple2_desc, "floppy"));
@@ -869,8 +846,6 @@ int main(int, char **argv)
     golden(&ddt_novic_desc, "ddt_novic");
 #elif defined(TEST_APP_AMIGA)
     golden(&amiga_desc, "amiga");
-#elif defined(TEST_APP_DIAG)
-    golden(&portdiag_desc, "portdiag");
 #elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
 #else
@@ -931,7 +906,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
