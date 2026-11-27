@@ -10,10 +10,7 @@
 #include "fakes.h"
 #include "cores.h"
 #ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_pad) has its own core only
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
-#include "nes_regs.h"
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#elif defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_pad) has its own core only
+#if   defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_pad) has its own core only
 #include "snes_regs.h"
 extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
 #else
@@ -93,7 +90,6 @@ int main(int argc, char **argv)
     }
     DONE("pad");
 #else
-#ifndef TEST_APP_NES                     // the cases of the shared app's cores; the NES's are its unit nes_pad (below)
     // ---- plug order, the placement of a third pad, a mouse is no pad
     {
         Rig r(&snes_desc);
@@ -398,103 +394,6 @@ int main(int argc, char **argv)
         CHECK_STR(pad_src_name(PAD_SRC_NONE, nm, sizeof(nm)), "none");
         unplug_all();
     }
-#else                                    // the NES's app (run.sh nesapp): the cases on its core
-    // ---- NES: A and B from the SNES layout's A (right) and B (bottom); the register is the controller's own order
-    {
-        Rig r(&nes_desc);
-        pad_configure(nes_desc.pad);
-        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        struct { int button; int bit; const char *name; } map[] = { { 2, 0, "A" }, { 1, 1, "B" }, { 7, 2, "Select" }, { 8, 3, "Start" } };
-        for (auto &m : map) {
-            V p = rep((uint16_t)(1u << (m.button - 1)));
-            pad_report(&k1, p.data(), (int)p.size());
-            pad_pace(&r.c);
-            CHECK_EQ(r.word(NES_PAD1) & 0xFF, 1u << m.bit);
-        }
-        V p = rep(0x0001 | 0x0002, 4);                                     // A and B together, hat down
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x03u | (1u << 5));
-        p = rep(0, 2);                                                     // right is bit 7
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1) & 0xFF, 0x80u);
-        pad_detach(&k1);
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NES_PAD1), 0);
-        unplug_all();
-    }
-    // ---- the numbering of a pad: the 8BitDo SN30 Pro (by its id, as on the SNES) gives the NES its A and B from the same positions
-    {
-        Rig rn(&nes_desc);
-        pad_configure(nes_desc.pad);
-        CHECK(pad_attach(&k1, "8Bitdo SN30 Pro", 0x2DC8, 0x6001, d_hat.data(), (int)d_hat.size()));
-        V p = rep(0x0001);                                                     // SN30 Button 1 is the right button: NES A
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&rn.c);
-        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 1u);
-        p = rep(0x0002);                                                       // Button 2 is the bottom one: NES B
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&rn.c);
-        CHECK_EQ(rn.word(NES_PAD1) & 0xFF, 2u);
-        unplug_all();
-    }
-    // ---- T228 R10: a menu record's pad (golden/desc_own.toml, compiled by gen_bundle.py; argv[1] is its bin): one port fed by the first pad (by_id), the host's joystick lines (joy_lines, bits
-    // 0..4 up down left right fire, 1 = pressed), pad.port picks port 1 or 2 and releases the one it leaves; no register of the core is written
-    {
-        static DescRecord rec;
-        char why[160];
-        CHECK(argc > 1);
-        std::vector<uint8_t> own;
-        { std::ifstream f(argv[1], std::ios::binary); own.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()); }
-        CHECK(!own.empty());
-        CHECK_EQ(descrec_parse(own.data(), (uint32_t)own.size(), &rec, why, sizeof(why)), 0);
-        CHECK(rec.has_pad && rec.pad.out == PAD_OUT_JOY && rec.pad.by_id && rec.pad.nbuttons == 5);
-        CHECK(rec.pad.reg[0] == 0 && rec.pad.reg[1] == 1);
-        CHECK_STR(rec.pad.names[0], "Up");
-        CHECK_STR(rec.pad.names[4], "Fire");
-        CHECK(rec.pad.def_map[0] == PAD_SRC_UP && rec.pad.def_map[3] == PAD_SRC_RIGHT && rec.pad.def_map[4] == PAD_ROLE_BOTTOM);
-        CoreDesc d = nes_desc;                                             // the settings store of a real descriptor; the pad is the record's
-        d.pad = &rec.pad;
-        Rig r(&d);
-        unplug_all();
-        pad_ensure(&r.c);
-        CHECK_EQ(pad_port(), 0);
-        pad_set_port(1);                                                   // the setting's default, "Port 2" (pad.port 1)
-        CHECK_STR(pad_port_name(), "port 2");
-        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        CHECK(pad_pace(&r.c));
-        CHECK(!r.io.joy_log.empty() && r.io.joy_log.back().port == 1 && r.io.joy_log.back().v == 0);   // port 2, released
-        CHECK_EQ(r.io.joy[0], 0);
-        CHECK(r.io.log.empty());                                           // nothing went to the core's register block
-        V p = rep(0x0001, 0);                                              // Button 1 (bottom: Fire in the generic numbering) and the hat up
-        pad_report(&k1, p.data(), (int)p.size());
-        CHECK(pad_pace(&r.c));
-        CHECK_EQ(r.io.joy[1], 0x11);                                       // up (bit 0) and fire (bit 4) on port 2
-        CHECK_EQ(r.io.joy[0], 0);
-        CHECK(!pad_pace(&r.c));                                            // nothing changed: nothing written
-        p = rep(0, 2);                                                     // hat right
-        pad_report(&k1, p.data(), (int)p.size());
-        CHECK(pad_pace(&r.c));
-        CHECK_EQ(r.io.joy[1], 0x08);
-        p = rep(0x0001, 0);
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        size_t n0 = r.io.joy_log.size();
-        pad_set_port(0);                                                   // "Port 1": port 2 is let go first, then port 1 gets the lines
-        CHECK_STR(pad_port_name(), "port 1");
-        CHECK(pad_pace(&r.c));
-        CHECK_EQ(r.io.joy_log.size() - n0, 2);
-        CHECK(r.io.joy_log[n0].port == 1 && r.io.joy_log[n0].v == 0);
-        CHECK(r.io.joy_log[n0 + 1].port == 0 && r.io.joy_log[n0 + 1].v == 0x11);
-        pad_detach(&k1);                                                   // S5: the pad leaves, its port is released
-        CHECK(pad_pace(&r.c));
-        CHECK_EQ(r.io.joy[0], 0);
-        CHECK_EQ(r.io.joy[1], 0);
-        CHECK(r.io.log.empty());
-        unplug_all();
-    }
-#endif
     DONE("pad");
 #endif
 }

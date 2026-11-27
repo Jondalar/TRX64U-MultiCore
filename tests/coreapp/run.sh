@@ -62,7 +62,6 @@ ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_c
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
 C64="c64_go.cc c64_cart.cc cbm_prg.cc board.cc $DRV"
 
-NESSRC="nes.cc ines.cc $BASEL"
 # build NAME TEST.cc SRC... : the product sources are looked up in $SRC, then $CORES, then $HA
 LOADERS="$ROOT/app/loaders"
 VIDEO="$ROOT/app/video"
@@ -92,13 +91,10 @@ diag_drv_dir "$T/diagtab" || { echo "coreapp: the diag core's driver table was n
 DIAGLIB="$ROOT/cores/diag/app/lib"   # T260 P7: the diag core's library lives in its own app (cores/diag/app/lib)
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/own_drv.sh"
-source "$TST/nes_drv.sh"
 source "$TST/amiga_drv.sh"
 own_drv_dir atari800 "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
-nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 amiga_drv_dir "$T/amigatab" || { echo "coreapp: the Amiga 500's driver table was not generated" >&2; exit 1; }   # amiga_regs.h names the registers through it
 AMLIB="$ROOT/cores/amiga/app/lib"   # T239.5 D15: the Amiga 500's library lives in its own repository part (cores/amiga/app/lib), not in coreapp/cores
-NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
 own_drv_dir snes "$T/snestab" || { echo "coreapp: the SNES's driver table was not generated" >&2; exit 1; }   # snes_regs.h names the registers through it
 SNESLIB="$ROOT/cores/snes/app/lib"   # T239.3 D61: the SNES's library lives in its own repository part (cores/snes/app/lib), not in coreapp/cores
 own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
@@ -129,9 +125,6 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 # The Atari 800 XL is its own app as well (T239.5 D15: cores/atari800/app). a8app CMD... builds like vc20app, with the Atari's library, its table and TEST_APP_ATARI800: its units are in the group atari800.
 INC_A8=(-DTEST_APP_ATARI800=1 -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
-# The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_NES: its units are in the group nes.
-INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_NES+=("$i"); done
 # The SNES is its own app as well (T239.3 D61: cores/snes/app). snesapp CMD... builds like a8app, with the SNES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_SNES: its units are in the group snes.
 INC_SNES=(-DTEST_APP_SNES=1 -I"$SNESLIB" -I"$T/snestab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_SNES+=("$i"); done
@@ -142,7 +135,6 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_AMIGA+=("$i"); done
 amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
-nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
 snesapp() { local INC=("${INC_SNES[@]}") CA_APP=snes APPLIB="$SNESLIB"; "$@"; }
 apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
@@ -295,9 +287,7 @@ a8app control sio_nowrite atari_sio.cc 's/if (d->write(pend_sector_, data_)) {/i
 
 a8app run a8_media test_atari_media.cc $ATARI
 
-nesapp run nes_ines test_ines.cc ines.cc
 
-nesapp run nes_core test_nes.cc $NESSRC
 
 # T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
 # copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
@@ -355,7 +345,6 @@ RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/d
 # T184 D3: the one WiFi row of every core (test_desc.cc): a core without it, and a core with a second row, are both seen
 # T104.2 D10: tasks and media list by group like settings, an information tab names its lines
 
-nesapp run nes_menuctl test_nes_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc nes.cc ines.cc $BASEL
 a8app run a8_menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ATARI
 # T180 D3, D6, D7 (S4-S6): the F3 Library of a core that is not the C64, and GitHub #93 (T209): a folder of n entries - the units a8_f3 and a8_library_n (the Atari is their core), built as its app (below)
 # #38: the name limit back to 55 (the prefill and the typing), the field without scrolling, the operation's argument back to 55
@@ -882,37 +871,6 @@ a8app run a8_xinput test_xinput.cc xinput.cc $ATARI
 a8app run a8_keywalk test_keywalk.cc instfiles.cc instcore.cc $A8DM
 a8app run a8_uicover test_uicover.cc uiapp.cc $SVC $A8DM
 
-# T239.5 D15: the NES's units built as its app (nesapp: its library cores/nes/app/lib and its own table, the group nes) that are not above (nes_ines, nes_core, nes_menuctl) - the units its TOML B
-# (cores/nes/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: nes.cc with ines.cc and the base's (no other core). The NES has no ROM: no romreq unit.
-NESD="desc_check.cc overlay.cc descrec.cc nes.cc ines.cc $BASEL"
-nesapp run nes_memops test_memops.cc $SVC $NESD
-RARGS="$BUN/app" nesapp run nes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NESD
-# T239.5 D13: the NES's cases of the shared tests, built as its app (the shared builds no longer name it): its descriptor and menu, the hotkeys, the joystick swap, the cartridge slot,
-# the pads, the picture and the generic items on its record, the record menus over its descriptor (desc_places, desc_cut)
-NESA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $NESD"
-NESM="test_media_mounts_engines.cc $NESA start.cc handover.cc"
-RARGS="$T/bundles/desc_own.bin" nesapp run nes_desc test_desc.cc $NESA
-nesapp run nes_hotkeys test_hotkeys.cc $NESA
-nesapp run nes_joyswap test_joyswap.cc $NESD
-nesapp run nes_mounts $NESM
-nesapp control mme_nes_eject nes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $NESM
-nesapp control mme_nes_fail nes.cc 's/^        mount_notify(c, 0); *\/\/ the old program is gone and the slot is empty (T180 D2)$/        (void)0;/' $NESM
-RARGS="$BUN/desc_own.bin" nesapp run nes_pad test_pad.cc $NESD                                  # with T228 R10, the menu record's pad (golden/desc_own.toml)
-nesapp run nes_xinput test_xinput.cc xinput.cc $NESD
-nesapp run nes_padmenu test_padmenu.cc $NESA
-nesapp run nes_picture test_picture.cc $NESA
-nesapp run nes_pictfollow test_pictfollow.cc $NESA
-nesapp run nes_scale test_scale.cc $NESA
-nesapp run nes_video test_video.cc $NESD
-nesapp run nes_volume test_volume.cc $NESA
-nesapp run nes_tone test_tone.cc $NESA
-nesapp run nes_baseset test_baseset.cc $NESD
-nesapp run nes_baserows test_baserows.cc $NESA
-RARGS="$T/bundles" nesapp run nes_libscan test_libscan.cc libload.cc libmenu.cc libscan.cc board.cc $NESA
-CARGS="$BUN/desc_places.bin" RARGS="$BUN/desc_places.bin" nesapp run nes_uiplace test_uiplace.cc $NESA
-RARGS="$BUN/desc_cut.bin" nesapp run nes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NESA     # the NES's menu and the record menu over it: golden/keywalk_nes.txt, ids_nes.txt
-nesapp run nes_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $NESA                                                  # every row, setting value and operation of its declaration over the API
-RARGS="$BUN/desc_cut.bin" nesapp run nes_cut test_cut.cc libload.cc libmenu.cc libfiles.cc $NESA
 
 
 

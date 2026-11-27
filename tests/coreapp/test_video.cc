@@ -6,19 +6,6 @@
 #include "videomode.h"
 #include "trxcanvas.h"
 #include "cores.h"
-#ifdef TEST_APP_NES
-// the NES's app (run.sh nesapp, nes_video): ADR-0057 on its record - the NES draws 256 x 224 at scale 3 and fills 93 % of 720p's height where 1080p leaves
-// 38 % of it black; the mode comes out of the picture, no table names it
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-int main()
-{
-    PxRec px2;
-    FakeIo io2;
-    Video nes_v(nes_desc.video, &px2, &io2);
-    CHECK_EQ(nes_v.wanted_hdmi(), VID_HDMI_720P);
-    DONE("test_video");
-}
-#else
 #ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_video) has its own core only
 #include "atari800_regs.h"
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
@@ -182,4 +169,3 @@ int main()
 #endif
     DONE("test_video");
 }
-#endif

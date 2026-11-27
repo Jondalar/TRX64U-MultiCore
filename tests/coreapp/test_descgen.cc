@@ -602,8 +602,6 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_apple2.txt").c_str());
 #elif defined(TEST_APP_ATARI800)
     std::ifstream idx((dir + "/index_app_atari800.txt").c_str());
-#elif defined(TEST_APP_NES)
-    std::ifstream idx((dir + "/index_app_nes.txt").c_str());
 #elif defined(TEST_APP_AMIGA)
     std::ifstream idx((dir + "/index_app_amiga.txt").c_str());
 #elif defined(TEST_APP_DIAG)

@@ -31,9 +31,6 @@ extern const CoreDesc atari800_desc;            // cores.h lists the shared app'
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_NES
-extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -71,8 +68,6 @@ const CoreDesc *const core_table[] = { &c128_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_ATARI800)        // the Atari's app is its own build (run.sh a8app) with its core only
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)             // the NES's app is its own build (run.sh nesapp) with its core only
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_DIAG)            // the diag core's app is its own build (run.sh diagapp) with its core only
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
@@ -246,10 +241,6 @@ int main(int, char **argv)
         static const Mi want[] = { { "Atari 800 XL", "RAM size,Video standard" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
-#elif defined(TEST_APP_NES)
-        static const Mi want[] = { { "Nintendo Entertainment System", "Console type" } };
-        static const char *const none[1] = { 0 };
-        const int n_none = 0;
 #elif defined(TEST_APP_DIAG)
         static const Mi want[1] = { { "", "" } };                          // the diag core has no setting, so no machine line: nothing to find (the count below is skipped)
         static const char *const none[] = { "Port Diagnostics" };
@@ -360,8 +351,6 @@ int main(int, char **argv)
         CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
 #elif defined(TEST_APP_AMIGA)
         CHECK(seen_cbm == 0 && seen_other == 1);                    // the walk saw the A500's ADF (Mount DF0 and reset), no CBM image (the HDF has nothing to run)
-#elif defined(TEST_APP_NES)
-        CHECK(seen_cbm == 0 && seen_other == 0);                    // the NES has no disk image type: a cartridge (.nes) is no image the walk counts
 #elif defined(TEST_APP_DIAG)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the diag core has no file type
 #elif defined(TEST_APP_APPLE2)
@@ -495,8 +484,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_ATARI800)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_NES)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_DIAG)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
@@ -530,8 +517,6 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the A500's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_ATARI800)
         static const char *const own[] = { "A8XL" };                         // the SIO drives' write-back
-#elif defined(TEST_APP_NES)
-        static const char *const own[] = { 0 };                              // the cartridge is read, never written back: no flush of its own to hand over
 #elif defined(TEST_APP_DIAG)
         static const char *const own[] = { 0 };                              // the diag core has no medium
 #elif defined(TEST_APP_APPLE2)
@@ -564,7 +549,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -826,30 +811,6 @@ int main(int, char **argv)
     CHECK(portdiag_desc.menu_first);
     CHECK_EQ((int)portdiag_desc.video.w, 0);
     CHECK_STR(portdiag_desc.core_id, "diag");
-#elif defined(TEST_APP_NES)
-    // T104.1 Q10: the capability list of the real descriptor
-    CHECK(desc_has_capability(&nes_desc, "cartridge") && !desc_has_capability(&nes_desc, "sio"));
-    // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
-    {
-        static CoreDesc rbase = nes_desc;
-        RecordMenu rm(&rbase, argv[1]);                                       // golden/desc_own.toml over the NES
-        const CoreDesc *td = &rm.desc;
-        int pi = picture_index(td);
-        CHECK(pi >= 0 && !strcasecmp(td->settings[pi].key, PICTURE_KEY));
-        int si = scale_index(td), mi = smooth_index(td);
-        CHECK(si < 0 || !strcasecmp(td->settings[si].key, SCALE_KEY));
-        CHECK(mi < 0 || !strcasecmp(td->settings[mi].key, SMOOTH_KEY));
-        int dup = 0;
-        for (int i = 0; i < td->nsettings; i++)
-            for (int j = i + 1; j < td->nsettings; j++)
-                if (!strcasecmp(td->settings[i].key, td->settings[j].key)) { dup++; printf("duplicate setting key %s\n", td->settings[i].key); }
-        CHECK_EQ(dup, 0);
-    }
-    // the NES declares no drive and no ROM
-    { MenuTree t; menu_build(&nes_desc, &t); char b[8192]; menu_dump(&nes_desc, &t, b, sizeof(b)); CHECK(!strstr(b, "D1:")); CHECK(!strstr(b, "Eject")); }
-    // T212 D8: the pad maps stand in F5 Input
-    CHECK(task_place(&nes_desc, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
-    CHECK(task_place(&nes_desc, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
 #elif defined(TEST_APP_PET)
     // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not (the Spectrum's and the CPC's are the units zx_desc and cpc_desc)
     for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind" }) {
@@ -1067,8 +1028,6 @@ int main(int, char **argv)
     golden(&pet_desc, "pet");
 #elif defined(TEST_APP_C128)
     golden(&c128_desc, "c128");
-#elif defined(TEST_APP_NES)
-    golden(&nes_desc, "nes");
 #elif defined(TEST_APP_AMIGA)
     golden(&amiga_desc, "amiga");
 #elif defined(TEST_APP_ATARI800)
@@ -1137,7 +1096,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

@@ -20,9 +20,6 @@
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the joystick's way to the port on its record; the shared unit keeps the rest
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#endif
 #ifdef TEST_APP_ATARI800
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
@@ -400,29 +397,6 @@ int main()
         hooks_base_changed("Joystick Input");
         hooks_menu_video(true);
         CHECK(g_log.empty());
-    }
-#elif defined(TEST_APP_NES)
-    const CoreDesc &rich_nes = rich_of(nes_desc, 2);
-
-    // ---- the settings reach the port: the keyboard's joystick; each also tells the hook, which is not armed yet
-    {
-        Rig r(&rich_nes);
-        g_log.clear();
-        attach(false);
-        const char *names[6] = { "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB" };
-        const char *want[6] = { "joy 0 0", "joy 1 0", "joy 0 1", "joy 1 1", "joy 0 3", "joy 1 3" };
-        for (int i = 0; i < 6; i++) {
-            g_log.clear();
-            r.set("Joystick Input", names[i]);
-            CHECK_EQ(g_log.size(), 1u);
-            CHECK_STR(g_log.empty() ? "" : g_log[0].c_str(), want[i]);
-        }
-        // the start applies every setting once: the port gets the stored joystick
-        g_log.clear();
-        regset_apply(&r.c, true);
-        bool saw_joy = false;
-        for (size_t i = 0; i < g_log.size(); i++) { saw_joy |= g_log[i] == "joy 1 3"; }
-        CHECK(saw_joy);
     }
 #else
     // ---- the base's own names: a capability name is 1 to 15 of [a-z0-9_] (CoreDesc::caps, desc_check, the record's section 1): a longer one could never be declared by any core

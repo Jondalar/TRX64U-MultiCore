@@ -33,9 +33,6 @@ const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #elif defined(TEST_APP_ATARI800)                // the Atari's app is its own build (run.sh a8app, the unit a8_uicover): its table is its core only
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)                     // the NES's app (run.sh nesapp, the unit nes_uicover): its table is its core only
-extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_AMIGA)                   // the Amiga 500's app (run.sh amigaapp, the unit amiga_uicover): its table is its core only
 extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };

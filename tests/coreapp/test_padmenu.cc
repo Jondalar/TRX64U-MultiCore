@@ -9,10 +9,7 @@
 #include "menuctl.h"
 #include "ops_glue.h"
 #include "cores.h"
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
-#include "nes_regs.h"
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#elif defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_padmenu) has its own core only
+#if   defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_padmenu) has its own core only
 #include "snes_regs.h"
 extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
 #else
@@ -94,7 +91,6 @@ struct Rig {
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
-#ifndef TEST_APP_NES                     // the SNES's cases; the NES's is its unit nes_padmenu (below)
     const char *cfgp = "/sd/cores/snes/snes.cfg";
     // ---- no pad: the task says so and the wizard does not start
     {
@@ -233,32 +229,5 @@ int main()
         CHECK(!pad_custom_valid(0));
         CHECK(r.fs.files.find("/sd/cores/snes/snes.cfg") == r.fs.files.end());
     }
-#else                                    // the NES's app (run.sh nesapp): the case on its core
-    // ---- NES player 2 (eight buttons), with two pads: each player's map is its own
-    {
-        Rig r(&nes_desc, "/sd/cores/nes/nes.cfg");
-        CHECK(pad_attach(&k1, "first", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        CHECK(pad_attach(&k2, "second", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        CHECK(r.goto_row("Map buttons, pad 2"));
-        r.m->key(KEY_RETURN);
-        CHECK_STR(r.right(0).c_str(), "1 of 8");
-        CHECK(r.sub(0).find("Pad 2.") != std::string::npos);
-        // a press on the first pad does not answer pad 2's question
-        r.report(&k1, rep(0x0100));
-        CHECK(!r.m->map_tick());
-        r.report(&k1, rep(0));
-        for (int i = 0; i < 8; i++) CHECK(r.press(&k2, (uint16_t)(0x0010 << i)));     // Buttons 5..12 for A B Select Start Up Down Left Right
-        CHECK(!r.m->mapping());
-        CHECK(pad_custom_valid(1));
-        CHECK(!pad_custom_valid(0));
-        CHECK_EQ(pad_active_map(1)[0], 4);
-        CHECK_EQ(pad_active_map(1)[7], 11);
-        { uint8_t g[8]; pad_default_map(nes_desc.pad, 0, 0, g); CHECK(!memcmp(pad_active_map(0), g, 8)); }                             // player 1 keeps the default
-        auto &f = r.fs.files["/sd/cores/nes/nes.cfg"];
-        std::string t(f.begin(), f.end());
-        CHECK(t.find("Pad 2 map=0405060708090A0B") != std::string::npos);
-        CHECK(t.find("Pad 1 map") == std::string::npos);
-    }
-#endif
     DONE("padmenu");
 }

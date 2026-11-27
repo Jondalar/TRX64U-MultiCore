@@ -25,9 +25,6 @@
 #ifdef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_libscan): its core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)              // the NES's app (nes_libscan)
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { 0 };   // T239.5 D13: the shared unit has no core
 #endif
@@ -149,8 +146,6 @@ struct World {
     LibScanResult r;
 #ifdef TEST_APP_ATARI800
     World() : host(&atari800_desc), ld(&host, &reg) { reset(); }
-#elif defined(TEST_APP_NES)
-    World() : host(&nes_desc), ld(&host, &reg) { reset(); }
 #else
     World() : host(&g_blank), ld(&host, &reg) { reset(); }
 #endif

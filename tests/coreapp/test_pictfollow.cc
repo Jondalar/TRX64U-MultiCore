@@ -62,9 +62,6 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
 #ifdef TEST_APP_ATARI800                // the Atari's cases: its app (run.sh a8app, the unit a8_pictfollow) has its own core only
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)              // the NES's app (run.sh nesapp, the unit nes_pictfollow) has its own core only
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #endif
 
 // ---- synthetic EDIDs -------------------------------------------------------------------------------------------------------------------
@@ -229,113 +226,6 @@ static void s10_atari()
       CHECK_STR(named_rows(r.ext).c_str(), "0,1");
     }
 }
-#elif defined(TEST_APP_NES)
-static void s10_lists()
-{
-    tv50();
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);                                   // S1: both rates of every resolution, whatever the screen names
-      CHECK_EQ(r.ext.settings[r.pic()].nvalues, 10);
-      CHECK_STR(named_rows(r.ext).c_str(), "0,1,2,8");                               // S2: the screen's rows (576p50, 720p50, 1080p50, 1080p60) carry the mark
-      PictureModes pm; picture_modes(&r.c, &pm);
-      char tag[40];
-      picmodes_tag_text(&pm, 1, tag, sizeof(tag));                                   // 576p (50 Hz): named
-      CHECK_STR(tag, "*");
-      picmodes_tag_text(&pm, 2, tag, sizeof(tag));                                   // 480p (60 Hz): not named, selectable, no mark
-      CHECK_STR(tag, "");
-      CHECK_STR(pm.row[3].name, "1280 x 720");                                       // the page names the resolution; the rate is in its own column
-      char hz[20];
-      picmodes_refresh_text(&pm, 3, hz, sizeof(hz));
-      CHECK(std::string(hz).rfind("50.", 0) == 0 && std::string(hz).find(" Hz") != std::string::npos);
-      picmodes_refresh_text(&pm, 4, hz, sizeof(hz));
-      CHECK(std::string(hz).rfind("59.", 0) == 0 || std::string(hz).rfind("60.", 0) == 0);
-      char info[160];
-      picmodes_info(&pm, info, sizeof(info));
-      CHECK(strstr(info, "* = the screen names this mode") != 0);
-    }
-    // a 60 Hz machine: the same rows, its own rate first within a resolution
-    { Rig r(&nes_desc, 0, VID_SYS_NTSC60);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_NTSC);
-    }
-    // S1: a screen that names 60 Hz modes only (the photo's screen): the 50 Hz rows are listed, unmarked
-    tv60only();
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "6,7,8");
-      picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      CHECK_EQ(g_gw.size(), 1u);                                                        // Auto is still the screen's choice: 1080p50 is not named, Auto takes 1080p60
-      CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1080P));
-    }
-    // a PC monitor: 1024 x 768 is the one named row; Auto takes it (at 60 Hz) for a PAL machine
-    screen_pc();
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "10");
-      picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_NTSC60, (int)VID_HDMI_1024x768));
-      g_gw.clear();
-      CHECK(r.st->set(r.pic(), 8));                                                      // "1024 x 768 (60 Hz)"
-      regset_apply_setting(&r.c, r.pic());
-      CHECK_EQ(g_gw.size(), 0u);                                                        // it is the mode that is up
-    }
-    // a television that also names the PC mode
-    screen_tvpc();
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "0,1,2,8,10");
-    }
-    // S4: nothing attached: the same list, no row marked
-    g_attached = false;
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "-");
-      PictureModes pm; picture_modes(&r.c, &pm);
-      CHECK(pm.no_edid);
-      char info[160];
-      picmodes_info(&pm, info, sizeof(info));
-      CHECK(strstr(info, "did not name its modes") != 0 && strstr(info, "* =") == 0);
-    }
-    // a corrupt EDID (checksum) is no EDID
-    tv50();
-    g_edid[127] ^= 0x55;
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "-");
-      PictureModes pm; picture_modes(&r.c, &pm);
-      CHECK(pm.no_edid);
-    }
-    // T235 §5: a screen that names exactly the six television rows is not "no EDID": its rows are marked and the foot says what * means
-    tv_six();
-    { Rig r(&nes_desc);
-      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
-      CHECK_STR(named_rows(r.ext).c_str(), "0,6,1,7,2,8");             // in the list's order
-      PictureModes pm; picture_modes(&r.c, &pm);
-      CHECK(!pm.no_edid);
-      char info[160];
-      picmodes_info(&pm, info, sizeof(info));
-      CHECK(strstr(info, "did not name its modes") == 0 && strstr(info, "* =") != 0);
-    }
-    // a stored choice the screen does not name is a value of the list (D1): it is taken
-    tv50();
-    { Rig a(&nes_desc);
-      CHECK(a.st->set(a.pic(), 5));                                                      // 1920 x 1080 (50 Hz)
-      CHECK(a.fs.text("/usb0/cores/x.cfg").find(L1080) != std::string::npos);
-      tv50_no1080();
-      Rig b(&nes_desc, &a.fs);
-      CHECK_EQ(b.st->value(b.pic()), 5);
-      CHECK_EQ(picture_start(&b.c, VID_SYS_PAL50, VID_HDMI_1080P), VID_HDMI_1080P);
-    }
-    // an .cfg of an older release: the plain resolution finds the machine's rate of it
-    { Rig a(&nes_desc);
-      a.fs.put_text("/usb0/cores/x.cfg", std::string("[") + nes_desc.store + "]\nPicture=1280 x 720\n");
-      Rig b(&nes_desc, &a.fs);
-      CHECK_STR(b.st->label(b.pic()), L720);
-      Rig c(&nes_desc, &a.fs, VID_SYS_NTSC60);
-      CHECK_STR(c.st->label(c.pic()), L720_60);
-    }
-}
-
-// ---- S12: default and override -----------------------------------------------------------------------------------------------------------
 #endif
 static void s12_precedence()
 {
@@ -354,13 +244,6 @@ static void s12_precedence()
       Rig r(&atari800_desc, &a.fs);
       g_gw_row = 1;
       CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_720P), VID_HDMI_1080P);
-      CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
-    }
-#elif defined(TEST_APP_NES)
-    // the host's default is a mode the screen does not name: the best fitting one (1080p50), and not the core's wish for 720p
-    { Rig r(&nes_desc);                                                                  // the NES alone would ask for 720p (ADR-0057)
-      g_gw_row = 0;
-      CHECK_EQ(picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1024x768), VID_HDMI_1080P);
       CHECK(g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
     }
 #endif
@@ -762,9 +645,6 @@ int main()
     d10c_host_auto();
     d5_page_rebuild();
     t235_unnamed_pick();
-#elif defined(TEST_APP_NES)
-    s10_lists();
-    s12_precedence();
 #endif
     DONE("pictfollow");
 }

@@ -9,13 +9,13 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
-#if defined(TEST_APP_NES) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_SNES)
 #define MME_GAME 1             // a core whose game is the cartridge (the SNES's, the NES's and the Neo Geo's apps): game_case, game_empty_set
 #endif
 #include "c64_model.h"
@@ -44,9 +44,6 @@ extern const CoreDesc apple2_desc;              // cores.h lists the shared app'
 #ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
 #include "atari800_regs.h"
 #endif
-#ifdef TEST_APP_NES
-#include "nes_regs.h"
-#endif
 #ifdef TEST_APP_SNES
 #include "snes_regs.h"
 #endif
@@ -68,9 +65,6 @@ const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #elif defined(TEST_APP_ATARI800)
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)
-extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #elif defined(TEST_APP_SNES)
@@ -301,17 +295,6 @@ static Bytes d64(const char *name)
     return d.img;
 }
 #endif
-#ifdef TEST_APP_NES          // the NES's game file
-static Bytes nes_file(uint32_t seed)
-{
-    Bytes v(16, 0);
-    memcpy(v.data(), "NES\x1A", 4);
-    v[4] = 1; v[5] = 1;
-    Bytes d = patt(seed, 16384 + 8192);
-    v.insert(v.end(), d.begin(), d.end());
-    return v;
-}
-#endif
 #ifdef TEST_APP_SNES          // the SNES's game file
 static Bytes snes_file(uint32_t seed)
 {
@@ -500,17 +483,6 @@ static std::vector<Prof> profiles()
         };
         p.prep = [](Run &r) { Bytes rom(16384, 0x5A); OpIn in = in_blob("data", rom.data(), (uint32_t)rom.size()); OpResult res; ops_call(&r.c, "cpc.put_amsdos", &in, 1, &res); };
         p.cases = { cpc_drive(0), cpc_drive(1), tape_case("cpc", "cdt") };
-        v.push_back(p);
-    }
-#endif
-#ifdef TEST_APP_NES
-    {   // ---- NES: the game is the cartridge
-        Prof p;
-        p.name = "nes"; p.cfg = "/usb0/cores/nes/nes.cfg"; p.base = &nes_desc; p.game = true;
-        p.make_io = [] { return (CoreIo *)new GIo; };
-        p.world = [](FakeFs &fs) { fs.put("/usb0/a.nes", nes_file(1)); fs.put("/usb0/b.nes", nes_file(2)); };
-        p.cases = { game_case("nes.run", "/usb0/a.nes", "/usb0/b.nes") };
-        p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(NES_INES + 4); }, 1, "the iNES header in the core before the release" } };
         v.push_back(p);
     }
 #endif
@@ -1035,8 +1007,6 @@ int main()
     cpc_464(prof(profs, "cpc"));
 #elif defined(TEST_APP_C128)
     drive_modes(prof(profs, "c128"));
-#elif defined(TEST_APP_NES)
-                                                       // the NES's profile has the cartridge only: the sets of S2 to S8 above and the empty set are its checks
 #elif defined(TEST_APP_ATARI800)
     atari_xex(prof(profs, "atari800"));
     notify_pass(prof(profs, "atari800"));

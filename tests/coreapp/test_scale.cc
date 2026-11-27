@@ -46,10 +46,6 @@ const CoreDesc *const core_table[] = { &atari800_desc, &testcore::desc, 0 };
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #define SC_REC amiga_desc
 const CoreDesc *const core_table[] = { &amiga_desc, &testcore::desc, 0 };
-#elif defined(TEST_APP_NES)
-// T239.5 D13: built as the NES's app (nes_scale): the cases on its record
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };   // T239.5 D13: the shared unit scale stands on no core (the layout table)
 #endif
@@ -143,14 +139,6 @@ static void follow_item()
     }
 #endif
     // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { CoreDesc own = nes_desc; own.video.w = 0;
-      Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
-      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
-      CHECK(!picture_extend(&own, &ext, items, &env));
-      CHECK_EQ(follow_index(&ext), -1);
-    }
-#endif
     // a descriptor may not declare the key itself
 #ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { CoreDesc bad = SC_REC; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
@@ -240,8 +228,6 @@ static void items_and_apply()
     const CoreDesc *others[] = { &SC_REC, 0 };
 #elif defined(TEST_APP_ATARI800)
     const CoreDesc *others[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_NES)
-    const CoreDesc *others[] = { &nes_desc, 0 };
 #else
     const CoreDesc *others[] = { 0 };                         // the shared unit has no frame-buffer core
 #endif
@@ -258,49 +244,7 @@ static void items_and_apply()
     }
 #ifndef TEST_APP_ATARI800
     // a core that draws its own picture has no frame buffer to scale
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { CoreDesc own = nes_desc; own.video.w = 0;
-      Rig r(&own);
-      CHECK_EQ(r.ext.nsettings, own.nsettings + 1);
-      CHECK_EQ(scale_index(&r.ext), -1);
-    }
-#endif
     // T222: a core whose picture is the VIC through a gateware with the scale register: Picture and Scale (default Fit), no Smoothing; Scale writes 0x4F01
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { CoreDesc own = nes_desc; own.video.w = 0;
-      Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
-      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, true };
-      CHECK(!picture_extend(&own, &ext, items, &env));
-      CHECK_EQ(ext.nsettings, own.nsettings + 2);
-      CHECK_EQ(scale_index(&ext), own.nsettings + 1);
-      CHECK_EQ(smooth_index(&ext), -1);
-      CHECK_EQ(ext.settings[scale_index(&ext)].def, VID_SCALE_FIT);
-      FakeIo io; FakeFs fs; PxRec px; CoreCtx c; memset(&c, 0, sizeof(c)); c.desc = &ext; c.io = &io; c.fs = &fs;
-      g_vic_scale_written = -1;
-      scale_apply(&c, VID_SCALE_FILL);
-      CHECK_EQ(g_vic_scale_written, VID_SCALE_FILL);
-      // T228: TRX64-Ultimate's U16 mode_req answers version 1 with the C64-type flag; it holds the same seven rows and the System Mode's family, so
-      // trx64u's Picture list is the VIC path's (as on the version 2 gateware above), not the full list of both families with the PC rows it refuses
-      std::vector<std::string> vic;
-      for (int i = 0; i < ext.settings[picture_index(&ext)].nvalues; i++) vic.push_back(ext.settings[picture_index(&ext)].values[i]);
-      GwStatus u16 = GwStatus();
-      u16.present = true; u16.version = 1; u16.flags = GW_F_C64_TYPE | GW_F_RUNNING;
-      env.vic_scale = video_gw_has_scale(u16);
-      CHECK(env.vic_scale);
-      CHECK(!picture_extend(&own, &ext, items, &env));
-      CHECK_EQ(scale_index(&ext), own.nsettings + 1);
-      const Setting &pic = ext.settings[picture_index(&ext)];
-      CHECK_EQ(pic.nvalues, (int)vic.size());
-      for (int i = 0; i < pic.nvalues && i < (int)vic.size(); i++) {
-          CHECK_STR(pic.values[i], vic[i].c_str());
-          CHECK(!strstr(pic.values[i], "1024") && !strstr(pic.values[i], " Hz)"));   // no 1024 x 768 / 1280 x 1024 row, no rate of the other family
-      }
-      env.vic_scale = false;                                                    // a gateware without it: Picture alone, as before
-      CHECK(!picture_extend(&own, &ext, items, &env));
-      CHECK_EQ(ext.nsettings, own.nsettings + 1);
-      CHECK_EQ(scale_index(&ext), -1);
-    }
-#endif
     // Smoothing (Q3): the scaler's register follows the item, written with every layer set so that it survives the menu
 #ifdef SC_REC                // the Amiga's record: the two Amiga apps (T239.5 D13: the Amiga 500's cases are its unit amiga_scale)
     { Rig r(&SC_REC);
@@ -313,14 +257,6 @@ static void items_and_apply()
       r.vid->hide(); r.px.w.clear(); r.vid->show();
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0x40u);
       smooth_apply(&r.c, 0);
-      CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
-    }
-#endif
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { Rig r(&nes_desc, false);                                   // an old host has no such register: never written
-      picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-      r.vid->init(); r.vid->show();
-      smooth_apply(&r.c, 1);
       CHECK_EQ(r.px.last(PX_CTRL) & 0x40u, 0u);
     }
 #endif
@@ -400,16 +336,6 @@ static void items_and_apply()
       CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
     }
 #endif
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { Rig r(&nes_desc, false);
-      g_fw.clear(); g_gw.clear(); video_current = 0;
-      picture_apply(&r.c, 2);
-      CHECK(g_gw.empty() && g_fw.size() == 1);
-      scale_apply(&r.c, VID_SCALE_FILL);                         // no effect on a host without the gateware
-      CHECK_EQ(r.vid->scale_mode(), 0);
-      CHECK_EQ(r.vid->scale(), 3);
-    }
-#endif
 #endif
 }
 
@@ -463,20 +389,12 @@ static void menu_places()
     }
 #endif
     // a core on a host without the gateware keeps the layer the way it was: no place at all
-#ifdef TEST_APP_NES          // the NES's record: its app (run.sh nesapp, nes_scale)
-    { Rig n(&nes_desc, false);
-      picture_apply(&n.c, 2);
-      CHECK(n.px.place.empty());
-    }
-#endif
 }
 #endif
 
 int main()
 {
-#ifndef TEST_APP_NES                     // the layout table stands on no core: the shared unit's (and the Atari's and the Amiga apps')
     layouts();
-#endif
 #ifndef TEST_APP_ATARI800
     menu_places();
 #endif

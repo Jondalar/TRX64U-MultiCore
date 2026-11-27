@@ -24,9 +24,6 @@ extern const CoreDesc apple2_desc;              // cores.h lists the shared app'
 #ifdef TEST_APP_ATARI800
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
-#ifdef TEST_APP_NES
-extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#endif
 #ifdef TEST_APP_C128
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
 #endif
@@ -91,7 +88,7 @@ int main()
         CHECK(!hk_step_volume(&z.c, 1, line, sizeof(line)) || true);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -112,86 +109,7 @@ int main()
         for (int i = 0; i < 11; i++) CHECK_EQ(r[i], 0);                  // no first modifier: everything off
     }
 #endif
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp): the cases on its core
-    // ---- S1, S2, S3 on the nes (volume setting, Joystick ports, a Picture item), CTRL as the modifier
-    {
-        static Setting px[1] = { { "Picture", 0, 3, 0, WHEN_LIVE, 0, 0 } };
-        static const char *const pv[] = { "Auto", "720p", "1080p" };
-        px[0].values = pv;
-        static CoreDesc base; static Setting bs[SETTINGS_MAX];
-        base = nes_desc;
-        for (int i = 0; i < nes_desc.nsettings; i++) bs[i] = nes_desc.settings[i];
-        bs[nes_desc.nsettings] = px[0];
-        base.settings = bs; base.nsettings = nes_desc.nsettings + 1;
-        Rig g(&base);
-        HkLoop lp;
-        // the mask registers hold the default map: modifier CTRL, RESTORE and R, +, -, J, P as action keys
-        CHECK(g.io.hk_writes >= 1);
-        CHECK_EQ(g.io.hk_regs_now[0], 0x80 | CTRL);
-        CHECK_EQ(g.io.hk_regs_now[10], 1);
-        CHECK_EQ(mask_of(g.io.hk_regs_now), (1ull << KPLUS) | (1ull << KMINUS) | (1ull << KR) | (1ull << KJ) | (1ull << KP));
-        // S2: nothing pressed, then keys that are no hotkey (with and without the modifier): nothing fires
-        uint32_t all = 0;
-        first_fire(g, lp, 0, 200, &all);
-        g.io.key(KA, true); g.io.key(K1, true); first_fire(g, lp, 0, 100, &all);    // A and 1 alone
-        g.io.key(CTRL, true); first_fire(g, lp, 0, 100, &all);                       // CTRL + A + 1: not hotkeys
-        g.io.key(CTRL, false); g.io.key(KA, false); g.io.key(K1, false); first_fire(g, lp, 0, 50, &all);
-        g.io.key(KR, true); first_fire(g, lp, 0, 100, &all);                         // R without the modifier
-        g.io.key(KR, false); first_fire(g, lp, 0, 50, &all);
-        CHECK_EQ(all, 0u);
-        // S1 reset: modifier down, then R: fired within 100 ms; S3: held for a second, once
-        g.io.key(CTRL, true); first_fire(g, lp, 0, 30, &all);
-        g.io.key(KR, true);
-        uint32_t seen = 0;
-        int at = first_fire(g, lp, 1u << HKA_RESET, 1000, &seen);
-        CHECK(at >= 0 && at <= 100);
-        CHECK_EQ(seen, 1u << HKA_RESET);
-        g.io.key(KR, false); first_fire(g, lp, 0, 30, &all);
-        // S1 menu: RESTORE (the level) with the modifier
-        g.io.key(64, true);
-        at = first_fire(g, lp, 1u << HKA_MENU, 200);
-        CHECK(at >= 0 && at <= 100);
-        g.io.key(64, false); first_fire(g, lp, 0, 30, &all);
-        // S3 volume: one step at the press, the repeat after 400 ms, then every 120 ms; released: stops
-        g.io.vol_log.clear();
-        char line[64];
-        g.io.key(KPLUS, true);
-        uint32_t t0 = g.io.t;
-        int steps = 0;
-        for (int i = 0; i <= 1000; i += 10) {
-            uint32_t f = lp.poll(&g.c);
-            if (f) { CHECK(g.io.t - t0 <= 1000); lp.perform(&g.c, f, line, sizeof(line)); steps++; }
-            g.io.delay_ms(10);
-        }
-        CHECK(steps >= 5 && steps <= 7);                                         // 1 + (1000 - 400) / 120 = 6
-        CHECK_EQ((int)g.io.vol_log.size(), steps);
-        CHECK(g.io.vol_log.back().v > g.io.vol_log.front().v);                   // up
-        g.io.key(KPLUS, false); steps = 0;
-        for (int i = 0; i <= 600; i += 10) { if (lp.poll(&g.c)) steps++; g.io.delay_ms(10); }
-        CHECK_EQ(steps, 0);
-        // a tap is one step
-        g.io.vol_log.clear();
-        g.io.key(KMINUS, true); at = first_fire(g, lp, 1u << HKA_VOL_DOWN, 100); CHECK(at >= 0 && at <= 100);
-        g.io.key(KMINUS, false); first_fire(g, lp, 0, 30);
-        // swap: toggles Joystick ports between 0 and 1, held once; picture: the next value, wraps; both with their line
-        int ji = g.st->find("Joystick ports");
-        CHECK(ji >= 0);
-        CHECK_EQ(g.st->value(ji), 0);
-        CHECK(hk_swap_joystick(&g.c, line, sizeof(line))); CHECK_EQ(g.st->value(ji), 1); CHECK(strstr(line, "Swapped"));
-        CHECK(hk_swap_joystick(&g.c, line, sizeof(line))); CHECK_EQ(g.st->value(ji), 0);
-        int pi = g.st->find("Picture");
-        CHECK(hk_next_picture(&g.c, line, sizeof(line))); CHECK_EQ(g.st->value(pi), 1);
-        CHECK(hk_next_picture(&g.c, line, sizeof(line))); CHECK_EQ(g.st->value(pi), 2);
-        CHECK(hk_next_picture(&g.c, line, sizeof(line))); CHECK_EQ(g.st->value(pi), 0); CHECK(strstr(line, "Auto"));
-        // through the loop: J with the modifier toggles once however long it is held
-        g.io.key(KJ, true);
-        seen = 0; first_fire(g, lp, 0, 500, &seen);
-        CHECK_EQ(seen, 1u << HKA_SWAP);
-        CHECK(lp.det.poll(hk_current(), HkKeys(), 0) == 0);
-        g.io.key(KJ, false); g.io.key(CTRL, false);
-    }
-#endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)
     // ---- the action key goes down before the modifier completes: it fires once, when the modifier is complete
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -205,39 +123,7 @@ int main()
         j.k = (1ull << CTRL) | (1ull << CBM) | (1ull << KR); CHECK_EQ(e.poll(two, j, 20), 1u << HKA_RESET);
     }
 #endif
-#ifdef TEST_APP_NES
-    // ---- the F8 map changes the registers at once and the .cfg keeps it (D3)
-    {
-        Rig g(&nes_desc);
-        int mi = g.st->find(HK_KEY_MOD), ri = g.st->find("Hotkey reset");
-        CHECK(mi >= 0 && ri >= 0);
-        if (mi < 0 || ri < 0) DONE("test_hotkeys");
-        int n0 = g.io.hk_writes;
-        OpResult res;
-        OpIn in[2] = { in_str("key", HK_KEY_MOD), in_str("value", "WIN / CMD + ESC") };
-        CHECK_EQ(ops_call(&g.c, "settings.set", in, 2, &res), 0);
-        CHECK(g.io.hk_writes > n0);
-        CHECK_EQ(g.io.hk_regs_now[0], 0x80 | CBM); CHECK_EQ(g.io.hk_regs_now[1], 0x80 | 63);
-        OpIn in2[2] = { in_str("key", "Hotkey reset"), in_str("value", "Q") };
-        CHECK_EQ(ops_call(&g.c, "settings.set", in2, 2, &res), 0);
-        CHECK_EQ(hk_current().act[HKA_RESET], 62);
-        CHECK(mask_of(g.io.hk_regs_now) & (1ull << 62)); CHECK(!(mask_of(g.io.hk_regs_now) & (1ull << KR)));
-        OpIn in3[2] = { in_str("key", "Hotkey menu"), in_str("value", "Off") };
-        CHECK_EQ(ops_call(&g.c, "settings.set", in3, 2, &res), 0);
-        CHECK_EQ(g.io.hk_regs_now[10], 0);
-        CHECK(g.fs.text("/sd/cores/hk.cfg").find("Hotkey modifier=WIN / CMD + ESC") != std::string::npos);
-        Rig g2(&nes_desc, true, "/sd/cores/hk.cfg");                  // a new session
-        g2.fs = g.fs; g2.st->load(); hk_apply(&g2.c);
-        CHECK_EQ(g2.io.hk_regs_now[0], 0x80 | CBM);
-        CHECK_EQ(hk_current().act[HKA_RESET], 62);
-        OpIn in4[2] = { in_str("key", HK_KEY_MOD), in_str("value", "Off") };      // the feature off: no mask, no action
-        CHECK_EQ(ops_call(&g.c, "settings.set", in4, 2, &res), 0);
-        for (int i = 0; i < 11; i++) CHECK_EQ(g.io.hk_regs_now[i], 0);
-        HkLoop lp; g.io.key(CTRL, true); g.io.key(KR, true);
-        uint32_t all = 0; first_fire(g, lp, 0, 100, &all); CHECK_EQ(all, 0u);
-    }
-#endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -300,8 +186,6 @@ int main()
         const Row rows[] = { { &apple2_desc, "apple2", true } };
 #elif defined(TEST_APP_ATARI800)
         const Row rows[] = { { &atari800_desc, "atari800", true } };
-#elif defined(TEST_APP_NES)
-        const Row rows[] = { { &nes_desc, "nes", true } };
 #elif defined(TEST_APP_DIAG)
         const Row rows[] = { { &portdiag_desc, "portdiag", false } };
 #elif defined(TEST_APP_SNES)
@@ -533,46 +417,6 @@ int main()
         // RESTORE is no entry of the list: refused with the reason, the value stays
         m->key(KEY_RETURN); press(64); release(64);
         CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
-    }
-#endif
-#ifdef TEST_APP_NES
-    // ---- T228 R1/R16 (gate fixes 3 and 5): two tasks of a core's menu (Timewarp... and Monitor..., hotkey T and O) hold CTRL+T and CTRL+O by default; a key the stored settings give a
-    // fixed action is not doubled. The core is the NES descriptor with the two tasks and the items hk_extend and hk_extend_tasks make (T239.3 P1-8: trx64u's menu is TRX64-Ultimate's)
-    {
-        static Task tk[2];
-        memset(tk, 0, sizeof(tk));
-        tk[0].label = "Timewarp..."; tk[0].op = "menu.screen"; tk[0].closes_menu = true; tk[0].hotkey = 'T';
-        tk[1].label = "Monitor..."; tk[1].op = "menu.screen"; tk[1].closes_menu = true; tk[1].hotkey = 'O';
-        static CoreDesc hd;
-        static Setting hs[SETTINGS_MAX];
-        CHECK(!hk_extend(&nes_desc, &hd, hs));
-        hd.tasks = tk; hd.ntasks = 2;
-        CHECK(!hk_extend_tasks(&hd, hs, SETTINGS_MAX));
-        const CoreDesc *d = &hd;
-        int idx[HK_TASKS_MAX];
-        CHECK_EQ(hk_tasks(d, idx), 2);
-        auto key_named = [](const char *nm) { for (int k = 0; k < HK_NKEYS; k++) if (!strcmp(hk_key_name(k), nm)) return k; return -1; };
-        const int kt = key_named("T"), ko = key_named("O");
-        CHECK(kt >= 0 && ko >= 0);
-        FakeIo io; FakeFs fs; CoreCtx c;
-        memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs; c.started = true;
-        Settings *st = new Settings(d->settings, d->nsettings, d->store, &fs, "/sd/cores/hkt.cfg", 0);
-        st->load();
-        c.settings = st;
-        hk_apply(&c);
-        HkMap m = hk_map_of(&c);
-        CHECK_EQ(m.ntask, 2); CHECK_EQ(m.mod_a, CTRL); CHECK_EQ(m.mod_b, HK_NONE);
-        CHECK_EQ(m.task[0], kt); CHECK_EQ(m.task[1], ko);
-        int ti = st->find("Hotkey Timewarp"), ri = st->find("Hotkey reset");
-        CHECK(ti >= 0 && ri >= 0);
-        CHECK_EQ(st->value(ti), kt + 1);
-        CHECK(st->set(ri, kt + 1));                                                  // the person gave Reset the key T
-        m = hk_map_of(&c);
-        CHECK_EQ(m.act[HKA_RESET], kt); CHECK_EQ(m.task[0], HK_NONE); CHECK_EQ(m.task[1], ko);
-        hk_apply(&c);
-        CHECK_EQ(st->value(ti), 0);                                                  // the Hotkeys page shows none for Timewarp
-        CHECK_EQ(hk_current().task[0], HK_NONE); CHECK_EQ(hk_current().act[HKA_RESET], kt);
     }
 #endif
     DONE("test_hotkeys");

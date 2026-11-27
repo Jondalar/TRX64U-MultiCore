@@ -22,16 +22,13 @@ extern const CoreDesc zx_desc;                  // cores.h lists the shared app'
 #ifdef TEST_APP_AMIGA
 extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
 #endif
-#ifdef TEST_APP_NES
-extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#endif
 #ifdef TEST_APP_DIAG
 extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
 #endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -46,8 +43,6 @@ const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 extern const CoreDesc atari800_desc;      // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define HEX_CORE atari800_desc
-#elif defined(TEST_APP_NES)               // the NES's app is its own build (run.sh nesapp): its core is the only one in its table
-const CoreDesc *const core_table[] = { &nes_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
@@ -131,8 +126,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_ATARI800)
     struct W { const CoreDesc *d; int last; } widths[] = { { &atari800_desc, 0xFFFF } };
-#elif defined(TEST_APP_NES)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &nes_desc, 0xFFFF } };
 #elif defined(TEST_APP_AMIGA)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_DIAG)
@@ -179,7 +172,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
 #ifdef TEST_APP_ATARI800                  // the Atari's app (run.sh a8app, the unit a8_memops)
     // ---- the Atari: the same window, no ram-only bit
     {
@@ -255,14 +248,6 @@ int main()
         Rig r(&amiga_desc);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-#elif defined(TEST_APP_NES)
-    // ---- the NES's memory is not reachable by the application: it says so, and why
-    {
-        Rig r(&nes_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "NES") != 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(TEST_APP_A1200)

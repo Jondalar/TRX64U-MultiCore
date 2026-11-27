@@ -20,10 +20,7 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
-#ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp, nes_keywalk): the NES's descriptor, then the record core over it, its goldens keywalk_nes.txt and ids_nes.txt
-extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#define KW_GOLDEN "_nes"
-#elif defined(TEST_APP_APPLE2)           // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_keywalk): its table is its core only, its walk has goldens of its own (keywalk_apple2.txt, ids_apple2.txt)
+#if   defined(TEST_APP_APPLE2)           // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_keywalk): its table is its core only, its walk has goldens of its own (keywalk_apple2.txt, ids_apple2.txt)
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #define KW_GOLDEN "_apple2"
@@ -128,19 +125,10 @@ int main(int argc, char **argv)
     // NES: the Timewarp and monitor pages, the key table; T239.3 P1-8, in place of the TRX64U's menu)
     struct Walk { const CoreDesc *d; const MenuMerge *merge; const char *name; };
     std::vector<Walk> walks;
-#ifndef TEST_APP_NES
     (void)argc; (void)argv;
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         walks.push_back({ *pd, 0, 0 });
     }
-#else
-    (void)argc;
-    walks.push_back({ &nes_desc, 0, 0 });                       // the NES's own menu, as its app shows it
-    static CoreDesc base = nes_desc;
-    base.needs_program = 0;                                     // the menu of a core with no program loaded does not close
-    RecordMenu *rm = new RecordMenu(&base, argv[1]);
-    walks.push_back({ &rm->desc, &rm->mm, "Record Core" });
-#endif
     for (const Walk &w : walks) {
         const CoreDesc *d = w.d;
         const char *cname = w.name ? w.name : d->cor_name ? d->cor_name : "?";
