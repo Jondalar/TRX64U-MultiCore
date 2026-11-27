@@ -11,7 +11,7 @@ u2p_io_base = 0x10100000
 id = "APL2"
 block = "ident"
 
-# 000-00B: the ID "APL2" (a2_regs.vhd answers the four bytes 0x41 0x50 0x4C 0x32), caps 0xC0 (page 6 and the pixel layer, the host's), caps2 0x06 (b2 the bit level Disk II engine and the slot 7 card, b1 BUILD is there), the contract version and the build word. Byte 0x07 answers the constant 0x0F and no code reads it: not in this file
+# 000-00B: the ID "APL2" (a2_regs.vhd answers the four bytes 0x41 0x50 0x4C 0x32), caps 0xC0 (page 6 and the pixel layer, the host's), caps2 0x06 (b2 the bit level Disk II engine and the slot 7 card, b1 BUILD is there), the contract version and the build word. Byte 0x07 answers the constant 0x0F (rsvd7; no code reads it, named because the list check wants every decoded byte named)
 [[block]]
 name = "ident"
 module = "a2_regs"
@@ -36,6 +36,11 @@ size = 0xC
   [[block.property]]
   name = "contract"
   offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "rsvd7"
+  offset = 0x7
   width = 8
   dir = "r"
   [[block.property]]

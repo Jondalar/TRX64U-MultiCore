@@ -39,6 +39,9 @@ def num(s):
             return int(m.group(2).replace("_", ""), b)
         except ValueError:
             return None
+    m = re.fullmatch(r"16#([0-9a-fA-F_]+)#", s)          # VHDL based literal 16#010#
+    if m:
+        return int(m.group(1).replace("_", ""), 16)
     m = re.fullmatch(r'[xX]"([0-9a-fA-F_]+)"', s)
     if m:
         return int(m.group(1).replace("_", ""), 16)
@@ -49,7 +52,7 @@ def num(s):
     return int(s) if m else None
 
 
-LIT = r"""(?:\d*'[hHdDbBoO][0-9a-fA-F_]+|[xX]"[0-9a-fA-F_]+"|"[01_]+")"""
+LIT = r"""(?:\d*'[hHdDbBoO][0-9a-fA-F_]+|16#[0-9a-fA-F_]+#|[xX]"[0-9a-fA-F_]+"|"[01_]+")"""
 PAGE_RE = re.compile(r"(?:\bpage\s*(?:==|=)\s*(%s)|addr\w*\s*\[\s*15\s*:\s*12\s*\]\s*(?:==|=)\s*(%s))" % (LIT, LIT))
 
 
@@ -145,11 +148,12 @@ def case_blocks_vhdl(body):
             nest += len(re.findall(r"\bcase\s+[^\n]*?\s+is\b", s, re.I)) - len(re.findall(r"\bend\s+case\b", s, re.I))
             if nest > 0 and not re.search(r"\bcase\s+[^\n]*?\s+is\b", s, re.I):
                 continue
-            for wm in re.finditer(r"\bwhen\s+((?:%s\s*\|\s*)*%s)\s*=>" % (LIT, LIT), s, re.I):
-                for lit in re.findall(LIT, wm.group(1)):
-                    v = num(lit)
-                    if v is not None:
-                        ch.append((v, 0))
+            alt = r"%s(?:\s+to\s+%s)?" % (LIT, LIT)       # a choice is `lit` or `lit to lit` (a range)
+            for wm in re.finditer(r"\bwhen\s+((?:%s\s*\|\s*)*%s)\s*=>" % (alt, alt), s, re.I):
+                for a in re.split(r"\s*\|\s*", wm.group(1)):
+                    lits = [num(x) for x in re.findall(LIT, a)]
+                    if None not in lits and lits:
+                        ch.extend((v, 0) for v in range(lits[0], lits[-1] + 1))
         out.append((m.group(1), sh, ch, m.start()))
     return out
 
@@ -162,6 +166,10 @@ def decoded(path):
     vhdl = path.endswith((".vhd", ".vhdl"))
     raw = open(path, errors="replace").read()
     body = strip_comments(raw, vhdl)
+    if vhdl:        # `o := to_integer(unsigned(off))`: the variable o is the offset, read it as off
+        for m in re.finditer(r"\b(\w+)\s*:=\s*to_integer\s*\(\s*unsigned\s*\(\s*\w*off\w*\s*\)\s*\)", body, re.I):
+            if not SEL_RE.match(m.group(1)):
+                body = re.sub(r"\b%s\b" % re.escape(m.group(1)), "off", body)
     al = aliases(body)
     lines_before = lambda pos: body.count("\n", 0, pos) + 1
     pages = [p for p in (page_of(m.group()) for m in PAGE_RE.finditer(body)) if p is not None]
