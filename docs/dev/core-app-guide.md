@@ -476,8 +476,8 @@ built against the broken copy, and it must fail. `tools/check_controls.py` fails
 - **Test programs** `tests/coreapp/test_*.cc`, one per concern (`test_desc`, `test_settings`, `test_romfind`, `test_menuctl`, `test_pad`, `test_vc20`, `test_ddt`...),
   run with `run <name> test_x.cc <sources>`. They use the fakes and models in the folder as the core: `fakes.h`; `c64_model.h` (`C64Model : FakeIo`, the
   C64 core behind `CoreIo`: the RAM window with its bus-cycle rule (MEMONLY, the `C64_STOP` gate), the ROM aperture with its mirrors, reset and READY, the
-  CPU state bus, the debug block's CMD/STATUS; `test_c64_cart.cc`, `test_media_mounts_engines.cc` and `test_writeback.cc` run on it); `amiga_model.h`,
-  `drive_model.h`, `sio_model.h`, `model_grid.h`. `tests/drv_fake.h` takes the registers of a driver table (section 16).
+  CPU state bus, the debug block's CMD/STATUS; `test_c64_cart.cc`, `test_media_mounts_engines.cc` and `test_writeback.cc` run on it); `drive_model.h`,
+  `model_grid.h` (the Amigas' `amiga_model.h` and the Atari's `sio_model.h` live in their cores' test folders, T239 D17). `tests/drv_fake.h` takes the registers of a driver table (section 16).
 - **Descriptor test of a core** (`test_ddt.cc` is a good one to copy): reads the numbers from the **gateware source** and compares: the ID against the
   `.ID(32'h...)` of the layer-2 file, every register offset against the case labels in `ddt_regs.v`, the picture size against the `GEOM_LINES`/`PIX_W` parameters,
   the name against `core.toml`; then runs the start sequence against a register model and checks that the core is held first and released last.

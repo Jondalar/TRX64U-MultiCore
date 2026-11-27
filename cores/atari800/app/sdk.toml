@@ -18,7 +18,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init, release, warm reset, the operations of register_ops, the SIO media write-back, the mount slots) and its formats (ATR/XFD disks on the SIO bus, XEX
-# executables with the boot stub, cartridge images). Its files are in cores/atari800/app/lib; hk_defaults.h is a copy of the shared app's (the other cores still use the original).
+# executables with the boot stub, cartridge images). Its files are in cores/atari800/app/lib; hk_defaults.h is a copy of the shared app's (every core holds its own copy, T239 D17).
 [[library]]
 name = "atari800"
 sources = ["atari800.cc", "atari_atr.cc", "atari_cart.cc", "atari_media.cc", "atari_sio.cc", "atari_xex.cc"]

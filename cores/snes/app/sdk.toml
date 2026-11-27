@@ -17,7 +17,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init with the S-SMP boot ROM and the DSP-n firmware, the operations of the cartridge, the battery RAM's write-back, the sound check and the settings) and the
-# cartridge image's header and mapper reader (snes_rom.cc). Its files are in cores/snes/app/lib; hk_defaults.h is a copy of coreapp/cores/hk_defaults.h (the original stays: the VIC-20's and the Amiga 1200's libraries include it).
+# cartridge image's header and mapper reader (snes_rom.cc). Its files are in cores/snes/app/lib; hk_defaults.h is a copy of coreapp/cores/hk_defaults.h (every core holds its own copy, T239 D17).
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: snesapp, the group snes): unit = 2 unit tests (snes_rom the header reader, snes the descriptor, the
 # save and the flush against a model of the register block), service = 8 mock bitstream -> service (snes_descgen the record compiled from desc.toml against the descriptor, snes_mounts the cartridge kept in the .cfg
 # and restored before the release), ui = 9 service -> UI (snes_desc the checks every descriptor passes and its menu's golden, snes_hotkeys its default hotkey map, snes_pad the pad service on its register

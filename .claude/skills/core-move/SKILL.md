@@ -39,7 +39,7 @@ changes nothing.
 - `sdk.toml`: `base_blocks` = the VIC-20's and the A1200's common set (cart_regs, the ICAP blocks, partition, audio_master; iec_status with cbm1541);
   the libraries are the shared ones whose headers the core's code includes, with their `needs`.
 - The core's code is the include closure of `coreapp/cores/<id>.cc` inside `coreapp/cores`. A file that another core's closure reaches too is listed
-  as SHARED and stays (`hk_defaults.h`, `tape_deck.*`, `tape_pulses.*`, `drive_rom_pick.h`).
+  as SHARED; under T239 D17 the core takes its own copy (as `hk_defaults.h`, `tape_deck.*`, `tape_pulses.*` were copied) and the shared file goes when no core uses it.
 
 ## 3. Judgement (what broke or hid in the VIC-20 and the A1200)
 

@@ -1,14 +1,14 @@
 # The ZX Spectrum 48K / 128K core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/vc20/app/ue2emu.toml). Registers from
 # cores/zx/trx/zx_regs.v (cores/zx/app/gateware.toml); layer2_zx.v builds it with ID_TRX2 0.
 name = "zx"
-id = "ZXSP"                  # zx_regs.v:131
+id = "ZXSP"                  # zx_regs.v:172
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [regs]
-0x0A0 = 0x00                 # CTRL (zx_regs.v:84, reset 0x00); the app's init sets b0 HOLD
-0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (zx_regs.v:95, its reset value)
+0x0A0 = 0x00                 # CTRL (zx_regs.v:125, reset 0x00); the app's init sets b0 HOLD
+0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (zx_regs.v:136, its reset value)
 0x0C7 = 0x01
-0x0CA = 0x10                 # FB_STRIDE 0x00100000 (zx_regs.v:95)
+0x0CA = 0x10                 # FB_STRIDE 0x00100000 (zx_regs.v:136)
 
 [handover]
 core = "ZX Spectrum 48K / 128K"   # the manifest's name

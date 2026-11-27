@@ -19,7 +19,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init, release, the operations of the ROM and PRG handling and the cartridge image, the mount slots). Its files are in cores/c264/app/lib; hk_defaults.h is a
-# copy of the shared app's (the other cores still use the original).
+# copy of the shared app's (every core holds its own copy, T239 D17).
 [[library]]
 name = "c264"
 sources = ["c264.cc"]

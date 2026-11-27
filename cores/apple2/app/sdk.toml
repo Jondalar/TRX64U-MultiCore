@@ -18,7 +18,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init, release, the operations of the System ROM and the settings, the Disk II and the slot 7 hard disk engines with their write-back, the .dsk / .po / .nib / WOZ /
-# 2MG readers, the mount slots). Its files are in cores/apple2/app/lib; hk_defaults.h is a copy of the shared app's (the other cores still use the original); hdd_rom.h is the slot 7 card's ROM
+# 2MG readers, the mount slots). Its files are in cores/apple2/app/lib; hk_defaults.h is a copy of the shared app's (every core holds its own copy, T239 D17); hdd_rom.h is the slot 7 card's ROM
 # (tools/build_hdd_rom.sh from cores/apple2/rtl/roms/hdd.a65).
 [[library]]
 name = "apple2"

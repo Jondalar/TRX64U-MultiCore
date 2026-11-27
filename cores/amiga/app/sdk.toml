@@ -18,7 +18,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init, release, the poll and the pad operations, the register map) and the keyboard table of the raw key events. Its files are in cores/amiga/app/lib; hk_defaults.h is a copy
-# of the shared app's (the other cores still use the original). The Amiga 1200's app has its own copy of this descriptor (cores/amiga1200/app/lib/amiga1200.cc).
+# of the shared app's (every core holds its own copy, T239 D17). The Amiga 1200's app has its own copy of this descriptor (cores/amiga1200/app/lib/amiga1200.cc).
 [[library]]
 name = "amiga"
 sources = ["amiga.cc"]

@@ -18,7 +18,7 @@ base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
 
 # The core's own code: its descriptor and hooks (init, release, the operations of register_ops, the SD image served through the sector mailbox, the clock, the board issue). Its files are in cores/zxnext/app/lib;
-# hk_defaults.h is a copy of the shared app's (the other cores still use the original).
+# hk_defaults.h is a copy of the shared app's (every core holds its own copy, T239 D17).
 [[library]]
 name = "zxnext"
 sources = ["zxnext.cc"]
