@@ -95,16 +95,13 @@ source "$TST/own_drv.sh"
 source "$TST/nes_drv.sh"
 source "$TST/c264_drv.sh"
 source "$TST/zxnext_drv.sh"
-source "$TST/neogeo_drv.sh"
 source "$TST/amiga_drv.sh"
 own_drv_dir atari800 "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
 zxnext_drv_dir "$T/zxnexttab" || { echo "coreapp: the ZX Spectrum Next's driver table was not generated" >&2; exit 1; }   # zxnext_regs.h names the registers through it
-neogeo_drv_dir "$T/neogeotab" || { echo "coreapp: the Neo Geo's driver table was not generated" >&2; exit 1; }   # neogeo_regs.h names the registers through it
 amiga_drv_dir "$T/amigatab" || { echo "coreapp: the Amiga 500's driver table was not generated" >&2; exit 1; }   # amiga_regs.h names the registers through it
 AMLIB="$ROOT/cores/amiga/app/lib"   # T239.5 D15: the Amiga 500's library lives in its own repository part (cores/amiga/app/lib), not in coreapp/cores
-NEOLIB="$ROOT/cores/neogeo/app/lib"   # T239.5 D15: the Neo Geo's library lives in its own repository part (cores/neogeo/app/lib), not in coreapp/cores
 ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
@@ -154,15 +151,10 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_C264+=("$i"); done
 # The ZX Spectrum Next is its own app as well (T239.5 D15: cores/zxnext/app). zxnextapp CMD... builds like c264app, with the Next's library, its table and TEST_APP_ZXNEXT: its units are in the group zxnext.
 INC_ZXNEXT=(-DTEST_APP_ZXNEXT=1 -I"$ZXNLIB" -I"$T/zxnexttab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_ZXNEXT+=("$i"); done
-# The Neo Geo is its own app as well (T239.5 D15: cores/neogeo/app). neogeoapp CMD... builds like zxnextapp, with the Neo Geo's library, its table and TEST_APP_NEOGEO: its units are in the group neogeo.
-# APPLIB puts its library first in the source lookup (no shared unit finds its sources: the Neo Geo is no sample core of the shared units, T239.5 D13).
-INC_NEOGEO=(-DTEST_APP_NEOGEO=1 -I"$NEOLIB" -I"$T/neogeotab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_NEOGEO+=("$i"); done
 # The Amiga 500 is its own app as well (T239.5 D15: cores/amiga/app). amigaapp CMD... builds like neogeoapp, with the Amiga's library, its table and TEST_APP_AMIGA: its units are in the group amiga.
 INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_AMIGA+=("$i"); done
 amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
-neogeoapp() { local INC=("${INC_NEOGEO[@]}") CA_APP=neogeo APPLIB="$NEOLIB"; "$@"; }
 zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext APPLIB="$ZXNLIB"; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264 APPLIB="$C264LIB"; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
@@ -296,13 +288,6 @@ run hostkey test_hostkey.cc start.cc handover.cc $BASEL
 
 ZXN="zxnext.cc $BASEL"
 zxnextapp run zxnext test_zxnext.cc $ZXN
-# T116 D11: Auto
-NEOG="neogeo.cc neoset.cc $BASEL"
-neogeoapp run neogeo test_neogeo.cc $NEOG
-neogeoapp control neo_save_read neogeo.cc 's/    c->io->ddr_read(NEO_W_BACKUP, buf, 0x10000);//' test_neogeo.cc $NEOG
-neogeoapp control neo_save_load neogeo.cc 's/    c->io->ddr_write(NEO_W_BACKUP, buf, 0x10000);//' test_neogeo.cc $NEOG
-neogeoapp control neo_own_save neogeo.cc 's/bool own = corefolder_save_path(c->cor_path, file, out, outlen);/bool own = false;/' test_neogeo.cc $NEOG
-neogeoapp control neo_old_save neogeo.cc 's/        if (n < 0 \&\& st->old_save_path\[0\]) {/        if (false) {/' test_neogeo.cc $NEOG
 
 
 ROMF="romfind.cc corefolder.cc sha256_cc.cc"
@@ -518,9 +503,6 @@ vc20app control drv_failed_forgotten d1541_drive.cc 's/            failed_tr_ |=
 vc20app control drv_unlinked_stops d1541_drive.cc 's/state_ != DS_NONE \&\& state_ != DS_CLOSED \&\& unsaved_/state_ != DS_NONE \&\& unsaved_/' test_cbm1541.cc $VC20
 vc20app control drv_unsaved_ignored d1541_drive.cc 's/ \&\& !(state_ != DS_NONE \&\& state_ != DS_CLOSED \&\& unsaved_);/;/' test_cbm1541.cc $VC20
 vc20app control drv_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_cbm1541.cc $VC20
-neogeoapp control neo_leaving_flush neogeo.cc 's/    if (neo_media_flush(c, msg, msglen)) {            \/\/ T180 D1, D4/    if (false) {                                      \/\/ T180 D1, D4/' test_neogeo.cc $NEOG
-neogeoapp control neo_failed_forgotten neogeo.cc 's/st->save_failed = true;/(void)0;/' test_neogeo.cc $NEOG
-neogeoapp control neo_unchanged_stops neogeo.cc 's/return st->loaded \&\& st->save_path\[0\] \&\& (st->save_failed || st->dirty_seen || (c->io->rd(NEO_STATUS) \& NEO_ST_DIRTY));/return st->loaded \&\& st->save_path[0];/' test_neogeo.cc $NEOG
 
 # T180 D2/D5 for every core (S2, S3, S8): the engines with a mount state of their own (Apple II, Atari, CPC, ZX tape, the drive library of the VC-20 / C128 / C264 / C64, the cartridge ports,
 # the SNES / Neo Geo game) keep their mounts in the .cfg, restore them BEFORE the release, leave a missing medium empty with a note, and take a media set in and out with one reset.
@@ -1008,43 +990,6 @@ zxnextapp run zxnext_menuctl test_zxnext_menuctl.cc menuctl.cc picklist.cc filem
 zxnextapp run zxnext_memops test_memops.cc $SVC $ZXND
 RARGS="$BUN/app" zxnextapp run zxnext_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $ZXND
 
-# T239.5 D15: the Neo Geo's units built as its app (neogeoapp: its library cores/neogeo/app/lib and its own table, the group neogeo) that are not above (neogeo) - the units its TOML B
-# (cores/neogeo/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: neogeo.cc with neoset.cc and the base's (no other core). The pad service is the base's (pad.cc, in $BASEL).
-NEOD="desc_check.cc overlay.cc descrec.cc neogeo.cc neoset.cc $BASEL"
-neogeoapp run neogeo_joyswap test_joyswap.cc $NEOD
-neogeoapp run neogeo_menuctl test_neogeo_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $NEOD
-neogeoapp run neogeo_memops test_memops.cc $SVC $NEOD
-RARGS="$BUN/app" neogeoapp run neogeo_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $NEOD
-# T239.5 D13: the Neo Geo's cases of the shared tests (TEST_APP_NEOGEO), built as its app: the checks every descriptor passes and its menu's golden (neogeo_desc), the default hotkeys of S5
-# (neogeo_hotkeys), the cartridge slot kept in the .cfg and restored before the release, a ROM set folder, a set with no game (neogeo_mounts, with the controls of its engine: T180 D2/D5),
-# the joystick word its service writes from a USB pad and the capability "pad" (neogeo_pad), every key of its menu against its golden (neogeo_keywalk: golden/keywalk_neogeo.txt, ids_neogeo.txt) and every
-# row, setting value and operation of its declaration reachable over the API (neogeo_uicover).
-NEOA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $NEOD"
-NEOM="test_media_mounts_engines.cc $NEOA start.cc handover.cc"
-RARGS="$T/bundles/desc_own.bin" neogeoapp run neogeo_desc test_desc.cc $NEOA
-neogeoapp run neogeo_hotkeys test_hotkeys.cc $NEOA
-neogeoapp run neogeo_mounts $NEOM
-neogeoapp control mme_neo_eject neogeo.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $NEOM
-neogeoapp control mme_neo_fail neogeo.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $NEOM
-neogeoapp control mme_neo_folder neogeo.cc 's/"folder %s", arg/"%s", arg/' $NEOM
-neogeoapp run neogeo_pad test_pad.cc $NEOD
-neogeoapp run neogeo_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $NEOA
-neogeoapp run neogeo_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $NEOA
-# the Neo Geo's rows of the host's ROM table: gen_romreq built as the Neo Geo's app, its rows (and the trx64u rows it emits) in the host's table
-t_romreq_neogeo() {
-  local INC=("${INC_NEOGEO[@]}") APPLIB="$NEOLIB"
-  build "$T/gen_romreq_neogeo" "$TST/gen_romreq.cc" $NEOD
-  "$T/gen_romreq_neogeo" > "$T/romreq_neogeo.inc"
-  python3 -I - "$T/romreq_neogeo.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Neo Geo's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
-import sys
-own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
-host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
-PY
-  echo "test neogeo_romreq: PASS"
-  return 0
-}
-if ca_in neogeo && ca_unit neogeo_romreq; then t_romreq_neogeo; PASS=$((PASS + 1)); fi
 
 # T239.5 D15: the Amiga 500's units built as its app (amigaapp: its library cores/amiga/app/lib and its own table, the group amiga): amiga500 (its record against the decode of its gateware), amiga_regset, amiga_rawkeys, amiga_ledload,
 # amiga_mousescale (with its control), amiga_mouselib, amiga_romset and amiga_fbwin, run above where they were the shared units on the A500's record, and the units below, which the

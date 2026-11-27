@@ -9,10 +9,6 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
-#ifdef TEST_APP_NEOGEO                   // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_pad) has its own core only
-#include "neogeo_regs.h"
-extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
-#else
 #ifndef TEST_APP_ATARI800                // the Atari's app (run.sh a8app, the unit a8_pad) has its own core only
 #ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
 #include "nes_regs.h"
@@ -25,7 +21,6 @@ extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores
 #endif
 #else
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
-#endif
 #endif
 #include "pad.h"
 #include "ops_glue.h"
@@ -99,7 +94,6 @@ int main(int argc, char **argv)
     DONE("pad");
 #else
 #ifndef TEST_APP_NES                     // the cases of the shared app's cores; the NES's are its unit nes_pad (below)
-#ifndef TEST_APP_NEOGEO          // the cases on the shared app's cores (the Neo Geo's app runs its own case only: the unit neogeo_pad)
     // ---- plug order, the placement of a third pad, a mouse is no pad
     {
         Rig r(&snes_desc);
@@ -190,56 +184,6 @@ int main(int argc, char **argv)
         CHECK_EQ(r.word(SNES_PAD1), 0);
         unplug_all();
     }
-#else
-    // ---- Neo Geo: the register is the machine's joystick word (right, left, down, up, A, B, C, D, Start, Select, Coin); the default map is the MiSTer core's
-    // positional one (A = the pad's bottom button, B = right, C = left, D = top, Coin = L); the word is written through the core's own service
-    {
-        Rig r(&neogeo_desc);
-        pad_configure(neogeo_desc.pad);
-        CHECK(neogeo_desc.pad != 0);
-        CHECK_EQ(neogeo_desc.pad->nbuttons, 11);
-        CHECK_EQ(neogeo_desc.pad->reg[0], NEO_PAD1);
-        CHECK_EQ(neogeo_desc.pad->reg[1], NEO_PAD2);
-        CHECK_EQ(neogeo_desc.service_period_ms, 16);
-        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
-        struct { int button; int bit; const char *name; } map[] = {
-            { 1, 4, "A (bottom)" }, { 2, 5, "B (right)" }, { 3, 6, "C (left)" }, { 4, 7, "D (top)" }, { 8, 8, "Start" }, { 7, 9, "Select" }, { 5, 10, "Coin (L)" } };
-        for (auto &m : map) {
-            V p = rep((uint16_t)(1u << (m.button - 1)));
-            pad_report(&k1, p.data(), (int)p.size());
-            OpResult res;
-            CHECK_EQ(ops_call(&r.c, "neogeo.service", 0, 0, &res), OPE_OK);
-            CHECK_EQ(r.word(NEO_PAD1), 1u << m.bit);
-            if (r.word(NEO_PAD1) != (1u << m.bit)) printf("     %s: register %04x\n", m.name, r.word(NEO_PAD1));
-            CHECK_EQ(r.word(NEO_PAD2), 0);
-        }
-        CHECK_EQ(r.writes(NEO_PAD1 + 1), 7);                                // the high byte follows every change of the low one
-        V p = rep(0x0001 | 0x0002, 4);                                      // A and B together, hat down
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NEO_PAD1), (1u << 4) | (1u << 5) | (1u << 2));
-        p = rep(0, 2);                                                      // right is bit 0
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NEO_PAD1), 1u);
-        p = rep(0, 6);                                                      // left bit 1, up (hat 0) bit 3
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NEO_PAD1), 2u);
-        p = rep(0, 0);
-        pad_report(&k1, p.data(), (int)p.size());
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NEO_PAD1), 8u);
-        pad_detach(&k1);
-        pad_pace(&r.c);
-        CHECK_EQ(r.word(NEO_PAD1), 0);
-        unplug_all();
-        // T196 D4: the capability `pad` is exactly the cores that have a PadSpec (the shared app's cores: test_xinput)
-        CHECK_EQ(desc_has_capability(&neogeo_desc, "pad"), neogeo_desc.pad != NULL);
-        CHECK(desc_has_capability(&neogeo_desc, "pad"));
-    }
-#endif
-#ifndef TEST_APP_NEOGEO
     // ---- the numbering of a pad: the 8BitDo SN30 Pro (read on the board) has its own entry, every other pad the generic one (T156, board 2026-10-29)
     {
         CHECK_STR(pad_numbering_for(0x2DC8, 0x6001)->name, "8BitDo SN30 Pro");
@@ -454,7 +398,6 @@ int main(int argc, char **argv)
         CHECK_STR(pad_src_name(PAD_SRC_NONE, nm, sizeof(nm)), "none");
         unplug_all();
     }
-#endif
 #else                                    // the NES's app (run.sh nesapp): the cases on its core
     // ---- NES: A and B from the SNES layout's A (right) and B (bottom); the register is the controller's own order
     {

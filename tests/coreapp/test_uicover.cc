@@ -30,9 +30,6 @@ struct Host : MenuHost {
 #if defined(TEST_APP_ZXNEXT)                    // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
 extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
-#elif defined(TEST_APP_NEOGEO)                  // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_uicover): its table is its core only
-extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
-const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_APPLE2)                  // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_uicover): its table is its core only
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };

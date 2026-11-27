@@ -39,10 +39,6 @@ const CoreDesc *const core_table[] = { &c264_desc, 0 };
 extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
 #define KW_GOLDEN "_zxnext"
-#elif defined(TEST_APP_NEOGEO)           // the Neo Geo's app (run.sh neogeoapp, the unit neogeo_keywalk): its table is its core only, its golden is its own
-extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
-const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
-#define KW_GOLDEN "_neogeo"
 #elif defined(TEST_APP_AMIGA)            // the Amiga 500's app (run.sh amigaapp, the unit amiga_keywalk): its table is its core only, its rows are golden/keywalk_amiga.txt and ids_amiga.txt
 extern const CoreDesc amiga_desc;        // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };

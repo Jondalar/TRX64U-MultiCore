@@ -34,7 +34,7 @@ extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app'
 #ifdef TEST_APP_C264
 extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -60,9 +60,6 @@ const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #define HEX_CORE c264_desc
 #elif defined(TEST_APP_ZXNEXT)           // the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
-#elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp): its core is the only one in its table
-extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
-const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
@@ -152,8 +149,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &c264_desc, 0xFFFF } };
 #elif defined(TEST_APP_ZXNEXT)
     struct W { const CoreDesc *d; int last; } widths[] = { { &zxnext_desc, 0x1FFFFF } };
-#elif defined(TEST_APP_NEOGEO)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &neogeo_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_AMIGA)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_DIAG)
@@ -200,7 +195,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
 #ifdef TEST_APP_ATARI800                  // the Atari's app (run.sh a8app, the unit a8_memops)
     // ---- the Atari: the same window, no ram-only bit
     {
@@ -290,14 +285,6 @@ int main()
         CHECK_EQ(r.call("machine.read_mem", 0, 257, &res), OPE_ARG);             // more than OP_DATA_MAX: the registry refuses
         CHECK_EQ(r.call("machine.read_mem", 0, 256, &res), OPE_OK);
         CHECK_EQ(res.ndata, 256);
-    }
-#elif defined(TEST_APP_NEOGEO)
-    // ---- the Neo Geo's memory is not reachable by the application (the machine's RAM is inside the core, the ROM space is the application's own staging): it says so, and why
-    {
-        Rig r(&neogeo_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(TEST_APP_AMIGA)
     // ---- the Amiga 500's memory is not reachable by the application: it says so, and why
