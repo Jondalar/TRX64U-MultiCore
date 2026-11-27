@@ -189,6 +189,6 @@ GHDL (no container runtime on this Mac, nothing run): the file before and after,
 yosys `read_verilog -noautowire` + `check -assert` on all converted Verilog files: no implicit net (diag: nine pre-existing "rom_q has no driver", the ROM is another module).
 Not run: the long benches (diag_probe 900 s, diag_co 2400 s, diag_avregs/avmap 1500 s), no Vivado.
 
-**Left as literal, on purpose:** page 6 (the host's pixel layer): the `off == 12'h088..08B` staging compares in both `amiga_regs.v`; the page guards (`page == 4'hE`). **Open:** snes (its TOML A comes with core-snes; run
-`python3 tools/toml_a_gen.py convert snes` then the three checks above), the c128/c64scpu page 0 in `c64u_io.v` (a copy of TRX64-Ultimate's file: Alex decides), the matrix proof of the lint lines (no push), GHDL for the three VHDL cores.
+**snes (coordinator, 2026-11-27, after core-snes merged into core-moves):** `toml_a_gen.py convert snes` replaced 129 literals, 0 left; `toml_a_list: snes: PASS (155 TOML A bytes, 155 decoded bytes)`, `toml_a_gen: snes: PASS`; yosys `equiv_status -assert` against the file before: "Proved 422 previously unproven $equiv cells", none left.
+**Left as literal, on purpose:** page 6 (the host's pixel layer): the `off == 12'h088..08B` staging compares in both `amiga_regs.v`; the page guards (`page == 4'hE`). **Open:** the c128/c64scpu page 0 in `c64u_io.v` (a copy of TRX64-Ultimate's file: Alex decides), the matrix proof of the lint lines (no push), GHDL for the three VHDL cores.
 
