@@ -36,11 +36,11 @@ def resolve_names(body, vhdl):
     lit = (lambda v: "16#%03X#" % v) if vhdl else (lambda v: "12'h%03X" % v)
     names = "|".join(sorted(map(re.escape, consts), key=len, reverse=True))
     add = r"(?:\s*\+\s*(?:\d+'d)?(\d+))?"
-    val = lambda m: consts[m.group(1)] + (int(m.group(2)) if m.group(2) else 0)
-    shifted = re.compile(r"\(\s*(%s)%s\s*\)\s*>>\s*(\d+)" % (names, add))
+    val = lambda m, g=1: consts[m.group(g)] + (int(m.group(g + 1)) if m.group(g + 1) else 0)
+    shifted = re.compile(r"(?:\(\s*(%s)%s\s*\)|\b(%s)%s)\s*>>\s*(\d+)" % (names, add, names, add))
     plain = re.compile(r"\b(%s)\b%s" % (names, add))
     def conv(t):
-        t = shifted.sub(lambda m: lit(val(m) >> int(m.group(3))), t)
+        t = shifted.sub(lambda m: lit((val(m) if m.group(1) else val(m, 3)) >> int(m.group(5))), t)
         return plain.sub(lambda m: lit(val(m)), t)
     parts, last = [], 0
     for m in (CONST_VHDL if vhdl else CONST_V).finditer(body):      # the declarations themselves stay as they are

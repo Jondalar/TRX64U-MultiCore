@@ -123,8 +123,14 @@ def check_core(core, toml_a=None, srcdir=None):
             reds.append("%s: the generated block is not current (TOML A changed: run tools/toml_a_gen.py gen %s)" % (f, core))
         vhdl = path.endswith((".vhd", ".vhdl"))
         code = T.strip_comments(text[:r.start()] + text[r.end():], vhdl)
-        for n, _, _ in consts:
-            if not re.search(r"\b%s\b" % n, code, re.I if vhdl else 0):
+        # a word-granular choice (`R_X >> 2`, `(R_X + 4) >> 2`) decodes the whole 2^sh-byte unit: the other constants inside that unit are decoded by it
+        units = set()
+        for m in re.finditer(r"\b(R_\w+)\s*(?:\+\s*(?:\d+'d)?(\d+))?\s*\)?\s*>>\s*(\d+)", code):
+            for n, off, _ in consts:
+                if n == m.group(1):
+                    units.add(((off + int(m.group(2) or 0)) >> int(m.group(3)), int(m.group(3))))
+        for n, off, _ in consts:
+            if not re.search(r"\b%s\b" % n, code, re.I if vhdl else 0) and not any(off >> sh == u for u, sh in units):
                 reds.append("%s: constant %s is not used in the decode" % (f, n))
     return reds
 
@@ -201,7 +207,7 @@ def cmd_convert(core, toml_a=None, srcdir=None):
             if kind == "hi":
                 d += span
             if sh:
-                rep = None if vhdl else "(%s + %d) >> %d" % (n, d, sh)
+                rep = None if vhdl else (("%s >> %d" % (n, sh)) if d == 0 else "(%s + %d) >> %d" % (n, d, sh))
             elif d == 0:
                 rep = n
             else:
