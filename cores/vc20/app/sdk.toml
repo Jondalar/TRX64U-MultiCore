@@ -19,11 +19,12 @@ toml_a = "gateware.toml"
 base_toml_a = "host.toml"
 base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status", "audio_master"]
 
-# The core's own code: its descriptor and hooks (init, release, the operations of the ROM and PRG handling, the register map). Its files are in cores/vc20/app/lib.
+# The core's own code: its descriptor and hooks (init, release, the operations of the ROM and PRG handling, the register map). Its files are in cores/vc20/app/lib, with its
+# own copies of hk_defaults.h and drive_rom_pick.h (T239 D17: every core holds its own copy).
 [[library]]
 name = "vc20"
 sources = ["vc20.cc"]
-headers = ["hk_defaults.h", "vc20_regs.h"]
+headers = ["hk_defaults.h", "vc20_regs.h", "drive_rom_pick.h"]
 needs = ["cbm1541", "cbmrun"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: vc20app): unit = 2 unit tests (the descriptor against the
 # model of its register block), service = 8 mock bitstream -> service, ui = 9 service -> UI, api = 10 service -> API: its operations through the service call the REST and
