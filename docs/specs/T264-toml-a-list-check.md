@@ -61,6 +61,11 @@ Parts:
   and a read at every byte). Built first: P1, P3, P4, and the moves' gates (`tools/core_move.py`) on P1 instead of the interpreter.
   P2 starts with D1's step: the list of our own cores, read from the code and each core's provenance, goes to Alex before any decode
   is converted.
+- **D3 (Alex, 2026-11-27, on the P2 list: every lane core's decode is this repository's `*_regs` module, none third party): P2 for
+  every core, in one bundle.** Alex (translated): "Yes, but then best all cores at once ... it can just compute one after another
+  until it is through once. Only for T259's analogue out do we compute everything again." So the decodes of all cores (the 14 lane
+  cores and apple2, c64scpu, snes once they have their TOML A, T239.3 D61) take the generated constants on one branch; the builder
+  builds every key once; T259's analogue output is the next full rebuild.
 ## §4 Out
 
 - Further work on the interpreter's semantics (directions, strobes, variables): frozen at round 4 (D1).
