@@ -11,7 +11,7 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
+#if defined(TEST_APP_APPLE2)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -22,7 +22,7 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
-#else   // TEST_APP_APPLE2: the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
+#elif defined(TEST_APP_APPLE2)   // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 

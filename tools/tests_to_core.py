@@ -18,6 +18,7 @@ For a core <id> (the wrapper of tests/coreapp/run.sh whose CA_APP is <id>; its s
     line, a unit of its lines that did not run, or a script that does not parse undoes every change; the core is reported with the error lines. --commit commits a green core (tools/check_todo.py first).
 Nothing here names a core: the cores are what run.sh's wrappers say.
 """
+import glob
 import os
 import re
 import subprocess
@@ -252,13 +253,20 @@ def convert(cid, run=True, commit=False):
         b = os.path.basename(f)
         if b.endswith(".h") or b in words:
             copied.add(b)
-    # a test program of the core's lines that includes a copied header is copied too (a quoted include looks in the includer's folder first)
-    for b in sorted(words):
-        p = os.path.join(TST, b)
-        if b not in copied and b.endswith(".cc") and os.path.isfile(p):
+    # a test program of the core's lines, or a shared header, that includes a copied header is copied too, to a fixed point (a quoted
+    # include looks in the includer's folder first: folderhd_bench.h in tests/coreapp would find the shared amiga_model.h, not the core's)
+    cand = [b for b in sorted(words) if b.endswith(".cc")] + sorted(os.path.basename(h) for h in glob.glob(os.path.join(TST, "*.h")))
+    grew = True
+    while grew:
+        grew = False
+        for b in cand:
+            p = os.path.join(TST, b)
+            if b in copied or not os.path.isfile(p):
+                continue
             inc = set(re.findall(r'#include "([^"]+)"', open(p).read()))
             if inc & {c for c in copied if c.endswith(".h")}:
                 copied.add(b)
+                grew = True
     for b in sorted(copied):
         src = where.get(b, os.path.join(TST, b))
         txt = unifdef(src, ["-D" + macro] + ["-U" + o for o in sorted(others)])

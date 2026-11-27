@@ -38,7 +38,7 @@ typedef std::vector<uint8_t> Bytes;
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
-#else   // TEST_APP_APPLE2 (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
+#elif defined(TEST_APP_APPLE2)   // (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
@@ -186,7 +186,7 @@ static const Create creates[] = {
     { &vc20_desc,      "Create blank G64", ".g64" },
 #elif defined(TEST_APP_A1200)
     { &amiga1200_desc, "Create blank ADF", ".adf" },
-#else   // TEST_APP_APPLE2
+#elif defined(TEST_APP_APPLE2)
     { &apple2_desc,    "Create blank DSK", ".dsk" },
 #endif
 };
@@ -266,7 +266,7 @@ static void check_suggestions()
     for (const CoreDesc *d : { &vc20_desc }) {
 #elif defined(TEST_APP_A1200)
     for (const CoreDesc *d : { &amiga1200_desc }) {
-#else   // TEST_APP_APPLE2
+#elif defined(TEST_APP_APPLE2)
     for (const CoreDesc *d : { &apple2_desc }) {
 #endif
         for (int i = 0; i < d->ntasks; i++) {

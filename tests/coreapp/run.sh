@@ -465,9 +465,11 @@ control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_
 vc20app run cbm1541 test_cbm1541.cc $VC20
 # The drive library's 1581 tests (d1541_wd.cc, the block drive_wd) run on the VIC-20's descriptor against a table that is the VIC-20's plus drive_wd (vc20_drv.sh, merge_a as the app's link does it).
 # No shipped app has that table: this is a test of the library, not of an app; the 1581 is tested in the apps of the cores with one (their own units, cores/<id>/app/tests) and in the C128's app against its own table by the unit c128 (a .d81 in drive A).
-INC_VC20_SAVE=("${INC_VC20[@]}"); INC_VC20=(-I"$T/vc20wd/drv" "${INC_VC20[@]}")
-vc20app run cbm1541_wd test_cbm1541.cc $VC20
-INC_VC20=("${INC_VC20_SAVE[@]}")
+t_cbm1541_wd() {
+  local INC_VC20=(-I"$T/vc20wd/drv" "${INC_VC20[@]}")
+  vc20app run cbm1541_wd test_cbm1541.cc $VC20
+}
+t_cbm1541_wd
 # T180 #38: disk images with a FAT long name picked into the drive: the DiskFs finds the image of a long path, the drive keeps the whole name and path. Controls: the container path
 # buffer at 260, the name at 56, the mount path at 260.
 # T104 5.14 Reload core: the label, the check before the cut, the order of the sequence, what the new core is told again
