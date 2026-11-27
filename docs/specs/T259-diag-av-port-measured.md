@@ -1,6 +1,6 @@
 # T259 — The diag core measures the A/V port: which group carries what, the bit order, RGB, SYNCn and FB; the tester's working values become presets
 
-**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony). D6-D15 (2026-11-27):
+**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony; luma, chroma, composite at NTSC 60 and 50 on Rick's 1702, #73). D6-D15 (2026-11-27):
 the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own change); chroma and composite are seen
 when it is built. Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
 Alex's request, for MultiCore to register and build; T259 was kept for it (Alex, 2026-11-23). Registered 2026-11-24, Alex
@@ -324,6 +324,29 @@ mono-diag-5d605995445e3585; driven over REST by the coordinator, Alex at the TV,
 - A side effect while driving the panel over REST: a script stepped the Standard row through to NTSC 50 Hz by mistake; the HDMI picture
   flickered until it was set back to PAL 50 Hz. The A/V Standard row also changes the raster the HDMI picture comes from.
 
+
+**Board, 2026-11-27 (Rick, #73: Commodore 1702 (NTSC) on its luma/chroma inputs and its composite input, through the C64 A/V cable;
+diag core `diag-fix-dlg-a49cdc75`, panel `avout.toml`, Mode "Test picture"; his report zip with photos, videos, presets and the
+REST key log is on #73, not in this repository)**
+- Both inputs and both standards give a stable, correctly coloured picture: chroma and composite are seen (they were open after the
+  Sony). Presets `1702-NTSC60-01`, `1702-NTSC50-01`.
+- Map **Names**, Groups **Y=B, C=C, CVBS=A**, Bits A/B/C MSB first: luma on AVID_G (DIN 1), chroma on AVID_B (DIN 6), composite on
+  AVID_R (DIN 4) - the H1 map Alex found for RGB on 2026-11-26. The Scan groups presets (`NTSC-60.rix02`, `NTSC-50.rix01`) gave the
+  right hues with scrambled luma; their chroma 50 %, sync 8, blank 88 had compensated for the wrong map.
+- Levels: White 11/16 for both inputs (from 13/16 the bright parts clip; on composite 15/16 turns the yellow bar white: luma plus
+  chroma over the DAC's top), Chroma gain 100 %, Sync 0, Blank 77, V sign Normal; Burst start / end / level 16 / 90 / 100 % (the
+  burst swept through its range with no visible change at NTSC 60); Equalizing off, Vsync 6 lines at 0, 263 lines at 60 Hz;
+  SYNCn High, FB Low.
+- Subcarrier trim: NTSC 60 **+150 Hz** (+120 and +180 swim, a slight red/blue swim remains), NTSC 50 **+90 Hz**. The increments
+  in `cores/diag/rtl/diag_avout.v:157-160` match the clocks `mode_ctl` sets (NTSC 50 MHz x 47.125 / 3 / 24 = 32,725,694 Hz,
+  NTSC-50 50 x 35.375 / 2 / 28 = 31,584,821 Hz, `cores/diag/mono/host/mode_ctl.v:29-31`) to well under 1 Hz, so the trim is not a
+  rounding error: +150 Hz is 42 ppm of 3.579545 MHz, +90 Hz is 25 ppm. A clock error of the 50 MHz source would give the same ppm
+  at both; the two differ by more than the 31 Hz step explains. Cause open (the 50 MHz source, the 1702's own oscillator, or the
+  subcarrier's relation to the line rate); Gideon's firmware on the same 1702 needs no trim (Rick's reference video). To be
+  settled before the build of D6 (P5): an output "built from the standards" must not need a per-board trim.
+- Requests for the diag core (T260): a finer Subcarrier trim step (10 Hz or less; the unit is 64 x f_clk / 2^26 = 31 Hz today,
+  `diag_avout.v:11`); the walks (avprobe, avrgb, avsync) run at the current Standard, so on Rick's board they all ran at PAL 50 and
+  the NTSC-only 1702 locked on no step - the walk should set or ask for the standard.
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
 - "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
