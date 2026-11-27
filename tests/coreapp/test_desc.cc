@@ -709,13 +709,6 @@ int main(int, char **argv)
     CHECK(desc_check_table(dup2) != 0);             // the same manifest name
 
     // T104.2 D5: a descriptor with w == 0 draws its own picture; the rest of the video block then has to be empty, not half filled
-#ifdef TEST_APP_C64SCPU                         // the valid own picture is the C64SCPU's: its cases run in its app (the unit c64scpu_desc)
-    d = testcore::desc; d.video = c64scpu_desc.video; CHECK(!desc_check(&d));
-    d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_base = 0x01000000u; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_stride = 100; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64scpu_desc.video; d.video.nbuf = 4; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-    d = testcore::desc; d.video = c64scpu_desc.video; d.video.h = 200; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
-#endif
     d = testcore::desc; d.video.w = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));      // the made-up core's buffers are still there
     d = testcore::desc; d.video.h = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "size"));              // a picture needs both sides
     // T104.2 D6: an action that asks for an address binds it once, to a number that takes 0 .. 65535; one that asks nothing binds no address
@@ -793,6 +786,16 @@ int main(int, char **argv)
     static const ArgSpec path_only[] = { ARG_PATH("path") };
     struct RunOp { static void reg(OpRegistry &r) { Ask::reg(r); r.add_op("test.run", path_only, 1, Ask::op); } };
     d = testcore::desc; d.filetypes = ft_ok; d.register_ops = RunOp::reg; d.run_op = "test.run"; CHECK(!desc_check(&d));
+#endif
+#ifdef TEST_APP_C64SCPU
+    // T104.2 D5: the valid own picture is the C64SCPU's, so these cases run in its app (the unit c64scpu_desc), outside the shared block above
+    {
+        CoreDesc d = testcore::desc; d.video = c64scpu_desc.video; CHECK(!desc_check(&d));
+        d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_base = 0x01000000u; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+        d = testcore::desc; d.video = c64scpu_desc.video; d.video.fb_stride = 100; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+        d = testcore::desc; d.video = c64scpu_desc.video; d.video.nbuf = 4; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+        d = testcore::desc; d.video = c64scpu_desc.video; d.video.h = 200; CHECK(desc_check(&d) && strstr(desc_check(&d), "own picture"));
+    }
 #endif
 #ifdef TEST_APP_VC20
     // the real core: the disk's actions and its prompts
