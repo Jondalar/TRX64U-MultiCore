@@ -609,7 +609,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_C64SCPU) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -1205,7 +1205,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_C64SCPU) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

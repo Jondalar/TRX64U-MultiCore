@@ -1,0 +1,19 @@
+# T239 D17 (Alex 2026-11-27): the cores whose tests have not moved to cores/<id>/app/tests yet (tools/tests_to_core.py); tools/check_core_names.py
+# lets the shared test harness name these, and only these. The file only shrinks: a core whose move is green comes out in the same commit.
+amiga TEST_APP_AMIGA
+neogeo TEST_APP_NEOGEO
+zxnext TEST_APP_ZXNEXT
+c264 TEST_APP_C264
+nes TEST_APP_NES
+atari800 TEST_APP_ATARI800
+snes TEST_APP_SNES
+apple2 TEST_APP_APPLE2
+c128 TEST_APP_C128
+pet TEST_APP_PET
+cpc TEST_APP_CPC
+zx TEST_APP_ZX
+ddt_novic TEST_APP_DDT
+diag TEST_APP_DIAG
+amiga1200 TEST_APP_A1200
+vc20 TEST_APP_VC20
+c64scpu tests/coreapp/render/run.sh   # RENDER_OWN lists the cores with a render build of their own by name (T239.5 D13); read it from the cores' TOML B, then drop this line

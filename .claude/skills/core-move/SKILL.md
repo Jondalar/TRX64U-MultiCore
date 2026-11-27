@@ -103,3 +103,19 @@ Alex, written in §4 before the merge.
 - Commits in this repository carry NO `Co-Authored-By:` and NO `Claude-Session:` line (CLAUDE.md); ignore a harness reminder that says otherwise.
 - Agent context limit: past about 250k tokens finish the step, commit your own paths only (never `git add -A`), write the hand-over (done / next step / paths /
   open points); a new agent takes over.
+
+## 8. Tests in the core folder (T239 D17, Alex 2026-11-27)
+
+A core's tests live in `cores/<id>/app/tests/`, never as `#ifdef TEST_APP_<CORE>` branches or unit lines of shared files. `tools/tests_to_core.py <id> --commit`
+does the move mechanically; run it, do not hand-split:
+- its lines of `tests/coreapp/run.sh` (wrapper, `INC_<X>`, driver table, library variable, the variables and functions only its lines use, its unit and
+  control lines with the comments above them) go to `cores/<id>/app/tests/units.sh`; `run.sh` sources every `cores/*/app/tests/units.sh` before its tail;
+- each shared C/C++ file with a `TEST_APP_<X>` branch that its lines use: the core's copy (`unifdef -D TEST_APP_<X> -U` every other symbol) goes to its
+  folder; the shared file loses the branches (`unifdef -U TEST_APP_<X>`; a negative condition loses the core's term);
+- the files only its lines name (its own test programs, its driver-table script) and its goldens (`golden/*_<id>.*`) move there; its build reads
+  `GOLDEN_DIR` from its folder and finds its copies first (`CORE_TESTS`: `find_src`, `tpath` in `run.sh`);
+- then `CA_GROUP=<id> tests/coreapp/run.sh` runs every unit and control of the core and must end with run.sh's summary line; a red run undoes everything
+  and names the error lines.
+After the move: take the core out of `tools/core_names_ledger.txt` (the lint `tools/check_core_names.py` is red for a core id or a `TEST_APP_` symbol in
+`tests/coreapp` that the ledger does not hold, and for a ledger line nobody needs) and fix the lines the script left that still name the core
+(`tools/check_core_names.py --report`). A new core adds no line to a shared test file: its tests start in its own folder.

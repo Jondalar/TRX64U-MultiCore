@@ -503,7 +503,6 @@ vc20app run vc20 test_vc20.cc $VC20
 C264="c264.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
 c264app run c264 test_c264.cc $C264
 
-# T182 step 8: the C64SCPU descriptor (S2: no SuperCPU ROM, no start, refused files, the gate; S7: speed and JiffyDOS reach SCPU_SW, the drive's ROM): the unit c64scpu, built as its app (below)
 # the C128's System Mode, the JiffyDOS kit files and the register page E: the units c128 and c128pic, built as its app (below)
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
@@ -609,7 +608,7 @@ control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_
 
 vc20app run cbm1541 test_cbm1541.cc $VC20
 # The drive library's 1581 tests (d1541_wd.cc, the block drive_wd) run on the VIC-20's descriptor against a table that is the VIC-20's plus drive_wd (vc20_drv.sh, merge_a as the app's link does it).
-# No shipped app has that table: this is a test of the library, not of an app; the 1581 is tested in the C64SCPU's app against its own table by the unit c64scpu, and in the C128's app against its own table by the unit c128 (a .d81 in drive A).
+# No shipped app has that table: this is a test of the library, not of an app; the 1581 is tested in the apps of the cores with one (their own units, cores/<id>/app/tests) and in the C128's app against its own table by the unit c128 (a .d81 in drive A).
 INC_VC20_SAVE=("${INC_VC20[@]}"); INC_VC20=(-I"$T/vc20wd/drv" "${INC_VC20[@]}")
 vc20app run cbm1541_wd test_cbm1541.cc $VC20
 INC_VC20=("${INC_VC20_SAVE[@]}")

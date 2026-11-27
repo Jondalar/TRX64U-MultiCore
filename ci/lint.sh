@@ -149,6 +149,9 @@ check "negative controls only in flash and persistence tests" python3 -I tools/c
 # T213 D4 / T192 D24 (Alex 2026-11-16): per-core code in the generic app only shrinks (ledger tools/d24_ledger.txt); the selftest plants each breach
 gcheck sdk "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
 gcheck sdk "D24 per-core code gate" python3 -I tools/check_d24.py
+# T239 D17 (Alex 2026-11-27): a core's tests live in its folder (tools/tests_to_core.py); the shared test harness names no core but the ones of the ledger
+# tools/core_names_ledger.txt (the cores whose tests have not moved), which only shrinks
+gcheck sdk "T239 D17: no core in the shared test harness" python3 -I tools/check_core_names.py
 gcheck sdk "library table: TOML B and the generic sources (T239.3 D31)" python3 -I tools/libtab.py lint coreapp/libs/shared.toml .
 
 check "verilog syntax" bash -c '

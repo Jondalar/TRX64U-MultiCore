@@ -448,7 +448,7 @@ static void picmodes_shared()
 }
 
 // T104.2 D5: a core that draws its own picture has no wish. Auto leaves the screen in the mode it is in; a chosen mode is still applied.
-#if defined(TEST_APP_NES) || defined(TEST_APP_C64SCPU)   // the C64SCPU's and the NES's cases (their apps)
+#if defined(TEST_APP_NES)   // the C64SCPU's and the NES's cases (their apps)
 static void own_picture()
 {
 #ifndef TEST_APP_NES

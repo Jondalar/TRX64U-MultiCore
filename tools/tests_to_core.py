@@ -178,6 +178,20 @@ def core_lines(lines, w):
     return C, macro
 
 
+def drop_term(txt, macro):
+    """the terms unifdef leaves in a condition it cannot decide (the other symbols are unknown): !defined(M) is true in an &&, defined(M) false in an ||"""
+    m = re.escape(macro)
+    out = []
+    for ln in txt.split("\n"):
+        if re.match(r'\s*#\s*(if|elif)\b', ln):
+            ln = re.sub(r'\s*&&\s*!\s*defined\s*\(\s*%s\s*\)' % m, '', ln)
+            ln = re.sub(r'!\s*defined\s*\(\s*%s\s*\)\s*&&\s*' % m, '', ln)
+            ln = re.sub(r'\s*\|\|\s*defined\s*\(\s*%s\s*\)' % m, '', ln)
+            ln = re.sub(r'defined\s*\(\s*%s\s*\)\s*\|\|\s*' % m, '', ln)
+        out.append(ln)
+    return "\n".join(out)
+
+
 def unifdef(path, args):
     r = subprocess.run(["unifdef"] + args + [path], capture_output=True, text=True)
     if r.returncode not in (0, 1):
@@ -251,7 +265,7 @@ def convert(cid, run=True, commit=False):
         open(os.path.join(dest, b), "w").write(txt)
     for f in with_macro:
         p = os.path.join(ROOT, f)
-        txt = unifdef(p, ["-U" + macro])          # read before the file is opened for writing (open(p, "w") truncates it)
+        txt = drop_term(unifdef(p, ["-U" + macro]), macro)   # read before the file is opened for writing (open(p, "w") truncates it)
         if not txt.strip():
             raise Fail("unifdef -U%s left %s empty" % (macro, f))
         open(p, "w").write(txt)
@@ -306,7 +320,7 @@ def convert(cid, run=True, commit=False):
         if r.returncode:
             raise Fail("bash -n %s: %s" % (p, r.stderr.strip()))
     left = [l for l in sh(["git", "grep", "-nw", macro, "--", "tests"]).stdout.splitlines() if not l.startswith("cores/")]
-    if any(not l.split(":", 2)[2].lstrip().startswith(("#", "//")) for l in left):
+    if any(not l.split(":", 2)[2].lstrip().startswith("//") for l in left):   # a preprocessor line is code
         raise Fail("%s still in code of a shared file: %s" % (macro, left[:3]))
     units = re.findall(r'^(?:\S+=\S*\s+)*%s\s+(?:run|control)\s+(\S+)' % re.escape(w["wrapper"]), "\n".join(out), re.M)
     summary = "%s: %d run.sh lines, %d copies (%s), %d files moved (%s), %d goldens, %d units" % (
