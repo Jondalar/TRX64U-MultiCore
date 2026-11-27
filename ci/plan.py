@@ -441,8 +441,10 @@ def make(base, head, source, files_out=None, branch=None):
     # emulator rounds read besides their scripts (T239.5 D18: a core lane's step 12, tests/coreapp/emu/core_round.sh, and the host menu lane's)
     tests = everything or bool(changed_code(base, head, ["tests/hostapp", "tests/coreapp", "tests/loader", "tests/view", "tests/ctlcache.sh",
                                                            "tests/ctlcache.py", "ci/apptests.sh", "ci/render.sh", "tools/ue2emu_core.py", "ci/emu_kit.sh", "ci/ue2emu.sh", "tools/cor_pack.py", "tools/descrec.py"]))
+    # T264 S3: the optional interpreter's own tests run only when it or they change (lint group rtlchk); no lane or lint leg runs it as a gate
+    rtlchk = everything or bool(changed_code(base, head, ["tools/rtl_check.py", "tests/rtl_check"]))
     plan = {
-        "version": 1, "branch": branch, "scope": "branch" if scoped else "full", "fundamental": fundamental, "tests": tests, "docs_only": docs_only, "head": head if re.match(r"^[0-9a-f]{40}$", head) else git("rev-parse", head).strip(),
+        "version": 1, "branch": branch, "scope": "branch" if scoped else "full", "fundamental": fundamental, "tests": tests, "rtlchk": rtlchk, "docs_only": docs_only, "head": head if re.match(r"^[0-9a-f]{40}$", head) else git("rev-parse", head).strip(),
         "base": {"commit": base, "source": source}, "all": everything, "changed": len(changed),
         "host": host, "aux": "aux" in targets, "dfx": named_dfx, "large": named_large,
         "apps": {"host": "app:host" in targets, "core": "app:core" in targets, "ultimate": "app:ultimate" in targets},

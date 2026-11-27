@@ -90,8 +90,7 @@ size = 0x8
   width = 32
   dir = "r"
 
-# 035-038: the picture's geometry, the parameters GEOM_LINES and PIX_W of ddt_regs (ddt_novic: 200 lines of 352 pixels). ddt_regs answers GEOM_LINES as a 16 bit value at 035-036; with 200 lines its
-# upper byte (036) is constant 0, which the RTL has no read of, so the property is the one byte that the RTL reads
+# 035-038: the picture's geometry, the parameters GEOM_LINES and PIX_W of ddt_regs (ddt_novic: 200 lines of 352 pixels). GEOM_LINES is a 16 bit value at 035-036
 [[block]]
 name = "geom"
 module = "ddt_regs"
@@ -101,7 +100,7 @@ size = 0x4
   [[block.property]]
   name = "lines"
   offset = 0x0
-  width = 8
+  width = 16
   dir = "r"
   [[block.property]]
   name = "pix_w"
