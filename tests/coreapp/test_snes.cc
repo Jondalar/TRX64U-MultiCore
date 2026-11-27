@@ -1,4 +1,4 @@
-// T142 S9/S10/S12: the SNES descriptor (coreapp/cores/snes.cc) against a model of the register block of cores/snes/trx/snes_regs.v: the boot ROM that goes into
+// T142 S9/S10/S12: the SNES descriptor (cores/snes/app/lib/snes.cc) against a model of the register block of cores/snes/trx/snes_regs.v: the boot ROM that goes into
 // the S-SMP, an image run from a file (header decisions in the registers, the image, its mirror and the RAMs in the DDR2 window, the order of it all, the
 // release last), the cartridges the core refuses (the machine is not touched), the battery RAM and its save file (loaded at the start, written when the game
 // changed it, written again after a failure), the region setting. The descriptor under test is the real one; the images are made here.
@@ -10,6 +10,7 @@
 #include "engines.h"
 #include "cores.h"
 #include "snes_regs.h"
+extern const CoreDesc snes_desc;          // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
 #include "snes_rom.h"
 #include "ops_glue.h"
 

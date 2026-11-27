@@ -1,4 +1,4 @@
-// T142 S9/S12: the header reader of the SNES application (coreapp/cores/snes_rom.cc) against synthetic headers made here - no cartridge image, no third party
+// T142 S9/S12: the header reader of the SNES application (cores/snes/app/lib/snes_rom.cc) against synthetic headers made here - no cartridge image, no third party
 // code. Every check names the SNES.sv / DSP_LHRomMap.vhd decision it stands for: LoROM, HiROM and ExHiROM are found in their places with and without the
 // 512 byte copier header, the mapper byte and the two masks are the ones SNES.sv computes from the header's size bytes, the region follows the country
 // code, and an image whose header names a coprocessor the core does not have is refused with a sentence that names it.

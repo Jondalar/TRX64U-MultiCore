@@ -624,10 +624,12 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_pet.txt").c_str());
 #elif defined(TEST_APP_C128)
     std::ifstream idx((dir + "/index_app_c128.txt").c_str());
+#elif defined(TEST_APP_SNES)
+    std::ifstream idx((dir + "/index_app_snes.txt").c_str());
 #elif defined(TEST_APP_C64SCPU)
     std::ifstream idx((dir + "/index_app_c64scpu.txt").c_str());
 #else
-    std::ifstream idx((dir + "/index.txt").c_str());          // the cores of the shared app
+#error "test_descgen compares a core's record with its compiled-in descriptor: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif
     std::string line;
     int cores = 0, fields = 0, failed = 0;

@@ -9,14 +9,14 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app) with its core only
+#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
-#if !defined(MME_OWN_APP) || defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO)
-#define MME_GAME 1             // a core whose game is the cartridge (the shared app's SNES, the NES's and the Neo Geo's apps): game_case, game_empty_set
+#if defined(TEST_APP_NES) || defined(TEST_APP_NEOGEO) || defined(TEST_APP_SNES)
+#define MME_GAME 1             // a core whose game is the cartridge (the SNES's, the NES's and the Neo Geo's apps): game_case, game_empty_set
 #endif
 #include "c64_model.h"
 #include "boot.h"
@@ -51,6 +51,9 @@ extern const CoreDesc c264_desc;                // the Commodore 264 is its own 
 #ifdef TEST_APP_NES
 #include "nes_regs.h"
 #endif
+#ifdef TEST_APP_SNES
+#include "snes_regs.h"
+#endif
 #ifdef TEST_APP_NEOGEO
 #include "neogeo_regs.h"
 #endif
@@ -82,8 +85,11 @@ extern const CoreDesc neogeo_desc;              // cores.h lists the shared app'
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
-#else
+#elif defined(TEST_APP_SNES)
+extern const CoreDesc snes_desc;                // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
 const CoreDesc *const core_table[] = { &snes_desc, 0 };
+#else
+const CoreDesc *const core_table[] = { 0 };            // the shared unit's profile is the cartridge port's stub core below, which is no table entry
 #endif
 
 typedef std::vector<uint8_t> Bytes;
@@ -341,7 +347,7 @@ static Bytes nes_file(uint32_t seed)
     return v;
 }
 #endif
-#ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
+#ifdef TEST_APP_SNES          // the SNES's game file
 static Bytes snes_file(uint32_t seed)
 {
     Bytes v(0x80000);
@@ -636,6 +642,8 @@ static std::vector<Prof> profiles()
         p.watch = { { [](CoreIo *io) { return (uint32_t)io->cart_rd(C64_CARTREG_TYPE); }, 0x41, "the cartridge type set before the release" } };
         v.push_back(p);
     }
+#endif
+#ifdef TEST_APP_SNES
     {   // ---- SNES: the game is the cartridge (the NES's and the Neo Geo's: the units nes_mounts and neogeo_mounts)
         Prof s;
         s.name = "snes"; s.cfg = "/usb0/cores/snes/snes.cfg"; s.base = &snes_desc; s.game = true;

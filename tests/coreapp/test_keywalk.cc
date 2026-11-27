@@ -75,9 +75,12 @@ const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 extern const CoreDesc zx_desc;           // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #define KW_GOLDEN "_zx"
-#else                                    // the shared app: the cores of its table
-extern const CoreDesc *const core_table[];
-#define KW_GOLDEN ""
+#elif defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_keywalk): its table is its core only, its rows are golden/keywalk_snes.txt and ids_snes.txt
+extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
+const CoreDesc *const core_table[] = { &snes_desc, 0 };
+#define KW_GOLDEN "_snes"
+#else
+#error "test_keywalk walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif
 
 static uint32_t fnv(uint32_t h, const char *s)
