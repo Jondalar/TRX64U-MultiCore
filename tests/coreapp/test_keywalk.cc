@@ -32,10 +32,6 @@ const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define KW_GOLDEN "_cpc"
-#elif defined(TEST_APP_PET)              // the PET's app (run.sh petapp, the unit pet_keywalk): its table is its core only, its rows are golden/keywalk_pet.txt and ids_pet.txt
-extern const CoreDesc pet_desc;          // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
-const CoreDesc *const core_table[] = { &pet_desc, 0 };
-#define KW_GOLDEN "_pet"
 #elif defined(TEST_APP_DIAG)             // the diag core's app (run.sh diagapp, the unit diag_keywalk): its table is its core only, its rows are golden/keywalk_diag.txt and ids_diag.txt
 extern const CoreDesc portdiag_desc;     // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };

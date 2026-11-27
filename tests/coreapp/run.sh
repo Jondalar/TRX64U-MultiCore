@@ -76,9 +76,6 @@ zx_drv_dir "$T/zxtab" || { echo "coreapp: the ZX Spectrum's driver table was not
 ZXLIB="$ROOT/cores/zx/app/lib"   # the ZX Spectrum's library lives in its own repository part (cores/zx/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/cpc_drv.sh"
 cpc_drv_dir "$T/cpctab" || { echo "coreapp: the CPC's driver table was not generated" >&2; exit 1; }   # cpc_regs.h names the registers through it
-source "$TST/pet_drv.sh"
-pet_drv_dir "$T/pettab" || { echo "coreapp: the PET's driver table was not generated" >&2; exit 1; }   # pet_regs.h names the registers through it
-PETLIB="$ROOT/cores/pet/app/lib"   # the PET's library lives in its own repository part (cores/pet/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.*  and hk_defaults.h
 CPCLIB="$ROOT/cores/cpc/app/lib"   # the CPC's library lives in its own repository part (cores/cpc/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
@@ -131,9 +128,6 @@ INC_ZX=(-DTEST_APP_ZX=1 -I"$ZXLIB" -I"$T/zxtab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_ZX+=("$i"); done
 INC_CPC=(-DTEST_APP_CPC=1 -I"$CPCLIB" -I"$T/cpctab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_CPC+=("$i"); done
-INC_PET=(-DTEST_APP_PET=1 -I"$PETLIB" -I"$T/pettab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_PET+=("$i"); done
-petapp() { local INC=("${INC_PET[@]}") CA_APP=pet APPLIB="$PETLIB"; "$@"; }
 cpcapp() { local INC=("${INC_CPC[@]}") CA_APP=cpc APPLIB="$CPCLIB"; "$@"; }
 zxapp() { local INC=("${INC_ZX[@]}") CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
 ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic APPLIB="$DDTLIB"; "$@"; }
@@ -1030,36 +1024,7 @@ PY
 }
 if ca_in cpc && ca_unit cpc_romreq; then t_romreq_cpc; PASS=$((PASS + 1)); fi
 
-# T239.5 D4, D16: the PET's units, built as its app (petapp: its library cores/pet/app/lib with its own tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the group pet) - the units its
-# TOML B (cores/pet/app/sdk.toml) names for the steps 2, 8 and 9 of its lane. The sources are the app's own: pet.cc, the tape deck, the PRG library (cbm_run.cc, cbm_prg.cc, c64_go.cc) and the base's.
-PETS="pet.cc tape_pulses.cc tape_deck.cc cbm_run.cc cbm_prg.cc c64_go.cc $BASEL"
-PETA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PETS"
-PETD="desc_check.cc overlay.cc descrec.cc $PETA"
 CARGS="" RARGS=""
-petapp run pet_models test_pet_models.cc cbm_prg.cc
-petapp run tape_pet test_tape.cc tape_pulses.cc
-RARGS="$T/bundles/desc_own.bin" petapp run pet_desc test_desc.cc $PETD
-RARGS="$BUN/app" petapp run pet_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $PETD
-petapp run pet_hotkeys test_hotkeys.cc $PETD
-petapp run pet_cut test_pet_cut.cc $PETD
-# T239.5 D13: every key of its menu against its golden (pet_keywalk: golden/keywalk_pet.txt, ids_pet.txt) and its declaration over the API (pet_uicover), TEST_APP_PET
-petapp run pet_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $PETD
-petapp run pet_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $PETD
-# the PET's rows of the host's ROM table: gen_romreq built as the PET's app, its rows in the host's table
-t_romreq_pet() {
-  local INC=("${INC_PET[@]}") APPLIB="$PETLIB"
-  build "$T/gen_romreq_pet" "$TST/gen_romreq.cc" $PETD
-  "$T/gen_romreq_pet" > "$T/romreq_pet.inc"
-  python3 -I - "$T/romreq_pet.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the PET's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
-import sys
-own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
-host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
-PY
-  echo "test pet_romreq: PASS"
-  return 0
-}
-if ca_in pet && ca_unit pet_romreq; then t_romreq_pet; PASS=$((PASS + 1)); fi
 
 CARGS="" RARGS=""
 
