@@ -21,10 +21,7 @@
 #include "newdisk.h"
 #include "newfile.h"
 #include "d1541_drive.h"
-#ifdef TEST_APP_APPLE2
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20)
 #error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
 #endif
 #include "sectors.h"
@@ -33,8 +30,6 @@ typedef std::vector<uint8_t> Bytes;
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_APPLE2)   // (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
 struct Host : MenuHost {
@@ -64,9 +59,7 @@ struct Rig {
     {
         delete m;
         delete st;
-#if !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
-#endif
     }
     // selects the row of that name on the page that is up
     bool pick(const char *name)
@@ -179,8 +172,6 @@ static const Create creates[] = {
 #ifdef TEST_APP_VC20
     { &vc20_desc,      "Create blank D64", ".d64" },
     { &vc20_desc,      "Create blank G64", ".g64" },
-#elif defined(TEST_APP_APPLE2)
-    { &apple2_desc,    "Create blank DSK", ".dsk" },
 #endif
 };
 
@@ -257,8 +248,6 @@ static void check_suggestions()
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
     #ifdef TEST_APP_VC20
     for (const CoreDesc *d : { &vc20_desc }) {
-#elif defined(TEST_APP_APPLE2)
-    for (const CoreDesc *d : { &apple2_desc }) {
 #endif
         for (int i = 0; i < d->ntasks; i++) {
             if (!d->tasks[i].ask_state) continue;

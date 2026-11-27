@@ -20,13 +20,7 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
-#if   defined(TEST_APP_APPLE2)           // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_keywalk): its table is its core only, its walk has goldens of its own (keywalk_apple2.txt, ids_apple2.txt)
-extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
-#define KW_GOLDEN "_apple2"
-#else
 #error "test_keywalk walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
-#endif
 
 static uint32_t fnv(uint32_t h, const char *s)
 {

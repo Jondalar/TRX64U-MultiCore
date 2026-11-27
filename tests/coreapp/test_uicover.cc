@@ -27,12 +27,7 @@ struct Host : MenuHost {
     bool return_to_host(char *, int) { return false; }
 };
 
-#if   defined(TEST_APP_APPLE2)                  // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_uicover): its table is its core only
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
-#else
 #error "test_uicover walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
-#endif
 
 static bool g_ui = false;
 static MenuCtl *M;

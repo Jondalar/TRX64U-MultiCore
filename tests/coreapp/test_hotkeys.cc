@@ -12,9 +12,6 @@
 #include "keyboard.h"
 #include "regset.h"
 #include "padkeys.h"
-#ifdef TEST_APP_APPLE2
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
 
 enum { CTRL = 58, CBM = 61, KR = 17, KPLUS = 40, KMINUS = 43, KJ = 34, KP = 41, KA = 10, KSHIFT = 15, K1 = 56 };
 
@@ -52,7 +49,7 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
+#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -73,7 +70,7 @@ int main()
         for (int i = 0; i < 11; i++) CHECK_EQ(r[i], 0);                  // no first modifier: everything off
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20)
     // ---- the action key goes down before the modifier completes: it fires once, when the modifier is complete
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -87,7 +84,7 @@ int main()
         j.k = (1ull << CTRL) | (1ull << CBM) | (1ull << KR); CHECK_EQ(e.poll(two, j, 20), 1u << HKA_RESET);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_APPLE2)
+#if !defined(TEST_APP_VC20)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -124,8 +121,6 @@ int main()
         struct Row { const CoreDesc *d; const char *name; bool has; };
 #ifdef TEST_APP_VC20
         const Row rows[] = { { &vc20_desc, "vc20", true } };
-#elif defined(TEST_APP_APPLE2)
-        const Row rows[] = { { &apple2_desc, "apple2", true } };
 #else
         const Row rows[] = { { 0, "", false } };          // the shared app has no real core left (T239.3 D61): no row; every core's S5 is its app's unit <core>_hotkeys
 #endif

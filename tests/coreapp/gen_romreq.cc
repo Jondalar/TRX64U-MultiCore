@@ -8,11 +8,6 @@
 // the VIC-20's app is its own build (run.sh vc20app): its table is its core only, its rows are the part of the host's table the shared table does not have
 #include "cores.h"
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_APPLE2)
-// the Apple IIe's app is its own build (run.sh apple2app): its table is its core only
-#include "cores.h"
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
 #include "table.cc"
 #endif

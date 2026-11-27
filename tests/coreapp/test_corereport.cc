@@ -14,15 +14,8 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-#if   defined(TEST_APP_APPLE2)
-extern const CoreDesc apple2_desc;              // the Apple IIe is its own app (cores/apple2/app/lib): its build has its core only (T239.3 D61)
-#endif
 
-#if   defined(TEST_APP_APPLE2)
-const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
-#else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };
-#endif
 
 static bool has(const std::string &s, const char *part) { return s.find(part) != std::string::npos; }
 
@@ -118,29 +111,6 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
 
 int main()
 {
-#if   defined(TEST_APP_APPLE2)
-    // the Apple IIe's cases (T239.3 D61: run as its app, run.sh apple2app, unit apple2_corereport; the shared unit corereport has the test core's)
-    // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
-    {
-        const CoreDesc *real[] = { &apple2_desc };
-        for (const CoreDesc *d : real) {
-            CHECK(d->nreport_regs > 0 && d->report_regs);
-            CHECK(!desc_check(d));
-        }
-    }
-    // the report of a real descriptor names its registers
-    {
-        SpyIo io; FakeFs fs; CoreCtx c;
-        memset(&c, 0, sizeof(c));
-        c.desc = &apple2_desc; c.io = &io; c.fs = &fs;
-        int n = core_report_build(&c, 0, false, "", 0, g_out, sizeof(g_out));
-        std::string t(g_out, n);
-        CHECK(has(t, "STATUS (b0 reset, b1 held, b2 cold)"));
-        CHECK(has(t, "Apple IIe"));
-        CHECK_EQ((int)io.reads.size(), 4 + 1 + 1 + 1 + 1 + 1 + 2 + 1 + 1 + 1);
-        delete c.ops;
-    }
-#else
     // ---- S1: the sections and the named registers --------------------------------------------------------------------------------------------
     {
         Rig r;
@@ -379,6 +349,5 @@ int main()
         core_report_edid_reader() = 0;
         g_edid_len = 0;
     }
-#endif
     DONE("test_corereport");
 }

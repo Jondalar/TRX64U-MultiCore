@@ -17,12 +17,7 @@
 #include "lib_skel.h"
 #include "newdisk.h"
 #include "apple2_nib.h"
-#ifdef TEST_APP_APPLE2
-extern const CoreDesc apple2_desc;             // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
-#if !defined(TEST_APP_APPLE2)
 #error "test_newdisk: every core's blank-medium task is its app's unit (run.sh cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
-#endif
 
 typedef std::vector<uint8_t> Bytes;
 

@@ -11,16 +11,10 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#if defined(TEST_APP_APPLE2)
-#include "apple2_regs.h"
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
-#endif
 
 #ifdef TEST_APP_VC20                     // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #define HEX_CORE vc20_desc
-#elif defined(TEST_APP_APPLE2)   // the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")

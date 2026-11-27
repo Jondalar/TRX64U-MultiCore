@@ -8,9 +8,6 @@
 #include "cores.h"
 #include "ops_glue.h"
 #include "regset.h"
-#ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
-extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
 
 struct Row { const CoreDesc *d; uint32_t reg; };
 
@@ -32,7 +29,6 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
-#if !defined(TEST_APP_APPLE2)   // the Atari's, the 264's and the Apple IIe's swap have another form (their own key is checked below): no row
     const Row rows[] = {
     };
     for (const Row &r : rows) {
@@ -74,10 +70,6 @@ int main()
         regset_apply(&c2, true);                                           // what the start sequence does with every setting
         CHECK_EQ(last_write(io2, r.reg) & 1, 1);
     }
-#endif
     // the cores that keep another form: their own key is there once (T157 D1)
-#ifdef TEST_APP_APPLE2
-    CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
-#endif
     DONE("test_joyswap");
 }

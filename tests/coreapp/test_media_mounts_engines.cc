@@ -9,11 +9,8 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_VC20)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
-#endif
-#if defined(TEST_APP_APPLE2)
-#define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
 #include "boot.h"
@@ -33,19 +30,12 @@
 #ifndef MME_OWN_APP          // stands on the shared app's cores; the VIC-20's app is its own build (run.sh vc20app) with its core only
 #include "c64_regs.h"
 #endif
-#ifdef TEST_APP_APPLE2       // the Apple IIe's cases (D1-D4, the two slot 7 volumes): its app (run.sh apple2app, the unit apple2_mounts)
-#include "apple2_disk.h"
-#include "apple2_regs.h"
-extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
-#endif
 #ifndef MME_NO_DRIVE
 #include "d1541_drive.h"
 #endif
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_APPLE2)
-const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { 0 };            // the shared unit's profile is the cartridge port's stub core below, which is no table entry
 #endif
@@ -276,30 +266,6 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
 #endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
-#ifdef TEST_APP_APPLE2
-
-static Case apple_drive(int d)
-{
-    Case k;
-    const char *nm = d ? "D2" : "D1";
-    k.key = std::string("Mount ") + nm;
-    k.a = d ? "/usb0/c.dsk" : "/usb0/a.dsk";
-    k.b = d ? "/usb0/d.dsk" : "/usb0/b.dsk";
-    k.mount = [d](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "apple2.mount", { in_str("path", path.c_str()), in_int("drive", d), in_int("boot", 0) }, m, n); };
-    k.eject = [d](Run &r, char *m, int n) { return mount_op(r, "apple2.eject", { in_int("drive", d) }, m, n); };
-    return k;
-}
-static Case apple_unit(int u)
-{
-    Case k;
-    k.key = u ? "Mount S7.2" : "Mount S7.1";
-    k.a = u ? "/usb0/g.hdv" : "/usb0/h.hdv";
-    k.b = u ? "/usb0/i.hdv" : "/usb0/j.hdv";
-    k.mount = [u](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "apple2.hdd_mount", { in_str("path", path.c_str()), in_int("unit", u), in_int("boot", 0) }, m, n); };
-    k.eject = [u](Run &r, char *m, int n) { return mount_op(r, "apple2.hdd_eject", { in_int("unit", u) }, m, n); };
-    return k;
-}
-#endif
 #ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's and the CPC's apps'
 static Case tape_case(const char *pfx, const char *ext)
 {
@@ -344,21 +310,6 @@ static Case game_case(const char *run_op, const char *a, const char *b)
 static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
-#ifdef TEST_APP_APPLE2
-    {   // ---- Apple IIe: two floppies and two slot 7 volumes
-        Prof p;
-        p.name = "apple2"; p.cfg = "/usb0/cores/apple2/apple2.cfg"; p.base = &apple2_desc;
-        p.make_io = [] { GIo *io = new GIo; io->regs[A2_CAPS2] = A2_CAPS2_BITS; return (CoreIo *)io; };
-        p.world = [](FakeFs &fs) {
-            for (const char *n : { "a", "b", "c", "d" }) fs.put(std::string("/usb0/") + n + ".dsk", Bytes(143360, (uint8_t)n[0]));
-            for (const char *n : { "h", "g", "i", "j" }) fs.put(std::string("/usb0/") + n + ".hdv", patt((uint32_t)n[0], 512 * 64));
-        };
-        p.prep = [](Run &r) { a2_state(&r.c)->have_diskrom = true; };
-        p.cases = { apple_drive(0), apple_drive(1), apple_unit(0), apple_unit(1) };
-        p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
-        v.push_back(p);
-    }
-#endif
 #if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {

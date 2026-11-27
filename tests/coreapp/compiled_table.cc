@@ -5,12 +5,6 @@
 #include "cores.h"
 extern const CoreDesc *const compiled_in_table[];   // a const array at namespace scope is internal unless declared extern: test_descgen.cc links it
 const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_APPLE2)
-// the Apple IIe's app is its own build (run.sh apple2app): its table is its core only
-#include "cores.h"
-extern const CoreDesc apple2_desc;   // cores.h lists the shared app's cores (cores/apple2/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &apple2_desc, 0 };
 #else
 #error "compiled_table.cc is the compiled-in table of a core's app: build it as that app (run.sh <core>app, TEST_APP_<CORE>); the shared table is empty (T239.3 D61)"
 #endif
