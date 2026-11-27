@@ -94,6 +94,16 @@ def core_lines(lines, w):
         for i, ln in enumerate(lines):
             if not ln.startswith(" ") and ('"$T/%s"' % tab.group(1)) in ln and i not in defs:
                 C.add(i)
+                # the script that defines the call's function goes with it when nothing else names that script
+                fn = ln.split()[0]
+                for k, s in enumerate(lines):
+                    m2 = re.match(r'^source "\$TST/(\S+)"', s)
+                    if not m2 or not re.search(r'^%s\(\)' % re.escape(fn), open(os.path.join(TST, m2.group(1))).read(), re.M):
+                        continue
+                    other = [j for j, t in enumerate(lines) if j != k and m2.group(1) in t]
+                    refs = [r for r in sh(["git", "grep", "-lwF", m2.group(1), "--", ".", ":!docs", ":!*.md"]).stdout.split() if r not in ("tests/coreapp/run.sh", "tests/coreapp/" + m2.group(1))]
+                    if not other and not refs:
+                        C.add(k)
     funcs = blocks(lines)
     infunc = {}
     for name, (a, b) in funcs.items():
@@ -220,7 +230,7 @@ def convert(cid, run=True, commit=False):
     words = set(re.findall(r'[\w.]+', moved_text))
     os.makedirs(dest, exist_ok=True)
     # 2. the files with the core's branches
-    with_macro = [f for f in git("grep", "-lw", macro, "--", "tests").split() if f.startswith("tests/coreapp/")]
+    with_macro = [f for f in sh(["git", "grep", "-lw", macro, "--", "tests"]).stdout.split() if f.startswith("tests/coreapp/")]
     others = set(re.findall(r'TEST_APP_\w+', "".join(open(os.path.join(ROOT, f)).read() for f in with_macro))) - {macro}
     copied = set()
     for f in with_macro:
@@ -291,7 +301,7 @@ def convert(cid, run=True, commit=False):
         r = sh(["bash", "-n", p])
         if r.returncode:
             raise Fail("bash -n %s: %s" % (p, r.stderr.strip()))
-    left = [l for l in git("grep", "-nw", macro, "--", "tests").splitlines() if not l.startswith("cores/")]
+    left = [l for l in sh(["git", "grep", "-nw", macro, "--", "tests"]).stdout.splitlines() if not l.startswith("cores/")]
     if any(not l.split(":", 2)[2].lstrip().startswith(("#", "//")) for l in left):
         raise Fail("%s still in code of a shared file: %s" % (macro, left[:3]))
     units = re.findall(r'^(?:\S+=\S*\s+)*%s\s+(?:run|control)\s+(\S+)' % re.escape(w["wrapper"]), "\n".join(out), re.M)
