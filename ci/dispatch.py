@@ -158,7 +158,7 @@ def main(argv):
         targets = ["host"] + targets
     owners = [] if docs else sim_owners(plan, tier)
     from_base = [c for c, _ in lanes if package and c not in cores]
-    out = {"from_base": from_base, "cores": cores, "lint_groups": [] if docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores],
+    out = {"from_base": from_base, "cores": cores, "lint_groups": [] if docs else ["tree", "sdk", "host"] + ["core:" + c for c in cores] + (["rtlchk"] if plan.get("rtlchk") else []),
            "lane_targets": targets, "cor_legs": cor_legs, "order_targets": [] if docs else O.order_cors(plan, True), "sim_owners": owners}
     for k, v in out.items():
         print("%s=%s" % (k, json.dumps(v, separators=(",", ":"))))

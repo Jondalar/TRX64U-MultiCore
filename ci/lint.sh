@@ -3,9 +3,9 @@
 # trx64-sim-env. Every check runs; the stage fails if one did.
 #
 #   ci/lint.sh                          every check (by hand; the matrix runs the groups)
-#   ci/lint.sh tree|sdk|host|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
+#   ci/lint.sh tree|sdk|host|rtlchk|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
 #                                       TODO and specs, versions), sdk = the SDK's lint (its tools, the API document, D24, the shared TOML B), host = the
-#                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports, the TOML A against the RTL)
+#                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports; the TOML A against the RTL is step 4 of the core lane, T264)
 #
 #  - shell: bash -n and shellcheck (errors only) over ci/, tools/, vivado/ and the benches
 #  - python: byte-compile and ruff's syntax/undefined-name rules (E9, F63, F7, F82)
@@ -25,7 +25,7 @@ cd "$ROOT"
 [ ! -d /cache/runs ] || find /cache/runs -mindepth 1 -maxdepth 1 -mtime +2 -exec rm -rf {} + || true
 
 LINT_GROUP="${1:-all}"
-case "$LINT_GROUP" in all|tree|sdk|host|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
+case "$LINT_GROUP" in all|tree|sdk|host|rtlchk|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host, rtlchk or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
 fails=()
 check() { # check <name> <command...>   a check of the full lint and of the lane tree (T239.5: the tree checks of every push are every check no other lane owns)
   case "$LINT_GROUP" in all|tree) ;; *) return 0 ;; esac
@@ -90,8 +90,9 @@ gcheck tree "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tr
 check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py --selftest >/dev/null && python3 tools/check_vivado_env.py'
 # T239.1 D1, S9: workflow rules (risky triggers with a secret or environment, the builds guard, permissions, SHA and digest pins, no self-hosted, no private repository name); the selftest plants one fault per rule
 check "workflow rules (T239.1 D1)" bash -c 'python3 -I tools/check_workflows.py --selftest >/dev/null && python3 -I tools/check_workflows.py'
+gcheck tree "toml_a_list fixtures (T264 S1: a Verilog and a VHDL decoder, a moved offset, a removed and an extra register)" python3 -I tests/toml_a_list/test_toml_a_list.py
 gcheck sdk "cor_pack test" python3 tools/test_cor_pack.py
-gcheck tree "rtl_check test, once per push (T239.3 D30, T264 S3: an optional tool; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
+gcheck rtlchk "rtl_check test (T239.3 D30; T264 S3: an optional tool, its group runs only when tools/rtl_check.py or tests/rtl_check change; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
 gcheck sdk "reverse lint: no literal I/O address in a library or base source (T239.3 D30, P2-6)" python3 -I tools/rtl_check.py lint-src app/lib app/sdkpkg/example coreapp/src --allow wsproto.cc:0x10325476u   # P2-6: coreapp/src too; the one literal is a hash initial word
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
