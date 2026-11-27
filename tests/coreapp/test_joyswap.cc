@@ -29,11 +29,7 @@ extern const CoreDesc c128_desc;         // cores.h lists the shared app's cores
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;          // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
-#endif
-#ifdef TEST_APP_ZXNEXT                   // the Next's app (run.sh zxnextapp) has its own core only
-#include "zxnext_regs.h"
-extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores; the ZX Spectrum Next is its own app (cores/zxnext/app/lib)
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)   // the A1200's, the Atari's, CPC's, C128's, Next's, Neo Geo's and Amiga 500's app have their own core only
 #endif
 #ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
@@ -66,8 +62,6 @@ int main()
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
-#elif defined(TEST_APP_ZXNEXT)
-        { &zxnext_desc, ZXN_JOY },
 #elif defined(TEST_APP_AMIGA)
         { &amiga_desc, AM_JOY_CFG },
 #elif defined(TEST_APP_CPC)

@@ -94,15 +94,12 @@ A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library
 source "$TST/own_drv.sh"
 source "$TST/nes_drv.sh"
 source "$TST/c264_drv.sh"
-source "$TST/zxnext_drv.sh"
 source "$TST/amiga_drv.sh"
 own_drv_dir atari800 "$T/a8tab" || { echo "coreapp: the Atari 800 XL's driver table was not generated" >&2; exit 1; }   # atari800_regs.h names the registers through it
 nes_drv_dir "$T/nestab" || { echo "coreapp: the NES's driver table was not generated" >&2; exit 1; }   # nes_regs.h names the registers through it
 c264_drv_dir "$T/c264tab" || { echo "coreapp: the Commodore 264's driver table was not generated" >&2; exit 1; }   # c264_regs.h names the registers through it
-zxnext_drv_dir "$T/zxnexttab" || { echo "coreapp: the ZX Spectrum Next's driver table was not generated" >&2; exit 1; }   # zxnext_regs.h names the registers through it
 amiga_drv_dir "$T/amigatab" || { echo "coreapp: the Amiga 500's driver table was not generated" >&2; exit 1; }   # amiga_regs.h names the registers through it
 AMLIB="$ROOT/cores/amiga/app/lib"   # T239.5 D15: the Amiga 500's library lives in its own repository part (cores/amiga/app/lib), not in coreapp/cores
-ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
 own_drv_dir snes "$T/snestab" || { echo "coreapp: the SNES's driver table was not generated" >&2; exit 1; }   # snes_regs.h names the registers through it
@@ -148,14 +145,10 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 # APPLIB puts its library first in the source lookup (no shared unit finds c264.cc: T239.5 D13, the 264's cases of the shared tests are its units, at the end of this file).
 INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_C264+=("$i"); done
-# The ZX Spectrum Next is its own app as well (T239.5 D15: cores/zxnext/app). zxnextapp CMD... builds like c264app, with the Next's library, its table and TEST_APP_ZXNEXT: its units are in the group zxnext.
-INC_ZXNEXT=(-DTEST_APP_ZXNEXT=1 -I"$ZXNLIB" -I"$T/zxnexttab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_ZXNEXT+=("$i"); done
 # The Amiga 500 is its own app as well (T239.5 D15: cores/amiga/app). amigaapp CMD... builds like neogeoapp, with the Amiga's library, its table and TEST_APP_AMIGA: its units are in the group amiga.
 INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_AMIGA+=("$i"); done
 amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
-zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext APPLIB="$ZXNLIB"; "$@"; }
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264 APPLIB="$C264LIB"; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
@@ -286,8 +279,6 @@ run startfile test_startfile.cc start.cc handover.cc $BASEL     # T230 P-2: the 
 run hostkey test_hostkey.cc start.cc handover.cc $BASEL
 # T115 7 H2: the pick by id (I1-I5)
 
-ZXN="zxnext.cc $BASEL"
-zxnextapp run zxnext test_zxnext.cc $ZXN
 
 
 ROMF="romfind.cc corefolder.cc sha256_cc.cc"
@@ -975,20 +966,6 @@ PY
 }
 if ca_in c264 && ca_unit c264_romreq; then t_romreq_c264; PASS=$((PASS + 1)); fi
 
-# T239.5 D15: the ZX Spectrum Next's units built as its app (zxnextapp: its library cores/zxnext/app/lib and its own table, the group zxnext) that are not above (zxnext) - the units its TOML B
-# (cores/zxnext/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zxnext.cc and the base's (no other core). The Next has no ROM: no romreq unit.
-# T239.5 D13: the Next's cases of the shared tests run here (TEST_APP_ZXNEXT): zxnext_desc (the descriptor checks, its golden menu, the places of its tasks), zxnext_hotkeys (S5, its default map),
-# zxnext_keywalk (every key of its menu: golden/keywalk_zxnext.txt, ids_zxnext.txt), zxnext_uicover (its declaration over the API), zxnext_joyswap and zxnext_memops; the shared units no longer link it.
-ZXND="desc_check.cc overlay.cc descrec.cc zxnext.cc $BASEL"
-ZXNM="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc"
-RARGS="$T/bundles/desc_own.bin" zxnextapp run zxnext_desc test_desc.cc $ZXND
-zxnextapp run zxnext_hotkeys test_hotkeys.cc $ZXND
-zxnextapp run zxnext_keywalk test_keywalk.cc $ZXNM instfiles.cc instcore.cc $ZXND
-zxnextapp run zxnext_uicover test_uicover.cc uiapp.cc $ZXNM $SVC $ZXND
-zxnextapp run zxnext_joyswap test_joyswap.cc $ZXND
-zxnextapp run zxnext_menuctl test_zxnext_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $ZXND
-zxnextapp run zxnext_memops test_memops.cc $SVC $ZXND
-RARGS="$BUN/app" zxnextapp run zxnext_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $ZXND
 
 
 # T239.5 D15: the Amiga 500's units built as its app (amigaapp: its library cores/amiga/app/lib and its own table, the group amiga): amiga500 (its record against the decode of its gateware), amiga_regset, amiga_rawkeys, amiga_ledload,

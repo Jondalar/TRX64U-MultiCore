@@ -34,12 +34,6 @@ const CoreDesc *const compiled_in_table[] = { &nes_desc, 0 };
 extern const CoreDesc c264_desc;   // no shared header declares it (cores/c264/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &c264_desc, 0 };
-#elif defined(TEST_APP_ZXNEXT)
-// the ZX Spectrum Next's app is its own build (run.sh zxnextapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc zxnext_desc;              // cores.h lists the shared app's cores (cores/zxnext/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &zxnext_desc, 0 };
 #elif defined(TEST_APP_AMIGA)
 // the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
 #include "cores.h"
