@@ -73,8 +73,9 @@ _TEXT_ALLOW = (
     ("a struct member or variable (in.local, x.local, r.box) that has the shape of a host name", "internal host", (
         "coreapp/src/uiapp.cc", "host-app/software/hostapp/hostdomain.cc", "host-app/software/hostapp/hostui.cc", "tests/uicore/test_uicore.cc",
         "uicore/uic_net.cc", "uicore/uic_svc.cc")),
-    ("host names of an example URL in a unit test (nas.local) and of the lwIP sources (hostname.local, msg.ad.local)", "internal host", (
-        "tests/coreapp/test_corereport.cc", "tests/coreapp/test_ftp.cc", "vendor/gideon/software/lwip/src/apps/mdns/mdns_out.c",
+    ("host names of an example URL in a unit test (nas.local; the core copies of test_corereport.cc, T239 D17) and of the lwIP sources (hostname.local, msg.ad.local)", "internal host", (
+        "tests/coreapp/test_corereport.cc", "cores/amiga/app/tests/test_corereport.cc", "cores/apple2/app/tests/test_corereport.cc",
+        "tests/coreapp/test_ftp.cc", "vendor/gideon/software/lwip/src/apps/mdns/mdns_out.c",
         "vendor/gideon/software/lwip/src/api/api_msg.c")),
     ("a redaction test: user:password@host of an example FTP URL", "login on an internal host", ("tests/hostapp/test_report.cc",)),
     ("the obfuscated contact line of the stb_image author (name@company, no dot)", "login on an internal host",
