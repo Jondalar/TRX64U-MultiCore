@@ -286,10 +286,15 @@ layer_shared_key() {
 
 # host_key <part> [layers file]: D3 as amended in section 5 (run 400): the host files, the REFERENCE core's key (the static is routed together with the reference core, and its partial comes out of that very run), the host build options (the blocks that
 # live in the host, the placer/router knobs), part and Vivado. Nothing of a core section.
+# HOST_KEY_EPOCH (T239.5 §5, 2026-11-26): part of every host key, and through core_key of every partial core's. The builds repository's releases are
+# immutable: an entry published broken (run 45912176758: host 35da0749, core c64ref and null published with an empty `from` and a manifest that names it)
+# can be neither mended nor published again under its tag. Counting this up gives the host and every partial core new keys, so they are built and
+# published anew; no gateware changes. The large cores' keys (mono_key) do not hold it.
+HOST_KEY_EPOCH=2
 host_key() {
   local lf="${2:-$ROOT/host/layers.txt}" specs l
   specs=(); while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$lf" host)
-  KEY_EXTRA="host ref-core=$(layer_reference "$lf"):$(ooc_key "$1" "$(layer_reference "$lf")" "$lf") shared=$(layer_shared_key "$lf") $1 vivado-env:2024.1 $(feat_state uci jtag streams)t79=${T79_PLACE:-}/${T79_ROUTE:-}/${T79_NO_DFX:-}/${T79_FLOOR:-}" tree_key "${specs[@]}"
+  KEY_EXTRA="host epoch=$HOST_KEY_EPOCH ref-core=$(layer_reference "$lf"):$(ooc_key "$1" "$(layer_reference "$lf")" "$lf") shared=$(layer_shared_key "$lf") $1 vivado-env:2024.1 $(feat_state uci jtag streams)t79=${T79_PLACE:-}/${T79_ROUTE:-}/${T79_NO_DFX:-}/${T79_FLOOR:-}" tree_key "${specs[@]}"
 }
 # ooc_key <part> <core> [layers file]: D4. That core's files, the options that change its
 # netlist (SID, slot, the blocks that live in the core), part and Vivado. No host in it.
