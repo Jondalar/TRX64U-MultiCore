@@ -31,10 +31,6 @@ const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
 #define KW_GOLDEN "_atari800"
-#elif defined(TEST_APP_C264)             // the Commodore 264's app is its own build (run.sh c264app): its table is its core only, its walk has goldens of its own
-extern const CoreDesc c264_desc;         // no shared header declares it (cores/c264/app/lib holds this one)
-const CoreDesc *const core_table[] = { &c264_desc, 0 };
-#define KW_GOLDEN "_c264"
 #elif defined(TEST_APP_AMIGA)            // the Amiga 500's app (run.sh amigaapp, the unit amiga_keywalk): its table is its core only, its rows are golden/keywalk_amiga.txt and ids_amiga.txt
 extern const CoreDesc amiga_desc;        // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };

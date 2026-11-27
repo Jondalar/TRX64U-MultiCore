@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_C264) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
 #if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_ATARI800) || defined(TEST_APP_NES) || defined(TEST_APP_APPLE2) || defined(TEST_APP_SNES)
@@ -41,10 +41,6 @@
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_C264
-#include "c264_regs.h"
-extern const CoreDesc c264_desc;                // the Commodore 264 is its own app (cores/c264/app/lib): no shared header declares it
-#endif
 #ifdef TEST_APP_ATARI800         // the Atari's cases (D1-D4, the cartridge, the .xex): its app (run.sh a8app, the unit a8_mounts)
 #include "atari800_regs.h"
 #endif
@@ -60,8 +56,6 @@ extern const CoreDesc c264_desc;                // the Commodore 264 is its own 
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_C264)
-const CoreDesc *const core_table[] = { &c264_desc, 0 };
 #elif defined(TEST_APP_ZX)
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
@@ -533,8 +527,6 @@ static std::vector<Prof> profiles()
 #if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
-#elif defined(TEST_APP_C264)
-    for (int k = 2; k < 3; k++) {
 #elif defined(TEST_APP_C128)
     for (int k = 1; k < 2; k++) {
 #endif
@@ -543,9 +535,6 @@ static std::vector<Prof> profiles()
 #ifdef TEST_APP_VC20
         const CoreDesc *d = &vc20_desc;
         p.name = "vc20";
-#elif defined(TEST_APP_C264)
-        const CoreDesc *d = &c264_desc;
-        p.name = "c264";
 #elif defined(TEST_APP_C128)
         const CoreDesc *d = &c128_desc;
         p.name = "c128";
@@ -559,16 +548,6 @@ static std::vector<Prof> profiles()
         };
         p.cases = { cbm_drive() };
         if (k == 2) {
-#ifdef TEST_APP_C264                   // the 264's cartridge image: its app's
-            Case cart;
-            cart.key = "Mount Cartridge";
-            cart.a = "/usb0/a.bin";
-            cart.b = "/usb0/b.bin";
-            cart.mount = [](Run &r, const std::string &path, char *m, int n) { return mount_op(r, "c264.cart_load", { in_str("path", path.c_str()) }, m, n); };
-            cart.eject = [](Run &r, char *m, int n) { return mount_op(r, "c264.cart_eject", {}, m, n); };
-            p.cases.push_back(cart);
-            p.watch = { { [](CoreIo *io) { return (uint32_t)io->rd(C264_CART); }, 1, "the 16 KB cartridge image's bit set in the core before the release" } };
-#endif
         }
         v.push_back(p);
     }
@@ -1006,32 +985,6 @@ static void cpc_464(const Prof &p)
 }
 
 #endif
-#ifdef TEST_APP_C264
-// the C264 cartridge is a Plus/4 thing: restoring one sets the model, applied before the release
-static void c264_model(const Prof &p)
-{
-    char msg[240];
-    FakeFs fs;
-    p.world(fs);
-    {
-        Run a(fs, p);
-        a.set(PERSIST_KEY, "Yes");
-        a.boot();
-        CHECK_EQ(p.cases[1].mount(a, p.cases[1].a, msg, sizeof(msg)), 0);
-    }
-    {
-        Run b(fs, p);
-        CHECK_EQ(b.set("Model (at next reset)", "C16 / C116"), OPE_OK);
-        int mi = b.st->find("Model (at next reset)");
-        CHECK_EQ(b.st->value(mi), 0);
-        b.boot();
-        CHECK_STR(b.spec(1).c_str(), "/usb0/a.bin");
-        CHECK_EQ(b.st->value(mi), 1);
-    }
-    printf("c264: the restored cartridge sets the Plus/4 model\n");
-}
-
-#endif
 #ifdef MME_GAME
 // a game core's set that leaves the cartridge empty: nothing to run, no reset, the message says so
 static void game_empty_set(const Prof &p)
@@ -1076,9 +1029,6 @@ int main()
     }
 #ifdef TEST_APP_VC20
     drive_modes(prof(profs, "vc20"));
-#elif defined(TEST_APP_C264)
-    drive_modes(prof(profs, "c264"));
-    c264_model(prof(profs, "c264"));
 #elif defined(TEST_APP_ZX)
                                                        // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
 #elif defined(TEST_APP_CPC)
