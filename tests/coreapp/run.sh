@@ -118,7 +118,10 @@ VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip code, one source for the board image of unzip.u2a (T239.3 D60) and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "${CORE_TESTS:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+# T239 D17: a core's tests live in its folder (cores/<id>/app/tests, moved there by tools/tests_to_core.py): its app's wrapper sets CORE_TESTS, and a test program or a
+# source found there wins over the shared one of the same name (find_src above, tpath here) for the units of that app
+tpath() { if [ -n "${CORE_TESTS:-}" ] && [ -f "$CORE_TESTS/$1" ]; then echo "$CORE_TESTS/$1"; else echo "$TST/$1"; fi; }
 # the driver table the shared app is linked with (T239.3 D31): the drive library (d1541_drive.cc) and the SID library (resid8.cc) name their registers through it
 # T239.5 D13: the shared units use no core that moved to its own app (each runs in its app's group), so their table is the shared app's TOML A alone, its base blocks with it
 python3 "$ROOT/tools/descrec.py" drivers "$ROOT/coreapp/gateware/shared.toml" "$T/drv" --maps "$ROOT/app/sdkpkg/maps" > /dev/null || { echo "coreapp: the driver table of the shared units was not generated" >&2; exit 1; }
@@ -216,10 +219,10 @@ run() {   # run NAME TEST.cc SRC...
   grp="$(ca_group "$test" "$@")"; ca_in "$grp" || return 0
   ca_unit "$name" || return 0
   CA_CUR_GROUP="$grp" CA_CUR_NAME="$name"
-  key="$(cc_key coreapp "test $name $test $* ${RARGS:-}" --runargs "${RARGS:-}" -- $FLAGS "${INC[@]}" -- "$TST/$test" ${srcs[@]+"${srcs[@]}"})"
+  key="$(cc_key coreapp "test $name $test $* ${RARGS:-}" --runargs "${RARGS:-}" -- $FLAGS "${INC[@]}" -- "$(tpath "$test")" ${srcs[@]+"${srcs[@]}"})"
   [ -z "${UPDATE_GOLDEN:-}${FH_ONLY:-}" ] || key=""   # a run that writes goldens or runs a part of a test proves nothing for the next one
   if cc_cached "$name" "$key" test; then PASS=$((PASS + 1)); return 0; fi
-  build "$T/$name" "$TST/$test" "$@"
+  build "$T/$name" "$(tpath "$test")" "$@"
   cc_exec "$T/rl_$name" "$T/$name" ${RARGS:-}
   echo "test $name: PASS $((SECONDS - t0))s"
   cc_store "$name" "$key" "$T/rl_$name" test
@@ -233,7 +236,7 @@ control_job() {
   # T100 D13: the key is made of the unmutated tree's dependency list (the mutated file is in it) and the sed itself
   local key srcs=() s; for s in "$@"; do srcs+=("$(find_src "$s")"); done
   CA_CUR_GROUP="$(ca_group "$test" "$@")" CA_CUR_NAME="$name"
-  key="$(cc_key coreapp "control $name $file $expr $test $* ${CARGS:-}" --runargs "${CARGS:-}" -- $FLAGS "${INC[@]}" -- "$TST/$test" ${srcs[@]+"${srcs[@]}"})"
+  key="$(cc_key coreapp "control $name $file $expr $test $* ${CARGS:-}" --runargs "${CARGS:-}" -- $FLAGS "${INC[@]}" -- "$(tpath "$test")" ${srcs[@]+"${srcs[@]}"})"
   if cc_cached "$name" "$key"; then return 0; fi
   local d="$JOBDIR/mut"; mkdir -p "$d"
   cp "$SRC"/* "$d"/ 2>/dev/null || true
@@ -250,7 +253,7 @@ control_job() {
   # difference only showed when this suite started running in CI (run 54)
   sed -e "$expr" "$d/$file" > "$d/$file.sed" && mv "$d/$file.sed" "$d/$file"
   if cmp -s "$d/$file" "$(find_src "$file")"; then echo "CONTROL $name: the sed expression changed nothing - the control is vacuous" >&2; exit 1; fi
-  MUTDIR="$d" build "$JOBDIR/x" "$TST/$test" "$@" || { echo "CONTROL $name: the mutant does not build" >&2; exit 1; }
+  MUTDIR="$d" build "$JOBDIR/x" "$(tpath "$test")" "$@" || { echo "CONTROL $name: the mutant does not build" >&2; exit 1; }
   # A control writes no golden file. Without this, UPDATE_GOLDEN=1 on a full run lets the broken build
   # overwrite the golden with its own output and the next run is green against a wrong file. The
   # variable has to be removed, not emptied: the test asks getenv(), and an empty value is still a
@@ -1487,3 +1490,6 @@ PY
   return 0
 }
 if ca_in c64scpu && ca_unit c64scpu_romreq; then t_romreq_c64scpu; PASS=$((PASS + 1)); fi
+# T239 D17: the units of every core whose tests live in its own folder (cores/<id>/app/tests/units.sh, tools/tests_to_core.py): its app's wrapper, include path, driver table and
+# units, sourced here, after every variable of the shared units is set
+for f in "$ROOT"/cores/*/app/tests/units.sh; do if [ -f "$f" ]; then source "$f"; fi; done
