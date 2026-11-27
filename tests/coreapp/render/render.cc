@@ -2966,6 +2966,86 @@ int main(int argc, char **argv)
         }
     }
 
+    {   // T260 fix (Rick and Alex, 2026-11-27: about 2 s per key in the diag core's A/V panel, an edit list over the veil): the card of an edit list stays.
+        // RIGHT on a row changes the pixels of that row only, DOWN those of two rows, END scrolls the window by retexting the rows and the "a-b of n" label;
+        // none of them builds the card again (ui_dialog_inplace counts the keys served in place).
+        static HostOs dos;
+        AppDlg dlg(&dos, &r.fs);
+        static DlgRow erows[24];
+        for (int k = 0; k < 24; k++) {
+            snprintf(erows[k].label, sizeof(erows[k].label), "knob_%02d", k);
+            snprintf(erows[k].value, sizeof(erows[k].value), "%d", 100 + k);
+            erows[k].action = k >= 22;                                    // Load preset, Save preset: no value
+        }
+        void (*cb)(void *, int, int) = [](void *, int row, int key) {
+            int v = atoi(erows[row].value) + (key == DLG_EDIT_LEFT ? -1 : 1);
+            snprintf(erows[row].value, sizeof(erows[row].value), "%d", v);
+        };
+        std::atomic<bool> done(false);
+        int ans = -9;
+        std::thread worker([&] { ans = dlg.edit_list("A/V out", "LEFT / RIGHT change a row", erows, 24, 0, cb, nullptr); done = true; });
+        for (int i = 0; i < 3000 && !dlg.open(); i++) {
+            dlg.service();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        CHECK(dlg.open());
+        dlg.service();
+        ui_dialog_render(dlg);
+        lv_timer_handler();
+        snprintf(p, sizeof(p), "%s/edit-list_0.png", out);
+        png(p, 2);
+        static uint16_t before[960 * 540];
+        auto changed = [&](int *y0, int *y1) {                            // the pixels that differ from `before`, and the lines they lie between
+            size_t n = 0;
+            *y0 = 540;
+            *y1 = -1;
+            for (int y = 0; y < 540; y++) {
+                for (int x = 0; x < 960; x++) {
+                    if (fb[y * 960 + x] != before[y * 960 + x]) {
+                        n++;
+                        *y0 = y < *y0 ? y : *y0;
+                        *y1 = y > *y1 ? y : *y1;
+                    }
+                }
+            }
+            return n;
+        };
+        auto press = [&](int key) {
+            memcpy(before, fb, sizeof(before));
+            dlg.take_key(key);
+            dlg.service();
+            ui_dialog_render(dlg);
+            lv_timer_handler();
+        };
+        const int rh = trx_row_h() + 1;
+        const uint32_t in0 = ui_dialog_inplace();
+        int y0, y1;
+        press(KEY_RIGHT);
+        CHECK(dlg.view().row_val[0] && !strcmp(dlg.view().row_val[0], "101"));
+        size_t n = changed(&y0, &y1);
+        CHECK(n > 0 && y1 - y0 < rh);                                     // one row
+        CHECK(ui_dialog_inplace() == in0 + 1);
+        press(KEY_DOWN);
+        n = changed(&y0, &y1);
+        CHECK(n > 0 && y1 - y0 < 2 * rh);                                 // the row left and the row selected
+        CHECK(ui_dialog_inplace() == in0 + 2);
+        press(KEY_END);                                                    // the window moves to the last rows when the card cannot show all 24
+        CHECK(dlg.view().sel == 23);
+        CHECK(ui_dialog_inplace() == in0 + 3);
+        snprintf(p, sizeof(p), "%s/edit-list_1.png", out);
+        png(p, 2);
+        printf("edit list: %d of 24 rows shown, 3 keys in place, RIGHT changed %zu px\n", dlg.view().rows, n);
+        dlg.take_key(KEY_ESCAPE);
+        for (int i = 0; i < 3000 && !done; i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        worker.join();
+        CHECK(ans == -1);
+        dlg.service();
+        ui_dialog_render(dlg);
+        lv_timer_handler();
+    }
+
     {   // T167 S4: the menu's own job display (a new image written in steps: "Building the image", NN %). The row is in the pane, not an overlay, but it is redrawn the
         // same way: every tick changes its text, and no state between two draw tasks may hold a pixel that is not the pane's own (the rows of the old and the new picture,
         // the pane colour). The probe watches the rows of the pane.
