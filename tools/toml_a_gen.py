@@ -141,7 +141,8 @@ def blank_comments(t, vhdl):
 
 
 def scan_tokens(body, vhdl):
-    """[(start, end, window address of the token's first byte, shift)] of the literals the decode compares the offset with (case choices and `off == lit`)."""
+    """[(start, end, window address of the token's first byte, shift, kind, span)] of the literals the decode compares the offset with: case choices ('case'),
+    `off == lit` ('cmp'), the bounds of `off >= lo && off < hi` ('lo', 'hi': span = hi - lo) and the base of `off - lit` ('sub')."""
     al = T.aliases(body)
     default = 0
     for n, p in al.items():
@@ -151,16 +152,26 @@ def scan_tokens(body, vhdl):
     for sel, sh, ch, at, toks in (T.case_blocks_vhdl(body) if vhdl else T.case_blocks_v(body)):
         pg = T.guard_page(body[max(0, at - 400):at], al, default)
         for v, s, e in toks:
-            out.append((s, e, (pg << 12) | (v << sh), sh))
+            out.append((s, e, (pg << 12) | (v << sh), sh, "case", 0))
     cmp_re = r"\b(\w*off\w*)\s*(?:\[\s*(\d+)\s*:\s*(\d+)\s*\])?\s*%s\s*(%s)" % ("=" if vhdl else "==", T.LIT)
+    def page_at(pos):
+        ls = body.rfind("\n", 0, pos) + 1
+        pg = T.guard_page(body[ls:pos], al, None)
+        return default if pg is None else pg
     for m in re.finditer(cmp_re, body):
         v = T.num(m.group(4))
         if v is None or (m.group(2) and int(m.group(2)) != 11):
             continue
-        ls = body.rfind("\n", 0, m.start()) + 1
-        pg = T.guard_page(body[ls:m.start()], al, None)
         lo = int(m.group(3)) if m.group(3) else 0
-        out.append((m.start(4), m.end(4), ((default if pg is None else pg) << 12) | (v << lo), lo))
+        out.append((m.start(4), m.end(4), (page_at(m.start()) << 12) | (v << lo), lo, "cmp", 0))
+    rg = r"\b\w*off\w*\s*>=\s*(%s)\s*(?:&&|and)\s*\w*off\w*\s*(<|<=)\s*(%s)" % (T.LIT, T.LIT)
+    for m in re.finditer(rg, body):
+        lo, hi = T.num(m.group(1)), T.num(m.group(3)) + (1 if m.group(2) == "<=" else 0)
+        pg = page_at(m.start())
+        out.append((m.start(1), m.end(1), (pg << 12) | lo, 0, "lo", hi - lo))
+        out.append((m.start(3), m.end(3), (pg << 12) | lo, 0, "hi", hi - lo))
+    for m in re.finditer(r"\b\w*off\w*\s*-\s*(%s)" % T.LIT, body):
+        out.append((m.start(1), m.end(1), (page_at(m.start()) << 12) | T.num(m.group(1)), 0, "sub", 0))
     return sorted(out)
 
 
@@ -175,26 +186,36 @@ def cmd_convert(core, toml_a=None, srcdir=None):
         bmap = {}
         for n, off, bytes_ in consts:
             for a, d in bytes_:
-                bmap.setdefault(a & 0xFFF | ((a >> 12) << 12), (n, d))
+                bmap.setdefault(a, (n, d))
         r = region(text)
         blank = blank_comments(text, vhdl)
         blank = blank[:r.start()] + re.sub(r"[^\n]", " ", blank[r.start():r.end()]) + blank[r.end():]
         edits, miss = [], []
-        for s, e, a0, sh in scan_tokens(blank, vhdl):
+        for s, e, a0, sh, kind, span in scan_tokens(blank, vhdl):
             cand = [a0 + i for i in range(1 << sh) if a0 + i in bmap]
             if not cand:
                 miss.append((s, text[s:e]))
                 continue
             n, d = bmap[cand[0]]
+            if kind == "hi":
+                d += span
             if sh:
-                rep = "(%s + %d) >> %d" % (n, d, sh) if not vhdl else None
+                rep = None if vhdl else "(%s + %d) >> %d" % (n, d, sh)
+            elif d == 0:
+                rep = n
             else:
-                rep = n if d == 0 else (("%s + %d" % (n, d)) if vhdl else ("%s + 12'd%d" % (n, d)))
+                rep = ("%s + %d" % (n, d)) if vhdl else ("%s + 12'd%d" % (n, d))
+                if kind == "sub":
+                    rep = "(%s)" % rep
             if rep is None:
                 miss.append((s, text[s:e]))
                 continue
             edits.append((s, e, rep))
+        seen = set()
         for s, e, rep in reversed(edits):
+            if s in seen:
+                continue
+            seen.add(s)
             text = text[:s] + rep + text[e:]
         open(path, "w").write(text)
         left += len(miss)
