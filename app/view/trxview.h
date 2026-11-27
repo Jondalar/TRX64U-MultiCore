@@ -28,7 +28,7 @@ struct TrxTheme {
 };
 
 // T164 D10a: the canvas the view is laid out on. 960 x 540 (trx_compact() false), or the mode's own size when the mode is narrower than 960
-// (trx_canvas_for in trxcanvas.h): then the shell has a narrower rail and thinner bars and every caller lays out for the width it is given
+// (576p: 720 x 540, T259 D17; trx_canvas_for in trxcanvas.h): then the shell has a narrower rail and thinner bars and every caller lays out for the width it is given
 // (trx_canvas_w / _h). The caller builds the frame again after a change (trx_shell_forget()).
 void trx_canvas_set(int w, int h);
 int trx_canvas_w(void);
