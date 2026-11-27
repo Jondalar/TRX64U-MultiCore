@@ -600,8 +600,6 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
 #elif defined(TEST_APP_APPLE2)
     std::ifstream idx((dir + "/index_app_apple2.txt").c_str());
-#elif defined(TEST_APP_AMIGA)
-    std::ifstream idx((dir + "/index_app_amiga.txt").c_str());
 #elif defined(TEST_APP_DDT)
     std::ifstream idx((dir + "/index_app_ddt_novic.txt").c_str());
 #else

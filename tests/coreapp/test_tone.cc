@@ -12,9 +12,6 @@
 #include "ops_glue.h"
 #include "volume.h"
 #include "tone.h"
-#ifdef TEST_APP_AMIGA
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
-#endif
 
 struct Rig {
     FakeIo io; FakeFs fs; CoreCtx c; Settings *st;
@@ -44,9 +41,5 @@ static void set_tone(Rig &r, const char *value)
 
 int main()
 {
-#ifdef TEST_APP_AMIGA
-    // T239.5 D13: the Amiga 500's case of this file runs as its app (run.sh amigaapp, unit amiga_tone); the shared unit tone keeps the others
-    CHECK_EQ(count_key(amiga_desc, TONE_KEY), 0);                    // no descriptor declares it: the application adds it
-#endif
     DONE("test_tone");
 }

@@ -11,13 +11,10 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#ifdef TEST_APP_AMIGA
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
-#endif
 #ifdef TEST_APP_DDT
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -28,8 +25,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
-#elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp): its core is the only one in its table
-const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #define HEX_CORE ddt_novic_desc
@@ -101,8 +96,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
 #elif defined(TEST_APP_A1200)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
-#elif defined(TEST_APP_AMIGA)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &amiga_desc, 0xFFFFFF } };
 #elif defined(TEST_APP_DDT)
     struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #else
@@ -141,7 +134,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -157,15 +150,7 @@ int main()
     // ---- the ZX Spectrum Next: the unit zxnext_memops (its app); the cores whose memory the application cannot reach are their apps' units (nes_memops, amiga_memops,
     // diag_memops, ...): the shared table has none left (T239.5 D13)
 #endif
-#if   defined(TEST_APP_AMIGA)
-    // ---- the Amiga 500's memory is not reachable by the application: it says so, and why
-    {
-        Rig r(&amiga_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-#elif defined(TEST_APP_A1200)
+#if   defined(TEST_APP_A1200)
     // ---- the A1200's memory is not reachable by the application: it says so, and why
     {
         Rig r(&amiga1200_desc);

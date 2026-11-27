@@ -14,15 +14,11 @@
 #include "desc_check.h"
 #include "listgrow.h"
 #include "settings.h"
-#ifdef TEST_APP_AMIGA
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib): its build has its core only
-#elif defined(TEST_APP_APPLE2)
+#if   defined(TEST_APP_APPLE2)
 extern const CoreDesc apple2_desc;              // the Apple IIe is its own app (cores/apple2/app/lib): its build has its core only (T239.3 D61)
 #endif
 
-#ifdef TEST_APP_AMIGA
-const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, 0 };
-#elif defined(TEST_APP_APPLE2)
+#if   defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &testcore::desc, &apple2_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };
@@ -122,27 +118,7 @@ static bool fake_edid(uint8_t *buf, int max, int *len)
 
 int main()
 {
-#ifdef TEST_APP_AMIGA
-    // ---- D3 in the real descriptors: the Amiga 500's (T239.5 D13: run as its app, run.sh amigaapp, unit amiga_corereport; the shared unit corereport keeps the Apple IIe's)
-    {
-        const CoreDesc *real[] = { &amiga_desc };
-        for (const CoreDesc *d : real) {
-            CHECK(d->nreport_regs > 0 && d->report_regs);
-            CHECK(!desc_check(d));
-        }
-        // a malformed list is refused by the check
-        CoreDesc d = amiga_desc;
-        static const ReportReg odd[] = { { "three", 0x10, 3 } };
-        d.report_regs = odd; d.nreport_regs = 1;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg unnamed[] = { { "", 0x10, 1 } };
-        d.report_regs = unnamed;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-        static const ReportReg far_[] = { { "far", 0xFFE, 4 } };
-        d.report_regs = far_;
-        CHECK(desc_check(&d) && strstr(desc_check(&d), "report_regs"));
-    }
-#elif defined(TEST_APP_APPLE2)
+#if   defined(TEST_APP_APPLE2)
     // the Apple IIe's cases (T239.3 D61: run as its app, run.sh apple2app, unit apple2_corereport; the shared unit corereport has the test core's)
     // ---- D3 in the real descriptors ---------------------------------------------------------------------------------------------------------------
     {

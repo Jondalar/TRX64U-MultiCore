@@ -18,13 +18,10 @@
 #include "ops_glue.h"
 #include "engines.h"
 #include "mediamounts.h"
-#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
+#if defined(TEST_APP_A1200)          // the two Amiga apps (run.sh a12app with its shim, amigaapp); T239.5 D13: the shared unit has no Amiga
 #include "amiga_regs.h"
 #endif
 #include "record_menu.h"
-#ifdef TEST_APP_AMIGA
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
-#endif
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
@@ -38,8 +35,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #elif defined(TEST_APP_DDT)             // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp) with its core only
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
-#elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
-const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -184,10 +179,6 @@ int main(int, char **argv)
         static const Mi want[1] = { { "", "" } };                          // DDT Look Ma, No VIC has no setting, so no machine line: nothing to find (the count below is skipped)
         static const char *const none[] = { "DDT Look Ma, No VIC" };
         const int n_none = 1;
-#elif defined(TEST_APP_AMIGA)
-        static const Mi want[] = { { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
-        static const char *const none[1] = { 0 };
-        const int n_none = 0;
 #elif defined(TEST_APP_APPLE2)
         static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
         static const char *const none[] = { "Apple IIe" };
@@ -272,8 +263,6 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
 #elif defined(TEST_APP_DDT)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
-#elif defined(TEST_APP_AMIGA)
-        CHECK(seen_cbm == 0 && seen_other == 1);                    // the walk saw the A500's ADF (Mount DF0 and reset), no CBM image (the HDF has nothing to run)
 #elif defined(TEST_APP_APPLE2)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
 #else
@@ -391,8 +380,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_DDT)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_AMIGA)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
         CHECK(n205 == 1);
 #else
@@ -410,8 +397,6 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_DDT)
         static const char *const own[] = { 0 };                              // DDT has no medium
-#elif defined(TEST_APP_AMIGA)
-        static const char *const own[] = { 0 };                              // the A500's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_APPLE2)
         static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
 #else
@@ -440,7 +425,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -653,7 +638,7 @@ int main(int, char **argv)
     CHECK(!desc_has_capability(&apple2_desc, "sio") && !desc_has_capability(&apple2_desc, "iec") && !desc_has_capability(&apple2_desc, "cartridge") && !desc_has_capability(&apple2_desc, "drive_a"));
 #else
 
-#if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
+#if defined(TEST_APP_A1200)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
     {
 #ifdef TEST_APP_A1200
@@ -803,7 +788,6 @@ int main(int, char **argv)
 #endif
     }
 #endif
-#ifndef TEST_APP_AMIGA
 
 
     // T104.2 D10: tasks, media and settings name a group, a tab lists groups, an information tab names its lines - two tabs of one widget keep their entries apart
@@ -834,7 +818,6 @@ int main(int, char **argv)
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Core\n    info Media\n") == std::string::npos);      // the lines come in the order the tab names them ...
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Media\n    info Core\n") != std::string::npos);      // ... and no others
     }
-#endif
 
 #endif
     // golden menu lists
@@ -844,8 +827,6 @@ int main(int, char **argv)
     golden(&amiga1200_desc, "amiga1200");
 #elif defined(TEST_APP_DDT)
     golden(&ddt_novic_desc, "ddt_novic");
-#elif defined(TEST_APP_AMIGA)
-    golden(&amiga_desc, "amiga");
 #elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
 #else
@@ -906,7 +887,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

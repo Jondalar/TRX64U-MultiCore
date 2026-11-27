@@ -3,13 +3,9 @@
 #include <string>
 #include "check.h"
 #include "fakes.h"
-#ifdef TEST_APP_AMIGA                    // T239.5 D13: the Amiga 500's case (the Kickstart set) runs as its app (run.sh amigaapp, unit amiga_corefolder); the shared unit corefolder keeps S1-S4
-#include "amiga_model.h"
-#else
 #include "ctx.h"
 #include "cores.h"
 #include "video.h"
-#endif
 #include "corefolder.h"
 #include "romfind.h"
 #include "romset.h"
@@ -55,7 +51,6 @@ static RomStatus start_scan(CoreFs *fs, const char *cor, RomResult *res, char *s
 
 int main()
 {
-#ifndef TEST_APP_AMIGA
     char b[260];
     RomResult res[2];
     char sum[300];
@@ -254,37 +249,5 @@ int main()
         CHECK(strstr(sum, "roms/dummy800") != 0);
     }
 
-#else
-    // ---- the ROM set (Kickstart): the core folder alone, copied from the old places by extension and size, never from the shared folder
-    {
-        AmigaRig *r;
-        FakeFs fs;
-        r = new AmigaRig(&fs, &amiga_desc);
-        Video v(amiga_desc.video, &r->px, &r->io);
-        r->c.video = &v;
-        strcpy(r->c.cor_path, "/SD/cores/amiga.cor");
-        std::vector<uint8_t> k(262144, 0x13);
-        k[0] = 0x11; k[1] = 0x11; k[12] = 0; k[13] = 34; k[14] = 0; k[15] = 5;
-        fs.put("/usb0/roms/amiga/kick13.rom", k);
-        fs.put("/SD/cores/roms/apple2e-video.rom", std::vector<uint8_t>(262144, 7));    // the shared folder of the 2026-10-28 case
-        char s[240];
-        CHECK_EQ(romset_scan(&r->c, s, sizeof(s)), ROM_FOUND);
-        CHECK_STR(r->c.eng->rs.dir, "/SD/cores/amiga/roms");
-        CHECK_EQ(r->c.eng->rs.count, 1);
-        CHECK_STR(r->c.eng->rs.m[0].name, "kick13.rom");
-        CHECK(fs.files["/sd/cores/amiga/roms/kick13.rom"] == k);
-        CHECK(!fs.has("/SD/cores/amiga/roms/apple2e-video.rom"));
-        // only the shared folder: never taken
-        FakeFs f2;
-        AmigaRig *r2 = new AmigaRig(&f2, &amiga_desc);
-        Video v2(amiga_desc.video, &r2->px, &r2->io);
-        r2->c.video = &v2;
-        strcpy(r2->c.cor_path, "/SD/cores/amiga.cor");
-        f2.put("/SD/cores/roms/kick13.rom", k);
-        f2.put("/SD/cores/roms/apple2e-video.rom", std::vector<uint8_t>(262144, 7));
-        CHECK_EQ(romset_scan(&r2->c, s, sizeof(s)), ROM_MISSING);
-        CHECK(strstr(s, "/SD/cores/amiga/roms/") != 0 && !strstr(s, "/usb"));
-    }
-#endif
     DONE("test_corefolder");
 }

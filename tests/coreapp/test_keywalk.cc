@@ -24,10 +24,6 @@ struct Host : MenuHost {
 extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #define KW_GOLDEN "_apple2"
-#elif defined(TEST_APP_AMIGA)            // the Amiga 500's app (run.sh amigaapp, the unit amiga_keywalk): its table is its core only, its rows are golden/keywalk_amiga.txt and ids_amiga.txt
-extern const CoreDesc amiga_desc;        // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
-const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#define KW_GOLDEN "_amiga"
 #elif defined(TEST_APP_DDT)              // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_keywalk): its table is its core only, its rows are golden/keywalk_ddt_novic.txt and ids_ddt_novic.txt
 extern const CoreDesc ddt_novic_desc;    // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };

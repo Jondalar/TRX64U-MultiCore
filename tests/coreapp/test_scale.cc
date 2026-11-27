@@ -37,11 +37,6 @@ int video_gateware_row(void) { return g_gw_row; }
 // and the Atari (its own app, a8_scale) drop out
 #define SC_REC amiga1200_desc
 const CoreDesc *const core_table[] = { &amiga1200_desc, &testcore::desc, 0 };
-#elif defined(TEST_APP_AMIGA)
-// T239.5 D13: built as the Amiga 500's app (amiga_scale): its record is the frame-buffer core of the same cases; the shared unit scale keeps the NES and the Atari
-extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app (cores/amiga/app/lib)
-#define SC_REC amiga_desc
-const CoreDesc *const core_table[] = { &amiga_desc, &testcore::desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };   // T239.5 D13: the shared unit scale stands on no core (the layout table)
 #endif

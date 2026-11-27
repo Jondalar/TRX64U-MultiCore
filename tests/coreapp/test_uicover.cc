@@ -30,9 +30,6 @@ struct Host : MenuHost {
 #if   defined(TEST_APP_APPLE2)                  // the Apple IIe's app is its own build (run.sh apple2app, the unit apple2_uicover): its table is its core only
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
-#elif defined(TEST_APP_AMIGA)                   // the Amiga 500's app (run.sh amigaapp, the unit amiga_uicover): its table is its core only
-extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores; the Amiga 500 is its own app (cores/amiga/app/lib)
-const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DDT)                     // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_uicover): its table is its core only
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
