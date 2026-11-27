@@ -342,13 +342,11 @@ REST key log is on #73, not in this repository)**
   chroma over the DAC's top), Chroma gain 100 %, Sync 0, Blank 77, V sign Normal; Burst start / end / level 16 / 90 / 100 % (the
   burst swept through its range with no visible change at NTSC 60); Equalizing off, Vsync 6 lines at 0, 263 lines at 60 Hz;
   SYNCn High, FB Low.
-- Subcarrier trim: NTSC 60 **+150 Hz** (+120 and +180 swim, a slight red/blue swim remains), NTSC 50 **+90 Hz**. The increments
-  in `cores/diag/rtl/diag_avout.v:157-160` match the clocks `mode_ctl` sets (NTSC 50 MHz x 47.125 / 3 / 24 = 32,725,694 Hz,
-  NTSC-50 50 x 35.375 / 2 / 28 = 31,584,821 Hz, `cores/diag/mono/host/mode_ctl.v:29-31`) to well under 1 Hz, so the trim is not a
-  rounding error: +150 Hz is 42 ppm of 3.579545 MHz, +90 Hz is 25 ppm. A clock error of the 50 MHz source would give the same ppm
-  at both; the two differ by more than the 31 Hz step explains. Cause open (the 50 MHz source, the 1702's own oscillator, or the
-  subcarrier's relation to the line rate); Gideon's firmware on the same 1702 needs no trim (Rick's reference video). To be
-  settled before the build of D6 (P5): an output "built from the standards" must not need a per-board trim.
+- Subcarrier trim (the diag core's measuring knob, D6): best at NTSC 60 **+150 Hz** (+120 and +180 swim, a slight red/blue swim
+  remains), NTSC 50 **+90 Hz**; the trim's step is 31 Hz (`cores/diag/rtl/diag_avout.v:11`). An observation of the measuring tool,
+  not an open point of the spec: the output of D6 takes the subcarrier from the standard and the System Mode's clock and has no
+  trim; its board test shows the picture.
+- The rest confirms D6's board facts: the names map (H1), white 175 codes (11/16), sync 0, blank 77.
 - Requests for the diag core (T260): a finer Subcarrier trim step (10 Hz or less; the unit is 64 x f_clk / 2^26 = 31 Hz today,
   `diag_avout.v:11`); the walks (avprobe, avrgb, avsync) run at the current Standard, so on Rick's board they all ran at PAL 50 and
   the NTSC-only 1702 locked on no step - the walk should set or ask for the standard.
