@@ -114,7 +114,7 @@ for u in ${U2AS[@]+"${U2AS[@]}"}; do cp "$u" "$D/$(basename "$u")"; done
 
 # T265 P2 (S10): the recovery program starts this file from the root of a stick or the SD card when another firmware replaced the host application in the flash; it is the host app of the
 # bundle byte for byte (ci/package.sh makes it from the stamped app, and --app is that file)
-cp "$APP" "$D/hostrecovery.app"
+cp "$APP" "$D/hostrecovery.bin"
 
 if [ -n "$UPD_CFW" ]; then
     # Built by the pipeline (ci/update.sh), which is where it belongs: no RISC-V toolchain needed here.

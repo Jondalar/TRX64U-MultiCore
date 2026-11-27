@@ -327,3 +327,10 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   left as is (Alex: "Das ist mir total egal"): the right edge of the canvas is cut on RGB, with black beside it on the screen. Open:
   S7 with a DFX core (VC-20) - the DFX cores are not yet built against this host.
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).
+
+- **D13 built (2026-11-27, branch `recovery-bin`):** the file of the package, the release bundle and the pre-release is `hostrecovery.bin`
+  (`ci/package.sh`, `ci/prerelease.sh`, `tools/make_release_mc.sh`, `tools/release_notes_mc.py`, `tools/check_release_flash.py`); the
+  recovery program looks for `/SD/hostrecovery.bin` and `/<drive>/hostrecovery.bin` (`host-app/software/hostrecovery/recovery.cc`), the
+  guard page names it (`host_core_flow_guard.cc`). The flash copy keeps `/Flash/trx/hostrecovery.app` (`guard.h` GUARD_COPY); the recovery
+  program's own build files (`ci/trxapps.sh`, `ci/lane.sh`) are a different file and keep their names. Units: `tools/test_make_release_mc.py`
+  OK (22), `ci/test_prerelease.sh` ok. Proof: the first green pre-release of main (T239.5 D27).
