@@ -41,6 +41,7 @@ host:
 # T174 R2: an explicit input list, not "host/ minus". A new file under host/ is in no section until it is listed here (the layers check fails by name),
 # so a file that is not a build input cannot move the host key by accident. host/check/ (the post-condition checks of the Vivado session) is no input:
 # ci/layers_check.sh fails when a file there calls a command that changes the design.
+host/key_epoch.txt
 host/app_i2c.v
 host/app_input.v
 host/av_rgb.v

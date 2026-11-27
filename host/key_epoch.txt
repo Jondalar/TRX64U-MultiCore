@@ -1,0 +1,8 @@
+epoch 2
+
+T239.5 (2026-11-26): this file is one of the host's key inputs (host/layers.txt), so its content is part of every host key and, through
+core_key (ci/lib.sh), of every partial core's key. The builds repository's releases are immutable: an entry published broken can be neither
+mended nor published again under its tag. Counting the epoch up gives the host and every partial core new keys, so they are built and published
+anew; no gateware changes. It is data, not key code: the builder computes keys with the key code of integration (KEYCODE_REF) over the
+commit's data, so an epoch in ci/lib.sh would be key drift. Epoch 2: run 45912176758, host 35da0749, core c64ref and null were published
+with an empty `from` and a manifest that names it.
