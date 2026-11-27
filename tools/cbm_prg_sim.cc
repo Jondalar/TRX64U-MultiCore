@@ -1,5 +1,5 @@
 // T217: the writer of the real-ROM program-start benches (cores/c64scpu/sim/run_prgrun.sh, cores/c128/sim/run_prgrun.sh). It places a .prg with the SAME library
-// code and the SAME numbers the core application uses on the board (app/loaders/cbm_prg.cc; coreapp/cores/c64scpu_prg.h, c128_prg.h; the key matrix of
+// code and the SAME numbers the core application uses on the board (app/loaders/cbm_prg.cc; cores/c64scpu/app/lib/c64scpu_prg.h, cores/c128/app/lib/c128_prg.h; the key matrix of
 // cbm_run.cc's typed start) against a recording model of the machine, and writes what reached the machine as the bench's script:
 //   1 <DDR2 byte address, hex> <byte>      the application's write into the DDR2 window (the SuperCPU's SRAM)
 //   2 <C64 RAM address, hex> <byte>        the application's write into the RAM window

@@ -309,9 +309,7 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
-#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_DIAG)
-        CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
-#endif
+        if (want[0].cor[0]) CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));   // the placeholder row ("") has nothing to find: the shared table's cores and the apps without a machine line (DDT, the Next, diag)
         CHECK_EQ(nones, n_none);
     }
 
@@ -379,7 +377,7 @@ int main(int, char **argv)
 #elif defined(TEST_APP_ATARI800)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Atari's images (.atr, .xfd, .xex, the cartridge) are no reference table's image
 #elif defined(TEST_APP_C64SCPU)
-        CHECK(seen_cbm == SEEN_CBM_SCPU && seen_other == SEEN_OTHER_SCPU);
+        CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C64SCPU's three drive image types (.d64, .g64, .d81), measured 2026-11-27
 #elif defined(TEST_APP_C128)
         CHECK(seen_cbm == 3 && seen_other == 0);                     // the walk saw the C128's three drive image types (.d64, .g64, .d81), measured 2026-11-25
 #elif defined(TEST_APP_AMIGA)
@@ -395,7 +393,7 @@ int main(int, char **argv)
 #elif defined(TEST_APP_NEOGEO)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the Neo Geo's .neo is run, not mounted: no image the walk counts
 #else
-        CHECK(seen_cbm == 3 && seen_other == 7);                    // the walk saw the shared cores (c64scpu; apple ...), measured 2026-11-25 (T239.5 D13: the moved cores' types are their apps')
+        CHECK(seen_cbm == 0 && seen_other == 7);                    // the walk saw the shared cores' types (apple ...), no CBM image; measured 2026-11-27 (T239.5 D13, T239.3 D61: the moved cores' types are their apps')
 #endif
     }
 

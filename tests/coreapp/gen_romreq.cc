@@ -52,6 +52,11 @@ const CoreDesc *const core_table[] = { &pet_desc, 0 };
 #include "cores.h"
 extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores (cores/c128/app/lib holds this one)
 const CoreDesc *const core_table[] = { &c128_desc, 0 };
+#elif defined(TEST_APP_C64SCPU)
+// the C64SCPU's app is its own build (run.sh c64scpuapp): its table is its core only
+#include "cores.h"
+extern const CoreDesc c64scpu_desc;             // cores.h lists the shared app's cores (cores/c64scpu/app/lib holds this one)
+const CoreDesc *const core_table[] = { &c64scpu_desc, 0 };
 #else
 #include "table.cc"
 #endif
