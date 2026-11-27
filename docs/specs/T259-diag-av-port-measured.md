@@ -222,6 +222,9 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   - **PAL/NTSC:** the core's System Mode (the CPU setting), nowhere else.
 
   Generic, in the SDK, for every core (T192 D24). Open question 3 is answered by D9 and this.
+- **D13 (Alex, 2026-11-27): every core's Analog setting starts at "from Host".** Alex (translated): "All start with from host for now
+  ... then one can change it." The per-core table of his impulses (Amiga and SNES RGB first, the Commodore 8-bit cores S-Video) is not
+  a default; the person sets a core away from the host's value.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
