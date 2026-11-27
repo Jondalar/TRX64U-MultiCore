@@ -12,21 +12,23 @@ changes nothing.
 ## 1. Order
 
 1. `python3 tools/core_move.py plan <core>`: the files that move, the shared files that cannot, the libraries, the RTL source list, the test lines.
-2. `python3 tools/core_move.py dryrun <core>`: TOML A from the RTL, rtl_check, the sources compiled against its driver table, in a scratch folder. Read
+2. `python3 tools/core_move.py dryrun <core>` (optional: it emits the TOML A with `rtl_check.py emit`, minutes per core): TOML A from the RTL, the sources compiled against its driver table, in a scratch folder. Read
    `table.md` there. Fix what is an SDK gap in the SDK (once, for every core), what is the core's in the core.
-3. Branch from `t239.3`, tree clean (apply refuses uncommitted changes under the paths it touches and existing targets). `python3 tools/core_move.py apply <core>`:
-   `git mv` of the core's files to `cores/<id>/app/lib`, `gateware.toml` (`rtl_check.py emit`, the FULL scan of the 64 KiB window: minutes), `sdk.toml`, the
-   row out of `table.cc` and `cores.h` (exactly one row each, else it refuses before moving); then the gates. `--partial-scan` reads only the first 4 KiB and
-   the pages the headers name (seconds) and prints a warning: a register that no header names beyond 4 KiB is MISSING from the file, and `check` cannot see that.
+3. Branch from `origin/integration` (t239.3 is merged), tree clean (apply refuses uncommitted changes under the paths it touches and existing targets). `python3 tools/core_move.py apply <core>`:
+   `git mv` of the core's files to `cores/<id>/app/lib`, `gateware.toml`, `sdk.toml`, the
+   row out of `table.cc` and `cores.h` (exactly one row each, else it refuses before moving); then the gates. The TOML A is **written by hand** and given with
+   `--toml-a <file>` (the default path of T264: the list compare, `tools/toml_a_list.py`, is the proof, seconds). Without `--toml-a` the script emits it with
+   `rtl_check.py emit` (optional, the FULL scan of the 64 KiB window: minutes; `--partial-scan` reads only the first 4 KiB and the pages the headers name and
+   prints a warning: a register that no header names beyond 4 KiB is MISSING from the file, and the list compare sees that one only as an RTL decode the file does not name).
    Apply is NOT ATOMIC: the gates run after the move, a red gate leaves the tree moved. Undo (the tree was clean): `git mv` the files of the plan back,
    `git checkout HEAD -- coreapp/src/table.cc coreapp/cores/cores.h`, `rm -rf cores/<id>/app`; a failing `git mv` prints its own undo commands.
-   The emitted `gateware.toml` passes `check` (it is deleted otherwise) but `check` does not prove completeness: read the notes in its head (undecodable or unknown
-   bytes, blocks over 64 / 512 properties not emitted).
+   Whatever way the TOML A came, `python3 tools/toml_a_list.py check <core>` is red for a byte it names that the RTL does not decode and for a decoded byte it
+   does not name; an emitted file still needs its head's notes read (undecodable or unknown bytes, blocks over 64 / 512 properties not emitted).
 4. Work the judgement list (section 3), the gates (section 4), the matrix (section 5), then the spec (section 6).
 
 ## 2. What the script has already decided (check it, do not redo it)
 
-- `gateware.toml`: addresses, widths, directions are the RTL's. Names come from the old register header by offset; every other register is `r_<offset>`
+- `gateware.toml` (when emitted; a hand-written file is checked by the list compare alone): addresses, widths, directions are the RTL's. Names come from the old register header by offset; every other register is `r_<offset>`
   with `# TODO meaning`. The blocks are cut by holes of 4 bytes and at the first 16 bytes (the standard block: id +0, caps +4, caps2 +5, build +8, as `hw.cc`
   and the identity check need them); the module of a block is a placeholder. A block of 65 to 256 registers is cut into blocks of 64 (the record's limit);
   a dense region of more than 256 (a hand-over to the host's pixel layer, the C64's I/O pages that a core passes through, a RAM) is not emitted: the notes in
@@ -42,7 +44,7 @@ changes nothing.
 ## 3. Judgement (what broke or hid in the VIC-20 and the A1200)
 
 1. **Registers by number.** The moved sources include headers that name offsets as literals. Name them through `drvtab.h` as `amiga1200_regs.h` does
-   (`AM_X = DRV_<block>_<prop>_ADDR - DRV_ident_ADDR`); the core's own code writes no I/O literal (`rtl_check.py lint-src`). Prove: the old and the new
+   (`AM_X = DRV_<block>_<prop>_ADDR - DRV_ident_ADDR`); the core's own code writes no I/O literal (`rtl_check.py lint-src`, a fast reverse lint that stays). Prove: the old and the new
    names have the same values (the A1200: all 59, T213.3).
 2. **Names and blocks of `gateware.toml`.** Split the emitted blocks into capabilities (the A1200's 17 blocks: machine, video, rtc, floppy, hdf, mbox ...),
    name the registers, set the widths the RTL's bytes do not tell (an 8-bit register next to another 8-bit register is one run for the emitter), runs
@@ -51,10 +53,11 @@ changes nothing.
 3. **The block set the shared drivers need.** `hw.cc` names `ident.caps`, the host's blocks of `base_blocks`, and the drive through
    `#ifdef DRV_HAS_drive_a`. A driver that serves a block only some bitstreams have and does not test `DRV_HAS_<block>` breaks for a core without it
    (`hw.cc`'s drive accessors are guarded by `#ifdef DRV_HAS_drive_a`). The dry run's table lists such files; the fix is in `coreapp/src`, with the test of api.md 6.17.5.
-4. **`rtl_check` source list.** A core with `core_sources.tcl` uses it, unless the script has a filter the checker cannot decide (`ni $a12_own`): then a
+4. **The decode source of the list compare.** `tools/toml_a_list.py` finds the module each block names (`module = "<x>_regs"`) by name in `cores/<id>/`, then
+   `cores/common`, then any core's; a module from `cores/c64u` or `cores/common` is compared one way (TOML A -> RTL). A decode style it cannot read is named in
+   its output as UNCHECKED with the file: report it, do not turn it into an interpreter. Only when the optional `rtl_check.py emit` is used: a core with `core_sources.tcl` uses it, unless the script has a filter the checker cannot decide (`ni $a12_own`): then a
    list `cores/<id>/app/rtl_check_sources.tcl` names the files once (the A1200's). A core without one gets a list from `core_toml.py sources`: remove the
-   files the real build leaves out (a copy of a module the core replaces). Run the case in `tests/rtl_check/test_rtl_check.py` with the counts of the
-   first run; a pattern the checker does not know (`Unsupported`, file and line) is a gap in `tools/rtl_check.py`, not a reason to leave the block out.
+   files the real build leaves out (a copy of a module the core replaces). A test case in `tests/rtl_check/test_rtl_check.py` is optional.
 5. **Tests shared between cores.** Units of `tests/coreapp/run.sh` that name the core: regroup into the TOML B's `tests` by matrix step (unit, service,
    ui, api; `libtab.py tests`), built as the core's app (`vc20app`: its include path, its driver table, `TEST_APP_<CORE>`). A shared test file
    that has the core's cases in it keeps the old core's twin cases under the guard (T213.3: `test_start` keeps its same-ID cases on a twin of the A500's record). Every moved unit must pass once on the new build and the shared unit must still pass without the core.
@@ -64,7 +67,7 @@ changes nothing.
 7. **`test_cor_pack`.** The switch-off case of D25 (a core without `desc_record`) names a core that has not moved; once the last one has, the case needs
    another construction. The moved core's `.cor` carries `desc.toml` as record 6: `cor_pack` check.
 8. **The old pipeline.** `core_toml.py list-own-app` (and `ci/trxapps.sh`, `ci/package.sh`) leave a moved core out of the shared image loudly, not silently:
-   the integration wiring (T239.5 D13) must deliver its `.cor` from the matrix before `t239.3` merges.
+   the integration wiring (T239.5 D13) must deliver its `.cor` from the matrix before the move merges.
 9. **Comments the move makes wrong.** Search `coreapp`, `tests`, `docs`, `app/sdkpkg/api.md`, the core's descriptors and `mono/` scripts for the core's
    old paths (`coreapp/cores/<id>`, "the shared app", "table.cc"), the old record's description and the pipeline text. Fix them in the same commit.
 10. **D24.** No core name in `coreapp/` or `uicore/`; `tools/check_d24.py` stays green; a shrunk per-core file shrinks its ledger line
@@ -76,15 +79,15 @@ changes nothing.
 
 `python3 tools/core_move.py sdkgaps [gateware.toml]` compiles the base's sources against the table with one optional base block taken out at a time (and
 `ident.caps`): every error that names a DRV_ macro is a driver that serves a block only some bitstreams have and does not test `DRV_HAS_<block>` (api.md
-6.17.5); run it after any change to `coreapp/src`. `python3 tools/core_move.py gates <core>` runs: `rtl_check.py check` against the RTL; the core's sources and the SDK's driver sources compiled natively
+6.17.5); run it after any change to `coreapp/src`. `python3 tools/core_move.py gates <core>` runs: `tools/toml_a_list.py check` (the TOML A against the RTL decode, seconds); the core's sources and the SDK's driver sources compiled natively
 (`g++-16 -fsyntax-only`, the core's own `drvtab.h` first); `tools/check_d24.py`; `tools/core_toml.py lanes` (the core must be listed as `<id> dfx|large`).
-By hand besides: `python3 tools/check_todo.py`, `tests/rtl_check/test_rtl_check.py`, the units of the core's `tests` keys (one run), the menu simulator
+By hand besides: `python3 tools/check_todo.py`, the units of the core's `tests` keys (one run), the menu simulator
 (`tools/menusim/run.sh`) for the core's F5 page. No `tools/dev.sh` per step (CLAUDE.md): the coordinator runs the RISC-V build and the test units once at
 the end.
 
 ## 5. The matrix (T239.5 D8): steps 1-13 must be green for the core's lane
 
-1 lint; 2 unit tests; 3 what has changed; 4 comparison (TOML A against the RTL); 5 what must be in the app; 6 build (link from the SDK); 7 complete and
+1 lint; 2 unit tests; 3 what has changed; 4 comparison (TOML A against the RTL: `tools/toml_a_list.py`, time in the log); 5 what must be in the app; 6 build (link from the SDK); 7 complete and
 fits (`cor_pack --sizes`, the heap figures); 8 tests mock bitstream -> service; 9 service -> UI; 10 service -> API; 11 package (the `.cor` with its own
 app); 12 emulator tests (the `.cor` under the host app); 13 deliver. Steps 8-10 are the units the TOML B names per step.
 

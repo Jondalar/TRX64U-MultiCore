@@ -2,8 +2,9 @@
 """T239.3 D55: moving a core to its own app (cores/<id>/app) - the part a check can prove, as a script. The rest is the runbook .claude/skills/core-move/SKILL.md.
 
   core_move.py plan CORE                  what a move would do, nothing written
-  core_move.py apply CORE [--partial-scan]
-                                          the mechanical part: git mv the core's sources to cores/<id>/app/lib, the TOML A (rtl_check.py emit, the FULL scan of the window),
+  core_move.py apply CORE [--partial-scan | --toml-a FILE]
+                                          the mechanical part: git mv the core's sources to cores/<id>/app/lib, the TOML A (FILE, written by hand: --toml-a; or, optional,
+                                          rtl_check.py emit, the FULL scan of the window: minutes),
                                           sdk.toml, the core's row out of table.cc and cores.h; then it lists what needs judgement and runs the gates.
                                           --partial-scan: only the first 4 KiB and the pages the headers name (seconds; a register elsewhere is MISSED: loud warning).
                                           NOT ATOMIC. It refuses when `git status --porcelain` shows changes under the paths it touches, or a target exists; the TOML A is emitted
@@ -11,7 +12,7 @@
                                           commands that undo the moves done so far. The gates run AFTER the move: a red gate leaves the tree moved. Undo a complete apply
                                           (the tree was clean before, so this is exact): `git mv` every file of the plan back (cores/<id>/app/lib/X -> coreapp/cores/X),
                                           `git checkout HEAD -- coreapp/src/table.cc coreapp/cores/cores.h`, `rm -rf cores/<id>/app`.
-  core_move.py gates CORE                 rtl_check against cores/<id>/app/gateware.toml, the app's sources compiled natively against its driver table, check_d24, core_toml lanes
+  core_move.py gates CORE                 tools/toml_a_list.py check (T264: the list compare, seconds) of cores/<id>/app/gateware.toml, the app's sources compiled natively against its driver table, check_d24, core_toml lanes
   core_move.py dryrun [CORE...] [--out DIR] [--full-scan] [-j N]
                                           D55's dry run: for each core (default: every core of coreapp/src/table.cc) the TOML A, its rtl_check, the driver table of the
                                           merged TOML A and the sources compiled against it, in DIR (default: a scratch folder). NOTHING in the repository is changed. One table at the end.
@@ -458,15 +459,8 @@ def lanes_ok(core):
 def gates(core, appdir=None, work=None):
     appdir = appdir or os.path.join(ROOT, "cores", core, "app")
     ok = True
-    print("gates: rtl_check")
-    l = ["--list", os.path.relpath(os.path.join(appdir, "rtl_check_sources.tcl"), os.path.join(ROOT, "host"))] if os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")) else \
-        sum([["--list", x] for x in info(core)["lists"]], [])
-    own_drive = re.search(r'name = "drive_a"\nmodule = "(?!cbm1541")', rd(os.path.join(appdir, "gateware.toml"))) is not None    # a TOML A that describes the core's own drive block (not the shipped map): its drive window is a second bus of the same module
-    drv = ["--bus", BUS_DRV % core, "--window", WINDOW_DRV] if own_drive else []
-    if own_drive and not os.path.exists(os.path.join(appdir, "rtl_check_sources.tcl")):
-        l += ["--list", "gideon_vhdl.tcl"]      # the drive's VHDL (drive_l2) is Gideon's file list, which a core's recipe sources itself
-    p = sh([sys.executable, "-I", "tools/rtl_check.py", "check", "--design", "host", *l, "--top", "layer2_" + core, "--bus", BUS % core, "--window", WINDOW, *drv,
-            "--toml-a", os.path.join(appdir, "gateware.toml"), "--maps", "app/sdkpkg/maps", *sum([["--define", d] for d in defines(core)], [])], cwd=ROOT)
+    print("gates: tools/toml_a_list.py (the TOML A against the RTL decode, T264 P1)")
+    p = sh([sys.executable, "-I", "tools/toml_a_list.py", "check", core, "--toml-a", os.path.join(appdir, "gateware.toml")], cwd=ROOT)
     print("  " + (p.stdout + p.stderr).strip().replace("\n", "\n  "))
     ok &= p.returncode == 0
     print("gates: compile the app's sources against its driver table (g++ -fsyntax-only)")
@@ -491,13 +485,16 @@ def gates(core, appdir=None, work=None):
     return ok
 
 
-def apply(core, full):
+def apply(core, full, toml_a=None):
     inf = plan(core)
     app = os.path.join(ROOT, "cores", core, "app")
     if os.path.exists(os.path.join(app, "sdk.toml")):
         print("core_move: cores/%s/app/sdk.toml exists: the core has moved" % core)
         return 1
-    if not inf["layer2"]:
+    if toml_a and not os.path.isfile(toml_a):
+        print("core_move: --toml-a %s: no such file" % toml_a)
+        return 1
+    if not inf["layer2"] and not toml_a:
         print("core_move: no layer2 RTL to emit from (see the plan): stop")
         return 1
     bad = preflight(core, inf)
@@ -509,16 +506,20 @@ def apply(core, full):
     except ValueError as e:
         print("core_move: refused, nothing was changed: %s" % e)
         return 1
-    # the TOML A first, from the sources where they are (their headers name the registers): when the RTL cannot be read, nothing has been moved
+    # the TOML A first: written by hand (--toml-a FILE) or emitted from the RTL where the sources are (optional, rtl_check.py emit: minutes); when it cannot be had, nothing has been moved
     tmp = tempfile.mkdtemp(prefix="coremove_apply.")
-    if not full:
-        print("core_move: WARNING --partial-scan: only the first 4 KiB of the window and the pages the headers name are scanned; a register elsewhere that no header names is MISSING from gateware.toml")
-    rc, out = run_emit(inf, os.path.join(tmp, "gateware.toml"), full, 2, None)
-    print(out.strip().split("\n")[-1])
-    if rc != 0 or not os.path.exists(os.path.join(tmp, "gateware.toml")):
-        print("core_move: the TOML A cannot be written from the RTL (see above): nothing was moved. A gap of tools/rtl_check.py is fixed there, not worked around here.")
-        shutil.rmtree(tmp)
-        return 1
+    if toml_a:
+        shutil.copy(toml_a, os.path.join(tmp, "gateware.toml"))
+        print("core_move: the TOML A is %s (written by hand, not emitted)" % toml_a)
+    else:
+        if not full:
+            print("core_move: WARNING --partial-scan: only the first 4 KiB of the window and the pages the headers name are scanned; a register elsewhere that no header names is MISSING from gateware.toml")
+        rc, out = run_emit(inf, os.path.join(tmp, "gateware.toml"), full, 2, None)
+        print(out.strip().split("\n")[-1])
+        if rc != 0 or not os.path.exists(os.path.join(tmp, "gateware.toml")):
+            print("core_move: the TOML A cannot be written from the RTL (see above): nothing was moved. Write it by hand and give it with --toml-a FILE.")
+            shutil.rmtree(tmp)
+            return 1
     os.makedirs(os.path.join(app, "lib"), exist_ok=True)
     if not move_files(core, inf["own"]):
         shutil.rmtree(tmp)
@@ -527,7 +528,8 @@ def apply(core, full):
     if os.path.exists(os.path.join(tmp, "rtl_check_sources.tcl")):
         shutil.copy(os.path.join(tmp, "rtl_check_sources.tcl"), os.path.join(app, "rtl_check_sources.tcl"))
     shutil.rmtree(tmp)
-    add_drive(inf, os.path.join(app, "gateware.toml"))
+    if not toml_a:
+        add_drive(inf, os.path.join(app, "gateware.toml"))
     with open(os.path.join(app, "sdk.toml"), "w") as f:
         f.write(sdk_toml(inf))
     open(os.path.join(SRC, "table.cc"), "w").write(table_new)
@@ -631,12 +633,12 @@ def main(argv):
     applyfull = "--partial-scan" not in rest
     jobs = int(rest[rest.index("-j") + 1]) if "-j" in rest else 2
     out = rest[rest.index("--out") + 1] if "--out" in rest else None
-    cores = [a for i, a in enumerate(rest) if not a.startswith("-") and (i == 0 or rest[i - 1] not in ("--out", "-j"))]
+    cores = [a for i, a in enumerate(rest) if not a.startswith("-") and (i == 0 or rest[i - 1] not in ("--out", "-j", "--toml-a"))]
     if cmd == "plan" and cores:
         plan(cores[0])
         return 0
     if cmd == "apply" and cores:
-        return apply(cores[0], applyfull)
+        return apply(cores[0], applyfull, rest[rest.index("--toml-a") + 1] if "--toml-a" in rest else None)
     if cmd == "gates" and cores:
         return 0 if gates(cores[0]) else 1
     if cmd == "sdkgaps":
