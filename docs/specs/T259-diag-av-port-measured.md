@@ -204,6 +204,11 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   don't know)." The foundation (RGB pixel, sync, blank, timing in; DAC map, levels, optional PAL/NTSC encoding out) is in every core
   that has an analogue output; the guard (line rate outside the 15 kHz band: the port goes black) is a separate module that a core
   with 31 kHz modes adds.
+- **D10 (Alex, 2026-11-27): the Y/C and composite encoder goes into the host too.** Alex (translated): "the encoder has to go into the
+  host, because the host menu should have the picture too, right?" A person with only an S-Video or composite set needs the host menu
+  there. The host's encoder also serves the DFX cores (apple2, atari800, vc20: the host scans their frame buffer out, `host/av_rgb.v`).
+  Its room in `pb_l1` (13,735 of 17,400 LUT, T265) is measured before it is built. Alex asked whether the VC-20 and the C16 should become
+  large cores instead of DFX; the C16 (`cores/c264`) is one already, the VC-20 is DFX (open).
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
