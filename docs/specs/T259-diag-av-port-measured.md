@@ -1,6 +1,6 @@
 # T259 — The diag core measures the A/V port: which group carries what, the bit order, RGB, SYNCn and FB; the tester's working values become presets
 
-**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony). D6-D15 (2026-11-27):
+**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony; luma, chroma, composite at NTSC 60 and 50 on Rick's 1702, #73). D6-D15 (2026-11-27):
 the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own change); chroma and composite are seen
 when it is built. Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
 Alex's request, for MultiCore to register and build; T259 was kept for it (Alex, 2026-11-23). Registered 2026-11-24, Alex
@@ -255,7 +255,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
    optional; native timings kept (Amiga 15 kHz PAL/NTSC with interlace and hires, SNES 240p/288p and interlace); one common layer in
    `cores/common/` (in: RGB pixel, sync, blank, timing; out: the C64U DAC map, levels, optional PAL/NTSC encoding); the tap before the
    HDMI scaler; 31 kHz Amiga modes never reach a 15 kHz TV unchecked; DSP and LUT cost measured per core. Under review (2026-11-27).
-
+- **D16 (Alex, 2026-11-27, on Rick's two requests of #73): both go into the diag core now.** Alex (translated): "Well, the one is a
+  'mini' thing in the test in the diag core, isn't it? The other should be doable in the .toml or the diag app too." So: the
+  Subcarrier trim gets a step of about 4 Hz (`diag_avout.v`: the trim adds trim x 8 to the increment instead of trim x 64; the panel
+  row lists -500 Hz to +500 Hz in 10 Hz steps), built with the next full build (T264 D4); and an A/V walk asks for the standard once
+  before its first step (the choice list of the panel's Standard names) when its file does not set one, so no walk runs at a standard
+  the TV cannot take.
 ## §4 Out
 
 - A scope measurement of levels and full scale at the port (no scope at hand); the TV's view is what is measured.
@@ -324,6 +329,27 @@ mono-diag-5d605995445e3585; driven over REST by the coordinator, Alex at the TV,
 - A side effect while driving the panel over REST: a script stepped the Standard row through to NTSC 50 Hz by mistake; the HDMI picture
   flickered until it was set back to PAL 50 Hz. The A/V Standard row also changes the raster the HDMI picture comes from.
 
+
+**Board, 2026-11-27 (Rick, #73: Commodore 1702 (NTSC) on its luma/chroma inputs and its composite input, through the C64 A/V cable;
+diag core `diag-fix-dlg-a49cdc75`, panel `avout.toml`, Mode "Test picture"; his report zip with photos, videos, presets and the
+REST key log is on #73, not in this repository)**
+- Both inputs and both standards give a stable, correctly coloured picture: chroma and composite are seen (they were open after the
+  Sony). Presets `1702-NTSC60-01`, `1702-NTSC50-01`.
+- Map **Names**, Groups **Y=B, C=C, CVBS=A**, Bits A/B/C MSB first: luma on AVID_G (DIN 1), chroma on AVID_B (DIN 6), composite on
+  AVID_R (DIN 4) - the H1 map Alex found for RGB on 2026-11-26. The Scan groups presets (`NTSC-60.rix02`, `NTSC-50.rix01`) gave the
+  right hues with scrambled luma; their chroma 50 %, sync 8, blank 88 had compensated for the wrong map.
+- Levels: White 11/16 for both inputs (from 13/16 the bright parts clip; on composite 15/16 turns the yellow bar white: luma plus
+  chroma over the DAC's top), Chroma gain 100 %, Sync 0, Blank 77, V sign Normal; Burst start / end / level 16 / 90 / 100 % (the
+  burst swept through its range with no visible change at NTSC 60); Equalizing off, Vsync 6 lines at 0, 263 lines at 60 Hz;
+  SYNCn High, FB Low.
+- Subcarrier trim (the diag core's measuring knob, D6): best at NTSC 60 **+150 Hz** (+120 and +180 swim, a slight red/blue swim
+  remains), NTSC 50 **+90 Hz**; the trim's step is 31 Hz (`cores/diag/rtl/diag_avout.v:11`). An observation of the measuring tool,
+  not an open point of the spec: the output of D6 takes the subcarrier from the standard and the System Mode's clock and has no
+  trim; its board test shows the picture.
+- The rest confirms D6's board facts: the names map (H1), white 175 codes (11/16), sync 0, blank 77.
+- Requests for the diag core (T260): a finer Subcarrier trim step (10 Hz or less; the unit is 64 x f_clk / 2^26 = 31 Hz today,
+  `diag_avout.v:11`); the walks (avprobe, avrgb, avsync) run at the current Standard, so on Rick's board they all ran at PAL 50 and
+  the NTSC-only 1702 locked on no step - the walk should set or ask for the standard.
 **Notes and open points**
 - The page's rows keep the label they had when a free value is set (the playground writes the register, not the row); the end of a walk puts the rows' values back, which also ends a playground value.
 - "Groups" and "Bits A, B, C" keep their names; with the Names map A, B, C read R, G, B.
@@ -338,3 +364,16 @@ mono-diag-5d605995445e3585; driven over REST by the coordinator, Alex at the TV,
 - The coordinator's test run (`tools/dev.sh test`, 2026-11-24) found the next one behind it: `test_keywalk` (golden `keywalk.txt`, `ids.txt`) lacked
   the eight new rows. Both are rewritten (only the Port Diagnostics lines change; the hashes of F1/home match the builder's run), and `test_cut`,
   the last unit that compiles `portdiag.cc` and `diagtest.cc`, passes (638 checks).
+
+**D16 built (2026-11-27, branch `diag-1702`; no gateware build yet, T264 D4 takes it with the next full build)**
+- Trim: `diag_avout.v:154` `trim_inc = {{15{trim[7]}}, trim, 3'd0}` (trim x 8; 3.90 Hz at NTSC's 32.725694 MHz, 3.76 Hz at PAL's 31.527778 MHz, range about
+  +-500 Hz); the unit comment at `diag_avout.v:11` and `portdiag_regs.h:65` follow. Panel row `Subcarrier trim` (`avout.toml`): 101 names "-500 Hz" .. "+500 Hz" in 10 Hz
+  steps, values round(Hz / 3.90) clamped to -128..127, default "0 Hz"; the labels are NTSC's, PAL's real steps are 4 percent smaller (comment in the row). The presets keep
+  their labels (`+60 Hz` is now value 15, `+120 Hz` value 31).
+- Walk: `diagtest.cc` `run_avtest`, before the result header: when `[base]`, `[sweep]` and the preset name no standard, `ui->choice` lists the panel's Standard names
+  ("Which standard is the TV set to?"), the pick becomes the base value (and the standard's burst defaults apply as for any fixed standard), the result files record it in `[knobs]`;
+  ESC or a timeout stops the walk with a message. A file that names a standard does not ask (`avvsync.toml`).
+- Proofs: `CA_GROUP=diag tests/coreapp/run.sh`: `test_diagtest: 634 checks, 0 failed` (new `test_avstd_ask`: without a standard one question, its answer is the standard in the log
+  and in the .toml; with one, none; `test_avpresets` wants trim 15 / 31), `test_portdiag: 60 checks, 0 failed`, `test_diag_avtrace: 83 checks, 0 failed` (golden `diag_av_trace.txt`
+  regenerated: only the trim register writes change). `cores/diag/sim/avregs/run.sh`: `PASS tb_avregs errors=0 checks=63`, `PASS tb_avsync errors=0 checks=146`
+  (`tb_avregs.v` now expects trim x 8: +5 adds 40, -3 subtracts 24). `diag_avmap` does not use the trim and was not run; yosys parses `diag_avout.v` clean.

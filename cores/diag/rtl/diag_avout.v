@@ -8,7 +8,7 @@
 //   [4:2] perm   which word goes to which group (A, B, C): 0 Y C CV, 1 Y CV C, 2 C Y CV, 3 C CV Y, 4 CV Y C, 5 CV C Y (5 = the C128's)
 //   [7:5] rev    bit n reverses the bit order of group n (A, B, C)
 //   [8]   vinv   V sign inverted
-//   [16:9] trim  signed, subcarrier fine trim: inc += trim x 64 (a unit is 64 x f_clk / 2^26 = 31 Hz)
+//   [16:9] trim  signed, subcarrier fine trim: inc += trim x 8 (a unit is 8 x f_clk / 2^26 = 3.90 Hz at NTSC's 32.725694 MHz, 3.76 Hz at PAL's 31.527778 MHz; range about +-500 Hz)
 //   [23:17] bs, [33:24] be   the burst window {start, end} in samples after the sync's trailing edge
 //   [39:34] bamp burst amplitude (32 = the C128's), [44:40] gain chroma gain x 16, [52:45] synl sync tip level, [60:53] blank blanking level, [65:61] wamp white level x 16, [66] frz the marker stands still,
 //   [67] eq equalizing pulses (0: the vsync is 'vlen' lines of broad pulses at the line rate; 1: pre-equalizing, serrated broad and post-equalizing blocks of 'vlen' lines each, pulses at the half-line rate),
@@ -151,7 +151,7 @@ module diag_avout (
 
     // PHASE_INC = fsc / f_clk x 2^26 for the clock each System Mode runs (as c128_avout.v), plus the trim
     reg [25:0] inc = 26'h900035;
-    wire [25:0] trim_inc = {{12{trim[7]}}, trim, 6'd0};
+    wire [25:0] trim_inc = {{15{trim[7]}}, trim, 3'd0};
     always @(posedge clk)
         case (std)
         2'd0:    inc <= 26'h900035 + trim_inc;      // PAL     4.43361875 MHz / 31.527778 MHz

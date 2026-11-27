@@ -873,7 +873,7 @@ static void test_avout()
     CHECK_EQ(g_avpanel.row[AVK_BITS_B].vals[first[AVK_BITS_B]], 0);
     CHECK_EQ(g_avpanel.row[AVK_BITS_C].vals[first[AVK_BITS_C]], 1);
     CHECK_EQ(g_avpanel.row[AVK_VSIGN].vals[first[AVK_VSIGN]], 0);
-    CHECK_EQ(g_avpanel.row[AVK_TRIM].vals[first[AVK_TRIM]], 2);
+    CHECK_EQ(g_avpanel.row[AVK_TRIM].vals[first[AVK_TRIM]], 15);
     CHECK_EQ(g_avpanel.row[AVK_BSTART].vals[first[AVK_BSTART]], 16);
     CHECK_EQ(g_avpanel.row[AVK_BEND].vals[first[AVK_BEND]], 90);
     CHECK_EQ(g_avpanel.row[AVK_BAMP].vals[first[AVK_BAMP]], 32);
@@ -1032,8 +1032,8 @@ static void test_avpresets()
     //            std grp bA bB bC vs  trim bs  be  bamp gain sync blank white eq vlen vpos lines map mode pch rch syn fb
     static const Want want[3] = {
         { "Sony-PAL",      { 0, 5, 0, 0, 0, 1, 0, 28, 99, 32, 16, 0, 77, 11, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
-        { "NTSC-50.rix01", { 3, 0, 0, 0, 1, 0, 2, 16, 90, 32, 8, 8, 88, 9, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
-        { "NTSC-60.rix02", { 1, 0, 0, 0, 1, 0, 4, 16, 90, 32, 8, 8, 88, 16, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { "NTSC-50.rix01", { 3, 0, 0, 0, 1, 0, 15, 16, 90, 32, 8, 8, 88, 9, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { "NTSC-60.rix02", { 1, 0, 0, 0, 1, 0, 31, 16, 90, 32, 8, 8, 88, 16, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0 } },
     };
     for (int w = 0; w < 3; w++) {
         Rig r;
@@ -1065,7 +1065,7 @@ static void test_avpresets()
     for (auto &e : g_avlog) { if (e.first == AVK_STD) std_v = g_avpanel.row[AVK_STD].vals[e.second]; if (e.first == AVK_MAP) map_v = e.second; if (e.first == AVK_TRIM) trim_v = g_avpanel.row[AVK_TRIM].vals[e.second]; }
     CHECK_EQ(std_v, 0);
     CHECK_EQ(map_v, 1);
-    CHECK_EQ(trim_v, 2);                               // the preset's +60 Hz stays
+    CHECK_EQ(trim_v, 15);                              // the preset's +60 Hz stays
     CHECK_EQ(r.run("pre.toml"), 0);
     Rig m;
     av_hooks(m);
@@ -1078,6 +1078,32 @@ static void test_avpresets()
     f.fs.put_text("/SD/cores/diag/tests/pre.toml", "kind = \"avtest\"\n[test]\nname = \"pre\"\nid = \"pre\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n[base]\npreset = \"mine\"\n");
     CHECK_EQ(f.run("pre.toml"), -1);
     CHECK(std::string(f.out.msg).find("free value") != std::string::npos);
+}
+
+// T259 D16-bis: a walk whose file names no standard asks for it once and uses the answer; a file that names one does not ask
+static void test_avstd_ask()
+{
+    const char *hd = "kind = \"avtest\"\n[test]\nname = \"st\"\nid = \"st\"\nversion = 1\n[ask]\nquestions = [\"Ok?\"]\n";
+    Rig r;
+    av_hooks(r);
+    int asked = 0;
+    r.ui.cans = [&](int, int *pick) { asked++; *pick = 2; return DUI_CONTINUE; };
+    r.fs.put_text("/SD/cores/diag/tests/st.toml", std::string(hd) + "[base]\nmap = \"Names\"\n");
+    g_avlog.clear();
+    CHECK_EQ(r.run("st.toml"), 0);
+    CHECK_EQ(asked, 1);
+    int std_v = -1;
+    for (auto &e : g_avlog) if (e.first == AVK_STD) std_v = g_avpanel.row[AVK_STD].vals[e.second];
+    CHECK_EQ(std_v, g_avpanel.row[AVK_STD].vals[2]);
+    std::string t = r.fs.text("/SD/cores/diag/results/st_20261102-143015.toml");
+    CHECK(t.find(std::string("Standard = \"") + g_avpanel.row[AVK_STD].names[2] + "\"") != std::string::npos);
+    Rig f;
+    av_hooks(f);
+    int asked2 = 0;
+    f.ui.cans = [&](int, int *pick) { asked2++; *pick = 0; return DUI_CONTINUE; };
+    f.fs.put_text("/SD/cores/diag/tests/st.toml", std::string(hd) + "[base]\nstandard = \"PAL 50 Hz\"\n");
+    CHECK_EQ(f.run("st.toml"), 0);
+    CHECK_EQ(asked2, 0);
 }
 
 // T259 S5: avout.toml v3 is a suite of avprobe, avrgb and avsync in this order; each writes its pair, the probe's .txt names the channel and bit order the TV locked on
@@ -1154,5 +1180,6 @@ int main()
     test_avout();
     test_avpresets();
     test_avwalk();
+    test_avstd_ask();
     DONE("test_diagtest");
 }

@@ -62,7 +62,7 @@
 #define PD_AV_PERM      PD_OFS(DRV_av_perm_ADDR)   // 0..5: which of Y, C, CVBS goes to the groups A, B, C (5 = the C128's: CVBS on A, C on B, Y on C)
 #define PD_AV_REV       PD_OFS(DRV_av_rev_ADDR)   // bit n: the bit order of group n (A, B, C) reversed
 #define PD_AV_VINV      PD_OFS(DRV_av_vinv_ADDR)   // b0: the V sign inverted; b1: the marker stands still (freeze, set by the test walk while a question is open)
-#define PD_AV_TRIM      PD_OFS(DRV_av_trim_ADDR)   // signed: subcarrier trim in steps of 64 x f_clk / 2^26 (about 31 Hz)
+#define PD_AV_TRIM      PD_OFS(DRV_av_trim_ADDR)   // signed: subcarrier trim in steps of 8 x f_clk / 2^26 (about 3.9 Hz)
 #define PD_AV_BSTART    PD_OFS(DRV_av_bstart_ADDR)   // burst window start, samples after the sync's trailing edge
 #define PD_AV_BEND      PD_OFS(DRV_av_bend_ADDR)   // 056-057, 10 bit little endian: the window's end
 #define PD_AV_BAMP      PD_OFS(DRV_av_bamp_ADDR)   // burst amplitude, 32 = the C128's
