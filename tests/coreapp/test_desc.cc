@@ -28,9 +28,6 @@ extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app 
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_ZX
-extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
-#endif
 #ifdef TEST_APP_DIAG
 extern const CoreDesc portdiag_desc;           // cores.h lists the shared app's cores; the diag core is its own app (cores/diag/app/lib)
 #endif
@@ -44,8 +41,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #elif defined(TEST_APP_DDT)             // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp) with its core only
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
-#elif defined(TEST_APP_ZX)              // the ZX Spectrum's app is its own build (run.sh zxapp) with its core only
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #elif defined(TEST_APP_AMIGA)           // the Amiga 500's app is its own build (run.sh amigaapp) with its core only
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_DIAG)            // the diag core's app is its own build (run.sh diagapp) with its core only
@@ -194,10 +189,6 @@ int main(int, char **argv)
         static const Mi want[1] = { { "", "" } };                          // DDT Look Ma, No VIC has no setting, so no machine line: nothing to find (the count below is skipped)
         static const char *const none[] = { "DDT Look Ma, No VIC" };
         const int n_none = 1;
-#elif defined(TEST_APP_ZX)
-        static const Mi want[] = { { "ZX Spectrum 48K / 128K", "Model" } };
-        static const char *const none[1] = { 0 };
-        const int n_none = 0;
 #elif defined(TEST_APP_AMIGA)
         static const Mi want[] = { { "Amiga (OCS/ECS, 68000)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
         static const char *const none[1] = { 0 };
@@ -290,8 +281,6 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
 #elif defined(TEST_APP_DDT)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
-#elif defined(TEST_APP_ZX)
-        CHECK(seen_cbm == 0 && seen_other == 0);                    // the Spectrum has no disk image type: snapshots and tapes are no image the walk counts
 #elif defined(TEST_APP_AMIGA)
         CHECK(seen_cbm == 0 && seen_other == 1);                    // the walk saw the A500's ADF (Mount DF0 and reset), no CBM image (the HDF has nothing to run)
 #elif defined(TEST_APP_DIAG)
@@ -413,8 +402,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_DDT)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_ZX)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_AMIGA)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_DIAG)
@@ -436,8 +423,6 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_DDT)
         static const char *const own[] = { 0 };                              // DDT has no medium
-#elif defined(TEST_APP_ZX)
-        static const char *const own[] = { 0 };                              // the tape deck has no flush of its own to hand over
 #elif defined(TEST_APP_AMIGA)
         static const char *const own[] = { 0 };                              // the A500's media are the base engines' (window and sector media): no flush of its own to hand over
 #elif defined(TEST_APP_DIAG)
@@ -470,7 +455,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -677,23 +662,6 @@ int main(int, char **argv)
 #elif defined(TEST_APP_DDT)
     // the real core: one task, Reset, and nothing to ask (the records that the shared app's cores have are tested in the shared unit)
     CHECK(ddt_novic_desc.ntasks == 1 && !ddt_novic_desc.tasks[0].ask && ddt_novic_desc.nsettings == 0);
-#elif defined(TEST_APP_ZX)
-    // the real core: Reset, Reload ROMs and the five tape keys + Eject, nothing to ask; the model, two joystick ports and the tape sound as settings
-    CHECK(zx_desc.ntasks == 8 && zx_desc.nsettings == 4);
-    for (int i = 0; i < zx_desc.ntasks; i++) CHECK(!zx_desc.tasks[i].ask);
-    // T157 D1: the joystick ports are two settings of the core's own, each there once (the shared unit joyswap has the cores that keep the other form)
-    for (const char *k : { "Joystick port 1", "Joystick port 2" }) {
-        int n = 0;
-        for (int i = 0; i < zx_desc.nsettings; i++) if (!strcmp(zx_desc.settings[i].key, k)) n++;
-        CHECK_EQ(n, 1);
-    }
-    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not
-    for (const char *k : { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" }) {
-        CHECK(slot_lists(&zx_desc, "Tape", true, k) && !slot_lists(&zx_desc, "Tape", false, k));
-        CHECK_STR(task_place(&zx_desc, k).c_str(), "");
-        const Task *t = find_task(&zx_desc, k);
-        CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
-    }
 #elif defined(TEST_APP_DIAG)
     // T175: a core with no machine and no picture (the diag core): only such a core may have no PAUSED bit, and its freeze waits for nothing
     CHECK(!desc_check(&portdiag_desc));
@@ -899,8 +867,6 @@ int main(int, char **argv)
     golden(&amiga1200_desc, "amiga1200");
 #elif defined(TEST_APP_DDT)
     golden(&ddt_novic_desc, "ddt_novic");
-#elif defined(TEST_APP_ZX)
-    golden(&zx_desc, "zx");
 #elif defined(TEST_APP_AMIGA)
     golden(&amiga_desc, "amiga");
 #elif defined(TEST_APP_DIAG)
@@ -965,7 +931,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

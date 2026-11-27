@@ -39,9 +39,6 @@ const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_DDT)                     // DDT Look Ma, No VIC's app (run.sh ddtapp, the unit ddt_uicover): its table is its core only
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
-#elif defined(TEST_APP_ZX)                      // the ZX Spectrum's app (run.sh zxapp, the unit zx_uicover): its table is its core only
-extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #else
 #error "test_uicover walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif

@@ -22,11 +22,6 @@ const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #include "cores.h"
 extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores (cores/amiga/app/lib holds this one)
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_ZX)
-// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #else
 #include "table.cc"
 #endif

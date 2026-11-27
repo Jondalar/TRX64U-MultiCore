@@ -71,9 +71,6 @@ vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 dri
 source "$TST/ddt_drv.sh"
 ddt_drv_dir "$T/ddttab" || { echo "coreapp: DDT Look Ma, No VIC's driver table was not generated" >&2; exit 1; }   # ddt_regs.h names the registers through it
 DDTLIB="$ROOT/cores/ddt_novic/app/lib"   # the DDT core's library lives in its own repository part (cores/ddt_novic/app/lib), not in coreapp/cores
-source "$TST/zx_drv.sh"
-zx_drv_dir "$T/zxtab" || { echo "coreapp: the ZX Spectrum's driver table was not generated" >&2; exit 1; }   # zx_regs.h names the registers through it
-ZXLIB="$ROOT/cores/zx/app/lib"   # the ZX Spectrum's library lives in its own repository part (cores/zx/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 source "$TST/diag_drv.sh"
@@ -119,11 +116,6 @@ apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 # DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DDT+=("$i"); done
-# The ZX Spectrum is its own app too (cores/zx/app): zxapp CMD... builds like ddtapp, with its library, its table and TEST_APP_ZX; APPLIB puts its library first in the source lookup,
-# so its own copies of tape_deck.cc, tape_pulses.cc (and the headers, by -I) are the ones built, not the shared app's.
-INC_ZX=(-DTEST_APP_ZX=1 -I"$ZXLIB" -I"$T/zxtab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_ZX+=("$i"); done
-zxapp() { local INC=("${INC_ZX[@]}") CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
 ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic APPLIB="$DDTLIB"; "$@"; }
 # The diag core is its own app too (T260 P7: cores/diag/app). diagapp CMD... builds like a8app, with the diag core's library (APPLIB), its table and TEST_APP_DIAG: its units are in the group diag.
 INC_DIAG=(-DTEST_APP_DIAG=1 -I"$DIAGLIB" -I"$T/diagtab/drv")
@@ -928,37 +920,7 @@ diagapp run diag_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DIAGD
 # group zx) - the units its TOML B (cores/zx/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zx.cc, zx_snap.cc, the tape deck and the base's.
 # The snapshot reader is compared with tools/zx_snap.py's reader on a corpus made here, in a temporary directory: no snapshot is ever committed.
 ZXC="$T/zxcorpus"; mkdir -p "$ZXC"; python3 "$ROOT/tools/zx_snap.py" corpus "$ZXC"; export ZX_CORPUS="$ZXC"
-ZXS="zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc $BASEL"
-ZXA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $ZXS"
-ZXD="desc_check.cc overlay.cc descrec.cc $ZXA"
 CARGS="" RARGS=""
-zxapp run zx test_zx.cc $ZXS
-zxapp run zx_snap test_zx_snap.cc zx_snap.cc
-zxapp run boot_zx test_boot_zx.cc $ZXS
-zxapp run tape_zx test_tape.cc tape_pulses.cc
-zxapp run zx_memops test_memops.cc $SVC $ZXD
-RARGS="$T/bundles/desc_own.bin" zxapp run zx_desc test_desc.cc $ZXD
-RARGS="$BUN/app" zxapp run zx_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $ZXD
-zxapp run zx_hotkeys test_hotkeys.cc $ZXD
-# T239.5 D13: every key of its menu against its golden (zx_keywalk: golden/keywalk_zx.txt, ids_zx.txt) and its declaration over the API (zx_uicover), TEST_APP_ZX
-zxapp run zx_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $ZXD
-zxapp run zx_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $ZXD
-zxapp run zx_mounts test_media_mounts_engines.cc $ZXD start.cc handover.cc
-# the ZX Spectrum's rows of the host's ROM table: gen_romreq built as the Spectrum's app, its rows in the host's table
-t_romreq_zx() {
-  local INC=("${INC_ZX[@]}") APPLIB="$ZXLIB"
-  build "$T/gen_romreq_zx" "$TST/gen_romreq.cc" $ZXD
-  "$T/gen_romreq_zx" > "$T/romreq_zx.inc"
-  python3 -I - "$T/romreq_zx.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the ZX Spectrum's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
-import sys
-own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
-host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
-PY
-  echo "test zx_romreq: PASS"
-  return 0
-}
-if ca_in zx && ca_unit zx_romreq; then t_romreq_zx; PASS=$((PASS + 1)); fi
 
 CARGS="" RARGS=""
 

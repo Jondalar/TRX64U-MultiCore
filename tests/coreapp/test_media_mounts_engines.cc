@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_APPLE2)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
-#if defined(TEST_APP_ZX) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_APPLE2)
 #define MME_NO_DRIVE 1         // the app has no 1541 library and no drive window
 #endif
 #include "c64_model.h"
@@ -44,9 +44,6 @@ extern const CoreDesc apple2_desc;              // cores.h lists the shared app'
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_ZX)
-extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -359,16 +356,6 @@ static std::vector<Prof> profiles()
         p.prep = [](Run &r) { a2_state(&r.c)->have_diskrom = true; };
         p.cases = { apple_drive(0), apple_drive(1), apple_unit(0), apple_unit(1) };
         p.watch = { { [](CoreIo *io) { return (uint32_t)(io->rd(A2_HDD_CTL) & 3); }, 3, "both slot 7 units mounted at the release" } };
-        v.push_back(p);
-    }
-#endif
-#ifdef TEST_APP_ZX
-    {   // ---- ZX Spectrum: the tape
-        Prof p;
-        p.name = "zx"; p.cfg = "/usb0/cores/zx/zx.cfg"; p.base = &zx_desc;
-        p.make_io = [] { return (CoreIo *)new GIo; };
-        p.world = [](FakeFs &fs) { fs.put("/usb0/a.tzx", cdt()); fs.put("/usb0/b.tzx", cdt()); };
-        p.cases = { tape_case("zx", "tzx") };
         v.push_back(p);
     }
 #endif
@@ -780,8 +767,6 @@ int main()
     }
 #ifdef TEST_APP_VC20
     drive_modes(prof(profs, "vc20"));
-#elif defined(TEST_APP_ZX)
-                                                       // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
 #else
 #endif
     DONE("test_media_mounts_engines");

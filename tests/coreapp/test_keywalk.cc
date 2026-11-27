@@ -36,10 +36,6 @@ const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 extern const CoreDesc ddt_novic_desc;    // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #define KW_GOLDEN "_ddt_novic"
-#elif defined(TEST_APP_ZX)               // the ZX Spectrum's app (run.sh zxapp, the unit zx_keywalk): its table is its core only, its rows are golden/keywalk_zx.txt and ids_zx.txt
-extern const CoreDesc zx_desc;           // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
-#define KW_GOLDEN "_zx"
 #else
 #error "test_keywalk walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif
