@@ -47,6 +47,7 @@ No mutation tests (T174 D5.4).
   "59.8 Hz" on every row while the monitor reported 1080p50 (the TRX64U-FW session, 2026-11-27). The likely cause is this spec's
   origin: an EDID that names no 50 Hz row makes `video_modes_resolve` (`app/video/edid.cc:308`) pick the 60 Hz row of the table while
   the gateware runs the 50 Hz one.
+  Completed the same day by T259 D12 (Alex): the list is "Default from Host", "Default from EDID", then the resolutions the EDID names.
 
 ## §4 Out
 

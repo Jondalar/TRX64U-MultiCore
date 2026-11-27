@@ -213,6 +213,15 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   canvas (NTSC), not on 960 x 540.** Alex (translated): "576p or 480p, because it looks awful, I think." The canvas choice is the one
   `coreapp/src/video.cc` already makes for those HDMI rows (the row's size below 960 wide); the setting that picks the main output is
   Alex's plan "Primary out: HDMI / Analog" (TRX64U-FW session, 2026-11-27).
+- **D12 (Alex, 2026-11-27, on open question 3): every core has the same two picture settings, and PAL/NTSC comes from the CPU's
+  mode.** Alex (translated): "Every core shall have - HDMI: Default from Host, Default from EDID, the values from EDID. Analog: from
+  Host / off / RGB / S-VIDEO. Whether PAL/NTSC comes from the CPU mode." So:
+  - **HDMI:** "Default from Host" (the host's mode), "Default from EDID" (the screen's preferred mode), then the resolutions the EDID
+    names. No rate in the choice (T235 D4); the rate follows the System Mode (D8).
+  - **Analog:** "from Host", "Off", "RGB" (R, G, B with SYNCn and FB), "S-Video" (luma on G, chroma on B; composite on R at the same time).
+  - **PAL/NTSC:** the core's System Mode (the CPU setting), nowhere else.
+
+  Generic, in the SDK, for every core (T192 D24). Open question 3 is answered by D9 and this.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
@@ -221,9 +230,8 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
 
 1. ~~Does the RGB mode (P2) become a setting of the cores?~~ Answered: D2.
 2. ~~Does Alex run S1 and S2 on his Sony first?~~ Answered: D3.
-3. One encoder module in `cores/common/` for the host and the cores (input: the picture at 15 kHz from the VIC raster or the pixel
-   layer; output: the names map, the standard's levels), with the output kind as the only setting: RGB (with SYNCn and FB) or video
-   (luma on G, chroma on B, composite on R at once)? Proposed 2026-11-27; Alex settles the pins first.
+3. ~~One encoder module in `cores/common/` with the output kind as the only setting?~~ Answered: D9 (foundation plus 31 kHz guard)
+   and D12 (the settings of every core).
 4. The Amiga (OCS/ECS/AGA) and the SNES (Alex's impulses, 2026-11-27, see D8): RGB as their first analogue mode, composite and Y/C
    optional; native timings kept (Amiga 15 kHz PAL/NTSC with interlace and hires, SNES 240p/288p and interlace); one common layer in
    `cores/common/` (in: RGB pixel, sync, blank, timing; out: the C64U DAC map, levels, optional PAL/NTSC encoding); the tap before the
