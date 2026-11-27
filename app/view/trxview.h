@@ -248,7 +248,7 @@ lv_obj_t *trx_pbar(lv_obj_t *par, int x, int y, int w, int h, uint32_t track, ui
 void trx_pbar_set(lv_obj_t *bar, int value, int range);
 
 // T167: the parent of every panel drawn over the screen (progress pages, questions, the splash). Not lv_layer_top(): see trxview.cc.
-// trx_overlay_gen() moves whenever the container was made again (a frame rebuild with lv_obj_clean(scr) deletes it with its panels).
+// trx_overlay_gen() moves when the container is deleted (a frame rebuild with lv_obj_clean(scr) deletes it with its panels) and when it is made again.
 lv_obj_t *trx_overlay(void);
 uint32_t trx_overlay_gen(void);
 

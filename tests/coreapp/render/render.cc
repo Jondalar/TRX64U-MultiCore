@@ -2967,8 +2967,9 @@ int main(int argc, char **argv)
     }
 
     {   // T260 fix (Rick and Alex, 2026-11-27: about 2 s per key in the diag core's A/V panel, an edit list over the veil): the card of an edit list stays.
-        // RIGHT on a row changes the pixels of that row only, DOWN those of two rows, END scrolls the window by retexting the rows and the "a-b of n" label;
-        // none of them builds the card again (ui_dialog_inplace counts the keys served in place).
+        // RIGHT on a row changes the pixels of that row only, DOWN those of two rows, END moves the 14-row window (rows, values that come and go, the
+        // "a-b of n" label) - all served in place (ui_dialog_inplace), and the picture equals a card built afresh for the same state. A frame rebuild
+        // between two keys (a new canvas: the menu cleans the screen, the overlay container with it) builds the card again and writes no old row.
         static HostOs dos;
         AppDlg dlg(&dos, &r.fs);
         static DlgRow erows[24];
@@ -2983,25 +2984,38 @@ int main(int argc, char **argv)
         };
         std::atomic<bool> done(false);
         int ans = -9;
-        std::thread worker([&] { ans = dlg.edit_list("A/V out", "LEFT / RIGHT change a row", erows, 24, 0, cb, nullptr); done = true; });
-        for (int i = 0; i < 3000 && !dlg.open(); i++) {
+        std::thread worker;
+        auto open_at = [&](int sel) {
+            done = false;
+            worker = std::thread([&, sel] { ans = dlg.edit_list("A/V out", "LEFT / RIGHT change a row", erows, 24, sel, cb, nullptr); done = true; });
+            for (int i = 0; i < 3000 && !dlg.open(); i++) {
+                dlg.service();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            CHECK(dlg.open());
             dlg.service();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        CHECK(dlg.open());
-        dlg.service();
-        ui_dialog_render(dlg);
-        lv_timer_handler();
-        snprintf(p, sizeof(p), "%s/edit-list_0.png", out);
-        png(p, 2);
-        static uint16_t before[960 * 540];
-        auto changed = [&](int *y0, int *y1) {                            // the pixels that differ from `before`, and the lines they lie between
+            ui_dialog_render(dlg);
+            lv_timer_handler();
+        };
+        auto close = [&] {
+            dlg.take_key(KEY_ESCAPE);
+            for (int i = 0; i < 3000 && !done; i++) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            worker.join();
+            CHECK(ans == -1);
+            dlg.service();
+            ui_dialog_render(dlg);
+            lv_timer_handler();
+        };
+        static uint16_t before[960 * 540], kept[960 * 540];
+        auto changed = [&](const uint16_t *ref, int *y0, int *y1) {      // the pixels that differ from `ref`, and the lines they lie between
             size_t n = 0;
             *y0 = 540;
             *y1 = -1;
             for (int y = 0; y < 540; y++) {
                 for (int x = 0; x < 960; x++) {
-                    if (fb[y * 960 + x] != before[y * 960 + x]) {
+                    if (fb[y * 960 + x] != ref[y * 960 + x]) {
                         n++;
                         *y0 = y < *y0 ? y : *y0;
                         *y1 = y > *y1 ? y : *y1;
@@ -3017,33 +3031,46 @@ int main(int argc, char **argv)
             ui_dialog_render(dlg);
             lv_timer_handler();
         };
+        open_at(0);
+        snprintf(p, sizeof(p), "%s/edit-list_0.png", out);
+        png(p, 2);
         const int rh = trx_row_h() + 1;
         const uint32_t in0 = ui_dialog_inplace();
         int y0, y1;
         press(KEY_RIGHT);
         CHECK(dlg.view().row_val[0] && !strcmp(dlg.view().row_val[0], "101"));
-        size_t n = changed(&y0, &y1);
-        CHECK(n > 0 && y1 - y0 < rh);                                     // one row
-        CHECK(ui_dialog_inplace() == in0 + 1);
+        const size_t n_right = changed(before, &y0, &y1);
+        CHECK(n_right > 0 && y1 - y0 < rh);                               // one row
         press(KEY_DOWN);
-        n = changed(&y0, &y1);
-        CHECK(n > 0 && y1 - y0 < 2 * rh);                                 // the row left and the row selected
-        CHECK(ui_dialog_inplace() == in0 + 2);
-        press(KEY_END);                                                    // the window moves to the last rows when the card cannot show all 24
+        const size_t n_down = changed(before, &y0, &y1);
+        CHECK(n_down > 0 && y1 - y0 < 2 * rh);                            // the row left and the row selected
+        press(KEY_END);                                                    // the window (14 rows of 24) moves to the last rows: action rows 22, 23 come in
         CHECK(dlg.view().sel == 23);
+#ifndef UI_DIALOG_REBUILD                                                 // T167's control builds the card on every revision
         CHECK(ui_dialog_inplace() == in0 + 3);
+#endif
+        const int first = dlg.view().first;
+        memcpy(kept, fb, sizeof(kept));
         snprintf(p, sizeof(p), "%s/edit-list_1.png", out);
         png(p, 2);
-        printf("edit list: %d of 24 rows shown, 3 keys in place, RIGHT changed %zu px\n", dlg.view().rows, n);
-        dlg.take_key(KEY_ESCAPE);
-        for (int i = 0; i < 3000 && !done; i++) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        worker.join();
-        CHECK(ans == -1);
+        close();
+        open_at(23);                                                       // the same state, its card built afresh
+        CHECK(dlg.view().first == first);
+        const size_t n_fresh = changed(kept, &y0, &y1);
+        CHECK(n_fresh == 0);                                               // the rows written in place draw the picture a fresh card draws
+        const uint32_t in1 = ui_dialog_inplace();
+        ui_set_canvas(720, 480);
+        ui_set_canvas(960, 540);                                           // the next menu render builds the frame again (lv_obj_clean of the screen)
+        dlg.take_key(KEY_UP);
         dlg.service();
+        ui_menu_render(*r.m);                                              // as run.cc: the menu first, then the question
         ui_dialog_render(dlg);
         lv_timer_handler();
+        CHECK(dlg.view().sel == 22);
+        CHECK(ui_dialog_inplace() == in1);                                 // the card was built again: no row of the deleted card was written
+        printf("edit list: %d of 24 rows shown, in place %u, RIGHT %zu px, DOWN %zu px, fresh card differs in %zu px\n", dlg.view().rows,
+               (unsigned)(ui_dialog_inplace() - in0), n_right, n_down, n_fresh);
+        close();
     }
 
     {   // T167 S4: the menu's own job display (a new image written in steps: "Building the image", NN %). The row is in the pane, not an overlay, but it is redrawn the

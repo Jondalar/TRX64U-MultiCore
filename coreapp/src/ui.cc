@@ -1167,7 +1167,8 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
 // ---- the question an application asks (T104.3 D4) --------------------------------------------------------------------------------------------------
 // T167: the question and the bar are cards in the overlay container (trx_overlay(): last child of the screen, where LVGL's search for the topmost
 // covering object finds them). Three objects, each changed on its own: the veil that dims the screen (made once per question, never drawn again by a
-// tick), the question's card (built again when the question changes: a key, a new row) and the bar's card (its labels and its fill change in place).
+// tick), the question's card (built again when the question changes; a choose or edit list keeps its rows and a key writes them in place, T260 fix)
+// and the bar's card (its labels and its fill change in place).
 // A tick of the bar therefore draws a few hundred pixels of the bar's own card and nothing of the screen behind it.
 static uint32_t g_dlg_rev;
 static bool g_dlg_up;
