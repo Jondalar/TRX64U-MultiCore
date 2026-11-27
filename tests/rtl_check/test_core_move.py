@@ -27,10 +27,10 @@ with contextlib.redirect_stdout(buf):
 out = buf.getvalue()
 # T239.3 D61: the sample is the SNES, a core that has not moved yet (the Apple IIe, the sample until its move, has its own app; the C64SCPU moves with it). A moved core has no coreapp/cores/<id>.cc to read:
 # when the last core has moved, this case needs a construction of its own (a scratch tree), as the switch-off case of tools/test_cor_pack.py
-must(inf["kind"] == "large" and "snes.cc" in inf["own"] and "snes_regs.h" in inf["own"] and "hk_defaults.h" in inf["shared"] and "cores.h" not in inf["own"] + inf["shared"],
-     "plan snes: a large core; its sources are the include closure of coreapp/cores/snes.cc, hk_defaults.h is shared with other cores and stays, cores.h is no core's file", out)
-must("move to cores/snes/app/lib" in out and "SHARED, stays" in out and "snes large" in out,
-     "plan snes: names the move, the shared file and the lane", out)
+must(inf["kind"] == "large" and "snes.cc" in inf["own"] and "snes_regs.h" in inf["own"] and "hk_defaults.h" in inf["own"] and "cores.h" not in inf["own"] + inf["shared"],
+     "plan snes: a large core; its sources are the include closure of coreapp/cores/snes.cc, hk_defaults.h moves with it (no other core of the shared app includes it since the Apple IIe and the C64SCPU moved), cores.h is no core's file", out)
+must("move to cores/snes/app/lib" in out and "snes large" in out,
+     "plan snes: names the move and the lane", out)
 
 sdk = descrec.toml_loads(core_move.sdk_toml(inf))
 must(sdk["app"]["desc"] == "snes_desc" and sdk["app"]["base_toml_a"] == "host.toml" and "cart_regs" in sdk["app"]["base_blocks"]
