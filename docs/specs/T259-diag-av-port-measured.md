@@ -193,6 +193,11 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   NTSC always 60. Full stop." and "PAL/NTSC are CPU settings first." The analogue output follows the System Mode (the machine's clock
   and raster) and has no standard setting of its own. HDMI keeps following the machine on the VIC path (`host/mode_req.v`: a C64-type
   core is held to the System Mode's family; Alex: "That can stay"). How the HDMI Picture item shows it: T235 D4.
+  Amended the same day (Alex, translated): "interpret T259 D8 for these platforms [Amiga OCS/ECS/AGA, SNES] so that the native video
+  timing of the core is what counts, not necessarily a C64-like PAL/NTSC raster." The analogue output carries the core's own raster
+  (lines, line rate, interlace, hires) as the machine makes it; PAL/NTSC is the machine's setting that makes that raster. Alex's
+  impulses of 2026-11-27 for the Amiga and the SNES (RGB first, native timings, a common layer, the tap before the HDMI scaler, a guard
+  against 31 kHz modes, the cost per core) are open question 4, under review, not decided.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
@@ -204,6 +209,10 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
 3. One encoder module in `cores/common/` for the host and the cores (input: the picture at 15 kHz from the VIC raster or the pixel
    layer; output: the names map, the standard's levels), with the output kind as the only setting: RGB (with SYNCn and FB) or video
    (luma on G, chroma on B, composite on R at once)? Proposed 2026-11-27; Alex settles the pins first.
+4. The Amiga (OCS/ECS/AGA) and the SNES (Alex's impulses, 2026-11-27, see D8): RGB as their first analogue mode, composite and Y/C
+   optional; native timings kept (Amiga 15 kHz PAL/NTSC with interlace and hires, SNES 240p/288p and interlace); one common layer in
+   `cores/common/` (in: RGB pixel, sync, blank, timing; out: the C64U DAC map, levels, optional PAL/NTSC encoding); the tap before the
+   HDMI scaler; 31 kHz Amiga modes never reach a 15 kHz TV unchecked; DSP and LUT cost measured per core. Under review (2026-11-27).
 
 ## §4 Out
 
