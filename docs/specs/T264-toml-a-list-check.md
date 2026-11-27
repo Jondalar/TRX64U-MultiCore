@@ -1,6 +1,6 @@
 # T264 — Every core lane checks in seconds that its TOML A names the registers its RTL decodes; our own cores take their addresses from the TOML A
 
-**Status:** ACCEPTED (2026-11-26), asked by Alex.
+**Status:** IN PROGRESS (2026-11-27, D2), ACCEPTED (2026-11-26), asked by Alex.
 **Repo:** TRX64U-MultiCore — `tools/` (the list check, the generator), `ci/lint.sh` and `ci/lane.sh` (step 1 of each lane), the RTL of
 our own cores (`cores/<core>/rtl`, `cores/common`) for the generated constants.
 **Number:** T264.
@@ -56,7 +56,11 @@ Parts:
   da bleiben."
 - Which cores are "our own" (their decode written here, not a port) is read from the code and each core's provenance while building
   and shown to Alex before any decode is converted.
-
+- **D2 (Alex, 2026-11-27): build it now, before the last core moves.** Alex, translated: "Then do T264", after the moves of apple2,
+  c64scpu and snes (T239.3 D61) had spent their time in `rtl_check.py emit` and `check` (no TOML A for c64scpu: the scan saw a write
+  and a read at every byte). Built first: P1, P3, P4, and the moves' gates (`tools/core_move.py`) on P1 instead of the interpreter.
+  P2 starts with D1's step: the list of our own cores, read from the code and each core's provenance, goes to Alex before any decode
+  is converted.
 ## §4 Out
 
 - Further work on the interpreter's semantics (directions, strobes, variables): frozen at round 4 (D1).
