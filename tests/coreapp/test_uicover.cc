@@ -36,9 +36,6 @@ const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_CPC)                     // the CPC's app (run.sh cpcapp, the unit cpc_uicover): its table is its core only
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
-#elif defined(TEST_APP_C128)                    // the C128's app (run.sh c128app, the unit c128_uicover): its table is its core only
-extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
-const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #elif defined(TEST_APP_PET)                     // the PET's app (run.sh petapp, the unit pet_uicover): its table is its core only
 extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores; the PET is its own app (cores/pet/app/lib)
 const CoreDesc *const core_table[] = { &pet_desc, 0 };

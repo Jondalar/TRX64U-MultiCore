@@ -76,9 +76,6 @@ zx_drv_dir "$T/zxtab" || { echo "coreapp: the ZX Spectrum's driver table was not
 ZXLIB="$ROOT/cores/zx/app/lib"   # the ZX Spectrum's library lives in its own repository part (cores/zx/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/cpc_drv.sh"
 cpc_drv_dir "$T/cpctab" || { echo "coreapp: the CPC's driver table was not generated" >&2; exit 1; }   # cpc_regs.h names the registers through it
-source "$TST/c128_drv.sh"
-c128_drv_dir "$T/c128tab" || { echo "coreapp: the C128's driver table was not generated" >&2; exit 1; }   # c128_regs.h names the registers through it
-C128LIB="$ROOT/cores/c128/app/lib"   # the C128's library lives in its own repository part (cores/c128/app/lib), not in coreapp/cores; it holds its own copies of hk_defaults.h and drive_rom_pick.h
 source "$TST/pet_drv.sh"
 pet_drv_dir "$T/pettab" || { echo "coreapp: the PET's driver table was not generated" >&2; exit 1; }   # pet_regs.h names the registers through it
 PETLIB="$ROOT/cores/pet/app/lib"   # the PET's library lives in its own repository part (cores/pet/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.*  and hk_defaults.h
@@ -136,9 +133,6 @@ INC_CPC=(-DTEST_APP_CPC=1 -I"$CPCLIB" -I"$T/cpctab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_CPC+=("$i"); done
 INC_PET=(-DTEST_APP_PET=1 -I"$PETLIB" -I"$T/pettab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_PET+=("$i"); done
-INC_C128=(-DTEST_APP_C128=1 -I"$C128LIB" -I"$T/c128tab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_C128+=("$i"); done
-c128app() { local INC=("${INC_C128[@]}") CA_APP=c128 APPLIB="$C128LIB"; "$@"; }
 petapp() { local INC=("${INC_PET[@]}") CA_APP=pet APPLIB="$PETLIB"; "$@"; }
 cpcapp() { local INC=("${INC_CPC[@]}") CA_APP=cpc APPLIB="$CPCLIB"; "$@"; }
 zxapp() { local INC=("${INC_ZX[@]}") CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
@@ -1067,42 +1061,7 @@ PY
 }
 if ca_in pet && ca_unit pet_romreq; then t_romreq_pet; PASS=$((PASS + 1)); fi
 
-# T239.5 D4, D16: the C128's units, built as its app (c128app: its library cores/c128/app/lib with its own copies of hk_defaults.h and drive_rom_pick.h, its own table with its own drive window, the group c128) -
-# the units its TOML B (cores/c128/app/sdk.toml) names for the steps 2, 8 and 9 of its lane. The sources are the app's own: c128.cc, the PRG library (cbm_run.cc, cbm_prg.cc), Freeze, the drive library and the base's.
-C128S="c128.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
-C128X="$C128S menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc"   # T185 D4: the bench also drives the file selector of the settings rows
-C128A="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $C128S"
-C128D="desc_check.cc overlay.cc descrec.cc $C128A"
-C128M="test_media_mounts_engines.cc $C128D start.cc handover.cc"
 CARGS="" RARGS=""
-# T113 5.5 (the Commodore 128 on the generic application): the descriptor against a model of register page E and the DDR2 window; the extra keys are pure
-c128app run c128 test_c128.cc $C128X
-# T194 S3: the C128's two pictures on the one layer (the VDC, and the VIC-IIe's capture in format 3): Integer / Fit / Fill, 1080p and 720p, 50 and 60 Hz family, Smoothing, the switch both ways
-c128app run c128pic test_c128pic.cc $C128X
-RARGS="$T/bundles/desc_own.bin" c128app run c128_desc test_desc.cc $C128D
-RARGS="$BUN/app" c128app run c128_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $C128D
-c128app run c128_hotkeys test_hotkeys.cc $C128D
-c128app run c128_ledcores test_ledcores.cc $C128D
-c128app run c128_joyswap test_joyswap.cc $C128D
-# T239.5 D13: every key of its menu against its golden (c128_keywalk: golden/keywalk_c128.txt, ids_c128.txt) and its declaration over the API (c128_uicover), TEST_APP_C128
-c128app run c128_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $C128D
-c128app run c128_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $C128D
-c128app run c128_mounts $C128M
-# the C128's rows of the host's ROM table: gen_romreq built as the C128's app, its rows in the host's table
-t_romreq_c128() {
-  local INC=("${INC_C128[@]}") APPLIB="$C128LIB"
-  build "$T/gen_romreq_c128" "$TST/gen_romreq.cc" $C128D
-  "$T/gen_romreq_c128" > "$T/romreq_c128.inc"
-  python3 -I - "$T/romreq_c128.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the C128's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
-import sys
-own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
-host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
-PY
-  echo "test c128_romreq: PASS"
-  return 0
-}
-if ca_in c128 && ca_unit c128_romreq; then t_romreq_c128; PASS=$((PASS + 1)); fi
 
 # T239.3 D61: the Apple IIe's units built as its app (apple2app: its library cores/apple2/app/lib and its own table, the group apple2) - the units its TOML B (cores/apple2/app/sdk.toml) names for the steps 2 and 8 to 10
 # of its lane. The sources are the app's own: apple2.cc with its disk, hard disk, nibble and WOZ code and the base's (no other core). The Apple IIe was the shared units' sample core: a generic case that stood on its

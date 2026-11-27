@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_C128) || defined(TEST_APP_APPLE2)
+#if defined(TEST_APP_VC20) || defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_APPLE2)
 #define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
 #endif
 #if defined(TEST_APP_ZX) || defined(TEST_APP_CPC) || defined(TEST_APP_APPLE2)
@@ -50,9 +50,6 @@ const CoreDesc *const core_table[] = { &zx_desc, 0 };
 #elif defined(TEST_APP_CPC)
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 const CoreDesc *const core_table[] = { &cpc_desc, 0 };
-#elif defined(TEST_APP_C128)
-extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores; the C128 is its own app (cores/c128/app/lib)
-const CoreDesc *const core_table[] = { &c128_desc, 0 };
 #elif defined(TEST_APP_APPLE2)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -420,17 +417,12 @@ static std::vector<Prof> profiles()
 #if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
 #ifdef TEST_APP_VC20
     for (int k = 0; k < 1; k++) {
-#elif defined(TEST_APP_C128)
-    for (int k = 1; k < 2; k++) {
 #endif
     // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
         Prof p;
 #ifdef TEST_APP_VC20
         const CoreDesc *d = &vc20_desc;
         p.name = "vc20";
-#elif defined(TEST_APP_C128)
-        const CoreDesc *d = &c128_desc;
-        p.name = "c128";
 #endif
         p.cfg = std::string("/usb0/cores/") + p.name + "/" + p.name + ".cfg";
         p.base = d;
@@ -862,8 +854,6 @@ int main()
                                                        // the Spectrum's profile has the tape only: the sets of S2 to S8 above are its checks
 #elif defined(TEST_APP_CPC)
     cpc_464(prof(profs, "cpc"));
-#elif defined(TEST_APP_C128)
-    drive_modes(prof(profs, "c128"));
 #else
 #endif
     DONE("test_media_mounts_engines");
