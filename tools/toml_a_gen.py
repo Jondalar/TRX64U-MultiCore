@@ -78,8 +78,8 @@ def insert_point(text, path, module):
     return m.end() if m else None
 
 
-def modules_of(core, doc, path):
-    return sorted({b["module"] for b in doc["block"] if T.find_module(core, b["module"]) == path})
+def modules_of(core, doc, path, srcdir=None):
+    return sorted({b["module"] for b in doc["block"] if T.find_module(core, b["module"], srcdir) == path})
 
 
 def cmd_gen(core, toml_a=None, srcdir=None, insert=False):
@@ -92,7 +92,7 @@ def cmd_gen(core, toml_a=None, srcdir=None, insert=False):
         if r:
             text = text[:r.start()] + new + text[r.end():]
         elif insert:
-            pt = insert_point(text, path, modules_of(core, doc, path)[0])
+            pt = insert_point(text, path, modules_of(core, doc, path, srcdir)[0])
             if pt is None:
                 print("toml_a_gen: %s: no insertion point in %s" % (core, path))
                 return 1
