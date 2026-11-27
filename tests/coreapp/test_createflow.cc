@@ -21,16 +21,11 @@
 #include "newdisk.h"
 #include "newfile.h"
 #include "d1541_drive.h"
-#if !defined(TEST_APP_VC20)
 #error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
-#endif
 #include "sectors.h"
 
 typedef std::vector<uint8_t> Bytes;
 
-#ifdef TEST_APP_VC20
-const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#endif
 
 struct Host : MenuHost {
     void info(int, char *out, int n) { snprintf(out, n, "x"); }
@@ -169,10 +164,6 @@ static bool clean_name(const char *s)
 struct Create { const CoreDesc *d; const char *label; const char *ext; };
 
 static const Create creates[] = {
-#ifdef TEST_APP_VC20
-    { &vc20_desc,      "Create blank D64", ".d64" },
-    { &vc20_desc,      "Create blank G64", ".g64" },
-#endif
 };
 
 static const Task *task_of(const CoreDesc *d, const char *label)
@@ -246,9 +237,6 @@ static void check_suggestions()
         }
     }
     // Every state a task prefills a prompt from (Save as ... too) answers a clean name on a medium that works.
-    #ifdef TEST_APP_VC20
-    for (const CoreDesc *d : { &vc20_desc }) {
-#endif
         for (int i = 0; i < d->ntasks; i++) {
             if (!d->tasks[i].ask_state) continue;
             Rig r(d);
@@ -375,17 +363,11 @@ static void check_progress_for(const CoreDesc *desc, const char *label, const ch
 
 static void check_progress()
 {
-#ifdef TEST_APP_VC20
-    // the 1541 library: its own builder and writer state, same display
-    check_progress_for(&vc20_desc, "Create blank D64", ".d64", -1, 174848);
-#else
     check_progress_for(&apple2_desc, "Create blank DSK", ".dsk", ND_APPLE_DSK, ND_APPLE_BYTES);
-#endif
 }
 
 int main()
 {
-#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores
     // the grammar of the board's printf, itself (what the shim below lets through)
     CHECK(board_format_ok("%s_ %d %02x %-5s %*d %u KB %c"));
     CHECK(!board_format_ok("%.*s"));
@@ -394,7 +376,6 @@ int main()
     CHECK(!board_format_ok("%lu"));
     CHECK(!board_format_ok("100%"));
     // what the product prints is checked as it runs: a format with a precision (or %%) in any of the paths below is a failed check
-#endif
     check_suggestions();
     check_progress();
     DONE("createflow");

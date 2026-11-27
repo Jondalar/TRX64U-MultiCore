@@ -9,9 +9,6 @@
 #include <string>
 #include <vector>
 #include "check.h"
-#if defined(TEST_APP_VC20)
-#define MME_OWN_APP 1          // an app of its own is its own build (run.sh vc20app, c264app, zxapp, cpcapp, c128app, a8app, nesapp, neogeoapp, apple2app, snesapp) with its core only
-#endif
 #include "c64_model.h"
 #include "boot.h"
 #include "cores.h"
@@ -34,11 +31,7 @@
 #include "d1541_drive.h"
 #endif
 
-#ifdef TEST_APP_VC20
-const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#else
 const CoreDesc *const core_table[] = { 0 };            // the shared unit's profile is the cartridge port's stub core below, which is no table entry
-#endif
 
 typedef std::vector<uint8_t> Bytes;
 
@@ -228,9 +221,7 @@ static Bytes patt(uint32_t seed, size_t n)
     for (size_t i = 0; i < n; i++) { x = x * 1664525u + 1013904223u; v[i] = (uint8_t)(x >> 24); }
     return v;
 }
-#ifndef TEST_APP_VC20          // the tape file is the shared app's and the ZX Spectrum's app's
 static Bytes cdt() { return Bytes{ 'Z', 'X', 'T', 'a', 'p', 'e', '!', 0x1A, 1, 20, 0x12, 100, 0, 5, 0, 0x20, 0xE8, 0x03, 0x12, 200, 0, 2, 0 }; }
-#endif
 #ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Bytes d64(const char *name)
 {
@@ -266,7 +257,6 @@ static Bytes crt8(uint8_t fill)                         // an 8 KB cartridge (EX
 #endif
 // ---- operations as the menu calls them --------------------------------------------------------------------------------------------------
 static int mount_op(Run &r, const char *op, const std::vector<OpIn> &in, char *msg, int n) { return r.op(op, in.data(), (int)in.size(), msg, n) ? 1 : 0; }
-#ifndef TEST_APP_VC20          // the tape case is the shared app's and the ZX Spectrum's and the CPC's apps'
 static Case tape_case(const char *pfx, const char *ext)
 {
     Case k;
@@ -279,7 +269,6 @@ static Case tape_case(const char *pfx, const char *ext)
     k.eject = [ej](Run &r, char *m, int n) { return mount_op(r, ej.c_str(), {}, m, n); };
     return k;
 }
-#endif
 #ifndef MME_NO_DRIVE          // the Spectrum's app has no drive: no disk image, no 1541 library
 static Case cbm_drive()
 {
@@ -311,15 +300,8 @@ static std::vector<Prof> profiles()
 {
     std::vector<Prof> v;
 #if !defined(MME_NO_DRIVE) && defined(MME_OWN_APP)   // the Commodore cores with the drive library are apps of their own: the shared app has none left
-#ifdef TEST_APP_VC20
-    for (int k = 0; k < 1; k++) {
-#endif
     // ---- the Commodore cores with the drive library: the VC-20, the C128, the C264 (with the cartridge image)
         Prof p;
-#ifdef TEST_APP_VC20
-        const CoreDesc *d = &vc20_desc;
-        p.name = "vc20";
-#endif
         p.cfg = std::string("/usb0/cores/") + p.name + "/" + p.name + ".cfg";
         p.base = d;
         p.make_io = [] { return (CoreIo *)new GIo; };
@@ -716,9 +698,5 @@ int main()
         if (p.game) game_empty_set(p);
 #endif
     }
-#ifdef TEST_APP_VC20
-    drive_modes(prof(profs, "vc20"));
-#else
-#endif
     DONE("test_media_mounts_engines");
 }

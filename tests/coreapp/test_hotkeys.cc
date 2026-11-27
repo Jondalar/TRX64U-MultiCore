@@ -49,7 +49,6 @@ static int first_fire(Rig &g, HkLoop &lp, uint32_t bit, int ms, uint32_t *all = 
 
 int main()
 {
-#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores (the VIC-20's and the A1200's app run this file for the one row of S5)
     // ---- the registers of a map
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -69,8 +68,6 @@ int main()
         hk_regs(off, r);
         for (int i = 0; i < 11; i++) CHECK_EQ(r[i], 0);                  // no first modifier: everything off
     }
-#endif
-#if !defined(TEST_APP_VC20)
     // ---- the action key goes down before the modifier completes: it fires once, when the modifier is complete
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -83,8 +80,6 @@ int main()
         j.k = (1ull << CTRL) | (1ull << KR); CHECK_EQ(e.poll(two, j, 10), 0u);
         j.k = (1ull << CTRL) | (1ull << CBM) | (1ull << KR); CHECK_EQ(e.poll(two, j, 20), 1u << HKA_RESET);
     }
-#endif
-#if !defined(TEST_APP_VC20)
     // ---- the USB keyboard: the same rule as the host's mask
     {
         HkMap m = { CTRL, 255, { 64, KPLUS, KMINUS, KR, KJ, KP, 255 } };
@@ -115,15 +110,10 @@ int main()
         hk_usb_report_filter(in5, out); CHECK_EQ(out[2], 0x15);                                   // up and down again: through
         hk_usb_set_map(none);
     }
-#endif
     // ---- S5 and the per-core default maps: every core that has hotkeys, the default is harmless in it
     {
         struct Row { const CoreDesc *d; const char *name; bool has; };
-#ifdef TEST_APP_VC20
-        const Row rows[] = { { &vc20_desc, "vc20", true } };
-#else
         const Row rows[] = { { 0, "", false } };          // the shared app has no real core left (T239.3 D61): no row; every core's S5 is its app's unit <core>_hotkeys
-#endif
         for (const Row &r : rows) {
             if (!r.d) continue;
             CHECK_EQ(r.d->hotkeys != 0, r.has);

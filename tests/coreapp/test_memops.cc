@@ -12,10 +12,6 @@
 #include "ops_glue.h"
 #include "svc.h"
 
-#ifdef TEST_APP_VC20                     // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in its table
-const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#define HEX_CORE vc20_desc
-#endif
 
 // 128 KB behind a window of 64 KB: the page register picks the half (the model of zx_win.v / cpc: "b0: the 64 KB half of the RAM window")
 struct PagedIo : FakeIo {
@@ -77,11 +73,7 @@ int main()
         CHECK_EQ(rd->args[1].hi, OP_DATA_MAX);
     }
     // the address width of each core (the last address the pair takes)
-#ifdef TEST_APP_VC20
-    struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
-#else
     struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // the Apple IIe (T239.3 D61: its unit apple2_memops); the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
-#endif
     for (auto &w : widths) {
         Rig r(w.d);
         const OpDef *rd = ops_of(&r.c)->find_op("machine.read_mem");
@@ -91,31 +83,6 @@ int main()
 
     OpResult res;
     // ---- the C64 family: the 64 KB window, RAM only (C64_DMA_MEMONLY on for the access and off again)
-#if defined(TEST_APP_VC20)   // the C64-family cores of an app: the VIC-20's and the 264's (the shared app has none)
-#ifdef TEST_APP_VC20
-    for (const CoreDesc *d : { &vc20_desc }) {
-#else
-    for (const CoreDesc *d : { &c264_desc }) {
-#endif
-        Rig r(d);
-        CHECK_EQ(r.write(0x0400, "deadbeef", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0x400], 0xDE); CHECK_EQ(r.io.big[0x403], 0xEF);
-        CHECK_EQ(r.io.memonly_on, 1); CHECK_EQ(r.io.memonly_off, 1); CHECK(!r.io.memonly_state);
-        CHECK_EQ(r.call("machine.read_mem", 0x0400, 4, &res), OPE_OK);
-        CHECK_EQ(res.ndata, 4); CHECK(res.data[0] == 0xDE && res.data[3] == 0xEF);
-        CHECK(strstr(res.msg, "4 bytes at $400") != 0);
-        CHECK_EQ(r.io.memonly_on, 2);
-        // the last byte of the space, and one past it
-        CHECK_EQ(r.write(0xFFFF, "55", &res), OPE_OK);
-        CHECK_EQ(r.io.big[0xFFFF], 0x55);
-        CHECK_EQ(r.call("machine.read_mem", 0xFFFF, 2, &res), OPE_ARG);          // crosses the end: it does not wrap
-        CHECK(strstr(res.msg, "cross the end of") != 0);
-        CHECK_EQ(r.call("machine.read_mem", 0x10000, 1, &res), OPE_ARG);         // outside the argument's range: the registry refuses
-        CHECK_EQ(res.ndata, 0);
-        CHECK(!r.io.overrun);
-    }
-#endif
-#if !defined(TEST_APP_VC20)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -130,7 +97,6 @@ int main()
     }
     // ---- the ZX Spectrum Next: the unit zxnext_memops (its app); the cores whose memory the application cannot reach are their apps' units (nes_memops, amiga_memops,
     // diag_memops, ...): the shared table has none left (T239.5 D13)
-#endif
 #if   defined(HEX_CORE)                  // the shared app has no 64 KB C64-family core left: its apps run this case (vc20_memops, c264_memops, ...)
     // ---- the hex text of a write (the 64 KB C64-family core of the app)
     {

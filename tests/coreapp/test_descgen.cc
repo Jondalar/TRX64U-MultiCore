@@ -594,11 +594,7 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);
     CHECK(argc == 2);
     const std::string dir = argv[1];
-#ifdef TEST_APP_VC20
-    std::ifstream idx((dir + "/index_app_vc20.txt").c_str());      // a core that has an app of its own: this unit is built like that app
-#else
 #error "test_descgen compares a core's record with its compiled-in descriptor: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
-#endif
     std::string line;
     int cores = 0, fields = 0, failed = 0;
     while (std::getline(idx, line)) {

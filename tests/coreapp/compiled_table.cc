@@ -1,10 +1,3 @@
 // The application's real core table under another name, for tests that need the compiled-in descriptors next to a table of their own (test_descgen: the record's core is
 // compared with the compiled-in descriptor of the same core, while the start must not find that one).
-#ifdef TEST_APP_VC20
-// the VIC-20's app is its own build (run.sh vc20app): its table is its core only
-#include "cores.h"
-extern const CoreDesc *const compiled_in_table[];   // a const array at namespace scope is internal unless declared extern: test_descgen.cc links it
-const CoreDesc *const compiled_in_table[] = { &vc20_desc, 0 };
-#else
 #error "compiled_table.cc is the compiled-in table of a core's app: build it as that app (run.sh <core>app, TEST_APP_<CORE>); the shared table is empty (T239.3 D61)"
-#endif

@@ -10,11 +10,7 @@
 
 int main()
 {
-#ifdef TEST_APP_VC20                         // the VIC-20's app is its own build (run.sh vc20app): its core is the only one in it
-    const CoreDesc *const cores[] = { &vc20_desc };
-#else
 #error "test_ledcores: every core's LED setting is its app's unit (run.sh vc20app, a12app, amigaapp, c264app, cpcapp, c128app, a8app, apple2app); the shared app has no core of it any more"
-#endif
     for (const CoreDesc *dp : cores) {
         const CoreDesc &d = *dp;
         int n = 0;

@@ -20,11 +20,7 @@
 #include "mediamounts.h"
 #include "record_menu.h"
 
-#ifdef TEST_APP_VC20
-const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };    // the shared unit: the made-up core alone (T239.3 D61: no real core is left in the shared app)
-#endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
@@ -152,15 +148,9 @@ int main(int, char **argv)
     // T212 D13: the machine line of Home names settings the core has; the cores that have a model/version or a memory setting get one, the others none
     {
         struct Mi { const char *cor; const char *info; };
-#ifdef TEST_APP_VC20
-        static const Mi want[] = { { "VIC-20", "Memory Expansion" } };
-        static const char *const none[1] = { 0 };
-        const int n_none = 0;
-#else
         static const Mi want[1] = { { "", "" } };                          // the shared table (the made-up core) has no machine line: nothing to find (the count below is skipped)
         static const char *const none[1] = { 0 };
         const int n_none = 0;
-#endif
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
             const CoreDesc *d = *p;
@@ -230,11 +220,7 @@ int main(int, char **argv)
             }
         }
         printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
-#ifdef TEST_APP_VC20
-        CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
-#else
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the walk saw the made-up core alone: no image type, measured 2026-11-27 (T239.5 D13, T239.3 D61: every real core's types are its app's)
-#endif
     }
 
     // T184 D3: the WiFi is set in the host. A core keeps no WiFi key of its own (no "WiFi ...", no "Wi-Fi SSID" / "Wi-Fi Password": the host's settings are the store's)
@@ -341,22 +327,14 @@ int main(int, char **argv)
             }
             CHECK(ninfo == 0 && info_first && nmedia == d->nmedia);
         }
-#ifdef TEST_APP_VC20
-        CHECK(n205 == 1);
-#else
         CHECK(n205 == 1);                                          // T239.5 D13, D61: the shared table is the made-up core alone; each real core's row is its app's unit, measured 2026-11-27
-#endif
         printf("T205: %d cores walked\n", n205);
     }
 
     // T180 D4: a core that keeps media of its own (an engine the base does not know: the Apple's and the Atari's drives, the CPC's FDC, the drive library of the
     // Commodore cores, the SNES and Neo Geo saves) hands its write-back to the base, which calls it on every exit that lets a medium go (media_writeback)
     {
-#ifdef TEST_APP_VC20
-        static const char *const own[] = { "VC20" };
-#else
         static const char *const own[] = { 0 };                              // the shared table (the made-up core) has no flush of its own
-#endif
         for (const char *id : own) {
             if (!id) continue;
             const CoreDesc *d = 0;
@@ -380,7 +358,6 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -570,21 +547,6 @@ int main(int, char **argv)
     static const ArgSpec path_only[] = { ARG_PATH("path") };
     struct RunOp { static void reg(OpRegistry &r) { Ask::reg(r); r.add_op("test.run", path_only, 1, Ask::op); } };
     d = testcore::desc; d.filetypes = ft_ok; d.register_ops = RunOp::reg; d.run_op = "test.run"; CHECK(!desc_check(&d));
-#endif
-#ifdef TEST_APP_VC20
-    // the real core: the disk's actions and its prompts
-    {
-        const FileType *d64 = 0;
-        for (int i = 0; i < vc20_desc.nfiletypes; i++) if (!strcmp(vc20_desc.filetypes[i].ext, ".d64")) d64 = &vc20_desc.filetypes[i];
-        CHECK(d64 && d64->ninner == 2 && !strcmp(d64->inner_ext, ".prg"));
-        CHECK(d64 && !strcmp(d64->inner[0].label, "Mount & Run") && !strcmp(d64->inner[1].label, "Real Run"));
-        CHECK(d64 && !strcmp(d64->actions[d64->nactions - 1].label, "Browse Disk") && !strcmp(d64->actions[d64->nactions - 1].op, "menu.browse"));
-        int asked = 0;
-        for (int i = 0; i < vc20_desc.ntasks; i++) asked += vc20_desc.tasks[i].ask != 0;
-        CHECK_EQ(asked, 4);                                                // Create D64 / G64, Save as D64 / G64
-        CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
-    }
-#else
 
 
 
@@ -617,13 +579,8 @@ int main(int, char **argv)
         CHECK(dump.find("area F1 Y\n  tab 1 I\n    info Media\n    info Core\n") != std::string::npos);      // ... and no others
     }
 
-#endif
     // golden menu lists
-#ifdef TEST_APP_VC20
-    golden(&vc20_desc, "vc20");
-#else
     golden(&testcore::desc, "test");
-#endif
 
     // the whitelist as a property: every entry is one of the descriptor's own or a fixed one; nothing of the C64 machine anywhere
     static const char *const forbidden[] = { "Drive A", "SID", "REU", "Monitor", "Printer", "Modem", "LED", "Power", "Stream",
@@ -679,7 +636,6 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
@@ -710,7 +666,6 @@ int main(int, char **argv)
     CHECK_EQ(ops_run_bound(&mc, "test.nothing", 0, 0, 0, &res), OPE_NOT_FOUND);
     CHECK_EQ(testcore::g_mounted, 1);
     CHECK(ops_state(&mc, "test.slot") == 0);
-#endif
     // T212 D10: the tape keys of the Spectrum's, the CPC's and the PET's decks are the units zx_desc, cpc_desc and pet_desc
     DONE("test_desc");
 }
