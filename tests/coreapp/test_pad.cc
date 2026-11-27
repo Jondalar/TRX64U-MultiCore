@@ -9,12 +9,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
-#if   defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_pad) has its own core only
-#include "snes_regs.h"
-extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
-#else
 #error "test_pad runs on a core's pad: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
-#endif
 #include "pad.h"
 #include "ops_glue.h"
 #include "descrec.h"

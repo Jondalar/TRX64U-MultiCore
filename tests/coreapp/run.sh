@@ -93,8 +93,6 @@ source "$TST/own_drv.sh"
 source "$TST/amiga_drv.sh"
 amiga_drv_dir "$T/amigatab" || { echo "coreapp: the Amiga 500's driver table was not generated" >&2; exit 1; }   # amiga_regs.h names the registers through it
 AMLIB="$ROOT/cores/amiga/app/lib"   # T239.5 D15: the Amiga 500's library lives in its own repository part (cores/amiga/app/lib), not in coreapp/cores
-own_drv_dir snes "$T/snestab" || { echo "coreapp: the SNES's driver table was not generated" >&2; exit 1; }   # snes_regs.h names the registers through it
-SNESLIB="$ROOT/cores/snes/app/lib"   # T239.3 D61: the SNES's library lives in its own repository part (cores/snes/app/lib), not in coreapp/cores
 own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
 A2LIB="$ROOT/cores/apple2/app/lib"   # T239.3 D61: the Apple IIe's library lives in its own repository part (cores/apple2/app/lib), not in coreapp/cores
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
@@ -119,9 +117,6 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_VC20+=("$i"); done
 # (tests/coreapp/a1200shim), so the files that serve both Amiga apps get the A1200's registers (the A500's header is on amigaapp's path only); amiga.cc, the A500's library, is not in these builds (amiga1200.cc is).
 INC_A1200=(-DTEST_APP_A1200=1 -I"$TST/a1200shim" -I"$A1200LIB" -I"$T/a12tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
-# The SNES is its own app as well (T239.3 D61: cores/snes/app). snesapp CMD... builds like a8app, with the SNES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_SNES: its units are in the group snes.
-INC_SNES=(-DTEST_APP_SNES=1 -I"$SNESLIB" -I"$T/snestab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_SNES+=("$i"); done
 # The Apple IIe is its own app as well (T239.3 D61: cores/apple2/app). apple2app CMD... builds like a8app, with the Apple's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_APPLE2: its units are in the group apple2.
 INC_A2=(-DTEST_APP_APPLE2=1 -I"$A2LIB" -I"$T/a2tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
@@ -129,7 +124,6 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 INC_AMIGA=(-DTEST_APP_AMIGA=1 -I"$AMLIB" -I"$T/amigatab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_AMIGA+=("$i"); done
 amigaapp() { local INC=("${INC_AMIGA[@]}") CA_APP=amiga APPLIB="$AMLIB"; "$@"; }
-snesapp() { local INC=("${INC_SNES[@]}") CA_APP=snes APPLIB="$SNESLIB"; "$@"; }
 apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 # DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
@@ -1175,43 +1169,7 @@ apple2app run apple2_keywalk test_keywalk.cc instfiles.cc instcore.cc $A2DM
 apple2app run apple2_uicover test_uicover.cc uiapp.cc $SVC $A2DM
 CARGS="" RARGS=""
 
-# T239.3 D61: the SNES's units, built as its app (snesapp: its library cores/snes/app/lib with its own copy of hk_defaults.h, its own table, the group snes) - the units its TOML B (cores/snes/app/sdk.toml)
-# names for the steps 2, 8, 9 and 10 of its lane. The sources are the app's own: snes.cc with the cartridge reader snes_rom.cc and the base's (the pad library is in $BASEL). These are
-# the SNES's cases of the shared tests (T239.5 D13, D17): the shared units name no SNES any more.
-SNESS="snes.cc snes_rom.cc $BASEL"
-SNESA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS"
-SNESD="desc_check.cc overlay.cc descrec.cc xinput.cc $SNESA"
 CARGS="" RARGS=""
-snesapp run snes_rom test_snes_rom.cc snes_rom.cc
-snesapp run snes test_snes.cc $SNESS
-snesapp control snes_load snes.cc 's/int n = st->save_path\[0\] ? c->fs->load(st->save_path, st->shadow, info.ram_bytes) : -1;/int n = -1;/' test_snes.cc $SNESS
-snesapp control snes_changed snes.cc 's/    if (!force \&\& !memcmp(cur, st->shadow, n)) {/    if (false) {/' test_snes.cc $SNESS
-snesapp control snes_flush_init snes.cc 's/    flush_save(c, false, msg, msglen);                        \/\/ what the game wrote/    (void)0;                                                  \/\/ what the game wrote/' test_snes.cc $SNESS
-snesapp control snes_retry snes.cc 's/    if (!c->fs->save(st->save_path, cur, n)) {/    if (!c->fs->save(st->save_path, cur, n) \&\& (memcpy(st->shadow, cur, n), true)) {/' test_snes.cc $SNESS
-snesapp control snes_dir snes.cc 's|snprintf(dir, len, "%s/saves", parent);|snprintf(dir, len, "%s/save", parent);|' test_snes.cc $SNESS
-snesapp control snes_replace_flush snes.cc '/T180 D1, D4: the old game/s/if (snes_media_flush(c, msg, msglen))/if (false)/' test_snes.cc $SNESS
-snesapp control snes_flush_fails snes.cc '/^static int snes_media_flush/,/^}/s/if (flush_save(c, false, msg, msglen)) {/if (flush_save(c, false, msg, msglen) \&\& false) {/' test_snes.cc $SNESS
-RARGS="$T/bundles/desc_own.bin" snesapp run snes_desc test_desc.cc $SNESD
-RARGS="$BUN/app" snesapp run snes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $SNESD
-snesapp run snes_hotkeys test_hotkeys.cc $SNESD
-# T156, T196: the pad service, the XInput pads and the mapping wizard on the SNES's descriptor and a model of its register block (the NES's: nes_pad, nes_xinput, nes_padmenu); a control is one defect, the same test built against it must fail
-snesapp run snes_pad test_pad.cc $SNESS overlay.cc descrec.cc
-snesapp run snes_xinput test_xinput.cc xinput.cc $SNESS
-snesapp control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $SNESS overlay.cc descrec.cc
-snesapp run snes_padmenu test_padmenu.cc $SNESA
-# T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it
-snesapp control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS
-snesapp control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS
-# T180 D2/D5: the game cartridge keeps its mount in the .cfg, is restored before the release, a missing medium stays empty with a note, a set goes in and out with one reset (the SNES's profile of test_media_mounts_engines.cc)
-SNESM="test_media_mounts_engines.cc $SNESD start.cc handover.cc"
-snesapp run snes_mounts $SNESM
-snesapp control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $SNESM
-snesapp control mme_snes_fail snes.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $SNESM
-# the engine's eject (mediamounts.cc) is reached through a game slot's key only (the cartridge port's profile of the shared unit calls the slot directly): the control stands on the SNES's profile
-snesapp control mme_engine_eject mediamounts.cc 's/        return c->desc->mount_slots->eject(c, idx - nwin(c) - nsec(c), msg, msglen);/        return 1;/' $SNESM
-# T192.3 S6 / S15: every key of its menu against its golden (golden/keywalk_snes.txt, ids_snes.txt) and its declaration over the API
-snesapp run snes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $SNESD
-snesapp run snes_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $SNESD
 
 # T239 D17: the units of every core whose tests live in its own folder (cores/<id>/app/tests/units.sh, tools/tests_to_core.py): its app's wrapper, include path, driver table and
 # units, sourced here, after every variable of the shared units is set

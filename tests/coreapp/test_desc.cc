@@ -67,9 +67,6 @@ const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
-#elif defined(TEST_APP_SNES)
-extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
-const CoreDesc *const core_table[] = { &snes_desc, 0 };
 #else
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };    // the shared unit: the made-up core alone (T239.3 D61: no real core is left in the shared app)
 #endif
@@ -240,10 +237,6 @@ int main(int, char **argv)
         static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
         static const char *const none[] = { "Apple IIe" };
         const int n_none = 1;
-#elif defined(TEST_APP_SNES)
-        static const Mi want[1] = { { "", "" } };                          // the SNES has no machine line: nothing to find (the count below is skipped)
-        static const char *const none[] = { "Super Nintendo" };
-        const int n_none = 1;
 #else
         static const Mi want[1] = { { "", "" } };                          // the shared table (the made-up core) has no machine line: nothing to find (the count below is skipped)
         static const char *const none[1] = { 0 };
@@ -344,8 +337,6 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the diag core has no file type
 #elif defined(TEST_APP_APPLE2)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
-#elif defined(TEST_APP_SNES)
-        CHECK(seen_cbm == 0 && seen_other == 0);                    // the SNES's game is run, not mounted: no image the walk counts
 #else
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the walk saw the made-up core alone: no image type, measured 2026-11-27 (T239.5 D13, T239.3 D61: every real core's types are its app's)
 #endif
@@ -475,8 +466,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_SNES)
-        CHECK(n205 == 1);
 #else
         CHECK(n205 == 1);                                          // T239.5 D13, D61: the shared table is the made-up core alone; each real core's row is its app's unit, measured 2026-11-27
 #endif
@@ -506,8 +495,6 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the diag core has no medium
 #elif defined(TEST_APP_APPLE2)
         static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
-#elif defined(TEST_APP_SNES)
-        static const char *const own[] = { "SNES" };                         // the battery RAM's write-back
 #else
         static const char *const own[] = { 0 };                              // the shared table (the made-up core) has no flush of its own
 #endif
@@ -534,7 +521,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -788,10 +775,6 @@ int main(int, char **argv)
     // T104.1 Q10: the capability list of the real descriptor (a floppy on slot 6 and a hard disk on slot 7: no SIO, no IEC, no cartridge)
     CHECK(desc_has_capability(&apple2_desc, "floppy"));
     CHECK(!desc_has_capability(&apple2_desc, "sio") && !desc_has_capability(&apple2_desc, "iec") && !desc_has_capability(&apple2_desc, "cartridge") && !desc_has_capability(&apple2_desc, "drive_a"));
-#elif defined(TEST_APP_SNES)
-    // T104.1 Q10: the capability list of the real descriptor (the game cartridge and the pad: no floppy, no SIO, no IEC, no drive)
-    CHECK(desc_has_capability(&snes_desc, "cartridge") && desc_has_capability(&snes_desc, "pad"));
-    CHECK(!desc_has_capability(&snes_desc, "floppy") && !desc_has_capability(&snes_desc, "sio") && !desc_has_capability(&snes_desc, "iec") && !desc_has_capability(&snes_desc, "drive_a"));
 #else
 
 #if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
@@ -999,8 +982,6 @@ int main(int, char **argv)
     golden(&portdiag_desc, "portdiag");
 #elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
-#elif defined(TEST_APP_SNES)
-    golden(&snes_desc, "snes");
 #else
     golden(&testcore::desc, "test");
 #endif
@@ -1059,7 +1040,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2) && !defined(TEST_APP_SNES)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);
@@ -1090,23 +1071,6 @@ int main(int, char **argv)
     CHECK_EQ(ops_run_bound(&mc, "test.nothing", 0, 0, 0, &res), OPE_NOT_FOUND);
     CHECK_EQ(testcore::g_mounted, 1);
     CHECK(ops_state(&mc, "test.slot") == 0);
-#endif
-#ifdef TEST_APP_SNES
-    // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, Sound check on top of Home with the reset (the Next's 50 / 60 Hz, CPU speed and NMI: the unit zxnext_desc)
-    {
-        for (const CoreDesc *d : { &snes_desc }) {                           // the NES's and the Neo Geo's: the units nes_desc and neogeo_desc
-            CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
-            CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
-        }
-        CHECK_STR(task_place(&snes_desc, "Reset").c_str(), "F1/home#0");
-        CHECK_STR(task_place(&snes_desc, "Sound check").c_str(), "F1/home#1");           // beside Reset, before the drive rows
-        for (const char *tk : { "Map buttons, pad 1", "Sound check" }) CHECK(task_place(&snes_desc, tk).find("#") != std::string::npos);
-        CHECK_STR(task_place(&snes_desc, "Save the battery RAM now").c_str(), "");     // no task is under the drive rows any more: D9 puts it in the list
-    }
-    // T212 D9: the saves belong to the cartridge slot's list (the Neo Geo's saves and ROM set folder: the unit neogeo_desc)
-    {
-        CHECK(slot_lists(&snes_desc, "Cartridge", true, "Save the battery RAM now") && !slot_lists(&snes_desc, "Cartridge", false, "Save the battery RAM now"));
-    }
 #endif
     // T212 D10: the tape keys of the Spectrum's, the CPC's and the PET's decks are the units zx_desc, cpc_desc and pet_desc
     DONE("test_desc");
