@@ -13,7 +13,7 @@ below are identical on origin/integration). Spec: `docs/specs/T265-host-update-a
 | Recovery size | Estimate 110-160 KB against 258,048 bytes (0x1E0000-0x21EFFF). Reading USB in 252 KiB is realistic. |
 | Clocks | The recovery needs no clock synthesizer and no HDMI init for USB or SD. It needs I2C for the USB hub. |
 | Flash drive | Factory C64U: 11,145,216 bytes free. Worst case with the host's own files: about 7.8 MB free. The 1.15 MB copy fits, and so does a 2.3 MB transient (temp file + rename). |
-| Package | `hostrecovery.app` is a copy of the stamped `hostapp.app`, made in `ci/package.sh` after the stamp. The release bundle takes it from `--app`. |
+| Package | `hostrecovery.bin` is a copy of the stamped `hostapp.app`, made in `ci/package.sh` after the stamp. The release bundle takes it from `--app`. |
 
 ## 1. Boot ROM
 
@@ -179,8 +179,8 @@ in `run.py:129-135` by one line.
 3. Find a valid image, first match wins:
    1. `/Flash/trx/hostrecovery.app` (read-only).
    2. `/Flash/trx/hostrecovery.new`, which covers the cut between unlink and rename (3.4).
-   3. `hostrecovery.app` in the SD root.
-   4. `hostrecovery.app` in the root of each USB volume as it enumerates.
+   3. `hostrecovery.bin` in the SD root.
+   4. `hostrecovery.bin` in the root of each USB volume as it enumerates.
 4. Stage the image at 0x03000000 and CRC it. Valid = `header_ok()` rules (`flashfw.cc:555-571`) and file size ==
    12 + padded length.
 5. Write the recovery block. Copy `length` bytes to `dest` (0x30000). Stop the nano (`NANO_START = 0`), disable the
@@ -216,7 +216,7 @@ in `run.py:129-135` by one line.
   - `usb_scsi.cc`'s FileManager glue (`:120-134`, `:140-148`, `:186-188`) gets a recovery hook. That is a patch to a
     vendored file.
   - Writes are absent by construction: read-only FatFs links no disk_write, and no flash program opcode exists.
-- `hostrecovery.app` is not 8.3. LFN must be on in both: `chan_fat/tiny_ro/ffconf.h:102` has `FF_USE_LFN 0` and
+- `hostrecovery.bin` is not 8.3. LFN must be on in both: `chan_fat/tiny_ro/ffconf.h:102` has `FF_USE_LFN 0` and
   `FF_MAX_SS 512` (`:196`), so Gideon's tiny_ro config cannot read the flash drive or the name.
 - Recommendation: R1 for the first build (deliver fast), R2 if the size check gets tight. Both fit (2.4).
 
@@ -324,7 +324,7 @@ always takes "my CRC" from its loader.
 - **Where:** before `direct_phase()` (`hostui.cc:4660`). If started by the recovery, skip `direct_phase` (no autostart)
   and run a repair job as the first job once `trx_lv_open()` (`:4664`) is up.
 - **Fit check, as `txu_check` (`txu.cc:104-124`):** `TXU_IFACE_NEEDED` (`txu.h:36`) == guard `HOST_IFACE`.
-  - Different: refuse, write nothing. The page names both numbers and asks for the `hostrecovery.app` of the
+  - Different: refuse, write nothing. The page names both numbers and asks for the `hostrecovery.bin` of the
     installed release.
   - The host key (`hostapp.cc:35-42`, `cor_host_key`) is shown, not compared: an app-only `.txu` also accepts
     another key.
@@ -440,20 +440,20 @@ only. The app checks `free_bytes` before writing and says so in the menu when th
   `hostapp.app` carries it).
 - **`ci/package.sh`:**
   - After the stamp loop (`:115-119`), before the `.txu` (`:288-291`) and `SHA256SUMS` (`:334`):
-    `cp "$out/hostapp.app" "$out/hostrecovery.app"`, then `cmp` both.
+    `cp "$out/hostapp.app" "$out/hostrecovery.bin"`, then `cmp` both.
   - It must come after the stamp, so the file equals the `.txu` app part and the installer's app byte for byte.
-- **`tools/make_release_mc.sh`:** after the u2a copy (`:113`), `cp "$APP" "$D/hostrecovery.app"`.
+- **`tools/make_release_mc.sh`:** after the u2a copy (`:113`), `cp "$APP" "$D/hostrecovery.bin"`.
   `ci/prerelease.sh:44` passes `--app "$P/hostapp.app"`, which is the stamped package copy.
-  `prerelease.sh:30` also requires `hostrecovery.app` in the package. `SHA256SUMS` (`:144`) and the zip (`:146-156`)
+  `prerelease.sh:30` also requires `hostrecovery.bin` in the package. `SHA256SUMS` (`:144`) and the zip (`:146-156`)
   then carry it.
-  - The zip has a top folder `trx64mc-<id>/`, so INSTALL.md must say "copy `hostrecovery.app` to the ROOT of a stick
+  - The zip has a top folder `trx64mc-<id>/`, so INSTALL.md must say "copy `hostrecovery.bin` to the ROOT of a stick
     or the SD card".
 - **`tools/release_notes_mc.py`:**
-  - "2. What is in here" (`:373-380`): a row for `hostrecovery.app`.
+  - "2. What is in here" (`:373-380`): a row for `hostrecovery.bin`.
   - "4. The stick" (`:449`): keep it in the root.
   - "9. Known problems" (`:581`): what to do when the board stays dark after another firmware's updater.
   - Update `tools/test_make_release_mc.py`.
-- **`tools/check_release_flash.py`** (prerelease `:48`): add "`hostrecovery.app` == the app part of the package's
+- **`tools/check_release_flash.py`** (prerelease `:48`): add "`hostrecovery.bin` == the app part of the package's
   `.txu`".
 - **The `.txu`:** no new part under Q1 = embedded. Under Q1 = separate, a part kind 3 (0x1E0000, slot 0x3F000):
   - `txu_pack.py:31-33`, `txu.h:29-30,59` (`part[2]` → 3), `txu.cc` probe and stage, `flashfw` write.
@@ -511,7 +511,7 @@ only. The app checks `free_bytes` before writing and says so in the menu when th
    "writes nothing" by construction)?** Proposal: R1 first.
 3. **Q3: the recovery accepts a flash copy whose CRC differs from the record (needed for the cut window, 3.4).** This
    is a consequence of the decided order. It also means a bit-flipped copy is only caught by its header and size. An
-   optional hardening is a CRC trailer on `hostrecovery.app`, but that changes D4's "as written at 0x220000".
+   optional hardening is a CRC trailer on `hostrecovery.bin`, but that changes D4's "as written at 0x220000".
 4. **Q4: media order inside D6 ("the first it finds"):** flash copy → `.new` → SD root → USB roots in enumeration
    order. While nothing is found it keeps polling (a stick put in later works); JTAG load stays possible.
 5. **Q5: JTAG request boots** (`trxdbg boot flash`, `bootrom.c:402-416`) bypass the guard (developer's explicit

@@ -107,7 +107,7 @@ bool RepairJob::run()
         if (gi.iface != TXU_IFACE_NEEDED) {
             hp_line(&pg, 1, HCT_INK, "The host in the flash does not match this application.");
         }
-        hp_line(&pg, 2, HCT_INK, "Put the hostrecovery.app of the installed release on a stick or the SD card, then restart.");
+        hp_line(&pg, 2, HCT_INK, "Put the hostrecovery.bin of the installed release on a stick or the SD card, then restart.");
         hp_line(&pg, 3, HCT_INK, "Nothing was written. The flash is as it was.");
         snprintf(pg.hint, sizeof(pg.hint), "any key opens the boot menu");
         draw(env, pg);

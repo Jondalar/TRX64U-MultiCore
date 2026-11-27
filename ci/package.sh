@@ -119,10 +119,10 @@ done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
 
-# T265 P2 (S10): hostrecovery.app is the host app of this run, byte for byte (the stamped copy, so it equals the app part of the .txu and the application the installer writes): the recovery
+# T265 P2 (S10): hostrecovery.bin is the host app of this run, byte for byte (the stamped copy, so it equals the app part of the .txu and the application the installer writes): the recovery
 # program starts it from the root of a stick or the SD card when another firmware's updater replaced the application in the flash. It must come after the stamp above.
-cp "$out/hostapp.app" "$out/hostrecovery.app"
-cmp -s "$out/hostapp.app" "$out/hostrecovery.app" || mark_red package recovery "hostrecovery.app is not a copy of hostapp.app"
+cp "$out/hostapp.app" "$out/hostrecovery.bin"
+cmp -s "$out/hostapp.app" "$out/hostrecovery.bin" || mark_red package recovery "hostrecovery.bin is not a copy of hostapp.app"
 
 # The applications the .cor bundles are packed with (stage trxapps, coreapps/): the blueprint image of every blueprint core, and for a core with a TOML B of its own
 # (cores/<id>/app/sdk.toml, tools/core_toml.py list-own-app) its app linked from the SDK package (T239.3 V-5, D25: the other cores keep the shared image until each is pulled). trx64 is a

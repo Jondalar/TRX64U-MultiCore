@@ -27,7 +27,7 @@ one() { local m; m=( $1 ); [ "${#m[@]}" = 1 ] && [ -s "${m[0]}" ] || die "not ex
 cfw="$(one "$CI_UPDATE_IN/trx64host_update_*.cfw" ".cfw in the update artifact")"
 ue2="$(one "$CI_UPDATE_IN/trx64host_update_*.ue2" ".ue2 in the update artifact")"
 txu="$(one "$P/trx64host_update_*.txu" ".txu in the package")"
-for f in c64_basic.bit hostapp.app hostrecovery.app manifest.json; do [ -s "$P/$f" ] || die "the package has no $f"; done
+for f in c64_basic.bit hostapp.app hostrecovery.bin manifest.json; do [ -s "$P/$f" ] || die "the package has no $f"; done
 read -r bitc appc ver < <(python3 -I -c 'import json, sys
 m = json.load(open(sys.argv[1]))
 print(m["trx64_commit"][:8], (m.get("trxapps_commit") or m["trx64_commit"])[:8], m.get("version") or "-")' "$P/manifest.json")
@@ -45,7 +45,7 @@ bash "$CI_CODE/tools/make_release_mc.sh" --id "$id" --bit "$P/c64_basic.bit" --a
   --update "$cfw" --update-ue2 "$ue2" --txu "$txu" ${u2as[@]+"${u2as[@]}"} ${rel[@]+"${rel[@]}"} ${sdarg[@]+"${sdarg[@]}"} "${cors[@]}" --out "$W" || die "tools/make_release_mc.sh made no bundle"
 D="$W/trx64mc-$id"; ZIP="$W/trx64mc-$id.zip"
 [ -d "$D" ] && [ -s "$ZIP" ] || die "no bundle $D or no zip $ZIP"
-python3 "$CI_CODE/tools/check_release_flash.py" --txu "$txu" --recovery "$D/hostrecovery.app" --reject "$P/c64_basic.bit" "$D"/trx64host_update_*.cfw "$D"/trx64host_update_*.ue2 \
+python3 "$CI_CODE/tools/check_release_flash.py" --txu "$txu" --recovery "$D/hostrecovery.bin" --reject "$P/c64_basic.bit" "$D"/trx64host_update_*.cfw "$D"/trx64host_update_*.ue2 \
   || die "the installer is not the flash of the package's .txu"
 python3 "$CI_CODE/tools/release_check.py" zip "$D" "$ZIP" || die "the zip does not hold every file of the bundle"
 python3 -I "$CI_CODE/tools/check_public_tree.py" --allow-trx --files "$D" "$ZIP" || die "private content outside trx64u.cor and trx64g.cor"
