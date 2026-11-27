@@ -1,8 +1,8 @@
 # T259 — The diag core measures the A/V port: which group carries what, the bit order, RGB, SYNCn and FB; the tester's working values become presets
 
-**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony); chroma and composite
-not yet seen (Rick, #73). D6-D8 (2026-11-27): the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own
-change). Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
+**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony). D6-D15 (2026-11-27):
+the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own change); chroma and composite are seen
+when it is built. Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
 Alex's request, for MultiCore to register and build; T259 was kept for it (Alex, 2026-11-23). Registered 2026-11-24, Alex
 (translated): "ok, let an agent build this on an extra branch (T259) into the diag core please. I get the cable today/tomorrow
 and can test it."
@@ -225,6 +225,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
 - **D13 (Alex, 2026-11-27): every core's Analog setting starts at "from Host".** Alex (translated): "All start with from host for now
   ... then one can change it." The per-core table of his impulses (Amiga and SNES RGB first, the Commodore 8-bit cores S-Video) is not
   a default; the person sets a core away from the host's value.
+- **D14 (Alex, 2026-11-27, on D5): one standard solution, the host's building block; a DSP variant only where a core needs it.**
+  Alex (translated): "That is indeed to be seen per core when building; I think we lay down a standard solution with the host's
+  building block, and if a core then needs DSP, that is the alternative in the toolkit." Each core's room is read from its build.
+- **D15 (Alex, 2026-11-27): the VC-20 stays a DFX core** ("try it as DFX"); its analogue picture comes from the host's encoder.
+- **Chroma and composite (2026-11-27):** not an open measurement. By D6 they are built from the standards on the known pins; seeing
+  them on a set with S-Video or composite inputs is the normal test of the built output, not a precondition.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
