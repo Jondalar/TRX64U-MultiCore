@@ -135,6 +135,11 @@ Parts:
   recovery program therefore reads USB mass storage and the SD card besides the flash drive; its size against the 256 KiB of D2
   is measured while building. The started application checks that it fits the host in flash (host key, host-app interface, as the
   `.txu` does) before it writes anything.
+- **D13 (Alex, 2026-11-27): the file a person puts on a stick or the SD card is `hostrecovery.bin`, not `hostrecovery.app`.** GitHub
+  refuses `.app` as a release asset (HTTP 422 "name has a file extension that is not allowed", main run 45984624169, job Pre-release),
+  so main has no pre-release. Alex (translated): "I do not care what the hostrecovery file is called ... .bit? .txr? pick something."
+  `.bin` (a plain image; `.bit` names a bitstream here). The recovery program looks for `/SD/hostrecovery.bin` and
+  `/<drive>/hostrecovery.bin`; the copy in the flash keeps its internal name `/Flash/trx/hostrecovery.app` (no person handles it).
 
 ## §4 Out
 
