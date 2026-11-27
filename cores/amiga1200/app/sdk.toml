@@ -22,7 +22,7 @@ base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count",
 [[library]]
 name = "amiga1200"
 sources = ["amiga1200.cc"]
-headers = ["amiga1200_regs.h", "amiga1200_keys.h"]
+headers = ["hk_defaults.h", "amiga1200_regs.h", "amiga1200_keys.h"]
 # newdisk: amiga1200.cc calls newdisk_register (the task Create blank ADF); pad: pad2_apply calls pad_ensure and pad_set_target (the gamepad as game port 2)
 needs = ["newdisk", "pad"]
 # T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: a12app, the group amiga1200): unit = 2 unit tests (the descriptor
