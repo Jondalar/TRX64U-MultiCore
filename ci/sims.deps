@@ -238,7 +238,7 @@ snes_mem: @snesrtl :(glob)cores/snes/sim/prog/mem.*
 snes_dsp: @snesrtl :(glob)cores/snes/sim/prog/dsp.* tools/snes_dsp_fw.py
 snes_video: @snesrtl :(glob)cores/snes/sim/prog/video.*
 snes_pad: @snesrtl cores/snes/sim/tb_pad.v :(glob)cores/snes/sim/prog/pad.*
-snes_audio: @snesrtl :(glob)cores/snes/sim/prog/audio* coreapp/cores/snes.cc
+snes_audio: @snesrtl :(glob)cores/snes/sim/prog/audio* cores/snes/app/lib/snes.cc
 snes_audio_q: @snesrtl :(glob)cores/snes/sim/prog/audio.* tools/snes_audio_q.py
 snes_brr: @snesrtl :(glob)cores/snes/sim/prog/audio.* tools/snes_brr.py
 snes_pins: cores/snes/layer2_snes.v cores/snes/sim/run_pins.sh tools/check_layer2_pins.py cores/snes/mono/host/top.v

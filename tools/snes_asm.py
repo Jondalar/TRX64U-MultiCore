@@ -389,7 +389,7 @@ class Asm:
 
 
 def spc_stub():
-    """A 64 byte boot ROM for the S-SMP of our own, for the benches only (the real one is Nintendo's; the application embeds it, coreapp/cores/snes.cc): it does what the real one does at the
+    """A 64 byte boot ROM for the S-SMP of our own, for the benches only (the real one is Nintendo's; the application embeds it, cores/snes/app/lib/snes.cc): it does what the real one does at the
     start - port 0 := $AA, port 1 := $BB, wait for $CC on port 0 - and then answers $11 on port 2 and echoes port 0 to port 1 for ever. SPC700 code at
     $FFC0, the reset vector at $FFFE."""
     code = bytes([0x8F, 0xAA, 0xF4,          # mov $F4,#$AA

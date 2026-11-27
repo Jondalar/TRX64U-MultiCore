@@ -78,7 +78,7 @@ CORES = [
     dict(id="snes", match=("super nintendo",), title="Super Nintendo", folder="snes",
          files="none: the S-SMP's 64 byte boot ROM is embedded in the application",
          needed="nothing",
-         sources="coreapp/cores/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
+         sources="cores/snes/app/lib/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
     dict(id="nes", match=("nintendo",), title="Nintendo Entertainment System", folder="nes",
          files="none", needed="nothing",
          sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),

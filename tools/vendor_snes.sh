@@ -29,7 +29,7 @@ for f in AddSub ALU AddrGen BCDAdj MCode MulDiv SPC700 SPC700_pkg; do copy SPC70
 for f in chip/RTC4513 chip/SRTC chip/DSP/DSP_LHRomMap chip/DSP/DSPn chip/DSP/OBC1; do copy $f.vhd; done
 # The S-SMP's 64 byte boot ROM (SMP.vhd, IPLROM) is a dump of Nintendo's chip ROM. The rule of this repository (no ROM in a source tree, a .cor or a package)
 # applies to this tree (T142 D9): it is cut out here. Alex allowed the bytes in the application (Q3, 2026-10-29), which writes its spc_ipl table
-# (coreapp/cores/snes.cc) into a small RAM at the start (tools/snes_gen.py makes the RAM and its port). Nothing else is changed.
+# (cores/snes/app/lib/snes.cc) into a small RAM at the start (tools/snes_gen.py makes the RAM and its port). Nothing else is changed.
 python3 - "$dst/SMP.vhd" <<'EOF'
 import re, sys
 p = sys.argv[1]
