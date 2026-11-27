@@ -27,7 +27,7 @@ for a in "$@"; do
 done
 
 # what the stage reads: the application trees and Gideon's software (LVGL, FatFS), every bench and its helpers
-specs=(coreapp app apps host-app vendor/gideon/software vendor/gideon/tools cores/apple2/rtl/roms
+specs=(coreapp app apps host-app vendor/gideon/software vendor/gideon/tools
        tests tools/zx_snap.py tools/zx_asm.py tools/gen_xexboot.sh tools/64tass.sh tools/check_app_size.py tools/u2a_pack.py
        tools/cor_pack.py tools/trx_pkg.py tools/txu_pack.py tools/pack_txu_mc.sh tools/descrec.py tools/exfat_check.py tools/gen_cfw_icons.py
        tools/core_logos/firmware cores/c64u/logo tools/core_logos/trx64 ci/apptests.sh ci/render.sh)

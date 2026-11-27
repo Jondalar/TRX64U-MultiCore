@@ -88,7 +88,7 @@ CORES = [
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",
-         sources="coreapp/cores/apple2.cc:88-91,122-126; coreapp/cores/apple2_regs.h:49-51"),
+         sources="cores/apple2/app/lib/apple2.cc (roms); cores/apple2/app/desc.toml"),
     dict(id="zxnext", match=("spectrum next",), title="ZX Spectrum Next", folder="zxnext",
          files="`next.img`: a whole SD card image (FAT, MBR) with the Next's system files on it (any size the machine reads; it is written back)",
          needed="the image; without it the machine's boot ROM shows its own error",
