@@ -120,7 +120,9 @@ def closure(core):
     start = os.path.join(CORES_SRC, core + ".cc")
     if not os.path.exists(start):
         return [], [], ["coreapp/cores/%s.cc does not exist" % core]
-    seen, todo, used = [], [core + ".cc"], set()
+    # the core's own sources by name too: a file <core>_*.cc that no header names (apple2_hdd.cc: the slot 7 card, compiled from the app's source list only) is the core's, not a leftover of the shared app
+    named = sorted(f for f in os.listdir(CORES_SRC) if f.startswith(core + "_") and f.endswith(".cc"))
+    seen, todo, used = [], [core + ".cc"] + named, set()
     while todo:
         f = todo.pop()
         if f in seen or f == "cores.h":
