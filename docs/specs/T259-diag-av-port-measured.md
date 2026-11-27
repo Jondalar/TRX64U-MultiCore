@@ -198,6 +198,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   (lines, line rate, interlace, hires) as the machine makes it; PAL/NTSC is the machine's setting that makes that raster. Alex's
   impulses of 2026-11-27 for the Amiga and the SNES (RGB first, native timings, a common layer, the tap before the HDMI scaler, a guard
   against 31 kHz modes, the cost per core) are open question 4, under review, not decided.
+- **D9 (Alex, 2026-11-27, on open question 4, the 31 kHz guard): the common layer is two blocks, the foundation and the 31 kHz guard;
+  only the Amiga takes the guard.** Alex (translated): "only the Amiga - nobody else has that, right? I think the common layer should
+  consist of 2 building blocks, the foundation and then the 31 kHz guard. Rick may extend his Atari ST, it could be similar there (but I
+  don't know)." The foundation (RGB pixel, sync, blank, timing in; DAC map, levels, optional PAL/NTSC encoding out) is in every core
+  that has an analogue output; the guard (line rate outside the 15 kHz band: the port goes black) is a separate module that a core
+  with 31 kHz modes adds.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
