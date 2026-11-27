@@ -8,6 +8,8 @@ name = "vc20"
 desc_record = true
 # the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
 desc = "vc20_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=vc20, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
 # V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host), the IEC block,
 # whose version byte the board's IEC probe reads, and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36, as the VIC-20 had them before V-4). The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is

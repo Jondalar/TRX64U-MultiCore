@@ -8,6 +8,8 @@ name = "amiga1200"
 desc_record = true
 # the symbol of the core's descriptor (the library amiga1200 below defines it); the core table of this app holds this core only
 desc = "amiga1200_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=amiga1200, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the A1200's flat design carries a copy of the host,
 # cores/amiga1200/mono/host) that the shared drivers (hw.cc) name: the host's mode register (cart_regs: am_init and am_release hold and release the machine through it), the ICAP blocks of the
 # loader and the partition control (the way back to the host is the IPROG of hw_return_to_host, and the release of the expansion port is hw_release_expansion_port, as in the shared app, which links

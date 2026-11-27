@@ -48,22 +48,26 @@
 #include "cores.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 #include "own_cores.h"                                        // T213.3 (T239.5 D13): the cores with an app of their own (tests/coreapp/srclist.sh), not in that table
-// T239.5 D13: the shared bench (no RENDER_OWN_APP) walks the board's table and the cores with an app of their own that stay in it; a core that moved to its own app is a
-// build of its own (tests/coreapp/render/run.sh: RENDER_OWN_APP, RENDER_APP_<CORE>, its library and its driver table; own_cores.h names that core alone, its descriptor with it)
+// T239.5 D13, T239 D17: every core with an app of its own is a render build of its own (tests/coreapp/render/run.sh: RENDER_OWN_APP, RENDER_APP_<CORE>, its library and its
+// driver table; own_cores.h names that core alone, its descriptor with it). The shared bench (no RENDER_OWN_APP) walks the made-up core of the shared units alone
+// (tests/coreapp/test_core.h; T239.3 D61: the board's table is empty)
+#ifndef RENDER_OWN_APP
+#include "test_core.h"
+#endif
 #ifndef RENDER_APP_NAME
 #define RENDER_APP_NAME "shared"
 #endif
-// every core of this build, as one list for the walks below: the board's table and the cores with an app of their own; a core's own app walks that core alone (its image's
-// table is CORE_ONLY)
+// every core of this build, as one list for the walks below: a core's own build walks that core alone (its image's table is CORE_ONLY), the shared bench the made-up core
 static const CoreDesc *const *every_core()
 {
     static const CoreDesc *t[64];
     if (!t[0]) {
         int n = 0;
-#ifndef RENDER_OWN_APP
-        for (const CoreDesc *const *pc = core_table; *pc && n < 62; pc++) { t[n++] = *pc; }
-#endif
+#ifdef RENDER_OWN_APP
         for (const CoreDesc *const *pc = own_cores; *pc && n < 63; pc++) { t[n++] = *pc; }
+#else
+        t[n++] = &testcore::desc;
+#endif
         t[n] = 0;
     }
     return t;
@@ -82,7 +86,7 @@ struct Floors { int s1lists, s1states, s1two, s1marked, s1legends, uxhot, uxcmp,
 #include RENDER_CORE_FILE
 #undef RENDER_PART
 #else
-static const Floors FLOOR = { 33, 765, 0, 939, 168, 2, 23, 63, 39, 51, 255, 6, 39, 21, 4 };   // the shared bench: the VIC-20 and the A1200 (T239.3 D61: the board's table is empty, the SNES and the C64SCPU are builds of their own like the Apple IIe; measured 2026-11-27)
+static const Floors FLOOR = { 15, 291, 0, 39, 39, 0, 5, 18, 18, 21, 105, 0, 0, 0, 0 };   // the shared bench: the made-up core (T239 D17, measured 2026-11-27)
 #endif
 
 #include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
@@ -270,118 +274,28 @@ static RecordMenu *g_cut;                                           // the recor
 // T235: the Picture value of a resolution at 50 Hz on a PAL machine (the list is Auto and every row of the table, the machine's rate first within a resolution)
 static int pic_value50(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
 
-// T107 5.9, the A1200 (the core with picture modes of its own): the Settings page as the monitor gets it in 1080p, in 720p, and after the mode was
-// changed from the menu itself (720p -> 1080p with the menu up). The video service hands the layer's place to the port; the bench puts the canvas there.
-static void a1200_menu(const char *out)
+#ifndef RENDER_OWN_APP
+// The rows themselves, on the made-up core (T239 D17: the checks of a core's Settings case that need no core of their own; the case is that core's build's): the value on the middle of its
+// label's line, the reset ring of a reset-time item (the core's tab of F5, as the board's chain builds it) and the ring as a child of the row
+static void row_rules(void)
 {
-    char p[512];
-    static CoreDesc a12;                                               // the descriptor as the board runs it: the core's own items plus the application's whole chain (T187)
-    PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };           // T164: a host whose gateware answers, a screen that names every row
-    a12 = *board_desc(&amiga1200_desc, &env);
-    Rig r(&a12, "/usb0/cores/amiga1200.cfg");
+    static CoreDesc td;
+    PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
+    td = *board_desc(&testcore::desc, &env);
+    Rig r(&td, "/usb0/cores/test.cfg");
     r.c.started = true;
     r.c.program_loaded = true;
-    ui_open(&a12);
-    picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
-    r.vid->init();
+    ui_open(&td);
     r.m->open();
     r.m->key(KEY_F5);
     r.m->key('1');
     ui_menu_render(*r.m);
     lv_timer_handler();
-    struct { const char *name; int value; int fw, fh; } steps[] = {
-        { "1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
-        { "720", pic_value50(VID_HDMI_720P), 1280, 720 },
-        { "after-switch-1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
-        { "800x600", pic_value50(VID_HDMI_800x600), 800, 600 },
-    };
-    for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); i++) {
-        if (i > 0) {
-            picture_apply(&r.c, steps[i].value);               // from the menu's Picture item: the layer is the menu's, the picture is off
-        }
-        CHECK(!r.px.place.empty());
-        PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
-        TrxCanvas want = trx_canvas_for(steps[i].fw, steps[i].fh);        // D10a: 960 x 540 at a whole factor, or the mode's own size below 960 wide
-        CHECK(g.w == want.w * want.factor && g.h == want.h * want.factor);   // a whole factor of the canvas, nothing stretched
-        CHECK(trx_canvas_w() == want.w && trx_canvas_h() == want.h);
-        CHECK(g.x == (steps[i].fw > g.w ? (steps[i].fw - g.w) / 2 : 0));       // centred horizontally ...
-        CHECK(g.y == (steps[i].fh > g.h ? (steps[i].fh - g.h) / 2 : 0));       // ... and vertically
-        ui_menu_render(*r.m);
-        lv_timer_handler();
-        CHECK(view_bounds(steps[i].name, want.w, want.h) == 0);             // nothing of the page lies outside the canvas
-        snprintf(p, sizeof(p), "%s/a1200-settings-%s.png", out, steps[i].name);
-        png_out(p, steps[i].fw, steps[i].fh, g.x, g.y, g.w, g.h);
-    }
-    {   // T209: the Home page at 480p (canvas 720 x 480) and at the full canvas: the title is one line and no text lies on another
-        r.m->key(KEY_F1);
-        for (int k = 0; k < 2; k++) {
-            TrxCanvas c480 = trx_canvas_for(720, 480);
-            if (k == 0) {
-                trx_canvas_set(c480.w, c480.h);
-                trx_shell_forget();
-            }
-            ui_menu_render(*r.m);
-            lv_timer_handler();
-            CHECK(txt_overlaps(k == 0 ? "a1200 home 480p" : "a1200 home") == 0);
-            {   // T212 (the drive rows and the machine line lengthen Home): the last row of Home stands inside the panel that holds it, at 480p and at the full canvas
-                char l[120], v[120]; bool ap;
-                int nr = r.m->rows();
-                r.m->row(nr - 1, l, sizeof(l), v, sizeof(v), &ap);
-                lv_obj_t *lb = find_label(lv_screen_active(), l);
-                CHECK(lb != 0);
-                if (lb) {
-                    lv_area_t ra, pa;
-                    lv_obj_t *row = lv_obj_get_parent(lb), *panel = lv_obj_get_parent(row);
-                    lv_obj_get_coords(row, &ra);
-                    lv_obj_get_coords(panel, &pa);
-                    printf("HOME %s: %d rows, last row \"%s\" y %d..%d, panel y %d..%d\n", k == 0 ? "480p" : "full", nr, l, (int)ra.y1, (int)ra.y2, (int)pa.y1, (int)pa.y2);
-                    CHECK(ra.y2 <= pa.y2);
-                }
-            }
-            if (k == 0) {
-                TrxCanvas full = trx_canvas_for(1920, 1080);
-                trx_canvas_set(full.w, full.h);
-                trx_shell_forget();
-            }
-        }
-        r.m->key(KEY_F5);                                    // back to the page the next cases expect
-        r.m->key('1');
-        ui_menu_render(*r.m);
-        lv_timer_handler();
-    }
-    // T190: the Amiga's Mouse sensitivity / Mouse acceleration rows (group "input") on the Settings page, each selected in turn at 1080p: the selected row
-    // is inside the view (R1) and nothing lies outside the canvas.
-    {
-        Rig m(&a12, "/usb0/cores/amiga1200.cfg");
-        m.c.started = true;
-        m.c.program_loaded = true;
-        ui_open(&a12);
-        picture_start(&m.c, VID_SYS_PAL50, VID_HDMI_1080P);
-        m.vid->init();
-        m.m->open();
-        m.m->key(KEY_F5);
-        m.m->key('4');                                       // the core, Video, Audio, Input: the Amiga's mouse rows are the fourth tab here
-        int found = 0;
-        for (int i = 0; i < m.m->rows(); i++) {
-            char l[120], v[120]; bool ap;
-            m.m->row(i, l, sizeof(l), v, sizeof(v), &ap);
-            if (strncmp(l, "Mouse ", 6)) continue;
-            found++;
-            select_row(m, i);
-            CHECK(m.m->selected() == i);
-            TrxCanvas want = trx_canvas_for(1920, 1080);
-            CHECK(view_bounds("a1200 mouse row", want.w, want.h) == 0);
-            PxRec::Pl g = m.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : m.px.place.back();
-            snprintf(p, sizeof(p), "%s/a1200-settings-mouse%d.png", out, found);
-            png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
-        }
-        CHECK(found == 2);
-    }
     // the value sits on the middle of the label's line (T209: every row is one line)
     for (int two = 0; two < 1; two++) {
         TrxRow row;
         memset(&row, 0, sizeof(row));
-        row.label = "Chip RAM"; row.value = "2M";
+        row.label = "Memory"; row.value = "2M";
         lv_obj_t *o = trx_row_at(lv_screen_active(), 0, 0, 700, row, 0);
         lv_obj_update_layout(o);
         lv_obj_t *lab = lv_obj_get_child(o, 4), *val = lv_obj_get_child(o, lv_obj_get_child_count(o) - 1);
@@ -409,11 +323,11 @@ static void a1200_menu(const char *out)
     {   // the ring is one more child of the row: a row that has it is changed in place only to a row that has it, and its position follows the label's width
         TrxRow row;
         memset(&row, 0, sizeof(row));
-        row.label = "Chip RAM"; row.value = "2M"; row.mark = true;
+        row.label = "Memory"; row.value = "2M"; row.mark = true;
         lv_obj_t *o = trx_row_at(lv_screen_active(), 0, 0, 700, row, 0);
         lv_obj_update_layout(o);
         CHECK(lv_obj_get_child_count(o) == 4 + 1 + 1 + 1);
-        row.label = "Chip RAM and a longer name"; 
+        row.label = "Memory and a longer name";
         CHECK(trx_row_retext(o, row, 700));
         lv_obj_update_layout(o);
         lv_obj_t *lab = lv_obj_get_child(o, 4), *mk = lv_obj_get_child(o, 5);
@@ -424,29 +338,25 @@ static void a1200_menu(const char *out)
         lv_timer_handler();
     }
 }
-
-
-#if !defined(RENDER_OWN_APP) || defined(RENDER_RTC_CORE)
-// T239 D17: a core's own build names its row (render.h RENDER_PART 2, RENDER_RTC_CORE); the shared bench's is the A1200
-static const struct { const CoreDesc *src; const char *name, *cfg; } amiga_rows[] = {
-#ifdef RENDER_RTC_CORE
-    RENDER_RTC_CORE,
-#else
-    { &amiga1200_desc, "a1200", "amiga1200" },
 #endif
-};
-static const int n_amiga_rows = (int)(sizeof(amiga_rows) / sizeof(amiga_rows[0]));
 
-// T191: the Amiga 500 and 1200 Settings page (each in its build) with the row "Real-time clock (at next reset)" selected, 1080p; the picture goes to the output directory.
+#ifdef RENDER_RTC_CORE
+// T239 D17: a core with a real-time clock row names it in its own build (render.h RENDER_PART 2, RENDER_RTC_CORE); the made-up core has none, so the shared bench has no row
+static const struct { const CoreDesc *src; const char *name, *cfg; } rtc_rows[] = {
+    RENDER_RTC_CORE,
+};
+static const int n_rtc_rows = (int)(sizeof(rtc_rows) / sizeof(rtc_rows[0]));
+
+// T191: the Settings page of a core with the row "Real-time clock (at next reset)" selected, 1080p; the picture goes to the output directory.
 static void rtc_menu(const char *out)
 {
     static CoreDesc d[2];
-    for (int k = 0; k < n_amiga_rows; k++) {
-        const CoreDesc *src = amiga_rows[k].src;
-        const char *name = amiga_rows[k].name;
+    for (int k = 0; k < n_rtc_rows; k++) {
+        const CoreDesc *src = rtc_rows[k].src;
+        const char *name = rtc_rows[k].name;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
         d[k] = *board_desc(src, &env);
-        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", amiga_rows[k].cfg);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", rtc_rows[k].cfg);
         Rig r(&d[k], cfg);
         r.c.started = true;
         r.c.program_loaded = true;
@@ -477,16 +387,16 @@ static void rtc_menu(const char *out)
     }
 }
 
-// T234: the Frame follow row of both Amiga cores on the F5 Video page (tab 2) next to Picture, Scale and Smoothing, selected, at the default Off
+// T234: the Frame follow row of the same core on the F5 Video page (tab 2) next to Picture, Scale and Smoothing, selected, at the default Off
 static void follow_menu(const char *out)
 {
     static CoreDesc d[2];
-    for (int k = 0; k < n_amiga_rows; k++) {
-        const CoreDesc *src = amiga_rows[k].src;
-        const char *name = amiga_rows[k].name;
+    for (int k = 0; k < n_rtc_rows; k++) {
+        const CoreDesc *src = rtc_rows[k].src;
+        const char *name = rtc_rows[k].name;
         PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
         d[k] = *board_desc(src, &env);
-        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", amiga_rows[k].cfg);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", rtc_rows[k].cfg);
         Rig r(&d[k], cfg);
         r.c.started = true;
         r.c.program_loaded = true;
@@ -522,13 +432,17 @@ static void follow_menu(const char *out)
 
 // T164 D10a: the menu in every mode the host offers. Each mode gets the canvas trx_canvas_for names (960 x 540 at a whole factor; the mode's own size
 // below 960 wide: 576p PAL 720 x 576, 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
-// and every visible object must lie inside the canvas and not be cut by its parent. The pictures go to the output directory.
-static void modes_menu(const char *out)
+// and every visible object must lie inside the canvas and not be cut by its parent. The pictures go to the output directory, named by `name`. The Library holds two files of
+// the core's type `ext`, one with a name too long for a narrow column. T239 D17: the shared bench runs it on the made-up core, a core's own build may run it on its core (render.h).
+static void modes_menu(const char *out, const CoreDesc *src, const char *name, const char *ext)
 {
-    char p[512];
-    static CoreDesc a12;
+    char p[512], cfg[128], f1[160], f2[200];
+    static CoreDesc md_desc;
     PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-    a12 = *board_desc(&amiga1200_desc, &env);
+    md_desc = *board_desc(src, &env);
+    snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", src->folder);
+    snprintf(f1, sizeof(f1), "/usb0/games/arkanoid%s", ext);
+    snprintf(f2, sizeof(f2), "/usb0/games/a very long name of a disk image that does not fit a narrow column of the library%s", ext);
     struct { const char *name; int sys, hdmi, fw, fh; } modes[] = {
         { "1080p", VID_SYS_PAL50, VID_HDMI_1080P, 1920, 1080 },
         { "720p", VID_SYS_PAL50, VID_HDMI_720P, 1280, 720 },
@@ -538,12 +452,12 @@ static void modes_menu(const char *out)
     };
     static const struct { int key; const char *name; } pics[] = { { KEY_F1, "home" }, { KEY_F3, "library" }, { KEY_F5, "settings" }, { KEY_F7, "actions" } };
     for (auto &md : modes) {
-        Rig r(&a12, "/usb0/cores/amiga1200.cfg");
-        r.fs.put_text("/usb0/games/arkanoid.adf", "x");
-        r.fs.put_text("/usb0/games/a very long name of a disk image that does not fit a narrow column of the library.adf", "x");
+        Rig r(&md_desc, cfg);
+        r.fs.put_text(f1, "x");
+        r.fs.put_text(f2, "x");
         r.c.started = true;
         r.c.program_loaded = true;
-        ui_open(&a12);
+        ui_open(&md_desc);
         picture_start(&r.c, md.sys, md.hdmi);
         r.vid->init();
         TrxCanvas want = trx_canvas_for(md.fw, md.fh);
@@ -558,14 +472,14 @@ static void modes_menu(const char *out)
                 ui_menu_render(*r.m);
                 lv_timer_handler();
                 char what[64];
-                snprintf(what, sizeof(what), "%s F%d tab %d", md.name, area + 1, tab + 1);
+                snprintf(what, sizeof(what), "%s %s F%d tab %d", name, md.name, area + 1, tab + 1);
                 bad += view_bounds(what, want.w, want.h) != 0;
                 pages++;
                 if (tab == 0 || (area == 4 && tab == 1)) {
                     for (auto &pc : pics) {
                         if (pc.key == fk && (tab == 0 || pc.key == KEY_F5)) {
                             PxRec::Pl g = r.px.place.back();
-                            snprintf(p, sizeof(p), "%s/modes-%s-%s%s.png", out, md.name, pc.name, tab ? "2" : "");
+                            snprintf(p, sizeof(p), "%s/modes-%s-%s-%s%s.png", out, name, md.name, pc.name, tab ? "2" : "");
                             png_out(p, md.fw, md.fh, g.x, g.y, g.w, g.h);
                         }
                     }
@@ -581,11 +495,11 @@ static void modes_menu(const char *out)
             size_t ml = strlen(mt), wl = strlen(want_end);
             CHECK(ml > wl && !strcmp(mt + ml - wl, want_end) && strstr(mt, "1280 x 720, 50.0 Hz") && strstr(mt, "In 8 s 1920 x 1080, 50.0 Hz comes back."));
             char what[64];
-            snprintf(what, sizeof(what), "%s picture question", md.name);
+            snprintf(what, sizeof(what), "%s %s picture question", name, md.name);
             int b = view_bounds(what, want.w, want.h) != 0;
             bad += b;
             pages++;
-            snprintf(p, sizeof(p), "%s/modes-%s-picture-question.png", out, md.name);
+            snprintf(p, sizeof(p), "%s/modes-%s-%s-picture-question.png", out, name, md.name);
             PxRec::Pl g = r.px.place.back();
             png_out(p, md.fw, md.fh, g.x, g.y, g.w, g.h);
         }
@@ -600,15 +514,15 @@ static void modes_menu(const char *out)
         lv_timer_handler();
         {
             char what[64];
-            snprintf(what, sizeof(what), "%s library in a folder", md.name);
+            snprintf(what, sizeof(what), "%s %s library in a folder", name, md.name);
             int b = view_bounds(what, want.w, want.h) != 0;
             bad += b;
             pages++;
             PxRec::Pl g = r.px.place.back();
-            snprintf(p, sizeof(p), "%s/modes-%s-library-files.png", out, md.name);
+            snprintf(p, sizeof(p), "%s/modes-%s-%s-library-files.png", out, name, md.name);
             png_out(p, md.fw, md.fh, g.x, g.y, g.w, g.h);
         }
-        printf("MODES %-8s canvas %dx%d: %d pages, %d with an object outside or cut\n", md.name, want.w, want.h, pages, bad);
+        printf("MODES %s %-8s canvas %dx%d: %d pages, %d with an object outside or cut\n", name, md.name, want.w, want.h, pages, bad);
         CHECK(bad == 0);
     }
     ui_set_canvas(960, 540);
@@ -1158,9 +1072,10 @@ static void wf_reg(OpRegistry &r)
     r.add_state("wifi.onoff", wf_onoff);
     r.add_state("wifi.line", wf_line);
 }
-static int wfn;
-static void ux_wifi(const char *out)
+// T239 D17: the shared bench runs it on the made-up core, a core's own build may run it on its core (render.h); `name` names the pictures
+static void ux_wifi(const char *out, const CoreDesc *src, const char *name)
 {
+    int wfn = 0, uf0 = uxfails;
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
     static const struct { const char *tag; int mode; const char *val, *sub; } vars[] = {
         { "on", 1, "On", "Connected, TRX-Net, 192.168.1.20" },
@@ -1174,8 +1089,8 @@ static void ux_wifi(const char *out)
         for (const auto &vr : vars) {
             ui_set_canvas(want.w, want.h);
             static CoreDesc wd;
-            wd = *board_desc(&amiga1200_desc, &env);
-            g_wf_orig = &amiga1200_desc;
+            wd = *board_desc(src, &env);
+            g_wf_orig = src;
             g_wf_mode = vr.mode;
             if (vr.mode) { wd.register_ops = wf_reg; }
             Rig r(&wd, "/usb0/cores/uxw.cfg");
@@ -1194,17 +1109,17 @@ static void ux_wifi(const char *out)
             }
             (void)l; (void)a;
             wfn++;
-            UXCHECK(row >= 0, "a1200 %s %s: no WiFi row in F8", cv.name, vr.tag);
-            UXCHECK(v == vr.val && !strcmp(sub, vr.sub), "a1200 %s WiFi %s: row \"%s\" / line \"%s\", want \"%s\" / \"%s\"", cv.name, vr.tag, v.c_str(), sub, vr.val, vr.sub);
+            UXCHECK(row >= 0, "%s %s %s: no WiFi row in F8", name, cv.name, vr.tag);
+            UXCHECK(v == vr.val && !strcmp(sub, vr.sub), "%s %s WiFi %s: row \"%s\" / line \"%s\", want \"%s\" / \"%s\"", name, cv.name, vr.tag, v.c_str(), sub, vr.val, vr.sub);
             char fn[512];
-            snprintf(fn, sizeof(fn), "%s/ux-a1200-F8-wifi-%s-%s.png", out, vr.tag, cv.name);
+            snprintf(fn, sizeof(fn), "%s/ux-%s-F8-wifi-%s-%s.png", out, name, vr.tag, cv.name);
             lv_obj_invalidate(lv_screen_active());
             lv_timer_handler();
             if (want.w == 960) { png(fn, 2); } else { png_out(fn, want.w, want.h, 0, 0, want.w, want.h); }
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX WiFi row: %d variants, %d failed\n", wfn, uxfails);
+    printf("UX WiFi row (%s): %d variants, %d failed\n", name, wfn, uxfails - uf0);
     CHECK(wfn == 8);
 }
 
@@ -1213,13 +1128,9 @@ static void ux_wifi(const char *out)
 // learned line. Found by name through the menu tree (the modifier row is the page's first), not by area and tab number. At 1080p and 480p; the status line must lie
 // below the last drawn row and inside the pane, the legend fits the canvas, nothing is cut. Pictures for three cores of three families.
 static int hkl_cores, hkl_states;
-// the cores whose learned keys are pictured besides the A1200 (T239 D17: a core's own build names its own, render.h RENDER_PART 2)
+// the cores whose learned keys are pictured (T239 D17: a core's own build names its own, render.h RENDER_PART 2; the shared bench pictures none)
 #ifndef HKL_PIC
-#ifdef RENDER_OWN_APP
 #define HKL_PIC(s) false
-#else
-#define HKL_PIC(s) ((s) == &vc20_desc)
-#endif
 #endif
 static void hotkey_learn(const char *out)
 {
@@ -1232,7 +1143,7 @@ static void hotkey_learn(const char *out)
             if (!src->hotkeys) { continue; }
             CoreDesc *d = board_desc(src, &env);
             const char *core = src->cor_name;
-            bool pic = HKL_PIC(src) || strstr(core, "1200");   // VIC-20, C128, Atari 800, A1200: three families
+            bool pic = HKL_PIC(src);
             char fn[96];
             snprintf(fn, sizeof(fn), "%s", core);
             for (char *q = fn; *q; q++) { if (!isalnum((unsigned char)*q)) { *q = '_'; } }
@@ -1327,7 +1238,7 @@ static void hotkey_learn(const char *out)
     CHECK(hkl_cores == 2 * n_every(true) && hkl_cores >= FLOOR.hkl_cores);
 }
 
-#if !defined(RENDER_OWN_APP) || defined(RENDER_UX_JOBS)
+#ifdef RENDER_UX_JOBS                                     // T239 D17: the rows are a core's own build's (render.h RENDER_PART 2); the shared bench has none
 static void ux_shots(const char *out)
 {
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
@@ -1355,15 +1266,7 @@ static void ux_shots(const char *out)
     };
     struct Job { const CoreDesc *src; const char *core; St st[8]; int n; };   // T205: F5 is the core's one settings area (tabs: the core, Video, Audio, Input)
     static const Job jobs[] = {
-#ifndef RENDER_OWN_APP
-        { &amiga1200_desc, "a1200", { { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 }, { "F5-audio", KEY_F5, "Audio", 0 },
-                                             { "F5-input", KEY_F5, "Input", 0 }, { "hotkeys", KEY_F5, "Input", 2 }, { "F1-home", KEY_F1, 0, 0 }, { "F8-system", KEY_F8, 0, 0 } }, 8 },
-        { &vc20_desc, "vc20", { { "F1-home", KEY_F1, 0, 0 }, { "F5-core-top", KEY_F5, 0, 0 }, { "F5-core-end", KEY_F5, 0, 1 }, { "F5-video", KEY_F5, "Video", 0 },
-                                       { "F5-audio", KEY_F5, "Audio", 0 }, { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 7 },
-#endif
-#ifdef RENDER_UX_JOBS                                     // T239 D17: a core's own build adds its rows (render.h RENDER_PART 2)
         RENDER_UX_JOBS
-#endif
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
@@ -1390,9 +1293,13 @@ static void ux_shots(const char *out)
 }
 #endif
 
-// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the A1200 (board_desc, the board's chain), at 1080p (the 960 x 540 canvas, 2x) and 480p:
+// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of a core (board_desc, the board's chain), at 1080p (the 960 x 540 canvas, 2x) and 480p:
 // the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
 // hosts), R5's SID pages and R6's Network settings and Streams. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
+// T239 D17: the jobs (the core, the files of its library, the pages it opens, the file to select) are a core's own build's (render.h), which calls mock_shots.
+struct MockFile { const char *path; size_t n; };
+struct MockPage { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
+struct MockJob { const char *core; const CoreDesc *src; MockFile files[8]; int nfiles; MockPage pages[8]; int npages; const char *pick; };
 struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
 static std::vector<MockShot> g_mock;
 static int mock_overlaps, mock_bounds;
@@ -1512,20 +1419,13 @@ static int mock_find_row(Rig &r, const char *label, bool prefix)
     return -1;
 }
 
-static void mock_shots(const char *out)
+static void mock_shots(const char *out, const MockJob *jobs, int njobs)
 {
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
-    struct File { const char *path; size_t n; };
-    struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
-    struct Job { const char *core; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
-    static const Job jobs[] = {
-        { "a1200", &amiga1200_desc,
-          { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
-          { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },
-    };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
-        for (const Job &j : jobs) {
+        for (int ji = 0; ji < njobs; ji++) {
+            const MockJob &j = jobs[ji];
             ui_set_canvas(want.w, want.h);
             PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
             CoreDesc *d = board_desc(j.src, &env);
@@ -1584,7 +1484,7 @@ static void mock_shots(const char *out)
                         if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/folder"; mock_rows(r, t2.c_str()); }
                     }
                     for (int pi = 0; pi < j.npages; pi++) {
-                        const Page &pg = j.pages[pi];
+                        const MockPage &pg = j.pages[pi];
                         if (strcmp(pg.area, fk) || !tr.a[a].tabs[b].id || strcmp(pg.tab, tr.a[a].tabs[b].id) || !back_to_tab()) {
                             continue;
                         }
@@ -1630,38 +1530,6 @@ static void mock_shots(const char *out)
     printf("MOCK %zu pictures, %d text overlaps, %d objects outside or cut; manifest %s\n", g_mock.size(), mock_overlaps, mock_bounds, mf);
 }
 
-
-// ---- T205 ux-review finding 1: a 31-character file name on a Home media row (DF0) at 480p and 1080p: the value is cut in the middle, the slot label stays whole ------------
-static void ux_longname()
-{
-    static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
-    static const char *LONG = "/usb0/games/Turrican_II_The_Final_Fight_disk1.adf";           // the file's name is 31 characters
-    PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-    for (const auto &cv : cvs) {
-        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
-        ui_set_canvas(want.w, want.h);
-        CoreDesc *d = board_desc(&amiga1200_desc, &env);
-        Rig r(d, "/usb0/cores/uxl.cfg");
-        std::vector<uint8_t> img(901120, 0);
-        r.fs.put(LONG, img);
-        r.c.started = true; r.c.program_loaded = true;
-        ui_open(d);
-        OpIn in[2] = { in_str("path", LONG), in_int("slot", 0) };
-        OpResult res;
-        CHECK(ops_call(&r.c, "window.mount", in, 2, &res) == 0);
-        r.m->open(); ui_menu_forget_rows();
-        r.m->key(KEY_F1);
-        ui_menu_render(*r.m); lv_timer_handler();
-        int found = 0;
-        for (int i = 0; i < r.m->rows(); i++) {
-            char l[200], v[200], sub[200] = ""; bool a;
-            r.m->row(i, l, sizeof(l), v, sizeof(v), &a, sub, sizeof(sub));
-            if (!strcmp(l, "DF0")) { found = 1; UXCHECK(strstr(v, "Turrican_II_The_Final_Fight_disk1.adf") != 0, "long name: row DF0 holds \"%s\"", v); }
-        }
-        UXCHECK(found, "long name %s: no DF0 row on Home", cv.name);
-    }
-    ui_set_canvas(960, 540);
-}
 
 // ---- T187 D5 fixtures: the Picture page on a screen that names 6, 4, 1 modes, none (no EDID) and a corrupt EDID -------------------------------------------------------
 // The same table as the host bench (tests/hostapp/render/render.cc, pmfix). A PAL machine: the 50 Hz family and the PC rows. The EDID goes through the functions the board runs
@@ -1823,6 +1691,7 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     r.m->key(KEY_ESCAPE);
     CHECK(g_pm_applies == a1);
 }
+#if !defined(RENDER_OWN_APP) || defined(RENDER_PM_CORE)
 static void pm_page_fixtures(const char *out)
 {
     static const PmFx fx[] = {
@@ -1836,11 +1705,12 @@ static void pm_page_fixtures(const char *out)
 #ifdef RENDER_PM_CORE                                       // T239 D17: a core's own build names its core (render.h RENDER_PART 2)
         pm_page_case(out, RENDER_PM_CORE, f);
 #else
-        pm_page_case(out, &amiga1200_desc, "a1200", f);
+        pm_page_case(out, &testcore::desc, "test", f);          // the shared bench: the made-up core
 #endif
     }
     ui_set_canvas(960, 540);
 }
+#endif
 
 
 #ifdef RENDER_CORE_FILE
@@ -1852,14 +1722,6 @@ static void pm_page_fixtures(const char *out)
 int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
-    char p[512];
-#ifndef RENDER_OWN_APP
-    if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
-        mock_shots(out);
-        printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
-        return fails ? 1 : 0;
-    }
-#endif
 #ifdef RENDER_CORE_FIRST                                            // T239 D17: a core's own build, its cases before the shared pages (render.h)
     {
         const int rc = RENDER_CORE_FIRST(out, argc, argv);
@@ -1869,11 +1731,11 @@ int main(int argc, char **argv)
     }
 #endif
 
-#ifndef RENDER_OWN_APP
-    a1200_menu(out);
-    modes_menu(out);
+#ifndef RENDER_OWN_APP                                              // T239 D17: the shared bench's cases on the made-up core
+    row_rules();
+    modes_menu(out, &testcore::desc, "test", ".tst");
 #endif
-#if !defined(RENDER_OWN_APP) || defined(RENDER_RTC_CORE)
+#ifdef RENDER_RTC_CORE
     rtc_menu(out);
     follow_menu(out);
 #endif
@@ -1885,23 +1747,17 @@ int main(int argc, char **argv)
     ux_rules();
     ux_chrome();
     hotkey_learn(out);
-#if !defined(RENDER_OWN_APP) || defined(RENDER_UX_JOBS)
+#ifdef RENDER_UX_JOBS
     ux_shots(out);
-#endif
-#ifndef RENDER_OWN_APP
-    ux_longname();
 #endif
 #if !defined(RENDER_OWN_APP) || defined(RENDER_PM_CORE)
     pm_page_fixtures(out);
 #endif
 #ifndef RENDER_OWN_APP
-    ux_wifi(out);
+    ux_wifi(out, &testcore::desc, "test");
 #endif
 #ifdef RENDER_CORE_LATE
     RENDER_CORE_LATE(out);
-#endif
-#ifndef RENDER_OWN_APP
-    mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
 #endif
     printf("coreapp render (%s): %d checks, %d failed\n", RENDER_APP_NAME, checks, fails);
     return fails ? 1 : 0;
