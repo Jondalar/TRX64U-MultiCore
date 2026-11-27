@@ -32,7 +32,7 @@ static bool pq_up;                                  // T187 F1: the picture ques
 static char msg_title_s[80], msg_text_s[720];
 static bool msg_bad;
 static const CoreDesc *g_desc;
-static const int g_look_t = 1, g_look_scheme = 1;                // the menu's transparency (position 1 = 25 %) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
+static const int g_look_t = 0, g_look_scheme = 1;                // the menu's transparency (position 0 = 0 %, opaque, T239.3 D56 2026-11-27) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
 static volatile bool g_look_dirty = true;
 static void apply_alpha(void);
 static bool ov_on(void);
@@ -1806,7 +1806,7 @@ void ui_overlay_closing(void)
     }
 }
 
-// the layer's global alpha from the fixed transparency (position 1 of 0, 25, 50, 75 % = 25 %)
+// the layer's global alpha from the fixed transparency (position 0 of 0, 25, 50, 75 % = opaque, alpha 255)
 static void apply_alpha(void)
 {
     const uint8_t a = (uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0));
