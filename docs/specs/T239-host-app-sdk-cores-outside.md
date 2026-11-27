@@ -146,7 +146,21 @@ question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, 
 - **D16 (Alex, 2026-11-22): the SDK documentation lets an outside developer build alone.** Alex (translated): "Important: the
   documentation of the SDK must enable [an outside developer] and others to build by themselves." This applies to T239.2 (the
   checkpoint and the core template) and to T239.3 (the app SDK).
-
+- **D17 (Alex, 2026-11-27): a core's folder is self-contained - it uses the SDK and the shared gateware building blocks, and shares
+  no configuration and no tests with other cores.** Alex (translated): "Listen ... the core folders should access the SDK and common
+  gateware building blocks and use them. Shared config or tests, NO, I want the maximum possible decoupling, so that a core can simply
+  be pushed into another repo to another maintainer once the registry is there. Example: someone comes and says 'hello, I like the
+  SuperCPU, may I maintain the core at my place please?'" So everything a core needs beyond the SDK and the shared gateware blocks
+  lives in `cores/<id>/`: its app, its TOML A/B, its tests (built against the SDK's test harness), its generated constants; no shared
+  test file carries a core's cases, no shared script or list names a core (they find the cores from their folders); the tools a core
+  needs (the TOML A list check and generator, T264) ship in the SDK.
+  Found the same day: the core moves left every moved core's test code as `#ifdef TEST_APP_<CORE>` branches in 52 shared files under
+  `tests/coreapp` (the units were per core, the sources were not). Alex (translated): "Clean that up." Order: c64scpu first as the
+  pattern (its tests in `cores/c64scpu/app/tests`, the harness from the SDK, a lint red for a core name in a shared file, the proof
+  = the core folder plus the SDK package build and test outside this repository), then every other core the same way, all before
+  the full build (T264 D4).
+  The shared render bench still walked the A1200 and the VC-20; Alex (2026-11-27, translated): "Every core has its lane. Viable on its
+  own." So they get render builds of their own like the other 15, and the shared bench walks only the made-up test core.
 ## §4 Out
 
 Nothing decided yet.

@@ -26,17 +26,23 @@ class OrderTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.keys = os.path.join(self.tmp, "keys")
         open(self.keys, "w").write("\n".join(NAMES) + "\n")
+        self.imports = os.path.join(self.tmp, "imports")
+        open(self.imports, "w").close()
         self.plan = os.path.join(self.tmp, "plan.json")
         json.dump({"version": 1}, open(self.plan, "w"))
 
     def tearDown(self):
         self.gh.stop()
 
-    def run_order(self, children=None, cors=None, plan=None, expect_rc=0, fillers=""):
+    def run_order(self, children=None, cors=None, plan=None, expect_rc=0, fillers="", cores=None, host_bits=False):
         env = {"PATH": os.environ["PATH"], "PLAN_JSON_FILE": plan or self.plan, "WORK_ORDER_OUT": os.path.join(self.tmp, "wo.json"), "GITHUB_OUTPUT": os.path.join(self.tmp, "out"),
-               "ORDER_KEYS": self.keys, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "ORDER_FILLERS": fillers, "GH_TOKEN": "tok"}
+               "ORDER_KEYS": self.keys, "ORDER_IMPORTS": self.imports, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "ORDER_FILLERS": fillers, "GH_TOKEN": "tok"}
         if children is not None:
             env["CHILDREN"] = json.dumps(children)
+        if cores is not None:
+            env["CORES"] = json.dumps(cores)
+        if host_bits:
+            env["HOST_BITS"] = "true"
         if cors is not None:
             env["COR_TARGETS"] = json.dumps(cors)
         open(env["GITHUB_OUTPUT"], "w").close()
@@ -44,7 +50,9 @@ class OrderTest(unittest.TestCase):
         self.assertEqual(r.returncode, expect_rc, r.stdout + r.stderr)
         if expect_rc:
             return r
-        return json.load(open(env["WORK_ORDER_OUT"])), open(env["GITHUB_OUTPUT"]).read().strip()
+        lines = open(env["GITHUB_OUTPUT"]).read().split()
+        self.outputs = dict(l.split("=", 1) for l in lines)
+        return json.load(open(env["WORK_ORDER_OUT"])), lines[0]
 
     def test_all_missing_then_some_published(self):
         wo, out = self.run_order(children=["apptests", "package"])
@@ -83,6 +91,38 @@ class OrderTest(unittest.TestCase):
         self.assertEqual(wo["lanes"], ["host", "core:zx_next"])
         wo, _ = self.run_order(children=["cor"], cors=["host", "core:vc20"], fillers="zx_next")
         self.assertEqual(wo["entries"], NAMES[:5])
+
+    def test_jobs_wait_only_for_missing(self):                                            # T239.5 D28
+        kw = dict(children=["cor", "package"], cores=["vc20", "zx_next", "amiga1200"], host_bits=True)
+        for n in NAMES:
+            self.gh.add_release("bit-" + n, {"SHA256SUMS": b"x"})
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["host_missing"], self.outputs["bits_missing"]), ("false", "[]"))
+        self.gh.releases.pop("bit-" + NAMES[4])                                           # one core missing: only its job
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["host_missing"], self.outputs["bits_missing"]), ("false", '["zx_next"]'))
+        self.gh.releases.pop("bit-" + NAMES[5])                                           # a large core
+        self.run_order(**kw)
+        self.assertEqual(self.outputs["bits_missing"], '["zx_next","amiga1200"]')
+        self.gh.releases.pop("bit-" + NAMES[1])                                           # aux missing: the host job waits, the cores' jobs do not fetch aux
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["host_missing"], self.outputs["bits_missing"]), ("true", '["zx_next","amiga1200"]'))
+        self.gh.releases.pop("bit-" + NAMES[0])                                           # host entry: every partial core's job waits too
+        self.run_order(**kw)
+        self.assertEqual(self.outputs["bits_missing"], '["vc20","zx_next","amiga1200"]')
+
+    def test_collect_waits_for_a_missing_import(self):                                    # T239.5 D28: collect fetches the imports too
+        kw = dict(children=["cor", "package"], cores=["vc20"], host_bits=True)
+        for n in NAMES:
+            self.gh.add_release("bit-" + n, {"SHA256SUMS": b"x"})
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["missing"], self.outputs["collect_missing"]), ("false", "false"))
+        open(self.imports, "w").write("imp-trx64u-0123456789abcdef\n")                 # an import not yet published: only collect waits
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["missing"], self.outputs["collect_missing"], self.outputs["bits_missing"]), ("false", "true", "[]"))
+        self.gh.add_release("bit-imp-trx64u-0123456789abcdef", {"SHA256SUMS": b"x"})
+        self.run_order(**kw)
+        self.assertEqual(self.outputs["collect_missing"], "false")
 
     def test_unknown_children_order_everything(self):
         wo, _ = self.run_order()

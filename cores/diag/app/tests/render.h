@@ -17,7 +17,7 @@ static const Floors FLOOR = { 9, 207, 0, 0, 0, 0, 3, 16, 15, 18, 90, 0, 0, 0, 0 
 static void diag_pages(const char *out, int cw, int ch, const char *tag)
 {
     char p[512];
-    ui_set_canvas(cw, ch);                                       // 960 x 540 (shown at 2x), or the compact canvas of 576p: 720 x 576 (T164 D10a)
+    ui_set_canvas(cw, ch);                                       // 960 x 540 (shown at 2x), or the compact canvas of 576p: 720 x 540 (T164 D10a, T259 D17)
     auto shot = [&](const char *name) {
         snprintf(p, sizeof(p), "%s/diag-%s%s.png", out, name, tag);
         if (cw == 960) { png(p, 2); } else { png_out(p, cw, ch, 0, 0, cw, ch); }
@@ -204,7 +204,7 @@ static int render_core_first(const char *out, int argc, char **argv)   // before
 {
     char p[512];
     diag_pages(out, 960, 540, "");
-    diag_pages(out, 720, 576, "-576p");
+    diag_pages(out, 720, 540, "-576p");
     return -1;
 }
 #define RENDER_CORE_FIRST render_core_first

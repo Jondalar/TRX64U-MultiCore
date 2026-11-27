@@ -431,7 +431,7 @@ static void follow_menu(const char *out)
 #endif
 
 // T164 D10a: the menu in every mode the host offers. Each mode gets the canvas trx_canvas_for names (960 x 540 at a whole factor; the mode's own size
-// below 960 wide: 576p PAL 720 x 576, 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
+// below 960 wide: 576p PAL 720 x 540 (T259 D17), 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
 // and every visible object must lie inside the canvas and not be cut by its parent. The pictures go to the output directory, named by `name`. The Library holds two files of
 // the core's type `ext`, one with a name too long for a narrow column. T239 D17: the shared bench runs it on the made-up core, a core's own build may run it on its core (render.h).
 static void modes_menu(const char *out, const CoreDesc *src, const char *name, const char *ext)
@@ -1579,7 +1579,7 @@ static unsigned pm_row_dhz(int row)
 }
 static void pm_page_case(const char *out, const CoreDesc *src, const char *core, const PmFx &f)
 {
-    // the canvas is the mode's: picture_start puts it up as the board does (576p 720 x 576, 720p 1280 x 720, 1080p 1920 x 1080)
+    // the frame is the mode's: picture_start puts it up as the board does (576p 720 x 576, 720p 1280 x 720, 1080p 1920 x 1080); the canvas in it is trx_canvas_for's
     int fw = f.autohdmi == VID_HDMI_480_576 ? 720 : f.autohdmi == VID_HDMI_720P ? 1280 : 1920, fh = f.autohdmi == VID_HDMI_480_576 ? 576 : f.autohdmi == VID_HDMI_720P ? 720 : 1080;
     const char *shell = f.autohdmi == VID_HDMI_480_576 ? "576p" : f.autohdmi == VID_HDMI_720P ? "720p" : "1080p";
     char p[512], what[160];

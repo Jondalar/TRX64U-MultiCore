@@ -242,8 +242,9 @@ of the core through the ICAP, hands over and jumps to the application of the cor
 ## 4.10 Compact layout (modes narrower than 960 px)
 
 4.10.1 The menu is a canvas of 960 x 540 pixels. A mode that is 960 or more pixels wide shows it at a whole factor, centred in the mode: factor 2 at
-1920 x 1080, factor 1 at 1280 x 720, 1024 x 768 and 1280 x 1024. A mode that is narrower than 960 pixels gets a layout of its own, drawn at the size of
-the mode and never cut: **576p** (720 x 576), **480p** (640 x 480) and **800 x 600**. The core menus follow the same rule (11.1.8).
+1920 x 1080, factor 1 at 1280 x 720, 1024 x 768 and 1280 x 1024. A mode that is narrower than 960 pixels gets a layout of its own, drawn at the width of
+the mode and never cut: **576p** (720 x 540, centred with a black band of 18 lines above and below: a PAL TV on the analogue output shows
+about 550 of the 576 lines, so all 540 fit), **480p** (640 x 480) and **800 x 600**. The core menus follow the same rule (11.1.8).
 
 4.10.2 What changes in the compact layout:
 
@@ -272,7 +273,7 @@ the mode and never cut: **576p** (720 x 576), **480p** (640 x 480) and **800 x 6
 
 ![The Settings page at 576p: the compact layout with the short value of the Picture row](img/host-compact-576-settings.png)
 
-*Figure 4-7. F8 Settings at 576p (720 x 576). The value of `Picture` is the short form `screen: 576p / 480p`. A name or a value that does not fit ends in dots.*
+*Figure 4-7. F8 Settings at 576p. An older picture: it shows the 720 x 576 canvas of before T259 D17; the canvas is 720 x 540 now. The value of `Picture` is the short form `screen: 576p / 480p`. A name or a value that does not fit ends in dots.*
 
 ## 4.11 Configs of a core
 

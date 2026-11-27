@@ -293,8 +293,10 @@ package)
       done
       git -C "$ROOT" rev-parse HEAD > "$t/trxapps_commit"
       : > "$t/DONE"
-      ls "$HANDOFF"/lanes/deliver-*/*.cor > /dev/null 2>&1 || die "no .cor of a core lane in $HANDOFF/lanes (the artifacts deliver-<id>)"
-      say "the trxapps hand-over from the lanes: $(cd "$t" && ls | tr '\n' ' '); the core lanes' .cor: $(cd "$HANDOFF/lanes" && ls -- */*.cor | tr '\n' ' ')"
+      # T239.5 D24: a push that touches no core starts no core lane; ci/package.sh then takes every .cor from the base's package (base-cor)
+      [ -n "$(find "$HANDOFF/lanes" "$HANDOFF/base-cor" -name '*.cor' 2>/dev/null | head -1)" ] ||
+        die "no .cor of a core lane in $HANDOFF/lanes (the artifacts deliver-<id>) and none of the base's package in $HANDOFF/base-cor (D24)"
+      say "the trxapps hand-over from the lanes: $(cd "$t" && ls | tr '\n' ' '); the core lanes' .cor: $(cd "$HANDOFF/lanes" 2>/dev/null && ls -- */*.cor 2>/dev/null | tr '\n' ' ')"
       CI_LANE_COR="$HANDOFF/lanes" "$ROOT/ci/child.sh" package ;;
     *) die "the whole package has no step $step" ;;
   esac ;;
