@@ -1,6 +1,6 @@
 # T239 — This repository delivers host, app and SDK; cores are built outside it and found through a registry
 
-**Status:** EPIC, PROPOSED (2026-11-19, Alex); D1-D16 decided; the children T239.1-T239.4 carry the work (§2).
+**Status:** EPIC, IN PROGRESS (state 2026-11-27, checked against the commits; §5). D1-D16 decided. A (T239.1) DONE 2026-11-22; B: T239.3 on main 2026-11-27 with open scenarios, T239.5 (the matrix pipeline) in progress, T239.6 decided, not built; D (T239.2) and C (T239.4) decided, not built, not scheduled. Proposed 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore (host, app, SDK); TREX/TRX64-Ultimate (the TRX64 core); the registry (place open).
 **Number:** T239.
 **Origin:** Alex, 2026-11-19 (translated): "We already have as a 'big' todo: the abstraction of the app (framework, services,
@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Epic 11-19; D1-D16; A (T239.1) done 11-22; B (T239.3) started 11-22 before D (.3 D16); .4 D1-D6 decided
+Open (one line, as in the TODO table): A done 11-22; B: .3 on main 11-27, .5 the only pipeline (D22), .6 decided; D (.2), C (.4) decided, not built
 
 ---
 
@@ -51,10 +51,12 @@ The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du eine
 | T239.2 | D | Every host gateware release publishes its static checkpoint and a core template, so DFX cores are built outside this repository | D2, D3; T239.1 | [T239.2](T239.2-platform-checkpoint.md) |
 | T239.3 | B | The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it | D9, D10; T239.1, T239.2 | [T239.3](T239.3-app-core-sdk.md) |
 | T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
+| T239.5 | B | Each core that moved to the SDK is built and tested on a lane of its own, from lint to delivery; since D22 the only pipeline | T239.3 | [T239.5](T239.5-core-pipeline.md) |
 | T239.6 | B | The host app is built from the SDK like every core app: its own code is libraries of the host core | T239.3 D6, D10; T239.5 | [T239.6](T239.6-host-on-sdk.md) |
 
 Each child lists its open questions for Alex in its §3; none is built before they are answered. State 2026-11-19, evening: every
-question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, T239.4 D1-D6); T239.1 is the next to build.
+question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, T239.4 D1-D6); T239.1 is the next to build. State 2026-11-27: the work ran A, then B
+(T239.3 D16 put B before D), with T239.5 and T239.6 added to B; D and C are not started.
 
 ## §3 Decision
 
@@ -151,4 +153,12 @@ Nothing decided yet.
 
 ## §5 Built
 
-Nothing yet.
+- State 2026-11-27 (checked against the commits; Alex, translated: "go through the code and the commits"):
+  - A: T239.1 DONE 2026-11-22 (D50, release 0.2.1 from GitHub).
+  - B: T239.3 merged into integration 2026-11-26 (#152) and into main 2026-11-27 (#156); its open scenarios are in its §5 "State
+    2026-11-27". T239.5: the matrix is the only pipeline since D22; the pre-release of main is red (its §5). T239.6: decided 2026-11-25,
+    not built (`host/app/` does not exist; the host app keeps its hand-made slot table, `host-app/software/hostapp/hostlibslot.cc:4`).
+  - D: T239.2 decided 2026-11-19, nothing built (no core template, no published checkpoint; `ci/bitstream_layers.sh` takes the
+    host checkpoint from the builder cache).
+  - C: T239.4 decided 2026-11-19, nothing built (no TLS client, registry client or TRNG); stopgaps: T239.1 D22 (the release packs
+    the .cor files by hand), T239.3 D45 (the builder takes trx64u.cor from the Gitea registry).
