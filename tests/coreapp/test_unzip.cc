@@ -110,13 +110,13 @@ int main(int argc, char **argv)
         fs.put("/sd/cores/apps/libfile.u2a", slurp(dir + "/libfile.u2a"));
         fs.put("/sd/games/t.zip", zip);
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        ctx_for(&c, &fs, &io, "/sd/cores/demo.cor");
         static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
         bool shared = false;
         for (int i = 0; i < nf; i++) { if (!strcmp(folders[i], "/sd/cores/apps")) shared = true; }
         CHECK(shared);
-        CHECK_STR(folders[0], "/sd/cores/vc20/apps");                   // the core's own comes first
+        CHECK_STR(folders[0], "/sd/cores/demo/apps");                   // the core's own comes first
         Log log;
         AppIndex idx;
         idx.scan(&fs, folders, nf, &log);
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
                 fs2.put("/sd/cores/apps/unzip.u2a", u1);
                 static char f2[APP_FOLDERS_MAX][APP_PATH_MAX];
                 CoreCtx c2;
-                ctx_for(&c2, &fs2, &io, "/sd/cores/vc20.cor");
+                ctx_for(&c2, &fs2, &io, "/sd/cores/demo.cor");
                 int nf2 = AppIndex::folders(&c2, f2, APP_FOLDERS_MAX);
                 idx2.scan(&fs2, f2, nf2, &log);
                 idx2.set_room(room, &ld);
@@ -252,7 +252,7 @@ int main(int argc, char **argv)
         fs.put("/sd/cores/apps/unzip.u2a", u1);
         fs.put("/sd/cores/apps/plain.u2a", slurp(dir + "/plain.u2a"));
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        ctx_for(&c, &fs, &io, "/sd/cores/demo.cor");
         static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
         Log log;
@@ -307,7 +307,7 @@ int main(int argc, char **argv)
         FakeFs fs;
         fs.put("/sd/cores/apps/ringapp.u2a", slurp(dir + "/ringapp.u2a"));
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        ctx_for(&c, &fs, &io, "/sd/cores/demo.cor");
         static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
         Log log;
@@ -343,7 +343,7 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        ctx_for(&c, &fs, &io, "/sd/cores/demo.cor");
         static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
         AppIndex idx;
@@ -355,18 +355,18 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/vc20/apps/unzip.u2a", u2);
+        fs.put("/sd/cores/demo/apps/unzip.u2a", u2);
         static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        ctx_for(&c, &fs, &io, "/sd/cores/demo.cor");
         int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
         AppIndex idx;
         idx.scan(&fs, folders, nf, 0);
         const AppEntry *e = idx.find("unzip");
         CHECK(e != 0);
-        if (e) { CHECK_STR(e->path, "/sd/cores/vc20/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(2, 0)); }
+        if (e) { CHECK_STR(e->path, "/sd/cores/demo/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(2, 0)); }
         CoreCtx c2;
-        ctx_for(&c2, &fs, &io, "/sd/cores/amiga1200.cor");
+        ctx_for(&c2, &fs, &io, "/sd/cores/demo_core.cor");
         nf = AppIndex::folders(&c2, folders, APP_FOLDERS_MAX);
         AppIndex idx2;
         idx2.scan(&fs, folders, nf, 0);

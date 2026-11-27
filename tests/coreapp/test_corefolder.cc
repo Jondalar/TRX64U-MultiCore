@@ -56,15 +56,15 @@ int main()
     char sum[300];
 
     // ---- the names (D1, D5)
-    CHECK(corefolder_dir("/SD/cores/apple2.cor", b, sizeof(b)));
-    CHECK_STR(b, "/SD/cores/apple2");
-    CHECK(corefolder_sub("/SD/cores/apple2.cor", "roms", b, sizeof(b)));
-    CHECK_STR(b, "/SD/cores/apple2/roms");
-    CHECK(corefolder_cfg("/SD/cores/apple2.cor", b, sizeof(b)));
-    CHECK_STR(b, "/SD/cores/apple2/apple2.cfg");
-    CHECK(corefolder_old_cfg("/SD/cores/apple2.cor", b, sizeof(b)));
-    CHECK_STR(b, "/SD/cores/apple2.cfg");
-    CHECK(corefolder_old_roms("/SD/cores/apple2.cor", b, sizeof(b)));
+    CHECK(corefolder_dir("/SD/cores/demo.cor", b, sizeof(b)));
+    CHECK_STR(b, "/SD/cores/demo");
+    CHECK(corefolder_sub("/SD/cores/demo.cor", "roms", b, sizeof(b)));
+    CHECK_STR(b, "/SD/cores/demo/roms");
+    CHECK(corefolder_cfg("/SD/cores/demo.cor", b, sizeof(b)));
+    CHECK_STR(b, "/SD/cores/demo/demo.cfg");
+    CHECK(corefolder_old_cfg("/SD/cores/demo.cor", b, sizeof(b)));
+    CHECK_STR(b, "/SD/cores/demo.cfg");
+    CHECK(corefolder_old_roms("/SD/cores/demo.cor", b, sizeof(b)));
     CHECK_STR(b, "/SD/cores/roms");
     CHECK(corefolder_dir("/USB1/APPLE2.COR", b, sizeof(b)));                  // a .cor at a medium's top has its folder there
     CHECK_STR(b, "/USB1/APPLE2");
@@ -73,7 +73,7 @@ int main()
     CHECK(!corefolder_dir("cores/x.cor", b, sizeof(b)));
     CHECK(!corefolder_dir("/SD/cores/x.bin", b, sizeof(b)));
     CHECK(!corefolder_dir("/SD/cores/.cor", b, sizeof(b)));
-    CHECK(!corefolder_dir("/SD/cores/apple2.cor", b, 12));                    // does not fit: refused, not cut
+    CHECK(!corefolder_dir("/SD/cores/demo.cor", b, 12));                    // does not fit: refused, not cut
     CHECK_STR(b, "");
 
     // ---- S7: the saves path
@@ -87,40 +87,40 @@ int main()
     // ---- S1: the first start makes the folder, roms/ and saves/; the settings path is in it
     {
         FakeFs fs;
-        fs.put_size("/SD/cores/apple2.cor", 10);
-        CHECK(corefolder_ensure(&fs, "/SD/cores/apple2.cor"));
+        fs.put_size("/SD/cores/demo.cor", 10);
+        CHECK(corefolder_ensure(&fs, "/SD/cores/demo.cor"));
         uint64_t sz; bool dir;
-        CHECK(fs.stat("/SD/cores/apple2", &sz, &dir) && dir);
-        CHECK(fs.stat("/SD/cores/apple2/roms", &sz, &dir) && dir);
-        CHECK(fs.stat("/SD/cores/apple2/saves", &sz, &dir) && dir);
-        CHECK(corefolder_ensure(&fs, "/SD/cores/apple2.cor"));                 // again: nothing breaks
+        CHECK(fs.stat("/SD/cores/demo", &sz, &dir) && dir);
+        CHECK(fs.stat("/SD/cores/demo/roms", &sz, &dir) && dir);
+        CHECK(fs.stat("/SD/cores/demo/saves", &sz, &dir) && dir);
+        CHECK(corefolder_ensure(&fs, "/SD/cores/demo.cor"));                 // again: nothing breaks
         FakeFs ro;
         ro.read_only = true;
-        CHECK(!corefolder_ensure(&ro, "/SD/cores/apple2.cor"));                // a write protected card: told, not crashed
+        CHECK(!corefolder_ensure(&ro, "/SD/cores/demo.cor"));                // a write protected card: told, not crashed
         CHECK(!corefolder_ensure(&fs, ""));
         CoreCtx c;
         memset(&c, 0, sizeof(c));
         Handover h;
-        handover_fill(&h, "/SD/cores/apple2.cor", "Apple IIe", "1.0.0", 1);
+        handover_fill(&h, "/SD/cores/demo.cor", "Apple IIe", "1.0.0", 1);
         start_paths(&c, &h);
-        CHECK_STR(c.cfg_path, "/SD/cores/apple2/apple2.cfg");
+        CHECK_STR(c.cfg_path, "/SD/cores/demo/demo.cfg");
         // the old .cfg beside the .cor moves once, and is gone from there
-        fs.put_text("/SD/cores/apple2.cfg", "[Apple]\nx=1\n");
-        CHECK(corefolder_move_cfg(&fs, "/SD/cores/apple2.cor"));
-        CHECK_STR(fs.text("/SD/cores/apple2/apple2.cfg").c_str(), "[Apple]\nx=1\n");
-        CHECK(!fs.has("/SD/cores/apple2.cfg"));
-        CHECK(!corefolder_move_cfg(&fs, "/SD/cores/apple2.cor"));              // nothing left to move
+        fs.put_text("/SD/cores/demo.cfg", "[Apple]\nx=1\n");
+        CHECK(corefolder_move_cfg(&fs, "/SD/cores/demo.cor"));
+        CHECK_STR(fs.text("/SD/cores/demo/demo.cfg").c_str(), "[Apple]\nx=1\n");
+        CHECK(!fs.has("/SD/cores/demo.cfg"));
+        CHECK(!corefolder_move_cfg(&fs, "/SD/cores/demo.cor"));              // nothing left to move
         // a new .cfg that exists is never overwritten by an old one that turns up again
-        fs.put_text("/SD/cores/apple2.cfg", "[Apple]\nx=OLD\n");
-        CHECK(!corefolder_move_cfg(&fs, "/SD/cores/apple2.cor"));
-        CHECK_STR(fs.text("/SD/cores/apple2/apple2.cfg").c_str(), "[Apple]\nx=1\n");
-        CHECK(fs.has("/SD/cores/apple2.cfg"));
+        fs.put_text("/SD/cores/demo.cfg", "[Apple]\nx=OLD\n");
+        CHECK(!corefolder_move_cfg(&fs, "/SD/cores/demo.cor"));
+        CHECK_STR(fs.text("/SD/cores/demo/demo.cfg").c_str(), "[Apple]\nx=1\n");
+        CHECK(fs.has("/SD/cores/demo.cfg"));
         // a card that fails the write: the old file stays
         BadFs bf;
-        bf.put_text("/SD/cores/apple2.cfg", "[Apple]\nx=1\n");
+        bf.put_text("/SD/cores/demo.cfg", "[Apple]\nx=1\n");
         bf.bad = true;
-        CHECK(!corefolder_move_cfg(&bf, "/SD/cores/apple2.cor"));
-        CHECK(bf.has("/SD/cores/apple2.cfg") && !bf.has("/SD/cores/apple2/apple2.cfg"));
+        CHECK(!corefolder_move_cfg(&bf, "/SD/cores/demo.cor"));
+        CHECK(bf.has("/SD/cores/demo.cfg") && !bf.has("/SD/cores/demo/demo.cfg"));
     }
 
     // ---- S2: a ROM only in an old place is copied once, byte-identical, the original stays; then nothing outside the folder is read

@@ -105,7 +105,7 @@ def main(out):
     bit = data + bytes(-len(data) % 4)
     open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=alpha_libs))
     # T175, T260 D6: record 8 (the files a core installs on the card, coreapp/src/instfiles.cc) on a fixture core "instfiles": tests/coreapp/instfiles/sd (the files) and old (earlier shipped texts). No core
-    # of the table carries record 8 (T260 D6: the diag core's tests and presets are a folder of its lane's delivery)
+    # of the table carries record 8 (T260 D6: a real core's shipped files are a folder of its lane's delivery)
     fx = os.path.join(here, "instfiles")
     files = C.collect_files(os.path.join(fx, "sd"), os.path.join(fx, "old"))
     open(os.path.join(out, "instfiles.cor"), "wb").write(C.pack_large("instfiles", "Install Files", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))

@@ -6,10 +6,10 @@ source "$TESTS_DIAG/diag_drv.sh"
 diag_drv_dir "$T/diagtab" || { echo "coreapp: the diag core's driver table was not generated" >&2; exit 1; }   # portdiag_regs.h names the registers through it
 DIAGLIB="$ROOT/cores/diag/app/lib"   # T260 P7: the diag core's library lives in its own app (cores/diag/app/lib)
 # The diag core is its own app too (T260 P7: cores/diag/app). diagapp CMD... builds like a8app, with the diag core's library (APPLIB), its table and TEST_APP_DIAG: its units are in the group diag.
-INC_DIAG=(-DTEST_APP_DIAG=1 -I"$TESTS_DIAG" -I"$DIAGLIB" -I"$T/diagtab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DIAG+=("$i"); done
+INC_DIAG=(-DTEST_APP_DIAG=1 -I"$TESTS_DIAG" -DGOLDEN_DIR=\"$TESTS_DIAG/golden\" -I"$DIAGLIB" -I"$T/diagtab/drv")
+for i in "${INC[@]}"; do case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) INC_DIAG+=("$i") ;; esac; done
 diagapp() { local INC=("${INC_DIAG[@]}") CORE_TESTS="$TESTS_DIAG" CA_APP=diag APPLIB="$DIAGLIB"; "$@"; }
-# T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; tests/coreapp/diag_examples.h
+# T175, T260: the diag core's app (cores/diag/app/lib), built as that app (diagapp). The shipped tests and presets are the delivery's folder cores/diag/sd (T260 D6; cores/diag/app/tests/diag_examples.h
 # copies it onto a fake card), no record of the .cor. The units are the ones its TOML B names (tests = ...).
 diagapp run diagtest test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc
 diagapp control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc dtv2.cc panel.cc pdnames.cc instfiles.cc

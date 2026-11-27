@@ -65,16 +65,11 @@ C64="c64_go.cc c64_cart.cc cbm_prg.cc board.cc $DRV"
 LOADERS="$ROOT/app/loaders"
 VIDEO="$ROOT/app/video"
 LIB1541="$ROOT/app/lib/cbm1541"
-source "$TST/vc20_drv.sh"
-vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
-source "$TST/a1200_drv.sh"
-A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
 source "$TST/own_drv.sh"
-VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
 MZ_APP="$ROOT/apps/miniz"   # T197: the zip code, one source for the board image of unzip.u2a (T239.3 D60) and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "${CORE_TESTS:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$VC20LIB" "$A1200LIB" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "${CORE_TESTS:-/nonexistent}" "${APPLIB:-/nonexistent}" "$SRC" "$CORES" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 # T239 D17: a core's tests live in its folder (cores/<id>/app/tests, moved there by tools/tests_to_core.py): its app's wrapper sets CORE_TESTS, and a test program or a
 # source found there wins over the shared one of the same name (find_src above, tpath here) for the units of that app
 tpath() { if [ -n "${CORE_TESTS:-}" ] && [ -f "$CORE_TESTS/$1" ]; then echo "$CORE_TESTS/$1"; else echo "$TST/$1"; fi; }
@@ -191,14 +186,10 @@ run romfind test_romfind.cc $ROMF
 
 
 run video test_video.cc $BASEL cbm_run.cc cbm_prg.cc freeze.cc $DRV
-# T136 S3: the A1200's 32-bit pixels: the stride and the format follow the descriptor's bytes per pixel
 
-# the settings file (the Atari 800 XL's settings are the cases): the unit a8_settings and its controls, built as its app (below)
 
-ca_in atari800 && if command -v 64tass >/dev/null; then "$ROOT/tools/gen_xexboot.sh" --check; else echo "(64tass not installed: the xexboot.asm / xexboot_bin.h drift check is skipped)"; fi
 # T104 5.6 item 1: the CBM BASIC loader, library code the VC-20 and the C16 will share
 run cbm_prg test_cbm_prg.cc cbm_prg.cc
-# T134: the PET models' ROM names and the PRG loader numbers for BASIC 1: the unit pet_models, built as the PET's app (below)
 
 
 
@@ -236,7 +227,6 @@ ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
 # T160: the A1200's Volume setting and the menu's SHIFT+ / SHIFT- (C64 '{' '}', USB '+' '_' '-')
 run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL
-# T189 S7: the generic Tone setting (the register write 0x51, the .cfg, a new session, own Tone / no_tone / own_volume) - the units nes_tone and amiga_tone, built as their apps (below)
 # T239.3 base 3.3: the application's own settings (look, keyboard joystick, USB mouse) and the core hooks of a library's table "corehooks"
 run baseset test_baseset.cc $BASEL
 # T239.3 D32, P2-4 QC: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): whole, placed, and the code's own tables agree with them
@@ -253,11 +243,6 @@ RARGS="$CL" CC_EXTRA="$CL/desc.rec $CL/desc_nohooks.rec $CL/desc_upper.rec $CL/d
 # T184 D3: the one WiFi row of every core (test_desc.cc): a core without it, and a core with a second row, are both seen
 # T104.2 D10: tasks and media list by group like settings, an information tab names its lines
 
-# T180 D3, D6, D7 (S4-S6): the F3 Library of a core that is not the C64, and GitHub #93 (T209): a folder of n entries - the units a8_f3 and a8_library_n (the Atari is their core), built as its app (below)
-# #38: the name limit back to 55 (the prefill and the typing), the field without scrolling, the operation's argument back to 55
-# T180 D8: a cursor in every entry - the editor is wired in (CRSR left dropped), inserts at the cursor, draws it where it is
-# T180 #38: a file with a FAT long name (80 and 255 characters) in the F3 Library: listed, the sheet, mounted, renamed, copied, moved, deleted by its whole name. Controls: the entry
-# back at 55 characters, the path buffers back at 260, the list row not cut with "..", the path argument of an operation back at 255, the clipboard path cut, a folder frame cut.
 
 # T107: the Picture setting, the layout that follows a mode, and the start-up path that uses the same layout
 PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $BASEL $C64"
@@ -267,8 +252,6 @@ run sid_decide test_sid_decide.cc
 run picture test_picture.cc $PICSRC cbm_run.cc freeze.cc
 # T164 WP16 (G2, G14): the gateware is found by its magic and a requested mode is waited for by the status register
 run gwstatus test_gwstatus.cc videomode.cc edid.cc
-# T164 WP16 (S10, S11, S12, Q7): the list, the screen that changes, default and override, confirm or revert - the units a8_pictfollow and nes_pictfollow, built as their apps (below)
-# T164 D10c amended (Alex 2026-11-04): the Auto value names its mode and whose it is; plain "Auto" has to fail, and so does a first value that a stored label no longer finds
 
 # T107 D7/D8: a core whose gateware owns the picture (the A1200): real frame per mode, Integer without the cap / Fit / Fill, the Scale item for that core only
 SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $BASEL"
@@ -295,8 +278,6 @@ run fs64 test_fs64.cc $ROMF
 # The C64 model (c64_model.h) is the bench's reading of ultimate_sys.vhd / trx_sys.v / trx_dbg.v, not the gateware: what the board does
 # is the board steps of the spec.
 
-# S2, S4, S11: the profile from the ICAP byte and the hand-over, the capabilities the probes strike, the settings file, the menu without a way back: the unit a8_board and its
-# controls (the cases stand on the Atari's descriptor, the stub monocore), built as its app (below); the NES's line is its app's unit nes_core
 # T115 7 H1: the held page (R1-R5)
 
 # Run Cartridge (.crt of the Library, the library c64cart): the image, the type, the descriptor, the reset into the cartridge
@@ -337,9 +318,7 @@ control wb_ef3_evt_hi c64_cart.cc 's/ | (hi << 21)) \& (g_flash->chip_size - 1)/
 control wb_ef3_chip_erase c64_cart.cc 's/        size = p->chip_size;/        size = 0x10000;/' test_writeback.cc $WBL
 control wb_failed_write_dropped writeback.cc 's/^        end(false);$/        end(true);/' test_writeback.cc $WBL
 control wb_ask_no_forget writeback.cc 's/^        wb_forget();$/        (void)0;/' test_writeback.cc $WBL
-# T192.3 leak 4 (persistence): the module's question on the Atari's menu - the unit a8_writeback_menu and its control wbm_answer_ignored, built as its app (below)
 
-# D6: the address prompt of "Load PRG and start from": the unit a8_prompt (on the Atari's descriptor), built as its app (below)
 
 # D5, S5: w == 0 means the core draws its own picture
 
@@ -352,14 +331,11 @@ control noflash_boot_mc_exact fsif.h 's/!strcasecmp(path, FS_FLASH_BOOT_MULTICOR
 control noflash_deep_path fsif.h 's/ || strchr(slash + 1, .\/.))/)/' test_noflash.cc
 control noflash_boot_mc_missing fsif.h 's/if (!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {/if (false) {/' test_noflash.cc
 
-# T89 Apple //e disk: 6-and-2 nibblizer (golden from the RWTS definition + an independent POSTNIB decoder), file orders, the track window service
-
-# T91 (the ZX Spectrum on the generic application): the tape converter is a unit of each app that has a deck: tape_zx, tape_cpc and tape_pet below (each core's own copy)
 
 
 
 
-# the C128's System Mode, the JiffyDOS kit files and the register page E: the units c128 and c128pic, built as its app (below)
+
 
 DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
@@ -380,7 +356,6 @@ control mme_not_ready mediamounts.cc 's/^    c->mounts_ready = true;$/    (void)
 
 # T180: desc_check refuses a table of slots that cannot be keys of the .cfg
 
-# T138 S3: the A1200 offers the Zorro III board (FAST_CFG 4), the A500 does not
 
 
 t_mousescale() {
@@ -433,8 +408,6 @@ control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_
 
 
 
-# T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC: the units apple2_newdisk, amiga_newdisk, a12_newdisk, a8_newdisk and cpc_newdisk (the images are read back by
-# checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu).
 
 
 # T104 5.16: fast seek. The real FatFs (vendor/gideon chan_fat) built with coreapp/ffconf/ffconf.h - the application's own configuration - over a
@@ -468,8 +441,6 @@ t_fastseek() {
 ca_in shared && cc_block fastseek t_fastseek
 PASS=$((PASS + 1))
 
-# T122 §5 (board, Atari 800, 2026-10-24): a clean name in the prompt for every core, the folder browser of Create (where it starts, that the chosen folder is the folder), the file written in chunks with a
-# percentage on screen, cancel, and no half image: the units apple2_createflow, a8_createflow, a12_createflow, amiga_createflow, cpc_createflow and vc20_createflow, each with its core's controls.
 
 # T104.1 D3, D4, D8, D9, D12: the menu merge, the description record, the bundle's records, REST and WS JSON-RPC.
 # The fixtures are made by the real packer (tools/cor_pack.py, tools/descrec.py): the readers of the board are tested against what the tools write.
@@ -572,7 +543,7 @@ t_romreq() {
 import sys
 shared = [l for l in open(sys.argv[1]) if not l.startswith("//")]
 host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in shared) else 1)   # the shared table (snes, the made-up core) holds no ROM row any more: an empty list is whole
+sys.exit(0 if all(any(h == r for h in host) for r in shared) else 1)   # the shared table (the made-up core) holds no ROM row any more: an empty list is whole
 PY
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
@@ -608,10 +579,6 @@ CARGS="" RARGS=""
 CARGS="" RARGS=""
 
 
-# T239.5 D4, D16: the ZX Spectrum's units, built as its app (zxapp: its library cores/zx/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the
-# group zx) - the units its TOML B (cores/zx/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: zx.cc, zx_snap.cc, the tape deck and the base's.
-# The snapshot reader is compared with tools/zx_snap.py's reader on a corpus made here, in a temporary directory: no snapshot is ever committed.
-ZXC="$T/zxcorpus"; mkdir -p "$ZXC"; python3 "$ROOT/tools/zx_snap.py" corpus "$ZXC"; export ZX_CORPUS="$ZXC"
 CARGS="" RARGS=""
 
 CARGS="" RARGS=""

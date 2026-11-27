@@ -33,7 +33,7 @@ int main()
     CHECK(strstr(msg, "????") != 0);                  // unprintable bytes are shown as ?, not as terminal noise
 
     // a descriptor other than the one the .cor manifest names
-    handover_fill(&h, "/USB1/cores/amiga.cor", "Amiga", "0.0.1", 0x1234u);
+    handover_fill(&h, "/USB1/cores/demo.cor", "Amiga", "0.0.1", 0x1234u);
     CHECK_EQ(start_identify((const uint8_t *)"D8XL", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
     CHECK(d == 0);
     CHECK(strstr(msg, "Amiga") != 0 && strstr(msg, "Dummy 800 XL") != 0);

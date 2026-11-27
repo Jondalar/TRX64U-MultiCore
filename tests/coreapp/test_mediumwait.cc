@@ -16,7 +16,7 @@ struct Clock : MediumEnv {
     void delay_ms(uint32_t ms) override { t += ms; delays++; if (delays > 5000) { printf("FAIL runaway wait\n"); exit(1); } if (t >= up_at) fs->gone = false; }
 };
 
-static const char *COR = "/Usb0/cores/amiga1200.cor";
+static const char *COR = "/Usb0/cores/demo_core.cor";
 
 static void ctx_for(CoreCtx *c, FakeFs *fs, const char *path)
 {
@@ -31,16 +31,16 @@ int main()
     {
         FakeFs fs;
         fs.put_size(COR, 100);
-        fs.put_text("/Usb0/cores/amiga1200.cfg", "[Amiga]\nx=1\n");
+        fs.put_text("/Usb0/cores/demo_core.cfg", "[Amiga]\nx=1\n");
         Clock env(&fs, 2900);
         CoreCtx c;
         ctx_for(&c, &fs, COR);
         start_core_folder(&c, &env);
         uint64_t sz; bool dir;
-        CHECK(fs.stat("/Usb0/cores/amiga1200", &sz, &dir) && dir);
-        CHECK(fs.stat("/Usb0/cores/amiga1200/roms", &sz, &dir) && dir);
-        CHECK(fs.stat("/Usb0/cores/amiga1200/saves", &sz, &dir) && dir);
-        CHECK_STR(fs.text("/Usb0/cores/amiga1200/amiga1200.cfg").c_str(), "[Amiga]\nx=1\n");
+        CHECK(fs.stat("/Usb0/cores/demo_core", &sz, &dir) && dir);
+        CHECK(fs.stat("/Usb0/cores/demo_core/roms", &sz, &dir) && dir);
+        CHECK(fs.stat("/Usb0/cores/demo_core/saves", &sz, &dir) && dir);
+        CHECK_STR(fs.text("/Usb0/cores/demo_core/demo_core.cfg").c_str(), "[Amiga]\nx=1\n");
         CHECK(env.t >= 2900 && env.t < 3100);
         CoreFile *f = fs.open(COR, false);
         CHECK(f != 0);                                                       // the bundle read that follows finds the medium up
@@ -56,7 +56,7 @@ int main()
         start_core_folder(&c, &env);
         CHECK_EQ(env.delays, 0);
         uint64_t sz; bool dir;
-        CHECK(fs.stat("/Usb0/cores/amiga1200/saves", &sz, &dir) && dir);
+        CHECK(fs.stat("/Usb0/cores/demo_core/saves", &sz, &dir) && dir);
     }
     // /SD and /flash are there when the application is: never waited for, even when nothing lists
     {
@@ -86,7 +86,7 @@ int main()
         start_core_folder(&c, &env);
         fs.gone = false;
         uint64_t sz; bool dir;
-        CHECK(!fs.stat("/Usb0/cores/amiga1200", &sz, &dir));
+        CHECK(!fs.stat("/Usb0/cores/demo_core", &sz, &dir));
     }
     // two-digit and upper case roots
     {

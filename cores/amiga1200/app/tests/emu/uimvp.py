@@ -74,7 +74,7 @@ lines += ['wait 1000', 'quit']
 open(os.path.join(work, 'steps.ctl'), 'w').write('\n'.join(lines) + '\n')
 
 cmd = (['taskpolicy', '-c', 'utility'] if sys.platform == 'darwin' else []) + [emu, 'run', '--headless', '--speed', 'max', '--board', 'c64u', '--caps', '25E40202', '--trx-io', 'on',
-       '--c64', 'none', '--firmware', app, '--roms', roms, '--flash', os.path.join(work, 'flash.bin'), '--core', os.path.join(HERE, '..', '..', '..', 'cores', 'amiga1200', 'app', 'ue2emu.toml'),
+       '--c64', 'none', '--firmware', app, '--roms', roms, '--flash', os.path.join(work, 'flash.bin'), '--core', os.path.join(HERE, '..', '..', 'ue2emu.toml'),
        '--handover', 'video=' + os.environ.get('UIMVP_VIDEO', '720p'), '--usb-dir', stick, '--usb-dir-work', os.path.join(work, 'usbwork'), '--net', 'user',
        '--hostfwd', 'tcp:127.0.0.1:%d:80' % HTTP, '--script', os.path.join(work, 'steps.ctl'), '--max-seconds', '600']
 log = open(os.path.join(out, 'emu.log'), 'w')

@@ -9,6 +9,7 @@ A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library 
 INC_A8=(-DTEST_APP_ATARI800=1 -I"$TESTS_A8" -DGOLDEN_DIR=\"$TESTS_A8/golden\" -I"$A8LIB" -I"$T/a8tab/drv")
 for i in "${INC[@]}"; do case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) INC_A8+=("$i") ;; esac; done
 a8app() { local INC=("${INC_A8[@]}") CORE_TESTS="$TESTS_A8" CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
+ca_in atari800 && if command -v 64tass >/dev/null; then "$ROOT/tools/gen_xexboot.sh" --check; else echo "(64tass not installed: the xexboot.asm / xexboot_bin.h drift check is skipped)"; fi
 a8app run a8_boot test_boot_atari.cc $ATARI
 a8app run a8_xex test_atari_xex.cc atari_xex.cc
 a8app run a8_sio test_atari_sio.cc atari_sio.cc atari_atr.cc

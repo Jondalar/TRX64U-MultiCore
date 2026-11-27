@@ -10,6 +10,8 @@ ZXLIB="$ROOT/cores/zx/app/lib"   # the ZX Spectrum's library lives in its own re
 INC_ZX=(-DTEST_APP_ZX=1 -I"$TESTS_ZX" -DGOLDEN_DIR=\"$TESTS_ZX/golden\" -I"$ZXLIB" -I"$T/zxtab/drv")
 for i in "${INC[@]}"; do case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) INC_ZX+=("$i") ;; esac; done
 zxapp() { local INC=("${INC_ZX[@]}") CORE_TESTS="$TESTS_ZX" CA_APP=zx APPLIB="$ZXLIB"; "$@"; }
+# the snapshot reader is compared with tools/zx_snap.py's reader on a corpus made here, in a temporary directory: no snapshot is ever committed
+ZXC="$T/zxcorpus"; mkdir -p "$ZXC"; python3 "$ROOT/tools/zx_snap.py" corpus "$ZXC"; export ZX_CORPUS="$ZXC"
 ZXS="zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc $BASEL"
 ZXA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $ZXS"
 ZXD="desc_check.cc overlay.cc descrec.cc $ZXA"

@@ -1,5 +1,5 @@
 // T260 S7 proof: the A/V panel (cores/diag/sd/panels/avout.toml, run by cores/diag/app/lib/panel.cc through CoreDialogs::edit_list) writes the same registers, in the same order, as the
-// C code of the T259 A/V page did - per shipped preset and per RIGHT on each row. tests/coreapp/golden/diag_av_trace.txt is the record of that page (it was written by that C code,
+// C code of the T259 A/V page did - per shipped preset and per RIGHT on each row. cores/diag/app/tests/golden/diag_av_trace.txt is the record of that page (it was written by that C code,
 // UPDATE_GOLDEN=1 writes the file from the panel).
 // The native model of the dialogs (ScriptDlg) plays the person: the first edit_list returns the row "Load preset" (the panel asks the picker, loads the file, tells the count), the second
 // presses RIGHT, and LEFT to put the row back, on every value row, the last returns -1 (ESC).

@@ -173,7 +173,7 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
-        if (want[0].cor[0]) CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));   // the placeholder row ("") has nothing to find: the shared table's cores and the apps without a machine line (DDT, the Next, diag)
+        if (want[0].cor[0]) CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));   // the placeholder row ("") has nothing to find: the shared table's cores and the apps without a machine line
         CHECK_EQ(nones, n_none);
     }
 

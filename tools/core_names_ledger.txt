@@ -1,5 +1,5 @@
-# T239 D17 (Alex 2026-11-27): the cores whose tests have not moved to cores/<id>/app/tests yet (tools/tests_to_core.py); tools/check_core_names.py
-# lets the shared test harness name these, and only these. The file only shrinks: a core whose move is green comes out in the same commit.
-amiga TEST_APP_AMIGA
-amiga1200 TEST_APP_A1200
-c64scpu tests/coreapp/render/run.sh   # RENDER_OWN lists the cores with a render build of their own by name (T239.5 D13); read it from the cores' TOML B, then drop this line
+# T239 D17 (Alex 2026-11-27): every core's tests live in cores/<id>/app/tests (tools/tests_to_core.py); tools/check_core_names.py is red for a core id in the shared test harness.
+# A line here is a shared file whose word is not the core of that id (`<id> <path>`, the reason in a comment). The file only shrinks.
+diag tests/coreapp/board_stubs.cc   # includes coreapp/src/diag.h, the core app's diagnostics module (diag.cc), which shares its name with the diag core
+diag tests/coreapp/srclist.sh       # NOT_HERE names coreapp/src/diag.cc, the core app's diagnostics module, which shares its name with the diag core
+pet tests/coreapp/test_d1541_fs.cc  # .pet is the PETSCII name field of D1541Entry (app/lib/cbm1541/d1541_fs.h), not the PET core

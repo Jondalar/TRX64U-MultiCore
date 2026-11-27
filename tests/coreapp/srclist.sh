@@ -7,7 +7,7 @@
 # missing here only). NOT_HERE are the board-only files the native build replaces with the program's main and the stubs.
 SRC="$ROOT/coreapp/src"; CORES="$ROOT/coreapp/cores"; HA="$ROOT/host-app/software/hostapp"
 MK="$ROOT/host-app/target/u64ii/riscv/coreapp/Makefile"
-APPDIRS="$SRC $CORES $ROOT/cores/vc20/app/lib $ROOT/app/loaders $ROOT/app/lib/cbm1541 $ROOT/app/edit $ROOT/app/view $ROOT/app/video $HA $ROOT/uicore"   # $HA: handover, bootcfg
+APPDIRS="$SRC $CORES $ROOT/app/loaders $ROOT/app/lib/cbm1541 $ROOT/app/edit $ROOT/app/view $ROOT/app/video $HA $ROOT/uicore"   # $HA: handover, bootcfg
 NOT_HERE="libexports.cc libtab.cc c64cart_exports.cc cbm1541_exports.cc sid_exports.cc tempdisk_exports.cc cbmprg_exports.cc table.cc hw.cc run.cc fm_fs.cc fm_medium.cc tempdisk.cc fastseek.cc fastseek_exports.cc ftp_exports.cc libboard.cc nettransport.cc restsrv.cc uiapp_board.cc"
 # the TRX64U's board-side contributors and what they stand on (the U64 registers, USB HID, the network stack, FreeRTOS tasks, lwIP sockets): tests/coreapp/board_stubs.cc stands in
 NOT_HERE="$NOT_HERE libfiles.cc diag.cc netops.cc netsvc.cc dmasvc.cc hostwifi.cc netfs.cc ftp_client.cc resid8.cc dma_uart.cc appsvc.cc network_esp32.cc wifi.cc wifi_cmd.cc esp32.cc wifinet.cc usb_xinput.cc mouse_board.cc pad_board.cc u64_resample.cc"   # usb_xinput.cc: the XInput USB driver (T196), on the USB stack
@@ -15,15 +15,11 @@ NOT_HERE="$NOT_HERE libfiles.cc diag.cc netops.cc netsvc.cc dmasvc.cc hostwifi.c
 TEST_SRCS="$ROOT/tests/coreapp/libtab_native.cc $SRC/desc_check.cc $ROOT/tests/coreapp/video_stub.cc $ROOT/tests/coreapp/sha256_cc.cc $ROOT/tests/coreapp/board_stubs.cc"
 # the defines and the include path (LV_CONF_INCLUDE_SIMPLE: lv_conf.h comes from the directory the caller puts first)
 CORE_DEFS="-std=gnu++14 -w -DVIDEOMODE_NO_BOARD=1 -DLV_CONF_INCLUDE_SIMPLE"
-CORE_INCS="-I$ROOT/app/view -I$ROOT/app/video -I$SRC -I$ROOT/uicore -I$CORES -I$ROOT/cores/vc20/app/lib -I$ROOT/app/loaders -I$ROOT/app/lib/cbm1541 -I$ROOT/app/edit -I$ROOT/tests/coreapp -I$ROOT/tests -I$ROOT/host-app/software/io/c64 -I$ROOT/host-app/software/lvgl_port -I$ROOT/host-app/software/filesystem -I$HA"
+CORE_INCS="-I$ROOT/app/view -I$ROOT/app/video -I$SRC -I$ROOT/uicore -I$CORES -I$ROOT/app/loaders -I$ROOT/app/lib/cbm1541 -I$ROOT/app/edit -I$ROOT/tests/coreapp -I$ROOT/tests -I$ROOT/host-app/software/io/c64 -I$ROOT/host-app/software/lvgl_port -I$ROOT/host-app/software/filesystem -I$HA"
 
-source "$ROOT/tests/coreapp/vc20_drv.sh"
 source "$ROOT/tests/coreapp/own_drv.sh"   # own_drv_dir: the driver table of a core's own app
 coreapp_srcs() {
   SRCS=""
-  VC20_DRV="${TMPDIR:-/tmp}/vc20drv.$(id -u)"                  # T239.3 V-4: vc20_regs.h names the registers through the VIC-20's driver table
-  vc20_drv_dir "$VC20_DRV" || return 1
-  CORE_INCS="$CORE_INCS -I$VC20_DRV/drv"
   local f d
   for f in $(sed -n '/^SRCS_CC/,/^$/p' "$MK" | grep -oE '[A-Za-z0-9_]+\.cc'); do
     case " $NOT_HERE " in *" $f "*) continue ;; esac
@@ -40,7 +36,7 @@ coreapp_srcs() {
   # T239.3 V-4b, T213.3 (T239.5 D13): a core with an app of its own (tools/core_toml.py lanes: a partial or a large core) is not in the shared image's list. The libraries of its
   # TOML B are compiled here as its own build compiles them, so the render benches and the menu simulator have its descriptor: a shared library once (a source the shared list
   # has is not added twice), each of the core's own sources (cores/<id>/app/lib) in a unit of its own that includes the driver table of the core's TOML A first (own_drv_dir;
-  # the table's guard DRVTAB_H keeps out the shared table, which the callers put first on the one include path of their command line: without the unit, vc20.cc took the
+  # the table's guard DRVTAB_H keeps out the shared table, which the callers put first on the one include path of their command line: without the unit, a core's source took the
   # shared app's table and did not compile, T213.3).
   # T239.5 D13: OWN_ONLY="<core> ..." keeps those cores only (a render build of one core that moved to its own app), OWN_SKIP="<core> ..." leaves those out (the shared
   # render bench builds none of them); neither: every core of the lanes (tools/menusim). OWN_TAG names the build's own directory (own_cores.h differs between the builds).

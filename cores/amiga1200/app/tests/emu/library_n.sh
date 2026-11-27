@@ -3,10 +3,10 @@
 # files named like snes zips. F3 > USB0 > snes, then "+" to the end (pictures: first page, last page, one page back). With a mock-up image built with
 # -DLISTGROW_START=40 -DLISTGROW_HARD=60 the list is cut and the last page shows the line "... more not shown".
 #
-#   tests/coreapp/emu/library_n.sh <coreapp.app> <out dir> [files, default 784] [screen, default 1080p60]   (T239.3 P1-8: the shared application as the A1200, cores/amiga1200/app/ue2emu.toml)
+#   cores/amiga1200/app/tests/emu/library_n.sh <coreapp.app> <out dir> [files, default 784] [screen, default 1080p60]   (T239.3 P1-8: the shared application as the A1200, cores/amiga1200/app/ue2emu.toml)
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../../.." && pwd)"
+ROOT="$(cd "$HERE/../../../../.." && pwd)"
 source "$ROOT/ci/lib.sh"
 APP="${1:?usage: library_n.sh <coreapp.app> <out dir> [files] [screen]}"; out="${2:?usage: library_n.sh <coreapp.app> <out dir> [files] [screen]}"; N="${3:-784}"; SCR="${4:-1080p60}"
 UE2EMU="${UE2EMU:-$ROOT/ci/ue2emu.sh}"

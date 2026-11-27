@@ -5,8 +5,8 @@ TESTS_A2="$ROOT/cores/apple2/app/tests"
 own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
 A2LIB="$ROOT/cores/apple2/app/lib"   # T239.3 D61: the Apple IIe's library lives in its own repository part (cores/apple2/app/lib), not in coreapp/cores
 # The Apple IIe is its own app as well (T239.3 D61: cores/apple2/app). apple2app CMD... builds like a8app, with the Apple's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_APPLE2: its units are in the group apple2.
-INC_A2=(-DTEST_APP_APPLE2=1 -I"$TESTS_A2" -I"$A2LIB" -I"$T/a2tab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
+INC_A2=(-DTEST_APP_APPLE2=1 -I"$TESTS_A2" -DGOLDEN_DIR=\"$TESTS_A2/golden\" -I"$A2LIB" -I"$T/a2tab/drv")
+for i in "${INC[@]}"; do case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) INC_A2+=("$i") ;; esac; done
 apple2app() { local INC=("${INC_A2[@]}") CORE_TESTS="$TESTS_A2" CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 # T239.3 D61: the Apple IIe's units built as its app (apple2app: its library cores/apple2/app/lib and its own table, the group apple2) - the units its TOML B (cores/apple2/app/sdk.toml) names for the steps 2 and 8 to 10
 # of its lane. The sources are the app's own: apple2.cc with its disk, hard disk, nibble and WOZ code and the base's (no other core). The Apple IIe was the shared units' sample core: a generic case that stood on its

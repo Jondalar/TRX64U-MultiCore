@@ -40,13 +40,13 @@ int main()
     // T115 7 H3, I6: the core's id. No id: "". With an id: read back; version 1 and the same sum, so a reader of before accepts the block
     CHECK_STR(handover_core_id(&h), "");
     Handover g;
-    handover_fill(&g, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "amiga1200");
+    handover_fill(&g, "/SD/demo_core.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "demo_core");
     CHECK(handover_valid(&g));
     CHECK_EQ(g.version, 1u);
-    CHECK_STR(handover_core_id(&g), "amiga1200");
+    CHECK_STR(handover_core_id(&g), "demo_core");
     {   // the old layout: the same block without the id fields has the same sum (what the version-1 reader computes over its 360 bytes)
         Handover f;
-        handover_fill(&f, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0);
+        handover_fill(&f, "/SD/demo_core.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0);
         CHECK_EQ(f.sum, g.sum);
         CHECK(offsetof(Handover, id_sum) == 360);
     }
@@ -56,8 +56,8 @@ int main()
         for (int bit = 0; bit < 8; bit++) {
             Handover x = g;
             ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
-            wrong += strcmp(handover_core_id(&x), "") && strcmp(handover_core_id(&x), "amiga1200");
-            wrong += !strcmp(handover_core_id(&x), "amiga1200") && i < offsetof(Handover, core_id) + 9;   // a flip inside the id text must not survive
+            wrong += strcmp(handover_core_id(&x), "") && strcmp(handover_core_id(&x), "demo_core");
+            wrong += !strcmp(handover_core_id(&x), "demo_core") && i < offsetof(Handover, core_id) + 9;   // a flip inside the id text must not survive
         }
     }
     CHECK_EQ(wrong, 0);
@@ -85,16 +85,16 @@ int main()
 
     // S6: the .cfg lies beside the .cor, whichever medium it is on, never in a fixed place
     char out[300];
-    CHECK(handover_cfg_path("/USB1/cores/amiga.cor", out, sizeof(out)));
-    CHECK_STR(out, "/USB1/cores/amiga.cfg");
-    CHECK(handover_cfg_path("/SD/cores/amiga.cor", out, sizeof(out)));
-    CHECK_STR(out, "/SD/cores/amiga.cfg");
+    CHECK(handover_cfg_path("/USB1/cores/demo.cor", out, sizeof(out)));
+    CHECK_STR(out, "/USB1/cores/demo.cfg");
+    CHECK(handover_cfg_path("/SD/cores/demo.cor", out, sizeof(out)));
+    CHECK_STR(out, "/SD/cores/demo.cfg");
     CHECK(handover_cfg_path("/Flash/Cores/A.COR", out, sizeof(out)));
     CHECK_STR(out, "/Flash/Cores/A.cfg");
     // T112: a core in its own folder keeps its .cfg in that folder
-    CHECK(handover_cfg_path("/USB1/cores/apple2/apple2.cor", out, sizeof(out)));
-    CHECK_STR(out, "/USB1/cores/apple2/apple2.cfg");
-    CHECK(!handover_cfg_path("/USB1/cores/amiga.bin", out, sizeof(out)));
+    CHECK(handover_cfg_path("/USB1/cores/demo/demo.cor", out, sizeof(out)));
+    CHECK_STR(out, "/USB1/cores/demo/demo.cfg");
+    CHECK(!handover_cfg_path("/USB1/cores/demo.bin", out, sizeof(out)));
     CHECK(!handover_cfg_path("/USB1/cores/.cor", out, sizeof(out)) || strcmp(out, "/USB1/cores/.cfg") == 0);
     CHECK(!handover_cfg_path("", out, sizeof(out)));
     CHECK(!handover_cfg_path("/a/b.cor", out, 8));       // does not fit: refused, not cut
@@ -102,14 +102,14 @@ int main()
     // T198 S7, D7: "start with this config" is a tail field behind the time; the version-1 bytes and the older checks do not move
     {
         Handover c;
-        handover_fill(&c, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "amiga1200");
+        handover_fill(&c, "/SD/demo_core.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "demo_core");
         CHECK_STR(handover_config(&c), "");                              // a block without one starts plain
         uint32_t sum0 = c.sum;
         CHECK(handover_set_config(&c, "Workbench 3.1 HD"));
         CHECK_STR(handover_config(&c), "Workbench 3.1 HD");
         CHECK_EQ(c.sum, sum0);                                           // outside handover_sum(): an old reader still accepts the block
         CHECK(handover_valid(&c));
-        CHECK_STR(handover_core_id(&c), "amiga1200");
+        CHECK_STR(handover_core_id(&c), "demo_core");
         CHECK(offsetof(Handover, config_sum) > offsetof(Handover, time_time));
         CHECK(sizeof(c.config) > HANDOVER_CONFIG_MAX);
         // an old reader: it computes the sum over the same 360 bytes, whatever follows
@@ -171,7 +171,7 @@ int main()
     // T224 D2: the safe-graphics flag is a tail field of its own: set, read back, never from noise or from another block, independent of the config
     {
         Handover s;
-        handover_fill(&s, "/SD/cores/amiga1200.cor", "Amiga 1200", "0.1.0", 0x12345678u, 0, "amiga1200");
+        handover_fill(&s, "/SD/cores/demo_core.cor", "Amiga 1200", "0.1.0", 0x12345678u, 0, "demo_core");
         CHECK(!handover_safe(&s));                                    // a page nobody asked
         handover_set_config(&s, "Demo collection");
         handover_set_safe(&s, true);

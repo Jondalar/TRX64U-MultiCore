@@ -73,7 +73,7 @@ struct Disk {
             (*blocks)++;
         } while (pos < data.size());
     }
-    void add(const uint8_t *pet, int petlen, int type_byte, const Bytes &data)
+    void add(const uint8_t *nm, int nmlen, int type_byte, const Bytes &data)
     {
         int ft, fs, blocks;
         chain(data, &ft, &fs, &blocks);
@@ -88,7 +88,7 @@ struct Disk {
         e[2] = (uint8_t)type_byte;
         e[3] = (uint8_t)ft; e[4] = (uint8_t)fs;
         memset(e + 5, 0xA0, 16);
-        memcpy(e + 5, pet, (size_t)petlen);
+        memcpy(e + 5, nm, (size_t)nmlen);
         e[30] = (uint8_t)blocks; e[31] = (uint8_t)(blocks >> 8);
         dir_n++;
     }

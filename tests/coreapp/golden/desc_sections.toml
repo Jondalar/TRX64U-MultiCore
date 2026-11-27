@@ -1,19 +1,19 @@
-# T239.3 D17 part 2: the data tables of a core that a C++ descriptor holds as small structs (sections 7 .. 16 of the description record), as TOML. The values are the Amiga 1200's
-# (cores/amiga1200/app/lib/amiga1200.cc), written out once by a throwaway program from the compiled-in descriptor; tests/coreapp/test_descsec.cc compiles this file with the real tool, reads
-# it with the real reader and compares every field with amiga1200_desc, so a drift in either shows. Only these tables and the pad: no menu, no settings, no ROMs.
+# T239.3 D17 part 2: the data tables of a core that a C++ descriptor holds as small structs (sections 7 .. 16 of the description record), as TOML. The values are a real core's,
+# written out once by a throwaway program from its compiled-in descriptor (each core compares its own copy with its descriptor in its unit <core>_descsec); tests/coreapp/test_descsec.cc
+# compiles this file with the real tool and reads it with the real reader, section by section. Only these tables and the pad: no menu, no settings, no ROMs.
 [core]
 id = "AMIG"
 name = "Amiga 1200 (AGA, 68020)"
 title = "Amiga 1200 (AGA, 68020)"
 short_title = "A1200"
-folder = "amiga"
+folder = "demo"
 store = "Amiga 1200 Settings"
 min_contract = 1
 reset_ms = 20
-service_op = "amiga.poll"
+service_op = "demo.poll"
 service_period_ms = 5
 id_shared = true
-core_id = "amiga1200"
+core_id = "democore"
 caps = ["floppy", "hdf", "mouse", "pad"]
 
 [[reset_write]]

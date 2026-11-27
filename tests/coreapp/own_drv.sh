@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Sourced with ROOT set by tests/coreapp/srclist.sh, tests/coreapp/run.sh and cores/atari800/sim/disk/run.sh.
+# Sourced with ROOT set by tests/coreapp/srclist.sh, tests/coreapp/run.sh and the benches of a core (cores/<id>/sim).
 # own_drv_dir <core> <dir>: the driver table of a core's own app (the call of its real link, tools/app_build.py merge_a: its TOML A and the base blocks its TOML B names),
 # <dir>/drv/drvtab.h; the general form of vc20_drv_dir
 own_drv_dir() {

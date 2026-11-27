@@ -102,7 +102,7 @@ gcheck sdk "descrec test" python3 tools/test_descrec.py
 gcheck sdk "libtab test" python3 tools/test_libtab.py
 gcheck sdk "app_build test (T239.3 D31: the maxima per core, the split of the base)" python3 tools/test_app_build.py
 gcheck sdk "the SDK links with the options of the core app Makefile (T239.3 D31)" python3 -I tools/app_build.py flags host-app/target/u64ii/riscv/coreapp/Makefile app/lib/appflags.mk
-check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_amiga1200.txt
+check "base UI table" python3 tools/gen_base_ui.py --check --ops cores/amiga1200/app/tests/golden/ops_amiga1200.txt
 # T192 D23 (Alex, 2026-11-09: "Until the UI, including the UX, works completely as an API client, it is a botch"): the host's screen changes no state outside host_core, acts on
 # no key itself (the key map is one table), carries no hand-written legend; what is not cut yet is the ledger (tools/host_cut_ledger.txt) and only shrinks.
 gcheck host "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'

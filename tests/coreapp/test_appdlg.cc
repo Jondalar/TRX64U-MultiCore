@@ -88,7 +88,7 @@ int main()
         { Run r([&] { n = d.confirm("T", "q"); }); const int k[] = { 'n', -1 }; drive(d, r, k); }
         CHECK(y && !n);
     }
-    // a timed question (the prompts of the diag core, T175): an answer in time is the answer; with none the question closes by itself after the seconds given and answers
+    // a timed question (the prompts of a core's test runner, T175): an answer in time is the answer; with none the question closes by itself after the seconds given and answers
     // DLG_TIMEOUT, the seconds left count down on the view; a question with no time stays
     {
         int a = -1, b = -1, c = -1;

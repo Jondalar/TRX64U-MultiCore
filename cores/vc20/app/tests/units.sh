@@ -2,13 +2,16 @@
 # The units of vc20 (T239 D17), moved out of tests/coreapp/run.sh by tools/tests_to_core.py. tests/coreapp/run.sh sources this file at its end, with every variable
 # and function of the shared harness set; the test programs, sources and headers of this folder win over the shared ones for this app (CORE_TESTS, find_src, tpath).
 TESTS_VC20="$ROOT/cores/vc20/app/tests"
+source "$TESTS_VC20/vc20_drv.sh"
+VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
+vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
 vc20_drv_dir "$T/vc20tab" || { echo "coreapp: the VIC-20's driver table was not generated" >&2; exit 1; }   # vc20_regs.h names the registers through it; not $T/vc20, the unit vc20 is built there
 # The VIC-20 is its own app (T239.3 V-4: cores/vc20/app, linked from the SDK package with its own table, no shared table, no other core): its units are built like that app.
 # vc20app CMD...: runs `run` or `control` with the VIC-20's include path (its library, its plain table from its TOML A and the base blocks of its TOML B, no table of the shared app)
 # and with TEST_APP_VC20 defined, so a test file that serves both apps takes the VIC-20's rows only in these builds and the shared app's rows only in the others.
 INC_VC20=(-DTEST_APP_VC20=1 -I"$TESTS_VC20" -DGOLDEN_DIR=\"$TESTS_VC20/golden\" -I"$VC20LIB" -I"$T/vc20tab/drv")
 for i in "${INC[@]}"; do case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) INC_VC20+=("$i") ;; esac; done
-vc20app() { local INC=("${INC_VC20[@]}") CORE_TESTS="$TESTS_VC20" CA_APP=vc20; "$@"; }
+vc20app() { local INC=("${INC_VC20[@]}") CORE_TESTS="$TESTS_VC20" CA_APP=vc20 APPLIB="$VC20LIB"; "$@"; }
 # T83 (the VIC-20 on the generic application): the descriptor against a model of the register block and the ROM aperture; the PRG job (cbm_run.cc) is shared with the 264
 VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
 vc20app run vc20 test_vc20.cc $VC20
@@ -48,7 +51,7 @@ RARGS="$BUN/app" vc20app run vc20_descgen test_descgen.cc compiled_table.cc libf
 vc20app run vc20_memops test_memops.cc $SVC $VC20D
 # the VIC-20's rows of the host's ROM table (t_romreq above checks the shared app's rows only): gen_romreq built as the VIC-20's app, each of its rows in the host's table
 t_romreq_vc20() {
-  local INC=("${INC_VC20[@]}") CORE_TESTS="$TESTS_VC20"
+  local INC=("${INC_VC20[@]}") CORE_TESTS="$TESTS_VC20" APPLIB="$VC20LIB"
   build "$T/gen_romreq_vc20" "$TESTS_VC20/gen_romreq.cc" $VC20D
   "$T/gen_romreq_vc20" > "$T/romreq_vc20.inc"
   python3 -I - "$T/romreq_vc20.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the VIC-20's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }

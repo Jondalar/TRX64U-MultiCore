@@ -196,19 +196,19 @@ int main()
 
     // T148 D2: with the core's folder named, that folder is the only place (the roots, first_dir and the shared folders are not listed)
     char own[96];
-    CHECK(rom_own_dir("/USB1/cores/apple2/apple2.cor", own, sizeof(own)));
-    CHECK_STR(own, "/USB1/cores/apple2/apple2/roms");
+    CHECK(rom_own_dir("/USB1/cores/demo/demo.cor", own, sizeof(own)));
+    CHECK_STR(own, "/USB1/cores/demo/demo/roms");
     FakeFs fa;
-    fa.put_size("/USB1/cores/apple2/apple2/roms/dummyxl.rom", 16384, 7);
-    fa.put_size("/USB1/cores/apple2/apple2/roms/basic.rom", 8192, 7);
+    fa.put_size("/USB1/cores/demo/demo/roms/dummyxl.rom", 16384, 7);
+    fa.put_size("/USB1/cores/demo/demo/roms/basic.rom", 8192, 7);
     st = rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum), 0, own);
     CHECK_EQ(st, ROM_FOUND);
-    CHECK_STR(res[0].hit.dir, "/USB1/cores/apple2/apple2/roms");
+    CHECK_STR(res[0].hit.dir, "/USB1/cores/demo/demo/roms");
     CHECK_EQ(rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum)), ROM_MISSING);      // without the folder named, the same files are not found
     fa.put_size("/usb0/roms/dummy800/dummyxl.rom", 16384, 1);
     fa.put_size("/board/dummyxl.rom", 16384, 3);
     st = rom_scan(&fa, "dummy800", specs, 2, res, sum, sizeof(sum), "/board", own);
-    CHECK_STR(res[0].hit.dir, "/USB1/cores/apple2/apple2/roms");
+    CHECK_STR(res[0].hit.dir, "/USB1/cores/demo/demo/roms");
     // the old places are not read: a file there does not make a core run
     FakeFs fb;
     fb.put_size("/usb1/roms/dummy800/dummyxl.rom", 16384);
@@ -218,11 +218,11 @@ int main()
     CHECK_EQ(res[0].status, ROM_MISSING);
     // a wrong-size file in the folder is told with the folder, even when a right file lies in an old place
     FakeFs fc;
-    fc.put_size("/USB1/cores/apple2/apple2/roms/dummyxl.rom", 100);
+    fc.put_size("/USB1/cores/demo/demo/roms/dummyxl.rom", 100);
     fc.put_size("/sd/roms/dummy800/dummyxl.rom", 16384);
     fc.put_size("/sd/roms/dummy800/basic.rom", 8192);
     CHECK_EQ(rom_scan(&fc, "dummy800", specs, 2, res, sum, sizeof(sum), 0, own), ROM_WRONG_SIZE);
-    CHECK(strstr(sum, "/USB1/cores/apple2/apple2/roms") != 0 && strstr(sum, "100 bytes") != 0 && !strstr(sum, "/sd/roms"));
+    CHECK(strstr(sum, "/USB1/cores/demo/demo/roms") != 0 && strstr(sum, "100 bytes") != 0 && !strstr(sum, "/sd/roms"));
     // a shared (device) ROM is not looked for in <root>/roms either
     static const RomSpec drv[1] = { { "Drive", { "d1541.rom", 0 }, { 4, 0 }, true, 0, 0, 0, 1 } };
     FakeFs ff;
@@ -239,6 +239,6 @@ int main()
     CHECK_STR(own, "");
     CHECK(!rom_own_dir("", own, sizeof(own)));
     CHECK(!rom_own_dir("cores/x/x.cor", own, sizeof(own)));
-    CHECK(!rom_own_dir("/USB1/cores/apple2/apple2.cor", own, 10));
+    CHECK(!rom_own_dir("/USB1/cores/demo/demo.cor", own, 10));
     DONE("test_romfind");
 }

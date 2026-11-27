@@ -4,7 +4,7 @@ the rows (label, key, kind, values, default, pick) menubuild.cc includes.
 
   tools/gen_base_ui.py            write both .inc files (the TOML is compiled by tools/descrec.py into the record a core's UI TOML carries, read back, and written as C++ initializers)
   tools/gen_base_ui.py --check    do not write; exit 1 when an .inc on disk is not what the TOML compiles to (the lint stage)
-  tools/gen_base_ui.py --ops FILE also check every operation of a place against the application's export (tests/coreapp/golden/ops_amiga1200.txt lists them)
+  tools/gen_base_ui.py --ops FILE also check every operation of a place against the application's export (cores/amiga1200/app/tests/golden/ops_amiga1200.txt lists them)
   --toml FILE, --inc FILE, --rows FILE   other input and output than the three above (the tests use them)
 
 The base's own record must be whole: every place that names a route finds it in this file (a core's place may name a base route, the base's own may not name an absent one), and every row

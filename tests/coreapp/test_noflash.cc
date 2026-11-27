@@ -50,15 +50,15 @@ int main()
     CHECK(!fs_write_refused("/usb0/trx64u/c64.cfg"));             // other media are not the flash's business
     CHECK(!fs_write_refused("/sd/cores/dummy800.cfg"));
     // a registration replaces the last one; a path that is no "/flash/<dir>/<file>" is refused and registers nothing
-    CHECK(fs_flash_set_exceptions("/flash/vc20/boot.cfg", 0));
-    CHECK(fs_write_refused("/flash/trx64u/c64.cfg") && fs_write_refused("/flash/trx64u/boot.cfg") && !fs_write_refused("/flash/vc20/boot.cfg"));
-    CHECK(!fs_flash_set_exceptions("/flash/boot.cfg", 0) && !fs_flash_exception("/flash/vc20/boot.cfg"));    // no directory: registers nothing (the path is the host's fixed file, so its write is not refused)
+    CHECK(fs_flash_set_exceptions("/flash/demo/boot.cfg", 0));
+    CHECK(fs_write_refused("/flash/trx64u/c64.cfg") && fs_write_refused("/flash/trx64u/boot.cfg") && !fs_write_refused("/flash/demo/boot.cfg"));
+    CHECK(!fs_flash_set_exceptions("/flash/boot.cfg", 0) && !fs_flash_exception("/flash/demo/boot.cfg"));    // no directory: registers nothing (the path is the host's fixed file, so its write is not refused)
     CHECK(!fs_flash_set_exceptions("/flash/x.cfg", 0) && fs_write_refused("/flash/x.cfg"));                   // no directory
     CHECK(!fs_flash_set_exceptions("/flash/a/b/c.cfg", 0) && fs_write_refused("/flash/a/b/c.cfg"));            // too deep
     CHECK(!fs_flash_set_exceptions("/flash/a/", 0) && !fs_flash_set_exceptions("/flash", 0) && !fs_flash_set_exceptions("/flash/", 0));
     CHECK(!fs_flash_set_exceptions("/usb0/a/b.cfg", 0) && !fs_flash_set_exceptions("/flashy/a/b.cfg", 0));
     CHECK(fs_flash_set_exceptions(0, ""));
-    CHECK(fs_write_refused("/flash/vc20/boot.cfg"));              // cleared
+    CHECK(fs_write_refused("/flash/demo/boot.cfg"));              // cleared
     CHECK(fs_flash_set_exceptions("/flash/trx64u/boot.cfg", "/flash/trx64u/c64.cfg"));
 
     // T228 R21: on the monolith profile the startup sets the flag and the flash drive is written as in TRX64-Ultimate's firmware; the medium panel and the

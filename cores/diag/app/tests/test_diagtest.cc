@@ -301,7 +301,7 @@ static void test_s5_unknown_test()
     CHECK_EQ(r.eng.n_driven(), 0);                       // everything released at the end
 }
 
-// S6: the T175 compiler's words (tests/coreapp/golden/diag_old_words.txt, taken from the unchanged diagtest.cc of b6a2a2212 for every shipped test of kind test) translated to v2 by
+// S6: the T175 compiler's words (cores/diag/app/tests/golden/diag_old_words.txt, taken from the unchanged diagtest.cc of b6a2a2212 for every shipped test of kind test) translated to v2 by
 // the rule of docs/specs/T260 section 5, equal to the words of this compiler for the converted file.
 //   DRIVE mask level      -> one DRIVE per pin of the mask, in bit order, mode LOW (level bit 0) or RELEASE (level bit 1); the ten port pins are table indexes 50 + bit
 //   MASK m + EDGES n      -> EDGES any on that pin (index 50 + bit), then the word n
