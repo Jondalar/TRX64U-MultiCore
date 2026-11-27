@@ -25,16 +25,11 @@
 #ifdef TEST_APP_APPLE2
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #endif
-#ifdef TEST_APP_DDT
-extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
-#endif
 
 #ifdef TEST_APP_VC20
 const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)           // the Amiga 1200's app is its own build (run.sh a12app) with its core only
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
-#elif defined(TEST_APP_DDT)             // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp) with its core only
-const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
@@ -175,10 +170,6 @@ int main(int, char **argv)
         static const Mi want[] = { { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
-#elif defined(TEST_APP_DDT)
-        static const Mi want[1] = { { "", "" } };                          // DDT Look Ma, No VIC has no setting, so no machine line: nothing to find (the count below is skipped)
-        static const char *const none[] = { "DDT Look Ma, No VIC" };
-        const int n_none = 1;
 #elif defined(TEST_APP_APPLE2)
         static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
         static const char *const none[] = { "Apple IIe" };
@@ -261,8 +252,6 @@ int main(int, char **argv)
         CHECK(seen_cbm >= 2 && seen_other == 0);                    // the walk saw the VIC-20's two image types (.d64, .g64)
 #elif defined(TEST_APP_A1200)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the walk saw the A1200's ADF (Mount DF0 and reset), no CBM image
-#elif defined(TEST_APP_DDT)
-        CHECK(seen_cbm == 0 && seen_other == 0);                    // DDT has no file type
 #elif defined(TEST_APP_APPLE2)
         CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
 #else
@@ -378,8 +367,6 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_A1200)
         CHECK(n205 == 1);
-#elif defined(TEST_APP_DDT)
-        CHECK(n205 == 1);
 #elif defined(TEST_APP_APPLE2)
         CHECK(n205 == 1);
 #else
@@ -395,8 +382,6 @@ int main(int, char **argv)
         static const char *const own[] = { "VC20" };
 #elif defined(TEST_APP_A1200)
         static const char *const own[] = { 0 };                              // the A1200's media are the base engines' (window and sector media): no flush of its own to hand over
-#elif defined(TEST_APP_DDT)
-        static const char *const own[] = { 0 };                              // DDT has no medium
 #elif defined(TEST_APP_APPLE2)
         static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
 #else
@@ -425,7 +410,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -629,9 +614,6 @@ int main(int, char **argv)
         CHECK_EQ(asked, 4);                                                // Create D64 / G64, Save as D64 / G64
         CHECK_STR(vc20_desc.run_op, "vc20.run_prg");
     }
-#elif defined(TEST_APP_DDT)
-    // the real core: one task, Reset, and nothing to ask (the records that the shared app's cores have are tested in the shared unit)
-    CHECK(ddt_novic_desc.ntasks == 1 && !ddt_novic_desc.tasks[0].ask && ddt_novic_desc.nsettings == 0);
 #elif defined(TEST_APP_APPLE2)
     // T104.1 Q10: the capability list of the real descriptor (a floppy on slot 6 and a hard disk on slot 7: no SIO, no IEC, no cartridge)
     CHECK(desc_has_capability(&apple2_desc, "floppy"));
@@ -825,8 +807,6 @@ int main(int, char **argv)
     golden(&vc20_desc, "vc20");
 #elif defined(TEST_APP_A1200)
     golden(&amiga1200_desc, "amiga1200");
-#elif defined(TEST_APP_DDT)
-    golden(&ddt_novic_desc, "ddt_novic");
 #elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
 #else
@@ -887,7 +867,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

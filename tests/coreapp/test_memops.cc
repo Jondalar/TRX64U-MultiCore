@@ -11,10 +11,7 @@
 #include "desc_check.h"
 #include "ops_glue.h"
 #include "svc.h"
-#ifdef TEST_APP_DDT
-extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
-#endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)
 #include "apple2_regs.h"
 extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
@@ -25,9 +22,6 @@ const CoreDesc *const core_table[] = { &vc20_desc, 0 };
 #elif defined(TEST_APP_A1200)             // the Amiga 1200's app is its own build (run.sh a12app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
 #define HEX_CORE amiga1200_desc
-#elif defined(TEST_APP_DDT)               // DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its core is the only one in its table
-const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
-#define HEX_CORE ddt_novic_desc
 #else   // TEST_APP_APPLE2: the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
@@ -96,8 +90,6 @@ int main()
     struct W { const CoreDesc *d; int last; } widths[] = { { &vc20_desc, 0xFFFF } };
 #elif defined(TEST_APP_A1200)
     struct W { const CoreDesc *d; int last; } widths[] = { { &amiga1200_desc, 0xFFFFFF } };
-#elif defined(TEST_APP_DDT)
-    struct W { const CoreDesc *d; int last; } widths[] = { { &ddt_novic_desc, 0xFFFF } };
 #else
     struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // the Apple IIe (T239.3 D61: its unit apple2_memops); the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
 #endif
@@ -134,7 +126,7 @@ int main()
         CHECK(!r.io.overrun);
     }
 #endif
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT)          // the cases that stand on the shared app's cores
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200)          // the cases that stand on the shared app's cores
     // ---- the Apple //e: main RAM in the window, aux RAM in the DDR2 window at A2_W_AUX
     {
         Rig r(&apple2_desc);
@@ -156,14 +148,6 @@ int main()
         Rig r(&amiga1200_desc);
         CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
         CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "Amiga") != 0);
-        CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
-    }
-#elif defined(TEST_APP_DDT)
-    // ---- DDT's picture is computed, not kept in a window: the memory is not reachable by the application, it says so, and why
-    {
-        Rig r(&ddt_novic_desc);
-        CHECK_EQ(r.call("machine.read_mem", 0x100, 4, &res), OPE_UNSUPPORTED);
-        CHECK(strlen(res.msg) > 40 && res.ndata == 0 && strstr(res.msg, "DDT") != 0);
         CHECK_EQ(r.write(0x100, "00", &res), OPE_UNSUPPORTED);
     }
 #elif defined(HEX_CORE)                  // the shared app has no 64 KB C64-family core left: its apps run this case (vc20_memops, c264_memops, ...)

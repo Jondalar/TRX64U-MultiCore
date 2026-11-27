@@ -16,12 +16,6 @@ const CoreDesc *const compiled_in_table[] = { &amiga1200_desc, 0 };
 extern const CoreDesc apple2_desc;   // cores.h lists the shared app's cores (cores/apple2/app/lib holds this one)
 extern const CoreDesc *const compiled_in_table[];
 const CoreDesc *const compiled_in_table[] = { &apple2_desc, 0 };
-#elif defined(TEST_APP_DDT)
-// DDT Look Ma, No VIC's app is its own build (run.sh ddtapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc ddt_novic_desc;   // cores.h lists the shared app's cores (cores/ddt_novic/app/lib holds this one)
-extern const CoreDesc *const compiled_in_table[];
-const CoreDesc *const compiled_in_table[] = { &ddt_novic_desc, 0 };
 #else
 #error "compiled_table.cc is the compiled-in table of a core's app: build it as that app (run.sh <core>app, TEST_APP_<CORE>); the shared table is empty (T239.3 D61)"
 #endif

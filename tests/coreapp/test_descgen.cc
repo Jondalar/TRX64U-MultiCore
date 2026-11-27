@@ -600,8 +600,6 @@ int main(int argc, char **argv)
     std::ifstream idx((dir + "/index_app_amiga1200.txt").c_str());
 #elif defined(TEST_APP_APPLE2)
     std::ifstream idx((dir + "/index_app_apple2.txt").c_str());
-#elif defined(TEST_APP_DDT)
-    std::ifstream idx((dir + "/index_app_ddt_novic.txt").c_str());
 #else
 #error "test_descgen compares a core's record with its compiled-in descriptor: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif

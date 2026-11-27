@@ -68,9 +68,6 @@ LIB1541="$ROOT/app/lib/cbm1541"
 source "$TST/vc20_drv.sh"
 vc20_drv_dir "$T/vc20tab" || { echo "coreapp: the VIC-20's driver table was not generated" >&2; exit 1; }   # vc20_regs.h names the registers through it; not $T/vc20, the unit vc20 is built there
 vc20_drv_dir "$T/vc20wd" wd || { echo "coreapp: the driver table of a VIC-20 drive with the WD177x was not generated" >&2; exit 1; }   # test_cbm1541's 1581 tests (cbm1541_wd)
-source "$TST/ddt_drv.sh"
-ddt_drv_dir "$T/ddttab" || { echo "coreapp: DDT Look Ma, No VIC's driver table was not generated" >&2; exit 1; }   # ddt_regs.h names the registers through it
-DDTLIB="$ROOT/cores/ddt_novic/app/lib"   # the DDT core's library lives in its own repository part (cores/ddt_novic/app/lib), not in coreapp/cores
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
 A1200LIB="$ROOT/cores/amiga1200/app/lib"   # T213.3 P1: the Amiga 1200's library lives in its own repository part (cores/amiga1200/app/lib)
@@ -103,10 +100,6 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A1200+=("$i"); done
 INC_A2=(-DTEST_APP_APPLE2=1 -I"$A2LIB" -I"$T/a2tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
-# DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
-INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
-for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DDT+=("$i"); done
-ddtapp() { local INC=("${INC_DDT[@]}") CA_APP=ddt_novic APPLIB="$DDTLIB"; "$@"; }
 a12app() { local INC=("${INC_A1200[@]}") CA_APP=amiga1200; "$@"; }
 vc20app() { local INC=("${INC_VC20[@]}") CA_APP=vc20; "$@"; }
 build() {
@@ -724,19 +717,7 @@ CARGS="" RARGS=""
 
 
 
-# T239.5 D4, D16: DDT Look Ma, No VIC's units, built as its app (ddtapp: its library cores/ddt_novic/app/lib and its own table, the group ddt_novic) - the units its TOML B
-# (cores/ddt_novic/app/sdk.toml) names for the steps 2 and 8 to 10 of its lane. The sources are the app's own: ddt_novic.cc and the base's (no other core).
-DDT="ddt_novic.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL"
-DDTD="desc_check.cc overlay.cc descrec.cc $DDT"
 CARGS="" RARGS=""
-ddtapp run ddt test_ddt.cc $DDT
-ddtapp run ddt_memops test_memops.cc $SVC $DDTD
-RARGS="$T/bundles/desc_own.bin" ddtapp run ddt_desc test_desc.cc $DDTD
-RARGS="$BUN/app" ddtapp run ddt_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $DDTD
-ddtapp run ddt_hotkeys test_hotkeys.cc $DDTD
-# T239.5 D13: every key of its menu against its golden (ddt_keywalk: golden/keywalk_ddt_novic.txt, ids_ddt_novic.txt) and its declaration over the API (ddt_uicover), TEST_APP_DDT
-ddtapp run ddt_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $DDTD
-ddtapp run ddt_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $DDTD
 
 
 # T239.5 D4, D16: the ZX Spectrum's units, built as its app (zxapp: its library cores/zx/app/lib with its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h, its own table, the
