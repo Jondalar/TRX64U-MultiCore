@@ -61,6 +61,31 @@ module c264_regs #(
     input  wire [7:0]  fb_seq,
     input  wire [15:0] fb_over
 );
+    // >>> generated from cores/c264/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_C264_IRQ_IRQ_EN = 12'h010;
+    localparam [11:0] R_C264_IRQ_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_C264_DDR_CAL_DDR_CAL0 = 12'h020;
+    localparam [11:0] R_C264_DDR_CAL_DDR_CAL1 = 12'h024;
+    localparam [11:0] R_C264_MACHINE_CTRL = 12'h0A0;
+    localparam [11:0] R_C264_MACHINE_MODEL = 12'h0A1;
+    localparam [11:0] R_C264_MACHINE_RAM_SIZE = 12'h0A2;
+    localparam [11:0] R_C264_MACHINE_JOY_SWAP = 12'h0A3;
+    localparam [11:0] R_C264_MACHINE_STATUS = 12'h0A4;
+    localparam [11:0] R_C264_MACHINE_FRAMES = 12'h0A8;
+    localparam [11:0] R_C264_MACHINE_CPUADDR = 12'h0AC;
+    localparam [11:0] R_C264_MEDIA_ROM_SEL = 12'h0B0;
+    localparam [11:0] R_C264_MEDIA_CART = 12'h0B1;
+    localparam [11:0] R_C264_MEDIA_TAPE_PIN = 12'h0B2;
+    localparam [11:0] R_C264_VIDEO_FB_LATEST = 12'h0C0;
+    localparam [11:0] R_C264_VIDEO_FRAME_SEQ = 12'h0C1;
+    localparam [11:0] R_C264_VIDEO_FB_OVERRUNS = 12'h0C2;
+    localparam [11:0] R_C264_VIDEO_FB_BASE = 12'h0C4;
+    localparam [11:0] R_C264_VIDEO_FB_STRIDE = 12'h0C8;
+    // <<< generated
     reg [7:0]  ctrl_r = 8'h00;
     reg        model_r = 1'b0, ram64_r = 1'b0, swap_r = 1'b0;
     reg [2:0]  sel_r = 3'd0;
@@ -115,23 +140,23 @@ module c264_regs #(
 
         if (we && !win && page == 4'h0) begin
             case (off)
-                12'h010: irq_en <= wdata;
-                12'h014: cause <= (cause & ~wdata) | ev;
-                12'h0A0: ctrl_r <= wdata;
-                12'h0A1: model_r <= wdata[0];
-                12'h0A2: ram64_r <= wdata[0];
-                12'h0A3: swap_r <= wdata[0];
-                12'h0B0: sel_r <= wdata[2:0];
-                12'h0B1: cart_r <= wdata[1:0];
-                12'h0B2: tpin_r <= wdata;
-                12'h0C4: base_r[7:0] <= wdata;
-                12'h0C5: base_r[15:8] <= wdata;
-                12'h0C6: base_r[23:16] <= wdata;
-                12'h0C7: base_r[31:24] <= wdata;
-                12'h0C8: stride_r[7:0] <= wdata;
-                12'h0C9: stride_r[15:8] <= wdata;
-                12'h0CA: stride_r[23:16] <= wdata;
-                12'h0CB: stride_r[31:24] <= wdata;
+                R_C264_IRQ_IRQ_EN: irq_en <= wdata;
+                R_C264_IRQ_IRQ_CAUSE: cause <= (cause & ~wdata) | ev;
+                R_C264_MACHINE_CTRL: ctrl_r <= wdata;
+                R_C264_MACHINE_MODEL: model_r <= wdata[0];
+                R_C264_MACHINE_RAM_SIZE: ram64_r <= wdata[0];
+                R_C264_MACHINE_JOY_SWAP: swap_r <= wdata[0];
+                R_C264_MEDIA_ROM_SEL: sel_r <= wdata[2:0];
+                R_C264_MEDIA_CART: cart_r <= wdata[1:0];
+                R_C264_MEDIA_TAPE_PIN: tpin_r <= wdata;
+                R_C264_VIDEO_FB_BASE: base_r[7:0] <= wdata;
+                R_C264_VIDEO_FB_BASE + 12'd1: base_r[15:8] <= wdata;
+                R_C264_VIDEO_FB_BASE + 12'd2: base_r[23:16] <= wdata;
+                R_C264_VIDEO_FB_BASE + 12'd3: base_r[31:24] <= wdata;
+                R_C264_VIDEO_FB_STRIDE: stride_r[7:0] <= wdata;
+                R_C264_VIDEO_FB_STRIDE + 12'd1: stride_r[15:8] <= wdata;
+                R_C264_VIDEO_FB_STRIDE + 12'd2: stride_r[23:16] <= wdata;
+                R_C264_VIDEO_FB_STRIDE + 12'd3: stride_r[31:24] <= wdata;
                 default: ;
             endcase
         end
@@ -139,50 +164,50 @@ module c264_regs #(
         q <= 8'h00;
         if (!win && page == 4'h0) begin
             case (off)
-                12'h000: q <= id[7:0];
-                12'h001: q <= id[15:8];
-                12'h002: q <= id[23:16];
-                12'h003: q <= id[31:24];
-                12'h004: q <= 8'hC0;
-                12'h005: q <= 8'h02;
-                12'h008: q <= build[7:0];
-                12'h009: q <= build[15:8];
-                12'h00A: q <= build[23:16];
-                12'h00B: q <= build[31:24];
-                12'h010: q <= irq_en;
-                12'h014: q <= cause;
-                12'h020: q <= ddr_cal[7:0];
-                12'h021: q <= ddr_cal[15:8];
-                12'h022: q <= ddr_cal[23:16];
-                12'h023: q <= ddr_cal[31:24];
-                12'h024: q <= ddr_cal[39:32];
-                12'h025: q <= ddr_cal[47:40];
-                12'h026: q <= ddr_cal[55:48];
-                12'h027: q <= ddr_cal[63:56];
-                12'h0A0: q <= ctrl_r;
-                12'h0A1: q <= {7'd0, model_r};
-                12'h0A2: q <= {7'd0, ram64_r};
-                12'h0A3: q <= {7'd0, swap_r};
-                12'h0A4: q <= s_q;
-                12'h0A8: q <= f_q[7:0];
-                12'h0A9: q <= f_q[15:8];
-                12'h0AC: q <= c_q[7:0];
-                12'h0AD: q <= c_q[15:8];
-                12'h0B0: q <= {5'd0, sel_r};
-                12'h0B1: q <= {6'd0, cart_r};
-                12'h0B2: q <= tpin_r;
-                12'h0C0: q <= l_q;
-                12'h0C1: q <= n_q;
-                12'h0C2: q <= o_q[7:0];
-                12'h0C3: q <= o_q[15:8];
-                12'h0C4: q <= base_r[7:0];
-                12'h0C5: q <= base_r[15:8];
-                12'h0C6: q <= base_r[23:16];
-                12'h0C7: q <= base_r[31:24];
-                12'h0C8: q <= stride_r[7:0];
-                12'h0C9: q <= stride_r[15:8];
-                12'h0CA: q <= stride_r[23:16];
-                12'h0CB: q <= stride_r[31:24];
+                R_IDENT_ID: q <= id[7:0];
+                R_IDENT_ID + 12'd1: q <= id[15:8];
+                R_IDENT_ID + 12'd2: q <= id[23:16];
+                R_IDENT_ID + 12'd3: q <= id[31:24];
+                R_IDENT_CAPS: q <= 8'hC0;
+                R_IDENT_CAPS2: q <= 8'h02;
+                R_IDENT_BUILD: q <= build[7:0];
+                R_IDENT_BUILD + 12'd1: q <= build[15:8];
+                R_IDENT_BUILD + 12'd2: q <= build[23:16];
+                R_IDENT_BUILD + 12'd3: q <= build[31:24];
+                R_C264_IRQ_IRQ_EN: q <= irq_en;
+                R_C264_IRQ_IRQ_CAUSE: q <= cause;
+                R_C264_DDR_CAL_DDR_CAL0: q <= ddr_cal[7:0];
+                R_C264_DDR_CAL_DDR_CAL0 + 12'd1: q <= ddr_cal[15:8];
+                R_C264_DDR_CAL_DDR_CAL0 + 12'd2: q <= ddr_cal[23:16];
+                R_C264_DDR_CAL_DDR_CAL0 + 12'd3: q <= ddr_cal[31:24];
+                R_C264_DDR_CAL_DDR_CAL1: q <= ddr_cal[39:32];
+                R_C264_DDR_CAL_DDR_CAL1 + 12'd1: q <= ddr_cal[47:40];
+                R_C264_DDR_CAL_DDR_CAL1 + 12'd2: q <= ddr_cal[55:48];
+                R_C264_DDR_CAL_DDR_CAL1 + 12'd3: q <= ddr_cal[63:56];
+                R_C264_MACHINE_CTRL: q <= ctrl_r;
+                R_C264_MACHINE_MODEL: q <= {7'd0, model_r};
+                R_C264_MACHINE_RAM_SIZE: q <= {7'd0, ram64_r};
+                R_C264_MACHINE_JOY_SWAP: q <= {7'd0, swap_r};
+                R_C264_MACHINE_STATUS: q <= s_q;
+                R_C264_MACHINE_FRAMES: q <= f_q[7:0];
+                R_C264_MACHINE_FRAMES + 12'd1: q <= f_q[15:8];
+                R_C264_MACHINE_CPUADDR: q <= c_q[7:0];
+                R_C264_MACHINE_CPUADDR + 12'd1: q <= c_q[15:8];
+                R_C264_MEDIA_ROM_SEL: q <= {5'd0, sel_r};
+                R_C264_MEDIA_CART: q <= {6'd0, cart_r};
+                R_C264_MEDIA_TAPE_PIN: q <= tpin_r;
+                R_C264_VIDEO_FB_LATEST: q <= l_q;
+                R_C264_VIDEO_FRAME_SEQ: q <= n_q;
+                R_C264_VIDEO_FB_OVERRUNS: q <= o_q[7:0];
+                R_C264_VIDEO_FB_OVERRUNS + 12'd1: q <= o_q[15:8];
+                R_C264_VIDEO_FB_BASE: q <= base_r[7:0];
+                R_C264_VIDEO_FB_BASE + 12'd1: q <= base_r[15:8];
+                R_C264_VIDEO_FB_BASE + 12'd2: q <= base_r[23:16];
+                R_C264_VIDEO_FB_BASE + 12'd3: q <= base_r[31:24];
+                R_C264_VIDEO_FB_STRIDE: q <= stride_r[7:0];
+                R_C264_VIDEO_FB_STRIDE + 12'd1: q <= stride_r[15:8];
+                R_C264_VIDEO_FB_STRIDE + 12'd2: q <= stride_r[23:16];
+                R_C264_VIDEO_FB_STRIDE + 12'd3: q <= stride_r[31:24];
                 default: ;
             endcase
         end
