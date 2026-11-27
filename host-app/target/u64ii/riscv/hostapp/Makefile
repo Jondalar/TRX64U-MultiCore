@@ -125,6 +125,9 @@ SRCS_CC	 =  u64ii_init.cc \
 			fwrestore.cc \
 			fwconfirm.cc \
 			txu.cc \
+			guard.cc \
+			guard_board.cc \
+			host_core_flow_guard.cc \
 			espinspect.cc \
 			espflash.cc \
 			espflash_board.cc \
@@ -221,11 +224,16 @@ VPATH +=	$(PATH_SW)/io/c64
 VPATH +=	$(PATH_SW)/api
 VPATH +=	$(PATH_SW)/io/usb
 VPATH +=	$(PATH_SW)/io/uart
+RECOVERY_DIR = ../hostrecovery
+VPATH +=	$(RECOVERY_DIR)/result
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S
 SRCS_6502 =
 SRCS_BIN =
+# T265: the recovery program (../hostrecovery) as a blob of this application. Its image (record, data, CRC-32 trailer) is what guard_board.cc writes to 0x1E0000 when the
+# flash holds another one. The program is built first (ci/trxapps.sh, tools/build_hostapp.sh): `make -C ../hostrecovery`.
+SRCS_APP  = recovery_slot.app
 SRCS_IEC =
 SRCS_NANO = nano_minimal.nan
 
@@ -266,6 +274,12 @@ endif
 LIBS    += $(IOFRAG)
 LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
+
+ifeq ($(filter clean gitinfo,$(MAKECMDGOALS)),)
+ifeq ($(wildcard $(RECOVERY_DIR)/result/recovery_slot.app),)
+$(error T265: the recovery program is not built: make -C $(RECOVERY_DIR) first)
+endif
+endif
 
 VERSION_COMPONENT = hostapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
 include ../../../common/rules.mk

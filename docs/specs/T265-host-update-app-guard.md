@@ -119,6 +119,14 @@ Parts:
   model (flash, EEPROM, slot, fill), UCI, the TRX register windows (`cwio`, `csys`, `win`: c64ref has no app), the audio socket. Kept:
   CPU, VIC-II, the two CIAs, RAM and ROMs, SID, the bus between them, their video and audio out. Every contract port whose driver goes
   is driven with its idle value. The cut list with the numbers of run 45814821390 is in §5.
+- **D12 withdrawn, D13 (Alex, 2026-11-26, translated):** the second run (45888568985) routed the host against the slimmed c64ref
+  (WNS +0.126 ns), and every DFX core built against it missed timing by 1.4-1.6 ns (null -1.501, vc20 -1.404, atari800 -1.644,
+  ddt_novic -1.404), on the same path: the pixel layer's read data `hout/pxl/rdata` through the core's register window back into the
+  CPU's `dmem_resp`, for the VC-20 also the drive's `l2/drv/i_gcr`. Without the register windows and the drive in c64ref those paths
+  had no timing pressure when the host was routed, so their partition pins sat far from where the real cores need them. Alex: "We
+  need a host that can serve the menu ... Whatever has to go out for it I don't care about at all. The host has to work, including
+  analogue video out." c64ref is back to integration's state (T115); if the host does not route with P4, host logic goes, the VIC path
+  (`NO_C64VIDEO`, about 372 LUT and 4 RAMB36) first; RGB stays.
 - **D7 (Alex, 2026-11-26, Q4):** F8 "Protect Flash from updates" stays off by default: "No, we still have the 'first boot wizard',
   that is where I wanted to settle such questions" (translated). The first boot wizard has no spec in this repository yet.
 - **D6 (Alex, 2026-11-26, Q3: "C: es sucht nochmal im Root aller Medien nach einer hostrecovery.app und wir legen die mit in den
@@ -143,10 +151,38 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   names the host only when a package or update is made (`ci/order.py:80-92`). Built: a `host` target in `ci/order.py` and
   `ci/fetch_bits.py`, a matrix job `host-bits` that the DFX lanes wait for, the work order written by the matrix; the old pipeline
   writes it only for pull requests and `t239.1` (Alex: "nicht mehr im alten"). The DFX lanes wait for `host-bits` explicitly.
+  Files (branch `t265-ci`, not yet run; the proof of S9 is the first run on each branch kind): `ci/order.py`, `ci/fetch_bits.py` (target `host`; the
+  flash fillers from `tools/core_toml.py flash-fillers`), `ci/orchestrate.py` (`order_cors`), `ci/dispatch.py` (outputs `host_bits`, `order_targets`),
+  `ci/lane.sh` (`bits:host`), `.github/workflows/matrix.yml` (job `host-bits`, the work order and the click beside too), `.github/workflows/pipeline.yml`
+  (work order only for a pull request and `t239.1`), `tools/check_bootrom_fresh.sh` (lint host: the boot ROM package is not older than its source;
+  it does not rebuild it, so open Q4 of the design - the build image's gcc against the committed package - stays open). Tests: `ci/test_order.py`,
+  `ci/test_fetch_bits.py`, `ci/test_orchestrate.py`.
 - **P1:** the boot ROM uses 2,892 of 8,192 bytes (`host/bootrom_pkg.vhd`); CRC-32, record check and the jump to the recovery add about
   1.6 KiB. The length is compared first. A JTAG request boot skips the guard. The result block 0xFFC0 is cleared before the JTAG
   path; guard and recovery results go to 0xFF80 / 0xFF60. On a 100T the record and the recovery sit below the app at the same
   distances (app 0x3C0000).
+  Built (`host/bootrom/bootrom.c`, branch `t265-bootrom`): record at app - 0x1000, recovery slot at app - 0x40000 (derived, not
+  constants, so the 100T follows); a record is valid when magic and check word agree, a broken one counts as none. Valid record:
+  header read first, length compared (12 + padded length), then the CRC-32 is computed while the application is copied; a
+  difference ends in status 9 and the recovery's `{dest,length,run}` image (its CRC-32 trailer is checked before the jump, limit
+  0x3EFF0 data bytes) is started with the status left at 9 for the host app; no usable recovery: status 10, the ROM waits for JTAG.
+  Guard block 0xFF80 (magic 0x54323635, verdict 0 none / 1 match / 2 empty / 3 header or length / 4 CRC / 5 JTAG request not
+  enforced, record length and CRC, flash length and CRC, `HOST_IFACE`, recovery status 0-4); the recovery block 0xFF60 is the
+  recovery program's, the ROM only clears its magic. The result, guard and recovery magics are cleared before the JTAG-magic
+  check. `-DTRX_GUARD=0` compiles the decision out (bench negative control, `host/sim/flash_boot/bootrom_noguard_pkg.vhd`);
+  `linker.ld` asserts 1 KiB of stack below .bss. Size, measured with riscv64-elf-gcc 16.2 `-march=rv32i_zicsr` (not the build
+  image's compiler, which gives 2,892 for the old source where this gives 2,941): old 2,941 bytes, with the guard 4,172
+  (+1,231), without 3,225; .bss 1,056 (CRC table); stack room 8,192 - 4,172 - 1,056 = 2,964 bytes. Regenerated with
+  `tools/build_bootrom.sh` (container image `u64-build-env`, the compiler of record): `bootrom.bin` 4,116 bytes with the guard,
+  `noguard.bin` 3,181 bytes (`host/bootrom_pkg.vhd`, `host/sim/flash_boot/bootrom_noguard_pkg.vhd`, a1a7ec8bf).
+  Bench `host/sim/flash_boot` (not run here, no GHDL): new cases guard_match, guard_foreign_crc (S2), guard_off (S2 control, ROM built
+  with `-DTRX_GUARD=0`, analysed into `build/noguard`), guard_foreign_len (fewer than 3,000 bytes read), guard_empty_app, guard_bad_chk,
+  guard_no_recovery, guard_rec_badcrc, guard_jtag_request, guard_100t, guard_time (64 KiB, at most 1.5 x the unguarded time); match_after
+  checks verdict 0 and the reported CRC (no record = as today, S6); jtag_magic checks the stale blocks are cleared. The testbench dumps
+  0xFF60-0xFF9F as a GUARD line.
+  Tools: the host bitstream slot is 0x000000-0x1DFFFF (D2) in `tools/txu_pack.py` (`SLOT`) and `tools/trx_pkg.py` (`BIT_MAX`, also what
+  `cfw_core.py` and `trx_pkg_check.py` refuse); a larger bitstream is refused with a control at the slot's edge (`txu_pack.py selftest`,
+  `test_trx_pkg.py`); the selftest also compares `HOST_IFACE`, `FLASH_APPL`, the recovery distance and `MAX_APPL_SIZE` of `bootrom.c`.
 - **P2:** the recovery program reuses the host app's drivers (USB with the hub over I2C, SD, FatFs with long names, read-only);
   estimate 110-160 KB of 258,048 bytes. It needs no clock synthesizer or HDMI: CPU and USB clocks come from the 50 MHz PHY clock.
   It never calls `init_flash_disk()` (that formats on a failed probe, `blockdev_flash.cc:177`). Order: flash copy, SD, USB; it keeps
@@ -161,5 +197,128 @@ Designs (2026-11-26, read-only analyses with file:line): `docs/specs/T265/p1-p3-
   untouched), constants per D5, csync on SYNCn, FB high. Estimate about 560 LUT, 2 RAMB36, 0 DSP; pb_l1 from 76.3 % to about 79.5 % of
   17,400 LUT. The register lives in `host/mode_req.v` (host-owned, survives a core swap); standard 0 = follow the core's raster.
   No contract port changes (247 ports, VERSION 2).
+- **D12 cut list (c64ref; numbers are the hierarchical report of the host run 45814821390 before the cut: pb_l2 8,943 LUT / 7,595 FF / 27 BRAM tiles / 1 DSP).**
+  Kept: the machine and its video and audio out. Removed: everything around it. LUT / FF / RAMB36:
 
+  | module (instance) | LUT | FF | RAMB36 | |
+  |---|---|---|---|---|
+  | `c64_core_c64ref` > `c64_top`: VIC-II (`video_kawari_0`) | 1,992 | 1,472 | 0 | kept |
+  | CPU 6510 (`cpu6510_0`) | 700 | 252 | 0 | kept |
+  | CIA 1 and 2 (`c64_redip_cia_0/1`) | 758 | 650 | 0 | kept |
+  | `mem` (C64 RAM, ROMs, colour RAM) | 53 | 64 | 24 | kept |
+  | `turbo` (NO_TURBO), `bus_arbiter`, `c64_top` glue | 86 + 74 + 79 | 86 + 43 + 98 | 0 | kept (inside `c64_top`) |
+  | SID | 0 | 0 | 0 | the stand-in of T107 D9 (silence) is all c64ref has had since; it stays |
+  | cartridge model, flash, EEPROM, AR (`cart`) | 890 | 793 | 0 | removed |
+  | `slot` (expansion port) | 141 | 213 | 0 | removed |
+  | `cfill` (cartridge image fill) | 229 | 156 | 0 | removed |
+  | 1541 drive `drva` (6502, 2 VIA, CIA, WD177x, floppy; 1 RAMB18) | 2,339 | 1,494 | 0 | removed |
+  | `gcr` codec | 80 | 49 | 0 | removed |
+  | `uci` (command interface) | 165 | 206 | 0 | removed |
+  | `cwio` (register window) | 450 | 668 | 0 | removed |
+  | `csys` | 191 | 271 | 0 | removed |
+  | `win` (DMA window), `iec` bus, `sock_audio` | 20 + 14 + 119 | 46 + 28 + 317 | 0 | removed |
+  | layer 2's own glue and the `c64ref_keep` LUT1s | about 525 + 120 | 2 | 0 | removed; the keeps that guard constants of the machine stay (audio 48, sid levels 8) |
+
+  What the cut leaves at the 247-port header (unchanged, `tools/contract_ports.py --check`): the ports of removed blocks are driven
+  by `c64ref_tie_ff` flops (one DONT_TOUCH FDRE per bit) at the idle value of the decoupler in `host/top.v`: 0 for IEC_*_O, SLOT_PHI2,
+  SLOT_DOTCLK, slot_rst_o, sid_sock_addr, cw_*, px_*, dma_*, drv_*, gcr_*, win_*, gate_frz, tx_view, cart_active, reu_*,
+  paddle_dis_en and the ui_clk DDR2 client `c_*`; 1 for SLOT_*n/BA/DIR lines, slot_a, slot_d_o, slot_d_t, slot_rw, slot_ahi_t, sid_sock*_n
+  and drive_leds_n. The inputs of removed blocks have no load. `drv_clk_o` and `drv_data_o` were undriven before and stay so.
+
+  **Built (2026-11-26).** `c64_core_c64ref` keeps `c64_top_c64ref` and `mem`; the cartridge model, expansion port, UCI inputs, REU, DMA
+  window, turbo registers and sockets are constants inside it, its ports shrank to the machine's. `layer2_c64ref.v` instantiates
+  the core and the tie flops (754 + 41 + 176 FDRE) and nothing else; the files `c64ref_io`, `c64ref_sys`, `cart_fill`, `cart_slot`,
+  `slot_port`, `dma_win`, `iec_bus`, `sid_sock_audio`, `c64ref_cw.vh` and the whole `gideon/` copy (drive, GCR, UCI) are deleted;
+  the xdc lost the two cart clocks, `core_sources.tcl` the VHDL read, `core.toml` the 1541 ROM name. Shared files untouched.
+  Three readers of removed paths fixed minimally: `host/sim/cart_unit` (run.sh, tb) and `ci/sims.deps` now read
+  `cores/c64u/cart_slot_c64u.v` (the same module, checked by diff modulo the name); `ci/test_layers_flow.sh` takes
+  `c64_turbo_c64ref.v` as its fixture file where it took `dma_win_c64ref.v`. `contract/host_pin.txt` updated (c64ref is a pinned
+  part of the static). Expected pb_l2 logic after: VIC 1,992 + CPU 700 + CIA 758 + mem 53 + glue 239 + 56 keep LUT1 = about 3,800
+  LUT (computed from the report's module numbers, not synthesised: yosys has no VHDL front end for the CPU), flops 7,595 - 4,243 + 971 tie
+  flops = about 4,320, 24 RAMB36 (the drive's RAMB18 and the cartridge cache go). Checked with yosys: `hierarchy -check`, no implicit nets, widths clean for
+  `layer2` (core as black box) and for `c64_core_c64ref` (top and mem as black boxes).
+
+**Built, P2 and P3 (2026-11-26, branch `t265-recovery`; boot ROM, `txu_pack.py`, `trx_pkg.py`, the matrix files are other branches):**
+
+- **Blocks.** The magic words the boot ROM and the recovery program must write are fixed in `host-app/software/hostapp/guard.h`: guard block (0xFF80) `0x54323635` (the boot ROM's `GUARD_VALID`; words magic, verdict 0-5 with 5 = JTAG request, not
+  enforced, record length, record CRC, flash length, flash CRC, interface, recovery status), recovery block (0xFF60)
+  `0x31564352` "RCV1", result magic `0x54313552`, statuses 1 (flash/request) and 9 (guard); recovery block words: magic, medium, stage address, stage length, stage CRC, copy equals record, 0,
+  chk = ~(xor of words 0..6). The stage length is the file length (record + data padded to 4). The host application decodes them once (`guard_capture`, `hostapp.cc`) and clears the three magic words.
+- **Recovery program** (`host-app/software/hostrecovery/recovery.cc`, `host-app/target/u64ii/riscv/hostrecovery/`): linked at 0x01800000, R1 (Gideon's file layer as the host app links it), the flash drive
+  attached through `FlashRo` (a `BlockDevice_Flash` whose `write` refuses) and never formatted, no `init_flash_disk()`. **Deviation from "read-only: no disk_write linked":** R1's FatFs and
+  `BlockDevice_Flash::write` are in the image (the file layer references them); nothing in `recovery.cc` calls a write, and the flash drive's device refuses one. R2 (an own `ffconf.h`
+  with `FF_FS_READONLY`, an own diskio, a hook in the vendored `usb_scsi.cc`) is the way to "writes nothing by construction" if Alex wants it; it is not built. Order: flash copy, `.new`, SD root, every
+  `Usb*` root; it searches every 500 ms and says so on the console every 5 s. The image rule is `guardimg.h` (shared with the test): the record rules of `fw_image_seal_parts` and a file of exactly
+  12 + padded length. Hand-off: block, `NANO_START = 0`, interrupts off, `memcpy` to the record's load address, fence, jump (no trampoline: the recovery does not live at 0x30000).
+  The slot image is `tools/rec_trailer.py` (record + data + CRC-32 trailer, limit 0x3EFF0 data bytes, refuses a bigger program); `ci/trxapps.sh` builds `hostrecovery` before `hostapp` and runs
+  `check_app_size.py ... 0x3EFF0`; the host app links the image (`SRCS_APP = recovery_slot.app`, the Makefile stops with a message when it is not built). Size: not measured (no RISC-V build here).
+- **Host app.** `guard.cc` (pure: record, copy, stamp, provisioning, repair check), `guard_board.cc` (capture, the background task at idle priority after the first frame, the gate:
+  update and restore wait while it runs, `legacy_stage` waits too), `host_core_flow_guard.cc` (the repair job `SJ_REPAIR`, run first when the recovery started the application; no `direct_phase`).
+  The copy is `/Flash/trx/hostrecovery.app` (+ `.new` + `.stm` "len crc" decimal); free space is checked before it is written (the file + 64 KiB); when a new copy cannot be written the old one,
+  `.new` and the stamp are deleted before the record is written and the screen gets a note saying what happened and what to do.
+- **Slots.** `FW_BIT_SLOT` is 0x1E0000; `FW_BIT_SLOT_FULL` (0x220000) is the slot of a whole Gideon/Commodore firmware (`fw_image_seal`, the restore of T137): without it the stock Commodore
+  bitstream (0x217300 bytes) could not be restored any more. Such a write takes the recovery program and the record with it (a clean install of that firmware, D2); the host provisions both again on its next start.
+- **.txu writer.** `UpdateJob` calls `guard_after_update` after `fw_write_parts` ok with the app part: copy, then record; a copy or record that fails is a warning line on the result page, the update
+  stays written (a copy that differs from the record is taken by the recovery, a missing record means no guard). The recovery program is not part of the `.txu`: the host app writes it at its first start.
+  Without `guard_install_fs` (the other benches) the step does nothing.
+- **Package.** `hostrecovery.app` = the stamped `hostapp.app` (`ci/package.sh`, `cmp`), required by `ci/prerelease.sh`, copied into the bundle by `tools/make_release_mc.sh`, checked against the `.txu`
+  app part by `tools/check_release_flash.py --recovery`, named in INSTALL.md (what is in here, the stick: the ROOT, known problems).
+- **Tests.** `tests/hostapp/run_guard.sh` (`test_guard.cc`): cut sweeps over the provisioning (102 cut points), the update writer (239) and the repair (172) with a flash and a RAM disk that lose power at every
+  operation; 12 source mutants. Not run: board, RISC-V build, the render bench with the new pages (`SJ_REPAIR`, the warn line), `tests/hostapp/run.sh` as a whole.
+- **P4 built, gateware (2026-11-26, branch t265-rgb; Vivado, timing and board not run):** `host/av_rgb.v` in `hdmi_out` (`sys_clk`, own raster
+  504 x 312 / 520 x 263, sync as `c128_avout.v`, window 364 + 1600 clocks, one sample per `sys_clk` by a phase accumulator, words as IOB flops,
+  `AVID_CLK` = ODDR on the inverted `sys_clk` in `top.v`). Changed from the sketch: the sketch's line RAM with word holds could not work
+  (the top line's word overwrote the old one two clocks before the last old pixel was used; fetch had a deadlock with an HDMI request waiting
+  behind an RGB line), so the line RAM is two RAMs, A (first line) and B (second line of a pair), read at the same address every clock and
+  no word is held: 4 RAMB36 instead of 2 (host block RAM 24.5 -> 28.5 of 35 tiles), 395 FF instead of 722. "Two lines averaged" = source
+  taller than 1.25 x the window (the sketch's "taller than the window" would have squeezed the VC-20's 283 lines at 60 Hz); anything else is 1:1
+  centred or cropped. Only format 1 (RGB565) is shown; format 2 leaves the port black. `pix_layer` exports its registers and takes the
+  requests (`a_*`); an A/V line is never stopped by an HDMI request (it waits, at most 2 x 120 reads), an HDMI line is stopped as before.
+  `mode_req` 0x4F0A (reset 0x01 = RGB on, b3:2 std), version byte 2. `top.v` AVID ports, `pins.xdc` (as `avid_pins.xdc` of the C128),
+  `build.tcl`, `layers.txt`, `host_pin.txt`, `contract/version.toml` 0.2.1 -> 0.3.0 (247 ports, VERSION 2 unchanged), TOML A block
+  `overlay_mode_status.av_mode` (offset 6 of the block at 0x10144F04, size 6 -> 7: a new block would be the 65th, over
+  descrec's limit of 64; `rtl_check.py` against the RTL needs the TRX64-Ultimate checkout: not run). yosys `synth_xilinx -family xc7 -flatten`
+  (`nice -n 15`): `av_rgb` 458 LUT, 395 FF, 4 RAMB36, 0 DSP; `pix_layer` +76 LUT, +64 FF against `origin/integration`; `mode_req` +6 LUT,
+  +4 FF; total about 540 LUT, 463 FF (pb_l1 13,271 -> about 13,810 of 17,400 = 79.4 %, before Vivado's packing). Bench
+  `host/sim/avrgb` (`ci/sims.txt` `avrgb`, tier 2; iverilog, the real `pix_layer` with the HDMI side running on the same buffer in the first
+  phases, `mig_arb`, the MIG model): every sample of a frame in 7 phases (50 Hz menu 960 x 540 two-line average, flip to the second buffer,
+  60 Hz crop 540 -> 240, std 0 follows a 263-line core (60 Hz, 640 x 384), std 0 on a 312-line core (50 Hz, 960 x 283 1:1 centred), 50 Hz 640 x 384,
+  off) against a model written in the bench: line length, hsync width, broad lines, window position, FB, 11/16 levels, 4:3 squeeze. HDMI
+  underruns while both read: 0. `host/sim/modepath` checks the register (reset value, write, read-back, version 2) and passes.
+  `host/sim/lat` not rerun: it does not instantiate `pix_layer` (it cannot see the A/V load) and `ddr2_port.v` is unchanged.
+- **P4 built, app (2026-11-26, branch t265-rgb):** `gw_av_write(mode, std)` in `HostVideoIo` (`hostvideo.h`, last member, null in an older
+  rig) and `hv_av_apply(on)`; the board side writes `0x4F0A` only when `0x4F05 >= 2`. `boot.cfg` `video=<sys>,<hdmi>,<av>` (`BootCfg::vid_av`, default
+  1, written only when 0, so a file at the default stays byte for byte the old one: `test_libguard`; an older host reads two fields
+  and drops the third); the first start that moves `video=` to `host.cfg` keeps the third field. The value is
+  written to the host after every load of `boot.cfg` and on every change. F8 row `Analogue out` (`SK_AV`, `settings.av`, Off / RGB, a toggle)
+  after `Picture`, `HC_SET_SLOTS` 10 -> 11 (page layout unchanged: the UX review with pictures is the coordinator's). Units run once:
+  `test_bootcfg`, `test_hostcore` (896), `test_hostvideo` (84), each green; the render bench and its golden (`hostrows.txt`, the settings row
+  strings) were edited by hand and not run.
+
+- **Bundle review (2026-11-26, branch t265), fixed:** the boot ROM wrote the flash application's length into the guard block only on
+  a record path, so a host started with no record was never provisioned (`guard.cc` compares length and CRC): `load()` now writes
+  `G_LEN` with `G_CRC` on every load of the flash application, and the bench checks it in the no-record case (ROM 4,148 bytes).
+  c64ref's `drv_clk_o` / `drv_data_o` had lost their driver: tied idle 0 with the others (756 flops). The TOML A of the A/V
+  register: a 65th block was over descrec's limit of 64, so it is `overlay_mode_status.av_mode` (offset 6). The recovery program
+  links without the host log's outbyte wrap. RISC-V build (`tools/dev.sh riscv`): `hostrecovery.app` 181,868 bytes of a 258,032-byte
+  slot, `hostapp.app` 1,349,996 bytes; `tools/dev.sh test` (fast tier) green. Left as designed: the recovery program starts a flash
+  copy whose header and size match without checking its CRC (P2 decision above); the contract version moves 0.2.1 -> 0.3.0 for the
+  host's new pins, the 247 partition ports unchanged.
+- **First pipeline run of the bundle (45862833501), fixed:** Vivado stopped in c64ref's synthesis (`c64_core_c64ref.v:93`, Synth 8-1577:
+  a declaration list with one initial value needs one on every name); lint: the `avrgb` bench had no owner in `ci/sims.lane`, the
+  pre-release refusal test did not know `hostrecovery.app`; the host render bench: the walks to Cores and ROMs take one row more, and
+  the F8 help line stood under all eleven slots, so a two-line help was cut (it now stands under the rows shown: 0 cut objects in
+  every mode); `hdmi_out` expected status version 1. `flash_boot` ran into its 900 s limit: on the builder in the sim image it takes
+  1,484 s, 27 cases, 158 ok, 0 FAIL, ALL PASS, among them the 11 guard cases (S1, S2 with its control ROM, S6, the 100T distances; the
+  guard adds 1.9 % to a 64 KiB boot: 72,903 us against 71,519 us); its limit is now 3,600 s.
+- **Board, 2026-11-26 (S7 for the host menu, Alex's photo):** the host menu on Alex's Sony over the SCART RGB cable, colours right, and on
+  HDMI at the same time. Host `35da0749` (c64ref restored, D13; WNS +0.174 ns, pb_l1 13,735 of 17,400 LUT under floorplan B) with
+  the null core (WNS +0.200 ns), both built by hand on the builder from this branch (`ci/bitstream.sh c64u --lane host` and
+  `--lane core:null` in `vivado-env:2024.1` with `--env-file ci/vivado.env`), loaded into SRAM over JTAG, `hostapp.app` of this branch
+  started by `tools/trxdbg.sh boot staged` with the menu marker set in DDR2 (`handover.h` 0x03EFF000 + 0xFF8, "MENU" and its
+  complement), so the board did not boot on to its default entry. Nothing written to flash. Seen on the way: `c64ref_full.bit` alone
+  shows no menu (c64ref's IO block answers "C64U", the host app takes the pixel layer only from a core that answers "TRX2",
+  `trx_io.cc` `trx_io_caps`); without `ci/vivado.env` the floorplan is A and the host does not place (pb_l1 105 %). Known flaw,
+  left as is (Alex: "Das ist mir total egal"): the right edge of the canvas is cut on RGB, with black beside it on the screen. Open:
+  S7 with a DFX core (VC-20) - the DFX cores are not yet built against this host.
 Open questions: none (Q1 = D4, Q2 = D5, Q3 = D6, Q4 = D7).

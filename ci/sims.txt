@@ -38,7 +38,7 @@
 1|mig_arb|600|ci/sim_iv.sh tb_mig_arb.v host/ddr2_port.v host/sim/mig_ui_model.v
 1|drive_mem|600|sh host/sim/drive_mem/run.sh
 2|flash_gate|900|sh host/sim/flash_gate/run.sh
-2|flash_boot|900|sh host/sim/flash_boot/run.sh
+2|flash_boot|3600|sh host/sim/flash_boot/run.sh
 1|dma_bus|600|sh host/sim/dma_bus/run.sh
 1|vc20|900|sh cores/vc20/sim/run.sh
 1|vc20_pixw|1200|sh cores/vc20/sim/run_pixw.sh
@@ -304,6 +304,8 @@
 1|ddt_novic_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_novic
 # T164 WP8 (G1): host/hdmi_out.v end to end, the GTP words decoded back to pixels and InfoFrames in 1080p50 (VIC path) and 576p50 (gear 5, pixel layer)
 2|hdmi_out|9000|sh host/sim/hdmi_out/run.sh
+# T265 P4: host/av_rgb.v (RGB out of the host) with the real pix_layer second requester, mig_arb and the MIG model: raster per standard, csync, FB, 11/16 levels, two-line average, 1:1 and crop, 4:3 squeeze, flip, std follows the core, off; the HDMI side reads the same buffer
+2|avrgb|7200|sh host/sim/avrgb/run.sh
 # T164 WP8 (S8): the VIC raster stays locked in 1080p (vic_scaler on hdmi_timing's counters, PAL and NTSC model, FRAMES frames each, default 100)
 2|vicscale|9000|sh host/sim/vicscale/run.sh
 # T175 S1: the probe engine of the Port Diagnostics core through its register window against a loop-back model (exact WAIT / timestamps / pin pulse, EDGES at the window's edge, time-to-flip, FIFO overflow, LOOP, GO, release at END / ABORT, live pins)

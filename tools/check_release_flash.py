@@ -8,6 +8,7 @@ firmware. Release t164-c83a83c2 shipped a .cfw/.ue2 whose bitstream was c64_basi
 instead of null_full.bit: the host menu had no picture on every tester's board while the .txu was fine. So:
 
   * the installer's bitstream blob is byte-equal to the .txu's host part, and its app blob to the .txu's app part;
+  * --recovery: the bundle's hostrecovery.app (T265 S10) is byte-equal to the .txu's app part;
   * the installer's bitstream is none of the --reject files (c64_basic.bit of the package);
   * probe, every run: the same comparison is made to fail on purpose - once with a --reject file (or one flipped byte when
     none is given) in place of the installer's bitstream, once with one byte of the app flipped. A comparison that does not
@@ -71,6 +72,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--txu", required=True)
     ap.add_argument("--reject", action="append", default=[], help="a bitstream the installer must never carry")
+    ap.add_argument("--recovery", default="", help="T265 S10: the bundle's hostrecovery.app, which has to be the .txu's app part byte for byte")
     ap.add_argument("files", nargs="+")
     a = ap.parse_args()
     want_bit, want_app = txu_parts(a.txu)
@@ -82,6 +84,13 @@ def main():
             return 1
         rejects.append((os.path.basename(r), d))
     bad = 0
+    if a.recovery:
+        rec = open(a.recovery, "rb").read()
+        ok = rec == want_app
+        print("%s: %s" % (a.recovery, "PASS (byte-equal to the .txu app part)" if ok else "FAIL (%d bytes, the .txu app part is %d bytes and differs)" % (len(rec), len(want_app))))
+        if ok and rec != flip(rec):
+            print("  ctl| probe hostrecovery.app with one byte flipped: fails as it must")
+        bad += not ok
     for f in a.files:
         bit, app = installer_blobs(f)
         why = compare(bit, app, want_bit, want_app, rejects)

@@ -16,7 +16,7 @@ missing when that release does not exist or is still a draft. work-order.json is
 ones, in the order of keys.sh, and the builder reads nothing else of it (builder pull/order.py). An empty list means no gateware is built for this run.
 
 What a run needs: a package (or update) child needs every entry, because the package carries every core; a feature branch's cor child needs the host, the
-reference core and its core (or the flat bitstream of a large core); a run with neither needs none.
+reference core and its core (or the flat bitstream of a large core); the target `host` (T265 P5) the host, aux, the reference core and the flash filler; a run with neither needs none.
 """
 import json
 import os
@@ -73,6 +73,17 @@ def entry_names():
     return names
 
 
+def flash_fillers():
+    """T265 P5: the cores whose bitstream the host's flash image carries (core.toml flash_filler; the entry core-<id>-*). ORDER_FILLERS (tests) replaces the read."""
+    override = os.environ.get("ORDER_FILLERS")
+    if override is not None:
+        return override.split()
+    r = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "core_toml.py"), "flash-fillers"], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise OrderError("tools/core_toml.py flash-fillers failed: " + r.stderr.strip()[-300:])
+    return r.stdout.split()
+
+
 def group_of(entry):
     return ENTRY.match(entry).group(1)
 
@@ -83,7 +94,9 @@ def needed(names, children, cor_targets, ref):
         return list(names)
     want = set()
     for t in cor_targets:
-        if t.startswith("core:"):
+        if t == "host":       # T265 P5: the host gateware, its aux designs, the reference core and the flash filler
+            want |= {"host", "aux", "core-" + ref} | {"core-" + c for c in flash_fillers()}
+        elif t.startswith("core:"):
             want |= {"host", "core-" + ref, "core-" + t[5:]}
         elif t.startswith("large:"):
             want.add("mono-" + t[6:])

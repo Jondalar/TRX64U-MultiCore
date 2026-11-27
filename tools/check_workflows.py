@@ -2,7 +2,7 @@
 """T239.1 D1, S9: the rules a workflow of .github/ must keep, read from the parsed YAML (and, for the repository names, the raw text).
 
   1. no pull_request_target, workflow_run or issue_comment trigger in a workflow that names a secret (secrets.X, secrets: inherit) or an environment
-  2. environment `builds` only in a job called `prerelease` whose `if:` demands a push of main, t239.1 or a v* tag, or in a job called `sdk-release` (T261 D4) whose `if:` demands
+  2. environment `builds` only in a job called `prerelease` whose `if:` demands a push of main or a v* tag, or in a job called `sdk-release` (T261 D4) whose `if:` demands
      a push of integration, main or t239.3; the checkout takes the run's own commit
   3. top-level `permissions: contents: read` (the only key)
   4. every `uses:` is a local path (./) or pinned by a full 40-hex commit SHA; docker:// needs a digest
@@ -67,7 +67,7 @@ def env_name(job):
     return e.get("name") if isinstance(e, dict) else e
 
 
-BUILDS_JOBS = {"prerelease": ("refs/heads/main", "refs/heads/t239.1", "refs/tags/v"),
+BUILDS_JOBS = {"prerelease": ("refs/heads/main", "refs/tags/v"),
                "sdk-release": ("refs/heads/integration", "refs/heads/main", "refs/heads/t239.3")}
 
 
@@ -156,7 +156,7 @@ jobs:
   prerelease:
     runs-on: ubuntu-latest
     environment: builds
-    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.1' || startsWith(github.ref, 'refs/tags/v')) }}
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     steps:
       - uses: actions/checkout@%s
         with:

@@ -21,6 +21,9 @@ for t in hex2bin checksum; do ln -sfn ../../vendor/gideon/tools/$t /trx/host-app
 for lib in lwip lvgl; do nice -n 15 make -j'"$JOBS"' -C $H/libs/riscv/$lib "$@"; done
 # gitinfo.h is written by its own target; with -j it would race the first compile of hostapp.cc
 git config --global --add safe.directory /trx || true
+# T265 P2: the recovery program first: the host app links its slot image
+make -C $H/u64ii/riscv/hostrecovery gitinfo
+nice -n 15 make -j'"$JOBS"' -C $H/u64ii/riscv/hostrecovery "$@"
 make -C $H/u64ii/riscv/hostapp gitinfo
 nice -n 15 make -j'"$JOBS"' -C $H/u64ii/riscv/hostapp "$@"
 ' bash "$@"

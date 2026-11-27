@@ -77,7 +77,7 @@ bool fw_restore_stage(CorSource &src, const FwPkg &p, const FwKnown *known, cons
     if (!fw_can_restore(p, known, chip)) {
         return fail(o, "this file is not one that may be restored");
     }
-    if (p.bit_flash_len > FW_BIT_SLOT) {
+    if (p.bit_flash_len > FW_BIT_SLOT_FULL) {
         return fail(o, "the bitstream is larger than its slot");
     }
     if (p.app_flash_len > FW_APP_SLOT) {

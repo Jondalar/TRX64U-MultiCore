@@ -45,11 +45,21 @@ int main()
         v.vid_sys = 1; v.vid_hdmi = 4;
         char txt[4096];
         CHECK(bootcfg_format(&v, txt, sizeof(txt)) > 0);
-        CHECK(strstr(txt, "video=1,4") != 0);
+        CHECK(strstr(txt, "video=1,4\n") != 0 && v.vid_av == 1);   // T265 D9: the A/V port is on (RGB) unless the file says 0; on is not written
         BootCfg w;
         bootcfg_init(&w);
         bootcfg_parse(&w, txt);
-        CHECK(w.vid_sys == 1 && w.vid_hdmi == 4);
+        CHECK(w.vid_sys == 1 && w.vid_hdmi == 4 && w.vid_av == 1);
+        v.vid_av = 0;
+        CHECK(bootcfg_format(&v, txt, sizeof(txt)) > 0 && strstr(txt, "video=1,4,0") != 0);
+        bootcfg_init(&w);
+        bootcfg_parse(&w, txt);
+        CHECK(w.vid_sys == 1 && w.vid_hdmi == 4 && w.vid_av == 0);
+        bootcfg_init(&w);
+        bootcfg_parse(&w, "video=1,4\n");                         // a file of an older host: no third field, RGB on
+        CHECK(w.vid_hdmi == 4 && w.vid_av == 1);
+        bootcfg_parse(&w, "video=-1,-1,7\n");                      // not 0: on
+        CHECK(w.vid_sys == -1 && w.vid_av == 1);
         bootcfg_init(&w);
         bootcfg_parse(&w, "video=9,99\n");
         CHECK(w.vid_sys == -1 && w.vid_hdmi == -1);

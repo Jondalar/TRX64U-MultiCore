@@ -1,23 +1,14 @@
 name: Pipeline
 
-# T239.1 D51 (Alex, 2026-11-22): tests run on the way into integration; a push to main or a v* tag runs no test job (lint, keys,
-# apptests, sim, emu): integration has tested that content. It only builds, packs and publishes.
-# T239.1 S6 (replaces the dispatching parent of T174 D4): the job graph of the pipeline. One job per child of ci/children.txt (job id = child name; `ci/orchestrate.py check`
-# holds this file to the table), each calling its own workflow with `uses:`. The plan job decides which children run (`if:`); a job whose need was red or
-# cancelled does not start. The bitstreams are not a job: the builder builds the keys the plan job's work order names as missing (D11, D13) and releases the
-# environment `bitstreams`, where the jobs that need them wait without a runner (D21). Environment `vivado` (job approve) is Alex's click for a commit the builder
-# does not trust by itself (D14); environment `builds` (job prerelease) is the D1 publish.
+# T239.5 D22 (Alex, 2026-11-26: "Away with the monolith."): this file is the trigger of the pipeline and nothing else - its one job calls the matrix
+# (.github/workflows/matrix.yml), which holds every job: the dispatcher (plan, work order), the approval, lint, the key tests, the app tests, the lanes, the sims, the
+# cor jobs, the package, the update files, the emulator tests and the pre-release (T239.5 §5 has the inventory). The file keeps its name because the builder serves the
+# runs of this workflow (its SRC_WORKFLOW_PATH): it reads the work order of the run and releases the environment `bitstreams` (T239.1 D11, D21).
 #
-# T239.5 D3, D10: the T239 branch (t239.3, t239.3-*) runs the matrix alone (matrix.yml, the job `matrix`, input beside false): `plan` does not run there, so
-# every job of this file that waits for a green plan is skipped and only the job summary reports; the job matrix needs plan too, and its `if` starts it when
-# plan was skipped (it makes its own plan, work order and approval). T239.5 D11, D13, D14: every other push of a branch or a v* tag (not t239.1, not a pull
-# request) runs both, the matrix beside the jobs of this file (input beside: this file's plan, work order, approval, lint and sims are the run's; input tests
-# false on a push to main or a v* tag, D51). There the package of record is the matrix's whole package (its jobs collect and package, the artifact `package`, with the .cor of every
-# core lane): this file's job `package` runs only on t239.1 and for a pull request, and update, emu and prerelease take the matrix's artifact. The child
-# cor leaves out the cores with an app of their own (ci/orchestrate.py): their .cor comes from their matrix lane (a pull request runs no
-# matrix: no cor leg and no work-order entry for them).
-# Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository
-# is the push's run). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and runs for it.
+# T239.1 D51 (Alex, 2026-11-22): tests run on the way into integration; a push to main or a v* tag runs no test (input tests false): it only builds, packs and publishes.
+# Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository is the push's
+# run; the fork's run has no secrets and its own approval). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and
+# runs for it.
 # D9: schedule and workflow_dispatch work only for workflows on the default branch, so the nightly and sims-long run from a push to a scratch branch
 # (scratch/nightly/**, scratch/sims-long/**) whose head commit carries a marker; this pipeline ignores those branches.
 on:
@@ -34,12 +25,12 @@ on:
       - 'docs/**'
       - '.claude/**'
   # D39: the extra parts of a dispatched run are one dropdown in GitHub's "Run workflow" panel; GitHub shows that panel only for workflows on the default
-  # branch, so it appears with the switch. update = the .cfw/.ue2 update files and, after them, the emulator job (always on main, integration, t239.1 and
-  # v* tags); sims = the benches of the changed owners (always on integration). A fork pull request cannot be dispatched; it keeps "[bundle]" in its head commit.
+  # branch, so it appears with the switch. update = the .cfw/.ue2 update files (and with them the whole package); sims = the benches of the changed owners (always on
+  # integration). A fork pull request cannot be dispatched; it keeps "[bundle]" in its head commit.
   workflow_dispatch:
     inputs:
       extra:
-        description: 'Extra parts of this run: update = the .cfw/.ue2 update files and the emulator job; sims = the benches of the changed owners'
+        description: 'Extra parts of this run: update = the .cfw/.ue2 update files and the whole package; sims = the benches of the changed owners'
         type: choice
         options:
           - none
@@ -51,305 +42,20 @@ on:
 permissions:
   contents: read
 
-# One run per ref at a time, in the order they started waiting (D9; replaces the queue script of T87). The group is the branch, or the pull request's head branch.
+# One run per ref at a time, in the order they started waiting (D9; replaces the queue script of T87). The group is the branch; a pull request
+# has a group of its own (its number), so a fork's head branch named main or integration never queues behind the real runs.
 concurrency:
-  group: pipeline-${{ github.head_ref || github.ref }}
+  group: pipeline-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref }}
   queue: max
 
 jobs:
-  plan:
-    name: Plan (what changed, which children, which keys are missing)
-    # a pull request from a branch of this repository is the push's run; a fork's pull request runs here
-    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) && !(github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
-    timeout-minutes: 30
-    env:
-      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
-      CI_REF_TYPE: ${{ github.ref_type }}
-    outputs:
-      children: ${{ steps.children.outputs.children }}
-      sim_owners: ${{ steps.children.outputs.sim_owners }}
-      cor_targets: ${{ steps.children.outputs.cor_targets }}
-      sims_tier: ${{ steps.children.outputs.sims_tier }}
-      update: ${{ steps.children.outputs.update }}
-      docs_only: ${{ steps.children.outputs.docs_only }}
-      missing: ${{ steps.order.outputs.missing }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Container paths and git
-        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
-        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
-        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
-        # trusts it; the system config holds for every later git call, also one under env -i.
-        run: |
-          git config --system --add safe.directory '*'
-          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-      - name: Environment
-        run: |
-          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/handoff"
-      - name: Plan
-        env:
-          TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
-          WORKFLOW: pipeline.yml
-        run: |
-          set -eu
-          ci/plan.sh --out "$CI_HANDOFF/plan.json"
-          cat "$CI_HANDOFF/plan.json.files" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
-      - name: Children
-        id: children
-        env:
-          # D39: the dropdown `extra` sets both; a push or a pull request has no inputs, so both are false there
-          SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
-          UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
-          # T239.5 D13: whether the job matrix runs beside this file's jobs (as its `if`: not for a pull request, not on t239.1); without it the work order
-          # names no bitstream of a core with an app of its own (ci/orchestrate.py order_targets): no lane would read it, and the child cor has no leg for it
-          MATRIX: ${{ github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' && 'yes' || 'no' }}
-        run: |
-          set -eu
-          tier="$(ci/select.sh sims-tier)"
-          update="$(ci/select.sh update)"
-          python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
-          python3 ci/orchestrate.py outputs "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" --matrix "$MATRIX" | tee -a "$GITHUB_OUTPUT"
-      - name: Work order
-        id: order
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
-          WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
-          CHILDREN: ${{ steps.children.outputs.children }}
-          COR_TARGETS: ${{ steps.children.outputs.order_targets }}    # T239.5 D13: the cor legs' cores and every core lane the matrix's dispatcher starts
-        run: python3 ci/order.py
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
-        with:
-          name: plan
-          path: ${{ env.CI_TEMP }}/handoff/plan.json
-          retention-days: 3
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
-        with:
-          name: work-order
-          path: ${{ env.CI_TEMP }}/handoff/work-order.json
-          retention-days: 3
-          if-no-files-found: error
-
-  # D14: Alex's click for a commit the builder does not build by itself. The builder reads the approval through the API; this job only holds the question.
-  approve:
-    name: Approve the builder's work (environment vivado)
-    needs: plan
-    if: ${{ needs.plan.outputs.missing == 'true' && !(github.event_name == 'push' && github.actor_id == '682272' && github.triggering_actor == github.actor) }}
-    runs-on: ubuntu-latest
-    environment: vivado
-    timeout-minutes: 5
-    steps:
-      - run: echo "approved; the builder builds the missing keys of this commit"
-
-  lint:
-    name: Lint
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/jondalar/trx64u-sim@sha256:3e366a085f3ff5bfec33b5fa08359a625034038803b8b89f3406691683a625e0
-    timeout-minutes: 60
-    env:
-      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
-      CI_REF_TYPE: ${{ github.ref_type }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
-      - name: Container paths and git
-        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
-        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
-        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
-        # trusts it; the system config holds for every later git call, also one under env -i.
-        run: |
-          git config --system --add safe.directory '*'
-          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-      - name: Lint
-        run: ci/lint.sh
-
-  # ci/test_keys.sh needs the Python 3.10 code-hash libraries of the build image (lint runs in the simulation image, Python 3.12)
-  keys:
-    name: Key tests (ci/keys.sh)
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
-      - name: Container paths and git
-        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
-        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
-        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
-        # trusts it; the system config holds for every later git call, also one under env -i.
-        run: |
-          git config --system --add safe.directory '*'
-          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-      - name: Key tests
-        run: ci/test_keys.sh
-
-  apptests:
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'apptests') && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
-    uses: ./.github/workflows/apptests.yml
-
-  images:
-    needs: [plan, apptests]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'images') }}
-    uses: ./.github/workflows/images.yml
-
-  # one leg per bench owner (ci/sims.lane); a hosted job stops after 6 h
-  sim:
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.sim_owners != '[]' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
-    strategy:
-      fail-fast: false
-      max-parallel: 6
-      matrix:
-        owner: ${{ fromJSON(needs.plan.outputs.sim_owners) }}
-    uses: ./.github/workflows/sim.yml
-    with:
-      target: ${{ matrix.owner }}
-      tier: ${{ needs.plan.outputs.sims_tier }}
-
-  # a feature branch: one .cor per touched core, from the builder's bitstream (the legs wait at the environment bitstreams)
-  cor:
-    needs: [plan, images]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.plan.outputs.cor_targets != '[]' }}
-    strategy:
-      fail-fast: false
-      max-parallel: 6
-      matrix:
-        target: ${{ fromJSON(needs.plan.outputs.cor_targets) }}
-    uses: ./.github/workflows/cor.yml
-    with:
-      target: ${{ matrix.target }}
-
-  # T239.5 D14: only where the matrix does not run (t239.1, a pull request); elsewhere the matrix's whole package is the run's package (one artifact `package` per run)
-  package:
-    needs: [plan, lint, keys, apptests, images, sim, cor]
-    if: >-
-      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'package')
-      && (github.event_name == 'pull_request' || github.ref == 'refs/heads/t239.1') }}
-    uses: ./.github/workflows/package.yml
-
-  # the package of this file's job package, or where the matrix runs the matrix's (T239.5 D14); there, as before, only after every test job of this file is green
-  update:
-    needs: [plan, lint, keys, apptests, images, sim, cor, package, matrix]
-    if: >-
-      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'update')
-      && (needs.package.result == 'success' || (github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' && needs.matrix.result == 'success')) }}
-    uses: ./.github/workflows/update.yml
-
-  # D23: after update, where update ran; its kit takes this run's VIC-20 .cor and host image (no .ue2 since T239.1 step 17)
-  emu:
-    needs: [plan, images, update]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.images.result == 'success' && needs.update.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'emu') && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
-    uses: ./.github/workflows/emu.yml
-
-  # D1: the package of a push to main, t239.1 (during D9) or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the
-  # job runs the commit's own scripts with the token of that environment, so the push must be one of Alex's (rulesets of main and v* tags, D15, D28).
-  # T239.5 D14: on main and v* tags the package is the matrix's whole package (this file's job package runs only on t239.1 there).
-  prerelease:
-    name: Pre-release
-    needs: [plan, package, update, emu, matrix]
-    if: >-
-      ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-      && (needs.package.result == 'success' || (github.ref != 'refs/heads/t239.1' && needs.matrix.result == 'success'))
-      && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.1' || startsWith(github.ref, 'refs/tags/v'))
-      && contains(fromJSON(needs.plan.outputs.children), 'prerelease') }}
-    runs-on: ubuntu-latest
-    environment: builds
-    container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
-    timeout-minutes: 30
-    env:
-      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
-      CI_REF_TYPE: ${{ github.ref_type }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Container paths and git
-        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
-        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
-        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
-        # trusts it; the system config holds for every later git call, also one under env -i.
-        run: |
-          git config --system --add safe.directory '*'
-          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-      - name: Environment
-        run: |
-          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/handoff"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
-        with:
-          name: package
-          path: ${{ env.CI_TEMP }}/package
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
-        continue-on-error: true
-        with:
-          name: update
-          path: ${{ env.CI_TEMP }}/update
-      - name: Pre-release
-        env:
-          CI_PACKAGE_IN: ${{ env.CI_TEMP }}/package
-          CI_UPDATE_IN: ${{ env.CI_TEMP }}/update
-          CI_STAGE: ${{ env.CI_TEMP }}/prerelease-stage
-          MC_BUILDS_REPO: Jondalar/trx64mc-builds
-          BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
-        run: ci/child.sh prerelease
-
-  # T239.5 D10: the matrix of the T239 branch (the lanes of the SDK, the bitstreams, the host menu and the moved cores; its own dispatcher, work order and approval).
-  # D11, D13, D14: on every other push of a branch or a v* tag beside this file's jobs, after `plan` (whose artifacts plan and work-order the matrix's lanes and
-  # the builder read there); not on t239.1 and not for a pull request (this file's package there).
   matrix:
-    needs: plan
-    if: >-
-      ${{ !cancelled() && (needs.plan.result == 'success' || needs.plan.result == 'skipped') && github.event_name != 'pull_request' && github.ref != 'refs/heads/t239.1' }}
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
+    # a pull request from a branch of this repository is the push's run; a fork's pull request runs here
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository }}
     uses: ./.github/workflows/matrix.yml
     with:
-      beside: ${{ !(github.ref == 'refs/heads/t239.3' || startsWith(github.ref, 'refs/heads/t239.3-')) }}
       tests: ${{ !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     secrets: inherit    # T261: BUILDS_TOKEN is a secret of the environment `builds`; a called workflow's job that names the environment reads it only when the caller inherits
-
-  summary:
-    name: Result
-    needs: [plan, approve, lint, keys, apptests, images, sim, cor, package, update, emu, prerelease, matrix]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Table
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: |
-          python3 - <<'PY'
-          import json, os, sys
-          needs = json.loads(os.environ["NEEDS"])
-          lines = ["| job | result |", "|---|---|"] + ["| %s | %s |" % (k, v.get("result")) for k, v in needs.items()]
-          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
-          print("\n".join(lines))
-          bad = [k for k, v in needs.items() if v.get("result") in ("failure", "cancelled")]
-          if bad:
-              sys.exit("red: " + ", ".join(bad))
-          PY

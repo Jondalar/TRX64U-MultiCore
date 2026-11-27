@@ -92,6 +92,7 @@ struct HostVideoIo {
     void     (*enable)(void);                               // HDMI output on
     uint32_t (*ms)(void);
     void     (*pause_ms)(int ms);
+    void     (*gw_av_write)(int mode, int std);             // T265 P4: 0x4F0A, the A/V port: mode 0 off / 1 RGB, std 0 follow the core / 1 50 Hz / 2 60 Hz (a host older than version 2 has none: no write); null in an older rig
 };
 
 // The stored default (host.cfg [Video]); the board and the benches bring it. hdmi -1: from the screen. sys: VID_SYS_*.
@@ -121,6 +122,7 @@ struct HvState {
 };
 
 const HostVideoIo *hostvideo_board_io(void);                // the board's hooks (hostvideo_board.cc); a bench brings its own
+void hv_av_apply(int on);                                  // T265 P4: the A/V port on (RGB) or off, std from the core
 void hv_init(const HostVideoIo *io);                       // probes the host once
 const HvState *hv_state(void);
 bool hv_gateware(void);

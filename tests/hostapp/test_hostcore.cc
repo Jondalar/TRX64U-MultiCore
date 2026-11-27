@@ -19,6 +19,7 @@ extern bool stub_pic_ok, stub_pending, stub_video_moves;
 extern std::vector<std::string> stub_calls;
 extern bool stub_stage_ok, stub_swap_ok, stub_lock_ok;
 extern int stub_stage_cb_abort;
+extern int stub_av_applied;
 struct StubJump { };
 
 static int g_fail = 0, g_pass = 0;
@@ -248,7 +249,7 @@ static void commands()
     g_disk = std::string(FIXTURE) + "video=0,2\n";
     stub_video_moves = true;
     g_saves = 0;
-    CHECK(hc_cfg_try_load() && stub_video_sys == 0 && stub_video_hdmi == 2 && g_saves == 1 && hc_cfg().vid_sys == -1 && hc_cfg().vid_hdmi == -1 && g_disk.find("video=-1,-1") != std::string::npos);
+    CHECK(hc_cfg_try_load() && stub_video_sys == 0 && stub_video_hdmi == 2 && g_saves == 1 && hc_cfg().vid_sys == -1 && hc_cfg().vid_hdmi == -1 && g_disk.find("video=-1,-1\n") != std::string::npos && stub_av_applied == 1);
     stub_video_moves = false;
 
     // the module settings go through the core
@@ -258,6 +259,12 @@ static void commands()
     CHECK(stub_protect == 0);
     hc_ftp_set(true);
     CHECK(stub_ftp == 1);
+    // T265 P4: the A/V port setting is kept in boot.cfg `video=` and written to the host at once
+    g_saves = 0;
+    hc_av_set(false);
+    CHECK(hc_cfg().vid_av == 0 && stub_av_applied == 0 && g_saves == 1 && g_disk.find(",0\n") != std::string::npos);
+    hc_av_set(true);
+    CHECK(hc_cfg().vid_av == 1 && stub_av_applied == 1 && g_saves == 2);
     char why[64] = "";
     stub_pic_ok = true;
     CHECK(hc_picture_set(2, why, sizeof(why)) && stub_pic_last == 2);

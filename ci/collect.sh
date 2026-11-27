@@ -19,12 +19,9 @@ done
 echo "=== collect: $n lane(s) from the cache in $(lap)"
 # T239.1 D43: trx64u.cor and trx64g.cor, packed and published by the builder (ci/imports.py) and restored by ci/fetch_bits.sh with the bitstreams, go to
 # the package as bit-imports. A cache that was not restored from the builds repository (the Gitea builder's own) holds none: no TRX64 .cor then, as before.
-# CI_IMPORTS=no (T239.5 D14, the matrix's whole package on the T239 branch, ci/lane.sh package names): their entries were not fetched, none is handed over.
 imp="$HANDOFF/bit-imports"; rm -rf "$imp"
 cache="${CI_BIT_CACHE:-/cache/multicore/bit}"
-if [ "${CI_IMPORTS:-yes}" = no ]; then
-  echo "=== collect: CI_IMPORTS=no: no bit-imports (no trx64u.cor, no trx64g.cor)"
-elif [ -e "$cache/.fetched" ]; then
+if [ -e "$cache/.fetched" ]; then
   mkdir -p "$imp"
   names="$(python3 -I "$ROOT/ci/imports.py" names)"
   for e in $names; do

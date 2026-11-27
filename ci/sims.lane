@@ -32,6 +32,7 @@ mig_arb: host
 drive_mem: host
 flash_gate: host
 flash_boot: host
+avrgb: host
 dma_bus: host
 vc20: core:vc20
 vc20_pixw: core:vc20

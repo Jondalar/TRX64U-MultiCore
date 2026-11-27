@@ -18,7 +18,7 @@
 # T239.5 D13, D14: the matrix's whole package (ci/lane.sh package package, .github/workflows/matrix.yml) runs this script with CI_LANE_COR set, the directory that
 # holds each core lane's deliverable (deliver-<id>/<id>.cor, ci/lane.sh core:<id> deliver). Its trxapps hand-over is what the SDK lane and the host menu lane built:
 # no coreapps/. A core with an app of its own (tools/core_toml.py lanes) then takes its .cor from its lane, unchanged and checked against this package's host; every
-# other .cor core whose core.toml says app = blueprint gets a copy of the shared image. Without CI_LANE_COR (the old pipeline's stage) a large core with an app of
+# other .cor core whose core.toml says app = blueprint gets a copy of the shared image. Without CI_LANE_COR (a run outside the matrix) a large core with an app of
 # its own is left out, out loud.
 #
 set -euo pipefail
@@ -118,6 +118,11 @@ for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
 done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
+
+# T265 P2 (S10): hostrecovery.app is the host app of this run, byte for byte (the stamped copy, so it equals the app part of the .txu and the application the installer writes): the recovery
+# program starts it from the root of a stick or the SD card when another firmware's updater replaced the application in the flash. It must come after the stamp above.
+cp "$out/hostapp.app" "$out/hostrecovery.app"
+cmp -s "$out/hostapp.app" "$out/hostrecovery.app" || mark_red package recovery "hostrecovery.app is not a copy of hostapp.app"
 
 # The applications the .cor bundles are packed with (stage trxapps, coreapps/): the blueprint image of every blueprint core, and for a core with a TOML B of its own
 # (cores/<id>/app/sdk.toml, tools/core_toml.py list-own-app) its app linked from the SDK package (T239.3 V-5, D25: the other cores keep the shared image until each is pulled). trx64 is a
@@ -226,7 +231,9 @@ if [ -n "$lane_cor" ]; then
   cv="$(cat "$ROOT/contract/VERSION")"
   while read -r c kind; do
     [ -n "$c" ] || continue
-    f="$lane_cor/deliver-$c/$c.cor"
+    f="$lane_cor/deliver-$c/$c.cor" src="from its matrix lane"
+    # T239.5 D24: a lane this run did not start (the plan does not touch it): its .cor of the base's package (ci/base_cor.py, the artifact base-cor), checked as a lane's
+    if [ ! -s "$f" ] && [ -s "$HANDOFF/base-cor/$c.cor" ]; then f="$HANDOFF/base-cor/$c.cor" src="from the base's package ($(cut -c1-60 "$HANDOFF/base-cor/FROM" 2>/dev/null))"; fi
     if [ ! -s "$f" ]; then mark_red package "cor-$c" "the lane core:$c delivered no $c.cor ($f)"; continue; fi
     chk=()
     if [ "$kind" = dfx ]; then
@@ -235,7 +242,12 @@ if [ -n "$lane_cor" ]; then
     fi
     if python3 "$ROOT/tools/cor_pack.py" check ${chk[@]+"${chk[@]}"} "$f" > /dev/null; then
       cp "$f" "$out/$c.cor"
-      echo "=== $c.cor ($kind): from its matrix lane, $(wc -c < "$f") bytes, checked ${chk[*]:-as a flat .cor}"
+      echo "=== $c.cor ($kind): $src, $(wc -c < "$f") bytes, checked ${chk[*]:-as a flat .cor}"
+      # D24: the SD files of a core taken from the base's package come from there too (a lane that ran delivers its own below)
+      if [ "$f" = "$HANDOFF/base-cor/$c.cor" ] && [ -d "$HANDOFF/base-cor/SD/cores/$c" ]; then
+        mkdir -p "$out/SD/cores"; cp -R "$HANDOFF/base-cor/SD/cores/$c" "$out/SD/cores/"
+        echo "=== SD/cores/$c/ from the base's package: $(find "$HANDOFF/base-cor/SD/cores/$c" -type f | wc -l | tr -d ' ') files"
+      fi
     else
       mark_red package "cor-$c" "$c.cor of the lane core:$c fails tools/cor_pack.py check ${chk[*]:-(a flat .cor)}"
     fi

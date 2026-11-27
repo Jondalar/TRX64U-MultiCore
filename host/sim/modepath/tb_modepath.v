@@ -26,9 +26,10 @@ module tb;
     wire [3:0] gear; wire [6:0] vic; wire [31:0] rate; wire [12:0] sx_e, fw_m1; wire [10:0] sy_e, ey_e; wire [2:0] ph_e;
     wire scl_low, sda_low, done, valid;
     reg c64_r = 0;
+    wire [1:0] av_mode, av_std;
     mode_req dut (.clk_sys(clk_sys), .we(we), .addr(addr), .wdata(wdata), .rdata(rdata), .rhit(rhit),
         .clk50(clk50), .c64_type(c64_r), .fam_v60(fam), .vm_mode(vm_mode), .vm_rst(vm_rst),
-        .clk_pix(pix_clk), .mode_pix(mode_pix), .gt_ready(1'b1), .pix_locked(pix_locked), .running(running), .mode_q(mode_q));
+        .clk_pix(pix_clk), .mode_pix(mode_pix), .gt_ready(1'b1), .pix_locked(pix_locked), .running(running), .mode_q(mode_q), .av_mode(av_mode), .av_std(av_std));
     cdce_mode i2c (.clk(clk50), .rst(vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(done), .mode(vm_mode), .lock(c64_r));
     hdmi_timing mtim (.clk(pix_clk), .rst(pix_rst), .mode(mode_pix), .align(1'b0), .valid(valid), .aligned(), .ce(ce), .rgb(rgb), .de(de), .hs(hs), .vs(vs),
         .cx(cx), .cy(cy), .running(running), .hact(hact), .vact(vact), .xact0(xact0), .yact0(yact0), .gear(gear), .vic(vic), .rate(rate),
@@ -93,6 +94,11 @@ module tb;
         @(posedge clk_sys); #1; we = 1; addr = 15'h4F00; wdata = v;
         @(posedge clk_sys); #1; we = 0; addr = 0;
     end endtask
+    reg [3:0] av_exp = 4'b0001;                                    // T265: the A/V register, reset value RGB on
+    task write_av(input [7:0] v); begin
+        @(posedge clk_sys); #1; we = 1; addr = 15'h4F0A; wdata = v;
+        @(posedge clk_sys); #1; we = 0; addr = 0; av_exp = v[3:0];
+    end endtask
     task retune; begin                                             // what the board does: clock away, lock lost first, back last
         repeat (400) @(posedge clk50);
         pix_locked = 0; repeat (20) @(posedge raw);
@@ -114,7 +120,7 @@ module tb;
 
     task check_status(input integer exp_row, input integer exp_ref); begin
         bus_read(4); if (rd !== 8'h48) begin fails = fails + 1; $display("FAIL status magic %h", rd); end
-        bus_read(5); if (rd !== 8'h01) begin fails = fails + 1; $display("FAIL status version %h", rd); end
+        bus_read(5); if (rd !== 8'h02) begin fails = fails + 1; $display("FAIL status version %h", rd); end
         bus_read(6);
         if (rd[0] !== 1'b1 || rd[1] !== 1'b1 || rd[2] !== 1'b1 || rd[3] !== (exp_row == 2 || exp_row == 8) || rd[4] !== c64_r || rd[7] !== exp_ref[0] || rd[6:5] !== 2'b0) begin
             fails = fails + 1; $display("FAIL status flags %b: want gt 1 pix_locked 1 running 1 locked %0d c64 %0d refused %0d", rd, (exp_row == 2 || exp_row == 8), c64_r, exp_ref);
@@ -122,6 +128,8 @@ module tb;
         bus_read(7); if (rd !== exp_row[7:0]) begin fails = fails + 1; $display("FAIL status mode %0d want %0d", rd, exp_row); end
         bus_read(8); if (rd !== reqs[7:0]) begin fails = fails + 1; $display("FAIL status requests written %0d want %0d", rd, reqs[7:0]); end
         bus_read(9); if (rd !== reqs[7:0]) begin fails = fails + 1; $display("FAIL status requests processed %0d want %0d", rd, reqs[7:0]); end
+        bus_read(10); if (rd !== {4'd0, av_exp} || {av_std, av_mode} !== av_exp) begin fails = fails + 1; $display("FAIL A/V register %h want %h (pins %b%b)", rd, av_exp, av_std, av_mode); end
+        write_av(av_exp == 4'b0001 ? 8'h06 : 8'h01);               // a write of one row changes only this register
     end endtask
 
     integer settle_to;

@@ -16,6 +16,11 @@
  *     length limit instead of his 0x180000, and only when the bitstream in
  *     flash carries the build stamp of the running one (T15 §4.2), so an
  *     SRAM-loaded test bitstream never starts the app that sits in flash.
+ *   - The guard (T265 D3): a record in the sector below the recovery slot holds
+ *     the length and CRC-32 of the application as the host wrote it. Without a
+ *     record the application starts as before; with one, a length or CRC that
+ *     differs starts the recovery program from its slot instead. A request
+ *     over JTAG skips the guard.
  *   - Requests over JTAG at 0xFFF4/0xFFF0/0xFFEC (T15 §5): check the flash
  *     image, boot a flash-format image staged in DDR2, boot from flash without
  *     the stamp check. Results at 0xFFC0.
@@ -25,6 +30,12 @@
  * console ring, `trxdbg.sh console`).
  */
 #include <stdint.h>
+
+/* T265 P1: the guard. 0 builds the same ROM without the check (the bench's
+   negative control, host/sim/flash_boot): the application is started as before. */
+#ifndef TRX_GUARD
+#define TRX_GUARD 1
+#endif
 
 #define IO8(a)              (*(volatile uint8_t *)(a))
 #define IO32(a)             (*(volatile uint32_t *)(a))
@@ -68,11 +79,25 @@
 enum { R_MAGIC, R_STATUS, R_SOURCE, R_DEST, R_LENGTH, R_RUN, R_SUM, R_XROT,
        R_BUILD, R_AXSS, R_FLAGS };
 enum { ST_BOOTING = 1, ST_CHECKED, ST_EMPTY, ST_INVALID, ST_MISMATCH, ST_LOCKED,
-       ST_BAD_REQUEST, ST_OVERLAP };
+       ST_BAD_REQUEST, ST_OVERLAP, ST_GUARD, ST_GUARD_STOP };
 enum { DO_BOOT, DO_CHECK, DO_HEADER };
 
 #define FLASH_APPL          0x220000            /* 0x3C0000 on a 100T (type 3) */
 #define MAX_APPL_SIZE       (0x1E0000 - 12)     /* the APPL partition less the header */
+/* behind the bitstream slot, below the application, at the same distances on a 100T */
+#define RECOVERY_BELOW      0x40000             /* recovery slot = application - this */
+#define RECORD_BELOW        0x1000              /* guard record sector = application - this */
+#define MAX_REC_SIZE        (RECOVERY_BELOW - RECORD_BELOW - 12 - 4)   /* header and CRC trailer */
+#define HOST_IFACE          1                   /* host-app interface of this bitstream (txu.h TXU_IFACE_PROVIDED) */
+#define REC_MAGIC           0x47585254          /* "TRXG" */
+
+/* guard block 0xFF80 (written here), recovery block 0xFF60 (written by the recovery program) */
+#define GUARD(n)            DDR32(0x0000FF80 + 4 * (n))
+#define GUARD_VALID         0x54323635
+#define RECOV(n)            DDR32(0x0000FF60 + 4 * (n))
+enum { G_MAGIC, G_VERDICT, G_REC_LEN, G_REC_CRC, G_LEN, G_CRC, G_IFACE, G_RECOVERY };
+enum { V_NONE, V_MATCH, V_EMPTY, V_HEADER, V_CRC, V_NOT_ENFORCED };
+enum { RV_NOT_TRIED, RV_STARTED, RV_EMPTY, RV_INVALID, RV_CRC };
 #define DDR_SIZE            0x04000000          /* what the CPU sees */
 
 /* bitstream packets (UG470 ch. 5) */
@@ -244,9 +269,35 @@ static uint32_t src_word(void)
     return w;
 }
 
+static uint32_t max_len = MAX_APPL_SIZE;    /* header limit; the recovery slot is smaller */
+static uint32_t appl_addr;                  /* the application's flash address: its CRC goes to the guard block */
+static uint32_t crc;                        /* CRC-32 of the words read by load(), as flashfw.cc and zlib */
+static uint32_t crc_tab[256];
+static int      crc_expect_on;              /* compare the CRC with crc_expect before jumping */
+static uint32_t crc_expect;
+static int      want_trailer;               /* a CRC word follows the data (the recovery image) */
+
+static void crc_init(void)
+{
+    for (uint32_t i = 0; i < 256; i++) {
+        uint32_t c = i;
+        for (int k = 0; k < 8; k++)
+            c = (c & 1) ? (c >> 1) ^ 0xEDB88320 : c >> 1;
+        crc_tab[i] = c;
+    }
+}
+
+/* the reflected CRC of a little endian word is the byte CRC of its 4 bytes in flash order */
+static void crc_word(uint32_t w)
+{
+    crc ^= w;
+    for (int k = 0; k < 4; k++)
+        crc = crc_tab[crc & 0xFF] ^ (crc >> 8);
+}
+
 static int header_ok(uint32_t dest, uint32_t length, uint32_t run)
 {
-    if (length == 0 || length > MAX_APPL_SIZE)
+    if (length == 0 || length > max_len)
         return 0;
     if ((dest & 3) || dest < 0x10000 || dest > DDR_SIZE - length)
         return 0;
@@ -260,6 +311,8 @@ static int load(int source, uint32_t addr, int what, uint32_t *run_out)
 {
     uint32_t dest, length, run, sum = 0, x = 0;
     int status;
+
+    crc = 0xFFFFFFFF;
 
     src_flash = (source == MODE_SRC_FLASH);
     RES(R_SOURCE) = source;
@@ -279,6 +332,9 @@ static int load(int source, uint32_t addr, int what, uint32_t *run_out)
     dest   = src_word();
     length = src_word();
     run    = src_word();
+    crc_word(dest);
+    crc_word(length);
+    crc_word(run);
     RES(R_DEST) = dest;
     RES(R_LENGTH) = length;
     RES(R_RUN) = run;
@@ -310,6 +366,12 @@ static int load(int source, uint32_t addr, int what, uint32_t *run_out)
                 *(d++) = w;
             sum += w;
             x = ((x << 1) | (x >> 31)) ^ w;
+            crc_word(w);
+        }
+        crc = ~crc;
+        if (src_flash && addr == appl_addr) {
+            GUARD(G_LEN) = 12 + ((length + 3) & ~(uint32_t)3);  /* with no record too: the host app provisions from both */
+            GUARD(G_CRC) = crc;
         }
         RES(R_SUM) = sum;
         RES(R_XROT) = x;
@@ -319,6 +381,13 @@ static int load(int source, uint32_t addr, int what, uint32_t *run_out)
         hexword(x);
         outbyte('\n');
         status = (what == DO_CHECK) ? ST_CHECKED : ST_BOOTING;
+        if (what == DO_BOOT && crc_expect_on && crc != crc_expect) {
+            status = ST_GUARD;
+            my_puts("CRC differs\n");
+        } else if (want_trailer && src_word() != crc) {
+            status = ST_GUARD_STOP;
+            my_puts("bad CRC trailer\n");
+        }
     }
     if (src_flash)
         SPI_FLASH_CTRL = 0;     /* as the original: CS back to idle */
@@ -336,12 +405,101 @@ static void boot(int source, uint32_t addr, int what)
             my_puts("Lock\n");
             return;
         }
-        RES(R_STATUS) = ST_BOOTING;
+        if (!want_trailer)      /* the recovery program leaves ST_GUARD for the application */
+            RES(R_STATUS) = ST_BOOTING;
         my_puts("Running\n");
         jump_run(run);
     }
     RES(R_STATUS) = status;
 }
+
+#if TRX_GUARD
+/* The record below the application: valid when magic and check word agree. */
+static int record_read(uint32_t appl, uint32_t *len, uint32_t *rcrc)
+{
+    uint32_t m, l, c, k;
+    flash_read_at(appl - RECORD_BELOW);
+    src_flash = 1;
+    m = src_word();
+    l = src_word();
+    c = src_word();
+    k = src_word();
+    SPI_FLASH_CTRL = 0;
+    *len = l;
+    *rcrc = c;
+    return m == REC_MAGIC && k == ~(m ^ l ^ c);
+}
+
+/* Before the application is loaded: 1 = load it (the CRC check is armed when
+   there is a record), 0 = it is not the host's own (status ST_GUARD). The
+   length is compared first, so a foreign application of another length is
+   never read beyond its header. */
+static int guard_decide(uint32_t appl)
+{
+    uint32_t rlen, rcrc, run, flen, status;
+
+    GUARD(G_MAGIC) = GUARD_VALID;
+    GUARD(G_IFACE) = HOST_IFACE;
+    if (!record_read(appl, &rlen, &rcrc)) {
+        GUARD(G_VERDICT) = V_NONE;
+        my_puts("Guard: no record\n");
+        return 1;
+    }
+    GUARD(G_REC_LEN) = rlen;
+    GUARD(G_REC_CRC) = rcrc;
+    status = load(MODE_SRC_FLASH, appl, DO_HEADER, &run);
+    flen = (status == ST_CHECKED) ? 12 + ((RES(R_LENGTH) + 3) & ~(uint32_t)3) : 0;
+    GUARD(G_LEN) = flen;
+    if (status == ST_CHECKED && flen == rlen) {
+        GUARD(G_VERDICT) = V_MATCH;
+        crc_expect_on = 1;
+        crc_expect = rcrc;
+        return 1;
+    }
+    GUARD(G_VERDICT) = (status == ST_EMPTY) ? V_EMPTY : V_HEADER;
+    RES(R_STATUS) = ST_GUARD;
+    return 0;
+}
+
+/* A JTAG request: no guard, only the record next to the flash, for `trxdbg boot check`. */
+static void guard_info(uint32_t appl)
+{
+    uint32_t len, rcrc;
+
+    GUARD(G_MAGIC) = GUARD_VALID;
+    GUARD(G_IFACE) = HOST_IFACE;
+    GUARD(G_VERDICT) = V_NOT_ENFORCED;
+    if (record_read(appl, &len, &rcrc)) {
+        GUARD(G_REC_LEN) = len;
+        GUARD(G_REC_CRC) = rcrc;
+    }
+}
+
+/* The flash application is not the host's own: start the recovery program. */
+static void guard_recover(uint32_t appl)
+{
+    int st;
+
+    if (GUARD(G_VERDICT) == V_MATCH)        /* length equal, so the CRC load found the difference */
+        GUARD(G_VERDICT) = V_CRC;
+    my_puts("Guard: the flash application is not the host's own, verdict ");
+    hexword(GUARD(G_VERDICT));
+    outbyte('\n');
+    crc_expect_on = 0;
+    want_trailer = 1;
+    max_len = MAX_REC_SIZE;
+    RES(R_STATUS) = ST_GUARD;
+    GUARD(G_RECOVERY) = RV_STARTED;
+    boot(MODE_SRC_FLASH, appl - RECOVERY_BELOW, DO_BOOT);
+    /* only a refused recovery returns */
+    st = RES(R_STATUS);
+    if (st == ST_LOCKED)
+        return;
+    GUARD(G_RECOVERY) = (st == ST_EMPTY) ? RV_EMPTY : (st == ST_GUARD_STOP) ? RV_CRC : RV_INVALID;
+    RES(R_STATUS) = ST_GUARD_STOP;
+    my_puts("No usable recovery program.\n");
+}
+#endif
 
 int main(void)
 {
@@ -367,6 +525,12 @@ int main(void)
     while (!(MIG_STATUS & MIG_CALIBRATED))
         ;
     my_puts("calibrated\n");
+    /* the blocks of an earlier boot stay in DDR2 over a JTAG magic load: no stale result */
+    RES(R_MAGIC) = 0;
+    for (int i = 0; i < 8; i++)
+        GUARD(i) = 0;
+    RECOV(0) = 0;
+    crc_init();
     test_access(0x10000, 0x12345678);
 
     if (BOOT_MAGIC_LOCATION == BOOT_MAGIC_VALUE) {
@@ -383,6 +547,7 @@ int main(void)
     if (has_build)
         build = TRX_BUILD(0) | ((uint32_t)TRX_BUILD(1) << 8) |
                 ((uint32_t)TRX_BUILD(2) << 16) | ((uint32_t)TRX_BUILD(3) << 24);
+    appl_addr = appl;
     found = flash_axss(&axss);
     RES(R_STATUS) = 0;
     RES(R_SOURCE) = 0;
@@ -408,6 +573,10 @@ int main(void)
         outbyte('\n');
         if ((mode & ~(uint32_t)(MODE_CHECK | 3)) == 0 &&
             (src == MODE_SRC_FLASH || src == MODE_SRC_DDR)) {
+#if TRX_GUARD
+            if (src == MODE_SRC_FLASH)
+                guard_info(appl);
+#endif
             boot(src, src == MODE_SRC_FLASH ? appl : TRX_REQ_ADDR,
                  (mode & MODE_CHECK) ? DO_CHECK : DO_BOOT);
         } else {
@@ -416,7 +585,14 @@ int main(void)
         }
     } else if (!(caps & CAPAB_BOOT_FPGA)) {
         if (has_build && found && axss == build) {
+#if TRX_GUARD
+            if (guard_decide(appl))
+                boot(MODE_SRC_FLASH, appl, DO_BOOT);
+            if (RES(R_STATUS) == ST_GUARD)
+                guard_recover(appl);
+#else
             boot(MODE_SRC_FLASH, appl, DO_BOOT);
+#endif
         } else {
             uint32_t run;
             my_puts("Not this bitstream's flash: no flash boot.\n");

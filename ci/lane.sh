@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# T239.5 (D8-D10): one cell of the matrix - one step of one lane - run by its job in .github/workflows/matrix.yml. The lanes run on the T239 branch
-# (t239.3, t239.3-*) instead of the old pipeline (D3), on every other push beside it (D11, D13, D14; ci/dispatch.py starts the lanes). Each cell prints
+# T239.5 (D8-D10): one cell of the matrix - one step of one lane - run by its job in .github/workflows/matrix.yml, the pipeline of
+# every push (D22; ci/dispatch.py starts the lanes). Each cell prints
 # what it checked; a red cell stops its lane and the lanes that need it.
 #
 #   ci/lane.sh <lane> <step>
@@ -9,7 +9,8 @@
 #     core:<id>  unit | changed | compare | needs | build | fits | service | ui | api | package | deliver
 #     bits:<id>  key | fetch | report  (a partial core: the host's and the core's bitstreams; a large core: its flat bitstream, T213.3 P5; the builder
 #                                     builds a missing key, ci/fetch_bits.sh restores it)
-#     package    names | collect | package   (D14: the whole package - every lane's bitstream entries, as the old pipeline's collect; then ci/package.sh over
+#     cor        trxapps   (the hand-over of the cor jobs: the shared image and its copies for the cores that run it)
+#     package    names | collect | package   (D14: the whole package - every lane's bitstream entries; then ci/package.sh over
 #                                     what the lanes delivered: the SDK lane's shared image, sub-apps and SDK package, the host menu, each core lane's .cor)
 #   A core lane is a partial core (dfx) or a large core (large: cores/<id>/mono/core.toml, its own flat bitstream), tools/core_toml.py lanes.
 #
@@ -77,7 +78,9 @@ host)
     build)
       TRXAPPS_ONLY=host "$ROOT/ci/trxapps.sh"
       o="$HANDOFF/host"; rm -rf "$o"; mkdir -p "$o"
-      cp "$HANDOFF/trxapps/hostapp.app" "$HANDOFF/trxapps/hostapp.elf" "$HANDOFF/trxapps/hostapp_emu.elf" "$o/" ;;
+      cp "$HANDOFF/trxapps/hostapp.app" "$HANDOFF/trxapps/hostapp.elf" "$HANDOFF/trxapps/hostapp_emu.elf" "$o/"
+      # T265 P2: the recovery program for debugging; the host app carries its slot image itself
+      cp "$HANDOFF/trxapps/hostrecovery.app" "$HANDOFF/trxapps/hostrecovery.elf" "$o/" ;;
     *) die "the host menu lane has no step $step" ;;
   esac ;;
 
@@ -201,6 +204,34 @@ print(" ".join(n for n in both if key(a[n]) == key(b[n]))); print(" ".join(n for
     *) die "a core lane has no step $step" ;;
   esac ;;
 
+# T265 P5: the host gateware (host, aux designs, the reference core, the flash filler): the builder builds what the work order names (the target host of
+# ci/order.py), this lane keys, fetches and reports it. The DFX lanes' bits jobs wait for it.
+bits:host)
+  case "$step" in
+    key)
+      say "the host gateware: the host, the aux designs, the reference core $(layer_reference "$ROOT/host/layers.txt") and the flash filler ($(python3 -I "$ROOT/tools/core_toml.py" flash-fillers | tr '\n' ' '))"
+      "$ROOT/ci/fetch_bits.sh" --names host | sed 's/^/    /' ;;
+    fetch) "$ROOT/ci/fetch_bits.sh" host ;;
+    report)
+      cache="${CI_BIT_CACHE:?CI_BIT_CACHE}"
+      entries=("$cache"/host-* "$cache"/aux-* "$cache"/core-"$(layer_reference "$ROOT/host/layers.txt")"-*)
+      for f in $(python3 -I "$ROOT/tools/core_toml.py" flash-fillers); do entries+=("$cache"/core-"$f"-*); done
+      for e in "${entries[@]}"; do
+        [ -f "$e/DONE" ] || continue
+        say "${e##*/}: from $(cat "$e/from" 2>/dev/null || echo ?)"
+        for f in "$e"/*.rpt "$e"/*timing*.txt "$e"/*util*.txt; do
+          [ -f "$f" ] || continue
+          awk -v n="${f##*/}" '
+            /All user specified timing constraints are met|Timing constraints are not met/ { print "    " n ": " $0; next }
+            w == 1 { w = 2; next }
+            w == 2 { printf "    %s: WNS %s ns, TNS %s ns, WHS %s ns\n", n, $1, $2, $5; w = 3; next }
+            w == 0 && /^[ \t]*WNS\(ns\)[ \t]+TNS\(ns\)/ { w = 1; next }
+            /^\| Slice LUTs/ && !l { gsub(/[ ]+/, " "); print "    " n ": " $0; l = 1 }' "$f"
+        done
+      done ;;
+    *) die "the host bitstream lane has no step $step" ;;
+  esac ;;
+
 bits:?*)
   id="${lane#bits:}"
   kind="$(kind_of "$id")"; target="core:$id"; [ "$kind" = dfx ] || target="large:$id"
@@ -234,30 +265,22 @@ bits:?*)
     *) die "a bitstream lane has no step $step" ;;
   esac ;;
 
-# D14 (Alex, 2026-11-24): the whole package with every core, as the old pipeline's package stage makes it. collect runs in the job that waits at the environment
+# D14 (Alex, 2026-11-24): the whole package with every core (ci/package.sh). collect runs in the job that waits at the environment
 # bitstreams, after ci/fetch_bits.sh restored every entry; package in the job after the lanes, with their artifacts in $HANDOFF/sdk, host, shared-app and
 # lanes/deliver-<id> (the workflow downloads them there).
 package)
   case "$step" in
     # 11: the entry names this package fetches (ci/fetch_bits.sh --names: every lane's and the imports'), into $HANDOFF/entry-names.txt (the job keys GitHub's cache
-    # with them and hands them to ci/fetch_bits.sh, T239.1 D40). CI_IMPORTS=no (the T239 branch, alone): the import entries are left out, out loud - the builder names
-    # them with integration's ci/imports.py, whose key hashes ci/imports.py itself, so the names this branch's copy makes are never published (T261 review 3.3)
+    # with them and hands them to ci/fetch_bits.sh, T239.1 D40)
     names)
-      "$ROOT/ci/fetch_bits.sh" --names > "$HANDOFF/entry-names.all"
-      if [ "${CI_IMPORTS:-yes}" = no ]; then
-        grep -v '^imp-' "$HANDOFF/entry-names.all" > "$HANDOFF/entry-names.txt" || true
-        say "CI_IMPORTS=no: left out $(grep '^imp-' "$HANDOFF/entry-names.all" | tr '\n' ' ')(no trx64u.cor, no trx64g.cor in this package)"
-      else
-        cp "$HANDOFF/entry-names.all" "$HANDOFF/entry-names.txt"
-      fi
-      rm -f "$HANDOFF/entry-names.all"
+      "$ROOT/ci/fetch_bits.sh" --names > "$HANDOFF/entry-names.txt"
       [ -s "$HANDOFF/entry-names.txt" ] || die "ci/fetch_bits.sh --names named no entry"
       say "$(wc -l < "$HANDOFF/entry-names.txt" | tr -d ' ') entries" ;;
-    # 11: the bitstream entries of every lane (host, each partial core, each large core) and the imports (trx64u.cor, trx64g.cor; not with CI_IMPORTS=no), from the
+    # 11: the bitstream entries of every lane (host, each partial core, each large core) and the imports (trx64u.cor, trx64g.cor), from the
     # restored cache (ci/collect.sh)
     collect) "$ROOT/ci/child.sh" collect ;;
-    # 11: the stage trxapps of the old pipeline put together from the lanes (13 of each: the artifacts sdk, host, shared-app), then ci/package.sh with the core
-    # lanes' .cor (CI_LANE_COR); the job uploads $ROOT/out as the artifact `package` (13), the name the old pipeline's update, emu and prerelease read
+    # 11: the stage trxapps put together from the lanes (13 of each: the artifacts sdk, host, shared-app), then ci/package.sh with the core
+    # lanes' .cor (CI_LANE_COR); the job uploads $ROOT/out as the artifact `package` (13), the name the jobs update and prerelease read
     package)
       t="$HANDOFF/trxapps"; rm -rf "$t"; mkdir -p "$t"
       sdkt="$(sdk_tarball)"; [ -n "$sdkt" ] || die "no SDK package in $HANDOFF/sdk (the SDK lane's artifact sdk)"
@@ -274,6 +297,28 @@ package)
     *) die "the whole package has no step $step" ;;
   esac ;;
 
-*) die "unknown lane (sdk, host, core:<id>, bits:<id>, package)" ;;
+# The cor jobs of a feature branch (.github/workflows/cor.yml): the .cor of a core that has no lane of its own is packed by ci/cor.sh from the stage trxapps; this step
+# makes that hand-over from the SDK lane's artifact shared-app (the blueprint image) - the image of every .cor core that runs it, as the whole package copies it.
+cor)
+  case "$step" in
+    trxapps)
+      t="$HANDOFF/trxapps"; rm -rf "$t"; mkdir -p "$t/coreapps"
+      for f in coreapp.bin coreapp.elf; do
+        [ -s "$HANDOFF/shared-app/$f" ] || die "no shared-app/$f (the SDK lane's artifact shared-app)"
+        cp "$HANDOFF/shared-app/$f" "$t/"
+      done
+      own_lanes="$(python3 -I "$ROOT/tools/core_toml.py" lanes)" || die "tools/core_toml.py lanes failed"
+      for c in $(python3 -I "$ROOT/tools/core_toml.py" list-cor); do
+        if awk -v c="$c" '$1 == c { f = 1 } END { exit !f }' <<< "$own_lanes"; then continue; fi
+        app="$(python3 -I "$ROOT/tools/core_toml.py" get "$c" app)"
+        [ "$app" != blueprint ] || cp "$t/coreapp.bin" "$t/coreapps/$c.app"
+      done
+      git -C "$ROOT" rev-parse HEAD > "$t/trxapps_commit"
+      : > "$t/DONE"
+      say "the trxapps hand-over from the shared app: $(cd "$t/coreapps" && ls | tr '\n' ' ')" ;;
+    *) die "the cor hand-over has no step $step" ;;
+  esac ;;
+
+*) die "unknown lane (sdk, host, core:<id>, bits:host, bits:<id>, package, cor)" ;;
 esac
 say "green"

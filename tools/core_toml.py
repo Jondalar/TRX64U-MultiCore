@@ -321,6 +321,8 @@ def main():
         print("\n".join(names))
     elif a[:1] == ["list-cor"]:
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
+    elif a[:1] == ["flash-fillers"]:        # T265 P5: the cores that fill the flash image with the host (ci/order.py, ci/fetch_bits.py target host)
+        print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and t.get("flash_filler")))
     elif a[:1] == ["list-own-app"]:
         print("\n".join(own_app_cores()))
     elif a[:1] == ["pre-release-only"]:

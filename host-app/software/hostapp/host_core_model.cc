@@ -273,7 +273,7 @@ public:
     int field_set(const char *key, const char *value, char *why, int n) override
     {
         int kind = hc_set_kind_of(key);
-        if (kind == SK_DIRECT || kind == SK_AUTO || kind == SK_PROTECT || kind == SK_FTP) {
+        if (kind == SK_DIRECT || kind == SK_AUTO || kind == SK_PROTECT || kind == SK_FTP || kind == SK_AV) {
             bool want;
             if (!parse_bool(value, &want)) {
                 snprintf(why, n, "on or off");

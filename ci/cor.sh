@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T174 D2.7 + D4: the child `cor` of a feature branch - ONE core's .cor from this run's images (child `images`) and the core's bitstream, left in
+# T174 D2.7 + D4: the child `cor` of a feature branch - ONE core's .cor from this run's images (`ci/lane.sh cor trxapps`) and the core's bitstream, left in
 # $HANDOFF/cor-<target>/; the workflow (.github/workflows/cor.yml) uploads it as the artifact cor-<target> (T239.1 D1: only main gets a pre-release).
 # On main the package packs every .cor.
 #

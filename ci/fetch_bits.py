@@ -2,8 +2,8 @@
 """T239.1 D19, S5, S8: restore cache entries of $CI_BIT_CACHE from the bit-<entry> releases of the builds repository, so ci/collect.sh, ci/pack_one.sh and
 ci/bitstream*.sh read them as they read the builder's cache.
 
-  ci/fetch_bits.sh [core:<id> | large:<id>]    no argument: every entry of ci/keys.sh and of ci/imports.py (imp-<id>-<key>: trx64u.cor, trx64g.cor, D43);
-                                               core:<id>: the host, the reference core and that core; large:<id>: its flat entry
+  ci/fetch_bits.sh [host | core:<id> | large:<id>]    no argument: every entry of ci/keys.sh and of ci/imports.py (imp-<id>-<key>: trx64u.cor, trx64g.cor, D43);
+                                               host: the host, aux, the reference core and the flash filler (T265 P5); core:<id>: the host, the reference core and that core; large:<id>: its flat entry
   ci/fetch_bits.sh --names [core:<id> | large:<id>]   print the entry names only (the collect job keys GitHub's cache with them, D40)
     env  CI_BIT_CACHE   the directory the entries are restored into (default $RUNNER_TEMP/bit)
          CI_HANDOFF     gets bit-releases.json: per entry the release tag and id and the SHA-256 of SHA256SUMS and of every asset (ci/package.sh puts it into manifest.json)
@@ -83,15 +83,27 @@ def entry_names():
     return names
 
 
+def flash_fillers():
+    override = os.environ.get("FETCH_FILLERS")
+    if override is not None:
+        return override.split()
+    r = subprocess.run([sys.executable, "-I", os.path.join(os.path.dirname(HERE), "tools", "core_toml.py"), "flash-fillers"], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise FetchError("tools/core_toml.py flash-fillers failed: " + r.stderr.strip()[-300:])
+    return r.stdout.split()
+
+
 def select(names, target, ref):
     if not target:
         return list(names)
-    if target.startswith("core:"):
+    if target == "host":        # T265 P5: the host gateware, aux, the reference core and the flash filler (what ci/order.py orders for the target host)
+        want = {"host", "aux", "core-" + ref} | {"core-" + c for c in flash_fillers()}
+    elif target.startswith("core:"):
         want = {"host", "core-" + ref, "core-" + target[5:]}
     elif target.startswith("large:"):
         want = {"mono-" + target[6:]}
     else:
-        raise FetchError("target is core:<id> or large:<id>, not %r" % target[:40])
+        raise FetchError("target is host, core:<id> or large:<id>, not %r" % target[:40])
     out = [n for n in names if ENTRY.match(n).group(1) in want]
     if len(out) != len(want):
         raise FetchError("ci/keys.sh has no entry for %s (found %s)" % (target, " ".join(out) or "none"))

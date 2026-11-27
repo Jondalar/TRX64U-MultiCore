@@ -278,6 +278,10 @@ void hc_ui_settings_change(int kind, int dir)
     }
     case SK_HDMI:                                        // T187 D5 (Q-D5.1): LEFT / RIGHT on the closed row do nothing, RETURN opens the page (settings_key)
         break;
+    case SK_AV:
+        hc_av_set(!hc_cfg().vid_av);
+        hc_ui_note(hc_cfg().vid_av ? "Analogue out: RGB" : "Analogue out: off", HCT_HOST);
+        break;
     case SK_PROTECT:
         hc_protect_set(!flashprot_enabled());
         hc_ui_note(flashprot_enabled() ? "Flash protection on: a large core cannot write the host or its app" : "Flash protection off: a large core can write the whole flash", HCT_HOST);

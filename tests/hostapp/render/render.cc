@@ -1212,7 +1212,7 @@ static void api_asked_findings(void)
     // 2b. the Cores and ROMs page is open: entry.remove and wifi.forget are busy, the page stays
     hostui_test_init(CFG3);
     hostui_test_key(KEY_F8);
-    for (int i = 0; i < 6; i++) hostui_test_key(KEY_DOWN);
+    for (int i = 0; i < 7; i++) hostui_test_key(KEY_DOWN);               // Cores and ROMs, below Analogue out (T265)
     hostui_test_key(KEY_RETURN);
     hostui_test_cm(cm, sizeof(cm));
     CHECK(strstr(cm, "mode=1 "));
@@ -1553,7 +1553,7 @@ static void scenarios_t139(const char *out)
     CHECK(has("view=4 ") && has("foot='UP/DOWN select    LEFT/RIGHT or RETURN change    V picture'"));
     char se[1024];
     hostui_test_settings(se, sizeof(se));
-    CHECK(!strcmp(se, "sel=0|Direct boot=on|Picture=from the screen: 576p / 480p|Protect Flash from updates=on|WiFi=open|FTP service=on, port 21, no password|Inspect .cfw/.ue2 for ESP32=open|Cores and ROMs=open|Bug report=write to SD/USB|") ||
+    CHECK(!strcmp(se, "sel=0|Direct boot=on|Picture=from the screen: 576p / 480p|Analogue out=RGB|Protect Flash from updates=on|WiFi=open|FTP service=on, port 21, no password|Inspect .cfw/.ue2 for ESP32=open|Cores and ROMs=open|Bug report=write to SD/USB|") ||
           (printf("settings: %s\n", se), false));                       // direct on: no autostart rows
     g_saves = 0;
     hostui_test_key(KEY_RETURN);                                         // direct boot off
@@ -1612,7 +1612,7 @@ static void scenarios_t139(const char *out)
     hostui_test_settings(se, sizeof(se));
     CHECK(strstr(se, "Bug report=write to SD/USB|"));
     CHECK(g_rep_saves == 0);
-    for (int i = 0; i < 7; i++) hostui_test_key(KEY_DOWN);               // direct on: Direct boot, Picture, Protect Flash, WiFi, FTP service, Inspect, Cores and ROMs, Bug report
+    for (int i = 0; i < 8; i++) hostui_test_key(KEY_DOWN);               // direct on: Direct boot, Picture, Analogue out, Protect Flash, WiFi, FTP service, Inspect, Cores and ROMs, Bug report
     hostui_test_key(KEY_RETURN);
     CHECK(g_rep_saves == 1 && g_rep_name == "20261030-140510.txt");
     CHECK(g_rep_text.find("== Versions ==") != std::string::npos && g_rep_text.find("Host app: ") != std::string::npos);
@@ -1754,9 +1754,9 @@ static void scenarios_t148(const char *out)
     putp("/Usb0/cores/nes.cor", 100, 12);
     hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/apple2.cor|Apple||0\n");
     hostui_test_key(KEY_F8);
-    for (int i = 0; i < 6; i++) hostui_test_key(KEY_DOWN);
+    for (int i = 0; i < 7; i++) hostui_test_key(KEY_DOWN);               // Cores and ROMs, below Analogue out (T265)
     hostui_test_settings(cm, sizeof(cm));
-    CHECK(strstr(cm, "Cores and ROMs=open|") && strstr(cm, "sel=6|"));
+    CHECK(strstr(cm, "Cores and ROMs=open|") && strstr(cm, "sel=7|"));
     hostui_test_key(KEY_RETURN);                                          // opens the page
     hostui_test_cm(cm, sizeof(cm));
     CHECK(strstr(cm, "mode=1 "));
@@ -3785,7 +3785,7 @@ static void nolock_scenario(const char *out)
     hostui_test_key(KEY_F8);
     char se[1024], p[512];
     hostui_test_settings(se, sizeof(se));
-    CHECK(!strcmp(se, "sel=0|Direct boot=on|Picture=from the screen: 576p / 480p|WiFi=open|FTP service=on, port 21, no password|Inspect .cfw/.ue2 for ESP32=open|Cores and ROMs=open|Bug report=write to SD/USB|") ||
+    CHECK(!strcmp(se, "sel=0|Direct boot=on|Picture=from the screen: 576p / 480p|Analogue out=RGB|WiFi=open|FTP service=on, port 21, no password|Inspect .cfw/.ue2 for ESP32=open|Cores and ROMs=open|Bug report=write to SD/USB|") ||
           (printf("settings: %s\n", se), false));
     CHECK(!strstr(se, "Protect Flash"));
     snprintf(p, sizeof(p), "%s/t152_nolock_settings.png", out); png(p, 2);

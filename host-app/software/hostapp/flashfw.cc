@@ -77,7 +77,7 @@ static bool axss_walk(AxGet get, void *ctx, uint32_t len, uint32_t *value)
     }
     for (int n = 0; n < 65536; n++) {
         uint32_t w, count = 0;
-        if (pos >= FW_BIT_SLOT || pos + 4 > len || !ax_word(get, ctx, pos, &w)) {
+        if (pos >= FW_BIT_SLOT_FULL || pos + 4 > len || !ax_word(get, ctx, pos, &w)) {
             break;
         }
         pos += 4;
@@ -104,7 +104,7 @@ static bool axss_walk(AxGet get, void *ctx, uint32_t len, uint32_t *value)
         } else {
             break;
         }
-        if (count >= (FW_BIT_SLOT >> 2)) {
+        if (count >= (FW_BIT_SLOT_FULL >> 2)) {
             break;
         }
         pos += 4 * count;
@@ -376,7 +376,7 @@ static bool flash_axss(Flash *fl, uint32_t *value, bool *found)
 {
     static FlashWin w;
     w.fl = fl; w.have = false; w.io_err = false;
-    *found = axss_walk(get_flash_byte, &w, FW_BIT_SLOT, value);
+    *found = axss_walk(get_flash_byte, &w, FW_BIT_SLOT_FULL, value);
     return !w.io_err;
 }
 
@@ -396,7 +396,7 @@ bool fw_write_parts(Flash *fl, const FwImage &img, uint32_t parts, FwProgress cb
     res->why = "";
     const bool do_bit = (parts & FW_PART_BIT) != 0, do_app = (parts & FW_PART_APP) != 0;
     if (img.sealed != FW_SEALED || (!do_bit && !do_app) || (parts & ~(FW_PART_BIT | FW_PART_APP)) || (do_bit && !img.bit) || (do_app && !img.app) ||
-        img.bit_len > FW_BIT_SLOT || img.app_len > FW_APP_SLOT) {
+        img.bit_len > (img.bit_slot ? img.bit_slot : FW_BIT_SLOT) || img.app_len > FW_APP_SLOT) {
         res->why = "the image was not checked";                                   // before any erase: started stays false
         return false;
     }
@@ -407,6 +407,7 @@ bool fw_write_parts(Flash *fl, const FwImage &img, uint32_t parts, FwProgress cb
             return false;
         }
     }
+    const uint32_t bslot = img.bit_slot ? img.bit_slot : FW_BIT_SLOT;
     Wr w = { fl, res, cb, ctx };
     // 1. the application, header last
     if (do_app && !write_range(w, FW_APP_ADDR, img.app, img.app_len, true, FWP_APP)) {
@@ -420,7 +421,7 @@ bool fw_write_parts(Flash *fl, const FwImage &img, uint32_t parts, FwProgress cb
         if (cb) {
             cb(ctx, FWP_BIT, 0, 0, "clearing the rest of the slot");
         }
-        if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, FW_BIT_SLOT, FWP_BIT)) {
+        if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, bslot, FWP_BIT)) {
             return false;
         }
     }
@@ -448,7 +449,7 @@ bool fw_write_parts(Flash *fl, const FwImage &img, uint32_t parts, FwProgress cb
         }
     }
     // the slot behind the bitstream reads blank
-    for (uint32_t a = (do_bit ? (img.bit_len + FW_PAGE - 1) / FW_PAGE * FW_PAGE : FW_BIT_SLOT); a < FW_BIT_SLOT; a += FW_PAGE) {
+    for (uint32_t a = (do_bit ? (img.bit_len + FW_PAGE - 1) / FW_PAGE * FW_PAGE : bslot); a < bslot; a += FW_PAGE) {
         if (!fl->read_page((int)((FW_BIT_ADDR + a) / FW_PAGE), rd_buf)) {
             res->phase = FWP_READBACK; res->sector = a; res->why = "the flash could not be read";
             return false;
@@ -516,6 +517,8 @@ bool fw_read_part(CorSource &src, uint32_t off, uint8_t *dst, uint32_t n, uint32
     return true;
 }
 
+static bool seal_impl(FwImage *img, bool checked, const uint8_t *bit, uint32_t bit_len, const uint8_t *app, uint32_t app_len, uint32_t axss, uint32_t bit_slot, const char **why);
+
 // ---- the gate ------------------------------------------------------------------------------------------------------------------------
 bool fw_image_seal(FwImage *img, bool checked, const uint8_t *bit, uint32_t bit_len, const uint8_t *app, uint32_t app_len, uint32_t axss, const char **why)
 {
@@ -524,12 +527,18 @@ bool fw_image_seal(FwImage *img, bool checked, const uint8_t *bit, uint32_t bit_
         *why = !checked ? "the package did not pass its check" : (!bit ? "the bitstream does not fit its slot" : "the application does not fit its slot");
         return false;
     }
-    return fw_image_seal_parts(img, checked, bit, bit_len, app, app_len, axss, why);
+    return seal_impl(img, checked, bit, bit_len, app, app_len, axss, FW_BIT_SLOT_FULL, why);
 }
 
 bool fw_image_seal_parts(FwImage *img, bool checked, const uint8_t *bit, uint32_t bit_len, const uint8_t *app, uint32_t app_len, uint32_t axss, const char **why)
 {
+    return seal_impl(img, checked, bit, bit_len, app, app_len, axss, FW_BIT_SLOT, why);
+}
+
+static bool seal_impl(FwImage *img, bool checked, const uint8_t *bit, uint32_t bit_len, const uint8_t *app, uint32_t app_len, uint32_t axss, uint32_t bit_slot, const char **why)
+{
     memset(img, 0, sizeof(*img));
+    img->bit_slot = bit_slot;
     if (!checked) {
         *why = "the package did not pass its check";
         return false;
@@ -538,7 +547,7 @@ bool fw_image_seal_parts(FwImage *img, bool checked, const uint8_t *bit, uint32_
         *why = "the package holds no part";
         return false;
     }
-    if (bit && (bit_len == 0 || bit_len > FW_BIT_SLOT)) {
+    if (bit && (bit_len == 0 || bit_len > bit_slot)) {
         *why = "the bitstream does not fit its slot";
         return false;
     }
@@ -576,5 +585,100 @@ bool fw_image_seal_parts(FwImage *img, bool checked, const uint8_t *bit, uint32_
     img->axss = bit ? axss : 0;
     img->sealed = FW_SEALED;
     *why = "";
+    return true;
+}
+
+// ---- T265: the guard's record, the recovery program, the application as the flash holds it ---------------------------------------------------
+uint32_t fw_guard_chk(uint32_t len, uint32_t crc) { return ~(FW_GUARD_MAGIC ^ len ^ crc); }
+
+bool fw_read_record(Flash *fl, FwGuardRecord *rec)
+{
+    if (!fl->read_page((int)(FW_RECORD_ADDR / FW_PAGE), rd_buf)) {
+        return false;
+    }
+    if (le32(rd_buf) != FW_GUARD_MAGIC || le32(rd_buf + 12) != fw_guard_chk(le32(rd_buf + 4), le32(rd_buf + 8))) {
+        return false;
+    }
+    rec->len = le32(rd_buf + 4);
+    rec->crc = le32(rd_buf + 8);
+    return true;
+}
+
+bool fw_write_record(Flash *fl, uint32_t len, uint32_t crc, FwWriteResult *res)
+{
+    memset(res, 0, sizeof(*res));
+    res->why = "";
+    const char *type, *cwhy;
+    if (!fw_flash_check(fl, &type, &cwhy)) {
+        res->why = cwhy;
+        return false;
+    }
+    Wr w = { fl, res, 0, 0 };
+    if (!erase_sector_at(w, FW_RECORD_ADDR, FWP_APP)) {
+        return false;
+    }
+    uint8_t rec[16];
+    const uint32_t v[4] = { FW_GUARD_MAGIC, len, crc, fw_guard_chk(len, crc) };
+    for (int i = 0; i < 16; i++) {
+        rec[i] = (uint8_t)(v[i / 4] >> (8 * (i % 4)));
+    }
+    if (!program_page(w, FW_RECORD_ADDR, rec, sizeof(rec), 0, FWP_APP)) {
+        return false;
+    }
+    res->ok = true;
+    return true;
+}
+
+bool fw_recovery_equals(Flash *fl, const uint8_t *img, uint32_t len)
+{
+    uint32_t bad;
+    return img && len && len <= FW_RECOVERY_SLOT && region_equals(fl, FW_RECOVERY_ADDR, img, len, &bad);
+}
+
+bool fw_write_recovery(Flash *fl, const uint8_t *img, uint32_t len, FwWriteResult *res)
+{
+    memset(res, 0, sizeof(*res));
+    res->why = "";
+    if (!img || len < FW_REC_HDR + 4 || len > FW_RECOVERY_SLOT) {
+        res->why = "the recovery program does not fit its slot";
+        return false;
+    }
+    const char *type, *cwhy;
+    if (!fw_flash_check(fl, &type, &cwhy)) {
+        res->why = cwhy;
+        return false;
+    }
+    Wr w = { fl, res, 0, 0 };
+    if (!write_range(w, FW_RECOVERY_ADDR, img, len, true, FWP_APP) || !clear_tail(w, FW_RECOVERY_ADDR + len, FW_RECORD_ADDR, FWP_APP)) {
+        return false;
+    }
+    uint32_t bad;
+    if (!region_equals(fl, FW_RECOVERY_ADDR, img, len, &bad)) {
+        res->phase = FWP_READBACK; res->sector = bad; res->why = "the flash does not hold what was written";
+        return false;
+    }
+    res->ok = true;
+    return true;
+}
+
+bool fw_flash_app_crc(Flash *fl, uint32_t *len, uint32_t *crc)
+{
+    if (!fl->read_page((int)(FW_APP_ADDR / FW_PAGE), rd_buf)) {
+        return false;
+    }
+    uint32_t dest = le32(rd_buf), dlen = le32(rd_buf + 4), run = le32(rd_buf + 8);
+    if (dlen == 0 || dlen > FW_APP_SLOT - FW_REC_HDR || (dest & 3) || dest < 0x10000u || dest > 0x04000000u - dlen || run < dest || run >= dest + dlen) {
+        return false;                                                           // the rules fw_image_seal_parts takes from the boot ROM
+    }
+    const uint32_t total = FW_REC_HDR + ((dlen + 3u) & ~3u);
+    uint32_t c = 0;
+    for (uint32_t off = 0; off < total; off += FW_PAGE) {
+        if (!fl->read_page((int)((FW_APP_ADDR + off) / FW_PAGE), rd_buf)) {
+            return false;
+        }
+        c = fw_crc32_update(c, rd_buf, total - off < FW_PAGE ? total - off : FW_PAGE);
+    }
+    *len = total;
+    *crc = c;
     return true;
 }
