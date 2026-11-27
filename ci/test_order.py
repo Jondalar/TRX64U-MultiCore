@@ -26,6 +26,8 @@ class OrderTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.keys = os.path.join(self.tmp, "keys")
         open(self.keys, "w").write("\n".join(NAMES) + "\n")
+        self.imports = os.path.join(self.tmp, "imports")
+        open(self.imports, "w").close()
         self.plan = os.path.join(self.tmp, "plan.json")
         json.dump({"version": 1}, open(self.plan, "w"))
 
@@ -34,7 +36,7 @@ class OrderTest(unittest.TestCase):
 
     def run_order(self, children=None, cors=None, plan=None, expect_rc=0, fillers="", cores=None, host_bits=False):
         env = {"PATH": os.environ["PATH"], "PLAN_JSON_FILE": plan or self.plan, "WORK_ORDER_OUT": os.path.join(self.tmp, "wo.json"), "GITHUB_OUTPUT": os.path.join(self.tmp, "out"),
-               "ORDER_KEYS": self.keys, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "ORDER_FILLERS": fillers, "GH_TOKEN": "tok"}
+               "ORDER_KEYS": self.keys, "ORDER_IMPORTS": self.imports, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "ORDER_FILLERS": fillers, "GH_TOKEN": "tok"}
         if children is not None:
             env["CHILDREN"] = json.dumps(children)
         if cores is not None:
@@ -108,6 +110,19 @@ class OrderTest(unittest.TestCase):
         self.gh.releases.pop("bit-" + NAMES[0])                                           # host entry: every partial core's job waits too
         self.run_order(**kw)
         self.assertEqual(self.outputs["bits_missing"], '["vc20","zx_next","amiga1200"]')
+
+    def test_collect_waits_for_a_missing_import(self):                                    # T239.5 D28: collect fetches the imports too
+        kw = dict(children=["cor", "package"], cores=["vc20"], host_bits=True)
+        for n in NAMES:
+            self.gh.add_release("bit-" + n, {"SHA256SUMS": b"x"})
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["missing"], self.outputs["collect_missing"]), ("false", "false"))
+        open(self.imports, "w").write("imp-trx64u-0123456789abcdef\n")                 # an import not yet published: only collect waits
+        self.run_order(**kw)
+        self.assertEqual((self.outputs["missing"], self.outputs["collect_missing"], self.outputs["bits_missing"]), ("false", "true", "[]"))
+        self.gh.add_release("bit-imp-trx64u-0123456789abcdef", {"SHA256SUMS": b"x"})
+        self.run_order(**kw)
+        self.assertEqual(self.outputs["collect_missing"], "false")
 
     def test_unknown_children_order_everything(self):
         wo, _ = self.run_order()

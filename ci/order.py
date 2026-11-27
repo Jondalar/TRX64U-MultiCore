@@ -106,6 +106,16 @@ def needed(names, children, cor_targets, ref):
     return [n for n in names if group_of(n) in want]
 
 
+def import_names():
+    """The imports the job collect fetches beside the entries (ci/fetch_bits.py entry_names takes the same list); ORDER_IMPORTS: a file with the names (tests)."""
+    if os.environ.get("ORDER_IMPORTS") is not None:
+        return [l.strip() for l in open(os.environ["ORDER_IMPORTS"]).read().splitlines() if l.strip()]
+    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "imports.py"), "names"], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise OrderError("ci/imports.py names failed: " + r.stderr.strip()[-300:])
+    return [l.strip() for l in r.stdout.splitlines() if l.strip()]
+
+
 def job_missing(names, gone, ref, cores, host_job):
     """T239.5 D28: (host_missing, bits_missing). The job host-bits fetches the entries of the target host, the job bits of a core those of core:<id> (large:<id> for a core
     with a mono entry); a job waits at the environment bitstreams only when one of them is not published. The same rule as the work order: `gone` is its test."""
@@ -194,6 +204,9 @@ def main():
             host_missing, bits_missing = job_missing(every, gone, ref, json.loads(os.environ.get("CORES") or "[]"), os.environ.get("HOST_BITS") == "true")
             f.write("host_missing=%s\n" % ("true" if host_missing else "false"))
             f.write("bits_missing=%s\n" % json.dumps(bits_missing, separators=(",", ":")))
+            # the job collect also fetches the imports (trx64u.cor, trx64g.cor: release/imports/*.pin, ci/imports.py), which the work order does not name;
+            # it waits for the builder when one of its entries or one import is not published
+            f.write("collect_missing=%s\n" % ("true" if missing or any(gone(n) for n in import_names()) else "false"))
     return 0
 
 
