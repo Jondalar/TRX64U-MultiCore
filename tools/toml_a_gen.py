@@ -36,8 +36,8 @@ def own_modules(core, toml_a=None, srcdir=None):
         if T.DRIVE_LO <= a < T.DRIVE_HI or not T.WIN_BASE <= a < T.WIN_BASE + T.WIN_SIZE or b["module"] == "pix_layer":
             continue
         p = T.find_module(core, b["module"], srcdir)
-        if p is None or re.search(r"/cores/(c64u|common)/", p):
-            continue
+        if p is None or re.search(r"/cores/(c64u|common)/", p) or not (T.decoded(p)[0] or region(open(p).read())):
+            continue            # a module the core does not own, or one with no offset decode (the list check names it UNCHECKED)
         for pr in b.get("property", []):
             nb = max(1, pr["width"] // 8)
             cnt, st = pr.get("count", 1), pr.get("stride", nb)
