@@ -233,6 +233,7 @@ def convert(cid, run=True, commit=False):
     with_macro = [f for f in sh(["git", "grep", "-lw", macro, "--", "tests"]).stdout.split() if f.startswith("tests/coreapp/") and f.endswith((".cc", ".h", ".c", ".cpp"))]   # a script that names the symbol in a comment is no C
     others = set(re.findall(r'TEST_APP_\w+', "".join(open(os.path.join(ROOT, f)).read() for f in with_macro))) - {macro}
     copied = set()
+    where = {os.path.basename(f): os.path.join(ROOT, f) for f in with_macro}   # a header of a subfolder (a shim) too
     for f in with_macro:
         b = os.path.basename(f)
         if b.endswith(".h") or b in words:
@@ -245,7 +246,7 @@ def convert(cid, run=True, commit=False):
             if inc & {c for c in copied if c.endswith(".h")}:
                 copied.add(b)
     for b in sorted(copied):
-        src = os.path.join(TST, b)
+        src = where.get(b, os.path.join(TST, b))
         txt = unifdef(src, ["-D" + macro] + ["-U" + o for o in sorted(others)])
         open(os.path.join(dest, b), "w").write(txt)
     for f in with_macro:
@@ -267,8 +268,10 @@ def convert(cid, run=True, commit=False):
         moved.add(b)
     gold = []
     gre = re.compile(r'(^|_)%s(\.|_)' % re.escape(cid))
+    forln = [lines[i] for i in C if lines[i].startswith("for i in ") and (w["inc"] + "+=") in lines[i]]
+    can_gold = bool(forln) and ('[ "$i" = "-I$T/drv" ] || %s+=("$i")' % w["inc"]) in forln[0]   # its GOLDEN_DIR can be set apart only in the plain form
     for g in sorted(os.listdir(os.path.join(TST, "golden"))):
-        if not gre.search(g):
+        if not can_gold or not gre.search(g):
             continue
         if sh(["git", "grep", "-lF", g, "--", ".", ":!docs", ":!*.md", ":!cores/%s" % cid]).stdout.strip():
             continue
@@ -285,8 +288,6 @@ def convert(cid, run=True, commit=False):
             ln = re.sub(r'(-D%s=1 )' % macro, r'\g<1>' + add.replace("\\", "\\\\"), ln, count=1)
         if gold and ln.startswith("for i in ") and (w["inc"] + "+=") in ln:
             old = '[ "$i" = "-I$T/drv" ] || %s+=("$i")' % w["inc"]
-            if old not in ln:
-                raise Fail("run.sh: the for line of %s has another form; its goldens cannot move" % w["inc"])
             ln = ln.replace(old, 'case "$i" in "-I$T/drv"|-DGOLDEN_DIR=*) ;; *) %s+=("$i") ;; esac' % w["inc"])
         for b in copied | moved:
             ln = ln.replace("$TST/" + b, "$%s/%s" % (tv, b))
