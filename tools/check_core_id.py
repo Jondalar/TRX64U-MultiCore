@@ -18,7 +18,7 @@ PAIRS = (("cores/zx/trx/zx_regs.v", "cores/zx/app/lib/zx.cc"),
          ("cores/zxnext/trx/zxn_regs.v", "cores/zxnext/app/lib/zxnext.cc"),
          ("cores/snes/trx/snes_regs.v", "coreapp/cores/snes.cc"),
          ("cores/c128/c128_regs.v", "cores/c128/app/lib/c128.cc"),
-         ("cores/c64scpu/c64scpu_regs.v", "coreapp/cores/c64scpu.cc"),
+         ("cores/c64scpu/c64scpu_regs.v", "cores/c64scpu/app/lib/c64scpu.cc"),
          ("cores/neogeo/trx/neo_regs.v", "cores/neogeo/app/lib/neogeo.cc"),
          ("cores/ddt_novic/layer2_ddt_novic.v", "cores/ddt_novic/app/lib/ddt_novic.cc"),
          ("cores/diag/rtl/diag_regs.v", "cores/diag/app/lib/portdiag.cc"))

@@ -6,7 +6,7 @@
 #define COREAPP_C64SCPU_PRG_H
 
 #include "cbm_prg.h"
-#include "c64scpu_regs.h"
+#include "c64scpu_map.h"
 
 #define SCPU_KEY_HOLD_MS 90          // two scans at 50 Hz are 40 ms; 90 ms is four, and a held key repeats only after ~400 ms
 #define SCPU_KEY_GAP_MS  90

@@ -464,7 +464,7 @@ The gateware half is `cores/ddt_novic/layer2_ddt_novic.v`: it passes `.ID(32'h4E
 | tests | `tests/coreapp/run.sh` (a `run` line; a control only for a test of flash or persistence, `ci/controls.allow.d/coreapp.allow`), the table in `tests/coreapp/test_desc.cc` and its `golden(&<name>_desc, "<name>")`, the golden menu |
 | icon, release text | `tools/core_logos/build.py`, `tools/release_notes_mc.py` |
 
-Note: `tools/build_coreapp.sh`'s default `BLUEPRINT_CORES` and `ci/trxapps.sh`'s differ (the first lists `c128` and `c64scpu`, the second `ddt_novic`);
+Note: `BLUEPRINT_CORES` (`tools/build_coreapp.sh`, `ci/trxapps.sh`) lists `apple2` and `snes`, the cores of the shared app;
 they only decide which file names get a copy of the same image. An SDK core has none of these steps: its checklist is section 13.
 
 ## 10. Tests

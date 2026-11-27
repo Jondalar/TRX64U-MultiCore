@@ -1,4 +1,4 @@
-// T182 step 8 on the generic application: the C64SCPU descriptor (coreapp/cores/c64scpu.cc) against a model of the core's register page E (byte offsets
+// T182 step 8 on the generic application: the C64SCPU descriptor (cores/c64scpu/app/lib/c64scpu.cc) against a model of the core's register page E (byte offsets
 // 0xE000 + off from the core window; spec T182 section 3 "ROM and register contract") and of the DDR2 window.
 //   S2  no SuperCPU ROM = no start: the core stays held, the screen names the file and the folder, the 65816's gate (ROM_VALID) stays 0; a ROM of 100
 //       bytes and one with a reset vector below $8000 are refused with their own message; a good one (64, 128, 256 KiB) starts the core within 1 s.
@@ -16,6 +16,8 @@
 #include "cbm_run.h"
 #include "d1541_drive.h"
 #include <stdio.h>
+
+extern const CoreDesc c64scpu_desc;            // cores.h lists the shared app's cores; the C64SCPU is its own app (cores/c64scpu/app/lib)
 
 #define T_PAGE        0xE000u
 #define T_JOY         0x024

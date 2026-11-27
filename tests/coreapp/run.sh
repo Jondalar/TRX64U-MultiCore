@@ -81,9 +81,12 @@ cpc_drv_dir "$T/cpctab" || { echo "coreapp: the CPC's driver table was not gener
 source "$TST/c128_drv.sh"
 c128_drv_dir "$T/c128tab" || { echo "coreapp: the C128's driver table was not generated" >&2; exit 1; }   # c128_regs.h names the registers through it
 C128LIB="$ROOT/cores/c128/app/lib"   # the C128's library lives in its own repository part (cores/c128/app/lib), not in coreapp/cores; it holds its own copies of hk_defaults.h and drive_rom_pick.h
+source "$TST/c64scpu_drv.sh"
+c64scpu_drv_dir "$T/c64scputab" || { echo "coreapp: the C64SCPU's driver table was not generated" >&2; exit 1; }   # c64scpu_regs.h names the registers through it
+C64SCPULIB="$ROOT/cores/c64scpu/app/lib"   # the C64SCPU's library lives in its own repository part (cores/c64scpu/app/lib), not in coreapp/cores; it holds its own copies of hk_defaults.h and drive_rom_pick.h
 source "$TST/pet_drv.sh"
 pet_drv_dir "$T/pettab" || { echo "coreapp: the PET's driver table was not generated" >&2; exit 1; }   # pet_regs.h names the registers through it
-PETLIB="$ROOT/cores/pet/app/lib"   # the PET's library lives in its own repository part (cores/pet/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* (moved there) and hk_defaults.h
+PETLIB="$ROOT/cores/pet/app/lib"   # the PET's library lives in its own repository part (cores/pet/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.*  and hk_defaults.h
 CPCLIB="$ROOT/cores/cpc/app/lib"   # the CPC's library lives in its own repository part (cores/cpc/app/lib), not in coreapp/cores; it holds its own copies of tape_deck.*, tape_pulses.* and hk_defaults.h
 source "$TST/a1200_drv.sh"
 a1200_drv_dir "$T/a12tab" || { echo "coreapp: the Amiga 1200's driver table was not generated" >&2; exit 1; }   # amiga1200_regs.h names the registers through it
@@ -173,6 +176,9 @@ INC_PET=(-DTEST_APP_PET=1 -I"$PETLIB" -I"$T/pettab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_PET+=("$i"); done
 INC_C128=(-DTEST_APP_C128=1 -I"$C128LIB" -I"$T/c128tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_C128+=("$i"); done
+INC_C64SCPU=(-DTEST_APP_C64SCPU=1 -I"$C64SCPULIB" -I"$T/c64scputab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_C64SCPU+=("$i"); done
+c64scpuapp() { local INC=("${INC_C64SCPU[@]}") CA_APP=c64scpu APPLIB="$C64SCPULIB"; "$@"; }
 c128app() { local INC=("${INC_C128[@]}") CA_APP=c128 APPLIB="$C128LIB"; "$@"; }
 petapp() { local INC=("${INC_PET[@]}") CA_APP=pet APPLIB="$PETLIB"; "$@"; }
 cpcapp() { local INC=("${INC_CPC[@]}") CA_APP=cpc APPLIB="$CPCLIB"; "$@"; }
@@ -311,7 +317,7 @@ run romfind test_romfind.cc $ROMF
 
 a8app run a8_boot test_boot_atari.cc $ATARI
 
-run video test_video.cc $BASEL c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV
+run video test_video.cc $BASEL cbm_run.cc cbm_prg.cc freeze.cc $DRV
 # T136 S3: the A1200's 32-bit pixels: the stride and the format follow the descriptor's bytes per pixel
 
 # the settings file (the Atari 800 XL's settings are the cases): the unit a8_settings and its controls, built as its app (below)
@@ -360,12 +366,12 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc libtab_native.cc"   # libtab_native.cc: the slot table libload.cc reads (base 4.0)
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -401,7 +407,7 @@ PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.c
 # T164 S10 (WP15): the EDID into the row mask, the best row (Q6), the list without an EDID (Q9); the row table against host/hdmi_modes.vh
 run edid test_edid.cc edid.cc
 run sid_decide test_sid_decide.cc
-run picture test_picture.cc $PICSRC c64scpu.cc cbm_run.cc freeze.cc
+run picture test_picture.cc $PICSRC cbm_run.cc freeze.cc
 # T164 WP16 (G2, G14): the gateware is found by its magic and a requested mode is waited for by the status register
 run gwstatus test_gwstatus.cc videomode.cc edid.cc
 # T164 WP16 (S10, S11, S12, Q7): the list, the screen that changes, default and override, confirm or revert - the units a8_pictfollow and nes_pictfollow, built as their apps (below)
@@ -504,14 +510,12 @@ vc20app run vc20 test_vc20.cc $VC20
 C264="c264.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
 c264app run c264 test_c264.cc $C264
 
-# T182 step 8: the C64SCPU descriptor - S2 (no SuperCPU ROM, no start; refused files; the gate) and S7 (speed and JiffyDOS reach SCPU_SW; the drive's ROM)
-C64SCPU="c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
-run c64scpu test_c64scpu.cc $C64SCPU
+# T182 step 8: the C64SCPU descriptor (S2: no SuperCPU ROM, no start, refused files, the gate; S7: speed and JiffyDOS reach SCPU_SW, the drive's ROM): the unit c64scpu, built as its app (below)
 # the C128's System Mode, the JiffyDOS kit files and the register page E: the units c128 and c128pic, built as its app (below)
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Atari: a sync the medium refuses leaves the drive dirty and the disk in the drive
 a8app control a8_flush_ignored atari_media.cc 's/if (!st->sio.flush_drive(drive, msg, msglen)) {/if (!st->sio.flush_drive(drive, msg, msglen) \&\& false) {/' test_atari_media.cc $ATARI
 a8app control a8_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_atari_media.cc $ATARI
@@ -580,7 +584,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -618,7 +622,7 @@ control longnames_side writeback.cc 's/size_t keep = lb + le > FS_NAME_MAX ? FS_
 
 vc20app run cbm1541 test_cbm1541.cc $VC20
 # The drive library's 1581 tests (d1541_wd.cc, the block drive_wd) run on the VIC-20's descriptor against a table that is the VIC-20's plus drive_wd (vc20_drv.sh, merge_a as the app's link does it).
-# No shipped app has that table: this is a test of the library, not of an app; the 1581 in the shared app is tested against the shared table by test_c64scpu, and in the C128's app against its own table by the unit c128 (a .d81 in drive A).
+# No shipped app has that table: this is a test of the library, not of an app; the 1581 is tested in the C64SCPU's app against its own table by the unit c64scpu, and in the C128's app against its own table by the unit c128 (a .d81 in drive A).
 INC_VC20_SAVE=("${INC_VC20[@]}"); INC_VC20=(-I"$T/vc20wd/drv" "${INC_VC20[@]}")
 vc20app run cbm1541_wd test_cbm1541.cc $VC20
 INC_VC20=("${INC_VC20_SAVE[@]}")
@@ -694,7 +698,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="$BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64"
+ALLCORES="$BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -720,12 +724,12 @@ run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core of the shared table and asserts every row, setting value and operation is reachable
 # (T239.5 D13: each moved core's walk is its app's unit <core>_uicover)
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the shared table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table
 # reproduces it (T239.5 D13: each moved core's walk is its app's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt)
-run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
-run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
@@ -780,12 +784,12 @@ control cf_start_cfg start.cc 's/if (!corefolder_cfg(c->cor_path, c->cfg_path, s
 t_romreq() {
   build "$T/gen_romreq" "$TST/gen_romreq.cc" $DESCS
   "$T/gen_romreq" > "$T/romreq_shared.inc"
-  # the host's table also holds the rows of cores that are not in the shared table (the VIC-20's app has its own): the shared app's rows must all be in it, in their order
+  # the host's table also holds the rows of cores that are not in the shared table (every moved core's app has its own): the shared app's rows (none today) must all be in it, in their order
   python3 -I - "$T/romreq_shared.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the shared app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
 import sys
 shared = [l for l in open(sys.argv[1]) if not l.startswith("//")]
 host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
-sys.exit(0 if all(any(h == r for h in host) for r in shared) and shared else 1)
+sys.exit(0 if all(any(h == r for h in host) for r in shared) else 1)   # the shared table (snes, the made-up core) holds no ROM row any more: an empty list is whole
 PY
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
@@ -1451,10 +1455,35 @@ apple2app run apple2_corereport test_corereport.cc $SVC corereport.cc bugreport.
 # every key of its menu (its own goldens golden/keywalk_apple2.txt, ids_apple2.txt) and the reach of its declaration over the API: the walks of test_keywalk and test_uicover on its table
 apple2app run apple2_keywalk test_keywalk.cc instfiles.cc instcore.cc $A2DM
 apple2app run apple2_uicover test_uicover.cc uiapp.cc $SVC $A2DM
-
-pjob_drain
-[ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }
-for u in $CA_UNITS; do
-  grep -qx "$u" "$T/ca_units_done" 2>/dev/null || { echo "tests/coreapp: $u (CA_UNITS) is no unit of this harness in the group $CA_GROUP" >&2; exit 1; }
-done
-echo "tests/coreapp: $PASS test programs passed, $PJ_N parallel controls (JOBS=$JOBS), every negative control failed as it must"
+# T239.3 D61: the C64SCPU's units, built as its app (c64scpuapp: its library cores/c64scpu/app/lib with its own copies of hk_defaults.h and drive_rom_pick.h, its own table with its own drive window, the group c64scpu) -
+# the units its TOML B (cores/c64scpu/app/sdk.toml) names for the steps 2, 8, 9 and 10 of its lane. The sources are the app's own: c64scpu.cc, the PRG library (cbm_run.cc, cbm_prg.cc), Freeze, the drive library and the base's.
+C64SCPUS="c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
+C64SCPUA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $C64SCPUS"
+C64SCPUD="desc_check.cc overlay.cc descrec.cc $C64SCPUA"
+CARGS="" RARGS=""
+c64scpuapp run c64scpu test_c64scpu.cc $C64SCPUS
+c64scpuapp run c64scpu_video test_video.cc $C64SCPUS
+c64scpuapp run c64scpu_picture test_picture.cc $PICSRC cbm_run.cc freeze.cc c64scpu.cc
+RARGS="$T/bundles/desc_own.bin" c64scpuapp run c64scpu_desc test_desc.cc $C64SCPUD
+RARGS="$BUN/app" c64scpuapp run c64scpu_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $C64SCPUD
+c64scpuapp run c64scpu_hotkeys test_hotkeys.cc $C64SCPUD
+c64scpuapp run c64scpu_ledcores test_ledcores.cc $C64SCPUD
+c64scpuapp run c64scpu_joyswap test_joyswap.cc $C64SCPUD
+# T239.5 D13: every key of its menu against its golden (c64scpu_keywalk: golden/keywalk_c64scpu.txt, ids_c64scpu.txt) and its declaration over the API (c64scpu_uicover), TEST_APP_C64SCPU
+c64scpuapp run c64scpu_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $C64SCPUD
+c64scpuapp run c64scpu_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $C64SCPUD
+# the C64SCPU's rows of the host's ROM table: gen_romreq built as the C64SCPU's app, its rows in the host's table
+t_romreq_c64scpu() {
+  local INC=("${INC_C64SCPU[@]}") APPLIB="$C64SCPULIB"
+  build "$T/gen_romreq_c64scpu" "$TST/gen_romreq.cc" $C64SCPUD
+  "$T/gen_romreq_c64scpu" > "$T/romreq_c64scpu.inc"
+  python3 -I - "$T/romreq_c64scpu.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the C64SCPU's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test c64scpu_romreq: PASS"
+  return 0
+}
+if ca_in c64scpu && ca_unit c64scpu_romreq; then t_romreq_c64scpu; PASS=$((PASS + 1)); fi

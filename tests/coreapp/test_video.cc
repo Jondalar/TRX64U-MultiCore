@@ -28,7 +28,12 @@ extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores
 extern const CoreDesc amiga_desc;
 #endif
 
-#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_AMIGA)   // on the C64SCPU's picture (the shared app's core)
+#ifdef TEST_APP_C64SCPU                  // T239.5 D61: the C64SCPU's cases run as its app (run.sh c64scpuapp, unit c64scpu_video); the shared unit video keeps the others
+#include "cores.h"
+extern const CoreDesc c64scpu_desc;      // cores.h lists the shared app's cores; the C64SCPU is its own app (cores/c64scpu/app/lib)
+#endif
+
+#ifdef TEST_APP_C64SCPU                  // on the C64SCPU's picture
 // T228: the menu on a monolith-type bitstream (TRX64-Ultimate's). Its pix_layer has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
 // factor of the menu's output size over its canvas there (trx_canvas_factor); its frame is the gateware's row (U16), from the start and after every mode.
 static void monolith_menu()
@@ -100,7 +105,7 @@ static void monolith_menu()
 
 int main()
 {
-#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_AMIGA)
+#ifdef TEST_APP_C64SCPU
     monolith_menu();
 #endif
 #ifdef TEST_APP_ATARI800
@@ -196,7 +201,7 @@ int main()
     }
 #endif
 #endif
-#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_AMIGA)   // the shared app's cores
+#ifdef TEST_APP_C64SCPU                  // the C64SCPU's picture
     // T104.2 D5, S5: w == 0 says the core draws its own picture (the C64 family's goes through Gideon's video path). The service writes no register
     // of the core - they would be the ID bytes - and never puts a picture on the layer.
     {

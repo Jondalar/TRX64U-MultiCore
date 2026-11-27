@@ -7,16 +7,13 @@ coreapp/cores/c64_cart_desc.h shared-library cartridge library's types
 coreapp/cores/c64_go.cc shared-library part of the cbmrun library (P3-1; P1-8: c64_go stays here)
 coreapp/cores/c64_go.h shared-library part of the cbmrun library (P3-1; P1-8: c64_go stays here)
 coreapp/cores/c64_regs.h data register map (D8)
-coreapp/cores/c64scpu.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/c64scpu_prg.h core-library SuperCPU program start
-coreapp/cores/c64scpu_regs.h data register map (D8)
 coreapp/cores/cbm1541.cc shared-library drive library (D15)
 coreapp/cores/cbm1541.h shared-library drive library (D15)
 coreapp/cores/cbm1541_desc.h shared-library drive library's pieces, own record P5
 coreapp/cores/cbm_run.cc shared-library Run PRG of five cores
 coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
-coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
+coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of two cores (VIC-20, T239.3 D61: the C128's and the C64SCPU's apps hold copies)
 coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
 coreapp/cores/snes.cc core-library hooks; its tables are desc.toml (D8, D9)
 coreapp/cores/snes_regs.h data register map (D8)

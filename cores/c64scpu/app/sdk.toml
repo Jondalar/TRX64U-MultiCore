@@ -1,0 +1,54 @@
+# TOML B of the SuperCPU core's app (T239.3 D55, T239.3 D61): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in
+# its link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The
+# base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "c64scpu"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library c64scpu below defines it); the core table of this app holds this core only
+desc = "c64scpu_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A that the shared drivers (hw.cc) name: the host's mode register
+# (cart_regs), the five ICAP blocks of the loader, the partition block, the host's master volume and tone (audio_master) and the IEC block (iec_status: the board's IEC probe reads its version byte).
+# The drive window is the core's own block drive_a (gateware.toml: the registers of its mm_drive, a 1541 or a 1581).
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master", "iec_status"]
+
+# The core's own code: its descriptor and hooks (init, release, the ROM image and the character store, the operations of the PRG start and of the drive's ROM choice, the register map),
+# with its own copies of hk_defaults.h and drive_rom_pick.h (the originals stay in coreapp/cores for the cores that have not moved, T239.3 D61). Its files are in cores/c64scpu/app/lib.
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: c64scpuapp): unit = 2 unit tests, service = 8 mock bitstream -> service, ui = 9 service -> UI,
+# api = 10 service -> API (the SuperCPU core's cases of the shared tests, TEST_APP_C64SCPU). Its step 10 is c64scpu_uicover (its declaration over the API).
+[[library]]
+name = "c64scpu"
+sources = ["c64scpu.cc"]
+headers = ["c64scpu_map.h", "c64scpu_prg.h", "c64scpu_regs.h", "hk_defaults.h", "drive_rom_pick.h"]
+needs = ["cbm1541", "cbmprg", "cbmrun", "newfile"]
+tests = { unit = ["c64scpu"], service = ["c64scpu_descgen", "c64scpu_romreq"], ui = ["c64scpu_video", "c64scpu_picture", "c64scpu_desc", "c64scpu_hotkeys", "c64scpu_ledcores", "c64scpu_joyswap", "c64scpu_keywalk"], api = ["c64scpu_uicover"] }
+
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
+headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
+bind = "cbm1541_bind"
+exports = [{ name = "cbm1541", major = 1, table = "cbm1541_table" }]
+register_ops = "cbm1541_register"
+capability = "drive_a"
+needs = ["newfile"]
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+headers = ["cbm_prg.h", "cbmprg_api.h"]
+bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
+
+[[library]]
+name = "cbmrun"
+sources = ["cbm_run.cc", "c64_go.cc"]
+headers = ["cbm_run.h", "c64_go.h"]
+needs = ["cbmprg"]
+
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]

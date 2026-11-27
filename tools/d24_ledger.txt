@@ -7,9 +7,6 @@ file coreapp/cores/c64_cart_desc.h 72
 file coreapp/cores/c64_go.cc 145
 file coreapp/cores/c64_go.h 7
 file coreapp/cores/c64_regs.h 56
-file coreapp/cores/c64scpu.cc 393
-file coreapp/cores/c64scpu_prg.h 20
-file coreapp/cores/c64scpu_regs.h 34
 file coreapp/cores/cbm1541.cc 417
 file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
@@ -59,8 +56,6 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests are a folder of the lane delivery (T260 D6). t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
-exception coreapp/cores/c64scpu.cc +18 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
-exception coreapp/cores/c64scpu_regs.h +1 T250-D4 (Alex 2026-11-21: "if you want DMA read/write - the tape space would be free for that"; "then you can do the tests yourself by REST")
 # t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.
 exception coreapp/cores/c64_cart.cc +192 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.h +9 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
