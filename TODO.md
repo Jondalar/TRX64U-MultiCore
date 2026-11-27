@@ -174,7 +174,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T146 | 3 | ✅ | The host menu is on the screen at once: a saved picture of the last menu, LVGL builds behind it | Done 11-15 (Alex: in builds for weeks) | [T146](docs/todo/T146.md) |
 | T147 | 3 | 📅 | A logo on the host app's start screen | Planned (Alex 10-28); no spec | [T147](docs/todo/T147.md) |
 | T152 | 3 | ✅ | Our update as .txu (host, app), split from foreign firmware; flash locked under large cores (F8) | Done 11-15 (Alex: in builds for weeks) | [T152](docs/todo/T152.md) |
-| T154 | 3 | 🔨 | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3; board S1/S2/S4 closed 11-18; P3/P4 open | [T154](docs/todo/T154.md) |
+| T154 | 3 | 🔨 | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3; board S1/S2/S4 11-18; D6 async write 11-27 (board S9 open); P3/P4 open | [T154](docs/todo/T154.md) |
 | T155 | 3 | 📅 | C128: run a cartridge from the generic app, then its write-back on the T154 service | Planned (Alex 10-29); spec to write later | [T155](docs/todo/T155.md) |
 | T156 | 3 | 🔨 | USB gamepads drive the cores' own controllers, generic HID parsing in the app base; NES, SNES, Neo Geo | Pads ok (board 11-02); S1/S5 done 11-18 (Alex: shipped = done); open: map numbering, keycap (5.7) | [T156](docs/todo/T156.md) |
 | T157 | 3 | 🔨 | Every core can swap the two joystick ports from its menu (generic app), issue #9 | Built: amiga, a1200, nes, c128, neogeo; vc20 none (Alex), snes none; S5 done 11-18; CI bitstreams open | [T157](docs/todo/T157.md) |

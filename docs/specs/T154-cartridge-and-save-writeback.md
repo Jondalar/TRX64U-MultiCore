@@ -1,6 +1,6 @@
 # T154 — What a game writes to its cartridge or battery RAM goes back to the user's file, in the shared app base, for every core
 
-**Status:** BUILDING (2026-10-29), asked by Alex. P1, P2 built and benched; P3 and P4 as listed in section 5. Status check 2026-11-13: BUILDING stays: P1/P2 and EF3 merged 2026-10-29 (52b0addec); board S1 closed as done 2026-11-18 with S2 and S4 (shipped and in use, §5); P3/P4 open. 2026-11-15 sync: the inventory rows 'SNES (branch t142-snes, not on this base)' and 'Neo Geo (branch t143-neogeo...)' are outdated - both merged and carry their own battery-save code (`coreapp/cores/snes.cc` saves/<image>.srm, `coreapp/cores/neogeo.cc` load_save / saves/<game>.sav; Neo Geo save seen on the board 2026-10-31, T143 todo), NOT through `wb_raw_write` (no use outside writeback.cc and tests); NES has no battery path in `coreapp/cores/nes.cc`. P4 is therefore built per core, not through the shared service; S8 (NES and SNES battery game on the board) not recorded.
+**Status:** BUILDING (2026-10-29), asked by Alex. D6 (2026-11-27): the flash held only for the copy, the file written async (board S9 open). P1, P2 built and benched; P3 and P4 as listed in section 5. Status check 2026-11-13: BUILDING stays: P1/P2 and EF3 merged 2026-10-29 (52b0addec); board S1 closed as done 2026-11-18 with S2 and S4 (shipped and in use, §5); P3/P4 open. 2026-11-15 sync: the inventory rows 'SNES (branch t142-snes, not on this base)' and 'Neo Geo (branch t143-neogeo...)' are outdated - both merged and carry their own battery-save code (`coreapp/cores/snes.cc` saves/<image>.srm, `coreapp/cores/neogeo.cc` load_save / saves/<game>.sav; Neo Geo save seen on the board 2026-10-31, T143 todo), NOT through `wb_raw_write` (no use outside writeback.cc and tests); NES has no battery path in `coreapp/cores/nes.cc`. P4 is therefore built per core, not through the shared service; S8 (NES and SNES battery game on the board) not recorded.
 **Repo:** TRX64U-MultiCore — shared base of the generic core application (`coreapp/src`), the C64 cartridge code
 (`coreapp/cores/c64_cart.cc`), per-core descriptors; gateware only where a core cannot report a write today (inventory, §1).
 **Number:** T154.
@@ -72,6 +72,12 @@ Scenario: S8 console battery RAM (P4)
   Given a NES/SNES game with battery RAM
   When  it saves
   Then  <game>.sav (name per §3a Q2) beside the game holds it; it is loaded again at the next start
+
+Scenario: S9 the game saves on while the file is written (D6)
+  Given Auto and an EasyFlash game that saves in steps with pauses (Wasteland, TREX CRT, on trx64u)
+  When  a pause reaches the quiet time and the file is written while the game goes on saving
+  Then  the game's flash operations wait only for the copy of the changed blocks, not for the file; the save takes as long
+        as on trx64g; the file holds the state at the copy, and what the game wrote meanwhile goes into the next write
 ```
 
 | # | Solves | Test | Where |
@@ -80,6 +86,7 @@ Scenario: S8 console battery RAM (P4)
 | S1, S2, S4 | P2 | one EasyFlash game save on the board | board |
 | S7 | P3 | per core after the inventory | bench, board |
 | S8 | P4 | one NES and one SNES battery game | board |
+| S9 | D6 | coreapp bench (a program at the release and one during the file write: acknowledged at once, in the next file, not in this one; after a restore the whole write held and the file the machine's state; controls `wb_read_after_release`, `wb_changed_from_old`, `wb_fallback_released`, `wb_restore_copied`); Wasteland's save on trx64u against trx64g | CI, board |
 
 ## §3 Decision
 
@@ -96,6 +103,21 @@ Proposed:
 - **D4** The C64 path is the reference's, ported: IRQ_CAUSE b4/b5, apply program/erase into the image, ACK, `mark`.
   `C64_CART_FL_ENABLE` is set for a writable type instead of 0.
 - **D5** A core whose gateware reports no write gets no fake: it is listed with what it would need (part 0 inventory).
+- **D6 (Alex, 2026-11-27)** The flash waits only for the copy; the file is written while the machine runs. Alex's board observation:
+  saving in Wasteland (TREX CRT) on trx64u is about ten times slower than on trx64g, "das muss ein dirty bit lazy write sein, async".
+  Cause, read in the code: `write_now` held the flash (`hold`) for the whole rebuild of `NAME.tmp` (the old file read, every image packet
+  written, sync), so every quiet gap of 2 s inside a save, or the 30 s age, stopped the game's next flash operation for the length of the
+  file write; the reference (`apps/ultimate` `c64_subsys.cc` `crt_trx_writeback`) held only for `take_snapshot`, a copy of the image into
+  RAM, and wrote the file from the copy. Asked "may the flash be held only for the copy, the write async?", Alex: "Ja bitte".
+  Built: a medium may have `snap` / `unsnap` (`WbMedium`, last fields); `write_now` takes the changes and calls `snap` under the hold, then
+  ends the hold and writes. The .crt medium (`wb_crt_snap`) copies the changed 8 KiB blocks (at most 1 MiB, `WB_CRT_SNAP_MAX`) to the heap;
+  the writer takes a changed block from the copy and an unchanged one from the old file, which holds it as DDR2 does (the load puts every
+  packet's bytes into the image as they are). So the file is one state, the one at the copy, as before. Held over the write as before: a
+  flush with the EEPROM changed (aux), a medium without an old file or with `may_create`, more than 1 MiB changed (a chip erase of an
+  EasyFlash 3), no memory for the copy, and the library media (`svc_wb.h` unchanged). Also the write after the image changed beyond the map
+  (MultiCore's review): a state restored into it (`c64_cart_image_write`, which marks nothing, D51, calls `wb_unmarked`) or a change the
+  person declined (`wb_forget`): the old file no longer holds the unchanged blocks, so that write takes every block from the machine and the
+  next one copies again. The core lock stays (the menu waits for the write).
 
 ## §3a Open questions
 
@@ -113,7 +135,8 @@ Proposed:
   in that window and write it back like every other flash cartridge; its "4 MiB for every type" was behind the decision.
 
 - **The write holds the core lock (Alex, 2026-10-29):** "We do not change that under any circumstances, it stays. Changes
-  while the image is written make no sense" (translated). Flash operations are held during the write; the menu waits.
+  while the image is written make no sense" (translated). The menu waits. Flash operations were held during the whole write; since D6
+  (Alex 2026-11-27) only while the changed blocks are copied, so the file is still one state.
 
 ## §4 Out
 
@@ -159,9 +182,9 @@ So P3 is: C64 (done), and for every other core a listed reason. No core got a fa
   row: RETURN saves, the left arrow keeps the file, an F key leaves it unanswered and it comes back at the next open); Auto writes now. A file that cannot be
   written (write protected, read only, `/flash`) is told once per change and the image keeps the change.
   The file: the new file is built under `NAME.tmp` from the old file (header, every packet that holds no image data and what follows the last packet are
-  copied byte for byte; image packets get the DDR2 bytes; a changed block no packet holds gets a packet of its own unless it is erased), the file as first
+  copied byte for byte; image packets get the image's bytes (D6: a changed block from the copy, an unchanged one from the old file); a changed block no packet holds gets a packet of its own unless it is erased), the file as first
   found is kept once as `NAME.bak` (the reference's rule, see open point 1), then `NAME.tmp` becomes `NAME`. The flash operations wait (the interrupt is off)
-  while the image is read and the file written - it only happens when the game was quiet.
+  while the changed blocks are copied; the file is written from the copy and the old file with the flash going on (D6; held over the write in the cases D6 lists).
 - **P2** `coreapp/cores/c64_cart.cc`: the TRX interrupt handler (IRQ_CAUSE b4/b5) applies program (clears bits only), sector erase (64 KB of one chip) and
   chip erase to the image in DDR2 with the chip's geometry, reports the blocks, ACKs; `FL_ENABLE` and the part's magic/mask/ID registers are set for
   EasyFlash, Megabyter, TwoMegabyter, EasyFlashXl, C64MegaCart and GMod2 (the flash parts are copied into `c64_cart_desc.h` byte for byte; EasyFlash 3 follows below). GMod2 (CRT 60) now starts: its EEPROM packet goes into the window (blank when the file has none) and is written back through a WR_COUNT seqlock.
@@ -171,7 +194,7 @@ So P3 is: C64 (done), and for every other core a listed reason. No core got a fa
   (`c64_crt.cc:101`, `:455`); the 8 MiB window for type 90 only (`c64.h:545`, `c64_crt.cc:567`; here `g_image_max`); descriptor row 0x12 and the MX29LV640EBT part
   (`trx_cart_desc.h:38`, `:57`, byte for byte, 8 x 8 KB boot + 127 x 64 KB sectors); the 23-bit events with EVT_HI (`trx_cart.cc:200`, `:208`); the chip-order to image
   permutation `{slot, bank_hi, ROMH, bank_lo, A12-A0}` -> `{slot, bank_hi, bank_lo, ROMH, A12-A0}` (`trx_flash_geom.h:18`); erase spans incl. the chip erase of all
-  8 MiB (`trx_flash_geom.h:47`); the dirty map is 1024 blocks (`WB_BLOCKS_MAX`) and the .crt keeps its 1024 packets (the writer rewrites every image packet from DDR2).
+  8 MiB (`trx_flash_geom.h:47`); the dirty map is 1024 blocks (`WB_BLOCKS_MAX`) and the .crt keeps its 1024 packets (the writer rewrites every image packet; more than 1 MiB changed, such as a chip erase, is written with the flash held, D6).
   Bench: type 90 refused without XPORT_CAPS, the whole image in the window, descriptor registers, a program in slot 2 / bank_hi 3 / bank_lo 5 / ROMH through EVT_HI, a
   64 KB sector (8 banks of one half), a boot sector, write-back (1024 packets, exactly the programmed and erased halves changed), chip erase and its file; 5 negative
   controls (permutation, window, capability check, EVT_HI, chip erase span). `tools/ef3_image.py` was not run on the written file (it needs the Python tool on a real

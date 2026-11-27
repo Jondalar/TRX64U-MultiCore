@@ -56,6 +56,11 @@ struct WbMedium {
     void *user;                          // the writer's, kept by the owner for as long as the medium is registered
     bool may_create;                     // the file may not exist yet (a battery save the game has never written): the old file is then null for the writer
     void (*hold)(void *user, bool on);   // optional: the machine must not change the medium while the writer reads it (flash operations wait)
+    // optional, with hold (T154 D6): called under the hold right after the changes are taken. 0: the medium has copied what its writer reads of the
+    // machine, so the hold ends before the file is written and the machine's flash goes on meanwhile; else the hold lasts the write. unsnap drops the
+    // copy after the write (called only after a snap that returned 0).
+    int (*snap)(void *user, const WbDirty &dirty);
+    void (*unsnap)(void *user);
 };
 
 void wb_attach(CoreCtx *c, WbPort *port);                      // once, at the start: the port, and the mode from the setting
@@ -79,6 +84,8 @@ bool wb_pending(void);                                         // a change the f
 bool wb_due(void);                                             // ... and quiet for WB_QUIET_MS, or WB_MAX_AGE_MS old, or a flush was asked for
 void wb_request_flush(void);
 void wb_forget(void);                                          // the change is not wanted in the file ("No"): the map is cleared, the image stays
+void wb_unmarked(void);                                        // the image changed in a way that marks no block (a state restored into it, D51): the next
+                                                               // write takes every block from the machine with the hold over it (T154 D6)
 
 // Auto: the file is written now when there is a change; the action that follows runs after. 0 when nothing was to be done or it was written, 1
 // when it failed (msg says why, and a note for the screen is set). Off and Ask do nothing: Ask has its question at the menu's open.

@@ -1,5 +1,6 @@
 #include "writeback_crt.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define CRT_HDRSIZE 0x10
@@ -63,7 +64,75 @@ bool copy(CoreFile *old, CoreFile *out, uint64_t from, uint64_t to, uint32_t n, 
     return true;
 }
 
+// buf <- the image's bytes [off, off + n), which the old file holds at `at` (a packet's data, or nothing: at 0 for a block no packet holds). After a
+// snap a changed block comes from the copy and an unchanged one from the old file (T154 D6); without one, everything from DDR2 under the hold.
+bool image_bytes(const WbCrt *m, CoreFile *old, uint64_t at, uint32_t off, uint8_t *buf, uint32_t n)
+{
+    if (!m->snapped) {
+        m->io->ddr_read(m->img_base + off, buf, n);
+        return true;
+    }
+    for (uint32_t k = 0; k < n;) {
+        uint32_t b = (off + k) >> WB_BLOCK_SHIFT, in = (off + k) & (BLOCK - 1);
+        uint32_t len = BLOCK - in < n - k ? BLOCK - in : n - k;
+        uint16_t s = b < WB_BLOCKS_MAX ? m->slot[b] : (uint16_t)WB_CRT_NO_SLOT;
+        if (s != WB_CRT_NO_SLOT) {
+            memcpy(buf + k, m->copy + (uint32_t)s * BLOCK + in, len);
+        } else if (!at || !old->read(at + k, buf + k, len)) {
+            return false;
+        }
+        k += len;
+    }
+    return true;
+}
+
 }  // namespace
+
+int wb_crt_snap(void *user, const WbDirty &dirty)
+{
+    WbCrt *m = (WbCrt *)user;
+    m->snapped = false;
+    uint32_t n = 0;
+    for (uint32_t b = 0; b < WB_BLOCKS_MAX; b++) {
+        if (dirty.test(b) && (b << WB_BLOCK_SHIFT) + BLOCK <= m->img_bytes) {
+            n++;
+        }
+    }
+    if (n * BLOCK > WB_CRT_SNAP_MAX) {
+        printf("[writeback] %u changed blocks: written with the flash held\n", (unsigned)n);
+        return 1;
+    }
+    m->copy = n ? (uint8_t *)malloc(n * BLOCK) : 0;
+    if (n && !m->copy) {
+        printf("[writeback] no memory for %u changed blocks: written with the flash held\n", (unsigned)n);
+        return 1;
+    }
+    uint32_t k = 0;
+    for (uint32_t b = 0; b < WB_BLOCKS_MAX; b++) {
+        m->slot[b] = (uint16_t)WB_CRT_NO_SLOT;
+        if (dirty.test(b) && (b << WB_BLOCK_SHIFT) + BLOCK <= m->img_bytes) {
+            m->io->ddr_read(m->img_base + (b << WB_BLOCK_SHIFT), m->copy + k * BLOCK, BLOCK);
+            m->slot[b] = (uint16_t)k++;
+        }
+    }
+    m->snapped = true;
+    return 0;
+}
+
+void wb_crt_unsnap(void *user)
+{
+    WbCrt *m = (WbCrt *)user;
+    m->snapped = false;
+    free(m->copy);
+    m->copy = 0;
+}
+
+void wb_crt_medium(WbMedium *m)
+{
+    m->write = wb_crt_write;
+    m->snap = wb_crt_snap;
+    m->unsnap = wb_crt_unsnap;
+}
 
 int wb_crt_write(CoreCtx *, void *user, CoreFile *old, CoreFile *out, const WbDirty &dirty, char *msg, int msglen)
 {
@@ -129,8 +198,7 @@ int wb_crt_write(CoreCtx *, void *user, CoreFile *old, CoreFile *out, const WbDi
         }
         pos += 16;
         if (p.image) {
-            m->io->ddr_read(m->img_base + p.img_off, buf, p.size);
-            if (!out->write(pos, buf, p.size)) {
+            if (!image_bytes(m, old, at + 16ull, p.img_off, buf, p.size) || !out->write(pos, buf, p.size)) {
                 goto fail;
             }
         } else if (ee_new && p.load == EEPROM_LOAD && p.size <= EEPROM_BYTES) {
@@ -155,7 +223,9 @@ int wb_crt_write(CoreCtx *, void *user, CoreFile *old, CoreFile *out, const WbDi
             continue;
         }
         uint32_t off = b << WB_BLOCK_SHIFT;
-        m->io->ddr_read(m->img_base + off, buf, BLOCK);
+        if (!image_bytes(m, old, 0, off, buf, BLOCK)) {                  // a changed block: from the copy after a snap
+            goto fail;
+        }
         bool blank = true;
         for (uint32_t i = 0; i < BLOCK && blank; i++) {
             blank = buf[i] == 0xFF;
