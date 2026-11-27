@@ -70,6 +70,7 @@ def region(text):
 
 def insert_point(text, path, module):
     vhdl = path.endswith((".vhd", ".vhdl"))
+    text = blank_comments(text, vhdl)          # a `;` in a port comment is no end of the header
     if vhdl:
         m = re.search(r"^\s*architecture\s+\w+\s+of\s+%s\s+is[^\n]*\n" % re.escape(module), text, re.M | re.I)
     else:
