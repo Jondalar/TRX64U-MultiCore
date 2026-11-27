@@ -66,6 +66,10 @@ Parts:
   until it is through once. Only for T259's analogue out do we compute everything again." So the decodes of all cores (the 14 lane
   cores and apple2, c64scpu, snes once they have their TOML A, T239.3 D61) take the generated constants on one branch; the builder
   builds every key once; T259's analogue output is the next full rebuild.
+- **D4 (Alex, 2026-11-27, on D3): P2 is built now, with the last core moves, and everything is built once.** Alex (translated): "No,
+  finish the move and T264, and we build everything once; that has to work, otherwise we have too many touched points and it
+  grinds." One branch carries T239.3 D61 (apple2, c64scpu, snes) and T264 (P1-P4, P2 for every core); one pipeline run builds every
+  key. T259's analogue output (every core, T259 D12) is the next full build, on its own.
 ## §4 Out
 
 - Further work on the interpreter's semantics (directions, strobes, variables): frozen at round 4 (D1).
