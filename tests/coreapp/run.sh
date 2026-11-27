@@ -367,8 +367,6 @@ control noflash_boot_mc_missing fsif.h 's/if (!strcasecmp(path, FS_FLASH_BOOT_MU
 # T83 (the VIC-20 on the generic application): the descriptor against a model of the register block and the ROM aperture; the PRG job (cbm_run.cc) is shared with the 264
 VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
 vc20app run vc20 test_vc20.cc $VC20
-# The VIC-20's cases inside the shared tests (test_desc, test_ledcores, test_hotkeys, test_createflow, test_memops, test_media_mounts_engines, test_descgen, gen_romreq) stand under TEST_APP_VC20
-# and run as the units vc20_* at the end of this file, built as the VIC-20's app: its lane of the matrix runs them (T239.5 D4, D10), the old pipeline does not (D1).
 
 
 # the C128's System Mode, the JiffyDOS kit files and the register page E: the units c128 and c128pic, built as its app (below)
