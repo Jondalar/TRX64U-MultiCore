@@ -14,8 +14,8 @@ For a core <id> (the wrapper of tests/coreapp/run.sh whose CA_APP is <id>; its s
     branches (unifdef -U TEST_APP_<X>: a negative condition loses the core's term);
  3. the files only the core's lines name (its own test programs, its driver table script) and its goldens (golden/*_<id>.*: the core's build then reads its
     GOLDEN_DIR in its folder) move there (git mv);
- 4. the core's units run (CA_GROUP=<id> tests/coreapp/run.sh, every unit and control of the group). A red run, a run whose last line is not run.sh's
-    summary, a unit of its lines that did not run, or a script that does not parse undoes every change; the core is reported with the error lines. --commit commits a green core (tools/check_todo.py first).
+ 4. the core's units run (CA_GROUP=<id> tests/coreapp/run.sh, every unit and control of the group). A red run, a run without run.sh's summary
+    line, a unit of its lines that did not run, or a script that does not parse undoes every change; the core is reported with the error lines. --commit commits a green core (tools/check_todo.py first).
 Nothing here names a core: the cores are what run.sh's wrappers say.
 """
 import os
@@ -270,14 +270,14 @@ def convert(cid, run=True, commit=False):
     gre = re.compile(r'(^|_)%s(\.|_)' % re.escape(cid))
     forln = [lines[i] for i in C if lines[i].startswith("for i in ") and (w["inc"] + "+=") in lines[i]]
     can_gold = bool(forln) and ('[ "$i" = "-I$T/drv" ] || %s+=("$i")' % w["inc"]) in forln[0]   # its GOLDEN_DIR can be set apart only in the plain form
-    for g in sorted(os.listdir(os.path.join(TST, "golden"))):
-        if not can_gold or not gre.search(g):
-            continue
-        if sh(["git", "grep", "-lF", g, "--", ".", ":!docs", ":!*.md", ":!cores/%s" % cid]).stdout.strip():
-            continue
-        os.makedirs(os.path.join(dest, "golden"), exist_ok=True)
-        git("mv", "tests/coreapp/golden/" + g, "cores/%s/app/tests/golden/%s" % (cid, g))
-        gold.append(g)
+    cand = [g for g in sorted(os.listdir(os.path.join(TST, "golden"))) if can_gold and gre.search(g)]
+    # all or none: its build reads one GOLDEN_DIR. A golden that a file outside the core's lines and folder names stays, and so do the others
+    pinned = [g for g in cand if g in rest_text or sh(["git", "grep", "-lF", g, "--", ".", ":!docs", ":!*.md", ":!cores/%s" % cid, ":!tests/coreapp/run.sh"]).stdout.strip()]
+    if not pinned:
+        for g in cand:
+            os.makedirs(os.path.join(dest, "golden"), exist_ok=True)
+            git("mv", "tests/coreapp/golden/" + g, "cores/%s/app/tests/golden/%s" % (cid, g))
+            gold.append(g)
     # 1. units.sh
     out = []
     for i in sorted(C):
@@ -313,12 +313,11 @@ def convert(cid, run=True, commit=False):
     rc, log = run_group(cid, "after")
     text = open(log, errors="replace").read()
     missing = [u for u in units if not re.search(r'^(test|control) %s:' % re.escape(u), text, re.M)]
-    last = [l for l in text.splitlines() if l.strip()][-1:] or [""]
-    summ = re.match(r'^tests/coreapp: \d+ test programs passed, \d+ parallel controls', last[0])
+    summ = re.search(r'^tests/coreapp: \d+ test programs passed, \d+ parallel controls.*every negative control', text, re.M)   # run.sh's last line (the EXIT trap prints its counts after it)
     if rc or missing or not summ:
         msg = ["red run (exit %d), log %s" % (rc, log)] if rc else []
         if not rc and not summ:
-            msg.append("red run: the last line is not the summary of tests/coreapp/run.sh (a control may have failed unseen), log %s" % log)
+            msg.append("red run: no summary line of tests/coreapp/run.sh (a control may have failed unseen), log %s" % log)
         if missing:
             msg.append("units of its lines that did not run: " + " ".join(missing))
         raise Fail("; ".join(msg) + "\n    " + "\n    ".join(tail_errors(log)))
