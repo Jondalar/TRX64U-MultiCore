@@ -52,6 +52,8 @@ jobs:
       sims_tier: ${{ steps.dispatch.outputs.sims_tier }}
       host_bits: ${{ steps.dispatch.outputs.host_bits }}
       missing: ${{ steps.order.outputs.missing }}
+      host_missing: ${{ steps.order.outputs.host_missing }}
+      bits_missing: ${{ steps.order.outputs.bits_missing }}
       from_base: ${{ steps.dispatch.outputs.from_base }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
@@ -121,6 +123,8 @@ jobs:
           WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
           CHILDREN: ${{ steps.dispatch.outputs.package == 'true' && '["cor","package"]' || '["cor"]' }}
           COR_TARGETS: ${{ steps.dispatch.outputs.order_targets }}
+          CORES: ${{ steps.dispatch.outputs.cores }}
+          HOST_BITS: ${{ steps.dispatch.outputs.host_bits }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
@@ -501,7 +505,8 @@ jobs:
     needs: [dispatch, approve, sims]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.host_bits == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' }}
     runs-on: ubuntu-latest
-    environment: bitstreams
+    # T239.5 D28: the environment (the builder's release) only where an entry this job fetches is missing; an empty name is no environment
+    environment: ${{ needs.dispatch.outputs.host_missing == 'true' && 'bitstreams' || '' }}
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
     timeout-minutes: 40
@@ -562,7 +567,8 @@ jobs:
     needs: [dispatch, approve, sims, host-bits]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.cores != '[]' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' && needs.sims.result != 'failure' && needs.sims.result != 'cancelled' && needs.host-bits.result != 'failure' && needs.host-bits.result != 'cancelled' }}
     runs-on: ubuntu-latest
-    environment: bitstreams
+    # T239.5 D28: the environment (the builder's release) only where an entry this job fetches is missing; an empty name is no environment
+    environment: ${{ contains(fromJSON(needs.dispatch.outputs.bits_missing), matrix.core) && 'bitstreams' || '' }}
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
     timeout-minutes: 40
@@ -987,7 +993,8 @@ jobs:
     needs: [dispatch, approve]
     if: ${{ !cancelled() && needs.dispatch.result == 'success' && needs.dispatch.outputs.package == 'true' && needs.approve.result != 'failure' && needs.approve.result != 'cancelled' }}
     runs-on: ubuntu-latest
-    environment: bitstreams
+    # T239.5 D28: the environment (the builder's release) only where an entry this job fetches is missing; an empty name is no environment
+    environment: ${{ needs.dispatch.outputs.missing == 'true' && 'bitstreams' || '' }}
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
     timeout-minutes: 60
