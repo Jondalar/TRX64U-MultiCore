@@ -3,7 +3,7 @@
 #define COREAPP_PORTDIAG_REGS_H
 
 // The registers are named by the driver table of the app (drvtab.h, made from the TOML A cores/diag/app/gateware.toml); the offset CoreIo rd/wr takes is the address minus the address of the
-// block "ident", which sits at the start of the core's window. PD_TICKS (00C-00F) is a module parameter of the RTL that rtl_check does not read, so it is a number here.
+// block "ident", which sits at the start of the core's window.
 #include "drvtab.h"
 #define PD_OFS(addr)    ((addr) - DRV_ident_ADDR)
 
@@ -14,7 +14,7 @@
 #define PD_CAP_AV       0x04           // T201: the A/V test encoder (the registers below)
 #define PD_CAP_BANK     0x08           // T260: the pin table ROM and DRIVE by index
 #define PD_CAP_CAPTURE  0x10           // T260: the capture ring
-#define PD_TICKS        0x00C          // 00C-00F, 32 bit little endian: clock ticks per microsecond x 256
+#define PD_TICKS        PD_OFS(DRV_ident_ticks_us_x256_ADDR)          // 00C-00F, 32 bit little endian: clock ticks per microsecond x 256
 #define PD_CTRL         PD_OFS(DRV_engine_ctrl_ADDR)   // W: b0 RUN (edge), b1 ABORT, b2 GO, b3 CLEAR FIFO, b4 CAP RESET
 #define PD_CTRL_RUN     0x01
 #define PD_CTRL_ABORT   0x02

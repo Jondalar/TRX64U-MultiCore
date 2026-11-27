@@ -133,5 +133,12 @@ PROVENANCE/NOTICE agree, and are only the second witness.)
 
   Every register decode of a core window, bar apple2 (not read) and the drive window, is written here. No third-party decode was found among the 14 lane cores.
 
-**Open:** the six red cores (Alex: name the bytes or a rule); P2 conversion of our own decodes (Alex's go on the table); apple2's decode, c64scpu and snes have no TOML A yet
+**Red cores fixed in the TOML A (no RTL change):**
+- ddt_novic: `geom.lines` was 8 bit, the RTL answers GEOM_LINES 16 bit at 035-036; widened to 16 bit (`cores/ddt_novic/app/gateware.toml`).
+- cpc: `geom` started at 031 with a 16 bit `frame_clks`; the RTL has a 32 bit size (0x99900) at 030-033 and src_w/src_h/bufs at 034-038; block moved to 030, `frame_clks` 32 bit, the others re-offset.
+- zx: same size word at 030-033; block moved to 030, `frame_clks` 32 bit, byte 034 named `rsvd34` (the RTL reads constant 0), `lines` at 035, `pix_w` at 037.
+- diag: added `ident.ticks_us_x256` (00C-00F, 32 bit; `PD_TICKS` now takes its offset from it); `capcnt.lines` 3 bytes became one 32 bit read (cap_lines, 12C-12F).
+- neogeo: added `neo_video.seen_cols` and `seen_lines` (0CC-0CF, 16 bit each; block size 0x10).
+
+**Open:** the red cores are fixed (above); P2 conversion of our own decodes (Alex's go on the table); apple2's decode, c64scpu and snes have no TOML A yet
 (their moves, T239.3 D61, take `--toml-a`); the matrix proof of S3 and S4 needs a push.

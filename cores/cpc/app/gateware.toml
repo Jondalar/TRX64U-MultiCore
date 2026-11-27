@@ -93,32 +93,32 @@ size = 0x8
   width = 32
   dir = "r"
 
-# 030-038: the picture's geometry. frame_clks is the sys_clk count per CPC frame (628,992 = 0x99900; the RTL reads bytes 031 and 032, bytes 030 and 033 are the constant 0); src_w and src_h are the frame
+# 030-038: the picture's geometry. frame_clks is the sys_clk count per CPC frame (628,992 = 0x99900, 32 bit at 030-033); src_w and src_h are the frame
 # buffer's pixels per line (720) and line count (540), both 16 bit; bufs is the number of frame buffers (3)
 [[block]]
 name = "geom"
 module = "cpc_regs"
 owner = "base"
-address = 0x101A0031
-size = 0x8
+address = 0x101A0030
+size = 0x9
   [[block.property]]
   name = "frame_clks"
   offset = 0x0
-  width = 16
+  width = 32
   dir = "r"
   [[block.property]]
   name = "src_w"
-  offset = 0x3
+  offset = 0x4
   width = 16
   dir = "r"
   [[block.property]]
   name = "src_h"
-  offset = 0x5
+  offset = 0x6
   width = 16
   dir = "r"
   [[block.property]]
   name = "bufs"
-  offset = 0x7
+  offset = 0x8
   width = 8
   dir = "r"
 

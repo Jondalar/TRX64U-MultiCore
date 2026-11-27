@@ -10,7 +10,7 @@ u2p_io_base = 0x10100000
 id = "DIAG"
 block = "ident"
 
-# 000-00F: the ID "DIAG" (byte 0 first), the caps bytes, DCAPS (b0 the joystick pins are open-drain outputs, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder, b3 the pin bank v2: ROM and DRIVE by index, b4 capture), the build word; 00C-00F (engine clocks per microsecond x 256) is a module parameter that rtl_check does not read, the app names it as a number (portdiag_regs.h PD_TICKS)
+# 000-00F: the ID "DIAG" (byte 0 first), the caps bytes, DCAPS (b0 the joystick pins are open-drain outputs, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder, b3 the pin bank v2: ROM and DRIVE by index, b4 capture), the build word, TICKS_US_X256 (00C-00F, engine clocks per microsecond x 256)
 [[block]]
 name = "ident"
 module = "diag_regs"
@@ -60,6 +60,11 @@ size = 0x10
   [[block.property]]
   name = "build"
   offset = 0x08
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ticks_us_x256"
+  offset = 0x0C
   width = 32
   dir = "r"
 
@@ -398,7 +403,7 @@ size = 0x20
   count = 32
   dir = "rw"
 
-# 120 CAP_STATUS, 124 CAP_COUNT, 128 CAP_LOST, 12C CAP_LINES (20 bit: bytes 12C-12E, byte 12F is the top's constant 0, so the run has three elements)
+# 120 CAP_STATUS, 124 CAP_COUNT, 128 CAP_LOST, 12C CAP_LINES (cap_lines, 32 bit read; the value is 20 bit)
 [[block]]
 name = "capst"
 module = "diag_regs"
@@ -450,8 +455,7 @@ size = 0x0C
   [[block.property]]
   name = "lines"
   offset = 0x08
-  width = 8
-  count = 3
+  width = 32
   dir = "r"
 
 # 130-132 CAP_RADDR (the ring byte offset, bits 3:0 read 0; byte 133 reads 0), 134 CAP_RCTRL (b0: read the 16 bytes at CAP_RADDR into CAP_RDATA), 140-14F CAP_RDATA

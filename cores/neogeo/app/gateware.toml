@@ -211,13 +211,13 @@ size = 0x10
   width = 32
   dir = "r"
 
-# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the reset values of base_r and stride_r in neo_regs.v (the application sets its own, desc.toml); the bring-up words at 0CC-0CF (seen_cols, seen_lines) are not in the file: tools/rtl_check.py finds no read of them in the RTL, and no code of the app reads them
+# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the reset values of base_r and stride_r in neo_regs.v (the application sets its own, desc.toml); seen_cols and seen_lines (0CC-0CF) are the picture size the core has seen, 16 bit each
 [[block]]
 name = "neo_video"
 module = "neo_regs"
 owner = "core"
 address = 0x101A00C0
-size = 0xC
+size = 0x10
   [[block.property]]
   name = "fb_latest"
   offset = 0x0
@@ -249,6 +249,16 @@ size = 0xC
     [[block.property.state]]
     name = "reset"
     value = 0x100000
+  [[block.property]]
+  name = "seen_cols"
+  offset = 0xC
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "seen_lines"
+  offset = 0xE
+  width = 16
+  dir = "r"
 
 # 0D0-0E3: the DDR2 byte addresses of the machine's ROM space (rom_base), the two V ROMs, the Z80 program (m1_base) and the RAM images (img_base)
 [[block]]
