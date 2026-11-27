@@ -209,6 +209,10 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   there. The host's encoder also serves the DFX cores (apple2, atari800, vc20: the host scans their frame buffer out, `host/av_rgb.v`).
   Its room in `pb_l1` (13,735 of 17,400 LUT, T265) is measured before it is built. Alex asked whether the VC-20 and the C16 should become
   large cores instead of DFX; the C16 (`cores/c264`) is one already, the VC-20 is DFX (open).
+- **D11 (Alex, 2026-11-27): with the analogue port as the main output the host menu is drawn on the 576p canvas (PAL) or the 480p
+  canvas (NTSC), not on 960 x 540.** Alex (translated): "576p or 480p, because it looks awful, I think." The canvas choice is the one
+  `coreapp/src/video.cc` already makes for those HDMI rows (the row's size below 960 wide); the setting that picks the main output is
+  Alex's plan "Primary out: HDMI / Analog" (TRX64U-FW session, 2026-11-27).
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
