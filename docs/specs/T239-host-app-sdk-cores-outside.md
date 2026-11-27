@@ -154,6 +154,11 @@ question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, 
   lives in `cores/<id>/`: its app, its TOML A/B, its tests (built against the SDK's test harness), its generated constants; no shared
   test file carries a core's cases, no shared script or list names a core (they find the cores from their folders); the tools a core
   needs (the TOML A list check and generator, T264) ship in the SDK.
+  Found the same day: the core moves left every moved core's test code as `#ifdef TEST_APP_<CORE>` branches in 52 shared files under
+  `tests/coreapp` (the units were per core, the sources were not). Alex (translated): "Clean that up." Order: c64scpu first as the
+  pattern (its tests in `cores/c64scpu/app/tests`, the harness from the SDK, a lint red for a core name in a shared file, the proof
+  = the core folder plus the SDK package build and test outside this repository), then every other core the same way, all before
+  the full build (T264 D4).
 ## §4 Out
 
 Nothing decided yet.
