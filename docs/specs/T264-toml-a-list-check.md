@@ -196,3 +196,11 @@ Not run: the long benches (diag_probe 900 s, diag_co 2400 s, diag_avregs/avmap 1
 **snes (coordinator, 2026-11-27, after core-snes merged into core-moves):** `toml_a_gen.py convert snes` replaced 129 literals, 0 left; `toml_a_list: snes: PASS (155 TOML A bytes, 155 decoded bytes)`, `toml_a_gen: snes: PASS`; yosys `equiv_status -assert` against the file before: "Proved 422 previously unproven $equiv cells", none left.
 **Left as literal, on purpose:** page 6 (the host's pixel layer): the `off == 12'h088..08B` staging compares in both `amiga_regs.v`; the page guards (`page == 4'hE`). **Open:** the c128/c64scpu page 0 in `c64u_io.v` (a copy of TRX64-Ultimate's file: Alex decides), the matrix proof of the lint lines (no push), GHDL for the three VHDL cores.
 
+
+**rtlchk lint of the bundle (coordinator, 2026-11-27, run 46058262413, group `rtlchk`, started because the bundle changes `tests/rtl_check`):** red.
+The frozen interpreter (P3) counts a byte that answers the constant 0 as no read; P1 named such bytes, so seven bytes of five cores became findings:
+neogeo `neo_video.seen_cols`/`seen_lines` (+0xC, +0xE: `neo_top.v` drives bits 9:0 over a port into a slice, which the interpreter does not
+follow, and bits 15:10 by `assign ...[15:10] = 6'd0`, the only driver it sees), ddt_novic `geom.lines` +0x1, zx `geom.frame_clks` +0x0 and
+`rsvd34` +0x4, cpc `geom.frame_clks` +0x0, diag `ident.ticks_us_x256` +0xC (the parameter TICKS_US) and `capcnt.lines` +0xB. The TOML A
+stays as P1 wrote it (`toml_a_list` is the check, D1); `tests/rtl_check` now expects exactly these findings per core (rc 1, the lines, the
+count), apple2's count is 54 (ident byte 0x07, 4b3e8e4c0). The tool is unchanged. After: `rtl_check tests: PASS` (83 PASS lines), `ci/lint.sh rtlchk` rc 0.
