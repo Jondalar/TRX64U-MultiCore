@@ -224,6 +224,8 @@ def cmd_convert(core, toml_a=None, srcdir=None):
                 continue
             seen.add(s)
             text = text[:s] + rep + text[e:]
+        if vhdl:        # the choices are integer constants now: the selector is the offset as an integer
+            text = re.sub(r"\bcase\s+off\s+is\b", "case to_integer(unsigned(off)) is", text, flags=re.I)
         open(path, "w").write(text)
         left += len(miss)
         for s, tok in miss:

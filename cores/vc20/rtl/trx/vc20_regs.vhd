@@ -61,6 +61,28 @@ entity vc20_regs is
 end entity;
 
 architecture rtl of vc20_regs is
+  -- >>> generated from cores/vc20/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+  constant R_IDENT_ID : integer := 16#000#;
+  constant R_IDENT_CAPS : integer := 16#004#;
+  constant R_IDENT_CAPS2 : integer := 16#005#;
+  constant R_IDENT_BUILD : integer := 16#008#;
+  constant R_IRQ_IRQ_EN : integer := 16#010#;
+  constant R_IRQ_IRQ_CAUSE : integer := 16#014#;
+  constant R_DDR_CAL_DDR_CAL0 : integer := 16#020#;
+  constant R_DDR_CAL_DDR_CAL1 : integer := 16#024#;
+  constant R_MACHINE_CTRL : integer := 16#0A0#;
+  constant R_MACHINE_RAM_EXT : integer := 16#0A1#;
+  constant R_MACHINE_RAM_RO : integer := 16#0A2#;
+  constant R_MACHINE_STATUS : integer := 16#0A4#;
+  constant R_MACHINE_FRAMES : integer := 16#0A8#;
+  constant R_MACHINE_CPU_ADDR : integer := 16#0AC#;
+  constant R_TAPE_TAPE_PIN : integer := 16#0B0#;
+  constant R_VIDEO_FB_LATEST : integer := 16#0C0#;
+  constant R_VIDEO_FRAME_SEQ : integer := 16#0C1#;
+  constant R_VIDEO_FB_OVERRUNS : integer := 16#0C2#;
+  constant R_VIDEO_FB_BASE : integer := 16#0C4#;
+  constant R_VIDEO_FB_STRIDE : integer := 16#0C8#;
+  -- <<< generated
   signal ctrl_r   : std_logic_vector(7 downto 0) := x"00";
   signal ext_r    : std_logic_vector(4 downto 0) := (others => '0');
   signal tpin_r   : std_logic_vector(7 downto 0) := (others => '0');
@@ -117,21 +139,21 @@ begin
       if re = '1' and win = '0' and page = x"6" then q_p6 <= '1'; end if;
 
       if we = '1' and win = '0' and page = x"0" then
-        case off is
-          when x"010" => irq_en <= wdata;
-          when x"014" => cause <= (cause and not wdata) or ev;
-          when x"0A0" => ctrl_r <= wdata;
-          when x"0A1" => ext_r <= wdata(4 downto 0);
-          when x"0B0" => tpin_r <= wdata;
-          when x"0A2" => ro_r <= wdata(4 downto 0);
-          when x"0C4" => base_r(7 downto 0) <= wdata;
-          when x"0C5" => base_r(15 downto 8) <= wdata;
-          when x"0C6" => base_r(23 downto 16) <= wdata;
-          when x"0C7" => base_r(31 downto 24) <= wdata;
-          when x"0C8" => stride_r(7 downto 0) <= wdata;
-          when x"0C9" => stride_r(15 downto 8) <= wdata;
-          when x"0CA" => stride_r(23 downto 16) <= wdata;
-          when x"0CB" => stride_r(31 downto 24) <= wdata;
+        case to_integer(unsigned(off)) is
+          when R_IRQ_IRQ_EN => irq_en <= wdata;
+          when R_IRQ_IRQ_CAUSE => cause <= (cause and not wdata) or ev;
+          when R_MACHINE_CTRL => ctrl_r <= wdata;
+          when R_MACHINE_RAM_EXT => ext_r <= wdata(4 downto 0);
+          when R_TAPE_TAPE_PIN => tpin_r <= wdata;
+          when R_MACHINE_RAM_RO => ro_r <= wdata(4 downto 0);
+          when R_VIDEO_FB_BASE => base_r(7 downto 0) <= wdata;
+          when R_VIDEO_FB_BASE + 1 => base_r(15 downto 8) <= wdata;
+          when R_VIDEO_FB_BASE + 2 => base_r(23 downto 16) <= wdata;
+          when R_VIDEO_FB_BASE + 3 => base_r(31 downto 24) <= wdata;
+          when R_VIDEO_FB_STRIDE => stride_r(7 downto 0) <= wdata;
+          when R_VIDEO_FB_STRIDE + 1 => stride_r(15 downto 8) <= wdata;
+          when R_VIDEO_FB_STRIDE + 2 => stride_r(23 downto 16) <= wdata;
+          when R_VIDEO_FB_STRIDE + 3 => stride_r(31 downto 24) <= wdata;
           when others => null;
         end case;
       end if;
@@ -139,48 +161,48 @@ begin
       if ID_TRX2 /= 0 then id := x"32585254"; else id := x"30324356"; end if;   -- bytes "TRX2" / "VC20", byte 0 first
       q <= x"00";
       if win = '0' and page = x"0" then
-        case off is
-          when x"000" => q <= id(7 downto 0);
-          when x"001" => q <= id(15 downto 8);
-          when x"002" => q <= id(23 downto 16);
-          when x"003" => q <= id(31 downto 24);
-          when x"004" => q <= x"C0";
-          when x"005" => q <= x"02";
-          when x"008" => q <= build(7 downto 0);
-          when x"009" => q <= build(15 downto 8);
-          when x"00A" => q <= build(23 downto 16);
-          when x"00B" => q <= build(31 downto 24);
-          when x"010" => q <= irq_en;
-          when x"014" => q <= cause;
-          when x"020" => q <= ddr_cal(7 downto 0);
-          when x"021" => q <= ddr_cal(15 downto 8);
-          when x"022" => q <= ddr_cal(23 downto 16);
-          when x"023" => q <= ddr_cal(31 downto 24);
-          when x"024" => q <= ddr_cal(39 downto 32);
-          when x"025" => q <= ddr_cal(47 downto 40);
-          when x"026" => q <= ddr_cal(55 downto 48);
-          when x"027" => q <= ddr_cal(63 downto 56);
-          when x"0A0" => q <= ctrl_r;
-          when x"0A1" => q <= "000" & ext_r;
-          when x"0B0" => q <= tpin_r;
-          when x"0A2" => q <= "000" & ro_r;
-          when x"0A4" => q <= s_q;
-          when x"0A8" => q <= f_q(7 downto 0);
-          when x"0A9" => q <= f_q(15 downto 8);
-          when x"0AC" => q <= c_q(7 downto 0);
-          when x"0AD" => q <= c_q(15 downto 8);
-          when x"0C0" => q <= l_q;
-          when x"0C1" => q <= n_q;
-          when x"0C2" => q <= o_q(7 downto 0);
-          when x"0C3" => q <= o_q(15 downto 8);
-          when x"0C4" => q <= base_r(7 downto 0);
-          when x"0C5" => q <= base_r(15 downto 8);
-          when x"0C6" => q <= base_r(23 downto 16);
-          when x"0C7" => q <= base_r(31 downto 24);
-          when x"0C8" => q <= stride_r(7 downto 0);
-          when x"0C9" => q <= stride_r(15 downto 8);
-          when x"0CA" => q <= stride_r(23 downto 16);
-          when x"0CB" => q <= stride_r(31 downto 24);
+        case to_integer(unsigned(off)) is
+          when R_IDENT_ID => q <= id(7 downto 0);
+          when R_IDENT_ID + 1 => q <= id(15 downto 8);
+          when R_IDENT_ID + 2 => q <= id(23 downto 16);
+          when R_IDENT_ID + 3 => q <= id(31 downto 24);
+          when R_IDENT_CAPS => q <= x"C0";
+          when R_IDENT_CAPS2 => q <= x"02";
+          when R_IDENT_BUILD => q <= build(7 downto 0);
+          when R_IDENT_BUILD + 1 => q <= build(15 downto 8);
+          when R_IDENT_BUILD + 2 => q <= build(23 downto 16);
+          when R_IDENT_BUILD + 3 => q <= build(31 downto 24);
+          when R_IRQ_IRQ_EN => q <= irq_en;
+          when R_IRQ_IRQ_CAUSE => q <= cause;
+          when R_DDR_CAL_DDR_CAL0 => q <= ddr_cal(7 downto 0);
+          when R_DDR_CAL_DDR_CAL0 + 1 => q <= ddr_cal(15 downto 8);
+          when R_DDR_CAL_DDR_CAL0 + 2 => q <= ddr_cal(23 downto 16);
+          when R_DDR_CAL_DDR_CAL0 + 3 => q <= ddr_cal(31 downto 24);
+          when R_DDR_CAL_DDR_CAL1 => q <= ddr_cal(39 downto 32);
+          when R_DDR_CAL_DDR_CAL1 + 1 => q <= ddr_cal(47 downto 40);
+          when R_DDR_CAL_DDR_CAL1 + 2 => q <= ddr_cal(55 downto 48);
+          when R_DDR_CAL_DDR_CAL1 + 3 => q <= ddr_cal(63 downto 56);
+          when R_MACHINE_CTRL => q <= ctrl_r;
+          when R_MACHINE_RAM_EXT => q <= "000" & ext_r;
+          when R_TAPE_TAPE_PIN => q <= tpin_r;
+          when R_MACHINE_RAM_RO => q <= "000" & ro_r;
+          when R_MACHINE_STATUS => q <= s_q;
+          when R_MACHINE_FRAMES => q <= f_q(7 downto 0);
+          when R_MACHINE_FRAMES + 1 => q <= f_q(15 downto 8);
+          when R_MACHINE_CPU_ADDR => q <= c_q(7 downto 0);
+          when R_MACHINE_CPU_ADDR + 1 => q <= c_q(15 downto 8);
+          when R_VIDEO_FB_LATEST => q <= l_q;
+          when R_VIDEO_FRAME_SEQ => q <= n_q;
+          when R_VIDEO_FB_OVERRUNS => q <= o_q(7 downto 0);
+          when R_VIDEO_FB_OVERRUNS + 1 => q <= o_q(15 downto 8);
+          when R_VIDEO_FB_BASE => q <= base_r(7 downto 0);
+          when R_VIDEO_FB_BASE + 1 => q <= base_r(15 downto 8);
+          when R_VIDEO_FB_BASE + 2 => q <= base_r(23 downto 16);
+          when R_VIDEO_FB_BASE + 3 => q <= base_r(31 downto 24);
+          when R_VIDEO_FB_STRIDE => q <= stride_r(7 downto 0);
+          when R_VIDEO_FB_STRIDE + 1 => q <= stride_r(15 downto 8);
+          when R_VIDEO_FB_STRIDE + 2 => q <= stride_r(23 downto 16);
+          when R_VIDEO_FB_STRIDE + 3 => q <= stride_r(31 downto 24);
           when others => null;
         end case;
       end if;
