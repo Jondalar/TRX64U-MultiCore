@@ -137,6 +137,7 @@ f9e910643e18c66f083ff46bf52cef812f8c01b2 host/hdmi_timing.v
 768b0d0a502c96b8a2989dc11d54aca6fdff5229 host/icap_test/icap_test.c
 fe3dedce9acab657fed7914921d75e36f1efd92d host/icap_test/linker.ld
 f355dd17eb2757a7fe059f8bd8addb93139288fa host/jtag_dbg.v
+e03bb76349c74f37c145691a54f085bbaef13cc2 host/key_epoch.txt
 4106c69c3b4b59746f30f2d31bc9058f1fcceef0 host/mem/ovl_font12.mem
 f11973768bbdee0fc071da23a18d35f5eb80f656 host/mem/ovl_font8.mem
 09447c10be5e136bbc82bf68c3c976691d1ef50b host/mig_ddr2.prj
