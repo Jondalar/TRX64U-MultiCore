@@ -9,6 +9,7 @@
 #include "boot.h"
 #include "cores.h"
 #include "ddt_regs.h"
+#include "rtl_text.h"
 #include "ops_glue.h"
 extern const CoreDesc ddt_novic_desc;           // cores.h lists the shared app's cores; DDT Look Ma, No VIC is its own app (cores/ddt_novic/app/lib)
 
@@ -24,7 +25,7 @@ static bool has(const std::string &t, const std::string &re) { return std::regex
 
 static void one(const CoreDesc &d, const char *id, const char *name_toml, const char *layer2, const char *idhex, int lines)
 {
-    std::string regs = slurp("cores/ddt_mandel/trx/ddt_regs.v");
+    std::string regs = rtl_literal(slurp("cores/ddt_mandel/trx/ddt_regs.v"));   // T264 S2: the decode names its offsets by constants
     std::string l2 = slurp(layer2);
     std::string toml = slurp(name_toml);
     CHECK(!regs.empty() && !l2.empty() && !toml.empty());

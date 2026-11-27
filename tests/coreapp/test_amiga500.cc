@@ -15,6 +15,7 @@
 #include <fstream>
 #include <set>
 #include <sstream>
+#include "rtl_text.h"
 
 // the decode of the gateware: every `12'hXXX` of the write case, and the bytes of every word of the read case (10'hXXX is the word number)
 struct Decode { std::set<uint32_t> wr, rd; };
@@ -25,7 +26,7 @@ static Decode read_decode(const char *path)
     std::ifstream in(path);
     std::stringstream ss;
     ss << in.rdbuf();
-    std::string t = ss.str();
+    std::string t = rtl_literal(ss.str());                // T264 S2: the decode names its offsets by constants
     size_t w0 = t.find("if (we && p0)"), w1 = t.find("default: ;", w0);
     size_t r0 = t.find("case (off[11:2])"), r1 = t.find("default: ;", r0);
     CHECK(w0 != std::string::npos && w1 != std::string::npos && r0 != std::string::npos && r1 != std::string::npos);
