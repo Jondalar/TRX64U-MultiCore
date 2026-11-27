@@ -1,15 +1,6 @@
 # T239.3 S6: the target of every file of the D24 ledger (tools/d24_ledger.txt), read from the code. tools/check_d24.py reads it: a ledger file without a line here is red.
 # Line: <path> <target> <reason: a few words>. Targets: data (tables that are TOML, register maps: D8), core-library (one core's own code: hooks and its formats, D9),
 # shared-library (code several cores use, kept here: D10, D12), ultimate-repo (only the D12 list), generic-module (code that belongs to the generic app for every core).
-coreapp/cores/apple2.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/apple2_disk.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_hdd.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_nib.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_nib.h core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_regs.h data register map (D8)
-coreapp/cores/apple2_woz.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_woz.h core-library the core's own file format or engine (D9)
 coreapp/cores/c64_cart.cc shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart.h shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart_desc.h shared-library cartridge library's types

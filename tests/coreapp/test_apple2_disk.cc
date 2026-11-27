@@ -6,7 +6,7 @@
 #include "fakes.h"
 #include "apple2_regs.h"
 #include "apple2_disk.h"
-#include "../../cores/apple2/rtl/roms/hdd_rom.h"
+#include "hdd_rom.h"
 #include <fstream>
 #include <sstream>
 

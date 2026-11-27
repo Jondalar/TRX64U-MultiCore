@@ -12,6 +12,7 @@
   3b. the NES (T239.5 D15): cores/nes/app/gateware.toml against the files of cores/nes/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_nes.
   3c. the Commodore 264 (T239.5 D15): cores/c264/app/gateware.toml against the files of cores/c264/core_sources.tcl, the requests being the five cw_* ports of layer2_c264 and, for its own drive_a, its drv_io_* ports.
   3d. the ZX Spectrum Next (T239.5 D15): cores/zxnext/app/gateware.toml against the files of cores/zxnext/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_zxnext.
+  3e. the Apple IIe (T239.3 D61): cores/apple2/app/gateware.toml against the files of cores/apple2/core_sources.tcl, the request being the five cw_* ports of layer2_apple2.
   3e. the Neo Geo (T239.5 D15): cores/neogeo/app/gateware.toml against the files of cores/neogeo/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_neogeo.
   3f. the Amiga 500 (T239.5 D15): cores/amiga/app/gateware.toml against the files of cores/amiga/core_sources.tcl, the request being the five cw_* ports of layer2_amiga (the A500's own amiga_regs.v).
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
@@ -279,6 +280,12 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--bus", "layer2_zxnext:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "zxnext", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "14 block(s), 42 properties agree" in out, "zxnext: 14 blocks, 42 properties of gateware.toml agree with the RTL of the core window (zxn_regs.v: the identity and the features byte, the IRQ pair, the DDR2 calibration, the machine, the cache counters, the frame buffers, the DDR2 bases, the clock, the keys, the SD image, the sector mailbox, the card's counters, the mouse; page 6 is the hand-over to the host's pixel layer)", out)
+
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/apple2/core_sources.tcl",
+              "--top", "layer2_apple2",
+              "--bus", "layer2_apple2:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "apple2", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "12 block(s), 53 properties agree" in out, "apple2: 12 blocks, 53 properties of gateware.toml agree with the RTL of the core window (a2_regs.vhd: the identity, the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the aux RAM and the ROM aperture's selector, the two floppy drives with the disk registers, the palette, the key injection, the mouse, the track statistics, the slot 7 hard disk card)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/neogeo/app/rtl_check_sources.tcl",
               "--top", "layer2_neogeo",

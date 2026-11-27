@@ -36,6 +36,7 @@ extern const CoreDesc c264_desc;                // the Commodore 264 is its own 
 #endif
 #if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA)
 #include "apple2_regs.h"
+extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib), run.sh apple2app (TEST_APP_APPLE2): the shared unit has no core left (T239.3 D61)
 #endif
 #ifdef TEST_APP_ZXNEXT
 #include "zxnext_regs.h"
@@ -75,7 +76,7 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 #define HEX_CORE cpc_desc
 #elif defined(TEST_APP_DIAG)              // the diag core's app is its own build (run.sh diagapp): its core is the only one in its table
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
-#else
+#else   // TEST_APP_APPLE2: the Apple IIe's app is its own build (run.sh apple2app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
@@ -164,7 +165,7 @@ int main()
 #elif defined(TEST_APP_CPC)
     struct W { const CoreDesc *d; int last; } widths[] = { { &cpc_desc, 0x1FFFF } };
 #else
-    struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // T239.5 D13: the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
+    struct W { const CoreDesc *d; int last; } widths[] = { { &apple2_desc, 0x1FFFF } };       // the Apple IIe (T239.3 D61: its unit apple2_memops); the Amiga 500's width is its unit amiga_memops, the NES's nes_memops, the Next's zxnext_memops
 #endif
     for (auto &w : widths) {
         Rig r(w.d);

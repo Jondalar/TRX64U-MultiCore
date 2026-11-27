@@ -19,7 +19,6 @@ limit large 120
 # <pathspec> -> <target>...      (git pathspec from the repository root; a path matches every row it fits)
 host-app        -> app:host
 coreapp         -> app:core
-cores/apple2/rtl/roms -> app:core
 app             -> app:host app:core
 vendor/gideon/software -> app:host app:core
 vendor/gideon/tools    -> app:host app:core

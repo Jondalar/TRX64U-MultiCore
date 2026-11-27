@@ -28,6 +28,9 @@ extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app 
 #ifdef TEST_APP_ATARI800
 extern const CoreDesc atari800_desc;            // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
+#ifdef TEST_APP_APPLE2
+extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+#endif
 #ifdef TEST_APP_NES
 extern const CoreDesc nes_desc;                 // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
 #endif
@@ -87,8 +90,10 @@ const CoreDesc *const core_table[] = { &zxnext_desc, 0 };
 const CoreDesc *const core_table[] = { &portdiag_desc, 0 };
 #elif defined(TEST_APP_NEOGEO)          // the Neo Geo's app is its own build (run.sh neogeoapp) with its core only
 const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
+#elif defined(TEST_APP_APPLE2)          // the Apple IIe's app is its own build (run.sh apple2app) with its core only
+const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #else
-const CoreDesc *const core_table[] = { &apple2_desc, &snes_desc, &c64scpu_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &snes_desc, &c64scpu_desc, &testcore::desc, 0 };
 #endif
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
@@ -273,12 +278,16 @@ int main(int, char **argv)
         static const Mi want[] = { { "SNK Neo Geo", "System type,BIOS" } };
         static const char *const none[1] = { 0 };
         const int n_none = 0;
+#elif defined(TEST_APP_APPLE2)
+        static const Mi want[1] = { { "", "" } };                          // the Apple IIe has no machine line (no model or memory setting): nothing to find (the count below is skipped)
+        static const char *const none[] = { "Apple IIe" };
+        const int n_none = 1;
 #else
         static const Mi want[] = {
             { "C64 with SuperCPU", "SuperCPU speed" },
         };
-        static const char *const none[] = { "Apple IIe", "Super Nintendo" };
-        const int n_none = 2;
+        static const char *const none[] = { "Super Nintendo" };
+        const int n_none = 1;
 #endif
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
@@ -302,7 +311,7 @@ int main(int, char **argv)
             }
             for (int k = 0; k < n_none; k++) if (!strcmp(d->cor_name, none[k])) { nones++; CHECK(!d->machine_info); }
         }
-#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_DIAG)
+#if !defined(TEST_APP_DDT) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
 #endif
         CHECK_EQ(nones, n_none);
@@ -385,8 +394,10 @@ int main(int, char **argv)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the diag core has no file type
 #elif defined(TEST_APP_NEOGEO)
         CHECK(seen_cbm == 0 && seen_other == 0);                    // the Neo Geo's .neo is run, not mounted: no image the walk counts
+#elif defined(TEST_APP_APPLE2)
+        CHECK(seen_cbm == 0 && seen_other >= 1);                    // the Apple's images (.dsk, .do, .po, .nib: Mount D1 and cold start) are no reference table's image
 #else
-        CHECK(seen_cbm == 3 && seen_other == 7);                    // the walk saw the shared cores (c64scpu; apple ...), measured 2026-11-25 (T239.5 D13: the moved cores' types are their apps')
+        CHECK(seen_cbm == 3 && seen_other == 0);                    // the walk saw the shared cores (c64scpu's three drive image types; the SNES's game is run, not mounted), measured 2026-11-27 (T239.5 D13, T239.3 D61: the moved cores' types are their apps')
 #endif
     }
 
@@ -522,8 +533,10 @@ int main(int, char **argv)
         CHECK(n205 == 1);
 #elif defined(TEST_APP_NEOGEO)
         CHECK(n205 == 1);
+#elif defined(TEST_APP_APPLE2)
+        CHECK(n205 == 1);
 #else
-        CHECK(n205 == 4);                                          // T239.5 D13: the shared table (apple2, snes, c64scpu, the made-up core); each moved core's row is its app's unit
+        CHECK(n205 == 3);                                          // T239.5 D13: the shared table (snes, c64scpu, the made-up core); each moved core's row is its app's unit
 #endif
         printf("T205: %d cores walked\n", n205);
     }
@@ -559,8 +572,10 @@ int main(int, char **argv)
         static const char *const own[] = { 0 };                              // the diag core has no medium
 #elif defined(TEST_APP_NEOGEO)
         static const char *const own[] = { "NEO_" };                         // the backup RAM's and the memory card's save
+#elif defined(TEST_APP_APPLE2)
+        static const char *const own[] = { "APL2" };                         // the floppies' and the slot 7 volumes' write-back
 #else
-        static const char *const own[] = { "APL2", "SNES" };
+        static const char *const own[] = { "SNES" };
 #endif
         for (const char *id : own) {
             if (!id) continue;
@@ -585,7 +600,7 @@ int main(int, char **argv)
         }
     }
 
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // each mandatory field, missing, is named
     CoreDesc d = testcore::desc;
     d.cor_name = ""; CHECK(desc_check(&d) && strstr(desc_check(&d), "cor_name"));
@@ -901,6 +916,10 @@ int main(int, char **argv)
         const Task *t = find_task(&pet_desc, k);
         CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
     }
+#elif defined(TEST_APP_APPLE2)
+    // T104.1 Q10: the capability list of the real descriptor (a floppy on slot 6 and a hard disk on slot 7: no SIO, no IEC, no cartridge)
+    CHECK(desc_has_capability(&apple2_desc, "floppy"));
+    CHECK(!desc_has_capability(&apple2_desc, "sio") && !desc_has_capability(&apple2_desc, "iec") && !desc_has_capability(&apple2_desc, "cartridge") && !desc_has_capability(&apple2_desc, "drive_a"));
 #else
 
 #if defined(TEST_APP_A1200) || defined(TEST_APP_AMIGA)          // T239.5 D13: the Amiga 500's case runs as its app (unit amiga_desc), no longer in the shared unit
@@ -1116,8 +1135,9 @@ int main(int, char **argv)
     golden(&atari800_desc, "atari800");
 #elif defined(TEST_APP_DIAG)
     golden(&portdiag_desc, "portdiag");
-#else
+#elif defined(TEST_APP_APPLE2)
     golden(&apple2_desc, "apple2");
+#else
     golden(&snes_desc, "snes");
     golden(&c64scpu_desc, "c64scpu");
     golden(&testcore::desc, "test");
@@ -1177,7 +1197,7 @@ int main(int, char **argv)
             if (strstr(buf, forbidden[f])) { printf("forbidden word %s in the dump of %s\n", forbidden[f], (*p)->cor_name); CHECK(false); }
         }
     }
-#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_DDT) && !defined(TEST_APP_ZX) && !defined(TEST_APP_CPC) && !defined(TEST_APP_PET) && !defined(TEST_APP_C128) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_DIAG) && !defined(TEST_APP_APPLE2)          // stands on the shared app's cores; the VIC-20's, the A1200's, DDT's and the ZX Spectrum's app are their own builds (run.sh vc20app, a12app, ddtapp, zxapp) with their core only
     // S11: the made-up core boots through the shared code, ROMs from a stick, settings and all
     FakeIo io; FakeFs fs; PxRec px;
     fs.put_size("/usb0/roms/test/T.BIN", 8192);

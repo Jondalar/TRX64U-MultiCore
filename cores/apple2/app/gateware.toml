@@ -1,0 +1,524 @@
+# TOML A of the Apple //e core (T239.3 D55, D61): the gateware's registers as capabilities, written from what cores/apple2/rtl/trx/a2_regs.vhd decodes (tools/rtl_check.py proves it against the RTL, code to code:
+# tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_*
+# ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6 (0x101A6000-0x101A6FFF)
+# is decoded by a2_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The core has no drive of the 1541 kind and no IEC bus.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the core are named a2_* (except ident).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "APL2"
+block = "ident"
+
+# 000-00B: the ID "APL2" (a2_regs.vhd answers the four bytes 0x41 0x50 0x4C 0x32), caps 0xC0 (page 6 and the pixel layer, the host's), caps2 0x06 (b2 the bit level Disk II engine and the slot 7 card, b1 BUILD is there), the contract version and the build word. Byte 0x07 answers the constant 0x0F and no code reads it: not in this file
+[[block]]
+name = "ident"
+module = "a2_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): the events of a2_regs.vhd (ev), b3 a track request, b4 a hard disk request, b5 an Apple frame is complete, b6 the host's video frame start, b7 page flip done
+[[block]]
+name = "a2_irq"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "track"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "hdd"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "a2_ddr_cal"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0-0B7: the machine. ctrl b0 holds CTRL-RESET, b1 halts the clock (Freeze), a write with b2 set is the cold reset (a toggle, reads back 0); cfg b1:0 monitor, b3:2 palette, b4 scanlines, b5 character set (ROMSWITCH),
+# b6 swaps the joystick ports (a2_core.vhd: cfg_s2); caps b0 CAPS LOCK as the application knows it; status b0 in reset, b1 held, b2 cold reset running, b3 CAPS LOCK, b4 aux RAM waits; frames the frame counter (16 bit);
+# cpuaddr the CPU's address bus (a sample); aux_miss and aux_stall the aux RAM cache's counters
+[[block]]
+name = "a2_machine"
+module = "a2_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x18
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "cold"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "cfg"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "monitor"
+    shift = 0
+    bits = 2
+    [[block.property.field]]
+    name = "palette"
+    shift = 2
+    bits = 2
+    [[block.property.field]]
+    name = "scanlines"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "charset"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "joy_swap"
+    shift = 6
+    bits = 1
+  [[block.property]]
+  name = "caps"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00000001
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "cold"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "caps_lock"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "aux_wait"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0xC
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "aux_miss"
+  offset = 0x10
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "aux_stall"
+  offset = 0x14
+  width = 32
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_latest the newest complete frame's buffer, frame_seq its counter, fb_over the lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the
+# reset values of fbase_r and fstr_r in a2_regs.vhd (the DDR2 window at 0x01000000 + 0xD00000, four buffers 1 MB apart)
+[[block]]
+name = "a2_video"
+module = "a2_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_over"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D0-0D4: aux_base the DDR2 byte address of the aux RAM image (reset 0x01100000), win_sel the array the ROM aperture shows (a2_win.vhd: 0 System ROM, 1 character ROM, 2 Disk II ROM, 3/4 the track buffers, 5 aux RAM, 8 the slot 7 ROM)
+[[block]]
+name = "a2_mem"
+module = "a2_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0x5
+  [[block.property]]
+  name = "aux_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01100000
+  [[block.property]]
+  name = "win_sel"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+
+# 0E0-0EE: the two drives, 8 bytes each. status b0 request open, b1 write-back, b2 dirty, b3 valid, b4 motor; req_track the quarter track asked for; head the head's quarter track; ack any write hands the track over;
+# bits the bits of the track put in (written before ack); flags b0 noise. 0F0-0F3: disk_ctl b0/b1 drive 1/2 has an image, b2/b3 write protect 1/2; disk_cmd b0/b1 image changed 1/2, b2/b3 flush 1/2 (write 1 = a toggle);
+# disk_cfg b0 while a track loads the old one goes on playing; disk_clr any write clears the counters of a2_stats
+[[block]]
+name = "a2_floppy"
+module = "a2_regs"
+owner = "core"
+address = 0x101A00E0
+size = 0x14
+  [[block.property]]
+  name = "status"
+  offset = 0x0
+  width = 8
+  count = 2
+  stride = 0x8
+  dir = "r"
+    [[block.property.field]]
+    name = "req"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "save"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "dirty"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "valid"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "motor"
+    shift = 4
+    bits = 1
+  [[block.property]]
+  name = "req_track"
+  offset = 0x1
+  width = 8
+  count = 2
+  stride = 0x8
+  dir = "r"
+  [[block.property]]
+  name = "head"
+  offset = 0x2
+  width = 8
+  count = 2
+  stride = 0x8
+  dir = "r"
+  [[block.property]]
+  name = "ack"
+  offset = 0x3
+  width = 8
+  count = 2
+  stride = 0x8
+  dir = "w"
+  [[block.property]]
+  name = "bits"
+  offset = 0x4
+  width = 16
+  count = 2
+  stride = 0x8
+  dir = "rw"
+  [[block.property]]
+  name = "flags"
+  offset = 0x6
+  width = 8
+  count = 2
+  stride = 0x8
+  dir = "rw"
+    [[block.property.field]]
+    name = "noise"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "disk_ctl"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "disk_cmd"
+  offset = 0x11
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "disk_cfg"
+  offset = 0x12
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "disk_clr"
+  offset = 0x13
+  width = 8
+  dir = "w"
+
+# 100-12F: the 16 colours of the three palettes as 8 bit values (a2_palette_pkg.vhd, pal_r), 48 bytes
+[[block]]
+name = "a2_palette"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x30
+  [[block.property]]
+  name = "color"
+  offset = 0x0
+  width = 8
+  count = 48
+  stride = 0x1
+  dir = "rw"
+
+# 140 KEY_INJ (write a 7 bit code into the keyboard queue), 141 the queue's fill
+[[block]]
+name = "a2_keys"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x2
+  [[block.property]]
+  name = "key_inj"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "key_queued"
+  offset = 0x1
+  width = 8
+  dir = "r"
+
+# 150-153: the mouse card's movement (dx, dy as the card takes them), buttons b0, go any write hands the values over
+[[block]]
+name = "a2_mouse"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0150
+size = 0x4
+  [[block.property]]
+  name = "dx"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "dy"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "btn"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "go"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+# 160-173: lat_max (per drive) the longest a track request stayed open, in sys_clk clocks; reqs (per drive) the requests opened; starved reads of the data latch while a mounted drive's track was not in the buffer;
+# noise_cells the bit cells played as random flux because a track was loading
+[[block]]
+name = "a2_stats"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0160
+size = 0x14
+  [[block.property]]
+  name = "lat_max"
+  offset = 0x0
+  width = 32
+  count = 2
+  stride = 0x4
+  dir = "r"
+  [[block.property]]
+  name = "reqs"
+  offset = 0x8
+  width = 16
+  count = 2
+  stride = 0x2
+  dir = "r"
+  [[block.property]]
+  name = "starved"
+  offset = 0xC
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "noise_cells"
+  offset = 0x10
+  width = 32
+  dir = "r"
+
+# 180-18F: the slot 7 hard disk card. status b0 a block is wanted, b1 it is a write, b2 unit 2, b3 LC bank 1 selected at the command; block and mem the block number and the buffer in main RAM; result 0 ok, else a ProDOS error;
+# ack any write ends the command; ctl b0/b1 unit 1/2 mounted, b2/b3 write protected; size (per unit) the blocks; cmds the commands served
+[[block]]
+name = "a2_hdd"
+module = "a2_regs"
+owner = "core"
+address = 0x101A0180
+size = 0x10
+  [[block.property]]
+  name = "status"
+  offset = 0x0
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "want"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "write"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "unit2"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "lc_bank1"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "block"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "mem"
+  offset = 0x4
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "result"
+  offset = 0x6
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ack"
+  offset = 0x7
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "ctl"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "size"
+  offset = 0xA
+  width = 16
+  count = 2
+  stride = 0x2
+  dir = "rw"
+  [[block.property]]
+  name = "cmds"
+  offset = 0xE
+  width = 16
+  dir = "r"

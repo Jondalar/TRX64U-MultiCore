@@ -11,7 +11,6 @@ const CoreDesc *const core_table[] = { &CORE_ONLY, 0 };
 const CoreDesc *const core_table[] = { 0 };
 #else
 const CoreDesc *const core_table[] = {
-    &apple2_desc,
     &c64scpu_desc,
     &snes_desc,
     0

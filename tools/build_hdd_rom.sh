@@ -1,13 +1,13 @@
 #!/bin/sh
 # T89.1 D1: the slot 7 card's ROM (256 bytes) from its source, cores/apple2/rtl/roms/hdd.a65 (AppleWin hard disk firmware, GPL), into
-# cores/apple2/rtl/roms/hdd_rom.h which the application embeds.   tools/build_hdd_rom.sh [--check]
+# cores/apple2/app/lib/hdd_rom.h which the application embeds.   tools/build_hdd_rom.sh [--check]
 # The source is written for ACME 0.97; ACME 0.94 (the one on the Mac and the builder) cannot parse its two diagnostic `!warn` lines and the `@`
 # marker labels they use, so those lines are dropped for the assembly. The bytes are the same as the donor's hdd.hex (checked 2026-10-29).
 # --check regenerates and compares (needs acme); without acme the header is left alone.
 set -e
 root=$(cd "$(dirname "$0")/.." && pwd)
 src="$root/cores/apple2/rtl/roms/hdd.a65"
-out="$root/cores/apple2/rtl/roms/hdd_rom.h"
+out="$root/cores/apple2/app/lib/hdd_rom.h"
 command -v acme >/dev/null || { echo "build_hdd_rom: acme is not installed; $out not regenerated"; [ "$1" = "--check" ] && exit 0; exit 1; }
 tmp=$(mktemp -d)
 grep -v '^!warn\|^@check' "$src" > "$tmp/hdd.a65"

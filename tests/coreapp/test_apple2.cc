@@ -1,12 +1,13 @@
 // T89 §5 (2026-10-19): the Apple //e descriptor against a model of the register block - the three ROMs (the Disk II ROM only while a disk is
 // mounted), the display settings, CAPS LOCK from the C64U's SHIFT LOCK, the resets and the mount that boots. The descriptor under test is
-// the real one (coreapp/cores/apple2.cc).
+// the real one (cores/apple2/app/lib/apple2.cc).
 #include <string>
 #include "check.h"
 #include "fakes.h"
 #include "boot.h"
 #include "cores.h"
 #include "apple2_regs.h"
+extern const CoreDesc apple2_desc;   // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
 #include "apple2_disk.h"
 #include "ops_glue.h"
 

@@ -33,6 +33,12 @@ extern const CoreDesc atari800_desc;            // cores.h lists the shared app'
 #ifdef TEST_APP_CPC
 extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
 #endif
+#ifdef TEST_APP_APPLE2
+extern const CoreDesc apple2_desc;              // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+#endif
+#if !defined(TEST_APP_VC20) && !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)
+#error "test_createflow: every core's create flow is its app's unit (run.sh vc20app, a12app, cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
+#endif
 #include "sectors.h"
 
 typedef std::vector<uint8_t> Bytes;
@@ -47,7 +53,7 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_ATARI800)        // the Atari's app is its own build (run.sh a8app) with its core only
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
+#else   // TEST_APP_APPLE2 (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
@@ -78,7 +84,7 @@ struct Rig {
     {
         delete m;
         delete st;
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800)                  // the A1200's, the CPC's, the Amiga 500's and the Atari's app link no drive library: their ctx has no drive
+#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)                  // the A1200's, the CPC's, the Amiga 500's, the Atari's and the Apple IIe's app link no drive library: their ctx has no drive
         delete (CbmDrive *)c.drive;
 #endif
     }
@@ -201,7 +207,7 @@ static const Create creates[] = {
     { &amiga_desc,     "Create blank ADF", ".adf" },
 #elif defined(TEST_APP_ATARI800)
     { &atari800_desc,  "Create blank ATR", ".atr" },
-#else
+#else   // TEST_APP_APPLE2
     { &apple2_desc,    "Create blank DSK", ".dsk" },
 #endif
 };
@@ -287,7 +293,7 @@ static void check_suggestions()
     for (const CoreDesc *d : { &amiga_desc }) {
 #elif defined(TEST_APP_ATARI800)
     for (const CoreDesc *d : { &atari800_desc }) {
-#else
+#else   // TEST_APP_APPLE2
     for (const CoreDesc *d : { &apple2_desc }) {
 #endif
         for (int i = 0; i < d->ntasks; i++) {

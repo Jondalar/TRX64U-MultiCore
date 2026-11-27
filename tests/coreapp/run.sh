@@ -108,6 +108,8 @@ NEOLIB="$ROOT/cores/neogeo/app/lib"   # T239.5 D15: the Neo Geo's library lives 
 ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
+own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
+A2LIB="$ROOT/cores/apple2/app/lib"   # T239.3 D61: the Apple IIe's library lives in its own repository part (cores/apple2/app/lib), not in coreapp/cores
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
 VC20LIB="$ROOT/cores/vc20/app/lib"   # T239.3 V-4: the VIC-20's library lives in its own repository part (cores/vc20/app/lib), not in coreapp/cores
 EDIT="$ROOT/app/edit"
@@ -134,6 +136,9 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
 # The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_NES+=("$i"); done
+# The Apple IIe is its own app as well (T239.3 D61: cores/apple2/app). apple2app CMD... builds like a8app, with the Apple's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_APPLE2: its units are in the group apple2.
+INC_A2=(-DTEST_APP_APPLE2=1 -I"$A2LIB" -I"$T/a2tab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
 # The Commodore 264 is its own app as well (T239.5 D15: cores/c264/app). c264app CMD... builds like nesapp, with the 264's library, its table and TEST_APP_C264: its units are in the group c264.
 # APPLIB puts its library first in the source lookup (no shared unit finds c264.cc: T239.5 D13, the 264's cases of the shared tests are its units, at the end of this file).
 INC_C264=(-DTEST_APP_C264=1 -I"$C264LIB" -I"$T/c264tab/drv")
@@ -154,6 +159,7 @@ zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext APPLIB="$ZXNLIB"; "$@
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264 APPLIB="$C264LIB"; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
+apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 # DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_DDT+=("$i"); done
@@ -269,7 +275,7 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/apple2.cc $CORES/apple2_regs.h $CORES/c64_go.cc" | ca_check apple2 probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
+  printf '%s\n' "$CORES/snes.cc $CORES/snes_regs.h $CORES/c64_go.cc" | ca_check snes probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
@@ -354,14 +360,12 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc libtab_native.cc"   # libtab_native.cc: the slot table libload.cc reads (base 4.0)
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
-run ledcores test_ledcores.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc c64scpu.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -486,11 +490,6 @@ control noflash_deep_path fsif.h 's/ || strchr(slash + 1, .\/.))/)/' test_noflas
 control noflash_boot_mc_missing fsif.h 's/if (!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)) {/if (false) {/' test_noflash.cc
 
 # T89 Apple //e disk: 6-and-2 nibblizer (golden from the RWTS definition + an independent POSTNIB decoder), file orders, the track window service
-A2D="apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc"
-run apple2_disk test_apple2_disk.cc $A2D
-control a2d_no_flush apple2_disk.cc '/T180 D4: written back first/s/if (a2_flush(c, drive, msg, msglen))/if (false)/' test_apple2_disk.cc $A2D
-A2="apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc $BASEL"
-run apple2 test_apple2.cc $A2
 
 # T91 (the ZX Spectrum on the generic application): the tape converter is a unit of each app that has a deck: tape_zx, tape_cpc and tape_pet below (each core's own copy)
 
@@ -512,14 +511,7 @@ run c64scpu test_c64scpu.cc $C64SCPU
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
-# Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
-control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
-control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
-control a2d_kept_dropped apple2_disk.cc 's/    if (r < 0) {/    if (false) {/' test_apple2_disk.cc $A2D
-control a2d_kept_retry apple2_disk.cc 's/g_kept\[drive\], d->kept_bits) < 0) {/g_kept[drive], d->kept_bits) < -1) {/' test_apple2_disk.cc $A2D
-control a2d_saving apple2_disk.cc 's/MediaSaving saving(c, d->kept || d->needs_sync || (/MediaSaving saving(c, 0 \&\& (/' test_apple2_disk.cc $A2D
-control a2d_hdd_sync_ignored apple2_hdd.cc 's/if (!u->file->sync()) {/if (!u->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
+DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Atari: a sync the medium refuses leaves the drive dirty and the disk in the drive
 a8app control a8_flush_ignored atari_media.cc 's/if (!st->sio.flush_drive(drive, msg, msglen)) {/if (!st->sio.flush_drive(drive, msg, msglen) \&\& false) {/' test_atari_media.cc $ATARI
 a8app control a8_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_atari_media.cc $ATARI
@@ -544,11 +536,6 @@ neogeoapp control neo_unchanged_stops neogeo.cc 's/return st->loaded \&\& st->sa
 MMEL="${DESCL#test_desc.cc }"
 MME="test_media_mounts_engines.cc $MMEL start.cc handover.cc"
 run media_mounts_engines $MME
-control mme_a2_mount apple2_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2$/    (void)0;/' $MME
-control mme_a2_eject apple2_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2: with.*$/    (void)0;/' $MME
-control mme_a2_path apple2_disk.cc 's/^    snprintf(d->path, sizeof(d->path), "%s", path);$/    (void)0;/' $MME
-control mme_a2_hdd_mount apple2_hdd.cc 's/^    mount_notify(c, A2_DRIVES + unit); *\/\/ T180 D2$/    (void)0;/' $MME
-control mme_a2_hdd_eject apple2_hdd.cc 's/^    mount_notify(c, A2_DRIVES + unit); *\/\/ T180 D2: the slots.*$/    (void)0;/' $MME
 control mme_c64_cart c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2$/    (void)0;/' $MME
 control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_c64_giveup c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2: told by the name of the slot.*$/    (void)0;/' $MME
@@ -593,7 +580,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -646,12 +633,8 @@ vc20app control drv_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isd
 vc20app control drv_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_cbm1541.cc $VC20
 
 
-# T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC. The images are read back by
-# checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu.
-NDSRC="apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
-run newdisk test_newdisk.cc $NDSRC
-control nd_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isdir)) {/        if (false) {/' test_newdisk.cc $NDSRC
-control nd_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_newdisk.cc $NDSRC
+# T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC: the units apple2_newdisk, amiga_newdisk, a12_newdisk, a8_newdisk and cpc_newdisk (the images are read back by
+# checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu).
 
 
 # T104 5.16: fast seek. The real FatFs (vendor/gideon chan_fat) built with coreapp/ffconf/ffconf.h - the application's own configuration - over a
@@ -685,15 +668,8 @@ t_fastseek() {
 ca_in shared && cc_block fastseek t_fastseek
 PASS=$((PASS + 1))
 
-# T122 §5 (board, Atari 800, 2026-10-24): a clean name in the prompt for every core, the folder browser of Create (where it starts, that the chosen
-# folder is the folder), the file written in chunks with a percentage on screen, cancel, and no half image.
-CFSRC="$NDSRC cbm_run.cc cbm_prg.cc $DRV"
-run createflow test_createflow.cc $CFSRC
-# (a) the prompt
-# (b) the folder
-# (c) the progress
-control cf_chunk newfile.h 's|^#define NF_CHUNK 16384u|#define NF_CHUNK 0x7FFFFFFFu|' test_createflow.cc $CFSRC
-control cf_remove newfile.cc 's|^        fs_->remove(full_); .*|        (void)0;|' test_createflow.cc $CFSRC
+# T122 §5 (board, Atari 800, 2026-10-24): a clean name in the prompt for every core, the folder browser of Create (where it starts, that the chosen folder is the folder), the file written in chunks with a
+# percentage on screen, cancel, and no half image: the units apple2_createflow, a8_createflow, a12_createflow, amiga_createflow, cpc_createflow and vc20_createflow, each with its core's controls.
 
 # T104.1 D3, D4, D8, D9, D12: the menu merge, the description record, the bundle's records, REST and WS JSON-RPC.
 # The fixtures are made by the real packer (tools/cor_pack.py, tools/descrec.py): the readers of the board are tested against what the tools write.
@@ -718,7 +694,7 @@ run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
 # is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="$BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64"
+ALLCORES="$BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64"
 CARGS="$BUN/app" RARGS="$CARGS"
 run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
@@ -744,24 +720,22 @@ run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core of the shared table and asserts every row, setting value and operation is reachable
 # (T239.5 D13: each moved core's walk is its app's unit <core>_uicover)
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the shared table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table
 # reproduces it (T239.5 D13: each moved core's walk is its app's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt)
-run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
-run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc c64scpu.cc xinput.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
-CRSRC="$RESTSRC corereport.cc bugreport.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
+CRSRC="$RESTSRC corereport.cc bugreport.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
 run corereport test_corereport.cc $CRSRC
 control cr_overwrite corereport.cc 's|if (c->fs->stat(path, \&sz, \&dir)) {|if (false) {|' test_corereport.cc $CRSRC
 control cr_no_folder corereport.cc 's|if (c->fs->mkdir(dirs\[i\])) {|if (true) {|' test_corereport.cc $CRSRC
 control rs_setop settings_ops.cc 's/    bool saved = c->settings->set(i, v);/    bool saved = true; (void)v;/' test_rest.cc $RESTSRC
 
-# T104.1 (Alex 2026-10-26): the memory of every core as machine.read_mem / machine.write_mem
+# T104.1 (Alex 2026-10-26): the memory of every core as machine.read_mem / machine.write_mem: the unit memops of each app (apple2_memops, a8_memops, nes_memops ...); the shared app has no core of it left (T239.3 D61)
 unset CARGS RARGS
-MEMSRC="$SVC $DESCS"
-run memops test_memops.cc $MEMSRC
 
 # T156: USB gamepads. The HID parser on descriptors written to the spec (none of them is the 8BitDo SN30 Pro's: its bytes are not known yet), the pad
 # service on the real NES and SNES descriptors, the mapping wizard in the real menu. Controls: one defect each, the same test built against it must fail.
@@ -1413,6 +1387,70 @@ PY
   return 0
 }
 if ca_in c128 && ca_unit c128_romreq; then t_romreq_c128; PASS=$((PASS + 1)); fi
+
+# T239.3 D61: the Apple IIe's units built as its app (apple2app: its library cores/apple2/app/lib and its own table, the group apple2) - the units its TOML B (cores/apple2/app/sdk.toml) names for the steps 2 and 8 to 10
+# of its lane. The sources are the app's own: apple2.cc with its disk, hard disk, nibble and WOZ code and the base's (no other core). The Apple IIe was the shared units' sample core: a generic case that stood on its
+# descriptor is its case.
+# T89 Apple //e disk: 6-and-2 nibblizer (golden from the RWTS definition + an independent POSTNIB decoder), file orders, the track window service; the eject and the replacement stop on a flush that fails, the sync is
+# not forgotten, a track the file did not take is kept and written again
+A2D="apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc"
+apple2app run apple2_disk test_apple2_disk.cc $A2D
+apple2app control a2d_no_flush apple2_disk.cc '/T180 D4: written back first/s/if (a2_flush(c, drive, msg, msglen))/if (false)/' test_apple2_disk.cc $A2D
+apple2app control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
+apple2app control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
+apple2app control a2d_kept_dropped apple2_disk.cc 's/    if (r < 0) {/    if (false) {/' test_apple2_disk.cc $A2D
+apple2app control a2d_kept_retry apple2_disk.cc 's/g_kept\[drive\], d->kept_bits) < 0) {/g_kept[drive], d->kept_bits) < -1) {/' test_apple2_disk.cc $A2D
+apple2app control a2d_saving apple2_disk.cc 's/MediaSaving saving(c, d->kept || d->needs_sync || (/MediaSaving saving(c, 0 \&\& (/' test_apple2_disk.cc $A2D
+apple2app control a2d_hdd_sync_ignored apple2_hdd.cc 's/if (!u->file->sync()) {/if (!u->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
+A2="apple2.cc $A2D $BASEL"
+apple2app run apple2 test_apple2.cc $A2
+A2L="desc_check.cc overlay.cc descrec.cc $A2"
+apple2app run apple2_memops test_memops.cc $SVC $A2L
+RARGS="$BUN/app" apple2app run apple2_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $A2L
+# the Apple IIe's rows of the host's ROM table: gen_romreq built as the Apple's app, its rows in the host's table
+t_romreq_apple2() {
+  local INC=("${INC_A2[@]}") APPLIB="$A2LIB"
+  build "$T/gen_romreq_a2" "$TST/gen_romreq.cc" $A2L
+  "$T/gen_romreq_a2" > "$T/romreq_a2.inc"
+  python3 -I - "$T/romreq_a2.inc" "$HA/romreq_table.inc" <<'PY' || { echo "romreq_table.inc is stale: gen_romreq's rows of the Apple IIe's app are not (in this order) in host-app/software/hostapp/romreq_table.inc" >&2; exit 1; }
+import sys
+own = [l for l in open(sys.argv[1]) if not l.startswith("//")]
+host = iter(l for l in open(sys.argv[2]) if not l.startswith("//"))
+sys.exit(0 if all(any(h == r for h in host) for r in own) and own else 1)
+PY
+  echo "test apple2_romreq: PASS"
+  return 0
+}
+if ca_in apple2 && ca_unit apple2_romreq; then t_romreq_apple2; PASS=$((PASS + 1)); fi
+# T239.3 D61: the Apple IIe's cases of the shared tests (TEST_APP_APPLE2), built as its app: the shared units no longer name it.
+A2M="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc"
+A2DM="$A2L $A2M"
+CARGS="" RARGS=""
+RARGS="$T/bundles/desc_own.bin" apple2app run apple2_desc test_desc.cc $A2DM
+apple2app run apple2_joyswap test_joyswap.cc $A2L
+apple2app run apple2_ledcores test_ledcores.cc $A2L
+apple2app run apple2_hotkeys test_hotkeys.cc $A2DM
+# the Apple IIe's two floppies and two slot 7 volumes kept in the .cfg, restored before the release, a missing medium left empty with a note (T180 D2/D5), with the controls of its engine
+A2MME="test_media_mounts_engines.cc $A2DM start.cc handover.cc"
+apple2app run apple2_mounts $A2MME
+apple2app control mme_a2_mount apple2_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2$/    (void)0;/' $A2MME
+apple2app control mme_a2_eject apple2_disk.cc 's/^    mount_notify(c, drive); *\/\/ T180 D2: with.*$/    (void)0;/' $A2MME
+apple2app control mme_a2_path apple2_disk.cc 's/^    snprintf(d->path, sizeof(d->path), "%s", path);$/    (void)0;/' $A2MME
+apple2app control mme_a2_hdd_mount apple2_hdd.cc 's/^    mount_notify(c, A2_DRIVES + unit); *\/\/ T180 D2$/    (void)0;/' $A2MME
+apple2app control mme_a2_hdd_eject apple2_hdd.cc 's/^    mount_notify(c, A2_DRIVES + unit); *\/\/ T180 D2: the slots.*$/    (void)0;/' $A2MME
+# T122: Create blank DSK (the images read back by checkers written from the format definitions) and the create flow (the prompt, the folder, the chunks, cancel), with the controls of the file writer
+A2ND="freeze.cc $A2M $A2"
+apple2app run apple2_newdisk test_newdisk.cc $A2ND
+apple2app control nd_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isdir)) {/        if (false) {/' test_newdisk.cc $A2ND
+apple2app control nd_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_newdisk.cc $A2ND
+apple2app run apple2_createflow test_createflow.cc $A2ND
+apple2app control cf_chunk newfile.h 's|^#define NF_CHUNK 16384u|#define NF_CHUNK 0x7FFFFFFFu|' test_createflow.cc $A2ND
+apple2app control cf_remove newfile.cc 's|^        fs_->remove(full_); .*|        (void)0;|' test_createflow.cc $A2ND
+# the bug report on the real descriptor (T162 D3: the registers it names, the count of the reads)
+apple2app run apple2_corereport test_corereport.cc $SVC corereport.cc bugreport.cc board.cc $A2L   # board.cc: board_name, which the report calls
+# every key of its menu (its own goldens golden/keywalk_apple2.txt, ids_apple2.txt) and the reach of its declaration over the API: the walks of test_keywalk and test_uicover on its table
+apple2app run apple2_keywalk test_keywalk.cc instfiles.cc instcore.cc $A2DM
+apple2app run apple2_uicover test_uicover.cc uiapp.cc $SVC $A2DM
 
 pjob_drain
 [ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }

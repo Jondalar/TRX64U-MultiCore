@@ -1,7 +1,7 @@
 // T157: the "Joystick ports" setting (Normal / Swapped) of every generic-app core that has one. For each core: the setting is there exactly once, a change
 // is applied (the core's own register gets the swap bit, at once, through the setting's operation or its register bits), the .cfg keeps it
-// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800; the CPC's and the Next's are the units cpc_joyswap and zxnext_joyswap) are in the
-// same table, so their registers are checked as well (S4). zx (a choice per port) and c264 (its register is taken in reset) are named
+// ("Joystick ports=Swapped") and a new session reads it back. The cores that had the swap before T157 (apple2, atari800; their registers are checked in their own tests; the CPC's and the Next's are the units
+// cpc_joyswap and zxnext_joyswap) are units of their apps as well (S4). zx (a choice per port) and c264 (its register is taken in reset) are named
 // differently on purpose (T157 D1) and checked for their own key.
 #include "check.h"
 #include "fakes.h"
@@ -39,6 +39,9 @@ extern const CoreDesc zxnext_desc;       // cores.h lists the shared app's cores
 #include "neogeo_regs.h"
 extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
 #endif
+#ifdef TEST_APP_APPLE2                   // the Apple IIe's app (run.sh apple2app) has its own core only; its swap is b6 of the register that holds the monitor items (its own test), so it has no row below, only its key
+extern const CoreDesc apple2_desc;       // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+#endif
 #ifdef TEST_APP_ATARI800                 // the Atari's app (run.sh a8app) has its own core only; its swap is a flag of its own (its own tests), so it has no row below, only its key
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
@@ -63,7 +66,7 @@ static int last_write(FakeIo &io, uint32_t reg)
 int main()
 {
     // reg: the register that holds the swap bit (b0). apple2 (b6 of A2_CFG with the monitor items) and atari800 (flags) are checked in their own tests.
-#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264)   // the Atari's and the 264's swap have another form (their own key is checked below): no row
+#if !defined(TEST_APP_ATARI800) && !defined(TEST_APP_C264) && !defined(TEST_APP_APPLE2)   // the Atari's, the 264's and the Apple IIe's swap have another form (their own key is checked below): no row
     const Row rows[] = {
 #ifdef TEST_APP_A1200
         { &amiga1200_desc, AM_JOY_CFG },
@@ -129,7 +132,7 @@ int main()
 #ifdef TEST_APP_C264
     CHECK_EQ(count_key(c264_desc, "Joystick ports (at next reset)"), 1);
 #endif
-#if !defined(TEST_APP_A1200) && !defined(TEST_APP_CPC) && !defined(TEST_APP_C128) && !defined(TEST_APP_ZXNEXT) && !defined(TEST_APP_NEOGEO) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_NES) && !defined(TEST_APP_C264)
+#ifdef TEST_APP_APPLE2
     CHECK_EQ(count_key(apple2_desc, "Joystick ports"), 1);
 #endif
     DONE("test_joyswap");

@@ -27,6 +27,12 @@ extern const CoreDesc amiga_desc;               // the Amiga 500 is its own app 
 #include "atari_atr.h"
 extern const CoreDesc atari800_desc;           // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 #endif
+#ifdef TEST_APP_APPLE2
+extern const CoreDesc apple2_desc;             // cores.h lists the shared app's cores; the Apple IIe is its own app (cores/apple2/app/lib)
+#endif
+#if !defined(TEST_APP_CPC) && !defined(TEST_APP_AMIGA) && !defined(TEST_APP_ATARI800) && !defined(TEST_APP_APPLE2)
+#error "test_newdisk: every core's blank-medium task is its app's unit (run.sh cpcapp, amigaapp, a8app, apple2app); the shared app has no core of it any more"
+#endif
 #ifdef TEST_APP_CPC
 #include "cpc_regs.h"
 extern const CoreDesc cpc_desc;                // cores.h lists the shared app's cores; the CPC is its own app (cores/cpc/app/lib)
@@ -40,7 +46,7 @@ const CoreDesc *const core_table[] = { &cpc_desc, 0 };
 const CoreDesc *const core_table[] = { &amiga_desc, 0 };
 #elif defined(TEST_APP_ATARI800)          // the Atari's app is its own build (run.sh a8app): its core is the only one in its table
 const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#else
+#else   // TEST_APP_APPLE2 (the Apple IIe's app is its own build, run.sh apple2app: its core is the only one in its table)
 const CoreDesc *const core_table[] = { &apple2_desc, 0 };
 #endif
 
