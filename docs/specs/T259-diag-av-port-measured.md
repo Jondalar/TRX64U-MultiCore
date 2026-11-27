@@ -1,6 +1,8 @@
 # T259 — The diag core measures the A/V port: which group carries what, the bit order, RGB, SYNCn and FB; the tester's working values become presets
 
-**Status:** BUILDING (2026-11-24) on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
+**Status:** BUILT (P1-P4, P6) and on `integration`; board 2026-11-26 (RGB, Sony) and 2026-11-27 (luma, Sony); chroma and composite
+not yet seen (Rick, #73). D6-D8 (2026-11-27): the output for the host, the C128 and the C64SCPU is built from the standards (P5, its own
+change). Built 2026-11-24 on branch `t259-diag-av`. Written PROPOSED (2026-11-23) in the TRX64-Ultimate session at
 Alex's request, for MultiCore to register and build; T259 was kept for it (Alex, 2026-11-23). Registered 2026-11-24, Alex
 (translated): "ok, let an agent build this on an extra branch (T259) into the diag core please. I get the cable today/tomorrow
 and can test it."
@@ -172,6 +174,25 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   (translated): "Leave the DSP thing, we will look at what suits the cores best ... maybe we also make 2 variants of video out, with DSP
   and without, because depending on the core it needs different approaches." Today `cores/diag/rtl/diag_yc.v:164` multiplies
   (`dsel * gain`). Component is not in D2's list (Y/C, composite, RGB).
+- **D6 (Alex, 2026-11-27): the analogue output is built from the standards, not tuned.** Alex (translated): "These are all standards.
+  You know the pins (xdc), you have one example for PAL from DDT, you have running RGB. So what keeps you from anticipating the rest from
+  the standard definitions and building it? Where is information missing that is NOT defined in the standards?" None is missing. Of
+  the board only these are not in a standard, and all are known:
+  - the ball map and bit order (H1; RGB 2026-11-26, luma 2026-11-27);
+  - the two pins (2026-11-26: `AVID_SYNCn` the composite sync the SCART TV takes, `AVID_FB` high switches it to RGB);
+  - the DAC's code scale: white = 175 codes (the `Sony-RGB` white level 11/16) is right on the Sony, so 175 codes are 0.7 V; sync 0 and
+    blanking 77, the C128's codes, are 0 V and 0.3 V on that scale.
+
+  Timing, sync widths, burst position and amplitude, the subcarrier (4.43361875 / 3.579545 MHz from the System Mode's clock), the PAL
+  phase alternation and the U/V weights come from the standards. DDT's mandelbrUlt (§1) is the working PAL encoder on a C64U. The person
+  gets no encoder knobs; the diag core keeps them as the measuring tool.
+- **D7 (Alex, 2026-11-27): who gets it.** Alex (translated): "The host gets it in any case AND the cores that could do it back then."
+  That is the host (RGB only today, `host/av_rgb.v`) and the C128 and the C64SCPU (Y/C and composite on the scan groups today,
+  `c128_avpins.v`, `c64scpu_avpins.v`; they move to the names map). trx64u is TRX64-Ultimate's (D1).
+- **D8 (Alex, 2026-11-27): the analogue standard is the machine's.** Alex (translated): "PAL on the analogue output is ALWAYS 50 Hz,
+  NTSC always 60. Full stop." and "PAL/NTSC are CPU settings first." The analogue output follows the System Mode (the machine's clock
+  and raster) and has no standard setting of its own. HDMI keeps following the machine on the VIC path (`host/mode_req.v`: a C64-type
+  core is held to the System Mode's family; Alex: "That can stay"). How the HDMI Picture item shows it: T235 D4.
 - **Coordinator, 2026-11-24 (the diag core's UI is not judged for UX):** the Groups and Bits A/B/C labels keep their names under Map =
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
@@ -180,6 +201,9 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
 
 1. ~~Does the RGB mode (P2) become a setting of the cores?~~ Answered: D2.
 2. ~~Does Alex run S1 and S2 on his Sony first?~~ Answered: D3.
+3. One encoder module in `cores/common/` for the host and the cores (input: the picture at 15 kHz from the VIC raster or the pixel
+   layer; output: the names map, the standard's levels), with the output kind as the only setting: RGB (with SYNCn and FB) or video
+   (luma on G, chroma on B, composite on R at once)? Proposed 2026-11-27; Alex settles the pins first.
 
 ## §4 Out
 
@@ -227,6 +251,19 @@ core app's REST by the coordinator, Alex at the TV; photos in the session)**
 - R, G and B ramps (RGB picture R / G / B ramp): each a pure primary, dark to bright across the picture, no steps: MSB first on all three.
 - Saved as the preset `Sony-RGB` (PAL 50 Hz, Map Names, Groups "Y=A, C=B, CVBS=C", MSB first, mode RGB, SYNCn Csync, FB High; the other
   knobs as `Sony-PAL`) through Save preset; the file read back over FTP holds these values.
+
+**Board, 2026-11-27 (Alex's Sony, a C64U to SCART cable for S-Video: luma to SCART pin 20, chroma to pin 15; the Sony takes only
+composite or RGB on SCART, so it shows pin 20 as composite. `diag.cor` 0.1.0-fixdlg of `fix-dlg-edit` a49cdc75, bitstream
+mono-diag-5d605995445e3585; driven over REST by the coordinator, Alex at the TV, videos in the session)**
+- `avprobe` (SYNCn High, FB Low; `timeout_s` 600 on the card): map Names channel B (G) locks with the bars rising (GOOD); Scan groups
+  A and C lock with the bars not rising (both groups hold G balls in another order); Names A, Names C and Scan groups B show nothing.
+  Result `results/avprobe_20261127-110124.txt`. S1 for luma: `AVID_G`, MSB first, as H1.
+- Test picture, Map Names, Groups "Y=B, C=C, CVBS=A" (perm 4 = H1), SYNCn Csync, FB Low, the other knobs as `Sony-PAL`: a clean black and
+  white test picture. After knob changes the Sony stayed black until it locked again (Alex: "it probably has to re-sync"), which made
+  several settings look dead that were not. FB Low does not blank the DAC (the probe's step above has FB Low too).
+- `Sony-RGB` on this cable: the G word as a grey picture (white, yellow, cyan, green light; magenta, red, blue dark), locked. The G word
+  carries no sync in mode RGB, so the sync came over the SYNCn line; which pin of this cable carries it is not known.
+- Not measurable on this set: chroma on `AVID_B` and composite on `AVID_R`.
 - S2 is proven on the board. S7 (knobs live, Save preset) is proven on the board. S3 is proven for SYNCn Csync with FB Low / High only.
 - Open from this session: the walks' [base] for the SCART cable (avrgb, avsync start with SYNCn High / FB Low and show nothing on it);
   avprobe cannot find a channel through SCART, because pin 20 carries SYNCn, not a DAC channel; S1 on the luma / composite inputs needs an

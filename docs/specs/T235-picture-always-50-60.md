@@ -1,6 +1,6 @@
 # T235 — The Picture list always offers every resolution at 50 Hz and at 60 Hz; the modes the screen names are marked, not the only ones
 
-**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) closed as done 2026-11-18 (shipped and in use, §5); one defect open (§5: an EDID naming exactly the six TV rows reads as none). Proposed 2026-11-17.
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) closed as done 2026-11-18 (shipped and in use, §5); one defect open (§5: an EDID naming exactly the six TV rows reads as none). D4 (2026-11-27, Alex) changes the list to resolutions only: not yet built. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the generic core application only (`coreapp/src/picture.cc` `picture_modes`, the Picture page in
 `menuctl.cc`/`run.cc`, its unit `test_picture`), the manual's Picture paragraph. No gateware, no per-core C.
 **Number:** T235 (TODO.md table).
@@ -39,6 +39,14 @@ No mutation tests (T174 D5.4).
   column as today; rows the screen names carry a short mark beside the rate; the foot line explains the mark instead of "This screen
   names no 50 Hz modes"; `Auto` keeps its rule (from the screen). Only modes of the core's own table are listed.
 - **D3:** generic code only (T192 D24, T213 D4: `tools/check_d24.py` rc 0); every core gets it.
+- **D4 (Alex, 2026-11-27; replaces D1 and D2's rate rows, not yet built):** the HDMI Picture item lists resolutions only. 50 or 60 Hz is
+  the machine's (its System Mode: PAL, NTSC; T259 D8), not a choice of the HDMI output. Alex (translated): "Picture mode of the HDMI
+  output suggests that I change something about the signal ... I don't change anything", "PAL/NTSC are CPU settings first". The rate
+  stays on the page as information, taken from the row the gateware runs (0x4F07), not from the table, with the System Mode named
+  (e.g. "1080p · 50 Hz (follows PAL)"); Alex: "Sounds more honest and easier to understand." Why: trx64u's Picture page showed
+  "59.8 Hz" on every row while the monitor reported 1080p50 (the TRX64U-FW session, 2026-11-27). The likely cause is this spec's
+  origin: an EDID that names no 50 Hz row makes `video_modes_resolve` (`app/video/edid.cc:308`) pick the 60 Hz row of the table while
+  the gateware runs the 50 Hz one.
 
 ## §4 Out
 
